@@ -18,6 +18,8 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#include "gettext.h"
+
 #include "MainMenuView.h"
 #include "ApplicationMain.h"
 
@@ -87,27 +89,27 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                 icon = elm_icon_add(list);
                 elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/widget");
                 elm_image_resizable_set(icon, true, true);
-                item_config_widget = elm_list_item_append(list, "Configuration des widgets.", icon, NULL, _item_widget_cb, this);
+                item_config_widget = elm_list_item_append(list, _("Widgets configuration."), icon, NULL, _item_widget_cb, this);
 
                 icon = elm_icon_add(list);
                 elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/screensaver");
                 elm_image_resizable_set(icon, true, true);
-                item_sleep_screen = elm_list_item_append(list, "Mettre en veille l'écran.", icon, NULL, _item_suspend_cb, this);
+                item_sleep_screen = elm_list_item_append(list, _("Shut the screen off."), icon, NULL, _item_suspend_cb, this);
 
                 icon = elm_icon_add(list);
                 elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/reboot");
                 elm_image_resizable_set(icon, true, true);
-                item_reboot = elm_list_item_append(list, "Redémarrer la machine.", icon, NULL, _item_reboot_cb, this);
+                item_reboot = elm_list_item_append(list, _("Reboot the machine."), icon, NULL, _item_reboot_cb, this);
 
                 elm_list_go(list);
 
                 //Update DPMS info on button
                 edje_object_part_text_set(elm_list_item_object_get(item_sleep_screen),
                                           "object.description",
-                                          "Touchez une fois l'écran pour sortir du mode veille.");
+                                          _("Touch the screen once to wake up the machine."));
                 if (Utils::get_config_option("dpms_enable") != "true")
                         edje_object_part_text_set(elm_list_item_object_get(item_sleep_screen), "object.more_infos",
-                                        "Auto: Désactivé");
+						  _("Auto: Off"));
                 else
                 {
                         int val;
@@ -125,12 +127,12 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                                 nb.c_str());
                 edje_object_part_text_set(elm_list_item_object_get(item_config_widget),
                                           "object.description",
-                                          "Déplacez et configurez vos widgets sur le bureau.");
+                                          _("Move and setup your widgets on the desktop."));
 
                 //Reboot item
                 edje_object_part_text_set(elm_list_item_object_get(item_reboot),
                                           "object.description",
-                                          "Veuillez patienter pendant la procédure de redémarrage.");
+                                          _("Please wait during the reboot."));
                 edje_object_part_text_set(elm_list_item_object_get(item_reboot),
                                           "object.more_infos", "");
         }

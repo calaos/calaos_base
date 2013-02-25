@@ -20,10 +20,25 @@
 ******************************************************************************/
 #include "ApplicationMain.h"
 
+#include "config.h"
+#include "gettext.h"
+
 using namespace Utils;
 
 int main(int argc, char **argv)
 {
+	/* Set the locale defined by the system */
+	char *curlocale = setlocale(LC_ALL, "");
+	curlocale = curlocale ? 
+	  curlocale :
+	  setlocale(LC_ALL, "C");
+	curlocale ?
+	  strdup(curlocale) :
+	  NULL;
+	printf("Current locale : %s\n", curlocale);
+	bindtextdomain(PACKAGE, LOCALE_DIR);
+	textdomain(PACKAGE);
+
         Utils::InitLoggingSystem(string(DEFAULT_CONFIG_PATH) + "calaos_gui_log.conf");
 
         try

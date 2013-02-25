@@ -21,6 +21,9 @@ AC_SYS_LARGEFILE
 LT_PREREQ([2.2])
 LT_INIT([win32-dll])
 
+AM_GNU_GETTEXT([external])
+AM_GNU_GETTEXT_VERSION([0.18.1])
+
 ### Needed information
 
 AC_CANONICAL_BUILD
@@ -55,7 +58,7 @@ AC_C_INLINE
 AC_HEADER_ASSERT
 AC_CHECK_HEADERS([unistd.h])
 
-AC_CONFIG_FILES([
+AC_CONFIG_FILES([ po/Makefile.in
 Makefile
 src/Makefile
 src/lib/Makefile
