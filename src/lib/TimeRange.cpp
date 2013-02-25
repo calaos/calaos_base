@@ -1,0 +1,239 @@
+/******************************************************************************
+**  Copyright (c) 2006-2013, Calaos. All Rights Reserved.
+**
+**  This file is part of Calaos Home.
+**
+**  Calaos Home is free software; you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation; either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  Calaos Home is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+**
+**  You should have received a copy of the GNU General Public License
+**  along with Foobar; if not, write to the Free Software
+**  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+**
+******************************************************************************/
+#include <TimeRange.h>
+#include <sys/time.h>
+
+#include "sunset.c"
+
+TimeRange::TimeRange():
+        cyear(0), cmonth(0), cday(0),
+        sunrise_hour_cache(0), sunrise_min_cache(0),
+        sunset_hour_cache(0), sunset_min_cache(0),
+        start_type(HTYPE_NORMAL),
+        end_type(HTYPE_NORMAL),
+        start_offset(1),
+        end_offset(1),
+        shour("0"), smin("0"), ssec("0"),
+        ehour("0"), emin("0"), esec("0")
+{
+}
+
+long TimeRange::getStartTimeSec(int year, int month, int day)
+{
+        long v = 0;
+
+        if (start_type == HTYPE_NORMAL)
+        {
+                int h, m, s;
+                from_string(shour, h);
+                from_string(smin, m);
+                from_string(ssec, s);
+                v = h * 3600 + m * 60 + s;
+        }
+        else if (start_type == HTYPE_SUNRISE ||
+                 start_type == HTYPE_SUNSET)
+        {
+                int rise_hour, rise_min, set_hour, set_min;
+                computeSunSetRise(year, month, day,
+                                  rise_hour, rise_min,
+                                  set_hour, set_min);
+
+                if (start_type == HTYPE_SUNRISE)
+                        v = rise_hour * 3600 + rise_min * 60;
+                else if (start_type == HTYPE_SUNSET)
+                        v = set_hour * 3600 + set_min * 60;
+
+                if (shour != "0" && smin != "0" && ssec != "0")
+                {
+                        //there is an offset
+                        int h, m, s;
+                        from_string(shour, h);
+                        from_string(smin, m);
+                        from_string(ssec, s);
+                        v = v + start_offset * (h * 3600 + m * 60 + s);
+                }
+        }
+
+        return v;
+}
+
+long TimeRange::getEndTimeSec(int year, int month, int day)
+{
+        long v = 0;
+
+        if (end_type == HTYPE_NORMAL)
+        {
+                int h, m, s;
+                from_string(ehour, h);
+                from_string(emin, m);
+                from_string(esec, s);
+                v = h * 3600 + m * 60 + s;
+        }
+        else if (end_type == HTYPE_SUNRISE ||
+                 end_type == HTYPE_SUNSET)
+        {
+                int rise_hour, rise_min, set_hour, set_min;
+                computeSunSetRise(year, month, day,
+                                  rise_hour, rise_min,
+                                  set_hour, set_min);
+
+                if (end_type == HTYPE_SUNRISE)
+                        v = rise_hour * 3600 + rise_min * 60;
+                else if (end_type == HTYPE_SUNSET)
+                        v = set_hour * 3600 + set_min * 60;
+
+                if (ehour != "0" && emin != "0" && esec != "0")
+                {
+                        //there is an offset
+                        int h, m, s;
+                        from_string(ehour, h);
+                        from_string(emin, m);
+                        from_string(esec, s);
+                        v = v + end_offset * (h * 3600 + m * 60 + s);
+                }
+        }
+
+        return v;
+}
+
+long TimeRange::getTimezoneOffset()
+{
+        /* The GMT offset calculation code below has been borrowed from the APR library
+         * Licensed to the Apache Software Foundation (ASF) under one or more
+         * contributor license agreements.  See the NOTICE file distributed with
+         * this work for additional information regarding copyright ownership.
+         * The ASF licenses this file to You under the Apache License, Version 2.0
+         * (the "License"); you may not use this file except in compliance with
+         * the License.  You may obtain a copy of the License at
+         *
+         *     http://www.apache.org/licenses/LICENSE-2.0
+         *
+         * Unless required by applicable law or agreed to in writing, software
+         * distributed under the License is distributed on an "AS IS" BASIS,
+         * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+         * See the License for the specific language governing permissions and
+         * limitations under the License.
+         */
+
+        long off;
+#if defined(HAVE_TM_GMTOFF) || defined(HAVE___TM_GMTOFF)
+        off = 0;
+#else
+        struct timeval now;
+        time_t t1, t2;
+        struct tm t;
+
+        gettimeofday(&now, NULL);
+        t1 = now.tv_sec;
+        t2 = 0;
+
+        t = *gmtime(&t1);
+        t.tm_isdst = 0; /* we know this GMT time isn't daylight-savings */
+        t2 = mktime(&t);
+        off = (long)difftime(t1, t2);
+#endif
+
+        t1 = time(NULL);
+        struct tm *timeinfo = localtime(&t1);
+
+#if defined(HAVE_TM_GMTOFF)
+        return timeinfo->tm_gmtoff;
+#elif defined(HAVE___TM_GMTOFF)
+        return timeinfo->__tm_gmtoff;
+#else
+        return off + (timeinfo->tm_isdst ? 3600 : 0);
+#endif
+}
+
+void TimeRange::computeSunSetRise(int year, int month, int day,
+                                       int &rise_hour, int &rise_min,
+                                       int &set_hour, int &set_min)
+{
+        if (year == cyear && month == cmonth && day == cday &&
+            (sunrise_hour_cache != 0 || sunrise_min_cache != 0 ||
+            sunset_hour_cache != 0 || sunset_min_cache != 0))
+        {
+                rise_hour = sunrise_hour_cache;
+                rise_min = sunrise_min_cache;
+                set_hour = sunset_hour_cache;
+                set_min = sunset_min_cache;
+
+                return;
+        }
+
+        double longitude;
+        double latitude;
+        Params opt;
+
+        get_config_options(opt);
+        if (!opt.Exists("longitude") || !opt.Exists("latitude"))
+        {
+                longitude = 2.548828;
+                latitude = 46.422713;
+
+                Utils::logger("input") << Priority::ERROR << "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
+                Utils::logger("input") << Priority::ERROR << "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
+        }
+        else
+        {
+                from_string(get_config_option("longitude"), longitude);
+                from_string(get_config_option("latitude"), latitude);
+        }
+
+        double rise, set;
+        int res;
+
+        Utils::logger("input") << Priority::INFO << "Horaire: Computing sunrise/sunset for date " <<
+                               day << "/" << month << "/" << year << log4cpp::eol;
+        res = sun_rise_set(year, month, day, longitude, latitude, &rise, &set);
+
+        if (res != 0)
+        {
+                rise_hour = 0;
+                rise_min = 0;
+                set_hour = 0;
+                set_min = 0;
+
+                Utils::logger("input") << Priority::ERROR << "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
+
+                return;
+        }
+
+        long tzOffset = getTimezoneOffset();
+        rise_min = minutes(rise + minutes((double)tzOffset / 3600.0));
+        rise_hour = hours(rise + (double)tzOffset / 3600.0);
+        set_min = minutes(set + minutes((double)tzOffset / 3600.0));
+        set_hour = hours(set + (double)tzOffset / 3600.0);
+
+        std::stringstream streamrise, streamset;
+        streamrise << std::setfill('0') << std::setw(2) << rise_hour << ":" << rise_min;
+        streamset << std::setfill('0') << std::setw(2) << set_hour << ":" << set_min;
+        Utils::logger("input") << Priority::INFO << "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
+                                  streamset.str() << log4cpp::eol;
+
+        sunrise_hour_cache = rise_hour;
+        sunrise_min_cache = rise_min;
+        sunset_hour_cache = set_hour;
+        sunset_min_cache = set_min;
+        cyear = year;
+        cmonth = month;
+        cday = day;
+}

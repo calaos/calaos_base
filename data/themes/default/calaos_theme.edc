@@ -1,0 +1,156 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+#include "structure/styles.edc"
+#include "structure/images.edc"
+
+#include "structure/macro_menu_button.edc"
+#include "structure/macro_round_button.edc"
+
+#include "structure/old_macros.edc"
+
+externals
+{
+        external: "elm";
+}
+
+fonts
+{
+        font: "calaos_logo.ttf" "CalaosLogo";
+        font: "calaos_text_bold.ttf" "CalaosVersion";
+        //font: "calaos_content.ttf" "CalaosContent";
+        //font: "calaos_content-bold.ttf" "CalaosContentBold";
+        font: "RepetitionScrolling.ttf" "RepetitionScrolling";
+
+        font: "Ubuntu-L.ttf" "CalaosContent";
+        font: "Ubuntu-B.ttf" "CalaosContentBold";
+}
+
+collections
+{
+        group
+        {
+                name: "calaos/cursor";
+                min: 32 32;
+                max: 32 32;
+                parts
+                {
+                        part
+                        {
+                                name: "cursor";
+                                description
+                                {
+                                        state: "default" 0.0;
+                                        image.normal: "cursor.png";
+                                }
+                        }
+                }
+        }
+
+        #include "structure/utils.edc"
+
+        // calaos/icons/**
+        #include "structure/icons.edc"
+
+        ELM_BUTTON("button.quit", "Quitter", "calaos/icons/button/quit")
+        ELM_BUTTON("button.back", "Retour au menu", "calaos/icons/button/back")
+        ELM_BUTTON("button.audio.back", "Retour", "calaos/icons/button/back")
+        ELM_BUTTON("button.audio.more", "Editer la playlist", "calaos/icons/button/more")
+        ELM_BUTTON("button.save_room", "Sauvegarder l'état de la pièce", "calaos/icons/button/keyboard")
+        ELM_BUTTON("button.valid", "Valider", "calaos/icons/button/valid")
+        ELM_BUTTON("button.cleartext", "Effacer la saisie en cours", "calaos/icons/button/delete")
+        ELM_BUTTON("button.go", "Aller à...", "calaos/icons/button/valid")
+        ELM_BUTTON("button.reload", "Recharger", "calaos/icons/button/reload")
+        ELM_BUTTON("button.stop", "Stop", "calaos/icons/button/stop")
+        ELM_BUTTON("button.home", "Page d'accueil", "calaos/icons/button/home")
+        ELM_BUTTON("button.keyboard", "Clavier", "calaos/icons/button/keyboard")
+        ELM_BUTTON("button.bookmark", "Ajouter aux favoris", "calaos/icons/button/more")
+        ELM_BUTTON("button.scenario.create", "Créer un nouveau scénario", "calaos/icons/button/more")
+        ELM_BUTTON_STYLE("button.labeled.lights_off", "Tout éteindre", "calaos/action_button/label")
+        ELM_BUTTON_STYLE("button.labeled.shutters_down", "Tout descendre", "calaos/action_button/label")
+        ELM_BUTTON_STYLE("button.position.info", "Plus d'infos", "calaos/button/position")
+        ELM_BUTTON_STYLE("button.labeled.today", "Auj.", "calaos/action_button/label")
+
+        //calaos helpers
+        #include "structure/scrolling_text.edc"
+
+        // calaos/main/layout
+        #include "structure/main_layout.edc"
+
+        // calaos/main/menu
+        #include "structure/main_menu.edc"
+
+        // calaos/page/widgets
+        #include "structure/page_widgets.edc"
+
+        // calaos/page/home
+        #include "structure/page_home.edc"
+
+        // calaos/page/media
+        #include "structure/page_media.edc"
+        #include "structure/page_camera.edc"
+        #include "structure/page_audio_list.edc"
+        #include "structure/amplifier_control.edc"
+
+        // calaos/page/scenarios
+        #include "structure/page_scenarios.edc"
+        #include "structure/page_edit_scenario.edc"
+        #include "structure/page_schedule.edc"
+        #include "structure/popup_actions_pages.edc"
+
+        // calaos/page/config
+        #include "structure/page_config_panel.edc"
+
+        // calaos/page/keyboard
+        #include "structure/page_keyboard.edc"
+
+        // calaos/page/web
+        #include "structure/page_web.edc"
+
+        // calaos/room/**
+        #include "structure/rooms.edc"
+
+        // calaos/element/scenario_home
+        #include "structure/element_scenario_home.edc"
+
+        // include all sliders (horizontal and vertical)
+        #include "structure/slider.edc"
+
+        #include "structure/circular_spinner.edc"
+
+        /* Elementary styles */
+        #include "elm/elm_list_base.edc"
+        #include "elm/elm_list_homeboard.edc"
+        #include "elm/elm_pager.edc"
+        #include "elm/elm_button.edc"
+        #include "elm/elm_actionbutton.edc"
+        #include "elm/elm_list_home_room.edc"
+        #include "elm/elm_ctxpopup.edc"
+
+        /* Genlist calaos item */
+        #include "elm/elm_genlist_item_wodigital.edc"
+        #include "elm/elm_genlist_item_scenario.edc"
+        #include "elm/elm_genlist_item_wodali.edc"
+        #include "elm/elm_genlist_item_wodalirvb.edc"
+        #include "elm/elm_genlist_item_internalbool.edc"
+        #include "elm/elm_genlist_item_internalint.edc"
+        #include "elm/elm_genlist_item_internalstring.edc"
+        #include "elm/elm_genlist_item_wianalog.edc"
+        #include "elm/elm_genlist_item_woanalog.edc"
+        #include "elm/elm_genlist_item_witemp.edc"
+        #include "elm/elm_genlist_item_wovolet.edc"
+        #include "elm/elm_genlist_item_wovoletsmart.edc"
+        #include "elm/elm_genlist_item_group_room.edc"
+        #include "elm/elm_genlist_item_simple.edc"
+        #include "elm/elm_genlist_item_playlist.edc"
+        #include "elm/elm_genlist_item_browser_album.edc"
+        #include "elm/elm_genlist_item_scenario_schedule.edc"
+        #include "elm/elm_slider_knob.edc"
+        #include "elm/elm_entry_keyboard.edc"
+        #include "elm/elm_calendar.edc"
+        #include "elm/elm_spinner.edc"
+
+        #include "structure/paging_view.edc"
+}

@@ -1,0 +1,199 @@
+
+MAINTAINERCLEANFILES = Makefile.in
+
+AM_CXXFLAGS = \
+-I. \
+-I./Rules \
+-I./IPCam \
+-I./Audio \
+-I./IO \
+-I./IO/libmbus \
+-I./Scenario \
+-DPACKAGE_BIN_DIR=\"$(bindir)\" \
+-DPACKAGE_LIB_DIR=\"$(libdir)\" \
+-DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
+-I$(top_srcdir)/src/lib \
+-I$(top_srcdir)/src/lib/LuaScript \
+-I$(top_srcdir)/src/bin/calaos_home/controllers \
+-I$(top_srcdir)/src/bin/calaos_home/views \
+-I$(top_srcdir)/src/bin/calaos_home/views/GenlistItems \
+-I$(top_srcdir)/src/bin/calaos_home/views/IO \
+-I$(top_srcdir)/src/bin/calaos_home/models \
+@CALAOS_COMMON_CFLAGS@ \
+@CALAOS_HOME_CFLAGS@ \
+-DETC_DIR=\"/etc\" \
+-DLIBMBUS \
+-DTHEME_DIR=\"/usr/share/calaos\"
+
+bin_PROGRAMS = calaos_home
+
+calaos_home_SOURCES = \
+        main.cpp						\
+        CommonUtils.cpp						\
+        views/BaseView.cpp					\
+        views/MainContentView.cpp				\
+        ApplicationMain.cpp					\
+        controllers/ApplicationController.cpp			\
+        views/ActivityView.cpp					\
+        views/ActivityHomeView.cpp				\
+        views/ActivityMediaView.cpp				\
+        views/ActivityScenariosView.cpp				\
+        views/ActivityConfigView.cpp				\
+        views/ActivityWidgetsView.cpp				\
+        views/ActivityMediaMenuView.cpp				\
+        views/ActivityKeyboardView.cpp				\
+        views/ActivityWebView.cpp				\
+        controllers/ActivityController.cpp			\
+        controllers/ActivityHomeController.cpp			\
+        controllers/ActivityMediaController.cpp			\
+        controllers/ActivityScenariosController.cpp		\
+        controllers/ActivityConfigController.cpp		\
+        controllers/ActivityWidgetsController.cpp		\
+        controllers/ActivityMediaMenuController.cpp		\
+        controllers/ActivityKeyboardController.cpp		\
+        controllers/ActivityWebController.cpp			\
+        views/IO/IOScenarioHomeView.cpp				\
+        views/IOView.cpp					\
+        EdjeObject.cpp						\
+        views/MainMenuView.cpp					\
+        CalaosDiscover.cpp					\
+        CalaosConnection.cpp					\
+        CalaosListener.cpp					\
+        models/CalaosModel.cpp					\
+        models/AudioModel.cpp					\
+        models/CameraModel.cpp					\
+        models/RoomModel.cpp					\
+        models/ScenarioModel.cpp				\
+        views/GenlistItems/GenlistItemBase.cpp			\
+        views/GenlistItems/GenlistItemSimple.cpp		\
+        views/GenlistItems/GenlistItemSimpleHeader.cpp		\
+        views/IO/IOWODigitalHomeView.cpp			\
+        views/IO/IOWODaliHomeView.cpp				\
+        views/IO/IOInternalBoolHomeView.cpp			\
+        views/IO/IOInternalIntHomeView.cpp			\
+        views/IO/IOInternalStringHomeView.cpp			\
+        views/IO/IOWODaliRVBHomeView.cpp			\
+        views/IO/IOGenlistScenarioHomeView.cpp			\
+        views/IO/IOWIAnalogHomeView.cpp				\
+        views/IO/IOWOAnalogHomeView.cpp				\
+        views/IO/IOWITempHomeView.cpp				\
+        views/IO/IOWOVoletHomeView.cpp				\
+        views/IO/IOWOVoletSmartHomeView.cpp			\
+        views/IO/IOGenlistRoomGroup.cpp				\
+        views/GenlistItems/GenlistItemPlaylist.cpp		\
+        views/GenlistItems/GenlistItemAlbum.cpp			\
+        views/GenlistItems/GenlistItemAlbumHeader.cpp		\
+        views/GenlistItems/GenlistItemTrack.cpp			\
+        views/GenlistItems/GenlistItemArtist.cpp		\
+        views/GenlistItems/GenlistItemYear.cpp			\
+        views/GenlistItems/GenlistItemGenre.cpp			\
+        views/GenlistItems/GenlistItemBrowserPlaylist.cpp	\
+        views/GenlistItems/GenlistItemPlaylistHeader.cpp	\
+        views/GenlistItems/GenlistItemRadio.cpp			\
+        views/GenlistItems/GenlistItemScenarioSchedule.cpp	\
+        views/GenlistItems/GenlistItemScenarioScheduleTime.cpp	\
+        views/GenlistItems/GenlistItemScenarioAction.cpp	\
+        views/GenlistItems/GenlistItemScenarioHeader.cpp	\
+        views/PagingView.cpp					\
+        views/KeyboardView.cpp					\
+        EvasSmart.cpp						\
+        views/ActivityCameraListView.cpp			\
+        views/ActivityCameraSelectView.cpp			\
+        views/ActivityAudioListView.cpp				\
+        views/ActivityAudioPlayerObject.cpp			\
+        controllers/ActivityCameraListController.cpp		\
+        controllers/ActivityCameraSelectController.cpp		\
+        controllers/ActivityAudioListController.cpp		\
+        views/ActivityEditScenarioView.cpp			\
+        views/ActivityScheduleScenarioView.cpp			\
+        controllers/ActivityEditScenarioController.cpp		\
+        controllers/ActivityScheduleScenarioController.cpp	\
+        Modules.cpp						\
+        views/Widget.cpp					\
+	views/ActivityKeyboardView.h				\
+	views/ActivityMediaMenuView.h				\
+	views/ActivityScenariosView.h				\
+	views/ActivityScheduleScenarioView.h			\
+	views/ActivityWebView.h					\
+	views/ActivityConfigView.h				\
+	views/ActivityWidgetsView.h				\
+	views/MainContentView.h					\
+	views/PagingView.h					\
+	views/ActivityCameraListView.h				\
+	views/ActivityCameraSelectView.h			\
+	views/BaseView.h					\
+	views/MainMenuView.h					\
+	views/ActivityView.h					\
+	views/ActivityMediaView.h				\
+	views/KeyboardView.h					\
+	views/GenlistItems/GenlistItemBase.h			\
+	views/GenlistItems/GenlistItemArtist.h			\
+	views/GenlistItems/GenlistItemRadio.h			\
+	views/GenlistItems/GenlistItemScenarioScheduleTime.h	\
+	views/GenlistItems/GenlistItemScenarioHeader.h		\
+	views/GenlistItems/GenlistItemBrowserPlaylist.h		\
+	views/GenlistItems/GenlistItemAlbum.h			\
+	views/GenlistItems/GenlistItemScenarioSchedule.h	\
+	views/GenlistItems/GenlistItemSimpleHeader.h		\
+	views/GenlistItems/GenlistItemSimple.h			\
+	views/GenlistItems/GenlistItemGenre.h			\
+	views/GenlistItems/GenlistItemPlaylist.h		\
+	views/GenlistItems/GenlistItemScenarioAction.h		\
+	views/GenlistItems/GenlistItemYear.h			\
+	views/GenlistItems/GenlistItemPlaylistHeader.h		\
+	views/GenlistItems/GenlistItemAlbumHeader.h		\
+	views/GenlistItems/GenlistItemTrack.h			\
+	views/WebKitError.h					\
+	views/Widget.h						\
+	views/ActivityAudioListView.h				\
+	views/IO/IOWODaliHomeView.h				\
+	views/IO/IOWODigitalHomeView.h				\
+	views/IO/IOWODaliRVBHomeView.h				\
+	views/IO/IOScenarioHomeView.h				\
+	views/IO/IOWIAnalogHomeView.h				\
+	views/IO/IOGenlistRoomGroup.h				\
+	views/IO/IOInternalBoolHomeView.h			\
+	views/IO/IOWOAnalogHomeView.h				\
+	views/IO/IOInternalStringHomeView.h			\
+	views/IO/IOGenlistScenarioHomeView.h			\
+	views/IO/IOWOVoletSmartHomeView.h			\
+	views/IO/IOWOVoletHomeView.h				\
+	views/IO/IOWITempHomeView.h				\
+	views/IO/IOInternalIntHomeView.h			\
+	views/ActivityAudioPlayerObject.h			\
+	views/ActivityHomeView.h				\
+	views/IOView.h						\
+	views/ActivityEditScenarioView.h			\
+	controllers/ActivityAudioListController.h		\
+	controllers/ActivityKeyboardController.h		\
+	controllers/ActivityMediaController.h			\
+	controllers/ActivityWidgetsController.h			\
+	controllers/ActivityHomeController.h			\
+	controllers/ActivityWebController.h			\
+	controllers/ActivityMediaMenuController.h		\
+	controllers/ActivityController.h			\
+	controllers/ActivityEditScenarioController.h		\
+	controllers/ActivityCameraListController.h		\
+	controllers/ActivityScenariosController.h		\
+	controllers/ActivityConfigController.h			\
+	controllers/ActivityScheduleScenarioController.h	\
+	controllers/ApplicationController.h			\
+	controllers/ActivityCameraSelectController.h		\
+	CalaosListener.h					\
+	CommonUtils.h						\
+	models/ScenarioModel.h					\
+	models/CalaosModel.h					\
+	models/AudioModel.h					\
+	models/CameraModel.h					\
+	models/RoomModel.h					\
+	CalaosConnection.h					\
+	EdjeObject.h						\
+	Modules.h						\
+	CalaosDiscover.h					\
+	EvasSmart.h						\
+	ApplicationMain.h
+
+calaos_home_LDADD = \
+	$(top_builddir)/src/lib/libcalaos_common.la \
+	@CALAOS_HOME_LIBS@ \
+	@CALAOS_COMMON_LIBS@

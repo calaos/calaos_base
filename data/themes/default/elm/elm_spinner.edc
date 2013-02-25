@@ -1,0 +1,83 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "elm/spinner/base/calaos/time/vertical";
+
+        parts
+        {
+                part
+                {
+                        name: "button.up";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/up"; }
+                                min: 43 37;
+                                rel1 { relative: 0.5 0.0; offset: 0  0; }
+                                rel2 { relative: 0.5 0.0; offset: 0 36; }
+                        }
+                }
+
+                part
+                {
+                        name: "elm.text";
+                        type: TEXTBLOCK;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.0  1.0; offset:  5  5; to_y: "button.up"; }
+                                rel2 { relative: 1.0  0.0; offset: -5  -5; to_y: "button.down"; }
+                                text { text: "5<br><subtitle>Heures</subtitle>"; style: "TimerSpinnerStyle"; min: 1 1; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.down";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/down"; }
+                                min: 43 37;
+                                rel1 { relative: 0.5 1.0; offset: 0 -37; }
+                                rel2 { relative: 0.5 1.0; offset: 0 -1; }
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        signal: "pressed";
+                        source: "button.down";
+                        action: SIGNAL_EMIT "elm,action,decrement,start" "";
+                }
+                program
+                {
+                        signal: "unpressed";
+                        source: "button.down";
+                        action: SIGNAL_EMIT "elm,action,decrement,stop" "";
+                }
+                program
+                {
+                        signal: "pressed";
+                        source: "button.up";
+                        action: SIGNAL_EMIT "elm,action,increment,start" "";
+                }
+                program
+                {
+                        signal: "unpressed";
+                        source: "button.up";
+                        action: SIGNAL_EMIT "elm,action,increment,stop" "";
+                }
+        }
+}

@@ -1,0 +1,104 @@
+24-05-2011  Raoul Hecky
+
+		* Ajout des conditions sur les sorties
+
+30-06-2011  Raoul Hecky
+
+		* Correction du log des temperatures, ajout de son ID
+		* Correction de la valeur d'un timer au demarrage => true, permet de rester
+          coherent par rapport au fonctionnement des timer (etat bas pendant la duree 
+          d'attente du timer, etat haut pendant le reste du temps).
+
+08-29-2011  Raoul Hecky
+
+		* Ajout d'un systeme de rapport de bug automatique.
+
+28-09-2011  Raoul Hecky
+
+		* Corrige le probleme de reconnexion aux automates en la gardant ouverte
+
+10-11-2011
+
+		* Correction de la lecture des valeurs DALI.
+		* Correction d'une fuite memoire.
+		* Correction des logs des WIAnalog
+		* Correction d'un bug possible dans la gestion des requetes automate
+		* Correction du bug empechant le toggle sur un WODaliRVB
+
+22-11-2011
+
+		* Correction d'un plantage dans les ActionTouchscreen.
+
+23-11-2011
+
+		* Support du Squeezecenter 7.7.x
+		* Ajout d'une commande "getitembasic?" pour recuperer les items de la
+		playlist.
+
+14-12-2011  Raoul Hecky
+
+		* Correction du port utilise par le squeezecenter. Le parametre "port"
+		disparait au profit de "port_cli" et "port_web".
+
+27-12-2011  Raoul Hecky
+	
+		* Remise a zero de la valeur d'un WIDigitalTriple apres relachement du
+		bouton.
+		* Correction de la lecture des WIDigitalBP
+		* Lancement des regles au demarrage apres avoir lu les entrees/sorties
+
+16-01-2012  Raoul Hecky
+
+		* Correction d'un potentiel probleme lors de la lecture d'un
+		interrupteur
+
+17-01-2012  Raoul Hecky
+
+		* L'enregistrement des variables sauvegardes se fait dans un fichier
+		separe (iostates.cache)
+		* L'enregistrement des fichiers de configuration est maintenant plus
+		sur, afin d'eviter une corruption.
+
+26-01-2012  Raoul Hecky
+
+		* Release Firmware 1.1.19
+
+01-02-2012  Raoul Hecky
+
+		* Ajout du support des Amplificateur Audio/Video Pioneer et Denon.
+
+11-02-2012      Raoul Hecky
+
+		* Correction des valeurs de temperature negative
+
+27-02-2012  Raoul Hecky
+
+		* Correction d'un probleme de sauvegarde de la configuration des
+		scenarios.
+		* Release Firmware 1.1.20
+
+15-03-2012  Raoul Hecky
+
+		* Correction d'un probleme qui empechait la lecture correcte des
+		entrees WIDigitalBP au demarrage.
+		* Correction des actions "impulse up x" et "impulse down x" sur
+		des sorties WOVolet et WOVoletSmart
+
+28-03-2012  Raoul Hecky
+
+		* Ajout des commandes de volume sur les AudioOutput
+
+29-03-2012  Raoul Hecky
+
+		* Correction d'un bug possible dans la connexion reseau
+		* Ajout du support des Amplificateurs A/V Onkyo/Integra (eISCP)
+
+03-04-2012  Raoul Hecky
+
+		* Ajout du support des ammplificateurs A/V Marantz
+
+23-07-2012  Raoul Hecky
+
+		* Correction d'un bug sur la lecture des entrees KNX/STD lorsqu'on
+		utilise les deux avec les memes adresses.
+

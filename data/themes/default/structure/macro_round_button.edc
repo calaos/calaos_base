@@ -1,0 +1,249 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+#define ROUND_BUTTON(id, clipper, rel1_to, rel2_to, img, img_glow, img_off, send_sig, send_src, rec_sig, rel1_x, rel1_y, offset1_x, offset1_y, rel2_x, rel2_y, offset2_x, offset2_y) \
+part { \
+        name: id"_animation"; \
+        clip_to: clipper; \
+        type: IMAGE; \
+        description { \
+                state: "default" 0.0; \
+                visible: 0; \
+                image { normal: "round_button_001.png"; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "active" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 255; \
+                image { \
+                        normal: "round_button_010.png"; \
+                        tween: "round_button_001.png"; \
+                        tween: "round_button_002.png"; \
+                        tween: "round_button_003.png"; \
+                        tween: "round_button_004.png"; \
+                        tween: "round_button_005.png"; \
+                        tween: "round_button_006.png"; \
+                        tween: "round_button_007.png"; \
+                        tween: "round_button_008.png"; \
+                        tween: "round_button_009.png"; \
+                        tween: "round_button_010.png"; \
+                } \
+        } \
+} \
+\
+part { \
+        name: id; \
+        clip_to: clipper; \
+        type: IMAGE; \
+        description { \
+                state: "default" 0.0; \
+                visible: 0; \
+                image { normal: img; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "active" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 255; \
+        } \
+        description { \
+                state: "inactive" 0.0; \
+                inherit: "active" 0.0; \
+                visible: 1; \
+                image { normal: img; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                color: 255 255 255 0; \
+        } \
+} \
+\
+part { \
+        name: id"_glow"; \
+        clip_to: clipper; \
+        type: IMAGE; \
+        description { \
+                state: "default" 0.0; \
+                visible: 0; \
+                image { normal: img_glow; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "touched" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                color: 255 255 255 255; \
+        } \
+}\
+part { \
+        name: id"_off"; \
+        clip_to: clipper; \
+        type: IMAGE; \
+        description { \
+                state: "default" 0.0; \
+                visible: 0; \
+                image { normal: img_off; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "inactive" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                color: 255 255 255 255; \
+        } \
+        description { \
+                state: "active" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 0; \
+                color: 255 255 255 0; \
+        } \
+}\
+\
+part { \
+        name: id"_stop"; \
+        clip_to: clipper; \
+        type: IMAGE; \
+        description { \
+                state: "default" 0.0; \
+                visible: 1; \
+                image { normal: "button_round_stop.png"; } \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "touched" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                color: 255 255 255 180; \
+        } \
+}\
+\
+part { \
+        name: "selection_area_"id; \
+        clip_to: clipper; \
+        type: RECT; \
+        description { \
+                state: "active" 0.0; \
+                visible: 0; \
+                rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+                rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+                rel1.to: rel1_to; \
+                rel2.to: rel2_to; \
+                color: 255 255 255 0; \
+        } \
+        description { \
+                state: "inactive" 0.0; \
+                inherit: "default" 0.0; \
+                visible: 1; \
+                color: 255 255 255 0; \
+        } \
+}\
+\
+program { \
+        name: "init_"id; \
+        signal: "show,"rec_sig; \
+        source: ""; \
+        action: STATE_SET "active" 0.0; \
+        transition: LINEAR 0.25; \
+        target: id"_animation"; \
+        after: "init_"id"_show"; \
+} \
+\
+program { \
+        name: "init_"id"_show"; \
+        action: STATE_SET "active" 0.0; \
+        transition: DECELERATE 0.2; \
+        target: id; \
+} \
+\
+program { \
+        name: "set_touched_"id; \
+        signal: "mouse,down,1"; \
+        source: id"*"; \
+        action: STATE_SET "touched" 0.0; \
+        transition: ACCELERATE 0.00001; \
+        target: id"_glow"; \
+        after: "set_untouched_"id; \
+} \
+\
+program { \
+        name: "set_touched_"id"_stop"; \
+        signal: "mouse,down,1"; \
+        source: "selection_area_"id; \
+        action: STATE_SET "touched" 0.0; \
+        transition: ACCELERATE 0.00001; \
+        target: id"_stop"; \
+        after: "set_untouched_"id"_stop"; \
+} \
+\
+program { \
+        name: "send_"id"_signal"; \
+        signal: "mouse,down,1"; \
+        source: id"*"; \
+        action: SIGNAL_EMIT send_sig send_src; \
+} \
+\
+program { \
+        name: "set_untouched_"id; \
+        action: STATE_SET "default" 0.0; \
+        transition: DECELERATE 0.5; \
+        target: id"_glow"; \
+} \
+\
+program { \
+        name: "set_untouched_"id"_stop"; \
+        action: STATE_SET "default" 0.0; \
+        transition: DECELERATE 3.0; \
+        target: id"_stop"; \
+} \
+\
+program { \
+        name: "set_"id"_active"; \
+        in: 0.25 0.0;\
+        signal: "enable,"rec_sig; \
+        source: "calaos"; \
+        action: STATE_SET "active" 0.0; \
+        transition: DECELERATE 0.2; \
+        target: id; \
+        target: id"_off"; \
+        target: "selection_area_"id; \
+}\
+\
+program { \
+        name: "set_"id"_inactive"; \
+        in: 0.25 0.0;\
+        signal: "disable,"rec_sig; \
+        source: "calaos"; \
+        action: STATE_SET "inactive" 0.0; \
+        transition: ACCELERATE 0.2; \
+        target: id; \
+        target: id"_off"; \
+        target: "selection_area_"id; \
+}

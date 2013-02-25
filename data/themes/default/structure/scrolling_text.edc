@@ -1,0 +1,449 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "calaos/text/scrolling/left";
+
+        parts
+        {
+                part
+                {
+                        name: "label_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "text";
+                        type: TEXT;
+                        clip_to: "label_clip";
+                        mouse_events: 0;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 231 231 231 127;
+                                fixed: 1 0;
+                                align: 0.0 0.0;
+                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.0 0.5; }
+                        }
+                        description
+                        {
+                                state: "default" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 231 231 231 127;
+                                align: 1.0 0.0;
+                        }
+                        description
+                        {
+                                state: "selected_blue" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 58 180 215 255;
+                        }
+                        description
+                        {
+                                state: "selected_blue" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 58 180 215 255;
+                                align: 1.0 0.0;
+                        }
+                        description
+                        {
+                                state: "selected_yellow" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 218 90 255;
+                        }
+                        description
+                        {
+                                state: "selected_yellow" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 218 90 255;
+                                align: 1.0 0.0;
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "on_show";
+                        signal: "show";
+                        after: "go_passive";
+                }
+
+                program
+                {
+                        name: "go_active_blue";
+                        signal: "text,active,blue";
+                        source: "calaos";
+                        action: STATE_SET "selected_blue" 0.0;
+                        transition: ACCELERATE 0.25;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_on_blue";
+                }
+                program
+                {
+                        name: "go_active_yellow";
+                        signal: "text,active,yellow";
+                        source: "calaos";
+                        action: STATE_SET "selected_yellow" 0.0;
+                        transition: ACCELERATE 0.25;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_on_yellow";
+                }
+
+                program
+                {
+                        name:    "go_passive";
+                        signal:  "text,inactive";
+                        source:  "calaos";
+                        action:  STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.18;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_off";
+                }
+
+                program
+                {
+                        name: "text_slide_on_blue";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_blue" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_on_blue2";
+                }
+
+                program
+                {
+                        name: "text_slide_on_blue2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_blue" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_on_blue";
+                }
+
+                program
+                {
+                        name: "text_slide_on_yellow";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_yellow" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_on_yellow2";
+                }
+
+                program
+                {
+                        name: "text_slide_on_yellow2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_yellow" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_on_yellow";
+                }
+
+                program
+                {
+                        name: "text_slide_off";
+                        in: 1.0 0.0;
+                        action: STATE_SET "default" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_off2";
+                }
+
+                program
+                {
+                        name: "text_slide_off2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "default" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_off";
+                }
+                program
+                {
+                        name: "text_slide_stop";
+                        action: ACTION_STOP;
+                        target: "text_slide_on_blue";
+                        target: "text_slide_on_blue2";
+                        target: "text_slide_on_yellow";
+                        target: "text_slide_on_yellow2";
+                        target: "text_slide_off";
+                        target: "text_slide_off2";
+                }
+
+                program
+                {
+                        name: "start_after_on_blue";
+                        in: 0.2 0.0;
+                        after: "text_slide_on_blue";
+                }
+
+                program
+                {
+                        name: "start_after_on_yellow";
+                        in: 0.2 0.0;
+                        after: "text_slide_on_yellow";
+                }
+
+                program
+                {
+                        name: "start_after_off";
+                        in: 0.2 0.0;
+                        after: "text_slide_off";
+                }
+        }
+}
+
+group
+{
+        name: "calaos/text/scrolling/right";
+
+        parts
+        {
+                part
+                {
+                        name: "label_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "text";
+                        type: TEXT;
+                        clip_to: "label_clip";
+                        mouse_events: 0;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 231 231 231 127;
+                                fixed: 1 0;
+                                align: 0.0 0.0;
+                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 1.0 0.5; }
+                        }
+                        description
+                        {
+                                state: "default" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 231 231 231 127;
+                                align: 1.0 0.0;
+                        }
+                        description
+                        {
+                                state: "selected_blue" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 58 180 215 255;
+                        }
+                        description
+                        {
+                                state: "selected_blue" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 58 180 215 255;
+                                align: 1.0 0.0;
+                        }
+                        description
+                        {
+                                state: "selected_yellow" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 218 90 255;
+                        }
+                        description
+                        {
+                                state: "selected_yellow" 1.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 218 90 255;
+                                align: 1.0 0.0;
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "on_show";
+                        signal: "show";
+                        after: "go_passive";
+                }
+
+                program
+                {
+                        name: "go_active_blue";
+                        signal: "text,active,blue";
+                        source: "calaos";
+                        action: STATE_SET "selected_blue" 0.0;
+                        transition: ACCELERATE 0.25;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_on_blue";
+                }
+                program
+                {
+                        name: "go_active_yellow";
+                        signal: "text,active,yellow";
+                        source: "calaos";
+                        action: STATE_SET "selected_yellow" 0.0;
+                        transition: ACCELERATE 0.25;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_on_yellow";
+                }
+
+                program
+                {
+                        name:    "go_passive";
+                        signal:  "text,inactive";
+                        source:  "calaos";
+                        action:  STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.18;
+                        target: "text";
+                        after: "text_slide_stop";
+                        after: "start_after_off";
+                }
+
+                program
+                {
+                        name: "text_slide_on_blue";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_blue" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_on_blue2";
+                }
+
+                program
+                {
+                        name: "text_slide_on_blue2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_blue" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_on_blue";
+                }
+
+                program
+                {
+                        name: "text_slide_on_yellow";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_yellow" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_on_yellow2";
+                }
+
+                program
+                {
+                        name: "text_slide_on_yellow2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "selected_yellow" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_on_yellow";
+                }
+
+                program
+                {
+                        name: "text_slide_off";
+                        in: 1.0 0.0;
+                        action: STATE_SET "default" 1.0;
+                        target: "text";
+                        transition: LINEAR 3.0;
+                        after: "text_slide_off2";
+                }
+
+                program
+                {
+                        name: "text_slide_off2";
+                        in: 1.0 0.0;
+                        action: STATE_SET "default" 0.0;
+                        target: "text";
+                        transition: ACCELERATE 0.5;
+                        after: "text_slide_off";
+                }
+                program
+                {
+                        name: "text_slide_stop";
+                        action: ACTION_STOP;
+                        target: "text_slide_on_blue";
+                        target: "text_slide_on_blue2";
+                        target: "text_slide_on_yellow";
+                        target: "text_slide_on_yellow2";
+                        target: "text_slide_off";
+                        target: "text_slide_off2";
+                }
+
+                program
+                {
+                        name: "start_after_on_blue";
+                        in: 0.2 0.0;
+                        after: "text_slide_on_blue";
+                }
+
+                program
+                {
+                        name: "start_after_on_yellow";
+                        in: 0.2 0.0;
+                        after: "text_slide_on_yellow";
+                }
+
+                program
+                {
+                        name: "start_after_off";
+                        in: 0.2 0.0;
+                        after: "text_slide_off";
+                }
+        }
+}
+
+#define SCROLLING_TEXT_SIGNAL_REPEAT(text_part) \
+                program \
+                { \
+                        name: "sig_text_active_blue_"text_part; \
+                        signal: "text,active,blue"; \
+                        source: "calaos"; \
+                        action: SIGNAL_EMIT text_part":text,active,blue" "calaos"; \
+                } \
+                \
+                program \
+                { \
+                        name: "sig_text_active_yellow_"text_part; \
+                        signal: "text,active,yellow"; \
+                        source: "calaos"; \
+                        action: SIGNAL_EMIT text_part":text,active,yellow" "calaos"; \
+                } \
+                \
+                program \
+                { \
+                        name: "sig_text_inactive_"text_part; \
+                        signal: "text,inactive"; \
+                        source: "calaos"; \
+                        action: SIGNAL_EMIT text_part":text,inactive" "calaos"; \
+                }

@@ -1,0 +1,131 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+
+
+group
+{
+        name: "elm/genlist/item/WITemp_left/default";
+        alias: "elm/genlist/item_compress/WITemp_left/default";
+
+        data.item: "selectraise" "on";
+        data.item: "texts" "text item.value";
+        data.item: "contents" "";
+
+        parts
+        {
+                part
+                {
+                        name: "item_back";
+                        description
+                        {
+                                state: "default" 0.0;
+                                min: 50 42;
+                                fixed: 0 0;
+                                image { normal: "button_element.png"; border: 11 11 14 14; }
+                                color: 255 255 255 105;
+                        }
+                }
+
+                part
+                {
+                        name: "item.value";
+                        type: TEXTBLOCK;
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 1.0  0.5; offset: -34-6-3-34-3-34 -14; }
+                                rel2 { relative: 1.0  0.5; offset: -6     13; }
+                                text { text: "99.99 °C<consigne> / 99.99 °C</consigne>"; min: 0 0; style: "ElementTempValueLeft"; }
+                        }
+                }
+
+                alias: "text" "item_text:text";
+                part
+                {
+                        name: "item_text";
+                        type: GROUP;
+                        source: "calaos/text/scrolling/left";
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel2.to_x: "item.value";
+                                rel1 { relative: 0.0 0.5; offset:   5 -14; }
+                                rel2 { relative: 0.0 0.5; offset: -10  13; }
+                        }
+                }
+        }
+
+        programs
+        {
+                SCROLLING_TEXT_SIGNAL_REPEAT(item_text)
+        }
+
+
+}
+
+group
+{
+        name: "elm/genlist/item/WITemp_right/default";
+        alias: "elm/genlist/item_compress/WITemp_right/default";
+
+        data.item: "selectraise" "on";
+        data.item: "texts" "text item.value";
+        data.item: "contents" "";
+
+        parts
+        {
+                part
+                {
+                        name: "item_back";
+                        description
+                        {
+                                state: "default" 0.0;
+                                min: 50 42;
+                                fixed: 0 0;
+                                image { normal: "button_element.png"; border: 11 11 14 14; }
+                                color: 255 255 255 105;
+                        }
+                }
+
+                part
+                {
+                        name: "item.value";
+                        type: TEXTBLOCK;
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 0.0  0.5; offset: 6    -14; }
+                                rel2 { relative: 0.0  0.5; offset: 34+6+3+34+3+34  13; }
+                                text { text: "99.99 °C<consigne> / 99.99 °C</consigne>"; min: 0 0; style: "ElementTempValueRight"; }
+                        }
+                }
+
+                alias: "text" "item_text:text";
+                part
+                {
+                        name: "item_text";
+                        type: GROUP;
+                        source: "calaos/text/scrolling/right";
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1.to_x: "item.value";
+                                rel1 { relative: 1.0 0.5; offset:  10 -14; }
+                                rel2 { relative: 1.0 0.5; offset:  -5  13; }
+                        }
+                }
+        }
+
+        programs
+        {
+                SCROLLING_TEXT_SIGNAL_REPEAT(item_text)
+        }
+
+}

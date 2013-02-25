@@ -1,0 +1,443 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+#define SLIDER_HORIZONTAL(slider_name, ref_r, ref_g, ref_b, slider_img, slider_on_img, slider_border_image) \
+group \
+{ \
+        name: "calaos/slider/horizontal/"slider_name; \
+ \
+        parts \
+        { \
+                 \
+                part \
+                { \
+                        name: "slider_main"; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 0; \
+                                color: 255 255 255 0; \
+                        } \
+                        description \
+                        { \
+                                state: "active" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 1; \
+                                color: 255 255 255 255; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_border_whole"; \
+                        clip_to: "slider_main"; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                rel1 { relative: 0.0  0.5; offset: 2  -2;} \
+                                rel2 { relative: 1.0  0.5; offset: -3 1;} \
+                                rel1.to: "slider_main"; \
+                                rel2.to: "slider_main"; \
+                                color: 255 255 255 255; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_message_label"; \
+                        mouse_events: 0; \
+                        clip_to: "slider_main"; \
+                        type: RECT; \
+                        description { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                rel1 { relative: 0.0  0.5; offset: 2  -18;} \
+                                rel2 { relative: 1.0  0.5; offset: -40 -4;} \
+                                rel1.to: "slider_main"; \
+                                rel2.to: "slider_main"; \
+                                color: 255 255 255 255; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_level_label"; \
+                        mouse_events: 0; \
+                        clip_to: "slider_main"; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                rel1 { relative: 1.0  0.5; offset: -30  -18;} \
+                                rel2 { relative: 1.0  0.5; offset: -4 -4;} \
+                                rel1.to: "slider_main"; \
+                                rel2.to: "slider_main"; \
+                                color: 255 255 255 255; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_move_confine"; \
+                        clip_to: "slider_main"; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 0; \
+                                rel1 { relative: 0.0  0.5; offset: 0  -14;} \
+                                rel2 { relative: 1.0  0.5; offset: -1 13;} \
+                                rel1.to: "slider_main"; \
+                                rel2.to: "slider_main"; \
+                                color: 0 0 0 0; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_border_decoration"; \
+                        clip_to: "slider_border_whole"; \
+                        type: IMAGE; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                image { normal: slider_border_image; border: 1 1 1 1;} \
+                                rel1.to: "slider_border_whole"; \
+                                rel2.to: "slider_border_whole"; \
+                                color: 255 255 255 80; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_level"; \
+                        clip_to: "slider_border_whole"; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                color: ref_r ref_g ref_b 255; \
+                                rel1 { relative: 0.0  0.5; offset: 1  -1;} \
+                                rel2 { relative: 1.0  0.5; offset: -24 0;} \
+                                rel1.to: "slider_main"; \
+                                rel2.to: "slider"; \
+                        } \
+                        description \
+                        { \
+                                state: "out" 0.0; \
+                                inherit: "default" 0.0; \
+                                color: ref_r ref_g ref_b 150; \
+                        } \
+                        description \
+                        { \
+                                state: "in" 0.0; \
+                                inherit: "default" 0.0; \
+                                color: ref_r ref_g ref_b 250; \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 0; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_slider_decoration"; \
+                        clip_to: "slider_main"; \
+                        mouse_events: 0; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                image { normal: slider_img;} \
+                                rel1 { relative: 0.5  0.5; offset: -16  -14;} \
+                                rel2 { relative: 0.5  0.5; offset: 15 13;} \
+                                rel1.to: "slider"; \
+                                rel2.to: "slider"; \
+                                color: 255 255 255 255; \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 0; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider_slider_decoration_touched"; \
+                        mouse_events: 0; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 0; \
+                                image { normal: slider_on_img;} \
+                                rel1 { relative: 0.5  0.5; offset: -16  -14;} \
+                                rel2 { relative: 0.5  0.5; offset: 15 13;} \
+                                rel1.to: "slider"; \
+                                rel2.to: "slider"; \
+                                color: 255 255 255 0; \
+                        } \
+                        description \
+                        { \
+                                state: "touched" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 1; \
+                                color: 255 255 255 200; \
+                        } \
+                        description \
+                        { \
+                                state: "out" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 1; \
+                                color: 255 255 255 100; \
+                        } \
+                        description \
+                        { \
+                                state: "in" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 1; \
+                                color: 255 255 255 200; \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 0; \
+                        } \
+                } \
+                 \
+                part \
+                { \
+                        name: "slider"; \
+                        clip_to: "slider_main"; \
+                        mouse_events: 1; \
+                        type: RECT; \
+                        dragable \
+                        { \
+                                confine: "slider_move_confine"; \
+                                x: 1 1 1; y: 0 0 0; \
+                        } \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                visible: 1; \
+                                fixed: 1 1; \
+                                min: 34 28; max: 34 28; \
+                                rel2 { relative: 0.0  0.5; offset: -1 11;} \
+                                color: 255 255 255 0; \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                visible: 0; \
+                        } \
+                } \
+ \
+                part \
+                { \
+                        name: "label.text"; \
+                        mouse_events: 0; \
+                        clip_to: "slider_message_label"; \
+                        type: TEXT; \
+                        description \
+                        { \
+                                state, "default" 0.0; \
+                                visible: 1; \
+                                rel1 { relative: 0.0  0.0; offset: 0  0;} \
+                                rel2 { relative: 1.0  1.0; offset: -1 -1;} \
+                                rel1.to: "slider_message_label"; \
+                                rel2.to: "slider_message_label"; \
+                                color: 231 231 231 100; \
+                                text { text: ""; font: "CalaosContent"; size: 10; min: 0 0; align: 0.0 0.0;} \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                color: 231 231 231 50; \
+                        } \
+                } \
+ \
+                part \
+                { \
+                        name: "label.value"; \
+                        mouse_events: 0; \
+                        clip_to: "slider_level_label"; \
+                        type: TEXT; \
+                        description \
+                        { \
+                                state, "default" 0.0; \
+                                visible: 1; \
+                                rel1 { relative: 0.0  0.0; offset: 0  0;} \
+                                rel2 { relative: 1.0  1.0; offset: -1 -1;} \
+                                rel1.to: "slider_level_label"; \
+                                rel2.to: "slider_level_label"; \
+                                color: 231 231 231 100; \
+                                text { text: ""; font: "CalaosContent"; size: 10; min: 0 0; align: 1.0 0.0;} \
+                        } \
+                        description \
+                        { \
+                                state: "desactivate" 0.0; \
+                                inherit: "default" 0.0; \
+                                color: 231 231 231 50; \
+                        } \
+                } \
+                 \
+        } \
+         \
+         \
+        programs \
+        { \
+                 \
+                program { \
+                        name: "slider_init"; \
+                        signal: "show"; \
+                        source: ""; \
+                        action: STATE_SET "active" 0.0; \
+                        transition: DECELERATE 0.2; \
+                        target: "slider_main"; \
+                } \
+                 \
+                program { \
+                        name: "slider_signal"; \
+                        signal: "drag,stop"; \
+                        source: "slider"; \
+                        action: SIGNAL_EMIT "slider,changed" "object"; \
+                } \
+                program { \
+                        name: "slider_signal_drag"; \
+                        signal: "drag"; \
+                        source: "slider"; \
+                        action: SIGNAL_EMIT "slider,move" "object"; \
+                } \
+                program { \
+                        name: "slider_signal_start"; \
+                        signal: "drag,start"; \
+                        source: "slider"; \
+                        action: SIGNAL_EMIT "slider,start" "object"; \
+                } \
+                 \
+                program { \
+                        name: "slider_slider_touched"; \
+                        signal: "mouse,down,1"; \
+                        source: "slider"; \
+                        action: STATE_SET "touched" 0.0; \
+                        transition: DECELERATE 0.2; \
+                        target: "slider_slider_decoration_touched"; \
+                } \
+                 \
+                program { \
+                        name: "slider_slider_untouched"; \
+                        signal: "mouse,up,1"; \
+                        source: "slider"; \
+                        action: STATE_SET "default" 0.0; \
+                        transition: DECELERATE 1.2; \
+                        target: "slider_slider_decoration_touched"; \
+                } \
+                 \
+                program { \
+                        name: "slider_slider_animations_set_default"; \
+                        action: STATE_SET "default" 0.0; \
+                        transition: DECELERATE 1.2; \
+                        target: "slider_level"; \
+                } \
+                 \
+                program { \
+                        name: "slider_level_animation_out"; \
+                        signal: "mouse,down,1"; \
+                        source: "slider"; \
+                        action: STATE_SET "out" 0.0; \
+                        transition: DECELERATE 0.5; \
+                        target: "slider_level"; \
+                        after: "slider_level_animation_in"; \
+                } \
+                 \
+                program { \
+                        name: "slider_level_animation_in"; \
+                        action: STATE_SET "in" 0.0; \
+                        transition: DECELERATE 1.0; \
+                        target: "slider_level"; \
+                        after: "slider_level_animation_out"; \
+                } \
+                 \
+                program { \
+                        name: "slider_slider_animation_out"; \
+                        signal: "mouse,down,1"; \
+                        source: "slider"; \
+                        action: STATE_SET "out" 0.0; \
+                        transition: DECELERATE 0.5; \
+                        target: "slider_slider_decoration_touched"; \
+                        after: "slider_slider_animation_in"; \
+                } \
+                 \
+                program { \
+                        name: "slider_slider_animation_in"; \
+                        action: STATE_SET "in" 0.0; \
+                        transition: DECELERATE 1.0; \
+                        target: "slider_slider_decoration_touched"; \
+                        after: "slider_slider_animation_out"; \
+                } \
+                 \
+                program { \
+                        name: "slider_level_stop_animation"; \
+                        signal: "mouse,up,1"; \
+                        source: "slider"; \
+                        action: ACTION_STOP; \
+                        target: "slider_level_animation_in"; \
+                        target: "slider_level_animation_out"; \
+                        target: "slider_slider_animation_in"; \
+                        target: "slider_slider_animation_out"; \
+                        after: "slider_slider_animations_set_default"; \
+                } \
+                 \
+                program { \
+                        name: "slider_desactivate_slider"; \
+                        signal: "slider,disable"; \
+                        source: "calaos"; \
+                        action: STATE_SET "desactivate" 0.0; \
+                        transition: ACCELERATE 0.2; \
+                        target: "slider"; \
+                        target: "label.value"; \
+                        target: "label.text"; \
+                        target: "slider_level"; \
+                        target: "slider_slider_decoration"; \
+                        target: "slider_slider_decoration_touched"; \
+                } \
+                 \
+                program { \
+                        name: "slider_activate_slider"; \
+                        signal: "slider,enable"; \
+                        source: "calaos"; \
+                        action: STATE_SET "default" 0.0; \
+                        transition: ACCELERATE 0.2; \
+                        target: "slider"; \
+                        target: "label.value"; \
+                        target: "label.text"; \
+                        target: "slider_level"; \
+                        target: "slider_slider_decoration"; \
+                        target: "slider_slider_decoration_touched"; \
+                } \
+                 \
+                program { \
+                        name: "slider_uninit"; \
+                        signal: "hide"; \
+                        source: ""; \
+                        action: STATE_SET "default" 0.0; \
+                        target: "slider_main"; \
+                } \
+                 \
+        } \
+}

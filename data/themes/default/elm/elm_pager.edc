@@ -1,0 +1,247 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+// Same as elm/pager/base/fade_invisible but without padding
+
+group
+{
+        name: "elm/pager/base/calaos/fade_invisible";
+        data.item: "onshow" "raise";
+
+        parts
+        {
+                part
+                {
+                        name: "clip";
+                        type: RECT;
+                        mouse_events: 0;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { offset: -9999 -9999; }
+                                rel2 { offset: 9999 9999; }
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                        }
+                        description
+                        {
+                                state: "hidden" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        clip_to: "clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "push_start";
+                        signal: "elm,action,push";
+                        source: "elm";
+                        action:  STATE_SET "hidden" 0.0;
+                        target: "clip";
+                        after: "show_start2";
+                }
+
+                program
+                {
+                        name: "show_start";
+                        signal: "elm,action,show";
+                        source: "elm";
+                        action:  STATE_SET "hidden" 0.0;
+                        target: "clip";
+                        after: "show_start2";
+                }
+                program
+                {
+                        name: "show_start2";
+                        action:  STATE_SET "visible" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "clip";
+                        after: "show_end";
+                }
+
+                program
+                {
+                        name: "show_end";
+                        action: SIGNAL_EMIT "elm,action,show,finished" "";
+                }
+
+                program
+                {
+                        name: "pop_start";
+                        signal: "elm,action,pop";
+                        source: "elm";
+                        action:  STATE_SET "visible" 0.0;
+                        target: "clip";
+                        after: "hide_start2";
+                }
+
+                program
+                {
+                        name: "hide_start";
+                        signal: "elm,action,hide";
+                        source: "elm";
+                        action:  STATE_SET "visible" 0.0;
+                        target: "clip";
+                        after: "hide_start2";
+                }
+
+                program
+                {
+                        name: "hide_start2";
+                        action:  STATE_SET "hidden" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "clip";
+                        after: "hide_end";
+                }
+
+                program
+                {
+                        name: "hide_end";
+                        action: SIGNAL_EMIT "elm,action,hide,finished" "";
+                }
+
+                program
+                {
+                        name: "reset";
+                        signal: "elm,action,reset";
+                        source: "elm";
+                        action:  STATE_SET "default" 0.0;
+                        target: "clip";
+                }
+        }
+}
+
+//elm naviframe
+
+group { name: "elm/naviframe/item/calaos/default";
+   parts {
+      part { name: "content_clip";
+         type: RECT;
+         mouse_events: 0;
+         description { state: "default" 0.0;
+         }
+      }
+      part { name: "elm.swallow.content";
+         type: SWALLOW;
+         scale: 1;
+         clip_to: "content_clip";
+         description { state: "default" 0.0;
+            align: 0.0 0.0;
+            rel1.relative: 0.0 0.0;
+            rel2.relative: 1.0 1.0;
+         }
+         description { state: "left" 0.0;
+            inherit: "default" 0.0;
+            rel1.relative: -1.0 0.0;
+            rel2.relative: 0.0 1.0;
+         }
+         description { state: "right" 0.0;
+            inherit: "default" 0.0;
+            rel1.relative: 1.0 0.0;
+            rel2.relative: 2.0 1.0;
+         }
+      }
+   }
+   programs {
+      program { name: "content_new_pusehd";
+         signal: "elm,state,new,pushed,internal";
+         source: "";
+         action: STATE_SET "default" 0.0;
+         transition: DECELERATE 0.5;
+         target: "elm.swallow.content";
+         after: "show_finished";
+      }
+      program { name: "content_cur_pusehd";
+         signal: "elm,state,cur,pushed,internal";
+         source: "";
+         action: STATE_SET "left" 0.0;
+         target: "elm.swallow.content";
+         transition: DECELERATE 0.5;
+         after: "pushed_finished";
+      }
+      program { name: "content_prev_popped";
+         signal: "elm,state,prev,popped,internal";
+         source: "";
+         action: STATE_SET "default" 0.0;
+         target: "elm.swallow.content";
+         transition: DECELERATE 0.5;
+         after: "show_finished";
+      }
+      program { name: "content_cur_popped";
+         signal: "elm,state,cur,popped,internal";
+         source: "";
+         action: STATE_SET "right" 0.0;
+         target: "elm.swallow.content";
+         transition: DECELERATE 0.5;
+         after: "popped_finished";
+      }
+      program { name: "cur_pushed";
+         signal: "elm,state,cur,pushed";
+         source: "elm";
+         script {
+            set_state(PART:"elm.swallow.content", "default", 0.0);
+            emit("elm,state,cur,pushed,internal", "");
+         }
+      }
+      program { name: "new_pushed";
+         signal: "elm,state,new,pushed";
+         source: "elm";
+         script {
+            set_state(PART:"elm.swallow.content", "right", 0.0);
+            emit("elm,state,new,pushed,internal", "");
+         }
+      }
+      program { name: "prev_popped";
+         signal: "elm,state,prev,popped";
+         source: "elm";
+         script {
+            set_state(PART:"elm.swallow.content", "left", 0.0);
+            emit("elm,state,prev,popped,internal", "");
+         }
+      }
+      program { name: "cur_popped";
+         signal: "elm,state,cur,popped";
+         source: "elm";
+         script {
+            set_state(PART:"elm.swallow.content", "default", 0.0);
+            emit("elm,state,cur,popped,internal", "");
+         }
+      }
+      program { name: "visible";
+         signal: "elm,state,visible";
+         source: "elm";
+         action: STATE_SET "default" 0.0;
+         target: "elm.swallow.content";
+      }
+      program { name: "show_finished";
+         action: SIGNAL_EMIT "elm,action,show,finished" "";
+      }
+      program { name: "pushed_finished";
+         action: SIGNAL_EMIT "elm,action,pushed,finished" "";
+      }
+      program { name: "popped_finished";
+         action: SIGNAL_EMIT "elm,action,popped,finished" "";
+      }
+   }
+}

@@ -1,0 +1,710 @@
+// Calaos Home Module-audio player program file
+// HECKY Raoul
+// BOEHLER Frederic
+// 07/08/2007
+
+SCROLLING_TEXT_SIGNAL_REPEAT("player_artist")
+SCROLLING_TEXT_SIGNAL_REPEAT("player_album")
+SCROLLING_TEXT_SIGNAL_REPEAT("player_title")
+
+// Player init program
+program {
+  name, "init_module";
+  signal, "show";
+  source, "";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.4;
+  target, "player_title_whole";
+  target, "player_cover_whole";
+//   target, "player_buttons_row";
+  target, "player_details_whole";
+  target, "eqalizer_whole";
+}
+
+// Set initial value mode of object
+program {
+  name, "set_player_mode_playing_value";
+  script {
+    set_int(playing_mode, 1);
+  }
+}
+
+program {
+  name, "set_player_mode_stop_value";
+  script {
+    set_int(playing_mode, 0);
+  }
+}
+
+program {
+  name, "set_player_mode_selected_value";
+  script {
+    set_int(object_mode, 1);
+  }
+}
+
+program {
+  name, "set_player_mode_unselected_value";
+  script {
+    set_int(object_mode, 0);
+  }
+}
+
+
+// Set slider active / inactive
+program {
+  name, "send_slider_timer_inactive_signal";
+  action: SIGNAL_EMIT "slider,timer,inactive" "local";
+}
+
+program {
+  name, "send_slider_timer_active_signal";
+  action: SIGNAL_EMIT "slider,timer,active" "local";
+}
+
+program {
+  name, "send_slider_volume_inactive_signal";
+  action: SIGNAL_EMIT "slider,volume,inactive" "local";
+}
+
+program {
+  name, "send_slider_volume_active_signal";
+  action: SIGNAL_EMIT "slider,volume,active" "local";
+}
+
+// State programme
+program {
+  name, "reset_player";
+  signal, "show";
+  source, "";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.0001;
+  target, "player_buttons_row";
+  target, "time_slider_whole";
+  target, "player_cd_whole";
+  target, "player_volume_whole";
+  target, "player_select_area";
+  target, "player_details_mini_cd_decoration_whole";
+  target, "player_details_line_decoration_cd";
+  target: "player_cd_shadow";
+  target, "player_mini_cd";
+  target, "player_name_label";
+  target, "player_cover_glow";
+  target, "player_icon";
+  target, "player.type";
+  target, "text.artist";
+  target, "text.album";
+  target, "text.title";
+  target, "text.year";
+  target, "player.year";
+  target, "text.duration";
+  target, "player.duration";
+  after, "stop_glow_animation";
+  after, "stop_cd_animation";
+  after, "send_slider_timer_inactive_signal";
+  after, "send_slider_volume_inactive_signal";
+}
+
+program
+{
+        name: "on_show";
+        signal: "show";
+        action: SIGNAL_EMIT "text,active,blue" "calaos";
+}
+
+program {
+  name, "set_player_in_inactive_mode";
+  signal, "player,inactive";
+  source, "calaos";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.2;
+  target: "player_whole";
+  target, "player_buttons_row";
+  target, "time_slider_whole";
+  target, "player_volume_whole";
+  target, "player_cd_whole";
+  target, "player_select_area";
+  target, "player_details_mini_cd_decoration_whole";
+  target, "player_details_line_decoration_cd";
+  target: "player_cd_shadow";
+  target, "player_mini_cd";
+  target, "player_name_label";
+  target, "player_cover_glow";
+  target, "player_icon";
+  target, "player.type";
+  target, "text.artist";
+  target, "text.album";
+  target, "text.title";
+  target, "text.year";
+  target, "player.year";
+  target, "text.duration";
+  target, "player.duration";
+  after, "stop_glow_animation";
+  after, "stop_cd_animation";
+  after, "send_slider_timer_inactive_signal";
+  after, "send_slider_volume_inactive_signal";
+  after, "equalizer_stop";
+}
+
+program
+{
+        name: "on_inactive";
+        signal: "player,inactive";
+        source: "calaos";
+        action: SIGNAL_EMIT "text,inactive" "calaos";
+}
+
+program {
+  name, "set_player_in_active_mode";
+  signal, "player,active";
+  source, "calaos";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.3;
+  target: "player_whole";
+  target, "player_buttons_row";
+  target, "time_slider_whole";
+  target, "player_name_label";
+  target, "player_select_area";
+  target, "player_icon";
+  after, "send_slider_volume_active_signal";
+  after, "set_player_buttons_start_state";
+}
+
+program {
+  name, "set_player_in_playing_mode";
+  signal, "player,playing";
+  source, "calaos";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.3;
+  target, "player.type";
+  target, "text.artist";
+  target, "text.album";
+  target, "text.title";
+  target, "text.year";
+  target, "player.year";
+  target, "text.duration";
+  target, "player.duration";
+  target, "player_details_mini_cd_decoration_whole";
+  target, "player_volume_whole";
+  after, "set_player_playing_state";
+  after, "set_player_buttons_play_state";
+  after, "send_slider_timer_active_signal";
+  after, "set_player_mini_cd_playing_state";
+  after, "set_player_mode_playing_value";
+}
+
+program
+{
+        name: "on_playing";
+        signal: "player,playing";
+        source: "calaos";
+        action: SIGNAL_EMIT "text,active,blue" "calaos";
+}
+
+program {
+  name, "set_player_in_stop_mode";
+  signal, "player,stop";
+  source, "calaos";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.3;
+  target, "text.artist";
+  target, "player.type";
+  target, "text.album";
+  target, "text.title";
+  target, "text.year";
+  target, "player.year";
+  target, "text.duration";
+  target, "player.duration";
+  target, "player_details_mini_cd_decoration_whole";
+  target, "player_volume_whole";
+  after, "set_player_stop_state";
+  after, "set_player_buttons_stop_state";
+  after, "send_slider_timer_inactive_signal";
+  after, "set_player_mini_cd_stop_state";
+  after, "set_player_mode_stop_value";
+  after, "equalizer_stop";
+}
+
+program
+{
+        name: "on_stop";
+        signal: "player,stop";
+        source: "calaos";
+        action: SIGNAL_EMIT "text,inactive" "calaos";
+}
+
+program {
+  name, "set_player_in_select_mode";
+  signal, "player,select";
+  source, "calaos";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.2;
+//   target, "player_details_whole";
+  target, "player_select_area";
+//   target, "eqalizer_whole";
+  after, "set_player_cd_select_state";
+  after, "set_player_mode_selected_value";
+//   after, "equalizer_stop";
+  after: "set_player_amp_selected";
+}
+
+program {
+  name, "set_player_in_unselect_mode";
+  signal, "player,unselect";
+  source, "calaos";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.2;
+  target, "player_select_area";
+  after, "set_player_cd_unselect_state";
+  after, "set_player_mode_unselected_value";
+  after: "set_player_amp_unselected";
+}
+
+program
+{
+        name: "has_amp";
+        signal: "player,amplifier";
+        source: "calaos";
+        script
+        { set_int(has_amp, 1); }
+}
+
+program
+{
+        name: "has_no_amp";
+        signal: "player,no_amplifier";
+        source: "calaos";
+        script
+        { set_int(has_amp, 0); }
+}
+
+program
+{
+        name: "set_player_amp_selected";
+        script
+        {
+                if (get_int(has_amp) == 1)
+                        run_program(PROGRAM:"show_amp_button");
+        }
+}
+
+program
+{
+        name: "show_amp_button";
+        action: STATE_SET "visible" 0.0;
+        transition: ACCELERATE 0.2;
+        target: "player_amp_clip";
+}
+
+program
+{
+        name: "set_player_amp_unselected";
+        action: STATE_SET "default" 0.0;
+        transition: DECELERATE 0.2;
+        target: "player_amp_clip";
+}
+
+program {
+  name, "set_player_details_in_unselect_mode";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.2;
+  target, "player_details_whole";
+}
+
+program {
+  name, "set_player_show_again";
+  signal, "show,again";
+  source, "calaos";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.2;
+  target, "player_details_whole";
+  target, "eqalizer_whole";
+//   after, "equalizer_restart";
+}
+
+program {
+  name, "set_player_to_show_swallowed_cover";
+  signal, "track,cover";
+  source, "calaos";
+  script {
+    run_program(PROGRAM:"show_swallowed_cover");
+    run_program(PROGRAM:"hide_no_cover_image");
+  }
+}
+
+program {
+  name, "set_player_to_show_no_cover_image";
+  signal, "track,nocover";
+  source, "calaos";
+  script {
+    run_program(PROGRAM:"hide_swallowed_cover");
+    run_program(PROGRAM:"show_no_cover_image");
+  }
+}
+
+program {
+  name, "select_player";
+  signal, "mouse,down,1";
+  source, "player_select_area";
+  action: SIGNAL_EMIT "player,select" "player";
+}
+
+// Activate desactivate parts
+program {
+  name, "show_swallowed_cover";
+  action: SIGNAL_EMIT "player_cover_front:show,cover" "cover";
+}
+
+program {
+  name, "hide_swallowed_cover";
+  action: SIGNAL_EMIT "player_cover_front:hide,cover" "cover";
+}
+
+program {
+  name, "show_no_cover_image";
+  action: SIGNAL_EMIT "player_cover_front:show,nocover" "cover";
+}
+
+program {
+  name, "hide_no_cover_image";
+  action: SIGNAL_EMIT "player_cover_front:hide,nocover" "cover";
+}
+
+program {
+  name, "set_player_volume_controle_active";
+  signal, "player,select";
+  source, "calaos";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.25;
+  target, "player_volume_whole";
+}
+
+program {
+  name, "set_player_buttons_start_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.5;
+  target, "player_buttons_previous_track";
+  target, "player_buttons_play";
+  target, "player_buttons_stop";
+  target, "player_buttons_next_track";
+}
+
+program {
+  name, "set_player_buttons_play_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_pause";
+  after, "hide_player_buttons_play";
+}
+
+program {
+  name, "set_player_buttons_stop_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_play";
+  after, "hide_player_buttons_pause";
+}
+
+program {
+  name, "hide_player_buttons_play";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_play";
+}
+
+program {
+  name, "show_player_buttons_play";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_play";
+}
+
+program {
+  name, "hide_player_buttons_pause";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_pause";
+}
+
+program {
+  name, "show_player_buttons_pause";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.01;
+  target, "player_buttons_pause";
+}
+
+program {
+  name, "set_player_mini_cd_playing_state";
+  script {
+    run_program(PROGRAM:"set_mini_cd_playing_state");
+    run_program(PROGRAM:"set_mini_cd_shadow_playing_state");
+  }
+}
+
+program {
+  name, "set_player_mini_cd_stop_state";
+  script {
+    run_program(PROGRAM:"set_mini_cd_stop_state");
+    run_program(PROGRAM:"set_mini_cd_shadow_stop_state");
+  }
+}
+
+program {
+  name, "set_mini_cd_playing_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_mini_cd";
+}
+
+program {
+  name, "set_mini_cd_stop_state";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_mini_cd";
+}
+
+program {
+  name, "set_mini_cd_shadow_playing_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.3;
+  target, "player_details_line_decoration_cd";
+}
+
+program {
+  name, "set_mini_cd_shadow_stop_state";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.3;
+  target, "player_details_line_decoration_cd";
+}
+
+program {
+  name, "set_player_cd_select_state";
+  script {
+    run_program(PROGRAM:"set_cd_select_state");
+    run_program(PROGRAM:"set_cd_shadow_select_state");
+  }
+}
+
+program {
+  name, "set_player_cd_unselect_state";
+  script {
+    if (get_int(playing_mode) == 0) {
+     run_program(PROGRAM:"set_cd_unselect_state");
+     run_program(PROGRAM:"set_cd_shadow_unselect_state");
+    }
+    if (get_int(playing_mode) == 1) {
+     run_program(PROGRAM:"set_cd_playing_state");
+     run_program(PROGRAM:"set_cd_shadow_unselect_state");
+    }
+    run_program(PROGRAM:"close_cd_case");
+  }
+}
+
+program {
+  name, "set_player_playing_state";
+  script {
+    if (get_int(object_mode) == 0) {
+     run_program(PROGRAM:"set_cd_playing_state");
+    }
+  }
+}
+
+program {
+  name, "set_player_stop_state";
+  script {
+    if (get_int(object_mode) == 0) {
+     run_program(PROGRAM:"set_cd_default_state");
+     run_program(PROGRAM:"stop_cd_animation");
+    }
+    if (get_int(object_mode) == 1) {
+     run_program(PROGRAM:"stop_cd_animation");
+    }
+  }
+}
+
+program {
+  name, "set_cd_playing_state";
+  action, STATE_SET "playing" 0.0;
+  transition, DECELERATE 1.0;
+  target, "player_cd_whole";
+  after, "stop_glow_animation";
+  after, "set_cd_animation_start";
+  after, "set_cover_glow_animation_default";
+}
+
+program {
+  name, "set_cd_default_state";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_cd_whole";
+}
+
+program {
+  name, "set_cd_select_state";
+  action, STATE_SET "select" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_cd_whole";
+  target: "player_cover_front";
+  after, "set_cover_glow_animation_in";
+  after, "stop_cd_animation";
+}
+
+program {
+  name, "set_cd_unselect_state";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_cd_whole";
+  after, "stop_glow_animation";
+  after, "set_cover_glow_animation_default";
+}
+
+program
+{
+        name: "close_cd_case";
+        action: STATE_SET "default" 0.0;
+        transition: DECELERATE 0.8;
+        target: "player_cover_front";
+}
+
+program {
+  name, "set_cover_glow_animation_default";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.5;
+  target, "player_cover_glow";
+}
+
+program {
+  name, "set_cd_animation_start";
+  action, STATE_SET "animation" 0.0;
+  transition, LINEAR 0.25;
+  target, "player_cd";
+  after, "set_cd_animation_start";
+}
+
+program {
+  name, "set_cover_glow_animation_in";
+  action, STATE_SET "in" 0.0;
+  transition, DECELERATE 0.8;
+  target, "player_cover_glow";
+  after, "set_cover_glow_animation_out";
+}
+
+program {
+  name, "set_cover_glow_animation_out";
+  action, STATE_SET "out" 0.0;
+  transition, DECELERATE 0.5;
+  target, "player_cover_glow";
+  after, "set_cover_glow_animation_in";
+}
+
+program {
+  name, "set_cd_shadow_select_state";
+  action, STATE_SET "active" 0.0;
+  transition, DECELERATE 0.3;
+  target: "player_cd_shadow";
+}
+
+program {
+  name, "set_cd_shadow_unselect_state";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.3;
+  target: "player_cd_shadow";
+}
+
+program {
+  name, "stop_glow_animation";
+  action, ACTION_STOP;
+  target, "set_cover_glow_animation_in";
+  target, "set_cover_glow_animation_out";
+}
+
+program {
+  name, "stop_cd_animation";
+  action, ACTION_STOP;
+  target, "set_cd_animation_start";
+}
+
+program {
+  name: "equalizer_start";
+  signal: "player,playing";
+  source: "calaos";
+  script {
+    if (get_int(eq_started) == 0) {
+      set_int(stop_anim, 0); 
+      set_int(eq_started, 1);
+      randomize_line1(0);
+      randomize_line2(0);
+      randomize_line3(0);
+      randomize_line4(0);
+      randomize_line5(0);
+      randomize_line6(0);
+      randomize_line7(0);
+      randomize_line8(0);
+    }
+  }
+}
+
+FALL_BACK_PROG("line1")
+FALL_BACK_PROG("line2")
+FALL_BACK_PROG("line3")
+FALL_BACK_PROG("line4")
+FALL_BACK_PROG("line5")
+FALL_BACK_PROG("line6")
+FALL_BACK_PROG("line7")
+FALL_BACK_PROG("line8")
+
+program {
+  name: "equalizer_stop";
+  script {
+    set_int(stop_anim, 1);
+    set_int(eq_started, 0);
+  }
+}
+
+program {
+  name: "equalizer_restart";
+  script {
+    if (get_int(playing_mode) == 1 && get_int(eq_started) == 0)
+        run_program(PROGRAM:"equalizer_start");
+  }
+}
+
+// Player hide signal program
+program {
+  name, "hide_module";
+  signal, "hide";
+  source, "calaos";
+  action, STATE_SET "default" 0.0;
+  transition, DECELERATE 0.2;
+  target, "player_title_whole";
+  target, "player_cover_whole";
+  target, "player_buttons_row";
+  target, "player_details_whole";
+  target: "player_amp_clip";
+  after, "stop_glow_animation";
+  after, "stop_cd_animation";
+  after, "send_end_signal";
+  after, "equalizer_stop";
+}
+
+// Player end signals programs
+program {
+  name, "send_end_signal";
+  action: SIGNAL_EMIT "hidden" "player";
+}
+
+// Player hide program
+program {
+  name, "uninit_module";
+  signal, "hide";
+  source, "";
+  action, STATE_SET "default" 0.0;
+  target, "player_title_whole";
+  target, "player_cover_whole";
+  target, "player_buttons_row";
+  target, "player_details_whole";
+  target: "player_amp_clip";
+  after, "stop_glow_animation";
+  after, "stop_cd_animation";
+}
+

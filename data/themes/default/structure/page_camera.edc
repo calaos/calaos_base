@@ -1,0 +1,1386 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "calaos/camera/small";
+
+        min: 218 300;
+        max: 218 300;
+
+        parts
+        {
+                part
+                {
+                        name: "camera_border";
+                        description
+                        {
+                                image.normal: "camera_border.png";
+                                rel1 { relative: 0.0 0.0; offset: 0 25; }
+                                rel2 { relative: 0.0 0.0; offset: 217 25+171; }
+                        }
+                }
+
+                part
+                {
+                        name: "title";
+                        type: TEXT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                text { text: "Camera Title"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5; }
+                                color: 231 231 231 255;
+                                rel1 { relative: 0.0 0.0; offset:  30 11; }
+                                rel2 { relative: 1.0 0.0; offset: -11 19; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera_icon";
+                        description
+                        {
+                                image.normal: "icon_camera_title.png";
+                                rel1 { relative: 0.0 0.0; offset: 8 7; }
+                                rel2 { relative: 0.0 0.0; offset: 8+14 7+15; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera_reflect";
+                        description
+                        {
+                                image.normal: "camera_reflect.png";
+                                rel1 { relative: 0.0 1.0; offset: 0  -1-68; }
+                                rel2 { relative: 0.0 1.0; offset: 217 -1; }
+                        }
+                }
+
+                part
+                {
+                        name: "clip_camera_swallow";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 0;
+                                color: 0 0 0 0;
+                                rel1 { relative: 0.0 0.0; offset: 14  40; }
+                                rel2 { relative: 0.0 0.0; offset: 202 182; }
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "clip_camera_nocam";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                visible: 0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+                part
+                {
+                        name: "camera_nocam";
+                        clip_to: "clip_camera_nocam";
+                        description
+                        {
+                                image.normal: "camera_nocam.png";
+                                rel1 { relative: 0.0 0.0; offset: 17  43; }
+                                rel2 { relative: 0.0 0.0; offset: 17+181 43+135; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera.swallow";
+                        clip_to: "clip_camera_swallow";
+                        type: SWALLOW;
+                        description
+                        {
+                                rel1.to: "clip_camera_swallow";
+                                rel2.to: "clip_camera_swallow";
+                        }
+                }
+
+                part
+                {
+                        name: "camera_spinner";
+                        clip_to: "clip_camera_nocam";
+                        type: GROUP;
+                        source: "calaos/spinner/mini";
+                        description
+                        {
+                                rel1 { relative: 0.0 0.0; offset: 176  156; }
+                                rel2 { relative: 0.0 0.0; offset: 176+21 156+21; }
+                        }
+                }
+
+                part
+                {
+                        name: "subtitle";
+                        clip_to: "clip_camera_nocam";
+                        type: TEXT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                text { text: "Aucune caméra connectée"; font: "CalaosContent"; size: 10; min: 0 0; align: 0.0 0.5; }
+                                color: 231 231 231 255;
+                                rel1 { relative: 0.0 0.0; offset:  30 156; }
+                                rel2 { relative: 0.0 0.0; offset: 174 156+22; }
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "show_image";
+                        signal: "show,picture";
+                        source: "calaos";
+                        action: STATE_SET "visible" 0.0;
+                        transition: DECELERATE 0.4;
+                        target: "clip_camera_swallow";
+                        target: "clip_camera_nocam";
+                }
+
+                program
+                {
+                        name: "hide_image";
+                        signal: "hide,picture";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.4;
+                        target: "clip_camera_swallow";
+                        target: "clip_camera_nocam";
+                }
+        }
+}
+
+group
+{
+        name: "calaos/page/media/camera_list";
+
+        parts
+        {
+                part
+                {
+                        name: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+                part
+                {
+                        name: "content_size";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "skyline_middle_gradient";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "middle_skyline.png"; }
+                                rel1 { relative: 0.0  1.0; offset:  0 -3; }
+                                rel2 { relative: 1.0  1.0; offset: -1 43; }
+                                rel1.to_y: "skyline_middle_neon";
+                                rel2.to_y: "skyline_middle_neon";
+                                color: 255 255 255 60;
+                        }
+                        description
+                        {
+                                state: "detail" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "skyline_middle_neon";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "middle_skyline_neon.png"; }
+                                rel1 { relative: 0.0  0.49; offset:  0 -6; }
+                                rel2 { relative: 1.0  0.49; offset: -1 -1; }
+                        }
+                        description
+                        {
+                                state: "detail" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "round_buttons_whole";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.0 0.5; offset:  20 -33; }
+                                rel2 { relative: 1.0 0.5; offset: -20  32; }
+                                rel1.to_y: "skyline_middle_neon";
+                                rel2.to_y: "skyline_middle_neon";
+                        }
+                        description
+                        {
+                                state: "detail" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                        }
+                }
+
+                ROUND_BUTTON("button_previous_room",
+                             "round_buttons_whole",
+                             "round_buttons_whole", "round_buttons_whole",
+                             "button_previous.png", "button_previous_glow.png", "button_previous_off.png",
+                             "page,left", "camera",
+                             "left",
+                             0.0, 0.0, 0, 0,
+                             0.0, 1.0, 65, -1)
+
+                ROUND_BUTTON("button_next_room",
+                             "round_buttons_whole",
+                             "round_buttons_whole", "round_buttons_whole",
+                             "button_next.png", "button_next_glow.png", "button_next_off.png",
+                             "page,right", "camera",
+                             "right",
+                             1.0, 0.0, -66, 0,
+                             1.0, 1.0,  -1, -1)
+
+                part
+                {
+                        name: "camera_1_clip";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                                rel1 { relative: 0.5 0.5; offset: -428 -250+27; }
+                                rel2 { relative: 0.5 0.5; offset: -210   53+27; }
+                        }
+                        description
+                        {
+                                state: "left" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: -428-500 -250+27; }
+                                rel2 { relative: 0.0 0.5; offset: -210-500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "right" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: -428+500 -250+27; }
+                                rel2 { relative: 1.0 0.5; offset: -210+500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                alias: "camera.swallow.1" "camera_1:camera.swallow";
+                alias: "camera.title.1" "camera_1:title";
+                alias: "camera.subtitle.1" "camera_1:subtitle";
+                part
+                {
+                        name: "camera_1";
+                        type: GROUP;
+                        source: "calaos/camera/small";
+                        clip_to: "camera_1_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "camera_1_clip";
+                                rel2.to: "camera_1_clip";
+                        }
+                }
+
+                part
+                {
+                        name: "camera_2_clip";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                                rel1 { relative: 0.5 0.5; offset: -215 -250+27; }
+                                rel2 { relative: 0.5 0.5; offset:  2   53+27; }
+                        }
+                        description
+                        {
+                                state: "left" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: -215-500 -250+27; }
+                                rel2 { relative: 0.0 0.5; offset:  2-500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "right" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: -215+500 -250+27; }
+                                rel2 { relative: 1.0 0.5; offset:  2+500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                alias: "camera.swallow.2" "camera_2:camera.swallow";
+                alias: "camera.title.2" "camera_2:title";
+                alias: "camera.subtitle.2" "camera_2:subtitle";
+                part
+                {
+                        name: "camera_2";
+                        type: GROUP;
+                        source: "calaos/camera/small";
+                        clip_to: "camera_2_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "camera_2_clip";
+                                rel2.to: "camera_2_clip";
+                        }
+                }
+
+                part
+                {
+                        name: "camera_3_clip";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                                rel1 { relative: 0.5 0.5; offset: -2 -250+27; }
+                                rel2 { relative: 0.5 0.5; offset:  215   53+27; }
+                        }
+                        description
+                        {
+                                state: "left" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: -2-500 -250+27; }
+                                rel2 { relative: 0.0 0.5; offset:  215-500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "right" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: -2+500 -250+27; }
+                                rel2 { relative: 1.0 0.5; offset:  215+500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                alias: "camera.swallow.3" "camera_3:camera.swallow";
+                alias: "camera.title.3" "camera_3:title";
+                alias: "camera.subtitle.3" "camera_3:subtitle";
+                part
+                {
+                        name: "camera_3";
+                        type: GROUP;
+                        source: "calaos/camera/small";
+                        clip_to: "camera_3_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "camera_3_clip";
+                                rel2.to: "camera_3_clip";
+                        }
+                }
+
+                part
+                {
+                        name: "camera_4_clip";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                                rel1 { relative: 0.5 0.5; offset: 212 -250+27; }
+                                rel2 { relative: 0.5 0.5; offset: 428   53+27; }
+                        }
+                        description
+                        {
+                                state: "left" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: 212-500 -250+27; }
+                                rel2 { relative: 0.0 0.5; offset: 428-500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "right" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: 212+500 -250+27; }
+                                rel2 { relative: 1.0 0.5; offset: 428+500   53+27; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                alias: "camera.swallow.4" "camera_4:camera.swallow";
+                alias: "camera.title.4" "camera_4:title";
+                alias: "camera.subtitle.4" "camera_4:subtitle";
+                part
+                {
+                        name: "camera_4";
+                        type: GROUP;
+                        source: "calaos/camera/small";
+                        clip_to: "camera_4_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "camera_4_clip";
+                                rel2.to: "camera_4_clip";
+                        }
+                }
+
+                part
+                {
+                        name: "module_scenario_bloc";
+                        type: RECT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                rel1 { relative: 0.5  0.75; offset: -368-10 -53-20+22;}
+                                rel2 { relative: 0.5  0.75; offset: 367+10 52+32+22;}
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "active" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "detail" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "home.pager";
+                        type: SWALLOW;
+                        clip_to: "module_scenario_bloc";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "module_scenario_bloc";
+                                rel2.to: "module_scenario_bloc";
+                        }
+                }
+
+                part
+                {
+                        name: "pager_deco_left";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "player_line_decoration_right.png"; }
+                                rel1 { relative: 0.0 0.0; offset: -1   -10; }
+                                rel2 { relative: 0.0 1.0; offset: 15   -1; }
+                                rel1.to: "home.pager";
+                                rel2.to: "home.pager";
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "pager_deco_right";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "player_line_decoration_left.png"; }
+                                rel1 { relative: 1.0 0.0; offset: -16   -10; }
+                                rel2 { relative: 1.0 1.0; offset:   0   -1; }
+                                rel1.to: "home.pager";
+                                rel2.to: "home.pager";
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                #define CAMERA_CLICK_EVENT(id) \
+                part \
+                { \
+                        name: "camera_click_"id; \
+                        type: RECT; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                rel1.to: "camera_"id"_clip"; \
+                                rel2.to: "camera_"id"_clip"; \
+                                color: 0 0 0 0; \
+                        } \
+                }
+
+                CAMERA_CLICK_EVENT("1")
+                CAMERA_CLICK_EVENT("2")
+                CAMERA_CLICK_EVENT("3")
+                CAMERA_CLICK_EVENT("4")
+
+                #include "activity_loading.edc"
+        }
+
+        programs
+        {
+                #define CAMERA_SIGNAL_REPEAT(camera) \
+                program \
+                { \
+                        name: "show_cam_"camera; \
+                        signal: "show,picture,"camera; \
+                        source: "calaos"; \
+                        action: SIGNAL_EMIT "camera_"camera":show,picture" "calaos"; \
+                } \
+                program \
+                { \
+                        name: "hide_cam_"camera; \
+                        signal: "hide,picture,"camera; \
+                        source: "calaos"; \
+                        action: SIGNAL_EMIT "camera_"camera":hide,picture" "calaos"; \
+                }
+
+                CAMERA_SIGNAL_REPEAT("1")
+                CAMERA_SIGNAL_REPEAT("2")
+                CAMERA_SIGNAL_REPEAT("3")
+                CAMERA_SIGNAL_REPEAT("4")
+
+                program
+                {
+                        name: "show_pager_deco";
+                        signal: "show,edge";
+                        source: "calaos";
+                        action: STATE_SET "visible" 0.0;
+                        transition: ACCELERATE 0.15;
+                        target: "pager_deco_left";
+                        target: "pager_deco_right";
+                }
+                program
+                {
+                        name: "hide_pager_deco";
+                        signal: "hide,edge";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.35;
+                        target: "pager_deco_left";
+                        target: "pager_deco_right";
+                }
+
+                program
+                {
+                        name: "on_show";
+                        signal: "show";
+                        source: "";
+                        action: STATE_SET "right" 0.0;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                        after: "show_delayed";
+                }
+
+                program
+                {
+                        name: "show_delayed";
+                        in: 0.15 0.0;
+                        after: "show_cameras";
+                }
+
+                program
+                {
+                        name: "hide_left";
+                        signal: "hide,left";
+                        source: "calaos";
+                        action: STATE_SET "left" 0.0;
+                        transition: ACCELERATE 0.4;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                        after: "reset_right";
+                }
+                program
+                {
+                        name: "reset_right";
+                        action: STATE_SET "right" 0.0;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                        after: "send_sig_done";
+                }
+
+                program
+                {
+                        name: "send_sig_done";
+                        action: SIGNAL_EMIT "animation,done" "cameras";
+                }
+
+                program
+                {
+                        name: "hide_right";
+                        signal: "hide,right";
+                        source: "calaos";
+                        action: STATE_SET "right" 0.0;
+                        transition: ACCELERATE 0.4;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                        after: "reset_left";
+                }
+                program
+                {
+                        name: "reset_left";
+                        action: STATE_SET "left" 0.0;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                        after: "send_sig_done";
+                }
+
+                program
+                {
+                        name: "show_cameras";
+                        signal: "show";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.4;
+                        target: "camera_1_clip";
+                        target: "camera_2_clip";
+                        target: "camera_3_clip";
+                        target: "camera_4_clip";
+                }
+
+                #define CAMERA_CLICK_EVENT_PROG(id) \
+                program \
+                { \
+                        name: "click_camera_"id; \
+                        signal: "mouse,clicked,1"; \
+                        source: "camera_click_"id; \
+                        action: SIGNAL_EMIT "select,"id "camera"; \
+                }
+
+                CAMERA_CLICK_EVENT_PROG("1")
+                CAMERA_CLICK_EVENT_PROG("2")
+                CAMERA_CLICK_EVENT_PROG("3")
+                CAMERA_CLICK_EVENT_PROG("4")
+        }
+
+}
+
+
+group
+{
+        name: "calaos/page/media/camera_select";
+
+        script
+        {
+                public is_fullscreen;
+                public is_ptz;
+        }
+
+        parts
+        {
+                part
+                {
+                        name: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+                part
+                {
+                        name: "content_size";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 0;
+                        }
+                }
+
+                part
+                {
+                        name: "room_title.text";
+                        type: TEXT;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                text { text: "Room Title"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5; }
+                                color: 231 231 231 255;
+                                rel1 { relative: 0.0 0.0; offset:  20+40 20; }
+                                rel2 { relative: 0.5 0.0; offset: -11 20+30; }
+                                max: 410 -1;
+                        }
+                }
+
+                part
+                {
+                        name: "icon_room";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                image.normal: "icon_room.png";
+                                rel1 { relative: 0.0 0.5; offset: -21-10 -8; to: "room_title.text"; }
+                                rel2 { relative: 0.0 0.5; offset: -1-10 7; to: "room_title.text"; }
+                        }
+                }
+
+                part
+                {
+                        name: "list_deco_left";
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "standard_list_decoration.png"; border: 27 27 50 50; }
+                                rel1 { relative: 0.0 0.0; offset: 20  20+30; }
+                                rel2 { relative: 0.5 1.0; offset: -160 -20; }
+                                rel1.to: "content_size";
+                                rel2.to: "content_size";
+                                max: 410 -1;
+                        }
+                }
+
+                part
+                {
+                        name: "list.swallow";
+                        type: SWALLOW;
+                        clip_to: "content_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "list_deco_left";
+                                rel2.to: "list_deco_left";
+                                rel1.offset: 5 5;
+                                rel2.offset: -5 -5;
+                        }
+                }
+
+                part
+                {
+                        name: "button_position_clip";
+                        clip_to: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 255 255 255 0;
+                                visible: 0;
+                                rel1 { relative: 0.5 1.0; offset: -153 -20-160; }
+                                rel2 { relative: 1.0 1.0; offset: -20 -20; }
+                                rel1.to: "content_size";
+                                rel2.to: "content_size";
+                        }
+                        description
+                        {
+                                state: "ptz" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 255;
+                                visible: 1;
+                        }
+
+                }
+
+                #define BUTTON_CAMERA_POSITION(id, offset_x1, offset_y1, offset_x2, offset_y2) \
+                part \
+                { \
+                        name: "button.position."id; \
+                        type: EXTERNAL; \
+                        source: "elm/button"; \
+                        clip_to: "button_position_clip"; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                params \
+                                { \
+                                        string: "style" "calaos/button/position"; \
+                                        string: "label" "Position "id; \
+                                } \
+                                rel1 { relative: 0.0 0.0; offset: offset_x1 offset_y1; to: "button_position_clip"; } \
+                                rel2 { relative: 0.0 0.0; offset: offset_x2 offset_y2; to: "button_position_clip"; } \
+                        } \
+                }
+
+                #ifdef BSPACER
+                #undef BSPACER
+                #endif
+                #define BSPACER 30
+                BUTTON_CAMERA_POSITION("1", 38, 0, 38+112, 36)
+                BUTTON_CAMERA_POSITION("2", 38+112+BSPACER, 0, 38+112+BSPACER+112, 36)
+                BUTTON_CAMERA_POSITION("3", 38+112+BSPACER+112+BSPACER, 0, 38+112+BSPACER+112+BSPACER+112, 36)
+                BUTTON_CAMERA_POSITION("4", 38+112+BSPACER+112+BSPACER+112+BSPACER, 0, 38+112+BSPACER+112+BSPACER+112+BSPACER+112, 36)
+
+                BUTTON_CAMERA_POSITION("5", 38, 50, 38+112, 86)
+                BUTTON_CAMERA_POSITION("6", 38+112+BSPACER, 50, 38+112+BSPACER+112, 86)
+                BUTTON_CAMERA_POSITION("7", 38+112+BSPACER+112+BSPACER, 50, 38+112+BSPACER+112+BSPACER+112, 86)
+                BUTTON_CAMERA_POSITION("8", 38+112+BSPACER+112+BSPACER+112+BSPACER, 50, 38+112+BSPACER+112+BSPACER+112+BSPACER+112, 86)
+
+                part
+                {
+                        name: "button.position.save";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_position_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params
+                                {
+                                        string: "style" "calaos/button/position";
+                                        string: "label" "Sauver la position actuelle";
+                                }
+                                rel1 { relative: 0.0 0.0; offset: 38 100; to: "button_position_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 38+112+BSPACER+112 136 ; to: "button_position_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera_mask";
+                        clip_to: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                                visible: 0;
+                        }
+                        description
+                        {
+                                state: "ptz" 0.0;
+                                color: 0 0 0 0;
+                                visible: 0;
+                        }
+                        description
+                        {
+                                state: "fullscreen" 0.0;
+                                color: 0 0 0 150;
+                                visible: 1;
+                        }
+                }
+
+                part
+                {
+                        name: "button_ptz_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 1.0 0.0; offset: 30 18; to: "camera_border_decoration"; }
+                                rel2 { relative: 1.0 0.0; offset: 30+147 18+131; to: "camera_border_decoration"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "ptz" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "fullscreen" 0.0;
+                                rel1 { relative: 1.0 0.0; offset: 10 18; to: "camera_border_decoration"; }
+                                rel2 { relative: 1.0 0.0; offset: 10+147 18+131; to: "camera_border_decoration"; }
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "fullscreen" 1.0;
+                                rel1 { relative: 1.0 0.0; offset: 10 18; to: "camera_border_decoration"; }
+                                rel2 { relative: 1.0 0.0; offset: 10+147 18+131; to: "camera_border_decoration"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "button_ptz_zoom_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.to: "button_ptz_clip";
+                                rel2.to: "button_ptz_clip";
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.left";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/left"; }
+                                rel1 { relative: 0.0 0.0; offset: 3  47; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 46 84; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.center";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/center"; }
+                                rel1 { relative: 0.0 0.0; offset: 52 47; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 95 84; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.right";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/right"; }
+                                rel1 { relative: 0.0 0.0; offset: 101 47; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 144 84; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.up";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/up"; }
+                                rel1 { relative: 0.0 0.0; offset: 52  3; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 95 40; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.down";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/down"; }
+                                rel1 { relative: 0.0 0.0; offset: 52 91; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 95 129; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.zoom_in";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_zoom_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/zoom_in"; }
+                                rel1 { relative: 0.0 0.0; offset: 101 91; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 144 129; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "button.ptz.zoom_out";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "button_ptz_zoom_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                params { string: "style" "calaos/button/position/zoom_out"; }
+                                rel1 { relative: 0.0 0.0; offset:  3 91; to: "button_ptz_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 46 129; to: "button_ptz_clip"; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera_whole";
+                        clip_to: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.5  0.5; offset: -153 -239; }
+                                rel2 { relative: 0.5  0.5; offset:  475  238; }
+                        }
+                        description
+                        {
+                                state: "ptz" 0.0;
+                                rel1 { relative: 0.5  0.0; offset: -213+60 10; }
+                                rel2 { relative: 0.5  0.0; offset:  212+60 10+325; }
+                        }
+                        description
+                        {
+                                state: "fullscreen" 0.0;
+                                aspect: 1.30675 1.0;
+                                aspect_preference: BOTH;
+                                rel1 { relative: 0.0 0.0; offset: 10  10; }
+                                rel2 { relative: 1.0 1.0; offset: -10 -10; }
+                        }
+                }
+
+                part
+                {
+                        name: "camera_border_decoration";
+                        clip_to: "camera_whole";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "camera_medium_border.png"; border: 15 15 15 15; }
+                                rel1.to: "camera_whole";
+                                rel2.to: "camera_whole";
+                        }
+                }
+
+                part
+                {
+                        name: "camera_clip";
+                        clip_to: "camera_whole";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.0 0.0; offset:  15   15; }
+                                rel2 { relative: 1.0 1.0; offset: -14  -12; }
+                                rel1.to: "camera_whole";
+                                rel2.to: "camera_whole";
+                                visible: 0;
+                                color: 0 0 0 0;
+                        }
+                        description
+                        {
+                                state: "visible" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "camera.swallow";
+                        type: SWALLOW;
+                        clip_to: "camera_clip";
+                        description
+                        {
+                                rel1.to: "camera_clip";
+                                rel2.to: "camera_clip";
+                        }
+                }
+
+                part
+                {
+                        name: "button.fullscreen";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 0;
+                                params
+                                {
+                                        string: "icon" "calaos/icons/action_button/fullscreen";
+                                        string: "style" "calaos/action_button/blue";
+                                }
+                                rel1 { relative: 1.0 1.0; offset: -21-20 -21-20; to: "camera_border_decoration"; }
+                                rel2 { relative: 1.0 1.0; offset:  22-20  22-20; to: "camera_border_decoration"; }
+                        }
+                }
+
+
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "show_image";
+                        signal: "show,picture";
+                        source: "calaos";
+                        action: STATE_SET "visible" 0.0;
+                        transition: DECELERATE 0.4;
+                        target: "camera_clip";
+                }
+
+                program
+                {
+                        name: "hide_image";
+                        signal: "hide,picture";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.4;
+                        target: "camera_clip";
+                }
+
+                program
+                {
+                        name: "ptz_true";
+                        signal: "ptz,true";
+                        source: "calaos";
+                        action: STATE_SET "ptz" 0.0;
+//                         transition: DECELERATE 0.3;
+                        target: "camera_whole";
+                        target: "button_ptz_clip";
+                        target: "button_position_clip";
+                        after: "ptz_true_code";
+                }
+                program
+                {
+                        name: "ptz_true_code";
+                        script
+                        {
+                                set_int(is_ptz, 1);
+                        }
+                }
+
+                program
+                {
+                        name: "ptz_false";
+                        signal: "ptz,false";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+//                         transition: DECELERATE 0.3;
+                        target: "camera_whole";
+                        target: "button_ptz_clip";
+                        target: "button_position_clip";
+                        after: "ptz_false_code";
+                }
+                program
+                {
+                        name: "ptz_false_code";
+                        script
+                        {
+                                set_int(is_ptz, 0);
+                        }
+                }
+
+                program
+                {
+                        name: "zoom_true";
+                        signal: "zoom,true";
+                        source: "calaos";
+                        action: STATE_SET "visible" 0.0;
+//                         transition: DECELERATE 0.3;
+                        target: "button_ptz_zoom_clip";
+                }
+
+                program
+                {
+                        name: "zoom_false";
+                        signal: "zoom,false";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+//                         transition: DECELERATE 0.3;
+                        target: "button_ptz_zoom_clip";
+                }
+
+                program
+                {
+                        name: "fullscreen_click";
+                        signal: "pressed";
+                        source: "button.fullscreen";
+                        script
+                        {
+                                if (get_int(is_fullscreen) == 1)
+                                {
+                                        if (get_int(is_ptz) == 1)
+                                                run_program(PROGRAM:"fullscreen_unset_ptz");
+                                        else
+                                                run_program(PROGRAM:"fullscreen_unset_normal");
+                                        set_int(is_fullscreen, 0);
+                                }
+                                else
+                                {
+                                        if (get_int(is_ptz) == 1)
+                                                run_program(PROGRAM:"fullscreen_set_ptz");
+                                        else
+                                                run_program(PROGRAM:"fullscreen_set_normal");
+                                        set_int(is_fullscreen, 1);
+                                }
+                        }
+                }
+
+                program
+                {
+                        name: "fullscreen_set_normal";
+                        action: STATE_SET "fullscreen" 1.0;
+                        transition: DECELERATE 0.5;
+                        target: "camera_whole";
+                        target: "camera_mask";
+                        target: "button_ptz_clip";
+                }
+
+                program
+                {
+                        name: "fullscreen_set_ptz";
+                        action: STATE_SET "fullscreen" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "camera_whole";
+                        target: "camera_mask";
+                        target: "button_ptz_clip";
+                }
+
+                program
+                {
+                        name: "fullscreen_unset_normal";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "camera_whole";
+                        target: "camera_mask";
+                }
+
+                program
+                {
+                        name: "fullscreen_unset_ptz";
+                        action: STATE_SET "ptz" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "camera_whole";
+                        target: "camera_mask";
+                        target: "button_ptz_clip";
+                }
+        }
+}
+
+group
+{
+        name: "calaos/page/media/camera_select/position_save";
+
+        parts
+        {
+                part
+                {
+                        name: "text";
+                        type: TEXTBLOCK;
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 0.0 0.5; offset: 5  15; }
+                                rel2 { relative: 1.0 0.5; offset: -5 40; }
+                                text { align: 0.5 0.5; style: "StandardText"; text: "<center>Sauvegarde à la <light_blue>position #0</light_blue></center>"; }
+                        }
+                }
+
+                part
+                {
+                        name: "spinner";
+                        type: GROUP;
+                        source: "calaos/spinner/mini";
+                        description
+                        {
+                                rel1 { relative: 0.5 0.5; offset: -11 -11; }
+                                rel2 { relative: 0.5 0.5; offset:  10  10; }
+                        }
+                }
+        }
+
+        programs
+        {
+
+        }
+}

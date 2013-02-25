@@ -1,0 +1,742 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "elm/button/base/calaos/action_button/default";
+        alias: "elm/button/base/calaos/action_button/blue";
+
+        parts
+        {
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_glow.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/yellow";
+
+        parts
+        {
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_on_glow.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/red";
+
+        parts
+        {
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_warming_up_glow.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/green";
+
+        parts
+        {
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_scenario_play_glow.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/pink";
+
+        parts
+        {
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_impulse_glow.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/label";
+
+        parts
+        {
+                part
+                {
+                        name: "bg";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image.normal: "button_action_labeled_small.png";
+                                image.border: 7 7 5 5;
+                        }
+                }
+
+                part
+                {
+                        name: "elm.swallow.content";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image.normal: "button_action_labeled_glow.png";
+                                image.border: 7 7 5 5;
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "elm.text";
+                        type: TEXT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 231 231 231 180;
+                                text { text: "Button"; font: "CalaosContent"; size: 10; min: 0 0; align: 0.5 0.5; }
+                        }
+                }
+
+                part
+                {
+                        name: "event";
+                        type: RECT;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                        }
+                }
+
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "button_click";
+                        signal: "mouse,down,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,press" "";
+                        after: "button_click_anim";
+                }
+                program
+                {
+                        name: "button_click_anim";
+                        action: STATE_SET "touched" 0.0;
+                        transition: ACCELERATE 0.00001;
+                        target: "glow";
+                }
+                program
+                {
+                        name: "button_unclick";
+                        signal: "mouse,up,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,unpress" "";
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_pressed_anim";
+                        signal: "elm,anim,activate";
+                        source: "elm";
+                        after: "button_click_anim";
+                        after: "button_unpressed_anim";
+                }
+                program
+                {
+                        name: "button_unpressed_anim";
+                        in: 0.6 0.0;
+                        after: "button_unclick_anim";
+                }
+                program
+                {
+                        name: "button_unclick_anim";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "glow";
+                }
+                program
+                {
+                        name:   "button_unclick3";
+                        signal: "mouse,clicked,1";
+                        source: "event";
+                        action: SIGNAL_EMIT "elm,action,click" "";
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/label/back";
+        inherit: "elm/button/base/calaos/action_button/label";
+
+        parts
+        {
+                part
+                {
+                        name: "bg";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image.normal: "button_action_popup_back.png";
+                                image.border: 35 35 5 5;
+                        }
+                }
+
+                part
+                {
+                        name: "elm.text";
+                        type: TEXT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 231 231 231 180;
+                                rel1.offset: 9 0;
+                                text { text: "Button"; font: "CalaosContent"; size: 10; min: 0 0; align: 0.5 0.5; }
+                        }
+                }
+
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image.normal: "button_action_popup_back_glow.png";
+                                image.border: 35 35 5 5;
+                                visible: 0;
+                                color: 255 255 255 0;
+                                rel1.offset: -3 -3;
+                                rel2.offset:  2  2;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+        }
+}
+
+group
+{
+        name: "elm/button/base/calaos/action_button/small";
+        inherit: "elm/button/base/calaos/action_button/default";
+
+        parts
+        {
+                part
+                {
+                        name: "glow";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_action_glow_small.png"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "touched" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+        }
+}

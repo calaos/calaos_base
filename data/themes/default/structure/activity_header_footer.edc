@@ -1,0 +1,158 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+alias: "button.quit" "button_quit:button.quit";
+
+part
+{
+        name: "content_clip";
+        type: RECT;
+        description
+        {
+                state: "default" 0.0;
+                visible: 1;
+                color: 255 255 255 255;
+        }
+}
+
+part
+{
+        name: "header_img";
+        clip_to: "content_clip";
+        description
+        {
+                state: "default" 0.0;
+                image.normal: "module_header.png";
+                rel1 { relative: 0.0 0.0; offset:  0 0; }
+                rel2 { relative: 1.0 0.0; offset: -1 63; }
+        }
+        description
+        {
+                state: "visible" 0.0;
+                image.normal: "module_header.png";
+                rel1 { relative: 0.0 0.0; offset:  0 0; }
+                rel2 { relative: 1.0 0.0; offset: -1 53; }
+        }
+}
+
+part
+{
+        name: "module_header_shadows";
+        clip_to: "content_clip";
+        description
+        {
+                state: "default" 0.0;
+                image { normal: "module_header_shadow.png"; }
+                rel1 { relative: 0.0  1.0; offset:  0 0;}
+                rel2 { relative: 1.0  1.0; offset: -1 9;}
+                rel1.to: "header_img";
+                rel2.to: "header_img";
+                color: 255 255 255 150;
+        }
+}
+
+part
+{
+        name, "header.label";
+        clip_to: "content_clip";
+        type: TEXT;
+        description
+        {
+                state, "default" 0.0;
+                align: 0.5 0.5;
+                rel1.to: "header_img";
+                rel2.to: "header_img";
+                color: 231 231 231 255;
+                text { text: "Module name"; font: "CalaosContent"; size: 20; min: 1 1; }
+        }
+}
+
+part
+{
+        name: "module_footer_shadows";
+        clip_to: "content_clip";
+        description
+        {
+                state: "default" 0.0;
+                image { normal: "module_footer_shadow.png"; }
+                rel1 { relative: 0.0  0.0; offset:  0 -11;}
+                rel2 { relative: 1.0  0.0; offset: -1 -1;}
+                rel1.to: "module_footer_background";
+                rel2.to: "module_footer_background";
+                color: 255 255 255 150;
+        }
+}
+
+part
+{
+        name: "module_footer_background";
+        clip_to: "content_clip";
+        description
+        {
+                state: "default" 0.0;
+                image { normal: "module_footer.png"; }
+                rel1 { relative: 0.0  1.0; offset:  0 -65;}
+                rel2 { relative: 1.0  1.0; offset: -1  -1;}
+        }
+        description
+        {
+                state: "visible" 0.0;
+                inherit: "default" 0.0;
+                rel1 { relative: 0.0  1.0; offset:  0 -55;}
+                rel2 { relative: 1.0  1.0; offset: -1   0;}
+        }
+}
+
+part
+{
+        name: "button_quit";
+        clip_to: "content_clip";
+        type: GROUP;
+        source: "button.quit";
+        description
+        {
+                state: "default" 0.0;
+                rel1 { relative: 1.0 0.0; offset: -125 10; }
+                rel2 { relative: 1.0 0.0; offset: -10 44; }
+                rel1.to: "module_footer_background";
+                rel2.to: "module_footer_background";
+        }
+}
+
+part
+{
+        name: "content_size";
+        type: RECT;
+        description
+        {
+                state: "default" 0.0;
+                visible: 0;
+                rel1 { relative: 0.0 1.0; offset: 0 -1; }
+                rel2 { relative: 1.0 0.0; offset: -1 0; }
+                rel1.to_y: "header_img";
+                rel2.to_y: "module_footer_background";
+        }
+}
+
+program
+{
+        name: "on_show_footer_header";
+        signal: "show";
+        source: "calaos";
+        action: STATE_SET "visible" 0.0;
+        transition: DECELERATE 0.35;
+        target: "header_img";
+        target: "module_footer_background";
+}
+
+program
+{
+        name: "on_hide_footer_header";
+        signal: "hide";
+        action: STATE_SET "default" 0.0;
+        target: "header_img";
+        target: "module_footer_background";
+}
+

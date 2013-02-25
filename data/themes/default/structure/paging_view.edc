@@ -1,0 +1,107 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "calaos/paging_view";
+
+        parts
+        {
+                part
+                {
+                        name: "pager.swallow";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel2.offset: -1 -30;
+                        }
+                }
+
+                part
+                {
+                        name: "selector.swallow";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1.relative: 0.0 1.0;
+                                rel1.offset: 0 -30;
+                        }
+                }
+        }
+}
+
+group
+{
+        name: "calaos/paging_view/selector";
+        min: 18 24;
+        max: 18 24;
+        
+        parts
+        {
+                part
+                {
+                        name: "select";
+                        description
+                        {
+                                state: "default" 0.0;
+                                min: 7 7;
+                                max: 7 7;
+                                align: 0.5 0.5;
+                                fixed: 1 1;
+                                image.normal: "selector_on.png";
+                                color: 0 0 0 0;
+                        }
+                        description
+                        {
+                                state: "off" 0.0;
+                                inherit: "default" 0.0;
+                        }
+                        description
+                        {
+                                state: "on" 0.0;
+                                inherit: "default" 0.0;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "unselect";
+                        description
+                        {
+                                state: "default" 0.0;
+                                min: 7 7;
+                                max: 7 7;
+                                align: 0.5 0.5;
+                                fixed: 1 1;
+                                image.normal: "selector_off.png";
+                        }
+                }
+        }
+        
+        programs
+        {
+                program
+                {
+                        name: "select";
+                        signal: "select";
+                        source: "calaos";
+                        action: STATE_SET "on" 0.0;
+                        target: "select";
+                        transition: ACCELERATE 0.2;
+                }
+                program
+                {
+                        name: "unselect";
+                        signal: "unselect";
+                        source: "calaos";
+                        action: STATE_SET "off" 0.0;
+                        target: "select";
+                        transition: DECELERATE 0.2;
+                }
+        }
+}

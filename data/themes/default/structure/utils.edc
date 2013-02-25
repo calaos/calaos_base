@@ -1,0 +1,77 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+#define ELM_BUTTON(_name, _label, _icon) \
+group \
+{ \
+        name: _name; \
+        parts \
+        { \
+                part \
+                { \
+                        name: _name; \
+                        type: EXTERNAL; \
+                        source: "elm/button"; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                fixed: 1 0; \
+                                params \
+                                { \
+                                        string: "label" _label; \
+                                        string: "icon" _icon; \
+                                        string: "style" "calaos/activity/footer"; \
+                                } \
+                        } \
+                } \
+        } \
+}
+
+#define ELM_BUTTON_STYLE(_name, _label, _style) \
+group \
+{ \
+        name: _name; \
+        parts \
+        { \
+                part \
+                { \
+                        name: _name; \
+                        type: EXTERNAL; \
+                        source: "elm/button"; \
+                        description \
+                        { \
+                                state: "default" 0.0; \
+                                fixed: 1 0; \
+                                params \
+                                { \
+                                        string: "label" _label; \
+                                        string: "style" _style; \
+                                } \
+                        } \
+                } \
+        } \
+}
+
+
+//Sizer group for boxes
+group
+{
+        name: "sizer";
+
+        parts
+        {
+                part
+                {
+                        name: "rect";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 213 45 222 180;
+                        }
+                }
+        }
+}

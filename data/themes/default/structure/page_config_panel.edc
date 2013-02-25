@@ -1,0 +1,34 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "calaos/page/config";
+
+        parts
+        {
+                #include "activity_header_footer.edc"
+
+                part
+                {
+                        name: "text";
+                        clip_to: "content_clip";
+                        type: TEXT;
+                        description
+                        {
+                                state, "default" 0.0;
+                                visible: 1;
+                                text { text: "Text Part Config Panel"; font: "CalaosContentBold"; size: 20; min: 0 0; align: 0.5 0.8; }
+                                color: 95 95 95 255;
+                        }
+                }
+        }
+
+        programs
+        {
+
+        }
+
+}

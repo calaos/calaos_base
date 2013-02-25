@@ -1,0 +1,643 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "calaos/page/widgets";
+
+        parts
+        {
+                part
+                {
+                        name: "content_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                        description
+                        {
+                                state: "faded" 0.0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "overlay";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                                visible: 0;
+                        }
+                        description
+                        {
+                                state: "faded" 0.0;
+                                color: 0 0 0 75;
+                                visible: 1;
+                        }
+                }
+
+                part
+                {
+                        name: "widgets.swallow";
+                        clip_to: "content_clip";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        signal: "fade";
+                        source: "calaos";
+                        action: STATE_SET "faded" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "content_clip";
+                        target: "overlay";
+                }
+
+                program
+                {
+                        signal: "normal";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: ACCELERATE 0.2;
+                        target: "content_clip";
+                        target: "overlay";
+                }
+        }
+}
+
+group
+{
+        name: "calaos/widget/base";
+
+        parts
+        {
+                part
+                {
+                        name: "back";
+                        description
+                        {
+                                state: "deafult" 0.0;
+                                visible: 0;
+                                color: 255 255 255 0;
+                                image { normal: "widget_back_edit.png"; border: 62 70 65 64; }
+                                rel1 { relative: 0.0 0.0; offset: -10 -2; }
+                                rel2 { relative: 1.0 1.0; offset: 9 44; }
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "widget";
+                        type: SWALLOW;
+                        repeat_events: 1;
+                        description
+                        {
+                                state: "default" 0.0;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_button_up";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image.normal: "button_widget_move_up.png";
+                                min: 23 18;
+                                max: 23 18;
+                                rel1 { relative: 0.5 0.0; offset: 0 -17; to: "back"; }
+                                rel2 { relative: 0.5 0.0; offset: 0 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+                part
+                {
+                        name: "widget_button_up_big";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_up_big.png";}
+                                min: 23 18;
+                                max: 23 18;
+                                rel1 { relative: 0.5 0.0; offset: 0 -17; to: "back"; }
+                                rel2 { relative: 0.5 0.0; offset: 0 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.5 0.0; offset: 0 -35; to: "back"; }
+                                rel2 { relative: 0.5 0.0; offset: 0 -18; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "anim_end" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.5 0.0; offset: 0 -18; to: "back"; }
+                                rel2 { relative: 0.5 0.0; offset: 0 0; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_button_down";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_down.png";}
+                                min: 23 18;
+                                max: 23 18;
+                                rel1 { relative: 0.5 1.0; offset: 0 0; to: "back"; }
+                                rel2 { relative: 0.5 1.0; offset: 0 17; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+                part
+                {
+                        name: "widget_button_down_big";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_down_big.png";}
+                                min: 23 18;
+                                max: 23 18;
+                                rel1 { relative: 0.5 1.0; offset: 0 0; to: "back"; }
+                                rel2 { relative: 0.5 1.0; offset: 0 17; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.5 1.0; offset: 0 18; to: "back"; }
+                                rel2 { relative: 0.5 1.0; offset: 0 35; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "anim_end" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.5 1.0; offset: 0 0; to: "back"; }
+                                rel2 { relative: 0.5 1.0; offset: 0 17; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_button_left";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_left.png";}
+                                min: 18 23;
+                                max: 18 23;
+                                rel1 { relative: 0.0 0.5; offset: -17 0; to: "back"; }
+                                rel2 { relative: 0.0 0.5; offset: 0 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+                part
+                {
+                        name: "widget_button_left_big";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_left_big.png";}
+                                min: 18 23;
+                                max: 18 23;
+                                rel1 { relative: 0.0 0.5; offset: -17 0; to: "back"; }
+                                rel2 { relative: 0.0 0.5; offset: 0 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: -35 0; to: "back"; }
+                                rel2 { relative: 0.0 0.5; offset: -18 0; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "anim_end" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 0.0 0.5; offset: -17 0; to: "back"; }
+                                rel2 { relative: 0.0 0.5; offset: 0 0; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_button_right";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_right.png";}
+                                min: 18 23;
+                                max: 18 23;
+                                rel1 { relative: 1.0 0.5; offset: 0 0; to: "back"; }
+                                rel2 { relative: 1.0 0.5; offset: 17 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+                part
+                {
+                        name: "widget_button_right_big";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_move_right_big.png";}
+                                min: 18 23;
+                                max: 18 23;
+                                rel1 { relative: 1.0 0.5; offset: 0 0; to: "back"; }
+                                rel2 { relative: 1.0 0.5; offset: 17 0; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: 18 0; to: "back"; }
+                                rel2 { relative: 1.0 0.5; offset: 35 0; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "anim_end" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 1.0 0.5; offset: 0 0; to: "back"; }
+                                rel2 { relative: 1.0 0.5; offset: 17 0; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "buttons_edit_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 0;
+                                color: 255 255 255 0;
+                                rel1 { relative: 0.0 1.0; offset: 0 5; }
+                                rel2 { relative: 1.0 1.0; offset: 0 40; }
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_drag_icon";
+                        description
+                        {
+                                state: "default" 0.0;
+                                image { normal: "button_widget_resize.png";}
+                                min: 38 38;
+                                max: 38 38;
+                                rel1 { relative: 1.0 1.0; offset: -25 -25; to: "back"; }
+                                rel2 { relative: 1.0 1.0; offset: 11 11; to: "back"; }
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim2" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 1.0 1.0; offset: -27 -27; to: "back"; }
+                                rel2 { relative: 1.0 1.0; offset: 9 9; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "anim1" 0.0;
+                                inherit: "default" 0.0;
+                                rel1 { relative: 1.0 1.0; offset: -23 -23; to: "back"; }
+                                rel2 { relative: 1.0 1.0; offset: 13 13; to: "back"; }
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "widget_drag_move";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                                visible: 0;
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                        }
+                }
+
+                part
+                {
+                        name: "widget.resize.bloc";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                color: 0 0 0 0;
+                                visible: 0;
+                                rel1 { relative: 1.0 1.0; offset: -28 -28; to: "back"; }
+                                rel2 { relative: 1.0 1.0; offset: 15 15; to: "back"; }
+                        }
+                        description
+                        {
+                                state: "move" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                        }
+                }
+
+                part
+                {
+                        name: "button.delete";
+                        type: EXTERNAL;
+                        source: "elm/button";
+                        clip_to: "buttons_edit_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.0 0.0; offset: 0 0; to: "buttons_edit_clip"; }
+                                rel2 { relative: 0.0 0.0; offset: 33 33; to: "buttons_edit_clip"; }
+                                params
+                                {
+                                        string: "style" "calaos/action_button/small";
+                                        string: "icon" "calaos/icons/button/delete";
+                                }
+                        }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "begin_move";
+                        signal: "widget,edit";
+                        source: "calaos";
+                        action: STATE_SET "move" 0.0;
+                        transition: DECELERATE 0.8;
+                        target: "buttons_edit_clip";
+                        target: "back";
+                        target: "widget_button_up";
+                        target: "widget_button_up_big";
+                        target: "widget_button_down";
+                        target: "widget_button_down_big";
+                        target: "widget_button_left";
+                        target: "widget_button_left_big";
+                        target: "widget_button_right";
+                        target: "widget_button_right_big";
+                        target: "widget_drag_move";
+                        after: "start_move_anim";
+                }
+
+                program
+                {
+                        name: "begin_resize";
+                        signal: "widget,resizable";
+                        source: "calaos";
+                        action: STATE_SET "move" 0.0;
+                        transition: DECELERATE 0.8;
+                        target: "widget_drag_icon";
+                        target: "widget.resize.bloc";
+                        after: "start_resize_anim";
+                }
+
+                program
+                {
+                        name: "end_move";
+                        signal: "widget,normal";
+                        source: "calaos";
+                        after: "mode_normal2";
+                        after: "mode_normal3";
+                }
+
+                program
+                {
+                        name: "mode_normal2";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.8;
+                        target: "buttons_edit_clip";
+                        target: "back";
+                        target: "widget_button_up";
+                        target: "widget_button_up_big";
+                        target: "widget_button_down";
+                        target: "widget_button_down_big";
+                        target: "widget_button_left";
+                        target: "widget_button_left_big";
+                        target: "widget_button_right";
+                        target: "widget_button_right_big";
+                        target: "widget_drag_move";
+                        target: "widget_drag_icon";
+                        target: "widget.resize.bloc";
+                }
+
+                program
+                {
+                        name: "mode_normal3";
+                        action: ACTION_STOP;
+                        target: "start_move_anim";
+                        target: "start_move_anim2";
+                        target: "start_move_anim3";
+                        target: "start_resize_anim";
+                        target: "start_resize_anim2";
+                }
+
+                program
+                {
+                        name: "start_move_anim";
+                        action: STATE_SET "anim" 0.0;
+                        transition: DECELERATE 0.7;
+                        target: "widget_button_up_big";
+                        target: "widget_button_down_big";
+                        target: "widget_button_left_big";
+                        target: "widget_button_right_big";
+                        after: "start_move_anim2";
+                }
+
+                program
+                {
+                        name: "start_move_anim2";
+                        action: STATE_SET "anim_end" 0.0;
+                        target: "widget_button_up_big";
+                        target: "widget_button_down_big";
+                        target: "widget_button_left_big";
+                        target: "widget_button_right_big";
+                        after: "start_move_anim3";
+                }
+
+                program
+                {
+                        name: "start_move_anim3";
+                        action: STATE_SET "move" 0.0;
+                        transition: DECELERATE 0.1;
+                        target: "widget_button_up_big";
+                        target: "widget_button_down_big";
+                        target: "widget_button_left_big";
+                        target: "widget_button_right_big";
+                        after: "start_move_anim";
+                }
+
+                program
+                {
+                        name: "start_resize_anim";
+                        action: STATE_SET "anim1" 0.0;
+                        transition: LINEAR 0.35;
+                        target: "widget_drag_icon";
+                        after: "start_resize_anim2";
+                }
+
+                program
+                {
+                        name: "start_resize_anim2";
+                        action: STATE_SET "anim2" 0.0;
+                        transition: LINEAR 0.35;
+                        target: "widget_drag_icon";
+                        after: "start_resize_anim";
+                }
+
+                program
+                {
+                        name: "start_move";
+                        signal: "mouse,down,1";
+                        source: "widget_drag_move";
+                        action: SIGNAL_EMIT "start,move" "widget";
+                }
+
+                program
+                {
+                        name: "moving";
+                        signal: "mouse,move";
+                        source: "widget_drag_move";
+                        action: SIGNAL_EMIT "moving" "widget";
+                }
+
+                program
+                {
+                        name: "stop_move";
+                        signal: "mouse,up,1";
+                        source: "widget_drag_move";
+                        action: SIGNAL_EMIT "stop,move" "widget";
+                }
+        }
+}

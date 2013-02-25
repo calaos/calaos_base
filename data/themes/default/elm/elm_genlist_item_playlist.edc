@@ -1,0 +1,186 @@
+//Calaos Home Theme
+//Copyright 2011 Calaos
+//All graphics are copyrighted materials.
+//You can't modify/distribute/sell it for any purpose.
+
+group
+{
+        name: "elm/genlist/item/playlist/default";
+        alias: "elm/genlist/item_compress/playlist/default";
+
+        data.item: "selectraise" "on";
+        data.item: "texts" "text";
+        data.item: "contents" "calaos.button.play calaos.button.more track.cover";
+
+        parts
+        {
+                part
+                {
+                        name: "item_back";
+                        description
+                        {
+                                state: "default" 0.0;
+                                min: 50 42;
+                                fixed: 0 0;
+                                image { normal: "button_element.png"; border: 11 11 14 14; }
+                                color: 255 255 255 105;
+                        }
+                }
+
+                part
+                {
+                        name: "track_icon_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                        description
+                        {
+                                state: "cover" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                }
+
+                part
+                {
+                        name: "track_icon";
+                        clip_to: "track_icon_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 0.0  0.5; offset: 6    -8; }
+                                rel2 { relative: 0.0  0.5; offset: 6+21  7; }
+                                image.normal: "icon_sound.png";
+                        }
+                }
+
+                part
+                {
+                        name: "track_cover_clip";
+                        type: RECT;
+                        description
+                        {
+                                state: "default" 0.0;
+                                visible: 0;
+                                color: 255 255 255 0;
+                        }
+                        description
+                        {
+                                state: "cover" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 1;
+                                color: 255 255 255 255;
+                        }
+                }
+
+                part
+                {
+                        name: "cover_border";
+                        type: RECT;
+                        clip_to: "track_cover_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { offset: -1 -1; to: "track.cover"; }
+                                rel2 { offset:  0  0; to: "track.cover"; }
+                                color: 255 255 255 46;
+                        }
+                }
+
+                part
+                {
+                        name: "track.cover";
+                        type: SWALLOW;
+                        clip_to: "track_cover_clip";
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 0.0  0.5; offset: 6    -11; }
+                                rel2 { relative: 0.0  0.5; offset: 6+23  11; }
+                        }
+                }
+
+                part
+                {
+                        name: "calaos.button.play";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 1.0  0.5; offset: -33-3 -14; }
+                                rel2 { relative: 1.0  0.5; offset: -3     13; }
+                        }
+                }
+
+                part
+                {
+                        name: "calaos.button.more";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                fixed: 1 1;
+                                rel1 { relative: 1.0  0.5; offset: -34-3-3-30 -12; }
+                                rel2 { relative: 1.0  0.5; offset: -34-3-3     11; }
+                        }
+                }
+
+                alias: "text" "item_text:text";
+                part
+                {
+                        name: "item_text";
+                        type: GROUP;
+                        source: "calaos/text/scrolling/left";
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 1.0 0.5; offset:  8 -14; }
+                                rel2 { relative: 0.0 0.5; offset: -8  13; }
+                                rel1.to_x: "cover_border";
+                                rel2.to_x: "calaos.button.more";
+                        }
+                }
+        }
+
+        programs
+        {
+                SCROLLING_TEXT_SIGNAL_REPEAT(item_text)
+
+                program
+                {
+                        name: "on_show";
+                        signal: "show";
+                        action: SIGNAL_EMIT "text,inactive" "calaos";
+                }
+
+                program
+                {
+                        name: "show_icon";
+                        signal: "icon";
+                        source: "calaos";
+                        action: STATE_SET "default" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "track_cover_clip";
+                        target: "track_icon_clip";
+                }
+
+                program
+                {
+                        name: "show_cover";
+                        signal: "cover";
+                        source: "calaos";
+                        action: STATE_SET "cover" 0.0;
+                        transition: DECELERATE 0.5;
+                        target: "track_cover_clip";
+                        target: "track_icon_clip";
+                }
+        }
+}
