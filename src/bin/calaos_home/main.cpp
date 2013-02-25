@@ -32,9 +32,6 @@ int main(int argc, char **argv)
 	curlocale = curlocale ? 
 	  curlocale :
 	  setlocale(LC_ALL, "C");
-	curlocale ?
-	  strdup(curlocale) :
-	  NULL;
 	printf("Current locale : %s\n", curlocale);
 	bindtextdomain(PACKAGE, LOCALE_DIR);
 	textdomain(PACKAGE);
