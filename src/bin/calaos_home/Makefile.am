@@ -23,7 +23,7 @@ AM_CXXFLAGS = \
 @CALAOS_HOME_CFLAGS@ \
 -DETC_DIR=\"/etc\" \
 -DLIBMBUS \
--DTHEME_DIR=\"/usr/share/calaos\"
+-DTHEME_DIR=\"$(datadir)/calaos\"
 
 bin_PROGRAMS = calaos_home
 
