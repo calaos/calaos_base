@@ -21,8 +21,6 @@
 #ifndef BASEVIEW_H
 #define BASEVIEW_H
 
-#include "config.h"
-
 #include <Utils.h>
 
 #include <Eina.h>

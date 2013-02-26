@@ -21,8 +21,6 @@
 #ifndef ACTIVITYCONTROLLER_H
 #define ACTIVITYCONTROLLER_H
 
-#include "config.h"
-
 #include <Utils.h>
 
 #include <Eina.h>
