@@ -1,6 +1,6 @@
-## Process this file with automake to produce Makefile.in
+ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = po po src data
+SUBDIRS = po src data
 
 MAINTAINERCLEANFILES = \
 Makefile.in \
@@ -8,6 +8,7 @@ aclocal.m4 \
 config.guess \
 config.h.in \
 config.h.in~ \
+config.rpath \
 config.sub \
 configure \
 depcomp \
@@ -21,16 +22,26 @@ m4/libtool.m4 \
 m4/lt~obsolete.m4 \
 m4/ltoptions.m4 \
 m4/ltsugar.m4 \
-m4/ltversion.m4
+m4/ltversion.m4 \
+po/boldquot.sed \
+po/calaos.pot \
+po/en@boldquot.header \
+po/en@boldquot.po \
+po/en@quot.header \
+po/en@quot.po \
+po/insert-header.sin \
+po/Makefile.in.in \
+po/Makevars.template \
+po/quot.sed \
+po/remove-potcdate.sin \
+po/Rules-quot
+
 
 EXTRA_DIST = \
 AUTHORS \
 COPYING \
 README \
 autogen.sh \
-config.rpath \
-mkinstalldirs \
-m4/Makefile.in \
 src/lib/gettext.h
 
 check-gettext:

@@ -21,8 +21,8 @@ AC_SYS_LARGEFILE
 LT_PREREQ([2.2])
 LT_INIT([win32-dll])
 
-AM_GNU_GETTEXT([external])
 AM_GNU_GETTEXT_VERSION([0.18.1])
+AM_GNU_GETTEXT([external])
 
 ### Needed information
 

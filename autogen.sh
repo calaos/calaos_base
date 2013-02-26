@@ -3,7 +3,7 @@
 rm -rf autom4te.cache
 rm -f aclocal.m4 ltmain.sh
 
-autoreconf -f -i
+autoreconf -vif
 
 if [ -z "$NOCONFIGURE" ]; then
 	./configure "$@"
