@@ -1,0 +1,33 @@
+Source: calaos
+Section:  miscellaneous
+Priority: optional
+Maintainer: Nicolas Aguirre <aguirre.nicolas@gmail.com>
+Build-Depends: debhelper (>= 6), cdbs, libtool, pkg-config,
+ libelementary-dev, libecore-dev, libedje-dev, libefreet-dev,
+ libvmime-dev, libjansson-dev, liblog4cpp5-dev
+Standards-Version: 3.8.2
+Vcs-Git: https://github.com/calaos/calaos_base
+Vcs-Browser: https://github.com/calaos/calaos_base
+Homepage: http://www.calaos.fr
+
+Package: calaos-server
+Architecture: any
+Depends: ${shlibs:Depends}, libecore, libvmime0,
+ libjansson4, liblog4cpp5	
+Description: Calaos is a powerful home automation software.
+ It features a complete set of part to automate your house
+ from lights to shutter or even music or cameras.
+ Calaos uses the Enlightenment Foundation Libraries to power
+ its amazing touchscreen interface.
+ This is the base backage for the server
+
+Package: calaos-home
+Architecture: any
+Depends: ${shlibs:Depends}, lielementary, libvmime0,
+ libjansson4, liblog4cpp5
+Description: Calaos is a powerful home automation software.
+ It features a complete set of part to automate your house
+ from lights to shutter or even music or cameras.
+ Calaos uses the Enlightenment Foundation Libraries to power
+ its amazing touchscreen interface.
+ This is the base backage for the touchscreen client

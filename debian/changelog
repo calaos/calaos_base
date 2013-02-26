@@ -1,0 +1,5 @@
+calaos (2.0.0-1ppa1~quantal) quantal; urgency=low
+
+  * Initial version of package (2.0.0)
+
+ -- Nicolas Aguirre <aguirre.nicolas@gmail.com>  Tue, 26 Feb 2013 08:08:58 +0100
