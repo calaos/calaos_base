@@ -22,13 +22,18 @@
 #include "config.h"
 #endif
 
-#include "gettext.h"
+#ifdef ENABLE_NLS
+# include <libintl.h>
+#endif
+
 #include "ApplicationMain.h"
 
 using namespace Utils;
 
 int main(int argc, char **argv)
 {
+
+#ifdef ENABLE_NLS
 	/* Set the locale defined by the system */
 	char *curlocale = setlocale(LC_ALL, "");
 	curlocale = curlocale ? 
@@ -37,7 +42,7 @@ int main(int argc, char **argv)
 	printf("Current locale : %s\n", curlocale);
 	bindtextdomain(PACKAGE, LOCALE_DIR);
 	textdomain(PACKAGE);
-
+#endif
         Utils::InitLoggingSystem(string(DEFAULT_CONFIG_PATH) + "calaos_gui_log.conf");
 
         try

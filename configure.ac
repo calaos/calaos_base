@@ -14,8 +14,23 @@ AC_SYS_LARGEFILE
 LT_PREREQ([2.2])
 LT_INIT([win32-dll])
 
-AM_GNU_GETTEXT_VERSION([0.18.1])
+AM_GNU_GETTEXT_VERSION([0.17])
+
+m4_ifdef([AM_GNU_GETTEXT], [
 AM_GNU_GETTEXT([external])
+po_makefile_in=po/Makefile.in
+have_po="yes"
+],[
+have_po="no"
+])
+AC_SUBST(LTLIBINTL)
+
+if test "x${POSUB}" = "x" ; then
+   have_po="no"
+fi
+
+AM_CONDITIONAL([HAVE_PO], [test "x${have_po}" = "xyes"])
+
 
 ### Needed information
 
@@ -47,7 +62,7 @@ AC_SUBST([requirements_calaos_home])
 AC_C_BIGENDIAN
 AC_C_INLINE
 
-EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wshadow -Wdeclaration-after-statement -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
+EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall])
 
 ### Checks for header files
 AC_HEADER_ASSERT
