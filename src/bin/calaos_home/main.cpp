@@ -18,10 +18,12 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#include "ApplicationMain.h"
-
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
 #include "gettext.h"
+#include "ApplicationMain.h"
 
 using namespace Utils;
 

@@ -18,11 +18,14 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "ApplicationMain.h"
 
 #include <openssl/ssl.h>
 #include <curl/curl.h>
-#include "config.h"
 
 string ApplicationMain::theme = THEME_DIR"/default.edj";
 
