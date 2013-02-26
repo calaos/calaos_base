@@ -25,14 +25,14 @@ using namespace Calaos;
 
 WOVolet::WOVolet(Params &p):
                 Output(p),
-                port(502),
                 sens(VSTOP),
                 old_sens(VUP),
-                state_volet("true"),
-                timer_impulse(NULL),
+                port(502),
                 timer_end(NULL),
+                timer_impulse(NULL),
                 timer_up(NULL),
-                timer_down(NULL)
+                timer_down(NULL),
+                state_volet("true")
 {
         host = get_param("host");
         if (get_params().Exists("port"))

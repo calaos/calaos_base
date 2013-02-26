@@ -26,8 +26,8 @@ using namespace Calaos;
 WIDigitalTriple::WIDigitalTriple(Params &p):
                 Input(p),
                 port(502),
-                value(0.0),
                 count(0),
+                value(0.0),
                 timer(NULL)
 {
         host = get_param("host");

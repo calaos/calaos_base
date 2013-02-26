@@ -123,7 +123,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
         {
                 vector<string> res;
                 Utils::split(caps["resolution"], res, " ");
-                for (int i = 0;i < res.size();i++)
+                for (uint i = 0;i < res.size();i++)
                 {
                         if (value == res[i])
                                 resolution = value;

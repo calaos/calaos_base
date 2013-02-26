@@ -26,10 +26,10 @@ using namespace Utils;
 
 WOAnalog::WOAnalog(Params &p):
                 Output(p),
-                port(502),
                 value(-1),
                 real_value_max(0.0),
-                wago_value_max(0.0)
+                wago_value_max(0.0),
+                port(502)
 {
         readConfig();
 

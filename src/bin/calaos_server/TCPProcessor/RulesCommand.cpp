@@ -48,7 +48,7 @@ void TCPConnection::RulesCommand(Params &request, ProcessDone_cb callback)
                                         rtype[rule->get_type()] = 1;
                         }
 
-                        for (int i = 0;i < rtype.size();i++)
+                        for (uint i = 0;i < rtype.size();i++)
                         {
                                 int num = i;
                                 std::string key;
@@ -155,7 +155,7 @@ void TCPConnection::RulesCommand(Params &request, ProcessDone_cb callback)
                         int num;
                         Utils::from_string(request["3"], num);
 
-                        if (num < 0 || num >= list.size())
+                        if (num < 0 || num >= (int)list.size())
                         {
                                 //clean Params var
                                 for (int i = 2;i < request.size();i++)

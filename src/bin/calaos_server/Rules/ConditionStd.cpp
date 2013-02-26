@@ -43,7 +43,7 @@ void ConditionStd::Add(Input *in)
 
 void ConditionStd::getVarIds(vector<Input *> &list)
 {
-        for (int i = 0;i < inputs.size();i++)
+        for (uint i = 0;i < inputs.size();i++)
         {
                 std::string var_id = params_var[inputs[i]->get_param("id")];
                 if (var_id.empty()) continue;
@@ -64,7 +64,7 @@ bool ConditionStd::Evaluate()
         double dval;
         bool ret = false;
 
-        for (int i = 0;i < inputs.size();i++)
+        for (uint i = 0;i < inputs.size();i++)
         {
                 bool ovar = false;
                 bool changed = false;
@@ -347,7 +347,7 @@ bool ConditionStd::SaveToXml(TiXmlElement *node)
         cond_node->SetAttribute("type", "standard");
         node->LinkEndChild(cond_node);
 
-        for (int i = 0;i < inputs.size();i++)
+        for (uint i = 0;i < inputs.size();i++)
         {
                 Input *in = inputs[i];
 

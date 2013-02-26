@@ -33,8 +33,6 @@ OWTemp::OWTemp(Params &p):
                 value(0.0),
                 timer(0.0)
 {
-        char *res;
-        size_t len;
         std::string tmp;
 
         ow_id = get_param("ow_id");

@@ -29,8 +29,8 @@ WODali::WODali(Params &_p):
                 old_value(100),
                 port(502),
                 hold_timer(NULL),
-                press_sens(false),
                 press_detected(false),
+                press_sens(false),
                 stop_after_press(false)
 {
         host = get_param("host");

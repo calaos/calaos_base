@@ -25,8 +25,8 @@
 using namespace Calaos;
 
 InPlageHoraire::InPlageHoraire(Params &p):
-                value(false),
-                Input(p)
+        Input(p),
+        value(false)
 {
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop
         Utils::logger("input") << Priority::DEBUG << "InPlageHoraire::InPlageHoraire(" << get_param("id") << "): Ok" << log4cpp::eol;
@@ -55,7 +55,7 @@ void InPlageHoraire::clear()
 void InPlageHoraire::hasChanged()
 {
         bool val = false;
-        vector<TimeRange> *plage;
+        vector<TimeRange> *plage = NULL;
 
         struct tm *ctime = NULL;
         time_t t = time(NULL);
@@ -73,8 +73,10 @@ void InPlageHoraire::hasChanged()
           default: break;
         }
 
-        bool tmp = false;
-        for (int i = 0;i < plage->size();i++)
+        if (!plage)
+                return;
+
+        for (uint i = 0;i < plage->size();i++)
         {
                 TimeRange &h = (*plage)[i];
 
@@ -266,7 +268,7 @@ void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange>
         TiXmlElement *day_node = new TiXmlElement(string("calaos:") + day);
         node->LinkEndChild(day_node);
 
-        for (int i = 0;i < plage.size();i++)
+        for (uint i = 0;i < plage.size();i++)
         {
                 TiXmlElement *period_node = new TiXmlElement("calaos:plage");
                 day_node->LinkEndChild(period_node);

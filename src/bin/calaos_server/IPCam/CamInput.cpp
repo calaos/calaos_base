@@ -25,7 +25,8 @@
 using namespace Calaos;
 
 CamInput::CamInput(Params &p, IPCam *_cam):
-        cam(_cam), Input(p)
+        Input(p),
+        cam(_cam)
 {
         Utils::logger("input") << Priority::INFO << "CamInput::CamInput(): Ok" << log4cpp::eol;
 }

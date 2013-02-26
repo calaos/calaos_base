@@ -57,6 +57,7 @@ void EchoUsage(char **argv)
         cout << "-h, --help\tDisplay this help.\n\n";
 }
 
+#ifdef HAVE_BREAKPAD
 static bool dumpCallback(const char* dump_path,
                          const char* minidump_id,
                          void* context,
@@ -69,9 +70,11 @@ static bool dumpCallback(const char* dump_path,
 
         //Gather system informations and compress it.
         int unused = system(cmd.c_str());
+        (void)unused;
 
         return succeeded;
 }
+#endif
 
 int main (int argc, char **argv)
 {
@@ -89,9 +92,11 @@ int main (int argc, char **argv)
         //Changes the default folder for config files
         char *buf = new char[PATH_MAX];
         char *unused = getcwd(buf, PATH_MAX);
+        (void)unused;
         string current_path = buf;
         delete[] buf;
         int unused2 = chdir(ETC_DIR);
+        (void)unused2;
 
         Config::Instance().LoadConfigIO();
         Config::Instance().LoadConfigRule();

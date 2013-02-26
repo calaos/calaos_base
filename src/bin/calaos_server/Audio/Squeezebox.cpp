@@ -310,7 +310,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                 isConnected = true;
                 Utils::logger("squeezebox") << Priority::DEBUG << "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
 
-                for(int i = 0; i < tokens.size(); i++)
+                for(uint i = 0; i < tokens.size(); i++)
                         processNotificationMessage(tokens[i]);
         }
         else if (srv == econ)
@@ -344,7 +344,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
 
                 Utils::logger("squeezebox") << Priority::DEBUG << "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
 
-                for(int i = 0; i < tokens.size(); i++)
+                for(uint i = 0; i < tokens.size(); i++)
                         processMessage(true, tokens[i]);
         }
         else
@@ -1023,7 +1023,7 @@ void Squeezebox::get_album_cover_std2_cb(bool status, string request, string res
         for_each(tokens.begin(), tokens.end(), UrlDecode());
 
         string aid = "";
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -1092,7 +1092,7 @@ void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, strin
         for_each(tokens.begin(), tokens.end(), UrlDecode());
 
         string aid = "";
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -1284,7 +1284,7 @@ void Squeezebox::get_sync_status_cb(bool status, string request, string result, 
         vector<string> splitter;
         Utils::split(url_decode2(p["2"]), splitter, ",");
 
-        for (int j = 0;j < splitter.size();j++)
+        for (uint j = 0;j < splitter.size();j++)
         {
                 string tmp = splitter[j];
 
@@ -1757,7 +1757,7 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
                 for_each(tokens.begin(), tokens.end(), UrlDecode());
 
                 Params item;
-                for (int i = 0;i < tokens.size();i++)
+                for (uint i = 0;i < tokens.size();i++)
                 {
                         string tmp = tokens[i];
                         vector<string> tk;

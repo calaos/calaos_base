@@ -83,7 +83,7 @@ WagoMap::~WagoMap()
 
 WagoMap &WagoMap::Instance(std::string h, int p)
 {
-        for (int i = 0;i < wagomaps.maps.size();i++)
+        for (uint i = 0;i < wagomaps.maps.size();i++)
         {
                 if (wagomaps.maps[i]->get_host() == h &&
                     wagomaps.maps[i]->get_port() == p)

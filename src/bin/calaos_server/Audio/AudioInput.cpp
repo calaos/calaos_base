@@ -26,9 +26,9 @@ using namespace Calaos;
 
 AudioInput::AudioInput(Params &p, AudioPlayer *_player):
                 Input(p),
+                player(_player),
                 answer(""),
-                status(ERROR),
-                player(_player)
+                status(ERROR)
 {
 }
 

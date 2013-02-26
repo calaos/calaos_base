@@ -43,7 +43,7 @@ class Rule
 
         public:
                 Rule(string _type, string _name);
-                ~Rule();
+                virtual ~Rule();
 
                 void AddCondition(Condition *p);
                 void AddAction(Action *p);

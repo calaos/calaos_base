@@ -77,7 +77,7 @@ bool ConditionScript::SaveToXml(TiXmlElement *node)
         cond_node->SetAttribute("type", "script");
         node->LinkEndChild(cond_node);
 
-        for (int i = 0;i < in_event.size();i++)
+        for (uint i = 0;i < in_event.size();i++)
         {
                 TiXmlElement *in_node = new TiXmlElement("calaos:input");
                 in_node->SetAttribute("id", in_event[i]->get_param("id"));

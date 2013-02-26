@@ -46,7 +46,7 @@ bool ActionStd::Execute()
         bool bval;
         double dval;
 
-        for (int i = 0;i < outputs.size();i++)
+        for (uint i = 0;i < outputs.size();i++)
         {
                 bool ovar = false;
                 switch (outputs[i]->get_type())
@@ -251,7 +251,7 @@ bool ActionStd::SaveToXml(TiXmlElement *node)
         action_node->SetAttribute("type", "standard");
         node->LinkEndChild(action_node);
 
-        for (int i = 0;i < outputs.size();i++)
+        for (uint i = 0;i < outputs.size();i++)
         {
                 Output *out = outputs[i];
 

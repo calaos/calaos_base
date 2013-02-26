@@ -282,7 +282,7 @@ void AVRPioneer::decodeDisplayText(string &text)
         display_text.clear();
         string tmp;
 
-        for (int i = 0;i < text.length();i++)
+        for (uint i = 0;i < text.length();i++)
         {
                 tmp += text[i];
                 if (tmp.length() < 2) continue;

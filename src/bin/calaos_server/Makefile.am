@@ -208,8 +208,7 @@ IO/WODaliRVB.h					\
 IO/WIDigitalTriple.h				\
 IO/WOVolet.h					\
 IO/OutputFake.h					\
-TCPServer.h					\
-IO/sunset.c               
+TCPServer.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

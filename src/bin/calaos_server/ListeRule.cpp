@@ -31,7 +31,7 @@ ListeRule &ListeRule::Instance()
 
 ListeRule::~ListeRule()
 {
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
                 delete rules[i];
 
         rules.clear();
@@ -80,7 +80,7 @@ void ListeRule::RunEventLoop()
         loop = true;
 
         //detect events
-        for (int i = 0;i < in_event.size();i++)
+        for (uint i = 0;i < in_event.size();i++)
                 in_event[i]->hasChanged();
 
         loop = false;
@@ -123,7 +123,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
 
         Utils::logger("rule") << Priority::DEBUG << "ListeRule::ExecuteRuleSignal(): received signal for id " << io_id << log4cpp::eol;
 
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = rules[i];
                 for (int j = 0;j < rule->get_size_conds();j++)
@@ -143,7 +143,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                                 vector<Input *> list;
                                 cond->getVarIds(list);
 
-                                for (int k = 0;k < list.size();k++)
+                                for (uint k = 0;k < list.size();k++)
                                 {
                                         if (list[k]->get_param("id") == io_id)
                                         {
@@ -172,7 +172,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
 void ListeRule::RemoveRule(Input *obj)
 {
         //delete all rules using "output"
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = get_rule(i);
                 Rule *rule_to_del = NULL;
@@ -198,7 +198,7 @@ void ListeRule::RemoveRule(Input *obj)
 void ListeRule::RemoveRule(Output *obj)
 {
         //delete all rules using "output"
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = get_rule(i);
                 Rule *rule_to_del = NULL;
@@ -222,7 +222,7 @@ void ListeRule::RemoveRule(Output *obj)
 
 void ListeRule::updateAllRulesToInput(Input *oldio, Input *newio)
 {
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = get_rule(i);
                 for (int j = 0;j < rule->get_size_conds();j++)
@@ -240,7 +240,7 @@ void ListeRule::updateAllRulesToInput(Input *oldio, Input *newio)
 
 void ListeRule::updateAllRulesToOutput(Output *oldio, Output *newio)
 {
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = get_rule(i);
                 for (int j = 0;j < rule->get_size_actions();j++)
@@ -258,7 +258,7 @@ void ListeRule::updateAllRulesToOutput(Output *oldio, Output *newio)
 
 void ListeRule::ExecuteStartRules()
 {
-        for (int i = 0;i < rules.size();i++)
+        for (uint i = 0;i < rules.size();i++)
         {
                 Rule *rule = get_rule(i);
                 bool found = false;

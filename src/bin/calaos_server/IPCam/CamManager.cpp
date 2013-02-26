@@ -28,7 +28,7 @@ CamManager::CamManager()
 
 CamManager::~CamManager()
 {
-        for (int i = 0;i < ip_cams.size();i++)
+        for (uint i = 0;i < ip_cams.size();i++)
                 delete ip_cams[i];
 
         ip_cams.clear();

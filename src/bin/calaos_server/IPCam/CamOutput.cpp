@@ -24,7 +24,9 @@
 
 using namespace Calaos;
 
-CamOutput::CamOutput(Params &p, IPCam *_cam): cam(_cam), Output(p)
+CamOutput::CamOutput(Params &p, IPCam *_cam):
+        Output(p),
+        cam(_cam)
 {
         Utils::logger("output") << Priority::INFO << "CamOutput::CamOutput(): Ok" << log4cpp::eol;
 }

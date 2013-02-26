@@ -25,9 +25,9 @@ using namespace Calaos;
 
 X10Output::X10Output(Params &p):
                 Output(p),
+                value(-1),
                 state_value(false),
-                old_value(-1),
-                value(-1)
+                old_value(-1)
 {
         housecode = get_param("code");
         state_value = X10Command("onstate");
@@ -65,7 +65,7 @@ X10Output::~X10Output()
 */
 bool X10Output::set_value(std::string val)
 {
-        bool ret;
+        bool ret = false;
         housecode = get_param("code");
 
         Utils::logger("output") << Priority::INFO << "X10Output(" << get_param("id") << "): got action, " << val << log4cpp::eol;

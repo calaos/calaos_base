@@ -35,10 +35,10 @@ Rule::Rule(string type, string name):
 
 Rule::~Rule()
 {
-        for (int i = 0;i < conds.size();i++)
+        for (uint i = 0;i < conds.size();i++)
                 delete conds[i];
 
-        for (int i = 0;i < actions.size();i++)
+        for (uint i = 0;i < actions.size();i++)
                 delete actions[i];
 
         Utils::logger("rule") << Priority::DEBUG << "Rule::~Rule(): Ok" << log4cpp::eol;
@@ -66,7 +66,7 @@ bool Rule::Execute()
 
         Utils::logger("rule") << Priority::DEBUG << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution..." << log4cpp::eol;
 
-        for (int i = 0;i < conds.size();i++)
+        for (uint i = 0;i < conds.size();i++)
                 if (!conds[i]->Evaluate()) cond = false;
 
         //Actions are executed only if all conditions are true
@@ -75,7 +75,7 @@ bool Rule::Execute()
                 Utils::logger("rule") << Priority::INFO << "Rule(" << get_param("type") << "," << get_param("name")
                                       << "): Starting execution (" << actions.size() << " actions)" << log4cpp::eol;
 
-                for (int i = 0;i < actions.size();i++)
+                for (uint i = 0;i < actions.size();i++)
                         if (!actions[i]->Execute()) action = false;
 
                 Utils::logger("rule") << Priority::INFO << "Rule(" << get_param("type") << "," << get_param("name")
@@ -161,13 +161,13 @@ bool Rule::SaveToXml(TiXmlElement *node)
 
         node->LinkEndChild(rule_node);
 
-        for (int i = 0;i < conds.size();i++)
+        for (uint i = 0;i < conds.size();i++)
         {
                 Condition *cond = conds[i];
                 cond->SaveToXml(rule_node);
         }
 
-        for (int i = 0;i < actions.size();i++)
+        for (uint i = 0;i < actions.size();i++)
         {
                 Action *action = actions[i];
                 action->SaveToXml(rule_node);

@@ -24,8 +24,8 @@
 using namespace Calaos;
 
 OutputFake::OutputFake(Params &p):
-                value(false),
-                Output(p)
+                Output(p),
+                value(false)
 {
         Utils::logger("output") << Priority::INFO << "OutputFake::OutputFake(" << get_param("id") << "): Ok" << log4cpp::eol;
 

@@ -70,7 +70,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
 
                         result.Add("1", "count:" + Utils::to_string(rooms.size()));
                         int cpt = 2;
-                        for (int i = 0;i < rooms.size();i++)
+                        for (uint i = 0;i < rooms.size();i++)
                         {
                                 result.Add(Utils::to_string(cpt), Utils::to_string(i) + ":name:" + rooms[i]->get_name());
                                 cpt++;
@@ -124,7 +124,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         if (room->get_type() == room_type)
                                                 rooms.push_back(room);
                                 }
-                                if (id >= 0 && id < rooms.size())
+                                if (id >= 0 && id < (int)rooms.size())
                                 {
                                         Room *room = rooms[id];
 
@@ -143,7 +143,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                 }
 
                                 int cpt = 4;
-                                for (int i = 0;i < ins.size();i++)
+                                for (uint i = 0;i < ins.size();i++)
                                 {
                                         Input *in = dynamic_cast<Input *>(ins[i]);
                                         if (in)
@@ -153,7 +153,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         }
                                 }
 
-                                for (int i = 0;i < outs.size();i++)
+                                for (uint i = 0;i < outs.size();i++)
                                 {
                                         Output *out = dynamic_cast<Output *>(outs[i]);
                                         if (out)
@@ -194,7 +194,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                 }
 
                                 int cpt = 4;
-                                for (int i = 0;i < ins.size();i++)
+                                for (uint i = 0;i < ins.size();i++)
                                 {
                                         Input *in = dynamic_cast<Input *>(ins[i]);
                                         if (in)
@@ -204,7 +204,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         }
                                 }
 
-                                for (int i = 0;i < outs.size();i++)
+                                for (uint i = 0;i < outs.size();i++)
                                 {
                                         Output *out = dynamic_cast<Output *>(outs[i]);
                                         if (out)
@@ -238,7 +238,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                                 rooms.push_back(room);
                                 }
 
-                                if (id >= 0 && id < rooms.size())
+                                if (id >= 0 && id < (int)rooms.size())
                                 {
                                         Room *room = rooms[id];
                                         if (option == "name")
@@ -279,7 +279,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
 
                                 result.Add("1", "id:" + Utils::to_string(id));
                                 int cpt = 2;
-                                for (int i = 0;i < ins.size();i++)
+                                for (uint i = 0;i < ins.size();i++)
                                 {
                                         Input *in = dynamic_cast<Input *>(ins[i]);
                                         if (in)
@@ -289,7 +289,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         }
                                 }
 
-                                for (int i = 0;i < outs.size();i++)
+                                for (uint i = 0;i < outs.size();i++)
                                 {
                                         Output *out = dynamic_cast<Output *>(outs[i]);
                                         if (out)
@@ -319,7 +319,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         if (room->get_type() == room_type)
                                                 rooms.push_back(room);
                                 }
-                                if (id >= 0 && id < rooms.size())
+                                if (id >= 0 && id < (int)rooms.size())
                                 {
                                         Room *room = rooms[id];
                                         int ii = -1;
@@ -372,7 +372,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                         if (room->get_type() == room_type)
                                                 rooms.push_back(room);
                                 }
-                                if (id >= 0 && id < rooms.size())
+                                if (id >= 0 && id < (int)rooms.size())
                                 {
                                         Room *room = rooms[id];
                                         Params param;

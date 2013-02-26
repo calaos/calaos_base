@@ -81,7 +81,7 @@ void AutoScenario::deleteAll()
                 ListeRule::Instance().Remove(rulePlageStop);
         rulePlageStop = NULL;
 
-        for (int i = 0;i < ruleSteps.size();i++)
+        for (uint i = 0;i < ruleSteps.size();i++)
                 ListeRule::Instance().Remove(ruleSteps[i]);
         ruleSteps.clear();
 
@@ -112,7 +112,7 @@ void AutoScenario::deleteRules()
                 ListeRule::Instance().Remove(ruleStepEnd);
         ruleStepEnd = NULL;
 
-        for (int i = 0;i < ruleSteps.size();i++)
+        for (uint i = 0;i < ruleSteps.size();i++)
                 ListeRule::Instance().Remove(ruleSteps[i]);
         ruleSteps.clear();
 }
@@ -490,7 +490,7 @@ void AutoScenario::checkScenarioRules()
         //Check steps rules, if they are correctly chained and if the last one is calling the final endStep
         ::sort(ruleSteps.begin(), ruleSteps.end(), _sortCompStepRule);
 
-        for (int i = 0;i < ruleSteps.size();i++)
+        for (uint i = 0;i < ruleSteps.size();i++)
         {
                 Rule *rule = ruleSteps[i];
                 setRuleCondition(rule, ioStep, "==", to_string(i));
@@ -540,7 +540,7 @@ void AutoScenario::addStep(double pause)
 
 void AutoScenario::setStepPause(int s, double pause)
 {
-        if (s >= ruleSteps.size() || s < 0) return;
+        if (s >= (int)ruleSteps.size() || s < 0) return;
 
         Rule *step = ruleSteps[s];
         setRuleAction(step, ioTimer, to_string(pause));
@@ -548,7 +548,7 @@ void AutoScenario::setStepPause(int s, double pause)
 
 void AutoScenario::addStepAction(int s, Output *out, string action)
 {
-        if ((s >= ruleSteps.size() || s < 0) && s != END_STEP) return;
+        if ((s >= (int)ruleSteps.size() || s < 0) && s != END_STEP) return;
 
         Rule *step;
         if (s == END_STEP)
@@ -560,7 +560,7 @@ void AutoScenario::addStepAction(int s, Output *out, string action)
 
 double AutoScenario::getStepPause(int s)
 {
-        if (s >= ruleSteps.size() || s < 0) return 0.0;
+        if (s >= (int)ruleSteps.size() || s < 0) return 0.0;
 
         double pause;
         Rule *step = ruleSteps[s];
@@ -571,7 +571,7 @@ double AutoScenario::getStepPause(int s)
 
 int AutoScenario::getStepActionCount(int s)
 {
-        if (s >= ruleSteps.size() || s < 0) return 0;
+        if (s >= (int)ruleSteps.size() || s < 0) return 0;
 
         Rule *step = ruleSteps[s];
         return step->get_size_actions() - 3;
@@ -579,7 +579,7 @@ int AutoScenario::getStepActionCount(int s)
 
 ScenarioAction AutoScenario::getStepAction(int s, int action)
 {
-        if (s >= ruleSteps.size() || s < 0) return ScenarioAction();
+        if (s >= (int)ruleSteps.size() || s < 0) return ScenarioAction();
 
         Rule *step = ruleSteps[s];
         ScenarioAction sa;
@@ -654,7 +654,7 @@ string AutoScenario::getCategory()
         struct SCCategory catShutter = {0, 1};
         struct SCCategory catOther = {0, 2};
 
-        for (int i = 0;i < ruleSteps.size();i++)
+        for (uint i = 0;i < ruleSteps.size();i++)
         {
                 for (int j = 0;j < getStepActionCount(i);j++)
                 {
@@ -688,7 +688,7 @@ string AutoScenario::getCategory()
         sort(v.begin(), v.end(), _sortDesc);
 
         string cat;
-        for (int i = 0;i < v.size();i++)
+        for (uint i = 0;i < v.size();i++)
         {
                 if (v[i].type == 0) cat += "light";
                 else if (v[i].type == 1) cat += "shutter";

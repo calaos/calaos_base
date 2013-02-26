@@ -66,7 +66,7 @@ bool ActionMail::Execute()
 
         vector<string> recips;
         split(mail_recipients, recips, ",");
-        for (int i = 0;i < recips.size();i++)
+        for (uint i = 0;i < recips.size();i++)
                 msg->addRecipient(recips[i]);
 
         msg->setBodyText(mail_message);

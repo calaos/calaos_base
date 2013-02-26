@@ -1051,7 +1051,7 @@ void TCPConnection::get_sync_status_cb(AudioPlayerData data)
         result.Add("3", "sync");
 
         int j = 4;
-        for (int i = 0;i < vp.size();i++)
+        for (uint i = 0;i < vp.size();i++)
         {
                 Params &pp = vp[i];
                 if (pp.size() == 2)
@@ -1075,7 +1075,7 @@ void TCPConnection::get_sync_list_cb(AudioPlayerData data)
         vector<Params> p = data.vparams;
 
         int j = 4;
-        for (int i = 0;i < p.size();i++)
+        for (uint i = 0;i < p.size();i++)
         {
                 Params &pp = p[i];
                 result.Add(Utils::to_string(j), "id:" + pp["id"]);
@@ -1117,7 +1117,7 @@ void TCPConnection::getdb_default_cb(AudioPlayerData data)
         int cpt = 4;
 
         //add count first
-        for (int i = 0;i < vp.size();i++)
+        for (uint i = 0;i < vp.size();i++)
         {
                 if (vp[i].Exists("count"))
                 {
@@ -1126,7 +1126,7 @@ void TCPConnection::getdb_default_cb(AudioPlayerData data)
                 }
         }
 
-        for (int i = 0;i < vp.size();i++)
+        for (uint i = 0;i < vp.size();i++)
         {
                 //separator
                 if (vp[i].get_param("id") == "") continue;
@@ -1179,7 +1179,7 @@ void TCPConnection::getdb_years_cb(AudioPlayerData data)
         int cpt = 4;
 
         //add count first
-        for (int i = 0;i < vp.size();i++)
+        for (uint i = 0;i < vp.size();i++)
         {
                 if (vp[i].Exists("count"))
                 {
@@ -1188,7 +1188,7 @@ void TCPConnection::getdb_years_cb(AudioPlayerData data)
                 }
         }
 
-        for (int i = 0;i < vp.size();i++)
+        for (uint i = 0;i < vp.size();i++)
         {
                 //separator
                 if (vp[i].get_param("year") == "") continue;

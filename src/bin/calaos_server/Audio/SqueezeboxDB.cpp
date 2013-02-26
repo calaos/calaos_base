@@ -55,7 +55,7 @@ void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPl
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -113,7 +113,7 @@ void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, A
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -180,7 +180,7 @@ void SqueezeboxDB::getArtists_cb(bool status, string request, string res, AudioP
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -229,7 +229,7 @@ void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, 
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -286,7 +286,7 @@ void SqueezeboxDB::getGenres_cb(bool status, string request, string res, AudioPl
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -334,7 +334,7 @@ void SqueezeboxDB::getGenresArtists_cb(bool status, string request, string res, 
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -382,7 +382,7 @@ void SqueezeboxDB::getYears_cb(bool status, string request, string res, AudioPla
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -429,7 +429,7 @@ void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, Au
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -486,7 +486,7 @@ void SqueezeboxDB::getPlaylists_cb(bool status, string request, string res, Audi
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -540,7 +540,7 @@ void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -614,7 +614,7 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
         for_each(tokens.begin(), tokens.end(), UrlDecode());
 
         Params item;
-        for (int i = 3;i < tokens.size();i++)
+        for (uint i = 3;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -699,7 +699,7 @@ void SqueezeboxDB::getRadiosItems_cb(bool status, string request, string res, Au
 
         Params item;
         int cpt = 0;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -927,7 +927,7 @@ void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPl
 
         Params &item = data.params;
         int cpt = (int)data.dvalue;
-        for (int i = data.ivalue;i < tokens.size();i++)
+        for (uint i = data.ivalue;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;
@@ -994,7 +994,7 @@ void SqueezeboxDB::getMusicFolder_cb(bool status, string request, string res, Au
 
         Params &item = data.params;
         int cpt = (int)data.dvalue;
-        for (int i = data.ivalue;i < tokens.size();i++)
+        for (uint i = data.ivalue;i < tokens.size();i++)
         {
                 string tmp = tokens[i];
                 vector<string> tk;

@@ -372,7 +372,7 @@ double __daylen__( int year, int month, int day, double lon, double lat,
       /* Compute Sun's position */
       sunpos( d, &slon, &sr );
 
-/*printf*/("Got: slon[%lf] sr[%lf] d[%lf]\n", slon, sr, d);
+/*printf("Got: slon[%lf] sr[%lf] d[%lf]\n", slon, sr, d);*/
       /* Compute sine and cosine of Sun's declination */
       sin_sdecl = sind(obl_ecl) * sind(slon);
       cos_sdecl = sqrt( 1.0 - sin_sdecl * sin_sdecl );

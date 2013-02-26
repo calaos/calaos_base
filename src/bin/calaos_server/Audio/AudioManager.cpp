@@ -28,7 +28,7 @@ AudioManager::AudioManager()
 
 AudioManager::~AudioManager()
 {
-        for (int i = 0;i < players.size();i++)
+        for (uint i = 0;i < players.size();i++)
                 delete players[i];
 
         players.clear();

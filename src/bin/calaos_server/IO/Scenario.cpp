@@ -25,9 +25,9 @@
 using namespace Calaos;
 
 Scenario::Scenario(Params &p):
-                value(false),
                 Input(p),
                 Output(p),
+                value(false),
                 auto_scenario(NULL)
 {
         Utils::logger("output") << Priority::INFO << "Scenario::Scenario(" << get_param("id") << "): Ok" << log4cpp::eol;

@@ -239,7 +239,7 @@ void CamConnection::ThreadProc()
                 quit = true;
         else
         {
-                for (int k = 0;k < headers.size();k++)
+                for (uint k = 0;k < headers.size();k++)
                 {
                         string s = headers[k];
                         int i = s.length() - 1;

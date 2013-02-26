@@ -166,10 +166,6 @@ bool WODaliRVB::set_value(std::string val)
         host = get_param("host");
         from_string(get_param("port"), port);
 
-        struct timespec t;
-        t.tv_sec = 0;
-        t.tv_nsec = 50 * 1000000; //50ms
-
         if (val == "on" || val == "true")
         {
                 //switch the light on only if value == 0

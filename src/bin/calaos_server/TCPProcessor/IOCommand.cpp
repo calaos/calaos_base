@@ -413,7 +413,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                         if (day == 4) h = plage->getVendredi();
                                         if (day == 5) h = plage->getSamedi();
                                         if (day == 6) h = plage->getDimanche();
-                                        for (int i = 0;i < h.size();i++)
+                                        for (uint i = 0;i < h.size();i++)
                                         {
                                                 std::string s = Utils::to_string(day + 1) + ":";
                                                 s += h[i].shour + ":" + h[i].smin + ":" + h[i].ssec;

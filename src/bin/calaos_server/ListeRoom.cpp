@@ -44,7 +44,7 @@ ListeRoom::ListeRoom()
 
 ListeRoom::~ListeRoom()
 {
-        for (int i = 0;i < rooms.size();i++)
+        for (uint i = 0;i < rooms.size();i++)
                 delete rooms[i];
 
         rooms.clear();
@@ -170,7 +170,7 @@ Input *ListeRoom::get_input(int i)
 {
         int cpt = 0;
 
-        for (int j = 0;j < rooms.size();j++)
+        for (uint j = 0;j < rooms.size();j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_in();m++)
                 {
@@ -191,7 +191,7 @@ Output *ListeRoom::get_output(int i)
 {
         int cpt = 0;
 
-        for (int j = 0;j < rooms.size();j++)
+        for (uint j = 0;j < rooms.size();j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_out();m++)
                 {
@@ -211,7 +211,7 @@ Output *ListeRoom::get_output(int i)
 bool ListeRoom::delete_input(Input *input, bool del)
 {
         bool done = false;
-        for (int j = 0;!done && j < rooms.size();j++)
+        for (uint j = 0;!done && j < rooms.size();j++)
         {
                 for (int m = 0;!done && m < get_room(j)->get_size_in();m++)
                 {
@@ -230,7 +230,7 @@ bool ListeRoom::delete_input(Input *input, bool del)
 bool ListeRoom::delete_output(Output *output, bool del)
 {
         bool done = false;
-        for (int j = 0;!done && j < rooms.size();j++)
+        for (uint j = 0;!done && j < rooms.size();j++)
         {
                 for (int m = 0;!done && m < get_room(j)->get_size_out();m++)
                 {
@@ -259,7 +259,7 @@ int ListeRoom::get_nb_output()
 Input *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
 {
         Utils::logger("room") << Priority::DEBUG << "Searching inputs for chauffage_id \"" << chauff_id << "\"" << log4cpp::eol;
-        for (int j = 0;j < rooms.size();j++)
+        for (uint j = 0;j < rooms.size();j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_in();m++)
                 {
@@ -344,7 +344,7 @@ Room *ListeRoom::getRoomByInput(Input *o)
 {
         Room *r = NULL;
 
-        for (int j = 0;j < rooms.size() && !r;j++)
+        for (uint j = 0;j < rooms.size() && !r;j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_in() && !r;m++)
                 {
@@ -360,7 +360,7 @@ Room *ListeRoom::getRoomByOutput(Output *o)
 {
         Room *r = NULL;
 
-        for (int j = 0;j < rooms.size() && !r;j++)
+        for (uint j = 0;j < rooms.size() && !r;j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_out() && !r;m++)
                 {

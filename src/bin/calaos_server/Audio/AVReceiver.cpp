@@ -211,7 +211,7 @@ void AVReceiver::dataGet(string msg)
 
         Utils::logger("output") << Priority::DEBUG << "AVReceiver:getData() Got " << tokens.size() << " messages." << log4cpp::eol;
 
-        for(int i = 0; i < tokens.size(); i++)
+        for(uint i = 0; i < tokens.size(); i++)
                 processMessage(tokens[i]);
 }
 

@@ -26,19 +26,19 @@ using namespace Calaos;
 WOVoletSmart::WOVoletSmart(Params &p):
                 Output(p),
                 port(502),
+                total_time(0),
+                time_up(0),
+                time_down(0),
                 sens(VSTOP),
                 old_sens(VUP),
+                position(0.0),
                 timer_end(NULL),
                 timer_update(NULL),
                 timer_impulse(NULL),
                 timer_up(NULL),
                 timer_down(NULL),
-                calibrate(false),
                 timer_calib(NULL),
-                total_time(0),
-                time_up(0),
-                time_down(0),
-                position(0.0)
+                calibrate(false)
 {
         host = get_param("host");
         if (get_params().Exists("port"))

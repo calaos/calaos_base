@@ -25,8 +25,8 @@ using namespace Calaos;
 
 WODigital::WODigital(Params &p):
                 Output(p),
-                port(502),
                 value(false),
+                port(502),
                 timer(NULL)
 {
         host = get_param("host");
@@ -111,8 +111,6 @@ bool WODigital::set_value(bool val)
 
 bool WODigital::_set_value(bool val)
 {
-        bool ret;
-
         Utils::logger("output") << Priority::INFO << "WODigital(" << get_param("id")
                         << "): got action, " << ((val)?"True":"False") << log4cpp::eol;
 
@@ -193,7 +191,7 @@ void WODigital::impulse_extended(string pattern)
 
         bool state = true;
         int loop = -1;
-        for (int i = 0;i < tokens.size();i++)
+        for (uint i = 0;i < tokens.size();i++)
         {
                 if (is_of_type<int>(tokens[i]))
                 {
@@ -239,7 +237,7 @@ void WODigital::impulse_extended(string pattern)
         if (loop >= 0)
         {
                 //tell the last item to loop
-                if (blinks.size() > loop)
+                if (blinks.size() > (uint)loop)
                         blinks[blinks.size() - 1].next = loop;
         }
 
@@ -264,13 +262,13 @@ void WODigital::TimerImpulseExtended()
         }
 
         //safety checks
-        if (current_blink < 0 || current_blink >= blinks.size())
+        if (current_blink < 0 || current_blink >= (int)blinks.size())
                 return; //Stops blinking
 
         current_blink = blinks[current_blink].next;
 
         //safety checks for new value
-        if (current_blink < 0 || current_blink >= blinks.size())
+        if (current_blink < 0 || current_blink >= (int)blinks.size())
                 return; //Stops blinking
 
         //Set new output state

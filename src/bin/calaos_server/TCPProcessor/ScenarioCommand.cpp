@@ -75,7 +75,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
                         result.Add(to_string(cpt), "steps_count:" + to_string(a->getRuleSteps().size()));
                         cpt++;
 
-                        for (int i = 0;i < a->getRuleSteps().size();i++)
+                        for (uint i = 0;i < a->getRuleSteps().size();i++)
                         {
                                 result.Add(to_string(cpt), "step:" + to_string(a->getStepPause(i)));
                                 cpt++;

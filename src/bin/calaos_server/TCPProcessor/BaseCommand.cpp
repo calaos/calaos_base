@@ -59,14 +59,17 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
                         {
                                 int unused = system("killall -9 calaos_gui");
                                 unused = system("killall -9 calaos_thumb");
+                                (void)unused;
                         }
                         else if (request["2"] == "calaosd")
                         {
                                 int unused = system("killall -9 calaosd");
+                                (void)unused;
                         }
                         else if (request["2"] == "all")
                         {
                                 int unused = system("reboot");
+                                (void)unused;
                         }
                 }
                 else if(request["1"] == "date")
@@ -105,6 +108,7 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
                         //try to update firmware from /tmp/image.tar.bz2
                         Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(save): Firmware update requested by web." << log4cpp::eol;
                         int unused = system("fw_update.sh");
+                        (void)unused;
                 }
         }
         else if (request["0"] == "poll_listen")

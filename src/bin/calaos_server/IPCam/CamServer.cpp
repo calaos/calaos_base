@@ -55,7 +55,7 @@ void CamServer::ThreadProc()
                                 << socket->GetRemoteIP() << log4cpp::eol;
 
                 vector<CamConnection *>::iterator iter = connections.begin();
-                for (int i = 0;i < connections.size();iter++, i++)
+                for (uint i = 0;i < connections.size();iter++, i++)
                 {
                         //on supprime les connections qui sont finis
                         if (connections[i]->get_end())
@@ -80,6 +80,6 @@ void CamServer::Clean()
                 socket->Close();
         }
 
-        for(int i = 0;i < connections.size();i++)
+        for(uint i = 0;i < connections.size();i++)
                 connections[i]->Clean();
 }

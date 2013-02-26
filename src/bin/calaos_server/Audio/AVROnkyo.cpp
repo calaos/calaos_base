@@ -76,7 +76,7 @@ void AVROnkyo::sendCustomCommand(string command)
         vector<char> eISCP;
 
         int data_size = command.length() + 3; //2 more bytes for !1
-        int msg_size = data_size + 16; //end char + header
+//        int msg_size = data_size + 16; //end char + header
 
         //Header
         eISCP.push_back('I');
