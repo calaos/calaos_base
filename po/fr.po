@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2013-02-25 23:56+0100\n"
+"POT-Creation-Date: 2013-02-26 08:31+0100\n"
 "PO-Revision-Date: 2013-02-25 23:57+0100\n"
 "Last-Translator: Nicolas Aguirre <aguirre.nicolas@gmail.com>\n"
 "Language-Team: French\n"
@@ -17,30 +17,30 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:92
+#: src/bin/calaos_home/views/MainMenuView.cpp:96
 msgid "Widgets configuration."
 msgstr "Configuration des widgets."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:97
+#: src/bin/calaos_home/views/MainMenuView.cpp:101
 msgid "Shut the screen off."
 msgstr "Mettre en veille l'écran."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:102
+#: src/bin/calaos_home/views/MainMenuView.cpp:106
 msgid "Reboot the machine."
 msgstr "Redémarrer la machine."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:109
+#: src/bin/calaos_home/views/MainMenuView.cpp:113
 msgid "Touch the screen once to wake up the machine."
 msgstr "Touchez une fois l'écran pour sortir du mode veille."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:112
+#: src/bin/calaos_home/views/MainMenuView.cpp:116
 msgid "Auto: Off"
 msgstr "Auto: Désactivé"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:130
+#: src/bin/calaos_home/views/MainMenuView.cpp:134
 msgid "Move and setup your widgets on the desktop."
 msgstr "Déplacez et configurez vos widgets sur le bureau."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:135
+#: src/bin/calaos_home/views/MainMenuView.cpp:139
 msgid "Please wait during the reboot."
 msgstr "Veuillez patienter pendant la procédure de redémarrage."
