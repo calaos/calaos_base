@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-SUBDIRS = po po src data
+SUBDIRS = po src data
 
 MAINTAINERCLEANFILES = \
 Makefile.in \
