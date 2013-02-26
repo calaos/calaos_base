@@ -28,7 +28,6 @@
 #include <Config.h>
 #include <ListeRule.h>
 #include <TCPServer.h>
-#include <SocketManager.h>
 #include <UDPServer.h>
 #include <AudioManager.h>
 #include <CamServer.h>

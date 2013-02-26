@@ -32,8 +32,6 @@ libcalaos_common_la_SOURCES = \
 	NTPClock.cpp 				\
 	Params.cpp 				\
 	SendMail.cpp 				\
-	SocketListener.cpp 			\
-	SocketManager.cpp 			\
 	tcpsocket.cpp 				\
 	threadManager.cpp 			\
 	Utils.cpp 				\
@@ -45,12 +43,10 @@ libcalaos_common_la_SOURCES = \
         LuaScript/ScriptManager.cpp 		\
         TimeRange.cpp 				\
 	Mutex.h					\
-	SocketManager.h				\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\
 	LuaScript/ScriptBindings.h		\
 	LuaScript/Lunar.h			\
-	SocketListener.h			\
 	FakeLogging.h				\
 	FileDownloader.h			\
 	CThread.h				\
