@@ -62,7 +62,7 @@ AC_SUBST([requirements_calaos_home])
 AC_C_BIGENDIAN
 AC_C_INLINE
 
-EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall])
+EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wshadow -Wdeclaration-after-statement -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
 
 ### Checks for header files
 AC_HEADER_ASSERT
