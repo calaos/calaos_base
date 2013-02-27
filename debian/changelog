@@ -1,4 +1,4 @@
-calaos (2.0.0-1ppa1~quantal) quantal; urgency=low
+calaos (2.0.0-1ppa1~precise) precise; urgency=low
 
   * Initial version of package (2.0.0)
 

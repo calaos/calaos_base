@@ -12,7 +12,7 @@ Homepage: http://www.calaos.fr
 
 Package: calaos-server
 Architecture: any
-Depends: ${shlibs:Depends}, libecore, libvmime0,
+Depends: ${shlibs:Depends}, libecore1, libvmime0,
  libjansson4, liblog4cpp5	
 Description: Calaos is a powerful home automation software.
  It features a complete set of part to automate your house
@@ -23,7 +23,7 @@ Description: Calaos is a powerful home automation software.
 
 Package: calaos-home
 Architecture: any
-Depends: ${shlibs:Depends}, lielementary, libvmime0,
+Depends: ${shlibs:Depends}, libelementary, libvmime0,
  libjansson4, liblog4cpp5
 Description: Calaos is a powerful home automation software.
  It features a complete set of part to automate your house
