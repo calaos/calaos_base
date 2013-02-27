@@ -1,0 +1,15 @@
+#defaults for calaos server
+
+#Daemon name
+NAME=calaos-server
+
+#User id to be invoked as
+CALAOS_USER=calaos
+
+#Calaos home directory locataion
+CALAOS_HOME=/var/lib/calaos
+
+#Calaos logs output directory
+CALAOS_LOG=/var/log/calaos
+
+PIDFILE=/var/run/calaos/calaos-server.pid

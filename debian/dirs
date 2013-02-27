@@ -1,0 +1,3 @@
+var/lib/calaos
+var/run/calaos
+var/log/calaos
