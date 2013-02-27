@@ -177,8 +177,6 @@
 ./src/lib/NTPClock.cpp
 ./src/lib/Params.cpp
 ./src/lib/SendMail.cpp
-./src/lib/SocketListener.cpp
-./src/lib/SocketManager.cpp
 ./src/lib/tcpsocket.cpp
 ./src/lib/threadManager.cpp
 ./src/lib/TimeRange.cpp
