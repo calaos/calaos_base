@@ -68,7 +68,7 @@ void WIAnalog::readConfig()
         if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
 }
 
-void WIAnalog::WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values)
+void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
         requestInProgress = false;
 

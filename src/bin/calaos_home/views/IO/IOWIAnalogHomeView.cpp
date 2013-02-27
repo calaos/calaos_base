@@ -21,8 +21,8 @@
 #include "IOWIAnalogHomeView.h"
 #include <ApplicationMain.h>
 
-IOWIAnalogHomeView::IOWIAnalogHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WIAnalog_") + style_addition, flags),
+IOWIAnalogHomeView::IOWIAnalogHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WIAnalog_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

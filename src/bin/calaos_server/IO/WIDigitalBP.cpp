@@ -75,7 +75,7 @@ void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::strin
         }
 }
 
-void WIDigitalBP::WagoReadCallback(bool status, UWord address, int count, vector<bool> &values)
+void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
 {
         if (!status)
         {

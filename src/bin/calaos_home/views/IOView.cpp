@@ -35,13 +35,13 @@
 #include "IO/IOWOVoletHomeView.h"
 #include "IO/IOWOVoletSmartHomeView.h"
 
-IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string collection):
+IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string _collection):
         BaseView(_evas, _parent),
         IOBaseElement(_io)
 {
         try
         {
-                LoadEdje(collection);
+                LoadEdje(_collection);
         }
         catch (exception const &e)
         {

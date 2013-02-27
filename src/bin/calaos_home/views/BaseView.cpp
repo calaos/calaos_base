@@ -22,9 +22,9 @@
 
 #include "ApplicationMain.h"
 
-BaseView::BaseView(Evas *e, Evas_Object *p):
-        EdjeObject(ApplicationMain::getTheme(), e),
-        parent(p),
+BaseView::BaseView(Evas *_e, Evas_Object *_p):
+        EdjeObject(ApplicationMain::getTheme(), _e),
+        parent(_p),
         controller(NULL)
 {
         evas_object_data_set(edje, "BaseView", this);

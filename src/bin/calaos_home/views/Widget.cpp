@@ -147,16 +147,16 @@ Widget::~Widget()
         }
 }
 
-void Widget::Callback(Evas_Object *edje, std::string emission, std::string source)
+void Widget::Callback(Evas_Object *edj, std::string emission, std::string source)
 {
-        int x, y, mx, my, w, h, rx, ry;
+        int wx, wy, mx, my, w, h, rx, ry;
 
         if (source == "widget" && emission == "start,move")
         {
-                getGeometry(&x, &y, NULL, NULL);
+                getGeometry(&wx, &wy, NULL, NULL);
                 evas_pointer_output_xy_get(evas, &mx, &my);
-                offset_x = mx - x;
-                offset_y = my - y;
+                offset_x = mx - wx;
+                offset_y = my - wy;
 
                 moving = true;
         }
@@ -171,21 +171,21 @@ void Widget::Callback(Evas_Object *edje, std::string emission, std::string sourc
         }
         else if (source == "widget" && emission == "start,resize")
         {
-                evas_object_geometry_get(resize_box, &x, &y, NULL, NULL);
+                evas_object_geometry_get(resize_box, &wx, &wy, NULL, NULL);
                 evas_pointer_output_xy_get(evas, &mx, &my);
-                offset_x = mx - x;
-                offset_y = my - y;
+                offset_x = mx - wx;
+                offset_y = my - wy;
 
                 resizing = true;
         }
         else if (source == "widget" && emission == "resizing" && resizing)
         {
-                getGeometry(&x, &y, &w, &h);
+                getGeometry(&wx, &wy, &w, &h);
                 evas_pointer_output_xy_get(evas, &mx, &my);
 
                 evas_object_geometry_get(resize_box, &rx, &ry, NULL, NULL);
 
-                Resize(mx - offset_x + (x + w - rx) - x, my - offset_y + (y + h - ry) - y);
+                Resize(mx - offset_x + (wx + w - rx) - wx, my - offset_y + (wy + h - ry) - wy);
         }
         else if (source == "widget" && emission == "stop,resize")
         {
@@ -225,9 +225,8 @@ void Widget::Callback(Evas_Object *edje, std::string emission, std::string sourc
                                                     ELM_CTXPOPUP_DIRECTION_DOWN,
                                                     ELM_CTXPOPUP_DIRECTION_UP);
 
-                Evas_Coord x,y;
-                evas_pointer_canvas_xy_get(evas, &x, &y);
-                evas_object_move(popup, x, y);
+                evas_pointer_canvas_xy_get(evas, &wx, &wy);
+                evas_object_move(popup, wx, wy);
                 evas_object_show(popup);
         }
 }
@@ -254,21 +253,21 @@ void Widget::Hide()
         edje_object_signal_emit(edje, "hide", "calaos");
 }
 
-void Widget::Move(int x, int y)
+void Widget::Move(int wx, int wy)
 {
         //Clamp values
-        if (x < 0) x = 0;
-        if (y < 0) y = 0;
+        if (wx < 0) wx = 0;
+        if (wy < 0) wy = 0;
         int w, h;
         getGeometry(NULL, NULL, &w, &h);
-        if (x + w > WIDTH) x = WIDTH - w;
-        if (y + h + 100 > HEIGHT) y = HEIGHT - h - 100;
+        if (wx + w > WIDTH) wx = WIDTH - w;
+        if (wy + h + 100 > HEIGHT) wy = HEIGHT - h - 100;
 
-        posx = x;
-        posy = y;
+        posx = wx;
+        posy = wy;
 
-        EdjeObject::Move(x, y);
-        evas_object_move(move_box, x, y);
+        EdjeObject::Move(wx, wy);
+        evas_object_move(move_box, wx, wy);
 }
 
 void Widget::Resize(int w, int h)

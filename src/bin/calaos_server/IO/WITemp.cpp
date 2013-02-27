@@ -55,7 +55,7 @@ WITemp::~WITemp()
         Utils::logger("input") << Priority::INFO << "WITemp::~WITemp(): Ok" << log4cpp::eol;
 }
 
-void WITemp::WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values)
+void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
         requestInProgress = false;
 

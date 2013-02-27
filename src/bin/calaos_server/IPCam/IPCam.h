@@ -72,7 +72,7 @@ class IPCam
                   * hue: int (range)
                 **************************************************/
                 virtual Params getCapabilities() { return caps; }
-                virtual void activateCapabilities(std::string caps, std::string cmd, std::string value) { }
+                virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
 
                 std::string get_param(std::string opt) { return param[opt]; }
                 void set_param(std::string opt, std::string val) { param.Add(opt, val); }

@@ -44,8 +44,8 @@ static void _scroller_stop_cb(void *data , Evas_Object *obj, void *event_info)
         if (p) p->dragStop();
 }
 
-PagingView::PagingView(Evas *e, Evas_Object *parent):
-        BaseView(e, parent)
+PagingView::PagingView(Evas *_e, Evas_Object *_parent):
+        BaseView(_e, _parent)
 {
         try
         {

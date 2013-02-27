@@ -110,9 +110,9 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
                 {
                         step++;
 
-                        ScenarioStep step;
-                        from_string(tmp[1], step.pause);
-                        scenario_data.steps.push_back(step);
+                        ScenarioStep sstep;
+                        from_string(tmp[1], sstep.pause);
+                        scenario_data.steps.push_back(sstep);
 
                         continue;
                 }

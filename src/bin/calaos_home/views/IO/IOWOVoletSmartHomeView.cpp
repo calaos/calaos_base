@@ -30,8 +30,8 @@ ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set25)
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set50)
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set75)
 
-IOWOVoletSmartHomeView::IOWOVoletSmartHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WOVoletSmart_") + style_addition, flags),
+IOWOVoletSmartHomeView::IOWOVoletSmartHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WOVoletSmart_") + style_addition, _flags),
         IOBaseElement(_io),
         window_slider(NULL)
 {

@@ -21,10 +21,9 @@
 #include "MainContentView.h"
 #include "ApplicationMain.h"
 
-MainContentView::MainContentView(Evas *e, Evas_Object *p):
-        BaseView(e, p),
-        EvasSmart(e, "PageContentView"),
-        evas(e)
+MainContentView::MainContentView(Evas *_e, Evas_Object *_p):
+        BaseView(_e, _p),
+        EvasSmart(_e, "PageContentView")
 {
         clip = evas_object_rectangle_add(evas);
         evas_object_color_set(clip, 255, 255, 255, 255);

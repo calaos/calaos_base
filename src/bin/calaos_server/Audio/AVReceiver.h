@@ -155,7 +155,7 @@ class IOAVReceiver: public Input, public Output, public sigc::trackable
                 virtual Params &get_params()
                         { return Input::get_params(); }
 
-                virtual map<string, string> query_param(string param);
+                virtual map<string, string> query_param(string key);
 
                 //Input
                 virtual string get_value_string();

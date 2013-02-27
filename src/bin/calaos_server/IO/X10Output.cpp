@@ -201,12 +201,12 @@ bool X10Output::X10Command(std::string cmd, int *dval)
         else if (cmd == "onstate")
         {
                 //setup params for heyu
-                string cmd = "heyu onstate " + housecode;
+                string _cmd = "heyu onstate " + housecode;
                 string std_out;
                 int _ret = -1;
 
                 //TO FIX: Need to fix that using ecore_exe...
-                //Glib::spawn_command_line_sync(cmd, &std_out, NULL, &_ret);
+                //Glib::spawn_command_line_sync(_cmd, &std_out, NULL, &_ret);
 
                 if (_ret != 0)
                 {
@@ -215,7 +215,7 @@ bool X10Output::X10Command(std::string cmd, int *dval)
                         ecore_exe_run(cmd_line.c_str(), NULL);
 
                         //then try again
-                  //      Glib::spawn_command_line_sync(cmd, &std_out, NULL, &_ret);
+                  //      Glib::spawn_command_line_sync(_cmd, &std_out, NULL, &_ret);
                 }
 
                 if (std_out.empty()) return false;
@@ -227,12 +227,12 @@ bool X10Output::X10Command(std::string cmd, int *dval)
         else if (cmd == "dimstate")
         {
                 //setup params for heyu
-                string cmd = "heyu dimstate " + housecode;
+                string _cmd = "heyu dimstate " + housecode;
                 string std_out;
                 int _ret = -1;
 
                 //TO FIX: Need to fix that using ecore_exe...
-                //Glib::spawn_command_line_sync(cmd, &std_out, NULL, &_ret);
+                //Glib::spawn_command_line_sync(_cmd, &std_out, NULL, &_ret);
 
                 if (_ret != 0)
                 {
@@ -241,7 +241,7 @@ bool X10Output::X10Command(std::string cmd, int *dval)
                         ecore_exe_run(cmd_line.c_str(), NULL);
 
                         //then try again
-                        //Glib::spawn_command_line_sync(cmd, &std_out, NULL, &_ret);
+                        //Glib::spawn_command_line_sync(_cmd, &std_out, NULL, &_ret);
                 }
 
                 *dval = 22;

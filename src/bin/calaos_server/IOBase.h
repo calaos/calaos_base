@@ -49,7 +49,7 @@ class IOBase
                 virtual std::string get_value_string() { return ""; }
                 virtual map<string, string> get_all_values_string() { map<string, string> m; return m; }
 
-                virtual map<string, string> query_param(string param) { map<string, string> m; return m; }
+                virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
 
                 virtual void set_param(std::string opt, std::string val)
                         { param.Add(opt, val); }

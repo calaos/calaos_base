@@ -25,10 +25,10 @@
 ITEM_BUTTON_CALLBACK(GenlistItemRadio, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemRadio, Add)
 
-GenlistItemRadio::GenlistItemRadio(Evas *_evas, Evas_Object *_parent, AudioPlayer *_player, Params item, void *data):
+GenlistItemRadio::GenlistItemRadio(Evas *_evas, Evas_Object *_parent, AudioPlayer *_player, Params _item, void *data):
         GenlistItemBase(_evas, _parent, "browser/default/noselect", ELM_GENLIST_ITEM_NONE, data),
         player(_player),
-        item_infos(item)
+        item_infos(_item)
 {
 }
 

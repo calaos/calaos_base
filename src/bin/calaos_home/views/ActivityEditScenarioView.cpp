@@ -25,8 +25,8 @@
 #include "GenlistItemSimpleHeader.h"
 #include "GenlistItemScenarioAction.h"
 
-ActivityEditScenarioView::ActivityEditScenarioView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/edit_scenario"),
+ActivityEditScenarioView::ActivityEditScenarioView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/edit_scenario"),
         pager_step(NULL),
         pageName(NULL),
         pageActions(NULL),

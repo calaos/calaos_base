@@ -290,12 +290,12 @@ void AudioPlayer::notifyChange(string msg)
         }
 }
 
-void AudioPlayer::setVolume(int volume)
+void AudioPlayer::setVolume(int _volume)
 {
-        if (volume < 0) volume = 0;
-        if (volume > 100) volume = 100;
+        if (_volume < 0) _volume = 0;
+        if (_volume > 100) _volume = 100;
 
-        string cmd = "audio " + params["num"] + " volume " + to_string(volume);
+        string cmd = "audio " + params["num"] + " volume " + to_string(_volume);
         connection->SendCommand(cmd);
 }
 

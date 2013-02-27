@@ -322,9 +322,9 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
 
         for (int i = 0;i < get_params().size();i++)
         {
-                string key, value;
-                get_params().get_item(i, key, value);
-                cnode->SetAttribute(key, value);
+                string key, val;
+                get_params().get_item(i, key, val);
+                cnode->SetAttribute(key, val);
         }
 
         //Save months

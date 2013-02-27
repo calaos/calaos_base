@@ -22,8 +22,8 @@
 #include "GenlistItems/GenlistItemSimple.h"
 #include "GenlistItems/GenlistItemSimpleHeader.h"
 
-ActivityCameraSelectView::ActivityCameraSelectView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/media/camera_select"),
+ActivityCameraSelectView::ActivityCameraSelectView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/media/camera_select"),
         camera_video(NULL),
         camera(NULL)
 {

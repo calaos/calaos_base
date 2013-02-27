@@ -41,9 +41,8 @@ LIST_ITEM_CALLBACK(MainMenuView, reboot)
 LIST_ITEM_CALLBACK(MainMenuView, widget)
 LIST_ITEM_CALLBACK(MainMenuView, suspend)
 
-MainMenuView::MainMenuView(Evas *e, Evas_Object *p):
-        BaseView(e, p),
-        evas(e)
+MainMenuView::MainMenuView(Evas *_e, Evas_Object *_p):
+        BaseView(_e, _p)
 {
         try
         {
@@ -118,7 +117,7 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                                           _("Touch the screen once to wake up the machine."));
                 if (Utils::get_config_option("dpms_enable") != "true")
                         edje_object_part_text_set(elm_list_item_object_get(item_sleep_screen), "object.more_infos",
-						  _("Auto: Off"));
+                                                  _("Auto: Off"));
                 else
                 {
                         int val;

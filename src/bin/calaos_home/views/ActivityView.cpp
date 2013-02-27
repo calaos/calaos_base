@@ -45,19 +45,19 @@ static void _elm_button_quit(void *data, Evas_Object *obj, void *event_info)
         ac->_button_quit_clicked();
 }
 
-ActivityView::ActivityView(Evas *e, Evas_Object *parent):
-        BaseView(e, parent)
+ActivityView::ActivityView(Evas *_e, Evas_Object *_parent):
+        BaseView(_e, _parent)
 {
 }
 
-ActivityView::ActivityView(Evas *e, Evas_Object *parent, string collection):
-        BaseView(e, parent),
+ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, string _collection):
+        BaseView(_e, _parent),
         box_buttons(NULL),
         button_quit(NULL)
 {
         try
         {
-                LoadEdje(collection);
+                LoadEdje(_collection);
         }
         catch(exception const& e)
         {

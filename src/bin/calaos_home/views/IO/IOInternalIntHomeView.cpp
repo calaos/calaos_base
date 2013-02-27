@@ -24,8 +24,8 @@
 ITEM_BUTTON_CALLBACK(IOInternalIntHomeView, More)
 ITEM_BUTTON_CALLBACK(IOInternalIntHomeView, Less)
 
-IOInternalIntHomeView::IOInternalIntHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("InternalInt_") + style_addition + ((_io->params["rw"] == "true")?"/rw":""), flags),
+IOInternalIntHomeView::IOInternalIntHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("InternalInt_") + style_addition + ((_io->params["rw"] == "true")?"/rw":""), _flags),
         IOBaseElement(_io)
 {
 }

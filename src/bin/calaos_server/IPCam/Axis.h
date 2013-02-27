@@ -46,7 +46,7 @@ class Axis: public IPCam
                 std::string get_mjpeg_stream(); //return the mpeg url stream
                 std::string get_picture(); //return the url for a single frame
 
-                virtual void activateCapabilities(std::string cap, std::string cmd, std::string value);
+                virtual void activateCapabilities(std::string capability, std::string cmd, std::string value);
 };
 
 }

@@ -30,8 +30,8 @@ ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, GreenLess)
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, BlueMore)
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, BlueLess)
 
-IOWODaliRVBHomeView::IOWODaliRVBHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WODaliRVB_") + style_addition, flags),
+IOWODaliRVBHomeView::IOWODaliRVBHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WODaliRVB_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

@@ -163,46 +163,46 @@ void GenlistItemTrack::buttonClickMore()
         if (item_infos["artist"] != "")
         {
                 infolabel = item_infos["artist"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Artiste :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Artiste :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["album"] != "")
         {
                 infolabel = item_infos["album"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Album :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Album :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["title"] != "")
         {
                 infolabel = item_infos["title"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Titre :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Titre :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["duration"] != "")
         {
                 double dur;
                 from_string(item_infos["duration"], dur);
                 infolabel = Utils::time2string_digit((long)dur);
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Durée :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Durée :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["genre"] != "")
         {
                 infolabel = item_infos["genre"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Genre :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Genre :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["type"] != "")
         {
                 infolabel = item_infos["type"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Type de flux :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Type de flux :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["bitrate"] != "")
         {
                 infolabel = item_infos["bitrate"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Débit :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Débit :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["filesize"] != "")
         {
@@ -211,26 +211,26 @@ void GenlistItemTrack::buttonClickMore()
                 s /= 1024;
                 s /= 1024;
                 infolabel = to_string(s) + " Mo";
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Taille :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Taille :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["samplerate"] != "")
         {
                 infolabel = item_infos["samplerate"] + " Hz";
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Echantillonage :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Echantillonage :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["tagversion"] != "")
         {
                 infolabel = item_infos["tagversion"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Version du tag :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Version du tag :", infolabel);
+                it->Append(glist, header);
         }
         if (item_infos["comment"] != "")
         {
                 infolabel = item_infos["comment"];
-                GenlistItemSimpleKeyValue *item = new GenlistItemSimpleKeyValue(evas, glist, "Commentaire :", infolabel);
-                item->Append(glist, header);
+                GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Commentaire :", infolabel);
+                it->Append(glist, header);
         }
 
         elm_table_pack(table, glist, 1, 1, 1, 1);

@@ -20,8 +20,8 @@
 ******************************************************************************/
 #include "ActivityMediaView.h"
 
-ActivityMediaView::ActivityMediaView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/media")
+ActivityMediaView::ActivityMediaView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/media")
 {
         setPartText("header.label", "Multimédia");
 

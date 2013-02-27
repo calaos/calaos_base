@@ -21,8 +21,8 @@
 #include "ActivityWidgetsView.h"
 #include <time.h>
 
-ActivityWidgetsView::ActivityWidgetsView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/widgets")
+ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/widgets")
 {
         clipper = evas_object_rectangle_add(evas);
         evas_object_color_set(clipper, 0, 0, 0, 0);

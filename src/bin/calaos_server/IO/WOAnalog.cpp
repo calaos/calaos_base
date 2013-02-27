@@ -68,7 +68,7 @@ double WOAnalog::get_value_double()
                 return Utils::roundValue(value);
 }
 
-void WOAnalog::WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values)
+void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
         if (!status)
         {
@@ -88,7 +88,7 @@ void WOAnalog::WagoReadCallback(bool status, UWord address, int count, vector<UW
         Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WOAnalog::WagoWriteCallback(bool status, UWord address, UWord _value)
+void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 {
         if (!status)
         {

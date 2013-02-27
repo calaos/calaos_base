@@ -345,8 +345,8 @@ void WOVoletSmart::Up(double new_value)
                 if (new_value > 0) _t -= new_value;
                 if (impulse_action_time + impulse_time < _t * 1000)
                 {
-                        double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-                        EcoreTimer::singleShot(_t, sigc::mem_fun(*this, &WOVoletSmart::Stop));
+                        double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
+                        EcoreTimer::singleShot(_timer, sigc::mem_fun(*this, &WOVoletSmart::Stop));
                 }
         }
         else
@@ -416,8 +416,8 @@ void WOVoletSmart::Down(double new_value)
                 if (new_value > 0) _t -= new_value;
                 if (impulse_action_time + impulse_time < _t * 1000)
                 {
-                        double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-                        EcoreTimer::singleShot(_t, sigc::mem_fun(*this, &WOVoletSmart::Stop));
+                        double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
+                        EcoreTimer::singleShot(_timer, sigc::mem_fun(*this, &WOVoletSmart::Stop));
                 }
         }
         else

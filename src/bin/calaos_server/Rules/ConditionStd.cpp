@@ -60,8 +60,8 @@ void ConditionStd::getVarIds(vector<Input *> &list)
 bool ConditionStd::Evaluate()
 {
         std::string sval, oper;
-        bool bval;
-        double dval;
+        bool bval = false;
+        double dval = 0.0;
         bool ret = false;
 
         for (uint i = 0;i < inputs.size();i++)

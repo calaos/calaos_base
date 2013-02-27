@@ -25,8 +25,8 @@
 #define XK_Return                        0xff0d
 #define XK_BackSpace                     0xff08
 
-KeyboardView::KeyboardView(Evas *e, Evas_Object *parent):
-        BaseView(e, parent),
+KeyboardView::KeyboardView(Evas *_e, Evas_Object *_parent):
+        BaseView(_e, _parent),
         keys_upper(false),
         keys_other(false)
 {

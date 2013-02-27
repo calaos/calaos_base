@@ -78,8 +78,8 @@ static void _web_inputmethod_changed(void *data, Evas_Object *obj, void *event_i
         view->_webInputMethodChanged(enabled);
 }
 
-ActivityWebView::ActivityWebView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/web")
+ActivityWebView::ActivityWebView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/web")
 {
         setPartText("header.label", "Navigateur Web");
 

@@ -25,9 +25,9 @@
 #include <GenlistItemSimpleHeader.h>
 #include <GenlistItemSimple.h>
 
-ActivityPlayerObject::ActivityPlayerObject(Evas *e, Evas_Object *p):
-        evas(e),
-        parent(p),
+ActivityPlayerObject::ActivityPlayerObject(Evas *_e, Evas_Object *_p):
+        evas(_e),
+        parent(_p),
         player(NULL),
         gplaylist(NULL),
         cover(NULL),
@@ -86,9 +86,9 @@ void ActivityPlayerObject::resetPlayer()
         }
 }
 
-void ActivityPlayerObject::createEdjeObject(string &theme, Evas *evas)
+void ActivityPlayerObject::createEdjeObject(string &theme, Evas *e)
 {
-        EdjeObject *obj = new EdjeObject(theme, evas);
+        EdjeObject *obj = new EdjeObject(theme, e);
         obj->LoadEdje("calaos/audio/player");
         obj->Show();
         obj->addCallback("player", "player,volume,*", sigc::mem_fun(*this, &ActivityPlayerObject::changeVolume_cb));
@@ -160,10 +160,10 @@ void ActivityPlayerObject::unsetPlayer()
         }
 }
 
-void ActivityPlayerObject::handlePlaylist(Evas_Object *parent, Evas_Object *playlist, EdjeObject *splayer)
+void ActivityPlayerObject::handlePlaylist(Evas_Object *p, Evas_Object *playlist, EdjeObject *splayer)
 {
         gplaylist = playlist;
-        items_parent = parent;
+        items_parent = p;
         small_player = splayer;
 
         sigc::connection *con;

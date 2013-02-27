@@ -25,8 +25,8 @@
 
 #include "IO/IOGenlistRoomGroup.h"
 
-ActivityHomeView::ActivityHomeView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/home"),
+ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/home"),
         mode_detail(false),
         pageStatus(NULL)
 {

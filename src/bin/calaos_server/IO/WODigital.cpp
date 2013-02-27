@@ -62,7 +62,7 @@ WODigital::~WODigital()
         Utils::logger("output") << Priority::INFO << "WODigital::~WODigital(): Ok" << log4cpp::eol;
 }
 
-void WODigital::WagoReadCallback(bool status, UWord address, int count, vector<bool> &values)
+void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
 {
         if (!status)
         {
@@ -88,7 +88,7 @@ void WODigital::WagoReadCallback(bool status, UWord address, int count, vector<b
         Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WODigital::WagoWriteCallback(bool status, UWord address, bool _value)
+void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
 {
         if (!status)
         {

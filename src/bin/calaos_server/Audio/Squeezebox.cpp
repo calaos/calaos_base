@@ -310,8 +310,8 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                 isConnected = true;
                 Utils::logger("squeezebox") << Priority::DEBUG << "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
 
-                for(uint i = 0; i < tokens.size(); i++)
-                        processNotificationMessage(tokens[i]);
+                for(uint j = 0; j < tokens.size(); j++)
+                        processNotificationMessage(tokens[j]);
         }
         else if (srv == econ)
         {
@@ -344,8 +344,8 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
 
                 Utils::logger("squeezebox") << Priority::DEBUG << "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
 
-                for(uint i = 0; i < tokens.size(); i++)
-                        processMessage(true, tokens[i]);
+                for(uint j = 0; j < tokens.size(); j++)
+                        processMessage(true, tokens[j]);
         }
         else
         {
@@ -1295,13 +1295,13 @@ void Squeezebox::get_sync_status_cb(bool status, string request, string result, 
                         AudioPlayer *ap = AudioManager::Instance().get_player(i);
                         if (ap->get_param("id") == tmp)
                         {
-                                Params result;
+                                Params res;
 
                                 //player found in calaosd, add it
-                                result.Add("id", ap->get_param("id"));
-                                result.Add("name", ap->get_param("name"));
+                                res.Add("id", ap->get_param("id"));
+                                res.Add("name", ap->get_param("name"));
 
-                                results.push_back(result);
+                                results.push_back(res);
 
                                 break;
                         }
@@ -1554,9 +1554,9 @@ void Squeezebox::playlist_save(string name)
         sendRequest(cmd);
 }
 
-void Squeezebox::playlist_delete(string id)
+void Squeezebox::playlist_delete(string pid)
 {
-        string cmd = "playlists delete playlist_id:" + id;
+        string cmd = "playlists delete playlist_id:" + pid;
 
         sendRequest(cmd);
 }
@@ -1770,9 +1770,9 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
                         {
                                 string pid = url_decode2(tk[1]);
 
-                                for (int i = 0;i < AudioManager::Instance().get_size();i++)
+                                for (int j = 0;j < AudioManager::Instance().get_size();j++)
                                 {
-                                        AudioPlayer *ap = AudioManager::Instance().get_player(i);
+                                        AudioPlayer *ap = AudioManager::Instance().get_player(j);
                                         if (ap->get_param("id") == pid && pid != id)
                                         {
                                                 //player found in calaosd, add it

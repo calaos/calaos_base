@@ -21,9 +21,9 @@
 #include "ApplicationController.h"
 #include "ApplicationMain.h"
 
-ApplicationController::ApplicationController(Evas *e, Evas_Object *l):
-        evas(e),
-        layout(l),
+ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
+        evas(_e),
+        layout(_l),
         mouseCursor(NULL),
         menu_hidden(false),
         homeController(NULL),

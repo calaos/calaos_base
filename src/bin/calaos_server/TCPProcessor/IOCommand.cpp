@@ -285,10 +285,12 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         {
                                 input->get_params().Add(request["3"], request["4"]);
 
-                                string sig = "input ";
-                                sig += input->get_param("id") + " ";
-                                sig += url_encode(request["3"] + string(":") + request["4"]) + " ";
-                                IPC::Instance().SendEvent("events", sig);
+                                {
+                                        string sig = "input ";
+                                        sig += input->get_param("id") + " ";
+                                        sig += url_encode(request["3"] + string(":") + request["4"]) + " ";
+                                        IPC::Instance().SendEvent("events", sig);
+                                }
 
                                 if (request["3"] != "type" && request["3"] != "id")
                                 {
@@ -355,10 +357,12 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         {
                                 input->get_params().Delete(request["3"]);
 
-                                string sig = "input_delete_property ";
-                                sig += input->get_param("id") + " ";
-                                sig += url_encode(request["3"]) + " ";
-                                IPC::Instance().SendEvent("events", sig);
+                                {
+                                        string sig = "input_delete_property ";
+                                        sig += input->get_param("id") + " ";
+                                        sig += url_encode(request["3"]) + " ";
+                                        IPC::Instance().SendEvent("events", sig);
+                                }
 
                                 if (request["3"] != "type" && request["3"] != "id")
                                 {
@@ -519,8 +523,8 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 {
                         for (int i = 0;i < ListeRoom::Instance().get_nb_input();i++)
                         {
-                                Input *input = ListeRoom::Instance().get_input(i);
-                                result.Add(to_string(i + 1), input->get_param("id"));
+                                Input *in = ListeRoom::Instance().get_input(i);
+                                result.Add(to_string(i + 1), in->get_param("id"));
                         }
                 }
         }
@@ -789,10 +793,12 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         {
                                 output->get_params().Add(request["3"], request["4"]);
 
-                                string sig = "output ";
-                                sig += output->get_param("id") + " ";
-                                sig += url_encode(request["3"] + string(":") + request["4"]) + " ";
-                                IPC::Instance().SendEvent("events", sig);
+                                {
+                                        string sig = "output ";
+                                        sig += output->get_param("id") + " ";
+                                        sig += url_encode(request["3"] + string(":") + request["4"]) + " ";
+                                        IPC::Instance().SendEvent("events", sig);
+                                }
 
                                 if (request["3"] != "type" && request["3"] != "id")
                                 {
@@ -858,10 +864,12 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         {
                                 output->get_params().Delete(request["3"]);
 
-                                string sig = "output_delete_property ";
-                                sig += output->get_param("id") + " ";
-                                sig += url_encode(request["3"]) + " ";
-                                IPC::Instance().SendEvent("events", sig);
+                                {
+                                        string sig = "output_delete_property ";
+                                        sig += output->get_param("id") + " ";
+                                        sig += url_encode(request["3"]) + " ";
+                                        IPC::Instance().SendEvent("events", sig);
+                                }
 
                                 if (request["3"] != "type" && request["3"] != "id")
                                 {
@@ -899,8 +907,8 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 {
                         for (int i = 0;i < ListeRoom::Instance().get_nb_output();i++)
                         {
-                                Output *output = ListeRoom::Instance().get_output(i);
-                                result.Add(to_string(i + 1), output->get_param("id"));
+                                Output *o = ListeRoom::Instance().get_output(i);
+                                result.Add(to_string(i + 1), o->get_param("id"));
                         }
                 }
         }

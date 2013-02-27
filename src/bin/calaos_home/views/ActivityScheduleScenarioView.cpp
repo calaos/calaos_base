@@ -23,8 +23,8 @@
 #include "GenlistItemScenarioHeader.h"
 #include "GenlistItemScenarioScheduleTime.h"
 
-ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/schedule_scenario"),
+ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/schedule_scenario"),
         schedule_list(NULL),
         month_list(NULL)
 {

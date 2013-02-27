@@ -24,8 +24,8 @@
 ITEM_BUTTON_CALLBACK(IOWOAnalogHomeView, More)
 ITEM_BUTTON_CALLBACK(IOWOAnalogHomeView, Less)
 
-IOWOAnalogHomeView::IOWOAnalogHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WOAnalog_") + style_addition, flags),
+IOWOAnalogHomeView::IOWOAnalogHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WOAnalog_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

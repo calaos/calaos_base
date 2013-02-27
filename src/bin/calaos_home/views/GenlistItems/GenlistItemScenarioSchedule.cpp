@@ -123,41 +123,41 @@ void GenlistItemScenarioSchedule::buttonClickMore()
         GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
 
-        GenlistItemSimple *item;
+        GenlistItemSimple *_item;
 
-        item = new GenlistItemSimple(evas, glist, "Modifier le scénario", true);
-        item->setIcon("calaos/icons/genlist/edit");
-        item->Append(glist, header);
-        item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioModify));
+        _item = new GenlistItemSimple(evas, glist, "Modifier le scénario", true);
+        _item->setIcon("calaos/icons/genlist/edit");
+        _item->Append(glist, header);
+        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioModify));
 
-        item = new GenlistItemSimple(evas, glist, "Supprimer le scénario", true);
-        item->setIcon("calaos/icons/genlist/trash");
-        item->Append(glist, header);
-        item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioDelete));
+        _item = new GenlistItemSimple(evas, glist, "Supprimer le scénario", true);
+        _item->setIcon("calaos/icons/genlist/trash");
+        _item->Append(glist, header);
+        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioDelete));
 
-        item = new GenlistItemSimple(evas, glist, "Executer le scénario maintenant", true);
-        item->setIcon("calaos/icons/genlist/play");
-        item->Append(glist, header);
-        item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioPlay));
+        _item = new GenlistItemSimple(evas, glist, "Executer le scénario maintenant", true);
+        _item->setIcon("calaos/icons/genlist/play");
+        _item->Append(glist, header);
+        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioPlay));
 
         if (scenario->scenario_data.params["schedule"] == "false")
         {
-                item = new GenlistItemSimple(evas, glist, "Ajouter une planification", true);
-                item->setIcon("calaos/icons/genlist/plus");
-                item->Append(glist, header);
-                item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleAdd));
+                _item = new GenlistItemSimple(evas, glist, "Ajouter une planification", true);
+                _item->setIcon("calaos/icons/genlist/plus");
+                _item->Append(glist, header);
+                _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleAdd));
         }
         else
         {
-                item = new GenlistItemSimple(evas, glist, "Modifier la planification", true);
-                item->setIcon("calaos/icons/genlist/clock");
-                item->Append(glist, header);
-                item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleModify));
+                _item = new GenlistItemSimple(evas, glist, "Modifier la planification", true);
+                _item->setIcon("calaos/icons/genlist/clock");
+                _item->Append(glist, header);
+                _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleModify));
 
-                item = new GenlistItemSimple(evas, glist, "Supprimer la planification", true);
-                item->setIcon("calaos/icons/genlist/trash");
-                item->Append(glist, header);
-                item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleDelete));
+                _item = new GenlistItemSimple(evas, glist, "Supprimer la planification", true);
+                _item->setIcon("calaos/icons/genlist/trash");
+                _item->Append(glist, header);
+                _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleDelete));
         }
 
         elm_table_pack(table, glist, 1, 1, 1, 1);
@@ -217,13 +217,13 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
         GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
 
-        GenlistItemSimple *item = new GenlistItemSimple(evas, parent, "Oui, supprimer le scénario", true);
-        item->Append(glist, header);
-        item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioValid));
+        GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, "Oui, supprimer le scénario", true);
+        _item->Append(glist, header);
+        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioValid));
 
-        item = new GenlistItemSimple(evas, parent, "Non", true);
-        item->Append(glist, header);
-        item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioCancel));
+        _item = new GenlistItemSimple(evas, parent, "Non", true);
+        _item->Append(glist, header);
+        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioCancel));
 
         elm_table_pack(table, glist, 1, 1, 1, 1);
 

@@ -25,8 +25,8 @@ ITEM_BUTTON_CALLBACK(IOWOVoletHomeView, Up)
 ITEM_BUTTON_CALLBACK(IOWOVoletHomeView, Down)
 ITEM_BUTTON_CALLBACK(IOWOVoletHomeView, Stop)
 
-IOWOVoletHomeView::IOWOVoletHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WOVolet_") + style_addition, flags),
+IOWOVoletHomeView::IOWOVoletHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WOVolet_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

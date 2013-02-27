@@ -26,8 +26,8 @@ ITEM_BUTTON_CALLBACK(IOWODaliHomeView, Off)
 ITEM_BUTTON_CALLBACK(IOWODaliHomeView, More)
 ITEM_BUTTON_CALLBACK(IOWODaliHomeView, Less)
 
-IOWODaliHomeView::IOWODaliHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("WODali_") + style_addition, flags),
+IOWODaliHomeView::IOWODaliHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("WODali_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

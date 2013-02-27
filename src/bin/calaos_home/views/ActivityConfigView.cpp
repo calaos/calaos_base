@@ -20,8 +20,8 @@
 ******************************************************************************/
 #include "ActivityConfigView.h"
 
-ActivityConfigView::ActivityConfigView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/config")
+ActivityConfigView::ActivityConfigView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/config")
 {
         setPartText("header.label", "Centre de configuration");
 }

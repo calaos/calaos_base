@@ -94,8 +94,8 @@ void ActivityMediaController::buttonClick(string button)
                 mediaView->setPartText("header.label", mediaView->getTopView()->getTitle());
 
                 //Enable view reactivates view elements (camera video streams, ...)
-                ActivityView *view = reinterpret_cast<ActivityView *>(mediaView->getTopView());
-                if (view) view->EnableView();
+                ActivityView *_view = reinterpret_cast<ActivityView *>(mediaView->getTopView());
+                if (_view) _view->EnableView();
         }
 }
 
@@ -105,8 +105,8 @@ void ActivityMediaController::addSubController(ActivityController *controller)
         controller->view_deleted.connect(sigc::mem_fun(*this, &ActivityMediaController::controllerFinished));
 
         //Disable view disactivates view elements (camera video streams, ...)
-        ActivityView *view = reinterpret_cast<ActivityView *>(mediaView->getTopView());
-        if (view) view->DisableView();
+        ActivityView *_view = reinterpret_cast<ActivityView *>(mediaView->getTopView());
+        if (_view) _view->DisableView();
 
         mediaView->addView(controller->getView());
         mediaView->setPartText("header.label", controller->getView()->getTitle());

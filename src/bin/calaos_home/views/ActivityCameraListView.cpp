@@ -20,8 +20,8 @@
 ******************************************************************************/
 #include "ActivityCameraListView.h"
 
-ActivityCameraListView::ActivityCameraListView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/media/camera_list")
+ActivityCameraListView::ActivityCameraListView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/media/camera_list")
 {
         ActivityCameraObject ac;
         cameras.reserve(4);

@@ -51,8 +51,6 @@ class ViewAnimation
 class MainContentView: public BaseView, public EvasSmart
 {
         private:
-                Evas *evas;
-
                 list<ViewAnimation *> views;
                 BaseView *top_item;
 

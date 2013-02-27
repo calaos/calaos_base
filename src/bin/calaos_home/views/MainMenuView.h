@@ -36,8 +36,6 @@ class MainMenuView: public BaseView
                 void _click_widget();
 
         private:
-                Evas *evas;
-
                 Evas_Object *list;
 
                 Elm_Object_Item *item_config_widget;

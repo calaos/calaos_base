@@ -117,25 +117,25 @@ void ActivityCameraListController::updateScenarios()
         ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
         const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-        list<IOBase *> page;
+        list<IOBase *> _page;
 
         list<IOBase *>::const_iterator it = scenarios.begin();
         for (int i = 0;it != scenarios.end();it++, i++)
         {
                 IOBase *io = *it;
-                page.push_back(io);
+                _page.push_back(io);
 
-                if (page.size() >= 6)
+                if (_page.size() >= 6)
                 {
-                        cameraView->addScenarioPage(page);
-                        page.clear();
+                        cameraView->addScenarioPage(_page);
+                        _page.clear();
                 }
         }
 
-        if (page.size() > 0)
+        if (_page.size() > 0)
         {
-                while (page.size() < 6) page.push_back(NULL);
-                cameraView->addScenarioPage(page);
+                while (_page.size() < 6) _page.push_back(NULL);
+                cameraView->addScenarioPage(_page);
         }
 }
 

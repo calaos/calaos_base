@@ -326,7 +326,6 @@ namespace Utils
                 virtual ~DeletorBase() {}
                 virtual void operator() (void *b) const
                 {
-                        b = NULL;
 #if !defined (CALAOS_INSTALLER)  && !defined (IPHONE_APP)
                         logger("root") << Priority::CRIT << "DeletorBase() called, this is an error. It should never happen"
                                        << ", because it means the application leaks memory!" << log4cpp::eol;

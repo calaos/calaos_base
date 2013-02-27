@@ -145,7 +145,7 @@ void ActivityHomeController::updateScenarios()
         ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
 
         const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-        list<IOBase *> page;
+        list<IOBase *> _page;
 
         //Add the status page first
         homeView->addStatusPage();
@@ -154,19 +154,19 @@ void ActivityHomeController::updateScenarios()
         for (int i = 0;it != scenarios.end();it++, i++)
         {
                 IOBase *io = *it;
-                page.push_back(io);
+                _page.push_back(io);
 
-                if (page.size() >= 6)
+                if (_page.size() >= 6)
                 {
-                        homeView->addScenarioPage(page);
-                        page.clear();
+                        homeView->addScenarioPage(_page);
+                        _page.clear();
                 }
         }
 
-        if (page.size() > 0)
+        if (_page.size() > 0)
         {
-                while (page.size() < 6) page.push_back(NULL);
-                homeView->addScenarioPage(page);
+                while (_page.size() < 6) _page.push_back(NULL);
+                homeView->addScenarioPage(_page);
         }
 
         homeView->selectPage(1, 0.35);
@@ -180,7 +180,7 @@ void ActivityHomeController::scenarioReload(Scenario *sc)
         if (!homeView) return;
 
         const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-        list<IOBase *> page;
+        list<IOBase *> _page;
 
         int currentpage = homeView->getCurrentPage();
 
@@ -196,19 +196,19 @@ void ActivityHomeController::scenarioReload(Scenario *sc)
         for (int i = 0;it != scenarios.end();it++, i++)
         {
                 IOBase *io = *it;
-                page.push_back(io);
+                _page.push_back(io);
 
-                if (page.size() >= 6)
+                if (_page.size() >= 6)
                 {
-                        homeView->addScenarioPage(page);
-                        page.clear();
+                        homeView->addScenarioPage(_page);
+                        _page.clear();
                 }
         }
 
-        if (page.size() > 0)
+        if (_page.size() > 0)
         {
-                while (page.size() < 6) page.push_back(NULL);
-                homeView->addScenarioPage(page);
+                while (_page.size() < 6) _page.push_back(NULL);
+                homeView->addScenarioPage(_page);
         }
 
         if (currentpage >= homeView->getPageCount())

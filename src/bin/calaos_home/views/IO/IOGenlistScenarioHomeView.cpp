@@ -23,8 +23,8 @@
 
 ITEM_BUTTON_CALLBACK(IOGenlistScenarioHomeView, Go)
 
-IOGenlistScenarioHomeView::IOGenlistScenarioHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type flags):
-        GenlistItemBase(_evas, _parent, string("scenario_") + style_addition, flags),
+IOGenlistScenarioHomeView::IOGenlistScenarioHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
+        GenlistItemBase(_evas, _parent, string("scenario_") + style_addition, _flags),
         IOBaseElement(_io)
 {
 }

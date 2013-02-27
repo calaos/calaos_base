@@ -70,10 +70,10 @@ Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, string part)
                 if (button_icon != "")
                 {
                         o = elm_button_add(parent);
-                        Evas_Object *icon = elm_icon_add(o);
-                        elm_image_file_set(icon, ApplicationMain::getTheme(), button_icon.c_str());
+                        Evas_Object *_icon = elm_icon_add(o);
+                        elm_image_file_set(_icon, ApplicationMain::getTheme(), button_icon.c_str());
                         elm_object_style_set(o, "calaos/action_button/blue");
-                        elm_object_content_set(o, icon);
+                        elm_object_content_set(o, _icon);
                         evas_object_smart_callback_add(o, "clicked", _item_button_Pressed, this);
 
                         itemEmitSignal("button,enabled", "calaos");

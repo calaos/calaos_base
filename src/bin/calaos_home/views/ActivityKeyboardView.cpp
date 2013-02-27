@@ -20,8 +20,8 @@
 ******************************************************************************/
 #include "ActivityKeyboardView.h"
 
-ActivityKeyboardView::ActivityKeyboardView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/keyboard")
+ActivityKeyboardView::ActivityKeyboardView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/keyboard")
 {
         setPartText("header.label", "Clavier");
 

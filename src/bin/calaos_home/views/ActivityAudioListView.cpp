@@ -32,8 +32,8 @@
 #include "GenlistItems/GenlistItemRadio.h"
 #include <FileDownloader.h>
 
-ActivityAudioListView::ActivityAudioListView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/page/media/audio_list"),
+ActivityAudioListView::ActivityAudioListView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/page/media/audio_list"),
         player_current(NULL),
         in_edit_mode(false)
 {
@@ -770,18 +770,18 @@ void ActivityAudioListView::itemRadioLoaded(list<Params> &infos)
         EmitSignal("browser,loading,stop", "calaos");
 }
 
-void ActivityAudioListView::searchRadioSelected(void *data, string radio_id, string subitem_id)
+void ActivityAudioListView::searchRadioSelected(void *data, string radioid, string subitem_id)
 {
         ApplicationMain::Instance().ShowKeyboard("Recherche dans les radios", sigc::bind(
                                                          sigc::mem_fun(*this, &ActivityAudioListView::searchRadioKeyboard_cb),
-                                                         radio_id, subitem_id), false);
+                                                         radioid, subitem_id), false);
 }
 
-void ActivityAudioListView::searchRadioKeyboard_cb(string text, string radio_id, string subitem_id)
+void ActivityAudioListView::searchRadioKeyboard_cb(string text, string radioid, string subitem_id)
 {
         EmitSignal("browser,loading,start", "calaos");
 
-        player_current->getPlayer()->getDBRadioSearch(radio_id, subitem_id, text, sigc::mem_fun(*this, &ActivityAudioListView::itemRadioLoaded));
+        player_current->getPlayer()->getDBRadioSearch(radioid, subitem_id, text, sigc::mem_fun(*this, &ActivityAudioListView::itemRadioLoaded));
 }
 
 void ActivityAudioListView::browserShowSearch(void *data, Evas_Object *_edje, std::string emission, std::string source)

@@ -163,16 +163,16 @@ void Room::load_io_done(IOBase *io)
         if (io->params["chauffage_id"] != "")
              model->chauffageList.push_back(io);
 
-        string type = io->params["type"];
-        if ((type == "scenario" ||
-             type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
+        string _type = io->params["type"];
+        if ((_type == "scenario" ||
+             _type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
         {
                 model->cacheScenarios.push_back(io);
         }
 
-        if ((type == "WODigital" && io->params["gtype"] == "light") ||
-            type == "WODali" ||
-            type == "WODaliRVB")
+        if ((_type == "WODigital" && io->params["gtype"] == "light") ||
+            _type == "WODali" ||
+            _type == "WODaliRVB")
         {
                 int value;
                 from_string(io->params["state"], value);
@@ -187,8 +187,8 @@ void Room::load_io_done(IOBase *io)
                 }
         }
 
-        if (type == "WOVolet" ||
-            type == "WOVoletSmart")
+        if (_type == "WOVolet" ||
+            _type == "WOVoletSmart")
         {
                 int value = 100;
 
@@ -686,9 +686,9 @@ void Room::load_io_notif_done(IOBase *io)
         if (io->params["chauffage_id"] != "")
              model->chauffageList.push_back(io);
 
-        string type = io->params["type"];
-        if ((type == "scenario" ||
-             type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
+        string _type = io->params["type"];
+        if ((_type == "scenario" ||
+             _type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
         {
                 model->cacheScenarios.push_back(io);
                 //Sort cached scenarios again
@@ -696,9 +696,9 @@ void Room::load_io_notif_done(IOBase *io)
                 model->cacheScenariosPref.sort(IOScenarioCompare);
         }
 
-        if ((type == "WODigital" && io->params["gtype"] == "light") ||
-            type == "WODali" ||
-            type == "WODaliRVB")
+        if ((_type == "WODigital" && io->params["gtype"] == "light") ||
+            _type == "WODali" ||
+            _type == "WODaliRVB")
         {
                 int value;
                 from_string(io->params["state"], value);
@@ -713,8 +713,8 @@ void Room::load_io_notif_done(IOBase *io)
                 }
         }
 
-        if (type == "WOVolet" ||
-            type == "WOVoletSmart")
+        if (_type == "WOVolet" ||
+            _type == "WOVoletSmart")
         {
                 int value = 100;
 

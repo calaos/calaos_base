@@ -206,8 +206,8 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
 
         Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Got " << tokens.size() << " messages." << log4cpp::eol;
 
-        for(unsigned int i = 0; i < tokens.size(); i++)
-                processMessage(tokens[i]);
+        for(unsigned int j = 0; j < tokens.size(); j++)
+                processMessage(tokens[j]);
 }
 
 void CalaosListener::processMessage(string msg)

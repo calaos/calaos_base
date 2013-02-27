@@ -20,8 +20,8 @@
 ******************************************************************************/
 #include "ActivityMediaMenuView.h"
 
-ActivityMediaMenuView::ActivityMediaMenuView(Evas *e, Evas_Object *parent):
-        ActivityView(e, parent, "calaos/media/menu")
+ActivityMediaMenuView::ActivityMediaMenuView(Evas *_e, Evas_Object *_parent):
+        ActivityView(_e, _parent, "calaos/media/menu")
 {
         int pos = 1;
 
@@ -64,7 +64,7 @@ void ActivityMediaMenuView::addIcon(int position, string type)
         }
 }
 
-void ActivityMediaMenuView::ItemCallback(void *data, Evas_Object *edje, string emission, string source)
+void ActivityMediaMenuView::ItemCallback(void *data, Evas_Object *_edje, string emission, string source)
 {
         if (source != "menu") return;
 

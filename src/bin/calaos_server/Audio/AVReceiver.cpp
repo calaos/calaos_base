@@ -389,13 +389,13 @@ bool IOAVReceiver::SaveToXml(TiXmlElement *node)
         return true;
 }
 
-map<string, string> IOAVReceiver::query_param(string param)
+map<string, string> IOAVReceiver::query_param(string key)
 {
         map<string, string> m;
 
         if (!receiver) return m;
 
-        if (param == "input_sources")
+        if (key == "input_sources")
         {
                 AVRList sources = receiver->getSources();
                 AVRList::iterator it = sources.begin();

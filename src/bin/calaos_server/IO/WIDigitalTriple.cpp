@@ -65,7 +65,7 @@ void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::s
         }
 }
 
-void WIDigitalTriple::WagoReadCallback(bool status, UWord address, int nb, vector<bool> &values)
+void WIDigitalTriple::WagoReadCallback(bool status, UWord addr, int nb, vector<bool> &values)
 {
         if (!status)
         {

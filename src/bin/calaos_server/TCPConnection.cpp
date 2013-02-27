@@ -153,7 +153,7 @@ void TCPConnection::ProcessData(string request)
         p.Parse(request);
 
         //url decode all
-        for (int i = 0;i < p.size();i++)
+        for (i = 0;i < p.size();i++)
         {
                 p.Add(Utils::to_string(i), Utils::url_decode(p[Utils::to_string(i)]));
         }
