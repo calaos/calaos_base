@@ -14,7 +14,7 @@
 
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/bin/calaos-server
+DAEMON=/usr/bin/calaos_server
 NAME=calaos-server
 DESC="Calaos home automation server"
 PIDFILE=/var/run/calaos/$NAME.pid
@@ -33,7 +33,7 @@ case "$1" in
     start)
         log_daemon_msg "Starting $DESC" $NAME
         if ! start-stop-daemon --start --oknodo --quiet \
-            --pidfile $PIDFILE --exec $DAEMON --user $CALAOS_USER -- $DAEMON_OPTS
+            --pidfile $PIDFILE --exec $DAEMON --chuid $CALAOS_USER --background -- $DAEMON_OPTS
         then
             log_end_msg 1
         else
