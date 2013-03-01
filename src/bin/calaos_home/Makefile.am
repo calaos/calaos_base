@@ -1,4 +1,4 @@
-
+if HAVE_CALAOS_HOME_BIN
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CXXFLAGS = \
@@ -198,3 +198,5 @@ calaos_home_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_HOME_LIBS@ \
 	@CALAOS_COMMON_LIBS@
+
+endif

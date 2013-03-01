@@ -55,8 +55,8 @@ PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 
 requirements_calaos_home="eina >= 1.7.0 eet >= 1.7.0 ecore >= 1.7.0 ecore-file >= 1.7.0 ecore-con >= 1.7.0 elementary >= 1.7.0 ecore-x >= 1.7.0 openssl >= 1.0.0"
-PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}])
-AC_SUBST([requirements_calaos_home])
+PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}], [have_calaos_home_dep="yes"], [have_calaos_home_dep="no"])
+AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x{have_calaos_home_dep}" = "yes"])
 
 ### Checks for compiler characteristics
 AC_C_BIGENDIAN
