@@ -52,6 +52,8 @@ void GenlistItemScenarioSchedule::initView()
 
 void GenlistItemScenarioSchedule::updateView()
 {
+        if (!io) return;
+
         if (scenario->ioScenario)
         {
                 elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
@@ -223,7 +225,7 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
 
         _item = new GenlistItemSimple(evas, parent, "Non", true);
         _item->Append(glist, header);
-        _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioCancel));
+        _item->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioCancel), _item));
 
         elm_table_pack(table, glist, 1, 1, 1, 1);
 
@@ -238,11 +240,12 @@ void GenlistItemScenarioSchedule::deleteScenarioValid(void *data)
         elm_ctxpopup_dismiss(popup);
 }
 
-void GenlistItemScenarioSchedule::deleteScenarioCancel(void *data)
+void GenlistItemScenarioSchedule::deleteScenarioCancel(void *data, GenlistItemSimple *cancel_item)
 {
         if (!scenario) return;
 
-        elm_ctxpopup_dismiss(popup);
+        elm_naviframe_item_pop(pager_popup);
+        cancel_item->setSelected(false);
 }
 
 void GenlistItemScenarioSchedule::scenarioModify(void *data)

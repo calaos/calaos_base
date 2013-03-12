@@ -28,6 +28,7 @@
 
 using namespace Utils;
 
+class GenlistItemSimple;
 class GenlistItemScenarioSchedule: public GenlistItemBase, public IOBaseElement
 {
         private:
@@ -45,7 +46,7 @@ class GenlistItemScenarioSchedule: public GenlistItemBase, public IOBaseElement
                 virtual void ioDeleted();
 
                 void deleteScenarioValid(void *data);
-                void deleteScenarioCancel(void *data);
+                void deleteScenarioCancel(void *data, GenlistItemSimple *cancel_item);
 
         public:
                 GenlistItemScenarioSchedule(Evas *evas, Evas_Object *parent, bool scheduleView, Scenario *scenario, void *data = NULL);
