@@ -18,12 +18,23 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef ENABLE_NLS
+# include <libintl.h>
+# define _(x) gettext(x)
+#else
+# define _(x) (x)
+#endif
+
 #include "ActivityMediaView.h"
 
 ActivityMediaView::ActivityMediaView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/media")
 {
-        setPartText("header.label", "Multimédia");
+        setPartText("header.label", _("Multimédia"));
 
         contentView = new MainContentView(evas, parent);
         Swallow(contentView->getSmartObject(), "calaos.main.content");
