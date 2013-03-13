@@ -18,11 +18,20 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef ENABLE_NLS
+# include <libintl.h>
+# define _(x) gettext(x)
+#else
+# define _(x) (x)
+#endif
+
 #include "ActivityHomeView.h"
 #include "ApplicationMain.h"
-
 #include "IOView.h"
-
 #include "IO/IOGenlistRoomGroup.h"
 
 ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
@@ -30,7 +39,7 @@ ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
         mode_detail(false),
         pageStatus(NULL)
 {
-        setPartText("header.label", "Ma Maison");
+        setPartText("header.label", _("My House"));
 
         rooms.reserve(6);
         chauffages.reserve(6);
