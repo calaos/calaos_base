@@ -32,11 +32,21 @@ class GenlistItemSimpleHeader: public GenlistItemBase
         private:
                 string label;
 
+                Params bt_labels;
+
         public:
-                GenlistItemSimpleHeader(Evas *evas, Evas_Object *parent, string label);
+                GenlistItemSimpleHeader(Evas *evas, Evas_Object *parent, string label, string style_addition = "");
                 virtual ~GenlistItemSimpleHeader();
 
                 virtual string getLabelItem(Evas_Object *obj, string part);
+                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+
+                void setButtonLabel(string _button, string _label) { bt_labels.Add(_button, _label); }
+
+                void buttonClickBack();
+                void buttonClickValid();
+
+                sigc::signal<void, string> button_click; //special headers can have buttons
 };
 
 #endif // GENLISTITEMSIMPLEHEADER_H

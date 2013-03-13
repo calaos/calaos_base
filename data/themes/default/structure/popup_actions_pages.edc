@@ -38,6 +38,12 @@ group
                                         string: "label" "Actions";
                                 }
                         }
+                        description
+                        {
+                                state: "hidden" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 0;
+                        }
                 }
 
                 part
@@ -55,6 +61,12 @@ group
                                         string: "style" "calaos/action_button/green";
                                         string: "icon" "calaos/icons/action_button/popup/valid";
                                 }
+                        }
+                        description
+                        {
+                                state: "hidden" 0.0;
+                                inherit: "default" 0.0;
+                                visible: 0;
                         }
                 }
 
@@ -83,6 +95,27 @@ group
                                 rel2 { relative: 1.0  1.0; offset: -10  7+40; to_y: "sep"; }
                                 text { text: "<b>Blablabla</b><br><light_blue><small>Changer la valeur blabla</small></light_blue>"; style: "HTMLStyle"; min: 0 1; }
                         }
+                }
+        }
+
+        programs
+        {
+                program
+                {
+                        name: "hide_back";
+                        signal: "hide,back";
+                        source: "calaos";
+                        action: STATE_SET "hidden" 0.0;
+                        target: "button.back";
+                }
+
+                program
+                {
+                        name: "hide_valid";
+                        signal: "hide,valid";
+                        source: "calaos";
+                        action: STATE_SET "hidden" 0.0;
+                        target: "button.valid";
                 }
         }
 }

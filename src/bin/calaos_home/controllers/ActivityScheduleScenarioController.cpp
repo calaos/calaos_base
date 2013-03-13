@@ -39,11 +39,13 @@ void ActivityScheduleScenarioController::createView()
         ActivityScheduleScenarioView *scView = dynamic_cast<ActivityScheduleScenarioView *>(view);
         if (scenario->isScheduled())
         {
-                scView->setTimeRangeInfos(scenario->ioScenario->range_infos);
+                scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
                 scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validModifySchedule));
         }
         else
         {
+                scenario->ioScenario->range_infos = TimeRangeInfos(); //clear if needed
+                scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
                 scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validAddSchedule));
         }
 }

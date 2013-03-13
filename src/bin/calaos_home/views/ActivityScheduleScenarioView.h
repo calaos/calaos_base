@@ -40,6 +40,23 @@ class ActivityScheduleScenarioView: public ActivityView
                 vector<GenlistItemSimple *> items_months;
                 vector<GenlistItemSimple *> items_periods;
 
+                Evas_Object *popup;
+                Evas_Object *pager_popup;
+
+                Evas_Object *spin_start_hours;
+                Evas_Object *spin_start_min;
+                Evas_Object *spin_start_sec;
+                Evas_Object *spin_start_ms;
+
+                Evas_Object *spin_end_hours;
+                Evas_Object *spin_end_min;
+                Evas_Object *spin_end_sec;
+                Evas_Object *spin_end_ms;
+
+                vector<GenlistItemSimple *> week_days;
+
+                bool cycle;
+
                 void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
                 void itemAllYearSelected(void *data);
@@ -48,13 +65,22 @@ class ActivityScheduleScenarioView: public ActivityView
 
                 void reloadTimeRanges();
 
+                void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
+                void buttonValidWeekClick(void *data, Evas_Object *edje_object, string emission, string source);
+                void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
+
+                void unselectWeekDays(void *data);
+                void unselectAllWeekDays(void *data);
+
+                void headerWeekButtonClick(string bt);
+
         public:
                 ActivityScheduleScenarioView(Evas *evas, Evas_Object *parent);
                 ~ActivityScheduleScenarioView();
 
                 virtual void resetView();
 
-                void setTimeRangeInfos(TimeRangeInfos &tr) { range_infos = tr; reloadTimeRanges(); }
+                void setTimeRangeInfos(TimeRangeInfos &tr, bool _cycle) { range_infos = tr; reloadTimeRanges(); cycle = _cycle; }
 
                 sigc::signal<void, TimeRangeInfos &> buttonValidPressed;
 };
