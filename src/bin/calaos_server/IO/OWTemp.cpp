@@ -18,11 +18,15 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <OWTemp.h>
 #include <ListeRule.h>
 #include <IPC.h>
 
-#ifdef HAVE_OWCAPI
+#ifdef HAVE_OWCAPI_H
 #include <owcapi.h>
 #endif
 
@@ -45,7 +49,7 @@ OWTemp::OWTemp(Params &p):
         if (!get_params().Exists("visible")) set_param("visible", "true");
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
-#ifdef HAVE_OWCAPI
+#ifdef HAVE_OWCAPI_H
 
         /* Read value */
         OW_init(ow_args.c_str());
@@ -72,14 +76,14 @@ OWTemp::~OWTemp()
 {
         Utils::logger("input") << Priority::INFO << "OWTemp::~OWTemp(): Ok" << log4cpp::eol;
 
-#ifdef HAVE_OWCAPI
+#ifdef HAVE_OWCAPI_H
         OW_finish();
 #endif
 }
 
 void OWTemp::hasChanged()
 {
-#ifdef HAVE_OWCAPI
+#ifdef HAVE_OWCAPI_H
 
         char *res;
         size_t len;

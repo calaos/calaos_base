@@ -68,6 +68,10 @@ EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wno-unused-parameter -
 AC_HEADER_ASSERT
 AC_CHECK_HEADERS([unistd.h])
 
+have_owcapi="no"
+AC_CHECK_HEADERS([owcapi.h], [have_owcapi="yes"])
+AM_CONDITIONAL([HAVE_OWCAPI], [test "x${have_owcapi}" = "xyes"])
+
 AC_CONFIG_FILES([ po/Makefile.in
 Makefile
 src/Makefile
@@ -105,4 +109,6 @@ echo "  prefix...............: $prefix"
 echo
 echo " Build Calaos Server...: yes"
 echo " Build Calaos Home.....: $have_calaos_home_dep"
+echo
+echo " One Wire support......: ${have_owcapi}"
 echo
