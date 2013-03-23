@@ -5,7 +5,7 @@ Maintainer: Nicolas Aguirre <aguirre.nicolas@gmail.com>
 Build-Depends: debhelper (>= 6), cdbs, libtool, pkg-config,
  libelementary-dev, libecore-dev, libedje-dev, libefreet-dev,
  libvmime-dev, libjansson-dev, liblog4cpp5-dev, libsigc++-2.0-dev,
- gettext, autopoint
+ gettext, autopoint, libow-dev
 Standards-Version: 3.8.2
 Vcs-Git: https://github.com/calaos/calaos_base
 Vcs-Browser: https://github.com/calaos/calaos_base
@@ -14,7 +14,7 @@ Homepage: http://www.calaos.fr
 Package: calaos-server
 Architecture: any
 Depends: ${shlibs:Depends}, libecore1, libvmime0,
- libjansson4, liblog4cpp5, libsigc++-2.0-0c2a
+ libjansson4, liblog4cpp5, libsigc++-2.0-0c2a, libowcapi-2.8-15
 Description: Calaos is a powerful home automation software.
  It features a complete set of part to automate your house
  from lights to shutter or even music or cameras.
