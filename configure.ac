@@ -69,8 +69,13 @@ AC_HEADER_ASSERT
 AC_CHECK_HEADERS([unistd.h])
 
 have_owcapi="no"
+
 AC_CHECK_HEADERS([owcapi.h], [have_owcapi="yes"])
 AM_CONDITIONAL([HAVE_OWCAPI], [test "x${have_owcapi}" = "xyes"])
+if test "x${have_owcapi}" == "xyes"
+then
+    AC_CHECK_LIB([owcapi], [OW_init],, AC_ERROR([Misssing owfs library]))
+fi
 
 AC_CONFIG_FILES([ po/Makefile.in
 Makefile
