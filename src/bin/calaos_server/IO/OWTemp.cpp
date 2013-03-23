@@ -50,6 +50,8 @@ OWTemp::OWTemp(Params &p):
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
 #ifdef HAVE_OWCAPI_H
+	char *res;
+        size_t len;
 
         /* Read value */
         OW_init(ow_args.c_str());
