@@ -70,6 +70,7 @@ Rules/ConditionStart.cpp			\
 Rules/ConditionScript.cpp			\
 Rules/RulesFactory.cpp				\
 Rule.cpp					\
+DataLogger.cpp 					\
 Output.cpp					\
 ListeRule.cpp					\
 Config.cpp					\
@@ -162,6 +163,7 @@ Audio/AVRMarantz.h				\
 Audio/AVReceiver.h				\
 Audio/AudioInput.h				\
 PollListenner.h					\
+DataLogger.h					\
 IOBase.h					\
 Input.h						\
 Etage.h						\

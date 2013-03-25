@@ -20,6 +20,7 @@
 ******************************************************************************/
 #include <Output.h>
 #include <ListeRoom.h>
+#include <DataLogger.h>
 
 using namespace Calaos;
 
@@ -41,6 +42,7 @@ void Output::EmitSignalOutput()
 {
         Utils::logger("output") << Priority::DEBUG << "Input::EmitSignalOutput(" << get_param("id") << ")" << log4cpp::eol;
         signal_output.emit(get_param("id"));
+	DataLogger::Instance().log(this);
 }
 
 bool Output::SaveToXml(TiXmlElement *node)

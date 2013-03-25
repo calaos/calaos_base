@@ -21,6 +21,7 @@
 #include <Input.h>
 #include <ListeRoom.h>
 #include <ListeRule.h>
+#include <DataLogger.h>
 
 using namespace Calaos;
 
@@ -42,6 +43,7 @@ void Input::EmitSignalInput()
 {
         Utils::logger("input") << Priority::DEBUG << "Input::EmitSignalInput(" << get_param("id") << ")" << log4cpp::eol;
         signal_input.emit(get_param("id"));
+	DataLogger::Instance().log(this);
 }
 
 bool Input::SaveToXml(TiXmlElement *node)
