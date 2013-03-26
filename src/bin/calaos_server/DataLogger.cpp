@@ -145,7 +145,7 @@ void DataLogger::log(IOBase *io)
         ctime = localtime(&t);
 
         // return immediatly if logged is not active for this IO
-        if (io->get_param("logged") != "yes")
+        if (io->get_param("logged") != "true")
                 return;
 
         snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/values", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
