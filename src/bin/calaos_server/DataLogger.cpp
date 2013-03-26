@@ -144,6 +144,10 @@ void DataLogger::log(IOBase *io)
         time_t t = time(NULL);
         ctime = localtime(&t);
 
+        // return immediatly if logged is not active for this IO
+        if (io->get_param("logged") != "yes")
+                return;
+
         snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/values", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
 
         //TODO if month or year changed since last write remove list from hash to save ram
