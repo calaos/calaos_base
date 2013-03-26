@@ -24,8 +24,15 @@
 
 using namespace Calaos;
 
+typedef struct _Calaos_DataLogger_Mean Calaos_DataLogger_Mean;
 typedef struct _Calaos_DataLogger_Values Calaos_DataLogger_Values;
-typedef struct _Calaos_DataLogger_Array Calaos_DataLogger_Array;
+typedef struct _Calaos_DataLogger_List Calaos_DataLogger_List;
+
+struct _Calaos_DataLogger_Mean
+{
+        double mean;
+
+};
 
 struct _Calaos_DataLogger_Values
 {
@@ -34,14 +41,14 @@ struct _Calaos_DataLogger_Values
 
 };
 
-struct _Calaos_DataLogger_Array
+struct _Calaos_DataLogger_List
 {
-        Eina_Array *array;
-        int array_count;
+        Eina_List *list;
 };
 
 Eet_Data_Descriptor *calaos_datalogger_values_eed;
-Eet_Data_Descriptor *calaos_datalogger_array_edd;
+Eet_Data_Descriptor *calaos_datalogger_list_edd;
+Eet_Data_Descriptor *calaos_datalogger_mean_edd;
 
 #define CALAOS_EET_DATALOGGER_FILE "datalogger.eet"
 
@@ -57,32 +64,28 @@ DataLogger::DataLogger()
         char db_file[PATH_MAX + 1];
         char **sections;
         int num, i;
-        Calaos_DataLogger_Array *array;
+        Calaos_DataLogger_List *list;
 
         eet_init();
         initEetDescriptors();
 
         snprintf(db_file, sizeof(db_file), "%s/%s", ETC_DIR, CALAOS_EET_DATALOGGER_FILE);
-	ef = eet_open(db_file, EET_FILE_MODE_WRITE);
-        printf("Open file : %s\n", db_file);
+        ef = eet_open(db_file, EET_FILE_MODE_READ_WRITE);
 
         hash_values = eina_hash_string_superfast_new(_hash_values_free_cb);
 
-        sections = eet_list(ef, "calaos/sondes/*", &num);
+        sections = eet_list(ef, "calaos/sonde/*", &num);
         if (sections)
           {
              for (i = 0; i < num; i++)
              {
-                     array = (Calaos_DataLogger_Array*)eet_data_read(ef, calaos_datalogger_values_eed, sections[i]);
-                     if (!array)
-                             array = (Calaos_DataLogger_Array*)calloc(1, sizeof(Calaos_DataLogger_Array));
-                     eina_hash_add(hash_values, sections[i], array);
-                     printf("<<<<<<<<<<<<<<<<<<<<< Key stored: %s\n", sections[i]);
+                     list = (Calaos_DataLogger_List*)eet_data_read(ef, calaos_datalogger_values_eed, sections[i]);
+                     if (!list)
+                             list = (Calaos_DataLogger_List*)calloc(1, sizeof(Calaos_DataLogger_List));
+                     eina_hash_add(hash_values, sections[i], list);
              }
              free(sections);
           }
-
-
 
 }
 
@@ -99,8 +102,16 @@ void DataLogger::initEetDescriptors()
         Eet_Data_Descriptor *edd;
 
 
+        /* Data Descriptor for mean values */
+        EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Calaos_DataLogger_Mean);
+        edd = eet_data_descriptor_stream_new(&eddc);
+
+        EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Calaos_DataLogger_Mean, "mean", mean, EET_T_DOUBLE);
+
+        calaos_datalogger_mean_edd = edd;
+
         /* Data Descriptor for time/value */
-        EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Calaos_DataLogger_Values);
+        EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Calaos_DataLogger_Values);
         edd = eet_data_descriptor_stream_new(&eddc);
 
         EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Calaos_DataLogger_Values, "timestamp", timestamp, EET_T_INT);
@@ -108,13 +119,13 @@ void DataLogger::initEetDescriptors()
 
         calaos_datalogger_values_eed = edd;
 
-
-        EET_EINA_STREAM_DATA_DESCRIPTOR_CLASS_SET(&eddc, Calaos_DataLogger_Array);
+        /* Data Descriptor for list of values */
+        EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&eddc, Calaos_DataLogger_List);
         edd = eet_data_descriptor_stream_new(&eddc);
 
-        EET_DATA_DESCRIPTOR_ADD_VAR_ARRAY(edd, Calaos_DataLogger_Array, "array", array, calaos_datalogger_values_eed);
+        EET_DATA_DESCRIPTOR_ADD_LIST(edd, Calaos_DataLogger_List, "list", list, calaos_datalogger_values_eed);
 
-        calaos_datalogger_array_edd = edd;
+        calaos_datalogger_list_edd = edd;
 }
 
 void DataLogger::releaseEetDescriptors()
@@ -125,27 +136,50 @@ void DataLogger::releaseEetDescriptors()
 void DataLogger::log(IOBase *io)
 {
         char section[1024];
-        Calaos_DataLogger_Array *array;
+        Calaos_DataLogger_List *list;
         Calaos_DataLogger_Values *value;
+        Calaos_DataLogger_Mean *mean;
 
-        printf("<<<<<<<<<<<<<<<<<<<<<<< Log value %3.3f - type %d - id %s\n", io->get_value_double(), io->get_type(), io->get_param("id").c_str());
+        struct tm *ctime = NULL;
+        time_t t = time(NULL);
+        ctime = localtime(&t);
 
+        snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/values", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
 
-        snprintf(section, sizeof(section), "calaos/sonde/%s/%s/%d/values", io->get_param("id").c_str(), "2013", 3);
-        array = (Calaos_DataLogger_Array*)eina_hash_find(hash_values, section);
-        if (!array)
+        //TODO if month or year changed since last write remove list from hash to save ram
+
+        list = (Calaos_DataLogger_List*)eina_hash_find(hash_values, section);
+
+        if (!list)
         {
-                array = (Calaos_DataLogger_Array*)calloc(1, sizeof(Calaos_DataLogger_Array));
-                array->array = eina_array_new(16);
+                list = (Calaos_DataLogger_List*)calloc(1, sizeof(Calaos_DataLogger_List));
+                eina_hash_add(hash_values, section, list);
         }
+
         value = (Calaos_DataLogger_Values*)calloc(1, sizeof(Calaos_DataLogger_Values));
         value->timestamp = time(NULL);
         value->value = io->get_value_double();
-        eina_array_push(array->array, value);
 
-        printf("before write\n");
-        eet_data_write(ef, calaos_datalogger_array_edd, section, array, EINA_FALSE);
-        printf("after write\n");
+        list->list = eina_list_append(list->list, value);
+        eet_data_write(ef, calaos_datalogger_list_edd, section, list, EINA_FALSE);
+
+        // Mean Value for month
+        snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/mean", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
+        mean = (Calaos_DataLogger_Mean*)eina_hash_find(hash_values, section);
+        if (!mean)
+        {
+                mean = (Calaos_DataLogger_Mean*)calloc(1, sizeof(Calaos_DataLogger_Mean));
+                eina_hash_add(hash_values, section, mean);
+        }
+
+        for (uint32_t i = 0; i < eina_list_count(list->list); i++)
+        {
+                Calaos_DataLogger_Values *v = (Calaos_DataLogger_Values*)eina_list_nth(list->list, i);
+                mean->mean += v->value;
+        }
+        mean->mean /= eina_list_count(list->list);
+
+        eet_data_write(ef, calaos_datalogger_mean_edd, section, mean, EINA_FALSE);
+
         eet_sync(ef);
-
 }
