@@ -274,6 +274,49 @@ group
 
 group
 {
+        name: "calaos/popup/page/time_schedule";
+        inherit: "calaos/popup/page/base";
+
+        parts
+        {
+                part
+                {
+                        name: "spinner.hours";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 0.0 1.0; offset: 0 10; to_y: "text"; }
+                                rel2 { relative: 0.0 1.0; offset: 62 10+122; to_y: "text"; }
+                        }
+                }
+                part
+                {
+                        name: "spinner.minutes";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 1.0 1.0; offset: 5 10; to_y: "text"; to_x: "spinner.hours"; }
+                                rel2 { relative: 1.0 1.0; offset: 5+62 10+122; to_y: "text"; to_x: "spinner.hours"; }
+                        }
+                }
+                part
+                {
+                        name: "spinner.seconds";
+                        type: SWALLOW;
+                        description
+                        {
+                                state: "default" 0.0;
+                                rel1 { relative: 1.0 1.0; offset: 5 10; to_y: "text"; to_x: "spinner.minutes"; }
+                                rel2 { relative: 1.0 1.0; offset: 5+62 10+122; to_y: "text"; to_x: "spinner.minutes"; }
+                        }
+                }
+        }
+}
+
+group
+{
         name: "calaos/popup/page/color";
         inherit: "calaos/popup/page/base";
 

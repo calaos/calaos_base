@@ -46,16 +46,26 @@ class ActivityScheduleScenarioView: public ActivityView
                 Evas_Object *spin_start_hours;
                 Evas_Object *spin_start_min;
                 Evas_Object *spin_start_sec;
-                Evas_Object *spin_start_ms;
 
                 Evas_Object *spin_end_hours;
                 Evas_Object *spin_end_min;
                 Evas_Object *spin_end_sec;
-                Evas_Object *spin_end_ms;
 
                 vector<GenlistItemSimple *> week_days;
 
+                //store current data we are editing, also used to set default value
+                TimeRange edit_range;
+
+                enum { EDIT_START_TYPE = 0, EDIT_START_TIME, EDIT_START_OFFSET, EDIT_START_TIME_OFFSET,
+                       EDIT_END_TYPE, EDIT_END_TIME, EDIT_END_OFFSET, EDIT_END_TIME_OFFSET,
+                       EDIT_WEEK};
+                int editState;
+
+                stack<int> editStatesHist;
+
                 bool cycle;
+
+                void showTimeRangePopup();
 
                 void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
@@ -68,11 +78,16 @@ class ActivityScheduleScenarioView: public ActivityView
                 void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
                 void buttonValidWeekClick(void *data, Evas_Object *edje_object, string emission, string source);
                 void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
+                void buttonHeaderBackClick(string button);
 
                 void unselectWeekDays(void *data);
                 void unselectAllWeekDays(void *data);
-
                 void headerWeekButtonClick(string bt);
+
+                void createTimeSelectTypeList(void *data, Evas_Object *edje_object, string emission, string source);
+                void selectTimeType(void *data);
+                void showTimeSelection(void *data);
+                void showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source);
 
         public:
                 ActivityScheduleScenarioView(Evas *evas, Evas_Object *parent);
