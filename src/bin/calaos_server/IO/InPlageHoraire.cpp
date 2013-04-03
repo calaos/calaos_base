@@ -154,7 +154,7 @@ void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
                 else if (h.start_type == TimeRange::HTYPE_SUNRISE)
                 {
                         sstart << " Sunrise";
-                        if (h.shour == "0" || h.smin == "0" || h.ssec == "0")
+                        if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
                         {
                                 if (h.start_offset > 0)
                                         sstart << " +offset ";
@@ -166,7 +166,19 @@ void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
                 else if (h.start_type == TimeRange::HTYPE_SUNSET)
                 {
                         sstart << " Sunset";
-                        if (h.shour == "0" || h.smin == "0" || h.ssec == "0")
+                        if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
+                        {
+                                if (h.start_offset > 0)
+                                        sstart << " +offset ";
+                                else
+                                        sstart << " -offset ";
+                                sstart << h.shour << ":" << h.smin << ":" << h.ssec;
+                        }
+                }
+                else if (h.start_type == TimeRange::HTYPE_NOON)
+                {
+                        sstart << " Noon";
+                        if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
                         {
                                 if (h.start_offset > 0)
                                         sstart << " +offset ";
@@ -183,7 +195,7 @@ void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
                 else if (h.end_type == TimeRange::HTYPE_SUNRISE)
                 {
                         sstop << " Sunrise";
-                        if (h.ehour == "0" || h.emin == "0" || h.esec == "0")
+                        if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
                         {
                                 if (h.end_offset > 0)
                                         sstop << " +offset ";
@@ -195,7 +207,19 @@ void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
                 else if (h.end_type == TimeRange::HTYPE_SUNSET)
                 {
                         sstop << " Sunset";
-                        if (h.ehour == "0" || h.emin == "0" || h.esec == "0")
+                        if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
+                        {
+                                if (h.end_offset > 0)
+                                        sstop << " +offset ";
+                                else
+                                        sstop << " -offset ";
+                                sstop << h.ehour << ":" << h.emin << ":" << h.esec;
+                        }
+                }
+                else if (h.end_type == TimeRange::HTYPE_NOON)
+                {
+                        sstop << " Noon";
+                        if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
                         {
                                 if (h.end_offset > 0)
                                         sstop << " +offset ";
@@ -283,7 +307,8 @@ void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange>
                         period_node->SetAttribute("start_sec", h.ssec);
                 }
                 else if (h.start_type == TimeRange::HTYPE_SUNRISE ||
-                         h.start_type == TimeRange::HTYPE_SUNSET)
+                         h.start_type == TimeRange::HTYPE_SUNSET ||
+                         h.start_type == TimeRange::HTYPE_NOON)
                 {
                         if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
                         {
@@ -302,7 +327,8 @@ void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange>
                         period_node->SetAttribute("end_sec", h.esec);
                 }
                 else if (h.end_type == TimeRange::HTYPE_SUNRISE ||
-                         h.end_type == TimeRange::HTYPE_SUNSET)
+                         h.end_type == TimeRange::HTYPE_SUNSET ||
+                         h.end_type == TimeRange::HTYPE_NOON)
                 {
                         if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
                         {

@@ -43,7 +43,7 @@ class TimeRange
                 /* horaire type.
                  * When horaire type is HTYPE_NORMAL, the time properties are the real time.
                  * When HTYPE_SUNRISE, HTYPE_SUNSET or HTYPE_NOON are used, the time properties
-                 * are use as an offset form the computed time.
+                 * are used as an offset from the computed time.
                  */
 
                 enum { HTYPE_NORMAL = 0, HTYPE_SUNRISE, HTYPE_SUNSET, HTYPE_NOON };
@@ -60,4 +60,6 @@ class TimeRange
 
                 long getStartTimeSec(int year, int month, int day);
                 long getEndTimeSec(int year, int month, int day);
+
+                string toString();
 };

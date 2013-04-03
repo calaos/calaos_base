@@ -49,7 +49,8 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
                 v = h * 3600 + m * 60 + s;
         }
         else if (start_type == HTYPE_SUNRISE ||
-                 start_type == HTYPE_SUNSET)
+                 start_type == HTYPE_SUNSET ||
+                 start_type == HTYPE_NOON)
         {
                 int rise_hour, rise_min, set_hour, set_min;
                 computeSunSetRise(year, month, day,
@@ -60,8 +61,10 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
                         v = rise_hour * 3600 + rise_min * 60;
                 else if (start_type == HTYPE_SUNSET)
                         v = set_hour * 3600 + set_min * 60;
+                else if (start_type == HTYPE_NOON)
+                        v = ((rise_hour * 3600 + rise_min * 60) + (set_hour * 3600 + set_min * 60)) / 2.0;
 
-                if (shour != "0" && smin != "0" && ssec != "0")
+                if (shour != "0" || smin != "0" || ssec != "0")
                 {
                         //there is an offset
                         int h, m, s;
@@ -88,7 +91,8 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
                 v = h * 3600 + m * 60 + s;
         }
         else if (end_type == HTYPE_SUNRISE ||
-                 end_type == HTYPE_SUNSET)
+                 end_type == HTYPE_SUNSET ||
+                 end_type == HTYPE_NOON)
         {
                 int rise_hour, rise_min, set_hour, set_min;
                 computeSunSetRise(year, month, day,
@@ -99,8 +103,10 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
                         v = rise_hour * 3600 + rise_min * 60;
                 else if (end_type == HTYPE_SUNSET)
                         v = set_hour * 3600 + set_min * 60;
+                else if (end_type == HTYPE_NOON)
+                        v = ((rise_hour * 3600 + rise_min * 60) + (set_hour * 3600 + set_min * 60)) / 2.0;
 
-                if (ehour != "0" && emin != "0" && esec != "0")
+                if (ehour != "0" || emin != "0" || esec != "0")
                 {
                         //there is an offset
                         int h, m, s;
@@ -189,8 +195,8 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 longitude = 2.548828;
                 latitude = 46.422713;
 
-                Utils::logger("input") << Priority::ERROR << "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
-                Utils::logger("input") << Priority::ERROR << "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
+                Utils::logger("root") << Priority::ERROR << "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
+                Utils::logger("root") << Priority::ERROR << "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
         }
         else
         {
@@ -201,7 +207,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         double rise, set;
         int res;
 
-        Utils::logger("input") << Priority::INFO << "Horaire: Computing sunrise/sunset for date " <<
+        Utils::logger("root") << Priority::INFO << "Horaire: Computing sunrise/sunset for date " <<
                                day << "/" << month << "/" << year << log4cpp::eol;
         res = sun_rise_set(year, month, day, longitude, latitude, &rise, &set);
 
@@ -212,7 +218,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 set_hour = 0;
                 set_min = 0;
 
-                Utils::logger("input") << Priority::ERROR << "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
+                Utils::logger("root") << Priority::ERROR << "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
 
                 return;
         }
@@ -226,7 +232,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         std::stringstream streamrise, streamset;
         streamrise << std::setfill('0') << std::setw(2) << rise_hour << ":" << rise_min;
         streamset << std::setfill('0') << std::setw(2) << set_hour << ":" << set_min;
-        Utils::logger("input") << Priority::INFO << "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
+        Utils::logger("root") << Priority::INFO << "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
                                   streamset.str() << log4cpp::eol;
 
         sunrise_hour_cache = rise_hour;
@@ -236,4 +242,64 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         cyear = year;
         cmonth = month;
         cday = day;
+}
+
+string TimeRange::toString()
+{
+        stringstream str;
+
+        struct tm *ctime = NULL;
+        time_t t = time(NULL);
+        ctime = localtime(&t);
+
+        long start = getStartTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+        long end = getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+
+        if (start_type == HTYPE_NORMAL)
+        {
+                str << "[Start: normal] (" << time2string_digit(start) << ") ===> ";
+        }
+        else
+        {
+                if (start_type == HTYPE_SUNRISE) str << "[Start: sunrise] ";
+                if (start_type == HTYPE_SUNSET) str << "[Start: sunset] ";
+                if (start_type == HTYPE_NOON) str << "[Start: noon] ";
+
+                str << "(" << time2string_digit(start) << ") ";
+
+                if (shour != "0" || smin != "0" || ssec != "0")
+                {
+                        if (start_offset > 0)
+                                str << " +offset ";
+                        else
+                                str << " -offset ";
+                        str << "[" << shour << ":" << smin << ":" << ssec << "] ===> ";
+                }
+                else
+                        str << " ===> ";
+        }
+
+        if (end_type == HTYPE_NORMAL)
+        {
+                str << "[End: normal] (" << time2string_digit(end) << ")";
+        }
+        else
+        {
+                if (end_type == HTYPE_SUNRISE) str << "[End: sunrise] ";
+                if (end_type == HTYPE_SUNSET) str << "[End: sunset] ";
+                if (end_type == HTYPE_NOON) str << "[End: noon] ";
+
+                str << "(" << time2string_digit(end) << ") ";
+
+                if (ehour != "0" || emin != "0" || esec != "0")
+                {
+                        if (end_offset > 0)
+                                str << " +offset ";
+                        else
+                                str << " -offset ";
+                        str << "[" << ehour << ":" << emin << ":" << esec << "]";
+                }
+        }
+
+        return str.str();
 }
