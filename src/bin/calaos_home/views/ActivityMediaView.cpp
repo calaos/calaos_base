@@ -34,7 +34,7 @@
 ActivityMediaView::ActivityMediaView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/media")
 {
-        setPartText("header.label", _("Multimédia"));
+        setPartText("header.label", _("Multimedia"));
 
         contentView = new MainContentView(evas, parent);
         Swallow(contentView->getSmartObject(), "calaos.main.content");
