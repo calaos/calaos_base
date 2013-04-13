@@ -236,6 +236,7 @@ void Room::updateVisibleIO()
                     (io->params["type"] == "InternalInt" && io->io_type == IOBase::IO_OUTPUT) ||
                     (io->params["type"] == "InternalString" && io->io_type == IOBase::IO_OUTPUT) ||
                     io->params["type"] == "OWTemp" ||
+                    io->params["type"] == "JeelinkTemp" ||
                     (io->params["type"] == "scenario" && io->io_type == IOBase::IO_OUTPUT) ||
                     io->params["type"] == "WIAnalog" ||
                     io->params["type"] == "WITemp" ||
@@ -295,7 +296,8 @@ IOBase *Room::getChauffage()
         {
                 IOBase *io = (*it);
                 if (io->params["type"] == "WITemp" ||
-                    io->params["type"] == "OWTemp")
+                    io->params["type"] == "OWTemp"||
+                    io->params["type"] == "JeelinkTemp")
                         return io;
         }
 
@@ -1013,7 +1015,8 @@ string IOBase::getIconForIO()
                  params["type"] == "WOAnalog")
                 return "calaos/icons/element/simple/analog";
         else if (params["type"] == "WITemp" ||
-                 params["type"] == "OWTemp")
+                 params["type"] == "OWTemp"||
+                 params["type"] == "JeelinkTemp")
                 return "calaos/icons/element/simple/temp";
         else if (params["type"] == "CamOutput")
                 return "calaos/icons/element/simple/camera";

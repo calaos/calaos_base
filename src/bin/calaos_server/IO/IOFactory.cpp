@@ -18,6 +18,8 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#include <stdio.h>
+
 #include <IOFactory.h>
 #include <WagoMap.h>
 
@@ -44,6 +46,7 @@
 #include <WIAnalog.h>
 #include <WOAnalog.h>
 #include <OWTemp.h>
+#include <JeelinkTemp.h>
 #include <AVReceiver.h>
 
 using namespace Calaos;
@@ -117,6 +120,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         else if (type == "OWTemp")
         {
                 in = new OWTemp(params);
+        }
+	else if (type == "JeelinkTemp")
+        {
+                in = new JeelinkTemp(params);
         }
         else if (type == "scenario")
         {

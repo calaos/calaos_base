@@ -90,6 +90,7 @@ Audio/AudioOutput.cpp				\
 IO/IntValue.cpp					\
 IO/WITemp.cpp					\
 IO/OWTemp.cpp					\
+IO/JeelinkTemp.cpp					\
 IPCam/IPCam.cpp					\
 IPCam/CamInput.cpp				\
 IPCam/CamManager.cpp				\
@@ -194,6 +195,7 @@ IO/InPlageHoraire.h				\
 IO/WagoCtrl.h					\
 IO/InputTime.h					\
 IO/OWTemp.h					\
+IO/JeelinkTemp.h					\
 IO/WODigital.h					\
 IO/WITemp.h					\
 IO/Scenario.h					\
