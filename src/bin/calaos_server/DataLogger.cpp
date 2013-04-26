@@ -62,9 +62,6 @@ _hash_values_free_cb(void *data)
 DataLogger::DataLogger()
 {
         char db_file[PATH_MAX + 1];
-        char **sections;
-        int num, i;
-        Calaos_DataLogger_List *list;
 
         eet_init();
         initEetDescriptors();
@@ -72,21 +69,7 @@ DataLogger::DataLogger()
         snprintf(db_file, sizeof(db_file), "%s/%s", ETC_DIR, CALAOS_EET_DATALOGGER_FILE);
         ef = eet_open(db_file, EET_FILE_MODE_READ_WRITE);
 
-        hash_values = eina_hash_string_superfast_new(_hash_values_free_cb);
-
-        sections = eet_list(ef, "calaos/sonde/*", &num);
-        if (sections)
-          {
-             for (i = 0; i < num; i++)
-             {
-                     list = (Calaos_DataLogger_List*)eet_data_read(ef, calaos_datalogger_values_eed, sections[i]);
-                     if (!list)
-                             list = (Calaos_DataLogger_List*)calloc(1, sizeof(Calaos_DataLogger_List));
-                     eina_hash_add(hash_values, sections[i], list);
-             }
-             free(sections);
-          }
-
+        hash_values = eina_hash_string_superfast_new(_hash_values_free_cb);      
 }
 
 DataLogger::~DataLogger()
@@ -139,8 +122,8 @@ void DataLogger::log(IOBase *io)
         Calaos_DataLogger_List *list;
         Calaos_DataLogger_Values *value;
         Calaos_DataLogger_Mean *mean;
-
         struct tm *ctime = NULL;
+
         time_t t = time(NULL);
         ctime = localtime(&t);
 
@@ -148,16 +131,21 @@ void DataLogger::log(IOBase *io)
         if (io->get_param("logged") != "true")
                 return;
 
-        snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/values", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
+        snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/%d/values", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_hour);
 
         //TODO if month or year changed since last write remove list from hash to save ram
 
+	// Find the section in memory first
         list = (Calaos_DataLogger_List*)eina_hash_find(hash_values, section);
-
+	// Then try to find it from disk
         if (!list)
         {
-                list = (Calaos_DataLogger_List*)calloc(1, sizeof(Calaos_DataLogger_List));
-                eina_hash_add(hash_values, section, list);
+	  list = (Calaos_DataLogger_List*)eet_data_read(ef, calaos_datalogger_values_eed, section);
+
+	  // And create an empty list if it's the first time we need it
+	  if (!list)
+	    list = (Calaos_DataLogger_List*)calloc(1, sizeof(Calaos_DataLogger_List));
+	  eina_hash_add(hash_values, section, list);
         }
 
         value = (Calaos_DataLogger_Values*)calloc(1, sizeof(Calaos_DataLogger_Values));
