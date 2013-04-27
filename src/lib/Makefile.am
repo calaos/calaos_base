@@ -42,6 +42,7 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptBindings.cpp 		\
         LuaScript/ScriptManager.cpp 		\
         TimeRange.cpp 				\
+	Jeelink.c				\
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\
@@ -75,6 +76,7 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
+	Jeelink.h				\
 	DownloadManager.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@

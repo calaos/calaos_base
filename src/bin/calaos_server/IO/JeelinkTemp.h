@@ -31,12 +31,17 @@ namespace Calaos
 class JeelinkTemp : public Input
 {
         protected:
+		std::string Jeelink_prot;
                 std::string Jeelink_id;
+		std::string Jeelink_chn;
 		std::string Jeelink_req;
 		std::string Jeelink_args;
                 double value;
                 double timer;
 		double time;
+		int test;
+		int handle;
+		double oldvalue;
         public:
                 JeelinkTemp(Params &p);
                 ~JeelinkTemp();
@@ -48,6 +53,7 @@ class JeelinkTemp : public Input
                 virtual double get_value_double();
 
                 virtual void hasChanged();
+		
 };
 
 }
