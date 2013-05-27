@@ -21,7 +21,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_home/models \
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_HOME_CFLAGS@ \
--DETC_DIR=\"/etc\" \
+-DETC_DIR=\"$(sysconfdir)/calaos\" \
 -DLIBMBUS \
 -DTHEME_DIR=\"$(datadir)/calaos\" \
 -DLOCALE_DIR=\"$(datadir)/locale\"

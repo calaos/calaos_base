@@ -11,7 +11,8 @@ AM_CXXFLAGS = \
 	-I$(top_srcdir)/src/bin/calaos_server/IO/libmbus \
 	-DPACKAGE_BIN_DIR=\"$(bindir)\" \
 	-DPACKAGE_LIB_DIR=\"$(libdir)\" \
-	-DPACKAGE_DATA_DIR=\"$(pkgdatadir)\" \
+	-DPACKAGE_DATA_DIR=\"$(pkgdatadir)/calaos\" \
+	-DETC_DIR=\"$(sysconfdir)\" \
 	@CALAOS_COMMON_CFLAGS@
 
 
