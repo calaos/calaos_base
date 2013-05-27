@@ -22,6 +22,10 @@
 #ifndef CUTILS_H
 #define CUTILS_H
 //-----------------------------------------------------------------------------
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <string>
 #include <vector>
 #include <list>
@@ -112,12 +116,12 @@ using namespace log4cpp;
 //-----------------------------------------------------------------------------
 // Some common defines
 //-----------------------------------------------------------------------------
-#define DEFAULT_CONFIG_PATH     "/mnt/ext3/calaos/"
-#define DEFAULT_THEME           "/usr/share/calaos/themes/default.edj"
-#define DEFAULT_BG              "/usr/share/calaos/themes/default.edj"
+#define DEFAULT_CONFIG_PATH     ETC_DIR
+#define DEFAULT_THEME           PACKAGE_DATA_DIR"/calaos/themes/default.edj"
+#define DEFAULT_BG              PACKAGE_DATA_DIR"/calaos/themes/default.edj"
 #define DEFAULT_URL             "http://update.calaos.fr/fwupdate.xml"
-#define DEFAULT_CONFIG          "/mnt/ext3/calaos/local_config.xml"
-#define WIDGET_CONFIG           "/mnt/ext3/calaos/widgets.xml"
+#define DEFAULT_CONFIG          DEFAULT_CONFIG_PATH"local_config.xml"
+#define WIDGET_CONFIG           DEFAULT_CONFIG_PATH"widgets.xml"
 #define ZONETAB                 "/usr/share/zoneinfo/zone.tab"
 #define CURRENT_ZONE            "/etc/timezone"
 #define LOCALTIME               "/etc/localtime"
