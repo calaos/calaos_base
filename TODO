@@ -1,9 +1,43 @@
-This todo list has no priority...
+For next 2.0.0 release:
 
+- Remove log4cpp and port to eina_log
+- Finish calaos_home Configuration pannel
+- Create base classes for every Input/Output like:
+    InputTemp
+        |
+       /\
+  WITemp OWTemp
+ And do that with all available "type" of IO. Also add a new params for "real type".
+ Each class will have a base interface for each kind of IO.
+
+- Remove the old calaos_web and make calaos_web_newgen available instead for basic house control
+- Translation! At least in english/french
+- Update calaos_installer accordingly (there are some missing IO in calaos_installer like AVRs)
+- Maybe add some versionning info in config files (io/rules xml)
+
+Less important for next release:
+- Test and finish the datalogguer
+- Finish the graph visualizer/dataloguer on the web UI
+- Find a way to display graphs in calaos_home (EFL)
+- Add InputScript/OutputScript to let user write Lua scripts to handle not supported hardware easily
+- Change the script engine to run in a separate thread and do blocking actions (Lua scripts runs in main thread now
+  so you can't wait for a network request for example)
+- Add some example/docs for Lua scripts and maybe add nice helpers/docs directly in calaos_installer script editor
+- Calaos Installer need a debugger-like to auto-correct and display mistakes in rules.xml/io.xml (if the user did some
+  wrong rules like loops, or using the same io at the same time in mutiple exclusive rules, ...)
+
+The following list has no priority...
+
+- Add some more smart heating controls/management, like an automatic rule/action to handle
+  all heating automatically. Like a function block where you give a temp sensor + an output contact for
+  heat control + some time range and all the heat control is done automatically without having to write
+  100+ rules.
+- Maybe do the same thing for other case (light control or shutters) to remove a bit the complexity of rules programming
+  for newbies.
 - Add support for zwave devices (see http://code.google.com/p/open-zwave/)
 - Add support for Flukso (see https://www.flukso.net/)
 - Add support for OpenEnergyMonitor (http://openenergymonitor.org/emon/)
 - Add a way to display and record graph of temperature or other metering device
-- Add support for BlyssBox products (see: https://github.com/skywodd/arduino_blyss_hack/)
+  all heating automatically. Like a function block where you give a temp sensor + a outpu- Add support for BlyssBox products (see: https://github.com/skywodd/arduino_blyss_hack/)
 - Maybe support jeenode to get metering data? (http://jeelabs.com/products/jeenode)
 - Add support for philips Hue lights (see: http://developers.meethue.com/)
