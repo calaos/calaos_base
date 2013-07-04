@@ -441,7 +441,7 @@ void Utils::initConfigOptions()
         if (!fileExists(file))
         {
                 //create a defaut config
-                std::ofstream conf(file, std::ofstream::out);
+                std::ofstream conf(file.c_str(), std::ofstream::out);
                 conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl;
                 conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\" />" << endl;
                 conf.close();

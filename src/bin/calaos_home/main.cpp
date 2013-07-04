@@ -48,7 +48,7 @@ int main(int argc, char **argv)
         if (!Utils::fileExists(std::string(DEFAULT_CONFIG_PATH) + "calaos_gui_log.conf"))
         {
                 //create a default config if it does not exist
-                std::ofstream conf(std::string(DEFAULT_CONFIG_PATH) + "calaos_gui_log.conf", std::ofstream::out);
+                std::ofstream conf(std::string(DEFAULT_CONFIG_PATH"calaos_gui_log.conf").c_str(), std::ofstream::out);
                 conf << "log4j.rootCategory=INFO, Console" << std::endl;
                 conf << "log4j.appender.Console=org.apache.log4j.ConsoleAppender" << std::endl;
                 conf << "log4j.appender.Console.layout=org.apache.log4j.PatternLayout" << std::endl;
