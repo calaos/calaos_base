@@ -90,6 +90,15 @@ bool Utils::file_copy(std::string source, std::string dest)
         return true;
 }
 
+bool Utils::fileExists(std::string filename)
+{
+        struct stat buf;
+        if (stat(filename.c_str(), &buf) != -1)
+                return true;
+        
+        return false;
+}
+
 string Utils::url_encode(string str)
 {
         string ret = "";
@@ -424,6 +433,33 @@ log4cpp::Category &Utils::logger(std::string category)
                 return log4cpp::Category::getInstance(category);
 
         return log4cpp::Category::getRoot();
+}
+
+void Utils::initConfigOptions()
+{
+        string file = DEFAULT_CONFIG;
+        if (!fileExists(file))
+        {
+                //create a defaut config
+                std::ofstream conf(file, std::ofstream::out);
+                conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl;
+                conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\" />" << endl;
+                conf.close();
+
+                set_config_option("fw_target", "calaos_tss");
+                set_config_option("fw_version", "0");
+                set_config_option("show_cursor", "true");
+                set_config_option("use_ntp", "true");
+                set_config_option("device_type", "calaos_server");
+                set_config_option("dpms_enable", "false");
+                set_config_option("smtp_server", "");
+                set_config_option("cn_user", "user");
+                set_config_option("cn_pass", "pass");
+                set_config_option("longitude", "2.322235");
+                set_config_option("latitude", "48.864715");
+
+                cout << "WARNING: not local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
+        }
 }
 
 string Utils::get_config_option(string _key)

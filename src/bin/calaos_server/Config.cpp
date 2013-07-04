@@ -101,6 +101,16 @@ void Config::LoadConfigIO()
         std::string file = ETC_DIR;
         file = file + "io.xml";
 
+        if (!Utils::fileExists(file))
+        {
+                std::ofstream conf(file, std::ofstream::out);
+                conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
+                conf << "<calaos:ioconfig xmlns:calaos=\"http://www.calaos.fr\">" << std::endl;
+                conf << "<calaos:home></calaos:home>" << std::endl;
+                conf << "</calaos:ioconfig>" << std::endl;
+                conf.close();
+        }
+
         TiXmlDocument document(file);
 
         if (!document.LoadFile())
@@ -183,6 +193,15 @@ void Config::LoadConfigRule()
 {
         std::string file = ETC_DIR;
         file = file + "rules.xml";
+
+        if (!Utils::fileExists(file))
+        {
+                std::ofstream conf(file, std::ofstream::out);
+                conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
+                conf << "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\" />" << std::endl;
+                conf.close();
+        }
+
         TiXmlDocument document(file);
 
         if (!document.LoadFile())

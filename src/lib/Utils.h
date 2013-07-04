@@ -51,6 +51,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <pthread.h>
 #endif
@@ -232,6 +233,8 @@ namespace Utils
 
         bool file_copy(std::string source, std::string dest);
 
+        bool fileExists(std::string filename);
+
         string url_encode(string str);
         string url_decode(string str);
         std::string url_decode2(std::string str); //decode 2 times
@@ -253,6 +256,7 @@ namespace Utils
         void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 
 #if !defined (CALAOS_INSTALLER)
+        void initConfigOptions();
         string get_config_option(string key);
         bool set_config_option(string key, string value);
         bool del_config_option(string key);
