@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2013-03-13 13:29+0100\n"
+"POT-Creation-Date: 2013-07-05 11:41+0200\n"
 "PO-Revision-Date: 2013-02-25 23:57+0100\n"
 "Last-Translator: Nicolas Aguirre <aguirre.nicolas@gmail.com>\n"
 "Language-Team: French\n"
@@ -20,6 +20,10 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:42
 msgid "My House"
 msgstr "Ma Maison"
+
+#: src/bin/calaos_home/views/ActivityMediaView.cpp:37
+msgid "Multimedia"
+msgstr ""
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:100
 msgid "Widgets configuration."

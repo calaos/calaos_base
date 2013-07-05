@@ -191,7 +191,7 @@ group
 group
 {
         name: "elm/genlist/item/browser/default/default";
-        name: "elm/genlist/item_compress/browser/default/default";
+        alias: "elm/genlist/item_compress/browser/default/default";
 
         data.item: "selectraise" "on";
         data.item: "texts" "text";

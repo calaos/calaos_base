@@ -896,9 +896,9 @@ group
 group
 {
         name: "elm/genlist/item/simple_select/multiline/default";
-        name: "elm/genlist/item_odd/simple_select/multiline/default";
-        name: "elm/genlist/item_compress/simple_select/multiline/default";
-        name: "elm/genlist/item_compress_odd/simple_select/multiline/default";
+        alias: "elm/genlist/item_odd/simple_select/multiline/default";
+        alias: "elm/genlist/item_compress/simple_select/multiline/default";
+        alias: "elm/genlist/item_compress_odd/simple_select/multiline/default";
 
         data.item: "selectraise" "on";
         data.item: "texts" "text";
