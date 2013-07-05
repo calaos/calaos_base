@@ -60,6 +60,8 @@ requirements_calaos_home="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ve
 PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}], [have_calaos_home_dep="yes"], [have_calaos_home_dep="no"])
 AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"])
 
+EFL_CHECK_FUNCS([CALAOS_HOME], [dlopen])
+
 ### Checks for compiler characteristics
 AC_C_BIGENDIAN
 AC_C_INLINE
