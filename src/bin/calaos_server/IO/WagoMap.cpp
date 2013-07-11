@@ -590,12 +590,10 @@ void WagoMap::WagoHeartBeatTick()
 
         bool found_ip = false;
         string ip;
-        for (int j = 0;j < 4 && !found_ip;j++)
+        vector<string> intf = TCPSocket::getAllInterfaces();
+        for (uint j = 0;j < intf.size() && !found_ip;j++)
         {
-                if (j == 3)
-                        ip = TCPSocket::GetLocalIP("lo"); //This is only for wago_simulator
-                else
-                        ip = TCPSocket::GetLocalIP("eth" + Utils::to_string(j));
+                ip = TCPSocket::GetLocalIP(intf[j]);
 
                 if (ip == "") continue;
                 vector<string> splitter, splitter2;

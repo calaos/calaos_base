@@ -101,9 +101,10 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
                 bool found_ip = false;
                 string ip;
-                for (int j = 0;j < 3 && !found_ip;j++)
+                vector<string> intf = TCPSocket::getAllInterfaces();
+                for (uint j = 0;j < intf.size() && !found_ip;j++)
                 {
-                        ip = TCPSocket::GetLocalIP("eth" + to_string(j));
+                        ip = TCPSocket::GetLocalIP(intf[j]);
                         if (ip == "") continue;
                         vector<string> splitter, splitter2;
                         Utils::split(ip, splitter, ".", 4);
@@ -112,25 +113,6 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                             splitter[1] == splitter2[1] &&
                             splitter[2] == splitter2[2])
                                 found_ip = true;
-                }
-
-                for (int j = 0;j < 3 && !found_ip;j++)
-                {
-                        ip = TCPSocket::GetLocalIP("wlan" + to_string(j));
-                        if (ip == "") continue;
-                        vector<string> splitter, splitter2;
-                        Utils::split(ip, splitter, ".", 4);
-                        Utils::split(remote_ip, splitter2, ".", 4);
-                        if (splitter[0] == splitter2[0] &&
-                            splitter[1] == splitter2[1] &&
-                            splitter[2] == splitter2[2])
-                                found_ip = true;
-                }
-
-                if (remote_ip == "127.0.0.1")
-                {
-                        found_ip = true;
-                        ip = "127.0.0.1";
                 }
 
                 if (found_ip)

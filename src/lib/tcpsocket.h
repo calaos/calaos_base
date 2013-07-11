@@ -94,6 +94,7 @@
                         void SetReuse();
 
                         static std::string GetLocalIP(std::string intf = "eth0");
+                        static vector<string> getAllInterfaces();
                         static bool GetMacAddr(std::string intf, unsigned char *mac);
 
                         int get_sockfd() { return sockfd; }

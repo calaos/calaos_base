@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sstream>
+#include <Eina.h>
+#include <Ecore_File.h>
 
 TCPSocket::TCPSocket()
 {
@@ -521,8 +523,6 @@ bool TCPSocket::Shutdown()
 std::string TCPSocket::GetLocalIP(std::string intf)
 {
         std::string ip;
-
-#ifndef IPHONE_APP
         struct ifreq ifr;
 
         int skfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -550,13 +550,31 @@ std::string TCPSocket::GetLocalIP(std::string intf)
 
         close(skfd);
 
-#endif
         return ip;
+}
+
+#define SYSCLASSNET     "/sys/class/net"
+vector<string> TCPSocket::getAllInterfaces()
+{
+        vector<string> ret;
+        Eina_Iterator *it = eina_file_ls(SYSCLASSNET);
+
+        const char *f_name;
+        EINA_ITERATOR_FOREACH(it, f_name)
+        {
+                ret.push_back(ecore_file_file_get(f_name));
+                eina_stringshare_del(f_name);
+        }
+        eina_iterator_free(it);
+
+        return ret;
 }
 
 bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
 {
-#ifndef IPHONE_APP
+#ifndef SIOCGIFADDR
+        return false;
+#else
         int sock;
         struct ifreq ifr;
 
@@ -590,12 +608,5 @@ bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
         close(sock);
 
         return true;
-
-#ifndef SIOCGIFADDR
-        return false;
-#endif
-
-#else
-        return false;
 #endif
 }
