@@ -29,8 +29,6 @@
 #include <tcpsocket.h>
 #include <IPCam.h>
 
-using namespace CalaosNetwork;
-
 namespace Calaos
 {
 

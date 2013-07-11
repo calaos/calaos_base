@@ -24,7 +24,6 @@
 #include <ConditionStd.h>
 #include <ActionStd.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::RulesCommand(Params &request, ProcessDone_cb callback)

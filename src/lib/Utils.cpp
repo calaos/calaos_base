@@ -18,44 +18,12 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Utils.h>
+#include "Utils.h"
 
-#if !defined (CALAOS_INSTALLER)  && !defined (IPHONE_APP)
+#include <Ecore_File.h>
 #include <tcpsocket.h>
 
-using namespace CalaosNetwork;
-#endif
-
 using namespace Utils;
-
-#ifdef _WIN32
-char *realpath(const char *file_name, char *resolved_name)
-{
-        char   cwd[PATH_MAX];
-        size_t l1;
-        size_t l2;
-        size_t l;
-
-        if (!file_name || !resolved_name)
-                return NULL;
-
-        if (!getcwd(cwd, PATH_MAX))
-                return NULL;
-
-        l1 = strlen(cwd);
-        l2 = strlen(file_name);
-        l = l1 + l2 + 2;
-
-        if (l > PATH_MAX)
-                l = PATH_MAX - 1;
-        memcpy(resolved_name, cwd, l1);
-        resolved_name[l1] = '\\';
-        memcpy(resolved_name + l1 + 1, file_name, l2);
-        resolved_name[l] = '\0';
-
-        return resolved_name;
-}
-#endif
 
 bool Utils::file_copy(std::string source, std::string dest)
 {
@@ -95,7 +63,7 @@ bool Utils::fileExists(std::string filename)
         struct stat buf;
         if (stat(filename.c_str(), &buf) != -1)
                 return true;
-        
+
         return false;
 }
 
@@ -386,30 +354,6 @@ int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream
         return nmemb;
 }
 
-#if defined(CALAOS_INSTALLER) || defined (IPHONE_APP)
-void Utils::InitLoggingSystem(std::string conf)
-{
-        //do nothing
-}
-log4cpp::Category &Utils::logger(std::string category)
-{
-        return std::cout;
-}
-#endif
-
-#ifdef IPHONE_APP
-std::string Utils::get_config_option(std::string key)
-{
-        return NSUserDefault_get_pref(key);
-}
-bool Utils::set_config_option(std::string key, std::string value)
-{
-        NSUserDefault_set_pref(key, value);
-        return true;
-}
-#endif
-
-#if !defined (CALAOS_INSTALLER)  && !defined (IPHONE_APP)
 void Utils::InitLoggingSystem(std::string conf)
 {
         try
@@ -435,9 +379,84 @@ log4cpp::Category &Utils::logger(std::string category)
         return log4cpp::Category::getRoot();
 }
 
+static string _configBase;
+static string _cacheBase;
+
+string Utils::getConfigFile(const char *configType)
+{
+        if (_configBase.empty())
+        {
+            string home = getenv("HOME");
+            if (home == "")
+            {
+                    struct passwd *pw = getpwuid(getuid());
+                    home = pw->pw_dir;
+            }
+
+            list<string> confDirs;
+            confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
+            confDirs.push_back(ETC_CONFIG_PATH);
+            confDirs.push_back(PREFIX_CONFIG_PATH"/calaos");
+
+            //Check config in that order:
+            // - $HOME/.config/calaos/
+            // - /etc/calaos
+            // - pkg_prefix/etc/calaos
+            // - create $HOME/.config/calaos/ if nothing found
+
+            list<string>::iterator it = confDirs.begin();
+            for (;it != confDirs.end();it++)
+            {
+                    string conf = *it;
+                    conf += "/"IO_CONFIG;
+                    cout << "Checking " << conf << endl;
+                    if (ecore_file_exists(conf.c_str()))
+                    {
+                            _configBase = *it;
+                            break;
+                    }
+            }
+
+            if (_configBase.empty())
+            {
+                    //no config dir found, create $HOME/.config/calaos
+                    ecore_file_mkdir(string(home + "/.config").c_str());
+                    ecore_file_mkdir(string(home + "/.config/calaos").c_str());
+                    _configBase = home + "/" + HOME_CONFIG_PATH;
+            }
+        }
+
+        return _configBase + "/" + configType;
+}
+
+string Utils::getCacheFile(const char *cacheFile)
+{
+        if (_cacheBase.empty())
+        {
+                string home = getenv("HOME");
+                if (home == "")
+                {
+                        struct passwd *pw = getpwuid(getuid());
+                        home = pw->pw_dir;
+                }
+
+                //force the creation of .cache/calaos
+                ecore_file_mkdir(string(home + "/.cache").c_str());
+                ecore_file_mkdir(string(home + "/.cache/calaos").c_str());
+
+                _cacheBase = home + "/.cache/calaos";
+        }
+
+        return _cacheBase + "/" + cacheFile;
+}
+
 void Utils::initConfigOptions()
 {
-        string file = DEFAULT_CONFIG;
+        string file = getConfigFile(LOCAL_CONFIG);
+
+        cout << "# Using config path: " << getConfigFile("") << endl;
+        cout << "# Using cache path: " << getCacheFile("") << endl;
+
         if (!fileExists(file))
         {
                 //create a defaut config
@@ -458,14 +477,14 @@ void Utils::initConfigOptions()
                 set_config_option("longitude", "2.322235");
                 set_config_option("latitude", "48.864715");
 
-                cout << "WARNING: not local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
+                cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
         }
 }
 
 string Utils::get_config_option(string _key)
 {
         string value = "";
-        TiXmlDocument document(DEFAULT_CONFIG);
+        TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
         if (!document.LoadFile())
         {
@@ -499,13 +518,13 @@ string Utils::get_config_option(string _key)
 
 bool Utils::set_config_option(string key, string value)
 {
-        TiXmlDocument document(DEFAULT_CONFIG);
+        TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
         if (!document.LoadFile())
         {
               Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
               Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << DEFAULT_CONFIG << " At line " << document.ErrorRow() << log4cpp::eol;
+              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }
@@ -545,13 +564,13 @@ bool Utils::set_config_option(string key, string value)
 
 bool Utils::del_config_option(string key)
 {
-        TiXmlDocument document(DEFAULT_CONFIG);
+        TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
         if (!document.LoadFile())
         {
               Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
               Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << DEFAULT_CONFIG << " At line " << document.ErrorRow() << log4cpp::eol;
+              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }
@@ -580,13 +599,13 @@ bool Utils::del_config_option(string key)
 
 bool Utils::get_config_options(Params &options)
 {
-        TiXmlDocument document(DEFAULT_CONFIG);
+        TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
         if (!document.LoadFile())
         {
               Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
               Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << DEFAULT_CONFIG << " At line " << document.ErrorRow() << log4cpp::eol;
+              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }
@@ -658,4 +677,3 @@ string Utils::getHardwareID()
         return hwID;
 }
 
-#endif

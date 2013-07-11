@@ -20,7 +20,6 @@
 ******************************************************************************/
 #include <TCPConnection.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data)

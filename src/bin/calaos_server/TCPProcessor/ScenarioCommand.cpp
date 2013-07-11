@@ -23,7 +23,6 @@
 #include <Scenario.h>
 #include <AutoScenario.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)

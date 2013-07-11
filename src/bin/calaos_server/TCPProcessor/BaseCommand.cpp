@@ -23,7 +23,6 @@
 #include <NTPClock.h>
 #include <PollListenner.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)

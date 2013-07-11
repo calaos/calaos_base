@@ -28,8 +28,6 @@
 #include <IPCam.h>
 #include <curl/curl.h>
 
-using namespace CalaosNetwork;
-
 namespace Calaos
 {
 

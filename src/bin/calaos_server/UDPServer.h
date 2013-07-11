@@ -26,27 +26,23 @@
 #include <Ecore_Con.h>
 #include <WagoMap.h>
 
-namespace CalaosNetwork
+class UDPServer
 {
-        class UDPServer
-        {
-                protected:
-                        int port;
+        protected:
+                 int port;
 
-                        Ecore_Con_Server *udp_server;
-                        Ecore_Event_Handler *event_handler_data_get;
+                 Ecore_Con_Server *udp_server;
+                 Ecore_Event_Handler *event_handler_data_get;
 
-                        Ecore_Con_Server *udp_broadcast, *udp_sender;
+                 Ecore_Con_Server *udp_broadcast, *udp_sender;
 
 
-                public:
-                        UDPServer(int port); //port to listen
-                        ~UDPServer();
+        public:
+                 UDPServer(int port); //port to listen
+                 ~UDPServer();
 
-                        /* Internal stuff used by ecore-con */
-                        void ProcessRequest(Ecore_Con_Client *client, string request);
-        };
-
-}
+                 /* Internal stuff used by ecore-con */
+                 void ProcessRequest(Ecore_Con_Client *client, string request);
+};
 
 #endif

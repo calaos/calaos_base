@@ -27,8 +27,6 @@
 
 using namespace std;
 
-namespace CalaosNetwork
-{
         class TCPServer
         {
                 private:
@@ -56,5 +54,4 @@ namespace CalaosNetwork
                         void delConnection(Ecore_Con_Client *client);
                         void getDataConnection(Ecore_Con_Client *client, void *data, int size);
         };
-}
 #endif

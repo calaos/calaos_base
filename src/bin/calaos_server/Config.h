@@ -21,7 +21,7 @@
 #ifndef S_CONFIG_H
 #define S_CONFIG_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 #include <Room.h>
 #include <ListeRoom.h>
 #include <Input.h>

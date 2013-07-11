@@ -20,7 +20,6 @@
 ******************************************************************************/
 #include <UDPServer.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);

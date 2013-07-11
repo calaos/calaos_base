@@ -18,7 +18,7 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#include <Config.h>
+#include "Config.h"
 #include <Eet.h>
 
 using namespace Calaos;
@@ -98,8 +98,7 @@ void Config::releaseEetDescriptors()
 
 void Config::LoadConfigIO()
 {
-        std::string file = ETC_DIR;
-        file = file + "io.xml";
+        std::string file = Utils::getConfigFile(IO_CONFIG);
 
         if (!Utils::fileExists(file))
         {
@@ -118,14 +117,6 @@ void Config::LoadConfigIO()
               Utils::logger("root") << Priority::ERROR << "Config::LoadConfigIO() There was a parse error"<< log4cpp::eol;
               Utils::logger("root") << Priority::ERROR << document.ErrorDesc() << log4cpp::eol;
               Utils::logger("root") << Priority::ERROR << "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
-
-              Utils::logger("root") << Priority::INFO << "Config::LoadConfigIO() Trying to load default config" << log4cpp::eol;
-              std::string file_default = ETC_DIR, file_error = ETC_DIR;
-              file_default = file_default + "io.default";
-              file_error = file_error + "io.xml.parse_error";
-
-              Utils::file_copy(file, file_error);
-              Utils::file_copy(file_default, file);
 
               exit(-1);
         }
@@ -159,8 +150,7 @@ void Config::LoadConfigIO()
 
 void Config::SaveConfigIO()
 {
-        string file = ETC_DIR;
-        file = file + "io.xml";
+        string file = Utils::getConfigFile(IO_CONFIG);
         string tmp = file + "_tmp";
 
         Utils::logger("root") << Priority::INFO << "Config::SaveConfigIO() Saving " << file << "..." << log4cpp::eol;
@@ -191,14 +181,14 @@ void Config::SaveConfigIO()
 
 void Config::LoadConfigRule()
 {
-        std::string file = ETC_DIR;
-        file = file + "rules.xml";
+        std::string file = Utils::getConfigFile(RULES_CONFIG);
 
         if (!Utils::fileExists(file))
         {
                 std::ofstream conf(file.c_str(), std::ofstream::out);
                 conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
-                conf << "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\" />" << std::endl;
+                conf << "<calaos:rules xmlns:calaos=\"http://www.calaos.fr\">" << std::endl;
+                conf << "</calaos:rules>" << std::endl;
                 conf.close();
         }
 
@@ -209,14 +199,6 @@ void Config::LoadConfigRule()
                 Utils::logger("root") << Priority::ERROR << "Config::LoadConfigRule() There was a parse error in " << file << log4cpp::eol;
                 Utils::logger("root") << Priority::ERROR << document.ErrorDesc() << log4cpp::eol;
                 Utils::logger("root") << Priority::ERROR << "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
-
-                Utils::logger("root") << Priority::INFO << "Config::LoadConfigRule() Trying to load default config" << log4cpp::eol;
-                std::string file_default = ETC_DIR, file_error = ETC_DIR;
-                file_default = file_default + "rules.default";
-                file_error = file_error + "rules.xml.parse_error";
-
-                Utils::file_copy(file, file_error);
-                Utils::file_copy(file_default, file);
 
                 exit(-1);
         }
@@ -253,8 +235,7 @@ void Config::LoadConfigRule()
 
 void Config::SaveConfigRule()
 {
-        string file = ETC_DIR;
-        file = file + "rules.xml";
+        string file = Utils::getConfigFile(RULES_CONFIG);
         string tmp = file + "_tmp";
 
         Utils::logger("root") << Priority::INFO << "Config::SaveConfigRule() Saving " << file << "..." << log4cpp::eol;
@@ -284,8 +265,7 @@ void Config::SaveConfigRule()
 void Config::loadStateCache()
 {
         ConfigStateCache *cache;
-        string file = ETC_DIR;
-        file = file + "iostates.cache";
+        string file = Utils::getCacheFile("iostates.cache");
 
         Eet_File *ef = eet_open(file.c_str(), EET_FILE_MODE_READ);
         if (!ef)
@@ -329,8 +309,7 @@ void Config::loadStateCache()
 void Config::saveStateCache()
 {
         Eet_File *ef;
-        string file = ETC_DIR;
-        file = file + "iostates.cache";
+        string file = Utils::getCacheFile("iostates.cache");
         string tmp = file + "_tmp";
         ConfigStateCache *cache;
 

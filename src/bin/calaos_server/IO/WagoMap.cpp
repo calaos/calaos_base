@@ -25,7 +25,6 @@
 
 using namespace Utils;
 using namespace Calaos;
-using namespace CalaosNetwork;
 
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev);
 

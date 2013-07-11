@@ -54,35 +54,11 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <pthread.h>
+#include <pwd.h>
 #endif
 #include <Params.h>
 #include <base64.h>
 
-#ifdef IPHONE_APP
-
-        #include "ObjCWrapper.h"
-
-        typedef unsigned int uint;
-
-        #include "FakeLogging.h"
-
-        #ifdef nil
-                #undef nil
-        #endif
-
-        #include <sigc++/sigc++.h>
-
-        #ifndef nil
-                #define nil __DARWIN_NULL       /* id of Nil instance */
-        #endif
-
-#endif
-
-#ifdef CALAOS_INSTALLER
-        #include "FakeLogging.h"
-#endif
-
-#if !defined (CALAOS_INSTALLER)  && !defined (IPHONE_APP)
 #include <TinyXML/tinyxml.h>
 #include <sigc++/sigc++.h>
 
@@ -98,16 +74,9 @@
 #include <log4cpp/NDC.hh>
 #include <log4cpp/PatternLayout.hh>
 #include <log4cpp/PropertyConfigurator.hh>
-#endif
+
 //-----------------------------------------------------------------------------
 using namespace std;
-
-//Here are some specific win32 code.
-#ifdef _WIN32
-#include <unistd.h>
-char *realpath(const char *file_name, char *resolved_name);
-typedef unsigned int uint;
-#endif
 
 #ifndef uint
 typedef unsigned int uint;
@@ -117,18 +86,25 @@ using namespace log4cpp;
 //-----------------------------------------------------------------------------
 // Some common defines
 //-----------------------------------------------------------------------------
-#define DEFAULT_CONFIG_PATH     ETC_DIR
+#define PREFIX_CONFIG_PATH      ETC_DIR
+#define ETC_CONFIG_PATH         "/etc/calaos"
+#define HOME_CONFIG_PATH        ".config/calaos"
+#define HOME_CACHE_PATH         ".cache/calaos"
+
+#define LOCAL_CONFIG            "local_config.xml"
+#define IO_CONFIG               "io.xml"
+#define RULES_CONFIG            "rules.xml"
+#define WIDGET_CONFIG           "widgets.xml"
+
 #define DEFAULT_THEME           PACKAGE_DATA_DIR"/calaos/themes/default.edj"
-#define DEFAULT_BG              PACKAGE_DATA_DIR"/calaos/themes/default.edj"
+
 #define DEFAULT_URL             "http://update.calaos.fr/fwupdate.xml"
-#define DEFAULT_CONFIG          DEFAULT_CONFIG_PATH"/calaos/local_config.xml"
-#define WIDGET_CONFIG           DEFAULT_CONFIG_PATH"/calaos/widgets.xml"
+#define CALAOS_NETWORK_URL      "https://www.calaos.fr/calaos_network"
+
 #define ZONETAB                 "/usr/share/zoneinfo/zone.tab"
 #define CURRENT_ZONE            "/etc/timezone"
 #define LOCALTIME               "/etc/localtime"
 #define ZONEPATH                "/usr/share/zoneinfo/"
-
-#define CALAOS_NETWORK_URL      "https://www.calaos.fr/calaos_network"
 
 // The size of the window. For now The Calaos touchscreen gui is only designed
 // to fit a screen of 1024x768 pixels.
@@ -153,25 +129,11 @@ using namespace log4cpp;
 #define TCP_LISTEN_PORT         4456
 #endif
 
-//Sleep time for SocketManager thread
-#ifndef THREAD_SLEEP
-#define THREAD_SLEEP            60 / 2
-#endif
-
-//IR Timeout when learning new codes
-#ifndef IR_TIMEOUT
-#define IR_TIMEOUT              30 * 1000
-#endif
-
 #ifndef BCAST_UDP_PORT
 #define BCAST_UDP_PORT          4545
 #endif
 
 #define NETWORK_TIMEOUT         30000
-
-#define SPECIAL_ROOM_TYPE               "Internal"
-#define SPECIAL_ROOM_SIMPLESCENARIO     "SimpleScenario"
-#define SPECIAL_RULES_SIMPLESCENARIO    "SimpleScenarioRules"
 
 #define WAGO_KNX_START_ADDRESS          6144
 #define WAGO_841_START_ADDRESS          4096
@@ -255,18 +217,17 @@ namespace Utils
         //Parse a result string into an array of Params.
         void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 
-#if !defined (CALAOS_INSTALLER)
         void initConfigOptions();
+
+        string getConfigFile(const char *configFile);
+        string getCacheFile(const char *cacheFile);
+
         string get_config_option(string key);
         bool set_config_option(string key, string value);
         bool del_config_option(string key);
         bool get_config_options(Params &options);
-#endif
-
-#if !defined (CALAOS_INSTALLER) && !defined (IPHONE_APP)
         void Watchdog(std::string fname);
         string getHardwareID();
-#endif
 
         //!decode a BASE64 string
         std::string Base64_decode(std::string &str);
@@ -334,13 +295,8 @@ namespace Utils
                 virtual ~DeletorBase() {}
                 virtual void operator() (void *b) const
                 {
-#if !defined (CALAOS_INSTALLER)  && !defined (IPHONE_APP)
                         logger("root") << Priority::CRIT << "DeletorBase() called, this is an error. It should never happen"
                                        << ", because it means the application leaks memory!" << log4cpp::eol;
-#else
-                        cerr << "DeletorBase() called, this is an error. It should never happen"
-                             << ", because it means the application leaks memory!" << endl;
-#endif
                 }
         };
 

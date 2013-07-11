@@ -27,7 +27,6 @@
 
 using namespace std;
 using namespace Utils;
-using namespace CalaosNetwork;
 
 int main(int argc, char **argv)
 {

@@ -26,8 +26,6 @@
 #include <CamConnection.h>
 #include <tcpsocket.h>
 
-using namespace CalaosNetwork;
-
 namespace Calaos
 {
 

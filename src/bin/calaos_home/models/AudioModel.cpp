@@ -35,7 +35,7 @@ static Eina_Bool exe_callback(void *data, int type, void *event)
 AudioModel::AudioModel(CalaosConnection *con):
         connection(con)
 {
-        ecore_file_mkdir(DEFAULT_CONFIG_PATH".cover_cache");
+        ecore_file_mkdir(Utils::getCacheFile(".cover_cache").c_str());
         ecore_event_handler_add(ECORE_EXE_EVENT_DEL, exe_callback, this);
 }
 
@@ -718,7 +718,7 @@ void AudioPlayer::getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int 
 {
         if (!item.Exists("cover_url")) return;
 
-        string fname = to_string(DEFAULT_CONFIG_PATH) + ".cover_cache/album_" + item["cover_id"];
+        string fname = Utils::getCacheFile(".cover_cache/album_") + item["cover_id"];
 
         string cmdsize;
         switch (size)

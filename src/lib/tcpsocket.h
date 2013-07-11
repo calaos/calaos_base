@@ -37,8 +37,6 @@
 #define TCP 'T'
 #define UDP 'U'
 
-namespace CalaosNetwork
-{
 
         class TCPSocket
         {
@@ -107,5 +105,4 @@ namespace CalaosNetwork
 
                         bool connected;
         };
-}
 #endif

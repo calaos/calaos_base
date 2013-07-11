@@ -28,7 +28,6 @@
 #include <InputTimer.h>
 #include <Scenario.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)

@@ -78,16 +78,18 @@ static bool dumpCallback(const char* dump_path,
 
 int main (int argc, char **argv)
 {
+        cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
+
         #ifdef HAVE_BREAKPAD
         google_breakpad::ExceptionHandler eh("/mnt/ext3/backtraces", NULL, dumpCallback, NULL, true);
         #endif
 
         Utils::initConfigOptions();
 
-        if (!Utils::fileExists(std::string(DEFAULT_CONFIG_PATH) + "calaosd_log.conf"))
+        if (!Utils::fileExists(Utils::getConfigFile("calaosd_log.conf")))
         {
                 //create a default config if it does not exist
-                std::ofstream conf(std::string(DEFAULT_CONFIG_PATH"calaosd_log.conf").c_str(), std::ofstream::out);
+                std::ofstream conf(Utils::getConfigFile("calaosd_log.conf").c_str(), std::ofstream::out);
                 conf << "log4j.rootCategory=INFO, Console" << std::endl;
                 conf << "log4j.appender.Console=org.apache.log4j.ConsoleAppender" << std::endl;
                 conf << "log4j.appender.Console.layout=org.apache.log4j.PatternLayout" << std::endl;
@@ -99,7 +101,7 @@ int main (int argc, char **argv)
                 conf.close();
         }
 
-        Utils::InitLoggingSystem(std::string(DEFAULT_CONFIG_PATH) + "calaosd_log.conf");
+        Utils::InitLoggingSystem(Utils::getConfigFile("calaosd_log.conf"));
 
         //init ecore system
         eina_init();

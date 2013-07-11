@@ -20,7 +20,6 @@
 ******************************************************************************/
 #include <TCPConnection.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::CameraCommand(Params &request, ProcessDone_cb callback)

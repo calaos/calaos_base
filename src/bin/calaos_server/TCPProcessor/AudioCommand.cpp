@@ -21,7 +21,6 @@
 #include <TCPConnection.h>
 #include <Config.h>
 
-using namespace CalaosNetwork;
 using namespace Calaos;
 
 void TCPConnection::AudioCommand(Params &request, ProcessDone_cb callback)

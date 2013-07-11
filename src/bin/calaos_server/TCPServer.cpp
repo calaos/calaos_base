@@ -20,8 +20,6 @@
 ******************************************************************************/
 #include <TCPServer.h>
 
-using namespace CalaosNetwork;
-
 static Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev);
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
 static Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Client_Del *ev);

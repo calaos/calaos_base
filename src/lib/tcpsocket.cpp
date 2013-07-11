@@ -29,8 +29,6 @@
 #include <stdlib.h>
 #include <sstream>
 
-using namespace CalaosNetwork;
-
 TCPSocket::TCPSocket()
 {
         newfd = 0;

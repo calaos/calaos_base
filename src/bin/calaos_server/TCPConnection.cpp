@@ -22,8 +22,6 @@
 #include <NTPClock.h>
 #include <TCPServer.h>
 
-using namespace CalaosNetwork;
-
 extern NTPClock *ntpclock;
 
 TCPConnection::TCPConnection(Ecore_Con_Client *cl):

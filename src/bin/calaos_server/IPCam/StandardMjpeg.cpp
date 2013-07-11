@@ -22,7 +22,6 @@
 #include <CamManager.h>
 
 using namespace Calaos;
-using namespace CalaosNetwork;
 
 StandardMjpeg::StandardMjpeg(Params &p): IPCam(p)
 {

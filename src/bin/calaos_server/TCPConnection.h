@@ -35,9 +35,6 @@
 
 using namespace Calaos;
 
-namespace CalaosNetwork
-{
-
         typedef sigc::slot<void, Params &> ProcessDone_cb;
         typedef sigc::signal<void, Params &> ProcessDone_signal;
 
@@ -109,5 +106,4 @@ namespace CalaosNetwork
                         void ProcessData(string data);
         };
 
-}
 #endif
