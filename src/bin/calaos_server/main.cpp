@@ -49,12 +49,14 @@ static UDPServer *wserver = NULL;
 static CamServer *camserver = NULL;
 static EcoreTimer *watchdogLoop = NULL;
 
-void EchoUsage(char **argv)
+static void echoUsage(char **argv)
 {
-        cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
         cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
-        cout << endl << "\tOptions:\n\t";
-        cout << "-h, --help\tDisplay this help.\n\n";
+        cout << endl << "\tOptions:\n";
+        cout << "\t-h, --help\tDisplay this help.\n";
+        cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
+        cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
+        cout << endl;
 }
 
 #ifdef HAVE_BREAKPAD
@@ -84,7 +86,19 @@ int main (int argc, char **argv)
         google_breakpad::ExceptionHandler eh("/mnt/ext3/backtraces", NULL, dumpCallback, NULL, true);
         #endif
 
-        Utils::initConfigOptions();
+        //Check command line args
+        if (argvOptionCheck(argv, argv + argc, "-h") ||
+            argvOptionCheck(argv, argv + argc, "--help"))
+        {
+                echoUsage(argv);
+                exit(0);
+        }
+
+        char *confdir = argvOptionParam(argv, argv + argc, "--config");
+        char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
+
+
+        Utils::initConfigOptions(confdir, cachedir);
 
         if (!Utils::fileExists(Utils::getConfigFile("calaosd_log.conf")))
         {
@@ -120,23 +134,9 @@ int main (int argc, char **argv)
         Config::Instance().LoadConfigIO();
         Config::Instance().LoadConfigRule();
 
-        //Command line params
-        for (int i = 1; i < argc; i++)
-        {
-                if ( (!strcmp(argv[i], "-h")) || (!strcmp(argv[i], "--help")) )
-                {
-                        EchoUsage(argv);
-
-                        exit(1);
-                }
-        }
-
         bool enable_udp = true;
-        for (int i = 0;i < argc;i++)
-        {
-                if (string(argv[i]) == "-noudp")
-                        enable_udp = false;
-        }
+        if (argvOptionCheck(argv, argv + argc, "-noudp"))
+                enable_udp = false;
 
         if(enable_udp)
         {

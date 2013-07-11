@@ -217,7 +217,7 @@ namespace Utils
         //Parse a result string into an array of Params.
         void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 
-        void initConfigOptions();
+        void initConfigOptions(char *configdir = NULL, char *cachedir = NULL);
 
         string getConfigFile(const char *configFile);
         string getCacheFile(const char *cacheFile);
@@ -228,6 +228,10 @@ namespace Utils
         bool get_config_options(Params &options);
         void Watchdog(std::string fname);
         string getHardwareID();
+
+        //Parse command line options
+        bool argvOptionCheck(char **begin, char **end, const std::string &option);
+        char *argvOptionParam(char **begin, char **end, const std::string &option);
 
         //!decode a BASE64 string
         std::string Base64_decode(std::string &str);

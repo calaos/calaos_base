@@ -30,6 +30,17 @@
 
 using namespace Utils;
 
+static void echoUsage(char **argv)
+{
+        cout << "Calaos Home GUI - http://www.calaos.fr" << endl;
+        cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
+        cout << endl << "\tOptions:\n";
+        cout << "\t-h, --help\tDisplay this help.\n";
+        cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
+        cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
+        cout << endl;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -43,7 +54,19 @@ int main(int argc, char **argv)
 	bindtextdomain(PACKAGE, LOCALE_DIR);
 	textdomain(PACKAGE);
 #endif
-        Utils::initConfigOptions();
+
+        //Check command line args
+        if (argvOptionCheck(argv, argv + argc, "-h") ||
+            argvOptionCheck(argv, argv + argc, "--help"))
+        {
+                echoUsage(argv);
+                exit(0);
+        }
+
+        char *confdir = argvOptionParam(argv, argv + argc, "--config");
+        char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
+
+        Utils::initConfigOptions(confdir, cachedir);
 
         if (!Utils::fileExists(Utils::getConfigFile("calaos_gui_log.conf")))
         {

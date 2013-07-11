@@ -449,12 +449,20 @@ string Utils::getCacheFile(const char *cacheFile)
         return _cacheBase + "/" + cacheFile;
 }
 
-void Utils::initConfigOptions()
+void Utils::initConfigOptions(char *configdir, char *cachedir)
 {
+        if (configdir) _configBase = configdir;
+        if (cachedir) _cacheBase = cachedir;
+
         string file = getConfigFile(LOCAL_CONFIG);
 
         cout << "# Using config path: " << getConfigFile("") << endl;
         cout << "# Using cache path: " << getCacheFile("") << endl;
+
+        if (!ecore_file_can_write(getConfigFile("").c_str()))
+                throw (runtime_error("config path is not writable"));
+        if (!ecore_file_can_write(getCacheFile("").c_str()))
+                throw (runtime_error("cache path is not writable"));
 
         if (!fileExists(file))
         {
@@ -643,6 +651,19 @@ void Utils::Watchdog(std::string fname)
         }
 
         f.close();
+}
+
+bool Utils::argvOptionCheck(char **begin, char **end, const std::string &option)
+{
+        return std::find(begin, end, option) != end;
+}
+
+char *Utils::argvOptionParam(char **begin, char **end, const std::string &option)
+{
+        char ** itr = std::find(begin, end, option);
+        if (itr != end && ++itr != end)
+                return *itr;
+        return NULL;
 }
 
 #define HWETH1 "eth0"
