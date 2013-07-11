@@ -396,7 +396,7 @@ string Utils::getConfigFile(const char *configType)
             list<string> confDirs;
             confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
             confDirs.push_back(ETC_CONFIG_PATH);
-            confDirs.push_back(PREFIX_CONFIG_PATH"/calaos");
+            confDirs.push_back(PREFIX_CONFIG_PATH);
 
             //Check config in that order:
             // - $HOME/.config/calaos/
@@ -409,7 +409,6 @@ string Utils::getConfigFile(const char *configType)
             {
                     string conf = *it;
                     conf += "/"IO_CONFIG;
-                    cout << "Checking " << conf << endl;
                     if (ecore_file_exists(conf.c_str()))
                     {
                             _configBase = *it;

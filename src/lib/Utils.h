@@ -86,7 +86,7 @@ using namespace log4cpp;
 //-----------------------------------------------------------------------------
 // Some common defines
 //-----------------------------------------------------------------------------
-#define PREFIX_CONFIG_PATH      ETC_DIR
+#define PREFIX_CONFIG_PATH      ETC_DIR"/calaos"
 #define ETC_CONFIG_PATH         "/etc/calaos"
 #define HOME_CONFIG_PATH        ".config/calaos"
 #define HOME_CACHE_PATH         ".cache/calaos"
