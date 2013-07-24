@@ -7,7 +7,11 @@ AM_CFLAGS = \
 -I./IPCam \
 -I./Audio \
 -I./IO \
--I./IO/libmbus \
+-I./IO/Wago \
+-I./IO/Wago/libmbus \
+-I./IO/OneWire \
+-I./IO/X10 \
+-I./IO/Scripts \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -26,7 +30,11 @@ AM_CXXFLAGS = \
 -I./IPCam \
 -I./Audio \
 -I./IO \
--I./IO/libmbus \
+-I./IO/Wago \
+-I./IO/Wago/libmbus \
+-I./IO/OneWire \
+-I./IO/X10 \
+-I./IO/Scripts \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -37,10 +45,14 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_server\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 -I$(top_srcdir)/src/bin/calaos_server/IO\
+-I$(top_srcdir)/src/bin/calaos_server/IO/Wago\
+-I$(top_srcdir)/src/bin/calaos_server/IO/OneWire\
+-I$(top_srcdir)/src/bin/calaos_server/IO/X10\
+-I$(top_srcdir)/src/bin/calaos_server/IO/Scripts\
 -I$(top_srcdir)/src/bin/calaos_server/Audio\
 -I$(top_srcdir)/src/bin/calaos_server/IPCam\
 -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor\
--I$(top_srcdir)/src/bin/calaos_server/IO/libmbus\
+-I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus\
 -I$(top_srcdir)/src/bin/calaos_server/Scenario\
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_SERVER_CFLAGS@ \
@@ -74,11 +86,11 @@ DataLogger.cpp 					\
 Output.cpp					\
 ListeRule.cpp					\
 Config.cpp					\
-IO/WagoCtrl.cpp					\
-IO/WODigital.cpp				\
-IO/WagoMap.cpp					\
-IO/WIDigitalBP.cpp				\
-IO/WIDigitalTriple.cpp				\
+IO/Wago/WagoCtrl.cpp					\
+IO/Wago/WODigital.cpp				\
+IO/Wago/WagoMap.cpp					\
+IO/Wago/WIDigitalBP.cpp				\
+IO/Wago/WIDigitalTriple.cpp				\
 TCPServer.cpp					\
 TCPConnection.cpp				\
 Audio/AudioDB.cpp				\
@@ -88,8 +100,8 @@ Audio/SqueezeboxDB.cpp				\
 Audio/AudioInput.cpp				\
 Audio/AudioOutput.cpp				\
 IO/IntValue.cpp					\
-IO/WITemp.cpp					\
-IO/OWTemp.cpp					\
+IO/Wago/WITemp.cpp					\
+IO/OneWire/OWTemp.cpp					\
 IPCam/IPCam.cpp					\
 IPCam/CamInput.cpp				\
 IPCam/CamManager.cpp				\
@@ -98,9 +110,9 @@ IO/Scenario.cpp					\
 IPCam/Gadspot.cpp				\
 IPCam/Axis.cpp					\
 IPCam/StandardMjpeg.cpp				\
-IO/WOVolet.cpp					\
+IO/Wago/WOVolet.cpp					\
 UDPServer.cpp					\
-IO/X10Output.cpp				\
+IO/X10/X10Output.cpp				\
 IO/InPlageHoraire.cpp				\
 Input.cpp					\
 IPCam/Planet.cpp				\
@@ -113,18 +125,18 @@ TCPProcessor/ListenCommand.cpp			\
 TCPProcessor/ScenarioCommand.cpp		\
 IPCam/CamConnection.cpp				\
 IPCam/CamServer.cpp				\
-IO/WODali.cpp					\
-IO/WODaliRVB.cpp				\
+IO/Wago/WODali.cpp					\
+IO/Wago/WODaliRVB.cpp				\
 TCPProcessor/AudioCommand.cpp			\
 Audio/AudioPlayer.cpp				\
-IO/WOVoletSmart.cpp				\
-IO/libmbus/mbus.c				\
-IO/libmbus/mbus_cmd.c				\
-IO/libmbus/mbus_rqst.c				\
-IO/libmbus/mbus_sock.c				\
+IO/Wago/WOVoletSmart.cpp				\
+IO/Wago/libmbus/mbus.c				\
+IO/Wago/libmbus/mbus_cmd.c				\
+IO/Wago/libmbus/mbus_rqst.c				\
+IO/Wago/libmbus/mbus_sock.c				\
 Scenario/AutoScenario.cpp			\
-IO/WOAnalog.cpp					\
-IO/WIAnalog.cpp					\
+IO/Wago/WOAnalog.cpp					\
+IO/Wago/WIAnalog.cpp					\
 PollListenner.cpp				\
 Audio/AVRManager.cpp				\
 Audio/AVReceiver.cpp				\
@@ -143,10 +155,6 @@ IPCam/IPCam.h					\
 IPCam/CamConnection.h				\
 IPCam/CamInput.h				\
 UDPServer.h					\
-Scenario/ScenarioStep.h				\
-Scenario/ScenarioIO.h				\
-Scenario/Scenarios.h				\
-Scenario/Scenario.h				\
 Scenario/AutoScenario.h				\
 Audio/AudioPlayerData.h				\
 Audio/AVRDenon.h				\
@@ -187,30 +195,32 @@ Rules/ActionMail.h				\
 Rules/ActionScript.h				\
 Room.h						\
 ListeRule.h					\
-IO/WIDigitalBP.h				\
-IO/WODali.h					\
-IO/WIAnalog.h					\
+IO/Wago/WIDigitalBP.h				\
+IO/Wago/WODali.h					\
+IO/Wago/WIAnalog.h					\
 IO/InPlageHoraire.h				\
-IO/WagoCtrl.h					\
+IO/Wago/WagoCtrl.h					\
 IO/InputTime.h					\
-IO/OWTemp.h					\
-IO/WODigital.h					\
-IO/WITemp.h					\
+IO/OneWire/OWTemp.h					\
+IO/Wago/WODigital.h					\
+IO/Wago/WITemp.h					\
 IO/Scenario.h					\
-IO/X10Output.h					\
+IO/X10/X10Output.h					\
 IO/InputTimer.h					\
-IO/libmbus/mbus.h				\
-IO/libmbus/mbus_conf.h				\
-IO/WOVoletSmart.h				\
-IO/WagoMap.h					\
+IO/Wago/libmbus/mbus.h				\
+IO/Wago/libmbus/mbus_conf.h				\
+IO/Wago/WOVoletSmart.h				\
+IO/Wago/WagoMap.h					\
 IO/IntValue.h					\
-IO/WOAnalog.h					\
+IO/Wago/WOAnalog.h					\
 IO/IOFactory.h					\
-IO/WODaliRVB.h					\
-IO/WIDigitalTriple.h				\
-IO/WOVolet.h					\
+IO/Wago/WODaliRVB.h					\
+IO/Wago/WIDigitalTriple.h				\
+IO/Wago/WOVolet.h					\
 IO/OutputFake.h					\
-TCPServer.h
+TCPServer.h						\
+IO/OutputLight.h				\
+IO/OutputLight.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

@@ -35,7 +35,6 @@
 #include <IntValue.h>
 #include <InPlageHoraire.h>
 #include <InputTimer.h>
-#include <WODigital.h>
 #include <Scenario.h>
 #include <IOFactory.h>
 #include <Eina.h>

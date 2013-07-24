@@ -22,56 +22,28 @@
 #define S_WODigital_H
 
 #include <Calaos.h>
-#include <Output.h>
+#include <OutputLight.h>
 #include <WagoMap.h>
 
-namespace Calaos
-{
+namespace Calaos {
 
-typedef struct _BlinkInfo
-{
-        bool state;
-        int duration;
-        int next;
-} BlinkInfo;
-
-class WODigital : public Output
+class WODigital : public OutputLight
 {
         private:
-                bool value;
                 int address;
 
                 std::string host;
                 int port;
 
-                EcoreTimer *timer;
-                int time;
-
-                vector<BlinkInfo> blinks;
-                int current_blink;
-
-                void TimerImpulse();
-                void TimerImpulseExtended();
-
-                bool _set_value(bool val);
-
                 void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
                 void WagoWriteCallback(bool status, UWord address, bool value);
 
+        protected:
+                bool set_value_real(bool val);
+
         public:
                 WODigital(Params &p);
-                ~WODigital();
-
-                DATA_TYPE get_type() { return TBOOL; }
-
-                bool set_value(bool val);
-                bool get_value_bool() { return value; }
-
-                //impulse, time is in ms
-                void impulse(int time);
-
-                // extended impulse using pattern
-                void impulse_extended(string pattern);
+                virtual ~WODigital();
 };
 
 }
