@@ -29,6 +29,8 @@ OutputLight::OutputLight(Params &p):
                 value(false)
 {
         if (!get_params().Exists("visible")) set_param("visible", "true");
+
+        set_param("gui_type", "light");
 }
 
 OutputLight::~OutputLight()
