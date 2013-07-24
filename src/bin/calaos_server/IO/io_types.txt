@@ -1,0 +1,10 @@
+this is a list of every io types calaos supports.
+The base type used by clients must be gui_type.
+The "type" parameter is only to know the real hardware type and should
+not be used directly in interfaces.
+
+# gui_type
+
+light       - a light wich can have 2 states
+switch      - a classic on/off switch
+switch3     - a switch with multiple click detection
