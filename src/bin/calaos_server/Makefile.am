@@ -222,7 +222,9 @@ TCPServer.h						\
 IO/OutputLight.h				\
 IO/OutputLight.cpp				\
 IO/InputSwitch.h				\
-IO/InputSwitch.cpp
+IO/InputSwitch.cpp				\
+IO/InputSwitchTriple.h			\
+IO/InputSwitchTriple.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

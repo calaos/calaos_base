@@ -21,15 +21,14 @@
 #ifndef S_WIDigitalTriple_H
 #define S_WIDigitalTriple_H
 
-#include <Calaos.h>
-#include <Input.h>
+#include <InputSwitchTriple.h>
 #include <WagoMap.h>
 #include <EcoreTimer.h>
 
 namespace Calaos
 {
 
-class WIDigitalTriple : public Input, public sigc::trackable
+class WIDigitalTriple : public InputSwitchTriple, public sigc::trackable
 {
         protected:
                 type_signal_wago::iterator iter;
@@ -38,37 +37,16 @@ class WIDigitalTriple : public Input, public sigc::trackable
                 std::string host;
                 int port;
 
-                int count;
                 bool udp_value;
-                double value;
-
-                EcoreTimer *timer;
-
-                void TimerDone();
-                void resetInput();
 
                 void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+
+                virtual bool readValue();
 
         public:
                 WIDigitalTriple(Params &p);
                 ~WIDigitalTriple();
 
-                virtual DATA_TYPE get_type() { return TINT; }
-
-                /* renvoie le numero de l'action:
-                        -1: rien
-                        1: action 1
-                        2: action 2
-                        3: action 3
-                */
-                virtual double get_value_double() { return value; }
-                virtual void force_input_double(double v)
-                {
-                        value = v;
-                        EmitSignalInput();
-                }
-
-                virtual void hasChanged();
                 virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 

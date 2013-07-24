@@ -19,23 +19,17 @@
 **
 ******************************************************************************/
 #include <WIDigitalTriple.h>
-#include <IPC.h>
 
 using namespace Calaos;
 
 WIDigitalTriple::WIDigitalTriple(Params &p):
-                Input(p),
-                port(502),
-                count(0),
-                value(0.0),
-                timer(NULL)
+                InputSwitchTriple(p),
+                port(502)
 {
         host = get_param("host");
         Utils::from_string(get_param("var"), address);
         if (get_params().Exists("port"))
                 Utils::from_string(get_param("port"), port);
-
-        if (!get_params().Exists("visible")) set_param("visible", "false");
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalTriple::ReceiveFromWago) );
         Utils::logger("input") << Priority::INFO << "WIDigitalTriple::WIDigitalTriple(" << get_param("id") << "): Ok" << log4cpp::eol;
@@ -44,7 +38,6 @@ WIDigitalTriple::WIDigitalTriple(Params &p):
 WIDigitalTriple::~WIDigitalTriple()
 {
         iter->disconnect();
-        if (timer) delete timer;
         Utils::logger("input") << Priority::INFO << "WIDigitalTriple::~WIDigitalTriple(): Ok" << log4cpp::eol;
 }
 
@@ -74,10 +67,8 @@ void WIDigitalTriple::WagoReadCallback(bool status, UWord addr, int nb, vector<b
         }
 }
 
-void WIDigitalTriple::hasChanged()
+bool WIDigitalTriple::readValue()
 {
-        bool val = false;
-
         host = get_param("host");
         Utils::from_string(get_param("var"), address);
         if (get_params().Exists("port"))
@@ -89,51 +80,6 @@ void WIDigitalTriple::hasChanged()
                 //WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalTriple::WagoReadCallback));
         }
 
-        val = udp_value;
-
-        if (val)
-        {
-                if (!timer)
-                {
-                        count = 0;
-                        timer = new EcoreTimer(0.5,
-                                               (sigc::slot<void>)sigc::mem_fun(*this, &WIDigitalTriple::TimerDone));
-                }
-
-                count += 1;
-        }
-}
-
-void WIDigitalTriple::TimerDone()
-{
-        if (count > 0)
-        {
-                if (count == 1) value = 1.;
-                if (count == 2) value = 2.;
-                if (count >= 3) value = 3.;
-
-                count = 0;
-
-                EmitSignalInput();
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                sig += Utils::url_encode(string("state:") + to_string(value));
-                IPC::Instance().SendEvent("events", sig);
-
-                //reset input value to 0 after 250ms (simulate button press/release)
-                EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &WIDigitalTriple::resetInput));
-        }
-
-        if (timer)
-        {
-                delete timer;
-                timer = NULL;
-        }
-}
-
-void WIDigitalTriple::resetInput()
-{
-        value = 0.;
+        return udp_value;
 }
 
