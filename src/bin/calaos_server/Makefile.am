@@ -220,7 +220,9 @@ IO/Wago/WOVolet.h					\
 IO/OutputFake.h					\
 TCPServer.h						\
 IO/OutputLight.h				\
-IO/OutputLight.cpp
+IO/OutputLight.cpp				\
+IO/InputSwitch.h				\
+IO/InputSwitch.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

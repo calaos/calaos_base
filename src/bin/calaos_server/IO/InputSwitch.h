@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2007-2008, Calaos. All Rights Reserved.
+**  Copyright (c) 2007-2013, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -18,36 +18,35 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef S_WIDigitalBP_H
-#define S_WIDigitalBP_H
+#ifndef INPUTSWITCH_H
+#define INPUTSWITCH_H
 
-#include <InputSwitch.h>
-#include <WagoMap.h>
+#include <Calaos.h>
+#include <Input.h>
 
 namespace Calaos
 {
 
-class WIDigitalBP : public InputSwitch, public sigc::trackable
+class InputSwitch : public Input
 {
         protected:
-                type_signal_wago::iterator iter;
+                bool value;
 
-                int address;
-                std::string host;
-                int port;
-
-                bool udp_value;
-                bool initial;
-
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-                virtual bool readValue();
+                virtual bool readValue() = 0;
 
         public:
-                WIDigitalBP(Params &p);
-                virtual ~WIDigitalBP();
+                InputSwitch(Params &p);
+                ~InputSwitch();
 
-                virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
+                virtual DATA_TYPE get_type() { return TBOOL; }
+                virtual bool get_value_bool() { return value; }
+                virtual void force_input_bool(bool v)
+                {
+                        value = v;
+                        EmitSignalInput();
+                }
+
+                virtual void hasChanged();
 };
 
 }

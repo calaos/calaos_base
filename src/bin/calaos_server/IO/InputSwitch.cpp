@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2007-2008, Calaos. All Rights Reserved.
+**  Copyright (c) 2007-2013, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -18,37 +18,41 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef S_WIDigitalBP_H
-#define S_WIDigitalBP_H
-
 #include <InputSwitch.h>
-#include <WagoMap.h>
+#include <IPC.h>
 
-namespace Calaos
+using namespace Calaos;
+
+InputSwitch::InputSwitch(Params &p):
+                Input(p),
+                value(false)
 {
+        if (!get_params().Exists("visible")) set_param("visible", "false");
 
-class WIDigitalBP : public InputSwitch, public sigc::trackable
-{
-        protected:
-                type_signal_wago::iterator iter;
-
-                int address;
-                std::string host;
-                int port;
-
-                bool udp_value;
-                bool initial;
-
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-                virtual bool readValue();
-
-        public:
-                WIDigitalBP(Params &p);
-                virtual ~WIDigitalBP();
-
-                virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
-};
-
+        set_param("gui_type", "switch");
 }
-#endif
+
+InputSwitch::~InputSwitch()
+{
+}
+
+void InputSwitch::hasChanged()
+{
+        bool val = readValue();
+        
+        if (val != value)
+        {
+                value = val;
+
+                string sig = "input ";
+                sig += get_param("id") + " ";
+                if (value)
+                        sig += Utils::url_encode(string("state:true"));
+                else
+                        sig += Utils::url_encode(string("state:false"));
+                IPC::Instance().SendEvent("events", sig);
+
+                EmitSignalInput();
+        }
+}
+

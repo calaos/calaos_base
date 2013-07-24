@@ -19,22 +19,18 @@
 **
 ******************************************************************************/
 #include <WIDigitalBP.h>
-#include <IPC.h>
 
 using namespace Calaos;
 
 WIDigitalBP::WIDigitalBP(Params &p):
-                Input(p),
+                InputSwitch(p),
                 port(502),
-                value(false),
                 initial(true)
 {
         host = get_param("host");
         Utils::from_string(get_param("var"), address);
         if (get_params().Exists("port"))
                 Utils::from_string(get_param("port"), port);
-
-        if (!get_params().Exists("visible")) set_param("visible", "false");
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalBP::ReceiveFromWago) );
 
@@ -100,11 +96,8 @@ void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bo
         Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WIDigitalBP::hasChanged()
+bool WIDigitalBP::readValue()
 {
-        bool val = false;
-        std::vector<bool> values;
-
         host = get_param("host");
         Utils::from_string(get_param("var"), address);
         if (get_params().Exists("port"))
@@ -116,20 +109,6 @@ void WIDigitalBP::hasChanged()
                 WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalBP::WagoReadCallback));
         }
 
-        val = udp_value;
-
-        if (val != value)
-        {
-                value = val;
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                if (value)
-                        sig += Utils::url_encode(string("state:true"));
-                else
-                        sig += Utils::url_encode(string("state:false"));
-                IPC::Instance().SendEvent("events", sig);
-
-                EmitSignalInput();
-        }
+        return udp_value;
 }
+
