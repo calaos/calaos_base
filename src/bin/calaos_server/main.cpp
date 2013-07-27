@@ -117,6 +117,8 @@ int main (int argc, char **argv)
 
         Utils::InitLoggingSystem(Utils::getConfigFile("calaosd_log.conf"));
 
+        srand(time(NULL));
+
         //init ecore system
         eina_init();
         ecore_init();

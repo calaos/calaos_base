@@ -24,6 +24,7 @@
 #include <Calaos.h>
 #include <Output.h>
 #include <WagoMap.h>
+#include "EcoreTimer.h"
 
 namespace Calaos
 {
@@ -40,10 +41,16 @@ class WODaliRVB : public Output
 
                 std::string cmd_state;
 
+                EcoreTimer *timer_auto;
+
                 void WagoUDPCommandRed_cb(bool status, string command, string result);
                 void WagoUDPCommandGreen_cb(bool status, string command, string result);
                 void WagoUDPCommandBlue_cb(bool status, string command, string result);
                 void WagoUDPCommand_cb(bool status, string command, string result);
+
+                void setColor();
+
+                void TimerAutoChange();
 
         public:
                 //3 Dali address for this output, one for red, one for blue, one for green

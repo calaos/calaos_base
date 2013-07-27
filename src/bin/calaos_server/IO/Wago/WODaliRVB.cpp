@@ -27,7 +27,8 @@ WODaliRVB::WODaliRVB(Params &_p):
                 Output(_p),
                 value(0),
                 old_value(100),
-                port(502)
+                port(502),
+                timer_auto(NULL)
 {
         host = get_param("host");
         if (get_params().Exists("port"))
@@ -198,6 +199,8 @@ bool WODaliRVB::set_value(std::string val)
 
                         cmd_state = "on";
                 }
+
+                DELETE_NULL(timer_auto);
         }
         else if (val == "off" || val == "false")
         {
@@ -227,6 +230,8 @@ bool WODaliRVB::set_value(std::string val)
 
                         cmd_state = "off";
                 }
+
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 8, "set off ") == 0)
         {
@@ -243,26 +248,13 @@ bool WODaliRVB::set_value(std::string val)
                 if (blue < 0) blue = 0;
                 if (blue > 255) blue = 255;
 
+                DELETE_NULL(timer_auto);
+
                 cmd_state = "set off " + Utils::to_string(percent);
 
                 if (value > 0)
                 {
-                        string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
-                                " " + get_param("raddress") + " " + to_string((red * 100) / 255) +
-                                " " + get_param("rfade_time");
-                        WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                        cmd = "WAGO_DALI_SET " + get_param("gline") + " " + get_param("ggroup") +
-                                " " + get_param("gaddress") + " " + to_string((green * 100) / 255) +
-                                " " + get_param("gfade_time");
-                        WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                        cmd = "WAGO_DALI_SET " + get_param("bline") + " " + get_param("bgroup") +
-                                " " + get_param("baddress") + " " + to_string((blue * 100) / 255) +
-                                " " + get_param("bfade_time");
-                        WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+                        setColor();
                 }
                 else
                 {
@@ -291,24 +283,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (blue < 0) blue = 0;
                 if (blue > 255) blue = 255;
 
-                cmd_state = "set " + Utils::to_string(percent);
-
-                string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
-                             " " + get_param("raddress") + " " + to_string((red * 100) / 255) +
-                             " " + get_param("rfade_time");
-                WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                cmd = "WAGO_DALI_SET " + get_param("gline") + " " + get_param("ggroup") +
-                             " " + get_param("gaddress") + " " + to_string((green * 100) / 255) +
-                             " " + get_param("gfade_time");
-                WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                cmd = "WAGO_DALI_SET " + get_param("bline") + " " + get_param("bgroup") +
-                             " " + get_param("baddress") + " " + to_string((blue * 100) / 255) +
-                             " " + get_param("bfade_time");
-                WagoMap::Instance(host, port).SendUDPCommand(cmd);
-
-                value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 8, "set_red ") == 0)
         {
@@ -319,8 +295,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (red < 0) red = 0;
                 if (red > 255) red = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 10, "set_green ") == 0)
         {
@@ -331,8 +307,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (green < 0) green = 0;
                 if (green > 255) green = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 9, "set_blue ") == 0)
         {
@@ -343,8 +319,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (blue < 0) blue = 0;
                 if (blue > 255) blue = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 7, "up_red ") == 0)
         {
@@ -355,8 +331,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (red < 0) red = 0;
                 if (red > 255) red = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 9, "down_red ") == 0)
         {
@@ -367,8 +343,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (red < 0) red = 0;
                 if (red > 255) red = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 9, "up_green ") == 0)
         {
@@ -379,8 +355,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (green < 0) green = 0;
                 if (green > 255) green = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 11, "down_green ") == 0)
         {
@@ -391,8 +367,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (green < 0) green = 0;
                 if (green > 255) green = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 8, "up_blue ") == 0)
         {
@@ -403,8 +379,8 @@ bool WODaliRVB::set_value(std::string val)
                 if (blue < 0) blue = 0;
                 if (blue > 255) blue = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
         }
         else if (val.compare(0, 10, "down_blue ") == 0)
         {
@@ -415,8 +391,17 @@ bool WODaliRVB::set_value(std::string val)
                 if (blue < 0) blue = 0;
                 if (blue > 255) blue = 255;
 
-                int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-                set_value("set " + to_string(v));
+                setColor();
+                DELETE_NULL(timer_auto);
+        }
+        else if (val.compare(0, 12, "auto_change ") == 0)
+        {
+                val.erase(0, 12);
+                int timems;
+                from_string(val, timems);
+
+                timer_auto = new EcoreTimer((double)timems / 1000.,
+                                            (sigc::slot<void>)sigc::mem_fun(*this, &WODaliRVB::TimerAutoChange) );
         }
 
         EmitSignalOutput();
@@ -427,4 +412,44 @@ bool WODaliRVB::set_value(std::string val)
         IPC::Instance().SendEvent("events", sig);
 
         return ret;
+}
+
+void WODaliRVB::setColor()
+{
+        int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+        cmd_state = "set " + Utils::to_string(v);
+
+        string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
+                     " " + get_param("raddress") + " " + to_string((red * 100) / 255) +
+                     " " + get_param("rfade_time");
+        WagoMap::Instance(host, port).SendUDPCommand(cmd);
+
+        cmd = "WAGO_DALI_SET " + get_param("gline") + " " + get_param("ggroup") +
+                     " " + get_param("gaddress") + " " + to_string((green * 100) / 255) +
+                     " " + get_param("gfade_time");
+        WagoMap::Instance(host, port).SendUDPCommand(cmd);
+
+        cmd = "WAGO_DALI_SET " + get_param("bline") + " " + get_param("bgroup") +
+                     " " + get_param("baddress") + " " + to_string((blue * 100) / 255) +
+                     " " + get_param("bfade_time");
+        WagoMap::Instance(host, port).SendUDPCommand(cmd);
+
+        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+
+        EmitSignalOutput();
+
+        string sig = "output ";
+        sig += get_param("id") + " ";
+        sig += Utils::url_encode(string("state:") + get_value_string());
+        IPC::Instance().SendEvent("events", sig);
+}
+
+void WODaliRVB::TimerAutoChange()
+{
+        //choose a random color
+        red = rand() % 255;
+        blue = rand() % 255;
+        green = rand() % 255;
+
+        setColor();
 }
