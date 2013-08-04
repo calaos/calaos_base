@@ -400,6 +400,7 @@ bool WODaliRVB::set_value(std::string val)
                 int timems;
                 from_string(val, timems);
 
+                DELETE_NULL(timer_auto);
                 timer_auto = new EcoreTimer((double)timems / 1000.,
                                             (sigc::slot<void>)sigc::mem_fun(*this, &WODaliRVB::TimerAutoChange) );
         }
