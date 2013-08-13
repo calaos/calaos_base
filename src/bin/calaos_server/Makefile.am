@@ -174,7 +174,6 @@ PollListenner.h					\
 DataLogger.h					\
 IOBase.h					\
 Input.h						\
-Etage.h						\
 Rule.h						\
 WagoHeartbeat.h					\
 TCPConnection.h					\
