@@ -46,7 +46,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
 
                                 map<std::string, int>::iterator fter = list.find(room->get_type());
                                 if (fter != list.end())
-                                        list[room->get_type()] = list[room->get_type()]++;
+                                        list[room->get_type()] = list[room->get_type()] + 1;
                                 else
                                         list[room->get_type()] = 1;
                         }
