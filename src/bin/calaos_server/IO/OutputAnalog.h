@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2007-2008, Calaos. All Rights Reserved.
+**  Copyright (c) 2007-2010, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -18,36 +18,39 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef S_WIDigitalBP_H
-#define S_WIDigitalBP_H
+#ifndef S_OutputAnalog_H
+#define S_OutputAnalog_H
 
-#include <InputSwitch.h>
+#include <Calaos.h>
+#include <Output.h>
 #include <WagoMap.h>
 
 namespace Calaos
 {
 
-class WIDigitalBP : public InputSwitch, public sigc::trackable
+class OutputAnalog : public Output
 {
         protected:
-                type_signal_wago::iterator iter;
+                double value;
+                double real_value_max;
+                double wago_value_max;
 
-                int address;
-                std::string host;
-                int port;
+                void readConfig();
 
-                bool udp_value;
-                bool initial;
+                void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+                void WagoWriteCallback(bool status, UWord address, UWord value);
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-                virtual bool readValue();
+                void emitChange();
+                virtual void set_value_real(double val) = 0;
 
         public:
-                WIDigitalBP(Params &p);
-                virtual ~WIDigitalBP();
+                OutputAnalog(Params &p);
+                ~OutputAnalog();
 
-                virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
+                DATA_TYPE get_type() { return TINT; }
+
+                virtual bool set_value(double val);
+                virtual double get_value_double();
 };
 
 }

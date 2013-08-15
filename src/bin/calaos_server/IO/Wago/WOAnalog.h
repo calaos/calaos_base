@@ -21,26 +21,20 @@
 #ifndef S_WOAnalog_H
 #define S_WOAnalog_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <WagoMap.h>
+#include <OutputAnalog.h>
 
 namespace Calaos
 {
 
-class WOAnalog : public Output
+class WOAnalog : public OutputAnalog
 {
         private:
-                double value;
-                double real_value_max;
-                double wago_value_max;
-
                 int address;
 
                 std::string host;
                 int port;
 
-                void readConfig();
+                virtual void set_value_real(double val);
 
                 void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
                 void WagoWriteCallback(bool status, UWord address, UWord value);
@@ -48,11 +42,6 @@ class WOAnalog : public Output
         public:
                 WOAnalog(Params &p);
                 ~WOAnalog();
-
-                DATA_TYPE get_type() { return TINT; }
-
-                virtual bool set_value(double val);
-                virtual double get_value_double();
 };
 
 }

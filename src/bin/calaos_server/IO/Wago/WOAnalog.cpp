@@ -19,53 +19,29 @@
 **
 ******************************************************************************/
 #include <WOAnalog.h>
-#include <IPC.h>
 
 using namespace Calaos;
 using namespace Utils;
 
 WOAnalog::WOAnalog(Params &p):
-                Output(p),
-                value(-1),
-                real_value_max(0.0),
-                wago_value_max(0.0),
+                OutputAnalog(p),
                 port(502)
 {
-        readConfig();
+        host = get_param("host");
+        Utils::from_string(get_param("var"), address);
+        if (get_params().Exists("port"))
+                Utils::from_string(get_param("port"), port);
 
         WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::INFO << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
+        Utils::logger("output") << Priority::DEBUG << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WOAnalog::~WOAnalog()
 {
-        Utils::logger("output") << Priority::INFO << "WOAnalog::~WOAnalog(): Ok" << log4cpp::eol;
-}
-
-void WOAnalog::readConfig()
-{
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
-        if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
-
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
-
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-}
-
-double WOAnalog::get_value_double()
-{
-        readConfig();
-
-        if (wago_value_max > 0 && real_value_max > 0)
-                return Utils::roundValue(value * real_value_max / wago_value_max);
-        else
-                return Utils::roundValue(value);
+        Utils::logger("output") << Priority::DEBUG << "WOAnalog::~WOAnalog(): Ok" << log4cpp::eol;
 }
 
 void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
@@ -80,10 +56,7 @@ void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
 
         if (!values.empty()) value = values[0];
 
-        string sig = "output ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
+        emitChange();
 
         Calaos::StartReadRules::Instance().ioRead();
 }
@@ -98,39 +71,17 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 
         value = _value;
 
-        UWord v;
+        emitChange();
 
-        readConfig();
-
-        if (wago_value_max > 0 && real_value_max > 0)
-                v = (UWord)(value * wago_value_max / real_value_max);
-        else
-                v = (UWord)(value);
-
-        Utils::logger("output") << Priority::INFO << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << v << ")" << log4cpp::eol;
+        Utils::logger("output") << Priority::INFO << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")" << log4cpp::eol;
 }
 
-bool WOAnalog::set_value(double val)
+void WOAnalog::set_value_real(double val)
 {
-        UWord v;
+        host = get_param("host");
+        Utils::from_string(get_param("var"), address);
+        if (get_params().Exists("port"))
+                Utils::from_string(get_param("port"), port);
 
-        readConfig();
-
-        if (wago_value_max > 0 && real_value_max > 0)
-                v = (UWord)(val * wago_value_max / real_value_max);
-        else
-                v = (UWord)(val);
-
-        WagoMap::Instance(host, port).write_single_word((UWord)address, v, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
-
-        value = val;
-
-        EmitSignalOutput();
-
-        string sig = "output ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
-
-        return true;
+        WagoMap::Instance(host, port).write_single_word((UWord)address, val, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
 }
