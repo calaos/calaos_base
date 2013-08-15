@@ -229,7 +229,9 @@ IO/InputTemp.cpp				\
 IO/InputAnalog.h				\
 IO/InputAnalog.cpp				\
 IO/OutputAnalog.h				\
-IO/OutputAnalog.cpp
+IO/OutputAnalog.cpp				\
+IO/OutputShutter.h				\
+IO/OutputShutter.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

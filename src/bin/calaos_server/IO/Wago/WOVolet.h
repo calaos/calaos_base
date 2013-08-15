@@ -21,54 +21,27 @@
 #ifndef S_WOVolet_H
 #define S_WOVolet_H
 
-#include <Calaos.h>
-#include <Output.h>
+#include <OutputShutter.h>
 #include <WagoMap.h>
-#include <Ecore.h>
-#include <EcoreTimer.h>
 
 namespace Calaos
 {
 
-class WOVolet : public Output
+class WOVolet : public OutputShutter
 {
         private:
                 int up_address, down_address;
-                int time;
-                int sens, old_sens;
-
                 std::string host;
                 int port;
 
-                EcoreTimer *timer_end, *timer_impulse;
-                EcoreTimer *timer_up, *timer_down;
-                bool is_impulse_action;
-                int impulse_action_time;
-                int impulse_time;
-
-                std::string state_volet, cmd_state;
-
-                void TimerEnd();
-                void TimerImpulse();
-
-                void Up();
-                void Down();
-                void UpWait();
-                void DownWait();
-                void Stop();
+                virtual void setOutputUp(bool enable);
+                virtual void setOutputDown(bool enable);
 
                 void WagoWriteCallback(bool status, UWord address, bool value);
 
         public:
                 WOVolet(Params &p);
                 ~WOVolet();
-
-                virtual DATA_TYPE get_type() { return TSTRING; }
-
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string() { return state_volet; }
-
-                virtual std::string get_command_string() { return cmd_state; }
 };
 
 }

@@ -5,10 +5,14 @@ not be used directly in interfaces.
 
 # gui_type
 
-light       - a light wich can have 2 states
-switch      - a classic on/off switch
-switch3     - a switch with multiple click detection
-temp        - a temperature sensor
-analog_in   - an analaog value input sensor
-analog_out  - an analaog value output
+light           - a light wich can have 2 states
+switch          - a classic on/off switch
+switch3         - a switch with multiple click detection
+temp            - a temperature sensor
+analog_in       - an analaog value input sensor
+analog_out      - an analaog value output
+dimmable        - a dimmable light
+rgb             - an rgb dimmable light
+shutter         - a simple 2 way shutter (up/down)
+shutter_smart   - a smart shutter with an estimated position of the shutter (computed using time)
 
