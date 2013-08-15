@@ -25,7 +25,8 @@ using namespace Calaos;
 WITemp::WITemp(Params &p):
                 InputTemp(p),
                 port(502),
-                requestInProgress(false)
+                requestInProgress(false),
+                start(true)
 {
         host = get_param("host");
 
@@ -66,7 +67,11 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
                 emitChange();
         }
 
-        Calaos::StartReadRules::Instance().ioRead();
+        if (start)
+        {
+                Calaos::StartReadRules::Instance().ioRead();
+                start = false;
+        }
 }
 
 void WITemp::readValue()
