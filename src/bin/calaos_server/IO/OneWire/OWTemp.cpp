@@ -41,6 +41,10 @@ OWTemp::OWTemp(Params &p):
 #endif
 
         Utils::logger("input") << Priority::DEBUG << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id << log4cpp::eol;
+
+        //read value when calaos_server is started
+        readValue();
+        Calaos::StartReadRules::Instance().ioRead();
 }
 
 OWTemp::~OWTemp()
