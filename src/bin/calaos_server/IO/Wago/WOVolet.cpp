@@ -39,21 +39,36 @@ WOVolet::~WOVolet()
         Utils::logger("output") << Priority::DEBUG << "WOVolet::~WOVolet(): Ok" << log4cpp::eol;
 }
 
-void WOVolet::setOutputUp(bool enable)
+void WOVolet::readConfig()
 {
         host = get_param("host");
         if (get_params().Exists("port"))
                 Utils::from_string(get_param("port"), port);
         Utils::from_string(get_param("var_up"), up_address);
+        Utils::from_string(get_param("var_down"), down_address);
+
+        //handle knx and 841/849
+        if (get_param("knx") == "true")
+        {
+                up_address += WAGO_KNX_START_ADDRESS;
+                down_address += WAGO_KNX_START_ADDRESS;
+        }
+        if (get_param("wago_841") == "true" && get_param("knx") != "true")
+        {
+                up_address += WAGO_841_START_ADDRESS;
+                down_address += WAGO_841_START_ADDRESS;
+        }
+}
+
+void WOVolet::setOutputUp(bool enable)
+{
+        readConfig();
         WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
 }
 
 void WOVolet::setOutputDown(bool enable)
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
-        Utils::from_string(get_param("var_down"), down_address);
+        readConfig();
         WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
 }
 

@@ -37,6 +37,7 @@ class WOVolet : public OutputShutter
                 virtual void setOutputUp(bool enable);
                 virtual void setOutputDown(bool enable);
 
+                void readConfig();
                 void WagoWriteCallback(bool status, UWord address, bool value);
 
         public:
