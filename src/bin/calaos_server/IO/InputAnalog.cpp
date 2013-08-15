@@ -33,6 +33,8 @@ InputAnalog::InputAnalog(Params &p):
                 timer(0.0),
                 frequency(15.0) // 15 sec. between each read
 {
+        set_param("gui_type", "analog_in");
+
         readConfig();
 
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop

@@ -30,6 +30,8 @@ OutputAnalog::OutputAnalog(Params &p):
                 real_value_max(0.0),
                 wago_value_max(0.0)
 {
+        set_param("gui_type", "analog_out");
+
         readConfig();
 
         Calaos::StartReadRules::Instance().addIO();

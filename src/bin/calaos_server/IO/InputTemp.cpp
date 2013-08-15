@@ -31,6 +31,8 @@ InputTemp::InputTemp(Params &p):
                 timer(0.0),
                 readTime(15.0)
 {
+        set_param("gui_type", "temp");
+
         Utils::from_string(get_param("offset"), offset);
         if (!get_params().Exists("visible")) set_param("visible", "true");
         if (!get_params().Exists("interval"))
