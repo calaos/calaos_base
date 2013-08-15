@@ -35,6 +35,8 @@ class WODigital : public OutputLight
                 std::string host;
                 int port;
 
+                bool start;
+
                 void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
                 void WagoWriteCallback(bool status, UWord address, bool value);
 

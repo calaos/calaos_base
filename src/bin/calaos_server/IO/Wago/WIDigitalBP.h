@@ -39,6 +39,8 @@ class WIDigitalBP : public InputSwitch, public sigc::trackable
                 bool udp_value;
                 bool initial;
 
+                bool
+
                 void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
 
                 virtual bool readValue();

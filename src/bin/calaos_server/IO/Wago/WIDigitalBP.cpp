@@ -76,7 +76,11 @@ void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bo
         if (!status)
         {
                 Utils::logger("input") << Priority::ERROR << "WIDigitalBP(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
-                Calaos::StartReadRules::Instance().ioRead();
+                if (initial)
+                {
+                        Calaos::StartReadRules::Instance().ioRead();
+                        initial = false;
+                }
 
                 return;
         }
@@ -91,9 +95,10 @@ void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bo
                 else
                         Utils::logger("input") << Priority::INFO << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Reading initial state: false" << log4cpp::eol;
                 initial = false;
+
+                Calaos::StartReadRules::Instance().ioRead();
         }
 
-        Calaos::StartReadRules::Instance().ioRead();
 }
 
 bool WIDigitalBP::readValue()

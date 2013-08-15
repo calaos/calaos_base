@@ -24,7 +24,8 @@ using namespace Calaos;
 
 WODigital::WODigital(Params &p):
                 OutputLight(p),
-                port(502)
+                port(502),
+                start(true)
 {
         host = get_param("host");
 
@@ -57,7 +58,11 @@ void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool
         if (!status)
         {
                 Utils::logger("output") << Priority::ERROR << "WODigital(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
-                Calaos::StartReadRules::Instance().ioRead();
+                if (start)
+                {
+                    Calaos::StartReadRules::Instance().ioRead();
+                    start = false;
+                }
 
                 return;
         }
@@ -69,7 +74,11 @@ void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool
 
         emitChange();
 
-        Calaos::StartReadRules::Instance().ioRead();
+        if (start)
+        {
+            Calaos::StartReadRules::Instance().ioRead();
+            start = false;
+        }
 }
 
 void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
