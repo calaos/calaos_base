@@ -21,15 +21,13 @@
 #ifndef S_WITemp_H
 #define S_WITemp_H
 
-#include <Calaos.h>
-#include <Input.h>
+#include <InputTemp.h>
 #include <WagoMap.h>
-#include <Ecore.h>
 
 namespace Calaos
 {
 
-class WITemp : public Input
+class WITemp : public InputTemp
 {
         protected:
                 int address;
@@ -37,25 +35,15 @@ class WITemp : public Input
                 std::string host;
                 int port;
 
-                double value;
-                double timer;
-                double offset;
-
                 bool requestInProgress;
 
                 void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
 
+                virtual void readValue();
+
         public:
                 WITemp(Params &p);
                 ~WITemp();
-
-                virtual DATA_TYPE get_type() { return TINT; }
-
-                virtual void force_input_double(double v);
-
-                virtual double get_value_double();
-
-                virtual void hasChanged();
 };
 
 }

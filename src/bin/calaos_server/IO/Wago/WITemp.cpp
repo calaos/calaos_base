@@ -19,40 +19,28 @@
 **
 ******************************************************************************/
 #include <WITemp.h>
-#include <ListeRule.h>
-#include <IPC.h>
 
 using namespace Calaos;
 
 WITemp::WITemp(Params &p):
-                Input(p),
+                InputTemp(p),
                 port(502),
-                value(0.0),
-                timer(0.0),
                 requestInProgress(false)
 {
         host = get_param("host");
-        Utils::from_string(get_param("offset"), offset);
 
         Utils::from_string(get_param("var"), address);
         if (get_params().Exists("port"))
                 Utils::from_string(get_param("port"), port);
 
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
-
         requestInProgress = true;
         WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 
         Calaos::StartReadRules::Instance().addIO();
-
-        Utils::logger("input") << Priority::INFO << "WITemp::WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WITemp::~WITemp()
 {
-        Utils::logger("input") << Priority::INFO << "WITemp::~WITemp(): Ok" << log4cpp::eol;
 }
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
@@ -74,68 +62,18 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
         if (val != value)
         {
-                Utils::logger("input") << Priority::INFO << "WITemp:changed(" << get_param("id") << ") : " << get_value_double() << " °C" << log4cpp::eol;
-
                 value = val;
-                EmitSignalInput();
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-                IPC::Instance().SendEvent("events", sig);
+                emitChange();
         }
 
         Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WITemp::hasChanged()
+void WITemp::readValue()
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
-
-        double sec = ecore_time_get() - timer;
-        if (sec >= 15)
+        if (!requestInProgress)
         {
-                timer = ecore_time_get();
-
-                if (!requestInProgress)
-                {
-                        requestInProgress = true;
-                        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
-                }
+                requestInProgress = true;
+                WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
         }
-}
-
-double WITemp::get_value_double()
-{
-        double v;
-
-        if (get_params().Exists("offset"))
-        {
-                Utils::from_string(get_param("offset"), offset);
-
-                if (offset < 100 && offset > -100)
-                        v = value - offset;
-                else
-                        v = value;
-        }
-        else
-        {
-                v = value;
-        }
-
-        return v;
-}
-
-void WITemp::force_input_double(double v)
-{
-        value = v;
-        EmitSignalInput();
-
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-        IPC::Instance().SendEvent("events", sig);
 }

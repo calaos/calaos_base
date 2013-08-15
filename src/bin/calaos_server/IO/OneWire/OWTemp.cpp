@@ -23,8 +23,6 @@
 #endif
 
 #include <OWTemp.h>
-#include <ListeRule.h>
-#include <IPC.h>
 
 #ifdef HAVE_OWCAPI_H
 #include <owcapi.h>
@@ -33,28 +31,40 @@
 using namespace Calaos;
 
 OWTemp::OWTemp(Params &p):
-                Input(p),
-                value(0.0),
-                timer(0.0)
+                InputTemp(p)
 {
-        std::string tmp;
-
         ow_id = get_param("ow_id");
-        tmp = get_param("time");
         ow_args = get_param("ow_args");
-        time = atof(tmp.c_str());
-
-        printf("OW_ID : %s, time : %3.3f\n", ow_id.c_str(), time);
-
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
 #ifdef HAVE_OWCAPI_H
-	char *res;
+        OW_init(ow_args.c_str());
+#endif
+
+        Utils::logger("input") << Priority::DEBUG << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id << log4cpp::eol;
+}
+
+OWTemp::~OWTemp()
+{
+        Utils::logger("input") << Priority::INFO << "OWTemp::~OWTemp(): Ok" << log4cpp::eol;
+
+#ifdef HAVE_OWCAPI_H
+        OW_finish();
+#endif
+}
+
+void OWTemp::readValue()
+{
+        /* TODO: should be rewritten in async using a thread for all OneWire inputs.
+         * Like in WagoMap.
+         */
+
+        ow_id = get_param("ow_id");
+
+#ifdef HAVE_OWCAPI_H
+        char *res;
         size_t len;
 
         /* Read value */
-        OW_init(ow_args.c_str());
         ow_req = ow_id + "/temperature";
         if(OW_get(ow_req.c_str(), &res, &len) >= 0)
         {
@@ -67,77 +77,10 @@ OWTemp::OWTemp(Params &p):
         {
                 Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")" << log4cpp::eol;
         }
+
+        if (val != value)
+                emitChange();
 #else
         Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !" << log4cpp::eol;
 #endif
-
-
-}
-
-OWTemp::~OWTemp()
-{
-        Utils::logger("input") << Priority::INFO << "OWTemp::~OWTemp(): Ok" << log4cpp::eol;
-
-#ifdef HAVE_OWCAPI_H
-        OW_finish();
-#endif
-}
-
-void OWTemp::hasChanged()
-{
-#ifdef HAVE_OWCAPI_H
-
-        char *res;
-        size_t len;
-        double val = value;
-        double sec = ecore_time_get() - timer;
-
-        if (sec >= time)
-        {
-                timer = ecore_time_get();
-                /* Read value */
-
-                ow_req = ow_id + "/temperature";
-                if(OW_get(ow_req.c_str(), &res, &len) >= 0)
-                {
-                        val = atof(res);
-                        printf("Temperature read : %3.3f\n", val);
-                        free(res);
-                        Utils::logger("input") << Priority::INFO << "OWTemp::hasChanged(" << get_param("id") << "): Ok" << log4cpp::eol;
-                }
-                else
-                {
-                        Utils::logger("input") << Priority::INFO << "OWTemp::hasChanged(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")" << log4cpp::eol;
-                }
-
-                if (val != value)
-                {
-                        Utils::logger("input") << Priority::INFO << "OWTemp:changed(" << get_param("id") << ") : " << get_value_double() << " °C" << log4cpp::eol;
-
-                        value = val;
-                        EmitSignalInput();
-
-                        string sig = "input ";
-                        sig += get_param("id") + " ";
-                        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-                        IPC::Instance().SendEvent("events", sig);
-                }
-        }
-#endif
-}
-
-double OWTemp::get_value_double()
-{
-        return value;
-}
-
-void OWTemp::force_input_double(double v)
-{
-        value = v;
-        EmitSignalInput();
-
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-        IPC::Instance().SendEvent("events", sig);
 }

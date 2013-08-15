@@ -18,27 +18,42 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef S_OWTemp_H
-#define S_OWTemp_H
+#ifndef S_InputTemp_H
+#define S_InputTemp_H
 
-#include <InputTemp.h>
+#include <Calaos.h>
+#include <Input.h>
 
 namespace Calaos
 {
 
-class OWTemp : public InputTemp
+class InputTemp : public Input
 {
         protected:
-                std::string ow_id;
-                std::string ow_req;
-                std::string ow_args;
-                double time;
+                int address;
 
-                virtual void readValue();
+                std::string host;
+                int port;
+
+                double value;
+                double timer;
+                double readTime; //interval between each read, can be configured with "interval" parameter
+                double offset;
+
+                void emitChange();
+                virtual void readValue() = 0;
 
         public:
-                OWTemp(Params &p);
-                ~OWTemp();
+                InputTemp(Params &p);
+                ~InputTemp();
+
+                virtual DATA_TYPE get_type() { return TINT; }
+
+                virtual void force_input_double(double v);
+
+                virtual double get_value_double();
+
+                virtual void hasChanged();
 };
 
 }
