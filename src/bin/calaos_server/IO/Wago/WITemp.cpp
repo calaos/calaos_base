@@ -38,10 +38,13 @@ WITemp::WITemp(Params &p):
         WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 
         Calaos::StartReadRules::Instance().addIO();
+
+        Utils::logger("input") << Priority::DEBUG << "WITemp::WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WITemp::~WITemp()
 {
+        Utils::logger("input") << Priority::DEBUG << "WITemp::~WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
@@ -51,7 +54,11 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
         if (!status)
         {
                 Utils::logger("input") << Priority::ERROR << "WITemp(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
-                Calaos::StartReadRules::Instance().ioRead();
+                if (start)
+                {
+                    Calaos::StartReadRules::Instance().ioRead();
+                    start = false;
+                }
 
                 return;
         }

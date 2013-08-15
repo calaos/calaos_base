@@ -45,13 +45,13 @@ WIDigitalBP::WIDigitalBP(Params &p):
                 Utils::logger("input") << Priority::INFO << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Not reading initial state for KNX inputs" << log4cpp::eol;
         }
 
-        Utils::logger("input") << Priority::INFO << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Ok" << log4cpp::eol;
+        Utils::logger("input") << Priority::DEBUG << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WIDigitalBP::~WIDigitalBP()
 {
         iter->disconnect();
-        Utils::logger("input") << Priority::INFO << "WIDigitalBP::~WIDigitalBP(): Ok" << log4cpp::eol;
+        Utils::logger("input") << Priority::DEBUG << "WIDigitalBP::~WIDigitalBP(): Ok" << log4cpp::eol;
 }
 
 void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)

@@ -44,12 +44,12 @@ WODigital::WODigital(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::INFO << "WODigital::WODigital(" << get_param("id") << "): Ok" << log4cpp::eol;
+        Utils::logger("output") << Priority::DEBUG << "WODigital::WODigital(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WODigital::~WODigital()
 {
-        Utils::logger("output") << Priority::INFO << "WODigital::~WODigital(): Ok" << log4cpp::eol;
+        Utils::logger("output") << Priority::DEBUG << "WODigital::~WODigital(): Ok" << log4cpp::eol;
 }
 
 void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)

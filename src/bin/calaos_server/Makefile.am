@@ -225,7 +225,9 @@ IO/InputSwitch.cpp				\
 IO/InputSwitchTriple.h			\
 IO/InputSwitchTriple.cpp		\
 IO/InputTemp.h					\
-IO/InputTemp.cpp
+IO/InputTemp.cpp				\
+IO/InputAnalog.h				\
+IO/InputAnalog.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

@@ -32,13 +32,13 @@ WIDigitalTriple::WIDigitalTriple(Params &p):
                 Utils::from_string(get_param("port"), port);
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalTriple::ReceiveFromWago) );
-        Utils::logger("input") << Priority::INFO << "WIDigitalTriple::WIDigitalTriple(" << get_param("id") << "): Ok" << log4cpp::eol;
+        Utils::logger("input") << Priority::DEBUG << "WIDigitalTriple::WIDigitalTriple(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WIDigitalTriple::~WIDigitalTriple()
 {
         iter->disconnect();
-        Utils::logger("input") << Priority::INFO << "WIDigitalTriple::~WIDigitalTriple(): Ok" << log4cpp::eol;
+        Utils::logger("input") << Priority::DEBUG << "WIDigitalTriple::~WIDigitalTriple(): Ok" << log4cpp::eol;
 }
 
 void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
