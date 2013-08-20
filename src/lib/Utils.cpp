@@ -469,7 +469,9 @@ void Utils::initConfigOptions(char *configdir, char *cachedir)
                 //create a defaut config
                 std::ofstream conf(file.c_str(), std::ofstream::out);
                 conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl;
-                conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\" />" << endl;
+                conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\">" << endl;
+                conf << "<calaos:option name=\"fw_version\" value=\"0\" />" << endl;
+                conf << "</calaos:config>" << endl;
                 conf.close();
 
                 set_config_option("fw_target", "calaos_tss");
