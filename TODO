@@ -23,6 +23,8 @@ Less important for next release:
 - Change the script engine to run in a separate thread and do blocking actions (Lua scripts runs in main thread now
   so you can't wait for a network request for example)
 - Add some example/docs for Lua scripts and maybe add nice helpers/docs directly in calaos_installer script editor
+- Make calaos_installer aware of unkown IO types and handle them correctly (display a unkown type)
+  Also save them again to the file so the io.xml file is not corrupted
 - Calaos Installer need a debugger-like to auto-correct and display mistakes in rules.xml/io.xml (if the user did some
   wrong rules like loops, or using the same io at the same time in mutiple exclusive rules, ...)
 
