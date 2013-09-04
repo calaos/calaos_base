@@ -67,12 +67,13 @@ void OWTemp::readValue()
 #ifdef HAVE_OWCAPI_H
         char *res;
         size_t len;
+        double val;
 
         /* Read value */
         ow_req = ow_id + "/temperature";
         if(OW_get(ow_req.c_str(), &res, &len) >= 0)
         {
-                value = atof(res);
+                val = atof(res);
                 printf("Temperature read : %3.3f\n", value);
                 free(res);
                 Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): Ok" << log4cpp::eol;
@@ -83,7 +84,10 @@ void OWTemp::readValue()
         }
 
         if (val != value)
+        {
+                value = val;
                 emitChange();
+        }
 #else
         Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !" << log4cpp::eol;
 #endif
