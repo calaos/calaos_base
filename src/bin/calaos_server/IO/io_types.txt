@@ -6,8 +6,6 @@ not be used directly in interfaces.
 # gui_type
 
 light           - a light wich can have 2 states
-switch          - a classic on/off switch
-switch3         - a switch with multiple click detection
 temp            - a temperature sensor
 analog_in       - an analaog value input sensor
 analog_out      - an analaog value output
@@ -15,4 +13,15 @@ light_dimmer    - a dimmable light
 light_rgb       - an rgb dimmable light
 shutter         - a simple 2 way shutter (up/down)
 shutter_smart   - a smart shutter with an estimated position of the shutter (computed using time)
+var_bool        - a boolean variable (can be edited when rw == true)
+var_int         - a numerical (double) variable (can be edited when rw == true)
+var_string      - a string variable (can be edited when rw == true)
+
+#the following items are not displayed
+
+timer           - a timer variable
+time            - a time variable
+time_range      - a range with start/stop time
+switch          - a classic on/off switch
+switch3         - a switch with multiple click detection
 

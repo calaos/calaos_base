@@ -32,6 +32,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
         Utils::logger("input") << Priority::DEBUG << "InPlageHoraire::InPlageHoraire(" << get_param("id") << "): Ok" << log4cpp::eol;
 
         set_param("visible", "false");
+        set_param("gui_type", "time_range");
 
         months.set(); //set all months by default
 }

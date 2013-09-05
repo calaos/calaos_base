@@ -32,6 +32,7 @@ InputTimer::InputTimer(Params &p):
                 start(false)
 {
         set_param("visible", "false");
+        set_param("gui_type", "timer");
 
         Utils::logger("input") << Priority::DEBUG << "InputTimer::InputTimer(" << get_param("id") << "): Ok" << log4cpp::eol;
 }

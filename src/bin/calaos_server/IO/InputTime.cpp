@@ -33,6 +33,7 @@ InputTime::InputTime(Params &p):
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
         set_param("visible", "false");
+        set_param("gui_type", "time");
 
         Utils::logger("input") << Priority::DEBUG << "InputTime::InputTime(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
