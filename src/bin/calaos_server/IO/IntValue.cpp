@@ -33,12 +33,12 @@ Internal::Internal(Params &p):
 {
         Utils::logger("output") << Priority::INFO << "Internal::Internal(" << get_param("id") << "): Ok" << log4cpp::eol;
 
-        if (!Input::get_params().Exists("visible")) set_param("visible", "false");
-        if (!Input::get_params().Exists("rw")) set_param("rw", "false");
-        if (!Input::get_params().Exists("save")) set_param("save", "false");
-        if (Input::get_param("type") == "InternalBool") set_param("gui_type", "var_bool");
-        if (Input::get_param("type") == "InternalInt") set_param("gui_type", "var_int");
-        if (Input::get_param("type") == "InternalString") set_param("gui_type", "var_string");
+        if (!Input::get_params().Exists("visible")) Input::set_param("visible", "false");
+        if (!Input::get_params().Exists("rw")) Input::set_param("rw", "false");
+        if (!Input::get_params().Exists("save")) Input::set_param("save", "false");
+        if (Input::get_param("type") == "InternalBool") Input::set_param("gui_type", "var_bool");
+        if (Input::get_param("type") == "InternalInt") Input::set_param("gui_type", "var_int");
+        if (Input::get_param("type") == "InternalString") Input::set_param("gui_type", "var_string");
 
         LoadFromConfig();
 }

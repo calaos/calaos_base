@@ -16,6 +16,7 @@ shutter_smart   - a smart shutter with an estimated position of the shutter (com
 var_bool        - a boolean variable (can be edited when rw == true)
 var_int         - a numerical (double) variable (can be edited when rw == true)
 var_string      - a string variable (can be edited when rw == true)
+scenario        - a scenario. It's like a virtual button displayed on all interfaces. If its an auto_scenario it can have a state (true/false) if the scenario is running or not
 
 #the following items are not displayed
 

@@ -32,6 +32,8 @@ Scenario::Scenario(Params &p):
 {
         Utils::logger("output") << Priority::INFO << "Scenario::Scenario(" << get_param("id") << "): Ok" << log4cpp::eol;
 
+        set_param("gui_type", "scenario");
+
         if (Input::get_param("auto_scenario") != "")
         {
                 auto_scenario = new AutoScenario(this);
