@@ -81,6 +81,8 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         if (input->get_param("unit") != "")
                                 result.Add("13", "unit:" + input->get_param("unit"));
 
+                        result.Add("14", "gui_type:" + input->get_param("gui_type"));
+
                         switch (input->get_type())
                         {
                           case TINT:
@@ -602,6 +604,8 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                         if(output->get_param("scenarioPref") != "")
                                 result.Add("14", "scenarioPref:" + output->get_param("scenarioPref"));
+
+                        result.Add("15", "gui_type:" + output->get_param("gui_type"));
 
                 }
                 else if (output && request["2"] == "set")
