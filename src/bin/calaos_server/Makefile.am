@@ -231,7 +231,9 @@ IO/InputAnalog.cpp				\
 IO/OutputAnalog.h				\
 IO/OutputAnalog.cpp				\
 IO/OutputShutter.h				\
-IO/OutputShutter.cpp
+IO/OutputShutter.cpp			\
+IO/OutputShutterSmart.h			\
+IO/OutputShutterSmart.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

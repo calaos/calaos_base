@@ -22,64 +22,29 @@
 #define S_WOVoletSmart_H
 
 #include <Calaos.h>
-#include <Output.h>
+#include <OutputShutterSmart.h>
 #include <WagoMap.h>
-#include <Ecore.h>
-#include <EcoreTimer.h>
 
 namespace Calaos
 {
 
-class WOVoletSmart : public Output
+class WOVoletSmart : public OutputShutterSmart
 {
         private:
                 std::string host;
                 int port;
-
-                int total_time, time_up, time_down;
                 int up_address, down_address;
-                int sens, old_sens;
-                double position; // range: [0..100]
 
-                EcoreTimer *timer_end, *timer_update, *timer_impulse;
-                EcoreTimer *timer_up, *timer_down, *timer_calib;
-                double start_time;
-                double start_position;
-                bool is_impulse_action;
-                int impulse_action_time;
-                int impulse_time;
-                bool calibrate;
+                virtual void readConfig();
 
-                std::string cmd_state;
-
-                void Up(double new_value = -1);
-                void Down(double new_value = -1);
-                void UpWait();
-                void DownWait();
-                void Stop();
-
-                double readPosition();
-                void writePosition(double p);
-
-                void TimerEnd();
-                void TimerUpdate();
-                void TimerImpulse();
-                void TimerCalibrate();
+                virtual void setOutputUp(bool enable);
+                virtual void setOutputDown(bool enable);
 
                 void WagoWriteCallback(bool status, UWord address, bool value);
-                void WagoUDPCommand_cb(bool status, string command, string result);
 
         public:
-                //two address for this output, for the up and down
                 WOVoletSmart(Params &p);
                 ~WOVoletSmart();
-
-                virtual DATA_TYPE get_type() { return TSTRING; }
-
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string();
-                virtual double get_value_double() { return (int)(readPosition() * 100. / (double)time_up); }
-                virtual std::string get_command_string() { return cmd_state; }
 };
 
 }
