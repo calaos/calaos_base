@@ -220,6 +220,10 @@ IO/OutputFake.h					\
 TCPServer.h						\
 IO/OutputLight.h				\
 IO/OutputLight.cpp				\
+IO/OutputLightDimmer.h			\
+IO/OutputLightDimmer.cpp		\
+IO/OutputLightRGB.h				\
+IO/OutputLightRGB.cpp			\
 IO/InputSwitch.h				\
 IO/InputSwitch.cpp				\
 IO/InputSwitchTriple.h			\

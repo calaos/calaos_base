@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2007-2008, Calaos. All Rights Reserved.
+**  Copyright (c) 2007-2013, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **

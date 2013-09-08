@@ -21,7 +21,6 @@
 #ifndef S_WOVoletSmart_H
 #define S_WOVoletSmart_H
 
-#include <Calaos.h>
 #include <OutputShutterSmart.h>
 #include <WagoMap.h>
 

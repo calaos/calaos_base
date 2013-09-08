@@ -21,48 +21,25 @@
 #ifndef S_WODali_H
 #define S_WODali_H
 
-#include <Calaos.h>
-#include <Output.h>
+#include <OutputLightDimmer.h>
 #include <WagoMap.h>
-#include <EcoreTimer.h>
 
 namespace Calaos
 {
 
-class WODali : public Output
+class WODali : public OutputLightDimmer
 {
         private:
-                int value;
-                int old_value;
-
                 std::string host;
                 int port;
 
-                EcoreTimer *hold_timer;
-
-                std::string cmd_state;
-                bool press_detected;
-                bool press_sens;
-                bool stop_after_press;
-
-                void HoldPress_cb();
+                virtual bool set_value_real(int val);
 
                 void WagoUDPCommand_cb(bool status, string command, string result);
 
         public:
-                //two address for this output, one for the on/off action and the other for the dim
                 WODali(Params &p);
                 ~WODali();
-
-                DATA_TYPE get_type() { return TSTRING; }
-
-                bool set_value(std::string val);
-                bool set_value(bool val)
-                        { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-                std::string get_value_string() { return Utils::to_string(value); }
-                bool get_value_bool() { if (value == 0) return false; else return true; }
-
-                virtual std::string get_command_string() { return cmd_state; }
 };
 
 }

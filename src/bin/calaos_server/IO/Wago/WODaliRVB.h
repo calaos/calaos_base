@@ -21,51 +21,28 @@
 #ifndef S_WODaliRVB_H
 #define S_WODaliRVB_H
 
-#include <Calaos.h>
-#include <Output.h>
+#include <OutputLightRGB.h>
 #include <WagoMap.h>
-#include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class WODaliRVB : public Output
+class WODaliRVB : public OutputLightRGB
 {
         private:
-                int value;
-                int old_value;
-                int red, green, blue;
-
                 std::string host;
                 int port;
-
-                std::string cmd_state;
-
-                EcoreTimer *timer_auto;
 
                 void WagoUDPCommandRed_cb(bool status, string command, string result);
                 void WagoUDPCommandGreen_cb(bool status, string command, string result);
                 void WagoUDPCommandBlue_cb(bool status, string command, string result);
                 void WagoUDPCommand_cb(bool status, string command, string result);
 
-                void setColor();
-
-                void TimerAutoChange();
+                virtual void setColorReal(int r, int g, int b);
 
         public:
-                //3 Dali address for this output, one for red, one for blue, one for green
                 WODaliRVB(Params &p);
                 ~WODaliRVB();
-
-                DATA_TYPE get_type() { return TSTRING; }
-
-                bool set_value(std::string val);
-                bool set_value(bool val)
-                        { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-                std::string get_value_string() { return Utils::to_string(value); }
-                bool get_value_bool() { if (value == 0) return false; else return true; }
-
-                virtual std::string get_command_string() { return cmd_state; }
 };
 
 }
