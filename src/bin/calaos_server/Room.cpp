@@ -252,7 +252,7 @@ bool Room::SaveToXml(TiXmlElement *node)
 
                 if (input->get_param("type") == "WIDigital" || input->get_param("type") == "WIDigitalBP" ||
                     input->get_param("type") == "WIDigitalTriple" || input->get_param("type") == "WITemp" ||
-		    input->get_param("type") == "OWTemp" ||
+                    input->get_param("type") == "OWTemp" || input->get_param("type") == "WIDigitalLong" ||
                     input->get_param("type") == "scenario" || input->get_param("type") == "WIDigitalBP" ||
                     input->get_param("type") == "InputTime" || input->get_param("type") == "InputTimer" ||
                     input->get_param("type") == "InternalBool" ||
