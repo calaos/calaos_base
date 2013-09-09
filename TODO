@@ -2,14 +2,6 @@ For next 2.0.0 release:
 
 - Remove log4cpp and port to eina_log
 - Finish calaos_home Configuration pannel
-- Create base classes for every Input/Output like:
-    InputTemp
-        |
-       /\
-  WITemp OWTemp
- And do that with all available "type" of IO. Also add a new params for "real type".
- Each class will have a base interface for each kind of IO.
-
 - Remove the old calaos_web and make calaos_web_newgen available instead for basic house control
 - Translation! At least in english/french
 - Update calaos_installer accordingly (there are some missing IO in calaos_installer like AVRs)
