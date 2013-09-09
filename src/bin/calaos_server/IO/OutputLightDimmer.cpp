@@ -66,8 +66,7 @@ bool OutputLightDimmer::set_value(std::string val)
                 //switch the light on only if value == 0
                 if (value == 0)
                 {
-                        set_value_real(old_value);
-                        value = old_value;
+                        set_on_real();
 
                         cmd_state = "on";
                 }
@@ -77,9 +76,7 @@ bool OutputLightDimmer::set_value(std::string val)
                 //switch the light off only if value > 0
                 if (value > 0)
                 {
-                        set_value_real(0);
-                        old_value = value;
-                        value = 0;
+                        set_off_real();
 
                         cmd_state = "off";
                 }
@@ -129,28 +126,20 @@ bool OutputLightDimmer::set_value(std::string val)
                 val.erase(0, 3);
                 int percent;
                 Utils::from_string(val, percent);
-                percent += value;
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
+
+                set_dim_up_real(percent);
 
                 cmd_state = "up " + val;
-
-                set_value_real(percent);
-                value = percent;
         }
         else if (val.compare(0, 5, "down ") == 0)
         {
                 val.erase(0, 5);
                 int percent;
                 Utils::from_string(val, percent);
-                percent = value - percent;
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
 
                 cmd_state = "down " + val;
 
-                set_value_real(percent);
-                value = percent;
+                set_dim_down_real(percent);
         }
         else if (val == "hold press")
         {
@@ -187,6 +176,49 @@ bool OutputLightDimmer::set_value(std::string val)
         emitChange();
 
         return ret;
+}
+
+bool OutputLightDimmer::set_dim_up_real(int percent)
+{
+        percent = value + percent;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        set_value_real(percent);
+
+        value = percent;
+
+        return true;
+}
+
+bool OutputLightDimmer::set_dim_down_real(int percent)
+{
+        percent = value - percent;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        set_value_real(percent);
+
+        value = percent;
+
+        return true;
+}
+
+bool OutputLightDimmer::set_on_real()
+{
+        value = old_value;
+        set_value_real(value);
+
+        return true;
+}
+
+bool OutputLightDimmer::set_off_real()
+{
+        old_value = value;
+        value = 0;
+        set_value_real(value);
+
+        return true;
 }
 
 void OutputLightDimmer::emitChange()

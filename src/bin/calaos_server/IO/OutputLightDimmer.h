@@ -45,7 +45,11 @@ class OutputLightDimmer : public Output
 
                 void emitChange();
 
+                virtual bool set_on_real();
+                virtual bool set_off_real();
                 virtual bool set_value_real(int val) = 0;
+                virtual bool set_dim_up_real(int percent);
+                virtual bool set_dim_down_real(int percent);
 
         public:
                 OutputLightDimmer(Params &p);

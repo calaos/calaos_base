@@ -24,10 +24,7 @@
 using namespace Calaos;
 
 X10Output::X10Output(Params &p):
-                Output(p),
-                value(-1),
-                state_value(false),
-                old_value(-1)
+                OutputLightDimmer(p)
 {
         housecode = get_param("code");
         state_value = X10Command("onstate");
@@ -45,128 +42,46 @@ X10Output::X10Output(Params &p):
                 old_value--;
         }
 
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-
-        Utils::logger("output") << Priority::INFO << "X10Output::X10Output(" << get_param("id") << "): Ok" << log4cpp::eol;
+        Utils::logger("output") << Priority::DEBUG << "X10Output::X10Output(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 X10Output::~X10Output()
 {
-        Utils::logger("output") << Priority::INFO << "X10Output::~X10Output(): Ok" << log4cpp::eol;
+        Utils::logger("output") << Priority::DEBUG << "X10Output::~X10Output(): Ok" << log4cpp::eol;
 }
 
-/* List of actions where value is in percent
-**  set <value>
-**  up <value>
-**  down <value>
-**  on
-**  off
-**  toggle
-*/
-bool X10Output::set_value(std::string val)
+bool X10Output::set_on_real()
 {
-        bool ret = false;
-        housecode = get_param("code");
+        return X10Command("on");
+}
 
-        Utils::logger("output") << Priority::INFO << "X10Output(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+bool X10Output::set_off_real()
+{
+        return X10Command("off");
+}
 
-        if (val == "on" || val == "true")
-        {
-                ret = X10Command("on");
-                state_value = true;
-                if (ret && state_value)
-                {
-                        if (old_value == -1)
-                                value = 0;
-                        else
-                                value = old_value;
-                }
+bool X10Output::set_dim_up_real(int percent)
+{
+        int v = (int)(((double)(percent + 1.) * 22.) / 101.);
+        v = 22 - v + 1;
+        if (v < 1) v = 1; if (v > 22) v = 22;
+        return X10Command("bright", &v);
+}
 
-                cmd_state = "on";
-        }
-        else if (val == "off" || val == "false")
-        {
-                ret = X10Command("off");
-                state_value = false;
+bool X10Output::set_dim_down_real(int percent)
+{
+        int v = (int)(((double)(percent + 1.) * 22.) / 101.);
+        v = 22 - v + 1;
+        if (v < 1) v = 1; if (v > 22) v = 22;
+        return X10Command("dim", &v);
+}
 
-                cmd_state = "off";
-        }
-        else if (val == "toggle")
-        {
-                if (state_value) state_value = false; else state_value = true;
-                if (state_value)
-                {
-                        ret = X10Command("on");
-                        cmd_state = "on";
-                }
-                else
-                {
-                        ret = X10Command("off");
-                        cmd_state = "off";
-                }
-                if (ret && state_value)
-                {
-                        if (old_value == -1)
-                                value = 0;
-                        else
-                                value = old_value;
-                }
-        }
-        else if (val.compare(0, 4, "set ") == 0)
-        {
-                val.erase(0, 4);
-                int percent = atoi(val.c_str());
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
-
-                cmd_state = "set " + Utils::to_string(percent);
-
-                int v = (int)(((double)(percent + 1.) * 22.) / 101.);
-                v = 22 - v + 1;
-                if (v < 1) v = 1; if (v > 22) v = 22;
-                ret = X10Command("dimb", &v);
-                if (ret) value = percent;
-        }
-        else if (val.compare(0, 3, "up ") == 0)
-        {
-                val.erase(0, 3);
-                int percent = atoi(val.c_str());
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
-
-                cmd_state = "up " + Utils::to_string(percent);
-
-                int v = (int)(((double)(percent + 1.) * 22.) / 101.);
-                v = 22 - v + 1;
-                if (v < 1) v = 1; if (v > 22) v = 22;
-                ret = X10Command("bright", &v);
-                if (ret) value = percent;
-        }
-        else if (val.compare(0, 5, "down ") == 0)
-        {
-                val.erase(0, 5);
-                int percent = atoi(val.c_str());
-                if (percent < 0) percent = 0;
-                if (percent > 100) percent = 100;
-
-                cmd_state = "down " + Utils::to_string(percent);
-
-                int v = (int)(((double)(percent + 1.) * 22.) / 101.);
-                v = 22 - v + 1;
-                if (v < 1) v = 1; if (v > 22) v = 22;
-                ret = X10Command("dim", &v);
-                if (ret) value = percent;
-        }
-
-        if (state_value == false)
-        {
-                old_value = value;
-                value = -1;
-        }
-        else if (value == -1)
-                value = old_value;
-
-        return ret;
+bool X10Output::set_value_real(int val)
+{
+        int v = (int)(((double)(val + 1.) * 22.) / 101.);
+        v = 22 - v + 1;
+        if (v < 1) v = 1; if (v > 22) v = 22;
+        return X10Command("dimb", &v);
 }
 
 bool X10Output::X10Command(std::string cmd, int *dval)
@@ -251,3 +166,4 @@ bool X10Output::X10Command(std::string cmd, int *dval)
 
         return true;
 }
+

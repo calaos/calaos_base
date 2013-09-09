@@ -21,38 +21,28 @@
 #ifndef S_X10OUTPUT_H
 #define S_X10OUTPUT_H
 
-#include <Calaos.h>
-#include <Output.h>
+#include <OutputLightDimmer.h>
 
 namespace Calaos
 {
 
-class X10Output : public Output
+class X10Output : public OutputLightDimmer
 {
         private:
                 std::string housecode;
-
-                int value;
                 bool state_value;
-                int address, relay_addr;
-                int old_value;
 
-                std::string cmd_state;
+                virtual bool set_on_real();
+                virtual bool set_off_real();
+                virtual bool set_value_real(int val);
+                virtual bool set_dim_up_real(int percent);
+                virtual bool set_dim_down_real(int percent);
 
                 bool X10Command(std::string cmd, int *dval = NULL);
 
         public:
                 X10Output(Params &p);
                 ~X10Output();
-
-                DATA_TYPE get_type() { return TSTRING; }
-
-                bool set_value(std::string val);
-                bool set_value(bool val) { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-                std::string get_value_string() { if (value == -1) return "off"; else return Utils::to_string(value); }
-                bool get_value_bool() { return state_value; }
-
-                virtual std::string get_command_string() { return cmd_state; }
 };
 
 }
