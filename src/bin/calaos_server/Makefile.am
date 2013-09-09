@@ -91,6 +91,7 @@ IO/Wago/WODigital.cpp				\
 IO/Wago/WagoMap.cpp					\
 IO/Wago/WIDigitalBP.cpp				\
 IO/Wago/WIDigitalTriple.cpp				\
+IO/Wago/WIDigitalLong.cpp				\
 TCPServer.cpp					\
 TCPConnection.cpp				\
 Audio/AudioDB.cpp				\
@@ -215,6 +216,7 @@ IO/Wago/WOAnalog.h					\
 IO/IOFactory.h					\
 IO/Wago/WODaliRVB.h					\
 IO/Wago/WIDigitalTriple.h				\
+IO/Wago/WIDigitalLong.h				\
 IO/Wago/WOVolet.h					\
 IO/OutputFake.h					\
 TCPServer.h						\
@@ -228,7 +230,9 @@ IO/InputSwitch.h				\
 IO/InputSwitch.cpp				\
 IO/InputSwitchTriple.h			\
 IO/InputSwitchTriple.cpp		\
-IO/InputTemp.h					\
+IIO/InputSwitchLongPress.h		\
+IO/InputSwitchLongPress.cpp		\
+O/InputTemp.h					\
 IO/InputTemp.cpp				\
 IO/InputAnalog.h				\
 IO/InputAnalog.cpp				\

@@ -25,4 +25,5 @@ time            - a time variable
 time_range      - a range with start/stop time
 switch          - a classic on/off switch
 switch3         - a switch with multiple click detection
+switch_long     - a switch with 2 actions, normal press and long press
 
