@@ -27,6 +27,7 @@
 #include <WODigital.h>
 #include <WIDigitalBP.h>
 #include <WIDigitalTriple.h>
+#include <WIDigitalLong.h>
 #include <Squeezebox.h>
 #include <IntValue.h>
 #include <WITemp.h>
@@ -84,6 +85,17 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         else if (type == "WIDigitalTriple")
         {
                 in = new WIDigitalTriple(params);
+                int port;
+                Utils::from_string(params["port"], port);
+                std::string host = params["host"];
+                if (!params.Exists("port"))
+                        port = 502;
+
+                WagoMap::Instance(host, port);
+        }
+        else if (type == "WIDigitalLong")
+        {
+                in = new WIDigitalLong(params);
                 int port;
                 Utils::from_string(params["port"], port);
                 std::string host = params["host"];

@@ -18,8 +18,8 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef INPUTSWITCH_H
-#define INPUTSWITCH_H
+#ifndef INPUTSWITCHLONG_H
+#define INPUTSWITCHLONG_H
 
 #include <Calaos.h>
 #include <Input.h>
