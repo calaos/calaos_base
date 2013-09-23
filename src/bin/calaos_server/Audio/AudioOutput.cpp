@@ -29,6 +29,8 @@ AudioOutput::AudioOutput(Params &p, AudioPlayer *_player):
                 player(_player),
                 answer("")
 {
+        get_params().Add("gui_type", "audio_output");
+        get_params().Add("visible", "false");
 }
 
 AudioOutput::~AudioOutput()

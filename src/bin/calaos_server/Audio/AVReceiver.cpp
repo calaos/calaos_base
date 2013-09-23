@@ -271,8 +271,10 @@ IOAVReceiver::IOAVReceiver(Params &p):
         Output(p),
         zone(1)
 {
-        if (p.Exists("zone"))
-                from_string(p["zone"], zone);
+        Input::get_params().Add("gui_type", "avreceiver");
+        Input::get_params().Add("visible", "false");
+        if (Input::get_params().Exists("zone"))
+                from_string(Input::get_param("zone"), zone);
         receiver = AVRManager::Instance().Create(p);
 
         if (zone == 1 && receiver)

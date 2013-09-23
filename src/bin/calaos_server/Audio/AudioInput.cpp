@@ -30,6 +30,8 @@ AudioInput::AudioInput(Params &p, AudioPlayer *_player):
                 answer(""),
                 status(ERROR)
 {
+        get_params().Add("gui_type", "audio_input");
+        get_params().Add("visible", "false");
 }
 
 AudioInput::~AudioInput()

@@ -28,6 +28,8 @@ CamOutput::CamOutput(Params &p, IPCam *_cam):
         Output(p),
         cam(_cam)
 {
+        get_params().Add("gui_type", "camera_output");
+        get_params().Add("visible", "false");
         Utils::logger("output") << Priority::INFO << "CamOutput::CamOutput(): Ok" << log4cpp::eol;
 }
 

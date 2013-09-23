@@ -28,6 +28,8 @@ CamInput::CamInput(Params &p, IPCam *_cam):
         Input(p),
         cam(_cam)
 {
+        get_params().Add("gui_type", "camera_input");
+        get_params().Add("visible", "false");
         Utils::logger("input") << Priority::INFO << "CamInput::CamInput(): Ok" << log4cpp::eol;
 }
 
