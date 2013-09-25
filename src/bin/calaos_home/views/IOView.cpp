@@ -115,29 +115,29 @@ IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *paren
 {
         IOBaseElement *element = NULL;
 
-        if (io->params["type"] == "WODigital")
+        if (io->params["gui_type"] == "light")
                 element = new IOWODigitalHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "scenario")
+        else if (io->params["gui_type"] == "scenario")
                 element = new IOGenlistScenarioHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WODali" || io->params["type"] == "X10Output")
+        else if (io->params["gui_type"] == "light_dimmer")
                 element = new IOWODaliHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WODaliRVB")
+        else if (io->params["gui_type"] == "light_rgb")
                 element = new IOWODaliRVBHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "InternalBool")
+        else if (io->params["gui_type"] == "var_bool")
                 element = new IOInternalBoolHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "InternalInt")
+        else if (io->params["gui_type"] == "var_int")
                 element = new IOInternalIntHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "InternalString")
+        else if (io->params["gui_type"] == "var_string")
                 element = new IOInternalStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WIAnalog")
+        else if (io->params["gui_type"] == "analog_in")
                 element = new IOWIAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WOAnalog")
+        else if (io->params["gui_type"] == "analog_out")
                 element = new IOWOAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WITemp")
+        else if (io->params["gui_type"] == "temp")
                 element = new IOWITempHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WOVolet")
+        else if (io->params["gui_type"] == "shutter")
                 element = new IOWOVoletHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["type"] == "WOVoletSmart")
+        else if (io->params["gui_type"] == "shutter_smart")
                 element = new IOWOVoletSmartHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
 
         GenlistItemBase *item = dynamic_cast<GenlistItemBase *>(element);

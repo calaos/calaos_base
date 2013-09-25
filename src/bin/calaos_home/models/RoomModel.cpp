@@ -163,16 +163,16 @@ void Room::load_io_done(IOBase *io)
         if (io->params["chauffage_id"] != "")
              model->chauffageList.push_back(io);
 
-        string _type = io->params["type"];
-        if ((_type == "scenario" ||
-             _type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
+        string _type = io->params["gui_type"];
+
+        if (_type == "scenario" && io->io_type == IOBase::IO_OUTPUT)
         {
                 model->cacheScenarios.push_back(io);
         }
 
-        if ((_type == "WODigital" && io->params["gtype"] == "light") ||
-            _type == "WODali" ||
-            _type == "WODaliRVB")
+        if (_type == "light" ||
+            _type == "light_dimmer" ||
+            _type == "light_rgb")
         {
                 int value;
                 from_string(io->params["state"], value);
@@ -187,8 +187,8 @@ void Room::load_io_done(IOBase *io)
                 }
         }
 
-        if (_type == "WOVolet" ||
-            _type == "WOVoletSmart")
+        if (_type == "shutter" ||
+            _type == "shutter_smart")
         {
                 int value = 100;
 
@@ -227,24 +227,22 @@ void Room::updateVisibleIO()
         {
                 IOBase *io = *it;
 
-                if (io->params["type"] != "scenario" &&
+                if (io->params["gui_type"] != "scenario" &&
                     io->params.Exists("auto_scenario"))
                         continue;
 
-                if (io->params["type"] == "WODigital" ||
-                    (io->params["type"] == "InternalBool" && io->io_type == IOBase::IO_OUTPUT) ||
-                    (io->params["type"] == "InternalInt" && io->io_type == IOBase::IO_OUTPUT) ||
-                    (io->params["type"] == "InternalString" && io->io_type == IOBase::IO_OUTPUT) ||
-                    io->params["type"] == "OWTemp" ||
-                    (io->params["type"] == "scenario" && io->io_type == IOBase::IO_OUTPUT) ||
-                    io->params["type"] == "WIAnalog" ||
-                    io->params["type"] == "WITemp" ||
-                    io->params["type"] == "WODali" ||
-                    io->params["type"] == "WODaliRVB" ||
-                    io->params["type"] == "WOVolet" ||
-                    io->params["type"] == "WOVoletSmart" ||
-                    io->params["type"] == "X10Output" ||
-                    io->params["type"] == "WOAnalog")
+                if (io->params["gui_type"] == "light" ||
+                    (io->params["gui_type"] == "var_bool" && io->io_type == IOBase::IO_OUTPUT) ||
+                    (io->params["gui_type"] == "var_int" && io->io_type == IOBase::IO_OUTPUT) ||
+                    (io->params["gui_type"] == "var_string" && io->io_type == IOBase::IO_OUTPUT) ||
+                    io->params["gui_type"] == "temp" ||
+                    (io->params["gui_type"] == "scenario" && io->io_type == IOBase::IO_OUTPUT) ||
+                    io->params["gui_type"] == "analog_in" ||
+                    io->params["gui_type"] == "light_dimmer" ||
+                    io->params["gui_type"] == "light_rgb" ||
+                    io->params["gui_type"] == "shutter" ||
+                    io->params["gui_type"] == "shutter_smart" ||
+                    io->params["gui_type"] == "analog_out")
                 {
                         if (io->params["visible"] == "true")
                                 visible_ios.push_back(io);
@@ -252,8 +250,8 @@ void Room::updateVisibleIO()
                         scenario_ios.push_back(io);
                 }
 
-                if (io->params["type"] == "CamOutput" ||
-                    io->params["type"] == "AudioOutput")
+                if (io->params["gui_type"] == "camera_output" ||
+                    io->params["gui_type"] == "audio_output")
                 {
                         scenario_ios.push_back(io);
                 }
@@ -294,8 +292,7 @@ IOBase *Room::getChauffage()
         for (;it != visible_ios.end();it++)
         {
                 IOBase *io = (*it);
-                if (io->params["type"] == "WITemp" ||
-                    io->params["type"] == "OWTemp")
+                if (io->params["gui_type"] == "temp")
                         return io;
         }
 
@@ -384,7 +381,7 @@ void IOBase::notifyChange(string notif)
 
         if (tok.size() < 3) return;
 
-        if (io_type == IO_INPUT && params["type"] == "InPlageHoraire" &&
+        if (io_type == IO_INPUT && params["gui_type"] == "time_range" &&
             tok[0] == "input_range_change")
         {
                 //Reload InPlageHoraire
@@ -401,7 +398,7 @@ void IOBase::notifyChange(string notif)
         vector<string> p;
         split(tok[2], p, ":", 2);
 
-        if (params["type"] == "scenario" || params["type"] == "Scenario")
+        if (params["gui_type"] == "scenario")
         {
                 if (params["ioBoolState"] == tok[1] && p[0] == "state")
                 {
@@ -423,7 +420,7 @@ void IOBase::notifyChange(string notif)
                 checkCacheChange();
 
                 //Also update WITemp if we change consigne
-                if (params["chauffage_id"] != "" && params["type"] == "InternalInt")
+                if (params["chauffage_id"] != "" && params["gui_type"] == "var_int")
                 {
                         IOBase *temp = room->model->getTempFromConsigne(this);
                         if (temp)
@@ -434,11 +431,9 @@ void IOBase::notifyChange(string notif)
 
 void IOBase::checkCacheChange()
 {
-        string type = params["type"];
-
-        if ((type == "WODigital" && params["gtype"] == "light") ||
-            type == "WODali" ||
-            type == "WODaliRVB")
+        if (params["gui_type"] == "light" ||
+            params["gui_type"] == "light_dimmer" ||
+            params["gui_type"] == "light_rgb")
         {
                 int value;
                 from_string(params["state"], value);
@@ -467,8 +462,8 @@ void IOBase::checkCacheChange()
                 }
         }
 
-        if (type == "WOVolet" ||
-            type == "WOVoletSmart")
+        if (params["gui_type"] == "shutter" ||
+            params["gui_type"] == "shutter_smart")
         {
                 int value = 100;
 
@@ -686,9 +681,8 @@ void Room::load_io_notif_done(IOBase *io)
         if (io->params["chauffage_id"] != "")
              model->chauffageList.push_back(io);
 
-        string _type = io->params["type"];
-        if ((_type == "scenario" ||
-             _type == "Scenario") && io->io_type == IOBase::IO_OUTPUT)
+        string _type = io->params["gui_type"];
+        if (_type == "scenario" && io->io_type == IOBase::IO_OUTPUT)
         {
                 model->cacheScenarios.push_back(io);
                 //Sort cached scenarios again
@@ -696,9 +690,9 @@ void Room::load_io_notif_done(IOBase *io)
                 model->cacheScenariosPref.sort(IOScenarioCompare);
         }
 
-        if ((_type == "WODigital" && io->params["gtype"] == "light") ||
-            _type == "WODali" ||
-            _type == "WODaliRVB")
+        if (_type == "light" ||
+            _type == "light_dimmer" ||
+            _type == "light_rgb")
         {
                 int value;
                 from_string(io->params["state"], value);
@@ -713,8 +707,8 @@ void Room::load_io_notif_done(IOBase *io)
                 }
         }
 
-        if (_type == "WOVolet" ||
-            _type == "WOVoletSmart")
+        if (_type == "shutter" ||
+            _type == "shutter_smart")
         {
                 int value = 100;
 
@@ -772,7 +766,7 @@ void Room::notifyIODel(string notif)
                         else if (tok[0] == "delete_output" && io->io_type == IOBase::IO_OUTPUT)
                         {
                                 model->cacheOutputs.erase(model->cacheOutputs.find(io->params["id"]));
-                                if (io->params["type"] == "scenario" || io->params["type"] == "Scenario")
+                                if (io->params["gui_type"] == "scenario")
                                 {
                                         model->cacheScenarios.erase(find(model->cacheScenarios.begin(), model->cacheScenarios.end(), io));
                                         //Sort cached scenarios again
@@ -795,17 +789,17 @@ void Room::notifyIODel(string notif)
                                 }
                         }
 
-                        if (io->params["type"] == "WOVolet" ||
-                            io->params["type"] == "WOVoletSmart")
+                        if (io->params["gui_type"] == "shutter" ||
+                            io->params["gui_type"] == "shutter_smart")
                         {
                                 RoomIOCache::iterator sit = model->cacheShuttersUp.find(io);
                                 if (sit != model->cacheShuttersUp.end())
                                         model->cacheShuttersUp.erase(sit);
                         }
 
-                        if (io->params["type"] == "WODali" ||
-                            io->params["type"] == "WODaliRVB" ||
-                            io->params["type"] == "WODigital")
+                        if (io->params["gui_type"] == "light" ||
+                            io->params["gui_type"] == "light_dimmer" ||
+                            io->params["gui_type"] == "light_rgb")
                         {
                                 RoomIOCache::iterator sit = model->cacheShuttersUp.find(io);
                                 if (sit != model->cacheShuttersUp.end())
@@ -907,7 +901,7 @@ list<Room *> RoomModel::getRoomsForType(string type)
 
 IOBase *RoomModel::getConsigneFromTemp(IOBase *temp)
 {
-        if (!temp || temp->params["type"] != "WITemp" || temp->params["chauffage_id"] == "")
+        if (!temp || temp->params["gui_type"] != "temp" || temp->params["chauffage_id"] == "")
                 return NULL;
 
         list<IOBase *>::iterator it;
@@ -915,7 +909,7 @@ IOBase *RoomModel::getConsigneFromTemp(IOBase *temp)
         {
                 IOBase *io = (*it);
 
-                if (io->params["type"] == "InternalInt" &&
+                if (io->params["gui_type"] == "var_int" &&
                     io->params["chauffage_id"] == temp->params["chauffage_id"])
                         return io;
         }
@@ -925,7 +919,7 @@ IOBase *RoomModel::getConsigneFromTemp(IOBase *temp)
 
 IOBase *RoomModel::getTempFromConsigne(IOBase *consigne)
 {
-        if (!consigne || consigne->params["type"] != "InternalInt" || consigne->params["chauffage_id"] == "")
+        if (!consigne || consigne->params["gui_type"] != "var_int" || consigne->params["chauffage_id"] == "")
                 return NULL;
 
         list<IOBase *>::iterator it;
@@ -933,7 +927,7 @@ IOBase *RoomModel::getTempFromConsigne(IOBase *consigne)
         {
                 IOBase *io = (*it);
 
-                if (io->params["type"] == "WITemp" &&
+                if (io->params["gui_type"] == "var_int" &&
                     io->params["chauffage_id"] == consigne->params["chauffage_id"])
                         return io;
         }
@@ -993,31 +987,27 @@ map<Room *, list<IOBase *> > RoomModel::getShuttersUpForRooms()
 
 string IOBase::getIconForIO()
 {
-        if (params["type"] == "WODigital" ||
-            params["type"] == "WODali" ||
-            params["type"] == "WODaliRVB" ||
-            params["type"] == "X10Output")
+        if (params["gui_type"] == "light")
                 return "calaos/icons/element/simple/light";
-        else if (params["type"] == "scenario")
+        else if (params["gui_type"] == "scenario")
                 return "calaos/icons/element/simple/scenario";
-        else if (params["type"] == "InternalBool")
+        else if (params["gui_type"] == "var_bool")
                 return "calaos/icons/element/simple/internal_bool";
-        else if (params["type"] == "InternalInt")
+        else if (params["gui_type"] == "var_int")
                 return "calaos/icons/element/simple/internal_int";
-        else if (params["type"] == "InternalString")
+        else if (params["gui_type"] == "var_string")
                 return "calaos/icons/element/simple/internal_string";
-        else if (params["type"] == "WOVolet" ||
-                 params["type"] == "WOVoletSmart")
+        else if (params["gui_type"] == "shutter" ||
+                 params["gui_type"] == "shutter_smart")
                 return "calaos/icons/element/simple/volet";
-        else if (params["type"] == "WIAnalog" ||
-                 params["type"] == "WOAnalog")
+        else if (params["gui_type"] == "analog_in" ||
+                 params["gui_type"] == "analog_out")
                 return "calaos/icons/element/simple/analog";
-        else if (params["type"] == "WITemp" ||
-                 params["type"] == "OWTemp")
+        else if (params["gui_type"] == "temp")
                 return "calaos/icons/element/simple/temp";
-        else if (params["type"] == "CamOutput")
+        else if (params["gui_type"] == "camera_output")
                 return "calaos/icons/element/simple/camera";
-        else if (params["type"] == "AudioOutput")
+        else if (params["gui_type"] == "audio_output")
                 return "calaos/icons/element/simple/music";
 
         return "";
@@ -1104,7 +1094,7 @@ vector<IOActionList> IOBase::getActionList()
 {
         vector<IOActionList> v;
 
-        if (params["type"] == "WODigital")
+        if (params["gui_type"] == "light")
         {
                 v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
@@ -1112,7 +1102,7 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS));
                 v.push_back(IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS));
         }
-        else if (params["type"] == "WODali")
+        else if (params["gui_type"] == "light_dimmer")
         {
                 v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
@@ -1122,7 +1112,7 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("up %1", "Augmenter l'intensité de X pourcent", "Augmenter l'intensité de %1%", IOActionList::ACTION_NUMBER));
                 v.push_back(IOActionList("down %1", "Baisser l'intensité de X pourcent", "Baisser l'intensité de %1%", IOActionList::ACTION_NUMBER));
         }
-        else if (params["type"] == "WODaliRVB")
+        else if (params["gui_type"] == "light_rgb")
         {
                 v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
@@ -1138,7 +1128,7 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("up_blue %1", "Augmenter le blue", "Augmenter le bleu de %1%", IOActionList::ACTION_NUMBER));
                 v.push_back(IOActionList("down_blue %1", "Baisser le blue", "Baisser le bleu de %1%", IOActionList::ACTION_NUMBER));
         }
-        else if (params["type"] == "WOVolet")
+        else if (params["gui_type"] == "shutter")
         {
                 v.push_back(IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE));
@@ -1147,7 +1137,7 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("impulse up %1", "Impulsion sur la montée", "Monter le volet de %1", IOActionList::ACTION_TIME_MS));
                 v.push_back(IOActionList("impulse down %1", "Impulsion sur la descente", "Descendre le volet de %1", IOActionList::ACTION_TIME_MS));
         }
-        else if (params["type"] == "WOVoletSmart")
+        else if (params["gui_type"] == "shutter_smart")
         {
                 v.push_back(IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE));
@@ -1158,30 +1148,30 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("down %1", "Descendre le volet de X pourcent", "Descendre le volet de %1%", IOActionList::ACTION_NUMBER));
                 v.push_back(IOActionList("calibrate", "Lancer la calibration", IOActionList::ACTION_SIMPLE));
         }
-        else if (params["type"] == "WOAnalog")
+        else if (params["gui_type"] == "analog_out")
         {
                 v.push_back(IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER));
         }
-        else if (params["type"] == "scenario")
+        else if (params["gui_type"] == "scenario")
         {
                 v.push_back(IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE));
                 if (params["auto_scenario"] != "")
                         v.push_back(IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE));
         }
-        else if (params["type"] == "InternalString")
+        else if (params["gui_type"] == "var_string")
         {
                 v.push_back(IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT));
         }
-        else if (params["type"] == "InternalInt")
+        else if (params["gui_type"] == "var_int")
         {
                 v.push_back(IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER));
         }
-        else if (params["type"] == "InternalBool")
+        else if (params["gui_type"] == "var_bool")
         {
                 v.push_back(IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE));
         }
-        else if (params["type"] == "CamOutput")
+        else if (params["gui_type"] == "camera_output")
         {
                 v.push_back(IOActionList("recall %1", "Déplacer à la position mémorisée", "Déplacer à la position %1", IOActionList::ACTION_NUMBER));
                 v.push_back(IOActionList("save %1", "Mémoriser la position", "Sauvegarder à la position %1", IOActionList::ACTION_NUMBER));
@@ -1191,7 +1181,7 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("move right", "Déplacer vers la droite", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("move home", "Déplacer à la position initiale", IOActionList::ACTION_SIMPLE));
         }
-        else if (params["type"] == "AudioOutput")
+        else if (params["gui_type"] == "audio_output")
         {
                 v.push_back(IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("pause", "Mettre en pause", IOActionList::ACTION_SIMPLE));
@@ -1214,14 +1204,14 @@ IOActionList IOBase::getActionFromState()
 {
         IOActionList ac;
 
-        if (params["type"] == "WODigital")
+        if (params["gui_type"] == "light")
         {
                 if (params["state"] == "true")
                         ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
                 else
                         ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "WODali")
+        else if (params["gui_type"] == "light_dimmer")
         {
                 if (params["state"] == "true")
                         ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
@@ -1232,7 +1222,7 @@ IOActionList IOBase::getActionFromState()
 
                 ac.dvalue = getDaliValueFromState();
         }
-        else if (params["type"] == "WODaliRVB")
+        else if (params["gui_type"] == "light_rgb")
         {
                 if (params["state"] == "true")
                         ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
@@ -1243,43 +1233,43 @@ IOActionList IOBase::getActionFromState()
 
                 getRGBValueFromState(ac.red, ac.green, ac.blue);
         }
-        else if (params["type"] == "WOVolet")
+        else if (params["gui_type"] == "shutter")
         {
                 ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "WOVoletSmart")
+        else if (params["gui_type"] == "shutter_smart")
         {
                 ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "WOAnalog")
+        else if (params["gui_type"] == "analog_out")
         {
                 ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
                 ac.dvalue = 0.0;
         }
-        else if (params["type"] == "scenario")
+        else if (params["gui_type"] == "scenario")
         {
                 ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "InternalString")
+        else if (params["gui_type"] == "var_string")
         {
                 ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
                 ac.svalue = "Un Texte";
         }
-        else if (params["type"] == "InternalInt")
+        else if (params["gui_type"] == "var_int")
         {
                 ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
                 ac.dvalue = 0.0;
         }
-        else if (params["type"] == "InternalBool")
+        else if (params["gui_type"] == "var_bool")
         {
                 ac = IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "CamOutput")
+        else if (params["gui_type"] == "camera_output")
         {
                 ac = IOActionList("recall %1", "Déplacer à la position mémorisée", "Déplacer à la position %1", IOActionList::ACTION_NUMBER);
                 ac.dvalue = 0.0;
         }
-        else if (params["type"] == "AudioOutput")
+        else if (params["gui_type"] == "audio_output")
         {
                 ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
         }
@@ -1295,7 +1285,7 @@ IOActionList IOBase::getActionListFromAction(string action)
         split(action, tokens);
         if (tokens.size() < 1) return ac;
 
-        if (params["type"] == "WODigital")
+        if (params["gui_type"] == "light")
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
@@ -1306,7 +1296,7 @@ IOActionList IOBase::getActionListFromAction(string action)
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (params["type"] == "WODali")
+        else if (params["gui_type"] == "light_dimmer")
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
@@ -1319,7 +1309,7 @@ IOActionList IOBase::getActionListFromAction(string action)
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (params["type"] == "WODaliRVB")
+        else if (params["gui_type"] == "light_rgb")
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
@@ -1338,7 +1328,7 @@ IOActionList IOBase::getActionListFromAction(string action)
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (params["type"] == "WOVolet")
+        else if (params["gui_type"] == "shutter")
         {
                 if (tokens[0] == "up") ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "down") ac = IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE);
@@ -1350,7 +1340,7 @@ IOActionList IOBase::getActionListFromAction(string action)
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (params["type"] == "WOVoletSmart")
+        else if (params["gui_type"] == "shutter_smart")
         {
                 if (tokens[0] == "up") ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "down") ac = IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE);
@@ -1364,32 +1354,32 @@ IOActionList IOBase::getActionListFromAction(string action)
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (params["type"] == "WOAnalog")
+        else if (params["gui_type"] == "analog_out")
         {
                 ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
                 from_string(tokens[0], ac.dvalue);
         }
-        else if (params["type"] == "scenario")
+        else if (params["gui_type"] == "scenario")
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "InternalString")
+        else if (params["gui_type"] == "var_string")
         {
                 ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
                 ac.svalue = action;
         }
-        else if (params["type"] == "InternalInt")
+        else if (params["gui_type"] == "var_int")
         {
                 ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
                 from_string(tokens[0], ac.dvalue);
         }
-        else if (params["type"] == "InternalBool")
+        else if (params["gui_type"] == "var_bool")
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE);
         }
-        else if (params["type"] == "CamOutput")
+        else if (params["gui_type"] == "camera_output")
         {
                 if (tokens[0] == "recall")
                 {
@@ -1406,7 +1396,7 @@ IOActionList IOBase::getActionListFromAction(string action)
                         else if (tokens[1] == "home") ac = IOActionList("move home", "Déplacer à la position initiale", IOActionList::ACTION_SIMPLE);
                 }
         }
-        else if (params["type"] == "AudioOutput")
+        else if (params["gui_type"] == "audio_output")
         {
                 if (tokens[0] == "play") ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "pause") ac = IOActionList("pause", "Mettre en pause", IOActionList::ACTION_SIMPLE);
@@ -1483,10 +1473,10 @@ void IOBase::loadPlage()
         range_infos.range_saturday.clear();
         range_infos.range_sunday.clear();
 
-        if (params["type"] != "InPlageHoraire")
+        if (params["gui_type"] != "time_range")
         {
                 Utils::logger("network") << Priority::ERROR << "IOBase:loadPlage(): " << params["id"]
-                                         << " is not of type InPlageHoraire, but " << params["type"]
+                                         << " is not of type time_range, but " << params["gui_type"]
                                          << " instead." << log4cpp::eol;
                 return;
         }
