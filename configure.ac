@@ -62,6 +62,27 @@ AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"
 
 EFL_CHECK_FUNCS([CALAOS_HOME], [dlopen])
 
+
+## Theme
+AC_ARG_ENABLE([theme],
+   [AC_HELP_STRING(
+       [--disable-theme],
+       [disable theme. @<:@default=enabled@:>@])],
+   [
+    if test "x${enableval}" = "xyes"; then
+       build_theme="yes"
+    else
+       build_theme="no"
+    fi
+   ],
+   [build_theme="yes"])
+
+AM_CONDITIONAL([CALAOS_BUILD_THEME], [test "x${build_theme}" = "xyes"])
+
+AC_MSG_CHECKING([whether Theme is to be built])
+AC_MSG_RESULT([${build_theme}])
+
+AM_CONDITIONAL([ENNA_BUILD_THEME], [test "x${build_theme}" = "xyes"])
 ### Checks for compiler characteristics
 AC_C_BIGENDIAN
 AC_C_INLINE
@@ -119,6 +140,7 @@ echo "  prefix...............: $prefix"
 echo
 echo " Build Calaos Server...: yes"
 echo " Build Calaos Home.....: $have_calaos_home_dep"
+echo " Build theme.......... : $build_theme"
 echo
 echo " One Wire support......: ${have_owcapi}"
 echo

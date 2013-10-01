@@ -1,3 +1,4 @@
+if CALAOS_BUILD_THEME
 MAINTAINERCLEANFILES = Makefile.in
 
 EDJE_CC = edje_cc
@@ -892,4 +893,4 @@ default.edj: Makefile $(EXTRA_DIST)
 
 clean-local:
 	rm -f *.edj
-
+endif
