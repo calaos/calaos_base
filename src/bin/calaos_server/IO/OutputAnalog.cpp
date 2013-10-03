@@ -82,5 +82,9 @@ bool OutputAnalog::set_value(double val)
 
         set_value_real(v);
 
+        value = val;
+        EmitSignalOutput();
+        emitChange();
+
         return true;
 }
