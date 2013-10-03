@@ -83,9 +83,6 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                         result.Add("14", "gui_type:" + input->get_param("gui_type"));
 
-                        if (input->get_param("step") != "")
-                          result.Add("15", "step:" + input->get_param("step"));
-
                         switch (input->get_type())
                         {
                           case TINT:
