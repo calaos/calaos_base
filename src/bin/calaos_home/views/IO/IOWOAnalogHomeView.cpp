@@ -108,8 +108,12 @@ void IOWOAnalogHomeView::buttonClickMore()
         if (!io) return;
 
         double value;
+        double step;
+
+        if (!from_string(io->params["step"], step))
+          step = 1.0;
         from_string(io->params["state"], value);
-        value++;
+        value += step;;
         io->sendAction(to_string(value));
 }
 
@@ -118,7 +122,12 @@ void IOWOAnalogHomeView::buttonClickLess()
         if (!io) return;
 
         double value;
+        double step;
+
+        if (!from_string(io->params["step"], step))
+          step = 1.0;
         from_string(io->params["state"], value);
-        value--;
+
+        value -= step;
         io->sendAction(to_string(value));
 }
