@@ -386,43 +386,47 @@ string Utils::getConfigFile(const char *configType)
 {
         if (_configBase.empty())
         {
-            string home = getenv("HOME");
-            if (home == "")
-            {
-                    struct passwd *pw = getpwuid(getuid());
-                    home = pw->pw_dir;
-            }
+                string home;
+                if (getenv("HOME"))
+                {
+                        home = getenv("HOME");
+                }
+                else
+                {
+                        struct passwd *pw = getpwuid(getuid());
+                        home = pw->pw_dir;
+                }
 
-            list<string> confDirs;
-            confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
-            confDirs.push_back(ETC_CONFIG_PATH);
-            confDirs.push_back(PREFIX_CONFIG_PATH);
+                list<string> confDirs;
+                confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
+                confDirs.push_back(ETC_CONFIG_PATH);
+                confDirs.push_back(PREFIX_CONFIG_PATH);
 
-            //Check config in that order:
-            // - $HOME/.config/calaos/
-            // - /etc/calaos
-            // - pkg_prefix/etc/calaos
-            // - create $HOME/.config/calaos/ if nothing found
+                //Check config in that order:
+                // - $HOME/.config/calaos/
+                // - /etc/calaos
+                // - pkg_prefix/etc/calaos
+                // - create $HOME/.config/calaos/ if nothing found
 
-            list<string>::iterator it = confDirs.begin();
-            for (;it != confDirs.end();it++)
-            {
-                    string conf = *it;
-                    conf += "/"IO_CONFIG;
-                    if (ecore_file_exists(conf.c_str()))
-                    {
-                            _configBase = *it;
-                            break;
-                    }
-            }
+                list<string>::iterator it = confDirs.begin();
+                for (;it != confDirs.end();it++)
+                {
+                        string conf = *it;
+                        conf += "/"IO_CONFIG;
+                        if (ecore_file_exists(conf.c_str()))
+                        {
+                                _configBase = *it;
+                                break;
+                        }
+                }
 
-            if (_configBase.empty())
-            {
-                    //no config dir found, create $HOME/.config/calaos
-                    ecore_file_mkdir(string(home + "/.config").c_str());
-                    ecore_file_mkdir(string(home + "/.config/calaos").c_str());
-                    _configBase = home + "/" + HOME_CONFIG_PATH;
-            }
+                if (_configBase.empty())
+                {
+                        //no config dir found, create $HOME/.config/calaos
+                        ecore_file_mkdir(string(home + "/.config").c_str());
+                        ecore_file_mkdir(string(home + "/.config/calaos").c_str());
+                        _configBase = home + "/" + HOME_CONFIG_PATH;
+                }
         }
 
         return _configBase + "/" + configType;
@@ -432,8 +436,12 @@ string Utils::getCacheFile(const char *cacheFile)
 {
         if (_cacheBase.empty())
         {
-                string home = getenv("HOME");
-                if (home == "")
+                string home;
+                if (getenv("HOME"))
+                {
+                        home = getenv("HOME");
+                }
+                else
                 {
                         struct passwd *pw = getpwuid(getuid());
                         home = pw->pw_dir;
