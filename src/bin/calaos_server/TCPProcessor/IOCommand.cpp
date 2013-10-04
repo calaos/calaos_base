@@ -626,6 +626,11 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                         output->set_value(value);
                                         done = true;
                                 }
+                                else
+                                {
+                                        output->set_value(request["3"]);
+                                        done = true;
+                                }
                                 break;
                           }
                           case TBOOL:
@@ -640,28 +645,10 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                         output->set_value(false);
                                         done = true;
                                 }
-                                else if (request["3"].compare(0, 8,"impulse ") == 0)
+                                else
                                 {
-                                        string tmp = request["3"];
-                                        tmp.erase(0, 8);
-                                        WODigital* odg = dynamic_cast<WODigital *>(output);
-                                        if (odg)
-                                        {
-                                                // classic impulse, WODigital goes false after <time> miliseconds
-                                                if (is_of_type<int>(tmp))
-                                                {
-                                                        int time;
-                                                        Utils::from_string(tmp, time);
-                                                        odg->impulse(time);
-                                                }
-                                                else
-                                                {
-                                                        // extended impulse using pattern
-                                                        odg->impulse_extended(tmp);
-                                                }
-
-                                                done = true;
-                                        }
+                                        output->set_value(request["3"]);
+                                        done = true;
                                 }
                                 break;
                           }

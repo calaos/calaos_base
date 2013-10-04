@@ -76,41 +76,10 @@ bool ActionStd::Execute()
                         {
                                 if (!outputs[i]->set_value(false)) ret = false;
                         }
-                        else if (params[outputs[i]->get_param("id")] == "toggle")
-                        {
-                                if (outputs[i]->get_value_bool())
-                                {
-                                        if (!outputs[i]->set_value(false)) ret = false;
-                                }
-                                else
-                                {
-                                        if (!outputs[i]->set_value(true)) ret = false;
-                                }
-                        }
-                        else if (params[outputs[i]->get_param("id")].compare(0, 8, "impulse ") == 0)
-                        {
-                                tmp = params[outputs[i]->get_param("id")];
-                                tmp.erase(0, 8);
-                                WODigital* odg = dynamic_cast<WODigital *>(outputs[i]);
-                                if (odg)
-                                {
-                                        // classic impulse, WODigital goes false after <time> miliseconds
-                                        if (is_of_type<int>(tmp))
-                                        {
-                                                int time;
-                                                Utils::from_string(tmp, time);
-                                                odg->impulse(time);
-                                        }
-                                        else
-                                        {
-                                                // extended impulse using pattern
-                                                odg->impulse_extended(tmp);
-                                        }
-                                }
-                        }
                         else
-                                Utils::logger("rule.action.standard") << Priority::WARN << "ActionStd::Execute(): set_value(bool) not bool !" << log4cpp::eol;
-
+                        {
+                                if (!outputs[i]->set_value(params[outputs[i]->get_param("id")])) ret = false;
+                        }        
                         break;
                   }
                   case TINT:
@@ -131,27 +100,14 @@ bool ActionStd::Execute()
                         {
                                 if (!outputs[i]->set_value(dval)) ret = false;
                         }
-                        else if (tmp.compare(0, 4, "inc ") == 0)
-                        {
-                                tmp.erase(0, 4);
-                                if (!outputs[i]->set_value(
-                                                outputs[i]->get_value_double() +
-                                                atof(tmp.c_str()))) ret = false;
-                        }
-                        else if (tmp.compare(0, 4, "dec ") == 0)
-                        {
-                                tmp.erase(0, 4);
-                                if (!outputs[i]->set_value(
-                                                outputs[i]->get_value_double() -
-                                                atof(tmp.c_str()))) ret = false;
-                        }
-                        else if (tmp != "")
+                        else if (is_of_type<double>(tmp))
                         {
                                 if (!outputs[i]->set_value(atof(tmp.c_str()))) ret = false;
                         }
                         else
-                                Utils::logger("rule.action.standard") << Priority::WARN << "ActionStd::Execute(): set_value(int) not int !" << log4cpp::eol;
-
+                        {
+                                if (!outputs[i]->set_value(tmp)) ret = false;
+                        }
                         break;
                   }
                   case TSTRING:

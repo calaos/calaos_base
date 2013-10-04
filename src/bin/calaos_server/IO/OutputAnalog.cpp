@@ -88,3 +88,48 @@ bool OutputAnalog::set_value(double val)
 
         return true;
 }
+
+bool OutputAnalog::set_value(string val)
+{
+        if (val == "inc")
+        {
+                double step = 1.0;
+                if (is_of_type<double>(get_param("step")))
+                        from_string(get_param("step"), step);
+
+                set_value(value + step);
+        }
+        else if (val == "dec")
+        {
+                double step = 1.0;
+                if (is_of_type<double>(get_param("step")))
+                        from_string(get_param("step"), step);
+
+                set_value(value - step);
+        }
+        else if (val.compare(0, 4, "inc ") == 0)
+        {
+                string t = val;
+                t.erase(0, 4);
+
+                double step = 1.0;
+                if (is_of_type<double>(t))
+                        from_string(t, step);
+
+                set_value(value + step);
+        }
+        else if (val.compare(0, 4, "dec ") == 0)
+        {
+                string t = val;
+                t.erase(0, 4);
+
+                double step = 1.0;
+                if (is_of_type<double>(t))
+                        from_string(t, step);
+
+                set_value(value - step);
+        }
+
+        return true;
+}
+

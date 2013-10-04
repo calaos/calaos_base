@@ -123,14 +123,58 @@ void Internal::force_input_string(string v)
 
 bool Internal::set_value(string val)
 {
-        Utils::logger("output") << Priority::INFO << "InternalString(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        if (get_type() == TINT)
+        {
+                if (val == "inc")
+                {
+                    double step = 1.0;
+                    if (is_of_type<double>(get_param("step")))
+                            from_string(get_param("step"), step);
 
-        force_input_string(val);
+                    set_value(dvalue + step);
+                }
+                else if (val == "dec")
+                {
+                    double step = 1.0;
+                    if (is_of_type<double>(get_param("step")))
+                            from_string(get_param("step"), step);
 
-        string sig = "output ";
-        sig += Input::get_param("id") + " ";
-        sig += url_encode(string("state:") + to_string(svalue));
-        IPC::Instance().SendEvent("events", sig);
+                    set_value(dvalue - step);
+                }
+                else if (val.compare(0, 4, "inc ") == 0)
+                {
+                    string t = val;
+                    t.erase(0, 4);
+
+                    double step = 1.0;
+                    if (is_of_type<double>(t))
+                            from_string(t, step);
+
+                    set_value(dvalue + step);
+                }
+                else if (val.compare(0, 4, "dec ") == 0)
+                {
+                    string t = val;
+                    t.erase(0, 4);
+
+                    double step = 1.0;
+                    if (is_of_type<double>(t))
+                            from_string(t, step);
+
+                    set_value(dvalue - step);
+                }
+        }
+        else if (get_type() == TSTRING)
+        {
+                Utils::logger("output") << Priority::INFO << "InternalString(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+
+                force_input_string(val);
+
+                string sig = "output ";
+                sig += Input::get_param("id") + " ";
+                sig += url_encode(string("state:") + to_string(svalue));
+                IPC::Instance().SendEvent("events", sig);
+        }
 
         return true;
 }

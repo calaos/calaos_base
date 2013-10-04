@@ -51,6 +51,7 @@ class OutputAnalog : public Output
 
                 virtual bool set_value(double val);
                 virtual double get_value_double();
+                virtual bool set_value(string val);
 };
 
 }

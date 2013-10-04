@@ -75,6 +75,35 @@ bool OutputLight::_set_value(bool val)
         return false;
 }
 
+bool OutputLight::set_value(string val)
+{
+        if (val.compare(0, 8,"impulse ") == 0)
+        {
+                string tmp = val;
+                val.erase(0, 8);
+                // classic impulse, WODigital goes false after <time> miliseconds
+                if (is_of_type<int>(tmp))
+                {
+                        int t;
+                        Utils::from_string(tmp, t);
+                        impulse(t);
+                }
+                else
+                {
+                        // extended impulse using pattern
+                        impulse_extended(tmp);
+                }
+
+                return true;
+        }
+        else if (val == "toggle")
+        {
+                return set_value(!value);
+        }
+
+        return false;
+}
+
 void OutputLight::impulse(int _time)
 {
         Utils::logger("output") << Priority::INFO << "OutputLight(" << get_param("id")

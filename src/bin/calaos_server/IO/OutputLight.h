@@ -48,6 +48,12 @@ class OutputLight : public Output
 
                 bool _set_value(bool val);
 
+                //impulse, time is in ms
+                void impulse(int time);
+
+                // extended impulse using pattern
+                void impulse_extended(string pattern);
+
         protected:
                 bool value;
 
@@ -61,14 +67,9 @@ class OutputLight : public Output
 
                 DATA_TYPE get_type() { return TBOOL; }
 
-                bool set_value(bool val);
-                bool get_value_bool() { return value; }
-
-                //impulse, time is in ms
-                void impulse(int time);
-
-                // extended impulse using pattern
-                void impulse_extended(string pattern);
+                virtual bool set_value(bool val);
+                virtual bool get_value_bool() { return value; }
+                virtual bool set_value(string val);
 };
 
 }
