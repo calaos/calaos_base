@@ -107,18 +107,12 @@ void IOInternalIntHomeView::buttonClickMore()
 {
         if (!io) return;
 
-        double value;
-        from_string(io->params["state"], value);
-        value++;
-        io->sendAction(to_string(value));
+        io->sendAction("inc");
 }
 
 void IOInternalIntHomeView::buttonClickLess()
 {
         if (!io) return;
 
-        double value;
-        from_string(io->params["state"], value);
-        value--;
-        io->sendAction(to_string(value));
+        io->sendAction("dec");
 }
