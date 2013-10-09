@@ -147,7 +147,6 @@
 ./src/bin/calaos_server/test_params.cpp
 ./src/bin/calaos_server/test_url.cpp
 ./src/bin/calaos_server/UDPServer.cpp
-./src/bin/calaos_server/WagoHeartbeat.cpp
 ./src/lib/CalaosNetwork.cpp
 ./src/lib/Calendar.cpp
 ./src/lib/CThread.cpp
