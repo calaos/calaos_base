@@ -588,24 +588,8 @@ void WagoMap::WagoHeartBeatTick()
         if (heartbeat_timer->getTime() < 10.0)
                 heartbeat_timer->Reset(10.0);
 
-        bool found_ip = false;
-        string ip;
-        vector<string> intf = TCPSocket::getAllInterfaces();
-        for (uint j = 0;j < intf.size() && !found_ip;j++)
-        {
-                ip = TCPSocket::GetLocalIP(intf[j]);
-
-                if (ip == "") continue;
-                vector<string> splitter, splitter2;
-                Utils::split(ip, splitter, ".", 4);
-                Utils::split(get_host(), splitter2, ".", 4);
-                if (splitter[0] == splitter2[0] &&
-                    splitter[1] == splitter2[1] &&
-                    splitter[2] == splitter2[2])
-                        found_ip = true;
-        }
-
-        if (found_ip)
+        string ip = TCPSocket::GetLocalIPFor(get_host());
+        if (ip != "")
         {
                 string cmd = "WAGO_SET_SERVER_IP ";
                 cmd += ip;
@@ -624,3 +608,4 @@ void WagoMap::WagoHeartBeatTick()
 
 
 }
+

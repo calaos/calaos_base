@@ -570,6 +570,53 @@ vector<string> TCPSocket::getAllInterfaces()
         return ret;
 }
 
+std::string TCPSocket::GetLocalIPFor(std::string ip_search)
+{
+        bool found_ip = false;
+        string ip;
+        vector<string> intf = TCPSocket::getAllInterfaces();
+
+        /* This is not the correct way to check. We need a way to look
+         * for the conresponding net interface for the given ip address.
+         * We need to look for a way to get the right route for that ip
+         * address. And if nothing is found, try getting the default route.
+         * link: http://stackoverflow.com/questions/15668653/how-to-find-the-default-networking-interface-in-linux
+         */
+
+        //check if the string is a correct ip address
+        struct sockaddr_in sa;
+        int result = inet_pton(AF_INET, ip_search.c_str(), &(sa.sin_addr));
+        if (result == 0) //not an ip address
+        {
+                //Get the first interface ip address
+                if (intf.size() > 0)
+                {
+                        ip = TCPSocket::GetLocalIP(intf[0]);
+                        return ip;
+                }
+
+                return std::string();
+        }
+
+        for (uint j = 0;j < intf.size() && !found_ip;j++)
+        {
+                ip = TCPSocket::GetLocalIP(intf[j]);
+
+                if (ip == "") continue;
+                vector<string> splitter, splitter2;
+                Utils::split(ip, splitter, ".", 4);
+                Utils::split(ip_search, splitter2, ".", 4);
+                if (splitter[0] == splitter2[0] &&
+                    splitter[1] == splitter2[1] &&
+                    splitter[2] == splitter2[2])
+                        found_ip = true;
+        }
+
+        if (found_ip)
+                return ip;
+        return std::string();
+}
+
 bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
 {
 #ifndef SIOCGIFADDR

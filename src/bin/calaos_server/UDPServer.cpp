@@ -99,23 +99,8 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                 Utils::logger("network") << Priority::DEBUG
                                 << "UDPServer: Remote IP: " << remote_ip << log4cpp::eol;
 
-                bool found_ip = false;
-                string ip;
-                vector<string> intf = TCPSocket::getAllInterfaces();
-                for (uint j = 0;j < intf.size() && !found_ip;j++)
-                {
-                        ip = TCPSocket::GetLocalIP(intf[j]);
-                        if (ip == "") continue;
-                        vector<string> splitter, splitter2;
-                        Utils::split(ip, splitter, ".", 4);
-                        Utils::split(remote_ip, splitter2, ".", 4);
-                        if (splitter[0] == splitter2[0] &&
-                            splitter[1] == splitter2[1] &&
-                            splitter[2] == splitter2[2])
-                                found_ip = true;
-                }
-
-                if (found_ip)
+                string ip = TCPSocket::GetLocalIPFor(remote_ip);
+                if (ip != "")
                 {
                         string packet = "CALAOS_IP ";
                         packet += ip;

@@ -98,7 +98,7 @@ std::string Planet::get_mjpeg_stream()
                 }
 
                 //get local ip
-                std::string local_ip = TCPSocket::GetLocalIP();
+                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
                 url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + to_string(id);
         }
@@ -142,7 +142,7 @@ std::string Planet::get_picture()
                 }
 
                 //get local ip
-                std::string local_ip = TCPSocket::GetLocalIP();
+                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
                 url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + to_string(id);
         }

@@ -82,9 +82,7 @@ std::string StandardMjpeg::get_mjpeg_stream()
                 }
 
                 //get local ip
-                std::string local_ip = TCPSocket::GetLocalIP();
-                if (local_ip.empty())
-                        local_ip = TCPSocket::GetLocalIP("eth1");
+                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
                 url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + Utils::to_string(id);
         }
@@ -108,9 +106,7 @@ std::string StandardMjpeg::get_picture()
                 }
 
                 //get local ip
-                string local_ip = TCPSocket::GetLocalIP();
-                if (local_ip.empty())
-                        local_ip = TCPSocket::GetLocalIP("eth1");
+                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
                 url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + Utils::to_string(id);
         }

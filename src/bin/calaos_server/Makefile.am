@@ -176,7 +176,6 @@ DataLogger.h					\
 IOBase.h					\
 Input.h						\
 Rule.h						\
-WagoHeartbeat.h					\
 TCPConnection.h					\
 Calaos.h					\
 ListeRoom.h					\
