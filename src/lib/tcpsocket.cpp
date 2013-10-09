@@ -588,10 +588,12 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
         int result = inet_pton(AF_INET, ip_search.c_str(), &(sa.sin_addr));
         if (result == 0) //not an ip address
         {
+                Utils::logger("network") << Priority::INFO << ip_search << " is not a valid ip address" << log4cpp::eol;
                 //Get the first interface ip address
                 if (intf.size() > 0)
                 {
                         ip = TCPSocket::GetLocalIP(intf[0]);
+                        Utils::logger("network") << Priority::INFO << "Using local ip address: " << ip << log4cpp::eol;
                         return ip;
                 }
 
@@ -611,6 +613,8 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
                     splitter[2] == splitter2[2])
                         found_ip = true;
         }
+
+        Utils::logger("network") << Priority::INFO << "Using local ip address: " << ip << log4cpp::eol;
 
         if (found_ip)
                 return ip;
