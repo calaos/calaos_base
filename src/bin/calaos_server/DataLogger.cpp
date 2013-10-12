@@ -61,13 +61,12 @@ _hash_values_free_cb(void *data)
 
 DataLogger::DataLogger()
 {
-        char db_file[PATH_MAX + 1];
+        string db_file = getCacheFile(CALAOS_EET_DATALOGGER_FILE);
 
         eet_init();
         initEetDescriptors();
 
-        snprintf(db_file, sizeof(db_file), "%s/%s", ETC_DIR, CALAOS_EET_DATALOGGER_FILE);
-        ef = eet_open(db_file, EET_FILE_MODE_READ_WRITE);
+        ef = eet_open(db_file.c_str(), EET_FILE_MODE_READ_WRITE);
 
         hash_values = eina_hash_string_superfast_new(_hash_values_free_cb);      
 }
