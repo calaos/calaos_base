@@ -1,6 +1,4 @@
-
-<!-- saved from url=(0104)http://git.savannah.gnu.org/gitweb/?p=autoconf-archive.git;a=blob_plain;f=m4/ax_cxx_compile_stdcxx_11.m4 -->
-<html><script type="text/javascript" src="chrome-extension://khbjahpecnkenngkidhioicnfpakihgo/iframe_raw.js"></script><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><style type="text/css"></style><script>window["_GOOG_TRANS_EXT_VER"] = "1";</script></head><body><pre style="word-wrap: break-word; white-space: pre-wrap;"># ============================================================================
+# ============================================================================
 #  http://www.gnu.org/software/autoconf-archive/ax_cxx_compile_stdcxx_11.html
 # ============================================================================
 #
@@ -26,9 +24,9 @@
 #
 # LICENSE
 #
-#   Copyright (c) 2008 Benjamin Kosnik &lt;bkoz@redhat.com&gt;
-#   Copyright (c) 2012 Zack Weinberg &lt;zackw@panix.com&gt;
-#   Copyright (c) 2013 Roy Stogner &lt;roystgnr@ices.utexas.edu&gt;
+#   Copyright (c) 2008 Benjamin Kosnik <bkoz@redhat.com>
+#   Copyright (c) 2012 Zack Weinberg <zackw@panix.com>
+#   Copyright (c) 2013 Roy Stogner <roystgnr@ices.utexas.edu>
 #
 #   Copying and distribution of this file, with or without modification, are
 #   permitted in any medium without royalty provided the copyright notice
@@ -38,20 +36,20 @@
 #serial 3
 
 m4_define([_AX_CXX_COMPILE_STDCXX_11_testbody], [
-  template &lt;typename T&gt;
+  template <typename T>
     struct check
     {
-      static_assert(sizeof(int) &lt;= sizeof(T), "not big enough");
+      static_assert(sizeof(int) <= sizeof(T), "not big enough");
     };
 
-    typedef check&lt;check&lt;bool&gt;&gt; right_angle_brackets;
+    typedef check<check<bool>> right_angle_brackets;
 
     int a;
     decltype(a) b;
 
-    typedef check&lt;int&gt; check_type;
+    typedef check<int> check_type;
     check_type c;
-    check_type&amp;&amp; cr = static_cast&lt;check_type&amp;&amp;&gt;(c);
+    check_type&& cr = static_cast<check_type&&>(c);
 
     auto d = a;
 ])
@@ -133,4 +131,3 @@ AC_DEFUN([AX_CXX_COMPILE_STDCXX_11], [dnl
     AC_SUBST(HAVE_CXX11)
   fi
 ])
-</pre></body></html>

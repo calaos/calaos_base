@@ -24,16 +24,28 @@
 #include <Utils.h>
 
 #include "ActivityView.h"
+#include "MainContentView.h"
 
 using namespace Utils;
 
 class ActivityConfigView: public ActivityView
 {
+        private:
+                MainContentView *contentView;
+
+                void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
+
         public:
                 ActivityConfigView(Evas *evas, Evas_Object *parent);
                 ~ActivityConfigView();
 
                 virtual void resetView();
+
+                void addView(BaseView *view) { contentView->addView(view); }
+                BaseView *getTopView() { return contentView->getTopView(); }
+                void removeTopView() { contentView->removeTopView(); }
+
+                sigc::signal<void, string> button_clicked;
 };
 
 #endif // ACTIVITYCONFIGVIEW_H

@@ -40,6 +40,7 @@ AC_CANONICAL_HOST
 ### Checks for programs
 AC_PROG_CXX
 AC_PROG_CC
+AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # pkg-config
 PKG_PROG_PKG_CONFIG

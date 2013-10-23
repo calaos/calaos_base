@@ -18,38 +18,27 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef ACTIVITYCONFIGCONTROLLER_H
-#define ACTIVITYCONFIGCONTROLLER_H
+#ifndef ACTIVITYCONFIGMENUCONTROLLER_H
+#define ACTIVITYCONFIGMENUCONTROLLER_H
 
 #include <Utils.h>
 
 #include "ActivityController.h"
-#include "ActivityConfigView.h"
+#include "ActivityConfigMenuView.h"
 #include "CalaosModel.h"
-
-#include "ActivityConfigMenuController.h"
 
 using namespace Utils;
 
-class ActivityConfigController: public ActivityController
+class ActivityConfigMenuController: public ActivityController
 {
         private:
-                ActivityConfigMenuController *mainMenuController;
-
-                virtual void createView();
-
-                void menuIconClick(string icon);
-                void buttonClick(string button);
-
-                void controllerFinished(ActivityController *controller);
+                void createView();
 
         public:
-                ActivityConfigController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigController();
+                ActivityConfigMenuController(Evas *evas, Evas_Object *parent);
+                ~ActivityConfigMenuController();
 
-                void addSubController(ActivityController *controller);
-
-                void setButtonMode(string mode);
+                sigc::signal<void, string> menu_icon_click;
 };
 
-#endif // ACTIVITYCONFIGCONTROLLER_H
+#endif // ACTIVITYCONFIGMENUCONTROLLER_H

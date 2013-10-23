@@ -18,38 +18,33 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef ACTIVITYCONFIGCONTROLLER_H
-#define ACTIVITYCONFIGCONTROLLER_H
+#ifndef ACTIVITYCONFIGMENUVIEW_H
+#define ACTIVITYCONFIGMENUVIEW_H
 
 #include <Utils.h>
 
-#include "ActivityController.h"
-#include "ActivityConfigView.h"
-#include "CalaosModel.h"
-
-#include "ActivityConfigMenuController.h"
+#include "ActivityView.h"
 
 using namespace Utils;
 
-class ActivityConfigController: public ActivityController
+class ActivityConfigMenuView: public ActivityView
 {
         private:
-                ActivityConfigMenuController *mainMenuController;
+                list<EdjeObject *> items;
 
-                virtual void createView();
+                void addIcon(int position, string type);
 
-                void menuIconClick(string icon);
-                void buttonClick(string button);
-
-                void controllerFinished(ActivityController *controller);
+                void ItemCallback(void *data, Evas_Object *edje, string emission, string source);
 
         public:
-                ActivityConfigController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigController();
+                ActivityConfigMenuView(Evas *evas, Evas_Object *parent);
+                ~ActivityConfigMenuView();
 
-                void addSubController(ActivityController *controller);
+                virtual void resetView();
 
-                void setButtonMode(string mode);
+                virtual string getTitle() { return "Multimédia"; }
+
+                sigc::signal<void, string> menu_item_clicked;
 };
 
-#endif // ACTIVITYCONFIGCONTROLLER_H
+#endif // ACTIVITYCONFIGMENUVIEW_H

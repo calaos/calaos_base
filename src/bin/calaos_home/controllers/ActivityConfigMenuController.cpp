@@ -18,38 +18,24 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#ifndef ACTIVITYCONFIGCONTROLLER_H
-#define ACTIVITYCONFIGCONTROLLER_H
-
-#include <Utils.h>
-
-#include "ActivityController.h"
-#include "ActivityConfigView.h"
-#include "CalaosModel.h"
-
 #include "ActivityConfigMenuController.h"
 
-using namespace Utils;
-
-class ActivityConfigController: public ActivityController
+ActivityConfigMenuController::ActivityConfigMenuController(Evas *e, Evas_Object *p):
+        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_MENU)
 {
-        private:
-                ActivityConfigMenuController *mainMenuController;
+}
 
-                virtual void createView();
+ActivityConfigMenuController::~ActivityConfigMenuController()
+{
+}
 
-                void menuIconClick(string icon);
-                void buttonClick(string button);
+void ActivityConfigMenuController::createView()
+{
+        if (view) return;
 
-                void controllerFinished(ActivityController *controller);
+        ActivityController::createView();
 
-        public:
-                ActivityConfigController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigController();
+        ActivityConfigMenuView *configMenuView = dynamic_cast<ActivityConfigMenuView *>(view);
+        configMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
+}
 
-                void addSubController(ActivityController *controller);
-
-                void setButtonMode(string mode);
-};
-
-#endif // ACTIVITYCONFIGCONTROLLER_H

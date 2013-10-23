@@ -37,6 +37,8 @@
 #include "ActivityEditScenarioView.h"
 #include "ActivityScheduleScenarioView.h"
 
+#include "ActivityConfigMenuView.h"
+
 static void _elm_button_quit(void *data, Evas_Object *obj, void *event_info)
 {
         ActivityView *ac = reinterpret_cast<ActivityView *>(data);
@@ -93,6 +95,7 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
                 case ACTIVITY_VIEW_MEDIA: view = new ActivityMediaView(evas, parent); break;
                 case ACTIVITY_VIEW_SCENARIOS: view = new ActivityScenariosView(evas, parent); break;
                 case ACTIVITY_VIEW_CONFIG: view = new ActivityConfigView(evas, parent); break;
+                case ACTIVITY_VIEW_CONFIG_MENU: view = new ActivityConfigMenuView(evas, parent); break;
                 case ACTIVITY_VIEW_MEDIA_MENU: view = new ActivityMediaMenuView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_LIST: view = new ActivityCameraListView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_SELECT: view = new ActivityCameraSelectView(evas, parent); break;
@@ -129,6 +132,7 @@ string ActivityViewFactory::viewTypeString(int viewType)
                 case ACTIVITY_VIEW_MEDIA: return "ActivityMediaView";
                 case ACTIVITY_VIEW_SCENARIOS: return "ActivityScenariosView";
                 case ACTIVITY_VIEW_CONFIG: return "ActivityConfigView";
+                case ACTIVITY_VIEW_CONFIG_MENU: return "ActivityConfigMenuView";
                 case ACTIVITY_VIEW_CAMERA_SELECT: return "ActivityCameraSelectView";
                 case ACTIVITY_VIEW_CAMERA_LIST: return "ActivityCameraListView";
                 case ACTIVITY_VIEW_AUDIO_LIST: return "ActivityAudioListView";

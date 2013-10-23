@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2006-2011, Calaos. All Rights Reserved.
+**  Copyright (c) 2006-2013, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -24,12 +24,24 @@ ActivityConfigView::ActivityConfigView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/config")
 {
         setPartText("header.label", "Centre de configuration");
+
+        contentView = new MainContentView(evas, parent);
+        Swallow(contentView->getSmartObject(), "calaos.main.content");
+
+        addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityConfigView::buttonPressed));
 }
 
 ActivityConfigView::~ActivityConfigView()
 {
+        DELETE_NULL(contentView)
 }
 
 void ActivityConfigView::resetView()
 {
 }
+
+void ActivityConfigView::buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
+{
+        button_clicked.emit(source);
+}
+
