@@ -1,0 +1,151 @@
+// Calaos Home verti indicator macro file
+// HECKY Raoul
+// BOEHLER Frederic
+// 25/07/2007
+
+// Vertival indicator
+#define VERT_LIST_LEVEL_INDICATOR(id, sig, clipper) \
+part { \
+  name: id"_main"; \
+  clip_to: clipper; \
+  type: RECT; \
+  description { \
+    state: "default" 0.0; \
+    visible: 0; \
+    rel1.to: clipper; \
+    rel2.to: clipper; \
+    rel1 { relative: 0.5  0.0; offset: -23  0;} \
+    rel2 { relative: 0.5  1.0; offset: 23 -1;} \
+    color: 255 255 255 0; \
+  } \
+  description { \
+    state: "active" 0.0; \
+    inherit: "default" 0.0; \
+    visible: 1; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+part { \
+  name: id"_border_decoration"; \
+  clip_to: id"_main"; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    image { normal: "vertical_level_indicator.png"; border: 12 12 12 12;} \
+    rel1.to: id"_main"; \
+    rel2.to: id"_main"; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+part { \
+  name: id"_move_confine"; \
+  clip_to: id"_main"; \
+  type: RECT; \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    rel1 { relative: 0.5  0.0; offset: -16  7;} \
+    rel2 { relative: 0.5  1.0; offset: 17 -8;} \
+    rel1.to: id"_main"; \
+    rel2.to: id"_main"; \
+    color: 255 255 255 0; \
+  } \
+} \
+ \
+part { \
+  name: id"_button_decoration"; \
+  mouse_events: 0; \
+  clip_to: id"_main"; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    image { normal: "button_scroll.png";} \
+    rel1.to: id; \
+    rel2.to: id; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+part { \
+  name: id"_button_decoration_glow"; \
+  mouse_events: 0; \
+  clip_to: id"_main"; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 0; \
+    image { normal: "button_scroll_glow.png";} \
+    rel1.to: id; \
+    rel2.to: id; \
+    color: 255 255 255 0; \
+  } \
+  description { \
+    state, "touched" 0.0; \
+    inherit: "default" 0.0; \
+    visible: 1; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+part { \
+  name: id;  \
+  clip_to: id"_main"; \
+  type: RECT; \
+  dragable { \
+    confine: id"_move_confine"; \
+    x: 0 0 0; y: 1 1 1; \
+  } \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    min: 34 42; max: 34 42; \
+    rel1 { relative: 0.5  1.0;} \
+    rel2 { relative: 0.5  1.0;} \
+    color: 255 255 255 0; \
+  } \
+} \
+ \
+program { \
+  name, id"_init"; \
+  signal, "show"; \
+  source, ""; \
+  action, STATE_SET "active" 0.0; \
+  transition, STANDARD_IN; \
+  target, id"_main"; \
+} \
+ \
+program { \
+  name, id"_set_touched"; \
+  signal, "mouse,down,1"; \
+  source, id; \
+  action, STATE_SET "touched" 0.0; \
+  transition, STANDARD_TOUCHED_IN; \
+  target, id"_button_decoration_glow"; \
+} \
+ \
+program { \
+  name, id"_set_untouched"; \
+  signal, "mouse,up,1"; \
+  source, id; \
+  action, STATE_SET "default" 0.0; \
+  transition, STANDARD_TOUCHED_OUT; \
+  target, id"_button_decoration_glow"; \
+} \
+ \
+program { \
+  name, id"_uninit"; \
+  signal, "hide"; \
+  source, ""; \
+  action, STATE_SET "default" 0.0; \
+  target, id"_main"; \
+} \
+program { \
+  name: id"_drag_signal"; \
+  signal: "drag"; \
+  source: id; \
+  action: SIGNAL_EMIT "slider,change" sig; \
+}

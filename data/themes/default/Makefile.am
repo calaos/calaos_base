@@ -842,6 +842,10 @@ structure/main_layout.edc			\
 structure/player_prog.edc			\
 structure/styles.edc				\
 structure/macro_menu_button.edc			\
+structure/button_action_macro.edc		\
+structure/button_square_macro.edc 		\
+structure/macro_config_tab.edc			\
+structure/vert_level_indicator_macro.edc	\
 structure/circular_spinner.edc			\
 structure/page_scenarios.edc			\
 structure/page_schedule.edc			\
