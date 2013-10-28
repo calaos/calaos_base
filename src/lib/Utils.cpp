@@ -412,7 +412,7 @@ string Utils::getConfigFile(const char *configType)
                 for (;it != confDirs.end();it++)
                 {
                         string conf = *it;
-                        conf += "/"IO_CONFIG;
+                        conf += "/" IO_CONFIG;
                         if (ecore_file_exists(conf.c_str()))
                         {
                                 _configBase = *it;
