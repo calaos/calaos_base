@@ -51,6 +51,13 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         SSL_library_init();
         curl_global_init(CURL_GLOBAL_ALL);
 
+        char *themefile = argvOptionParam(argv, argv + argc, "--theme");
+        if (themefile)
+        {
+                ApplicationMain::theme = themefile;
+                Utils::logger("root") << Priority::INFO << "Using specified theme file: " << ApplicationMain::getTheme() << log4cpp::eol;
+        }
+
         //Init efl core
         if (!eina_init())
                 throw (runtime_error("Unable to init Eina"));

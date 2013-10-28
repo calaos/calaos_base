@@ -38,6 +38,7 @@ static void echoUsage(char **argv)
         cout << "\t-h, --help\tDisplay this help.\n";
         cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
         cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
+        cout << "\t--theme <file.edj>\tUse the given edje file instead of the default.\n";
         cout << endl;
 }
 
@@ -100,3 +101,4 @@ int main(int argc, char **argv)
 
         return 0;
 }
+
