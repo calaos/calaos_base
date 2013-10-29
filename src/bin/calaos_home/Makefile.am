@@ -203,4 +203,13 @@ calaos_home_LDADD = \
 	@CALAOS_HOME_LIBS@ \
 	@CALAOS_COMMON_LIBS@
 
+bin_PROGRAMS = calaos_thumb
+
+calaos_thumb_SOURCES = \
+	main_cover.cpp
+
+calaos_thumb_LDADD = \
+	@CALAOS_HOME_LIBS@ \
+	@CALAOS_COMMON_LIBS@
+
 endif
