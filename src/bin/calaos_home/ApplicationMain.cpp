@@ -92,9 +92,22 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
         elm_win_autodel_set(window, true);
 
-        // Change default finger size, elementary should not resize elements.
-        // It made the calaos theme looks wrong.
-        //elm_finger_size_set(10);
+        if (argvOptionCheck(argv, argv + argc, "--set-elm-config"))
+        {
+                //force setting the correct elementary options for touchscreen
+                elm_config_finger_size_set(10);
+                elm_config_scroll_bounce_enabled_set(true);
+                elm_config_scroll_thumbscroll_enabled_set(true);
+                elm_config_scroll_thumbscroll_threshold_set(24);
+                elm_config_scroll_thumbscroll_momentum_threshold_set(100.0);
+                elm_config_scroll_bounce_friction_set(0.5);
+                elm_config_scroll_page_scroll_friction_set(0.5);
+                elm_config_scroll_bring_in_scroll_friction_set(0.5);
+                elm_config_scroll_zoom_friction_set(0.5);
+                elm_config_scroll_thumbscroll_friction_set(1.0);
+                elm_config_scroll_thumbscroll_border_friction_set(0.5);
+                elm_config_scroll_thumbscroll_sensitivity_friction_set(0.25);
+        }
 
         evas_object_event_callback_add(window, EVAS_CALLBACK_RESIZE, _window_resize_cb, this);
         evas = evas_object_evas_get(window);

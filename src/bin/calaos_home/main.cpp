@@ -39,6 +39,7 @@ static void echoUsage(char **argv)
         cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
         cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
         cout << "\t--theme <file.edj>\tUse the given edje file instead of the default.\n";
+        cout << "\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n";
         cout << endl;
 }
 
