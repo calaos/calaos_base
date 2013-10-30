@@ -1,5 +1,11 @@
-calaos (__DISTRO_VERSION__~__DISTRO__) __DISTRO__; urgency=low
+calaos (2.0.0-1~20131030145757.gitac7cc7d) unstable; urgency=low
 
+  [ Nicolas Aguirre ]
   * Initial version of package (2.0.0)
 
- -- Nicolas Aguirre <aguirre.nicolas@gmail.com>  Tue, 26 Feb 2013 08:08:58 +0100
+  [ Michaël Bouchaud (yoz) ]
+  * Add debug package
+  * use  'echo "`TZ=GMT date +"%Y%m%d%H%M%S"`.git`git rev-parse --short HEAD`"'
+    for version number
+
+ -- Michaël Bouchaud (yoz) <yoz@efl.so>  Wed, 30 Oct 2013 15:57:57 +0100
