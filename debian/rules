@@ -7,5 +7,10 @@ DEB_MAKE_CLEAN_TARGET := distclean
 DEB_CONFIGURE_SCRIPT := ./autogen.sh
 DEB_CONFIGURE_EXTRA_FLAGS := --disable-rpath
 
+.PHONY: override_dh_strip
+override_dh_strip:
+        dh_strip -pcalaos-server --dbg-package=calaos-server-dbg
+        dh_strip -pcalaos-home --dbg-package=calaos-home-dbg
+
 clean::
 	[ ! -f Makefile ] || make distclean
