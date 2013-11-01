@@ -12,6 +12,7 @@ AM_CFLAGS = \
 -I./IO/OneWire \
 -I./IO/X10 \
 -I./IO/Scripts \
+-I./IO/GCE \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -35,6 +36,7 @@ AM_CXXFLAGS = \
 -I./IO/OneWire \
 -I./IO/X10 \
 -I./IO/Scripts \
+-I./IO/GCE \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \

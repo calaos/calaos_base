@@ -20,41 +20,52 @@
 ******************************************************************************/
 #include "ActivityConfigMenuView.h"
 
+static Elm_Gengrid_Item_Class gic;
+
+char *
+grid_text_get(void *data, Evas_Object *obj EINA_UNUSED, const char *part EINA_UNUSED)
+{
+   return strdup((const char*)data);
+}
+
 ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/config/menu")
 {
-/*
-        int pos = 1;
 
-        if (Utils::get_config_option("enable_media_music") != "false")
-                addIcon(pos++, "music");
+    grid = elm_gengrid_add(_parent);
+    Swallow(grid, "grid.swallow");
 
-        if (Utils::get_config_option("enable_media_camera") != "false")
-                addIcon(pos++, "camera");
+    elm_genlist_homogeneous_set(grid, true);
+    evas_object_show(grid);
 
-        if (Utils::get_config_option("enable_media_photos") != "false")
-                addIcon(pos++, "photos");
+    elm_gengrid_group_item_size_set(grid, 200, 120);
 
-#ifdef HAVE_EWEBKIT
-        if (Utils::get_config_option("enable_media_web") != "false")
-                addIcon(pos++, "web");
-#endif
+    naviframe = elm_naviframe_add(parent);
+    evas_object_show(naviframe);
+    Swallow(naviframe, "naviframe.swallow");
 
-        if (Utils::get_config_option("enable_media_eskiss") != "false")
-                addIcon(pos++, "eskiss");
-*/
+    gic.item_style = "default";
+    gic.func.text_get = grid_text_get;
+
+    elm_gengrid_item_append(grid, &gic, "Widgets & Jouets", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Heure et Dates", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Mot de passe", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Mise en Veille", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Elements de la maison", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Les Scénarios", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Calaos Network", NULL, NULL);
+
 }
 
 ActivityConfigMenuView::~ActivityConfigMenuView()
 {
-        for_each(items.begin(), items.end(), Delete());
-        items.clear();
+    evas_object_del(grid);
 }
 
 void ActivityConfigMenuView::addIcon(int position, string type)
 {
-/*
-        if (Utils::get_config_option("enable_media_" + type) != "false")
+
+        //if (Utils::get_config_option("enable_media_" + type) != "false")
         {
                 EdjeObject *obj = new EdjeObject(theme, evas);
                 obj->LoadEdje("calaos/icons/menu/media/" + type);
@@ -65,13 +76,13 @@ void ActivityConfigMenuView::addIcon(int position, string type)
                 items.push_back(obj);
                 position++;
         }
-*/
+
 }
 
 void ActivityConfigMenuView::ItemCallback(void *data, Evas_Object *_edje, string emission, string source)
 {
         if (source != "menu") return;
-/*
+
         if (emission == "click,music")
         {
                 menu_item_clicked.emit("music");
@@ -92,7 +103,7 @@ void ActivityConfigMenuView::ItemCallback(void *data, Evas_Object *_edje, string
         {
                 menu_item_clicked.emit("eskiss");
         }
-*/
+
 }
 
 void ActivityConfigMenuView::resetView()

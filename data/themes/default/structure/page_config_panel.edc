@@ -35,6 +35,22 @@ group
 
         parts
         {
+           part {
+              name: "grid.swallow";
+              type: SWALLOW;
+              description {
+                 state: "default" 0.0;
+              }
+           }
+
+           part {
+              name: "naviframe.swallow";
+              type: SWALLOW;
+              description {
+                 state: "default" 0.0;
+              }
+           }
+
                 part
                 {
                         name: "text";

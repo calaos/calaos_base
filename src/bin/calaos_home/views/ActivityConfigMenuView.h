@@ -31,7 +31,8 @@ class ActivityConfigMenuView: public ActivityView
 {
         private:
                 list<EdjeObject *> items;
-
+                Evas_Object *grid;
+                Evas_Object *naviframe;
                 void addIcon(int position, string type);
 
                 void ItemCallback(void *data, Evas_Object *edje, string emission, string source);
