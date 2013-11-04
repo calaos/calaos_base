@@ -23,6 +23,7 @@
 #include <AVRDenon.h>
 #include <AVROnkyo.h>
 #include <AVRMarantz.h>
+#include <AVRYamaha.h>
 
 using namespace Calaos;
 
@@ -58,6 +59,8 @@ AVReceiver *AVRManager::Create(Params &p)
                         receiver = new AVROnkyo(p);
                 else if (p["model"] == "marantz")
                         receiver = new AVRMarantz(p);
+                else if (p["model"] == "yamaha")
+                        receiver = new AVRYamaha(p);
                 else
                 {
                         Utils::logger("output") << Priority::INFO << "AVRManager(): Unknown A/V Receiver model " << p["model"] << log4cpp::eol;

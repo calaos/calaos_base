@@ -147,6 +147,7 @@ Audio/AVRPioneer.cpp				\
 Audio/AVRDenon.cpp				\
 Audio/AVROnkyo.cpp				\
 Audio/AVRMarantz.cpp				\
+Audio/AVRYamaha.cpp				\
 IPCam/Planet.h					\
 IPCam/Axis.h					\
 IPCam/StandardMjpeg.h				\
@@ -172,6 +173,7 @@ Audio/AVROnkyo.h				\
 Audio/AudioOutput.h				\
 Audio/AVRMarantz.h				\
 Audio/AVReceiver.h				\
+Audio/AVRYamaha.h				\
 Audio/AudioInput.h				\
 PollListenner.h					\
 DataLogger.h					\

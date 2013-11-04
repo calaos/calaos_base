@@ -104,7 +104,8 @@ class AVReceiver
                         AVR_INPUT_USB, AVR_INPUT_USB2, AVR_INPUT_USB3, AVR_INPUT_USB4,
                         AVR_INPUT_USB5, AVR_INPUT_USB6, AVR_INPUT_USB7, AVR_INPUT_USB8,
                         AVR_INPUT_VCR, AVR_INPUT_AUX1, AVR_INPUT_AUX2, AVR_INPUT_AUX3, AVR_INPUT_AUX4,
-                        AVR_INPUT_AUX5, AVR_INPUT_AUX6, AVR_INPUT_AUX7, AVR_INPUT_AUX8
+                        AVR_INPUT_AUX5, AVR_INPUT_AUX6, AVR_INPUT_AUX7, AVR_INPUT_AUX8,
+                        AVR_INPUT_BLUETOOTH, AVR_INPUT_IPODUSB, AVR_INPUT_PC, AVR_INPUT_UAW 
                      };
 
                 virtual void Power(bool on, int zone = 1) {}
