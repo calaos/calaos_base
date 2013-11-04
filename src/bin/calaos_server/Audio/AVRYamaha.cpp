@@ -297,8 +297,9 @@ void AVRYamaha::setVolume(int volume, int zone)
         ss.width(2);
         ss.fill('0');
         ss.setf(std::ios::showpoint);
+        ss.precision(1);
 
-        if (zone == 1) ss << "@MAIN:VOL=" << v;
+        if (zone == 1) ss << "@MAIN:VOL=" << std::fixed << v;
         else if (zone == 2) ss << "@ZONE2:VOL=" << v;
         else if (zone == 3) ss << "@ZONE3:VOL=" << v;
         else return;
