@@ -34,8 +34,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
 
     grid = elm_gengrid_add(_parent);
     Swallow(grid, "grid.swallow");
-
-    elm_genlist_homogeneous_set(grid, true);
+    elm_object_style_set(grid, "calaos");
     evas_object_show(grid);
 
     elm_gengrid_group_item_size_set(grid, 200, 120);
@@ -43,8 +42,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     naviframe = elm_naviframe_add(parent);
     evas_object_show(naviframe);
     Swallow(naviframe, "naviframe.swallow");
-
-    gic.item_style = "default";
+    gic.item_style = "calaos";
     gic.func.text_get = grid_text_get;
 
     elm_gengrid_item_append(grid, &gic, "Widgets & Jouets", NULL, NULL);

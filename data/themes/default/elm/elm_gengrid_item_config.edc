@@ -31,7 +31,7 @@ group { name: "elm/gengrid/item/calaos/calaos";
             }
          }
       }
-      part { name: "elm.swallow.icon";
+      part { nme: "elm.swallow.icon";
 
          type: SWALLOW;
          description { state: "default" 0.0;

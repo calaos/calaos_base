@@ -152,5 +152,8 @@ collections
         #include "elm/elm_calendar.edc"
         #include "elm/elm_spinner.edc"
 
+        /* Gengrid calaos item */
+        #include "elm/elm_gengrid_item_config.edc"
+
         #include "structure/paging_view.edc"
 }

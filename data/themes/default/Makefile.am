@@ -830,6 +830,7 @@ elm/elm_list_home_room.edc			\
 elm/elm_genlist_item_witemp.edc			\
 elm/elm_genlist_item_scenario_schedule.edc	\
 elm/elm_spinner.edc				\
+elm/elm_gengrid_item_config.edc			\
 structure/page_camera.edc			\
 structure/room_prog_macro.edc			\
 structure/page_config_panel.edc			\
