@@ -40,6 +40,8 @@ group
               type: SWALLOW;
               description {
                  state: "default" 0.0;
+                 rel2.relative: 0 1;
+                 rel2.to_x: "module_controls_deco";
               }
            }
 
