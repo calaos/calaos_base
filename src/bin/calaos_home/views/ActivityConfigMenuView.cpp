@@ -51,7 +51,36 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     {
         cout << "click on item security!" << endl;
     });
-    
+
+    item = new GengridItemConfig(evas, grid, "Mise en Veille", "veille");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item veille!" << endl;
+    });
+
+    item = new GengridItemConfig(evas, grid, "Elements de la maison", "info");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item info!" << endl;
+    });
+
+    item = new GengridItemConfig(evas, grid, "Les Scénarios", "unknown");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item scenarios!" << endl;
+    });
+
+    item = new GengridItemConfig(evas, grid, "Calaos network", "network");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item network!" << endl;
+    });
+
+
 /*
     gic.item_style = "calaos";
     gic.func.text_get = grid_text_get;
