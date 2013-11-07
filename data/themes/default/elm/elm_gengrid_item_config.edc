@@ -1,8 +1,7 @@
 
 group {
-   name: "elm/gengrid/item/calaos/calaos";
+   name: "elm/gengrid/item/config";
    data.item: "texts" "elm.text";
-   data.item: "contents" "elm.swallow.icon";
 
    parts
    {
@@ -204,3 +203,18 @@ group {
    }
 }
 
+//style with the clock icon
+group {
+   name: "elm/gengrid/item/config/clock";
+   inherit: "elm/gengrid/item/config";
+
+   //TODO
+}
+
+//style with the security icon
+group {
+   name: "elm/gengrid/item/config/security";
+   inherit: "elm/gengrid/item/config";
+
+   //TODO
+}

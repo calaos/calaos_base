@@ -17,6 +17,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_home/controllers \
 -I$(top_srcdir)/src/bin/calaos_home/views \
 -I$(top_srcdir)/src/bin/calaos_home/views/GenlistItems \
+-I$(top_srcdir)/src/bin/calaos_home/views/GengridItems \
 -I$(top_srcdir)/src/bin/calaos_home/views/IO \
 -I$(top_srcdir)/src/bin/calaos_home/models \
 @CALAOS_COMMON_CFLAGS@ \
@@ -196,7 +197,11 @@ calaos_home_SOURCES = \
 	Modules.h						\
 	CalaosDiscover.h					\
 	EvasSmart.h						\
-	ApplicationMain.h
+	ApplicationMain.h \
+	views/GengridItems/GengridItemBase.h \
+	views/GengridItems/GengridItemBase.cpp \
+	views/GengridItems/GengridItemConfig.h \
+	views/GengridItems/GengridItemConfig.cpp
 
 calaos_home_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \

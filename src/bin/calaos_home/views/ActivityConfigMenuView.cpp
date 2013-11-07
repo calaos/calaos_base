@@ -19,14 +19,7 @@
 **
 ******************************************************************************/
 #include "ActivityConfigMenuView.h"
-
-static Elm_Gengrid_Item_Class gic;
-
-char *
-grid_text_get(void *data, Evas_Object *obj EINA_UNUSED, const char *part EINA_UNUSED)
-{
-   return strdup((const char*)data);
-}
+#include "GengridItemConfig.h"
 
 ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/config/menu")
@@ -42,6 +35,24 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     naviframe = elm_naviframe_add(parent);
     evas_object_show(naviframe);
     Swallow(naviframe, "naviframe.swallow");
+
+    GengridItemConfig *item;
+
+    item = new GengridItemConfig(evas, grid, "Heure et Dates", "clock");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item clock!" << endl;
+    });
+
+    item = new GengridItemConfig(evas, grid, "Mot de passe", "security");
+    item->Append(grid);
+    item->item_selected.connect([=](void *data)
+    {
+        cout << "click on item security!" << endl;
+    });
+    
+/*
     gic.item_style = "calaos";
     gic.func.text_get = grid_text_get;
 
@@ -51,7 +62,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     elm_gengrid_item_append(grid, &gic, "Mise en Veille", NULL, NULL);
     elm_gengrid_item_append(grid, &gic, "Elements de la maison", NULL, NULL);
     elm_gengrid_item_append(grid, &gic, "Les Scénarios", NULL, NULL);
-    elm_gengrid_item_append(grid, &gic, "Calaos Network", NULL, NULL);
+    elm_gengrid_item_append(grid, &gic, "Calaos Network", NULL, NULL);*/
 
 }
 
