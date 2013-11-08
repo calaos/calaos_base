@@ -1,0 +1,26 @@
+
+images
+{
+        image: "icon_widget_notes.png" COMP;
+}
+
+collections
+{
+        group
+        {
+                name: "icon";
+
+                parts
+                {
+                        part
+                        {
+                                name: "icon";
+                                description
+                                {
+                                        state, "default" 0.0;
+                                        image.normal: "icon_widget_notes.png";
+                                }
+                        }
+                }
+        }
+}

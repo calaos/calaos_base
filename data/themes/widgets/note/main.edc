@@ -1,0 +1,110 @@
+
+fonts
+{
+        font: "calaos_content.ttf" "CalaosContent";
+        font: "calaos_content-bold.ttf" "CalaosContentBold";
+        font: "calaos_content-oblique.ttf" "CalaosContentOblique";
+        //font: "SF-Foxboro-Script-Extended.ttf" "CalaosContentNote";
+        font: "Ubuntu-L.ttf" "CalaosContentNote";
+}
+
+images
+{
+        image: "note_back.png" COMP;
+}
+
+styles
+{
+        style
+        {
+                name:   "HTMLStyle";
+                base:   "font=CalaosContentNote font_size=16 align=left valign=center color=#000000FF wrap=word";
+                tag:    "br" "+ \n";
+                tag:    "ps" "+ \n";
+                tag:    "html" "";
+                tag:    "head" "";
+                tag:    "body" "";
+                tag:    "p" "+ \n \n";
+                tag:    "div" "+ \n \n";
+                tag:    "b" "+ font=CalaosContentBold";
+                tag:    "i" "+ font=CalaosContentOblique";
+                tag:    "script" "+ color=#E7E7E700";
+        }
+}
+
+collections
+{
+        group
+        {
+                name: "widget/note";
+                min: 206 151;
+                max: 400 400;
+
+                parts
+                {
+                        part
+                        {
+                                name: "back";
+                                description
+                                {
+                                        state: "default" 0.0;
+                                        image.normal: "note_back.png";
+                                        image.border: 51 154 53 97;
+                                }
+                        }
+
+                        part
+                        {
+                                name: "note.text";
+                                type: TEXTBLOCK;
+                                description
+                                {
+                                        state, "default" 0.0;
+                                        visible: 1;
+                                        color: 12 12 12 200;
+                                        rel1 { relative: 0.0 0.0; offset: 55 53; }
+                                        rel2 { relative: 1.0 1.0; offset: -66 -36; }
+                                        text { style: "HTMLStyle"; text: ""; align: 0.0 0.0; }
+                                }
+                        }
+
+                        part
+                        {
+                                name: "title";
+                                type: TEXT;
+                                description
+                                {
+                                        state, "default" 0.0;
+                                        visible: 1;
+                                        color: 12 12 12 200;
+                                        rel1 { relative: 0.0 0.0; offset: 46 24; }
+                                        rel2 { relative: 1.0 0.0; offset: -58 39; }
+                                        text { text: "Notes"; font: "CalaosContentBold"; size: 10; align: 0.0 0.5;}
+                                }
+                        }
+
+                        part
+                        {
+                                name: "mouse_mask";
+                                type: RECT;
+                                description
+                                {
+                                        state: "default" 0.0;
+                                        color: 0 0 0 0;
+                                }
+                        }
+                }
+
+                programs
+                {
+                        program
+                        {
+                                name: "on_click";
+                                signal: "mouse,down,1";
+                                source: "mouse_mask";
+                                action: SIGNAL_EMIT "click" "note";
+                        }
+                }
+        }
+}
+ 
