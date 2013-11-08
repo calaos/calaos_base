@@ -88,6 +88,15 @@ AM_CONDITIONAL([ENNA_BUILD_THEME], [test "x${build_theme}" = "xyes"])
 AC_C_BIGENDIAN
 AC_C_INLINE
 
+### Checks for linker characteristics
+lt_enable_auto_import=""
+case "${host_os}" in
+   mingw*)
+      lt_enable_auto_import="-Wl,--enable-auto-import"
+   ;;
+esac
+AC_SUBST([lt_enable_auto_import])
+
 EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wno-unused-parameter -Wshadow -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
 
 ### Checks for header files
