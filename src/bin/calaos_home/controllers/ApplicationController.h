@@ -45,7 +45,7 @@
 
 using namespace Utils;
 
-class ApplicationController: public sigc::trackable
+class EAPI ApplicationController: public sigc::trackable
 {
         private:
                 Evas *evas;

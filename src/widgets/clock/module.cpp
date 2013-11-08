@@ -24,7 +24,8 @@ CalaosModuleBase * constructor(Evas *evas, const char *id, const char *path)
 {
         return new ModuleClock(evas, id, path);
 }
-CalaosModuleApi calaos_modapi =
+
+EAPI CalaosModuleApi calaos_modapi =
 {
         CALAOS_MODULE_API_VERSION,
         CMOD_WIDGET,
@@ -38,7 +39,7 @@ CalaosModuleApi calaos_modapi =
 ModuleClock::ModuleClock(Evas *_e, string _id, string _path):
         CalaosModuleBase(_e, _id, _path)
 {
-        string theme = module_path + "module.edj";
+        string theme = module_path + "/default.edj";
         edje_clock = new EdjeObject(theme, evas);
         edje_clock->LoadEdje("widget/clock");
 }

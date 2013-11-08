@@ -39,7 +39,7 @@ using namespace Utils;
 
 #define EDJE_GROUP_MAIN_LAYOUT  "calaos/main/layout"
 
-class ApplicationMain
+class EAPI ApplicationMain
 {
         private:
 

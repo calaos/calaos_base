@@ -209,6 +209,8 @@ calaos_home_LDADD = \
 	@CALAOS_HOME_LIBS@ \
 	@CALAOS_COMMON_LIBS@
 
+calaos_home_LDFLAGS = -rdynamic
+
 calaos_thumb_SOURCES = \
 	main_cover.cpp
 

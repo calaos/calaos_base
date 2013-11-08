@@ -100,7 +100,7 @@ bool EdjeObject::LoadEdje(string c)
         if (edje_object_file_set(edje, theme.c_str(), collection.c_str()) == 0)
         {
                 int err = edje_object_load_error_get(edje);
-                string serr = "EdjeObject::LoadEdje - ";
+                string serr = "EdjeObject::LoadEdje(" + theme + ", " + collection + ") - ";
                 switch (err)
                 {
                         case EDJE_LOAD_ERROR_NONE: serr += "No Error."; break;

@@ -38,5 +38,5 @@ module_la_LIBADD = \
 	@CALAOS_HOME_LIBS@ \
 	@CALAOS_COMMON_LIBS@
 
-module_la_LDFLAGS = -no-undefined @lt_enable_auto_import@ -module -avoid-version
+module_la_LDFLAGS = -no-undefined @lt_enable_auto_import@ -module -avoid-version -export-dynamic
 module_la_LIBTOOLFLAGS = --tag=disable-static

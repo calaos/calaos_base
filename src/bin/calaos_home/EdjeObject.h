@@ -51,7 +51,7 @@ typedef struct _EdjeCallbackData: public sigc::trackable
                 return __VA_ARGS__; \
         }
 
-class EdjeObject: public sigc::trackable
+class EAPI EdjeObject: public sigc::trackable
 {
         public:
                 void _evasObjectDeleted();

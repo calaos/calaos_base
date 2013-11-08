@@ -46,6 +46,7 @@ void ModuleManager::SearchModules()
 {
         for (uint i = 0;i < search_paths.size();i++)
         {
+                Utils::logger("module") << Priority::INFO << "ModuleManager: searching modules in: " << search_paths[i] << log4cpp::eol;
                 char *fname = NULL;
                 void *data = NULL;
                 Eina_List *subdir = ecore_file_ls(search_paths[i].c_str());
@@ -80,6 +81,11 @@ void ModuleManager::SearchModules()
                         {
                                 //object can be loaded, check version and
                                 CalaosModuleApi *api = (CalaosModuleApi *)dlsym(handle, "calaos_modapi");
+                                if (!api)
+                                {
+                                        Utils::logger("module") << Priority::ERROR << "ModuleManager: module " << p << ". calaos_modapi export not found: " << dlerror() << log4cpp::eol;
+                                        continue;
+                                }
 
                                 if (api->api_version != CALAOS_MODULE_API_VERSION)
                                 {
@@ -123,10 +129,16 @@ bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef 
 {
         if (!type.handle || !type.api) return false;
 
-        string::size_type pos = type.mod_fname.find_last_of('/');
-        string module_path = type.mod_fname.substr(0, pos + 1);
+        string module_name;
+        vector<string> tok;
+        Utils::split(type.mod_fname, tok, "/");
+        if (tok.size() > 2)
+                module_name = tok[tok.size() - 2];
 
-        CalaosModuleBase *cmod = type.api->create_object(evas, id.c_str(), module_path.c_str());
+        string themepath = PACKAGE_DATA_DIR;
+        themepath += "/widgets/" + module_name;
+
+        CalaosModuleBase *cmod = type.api->create_object(evas, id.c_str(), themepath.c_str());
 
         if (cmod)
         {
@@ -134,7 +146,7 @@ bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef 
                 mdef.mod_desc = type.mod_desc;
                 mdef.mod_version = type.mod_version;
                 mdef.mod_author = type.mod_author;
-                mdef.mod_icon = type.mod_fname.substr(0, pos + 1) + "icon.edj";
+                mdef.mod_icon = themepath + "/icon.edj";
                 mdef.mod_fname = type.mod_fname;
                 mdef.inst = cmod;
                 mdef.handle = type.handle;

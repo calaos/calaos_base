@@ -36,10 +36,9 @@ ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
 
         ecore_file_mkpath("/tmp/calaos_widgets");
 
-        //add search paths for python modules
-        ModuleManager::Instance().addPath("../calaos_modules/build/calaos_modules");
-        ModuleManager::Instance().addPath("/usr/share/calaos/modules");
-        ModuleManager::Instance().addPath("/mnt/ext3/calaos/modules");
+        //add search paths for modules
+        ModuleManager::Instance().addPath(PACKAGE_LIB_DIR "/calaos/widgets");
+        ModuleManager::Instance().addPath("/usr/lib/calaos/widgets");
         ModuleManager::Instance().SearchModules();
 
         LoadWidgets();
@@ -156,7 +155,7 @@ void ActivityWidgetsView::_AddWidget(Widget *o)
 
 void ActivityWidgetsView::LoadWidgets()
 {
-        std::string file = WIDGET_CONFIG;
+        std::string file = Utils::getConfigFile(WIDGET_CONFIG);
         TiXmlDocument document(file);
 
         if (!document.LoadFile())
@@ -231,7 +230,7 @@ void ActivityWidgetsView::SaveWidgets()
                 widgets[i]->Save(rootnode);
         }
 
-        string file = WIDGET_CONFIG;
+        string file = Utils::getConfigFile(WIDGET_CONFIG);
         document.SaveFile(file);
 }
 
