@@ -1,3 +1,3 @@
-SUBDIRS = default widgets
+SUBDIRS = clock
 
 MAINTAINERCLEANFILES = Makefile.in

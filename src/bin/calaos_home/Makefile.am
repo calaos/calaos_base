@@ -20,6 +20,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_home/views/GengridItems \
 -I$(top_srcdir)/src/bin/calaos_home/views/IO \
 -I$(top_srcdir)/src/bin/calaos_home/models \
+-I$(top_srcdir)/src/bin/calaos_home \
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_HOME_CFLAGS@ \
 -DETC_DIR=\"$(sysconfdir)/calaos\" \

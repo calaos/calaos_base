@@ -1,0 +1,90 @@
+// Calaos Home clock widget Needle part
+// HECKY Raoul
+// BOEHLER Frederic
+// 23/10/2007
+
+#ifdef NEEDLE
+#undef NEEDLE
+#endif
+
+#define NEEDLE(_num) \
+  description { \
+    state: _num 0.0; \
+    inherit: "default" 0.0; \
+    image { normal: "clock_"NEEDLE_TYPE"_"_num".png";} \
+    visible: 1; \
+  }
+
+part { 
+  name: NEEDLE_TYPE;
+  clip_to: "widget_whole";
+  description {
+    state: "default" 0.0;
+    image { normal: "clock_"NEEDLE_TYPE"_00.png";}
+    visible: 0;
+    rel1.to: "widget_whole";
+    rel2.to: "widget_whole";
+  }
+
+NEEDLE("00")
+NEEDLE("01")
+NEEDLE("02")
+NEEDLE("03")
+NEEDLE("04")
+NEEDLE("05")
+NEEDLE("06")
+NEEDLE("07")
+NEEDLE("08")
+NEEDLE("09")
+NEEDLE("10")
+NEEDLE("11")
+NEEDLE("12")
+NEEDLE("13")
+NEEDLE("14")
+NEEDLE("15")
+NEEDLE("16")
+NEEDLE("17")
+NEEDLE("18")
+NEEDLE("19")
+NEEDLE("20")
+NEEDLE("21")
+NEEDLE("22")
+NEEDLE("23")
+NEEDLE("24")
+NEEDLE("25")
+NEEDLE("26")
+NEEDLE("27")
+NEEDLE("28")
+NEEDLE("29")
+NEEDLE("30")
+NEEDLE("31")
+NEEDLE("32")
+NEEDLE("33")
+NEEDLE("34")
+NEEDLE("35")
+NEEDLE("36")
+NEEDLE("37")
+NEEDLE("38")
+NEEDLE("39")
+NEEDLE("40")
+NEEDLE("41")
+NEEDLE("42")
+NEEDLE("43")
+NEEDLE("44")
+NEEDLE("45")
+NEEDLE("46")
+NEEDLE("47")
+NEEDLE("48")
+NEEDLE("49")
+NEEDLE("50")
+NEEDLE("51")
+NEEDLE("52")
+NEEDLE("53")
+NEEDLE("54")
+NEEDLE("55")
+NEEDLE("56")
+NEEDLE("57")
+NEEDLE("58")
+NEEDLE("59")
+
+}

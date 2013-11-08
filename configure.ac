@@ -110,9 +110,13 @@ src/lib/Makefile
 src/bin/Makefile
 src/bin/calaos_server/Makefile
 src/bin/calaos_home/Makefile
+src/widgets/Makefile
+src/widgets/clock/Makefile
 data/Makefile
 data/themes/Makefile
 data/themes/default/Makefile
+data/themes/widgets/Makefile
+data/themes/widgets/clock/Makefile
 po/Makefile.in
 ])
 
