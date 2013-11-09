@@ -38,6 +38,7 @@
 #include "ActivityScheduleScenarioView.h"
 
 #include "ActivityConfigMenuView.h"
+#include "ActivityConfigClockView.h"
 
 static void _elm_button_quit(void *data, Evas_Object *obj, void *event_info)
 {
@@ -96,6 +97,7 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
                 case ACTIVITY_VIEW_SCENARIOS: view = new ActivityScenariosView(evas, parent); break;
                 case ACTIVITY_VIEW_CONFIG: view = new ActivityConfigView(evas, parent); break;
                 case ACTIVITY_VIEW_CONFIG_MENU: view = new ActivityConfigMenuView(evas, parent); break;
+                case ACTIVITY_VIEW_CONFIG_CLOCK: view = new ActivityConfigClockView(evas, parent); break;
                 case ACTIVITY_VIEW_MEDIA_MENU: view = new ActivityMediaMenuView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_LIST: view = new ActivityCameraListView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_SELECT: view = new ActivityCameraSelectView(evas, parent); break;

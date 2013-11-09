@@ -42,7 +42,8 @@ calaos_home_SOURCES = \
         views/ActivityMediaView.cpp				\
         views/ActivityScenariosView.cpp				\
         views/ActivityConfigView.cpp				\
-        views/ActivityConfigMenuView.cpp				\
+        views/ActivityConfigMenuView.cpp			\
+        views/ActivityConfigClockView.cpp			\
         views/ActivityWidgetsView.cpp				\
         views/ActivityMediaMenuView.cpp				\
         views/ActivityKeyboardView.cpp				\
@@ -52,6 +53,7 @@ calaos_home_SOURCES = \
         controllers/ActivityMediaController.cpp			\
         controllers/ActivityScenariosController.cpp		\
         controllers/ActivityConfigController.cpp		\
+        controllers/ActivityConfigClockController.cpp		\
         controllers/ActivityConfigMenuController.cpp		\
         controllers/ActivityWidgetsController.cpp		\
         controllers/ActivityMediaMenuController.cpp		\
@@ -182,7 +184,8 @@ calaos_home_SOURCES = \
 	controllers/ActivityCameraListController.h		\
 	controllers/ActivityScenariosController.h		\
 	controllers/ActivityConfigController.h			\
-	controllers/ActivityConfigMenuController.h			\
+	controllers/ActivityConfigClockController.h		\
+	controllers/ActivityConfigMenuController.h		\
 	controllers/ActivityScheduleScenarioController.h	\
 	controllers/ApplicationController.h			\
 	controllers/ActivityCameraSelectController.h		\
