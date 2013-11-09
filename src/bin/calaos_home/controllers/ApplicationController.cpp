@@ -106,7 +106,7 @@ ApplicationController::~ApplicationController()
         DELETE_NULL(homeController);
         DELETE_NULL(mediaController);
         DELETE_NULL(scenariosController);
-        DELETE_NULL(configController);
+        //DELETE_NULL(configController);
 
         DELETE_NULL(keyboardController);
         DELETE_NULL(webController);
