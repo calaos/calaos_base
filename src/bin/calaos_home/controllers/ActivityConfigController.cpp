@@ -19,7 +19,7 @@
 **
 ******************************************************************************/
 #include "ActivityConfigController.h"
-
+#include "ActivityConfigClockController.h"
 #include "ApplicationMain.h"
 
 ActivityConfigController::ActivityConfigController(Evas *e, Evas_Object *p):
@@ -51,6 +51,8 @@ void ActivityConfigController::menuIconClick(string icon)
 {
         if (icon == "clock")
         {
+                ActivityConfigClockController *controller = new ActivityConfigClockController(evas, parent, this);
+                addSubController(controller);
                 setButtonMode("mode,back");
         }
 }
