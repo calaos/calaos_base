@@ -9,24 +9,80 @@ group
 
    parts
    {
-        //this is always needed for all "main" view,
-        //it contains the back button and title parts
-        #include "activity_header_footer.edc"
+      //this is always needed for all "main" view,
+      //it contains the back button and title parts
+#include "activity_header_footer.edc"
 
-        part
-        {
-                name: "calaos.main.content";
-                type: SWALLOW;
-                clip_to: "content_clip";
-                description
-                {
-                        state: "default" 0.0;
-                        rel1.to: "content_size";
-                        rel2.to: "content_size";
-                }
-        }
+      part
+      {
+         name: "calaos.main.content";
+         type: SWALLOW;
+         clip_to: "content_clip";
+         description
+         {
+            state: "default" 0.0;
+            rel1.to: "content_size";
+            rel2.to: "content_size";
+         }
+      }
+      part
+      {
+         name: "clip_buttons_list";
+         clip_to: "content_clip";
+         type: RECT;
+         description
+         {
+            state: "default" 0.0;
+            rel1.to: "module_footer_background";
+            rel2.to: "module_footer_background";
+            visible: 0;
+            color: 255 255 255 0;
+         }
+         description
+         {
+            state: "visible" 0.0;
+            inherit: "default" 0.0;
+            visible: 1;
+            color: 255 255 255 255;
+         }
+      }
+
+      alias: "button.back" "button_back:button.back";
+      part
+      {
+         name: "button_back";
+         clip_to: "clip_buttons_list";
+         type: GROUP;
+         source: "button.back";
+         description
+         {
+            state: "default" 0.0;
+            rel1 { relative: 1.0 0.0; offset: -125-170 10; }
+            rel2 { relative: 1.0 0.0; offset: -125-10 44; }
+            rel1.to: "module_footer_background";
+            rel2.to: "module_footer_background";
+         }
+      }
    }
-
+   programs {
+      program {
+         name: "mode_media_camera_list";
+         signal: "mode,back";
+         source: "calaos";
+         action: STATE_SET "visible" 0.0;
+         transition: DECELERATE 0.8;
+         target: "clip_buttons_list";
+      }
+      program
+      {
+         name: "mode_config_menu";
+         signal: "mode,menu";
+         source: "calaos";
+         action: STATE_SET "default" 0.0;
+         transition: DECELERATE 0.8;
+         target: "clip_buttons_list";
+      }
+   }
 }
 
 group

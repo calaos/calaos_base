@@ -43,6 +43,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->item_selected.connect([=](void *data)
     {
         cout << "click on item clock!" << endl;
+        menu_item_clicked.emit("clock");
     });
 
     item = new GengridItemConfig(evas, grid, "Mot de passe", "security");

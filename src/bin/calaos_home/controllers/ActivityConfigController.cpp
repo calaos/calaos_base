@@ -49,28 +49,10 @@ void ActivityConfigController::createView()
 
 void ActivityConfigController::menuIconClick(string icon)
 {
-/*
-        if (icon == "eskiss")
+        if (icon == "clock")
         {
-                ecore_exe_run("eskiss -c=FALSE", NULL);
-        }
-        else if (icon == "camera")
-        {
-                ActivityCameraListController *controller = new ActivityCameraListController(evas, parent, this);
-                addSubController(controller);
                 setButtonMode("mode,back");
         }
-        else if (icon == "music")
-        {
-                ActivityAudioListController *controller = new ActivityAudioListController(evas, parent, this);
-                addSubController(controller);
-                setButtonMode("mode,back");
-        }
-        else if (icon == "web")
-        {
-                ApplicationMain::Instance().ShowWebBrowser();
-        }
-*/
 }
 
 void ActivityConfigController::buttonClick(string button)
