@@ -194,7 +194,7 @@ void ActivityWidgetsView::LoadWidgets()
                                 from_string(node->Attribute("height"), h);
 
                                 ModuleDef t;
-                                vector<ModuleDef> mods = ModuleManager::Instance().getModules();
+                                vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
                                 for (uint i = 0;i < mods.size();i++)
                                 {
                                         if (mods[i].mod_fname == type)

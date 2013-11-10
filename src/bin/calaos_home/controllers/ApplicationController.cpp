@@ -20,6 +20,7 @@
 ******************************************************************************/
 #include "ApplicationController.h"
 #include "ApplicationMain.h"
+#include "Modules.h"
 
 ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
         evas(_e),
@@ -282,11 +283,14 @@ void ApplicationController::onMenuAddWidgetClick()
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
-        GenlistItemSimple *item;
+        vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
 
-
-        item = new GenlistItemSimple(evas, glist, "widget", true);
-        item->Append(glist);
+        for (int i = 0;i < mods.size();i++)
+        {
+                ModuleDef def = mods[i];
+                GenlistItemSimple *item = new GenlistItemSimple(evas, glist, def.mod_name, true);
+                item->Append(glist);
+        }
 
         elm_table_pack(table, glist, 1, 1, 1, 1);
 

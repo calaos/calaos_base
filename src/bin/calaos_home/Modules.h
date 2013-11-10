@@ -84,7 +84,7 @@ class ModuleManager
                 void SearchModules();
 
                 // Get all available modules
-                vector<ModuleDef> getModules() { return modules; }
+                vector<ModuleDef> getAvailableModules() { return modules; }
 
                 // Create a new instance of mod_fname
                 bool createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef &mdef, string id);
