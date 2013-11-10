@@ -39,6 +39,7 @@ void _class::_click_##it_name() { on_##it_name##_click.emit(); }
 
 LIST_ITEM_CALLBACK(MainMenuView, reboot)
 LIST_ITEM_CALLBACK(MainMenuView, widget)
+LIST_ITEM_CALLBACK(MainMenuView, addwidget)
 LIST_ITEM_CALLBACK(MainMenuView, suspend)
 
 MainMenuView::MainMenuView(Evas *_e, Evas_Object *_p):
@@ -97,6 +98,11 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                 icon = elm_icon_add(list);
                 elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/widget");
                 elm_image_resizable_set(icon, true, true);
+                item_config_addwidget = elm_list_item_append(list, _("Add new widget."), icon, NULL, _item_addwidget_cb, this);
+
+                icon = elm_icon_add(list);
+                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/widget");
+                elm_image_resizable_set(icon, true, true);
                 item_config_widget = elm_list_item_append(list, _("Widgets configuration."), icon, NULL, _item_widget_cb, this);
 
                 icon = elm_icon_add(list);
@@ -129,8 +135,15 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                 }
 
                 //Update number of widgets
-                string nb = to_string(0); //TODO !
+                string nb = to_string(ApplicationMain::Instance().getMainController()->getWidgetController()->getWidgetCount());
                 nb += " Widgets";
+
+                edje_object_part_text_set(elm_list_item_object_get(item_config_addwidget), "object.more_infos",
+                                nb.c_str());
+                edje_object_part_text_set(elm_list_item_object_get(item_config_addwidget),
+                                          "object.description",
+                                          _("Add widgets on the desktop."));
+
                 edje_object_part_text_set(elm_list_item_object_get(item_config_widget), "object.more_infos",
                                 nb.c_str());
                 edje_object_part_text_set(elm_list_item_object_get(item_config_widget),

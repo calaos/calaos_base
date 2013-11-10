@@ -78,6 +78,7 @@ ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
         menuView->on_reboot_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuRebootClick));
         menuView->on_suspend_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuSuspendClick));
         menuView->on_widget_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuWidgetClick));
+        menuView->on_addwidget_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuAddWidgetClick));
 
         //Start the model instance
         CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ApplicationController::home_loaded));
@@ -268,6 +269,37 @@ void ApplicationController::onMenuWidgetClick()
         menuView->CloseLinkMenu();
 
         widgetsController->setEditMode();
+}
+
+void ApplicationController::onMenuAddWidgetClick()
+{
+        Evas_Object *table = createPaddingTable(evas, layout, 260, 200);
+
+        Evas_Object *glist = elm_genlist_add(layout);
+        elm_object_style_set(glist, "calaos");
+        elm_genlist_select_mode_set(glist, ELM_OBJECT_SELECT_MODE_ALWAYS);
+        evas_object_size_hint_fill_set(glist, EVAS_HINT_FILL, EVAS_HINT_FILL);
+        evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+        evas_object_show(glist);
+
+        GenlistItemSimple *item;
+
+
+        item = new GenlistItemSimple(evas, glist, "widget", true);
+        item->Append(glist);
+
+        elm_table_pack(table, glist, 1, 1, 1, 1);
+
+        Evas_Object *popup_position = elm_ctxpopup_add(layout);
+        elm_object_style_set(popup_position, "calaos");
+        evas_object_size_hint_min_set(popup_position, 300, 240);
+
+        elm_object_content_set(popup_position, table);
+
+        Evas_Coord x,y;
+        evas_pointer_canvas_xy_get(evas, &x, &y);
+        evas_object_move(popup_position, x, y);
+        evas_object_show(popup_position);
 }
 
 void ApplicationController::onMenuSuspendClick()

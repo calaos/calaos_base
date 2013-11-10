@@ -76,6 +76,7 @@ class EAPI ApplicationController: public sigc::trackable
 
                 void onMenuRebootClick();
                 void onMenuWidgetClick();
+                void onMenuAddWidgetClick();
                 void onMenuSuspendClick();
 
                 /* CalaosModel signals */
@@ -101,6 +102,7 @@ class EAPI ApplicationController: public sigc::trackable
                 void ShowScenarioEditor(Scenario *scenario);
                 void ShowScenarioSchedule(Scenario *scenario);
 
+                ActivityWidgetsController *getWidgetController() { return widgetsController; }
 };
 
 #endif // APPLICATIONCONTROLLER_H

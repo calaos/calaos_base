@@ -40,6 +40,8 @@ class ActivityWidgetsController: public ActivityController
 
                 void validEdit();
                 void cancelEdit();
+
+                int getWidgetCount();
 };
 
 #endif // ACTIVITYWIDGETSCONTROLLER_H

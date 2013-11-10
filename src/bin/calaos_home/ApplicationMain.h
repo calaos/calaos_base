@@ -96,6 +96,8 @@ class EAPI ApplicationMain
                 {
                         if (controller) controller->ShowScenarioSchedule(scenario);
                 }
+
+                ApplicationController *getMainController() { return controller; }
 };
 
 #endif // APPLICATIONMAIN_H

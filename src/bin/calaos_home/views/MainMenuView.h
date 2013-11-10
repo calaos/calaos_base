@@ -33,11 +33,13 @@ class MainMenuView: public BaseView
                 //These are for private use to get callbacks from C code.
                 void _click_reboot();
                 void _click_suspend();
+                void _click_addwidget();
                 void _click_widget();
 
         private:
                 Evas_Object *list;
 
+                Elm_Object_Item *item_config_addwidget;
                 Elm_Object_Item *item_config_widget;
                 Elm_Object_Item *item_sleep_screen;
                 Elm_Object_Item *item_reboot;
@@ -78,6 +80,7 @@ class MainMenuView: public BaseView
                 sigc::signal<void> on_reboot_click;
                 sigc::signal<void> on_suspend_click;
                 sigc::signal<void> on_widget_click;
+                sigc::signal<void> on_addwidget_click;
 
                 sigc::signal<void> on_menu_open;
                 sigc::signal<void> on_menu_close;

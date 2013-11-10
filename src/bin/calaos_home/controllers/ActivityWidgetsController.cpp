@@ -63,3 +63,11 @@ void ActivityWidgetsController::cancelEdit()
         wview->ResetPosition();
         wview->NormalMode();
 }
+
+int ActivityWidgetsController::getWidgetCount()
+{
+        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+        if (!wview) return 0;
+
+        return wview->size();
+}
