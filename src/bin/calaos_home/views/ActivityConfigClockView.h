@@ -29,6 +29,8 @@ using namespace Utils;
 
 class ActivityConfigClockView: public ActivityView
 {
+        private:
+             Evas_Object *tzList;
 
         public:
                 ActivityConfigClockView(Evas *evas, Evas_Object *parent);

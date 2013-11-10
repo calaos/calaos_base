@@ -932,8 +932,20 @@ group
       /* LIST_LEVEL_LEFT("timezone","module_whole","module_clock_timezone","module_whole","timezone",0.0,0.0,0,10*3+8,0.0,0.0,82+183*3+2*5,582) */
 
          // end clock configuration
+   
 
-
+     part {
+      name: "timezone_list.swallow";
+      type: SWALLOW;
+      description {
+      rel1.relative: 0 1.0;
+      rel1.to:  "module_clock_conf_timezone_desc";
+      rel1.offset: 0 8;
+      rel2.relative: 1.0 1.0;
+      rel2.to_x: "module_clock_conf_timezone_desc";
+      rel2.to_y: "module_controls_sizer";
+      }
+     }
      part {
          name: "module_controls_deco";
          description {
