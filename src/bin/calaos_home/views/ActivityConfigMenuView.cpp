@@ -27,6 +27,8 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
 
     grid = elm_gengrid_add(_parent);
 
+    elm_gengrid_select_mode_set(grid, ELM_OBJECT_SELECT_MODE_ALWAYS);
+
     elm_object_style_set(grid, "calaos");
     evas_object_show(grid);
 
