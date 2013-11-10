@@ -149,6 +149,7 @@ collections
         #include "elm/elm_genlist_item_playlist.edc"
         #include "elm/elm_genlist_item_browser_album.edc"
         #include "elm/elm_genlist_item_scenario_schedule.edc"
+        #include "elm/elm_genlist_widget.edc"
         #include "elm/elm_slider_knob.edc"
         #include "elm/elm_entry_keyboard.edc"
         #include "elm/elm_calendar.edc"

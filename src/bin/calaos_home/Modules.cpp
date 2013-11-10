@@ -96,14 +96,21 @@ void ModuleManager::SearchModules()
                                         continue;
                                 }
 
-                                string::size_type pos = p.find_last_of('/');
+                                string module_name;
+                                vector<string> tok;
+                                Utils::split(p, tok, "/");
+                                if (tok.size() > 2)
+                                        module_name = tok[tok.size() - 2];
+
+                                string themepath = PACKAGE_DATA_DIR;
+                                themepath += "/widgets/" + module_name;
 
                                 ModuleDef mdef;
                                 mdef.mod_name = api->name;
                                 mdef.mod_desc = api->desc;
                                 mdef.mod_version = api->version;
                                 mdef.mod_author = api->author;
-                                mdef.mod_icon = p.substr(0, pos + 1) + "icon.edj";
+                                mdef.mod_icon = themepath + "/icon.edj";
                                 mdef.mod_fname = p;
                                 mdef.handle = handle;
                                 mdef.inst = NULL;
@@ -153,6 +160,7 @@ bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef 
                 mdef.api = type.api;
 
                 Utils::logger("module") << Priority::INFO << "ModuleManager: New module instance: " << mdef.mod_name << log4cpp::eol;
+                Utils::logger("module") << Priority::INFO << "ModuleManager: module icon: " << mdef.mod_icon << log4cpp::eol;
 
                 mods_inst.push_back(mdef);
 

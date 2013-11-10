@@ -21,6 +21,7 @@
 #include "ApplicationController.h"
 #include "ApplicationMain.h"
 #include "Modules.h"
+#include "GenlistItemWidget.h"
 
 ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
         evas(_e),
@@ -285,10 +286,10 @@ void ApplicationController::onMenuAddWidgetClick()
 
         vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
 
-        for (int i = 0;i < mods.size();i++)
+        for (uint i = 0;i < mods.size();i++)
         {
                 ModuleDef def = mods[i];
-                GenlistItemSimple *item = new GenlistItemSimple(evas, glist, def.mod_name, true);
+                GenlistItemWidget *item = new GenlistItemWidget(evas, glist, def);
                 item->Append(glist);
         }
 
@@ -314,7 +315,7 @@ void ApplicationController::onMenuSuspendClick()
 
 void ApplicationController::home_loaded()
 {
-        cout << CalaosModel::Instance().toString() << endl;
+        //cout << CalaosModel::Instance().toString() << endl;
 }
 
 void ApplicationController::login_failed(string host)

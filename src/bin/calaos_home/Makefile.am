@@ -103,6 +103,8 @@ calaos_home_SOURCES = \
         views/GenlistItems/GenlistItemScenarioScheduleTime.cpp	\
         views/GenlistItems/GenlistItemScenarioAction.cpp	\
         views/GenlistItems/GenlistItemScenarioHeader.cpp	\
+        views/GenlistItems/GenlistItemWidget.cpp	\
+        views/GenlistItems/GenlistItemWidget.h	\
         views/PagingView.cpp					\
         views/KeyboardView.cpp					\
         EvasSmart.cpp						\
