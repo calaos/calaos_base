@@ -284,6 +284,10 @@ void ApplicationController::onMenuAddWidgetClick()
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
+        Evas_Object *popup = elm_ctxpopup_add(layout);
+        elm_object_style_set(popup, "calaos");
+        evas_object_size_hint_min_set(popup, 300, 240);
+
         vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
 
         for (uint i = 0;i < mods.size();i++)
@@ -291,20 +295,23 @@ void ApplicationController::onMenuAddWidgetClick()
                 ModuleDef def = mods[i];
                 GenlistItemWidget *item = new GenlistItemWidget(evas, glist, def);
                 item->Append(glist);
+                item->item_selected.connect([this,i,popup](void *)
+                {
+                        vector<ModuleDef> m = ModuleManager::Instance().getAvailableModules();
+                        widgetsController->AddWidget(m[i], 200, 200);
+                        elm_ctxpopup_dismiss(popup);
+                        menuView->CloseLinkMenu();
+                });
         }
 
         elm_table_pack(table, glist, 1, 1, 1, 1);
 
-        Evas_Object *popup_position = elm_ctxpopup_add(layout);
-        elm_object_style_set(popup_position, "calaos");
-        evas_object_size_hint_min_set(popup_position, 300, 240);
-
-        elm_object_content_set(popup_position, table);
+        elm_object_content_set(popup, table);
 
         Evas_Coord x,y;
         evas_pointer_canvas_xy_get(evas, &x, &y);
-        evas_object_move(popup_position, x, y);
-        evas_object_show(popup_position);
+        evas_object_move(popup, x, y);
+        evas_object_show(popup);
 }
 
 void ApplicationController::onMenuSuspendClick()

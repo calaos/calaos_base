@@ -71,3 +71,11 @@ int ActivityWidgetsController::getWidgetCount()
 
         return wview->size();
 }
+
+bool ActivityWidgetsController::AddWidget(ModuleDef &mtype, int x, int y, int w, int h, string id)
+{
+        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+        if (!wview) return false;
+
+        return wview->AddWidget(mtype, x, y, w, h, id);
+}
