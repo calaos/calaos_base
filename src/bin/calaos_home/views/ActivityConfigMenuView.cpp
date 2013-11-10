@@ -53,6 +53,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->item_selected.connect([=](void *data)
     {
         cout << "click on item security!" << endl;
+        menu_item_clicked.emit("security");
     });
 
     item = new GengridItemConfig(evas, grid, "Mise en Veille", "veille");
