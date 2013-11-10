@@ -38,7 +38,7 @@ class ActivityConfigPasswordView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return "Configuration de l'heure et de la data"; }
+                virtual string getTitle() { return "Configuration du mot de passe"; }
 };
 
 #endif // ActivityConfigPasswordView_H
