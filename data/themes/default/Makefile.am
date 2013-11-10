@@ -834,6 +834,8 @@ elm/elm_gengrid_item_config.edc			\
 structure/page_camera.edc			\
 structure/room_prog_macro.edc			\
 structure/page_config_panel.edc			\
+structure/page_config_clock_panel.edc		\
+structure/page_config_password_panel.edc	\
 structure/activity_header_footer.edc		\
 structure/page_widgets.edc			\
 structure/keyboard_macros.edc			\

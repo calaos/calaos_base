@@ -102,6 +102,8 @@ collections
 
         // calaos/page/config
         #include "structure/page_config_panel.edc"
+        #include "structure/page_config_clock_panel.edc"
+        #include "structure/page_config_password_panel.edc"
 
         // calaos/page/keyboard
         #include "structure/page_keyboard.edc"
