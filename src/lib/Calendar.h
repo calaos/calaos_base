@@ -39,7 +39,7 @@ class TimeZoneElt
                 string country;
                 /* le dcalage horaire sous forme de chaine de caractre */
                 string decalageStr;
-                /* le dcalage horaire sous forme d'entier (non utilis) */
+                /* le dcalage horaire  sous forme d'entier (non utilis) */
                 int decalage;
                 /* le code du pays (fr, de ...) */
                 string code;

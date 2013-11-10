@@ -31,35 +31,34 @@ const char *Calendar::M[] =
 
 TimeZone::TimeZone()
 {
-        timeZone.push_back(TimeZoneElt("Europe/London", "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
-        timeZone.push_back(TimeZoneElt("Europe/Lisbon", "Europe / Portugal / Lisbonne", "GMT+00:00", 0, "pt"));
-        timeZone.push_back(TimeZoneElt("Europe/Paris", "Europe / France / Paris", "GMT+01:00", 1, "fr"));
-        timeZone.push_back(TimeZoneElt("Europe/Zurich", "Europe / Suisse / Zurich", "GMT+01:00", 1, "ch"));
-        timeZone.push_back(TimeZoneElt("Europe/Berlin", "Europe / Allemagne / Berlin", "GMT+01:00", 1, "de"));
-        timeZone.push_back(TimeZoneElt("Europe/Madrid", "Europe / Espagne / Madrid", "GMT+01:00", 1, "es"));
-        timeZone.push_back(TimeZoneElt("Europe/Rome", "Europe / Italie / Rome", "GMT+01:00", 1, "it"));
-        timeZone.push_back(TimeZoneElt("Europe/Helsinki", "Europe / Finland / Helsinki", "GMT+02:00", 2, "fi"));
-        timeZone.push_back(TimeZoneElt("Asia/Moscow", "Asie / Russie / Moscou", "GMT+03:00", 3, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Samara", "Asie / Russie / Samara", "GMT+04:00", 4, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Yekaterinburg", "Asie / Russie / Yekaterinburg", "GMT+05:00", 5, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Kolkata", "Asie / Inde / Calcutta", "GMT+05:30", 5, "ru"));
-
-        timeZone.push_back(TimeZoneElt("Asia/Omsk", "Asie / Russie / Omsk", "GMT+06:00", 6, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Krasnoyarsk", "Asie / Russie / Krasnoyarsk", "GMT+07:00", 7, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Shanghai", "Asie / Chine / Shanghai", "GMT+08:00", 8, "ch"));
-        timeZone.push_back(TimeZoneElt("Asia/Tokyo", "Asie / Japon / Tokyo", "GMT+09:00", 9, "jp"));
-        timeZone.push_back(TimeZoneElt("Asia/Vladivostok", "Asie / Russie / Vladivostok", "GMT+10:00", 10, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Magadan", "Asie / Russie / Magadan", "GMT+11:00", 11, "ru"));
-        timeZone.push_back(TimeZoneElt("Asia/Anadyr", "Asie / Russie / Anadyr", "GMT+12:00", 12, "ru"));
+        Eina_Iterator *it, *it2;
+        const Eina_File_Direct_Info *f_info, *f_info2;
 
 
 
-        timeZone.push_back(TimeZoneElt("America/Los_Angeles", "Amérique / États Unis / Los Angeles", "GMT-08:00", -8, "us"));
-        timeZone.push_back(TimeZoneElt("America/Denver", "Amérique / États Unis / Denver", "GMT-07:00", -7, "us"));
-        timeZone.push_back(TimeZoneElt("America/Chicago", "Amérique / États Unis / Chicago", "GMT-06:00", -6, "us"));
-        timeZone.push_back(TimeZoneElt("America/New_York", "Amérique / États Unis / New York", "GMT-05:00", -5, "us"));
-        timeZone.push_back(TimeZoneElt("America/Halifax", "Amérique / Canada / Halifax", "GMT-04:00", -5, "ca"));
-        timeZone.push_back(TimeZoneElt("America/Belem", "Amérique / Brézil / Belem", "GMT-03:00", -6, "bt"));
+        it = eina_file_direct_ls("/usr/share/zoneinfo");
+        EINA_ITERATOR_FOREACH(it, f_info)
+        {
+                if (f_info->type == EINA_FILE_DIR)
+                {
+                        it2 = eina_file_direct_ls(f_info->path);
+                        EINA_ITERATOR_FOREACH(it2, f_info2)
+                        {
+                                if (f_info2->type == EINA_FILE_REG)
+                                {
+                                        string tz;
+                                        tz = string(ecore_file_file_get(f_info->path)) + "/" + string(f_info2->path + f_info2->name_start);
+                                        timeZone.push_back(TimeZoneElt(tz.c_str(), "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
+                                        printf("Regular file : %s \n", tz.c_str());
+                                }
+                        }
+                }
+                else
+                {
+                      timeZone.push_back(TimeZoneElt( f_info->path, "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
+                }
+        }
+        eina_iterator_free(it);
 
         loadCurrentTimeZone();
 }
@@ -84,6 +83,7 @@ int TimeZone::loadCurrentTimeZone()
                                 return i;
                         }
         }
+
         current = -1;
         return -1;
 }
