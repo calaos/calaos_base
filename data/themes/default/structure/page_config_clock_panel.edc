@@ -1,3 +1,154 @@
+#define ELEMENT_ACTION_BUTTON_CHECKBOX(id, rel1_to, rel2_to, img_uncheck, img_check, img_glow, src, sig_uncheck, sig_check, src_apps, sig_apps_uncheck, sig_apps_check, rel1_x, rel1_y, offset1_x, offset1_y, rel2_x, rel2_y, offset2_x, offset2_y) \
+part { \
+  name: id; \
+  type: RECT; \
+  description { \
+    state: "default" 0.0; \
+    visible: 0; \
+    rel1 { relative: rel1_x  rel1_y; offset: offset1_x  offset1_y;} \
+    rel2 { relative: rel2_x  rel2_y; offset: offset2_x  offset2_y;} \
+    rel1.to: rel1_to; \
+    rel2.to: rel2_to; \
+    color: 255 255 255 0; \
+  } \
+  description { \
+    state: "active" 0.0; \
+    inherit: "default" 0.0; \
+    visible: 1; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+part { \
+  name: id"_img_uncheck"; \
+  clip_to: id; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    image { normal: img_uncheck; } \
+    rel1.to: id; \
+    rel2.to: id; \
+    color: 255 255 255 255; \
+  } \
+  description { \
+    state: "not_visible" 0.0; \
+    inherit: "default" 0.0;\
+    visible: 0; \
+  } \
+} \
+part { \
+  name: id"_img_check"; \
+  clip_to: id; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 1; \
+    image { normal: img_check; } \
+    rel1.to: id; \
+    rel2.to: id; \
+    color: 255 255 255 255; \
+  } \
+  description { \
+    state: "not_visible" 0.0; \
+    inherit: "default" 0.0;\
+    visible: 0; \
+  } \
+} \
+ \
+part { \
+  name: id"_img_glow"; \
+  clip_to: id; \
+  type: IMAGE; \
+  description { \
+    state: "default" 0.0; \
+    visible: 0; \
+    image { normal: img_glow; } \
+    rel1.to: id; \
+    rel2.to: id; \
+    color: 255 255 255 0; \
+  } \
+  description { \
+    state: "touched" 0.0; \
+    inherit: "default" 0.0; \
+    visible: 1; \
+    color: 255 255 255 255; \
+  } \
+} \
+ \
+program { \
+  name, "init_"id; \
+  signal, "show"; \
+  source, ""; \
+  action, STATE_SET "active" 0.0; \
+  transition, DECELERATE 0.5; \
+  target, id; \
+} \
+ \
+program { \
+  name, "set_touched_uncheck_"id; \
+  signal, "mouse,up,1"; \
+  source, id"_img_uncheck"; \
+  action, STATE_SET "touched" 0.0; \
+  target, id"_img_glow"; \
+  action, SIGNAL_EMIT sig_uncheck src; \
+  transition, ACCELERATE 0.00001; \
+  after, "set_untouched_"id; \
+} \
+program { \
+  name, "set_touched_check_"id; \
+  signal, "mouse,up,1"; \
+  source, id"_img_check"; \
+  action, STATE_SET "touched" 0.0; \
+  target, id"_img_glow"; \
+  action, SIGNAL_EMIT sig_check src; \
+  transition, ACCELERATE 0.00001; \
+  after, "set_untouched_"id; \
+} \
+program { \
+  name, "set_check_"id; \
+  signal, sig_apps_check; 	\
+  source, src_apps; 		\
+  action, STATE_SET "default" 0.0; 	\
+  target, id"_img_check"; 		\
+  after, "set_check_"id"_2"; 		\
+} \
+program { \
+  name, "set_check_"id"_2"; \
+  action, STATE_SET "not_visible" 0.0; 	\
+  target, id"_img_uncheck"; 		\
+} \
+program { \
+  name, "set_uncheck_"id; \
+  signal, sig_apps_uncheck; 	\
+  source, src_apps; 		\
+  action, STATE_SET "not_visible" 0.0; 	\
+  target, id"_img_check"; 		\
+  after, "set_uncheck_"id"_2"; 		\
+} \
+program { \
+  name, "set_uncheck_"id"_2"; \
+  action, STATE_SET "default" 0.0; 	\
+  target, id"_img_uncheck"; 		\
+} \
+\
+program { \
+  name, "set_untouched_"id; \
+  action, STATE_SET "default" 0.0; \
+  transition, DECELERATE 0.5; \
+  target, id"_img_glow"; \
+} \
+\
+program { \
+  name, "uninit_"id; \
+  signal, "hide"; \
+  source, ""; \
+  action, STATE_SET "default" 0.0; \
+  target, id; \
+  target, id"_img_check"; \
+  target, id"_img_glow"; \
+  target, id"_img_uncheck"; \
+}
 
 group
 {
