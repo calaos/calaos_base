@@ -39,6 +39,7 @@
 
 #include "ActivityConfigMenuView.h"
 #include "ActivityConfigClockView.h"
+#include "ActivityConfigPasswordView.h"
 
 static void _elm_button_quit(void *data, Evas_Object *obj, void *event_info)
 {
@@ -98,6 +99,7 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
                 case ACTIVITY_VIEW_CONFIG: view = new ActivityConfigView(evas, parent); break;
                 case ACTIVITY_VIEW_CONFIG_MENU: view = new ActivityConfigMenuView(evas, parent); break;
                 case ACTIVITY_VIEW_CONFIG_CLOCK: view = new ActivityConfigClockView(evas, parent); break;
+                case ACTIVITY_VIEW_CONFIG_PASSWORD: view = new ActivityConfigPasswordView(evas, parent); break;
                 case ACTIVITY_VIEW_MEDIA_MENU: view = new ActivityMediaMenuView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_LIST: view = new ActivityCameraListView(evas, parent); break;
                 case ACTIVITY_VIEW_CAMERA_SELECT: view = new ActivityCameraSelectView(evas, parent); break;
@@ -135,6 +137,8 @@ string ActivityViewFactory::viewTypeString(int viewType)
                 case ACTIVITY_VIEW_SCENARIOS: return "ActivityScenariosView";
                 case ACTIVITY_VIEW_CONFIG: return "ActivityConfigView";
                 case ACTIVITY_VIEW_CONFIG_MENU: return "ActivityConfigMenuView";
+                case ACTIVITY_VIEW_CONFIG_CLOCK: return "ActivityConfigClockView";
+                case ACTIVITY_VIEW_CONFIG_PASSWORD: return "ActivityConfigPasswordView";
                 case ACTIVITY_VIEW_CAMERA_SELECT: return "ActivityCameraSelectView";
                 case ACTIVITY_VIEW_CAMERA_LIST: return "ActivityCameraListView";
                 case ACTIVITY_VIEW_AUDIO_LIST: return "ActivityAudioListView";
