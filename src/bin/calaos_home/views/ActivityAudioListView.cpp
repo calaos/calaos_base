@@ -30,6 +30,7 @@
 #include "GenlistItems/GenlistItemBrowserPlaylist.h"
 #include "GenlistItems/GenlistItemPlaylistHeader.h"
 #include "GenlistItems/GenlistItemRadio.h"
+#include "ActivityIntl.h"
 #include <FileDownloader.h>
 
 ActivityAudioListView::ActivityAudioListView(Evas *_e, Evas_Object *_parent):
@@ -88,28 +89,28 @@ void ActivityAudioListView::createRootBrowserPage()
         EdjeObject *obj;
         Params &stats = player_current->getPlayer()->getDBStats();
 
-        obj = createRootButton("Mes Albums", "Accédez à tous vos albums.", stats["albums"], 0, 0);
+        obj = createRootButton(_("My Albums"), _("Access to your albums."), stats["albums"], 0, 0);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowAlbums));
 
-        obj = createRootButton("Artistes", "Afficher par artistes.", stats["artists"], 0, 1);
+        obj = createRootButton(_("Artists"), _("Display by artists."), stats["artists"], 0, 1);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowArtists));
 
-        obj = createRootButton("Années", "Pistes triées par années.", stats["years"], 1, 0);
+        obj = createRootButton(_("Years"), _("Sort songs by year."), stats["years"], 1, 0);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowYears));
 
-        obj = createRootButton("Genres", "Afficher les titres par genres.", stats["genres"], 1, 1);
+        obj = createRootButton(_("Genre"), "Afficher les titres par genres.", stats["genres"], 1, 1);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowGenres));
 
-        obj = createRootButton("Dossier de musique", "Parcourir la musique par dossier.", "", 2, 0);
+        obj = createRootButton(_("Music Directory"), "Navigate your music library by directory.", "", 2, 0);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowFolders));
 
-        obj = createRootButton("Playlists", "Vos playlists sauvegardées.", stats["playlists"], 2, 1);
+        obj = createRootButton(_("Playlists"), "Your saved playlists", stats["playlists"], 2, 1);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowPlaylists));
 
-        obj = createRootButton("Radios", "Radios web et services en ligne.", "", 3, 0);
+        obj = createRootButton(_("Radios"), _("Web radios web and online service."), "", 3, 0);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowRadios));
 
-        obj = createRootButton("Rechercher...", "Chercher dans votre collection.", "", 3, 1);
+        obj = createRootButton(_("Search..."), _("Search into your music library."), "", 3, 1);
         obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowSearch));
 
         it_browser_root = elm_naviframe_item_push(pager_browser, NULL, NULL, NULL, browser_root->getEvasObject(), "calaos");
@@ -772,7 +773,7 @@ void ActivityAudioListView::itemRadioLoaded(list<Params> &infos)
 
 void ActivityAudioListView::searchRadioSelected(void *data, string radioid, string subitem_id)
 {
-        ApplicationMain::Instance().ShowKeyboard("Recherche dans les radios", sigc::bind(
+        ApplicationMain::Instance().ShowKeyboard(_("Search into radios"), sigc::bind(
                                                          sigc::mem_fun(*this, &ActivityAudioListView::searchRadioKeyboard_cb),
                                                          radioid, subitem_id), false);
 }
@@ -786,7 +787,7 @@ void ActivityAudioListView::searchRadioKeyboard_cb(string text, string radioid, 
 
 void ActivityAudioListView::browserShowSearch(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
-        ApplicationMain::Instance().ShowKeyboard("Recherche dans la base de données de musique",
+        ApplicationMain::Instance().ShowKeyboard(_("Search into your music library"),
                                                  sigc::mem_fun(*this, &ActivityAudioListView::searchDBKeyboard_cb),
                                                  false);
 }

@@ -22,6 +22,7 @@
 #include <GenlistItems/GenlistItemSimple.h>
 #include <GenlistItems/GenlistItemSimpleHeader.h>
 #include <ActivityWidgetsView.h>
+#include <ActivityIntl.h>
 
 static void _edje_widget_cb(void *data, Evas_Object *obj, const char *emission, const char *source)
 {
@@ -202,11 +203,11 @@ void Widget::Callback(Evas_Object *edj, std::string emission, std::string source
                 evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
                 evas_object_show(glist);
 
-                string title_label = "Confirmation<br><small><light_blue>Êtes-vous sûr de vouloir supprimer ce widget?</light_blue></small>";
+                string title_label = _("Confirmation<br><small><light_blue>Are you sure to want delete this widget?</light_blue></small>");
                 GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
                 header->Append(glist);
 
-                GenlistItemSimple *item = new GenlistItemSimple(evas, parent, "Oui, supprimer le widget", true);
+                GenlistItemSimple *item = new GenlistItemSimple(evas, parent, _("Yes, del this widget"), true);
                 item->Append(glist, header);
                 item->item_selected.connect(sigc::mem_fun(*this, &Widget::deleteValid));
 

@@ -23,13 +23,14 @@
 #include "GenlistItemScenarioHeader.h"
 #include "GenlistItemScenarioScheduleTime.h"
 #include "GenlistItemSimpleHeader.h"
+#include "ActivityIntl.h"
 
 ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/schedule_scenario"),
         schedule_list(NULL),
         month_list(NULL)
 {
-        setPartText("header.label", "Planification horaire");
+        setPartText("header.label", _("Scheduling"));
 
         addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonPressed));
 
@@ -48,78 +49,78 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
 
         GenlistItemScenarioHeader *header;
         GenlistItemSimple *item;
-        header = new GenlistItemScenarioHeader(evas, parent, "Mois de l'année");
+        header = new GenlistItemScenarioHeader(evas, parent, _("Month of year"));
         header->Append(month_list);
 
-        item = new GenlistItemSimple(evas, parent, "Toute l'année", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("All year"), true, false, NULL, "check");
         item->Append(month_list);
         item_all = item;
         item_all->setSelected(true);
 
-        item = new GenlistItemSimple(evas, parent, "Janvier", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("January"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Février", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("February"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Mars", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("March"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Avril", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("April"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Mai", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("May"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Juin", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("June"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Juillet", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("July"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Aout", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("August"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Septembre", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("September"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Octobre", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("October"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Novembre", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("November"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Décembre", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("December"), true, false, NULL, "check");
         item->Append(month_list);
         items_months.push_back(item);
 
         header = new GenlistItemScenarioHeader(evas, parent, "Périodes prédéfinies");
         header->Append(month_list);
 
-        item = new GenlistItemSimple(evas, parent, "Printemps", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("Spring"), true, false, NULL, "check");
         item->Append(month_list);
         items_periods.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Eté", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("Summer"), true, false, NULL, "check");
         item->Append(month_list);
         items_periods.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Automne", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("Fall"), true, false, NULL, "check");
         item->Append(month_list);
         items_periods.push_back(item);
 
-        item = new GenlistItemSimple(evas, parent, "Hiver", true, false, NULL, "check");
+        item = new GenlistItemSimple(evas, parent, _("Winter"), true, false, NULL, "check");
         item->Append(month_list);
         items_periods.push_back(item);
 
@@ -220,13 +221,13 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
         GenlistItemSimpleHeader *header = NULL;
         if (editState == EDIT_START_TYPE)
         {
-                title_label = "Début de la planification<br><small><light_blue>Heure de départ du scénario</light_blue></small>";
+                title_label = _("Start of schedulling<br><small><light_blue>Start time of the scenario</light_blue></small>");
                 header = new GenlistItemSimpleHeader(evas, glist, title_label);
                 header->Append(glist);
         }
         else
         {
-                title_label = "Fin de la planification<br><small><light_blue>Heure de fin du scénario</light_blue></small>";
+                title_label = _("End of schedulling<br><small><light_blue>End time of the scenario</light_blue></small>");
                 header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
                 header->Append(glist);
                 header->setButtonLabel("button.back", "Début");
@@ -239,10 +240,10 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
         {
                 switch (i)
                 {
-                case 0: item = new GenlistItemSimple(evas, glist, "Utiliser une heure fixe", true, false, new int(TimeRange::HTYPE_NORMAL)); break;
-                case 1: item = new GenlistItemSimple(evas, glist, "Utiliser le lever du soleil", true, false, new int(TimeRange::HTYPE_SUNRISE)); break;
-                case 2: item = new GenlistItemSimple(evas, glist, "Utiliser le coucher du soleil", true, false, new int(TimeRange::HTYPE_SUNSET)); break;
-                case 3: item = new GenlistItemSimple(evas, glist, "Utiliser le soleil de midi", true, false, new int(TimeRange::HTYPE_NOON)); break;
+                case 0: item = new GenlistItemSimple(evas, glist, _("Use a fixed time"), true, false, new int(TimeRange::HTYPE_NORMAL)); break;
+                case 1: item = new GenlistItemSimple(evas, glist, _("Use the sunrise"), true, false, new int(TimeRange::HTYPE_SUNRISE)); break;
+                case 2: item = new GenlistItemSimple(evas, glist, _("Use the sunset"), true, false, new int(TimeRange::HTYPE_SUNSET)); break;
+                case 3: item = new GenlistItemSimple(evas, glist, _("Use the midday sun"), true, false, new int(TimeRange::HTYPE_NOON)); break;
                 default: break;
                 }
 
@@ -299,7 +300,7 @@ void ActivityScheduleScenarioView::selectTimeType(void *data)
                 evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
                 evas_object_show(glist);
 
-                string title_label = "<b>Décalage de l'heure</b><br><light_blue><small>Vous pouvez choisir de décaler l'heure du soleil</small></light_blue>";
+                string title_label = _("<b>Offset time</b><br><light_blue><small>You can choose to shift the sun time</small></light_blue>");
                 GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
                 header->Append(glist);
                 header->setButtonLabel("button.back", "Début");
@@ -311,9 +312,9 @@ void ActivityScheduleScenarioView::selectTimeType(void *data)
                 {
                         switch (i)
                         {
-                        case 0: item = new GenlistItemSimple(evas, glist, "Utiliser l'heure exacte du soleil", true, false, new int(i)); break;
-                        case 1: item = new GenlistItemSimple(evas, glist, "Ajouter une durée", true, false, new int(i)); break;
-                        case 2: item = new GenlistItemSimple(evas, glist, "Soustraire une durée", true, false, new int(i)); break;
+                        case 0: item = new GenlistItemSimple(evas, glist, _("Use the exact sun time"), true, false, new int(i)); break;
+                        case 1: item = new GenlistItemSimple(evas, glist, _("Add time"), true, false, new int(i)); break;
+                        case 2: item = new GenlistItemSimple(evas, glist, _("Substract time"), true, false, new int(i)); break;
                         default: break;
                         }
 
@@ -408,13 +409,13 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
                 page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::showWeekSelection));
         string t;
         if (editState == EDIT_START_TIME)
-                t = "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de départ du scénario</small></light_blue>";
+                t = _("<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</small></light_blue>");
         else if (editState == EDIT_END_TIME)
-                t = "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de fin du scénario</small></light_blue>";
+                t = _("<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</small></light_blue>");
         else if (editState == EDIT_START_TIME_OFFSET)
-                t = "<b>Choisir une heure de décalage</b><br><light_blue><small>Heure de décalage de début du scénario</small></light_blue>";
+                t = _("<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</small></light_blue>");
         else if (editState == EDIT_END_TIME_OFFSET)
-                t = "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de décalage de fin du scénario</small></light_blue>";
+                t = _("<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</small></light_blue>");
         page->setPartText("text", t);
 
         int hour_value, min_value, sec_value;
@@ -442,7 +443,7 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
 
         *spin_hour = elm_spinner_add(parent);
         elm_object_style_set(*spin_hour, "calaos/time/vertical");
-        elm_spinner_label_format_set(*spin_hour, "%.0f<br><subtitle>Heures</subtitle>");
+        elm_spinner_label_format_set(*spin_hour, _("%.0f<br><subtitle>Hours</subtitle>"));
         elm_spinner_min_max_set(*spin_hour, 0, 99);
         elm_spinner_step_set(*spin_hour, 1);
         elm_spinner_interval_set(*spin_hour, 0.15);
@@ -452,7 +453,7 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
 
         *spin_min = elm_spinner_add(parent);
         elm_object_style_set(*spin_min, "calaos/time/vertical");
-        elm_spinner_label_format_set(*spin_min, "%.0f<br><subtitle>Min.</subtitle>");
+        elm_spinner_label_format_set(*spin_min, _("%.0f<br><subtitle>Min.</subtitle>"));
         elm_spinner_min_max_set(*spin_min, 0, 59);
         elm_spinner_step_set(*spin_min, 1);
         elm_spinner_interval_set(*spin_min, 0.15);
@@ -462,7 +463,7 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
 
         *spin_sec = elm_spinner_add(parent);
         elm_object_style_set(*spin_sec, "calaos/time/vertical");
-        elm_spinner_label_format_set(*spin_sec, "%.0f<br><subtitle>Sec.</subtitle>");
+        elm_spinner_label_format_set(*spin_sec, _("%.0f<br><subtitle>Sec.</subtitle>"));
         elm_spinner_min_max_set(*spin_sec, 0, 59);
         elm_spinner_step_set(*spin_sec, 1);
         elm_spinner_interval_set(*spin_sec, 0.15);
@@ -505,7 +506,7 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
         elm_genlist_multi_select_set(glist, true);
         evas_object_show(glist);
 
-        string title_label = "Jours de la semaine<br><small><light_blue>Jours de la semaine où le scénario sera exécuté.</light_blue></small>";
+        string title_label = _("Days of the week<br><small><light_blue>Days of the week when scenario is executed.</light_blue></small>");
         GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation");
         header->Append(glist);
 
@@ -524,15 +525,15 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
                 string label;
                 switch (i)
                 {
-                case 0: label = "Tous les jours"; break;
-                case 1: label = "Lundi"; break;
-                case 2: label = "Mardi"; break;
-                case 3: label = "Mercredi"; break;
-                case 4: label = "Jeudi"; break;
-                case 5: label = "Vendredi"; break;
-                case 6: label = "Samedi"; break;
-                case 7: label = "Dimanche"; break;
-                default: label = "ERROR";
+                case 0: label = _("Everyday"); break;
+                case 1: label = _("Monday"); break;
+                case 2: label = _("Tuesday"); break;
+                case 3: label = _("Wednesday"); break;
+                case 4: label = _("Thursday"); break;
+                case 5: label = _("Friday"); break;
+                case 6: label = _("Saturday"); break;
+                case 7: label = _("Sunday"); break;
+                default: label = _("ERROR");
                 }
 
                 item = new GenlistItemSimple(evas, glist, label, true, false, NULL, "check");

@@ -24,6 +24,7 @@
 #include <ApplicationMain.h>
 #include <GenlistItemSimpleHeader.h>
 #include <GenlistItemSimple.h>
+#include "ActivityIntl.h"
 
 ActivityPlayerObject::ActivityPlayerObject(Evas *_e, Evas_Object *_p):
         evas(_e),
@@ -60,12 +61,12 @@ void ActivityPlayerObject::resetPlayer()
 {
         if (!object) return;
 
-        object->setPartText("player.name", "Aucune zone");
+        object->setPartText("player.name", _("No zone"));
         object->setPartText("player.volume", "0%");
         object->setPartText("player.type", "Na");
-        object->setPartText("player.artist", "Aucun");
-        object->setPartText("player.album", "Aucun");
-        object->setPartText("player.title", "Aucune");
+        object->setPartText("player.artist", _("None"));
+        object->setPartText("player.album", _("None"));
+        object->setPartText("player.title", _("None"));
         object->setPartText("player.year", "Na");
         object->setPartText("player.duration", "0:00");
 
@@ -73,12 +74,12 @@ void ActivityPlayerObject::resetPlayer()
 
         if (small_player)
         {
-                small_player->setPartText("player.name", "Aucune zone");
+                small_player->setPartText("player.name", _("No zone"));
                 small_player->setPartText("player.volume", "0%");
                 small_player->setPartText("player.type", "Na");
-                small_player->setPartText("player.artist", "Aucun");
-                small_player->setPartText("player.album", "Aucun");
-                small_player->setPartText("player.title", "Aucune");
+                small_player->setPartText("player.artist", _("None"));
+                small_player->setPartText("player.album", _("None"));
+                small_player->setPartText("player.title", _("None"));
                 small_player->setPartText("player.year", "Na");
                 small_player->setPartText("player.duration", "0:00");
 
@@ -250,9 +251,9 @@ void ActivityPlayerObject::onTrackChange()
         type = player->current_song_info["type"];
         duration = player->current_song_info["duration"];
 
-        if (artist == "") artist = "Aucun";
-        if (album == "") album = "Aucun";
-        if (title == "") title = "Aucune";
+        if (artist == "") artist = _("None");
+        if (album == "") album = _("None");
+        if (title == "") title = _("None");
         if (year == "") year = "Na";
         if (type == "") type = "Na";
         if (duration == "") duration = "0:00";

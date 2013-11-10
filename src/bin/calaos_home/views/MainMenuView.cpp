@@ -22,13 +22,7 @@
 #include "config.h"
 #endif
 
-#ifdef ENABLE_NLS
-# include <libintl.h>
-# define _(x) gettext(x)
-#else
-# define _(x) (x)
-#endif
-
+#include "ActivityIntl.h"
 #include "MainMenuView.h"
 #include "ApplicationMain.h"
 
