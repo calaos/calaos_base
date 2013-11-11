@@ -74,6 +74,16 @@ void ModuleManager::SearchModules()
                         if (!ecore_file_exists(p.c_str()))
                                 continue;
 
+                        bool alreadyin = false;
+                        for (uint im = 0;im < modules.size() && !alreadyin;im++)
+                        {
+                                ModuleDef mdef = modules[im];
+                                if (p == mdef.mod_fname)
+                                        alreadyin = true;
+                        }
+
+                        if (alreadyin) continue;
+
                         //try to load the module
                         void *handle = dlopen(p.c_str(), RTLD_LAZY);
 
