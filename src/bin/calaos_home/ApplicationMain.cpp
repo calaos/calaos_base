@@ -26,6 +26,7 @@
 
 #include <openssl/ssl.h>
 #include <curl/curl.h>
+#include <Ecore_Evas.h>
 
 string ApplicationMain::theme = THEME_DIR"/default.edj";
 
@@ -87,6 +88,8 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         window = elm_win_add(NULL, "calaos-home", ELM_WIN_BASIC);
         elm_win_title_set(window, "Calaos Home");
         elm_win_borderless_set(window, true);
+
+        ecore_evas_focus_set(ecore_evas_ecore_evas_get(evas_object_evas_get(window)), true);
 
         //Automatically quit main loop when the window is closed
         elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
