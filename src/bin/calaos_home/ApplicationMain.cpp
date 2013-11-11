@@ -89,8 +89,6 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         elm_win_title_set(window, "Calaos Home");
         elm_win_borderless_set(window, true);
 
-        ecore_evas_focus_set(ecore_evas_ecore_evas_get(evas_object_evas_get(window)), true);
-
         //Automatically quit main loop when the window is closed
         elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
         elm_win_autodel_set(window, true);
@@ -138,6 +136,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
 
         evas_object_resize(window, 1024, 768);
         evas_object_show(window);
+        ecore_evas_focus_set(ecore_evas_ecore_evas_get(evas_object_evas_get(window)), true);
 
         Resize();
 
