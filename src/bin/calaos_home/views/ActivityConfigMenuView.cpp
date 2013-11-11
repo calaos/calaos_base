@@ -64,27 +64,6 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         menu_item_clicked.emit("screensaver");
     });
 
-    item = new GengridItemConfig(evas, grid, "Elements de la maison", "info");
-    item->Append(grid);
-    item->item_selected.connect([=](void *data)
-    {
-        cout << "click on item house items!" << endl;
-    });
-
-    item = new GengridItemConfig(evas, grid, "Les Scénarios", "unknown");
-    item->Append(grid);
-    item->item_selected.connect([=](void *data)
-    {
-        cout << "click on item scenarios!" << endl;
-    });
-
-    item = new GengridItemConfig(evas, grid, "Calaos network", "network");
-    item->Append(grid);
-    item->item_selected.connect([=](void *data)
-    {
-        cout << "click on item network!" << endl;
-    });
-
     elm_naviframe_item_push(naviframe, NULL, NULL, NULL, grid, "calaos");
 
 }
