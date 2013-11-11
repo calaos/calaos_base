@@ -73,50 +73,6 @@ ActivityConfigMenuView::~ActivityConfigMenuView()
     evas_object_del(grid);
 }
 
-void ActivityConfigMenuView::addIcon(int position, string type)
-{
-
-        //if (Utils::get_config_option("enable_media_" + type) != "false")
-        {
-                EdjeObject *obj = new EdjeObject(theme, evas);
-                obj->LoadEdje("calaos/icons/menu/media/" + type);
-                obj->addCallback("menu", "click," + type, sigc::mem_fun(*this, &ActivityConfigMenuView::ItemCallback));
-                Swallow(obj, string("icon.") + Utils::to_string(position));
-                obj->EmitSignal("show", "calaos");
-                obj->Show();
-                items.push_back(obj);
-                position++;
-        }
-
-}
-
-void ActivityConfigMenuView::ItemCallback(void *data, Evas_Object *_edje, string emission, string source)
-{
-        if (source != "menu") return;
-
-        if (emission == "click,music")
-        {
-                menu_item_clicked.emit("music");
-        }
-        else if (emission == "click,camera")
-        {
-                menu_item_clicked.emit("camera");
-        }
-        else if (emission == "click,photos")
-        {
-                menu_item_clicked.emit("photos");
-        }
-        else if (emission == "click,web")
-        {
-                menu_item_clicked.emit("web");
-        }
-        else if (emission == "click,eskiss")
-        {
-                menu_item_clicked.emit("eskiss");
-        }
-
-}
-
 void ActivityConfigMenuView::resetView()
 {
 }
