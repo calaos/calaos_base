@@ -21,6 +21,7 @@
 #include "ActivityConfigController.h"
 #include "ActivityConfigClockController.h"
 #include "ActivityConfigPasswordController.h"
+#include "ActivityConfigScreensaverController.h"
 #include "ApplicationMain.h"
 
 ActivityConfigController::ActivityConfigController(Evas *e, Evas_Object *p):
@@ -59,6 +60,12 @@ void ActivityConfigController::menuIconClick(string icon)
         else if (icon == "security")
         {
                 ActivityConfigPasswordController *controller = new ActivityConfigPasswordController(evas, parent);
+                addSubController(controller);
+                setButtonMode("mode,back");
+        }
+        else if (icon == "screensaver")
+        {
+                ActivityConfigScreensaverController *controller = new ActivityConfigScreensaverController(evas, parent);
                 addSubController(controller);
                 setButtonMode("mode,back");
         }

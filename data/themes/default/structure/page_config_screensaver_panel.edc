@@ -1,0 +1,21 @@
+group
+{
+   name: "calaos/page/config/screensaver";
+      
+   parts
+   {  
+      /////////////////////////////////////////////////////////
+      //////// clock configuration                       //////
+      /////////////////////////////////////////////////////////
+      part {
+         name: "clipper";
+         type: RECT;
+         description {
+            state, "default" 0.0;
+            visible: 1;
+            color: 255 255 255 255;
+         }
+      }
+   }
+
+}

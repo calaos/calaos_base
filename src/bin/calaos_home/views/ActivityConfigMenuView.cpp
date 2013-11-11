@@ -61,6 +61,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->item_selected.connect([=](void *data)
     {
         cout << "click on item veille!" << endl;
+        menu_item_clicked.emit("screensaver");
     });
 
     item = new GengridItemConfig(evas, grid, "Elements de la maison", "info");
