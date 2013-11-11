@@ -39,7 +39,7 @@ class ActivityConfigMenuView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return "Multimédia"; }
+                virtual string getTitle() { return "Centre de configuration"; }
 
                 sigc::signal<void, string> menu_item_clicked;
 };
