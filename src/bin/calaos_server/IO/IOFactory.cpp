@@ -48,6 +48,8 @@
 #include <AVReceiver.h>
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
+#include <ZibaseAnalogIn.h>
+
 
 using namespace Calaos;
 
@@ -135,6 +137,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         else if (type == "WebAnalogIn")
         {
                 in = new WebAnalogIn(params);
+	}
+	else if (type == "ZibaseAnalogIn")
+        {
+                in = new ZibaseAnalogIn(params);
         }
         else if (type == "scenario")
         {
