@@ -147,7 +147,7 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
                                         string key, value;
                                         events.get_item(i, key, value);
 
-                                        result.Add(to_string(c), key + ":" + url_encode(value));
+                                        result.Add(Utils::to_string(c), key + ":" + url_encode(value));
 
                                         c++;
                                 }

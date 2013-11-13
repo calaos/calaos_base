@@ -203,21 +203,21 @@ string IOWODaliRVBHomeView::getLabelItem(Evas_Object *obj, string part)
                 int r, g, b;
                 io->getRGBValueFromState(r, g, b);
 
-                text = to_string(r) + "%";
+                text = Utils::to_string(r) + "%";
         }
         else if (part == "text.value.green")
         {
                 int r, g, b;
                 io->getRGBValueFromState(r, g, b);
 
-                text = to_string(g) + "%";
+                text = Utils::to_string(g) + "%";
         }
         else if (part == "text.value.blue")
         {
                 int r, g, b;
                 io->getRGBValueFromState(r, g, b);
 
-                text = to_string(b) + "%";
+                text = Utils::to_string(b) + "%";
         }
 
         return text;
@@ -313,7 +313,7 @@ void IOWODaliRVBHomeView::sliderSignalCallback(void *data, Evas_Object *edje_obj
                 if (slider == slider_blue) b = x * 100;
 
                 string action = "set ";
-                action += to_string(io->computeStateFromRGBValue(r, g, b));
+                action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
                 if (io) io->sendAction(action);
 
@@ -347,7 +347,7 @@ void IOWODaliRVBHomeView::buttonClickRedMore()
         if (r > 100) r = 100;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }
@@ -363,7 +363,7 @@ void IOWODaliRVBHomeView::buttonClickRedLess()
         if (r < 0) r = 0;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }
@@ -379,7 +379,7 @@ void IOWODaliRVBHomeView::buttonClickGreenMore()
         if (g > 100) g = 100;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }
@@ -395,7 +395,7 @@ void IOWODaliRVBHomeView::buttonClickGreenLess()
         if (g < 0) g = 0;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }
@@ -411,7 +411,7 @@ void IOWODaliRVBHomeView::buttonClickBlueMore()
         if (b > 100) b = 100;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }
@@ -427,7 +427,7 @@ void IOWODaliRVBHomeView::buttonClickBlueLess()
         if (b < 0) b = 0;
 
         string action = "set ";
-        action += to_string(io->computeStateFromRGBValue(r, g, b));
+        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
 
         io->sendAction(action);
 }

@@ -153,9 +153,9 @@ string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
                 if (percent == 0)
                         text = "Etat : <light_blue>Ouvert.</light_blue>";
                 else if (percent > 0 && percent < 50)
-                        text = "Etat : <light_blue>Ouvert à " + to_string(percent) + "%.</light_blue>";
+                        text = "Etat : <light_blue>Ouvert à " + Utils::to_string(percent) + "%.</light_blue>";
                 else if (percent >= 50 && percent < 100)
-                        text = "Etat : <light_blue>Fermé à " + to_string(percent) + "%.</light_blue>";
+                        text = "Etat : <light_blue>Fermé à " + Utils::to_string(percent) + "%.</light_blue>";
                 else if (percent == 100)
                         text = "Etat : <light_blue>Fermé.</light_blue>";
         }

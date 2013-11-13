@@ -140,17 +140,17 @@ void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
 void WODaliRVB::setColorReal(int r, int g, int b)
 {
         string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
-                     " " + get_param("raddress") + " " + to_string((r * 100) / 255) +
+                     " " + get_param("raddress") + " " + Utils::to_string((r * 100) / 255) +
                      " " + get_param("rfade_time");
         WagoMap::Instance(host, port).SendUDPCommand(cmd);
 
         cmd = "WAGO_DALI_SET " + get_param("gline") + " " + get_param("ggroup") +
-                     " " + get_param("gaddress") + " " + to_string((g * 100) / 255) +
+                     " " + get_param("gaddress") + " " + Utils::to_string((g * 100) / 255) +
                      " " + get_param("gfade_time");
         WagoMap::Instance(host, port).SendUDPCommand(cmd);
 
         cmd = "WAGO_DALI_SET " + get_param("bline") + " " + get_param("bgroup") +
-                     " " + get_param("baddress") + " " + to_string((b * 100) / 255) +
+                     " " + get_param("baddress") + " " + Utils::to_string((b * 100) / 255) +
                      " " + get_param("bfade_time");
         WagoMap::Instance(host, port).SendUDPCommand(cmd);
 }

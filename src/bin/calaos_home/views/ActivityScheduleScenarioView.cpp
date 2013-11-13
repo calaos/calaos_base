@@ -195,9 +195,9 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
                 if (edit_range.start_type == TimeRange::HTYPE_NORMAL ||
                     edit_range.start_offset != 0)
                 {
-                        edit_range.shour = to_string(elm_spinner_value_get(spin_start_hours));
-                        edit_range.smin = to_string(elm_spinner_value_get(spin_start_min));
-                        edit_range.ssec = to_string(elm_spinner_value_get(spin_start_sec));
+                        edit_range.shour = Utils::to_string(elm_spinner_value_get(spin_start_hours));
+                        edit_range.smin = Utils::to_string(elm_spinner_value_get(spin_start_min));
+                        edit_range.ssec = Utils::to_string(elm_spinner_value_get(spin_start_sec));
                 }
                 else
                 {
@@ -483,9 +483,9 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
                 if (edit_range.end_type == TimeRange::HTYPE_NORMAL ||
                     edit_range.end_offset != 0)
                 {
-                        edit_range.ehour = to_string(elm_spinner_value_get(spin_end_hours));
-                        edit_range.emin = to_string(elm_spinner_value_get(spin_end_min));
-                        edit_range.esec = to_string(elm_spinner_value_get(spin_end_sec));
+                        edit_range.ehour = Utils::to_string(elm_spinner_value_get(spin_end_hours));
+                        edit_range.emin = Utils::to_string(elm_spinner_value_get(spin_end_min));
+                        edit_range.esec = Utils::to_string(elm_spinner_value_get(spin_end_sec));
                 }
         }
         else

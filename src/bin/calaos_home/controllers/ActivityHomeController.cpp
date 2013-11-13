@@ -248,7 +248,7 @@ void ActivityHomeController::lights_changed(int count)
         else if (count == 1)
                 t = "1 lumière est allumée";
         else
-                t = to_string(count) + " lumières sont allumées";
+                t = Utils::to_string(count) + " lumières sont allumées";
 
         homeView->setLightsOnText(t);
 }
@@ -263,7 +263,7 @@ void ActivityHomeController::shutter_changed(int count)
         else if (count == 1)
                 t = "1 volet est ouvert";
         else
-                t = to_string(count) + " volets sont ouverts";
+                t = Utils::to_string(count) + " volets sont ouverts";
 
         homeView->setShuttersUpText(t);
 }

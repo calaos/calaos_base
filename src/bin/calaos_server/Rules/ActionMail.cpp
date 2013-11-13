@@ -84,14 +84,14 @@ bool ActionMail::Execute()
                 do
                 {
                         tmpFile = "/tmp/calaos_mail_attachment_";
-                        tmpFile += to_string(cpt);
+                        tmpFile += Utils::to_string(cpt);
                         cpt++;
                 }
                 while (ecore_file_exists(tmpFile.c_str()));
 
                 /* Autodestroy file downloader. Will send an ipc when done */
                 FileDownloader* downloader = new FileDownloader(camera->get_picture(), tmpFile, true);
-                IPC::Instance().AddHandler("downloader::" + to_string(downloader), "*",
+                IPC::Instance().AddHandler("downloader::" + Utils::to_string(downloader), "*",
                                            sigDownload, msg);
                 downloader->Start();
         }

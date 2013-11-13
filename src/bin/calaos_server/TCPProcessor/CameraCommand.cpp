@@ -156,7 +156,7 @@ void TCPConnection::CameraCommand(Params &request, ProcessDone_cb callback)
                         {
                                 for (int i = 4;i < request.size();i++)
                                 {
-                                        std::string p = request[to_string(i)];
+                                        std::string p = request[Utils::to_string(i)];
                                         vector<string> splitter;
                                         Utils::split(p, splitter, ":", 2);
 

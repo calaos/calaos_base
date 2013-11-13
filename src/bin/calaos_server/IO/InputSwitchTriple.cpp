@@ -72,7 +72,7 @@ void InputSwitchTriple::TimerDone()
 
                 string sig = "input ";
                 sig += get_param("id") + " ";
-                sig += Utils::url_encode(string("state:") + to_string(value));
+                sig += Utils::url_encode(string("state:") + Utils::to_string(value));
                 IPC::Instance().SendEvent("events", sig);
 
                 //reset input value to 0 after 250ms (simulate button press/release)

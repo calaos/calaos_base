@@ -100,7 +100,7 @@ std::string Planet::get_mjpeg_stream()
                 //get local ip
                 string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
-                url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + to_string(id);
+                url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + Utils::to_string(id);
         }
 
         return url;
@@ -144,7 +144,7 @@ std::string Planet::get_picture()
                 //get local ip
                 string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
 
-                url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + to_string(id);
+                url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + Utils::to_string(id);
         }
         else
                 url = get_picture_real();
@@ -380,7 +380,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
                         Utils::from_string(value, pos);
                         pos--;
                         string url = "http://" + user + param["host"] + ":" + param["port"];
-                        url += "/goform/adminptpreset?f_presetidx=" + to_string(pos);
+                        url += "/goform/adminptpreset?f_presetidx=" + Utils::to_string(pos);
 
                         Calaos::CallUrl(url);
                 }

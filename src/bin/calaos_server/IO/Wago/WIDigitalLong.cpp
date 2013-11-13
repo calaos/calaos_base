@@ -49,7 +49,7 @@ void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::str
                     (intype == "knx" && get_param("knx") == "true"))
                 {
                         Utils::logger("input") << Priority::INFO << "WIDigitalLong::ReceiveFromWago(): Got "
-                                               << to_string(val) << " on " << intype << " input " << addr
+                                               << Utils::to_string(val) << " on " << intype << " input " << addr
                                                << log4cpp::eol;
 
                         udp_value = val;

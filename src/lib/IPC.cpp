@@ -182,7 +182,7 @@ void IPC::BroadcastEvent()
                         events.erase(itd);
 
                         Utils::logger("ipc") << Priority::DEBUG << "IPC::BroadcastEvent(\"" <<
-                                msg.source<<"\"  ,  \""<<msg.emission<< "\" , " <<to_string(msg.data)+")" << log4cpp::eol;
+                                msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")" << log4cpp::eol;
 
                         list<IPCSignal>::iterator it;
 

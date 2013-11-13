@@ -52,7 +52,7 @@ string GenlistItemTrack::getLabelItem(Evas_Object *obj, string part)
                 {
                 case TRACK_ALBUM: player->getDBAlbumTrackItem(command_id, item_id, sigc::mem_fun(*this, &GenlistItemTrack::albumItemGet_cb)); break;
                 case TRACK_PLAYLIST: player->getDBPlaylistTrackItem(command_id, item_id, sigc::mem_fun(*this, &GenlistItemTrack::albumItemGet_cb)); break;
-                case TRACK_ID: player->getDBTrackInfos(to_string(item_id), sigc::mem_fun(*this, &GenlistItemTrack::albumItemGet_cb));
+                case TRACK_ID: player->getDBTrackInfos(Utils::to_string(item_id), sigc::mem_fun(*this, &GenlistItemTrack::albumItemGet_cb));
                 }
 
                 in_query = true;
@@ -155,7 +155,7 @@ void GenlistItemTrack::buttonClickMore()
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
-        string title_label = "Info de la <light_blue>piste #" + to_string(item_id + 1) + "</light_blue><br><small>Détails de la piste.</small>";
+        string title_label = "Info de la <light_blue>piste #" + Utils::to_string(item_id + 1) + "</light_blue><br><small>Détails de la piste.</small>";
         GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
 
@@ -210,7 +210,7 @@ void GenlistItemTrack::buttonClickMore()
                 from_string(item_infos["filesize"], s);
                 s /= 1024;
                 s /= 1024;
-                infolabel = to_string(s) + " Mo";
+                infolabel = Utils::to_string(s) + " Mo";
                 GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Taille :", infolabel);
                 it->Append(glist, header);
         }

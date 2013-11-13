@@ -133,7 +133,7 @@ void ActivityWebView::_webLoadProgress()
 {
         setDragValue("progress.level", elm_web_load_progress_get(web), 0.0);
 
-        string t = to_string((int)(elm_web_load_progress_get(web) * 100)) + " %";
+        string t = Utils::to_string((int)(elm_web_load_progress_get(web) * 100)) + " %";
         setPartText("progress.text", t);
 }
 

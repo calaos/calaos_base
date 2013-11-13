@@ -149,8 +149,8 @@ void Room::set_type(std::string &s)
 void Room::set_hits(int h)
 {
         string sig = "modify_room ";
-        sig += url_encode(string("old_room_hits:") + to_string(hits)) + " ";
-        sig += url_encode(string("new_room_hits:") + to_string(h)) + " ";
+        sig += url_encode(string("old_room_hits:") + Utils::to_string(hits)) + " ";
+        sig += url_encode(string("new_room_hits:") + Utils::to_string(h)) + " ";
         sig += url_encode(string("room_name:") + name) + " ";
         sig += url_encode(string("room_type:") + type);
         IPC::Instance().SendEvent("events", sig);
@@ -243,7 +243,7 @@ bool Room::SaveToXml(TiXmlElement *node)
         TiXmlElement *room_node = new TiXmlElement("calaos:room");
         room_node->SetAttribute("name", name);
         room_node->SetAttribute("type", type);
-        room_node->SetAttribute("hits", to_string(hits));
+        room_node->SetAttribute("hits", Utils::to_string(hits));
         node->LinkEndChild(room_node);
 
         for (int i = 0;i < get_size_in();i++)

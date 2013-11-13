@@ -119,7 +119,7 @@ string IOWODaliHomeView::getLabelItem(Evas_Object *obj, string part)
                 double value = io->getDaliValueFromState();
                 int percent = (int)value;
 
-                text = to_string(percent) + "%";
+                text = Utils::to_string(percent) + "%";
         }
 
         return text;
@@ -188,7 +188,7 @@ void IOWODaliHomeView::sliderSignalCallback(void *data, Evas_Object *edje_object
                 slider->getDragValue("slider", &x, NULL);
 
                 string action = "set ";
-                action += to_string((int)(x * 100.0));
+                action += Utils::to_string((int)(x * 100.0));
 
                 if (io) io->sendAction(action);
 
@@ -216,7 +216,7 @@ void IOWODaliHomeView::buttonClickMore()
         if (!io) return;
 
         string action = "set ";
-        action += to_string((int)(io->getDaliValueFromState() + 1));
+        action += Utils::to_string((int)(io->getDaliValueFromState() + 1));
 
         io->sendAction(action);
 }
@@ -226,7 +226,7 @@ void IOWODaliHomeView::buttonClickLess()
         if (!io) return;
 
         string action = "set ";
-        action += to_string((int)(io->getDaliValueFromState() - 1));
+        action += Utils::to_string((int)(io->getDaliValueFromState() - 1));
 
         io->sendAction(action);
 }

@@ -194,7 +194,7 @@ void AVROnkyo::processMessage(string msg)
                         istringstream iss(msg);
                         iss >> hex >> volume_main;
 
-                        state_changed_1.emit("volume", to_string(volume_main));
+                        state_changed_1.emit("volume", Utils::to_string(volume_main));
                 }
         }
         else if (msg.substr(0, 3) == "ZVL") //zone2 volume changed
@@ -205,7 +205,7 @@ void AVROnkyo::processMessage(string msg)
                         istringstream iss(msg);
                         iss >> hex >> volume_zone2;
 
-                        state_changed_2.emit("volume", to_string(volume_zone2));
+                        state_changed_2.emit("volume", Utils::to_string(volume_zone2));
                 }
         }
         else if (msg.substr(0, 3) == "VL3") //zone3 volume changed
@@ -216,7 +216,7 @@ void AVROnkyo::processMessage(string msg)
                         istringstream iss(msg);
                         iss >> hex >> volume_zone3;
 
-                        state_changed_3.emit("volume", to_string(volume_zone3));
+                        state_changed_3.emit("volume", Utils::to_string(volume_zone3));
                 }
         }
         else if (msg == "PWR00") //power off
@@ -255,7 +255,7 @@ void AVROnkyo::processMessage(string msg)
                 if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_main = inputFromString(msg);
-                        state_changed_1.emit("input_source", to_string(source_main));
+                        state_changed_1.emit("input_source", Utils::to_string(source_main));
                 }
         }
         else if (msg.substr(0, 3) == "SLZ") //zone 2 input source changed
@@ -264,7 +264,7 @@ void AVROnkyo::processMessage(string msg)
                 if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_zone2 = inputFromString(msg);
-                        state_changed_2.emit("input_source", to_string(source_main));
+                        state_changed_2.emit("input_source", Utils::to_string(source_main));
                 }
         }
         else if (msg.substr(0, 3) == "SL3") //zone 3 input source changed
@@ -273,7 +273,7 @@ void AVROnkyo::processMessage(string msg)
                 if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_zone3 = inputFromString(msg);
-                        state_changed_3.emit("input_source", to_string(source_main));
+                        state_changed_3.emit("input_source", Utils::to_string(source_main));
                 }
         }
 

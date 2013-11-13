@@ -113,7 +113,7 @@ void CamConnection::ProcessRequest(string &request)
                 //Get a picture from the camera
                 bool ret;
 
-                string _url = url;// + "?dummy=" + to_string(cpt); //force the webserver to reload the picture
+                string _url = url;// + "?dummy=" + Utils::to_string(cpt); //force the webserver to reload the picture
 
                 //clear old frame
                 if (pict_buffer)

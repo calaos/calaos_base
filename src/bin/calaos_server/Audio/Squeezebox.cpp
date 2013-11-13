@@ -123,7 +123,7 @@ Squeezebox::Squeezebox(Params &p):
         {
                 Utils::from_string(param["port"], port_cli);
                 port_web = 9000;
-                param.Add("port_cli", to_string(port_cli));
+                param.Add("port_cli", Utils::to_string(port_cli));
                 param.Add("port_web", "9000");
         }
         if (param.Exists("port"))
@@ -372,7 +372,7 @@ void Squeezebox::processNotificationMessage(string msg)
         {
                 if (p["2"] == "open" || p["2"] == "newsong") //current song changes !
                 {
-                        string notify = "songchanged player " + to_string(pid);
+                        string notify = "songchanged player " + Utils::to_string(pid);
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -386,7 +386,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 }
                 else if (p["2"] == "move")
                 {
-                        string notify = "playlist move " + p["3"] + " " + p["4"] + " " + to_string(pid);;
+                        string notify = "playlist move " + p["3"] + " " + p["4"] + " " + Utils::to_string(pid);;
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -400,7 +400,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 }
                 else if (p["2"] == "delete")
                 {
-                        string notify = "playlist delete " + p["3"] + " " + to_string(pid);;
+                        string notify = "playlist delete " + p["3"] + " " + Utils::to_string(pid);;
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -414,7 +414,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 }
                 else if (p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play" || p["2"] == "load")
                 {
-                        string notify = "playlist reload " + to_string(pid);;
+                        string notify = "playlist reload " + Utils::to_string(pid);;
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -428,7 +428,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 }
                 else if (p["2"] == "addtracks" || p["2"] == "add")
                 {
-                        string notify = "playlist tracksadded " + to_string(pid);;
+                        string notify = "playlist tracksadded " + Utils::to_string(pid);;
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -442,7 +442,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 }
                 else if (p["2"] == "clear")
                 {
-                        string notify = "playlist cleared " + to_string(pid);;
+                        string notify = "playlist cleared " + Utils::to_string(pid);;
 
                         ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -491,7 +491,7 @@ void Squeezebox::processNotificationMessage(string msg)
         //volume change
         if (p["1"] == "mixer" && p["2"] == "volume")
         {
-                string notify = "volumechanged " + to_string(pid) + " " + p["3"];
+                string notify = "volumechanged " + Utils::to_string(pid) + " " + p["3"];
 
                 ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
 
@@ -677,7 +677,7 @@ void Squeezebox::Power(bool on)
 void Squeezebox::Sleep(int seconds)
 {
         string cmd = id;
-        cmd += " sleep " + to_string(seconds);
+        cmd += " sleep " + Utils::to_string(seconds);
 
         sendRequest(cmd);
 }
@@ -766,7 +766,7 @@ void Squeezebox::get_songinfo_title_cb(AudioPlayerData data)
 }
 void Squeezebox::get_songinfo_duration_cb(AudioPlayerData data)
 {
-        data.get_chain_data().params.Add("duration", to_string(data.dvalue));
+        data.get_chain_data().params.Add("duration", Utils::to_string(data.dvalue));
 
         //force getting album cover for remote stream (radio, music services)
         data.get_chain_data().params.Add("coverart", "1");
@@ -1065,7 +1065,7 @@ void Squeezebox::get_album_cover_id(string track_id, AudioRequest_cb callback, A
 void Squeezebox::get_playlist_album_cover(int item, AudioRequest_cb callback, AudioPlayerData user_data)
 {
         string cmd = id;
-        cmd += " playlist path " + to_string(item) + " ?";
+        cmd += " playlist path " + Utils::to_string(item) + " ?";
 
         AudioPlayerData data;
         data.callback = callback;
@@ -1169,7 +1169,7 @@ void Squeezebox::get_current_time_cb(bool status, string request, string result,
 void Squeezebox::set_current_time(double seconds)
 {
         string cmd = id;
-        cmd += " time " + to_string(seconds);
+        cmd += " time " + Utils::to_string(seconds);
 
         sendRequest(cmd);
 }
@@ -1370,7 +1370,7 @@ void Squeezebox::get_playlist_current_cb(bool status, string request, string res
 void Squeezebox::get_playlist_item(int index, AudioRequest_cb callback, AudioPlayerData user_data)
 {
         string cmd = id;
-        cmd += " playlist path " + to_string(index) + " ?";
+        cmd += " playlist path " + Utils::to_string(index) + " ?";
 
         AudioPlayerData data;
         data.set_chain_data(new AudioPlayerData(user_data));
@@ -1401,7 +1401,7 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
         if (p.size() <= 5)
         {
                 string cmd = id;
-                cmd += " playlist title " + to_string(data.ivalue) + " ?";
+                cmd += " playlist title " + Utils::to_string(data.ivalue) + " ?";
 
                 sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item3_cb), data);
 
@@ -1410,7 +1410,7 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
 
         for (int i = 5;i < p.size();i++)
         {
-                string value = p[to_string(i)];
+                string value = p[Utils::to_string(i)];
                 vector<string> attr;
                 split(url_decode2(value), attr, ":", 2);
 
@@ -1465,7 +1465,7 @@ void Squeezebox::get_playlist_item5_cb(bool status, string request, string resul
 void Squeezebox::get_playlist_basic_info(int index, AudioRequest_cb callback, AudioPlayerData user_data)
 {
         string cmd = id;
-        cmd += " playlist artist " + to_string(index) + " ?";
+        cmd += " playlist artist " + Utils::to_string(index) + " ?";
 
         AudioPlayerData data;
         data.set_chain_data(new AudioPlayerData(user_data));
@@ -1489,13 +1489,13 @@ void Squeezebox::get_playlist_info_cb(bool status, string request, string result
         if (key == "artist")
         {
                 string cmd = id;
-                cmd += " playlist album " + to_string(data.ivalue) + " ?";
+                cmd += " playlist album " + Utils::to_string(data.ivalue) + " ?";
                 sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
         }
         else if (key == "album")
         {
                 string cmd = id;
-                cmd += " playlist title " + to_string(data.ivalue) + " ?";
+                cmd += " playlist title " + Utils::to_string(data.ivalue) + " ?";
                 sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
         }
         else
@@ -1729,7 +1729,7 @@ void Squeezebox::set_volume(int vol)
 {
         string cmd = id;
         cmd += " mixer volume ";
-        cmd += to_string(vol);
+        cmd += Utils::to_string(vol);
 
         sendRequest(cmd);
 }

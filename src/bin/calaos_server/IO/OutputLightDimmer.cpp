@@ -261,6 +261,6 @@ void OutputLightDimmer::HoldPress_cb()
         }
 
         string cmd = "set ";
-        cmd += to_string(v);
+        cmd += Utils::to_string(v);
         set_value(cmd);
 }

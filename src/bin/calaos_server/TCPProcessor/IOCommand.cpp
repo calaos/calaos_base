@@ -165,7 +165,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                           case TINT:
                           {
                                 double value = input->get_value_double();
-                                result.Add("2", to_string(value));
+                                result.Add("2", Utils::to_string(value));
                                 done = true;
                                 break;
                           }
@@ -208,7 +208,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                                 int cpt = 2;
                                 for (;it != m.end();it++, cpt++)
-                                        result.Add(to_string(cpt), (*it).first + ":" + to_string((*it).second));
+                                        result.Add(Utils::to_string(cpt), (*it).first + ":" + Utils::to_string((*it).second));
 
                                 done = true;
                                 break;
@@ -222,9 +222,9 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 for (;it != m.end();it++, cpt++)
                                 {
                                         if ((*it).second)
-                                                result.Add(to_string(cpt), (*it).first + ":true");
+                                                result.Add(Utils::to_string(cpt), (*it).first + ":true");
                                         else
-                                                result.Add(to_string(cpt), (*it).first + ":false");
+                                                result.Add(Utils::to_string(cpt), (*it).first + ":false");
                                 }
 
                                 done = true;
@@ -237,7 +237,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                                 int cpt = 2;
                                 for (;it != m.end();it++, cpt++)
-                                        result.Add(to_string(cpt), (*it).first + ":" + (*it).second);
+                                        result.Add(Utils::to_string(cpt), (*it).first + ":" + (*it).second);
 
                                 done = true;
                                 break;
@@ -265,7 +265,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         map<string, string>::iterator it = res.begin();
 
                         for (int cpt = 4;it != res.end();it++, cpt++)
-                                result.Add(to_string(cpt), (*it).first + ":" + (*it).second);
+                                result.Add(Utils::to_string(cpt), (*it).first + ":" + (*it).second);
                 }
                 else if (input && request["2"] == "params?")
                 {
@@ -276,7 +276,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 std::string key, val;
                                 input->get_params().get_item(i, key, val);
                                 key += ":" + val;
-                                result.Add(to_string(cpt), key);
+                                result.Add(Utils::to_string(cpt), key);
                                 cpt++;
                         }
                 }
@@ -422,11 +422,11 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                         {
                                                 std::string s = Utils::to_string(day + 1) + ":";
                                                 s += h[i].shour + ":" + h[i].smin + ":" + h[i].ssec;
-                                                s += ":" + to_string(h[i].start_type);
-                                                s += ":" + to_string(h[i].start_offset); //1 or -1
+                                                s += ":" + Utils::to_string(h[i].start_type);
+                                                s += ":" + Utils::to_string(h[i].start_offset); //1 or -1
                                                 s += ":" + h[i].ehour + ":" + h[i].emin + ":" + h[i].esec;
-                                                s += ":" + to_string(h[i].end_type);
-                                                s += ":" + to_string(h[i].end_offset); //1 or -1
+                                                s += ":" + Utils::to_string(h[i].end_type);
+                                                s += ":" + Utils::to_string(h[i].end_offset); //1 or -1
 
                                                 result.Add(Utils::to_string(cpt), s);
                                                 cpt++;
@@ -441,7 +441,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 for (int i = 4;i < request.size();i++)
                                 {
                                         vector<string> tokens;
-                                        split(request[to_string(i)], tokens, ":", 11);
+                                        split(request[Utils::to_string(i)], tokens, ":", 11);
 
                                         vector<TimeRange> h;
                                         if (tokens[0] == "1") h = plage->getLundi();
@@ -479,7 +479,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                         if (tokens[0] == "6") plage->setSamedi(h);
                                         if (tokens[0] == "7") plage->setDimanche(h);
 
-                                        request[to_string(i)] = "";
+                                        request[Utils::to_string(i)] = "";
                                 }
 
                                 result.Add("4", "ok");
@@ -525,7 +525,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         for (int i = 0;i < ListeRoom::Instance().get_nb_input();i++)
                         {
                                 Input *in = ListeRoom::Instance().get_input(i);
-                                result.Add(to_string(i + 1), in->get_param("id"));
+                                result.Add(Utils::to_string(i + 1), in->get_param("id"));
                         }
                 }
         }
@@ -709,7 +709,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                                 int cpt = 2;
                                 for (;it != m.end();it++, cpt++)
-                                        result.Add(to_string(cpt), (*it).first + ":" + to_string((*it).second));
+                                        result.Add(Utils::to_string(cpt), (*it).first + ":" + Utils::to_string((*it).second));
 
                                 done = true;
                                 break;
@@ -723,9 +723,9 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 for (;it != m.end();it++, cpt++)
                                 {
                                         if ((*it).second)
-                                                result.Add(to_string(cpt), (*it).first + ":true");
+                                                result.Add(Utils::to_string(cpt), (*it).first + ":true");
                                         else
-                                                result.Add(to_string(cpt), (*it).first + ":false");
+                                                result.Add(Utils::to_string(cpt), (*it).first + ":false");
                                 }
 
                                 done = true;
@@ -738,7 +738,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                                 int cpt = 2;
                                 for (;it != m.end();it++, cpt++)
-                                        result.Add(to_string(cpt), (*it).first + ":" + (*it).second);
+                                        result.Add(Utils::to_string(cpt), (*it).first + ":" + (*it).second);
 
                                 done = true;
                                 break;
@@ -765,7 +765,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         map<string, string>::iterator it = res.begin();
 
                         for (int cpt = 4;it != res.end();it++, cpt++)
-                                result.Add(to_string(cpt), (*it).first + ":" + (*it).second);
+                                result.Add(Utils::to_string(cpt), (*it).first + ":" + (*it).second);
                 }
                 else if (output && request["2"] == "params?")
                 {
@@ -776,7 +776,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 std::string key, val;
                                 output->get_params().get_item(i, key, val);
                                 key += ":" + val;
-                                result.Add(to_string(cpt), key);
+                                result.Add(Utils::to_string(cpt), key);
                                 cpt++;
                         }
                 }
@@ -901,7 +901,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                         for (int i = 0;i < ListeRoom::Instance().get_nb_output();i++)
                         {
                                 Output *o = ListeRoom::Instance().get_output(i);
-                                result.Add(to_string(i + 1), o->get_param("id"));
+                                result.Add(Utils::to_string(i + 1), o->get_param("id"));
                         }
                 }
         }
@@ -910,7 +910,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 for( int i = 2; i<request.size(); i++)
                 {
                         vector<string> sSplit;
-                        split(request[to_string(i)], sSplit,":");
+                        split(request[Utils::to_string(i)], sSplit,":");
 
                         Output *output = ListeRoom::Instance().get_output(sSplit[0]);
                         if(output)
@@ -941,7 +941,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 for( int i = 2; i<request.size(); i++)
                 {
                         vector<string> sSplit;
-                        split(request[to_string(i)], sSplit,":");
+                        split(request[Utils::to_string(i)], sSplit,":");
 
                         Output *output = ListeRoom::Instance().get_output(sSplit[0]);
                         if(output)

@@ -90,7 +90,7 @@ void Internal::force_input_double(double v)
 
         string sig = "input ";
         sig += Input::get_param("id") + " ";
-        sig += url_encode("state:" + to_string(dvalue));
+        sig += url_encode("state:" + Utils::to_string(dvalue));
         IPC::Instance().SendEvent("events", sig);
 }
 
@@ -102,7 +102,7 @@ bool Internal::set_value(double val)
 
         string sig = "output ";
         sig += Input::get_param("id") + " ";
-        sig += url_encode("state:" + to_string(dvalue));
+        sig += url_encode("state:" + Utils::to_string(dvalue));
         IPC::Instance().SendEvent("events", sig);
 
         return true;
@@ -117,7 +117,7 @@ void Internal::force_input_string(string v)
 
         string sig = "input ";
         sig += Input::get_param("id") + " ";
-        sig += url_encode(string("state:") + to_string(svalue));
+        sig += url_encode(string("state:") + Utils::to_string(svalue));
         IPC::Instance().SendEvent("events", sig);
 }
 
@@ -172,7 +172,7 @@ bool Internal::set_value(string val)
 
                 string sig = "output ";
                 sig += Input::get_param("id") + " ";
-                sig += url_encode(string("state:") + to_string(svalue));
+                sig += url_encode(string("state:") + Utils::to_string(svalue));
                 IPC::Instance().SendEvent("events", sig);
         }
 
@@ -191,7 +191,7 @@ void Internal::Save()
                   else
                           set_param("value", "false");
                   break;
-          case TINT: set_param("value", to_string(dvalue)); break;
+          case TINT: set_param("value", Utils::to_string(dvalue)); break;
           case TSTRING: set_param("value", svalue); break;
           default: break;
         }

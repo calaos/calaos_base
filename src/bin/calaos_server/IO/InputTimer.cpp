@@ -93,10 +93,10 @@ bool InputTimer::set_value(string command)
                                         "InputTimer: Invalid time value: " <<j<< log4cpp::eol;
                 }
 
-                set_param("hour",to_string(hour));
-                set_param("min",to_string(minute));
-                set_param("sec",to_string(second));
-                set_param("msec",to_string(ms));
+                set_param("hour", Utils::to_string(hour));
+                set_param("min", Utils::to_string(minute));
+                set_param("sec", Utils::to_string(second));
+                set_param("msec", Utils::to_string(ms));
 
                 // Restart timer if it was running
                 if(timer)

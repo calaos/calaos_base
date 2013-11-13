@@ -89,7 +89,7 @@ void AVRDenon::processMessage(string msg)
                         else
                                 volume_main = (volume_main / 10) * 100 / 99;
 
-                        state_changed_1.emit("volume", to_string(volume_main));
+                        state_changed_1.emit("volume", Utils::to_string(volume_main));
                 }
         }
         else if (msg == "PWSTANDBY") //power off
@@ -119,7 +119,7 @@ void AVRDenon::processMessage(string msg)
                 else if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_zone2 = inputFromString(msg);
-                        state_changed_2.emit("input_source", to_string(source_zone2));
+                        state_changed_2.emit("input_source", Utils::to_string(source_zone2));
                 }
                 else if (is_of_type<int>(msg)) //Volume changed
                 {
@@ -130,7 +130,7 @@ void AVRDenon::processMessage(string msg)
                         else
                                 volume_zone2 = (volume_zone2 / 10) * 100 / 99;
 
-                        state_changed_2.emit("volume", to_string(volume_zone2));
+                        state_changed_2.emit("volume", Utils::to_string(volume_zone2));
                 }
         }
         else if (msg.substr(0, 2) == "Z3") //zone 3 changed
@@ -150,7 +150,7 @@ void AVRDenon::processMessage(string msg)
                 else if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_zone3 = inputFromString(msg);
-                        state_changed_3.emit("input_source", to_string(source_zone3));
+                        state_changed_3.emit("input_source", Utils::to_string(source_zone3));
                 }
                 else if (is_of_type<int>(msg)) //Volume changed
                 {
@@ -161,7 +161,7 @@ void AVRDenon::processMessage(string msg)
                         else
                                 volume_zone3 = (volume_zone3 / 10) * 100 / 99;
 
-                        state_changed_3.emit("volume", to_string(volume_zone3));
+                        state_changed_3.emit("volume", Utils::to_string(volume_zone3));
                 }
         }
         else if (msg.substr(0, 2) == "SI") //main zone input source changed
@@ -170,7 +170,7 @@ void AVRDenon::processMessage(string msg)
                 if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
                 {
                         source_main = inputFromString(msg);
-                        state_changed_1.emit("input_source", to_string(source_main));
+                        state_changed_1.emit("input_source", Utils::to_string(source_main));
                 }
         }
 }

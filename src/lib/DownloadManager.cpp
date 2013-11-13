@@ -155,7 +155,7 @@ void DownloadManager::downloadFirst()
         IPC::Instance().DeleteHandler(download->sigDownload);
         FileDownloader* downloader = new FileDownloader(download->source,
                         download->destination, true);
-        IPC::Instance().AddHandler("downloader::"+to_string(downloader),
+        IPC::Instance().AddHandler("downloader::" + Utils::to_string(downloader),
                         "*",download->sigDownload, download);
         download->downloadTimes = 1;
         download->downloader = downloader;
@@ -204,7 +204,7 @@ void DownloadManager::IPCDownloadDone(string source, string signal,
 
                 FileDownloader* downloader = new FileDownloader(data->source,
                                 data->destination, true);
-                IPC::Instance().AddHandler("downloader::"+to_string(downloader),
+                IPC::Instance().AddHandler("downloader::" + Utils::to_string(downloader),
                                 "*",data->sigDownload, data);
                 data->downloader = downloader;
                 downloader->Start();

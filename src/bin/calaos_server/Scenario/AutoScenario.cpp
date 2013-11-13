@@ -493,7 +493,7 @@ void AutoScenario::checkScenarioRules()
         for (uint i = 0;i < ruleSteps.size();i++)
         {
                 Rule *rule = ruleSteps[i];
-                setRuleCondition(rule, ioStep, "==", to_string(i));
+                setRuleCondition(rule, ioStep, "==", Utils::to_string(i));
                 if (i + 1 >= ruleSteps.size())
                 {
                         if (cycle)
@@ -503,7 +503,7 @@ void AutoScenario::checkScenarioRules()
                 }
                 else
                 {
-                        setRuleAction(rule, ioStep, to_string(i + 1));
+                        setRuleAction(rule, ioStep, Utils::to_string(i + 1));
                 }
         }
 }
@@ -515,14 +515,14 @@ void AutoScenario::addStep(double pause)
         Rule *rule = new Rule("AutoScenario", scenario_id + "_step");
         rule->set_param("auto_scenario", scenario_id);
         rule->set_param("auto_scenario_type", "step");
-        rule->set_param("auto_scenario_step", to_string(step));
+        rule->set_param("auto_scenario_step", Utils::to_string(step));
         rule->setAutoScenario(true);
 
         addRuleCondition(rule, ioIsActive, "==", "true");
-        addRuleCondition(rule, ioStep, "==", to_string(step));
+        addRuleCondition(rule, ioStep, "==", Utils::to_string(step));
         addRuleCondition(rule, ioTimer, "==", "true");
         addRuleAction(rule, ioStep, "-1");
-        addRuleAction(rule, ioTimer, to_string(pause));
+        addRuleAction(rule, ioTimer, Utils::to_string(pause));
         addRuleAction(rule, ioTimer, "start");
 
         //Correctly chain the last rule
@@ -530,7 +530,7 @@ void AutoScenario::addStep(double pause)
         {
                 Rule *last = *(ruleSteps.end() - 1);
 
-                setRuleAction(last, ioStep, to_string(ruleSteps.size()));
+                setRuleAction(last, ioStep, Utils::to_string(ruleSteps.size()));
         }
 
         ListeRule::Instance().Add(rule);
@@ -543,7 +543,7 @@ void AutoScenario::setStepPause(int s, double pause)
         if (s >= (int)ruleSteps.size() || s < 0) return;
 
         Rule *step = ruleSteps[s];
-        setRuleAction(step, ioTimer, to_string(pause));
+        setRuleAction(step, ioTimer, Utils::to_string(pause));
 }
 
 void AutoScenario::addStepAction(int s, Output *out, string action)

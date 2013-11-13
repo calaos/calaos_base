@@ -43,7 +43,7 @@ ActivityAudioListView::ActivityAudioListView(Evas *_e, Evas_Object *_parent):
                 ActivityPlayerObject ac(evas, parent);
                 players.push_back(ac);
                 players[players.size() - 1].createEdjeObject(theme, evas);
-                Swallow(players[players.size() - 1].object, "player.swallow." + to_string(i + 1));
+                Swallow(players[players.size() - 1].object, "player.swallow." + Utils::to_string(i + 1));
                 players[players.size() - 1].player_selected.connect(sigc::mem_fun(*this, &ActivityAudioListView::playerSelected));
         }
 

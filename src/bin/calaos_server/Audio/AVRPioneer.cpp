@@ -84,7 +84,7 @@ void AVRPioneer::processMessage(string msg)
                         from_string(msg, volume_main);
                         volume_main = volume_main * 100 / 185;
 
-                        state_changed_1.emit("volume", to_string(volume_main));
+                        state_changed_1.emit("volume", Utils::to_string(volume_main));
                 }
         }
         else if (msg == "PWR1") //power off
@@ -125,7 +125,7 @@ void AVRPioneer::processMessage(string msg)
                         from_string(msg, volume_zone2);
                         volume_zone2 = volume_zone2 * 100 / 81;
 
-                        state_changed_2.emit("volume", to_string(volume_zone2));
+                        state_changed_2.emit("volume", Utils::to_string(volume_zone2));
                 }
         }
         else if (msg.substr(0, 2) == "YV") //volume zone 3 changed
@@ -136,7 +136,7 @@ void AVRPioneer::processMessage(string msg)
                         from_string(msg, volume_zone3);
                         volume_zone3 = volume_zone3 * 100 / 81;
 
-                        state_changed_2.emit("volume", to_string(volume_zone3));
+                        state_changed_2.emit("volume", Utils::to_string(volume_zone3));
                 }
         }
         else if (msg.substr(0, 2) == "FL")
@@ -176,7 +176,7 @@ void AVRPioneer::processMessage(string msg)
                 default: return;
                 }
 
-                state_changed_1.emit("input_source", to_string(source_main));
+                state_changed_1.emit("input_source", Utils::to_string(source_main));
         }
         else if (msg.substr(0, 3) == "Z2F")
         {
@@ -201,7 +201,7 @@ void AVRPioneer::processMessage(string msg)
                 default: return;
                 }
 
-                state_changed_2.emit("input_source", to_string(source_zone2));
+                state_changed_2.emit("input_source", Utils::to_string(source_zone2));
         }
         else if (msg.substr(0, 3) == "Z3F")
         {
@@ -226,7 +226,7 @@ void AVRPioneer::processMessage(string msg)
                 default: return;
                 }
 
-                state_changed_3.emit("input_source", to_string(source_zone3));
+                state_changed_3.emit("input_source", Utils::to_string(source_zone3));
         }
 }
 
@@ -294,9 +294,9 @@ void AVRPioneer::decodeDisplayText(string &text)
                 tmp.clear();
         }
 
-        state_changed_1.emit("display_text", to_string(display_text));
-        state_changed_2.emit("display_text", to_string(display_text));
-        state_changed_3.emit("display_text", to_string(display_text));
+        state_changed_1.emit("display_text", Utils::to_string(display_text));
+        state_changed_2.emit("display_text", Utils::to_string(display_text));
+        state_changed_3.emit("display_text", Utils::to_string(display_text));
 }
 
 void AVRPioneer::selectInputSource(int source, int zone)

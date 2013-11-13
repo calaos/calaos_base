@@ -159,8 +159,8 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                 from_string(p["3"], val);
 
                 Utils::logger("network") << Priority::INFO
-                                         << "UDPServer: received input " << to_string(input)
-                                         << " state=" << to_string(val) << log4cpp::eol;
+                                         << "UDPServer: received input " << Utils::to_string(input)
+                                         << " state=" << Utils::to_string(val) << log4cpp::eol;
 
                 //send a signal
                 Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "std");
@@ -175,8 +175,8 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                 from_string(p["3"], val);
 
                 Utils::logger("network") << Priority::INFO
-                                         << "UDPServer: received input " << to_string(input)
-                                         << " state=" << to_string(val) << log4cpp::eol;
+                                         << "UDPServer: received input " << Utils::to_string(input)
+                                         << " state=" << Utils::to_string(val) << log4cpp::eol;
 
                 //send a signal
                 Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "knx");

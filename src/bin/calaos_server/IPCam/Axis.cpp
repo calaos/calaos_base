@@ -193,7 +193,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
                 string url = "http://" + user + param["host"] + ":" + param["port"];
                 url += "/axis-cgi/com/ptz.cgi?";
                 url += "camera=" + camera;
-                url += "&rpan=" + to_string(-pan) + "&rtilt=" + to_string(tilt);
+                url += "&rpan=" + Utils::to_string(-pan) + "&rtilt=" + Utils::to_string(tilt);
 
                 Calaos::CallUrl(url);
         }

@@ -77,7 +77,7 @@ void RoomModel::home_get_cb(bool success, vector<string> result, void *data)
                         room_loaded++;
                         room->load_done.connect(sigc::mem_fun(*this, &RoomModel::load_room_done));
 
-                        string cmd = "room " + room->type + " get " + to_string(j);
+                        string cmd = "room " + room->type + " get " + Utils::to_string(j);
                         connection->SendCommand(cmd, sigc::mem_fun(*room, &Room::new_room_cb));
                 }
         }
@@ -1429,10 +1429,10 @@ string IOActionList::getComputedTitle(IOBase *io)
 
         if (type == ACTION_SLIDER ||
             type == ACTION_NUMBER)
-                Utils::replace_str(t, "%1", to_string(dvalue));
+                Utils::replace_str(t, "%1", Utils::to_string(dvalue));
 
         if (type == ACTION_TEXT)
-                Utils::replace_str(t, "%1", to_string(svalue));
+                Utils::replace_str(t, "%1", Utils::to_string(svalue));
 
         if (type == ACTION_TIME_MS)
                 Utils::replace_str(t, "%1", Utils::time2string(dvalue / 1000, (long)dvalue % 1000));
@@ -1449,16 +1449,16 @@ string IOActionList::getComputedAction(IOBase *io)
 
         if (type == ACTION_SLIDER ||
             type == ACTION_NUMBER)
-                Utils::replace_str(ac, "%1", to_string(dvalue));
+                Utils::replace_str(ac, "%1", Utils::to_string(dvalue));
 
         if (type == ACTION_TEXT)
-                Utils::replace_str(ac, "%1", to_string(svalue));
+                Utils::replace_str(ac, "%1", Utils::to_string(svalue));
 
         if (type == ACTION_TIME_MS)
                 Utils::replace_str(ac, "%1", Utils::time2string(dvalue / 1000, (long)dvalue % 1000));
 
         if (type == ACTION_COLOR)
-                Utils::replace_str(ac, "%1", to_string(io->computeStateFromRGBValue(red, green, blue)));
+                Utils::replace_str(ac, "%1", Utils::to_string(io->computeStateFromRGBValue(red, green, blue)));
 
         return ac;
 }

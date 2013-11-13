@@ -93,7 +93,7 @@ void InputTemp::emitChange()
 
         string sig = "input ";
         sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
+        sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
         IPC::Instance().SendEvent("events", sig);
 }
 

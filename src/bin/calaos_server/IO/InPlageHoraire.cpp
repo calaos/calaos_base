@@ -300,7 +300,7 @@ void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange>
 
                 TimeRange &h = plage[i];
 
-                period_node->SetAttribute("start_type", to_string(h.start_type));
+                period_node->SetAttribute("start_type", Utils::to_string(h.start_type));
                 if (h.start_type == TimeRange::HTYPE_NORMAL)
                 {
                         period_node->SetAttribute("start_hour", h.shour);
@@ -320,7 +320,7 @@ void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange>
                         }
                 }
 
-                period_node->SetAttribute("end_type", to_string(h.end_type));
+                period_node->SetAttribute("end_type", Utils::to_string(h.end_type));
                 if (h.end_type == TimeRange::HTYPE_NORMAL)
                 {
                         period_node->SetAttribute("end_hour", h.ehour);

@@ -56,7 +56,7 @@ void ActivityMediaMenuView::addIcon(int position, string type)
                 EdjeObject *obj = new EdjeObject(theme, evas);
                 obj->LoadEdje("calaos/icons/menu/media/" + type);
                 obj->addCallback("menu", "click," + type, sigc::mem_fun(*this, &ActivityMediaMenuView::ItemCallback));
-                Swallow(obj, string("icon.") + to_string(position));
+                Swallow(obj, string("icon.") + Utils::to_string(position));
                 obj->EmitSignal("show", "calaos");
                 obj->Show();
                 items.push_back(obj);

@@ -109,7 +109,7 @@ void OutputShutter::ImpulseUp(int ms)
         is_impulse_action = true;
         impulse_action_time = ms;
         UpWait();
-        cmd_state = "impulse up " + to_string(impulse_action_time);
+        cmd_state = "impulse up " + Utils::to_string(impulse_action_time);
 }
 
 void OutputShutter::ImpulseDown(int ms)
@@ -117,7 +117,7 @@ void OutputShutter::ImpulseDown(int ms)
         is_impulse_action = true;
         impulse_action_time = ms;
         DownWait();
-        cmd_state = "impulse down " + to_string(impulse_action_time);
+        cmd_state = "impulse down " + Utils::to_string(impulse_action_time);
 }
 
 void OutputShutter::Toggle()

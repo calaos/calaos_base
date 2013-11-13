@@ -62,7 +62,7 @@ void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::strin
                     (intype == "knx" && get_param("knx") == "true"))
                 {
                         Utils::logger("input") << Priority::INFO << "WIDigitalBP::ReceiveFromWago(): Got "
-                                               << to_string(val) << " on " << intype << " input " << addr
+                                               << Utils::to_string(val) << " on " << intype << " input " << addr
                                                << log4cpp::eol;
 
                         udp_value = val;

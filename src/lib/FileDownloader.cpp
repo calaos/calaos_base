@@ -142,7 +142,7 @@ bool FileDownloader::Start()
         {
                 string err = "Failed to create Ecore_Con_Url";
 
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "failed",
                                           IPCData(new string(err), new DeletorT<string *>()),
                                           true);
@@ -165,8 +165,8 @@ bool FileDownloader::Start()
                 //Get a temporary filename
                 do
                 {
-                        tmpFile = "/tmp/calaos" + to_string(getpid()) + "_download_tmp_";
-                        tmpFile += to_string(cpt);
+                        tmpFile = "/tmp/calaos" + Utils::to_string(getpid()) + "_download_tmp_";
+                        tmpFile += Utils::to_string(cpt);
                         cpt++;
                 }
                 while (ecore_file_exists(tmpFile.c_str()));
@@ -182,7 +182,7 @@ bool FileDownloader::Start()
         {
                 string err = "Failed to open file";
 
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "failed",
                                           IPCData(new string(err), new DeletorT<string *>()),
                                           true);
@@ -218,7 +218,7 @@ bool FileDownloader::Start()
         {
                 string err = "Failed to call GET/POST";
 
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "failed",
                                           IPCData(new string(err), new DeletorT<string *>()),
                                           true);
@@ -259,7 +259,7 @@ void FileDownloader::Cancel()
                         << "FileDownloader: Download aborted! (" << url << ")"
                         << log4cpp::eol;
 
-        IPC::Instance().SendEvent("downloader::" + to_string(this),
+        IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "aborted",
                                   IPCData(new string(url), new DeletorT<string *>()),
                                   true);
@@ -275,7 +275,7 @@ void FileDownloader::Cancel()
 
 void FileDownloader::progressCb(double dlnow, double dltotal)
 {
-        IPC::Instance().SendEvent("downloader::" + to_string(this),
+        IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "progress,update",
                                   IPCData(new FileProgress(dlnow, dltotal), new DeletorT<FileProgress *>()),
                                   true);
@@ -294,9 +294,9 @@ void FileDownloader::completeCb(int status)
 
         if (status >= 400 || status < 100)
         {
-                string err = "Error code : " + to_string(status);
+                string err = "Error code : " + Utils::to_string(status);
 
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "failed",
                                           IPCData(new string(err), new DeletorT<string *>()),
                                           true);
@@ -320,7 +320,7 @@ void FileDownloader::completeCb(int status)
 
         if (!dest.empty())
         {
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "done",
                                           IPCData(new string(dest), new DeletorT<string *>()),
                                           true);
@@ -345,7 +345,7 @@ void FileDownloader::completeCb(int status)
 
                 ecore_file_unlink(tmpFile.c_str());
 
-                IPC::Instance().SendEvent("downloader::" + to_string(this),
+                IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                           "done",
                                           IPCData(new Buffer_CURL(buff), new DeletorT<Buffer_CURL *>()),
                                           true);

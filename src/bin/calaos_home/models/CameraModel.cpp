@@ -60,12 +60,12 @@ void CameraModel::camera_count_cb(bool success, vector<string> result, void *dat
                         Camera *cam = new Camera(connection);
                         cameras.push_back(cam);
 
-                        cam->params.Add("num", to_string(cameras.size() - 1));
+                        cam->params.Add("num", Utils::to_string(cameras.size() - 1));
 
                         load_count++;
                         cam->load_done.connect(sigc::mem_fun(*this, &CameraModel::load_camera_done));
 
-                        string cmd = "camera get " + to_string(i);
+                        string cmd = "camera get " + Utils::to_string(i);
                         connection->SendCommand(cmd, sigc::mem_fun(*cam, &Camera::camera_get_cb));
                 }
         }
@@ -165,12 +165,12 @@ void Camera::ZoomOut()
 
 void Camera::Recall(int position)
 {
-        string cmd = "camera move " + params["num"] + " " + to_string(position);
+        string cmd = "camera move " + params["num"] + " " + Utils::to_string(position);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::Save(int position)
 {
-        string cmd = "camera save " + params["num"] + " " + to_string(position);
+        string cmd = "camera save " + params["num"] + " " + Utils::to_string(position);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }

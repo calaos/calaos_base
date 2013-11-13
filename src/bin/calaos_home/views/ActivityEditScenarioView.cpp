@@ -257,7 +257,7 @@ void ActivityEditScenarioView::buttonPressed(void *data, Evas_Object *_edje, std
 
                 current_wizstep++;
 
-                string _t = "set,step" + to_string(current_wizstep);
+                string _t = "set,step" + Utils::to_string(current_wizstep);
                 EmitSignal(_t, "calaos");
 
                 showStep(current_wizstep);
@@ -270,7 +270,7 @@ void ActivityEditScenarioView::buttonPressed(void *data, Evas_Object *_edje, std
 
                 current_wizstep--;
 
-                string _t = "set,step" + to_string(current_wizstep);
+                string _t = "set,step" + Utils::to_string(current_wizstep);
                 EmitSignal(_t, "calaos");
 
                 elm_naviframe_item_pop(pager_step);
@@ -391,7 +391,7 @@ void ActivityEditScenarioView::loadActionsStep()
         if (edje_object_part_exists(pageActions->getEvasObject(), "button.step"))
         {
                 Evas_Object *button = edje_object_part_external_object_get(pageActions->getEvasObject(), "button.step");
-                string _t = (current_step == ScenarioData::END_STEP)? "Etape de fin":"Etape " + to_string(current_step + 1);
+                string _t = (current_step == ScenarioData::END_STEP)? "Etape de fin":"Etape " + Utils::to_string(current_step + 1);
                 elm_object_text_set(button, _t.c_str());
         }
 
@@ -473,7 +473,7 @@ void ActivityEditScenarioView::buttonStepPressed(void *data, Evas_Object *_edje,
         {
                 ScenarioStep &step = scenario_data.steps[i];
 
-                GenlistItemSimple *item = new GenlistItemSimple(evas, parent, "Etape " + to_string(i + 1), true, false, NULL, "check");
+                GenlistItemSimple *item = new GenlistItemSimple(evas, parent, "Etape " + Utils::to_string(i + 1), true, false, NULL, "check");
                 item->Append(glist, header);
                 if ((int)i == current_step)
                 {

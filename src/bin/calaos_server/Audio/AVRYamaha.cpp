@@ -100,7 +100,7 @@ void AVRYamaha::processMessage(string msg)
                                     v = v * 100 / 97;
                                     volume_main = (int)v;
 
-                                state_changed_1.emit("volume", to_string(volume_main));
+                                state_changed_1.emit("volume", Utils::to_string(volume_main));
                         }
                 }
                 else if (msg == "PWR=On")
@@ -119,7 +119,7 @@ void AVRYamaha::processMessage(string msg)
                         if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN)
                         {
                                 source_main = inputFromString(msg);
-                                state_changed_1.emit("input_source", to_string(source_main));
+                                state_changed_1.emit("input_source", Utils::to_string(source_main));
                         }
                 }
         }
@@ -138,7 +138,7 @@ void AVRYamaha::processMessage(string msg)
                                     v = v * 100 / 97;
                                     volume_zone2 = (int)v;
 
-                                state_changed_2.emit("volume", to_string(volume_zone2));
+                                state_changed_2.emit("volume", Utils::to_string(volume_zone2));
                         }
                 }
                 else if (msg == "PWR=On")
@@ -157,7 +157,7 @@ void AVRYamaha::processMessage(string msg)
                         if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN)
                         {
                                 source_zone2 = inputFromString(msg);
-                                state_changed_2.emit("input_source", to_string(source_zone2));
+                                state_changed_2.emit("input_source", Utils::to_string(source_zone2));
                         }
                 }
         }
@@ -176,7 +176,7 @@ void AVRYamaha::processMessage(string msg)
                                     v = v * 100 / 97;
                                     volume_zone3 = (int)v;
 
-                                state_changed_3.emit("volume", to_string(volume_zone3));
+                                state_changed_3.emit("volume", Utils::to_string(volume_zone3));
                         }
                 }
                 else if (msg == "PWR=On")
@@ -195,7 +195,7 @@ void AVRYamaha::processMessage(string msg)
                         if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN)
                         {
                                 source_zone3 = inputFromString(msg);
-                                state_changed_3.emit("input_source", to_string(source_zone3));
+                                state_changed_3.emit("input_source", Utils::to_string(source_zone3));
                         }
                 }
         }

@@ -146,7 +146,7 @@ void ActivityHomeView::setRoom(string type, int position, IOBase *chauffage)
         else
                 rooms[position]->EmitSignal("size,normal", "calaos");
 
-        Swallow(rooms[position], "room." + to_string(position + 1));
+        Swallow(rooms[position], "room." + Utils::to_string(position + 1));
 
         chauffages[position] = chauffage;
         chauff_change_con[position].disconnect();
@@ -161,7 +161,7 @@ void ActivityHomeView::setRoom(string type, int position, IOBase *chauffage)
                 updateChauffage(position);
         }
 
-        EmitSignal(string("enable,room,") + to_string(position + 1), "calaos"); //this enable mouse click on unused rooms
+        EmitSignal(string("enable,room,") + Utils::to_string(position + 1), "calaos"); //this enable mouse click on unused rooms
 }
 
 void ActivityHomeView::updateChauffage(int pos)
@@ -191,7 +191,7 @@ void ActivityHomeView::delChauffage(int pos)
 void ActivityHomeView::hideRoom(int position)
 {
         rooms[position]->EmitSignal("hide", "calaos");
-        EmitSignal(string("disable,room,") + to_string(position + 1), "calaos"); //this disable mouse click on unused rooms
+        EmitSignal(string("disable,room,") + Utils::to_string(position + 1), "calaos"); //this disable mouse click on unused rooms
 }
 
 void ActivityHomeView::resetRooms()
@@ -464,7 +464,7 @@ void ActivityHomeView::addScenarioPage(list<IOBase *> &scenarios_io)
                 ioView->Show();
                 ioView->initView();
 
-                string _t = "element." + to_string(i + 1);
+                string _t = "element." + Utils::to_string(i + 1);
                 container->Swallow(ioView, _t, true);
         }
 

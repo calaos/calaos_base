@@ -57,7 +57,7 @@ class ScenarioStep
 
                 string toString()
                 {
-                        string t = "\t\t[STEP] - pause:" + to_string(pause);
+                        string t = "\t\t[STEP] - pause:" + Utils::to_string(pause);
                         for (uint i = 0;i < actions.size();i++)
                                 t += "\n\t\t\t" + actions[i].toString();
                         return t;
@@ -94,10 +94,10 @@ class ScenarioData
 
                 string toString()
                 {
-                        string t = "[SCENARIO DATA] - name:" + name + " visible:" + to_string(visible) +
+                        string t = "[SCENARIO DATA] - name:" + name + " visible:" + Utils::to_string(visible) +
                                    "\n" + params.toString();
                         for (uint i = 0;i < steps.size();i++)
-                                t += "\n\t[Step " + to_string(i) + "]\n" + steps[i].toString();
+                                t += "\n\t[Step " + Utils::to_string(i) + "]\n" + steps[i].toString();
                         t += "\n\t[Step End]\n" + step_end.toString();
                         return t;
                 }

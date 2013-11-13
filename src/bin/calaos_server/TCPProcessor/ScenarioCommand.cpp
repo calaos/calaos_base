@@ -48,7 +48,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
                 list<Scenario *>::iterator it = l.begin();
 
                 for (int i = 2;it != l.end();it++, i++)
-                        result.Add(to_string(i), (*it)->get_param("id"));
+                        result.Add(Utils::to_string(i), (*it)->get_param("id"));
         }
         else if (request["1"] == "get")
         {
@@ -59,40 +59,40 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
                 {
                         AutoScenario *a = sc->getAutoScenario();
                         int cpt = 3;
-                        result.Add(to_string(cpt), "cycle:" + string(a->isCycling()?"true":"false"));
+                        result.Add(Utils::to_string(cpt), "cycle:" + string(a->isCycling()?"true":"false"));
                         cpt++;
-                        result.Add(to_string(cpt), "enabled:" + string(a->isDisabled()?"false":"true"));
+                        result.Add(Utils::to_string(cpt), "enabled:" + string(a->isDisabled()?"false":"true"));
                         cpt++;
                         if (a->isScheduled())
-                                result.Add(to_string(cpt), string("schedule:") + a->getIOPlage()->get_param("id"));
+                                result.Add(Utils::to_string(cpt), string("schedule:") + a->getIOPlage()->get_param("id"));
                         else
-                                result.Add(to_string(cpt), "schedule:false");
+                                result.Add(Utils::to_string(cpt), "schedule:false");
                         cpt++;
-                        result.Add(to_string(cpt), "category:" + a->getCategory());
+                        result.Add(Utils::to_string(cpt), "category:" + a->getCategory());
                         cpt++;
 
-                        result.Add(to_string(cpt), "steps_count:" + to_string(a->getRuleSteps().size()));
+                        result.Add(Utils::to_string(cpt), "steps_count:" + Utils::to_string(a->getRuleSteps().size()));
                         cpt++;
 
                         for (uint i = 0;i < a->getRuleSteps().size();i++)
                         {
-                                result.Add(to_string(cpt), "step:" + to_string(a->getStepPause(i)));
+                                result.Add(Utils::to_string(cpt), "step:" + Utils::to_string(a->getStepPause(i)));
                                 cpt++;
                                 for (int j = 0;j < a->getStepActionCount(i);j++)
                                 {
                                         ScenarioAction sa = a->getStepAction(i, j);
-                                        result.Add(to_string(cpt), sa.io->get_param("id") + ":" + sa.action);
+                                        result.Add(Utils::to_string(cpt), sa.io->get_param("id") + ":" + sa.action);
                                         cpt++;
                                 }
                         }
 
                         //End step
-                        result.Add(to_string(cpt), "step_end");
+                        result.Add(Utils::to_string(cpt), "step_end");
                         cpt++;
                         for (int j = 0;j < a->getEndStepActionCount();j++)
                         {
                                 ScenarioAction sa = a->getEndStepAction(j);
-                                result.Add(to_string(cpt), sa.io->get_param("id") + ":" + sa.action);
+                                result.Add(Utils::to_string(cpt), sa.io->get_param("id") + ":" + sa.action);
                                 cpt++;
                         }
                 }
@@ -110,7 +110,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
                 for (int i = 2;i < request.size();i++)
                 {
                         vector<string> tokens;
-                        split(request[to_string(i)], tokens, ":", 2);
+                        split(request[Utils::to_string(i)], tokens, ":", 2);
 
                         if (tokens[0] == "name") params.Add("name", url_decode(tokens[1]));
                         else if (tokens[0] == "visible") params.Add("visible", tokens[1]);
@@ -207,7 +207,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
                         for (int i = 2;i < request.size();i++)
                         {
                                 vector<string> tokens;
-                                split(request[to_string(i)], tokens, ":", 2);
+                                split(request[Utils::to_string(i)], tokens, ":", 2);
 
                                 if (tokens[0] == "name") params.Add("name", url_decode(tokens[1]));
                                 else if (tokens[0] == "visible") params.Add("visible", tokens[1]);

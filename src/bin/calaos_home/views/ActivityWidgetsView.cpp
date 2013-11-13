@@ -246,13 +246,13 @@ bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h,
                 bool failed = false;
                 for (uint i = 0;i < widgets.size();i++)
                 {
-                        if (widgets[i]->getId() == to_string(nid))
+                        if (widgets[i]->getId() == Utils::to_string(nid))
                                 failed = true;
                 }
 
                 if (!failed)
                 {
-                        id = to_string(nid);
+                        id = Utils::to_string(nid);
                         break;
                 }
         }

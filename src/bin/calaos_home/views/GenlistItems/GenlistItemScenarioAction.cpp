@@ -261,7 +261,7 @@ void GenlistItemScenarioAction::actionNumber(void *data, IOActionList ac)
         page->addCallback("button.pad.*", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::numberSignalCallback));
         string t = "<b>Choisir un nombre</b><br><light_blue><small>" + ac.title + "</small></light_blue>";
         page->setPartText("text", t);
-        page->setPartText("value", to_string(action_temp.dvalue));
+        page->setPartText("value", Utils::to_string(action_temp.dvalue));
 
         elm_naviframe_item_push(pager_action, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }

@@ -135,7 +135,7 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
                 }
 
                 //Update number of widgets
-                string nb = to_string(ApplicationMain::Instance().getMainController()->getWidgetController()->getWidgetCount());
+                string nb = Utils::to_string(ApplicationMain::Instance().getMainController()->getWidgetController()->getWidgetCount());
                 nb += " Widgets";
 
                 edje_object_part_text_set(elm_list_item_object_get(item_config_addwidget), "object.more_infos",

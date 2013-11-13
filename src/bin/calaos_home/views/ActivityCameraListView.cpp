@@ -55,7 +55,7 @@ static void _smart_cam_cb(void *data, Evas_Object *obj, void *event_info)
         ActivityCameraObject *ac = reinterpret_cast<ActivityCameraObject *>(data);
         if (!ac) return;
 
-        ac->view->EmitSignal("show,picture," + to_string(ac->position + 1), "calaos");
+        ac->view->EmitSignal("show,picture," + Utils::to_string(ac->position + 1), "calaos");
         evas_object_smart_callback_del(obj, "frame_decode", _smart_cam_cb);
 }
 
@@ -75,12 +75,12 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
 
         Evas_Object *video = elm_video_add(parent);
 
-        Swallow(video, "camera.swallow." + to_string(position + 1));
+        Swallow(video, "camera.swallow." + Utils::to_string(position + 1));
         elm_video_file_set(video, camera->params["mjpeg_url"].c_str());
         elm_video_play(video);
         evas_object_show(video);
 
-        setPartText("camera.title." + to_string(position + 1), camera->params["name"]);
+        setPartText("camera.title." + Utils::to_string(position + 1), camera->params["name"]);
 
         cameras[position].video = video;
         cameras[position].camera = camera;
@@ -94,8 +94,8 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
 
 void ActivityCameraListView::disableCamera(int position)
 {
-        setPartText("camera.title." + to_string(position + 1), "Aucune caméra");
-        EmitSignal("hide,picture," + to_string(position + 1), "calaos");
+        setPartText("camera.title." + Utils::to_string(position + 1), "Aucune caméra");
+        EmitSignal("hide,picture," + Utils::to_string(position + 1), "calaos");
 
         if (cameras[position].video)
                 evas_object_del(cameras[position].video);
@@ -162,7 +162,7 @@ void ActivityCameraListView::addScenarioPage(list<IOBase *> &scenarios_io)
 
                 scenarios.push_back(ioView);
 
-                string _t = "element." + to_string(i + 1);
+                string _t = "element." + Utils::to_string(i + 1);
                 container->Swallow(ioView, _t);
         }
 

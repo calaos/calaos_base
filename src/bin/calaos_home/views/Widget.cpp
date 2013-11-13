@@ -381,10 +381,10 @@ void Widget::Save(TiXmlElement *pnode)
 
         node->SetAttribute("id", id);
         node->SetAttribute("type", mtype);
-        node->SetAttribute("posx", to_string(posx));
-        node->SetAttribute("posy", to_string(posy));
-        node->SetAttribute("width", to_string(width));
-        node->SetAttribute("height", to_string(height));
+        node->SetAttribute("posx", Utils::to_string(posx));
+        node->SetAttribute("posy", Utils::to_string(posy));
+        node->SetAttribute("width", Utils::to_string(width));
+        node->SetAttribute("height", Utils::to_string(height));
 }
 
 string Widget::getStringInfo()

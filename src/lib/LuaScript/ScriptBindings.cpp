@@ -79,7 +79,7 @@ int Calaos::Lua_print(lua_State *L)
                 else if (lua_isboolean(L, i))
                         msg += lua_toboolean(L, i)? "true" : "false";
                 else
-                        msg += to_string(luaL_typename(L, i)) + to_string(":") + to_string(lua_topointer(L, i));
+                        msg += Utils::to_string(luaL_typename(L, i)) + Utils::to_string(":") + Utils::to_string(lua_topointer(L, i));
         }
 
         #ifdef CALAOS_INSTALLER
@@ -105,7 +105,7 @@ void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
         if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
         {
                 string err = "Aborting script, takes too much time to execute (";
-                err += to_string(time - ScriptManager::start_time) + " sec.)";
+                err += Utils::to_string(time - ScriptManager::start_time) + " sec.)";
 
                 lua_pushstring(L, err.c_str());
                 lua_error(L);
@@ -248,7 +248,7 @@ int Lua_Calaos::setOutputValue(lua_State *L)
                         else if (lua_isboolean(L, 2))
                                 output->set_value((bool)lua_toboolean(L, 2));
                         else if (lua_isstring(L, 2))
-                                output->set_value(to_string(lua_tostring(L, 2)));
+                                output->set_value(Utils::to_string(lua_tostring(L, 2)));
                         else
                         {
                                 string err = "setOutputValue(): wrong value";

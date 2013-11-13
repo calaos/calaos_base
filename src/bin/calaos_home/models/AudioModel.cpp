@@ -73,12 +73,12 @@ void AudioModel::audio_count_cb(bool success, vector<string> result, void *data)
                         AudioPlayer *player = new AudioPlayer(connection);
                         players.push_back(player);
 
-                        player->params.Add("num", to_string(i));
+                        player->params.Add("num", Utils::to_string(i));
 
                         load_count++;
                         player->load_done.connect(sigc::mem_fun(*this, &AudioModel::load_audio_done));
 
-                        string cmd = "audio get " + to_string(i);
+                        string cmd = "audio get " + Utils::to_string(i);
                         connection->SendCommand(cmd, sigc::mem_fun(*player, &AudioPlayer::audio_get_cb));
                 }
         }
@@ -295,7 +295,7 @@ void AudioPlayer::setVolume(int _volume)
         if (_volume < 0) _volume = 0;
         if (_volume > 100) _volume = 100;
 
-        string cmd = "audio " + params["num"] + " volume " + to_string(_volume);
+        string cmd = "audio " + params["num"] + " volume " + Utils::to_string(_volume);
         connection->SendCommand(cmd);
 }
 
@@ -397,7 +397,7 @@ void AudioPlayer::audio_time_get_cb(bool success, vector<string> result, void *d
 
 void AudioPlayer::setTime(double time)
 {
-        string cmd = "audio " + params["num"] + " time " + to_string(time);
+        string cmd = "audio " + params["num"] + " time " + Utils::to_string(time);
         connection->SendCommand(cmd);
 }
 
@@ -440,7 +440,7 @@ void AudioPlayer::audio_db_stats_get_cb(bool success, vector<string> result, voi
 
 void AudioPlayer::playItem(int item)
 {
-        string cmd = "audio " + params["num"] + " playlist " + to_string(item) + " play";
+        string cmd = "audio " + params["num"] + " playlist " + Utils::to_string(item) + " play";
         connection->SendCommand(cmd);
 }
 
@@ -448,7 +448,7 @@ void AudioPlayer::getPlaylistItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " playlist " + to_string(item) + " getitem?";
+        string cmd = "audio " + params["num"] + " playlist " + Utils::to_string(item) + " getitem?";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::playlist_item_get_cb), data);
 }
 
@@ -480,7 +480,7 @@ void AudioPlayer::playlist_item_get_cb(bool success, vector<string> result, void
 
 void AudioPlayer::removePlaylistItem(int item)
 {
-        string cmd = "audio " + params["num"] + " playlist " + to_string(item) + " delete";
+        string cmd = "audio " + params["num"] + " playlist " + Utils::to_string(item) + " delete";
         connection->SendCommand(cmd);
 }
 
@@ -531,7 +531,7 @@ void AudioPlayer::getDBAlbumItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database albums " + to_string(item) + " 1";
+        string cmd = "audio " + params["num"] + " database albums " + Utils::to_string(item) + " 1";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -539,7 +539,7 @@ void AudioPlayer::getDBAlbumArtistItem(int item, int artist_id, PlayerInfo_cb ca
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database artist_albums " + to_string(item) + " 1 artist_id:" + to_string(artist_id);
+        string cmd = "audio " + params["num"] + " database artist_albums " + Utils::to_string(item) + " 1 artist_id:" + Utils::to_string(artist_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -547,7 +547,7 @@ void AudioPlayer::getDBAlbumYearItem(int item, int year_id, PlayerInfo_cb callba
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database year_albums " + to_string(item) + " 1 year:" + to_string(year_id);
+        string cmd = "audio " + params["num"] + " database year_albums " + Utils::to_string(item) + " 1 year:" + Utils::to_string(year_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -555,7 +555,7 @@ void AudioPlayer::getDBArtistGenreItem(int item, int genre_id, PlayerInfo_cb cal
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database genre_artists " + to_string(item) + " 1 genre_id:" + to_string(genre_id);
+        string cmd = "audio " + params["num"] + " database genre_artists " + Utils::to_string(item) + " 1 genre_id:" + Utils::to_string(genre_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -626,7 +626,7 @@ void AudioPlayer::getDBAlbumTrackCount(int album_item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database album_titles 0 1 album_id:" + to_string(album_item);
+        string cmd = "audio " + params["num"] + " database album_titles 0 1 album_id:" + Utils::to_string(album_item);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
 }
 
@@ -634,7 +634,7 @@ void AudioPlayer::getDBArtistAlbumCount(int artist_id, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database artist_albums 0 1 artist_id:" + to_string(artist_id);
+        string cmd = "audio " + params["num"] + " database artist_albums 0 1 artist_id:" + Utils::to_string(artist_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
 }
 
@@ -642,7 +642,7 @@ void AudioPlayer::getDBYearAlbumCount(int year_id, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database year_albums 0 1 year:" + to_string(year_id);
+        string cmd = "audio " + params["num"] + " database year_albums 0 1 year:" + Utils::to_string(year_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
 }
 
@@ -650,7 +650,7 @@ void AudioPlayer::getDBGenreArtistCount(int genre_id, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database genre_artists 0 1 genre_id:" + to_string(genre_id);
+        string cmd = "audio " + params["num"] + " database genre_artists 0 1 genre_id:" + Utils::to_string(genre_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
 }
 
@@ -658,13 +658,13 @@ void AudioPlayer::getDBPlaylistTrackCount(int playlist_id, PlayerInfo_cb callbac
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database playlist_titles 0 1 playlist_id:" + to_string(playlist_id);
+        string cmd = "audio " + params["num"] + " database playlist_titles 0 1 playlist_id:" + Utils::to_string(playlist_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
 }
 
 void AudioPlayer::playlistDelete(string id)
 {
-        string cmd = "audio " + params["num"] + " database playlist delete playlist_id:" + to_string(id);
+        string cmd = "audio " + params["num"] + " database playlist delete playlist_id:" + Utils::to_string(id);
         connection->SendCommand(cmd);
 }
 
@@ -702,7 +702,7 @@ void AudioPlayer::getDBAlbumTrackItem(int album_id, int item, PlayerInfo_cb call
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database album_titles " + to_string(item) + " 1 album_id:" + to_string(album_id);
+        string cmd = "audio " + params["num"] + " database album_titles " + Utils::to_string(item) + " 1 album_id:" + Utils::to_string(album_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -710,7 +710,7 @@ void AudioPlayer::getDBPlaylistTrackItem(int playlist_id, int item, PlayerInfo_c
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database playlist_titles " + to_string(item) + " 1 playlist_id:" + to_string(playlist_id);
+        string cmd = "audio " + params["num"] + " database playlist_titles " + Utils::to_string(item) + " 1 playlist_id:" + Utils::to_string(playlist_id);
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -881,7 +881,7 @@ void AudioPlayer::getDBArtistItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database artists " + to_string(item) + " 1";
+        string cmd = "audio " + params["num"] + " database artists " + Utils::to_string(item) + " 1";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -889,7 +889,7 @@ void AudioPlayer::getDBYearItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database years " + to_string(item) + " 1";
+        string cmd = "audio " + params["num"] + " database years " + Utils::to_string(item) + " 1";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -897,7 +897,7 @@ void AudioPlayer::getDBGenreItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database genres " + to_string(item) + " 1";
+        string cmd = "audio " + params["num"] + " database genres " + Utils::to_string(item) + " 1";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 
@@ -905,7 +905,7 @@ void AudioPlayer::getDBPlaylistItem(int item, PlayerInfo_cb callback)
 {
         PlayerInfoData *data = new PlayerInfoData();
         data->callback = callback;
-        string cmd = "audio " + params["num"] + " database playlists " + to_string(item) + " 1";
+        string cmd = "audio " + params["num"] + " database playlists " + Utils::to_string(item) + " 1";
         connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
 }
 

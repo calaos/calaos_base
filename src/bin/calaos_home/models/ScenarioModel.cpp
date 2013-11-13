@@ -207,7 +207,7 @@ string ScenarioData::createRequest()
         {
                 ScenarioStep &step = steps[i];
 
-                req += "step:" + to_string(step.pause) + " ";
+                req += "step:" + Utils::to_string(step.pause) + " ";
 
                 for (uint j = 0;j < step.actions.size();j++)
                 {
@@ -256,7 +256,7 @@ string ScenarioData::modifyRequest(IOBase *io)
         {
                 ScenarioStep &step = steps[i];
 
-                req += "step:" + to_string(step.pause) + " ";
+                req += "step:" + Utils::to_string(step.pause) + " ";
 
                 for (uint j = 0;j < step.actions.size();j++)
                 {

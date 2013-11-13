@@ -149,7 +149,7 @@ bool OutputShutterSmart::set_value(std::string val)
                 double new_position;
                 from_string(val, percent);
 
-                cmd_state = "set " + to_string(percent);
+                cmd_state = "set " + Utils::to_string(percent);
 
                 new_position = (double)percent * (double)time_up / 100.;
 
@@ -165,7 +165,7 @@ bool OutputShutterSmart::set_value(std::string val)
                 double new_position;
                 from_string(val, percent);
 
-                cmd_state = "up " + to_string(percent);
+                cmd_state = "up " + Utils::to_string(percent);
 
                 new_position = (double)percent * (double)time_up / 100.;
 
@@ -178,7 +178,7 @@ bool OutputShutterSmart::set_value(std::string val)
                 double new_position;
                 from_string(val, percent);
 
-                cmd_state = "down " + to_string(percent);
+                cmd_state = "down " + Utils::to_string(percent);
 
                 new_position = (double)percent * (double)time_up / 100.;
 
@@ -453,7 +453,7 @@ void OutputShutterSmart::ImpulseUp(int ms)
         is_impulse_action = true;
         impulse_action_time = ms;
         UpWait();
-        cmd_state = "impulse up " + to_string(impulse_action_time);
+        cmd_state = "impulse up " + Utils::to_string(impulse_action_time);
 }
 
 void OutputShutterSmart::ImpulseDown(int ms)
@@ -461,7 +461,7 @@ void OutputShutterSmart::ImpulseDown(int ms)
         is_impulse_action = true;
         impulse_action_time = ms;
         DownWait();
-        cmd_state = "impulse down " + to_string(impulse_action_time);
+        cmd_state = "impulse down " + Utils::to_string(impulse_action_time);
 }
 
 void OutputShutterSmart::Toggle()
@@ -571,7 +571,7 @@ void OutputShutterSmart::writePosition(double p)
         if (position < 0) position = 0;
         if (position > time_up) position = time_up;
 
-        Config::Instance().SaveValueIO(get_param("id"), to_string(position), false);
+        Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(position), false);
 }
 
 std::string OutputShutterSmart::get_value_string()
@@ -580,13 +580,13 @@ std::string OutputShutterSmart::get_value_string()
                 return "calibration";
 
         if (sens == VUP)
-                return "up " + to_string(get_value_double());
+                return "up " + Utils::to_string(get_value_double());
 
         if (sens == VDOWN)
-                return "down " + to_string(get_value_double());
+                return "down " + Utils::to_string(get_value_double());
 
         if (sens == VSTOP)
-                return "stop " + to_string(get_value_double());
+                return "stop " + Utils::to_string(get_value_double());
 
-        return " " + to_string(get_value_double());
+        return " " + Utils::to_string(get_value_double());
 }

@@ -63,7 +63,7 @@ void InputAnalog::emitChange()
 
         string sig = "input ";
         sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
+        sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
         IPC::Instance().SendEvent("events", sig);
 
         Utils::logger("input") << Priority::INFO << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double() << log4cpp::eol;

@@ -905,7 +905,7 @@ void TCPConnection::get_volume_cb(AudioPlayerData data)
         TCPConnectionData *tdata = reinterpret_cast<TCPConnectionData *>(data.user_data);
         Params &result = tdata->result;
 
-        result.Add("2", "volume:" + to_string(data.ivalue));
+        result.Add("2", "volume:" + Utils::to_string(data.ivalue));
 
         ProcessDone_signal sig;
         sig.connect(tdata->callback);
@@ -922,7 +922,7 @@ void TCPConnection::get_songinfo_cb(AudioPlayerData data)
         {
                 string key, value;
                 infos.get_item(i, key, value);
-                result.Add(to_string(i + 2), key + ":" + value);
+                result.Add(Utils::to_string(i + 2), key + ":" + value);
         }
 
         ProcessDone_signal sig;
@@ -959,7 +959,7 @@ void TCPConnection::get_current_time_cb(AudioPlayerData data)
         TCPConnectionData *tdata = reinterpret_cast<TCPConnectionData *>(data.user_data);
         Params &result = tdata->result;
 
-        result.Add("2", "time:" + to_string(data.dvalue));
+        result.Add("2", "time:" + Utils::to_string(data.dvalue));
 
         ProcessDone_signal sig;
         sig.connect(tdata->callback);
@@ -992,7 +992,7 @@ void TCPConnection::get_playlist_size_cb(AudioPlayerData data)
         TCPConnectionData *tdata = reinterpret_cast<TCPConnectionData *>(data.user_data);
         Params &result = tdata->result;
 
-        result.Add("3", to_string(data.ivalue));
+        result.Add("3", Utils::to_string(data.ivalue));
 
         ProcessDone_signal sig;
         sig.connect(tdata->callback);
@@ -1004,7 +1004,7 @@ void TCPConnection::get_playlist_current_cb(AudioPlayerData data)
         TCPConnectionData *tdata = reinterpret_cast<TCPConnectionData *>(data.user_data);
         Params &result = tdata->result;
 
-        result.Add("3", to_string(data.ivalue));
+        result.Add("3", Utils::to_string(data.ivalue));
 
         ProcessDone_signal sig;
         sig.connect(tdata->callback);
@@ -1021,7 +1021,7 @@ void TCPConnection::get_playlist_item_cb(AudioPlayerData data)
         {
                 string key, value;
                 infos.get_item(i, key, value);
-                result.Add(to_string(i + 5), key + ":" + value);
+                result.Add(Utils::to_string(i + 5), key + ":" + value);
         }
 
         ProcessDone_signal sig;
@@ -1034,7 +1034,7 @@ void TCPConnection::get_playlist_cover_cb(AudioPlayerData data)
         TCPConnectionData *tdata = reinterpret_cast<TCPConnectionData *>(data.user_data);
         Params &result = tdata->result;
 
-        result.Add("4", "cover:" + to_string(data.svalue));
+        result.Add("4", "cover:" + Utils::to_string(data.svalue));
 
         ProcessDone_signal sig;
         sig.connect(tdata->callback);

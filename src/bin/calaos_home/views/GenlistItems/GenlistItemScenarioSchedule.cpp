@@ -80,10 +80,10 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
         {
                 text = "Aucune actions.";
                 if (scenario->scenario_data.steps.size() > 1)
-                        text = to_string(scenario->scenario_data.steps.size()) + " étapes.";
+                        text = Utils::to_string(scenario->scenario_data.steps.size()) + " étapes.";
                 else if (scenario->scenario_data.steps.size() == 1 &&
                          scenario->scenario_data.steps[0].actions.size() > 0)
-                        text = to_string(scenario->scenario_data.steps[0].actions.size()) + " actions.";
+                        text = Utils::to_string(scenario->scenario_data.steps[0].actions.size()) + " actions.";
         }
 
         if (scenario->scenario_data.params["schedule"] != "false")

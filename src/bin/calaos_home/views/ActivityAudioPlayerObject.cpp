@@ -210,12 +210,12 @@ void ActivityPlayerObject::onVolumeChange()
 {
         if (!player) return;
 
-        object->setPartText("player.volume", to_string(player->getVolume()) + "%");
+        object->setPartText("player.volume", Utils::to_string(player->getVolume()) + "%");
         object->setDragValue("player.volume.slider", 0.0, 1.0 - ((double)player->getVolume() / 100.));
 
         if (small_player)
         {
-                small_player->setPartText("player.volume", to_string(player->getVolume()) + "%");
+                small_player->setPartText("player.volume", Utils::to_string(player->getVolume()) + "%");
                 small_player->setDragValue("player.volume.slider", 0.0, 1.0 - ((double)player->getVolume() / 100.));
         }
 }
@@ -632,7 +632,7 @@ void ActivityPlayerObject::amplifierClick_cb(void *data, Evas_Object *_edje, std
                 GenlistItemSimple *item = new GenlistItemSimple(evas, glist, (*it).second, true, false, user_data, "check");
                 item->Append(glist, header);
                 item->setAutoDeleteUserData(new DeletorT<int *>);
-                if (to_string(source_id) == player->getAmplifierStatus("input_source"))
+                if (Utils::to_string(source_id) == player->getAmplifierStatus("input_source"))
                         item->setSelected(true);
 
                 item->item_selected.connect(sigc::mem_fun(*this, &ActivityPlayerObject::inputSourceSelected));
@@ -686,7 +686,7 @@ void ActivityPlayerObject::amplifierVolumeChanged(double vol)
         if (!amp) return;
 
         int v = vol * 100.0;
-        amp->sendAction("volume " + to_string(v));
+        amp->sendAction("volume " + Utils::to_string(v));
 }
 
 void ActivityPlayerObject::popupAVDismissed()
@@ -722,7 +722,7 @@ void ActivityPlayerObject::inputSourceSelected(void *data)
         int *user_data = reinterpret_cast<int *>(data);
 
         int input = *user_data;
-        amp->sendAction("source " + to_string(input));
+        amp->sendAction("source " + Utils::to_string(input));
 }
 
 void ActivityPlayerObject::amplifierVolumeStartChanged()

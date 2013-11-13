@@ -37,7 +37,7 @@ SqueezeboxDB::~SqueezeboxDB()
 
 void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-        string cmd = "albums " + to_string(from) + " " + to_string(nb) + " tags:lyja";
+        string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb) + " tags:lyja";
 
         AudioPlayerData data;
         data.callback = callback;
@@ -94,7 +94,7 @@ void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPl
 
 void SqueezeboxDB::getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data)
 {
-        string cmd = "titles " + to_string(from) + " " + to_string(nb);
+        string cmd = "titles " + Utils::to_string(from) + " " + Utils::to_string(nb);
         cmd += " album_id:" + album_id + " sort:tracknum tags:galdyorJilkmqtTvf";
 
         AudioPlayerData data;
@@ -162,7 +162,7 @@ void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, A
 
 void SqueezeboxDB::getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-        string cmd = "artists " + to_string(from) + " " + to_string(nb);
+        string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -210,7 +210,7 @@ void SqueezeboxDB::getArtists_cb(bool status, string request, string res, AudioP
 
 void SqueezeboxDB::getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data)
 {
-        string cmd = "albums " + to_string(from) + " " + to_string(nb);
+        string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
         cmd += " artist_id:" + artist_id + " tags:lyja";
 
         AudioPlayerData data;
@@ -268,7 +268,7 @@ void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, 
 
 void SqueezeboxDB::getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-        string cmd = "genres " + to_string(from) + " " + to_string(nb);
+        string cmd = "genres " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -316,7 +316,7 @@ void SqueezeboxDB::getGenres_cb(bool status, string request, string res, AudioPl
 
 void SqueezeboxDB::getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data)
 {
-        string cmd = "artists " + to_string(from) + " " + to_string(nb) + " genre_id:" + genre_id;
+        string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb) + " genre_id:" + genre_id;
 
         AudioPlayerData data;
         data.callback = callback;
@@ -364,7 +364,7 @@ void SqueezeboxDB::getGenresArtists_cb(bool status, string request, string res, 
 
 void SqueezeboxDB::getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-        string cmd = "years " + to_string(from) + " " + to_string(nb);
+        string cmd = "years " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -410,7 +410,7 @@ void SqueezeboxDB::getYears_cb(bool status, string request, string res, AudioPla
 
 void SqueezeboxDB::getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data)
 {
-        string cmd = "albums " + to_string(from) + " " + to_string(nb);
+        string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
         cmd += " year:" + year + " tags:lyja";
 
         AudioPlayerData data;
@@ -468,7 +468,7 @@ void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, Au
 
 void SqueezeboxDB::getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-        string cmd = "playlists " + to_string(from) + " " + to_string(nb);
+        string cmd = "playlists " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -521,7 +521,7 @@ void SqueezeboxDB::getPlaylistsTracks(AudioRequest_cb callback, int from, int nb
            http://bugs.slimdevices.com/show_bug.cgi?id=16454
          */
         string cmd = player->id;
-        cmd += " playlists tracks " + to_string(from) + " " + to_string(nb);
+        cmd += " playlists tracks " + Utils::to_string(from) + " " + Utils::to_string(nb);
         cmd += " playlist_id:" + playlist_id + " tags:galdyorJxuilkmqtTvf";
 
         AudioPlayerData data;
@@ -593,7 +593,7 @@ void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res
 void SqueezeboxDB::getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
         string cmd = "radios";
-        cmd += " " + to_string(from) + " " + to_string(nb);
+        cmd += " " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -671,7 +671,7 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
         else
         {
                 string cmd = data.svalue;
-                cmd += " " + to_string(data.ivalue) + " " + to_string(data.dvalue);
+                cmd += " " + Utils::to_string(data.ivalue) + " " + Utils::to_string(data.dvalue);
 
                 player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getRadios_cb), data);
         }
@@ -679,7 +679,7 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
 
 void SqueezeboxDB::getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id, string search, AudioPlayerData user_data)
 {
-        string cmd = radio + " items " + to_string(from) + " " + to_string(nb);
+        string cmd = radio + " items " + Utils::to_string(from) + " " + Utils::to_string(nb);
         if (item_id != "") cmd += " item_id:" + item_id;
         if (search != "") cmd += " search:" + search;
 
@@ -772,7 +772,7 @@ void SqueezeboxDB::getRandoms(AudioRequest_cb callback, int from, int nb, AudioP
         result.push_back(p);
         p.clear();
 
-        p.Add("count", to_string(result.size()));
+        p.Add("count", Utils::to_string(result.size()));
         result.push_back(p);
         p.clear();
 
@@ -784,7 +784,7 @@ void SqueezeboxDB::getRandoms(AudioRequest_cb callback, int from, int nb, AudioP
 void SqueezeboxDB::setRandomsType(string type)
 {
         string cmd, res;
-        cmd = param["id"] + " randomplay " + to_string(type);
+        cmd = param["id"] + " randomplay " + Utils::to_string(type);
 
         player->sendRequest(cmd);
 }
@@ -902,7 +902,7 @@ void SqueezeboxDB::getStats_year_cb(bool status, string request, string res, Aud
 
 void SqueezeboxDB::getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data)
 {
-        string cmd = "search " + to_string(from) + " " + to_string(nb) + " term:" + url_encode(search);
+        string cmd = "search " + Utils::to_string(from) + " " + Utils::to_string(nb) + " term:" + url_encode(search);
 
         AudioPlayerData data;
         data.callback = callback;
@@ -968,7 +968,7 @@ void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPl
 
 void SqueezeboxDB::getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id, AudioPlayerData user_data)
 {
-        string cmd = "musicfolder " + to_string(from) + " " + to_string(nb);
+        string cmd = "musicfolder " + Utils::to_string(from) + " " + Utils::to_string(nb);
         if (folder_id != "") cmd += " folder_id:" + folder_id;
 
         AudioPlayerData data;
@@ -1043,7 +1043,7 @@ void SqueezeboxDB::getTrackInfos_cb(bool status, string request, string res, Aud
 
         for (int i = 4;i < p.size();i++)
         {
-                string value = p[to_string(i)];
+                string value = p[Utils::to_string(i)];
                 vector<string> tk;
                 Utils::split(Utils::url_decode2(value), tk, ":", 2);
 

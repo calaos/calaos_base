@@ -296,12 +296,12 @@ void IOAVReceiver::statusChanged(string param, string value)
 
         string sig = "input ";
         sig += Input::get_param("id") + " ";
-        sig += url_encode(param + ":" + to_string(value));
+        sig += url_encode(param + ":" + Utils::to_string(value));
         IPC::Instance().SendEvent("events", sig);
 
         sig = "output ";
         sig += Input::get_param("id") + " ";
-        sig += url_encode(param + ":" + to_string(value));
+        sig += url_encode(param + ":" + Utils::to_string(value));
         IPC::Instance().SendEvent("events", sig);
 }
 
@@ -309,7 +309,7 @@ string IOAVReceiver::get_value_string()
 {
         if (!receiver) return "";
 
-        return to_string(receiver->getInputSource(zone));
+        return Utils::to_string(receiver->getInputSource(zone));
 }
 
 map<string, string> IOAVReceiver::get_all_values_string()
@@ -324,8 +324,8 @@ map<string, string> IOAVReceiver::get_all_values_string()
         else
                 m["power"] = "false";
 
-        m["volume"] = to_string(receiver->getVolume(zone));
-        m["input_source"] = to_string(receiver->getInputSource(zone));
+        m["volume"] = Utils::to_string(receiver->getVolume(zone));
+        m["input_source"] = Utils::to_string(receiver->getInputSource(zone));
 
         if (receiver->hasDisplay())
         {
@@ -402,7 +402,7 @@ map<string, string> IOAVReceiver::query_param(string key)
                 AVRList sources = receiver->getSources();
                 AVRList::iterator it = sources.begin();
                 for (;it != sources.end();it++)
-                        m[to_string((*it).first)] = (*it).second;
+                        m[Utils::to_string((*it).first)] = (*it).second;
         }
 
         return m;
