@@ -7,9 +7,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2013-07-05 11:41+0200\n"
-"PO-Revision-Date: 2013-02-25 23:57+0100\n"
-"Last-Translator: Nicolas Aguirre <aguirre.nicolas@gmail.com>\n"
+"POT-Creation-Date: 2013-11-16 00:17+0100\n"
+"PO-Revision-Date: 2013-11-16 00:17+0100\n"
+"Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
@@ -17,13 +17,410 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:42
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+msgid "My Albums"
+msgstr "Mes Albums"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+msgid "Access to your albums."
+msgstr "Accédez à tous vos albums."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+msgid "Artists"
+msgstr "Artistes"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+msgid "Display by artists."
+msgstr "Afficher par artistes."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+msgid "Years"
+msgstr "Années"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+msgid "Sort songs by year."
+msgstr "Pistes triées par années."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
+msgid "Genre"
+msgstr "Genre"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
+msgid "Music Directory"
+msgstr "Dossier de musique"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
+msgid "Playlists"
+msgstr "Playlists"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+msgid "Radios"
+msgstr "Radios"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+msgid "Web radios web and online service."
+msgstr "Radios web et services en ligne."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+msgid "Search..."
+msgstr "Rechercher..."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+msgid "Search into your music library."
+msgstr "Recherche dans la base de données de musique"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:776
+msgid "Search into radios"
+msgstr "Recherche dans les radios"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:790
+msgid "Search into your music library"
+msgstr "Chercher dans votre collection"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:64
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:77
+msgid "No zone"
+msgstr "Aucune zone"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:67
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:68
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:69
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:80
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:81
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:82
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:254
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:255
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:256
+msgid "None"
+msgstr "Aucun"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
+msgid "My new scenario"
+msgstr "Mon nouveau scénario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:91
+msgid "Scenario name: "
+msgstr "Nom du scénario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+msgid "Displayed in the interface: "
+msgstr "Afficher dans l'interface : "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
+msgid "Enabled in"
+msgstr "Activé dans "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+msgid "Don't display it."
+msgstr "Ne pas afficher."
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+msgid "Infinite loop: "
+msgstr "Execution en boucle : "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
+msgid "Enabled"
+msgstr "Activé"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+msgid "Disabled"
+msgstr "Désactivé"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:152
+msgid "Enter the name of scenario"
+msgstr "Saisir le nom du scénario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:182
+msgid "Don't display it"
+msgstr "Ne pas afficher"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:492
+msgid "Final step"
+msgstr "Étape de fin"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:477
+msgid "Step"
+msgstr "Étape"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+msgid "Scenario step"
+msgstr "Étapes du scénarios<"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+msgid "Progress of your scenario"
+msgstr "Déroulement de votre scénario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+msgid "Choose a time"
+msgstr "Choisir une durée"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+msgid "Paused time before the next step"
+msgstr "Temps de pause avant la prochaine étape"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:557
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:446
+#, c-format
+msgid "%.0f<br><subtitle>Hours</subtitle>"
+msgstr "%.0f<br><subtitle>Heures</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:567
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:456
+#, c-format
+msgid "%.0f<br><subtitle>Min.</subtitle>"
+msgstr "%.0f<br><subtitle>Min.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:577
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:466
+#, c-format
+msgid "%.0f<br><subtitle>Sec.</subtitle>"
+msgstr "%.0f<br><subtitle>Sec.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:587
+#, c-format
+msgid "%.0f<br><subtitle>Ms.</subtitle>"
+msgstr "%.0f<br><subtitle>Ms.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+msgid "Confirmation"
+msgstr "Confirmation"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+msgid "Are you sure to want deleting this step?"
+msgstr "Êtes-vous sûr de vouloir supprimer cette étape ?"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:639
+msgid "Yes, del this step"
+msgstr "Oui, supprimer l'étape"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:643
+msgid "No"
+msgstr "Non"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:36
 msgid "My House"
 msgstr "Ma Maison"
 
-#: src/bin/calaos_home/views/ActivityMediaView.cpp:37
+#: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"
+msgstr "Multimedia"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:33
+msgid "Scheduling"
+msgstr "Planification horaire"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:52
+msgid "Month of year"
+msgstr "Mois de l'année"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:55
+msgid "All year"
+msgstr "Toute l'année"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:60
+msgid "January"
+msgstr "Janvier"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:64
+msgid "February"
+msgstr "Février"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:68
+msgid "March"
+msgstr "Mars"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:72
+msgid "April"
+msgstr "Avril"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:76
+msgid "May"
+msgstr "Mai"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:80
+msgid "June"
+msgstr "Juin"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:84
+msgid "July"
+msgstr "Juillet"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:88
+msgid "August"
+msgstr "Août"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:92
+msgid "September"
+msgstr "Septembre"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:96
+msgid "October"
+msgstr "Octobre"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:100
+msgid "November"
+msgstr "Novembre"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:104
+msgid "December"
+msgstr "Décembre"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:111
+msgid "Spring"
+msgstr "Printemps"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:115
+msgid "Summer"
+msgstr "Été"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:119
+msgid "Fall"
+msgstr "Automne"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:123
+msgid "Winter"
+msgstr "Hiver"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:224
+msgid ""
+"Start of schedulling<br><small><light_blue>Start time of the scenario</"
+"light_blue></small>"
 msgstr ""
+"Début de la planification<br><small><light_blue>Heure de départ du scénario</"
+"light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:230
+msgid ""
+"End of schedulling<br><small><light_blue>End time of the scenario</"
+"light_blue></small>"
+msgstr ""
+"Fin de la planification<br><small><light_blue>Heure de fin du scénario</"
+"light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:243
+msgid "Use a fixed time"
+msgstr "Utiliser une heure fixe"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:244
+msgid "Use the sunrise"
+msgstr "Utiliser le lever du soleil"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:245
+msgid "Use the sunset"
+msgstr "Utiliser le coucher du soleil"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:246
+msgid "Use the midday sun"
+msgstr "Utiliser le soleil de midi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:303
+msgid ""
+"<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
+"time</small></light_blue>"
+msgstr ""
+"<b>Décalage de l'heure</b><br><light_blue><small>Vous pouvez choisir de "
+"décaler l'heure du soleil</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:315
+msgid "Use the exact sun time"
+msgstr "Utiliser l'heure exacte du soleil"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:316
+msgid "Add time"
+msgstr "Ajouter une durée"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:317
+msgid "Substract time"
+msgstr "Soustraire une durée"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:412
+msgid ""
+"<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
+"départ du scénario</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:414
+msgid ""
+"<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choisir une heure de planification</b><br><light_blue><small>Heure de fin "
+"du scénario</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:416
+msgid ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
+"décalage de fin du scénario</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:418
+msgid ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
+"décalage de fin du scénario</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:509
+msgid ""
+"Days of the week<br><small><light_blue>Days of the week when scenario is "
+"executed.</light_blue></small>"
+msgstr ""
+"Jours de la semaine<br><small><light_blue>Jours de la semaine où le scénario "
+"sera exécuté.</light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:528
+msgid "Everyday"
+msgstr "Tous les jours"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:529
+msgid "Monday"
+msgstr "Lundi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:530
+msgid "Tuesday"
+msgstr "Mardi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:531
+msgid "Wednesday"
+msgstr "Mercredi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:532
+msgid "Thursday"
+msgstr "Jeudi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:533
+msgid "Friday"
+msgstr "Vendredi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:534
+msgid "Saturday"
+msgstr "Samedi"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:535
+msgid "Sunday"
+msgstr "Dimanche"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:536
+msgid "ERROR"
+msgstr "ERREUR"
+
+#: src/bin/calaos_home/views/ActivityView.cpp:77
+msgid "Quit"
+msgstr "Quitter"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:95
+msgid "Add new widget."
+msgstr "Ajouter un nouveau widget"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:100
 msgid "Widgets configuration."
@@ -45,10 +442,26 @@ msgstr "Touchez une fois l'écran pour sortir du mode veille."
 msgid "Auto: Off"
 msgstr "Auto: Désactivé"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:138
+#: src/bin/calaos_home/views/MainMenuView.cpp:139
+msgid "Add widgets on the desktop."
+msgstr "Ajouter des widgets sur le bureau."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:145
 msgid "Move and setup your widgets on the desktop."
 msgstr "Déplacez et configurez vos widgets sur le bureau."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:143
+#: src/bin/calaos_home/views/MainMenuView.cpp:150
 msgid "Please wait during the reboot."
 msgstr "Veuillez patienter pendant la procédure de redémarrage."
+
+#: src/bin/calaos_home/views/Widget.cpp:206
+msgid ""
+"Confirmation<br><small><light_blue>Are you sure to want delete this widget?</"
+"light_blue></small>"
+msgstr ""
+"Confirmation<br><small><light_blue>Êtes-vous sûr de vouloir supprimer cette "
+"étape?</light_blue></small>"
+
+#: src/bin/calaos_home/views/Widget.cpp:210
+msgid "Yes, del this widget"
+msgstr "Oui, supprimer ce widget"
