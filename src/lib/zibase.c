@@ -19,6 +19,11 @@
 /*******************************************************/
 /*			MACROS 
 /*******************************************************/
+#ifdef DEBUG
+#define IN_DEBUG_DO(str) str
+#else
+#define IN_DEBUG_DO(str) 
+#endif
 #define BIG_ENDIAN_W(x) ((x<<8)|(x>>8))
 
 #define DBG_SENTFRAME do{\
@@ -92,13 +97,7 @@ int sockfd;
 /* treatment data */
 char buf[256];
 TstZibaseInfoSensor stZibaseInfoSensor[NBSENSORMAX];
-/*TstZibaseInfoSensor stZibaseInfoSensor[NBSENSORMAX]=
-{
-	{"OS439213057","room Maxime",eTEMP,0,0},
-	{"WS132935","home",eENERGY,0,0},
-	{"OS439157263","kitchen",eTEMP,0,0},
-};
-*/
+
 /*******************************************************/
 /*			INTERNAL FUNCTIONS 
 /*******************************************************/
@@ -130,9 +129,9 @@ void extract_energy(char* frame,float *val)
 	if(c != NULL)
 	{
 		sscanf(c,"Total Energy=<kwh>%[^<]",buf);
-		printf("\nConso totale=%.2fKWh",atof(buf));
+		IN_DEBUG_DO(printf("\nConso totale=%.2fKWh",atof(buf)));
 	}
-	else printf("\nunknown string Power");
+	else IN_DEBUG_DO(printf("\nunknown string Power"));
 */		
 }
 
@@ -149,13 +148,35 @@ void extract_temp(char* frame,float *val)
 	}
 }
 
+void extract_zwave_detectOpen(char* frame,unsigned char *val)
+{
+	unsigned char * c;
+	
+
+	c = strstr (frame, "CMD/INTER");
+	if(c != NULL)
+	{
+		/* search <id> */
+		c = strstr (frame, "<id>");
+		if(c != NULL)
+		{
+			sscanf(c,"<id>%[^<]",buf);
+			/*search _OFF in id name, to know if door close */
+			if(strstr (buf, "_OFF")==NULL)
+				*val = 0;
+			else *val = 1; 
+		}
+	}
+}
+
+
 
 int extract_infos(char* frame,char*id)
 {
 	unsigned char * c;
 	int handle;
-	printf("\n**************************************************");	
-	printf("\nValid frame received, on ID %s,extract infos",id);
+	IN_DEBUG_DO(printf("\n**************************************************"));	
+	IN_DEBUG_DO(printf("\nValid frame received, on ID %s,extract infos",id));
 		
 	handle = searchSensorById(id);
 	if(handle != -1)
@@ -166,19 +187,19 @@ int extract_infos(char* frame,char*id)
 				/* OWL management */
 				/*get instant power */	
 				extract_energy(frame,&stZibaseInfoSensor[handle].energy);
-				printf("\nPower consumption in %s is %.2f W",stZibaseInfoSensor[handle].label,stZibaseInfoSensor[handle].energy);
+				IN_DEBUG_DO(printf("\nPower consumption in %s is %.2f W",stZibaseInfoSensor[handle].label,stZibaseInfoSensor[handle].energy));
 			break;
 			case eTEMP:
 				/*get température */	
 				extract_temp(frame,&stZibaseInfoSensor[handle].temp);
-				printf("\nTemperature in %s is %.2f °C",stZibaseInfoSensor[handle].label,stZibaseInfoSensor[handle].temp);
+				IN_DEBUG_DO(printf("\nTemperature in %s is %.2f °C",stZibaseInfoSensor[handle].label,stZibaseInfoSensor[handle].temp));
 				
 			break;
 			default:
 			break;
 		}
 	}
-	printf("\n**************************************************");
+	IN_DEBUG_DO(printf("\n**************************************************"));
 	return 0;	
 	
 }
@@ -196,9 +217,6 @@ void* zibase_callback (void* name)
 	      	rxbuf[n]=0;
 	
 		packet = (TstZAPI_Rxpacket*)rxbuf;
-		//printf("\nZibase ID: %s",(char*)packet->packet.zibase_id);
-		
-		//printf("\nFrame: %s",(char*)packet->frame);
 
 		if(strstr (packet->frame, "Received radio ID") != NULL)
 		{
@@ -231,7 +249,7 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		sockfd=socket(AF_INET,SOCK_DGRAM,0);
 		if(sockfd <0)
 		{
-			printf("\n error creating socket");
+			IN_DEBUG_DO(printf("\n error creating socket"));
 			return -1;
 		}
 
@@ -260,22 +278,20 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		/* Send nop command */	
 		stZAPI_packet.command = BIG_ENDIAN_W(NOP_CMD);
 
-		//printf("\n Send NOP frame\n");
 
 		//DBG_SENTFRAME;
 	
 		sendto(sockfd,(unsigned char*)&stZAPI_packet,sizeof(TstZAPI_packet),0,
 		     (struct sockaddr *)&servaddr,sizeof(servaddr));
 	
-		//printf("\nReceive frame");
+		
 		s = sizeof(adr);
 		n=recvfrom(sockfd,rxbuf,sizeof(rxbuf),0,(struct sockaddr *)&adr,&s);
 	      	rxbuf[n]=0;
 	
 		packet = (TstZAPI_Rxpacket*)rxbuf;
-		//printf("\nHeader: %s",(char*)packet->packet.header);
-		printf("\nZibase ID: %s",(char*)packet->packet.zibase_id);
-		printf("\n");
+		IN_DEBUG_DO(printf("\nZibase ID: %s",(char*)packet->packet.zibase_id));
+		IN_DEBUG_DO(printf("\n"));
 
 
 		/* Send register frame */
@@ -290,7 +306,7 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		sendto(sockfd,(unsigned char*)&stZAPI_packet,sizeof(TstZAPI_packet),0,
 		     (struct sockaddr *)&servaddr,sizeof(servaddr));
 	
-		//printf("\nReceive frame");
+		
 	
 		s = sizeof(adr);
 		n=recvfrom(sockfd,rxbuf,sizeof(rxbuf),0,(struct sockaddr *)&adr,&s);
@@ -301,7 +317,7 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		/* thread creation for reading data */
 		if (pthread_create(&zibase_thread, NULL, zibase_callback, "AA"))
 		{
-			printf("\n[Zibase Open]create thread KO, err = %s",strerror(errno)); 
+			IN_DEBUG_DO(printf("\n[Zibase Open]create thread KO, err = %s",strerror(errno))); 
 			return -2;
 		}
 		else
@@ -351,7 +367,7 @@ int closeZibaseDev(int handle)
 		{
 			if(pthread_join(zibase_thread,NULL))
 		      	{
-			  	printf("\n[Zibase_CLOSE]error during join pthread");
+			  	IN_DEBUG_DO(printf("\n[Zibase_CLOSE]error during join pthread"));
 		      	}
               		
 			zibase_running = 0;
@@ -397,9 +413,9 @@ int main(int argc, char**argv)
 //*        Test                             *
 //*******************************************
 
-	strcpy(z.addip,"192.168.1.37");
+	strcpy(z.addip,"xx.xx.xx.xx");
 	strcpy(z.id,"OS439213057");
-	strcpy(z.label,"room Maxime");
+	strcpy(z.label,"room");
 	z.type = eTEMP;
 
 	if(openZibaseDev(&z) == -1)
