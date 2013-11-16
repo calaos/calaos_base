@@ -8,6 +8,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +20,8 @@
 /*******************************************************/
 /*			MACROS 
 /*******************************************************/
+//#define DEBUG
+
 #ifdef DEBUG
 #define IN_DEBUG_DO(str) str
 #else
@@ -42,6 +45,9 @@
 #define REG_CMD   13
 #define UNREG_CMD 22
 
+
+#define	IFNAMSIZ 16 
+#define ETH "eth0"
 /*******************************************************/
 /*			TYPEDEF 
 /*******************************************************/
@@ -101,6 +107,26 @@ TstZibaseInfoSensor stZibaseInfoSensor[NBSENSORMAX];
 /*******************************************************/
 /*			INTERNAL FUNCTIONS 
 /*******************************************************/
+int getMyIP(int fd, char* ifname,  unsigned int * ipaddr) 
+{
+	struct ifreq
+	{
+	    char	ifr_name[IFNAMSIZ];
+	    struct	sockaddr ifr_addr;
+	};
+	struct ifreq ifr;
+	memcpy(ifr.ifr_name,ifname,IFNAMSIZ);
+	if(ioctl(fd,SIOCGIFADDR,&ifr) == -1)
+	{
+	    IN_DEBUG_DO(printf("\nError getting ip address of %s",ifname));
+	    return(-1);
+	}
+	  memcpy(ipaddr,&ifr.ifr_addr.sa_data[2],4);
+
+	  return 0;
+}
+
+
 int searchSensorById(char* id)
 {
 	int i;
@@ -238,6 +264,8 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 	int n;
 	int s;
 	int i;
+	unsigned int ip;
+	struct in_addr in;
 	struct sockaddr_in servaddr,adr;
 	TstZAPI_Rxpacket* packet;
 	struct sockaddr_in sin;
@@ -263,6 +291,18 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		sin.sin_port=htons(17100);
 		sin.sin_addr.s_addr=INADDR_ANY;
 		if (-1==bind(sockfd,(struct sockaddr *)&sin,sizeof(struct sockaddr_in))) return 0;
+
+		/* get ip address */
+		
+		if(getMyIP(sockfd,ETH,&ip) == -1)
+		{
+			return -1;
+		}
+		
+		in.s_addr = ip;
+		IN_DEBUG_DO(char * cip =  (char*)inet_ntoa( in ));
+		IN_DEBUG_DO(printf("my IP: %s, 0x%x\n",cip,ip));
+		
 
 		/* init command structure */
 		memcpy(stZAPI_packet.header,ZSIG,4);
@@ -298,11 +338,11 @@ int openZibaseDev(TstZibaseInfoSensor *p)
 		my_count++;
 		stZAPI_packet.my_count=BIG_ENDIAN_W(my_count);
 		stZAPI_packet.command = BIG_ENDIAN_W(REG_CMD);
-		stZAPI_packet.param1 = 0x0D01A8C0;  //192.168.1.13 -0xC0A8010D
+		stZAPI_packet.param1 = ip;
 		stZAPI_packet.param2 = 0xCC420000;  //17100 -0x000042cc
 	
 		//DBG_SENTFRAME;
-
+		
 		sendto(sockfd,(unsigned char*)&stZAPI_packet,sizeof(TstZAPI_packet),0,
 		     (struct sockaddr *)&servaddr,sizeof(servaddr));
 	
