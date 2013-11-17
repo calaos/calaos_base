@@ -76,7 +76,10 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
-	DownloadManager.h
+	DownloadManager.h 			\
+	cJSON/cJSON.c 				\
+	cJSON/cJSON.h
+
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
