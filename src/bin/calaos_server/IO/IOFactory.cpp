@@ -46,6 +46,7 @@
 #include <WOAnalog.h>
 #include <OWTemp.h>
 #include <AVReceiver.h>
+#include <WebAnalogIn.h>
 
 using namespace Calaos;
 
@@ -129,6 +130,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         else if (type == "OWTemp")
         {
                 in = new OWTemp(params);
+        }
+        else if (type == "WebAnalogIn")
+        {
+                in = new WebAnalogIn(params);
         }
         else if (type == "scenario")
         {

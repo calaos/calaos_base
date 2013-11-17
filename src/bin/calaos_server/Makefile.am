@@ -13,11 +13,13 @@ AM_CFLAGS = \
 -I./IO/X10 \
 -I./IO/Scripts \
 -I./IO/GCE \
+-I./IO/Web \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
 -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
 -I$(top_srcdir)/src/lib \
+-I$(top_srcdir)/src/lib/cJSON \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/bin/calaos_server/\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
@@ -37,6 +39,7 @@ AM_CXXFLAGS = \
 -I./IO/X10 \
 -I./IO/Scripts \
 -I./IO/GCE \
+-I./IO/Web \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -44,6 +47,7 @@ AM_CXXFLAGS = \
 -DETC_DIR=\"$(sysconfdir)/calaos/\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
+-I$(top_srcdir)/src/lib/cJSON \
 -I$(top_srcdir)/src/bin/calaos_server\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 -I$(top_srcdir)/src/bin/calaos_server/IO\
@@ -244,7 +248,11 @@ IO/OutputAnalog.cpp				\
 IO/OutputShutter.h				\
 IO/OutputShutter.cpp			\
 IO/OutputShutterSmart.h			\
-IO/OutputShutterSmart.cpp
+IO/OutputShutterSmart.cpp 	\
+IO/Web/WebCtrl.cpp \
+IO/Web/WebCtrl.h \
+IO/Web/WebAnalogIn.cpp \
+IO/Web/WebAnalogIn.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \
