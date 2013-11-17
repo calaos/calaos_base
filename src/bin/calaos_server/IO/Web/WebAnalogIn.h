@@ -32,9 +32,10 @@ class WebAnalogIn : public InputAnalog
 {
         private:
                 double value;
-                string web_variable;
+                string path;
         protected:
                 virtual void readValue();
+                double get_value_double();
 
         public:
                 WebAnalogIn(Params &p);

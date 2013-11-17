@@ -25,7 +25,7 @@
 #include <ListeRule.h>
 #include <WebAnalogIn.h>
 #include <WebCtrl.h>
-#include <cJSON.h>
+#include <jansson.h>
 
 using namespace Calaos;
 
@@ -34,8 +34,7 @@ WebAnalogIn::WebAnalogIn(Params &p):
 {
         Utils::logger("input") << Priority::INFO << "WebAnalogIn::WebAnalogIn()" << log4cpp::eol;
 
-        //web_variable_name = get_param("name");
-        WebCtrl::Instance().Add(p);
+        WebCtrl::Instance(p).Add(10.0);
 
         //read value when calaos_server is started
         readValue();
@@ -44,41 +43,19 @@ WebAnalogIn::WebAnalogIn(Params &p):
 
 WebAnalogIn::~WebAnalogIn()
 {
-
         Utils::logger("input") << Priority::INFO << "WebAnalogIn::~WebAnalogIn()" << log4cpp::eol;
 }
 
 
 void WebAnalogIn::readValue()
 {
-        ifstream::pos_type size;
-        char *content;
-
-        ifstream file ("/tmp/calaos-test", ios::in|ios::ate);
-        if (file.is_open())
-        {
-                cJSON *root;
-                cJSON *var;
-
-                size = file.tellg();
-                content = new char [size];
-                file.seekg (0, ios::beg);
-                file.read (content, size);
-                file.close();
-
-                root = cJSON_Parse(content);
-                if (root)
-                {
-                        var = cJSON_GetObjectItem(root, "INDEX_C2");
-                        if (var)
-                        {
-                                value = var->valuedouble;
-                                Utils::logger("input") << Priority::DEBUG << "WebAnalogIn value : "<< value << log4cpp::eol;
-                                emitChange();
-                        }
-                }
-                delete[] content;
-        }
+        value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
+        printf("Read value : %3.3f\n", value);
+        emitChange();
 }
 
+double WebAnalogIn::get_value_double()
+{
+        return value;
+}
 

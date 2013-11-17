@@ -21,30 +21,35 @@
 #ifndef S_WEBCTRL_H
 #define S_WEBCTRL_H
 
+#include <unordered_map>
+
 #include <Utils.h>
 #include <DownloadManager.h>
 #include <EcoreTimer.h>
+#include <Params.h>
+
 namespace Calaos
 {
 
 class WebCtrl
 {
 private:
-        WebCtrl();
 
+        WebCtrl(Params &p);
         DownloadManager *dlManager;
         EcoreTimer *timer;
-        list<string> lUrls;
         void timerExpired();
         void downloadFinished(string emission, string source, void* data);
         void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
-
-
+        Params param ;
+        static unordered_map<string, WebCtrl> hash;
 public:
-        static WebCtrl &Instance(); //Singleton
+        static WebCtrl &Instance(Params &p); //Singleton
+        WebCtrl();
         ~WebCtrl();
 
-        void Add(Params &p);
+        void Add(double timeout);
+        double getValue(string path);
 
 };
 

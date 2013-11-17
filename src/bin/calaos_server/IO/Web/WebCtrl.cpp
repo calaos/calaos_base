@@ -19,13 +19,23 @@
 **
 ******************************************************************************/
 #include <WebCtrl.h>
+#include <jansson.h>
+#include <Params.h>
 
 using namespace Calaos;
 
+unordered_map<string, WebCtrl> WebCtrl::hash;
+
 WebCtrl::WebCtrl()
+{
+
+}
+
+WebCtrl::WebCtrl(Params &p)
 {
         dlManager = NULL;
         timer = NULL;
+        param = p;
 }
 
 WebCtrl::~WebCtrl()
@@ -36,47 +46,84 @@ WebCtrl::~WebCtrl()
                 delete dlManager;
 }
 
-WebCtrl &WebCtrl::Instance()
+
+WebCtrl &WebCtrl::Instance(Params &p)
 {
-  static WebCtrl inst;
-  return inst;
+        string url = p.get_param("url");
+        if (hash.find(url) == hash.end())
+                hash[url] = WebCtrl(p);
+
+        return hash[url];
 }
 
 
-void WebCtrl::Add(Params &p)
+void WebCtrl::Add(double timeout)
 {
 
         if (!timer)
-                timer = new EcoreTimer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WebCtrl::timerExpired));
+                timer = new EcoreTimer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &WebCtrl::timerExpired));
 
         if (!dlManager)
                 dlManager = new DownloadManager();
 
-        string url = p.get_param("url");
+}
 
-        /* Return immediatly if url is already in the list */
-        list<string>::iterator it;
-        for (it = lUrls.begin();it != lUrls.end();it++)
+double WebCtrl::getValue(string path)
+{
+        double value = 0.0;
+        json_t *root, *parent, *var;
+        json_error_t err;
+        string filename;
+        vector<string> tokens;
+        vector<string>::iterator it;
+
+        Utils::split(path, tokens, "/");
+        filename = "/tmp/" + param.get_param("id");
+        root = json_load_file(filename.c_str(), 0, &err);
+        if (tokens.size())
         {
-                if (url == *it)
+                if(root)
                 {
-                        return;
+                        parent = root;
+                        for (it = tokens.begin();it != tokens.end();it++)
+                        {
+                                string val = *it;
+                                var = json_object_get(parent, val.c_str());
+                                if (!var)
+                                {
+                                        var = parent;
+                                        break;
+                                }
+                                else
+                                {
+                                        parent = var;
+                                }
+                        }
+                        if (var)
+                        {
+                                value = json_number_value(var);
+                                printf("Read value : %3.3f\n", value);
+                                json_decref(var);
+                                json_decref(root);
+                        }
+
                 }
         }
-
-        lUrls.push_back(url);
-
+        else
+        {
+                var = json_object_get(root, path.c_str());
+                if (var)
+                {
+                        json_decref(var);
+                        value = json_number_value(var);
+                        json_decref(root);
+                }
+        }
+        return value;
 }
 
 void WebCtrl::timerExpired()
 {
-
-        list<string>::iterator it;
-
-        for (it = lUrls.begin();it != lUrls.end();it++)
-        {
-                dlManager->add(*it,
-                               string("/tmp/calaos-test"));
-
-        }
+        string filename = "/tmp/" + param.get_param("id");
+        dlManager->add(param.get_param("url"), filename);
 }
