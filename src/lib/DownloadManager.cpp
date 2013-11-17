@@ -56,6 +56,27 @@ void DownloadManager::add(string source, string destination,
         downloadFirst();
 }
 
+void DownloadManager::add(string source, string destination)
+{
+        //check if download isn't already running
+        list<DownloadManagerData *>::iterator it;
+        for (it = lDownloads.begin();it != lDownloads.end();it++)
+        {
+                if (source == (*it)->source &&
+                    destination == (*it)->destination)
+                {
+                        return;
+                }
+        }
+
+        DownloadManagerData *data = new DownloadManagerData();
+        data->source = source;
+        data->destination = destination;
+        l.push_back(data);
+
+        downloadFirst();
+}
+
 void DownloadManager::clear()
 {
         for_each(l.begin(),l.end(),Delete());

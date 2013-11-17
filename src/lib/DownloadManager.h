@@ -97,6 +97,10 @@ class DownloadManager
                                 sigc::signal<void, string, string, double, double, void*> sig_progress,
                                 void *userData);
 
+                void add(string source, string destination);
+
+
+
                 /**
                  * Delete a download. Stop the download if it is allready started.
                  * @param source, the source file (http:....)
