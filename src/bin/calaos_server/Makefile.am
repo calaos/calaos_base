@@ -233,9 +233,9 @@ IO/InputSwitch.h				\
 IO/InputSwitch.cpp				\
 IO/InputSwitchTriple.h			\
 IO/InputSwitchTriple.cpp		\
-IIO/InputSwitchLongPress.h		\
+IO/InputSwitchLongPress.h		\
 IO/InputSwitchLongPress.cpp		\
-O/InputTemp.h					\
+IO/InputTemp.h					\
 IO/InputTemp.cpp				\
 IO/InputAnalog.h				\
 IO/InputAnalog.cpp				\
