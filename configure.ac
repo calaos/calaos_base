@@ -63,7 +63,6 @@ AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"
 
 EFL_CHECK_FUNCS([CALAOS_HOME], [dlopen])
 
-
 ## Theme
 AC_ARG_ENABLE([theme],
    [AC_HELP_STRING(
@@ -110,6 +109,14 @@ AM_CONDITIONAL([HAVE_OWCAPI], [test "x${have_owcapi}" = "xyes"])
 if test "x${have_owcapi}" == "xyes"
 then
     AC_CHECK_LIB([owcapi], [OW_init],, AC_ERROR([Misssing owfs library]))
+fi
+
+have_ewebkit="no"
+PKG_CHECK_MODULES([EWEBKIT], [ewebkit], [have_ewebkit="yes"], [have_ewebkit="no"])
+AM_CONDITIONAL([HAVE_EWEBKIT], [test "x${have_ewebkit}" = "xyes"])
+if test "x${have_ewebkit}" == "xyes"
+then 
+     AC_DEFINE([HAVE_EWEBKIT], [1], [ewebkit])
 fi
 
 AC_CONFIG_FILES([
@@ -159,4 +166,5 @@ echo " Build Calaos Home.....: $have_calaos_home_dep"
 echo " Build theme.......... : $build_theme"
 echo
 echo " One Wire support......: ${have_owcapi}"
+echo " EWebkit support.......: ${have_ewebkit}"
 echo

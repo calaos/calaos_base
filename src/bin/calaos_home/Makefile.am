@@ -23,6 +23,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_home \
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_HOME_CFLAGS@ \
+@EWEBKIT_CFLAGS@ \
 -DETC_DIR=\"$(sysconfdir)/calaos\" \
 -DLIBMBUS \
 -DTHEME_DIR=\"$(datadir)/calaos\" \
@@ -220,7 +221,8 @@ calaos_home_SOURCES = \
 calaos_home_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_HOME_LIBS@ \
-	@CALAOS_COMMON_LIBS@
+	@CALAOS_COMMON_LIBS@ \
+	@EWEBKIT_LIBS@
 
 calaos_home_LDFLAGS = -rdynamic
 
