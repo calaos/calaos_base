@@ -14,6 +14,7 @@ AM_CFLAGS = \
 -I./IO/Scripts \
 -I./IO/GCE \
 -I./IO/Web \
+-I./Gpio \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -40,6 +41,7 @@ AM_CXXFLAGS = \
 -I./IO/Scripts \
 -I./IO/GCE \
 -I./IO/Web \
+-I./IO/Gpio\
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
@@ -252,7 +254,11 @@ IO/OutputShutterSmart.cpp 	\
 IO/Web/WebCtrl.cpp \
 IO/Web/WebCtrl.h \
 IO/Web/WebAnalogIn.cpp \
-IO/Web/WebAnalogIn.h
+IO/Web/WebAnalogIn.h \
+IO/Gpio/GpioCtrl.cpp \
+IO/Gpio/GpioCtrl.h \
+IO/Gpio/GpioSwitch.cpp \
+IO/Gpio/GpioSwitch.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \
