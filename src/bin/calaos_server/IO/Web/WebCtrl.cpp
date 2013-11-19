@@ -96,7 +96,7 @@ double WebCtrl::getValueJson(string path)
         vector<string>::iterator it;
 
         Utils::split(path, tokens, "/");
-        filename = "/tmp/" + param.get_param("id");
+        filename = "/tmp/calaos_" + param.get_param("id");
         root = json_load_file(filename.c_str(), 0, &err);
         if (tokens.size())
         {
@@ -157,6 +157,6 @@ double WebCtrl::getValue(string path)
 
 void WebCtrl::timerExpired()
 {
-        string filename = "/tmp/" + param.get_param("id");
+        string filename = "/tmp/calaos_" + param.get_param("id");
         dlManager->add(param.get_param("url"), filename);
 }
