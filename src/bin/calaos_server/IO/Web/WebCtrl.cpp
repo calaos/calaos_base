@@ -86,17 +86,17 @@ void WebCtrl::Add(double _frequency = 60.0)
                 dlManager = new DownloadManager();
 }
 
-double WebCtrl::getValueJson(string path)
+double WebCtrl::getValueJson(string path, string filename)
 {
         double value = 0.0;
         json_t *root, *parent, *var;
         json_error_t err;
-        string filename;
+
         vector<string> tokens;
         vector<string>::iterator it;
 
         Utils::split(path, tokens, "/");
-        filename = "/tmp/calaos_" + param.get_param("id");
+
         root = json_load_file(filename.c_str(), 0, &err);
         if (tokens.size())
         {
@@ -140,17 +140,37 @@ double WebCtrl::getValueJson(string path)
         return value;
 }
 
-double WebCtrl::getValueXml(string path)
+double WebCtrl::getValueXml(string path, string filename)
 {
-        return 0.0;
+        double value = 0.0;
+        TiXmlDocument document(filename);
+        if (!document.LoadFile())
+        {
+                // Error loading file
+                return 0.0;
+        }
+
+        vector<string> tokens;
+
+        Utils::split(path, tokens, "/");
+        TiXmlHandle docHandle(&document);
+
+
+        //TiXmlElement *root = docHandle.FirstChildElement(*it).ToElement();
+        /* Do something */
+        return value;
 }
 
 double WebCtrl::getValue(string path)
 {
+        string filename;
+
+        filename = "/tmp/calaos_" + param.get_param("id");
+
         if (file_type == JSON)
-                return getValueJson(path);
+                return getValueJson(path, filename);
         else if (file_type == XML)
-                return getValueXml(path);
+                return getValueXml(path, filename);
         else
                 return 0.0;
 }

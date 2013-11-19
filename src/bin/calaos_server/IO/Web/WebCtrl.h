@@ -51,8 +51,8 @@ public:
         ~WebCtrl();
         enum {XML, JSON, UNKNOWN};
         void Add(double _frequency);
-        double getValueJson(string path);
-        double getValueXml(string path);
+        double getValueJson(string path, string filename);
+        double getValueXml(string path, string filename);
         double getValue(string path);
 
 };
