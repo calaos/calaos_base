@@ -36,6 +36,7 @@ WebCtrl::WebCtrl(Params &p)
         dlManager = NULL;
         timer = NULL;
         param = p;
+        frequency = 60.0;
 }
 
 WebCtrl::~WebCtrl()
@@ -57,11 +58,17 @@ WebCtrl &WebCtrl::Instance(Params &p)
 }
 
 
-void WebCtrl::Add(double timeout)
+void WebCtrl::Add(double _frequency = 60.0)
 {
 
+        if (frequency > _frequency )
+                frequency = _frequency;
+
         if (!timer)
-                timer = new EcoreTimer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &WebCtrl::timerExpired));
+                timer = new EcoreTimer(frequency, (sigc::slot<void>)sigc::mem_fun(*this, &WebCtrl::timerExpired));
+        else
+                timer->Reset(frequency);
+
 
         if (!dlManager)
                 dlManager = new DownloadManager();

@@ -34,7 +34,7 @@ WebAnalogIn::WebAnalogIn(Params &p):
 {
         Utils::logger("input") << Priority::INFO << "WebAnalogIn::WebAnalogIn()" << log4cpp::eol;
 
-        WebCtrl::Instance(p).Add(10.0);
+        WebCtrl::Instance(p).Add(frequency);
 
         //read value when calaos_server is started
         readValue();
