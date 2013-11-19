@@ -35,21 +35,24 @@ class WebCtrl
 {
 private:
 
-        WebCtrl(Params &p);
+        WebCtrl(Params &p, int file_type);
         DownloadManager *dlManager;
         double frequency;
         EcoreTimer *timer;
         void timerExpired();
         void downloadFinished(string emission, string source, void* data);
         void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
-        Params param ;
+        Params param;
+        int file_type;
         static unordered_map<string, WebCtrl> hash;
 public:
         static WebCtrl &Instance(Params &p); //Singleton
         WebCtrl();
         ~WebCtrl();
-
-        void Add(double _frequency); // Default to second
+        enum {XML, JSON, UNKNOWN};
+        void Add(double _frequency);
+        double getValueJson(string path);
+        double getValueXml(string path);
         double getValue(string path);
 
 };

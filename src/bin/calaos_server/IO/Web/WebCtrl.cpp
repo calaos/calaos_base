@@ -31,12 +31,13 @@ WebCtrl::WebCtrl()
 
 }
 
-WebCtrl::WebCtrl(Params &p)
+WebCtrl::WebCtrl(Params &p, int _file_type)
 {
         dlManager = NULL;
         timer = NULL;
         param = p;
         frequency = 60.0;
+        file_type = _file_type;
 }
 
 WebCtrl::~WebCtrl()
@@ -51,8 +52,21 @@ WebCtrl::~WebCtrl()
 WebCtrl &WebCtrl::Instance(Params &p)
 {
         string url = p.get_param("url");
+
         if (hash.find(url) == hash.end())
-                hash[url] = WebCtrl(p);
+        {
+                string str_file_type = p.get_param("file_type");
+                int file_type;
+
+                if (str_file_type == "xml")
+                        file_type = WebCtrl::XML;
+                else if (str_file_type == "json")
+                        file_type = WebCtrl::JSON;
+                else
+                        file_type = WebCtrl::UNKNOWN;
+
+                hash[url] = WebCtrl(p, file_type);
+        }
 
         return hash[url];
 }
@@ -60,7 +74,6 @@ WebCtrl &WebCtrl::Instance(Params &p)
 
 void WebCtrl::Add(double _frequency = 60.0)
 {
-
         if (frequency > _frequency )
                 frequency = _frequency;
 
@@ -69,13 +82,11 @@ void WebCtrl::Add(double _frequency = 60.0)
         else
                 timer->Reset(frequency);
 
-
         if (!dlManager)
                 dlManager = new DownloadManager();
-
 }
 
-double WebCtrl::getValue(string path)
+double WebCtrl::getValueJson(string path)
 {
         double value = 0.0;
         json_t *root, *parent, *var;
@@ -127,6 +138,21 @@ double WebCtrl::getValue(string path)
                 }
         }
         return value;
+}
+
+double WebCtrl::getValueXml(string path)
+{
+        return 0.0;
+}
+
+double WebCtrl::getValue(string path)
+{
+        if (file_type == JSON)
+                return getValueJson(path);
+        else if (file_type == XML)
+                return getValueXml(path);
+        else
+                return 0.0;
 }
 
 void WebCtrl::timerExpired()
