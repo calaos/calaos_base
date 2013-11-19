@@ -54,8 +54,4 @@ void WebAnalogIn::readValue()
         emitChange();
 }
 
-double WebAnalogIn::get_value_double()
-{
-        return value;
-}
 

@@ -31,7 +31,6 @@ namespace Calaos
 class WebAnalogIn : public InputAnalog
 {
         private:
-                double value;
                 string path;
         protected:
                 virtual void readValue();

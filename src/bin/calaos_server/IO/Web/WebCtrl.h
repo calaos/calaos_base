@@ -37,6 +37,7 @@ private:
 
         WebCtrl(Params &p);
         DownloadManager *dlManager;
+        double frequency;
         EcoreTimer *timer;
         void timerExpired();
         void downloadFinished(string emission, string source, void* data);
@@ -48,7 +49,7 @@ public:
         WebCtrl();
         ~WebCtrl();
 
-        void Add(double timeout);
+        void Add(double _frequency); // Default to second
         double getValue(string path);
 
 };
