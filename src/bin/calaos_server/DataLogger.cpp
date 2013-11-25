@@ -152,7 +152,7 @@ void DataLogger::log(IOBase *io)
         value->value = io->get_value_double();
 
         list->list = eina_list_append(list->list, value);
-        eet_data_write(ef, calaos_datalogger_list_edd, section, list, EINA_FALSE);
+        eet_data_write(ef, calaos_datalogger_list_edd, section, list, EINA_TRUE);
 
         // Mean Value for month
         snprintf(section, sizeof(section), "calaos/sonde/%s/%d/%d/mean", io->get_param("id").c_str(), ctime->tm_year + 1900, ctime->tm_mon + 1);
@@ -170,7 +170,7 @@ void DataLogger::log(IOBase *io)
         }
         mean->mean /= eina_list_count(list->list);
 
-        eet_data_write(ef, calaos_datalogger_mean_edd, section, mean, EINA_FALSE);
+        eet_data_write(ef, calaos_datalogger_mean_edd, section, mean, EINA_TRUE);
 
         eet_sync(ef);
 }
