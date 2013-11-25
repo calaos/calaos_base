@@ -72,6 +72,7 @@ void DownloadManager::add(string source, string destination)
         DownloadManagerData *data = new DownloadManagerData();
         data->source = source;
         data->destination = destination;
+        data->sigDownload.connect(sigc::mem_fun(*this, &DownloadManager::IPCDownloadDone));
         l.push_back(data);
 
         downloadFirst();
