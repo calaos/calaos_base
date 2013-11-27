@@ -21,6 +21,7 @@
 #include <Scenario.h>
 #include <IPC.h>
 #include <AutoScenario.h>
+#include <EcoreTimer.h>
 
 using namespace Calaos;
 
@@ -62,6 +63,9 @@ void Scenario::force_input_bool(bool v)
         else
                 sig += Utils::url_encode(string("state:false"));
         IPC::Instance().SendEvent("events", sig);
+
+        //reset input value to 0 after 250ms (simulate button press/release)
+        EcoreTimer::singleShot(0.250, [=]() { value = false; });
 }
 
 bool Scenario::set_value(bool val)
