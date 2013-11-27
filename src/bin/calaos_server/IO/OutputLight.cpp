@@ -110,7 +110,6 @@ void OutputLight::impulse(int _time)
                         << "): got impulse action, staying true for "
                         << _time << "ms" << log4cpp::eol;
 
-        time = _time;
         set_value(true);
 
         if (timer) delete timer;

@@ -24,6 +24,7 @@
 #include <Calaos.h>
 #include <Output.h>
 #include <EcoreTimer.h>
+#include <OutputLight.h>
 
 namespace Calaos
 {
@@ -35,11 +36,24 @@ class OutputLightDimmer : public Output
                 int old_value;
 
                 EcoreTimer *hold_timer;
+                EcoreTimer *impulseTimer;
+
+                vector<BlinkInfo> blinks;
+                int current_blink;
 
                 std::string cmd_state;
                 bool press_detected;
                 bool press_sens;
                 bool stop_after_press;
+
+                void TimerImpulse();
+                void TimerImpulseExtended();
+
+                //impulse, time is in ms
+                void impulse(int time);
+
+                // extended impulse using pattern
+                void impulse_extended(string pattern);
 
                 void HoldPress_cb();
 
