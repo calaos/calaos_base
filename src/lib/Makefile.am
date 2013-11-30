@@ -26,6 +26,7 @@ libcalaos_common_la_SOURCES = \
 	CThread.cpp 				\
 	DownloadManager.cpp 			\
 	EcoreTimer.cpp 				\
+	EcoreFdHandler.cpp			\
 	FileDownloader.cpp 			\
 	Firmwares.cpp 				\
 	IPC.cpp 				\
@@ -57,6 +58,7 @@ libcalaos_common_la_SOURCES = \
 	TinyXML/tinystr.h			\
 	Params.h				\
 	EcoreTimer.h				\
+	EcoreFdHandler.h			\
 	SendMail.h				\
 	Calendar.h				\
 	base64.h				\
