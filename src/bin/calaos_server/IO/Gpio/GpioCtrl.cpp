@@ -7,11 +7,15 @@ GpioCtrl::GpioCtrl(int _gpionum)
         gpionum = _gpionum;
         gpionum_str = Utils::to_string(gpionum);
         exportGpio();
+        fd = -1;
 }
 
 GpioCtrl::~GpioCtrl()
 {
         unexportGpio();
+        if (fd == -1)
+                close(fd);
+        fd = -1;
 }
 
 int GpioCtrl::writeFile(string path, string value)
@@ -55,14 +59,20 @@ bool GpioCtrl::unexportGpio()
 // Set GPIO direction : "in" or "out"
 bool GpioCtrl::setDirection(string direction)
 {
-        string path = "/sys/class/gpio/gpio" + gpionum;
+        string strval;
+        char tmp[4096];
+        snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/direction", gpionum);
+        string path(tmp);
         return writeFile(path, direction);
 }
 
 bool GpioCtrl::setval(bool val)
 {
         string strval;
-        string path = "/sys/class/gpio/gpio" + gpionum;
+        char tmp[4096];
+        snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
+        string path(tmp);
+
         strval = Utils::to_string(val);
 
         return writeFile(path, strval);
@@ -70,8 +80,11 @@ bool GpioCtrl::setval(bool val)
 
 bool GpioCtrl::getVal(bool &val)
 {
-        string path = "/sys/class/gpio/gpio" + gpionum;
         string strval;
+        char tmp[4096];
+        snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
+        string path(tmp);
+
         if (!readFile(path, strval))
                 return false;
         if (strval == "1")
@@ -82,16 +95,22 @@ bool GpioCtrl::getVal(bool &val)
 
 int GpioCtrl::getFd(void)
 {
-        string path = "/sys/class/gpio/gpio" + gpionum;
-        int fd;
-        fd = open(path.c_str(), O_RDONLY);
+        string strval;
+        char tmp[4096];
+        snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
+        string path(tmp);
+
+        if (fd == -1)
+                fd = open(path.c_str(), O_RDONLY);
         return fd;
 
 }
 
-void GpioCtrl::closeFd(int fd)
+void GpioCtrl::closeFd(void)
 {
-        close(fd);
+        if (fd != -1)
+                close(fd);
+        fd = -1;
 }
 
 int GpioCtrl::getGpioNum(void)

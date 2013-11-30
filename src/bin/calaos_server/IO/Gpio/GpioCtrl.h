@@ -23,8 +23,8 @@ public:
         bool setval(bool val);
         bool getVal(bool &val);
         int getFd(void);
-        void closeFd(int fd);
-        int getGpioNum();
+        void closeFd(void);
+        int getGpioNum(void);
 
 };
 }
