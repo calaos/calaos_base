@@ -257,8 +257,8 @@ IO/Web/WebAnalogIn.cpp \
 IO/Web/WebAnalogIn.h \
 IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
-IO/Gpio/GpioSwitch.cpp \
-IO/Gpio/GpioSwitch.h
+IO/Gpio/GpioOutputSwitch.cpp \
+IO/Gpio/GpioOutputSwitch.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \

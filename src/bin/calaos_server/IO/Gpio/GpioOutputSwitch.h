@@ -1,8 +1,9 @@
 #ifndef GPIOSWITCH_H
 #define GPIOSWITCH_H
 
-#include "InputSwitch.h"
+#include "OutputLight.h"
 #include "Params.h"
+#include "GpioCtrl.h"
 
 namespace Calaos
 {
