@@ -7,11 +7,17 @@
 namespace Calaos
 {
 
-class GpioSwitch : public InputSwitch
+class GpioOutputSwitch : public OutputLight
 {
+    GpioCtrl *gpioctrl;
+
 public:
-        GpioSwitch(Params &p);
-        virtual ~GpioSwitch();
+        GpioOutputSwitch(Params &p);
+        virtual ~GpioOutputSwitch();
+
+protected:
+        bool set_value_real(bool val);
+
 };
 
 }

@@ -6,10 +6,12 @@ GpioCtrl::GpioCtrl(int _gpionum)
 {
         gpionum = _gpionum;
         gpionum_str = Utils::to_string(gpionum);
+        exportGpio();
 }
 
 GpioCtrl::~GpioCtrl()
 {
+        unexportGpio();
 }
 
 int GpioCtrl::writeFile(string path, string value)
