@@ -47,6 +47,7 @@
 #include <OWTemp.h>
 #include <AVReceiver.h>
 #include <WebAnalogIn.h>
+#include <GpioOutputSwitch.h>
 
 using namespace Calaos;
 
@@ -261,6 +262,10 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
         else if (type == "AVReceiver")
         {
                 out = new IOAVReceiver(params);
+        }
+        else if (type == "GpioOutputSwitch")
+        {
+                out = new GpioOutputSwitch(params);
         }
 
         if (out)
