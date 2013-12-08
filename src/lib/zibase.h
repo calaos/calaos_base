@@ -21,8 +21,6 @@
 #ifndef S_ZIBASEDEV_H
 #define S_ZIBASEDEV_H
 
-
-
 /**********************************/
 /********    DEFINE       *********/
 /**********************************/
@@ -80,8 +78,5 @@ class zibase
 		int zibase_getAnalog(double * val);
 		int zibase_getDigital(bool * val);       
 };
-
-
-
 
 #endif
