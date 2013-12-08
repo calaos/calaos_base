@@ -22,7 +22,7 @@
 #define S_zibase_H
 
 #include <Calaos.h>
-#include <Input.h>
+#include <InputAnalog.h>
 #include <Ecore.h>
 
 #include <zibase.h>
@@ -30,33 +30,25 @@
 namespace Calaos
 {
 
-class ZibaseAnalogIn : public Input
+class ZibaseAnalogIn : public InputAnalog
 {
         protected:
                 std::string Zibase_id;
 		std::string Zibase_ip;
 		std::string Zibase_sensortype;
 		std::string Zibase_name;
-                double value;
-                double timer;
-		double time;
-		int test;
-		int handle;
-		double oldvalue;
+                
+		
+		zibase* handle;
+		
 		TstZibaseInfoSensor SensorInfo;
+
+		virtual void readValue();
 
 		
         public:
                 ZibaseAnalogIn(Params &p);
                 ~ZibaseAnalogIn();
-
-                virtual DATA_TYPE get_type() { return TINT; }
-
-                virtual void force_input_double(double v);
-
-                virtual double get_value_double();
-
-                virtual void hasChanged();
 		
 };
 
