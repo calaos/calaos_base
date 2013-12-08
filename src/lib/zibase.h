@@ -1,15 +1,26 @@
-/** @file  ZibaseAPI.h 
- *  @brief WakeUpZibase access  API
- *  @date   november 2013
- *  @author L. Vaudoit **/
+/******************************************************************************
+**  Copyright (c) 2007-2008, Calaos. All Rights Reserved.
+**
+**  This file is part of Calaos Home.
+**
+**  Calaos Home is free software; you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation; either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  Calaos Home is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+**
+**  You should have received a copy of the GNU General Public License
+**  along with Foobar; if not, write to the Free Software
+**  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+**
+******************************************************************************/
+#ifndef S_ZIBASEDEV_H
+#define S_ZIBASEDEV_H
 
-#ifndef ZIBASEAPI_H
-#define ZIBASEAPI_H
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
 /**********************************/
 /********    DEFINE       *********/
 /**********************************/
@@ -17,6 +28,7 @@ extern "C"
 #define ZIBASE_UDP_PORT 49999
 /** @brief define the nb sensor max we can declare */
 #define NBSENSORMAX 32
+
 
 /**********************************/
 /********    TYPEDEFS     *********/
@@ -31,46 +43,38 @@ typedef enum{
 
 /** @brief Structure describing sensor information on zibase link */
 typedef struct{
-	/** @brief ip address of the zibas eon which the sensor is plugged */
+	/** @brief ip address of the zibase on which the sensor is plugged */
 	char addip[32];
+	/** @brief local port to be used for receiving zibase frame */
+	unsigned long port;
 	/** @brief id of the sensor (should be seen on zibase device activity */
 	char id[64];
 	/** @brief label of the sensor (ex: room first floor) */
 	char label[64];
 	/** @brief sensor type */
 	eZibaseSensor type;
-	/** @brief temperature value (use for eTEMP sensor type) */
-	float temp;
-	/** @brief energy value (use for eENERGY sensor type) */
-	float energy;
+	/** @brief analog value (use for eTEMP, eEnergy sensor type) */
+	float Analog;
+	/** @brief digital value (use for eDETECT sensor type) */
+	bool Digital;
 }TstZibaseInfoSensor;
 
 
+/**********************************/
+/********    CLASS        *********/
+/**********************************/
+class zibase
+{
+        protected:
+		TstZibaseInfoSensor InfoSensor;
+                
+              
+        public:
+                 zibase(TstZibaseInfoSensor *p);	 
+                 ~zibase(); 
+ 
+		int zibase_getAnalog(double * val);
+		int zibase_getDigital(bool * val);       
+};
 
-
-/**************************************************/
-/*******       API FROM HIGHER LAYER       ********/
-/**************************************************/
-
-/** @brief Open communication with Zibase
- *         The library will open the according device and store last frame received from zibase
- *  @param p: structure containing information device and sensor
- *  @returns  handle on the device if success, -1 otherwise */
-extern int openZibaseDev(TstZibaseInfoSensor *p);
-
-/** @brief Close a device and if no more, close udp client
- *  @param handle:handle returned by opendevice function
- *  @returns  0 if success, -1 otherwise */
-extern int closeZibaseDev(int handle);
-
-/** @brief Read value on a specific device
- *  @param handle: handle returned by opendevice function
- *  @param type: sensor type
- *  @param val: adress where result will be store
- *  @returns  0 if success, -1 otherwise */
-extern int readZibaseDev(int handle, eZibaseSensor type, float* val);
-
-#ifdef __cplusplus
-}
-#endif
 #endif
