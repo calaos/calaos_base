@@ -43,7 +43,7 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptBindings.cpp 		\
         LuaScript/ScriptManager.cpp 		\
         TimeRange.cpp 				\
-	zibase.c 				\
+	zibase.cpp				\
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\

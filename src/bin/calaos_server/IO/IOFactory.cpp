@@ -47,6 +47,7 @@
 #include <OWTemp.h>
 #include <AVReceiver.h>
 #include <ZibaseAnalogIn.h>
+#include <ZibaseDigitalIn.h>
 
 using namespace Calaos;
 
@@ -134,6 +135,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
 	else if (type == "ZibaseAnalogIn")
         {
                 in = new ZibaseAnalogIn(params);
+        }
+	else if (type == "ZibaseDigitalIn")
+        {
+                in = new ZibaseDigitalIn(params);
         }
         else if (type == "scenario")
         {
