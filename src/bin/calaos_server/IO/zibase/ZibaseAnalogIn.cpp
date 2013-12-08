@@ -51,9 +51,7 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 	//printf("Zibase_Sensor : %s\n", Zibase_sensortype.c_str());
 	
         if (!get_params().Exists("visible")) set_param("visible", "true");
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
-	value = 0;
-	oldvalue = 0;
+       
 
 	/* open Zibase */
 	strcpy(SensorInfo.addip,Zibase_ip.c_str());
@@ -79,6 +77,9 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 	{	
 		Utils::logger("input") << Priority::INFO << "Error Opening Zibase device" << log4cpp::eol;
 	}
+	else
+	{	Calaos::StartReadRules::Instance().ioRead();
+	}
 }
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
@@ -87,29 +88,13 @@ ZibaseAnalogIn::~ZibaseAnalogIn()
 }
 
 
-void ZibaseAnalogIn::hasChanged()
+void ZibaseAnalogIn::readValue()
 {
       	double val;  
 
-	float val;
-	if(handle>=0)
-	{	
-		if(readZibaseDev(handle,SensorInfo.type,&val)==0)
-		{
-			oldvalue = value;
-			value = val;
-			
-                       if(oldvalue != value)
-			{	string sig = "input ";
-				EmitSignalInput();
-				sig += get_param("id") + " ";
-				sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-				IPC::Instance().SendEvent("events", sig);
-				//Utils::logger("input") << Priority::INFO << "zibase::Has Changedk" << log4cpp::eol;
-			}
-		}
+	handle->zibase_getAnalog(&val);
 
-	//printf("\n ZibaseAnalog Read Value %3.3f",val);
+	printf("\n ZibaseAnalog Read Value %3.3f",val);
 	if (val != value)
         {
                 value = val;

@@ -46,10 +46,10 @@
 #include <WOAnalog.h>
 #include <OWTemp.h>
 #include <AVReceiver.h>
-#include <ZibaseAnalogIn.h>
-#include <ZibaseDigitalIn.h>
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
+#include <ZibaseAnalogIn.h>
+#include <ZibaseDigitalIn.h>
 
 using namespace Calaos;
 

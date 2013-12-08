@@ -43,27 +43,12 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 	Zibase_ip = get_param("host");
 	Zibase_sensortype = get_param("Zibase_sensor");
 	Zibase_name = get_param("name");
-<<<<<<< HEAD
 	value = 0;
         
 
 	
         if (!get_params().Exists("visible")) set_param("visible", "true");
        
-=======
-        tmp = get_param("time");
-       
-        time = atof(tmp.c_str());
-
-	//printf("Zibase_IP : %s\n", Zibase_ip.c_str());
-        //printf("Zibase_ID : %s\n", Zibase_id.c_str());
-	//printf("Zibase_Sensor : %s\n", Zibase_sensortype.c_str());
-	
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
-	value = 0;
-	oldvalue = 0;
->>>>>>> suppress some printf, add readme file for zibase modules
 
 	/* open Zibase */
 	strcpy(SensorInfo.addip,Zibase_ip.c_str());
@@ -84,23 +69,14 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 	}
         
 
-<<<<<<< HEAD
 	handle = new zibase(&SensorInfo);
 	if(handle==0)
 	{	
 		Utils::logger("input") << Priority::INFO << "Error Opening Zibase device" << log4cpp::eol;
 	}
 	else
-	{	//Calaos::StartReadRules::Instance().ioRead();
-		ListeRule::Instance().Add(this);
+	{	Calaos::StartReadRules::Instance().ioRead();
 	}
-=======
-	handle = openZibaseDev(&SensorInfo);
-	if(handle<0)
-	{	
-		Utils::logger("input") << Priority::INFO << "Error Opening Zibase device" << log4cpp::eol;
-	}
->>>>>>> suppress some printf, add readme file for zibase modules
 }
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
@@ -109,59 +85,30 @@ ZibaseAnalogIn::~ZibaseAnalogIn()
 }
 
 
+<<<<<<< HEAD
 void ZibaseAnalogIn::hasChanged()
+=======
+void ZibaseAnalogIn::readValue()
+>>>>>>> zibaseanalog inherit from analogInput module, change some parameters
 {
       	double val;  
 
-<<<<<<< HEAD
 	handle->zibase_getAnalog(&val);
 
+<<<<<<< HEAD
 	//printf("\n ZibaseAnalog Read Value %3.3f",val);
+=======
+	printf("\n ZibaseAnalog Read Value %3.3f",val);
+>>>>>>> zibaseanalog inherit from analogInput module, change some parameters
 	if (val != value)
         {
                 value = val;
                 emitChange();
         }
-=======
-	float val;
-	if(handle>=0)
-	{	
-		if(readZibaseDev(handle,SensorInfo.type,&val)==0)
-		{
-			oldvalue = value;
-			value = val;
-			
-                       if(oldvalue != value)
-			{	string sig = "input ";
-				EmitSignalInput();
-				sig += get_param("id") + " ";
-				sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-				IPC::Instance().SendEvent("events", sig);
-				//Utils::logger("input") << Priority::INFO << "zibase::Has Changedk" << log4cpp::eol;
-			}
-		}
-
-	}
-}
->>>>>>> suppress some printf, add readme file for zibase modules
 
       
         
 }
 
-<<<<<<< HEAD
-=======
-void ZibaseAnalogIn::force_input_double(double v)
-{
-	
-        value = v;
-        EmitSignalInput();
-
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + to_string(get_value_double()));
-        IPC::Instance().SendEvent("events", sig);
-}
->>>>>>> suppress some printf, add readme file for zibase modules
 
 

@@ -50,7 +50,11 @@
 #include <ZibaseDigitalIn.h>
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
+<<<<<<< HEAD
+=======
 #include <ZibaseAnalogIn.h>
+#include <ZibaseDigitalIn.h>
+>>>>>>> zibaseanalog inherit from analogInput module, change some parameters
 
 using namespace Calaos;
 
@@ -138,13 +142,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
 	else if (type == "ZibaseAnalogIn")
         {
                 in = new ZibaseAnalogIn(params);
-<<<<<<< HEAD
         }
 	else if (type == "ZibaseDigitalIn")
         {
                 in = new ZibaseDigitalIn(params);
-=======
->>>>>>> first integration of zibase analog input
         }
         else if (type == "scenario")
         {
