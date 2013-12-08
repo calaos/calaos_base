@@ -81,7 +81,4 @@ class zibase
 		int zibase_getDigital(bool * val);       
 };
 
-
-
-
 #endif
