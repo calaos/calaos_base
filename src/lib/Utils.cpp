@@ -457,15 +457,18 @@ string Utils::getCacheFile(const char *cacheFile)
         return _cacheBase + "/" + cacheFile;
 }
 
-void Utils::initConfigOptions(char *configdir, char *cachedir)
+void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 {
         if (configdir) _configBase = configdir;
         if (cachedir) _cacheBase = cachedir;
 
         string file = getConfigFile(LOCAL_CONFIG);
 
-        cout << "# Using config path: " << getConfigFile("") << endl;
-        cout << "# Using cache path: " << getCacheFile("") << endl;
+        if (!quiet)
+        {
+                cout << "# Using config path: " << getConfigFile("") << endl;
+                cout << "# Using cache path: " << getCacheFile("") << endl;
+        }
 
         if (!ecore_file_can_write(getConfigFile("").c_str()))
                 throw (runtime_error("config path is not writable"));
@@ -494,7 +497,8 @@ void Utils::initConfigOptions(char *configdir, char *cachedir)
                 set_config_option("longitude", "2.322235");
                 set_config_option("latitude", "48.864715");
 
-                cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
+                if (!quiet)
+                        cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
         }
 }
 

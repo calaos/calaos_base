@@ -47,7 +47,7 @@ int main (int argc, char **argv)
         }
         string action = argv[1];
 
-        Utils::initConfigOptions();
+        Utils::initConfigOptions(nullptr, nullptr, true);
 
         if (!Utils::fileExists(Utils::getConfigFile("calaos_console_log.conf")))
         {
