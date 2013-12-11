@@ -96,7 +96,6 @@
 ./src/bin/calaos_server/Audio/SqueezeboxDB.cpp
 ./src/bin/calaos_server/Calaos.cpp
 ./src/bin/calaos_server/Config.cpp
-./src/bin/calaos_server/config_wago.cpp
 ./src/bin/calaos_server/Input.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.cpp
 ./src/bin/calaos_server/IO/InputTime.cpp
@@ -144,8 +143,6 @@
 ./src/bin/calaos_server/TCPProcessor/RulesCommand.cpp
 ./src/bin/calaos_server/TCPProcessor/ScenarioCommand.cpp
 ./src/bin/calaos_server/TCPServer.cpp
-./src/bin/calaos_server/test_params.cpp
-./src/bin/calaos_server/test_url.cpp
 ./src/bin/calaos_server/UDPServer.cpp
 ./src/lib/CalaosNetwork.cpp
 ./src/lib/Calendar.cpp
