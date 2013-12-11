@@ -126,6 +126,7 @@ src/lib/Makefile
 src/bin/Makefile
 src/bin/calaos_server/Makefile
 src/bin/calaos_home/Makefile
+src/bin/tools/Makefile
 src/widgets/Makefile
 src/widgets/clock/Makefile
 src/widgets/note/Makefile
