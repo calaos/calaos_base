@@ -73,3 +73,5 @@ po/insert-header.sin
 po/quot.sed
 po/remove-potcdate.sin
 po/stamp-po
+src/bin/tools/calaos_config
+src/bin/tools/wago_test

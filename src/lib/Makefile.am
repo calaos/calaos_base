@@ -3,6 +3,7 @@ AM_CXXFLAGS = \
 	-I. \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib/LuaScript \
+	-I$(top_srcdir)/src/lib/http-parser \
 	-I$(top_srcdir)/src/bin/calaos_server \
 	-I$(top_srcdir)/src/bin/calaos_server/Rules \
 	-I$(top_srcdir)/src/bin/calaos_server/IPCam \
@@ -78,7 +79,9 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
-	DownloadManager.h
+	DownloadManager.h \
+	http-parser/http_parser.h \
+	http-parser/http_parser.c
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
