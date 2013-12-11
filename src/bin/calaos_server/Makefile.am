@@ -22,6 +22,7 @@ AM_CFLAGS = \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/cJSON \
 -I$(top_srcdir)/src/lib/LuaScript \
+-I$(top_srcdir)/src/lib/http-parser \
 -I$(top_srcdir)/src/bin/calaos_server/\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 @CALAOS_COMMON_CFLAGS@ \
@@ -50,6 +51,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/cJSON \
+-I$(top_srcdir)/src/lib/http-parser \
 -I$(top_srcdir)/src/bin/calaos_server\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 -I$(top_srcdir)/src/bin/calaos_server/IO\
@@ -258,7 +260,11 @@ IO/Web/WebAnalogIn.h \
 IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
 IO/Gpio/GpioOutputSwitch.cpp \
-IO/Gpio/GpioOutputSwitch.h
+IO/Gpio/GpioOutputSwitch.h \
+JsonApiServer.h \
+JsonApiServer.cpp \
+JsonApiClient.h \
+JsonApiClient.cpp
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \
