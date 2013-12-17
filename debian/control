@@ -3,9 +3,10 @@ Section:  miscellaneous
 Priority: optional
 Maintainer: Michael Bouchaud (yoz) <yoz@fl.so>
 Build-Depends: debhelper (>= 6), cdbs, libtool, pkg-config,
- libelementary-dev, libecore-dev, libedje-dev, libefreet-dev,
- libvmime-dev, libjansson-dev, liblog4cpp5-dev, libsigc++-2.0-dev,
- gettext, libow-dev, libssl-dev, autoconf, automake, autopoint
+ libelementary-dev, libefl-dev | libecore-dev, libefl-dev | libedje-dev,
+ libefl-dev | libefreet-dev, libvmime-dev, libjansson-dev, liblog4cpp5-dev,
+ libsigc++-2.0-dev, gettext, libow-dev, libssl-dev, autoconf, automake,
+ autopoint
 Standards-Version: 3.8.2
 Vcs-Git: https://github.com/calaos/calaos_base
 Vcs-Browser: https://github.com/calaos/calaos_base
