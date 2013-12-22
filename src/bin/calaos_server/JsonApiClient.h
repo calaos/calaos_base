@@ -30,6 +30,7 @@
 #include <CamManager.h>
 #include <IPCam.h>
 #include <InPlageHoraire.h>
+#include <jansson.h>
 #include <http_parser.h>
 #include <unordered_map>
 
@@ -48,8 +49,36 @@ using namespace Calaos;
                         unsigned char request_method;
                         unordered_map<string, string> request_headers;
 
+                        Params jsonParam;
+
                         void CloseConnection();
 
+                        //for parsing purposes
+                        bool has_field = false, has_value = false;
+                        string hfield, hvalue;
+                        string bodymessage;
+                        string parse_url;
+
+                        //headers to send back
+                        Params resHeaders;
+
+                        void handleRequest();
+                        void sendToClient(string res);
+                        string buildHttpResponse(string code, Params &headers, string body);
+
+                        //processing functions
+                        void processGetHome();
+                        void processGetState();
+                        void processSetState();
+                        void processGetPlaylist();
+                        void processPolling();
+
+                        json_t *buildJsonHome();
+                        json_t *buildJsonCameras();
+                        json_t *buildJsonAudio();
+                        template<typename T> json_t *buildJsonRoomIO(Room *room);
+
+                        friend int _parser_begin(http_parser *parser);
                         friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
                         friend int _parser_header_value(http_parser *parser, const char *at, size_t length);
                         friend int _parser_headers_complete(http_parser *parser);
