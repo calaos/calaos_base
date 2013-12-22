@@ -152,16 +152,12 @@ Input *ListeRoom::get_input(std::string in)
 {
         Input *i = reinterpret_cast<Input *>(eina_hash_find(input_table, in.c_str()));
 
-        Utils::logger("room") << Priority::DEBUG << "Searching inputs for \"" << in << "\" => " << ((i)?"found":"not found") << log4cpp::eol;
-
         return i;
 }
 
 Output *ListeRoom::get_output(std::string out)
 {
         Output *o = reinterpret_cast<Output *>(eina_hash_find(output_table, out.c_str()));
-
-        Utils::logger("room") << Priority::DEBUG << "Searching outputs for \"" << out << "\" => " << ((o)?"found":"not found") << log4cpp::eol;
 
         return o;
 }
@@ -258,17 +254,13 @@ int ListeRoom::get_nb_output()
 
 Input *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
 {
-        Utils::logger("room") << Priority::DEBUG << "Searching inputs for chauffage_id \"" << chauff_id << "\"" << log4cpp::eol;
         for (uint j = 0;j < rooms.size();j++)
         {
                 for (int m = 0;m < rooms[j]->get_size_in();m++)
                 {
                         Input *in = rooms[j]->get_input(m);
-                        Utils::logger("room") << Priority::DEBUG << "Comparing \"" << in->get_param("chauffage_id")
-                                              << "\" with \"" << chauff_id << "\"" << log4cpp::eol;
                         if (in->get_param("chauffage_id") == chauff_id)
                         {
-                                Utils::logger("room") << Priority::DEBUG << "\"" << chauff_id << "\" found !" << log4cpp::eol;
                                 switch (type)
                                 {
                                   case PLAGE_HORAIRE: if (in->get_param("type") == "InPlageHoraire") return in; break;
@@ -279,7 +271,6 @@ Input *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
                 }
         }
 
-        Utils::logger("room") << Priority::DEBUG << "\"" << chauff_id << "\" not found !" << log4cpp::eol;
         return NULL;
 }
 
