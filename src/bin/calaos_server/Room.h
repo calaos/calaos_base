@@ -24,6 +24,7 @@
 #include <Calaos.h>
 #include <Input.h>
 #include <Output.h>
+#include <type_traits>
 
 using namespace std;
 
@@ -68,6 +69,25 @@ class Room
                 int get_size_in() { return inputs.size(); }
                 int get_size_out() { return outputs.size(); }
 
+                //Some templated functions to avoid lots of copy/paste
+                //when looping over inputs/outputs the same way
+                //Ex of use:
+                //   room->get_size<Input>()
+                template<typename T,
+                         typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
+                int get_size() { return inputs.size(); }
+
+                template<typename T,
+                         typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
+                int get_size() { return outputs.size(); }
+
+                template<typename T,
+                         typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
+                T get_io(int i) { return inputs[i]; }
+
+                template<typename T,
+                         typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
+                T get_io(int i) { return outputs[i]; }
 
                 bool LoadFromXml(TiXmlElement *node);
                 bool SaveToXml(TiXmlElement *node);
