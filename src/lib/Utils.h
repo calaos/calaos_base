@@ -146,20 +146,10 @@ using namespace log4cpp;
 #define GREEN "\x1b[32;06m"
 #define YELLOW "\x1b[33;06m"
 
-#define WAGO_HOST       "10.0.0.123"
-
-#ifndef WAGO_LISTEN_PORT
 #define WAGO_LISTEN_PORT        4646
-#endif
-#ifndef TCP_LISTEN_PORT
 #define TCP_LISTEN_PORT         4456
-#endif
-
-#ifndef BCAST_UDP_PORT
 #define BCAST_UDP_PORT          4545
-#endif
-
-#define NETWORK_TIMEOUT         30000
+#define JSONAPI_PORT            5454
 
 #define WAGO_KNX_START_ADDRESS          6144
 #define WAGO_841_START_ADDRESS          4096
