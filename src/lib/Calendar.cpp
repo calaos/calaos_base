@@ -49,7 +49,6 @@ TimeZone::TimeZone()
                                         string tz;
                                         tz = string(ecore_file_file_get(f_info->path)) + "/" + string(f_info2->path + f_info2->name_start);
                                         timeZone.push_back(TimeZoneElt(tz.c_str(), "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
-                                        printf("Regular file : %s \n", tz.c_str());
                                 }
                         }
                 }
