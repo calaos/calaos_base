@@ -49,7 +49,7 @@ PKG_PROG_PKG_CONFIG
 
 efl_ver="1.7.0"
 
-requirements_calaos_common="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.2.0 log4cpp >= 1.0 jansson >= 2.0.0 vmime >= 0.9.0 lua5.1 >= 5.1.0"
+requirements_calaos_common="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.2.0 log4cpp >= 1.0 jansson >= 2.5 vmime >= 0.9.0 lua5.1 >= 5.1.0"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
