@@ -36,6 +36,7 @@
 #include <NTPClock.h>
 #include <SendMail.h>
 #include <WagoMap.h>
+#include <JsonApiServer.h>
 
 #ifdef HAVE_BREAKPAD
 #include "client/linux/handler/exception_handler.h"
@@ -148,6 +149,9 @@ int main (int argc, char **argv)
 
         //Start main TCP server for network commands
         TCPServer::Instance(TCP_LISTEN_PORT);
+
+        //Start Json API server
+        JsonApiServer::Instance(JSONAPI_PORT);
 
         NTPClock::Instance();
 
