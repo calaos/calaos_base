@@ -494,6 +494,30 @@ json_t *JsonApiClient::buildJsonAudio()
 {
         json_t *jdata = json_array();
 
+        for (int i = 0;i < AudioManager::Instance().get_size();i++)
+        {
+                AudioPlayer *player = AudioManager::Instance().get_player(i);
+
+                json_t *jaudio = json_object();
+                json_object_set_new(jaudio, "id", json_string(Utils::to_string(i).c_str()));
+                json_object_set_new(jaudio, "input_id", json_string(player->get_param("iid").c_str()));
+                json_object_set_new(jaudio, "output_id", json_string(player->get_param("oid").c_str()));
+                json_object_set_new(jaudio, "name", json_string(player->get_param("name").c_str()));
+                json_object_set_new(jaudio, "type", json_string(player->get_param("type").c_str()));
+
+                json_object_set_new(jaudio, "playlist", json_string(player->canPlaylist()?"true":"false"));
+                json_object_set_new(jaudio, "database", json_string(player->canDatabase()?"true":"false"));
+
+                if (player->get_params().Exists("amp"))
+                        json_object_set_new(jaudio, "avr", json_string(player->get_param("amp").c_str()));
+
+                json_array_append_new(jdata, jaudio);
+
+                //don't query detailed player infos here, other informations need to be queried to the squeezecenter
+                //so the get_home request will be delayed by all the squeezecenter's requests.
+                //To be faster, only return the basic infos here, and expand the api with more audio commands
+        }
+
         return jdata;
 }
 
