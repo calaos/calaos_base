@@ -65,6 +65,7 @@ using namespace Calaos;
                         void handleRequest();
                         void sendToClient(string res);
                         string buildHttpResponse(string code, Params &headers, string body);
+                        void sendJson(json_t *json);
 
                         //processing functions
                         void processGetHome();

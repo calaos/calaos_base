@@ -22,6 +22,7 @@
 #include <vmime/utility/url.hpp>
 #include "ListeRoom.h"
 #include "ListeRule.h"
+#include "PollListenner.h"
 
 #define HTTP_400 "HTTP/1.1 400 Bad Request"
 #define HTTP_404 "HTTP/1.1 404 Not Found"
@@ -521,16 +522,9 @@ json_t *JsonApiClient::buildJsonAudio()
         return jdata;
 }
 
-void JsonApiClient::processGetHome()
+void JsonApiClient::sendJson(json_t *json)
 {
-        json_t *jret = nullptr;
-
-        jret = json_pack("{s:o, s:o, s:o}",
-                         "home", buildJsonHome(),
-                         "cameras", buildJsonCameras(),
-                         "audio", buildJsonAudio());
-
-        char *d = json_dumps(jret, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
+        char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
         if (!d)
         {
                 Utils::logger("network") << Priority::DEBUG << "JsonApiClient: json_dumps failed!" << log4cpp::eol;
@@ -557,6 +551,18 @@ void JsonApiClient::processGetHome()
         sendToClient(res);
 }
 
+void JsonApiClient::processGetHome()
+{
+        json_t *jret = nullptr;
+
+        jret = json_pack("{s:o, s:o, s:o}",
+                         "home", buildJsonHome(),
+                         "cameras", buildJsonCameras(),
+                         "audio", buildJsonAudio());
+
+        sendJson(jret);
+}
+
 void JsonApiClient::processGetState()
 {
 
@@ -574,5 +580,56 @@ void JsonApiClient::processGetPlaylist()
 
 void JsonApiClient::processPolling()
 {
+        json_t *jret = json_object();
 
+        if (jsonParam["type"] == "register")
+        {
+                string uuid = PollListenner::Instance().Register();
+                json_object_set_new(jret, "uuid", json_string(uuid.c_str()));
+        }
+        else if (jsonParam["type"] == "unregister")
+        {
+                string uuid = jsonParam["uuid"];
+                bool success = PollListenner::Instance().Unregister(uuid);
+                json_object_set_new(jret, "success", json_string(success?"true":"false"));
+        }
+        else if (jsonParam["type"] == "get")
+        {
+                string uuid = jsonParam["uuid"];
+                Params events;
+
+                bool res = PollListenner::Instance().GetEvents(uuid, events);
+                if (!res)
+                        json_object_set_new(jret, "success", json_string("false"));
+                else
+                {
+                        json_t *jev = json_array();
+
+                        for (int i = 0;i < events.size();i++)
+                        {
+                                string key, value;
+                                events.get_item(i, key, value);
+
+                                string ev = key + ":" + value;
+                                vector<string> spl;
+                                Utils::split(ev, spl, ":");
+
+                                ev.clear();
+                                for (uint j = 0;j < spl.size();j++)
+                                {
+                                        ev += spl[j];
+                                        if (j < spl.size() - 1)
+                                                ev += " ";
+                                }
+
+                                json_array_append_new(jev, json_string(ev.c_str()));
+                        }
+
+                        json_object_set_new(jret, "success", json_string("true"));
+                        json_object_set_new(jret, "events", jev);
+                }
+
+        }
+
+        sendJson(jret);
 }
