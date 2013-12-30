@@ -31,6 +31,11 @@
 #include <Eina.h>
 #include <Ecore_File.h>
 
+// On MacosX MSG_NOSIGNAL is not defined, redefine it here, and use the setsockopt(SO_SIGPIPE) when initializing the socket
+#if !defined(MSG_NOSIGNAL)
+#  define MSG_NOSIGNAL 0
+#endif
+
 TCPSocket::TCPSocket()
 {
         newfd = 0;
@@ -53,6 +58,20 @@ bool TCPSocket::Create()
                 Utils::logger("network") << Priority::ERROR << "socket(AF_INET, SOCK_STREAM): " << strerror(errno) << log4cpp::eol;
                 return false;
         }
+
+#if defined(SO_NOSIGPIPE)
+	// Mac OS X does not have the MSG_NOSIGNAL flag when calling sendo, but we can use this socket option instead
+	if (socket > 0)
+	{
+	        int set_option = 1;
+	        if (setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &set_option,
+			       sizeof(set_option)))
+	        {
+	                Utils::logger("network") << Priority::ERROR << "setsockopt: " << strerror(errno) << log4cpp::eol;
+	                return false;
+	        }
+	}
+#endif  // SO_NOSIGPIPE
 
         Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Create(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
