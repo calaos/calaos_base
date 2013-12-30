@@ -458,6 +458,35 @@ json_t *JsonApiClient::buildJsonCameras()
 {
         json_t *jdata = json_array();
 
+        int cpt = 0;
+        for (int i = 0;i < ListeRoom::Instance().get_nb_input();i++)
+        {
+                Input *in = ListeRoom::Instance().get_input(i);
+                CamInput *ipcam = dynamic_cast<CamInput *>(in);
+                if (ipcam)
+                {
+                        IPCam *camera = ipcam->get_cam();
+
+                        json_t *jcam = json_object();
+                        json_object_set_new(jcam, "id", json_string(Utils::to_string(cpt).c_str()));
+                        json_object_set_new(jcam, "input_id", json_string(camera->get_param("iid").c_str()));
+                        json_object_set_new(jcam, "output_id", json_string(camera->get_param("oid").c_str()));
+                        json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
+                        json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
+                        json_object_set_new(jcam, "url_jpeg", json_string(camera->get_picture().c_str()));
+                        json_object_set_new(jcam, "url_mjpeg", json_string(camera->get_mjpeg_stream().c_str()));
+                        Params caps = camera->getCapabilities();
+                        if (caps["ptz"] == "true")
+                                json_object_set_new(jcam, "ptz", json_string("true"));
+                        else
+                                json_object_set_new(jcam, "ptz", json_string("false"));
+
+                        cpt++;
+
+                        json_array_append_new(jdata, jcam);
+                }
+        }
+
         return jdata;
 }
 
