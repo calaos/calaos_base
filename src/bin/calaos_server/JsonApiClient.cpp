@@ -337,8 +337,6 @@ void JsonApiClient::handleRequest()
                         svalue = Utils::to_string(json_number_value(value));
 
                 jsonParam.Add(key, svalue);
-
-                json_decref(value);
         }
 
         //check for if username/password matches
@@ -567,6 +565,7 @@ void JsonApiClient::processGetHome()
 
 void JsonApiClient::processGetState(json_t *jroot)
 {
+        json_incref(jroot);
         json_t *jinputs = json_object();
         json_t *joutputs = json_object();
         json_t *jaudio = json_array();
@@ -636,6 +635,7 @@ void JsonApiClient::processGetState(json_t *jroot)
                         string svalue;
 
                         if (!json_is_string(value)) continue;
+                        svalue = json_string_value(value);
 
                         int pid;
                         Utils::from_string(svalue, pid);
@@ -645,7 +645,7 @@ void JsonApiClient::processGetState(json_t *jroot)
                         player_count++;
 
                         json_t *jplayer = json_object();
-                        json_object_set_new(jplayer, svalue.c_str(), json_string(Utils::to_string(pid).c_str()));
+                        json_object_set_new(jplayer, "player_id", json_string(Utils::to_string(pid).c_str()));
 
                         AudioPlayer *player = AudioManager::Instance().get_player(pid);
                         player->get_playlist_current([=](AudioPlayerData data1)
@@ -713,6 +713,7 @@ void JsonApiClient::processGetState(json_t *jroot)
 
                                                                         if (player_count <= 0)
                                                                         {
+                                                                                json_decref(jroot);
                                                                                 json_t *jret = json_object();
                                                                                 jret = json_pack("{s:o, s:o, s:o}",
                                                                                                  "inputs", jinputs,
@@ -733,6 +734,7 @@ void JsonApiClient::processGetState(json_t *jroot)
         //only send data if there is not audio players
         if (player_count == 0)
         {
+                json_decref(jroot);
                 json_t *jret = json_object();
                 jret = json_pack("{s:o, s:o, s:o}",
                                  "inputs", jinputs,
