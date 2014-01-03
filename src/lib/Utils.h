@@ -262,13 +262,15 @@ namespace Utils
                 {
                         std::istringstream iss(str);
                         T tmp;
-                        return (iss >> tmp) && (iss.eof());
+                        iss >> tmp;
+                        return iss.eof();
                 }
         template<typename T>
                 bool from_string(const std::string &str, T &dest)
                 {
                         std::istringstream iss(str);
-                        return iss >> dest != 0;
+                        iss >> dest;
+                        return iss.eof();
                 }
         template<typename T>
                 std::string to_string( const T & Value )
