@@ -23,6 +23,7 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
+#include "TCPConnection.h"
 
 #define HTTP_400 "HTTP/1.1 400 Bad Request"
 #define HTTP_404 "HTTP/1.1 404 Not Found"
@@ -340,8 +341,6 @@ void JsonApiClient::handleRequest()
                 json_decref(value);
         }
 
-        json_decref(jroot);
-
         //check for if username/password matches
         string user = Utils::get_config_option("calaos_user");
         string pass = Utils::get_config_option("calaos_password");
@@ -371,13 +370,15 @@ void JsonApiClient::handleRequest()
         if (jsonParam["action"] == "get_home")
                 processGetHome();
         else if (jsonParam["action"] == "get_state")
-                processGetState();
+                processGetState(jroot);
         else if (jsonParam["action"] == "set_state")
                 processSetState();
         else if (jsonParam["action"] == "get_playlist")
                 processGetPlaylist();
         else if (jsonParam["action"] == "poll_listen")
                 processPolling();
+
+        json_decref(jroot);
 }
 
 template<typename T>
@@ -538,6 +539,7 @@ void JsonApiClient::sendJson(json_t *json)
 
                 return;
         }
+        json_decref(json);
 
         string data(d);
 
@@ -563,14 +565,348 @@ void JsonApiClient::processGetHome()
         sendJson(jret);
 }
 
-void JsonApiClient::processGetState()
+void JsonApiClient::processGetState(json_t *jroot)
 {
+        json_t *jinputs = json_object();
+        json_t *joutputs = json_object();
+        json_t *jaudio = json_array();
 
+        json_t *jin = json_object_get(jroot, "inputs");
+        if (jin && json_is_array(jin))
+        {
+                int idx;
+                json_t *value;
+
+                json_array_foreach(jin, idx, value)
+                {
+                        string svalue;
+
+                        if (!json_is_string(value)) continue;
+
+                        svalue = json_string_value(value);
+                        Input *input = ListeRoom::Instance().get_input(svalue);
+                        if (input)
+                        {
+                                if (input->get_type() == TBOOL)
+                                        json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_bool()?"true":"false"));
+                                else if (input->get_type() == TINT)
+                                        json_object_set_new(jinputs, svalue.c_str(), json_string(Utils::to_string(input->get_value_double()).c_str()));
+                                else if (input->get_type() == TSTRING)
+                                        json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_string().c_str()));
+                        }
+                }
+        }
+
+        json_t *jout = json_object_get(jroot, "outputs");
+        if (jout && json_is_array(jout))
+        {
+                int idx;
+                json_t *value;
+
+                json_array_foreach(jout, idx, value)
+                {
+                        string svalue;
+
+                        if (!json_is_string(value)) continue;
+
+                        svalue = json_string_value(value);
+                        Output *output = ListeRoom::Instance().get_output(svalue);
+                        if (output)
+                        {
+                                if (output->get_type() == TBOOL)
+                                        json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_bool()?"true":"false"));
+                                else if (output->get_type() == TINT)
+                                        json_object_set_new(joutputs, svalue.c_str(), json_string(Utils::to_string(output->get_value_double()).c_str()));
+                                else if (output->get_type() == TSTRING)
+                                        json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_string().c_str()));
+                        }
+                }
+        }
+
+        player_count = 0;
+
+        json_t *jpl = json_object_get(jroot, "audio_players");
+        if (jpl && json_is_array(jpl))
+        {
+                int idx;
+                json_t *value;
+
+                json_array_foreach(jpl, idx, value)
+                {
+                        string svalue;
+
+                        if (!json_is_string(value)) continue;
+
+                        int pid;
+                        Utils::from_string(svalue, pid);
+                        if (pid < 0 || pid >= AudioManager::Instance().get_size())
+                                continue;
+
+                        player_count++;
+
+                        json_t *jplayer = json_object();
+                        json_object_set_new(jplayer, svalue.c_str(), json_string(Utils::to_string(pid).c_str()));
+
+                        AudioPlayer *player = AudioManager::Instance().get_player(pid);
+                        player->get_playlist_current([=](AudioPlayerData data1)
+                        {
+                                json_object_set_new(jplayer,
+                                                    "playlist_current_track",
+                                                    json_string(Utils::to_string(data1.ivalue).c_str()));
+
+                                player->get_volume([=](AudioPlayerData data2)
+                                {
+                                        json_object_set_new(jplayer,
+                                                            "volume",
+                                                            json_string(Utils::to_string(data2.ivalue).c_str()));
+
+                                        player->get_playlist_size([=](AudioPlayerData data3)
+                                        {
+                                                json_object_set_new(jplayer,
+                                                                    "playlist_size",
+                                                                    json_string(Utils::to_string(data3.ivalue).c_str()));
+
+                                                player->get_current_time([=](AudioPlayerData data4)
+                                                {
+                                                        json_object_set_new(jplayer,
+                                                                            "time_elapsed",
+                                                                            json_string(Utils::to_string(data4.dvalue).c_str()));
+
+                                                        player->get_status([=](AudioPlayerData data5)
+                                                        {
+                                                                string status;
+                                                                switch (data5.ivalue)
+                                                                {
+                                                                case PLAY: status = "playing"; break;
+                                                                case PAUSE: status = "pause"; break;
+                                                                case STOP: status = "stop"; break;
+                                                                default:
+                                                                case ERROR: status = "error"; break;
+                                                                case SONG_CHANGE: status = "song_change"; break;
+                                                                }
+
+                                                                json_object_set_new(jplayer,
+                                                                                    "status",
+                                                                                    json_string(status.c_str()));
+
+                                                                json_t *jtrack = json_object();
+                                                                player->get_songinfo([=](AudioPlayerData data6)
+                                                                {
+                                                                        Params &infos = data6.params;
+                                                                        for (int i = 0;i < infos.size();i++)
+                                                                        {
+                                                                                string inf_key, inf_value;
+                                                                                infos.get_item(i, inf_key, inf_value);
+
+                                                                                json_object_set_new(jtrack,
+                                                                                                    inf_key.c_str(),
+                                                                                                    json_string(inf_value.c_str()));
+                                                                        }
+
+                                                                        json_object_set_new(jplayer,
+                                                                                            "current_track",
+                                                                                            jtrack);
+
+                                                                        //Add player to array, and send data back if all players requests are done.
+                                                                        json_array_append(jaudio, jplayer);
+                                                                        player_count--;
+
+                                                                        if (player_count <= 0)
+                                                                        {
+                                                                                json_t *jret = json_object();
+                                                                                jret = json_pack("{s:o, s:o, s:o}",
+                                                                                                 "inputs", jinputs,
+                                                                                                 "outputs", joutputs,
+                                                                                                 "audio_players", jaudio);
+
+                                                                                sendJson(jret);
+                                                                        }
+                                                                });
+                                                        });
+                                                });
+                                        });
+                                });
+                        });
+                }
+        }
+
+        //only send data if there is not audio players
+        if (player_count == 0)
+        {
+                json_t *jret = json_object();
+                jret = json_pack("{s:o, s:o, s:o}",
+                                 "inputs", jinputs,
+                                 "outputs", joutputs,
+                                 "audio_players", jaudio);
+
+                sendJson(jret);
+        }
 }
 
 void JsonApiClient::processSetState()
 {
+        bool success = true;
 
+        if (jsonParam["type"] == "input")
+        {
+                Input *input = ListeRoom::Instance().get_input(jsonParam["id"]);
+                if (!input)
+                        success = false;
+                else
+                {
+                        if (input->get_type() == TBOOL)
+                                input->force_input_bool(jsonParam["value"] == "true");
+                        else if (input->get_type() == TINT)
+                        {
+                                double dv;
+                                Utils::from_string(jsonParam["value"], dv);
+                                input->force_input_double(dv);
+                        }
+                        else if (input->get_type() == TSTRING)
+                                input->force_input_string(jsonParam["value"]);
+                }
+        }
+        else if (jsonParam["type"] == "output")
+        {
+                Output *output = ListeRoom::Instance().get_output(jsonParam["id"]);
+                if (!output)
+                        success = false;
+                else
+                {
+                        if (output->get_type() == TBOOL)
+                                output->set_value(jsonParam["value"] == "true");
+                        else if (output->get_type() == TINT)
+                        {
+                                double dv;
+                                Utils::from_string(jsonParam["value"], dv);
+                                output->set_value(dv);
+                        }
+                        else if (output->get_type() == TSTRING)
+                                output->set_value(jsonParam["value"]);
+                }
+        }
+        else if (jsonParam["type"] == "audio")
+        {
+                int pid;
+                Utils::from_string(jsonParam["player_id"], pid);
+                if (pid < 0 || pid >= AudioManager::Instance().get_size())
+                        success = false;
+                else
+                {
+                        AudioPlayer *player = AudioManager::Instance().get_player(pid);
+
+                        Params cmd;
+                        cmd.Parse(jsonParam["value"]);
+
+                        if (cmd["0"] == "play") player->Play();
+                        else if (cmd["0"] == "pause") player->Pause();
+                        else if (cmd["0"] == "stop") player->Stop();
+                        else if (cmd["0"] == "next") player->Next();
+                        else if (cmd["0"] == "previous") player->Previous();
+                        else if (cmd["0"] == "off") player->Power(false);
+                        else if (cmd["0"] == "on") player->Power(true);
+                        else if (cmd["0"] == "volume")
+                        {
+                                int vol = 0;
+                                Utils::from_string(cmd["1"], vol);
+                                player->set_volume(vol);
+                        }
+                        else if (cmd["0"] == "time")
+                        {
+                                int _t = 0;
+                                Utils::from_string(cmd["1"], _t);
+                                player->set_current_time(_t);
+                        }
+                        else if (cmd["0"] == "playlist")
+                        {
+                                if (cmd["1"] == "clear") player->playlist_clear();
+                                else if (cmd["1"] == "save") player->playlist_save(cmd["2"]);
+                                else if (cmd["1"] == "add") player->playlist_add_items(cmd["2"]);
+                                else if (cmd["1"] == "play") player->playlist_play_items(cmd["2"]);
+                                else if (Utils::is_of_type<int>(cmd["1"]))
+                                {
+                                        int item = 0;
+                                        Utils::from_string(cmd["1"], item);
+
+                                        if (cmd["2"] == "moveup") player->playlist_moveup(item);
+                                        else if (cmd["2"] == "movedown") player->playlist_movedown(item);
+                                        else if (cmd["2"] == "delete") player->playlist_delete(item);
+                                        else if (cmd["2"] == "play") player->playlist_play(item);
+                                }
+                        }
+                        else if (cmd["0"] == "random")
+                        {
+                                vector<string> tk;
+                                split(cmd["1"], tk, ":", 2);
+                                if (tk.size() == 2 && tk[0] == "random_id")
+                                        player->get_database()->setRandomsType(tk[1]);
+                        }
+                        else if (cmd["0"] == "options")
+                        {
+                                if (cmd["1"] == "sync" && cmd["2"] == "off")
+                                        player->Synchronize("", false);
+                                else if (cmd["1"] == "sync")
+                                {
+                                        vector<string> tk;
+                                        split(cmd["2"], tk, ":", 2);
+                                        if (tk.size() == 2 && tk[0] == "id")
+                                                player->Synchronize(tk[1], true);
+                                }
+                        }
+                        else if (cmd["0"] == "database")
+                        {
+                                if (cmd["1"] == "playlist" && cmd["2"] == "delete")
+                                {
+                                        vector<string> tk;
+                                        split(cmd["3"], tk, ":", 2);
+                                        if (tk.size() == 2 && tk[0] == "playlist_id")
+                                                player->playlist_delete(tk[1]);
+                                }
+                        }
+                }
+        }
+        else if (jsonParam["type"] == "camera")
+        {
+                int pid;
+                Utils::from_string(jsonParam["camera_id"], pid);
+                if (pid < 0 || pid >= CamManager::Instance().get_size())
+                        success = false;
+                else
+                {
+                        IPCam *camera = CamManager::Instance().get_camera(pid);
+                        if (camera)
+                        {
+                                if (jsonParam["camera_action"] == "move")
+                                {
+                                        int action = -1;
+
+                                        if (jsonParam["value"] == "left") action = 1;
+                                        if (jsonParam["value"] == "right") action = 1;
+                                        if (jsonParam["value"] == "up") action = 1;
+                                        if (jsonParam["value"] == "down") action = 1;
+                                        if (jsonParam["value"] == "home") action = 1;
+                                        if (jsonParam["value"] == "zoomin") action = 1;
+                                        if (jsonParam["value"] == "zoomout") action = 1;
+
+                                        if (action == 1)
+                                                camera->activateCapabilities("ptz", "move", jsonParam["camera_action"]);
+
+                                        //move to a preset position
+                                        if (Utils::is_of_type<int>(jsonParam["camera_action"]))
+                                                camera->activateCapabilities("position", "recall", jsonParam["camera_action"]);
+                                }
+                                else if (jsonParam["camera_action"] == "save")
+                                {
+                                        if (Utils::is_of_type<int>(jsonParam["value"]))
+                                                camera->activateCapabilities("position", "save", jsonParam["value"]);
+                                }
+                        }
+                }
+        }
+
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string(success?"true":"false"));
+        sendJson(jret);
 }
 
 void JsonApiClient::processGetPlaylist()

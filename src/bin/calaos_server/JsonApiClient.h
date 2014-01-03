@@ -51,6 +51,8 @@ using namespace Calaos;
 
                         Params jsonParam;
 
+                        int player_count;
+
                         void CloseConnection();
 
                         //for parsing purposes
@@ -69,7 +71,7 @@ using namespace Calaos;
 
                         //processing functions
                         void processGetHome();
-                        void processGetState();
+                        void processGetState(json_t *jroot);
                         void processSetState();
                         void processGetPlaylist();
                         void processPolling();
