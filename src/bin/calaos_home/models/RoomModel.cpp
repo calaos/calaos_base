@@ -65,6 +65,7 @@ void RoomModel::home_get_cb(bool success, vector<string> result, void *data)
                 split(result[i], tmp, ":", 2);
                 int nb;
                 if (tmp.size() < 2) continue;
+                if (tmp[1].empty()) continue;
                 from_string(tmp[1], nb);
 
                 for(int j = 0;j < nb;j++)
