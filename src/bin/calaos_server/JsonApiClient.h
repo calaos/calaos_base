@@ -80,6 +80,7 @@ using namespace Calaos;
                         json_t *buildJsonCameras();
                         json_t *buildJsonAudio();
                         template<typename T> json_t *buildJsonRoomIO(Room *room);
+                        void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 
                         friend int _parser_begin(http_parser *parser);
                         friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
