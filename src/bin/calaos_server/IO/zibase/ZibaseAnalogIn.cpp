@@ -75,7 +75,8 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 		Utils::logger("input") << Priority::INFO << "Error Opening Zibase device" << log4cpp::eol;
 	}
 	else
-	{	Calaos::StartReadRules::Instance().ioRead();
+	{	//Calaos::StartReadRules::Instance().ioRead();
+		ListeRule::Instance().Add(this);
 	}
 }
 
@@ -91,7 +92,7 @@ void ZibaseAnalogIn::readValue()
 
 	handle->zibase_getAnalog(&val);
 
-	printf("\n ZibaseAnalog Read Value %3.3f",val);
+	//printf("\n ZibaseAnalog Read Value %3.3f",val);
 	if (val != value)
         {
                 value = val;
