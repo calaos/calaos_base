@@ -107,6 +107,7 @@ IO/IntValue.cpp					\
 IO/Wago/WITemp.cpp					\
 IO/OneWire/OWTemp.cpp					\
 IO/zibase/ZibaseAnalogIn.cpp					\
+IO/zibase/ZibaseDigitalIn.cpp					\
 IPCam/IPCam.cpp					\
 IPCam/CamInput.cpp				\
 IPCam/CamManager.cpp				\
@@ -208,6 +209,7 @@ IO/Wago/WagoCtrl.h					\
 IO/InputTime.h					\
 IO/OneWire/OWTemp.h					\
 IO/zibase/ZibaseAnalogIn.h					\
+IO/zibase/ZibaseDigitalIn.h					\
 IO/Wago/WODigital.h					\
 IO/Wago/WITemp.h					\
 IO/Scenario.h					\
