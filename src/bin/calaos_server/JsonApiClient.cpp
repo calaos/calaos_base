@@ -25,6 +25,13 @@
 #include "PollListenner.h"
 #include "TCPConnection.h"
 
+#ifndef json_array_foreach
+#define json_array_foreach(array, index, value) \
+    for(index = 0; \
+    index < json_array_size(array) && (value = json_array_get(array, index)); \
+    index++)
+#endif
+
 #define HTTP_400 "HTTP/1.1 400 Bad Request"
 #define HTTP_404 "HTTP/1.1 404 Not Found"
 #define HTTP_500 "HTTP/1.1 500 Internal Server Error"
