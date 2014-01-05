@@ -642,7 +642,7 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
 
 bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
 {
-#ifndef SIOCGIFADDR
+#ifndef SIOCGIFHWADDR
         return false;
 #else
         int sock;
