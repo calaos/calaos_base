@@ -19,6 +19,7 @@
 **
 ******************************************************************************/
 #include "AVRYamaha.h"
+#include <cmath>
 
 using namespace Calaos;
 
