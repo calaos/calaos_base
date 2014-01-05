@@ -21,7 +21,7 @@ GpioCtrl::~GpioCtrl()
 int GpioCtrl::writeFile(string path, string value)
 {
         ofstream ofspath(path.c_str());
-        if (ofspath < 0)
+        if (ofspath.is_open())
         {
                 // Unable to export GPIO
                 return false;
@@ -35,7 +35,7 @@ int GpioCtrl::writeFile(string path, string value)
 int GpioCtrl::readFile(string path, string &value)
 {
         ifstream ifspath(path.c_str());
-        if (ifspath < 0)
+        if (ifspath.is_open())
         {
                 return false;
         }
