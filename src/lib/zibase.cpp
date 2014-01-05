@@ -143,11 +143,33 @@ void extract_temp(char* frame,float *val)
 	}
 }
 
+void extract_zwave_detectOpen(char* frame,bool *val)
+{
+	char * c;
+	
+
+	c = strstr (frame, "CMD/INTER");
+	if(c != NULL)
+	{
+		/* search <id> */
+		c = strstr (frame, "<id>");
+		if(c != NULL)
+		{
+			sscanf(c,"<id>%[^<]",buf);
+			/*search _OFF in id name, to know if door close, val = 1 if door opened */
+			if(strstr (buf, "_OFF")==NULL)
+				*val = 1;
+			else *val = 0; 
+		}
+	}
+}
+
 
 int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 {
 	char * c;
 	float val;
+	bool valNum;
 	IN_DEBUG_DO(printf("\n**************************************************"));	
 	IN_DEBUG_DO(printf("\nValid frame received, on ID %s,extract infos",id));
 	
@@ -156,7 +178,9 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 	{
 		extract_energy(frame,&val);
 		elm->Analog = val;
+		//signal_zibase.emit();	
 		IN_DEBUG_DO(printf("\nPower consumption in %s is %.2f W",elm->label,val));
+		
 	}
 
 	c = strstr (frame, "T=<tem>");
@@ -165,6 +189,16 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 		extract_temp(frame,&val);
 		elm->Analog=val;
 		IN_DEBUG_DO(printf("\nTempérature in %s is %.2f degrees",elm->label,val));
+	}
+
+	c = strstr (frame, "CMD/INTER");
+	if(c != NULL)
+	{
+		std::string strid = id;
+		extract_zwave_detectOpen(frame,&valNum);
+		elm->Digital=valNum;
+		printf("emit signal with %d\n",valNum);
+		signal_zibase.emit(strid,valNum);		
 	}
 	
 	
@@ -240,11 +274,15 @@ Eina_Bool zibase_udpDatasvr(void *data, int type, Ecore_Con_Event_Server_Data *e
 		/* check ID */
 		c = strstr ((char*)packet->frame, "<id>");
 		sscanf(c,"<id>%[^<]",buf);
+
+		printf("\n RX ID = %s",buf);
+
 		/* search id in list */
 		for ( size_t i = 0, size = ListZibaseInfoSensor.size(); i < size; ++i )
 		{
 		    if (strcmp(ListZibaseInfoSensor[i]->id,buf) == 0)
 		    {	
+			printf("->match\n");
 			/* extract frame */
 			extract_infos((char*)packet->frame,buf,ListZibaseInfoSensor[i]);
 			break;

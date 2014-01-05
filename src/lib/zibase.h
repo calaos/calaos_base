@@ -21,6 +21,8 @@
 #ifndef S_ZIBASEDEV_H
 #define S_ZIBASEDEV_H
 
+
+
 /**********************************/
 /********    DEFINE       *********/
 /**********************************/
@@ -38,7 +40,9 @@ typedef enum{
 /** @brief temperature sensor) */
 	eTEMP,
 /** @brief energy monitor sensor) */
-	eENERGY
+	eENERGY,
+/** @brief detector sensor) */
+	eDETECT
 }eZibaseSensor;
 
 /** @brief Structure describing sensor information on zibase link */
@@ -76,5 +80,8 @@ class zibase
 		int zibase_getAnalog(double * val);
 		int zibase_getDigital(bool * val);       
 };
+
+
+
 
 #endif
