@@ -31,6 +31,11 @@
 
 #include "mbus.h"
 
+/*On MacosX MSG_NOSIGNAL is not defined, redefine it here, and use the setsockopt(SO_SIGPIPE) when initializing the socket */
+#if !defined(MSG_NOSIGNAL)
+#  define MSG_NOSIGNAL 0
+#endif
+
 int mbus_sock_create(int blkmode);
 int mbus_sock_create_client(const char *server_addr,
                             mbus_uword server_port, int blkmode);
@@ -75,6 +80,23 @@ mbus_sock_create(int blkmode)
     close(sock);
     return -1;
   }
+
+#if defined(SO_NOSIGPIPE)
+  // Mac OS X does not have the MSG_NOSIGNAL flag when calling sendo, but we can use this socket option instead
+  if (sock > 0)
+  {
+      int set_option = 1;
+      if (setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &set_option,
+                     sizeof(set_option)))
+      {
+          DBG(__FILE__, __LINE__,
+              "setsockopt error");
+          return -1;
+      }
+  }
+#endif  // SO_NOSIGPIPE
+
+
   /* all OK, return socket descriptor */
   return sock;
 }
