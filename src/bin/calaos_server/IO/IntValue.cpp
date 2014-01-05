@@ -20,7 +20,7 @@
 ******************************************************************************/
 #include <IntValue.h>
 #include <IPC.h>
-#include <Config.h>
+#include <CalaosConfig.h>
 
 using namespace Calaos;
 

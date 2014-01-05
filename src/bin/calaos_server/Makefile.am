@@ -95,7 +95,7 @@ Rule.cpp					\
 DataLogger.cpp 					\
 Output.cpp					\
 ListeRule.cpp					\
-Config.cpp					\
+CalaosConfig.cpp					\
 IO/Wago/WagoCtrl.cpp					\
 IO/Wago/WODigital.cpp				\
 IO/Wago/WagoMap.cpp					\
@@ -192,7 +192,7 @@ TCPConnection.h					\
 Calaos.h					\
 ListeRoom.h					\
 Output.h					\
-Config.h					\
+CalaosConfig.h					\
 Rules/RulesFactory.h				\
 Rules/ActionTouchscreen.h			\
 Rules/ConditionStd.h				\

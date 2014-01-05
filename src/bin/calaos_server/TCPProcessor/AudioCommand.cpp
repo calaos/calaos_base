@@ -19,7 +19,7 @@
 **
 ******************************************************************************/
 #include <TCPConnection.h>
-#include <Config.h>
+#include <CalaosConfig.h>
 
 using namespace Calaos;
 

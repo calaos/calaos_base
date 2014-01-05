@@ -33,7 +33,7 @@
 #include <InputTimer.h>
 #include <WODigital.h>
 #include <Scenario.h>
-#include <Config.h>
+#include <CalaosConfig.h>
 
 using namespace Calaos;
 

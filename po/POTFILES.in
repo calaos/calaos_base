@@ -95,7 +95,7 @@
 ./src/bin/calaos_server/Audio/Squeezebox.cpp
 ./src/bin/calaos_server/Audio/SqueezeboxDB.cpp
 ./src/bin/calaos_server/Calaos.cpp
-./src/bin/calaos_server/Config.cpp
+./src/bin/calaos_server/CalaosConfig.cpp
 ./src/bin/calaos_server/Input.cpp
 ./src/bin/calaos_server/IO/InPlageHoraire.cpp
 ./src/bin/calaos_server/IO/InputTime.cpp

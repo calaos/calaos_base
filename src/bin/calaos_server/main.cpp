@@ -25,7 +25,7 @@
 #include <Output.h>
 #include <Params.h>
 #include <IOFactory.h>
-#include <Config.h>
+#include <CalaosConfig.h>
 #include <ListeRule.h>
 #include <TCPServer.h>
 #include <UDPServer.h>

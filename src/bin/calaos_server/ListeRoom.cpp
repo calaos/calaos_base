@@ -21,7 +21,7 @@
 #include <ListeRoom.h>
 #include <IPC.h>
 #include <AutoScenario.h>
-#include <Config.h>
+#include <CalaosConfig.h>
 
 using namespace Calaos;
 

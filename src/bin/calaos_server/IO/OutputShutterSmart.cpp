@@ -19,7 +19,7 @@
 **
 ******************************************************************************/
 #include <OutputShutterSmart.h>
-#include "Config.h"
+#include "CalaosConfig.h"
 #include <IPC.h>
 
 using namespace Calaos;
