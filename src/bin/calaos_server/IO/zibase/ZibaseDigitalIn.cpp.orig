@@ -55,11 +55,7 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
 	/* get port */
 	Utils::from_string(get_param("port"),SensorInfo.port); 
 	/* reset value */	
-<<<<<<< HEAD
-	SensorInfo.Digital = 0;
-=======
 	SensorInfo.Analog = 0;
->>>>>>> a0f13d03281df917e7f7d40902dba9bb8fc716b2
 	/* set sensor type */
 	SensorInfo.type = eDETECT;	
 	
@@ -95,6 +91,35 @@ void ZibaseDigitalIn::ReceiveDigitalZibase(std::string id,bool data)
 
 bool ZibaseDigitalIn::readValue()
 {
+<<<<<<< HEAD
+=======
+	//printf("\nZibaseDigitalIn::readValue()");
+/*        if(count++ == 100)
+	{	count = 0;
+		if(value == false) value = true;
+		else if(value == true) value = false;
+
+		//Utils::logger("input") << Priority::DEBUG << "ZibaseDigitalIn::readValue(): Ok" << log4cpp::eol;
+		
+		
+		string sig = "input ";
+                sig += get_param("id") + " ";
+                if (value)
+                        sig += Utils::url_encode(string("state:true"));
+                else
+                        sig += Utils::url_encode(string("state:false"));
+                IPC::Instance().SendEvent("events", sig);
+
+                EmitSignalInput();
+
+
+	}
+	return value;
+*/
+	/*if(val == false) val = true;
+	else if(val == true) val = false;
+*/
+>>>>>>> add zibase digital io  management, first commit
         return val;
 }
 

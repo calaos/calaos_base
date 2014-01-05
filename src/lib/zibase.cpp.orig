@@ -143,7 +143,6 @@ void extract_temp(char* frame,float *val)
 	}
 }
 
-<<<<<<< HEAD
 void extract_zwave_detectOpen(char* frame,bool *val)
 {
 	char * c;
@@ -165,17 +164,12 @@ void extract_zwave_detectOpen(char* frame,bool *val)
 	}
 }
 
-=======
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 
 int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 {
 	char * c;
 	float val;
-<<<<<<< HEAD
 	bool valNum;
-=======
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 	IN_DEBUG_DO(printf("\n**************************************************"));	
 	IN_DEBUG_DO(printf("\nValid frame received, on ID %s,extract infos",id));
 	
@@ -184,13 +178,9 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 	{
 		extract_energy(frame,&val);
 		elm->Analog = val;
-<<<<<<< HEAD
 		//signal_zibase.emit();	
 		IN_DEBUG_DO(printf("\nPower consumption in %s is %.2f W",elm->label,val));
 		
-=======
-		IN_DEBUG_DO(printf("\nPower consumption in %s is %.2f W",elm->label,val));
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 	}
 
 	c = strstr (frame, "T=<tem>");
@@ -200,7 +190,6 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 		elm->Analog=val;
 		IN_DEBUG_DO(printf("\nTempérature in %s is %.2f degrees",elm->label,val));
 	}
-<<<<<<< HEAD
 
 	c = strstr (frame, "CMD/INTER");
 	if(c != NULL)
@@ -208,10 +197,12 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 		std::string strid = id;
 		extract_zwave_detectOpen(frame,&valNum);
 		elm->Digital=valNum;
+<<<<<<< HEAD
+=======
+		printf("emit signal with %d\n",valNum);
+>>>>>>> add zibase digital io  management, first commit
 		signal_zibase.emit(strid,valNum);		
 	}
-=======
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 	
 	
 	IN_DEBUG_DO(printf("\n**************************************************"));
@@ -277,10 +268,7 @@ Eina_Bool zibase_udpData(void *data, int type, Ecore_Con_Event_Server_Data *ev)
 Eina_Bool zibase_udpDatasvr(void *data, int type, Ecore_Con_Event_Server_Data *ev)
 {
 	char* c;
-<<<<<<< HEAD
 	static char bufOFF[64];
-=======
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 	TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;
 
 	
@@ -292,18 +280,17 @@ Eina_Bool zibase_udpDatasvr(void *data, int type, Ecore_Con_Event_Server_Data *e
 		sscanf(c,"<id>%[^<]",buf);
 <<<<<<< HEAD
 		sscanf(c,"<id>%[^_]",bufOFF);
+=======
+
+		printf("\n RX ID = %s",buf);
+>>>>>>> add zibase digital io  management, first commit
 
 		/* search id in list */
 		for ( size_t i = 0, size = ListZibaseInfoSensor.size(); i < size; ++i )
 		{
 		    if ((strcmp(ListZibaseInfoSensor[i]->id,buf) == 0)||(strcmp(ListZibaseInfoSensor[i]->id,bufOFF) == 0))
-=======
-		/* search id in list */
-		for ( size_t i = 0, size = ListZibaseInfoSensor.size(); i < size; ++i )
-		{
-		    if (strcmp(ListZibaseInfoSensor[i]->id,buf) == 0)
->>>>>>> rewrite (try to) zibase lib in cpp, use ecore_con for client serveur connection
 		    {	
+			printf("->match\n");
 			/* extract frame */
 			extract_infos((char*)packet->frame,buf,ListZibaseInfoSensor[i]);
 			break;
