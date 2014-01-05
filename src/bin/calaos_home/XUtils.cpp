@@ -18,14 +18,21 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <XUtils.h>
 
 //for DPMS
+#ifdef HAVE_ECORE_X
 #include <X11/Xlib.h>
 #include <X11/extensions/dpms.h>
+#endif
 
 void XUtils::UpdateDPMS(bool enable, int seconds)
 {
+#ifdef HAVE_ECORE_X
         //X11 display
         Display *x_display;
 
@@ -69,10 +76,12 @@ void XUtils::UpdateDPMS(bool enable, int seconds)
         //Close the X11 connection
         if (x_display)
                 XCloseDisplay(x_display);
+#endif
 }
 
 void XUtils::WakeUpScreen(bool enable)
 {
+#ifdef HAVE_ECORE_X
         //X11 display
         Display *x_display;
 
@@ -108,10 +117,12 @@ void XUtils::WakeUpScreen(bool enable)
         //Close the X11 connection
         if (x_display)
                 XCloseDisplay(x_display);
+#endif
 }
 
 int XUtils::getDPMSInfo()
 {
+#ifdef HAVE_ECORE_X
         //X11 display
         Display *x_display;
         int ret = DPMS_NOTAVAILABLE;
@@ -146,5 +157,7 @@ int XUtils::getDPMSInfo()
                 XCloseDisplay(x_display);
 
         return ret;
+#endif
+	return 0;
 }
 

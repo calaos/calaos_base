@@ -18,8 +18,15 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "KeyboardView.h"
+
+#ifdef HAVE_ECORE_X
 #include "Ecore_X.h"
+#endif
 
 //Some XKeysims
 #define XK_Return                        0xff0d
@@ -49,6 +56,7 @@ KeyboardView::~KeyboardView()
 
 void KeyboardView::pressKey(string k)
 {
+#ifdef HAVE_ECORE_X
         /* Code from enlightenment/Illume */
         const char *key = NULL;
         int glyph;
@@ -65,10 +73,12 @@ void KeyboardView::pressKey(string k)
         if (!key) return;
 
         ecore_x_test_fake_key_press(key);
+#endif
 }
 
 void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
+#ifdef HAVE_ECORE_X
         if (source == "keyboard" && emission == "key,key_maj")
         {
                 keys_upper = !keys_upper;
@@ -137,4 +147,5 @@ void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, stri
 
                 pressKey(emission);
         }
+#endif
 }

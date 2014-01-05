@@ -57,7 +57,7 @@ requirements_calaos_server="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 
-requirements_calaos_home="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} elementary >= ${efl_ver} ecore-x >= ${efl_ver} openssl >= 1.0.0 libcurl x11 xext"
+requirements_calaos_home="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} elementary >= ${efl_ver} openssl >= 1.0.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}], [have_calaos_home_dep="yes"], [have_calaos_home_dep="no"])
 AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"])
 
@@ -119,6 +119,15 @@ then
      AC_DEFINE([HAVE_EWEBKIT], [1], [ewebkit])
 fi
 
+have_ecore_x="no"
+PKG_CHECK_MODULES([ECORE_X], [ecore-x x11 xext], [have_ecore_x="yes"], [have_ecore_x="no"])
+AM_CONDITIONAL([HAVE_ECORE_X], [test "x${have_ecore_x}" = "xyes"])
+if test "x${have_ecore_x}" == "xyes"
+then 
+     AC_DEFINE([HAVE_ECORE_X], [1], [ecore_x])
+fi
+
+
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
@@ -168,4 +177,5 @@ echo " Build theme.......... : $build_theme"
 echo
 echo " One Wire support......: ${have_owcapi}"
 echo " EWebkit support.......: ${have_ewebkit}"
+echo " Ecore_X support.......: ${have_ecore_x}"
 echo
