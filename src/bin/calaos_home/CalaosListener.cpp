@@ -101,7 +101,7 @@ CalaosListener::CalaosListener(string _address):
 
         timerReconnect();
 
-        timer = new EcoreTimer(1000.,
+        timer = new EcoreTimer(1.0,
                 (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
 }
 
