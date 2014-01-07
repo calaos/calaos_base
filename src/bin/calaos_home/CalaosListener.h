@@ -42,15 +42,12 @@ class CalaosListener: public sigc::trackable
 
                 string buffer;
 
-                EcoreTimer *timer;
-
                 Ecore_Event_Handler *handler_add;
                 Ecore_Event_Handler *handler_data;
                 Ecore_Event_Handler *handler_del;
                 Ecore_Event_Handler *handler_error;
 
                 void processMessage(string msg);
-                void timerReconnect();
 
         public:
                 CalaosListener(string address);

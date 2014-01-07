@@ -91,18 +91,12 @@ static Eina_Bool _con_server_error(void *data, int type, Ecore_Con_Event_Server_
 CalaosListener::CalaosListener(string _address):
                 address(_address),
                 econ(NULL),
-                login(false),
-                timer(NULL)
+                login(false)
 {
         handler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
         handler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
         handler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
         handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_con_server_error, this);
-
-        timerReconnect();
-
-        timer = new EcoreTimer(1.0,
-                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
 }
 
 CalaosListener::~CalaosListener()
@@ -111,24 +105,12 @@ CalaosListener::~CalaosListener()
         DELETE_NULL_FUNC(ecore_event_handler_del, handler_del);
         DELETE_NULL_FUNC(ecore_event_handler_del, handler_data);
 
-        DELETE_NULL(timer);
         DELETE_NULL_FUNC(ecore_con_server_del, econ);
-}
-
-void CalaosListener::timerReconnect()
-{
-        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Connecting to " << address << ":" << TCP_LISTEN_PORT << log4cpp::eol;
-
-        DELETE_NULL_FUNC(ecore_con_server_del, econ)
-        econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, address.c_str(), TCP_LISTEN_PORT, this);
-        ecore_con_server_data_set(econ, this);
 }
 
 void CalaosListener::addConnection(Ecore_Con_Server *server)
 {
         if (server != econ) return;
-
-        DELETE_NULL(timer)
 
         //Login first
         login = true;
@@ -158,8 +140,6 @@ void CalaosListener::delConnection(Ecore_Con_Server *server)
 {
         if (server != econ) return;
 
-        DELETE_NULL(timer)
-
         if (login)
         {
                 Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Wrong login/password." << log4cpp::eol;
@@ -169,9 +149,6 @@ void CalaosListener::delConnection(Ecore_Con_Server *server)
 
         Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection closed !" << log4cpp::eol;
         Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
-
-        timer = new EcoreTimer(5 / 100.,
-                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
 
         lost_connection.emit();
 }
@@ -234,13 +211,8 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
         econ = NULL;
 
-        DELETE_NULL(timer)
-
         Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection error !" << log4cpp::eol;
         Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
-
-        timer = new EcoreTimer(1.0,
-                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
 
         lost_connection.emit();
 
