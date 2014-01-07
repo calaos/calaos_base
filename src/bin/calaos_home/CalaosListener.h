@@ -33,6 +33,7 @@ class CalaosListener: public sigc::trackable
                 void addConnection(Ecore_Con_Server *server);
                 void delConnection(Ecore_Con_Server *server);
                 void dataGet(Ecore_Con_Server *server, void *data, int size);
+                void errorConnection(Ecore_Con_Server *server);
 
         private:
                 string address;
@@ -46,6 +47,7 @@ class CalaosListener: public sigc::trackable
                 Ecore_Event_Handler *handler_add;
                 Ecore_Event_Handler *handler_data;
                 Ecore_Event_Handler *handler_del;
+                Ecore_Event_Handler *handler_error;
 
                 void processMessage(string msg);
                 void timerReconnect();

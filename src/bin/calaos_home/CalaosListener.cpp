@@ -71,6 +71,23 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
         return ECORE_CALLBACK_RENEW;
 }
 
+static Eina_Bool _con_server_error(void *data, int type, Ecore_Con_Event_Server_Data *ev)
+{
+        CalaosListener *o = reinterpret_cast<CalaosListener *>(data);
+
+        if (ev && (o != ecore_con_server_data_get(ev->server)))
+                return ECORE_CALLBACK_PASS_ON;
+
+        if (o)
+                o->errorConnection(ev->server);
+        else
+                Utils::logger("network.listener") << Priority::CRIT
+                                << "CalaosListener(): _con_server_error, failed to get object !"
+                                << log4cpp::eol;
+
+        return ECORE_CALLBACK_RENEW;
+}
+
 CalaosListener::CalaosListener(string _address):
                 address(_address),
                 econ(NULL),
@@ -80,6 +97,7 @@ CalaosListener::CalaosListener(string _address):
         handler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
         handler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
         handler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
+        handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_con_server_error, this);
 
         timerReconnect();
 
@@ -208,6 +226,24 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
 
         for(unsigned int j = 0; j < tokens.size(); j++)
                 processMessage(tokens[j]);
+}
+
+void CalaosListener::errorConnection(Ecore_Con_Server *server)
+{
+        if (server != econ) return;
+
+        econ = NULL;
+
+        DELETE_NULL(timer)
+
+        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection closed !" << log4cpp::eol;
+        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
+
+        timer = new EcoreTimer(10.0,
+                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
+
+        lost_connection.emit();
+
 }
 
 void CalaosListener::processMessage(string msg)
