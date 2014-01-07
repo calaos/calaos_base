@@ -236,10 +236,10 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
         DELETE_NULL(timer)
 
-        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection closed !" << log4cpp::eol;
+        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection error !" << log4cpp::eol;
         Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
 
-        timer = new EcoreTimer(10.0,
+        timer = new EcoreTimer(1.0,
                 (sigc::slot<void>)sigc::mem_fun(*this, &CalaosListener::timerReconnect));
 
         lost_connection.emit();
