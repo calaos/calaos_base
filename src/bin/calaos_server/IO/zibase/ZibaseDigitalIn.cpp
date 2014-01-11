@@ -91,32 +91,6 @@ void ZibaseDigitalIn::ReceiveDigitalZibase(std::string id,bool data)
 
 bool ZibaseDigitalIn::readValue()
 {
-	//printf("\nZibaseDigitalIn::readValue()");
-/*        if(count++ == 100)
-	{	count = 0;
-		if(value == false) value = true;
-		else if(value == true) value = false;
-
-		//Utils::logger("input") << Priority::DEBUG << "ZibaseDigitalIn::readValue(): Ok" << log4cpp::eol;
-		
-		
-		string sig = "input ";
-                sig += get_param("id") + " ";
-                if (value)
-                        sig += Utils::url_encode(string("state:true"));
-                else
-                        sig += Utils::url_encode(string("state:false"));
-                IPC::Instance().SendEvent("events", sig);
-
-                EmitSignalInput();
-
-
-	}
-	return value;
-*/
-	/*if(val == false) val = true;
-	else if(val == true) val = false;
-*/
         return val;
 }
 
