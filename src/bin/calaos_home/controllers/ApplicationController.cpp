@@ -22,6 +22,7 @@
 #include "ApplicationMain.h"
 #include "Modules.h"
 #include "GenlistItemWidget.h"
+#include "ActivityIntl.h"
 
 ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
         evas(_e),
@@ -262,8 +263,50 @@ void ApplicationController::ShowScenarioSchedule(Scenario *scenario)
 
 void ApplicationController::onMenuRebootClick()
 {
-        cout << "onMenuRebootClick()" << endl;
-        menuView->CloseLinkMenu();
+        Evas_Object *table = createPaddingTable(evas, layout, 260, 200);
+
+        Evas_Object *glist = elm_genlist_add(layout);
+        elm_object_style_set(glist, "calaos");
+        elm_genlist_select_mode_set(glist, ELM_OBJECT_SELECT_MODE_ALWAYS);
+        evas_object_size_hint_fill_set(glist, EVAS_HINT_FILL, EVAS_HINT_FILL);
+        evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+        evas_object_show(glist);
+
+        Evas_Object *popup = elm_ctxpopup_add(layout);
+        elm_object_style_set(popup, "calaos");
+        evas_object_size_hint_min_set(popup, 300, 240);
+
+        GenlistItemSimple *item;
+
+        item = new GenlistItemSimple(evas, glist, _("Restart only application"), true);
+        item->Append(glist);
+        item->item_selected.connect([this, popup](void *)
+        {
+                elm_ctxpopup_dismiss(popup);
+                menuView->CloseLinkMenu();
+
+                system("systemctl restart calaos-home");
+        });
+
+        item = new GenlistItemSimple(evas, glist, _("Reboot the machine"), true);
+        item->Append(glist);
+        item->item_selected.connect([this, popup](void *)
+        {
+                elm_ctxpopup_dismiss(popup);
+                menuView->CloseLinkMenu();
+
+                system("sync");
+                system("reboot");
+        });
+
+        elm_table_pack(table, glist, 1, 1, 1, 1);
+
+        elm_object_content_set(popup, table);
+
+        Evas_Coord x,y;
+        evas_pointer_canvas_xy_get(evas, &x, &y);
+        evas_object_move(popup, x, y);
+        evas_object_show(popup);
 }
 
 void ApplicationController::onMenuWidgetClick()
