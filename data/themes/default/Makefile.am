@@ -875,7 +875,8 @@ structure/slider.edc				\
 structure/macro_round_button.edc		\
 structure/amplifier_control.edc			\
 structure/images.edc \
-elm/elm_genlist_widget.edc
+elm/elm_genlist_widget.edc \
+structure/screen_suspend.edc
 
 FONT = \
 fonts/calaos_logo.ttf				\

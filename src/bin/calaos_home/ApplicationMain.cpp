@@ -27,6 +27,7 @@
 #include <openssl/ssl.h>
 #include <curl/curl.h>
 #include <Ecore_Evas.h>
+#include "ScreenSuspendView.h"
 
 string ApplicationMain::theme = THEME_DIR"/default.edj";
 
@@ -130,6 +131,11 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
                 e += "\"";
                 throw (runtime_error(e));
         }
+
+        //create the screen suspend object and put it on the canvas
+        ScreenSuspendView *screen_suspend = new ScreenSuspendView(evas, window);
+        screen_suspend->Show();
+        screen_suspend->setAutoDelete(true);
 
         evas_object_size_hint_weight_set(layout, 1.0, 1.0);
         evas_object_show(layout);

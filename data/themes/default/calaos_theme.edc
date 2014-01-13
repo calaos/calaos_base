@@ -160,4 +160,6 @@ collections
         #include "elm/elm_gengrid_item_config.edc"
 
         #include "structure/paging_view.edc"
+
+        #include "structure/screen_suspend.edc"
 }

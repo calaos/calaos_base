@@ -216,7 +216,11 @@ calaos_home_SOURCES = \
 	views/GengridItems/GengridItemConfig.h \
 	views/GengridItems/GengridItemConfig.cpp \
 	XUtils.h \
-	XUtils.cpp
+	XUtils.cpp \
+	models/ScreenManager.h \
+	models/ScreenManager.cpp \
+	views/ScreenSuspendView.h \
+	views/ScreenSuspendView.cpp
 
 calaos_home_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \

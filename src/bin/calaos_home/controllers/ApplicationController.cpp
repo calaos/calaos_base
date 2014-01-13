@@ -22,6 +22,7 @@
 #include "ApplicationMain.h"
 #include "Modules.h"
 #include "GenlistItemWidget.h"
+#include "ScreenManager.h"
 #include "ActivityIntl.h"
 
 ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
@@ -359,7 +360,12 @@ void ApplicationController::onMenuAddWidgetClick()
 
 void ApplicationController::onMenuSuspendClick()
 {
-        cout << "onMenuSuspendClick()" << endl;
+        //delay a little the start of screen suspend
+        //because the mouse move is going to reset the timer
+        EcoreTimer::singleShot(0.1, sigc::slot<void>([]()
+        {
+                ScreenManager::instance().suspend();
+        }));
         menuView->CloseLinkMenu();
 }
 
