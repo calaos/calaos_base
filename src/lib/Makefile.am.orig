@@ -45,11 +45,7 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptBindings.cpp 		\
         LuaScript/ScriptManager.cpp 		\
         TimeRange.cpp 				\
-<<<<<<< HEAD
 	zibase.cpp				\
-=======
-	zibase.c 				\
->>>>>>> first integration of zibase analog input
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\
@@ -84,14 +80,13 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
-	DownloadManager.h			\
-	http-parser/http_parser.h \
 <<<<<<< HEAD
-	http-parser/http_parser.c \
-=======
-	http-parser/http_parser.c
 	DownloadManager.h			\
->>>>>>> first integration of zibase analog input
+=======
+	DownloadManager.h \
+>>>>>>> merge from mainline
+	http-parser/http_parser.h \
+	http-parser/http_parser.c \
 	zibase.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@

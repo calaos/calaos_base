@@ -142,6 +142,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         {
                 in = new ZibaseDigitalIn(params);
         }
+	else if (type == "WebAnalogIn")
+        {
+                in = new WebAnalogIn(params);
+        }
         else if (type == "scenario")
         {
                 in = new Scenario(params);
