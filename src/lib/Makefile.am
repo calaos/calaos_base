@@ -82,8 +82,7 @@ libcalaos_common_la_SOURCES = \
 	IPC.h					\
 	DownloadManager.h \
 	http-parser/http_parser.h \
-	http-parser/http_parser.c
-	DownloadManager.h			\
+	http-parser/http_parser.c \
 	zibase.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
