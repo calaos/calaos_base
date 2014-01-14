@@ -55,7 +55,7 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
 	/* get port */
 	Utils::from_string(get_param("port"),SensorInfo.port); 
 	/* reset value */	
-	SensorInfo.Analog = 0;
+	SensorInfo.Digital = 0;
 	/* set sensor type */
 	SensorInfo.type = eDETECT;	
 	
