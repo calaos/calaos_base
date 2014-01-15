@@ -97,6 +97,11 @@ CalaosListener::CalaosListener(string _address):
         handler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
         handler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
         handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_con_server_error, this);
+
+        //connect the listenner
+        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Connecting to " << address << ":" << TCP_LISTEN_PORT << log4cpp::eol;
+        econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, address.c_str(), TCP_LISTEN_PORT, this);
+        ecore_con_server_data_set(econ, this);
 }
 
 CalaosListener::~CalaosListener()
