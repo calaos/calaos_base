@@ -135,10 +135,6 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         {
                 in = new OWTemp(params);
         }
-        else if (type == "WebAnalogIn")
-        {
-                in = new WebAnalogIn(params);
-	}
 	else if (type == "ZibaseAnalogIn")
         {
                 in = new ZibaseAnalogIn(params);
