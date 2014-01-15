@@ -46,6 +46,7 @@
 #include <WOAnalog.h>
 #include <OWTemp.h>
 #include <AVReceiver.h>
+#include <ZibaseAnalogIn.h>
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
 
@@ -132,9 +133,9 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         {
                 in = new OWTemp(params);
         }
-        else if (type == "WebAnalogIn")
+	else if (type == "ZibaseAnalogIn")
         {
-                in = new WebAnalogIn(params);
+                in = new ZibaseAnalogIn(params);
         }
         else if (type == "scenario")
         {
