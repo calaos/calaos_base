@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2013-11-16 00:17+0100\n"
+"POT-Creation-Date: 2014-01-15 09:27+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -16,6 +16,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/bin/calaos_home/controllers/ApplicationController.cpp:282
+msgid "Restart only application"
+msgstr ""
+
+#: src/bin/calaos_home/controllers/ApplicationController.cpp:292
+#, fuzzy
+msgid "Reboot the machine"
+msgstr "Redémarrer la machine."
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
 msgid "My Albums"
