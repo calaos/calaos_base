@@ -46,9 +46,6 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 	value = 0;
         
 
-	//printf("Zibase_IP : %s\n", Zibase_ip.c_str());
-        //printf("Zibase_ID : %s\n", Zibase_id.c_str());
-	//printf("Zibase_Sensor : %s\n", Zibase_sensortype.c_str());
 	
         if (!get_params().Exists("visible")) set_param("visible", "true");
        
