@@ -257,6 +257,8 @@ IO/Web/WebCtrl.cpp \
 IO/Web/WebCtrl.h \
 IO/Web/WebAnalogIn.cpp \
 IO/Web/WebAnalogIn.h \
+IO/Web/WebOutputLightRGB.cpp \
+IO/Web/WebOutputLightRGB.h \
 IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
 IO/Gpio/GpioOutputSwitch.cpp \
