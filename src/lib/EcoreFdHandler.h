@@ -27,7 +27,7 @@
 
 using namespace Utils;
 
-class EcoreFdHandler2
+class CalaosEcoreFdHandler
 {
         private:
                 Ecore_Fd_Handler *fdhandler;
@@ -43,9 +43,9 @@ class EcoreFdHandler2
                 void *data;
 
         public:
-                EcoreFdHandler2(int fd, sigc::slot<void, void *> slot, void *data = NULL);
-                EcoreFdHandler2(int fd, sigc::slot<void> slot);
-                ~EcoreFdHandler2();
+                CalaosEcoreFdHandler(int fd, sigc::slot<void, void *> slot, void *data = NULL);
+                CalaosEcoreFdHandler(int fd, sigc::slot<void> slot);
+                ~CalaosEcoreFdHandler();
 
                 //private, used by ecore
                 void Tick();

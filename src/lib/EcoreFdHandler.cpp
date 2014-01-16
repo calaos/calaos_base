@@ -22,13 +22,13 @@
 
 static Eina_Bool _calaos_fdhandler_event(void *data, Ecore_Fd_Handler *fd_handler)
 {
-        EcoreFdHandler2 *efdhandler = reinterpret_cast<EcoreFdHandler2 *>(data);
+        CalaosEcoreFdHandler *efdhandler = reinterpret_cast<CalaosEcoreFdHandler *>(data);
         efdhandler->Tick();
 
         return EINA_TRUE;
 }
 
-EcoreFdHandler2::EcoreFdHandler2(int _fd, sigc::slot<void, void *> slot, void *d):
+CalaosEcoreFdHandler::CalaosEcoreFdHandler(int _fd, sigc::slot<void, void *> slot, void *d):
         fdhandler(NULL), fd(_fd), fdhandler_data(true), data(d)
 {
         Ecore_Fd_Handler_Flags flags;
@@ -42,7 +42,7 @@ EcoreFdHandler2::EcoreFdHandler2(int _fd, sigc::slot<void, void *> slot, void *d
                                               _calaos_fdhandler_event, this, NULL, NULL);
 }
 
-EcoreFdHandler2::EcoreFdHandler2(int _fd, sigc::slot<void> slot):
+CalaosEcoreFdHandler::CalaosEcoreFdHandler(int _fd, sigc::slot<void> slot):
                 fdhandler(NULL), fd(_fd), fdhandler_data(false)
 {
         Ecore_Fd_Handler_Flags flags;
@@ -57,7 +57,7 @@ EcoreFdHandler2::EcoreFdHandler2(int _fd, sigc::slot<void> slot):
                                               _calaos_fdhandler_event, this, NULL, NULL);
 }
 
-EcoreFdHandler2::~EcoreFdHandler2()
+CalaosEcoreFdHandler::~CalaosEcoreFdHandler()
 {
         //disconnect the sigc slot
         if (!fdhandler_data)
@@ -69,7 +69,7 @@ EcoreFdHandler2::~EcoreFdHandler2()
         if (fdhandler) ecore_main_fd_handler_del(fdhandler);
 }
 
-void EcoreFdHandler2::Tick()
+void CalaosEcoreFdHandler::Tick()
 {
         if (fdhandler_data)
                 event_signal_data.emit(data);
