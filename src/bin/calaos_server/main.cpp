@@ -151,7 +151,11 @@ int main (int argc, char **argv)
         TCPServer::Instance(TCP_LISTEN_PORT);
 
         //Start Json API server
-        JsonApiServer::Instance(JSONAPI_PORT);
+	unsigned short port = JSONAPI_PORT;
+	string tmp =  Utils::get_config_option("port_api");
+	if (!tmp.empty())
+	  from_string(tmp, port);
+        JsonApiServer::Instance(port);
 
         NTPClock::Instance();
 
