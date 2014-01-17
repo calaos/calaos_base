@@ -53,6 +53,8 @@ using namespace Calaos;
 
                         int player_count;
 
+                        int proto_ver;
+
                         void CloseConnection();
 
                         //for parsing purposes
@@ -93,6 +95,8 @@ using namespace Calaos;
                 public:
                         JsonApiClient(Ecore_Con_Client *cl);
                         ~JsonApiClient();
+
+                        enum { APIV1 = 0, APIV1_5, APIV2 };
 
                         /* Called by TCPServer whenever data comes in */
                         void ProcessData(string data);

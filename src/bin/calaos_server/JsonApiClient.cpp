@@ -220,7 +220,10 @@ void JsonApiClient::ProcessData(string request)
                 vmime::utility::url req_url("http://0.0.0.0" + parse_url);
 
                 if (req_url.getPath() != "/api" &&
-                    req_url.getPath() != "/api.php")
+                    req_url.getPath() != "/api.php" &&
+                    req_url.getPath() != "/api/v1" /*&&
+                    req_url.getPath() != "/api/v1.5" &&
+                    req_url.getPath() != "/api/v2"*/)
                 {
                         Params headers;
                         headers.Add("Connection", "close");
@@ -230,6 +233,11 @@ void JsonApiClient::ProcessData(string request)
 
                         return;
                 }
+
+                //get protocol version, if nothing is set default to v1
+                proto_ver = APIV1;
+                if (req_url.getPath() == "/api/v1.5") proto_ver = APIV1_5;
+                if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
 
                 //TODO: get url parameters here?
                 //for example get username/password as a url parameter
@@ -522,7 +530,7 @@ json_t *JsonApiClient::buildJsonAudio()
 
                 //don't query detailed player infos here, other informations need to be queried to the squeezecenter
                 //so the get_home request will be delayed by all the squeezecenter's requests.
-                //To be faster, only return the basic infos here, and expand the api with more audio commands
+                //To be faster, only return the basic infos here, and call get_state for each players to get detailed infos
         }
 
         return jdata;
