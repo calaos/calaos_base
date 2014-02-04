@@ -157,6 +157,19 @@ int _parser_body_complete(http_parser* parser, const char *at, size_t length)
         return 0;
 }
 
+Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
+{
+        JsonApiClient *client = reinterpret_cast<JsonApiClient *>(data);
+        Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
+
+        if (ev->exe != client->exe_thumb)
+                return ECORE_CALLBACK_PASS_ON;
+
+        client->exeFinished(ev->exe, ev->exit_code);
+
+        return ECORE_CALLBACK_CANCEL;
+}
+
 JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
         client_conn(cl)
 {
@@ -175,12 +188,24 @@ JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
 
         Utils::logger("network") << Priority::DEBUG << "JsonApiClient::JsonApiClient("
                                  << this << "): Ok" << log4cpp::eol;
+
+        exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
+
+        int cpt = rand();
+        do
+        {
+                tempfname = "/tmp/calaos_json_temp_" + Utils::to_string(cpt) + ".jpg";
+                cpt++;
+        }
+        while (ecore_file_exists(tempfname.c_str()));
 }
 
 JsonApiClient::~JsonApiClient()
 {
+        ecore_event_handler_del(exe_handler);
         free(parser);
         CloseConnection();
+        ecore_file_unlink(tempfname.c_str());
 
         Utils::logger("network") << Priority::DEBUG << "JsonApiClient::~JsonApiClient("
                                  << this << "): Ok" << log4cpp::eol;
@@ -390,6 +415,10 @@ void JsonApiClient::handleRequest()
                 processGetPlaylist();
         else if (jsonParam["action"] == "poll_listen")
                 processPolling();
+        else if (jsonParam["action"] == "get_cover")
+                processGetCover();
+        else if (jsonParam["action"] == "get_camera_pic")
+                processGetCameraPic();
 
         json_decref(jroot);
 }
@@ -588,7 +617,7 @@ void JsonApiClient::processGetState(json_t *jroot)
         json_t *jin = json_object_get(jroot, "inputs");
         if (jin && json_is_array(jin))
         {
-                int idx;
+                uint idx;
                 json_t *value;
 
                 json_array_foreach(jin, idx, value)
@@ -614,7 +643,7 @@ void JsonApiClient::processGetState(json_t *jroot)
         json_t *jout = json_object_get(jroot, "outputs");
         if (jout && json_is_array(jout))
         {
-                int idx;
+                uint idx;
                 json_t *value;
 
                 json_array_foreach(jout, idx, value)
@@ -642,7 +671,7 @@ void JsonApiClient::processGetState(json_t *jroot)
         json_t *jpl = json_object_get(jroot, "audio_players");
         if (jpl && json_is_array(jpl))
         {
-                int idx;
+                uint idx;
                 json_t *value;
 
                 json_array_foreach(jpl, idx, value)
@@ -1054,5 +1083,89 @@ void JsonApiClient::processPolling()
 
         }
 
+        sendJson(jret);
+}
+
+void JsonApiClient::processGetCover()
+{
+        int pid;
+        Utils::from_string(jsonParam["player_id"], pid);
+        if (pid < 0 || pid >= AudioManager::Instance().get_size())
+        {
+                json_t *jret = json_object();
+                json_object_set_new(jret, "success", json_string("false"));
+                json_object_set_new(jret, "error_str", json_string("player_id not set"));
+                sendJson(jret);
+                return;
+        }
+
+        AudioPlayer *player = AudioManager::Instance().get_player(pid);
+
+        string w = "300", h = "300";
+        if (jsonParam.Exists("width"))
+                w = jsonParam["width"];
+        if (jsonParam.Exists("height"))
+                h = jsonParam["height"];
+
+        player->get_album_cover([=](AudioPlayerData data)
+        {
+                //do not start another exe if one is running already
+                if (data.svalue == "" || exe_thumb)
+                {
+                        json_t *jret = json_object();
+                        json_object_set_new(jret, "success", json_string("false"));
+                        json_object_set_new(jret, "error_str", json_string("unable to get url"));
+                        sendJson(jret);
+                        return;
+                }
+
+                string cmd = "calaos_thumb " + data.svalue + " " + tempfname + " " + w + "x" + h;
+                exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
+        });
+}
+
+void JsonApiClient::processGetCameraPic()
+{
+        int pid;
+        Utils::from_string(jsonParam["camera_id"], pid);
+        if (pid < 0 || pid >= CamManager::Instance().get_size())
+        {
+                json_t *jret = json_object();
+                json_object_set_new(jret, "success", json_string("false"));
+                json_object_set_new(jret, "error_str", json_string("camera_id not set"));
+                sendJson(jret);
+                return;
+        }
+
+        IPCam *camera = CamManager::Instance().get_camera(pid);
+
+        string w = "640", h = "480";
+        if (jsonParam.Exists("width"))
+                w = jsonParam["width"];
+        if (jsonParam.Exists("height"))
+                h = jsonParam["height"];
+
+        string cmd = "calaos_thumb " + camera->get_picture() + " " + tempfname + " " + w + "x" + h;
+        exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
+}
+
+void JsonApiClient::exeFinished(Ecore_Exe *exe, int exit_code)
+{
+        if (exit_code != 0)
+        {
+                json_t *jret = json_object();
+                json_object_set_new(jret, "success", json_string("false"));
+                json_object_set_new(jret, "error_str", json_string("unable to load data from url"));
+                sendJson(jret);
+                return;
+        }
+
+        ecore_exe_free(exe);
+
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string("true"));
+        json_object_set_new(jret, "contenttype", json_string("image/jpeg"));
+        json_object_set_new(jret, "encoding", json_string("base64"));
+        json_object_set_new(jret, "data", json_string(Utils::getFileContentBase64(tempfname.c_str()).c_str()));
         sendJson(jret);
 }

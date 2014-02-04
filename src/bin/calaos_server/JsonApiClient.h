@@ -41,6 +41,10 @@ using namespace Calaos;
                 protected:
 
                         Ecore_Con_Client *client_conn;
+                        Ecore_Event_Handler *exe_handler;
+
+                        Ecore_Exe *exe_thumb;
+                        string tempfname;
 
                         http_parser_settings parser_settings;
                         http_parser *parser;
@@ -77,12 +81,16 @@ using namespace Calaos;
                         void processSetState();
                         void processGetPlaylist();
                         void processPolling();
+                        void processGetCover();
+                        void processGetCameraPic();
 
                         json_t *buildJsonHome();
                         json_t *buildJsonCameras();
                         json_t *buildJsonAudio();
                         template<typename T> json_t *buildJsonRoomIO(Room *room);
                         void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
+
+                        void exeFinished(Ecore_Exe *exe, int exit_code);
 
                         friend int _parser_begin(http_parser *parser);
                         friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
@@ -91,6 +99,7 @@ using namespace Calaos;
                         friend int _parser_message_complete(http_parser *parser);
                         friend int _parser_url(http_parser *parser, const char *at, size_t length);
                         friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
+                        friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
 
                 public:
                         JsonApiClient(Ecore_Con_Client *cl);
