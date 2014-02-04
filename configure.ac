@@ -50,13 +50,43 @@ PKG_PROG_PKG_CONFIG
 
 efl_ver="1.7.0"
 
-requirements_calaos_common="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.2.0 log4cpp >= 1.0 jansson >= 2.4 vmime >= 0.9.0 lua5.1 >= 5.1.0"
+requirements_calaos_common="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.2.0 log4cpp >= 1.0 jansson >= 2.4 vmime >= 0.9.0"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
+
+# Check for LUA
+# Lua pkg-config hack for different naming conventions
+have_lua="yes"
+requirement_lua=""
+lua_libs=""
+PKG_CHECK_MODULES([LUA], [lua >= 5.1.0], requirement_lua="lua",
+   [PKG_CHECK_MODULES([LUA], [lua5.1 >= 5.1.0], requirement_lua="lua5.1",
+      [PKG_CHECK_MODULES([LUA], [lua-5.1 >= 5.1.0], requirement_lua="lua-5.1",
+         [PKG_CHECK_MODULES([LUA], [lua51 >= 5.1.0], requirement_lua="lua51",
+            [have_lua="no"])])])])
+
+if test "x${have_lua}" = "xno" ; then
+   AC_MSG_CHECKING([whether lua_newstate() is in liblua])
+   AC_CHECK_LIB([lua], [lua_newstate],
+      [
+       have_lua="yes"
+       lua_libs="-llua"
+      ],
+      [have_lua="no"])
+   AC_MSG_RESULT([${have_lua}])
+fi
+AC_SUBST(lua_libs)
+
+if test "x${have_lua}" = "xno" ; then
+   AC_MSG_ERROR([Cannot find lua library. Be sure that you have installed it and set CFLAGS and LDFLAGS correctly])
+fi
 
 requirements_calaos_server="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
+
+CALAOS_COMMON_LIBS="${CALAOS_COMMON_LIBS} ${LUA_LIBS} ${lua_libs}"
+CALAOS_COMMON_CFLAGS="${CALAOS_COMMON_CFLAGS} ${LUA_CFLAGS}"
 
 requirements_calaos_home="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} elementary >= ${efl_ver} openssl >= 1.0.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}], [have_calaos_home_dep="yes"], [have_calaos_home_dep="no"])
