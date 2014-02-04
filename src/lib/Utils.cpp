@@ -711,3 +711,30 @@ string Utils::getHardwareID()
         return hwID;
 }
 
+string Utils::getFileContent(const char *filename)
+{
+        ifstream ifs(filename, ios::in | ios::binary | ios::ate);
+        if (!ifs) return "";
+
+        ifstream::pos_type filesize = ifs.tellg();
+        ifs.seekg(0, ios::beg);
+
+        vector<char> buff(filesize);
+        ifs.read(&buff[0], filesize);
+
+        return string(&buff[0], filesize);
+}
+
+string Utils::getFileContentBase64(const char *filename)
+{
+        ifstream ifs(filename, ios::in | ios::binary | ios::ate);
+        if (!ifs) return "";
+
+        ifstream::pos_type filesize = ifs.tellg();
+        ifs.seekg(0, ios::beg);
+
+        vector<char> buff(filesize);
+        ifs.read(&buff[0], filesize);
+
+        return Utils::Base64_encode(&buff[0], filesize);
+}

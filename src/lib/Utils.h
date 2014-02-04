@@ -256,6 +256,9 @@ namespace Utils
         std::string Base64_encode(std::string &str);
         std::string Base64_encode(void *data, int size);
 
+        string getFileContent(const char *filename);
+        string getFileContentBase64(const char *filename);
+
         //-----------------------------------------------------------------------------
         template<typename T>
                 bool is_of_type(const std::string &str)
