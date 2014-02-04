@@ -22,16 +22,17 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_home/models \
 -I$(top_srcdir)/src/bin/calaos_home \
 @CALAOS_COMMON_CFLAGS@ \
--DLIBMBUS 
+@CALAOS_HOME_CFLAGS@ \
+-DLIBMBUS
 
-bin_PROGRAMS = calaos_config wago_test
+bin_PROGRAMS = calaos_config wago_test calaos_thumb
 
 calaos_config_SOURCES = \
         calaos_config.cpp
 
 calaos_config_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
-	@CALAOS_COMMON_LIBS@ 
+	@CALAOS_COMMON_LIBS@
 
 wago_test_SOURCES = \
 	wago_test.cpp
@@ -39,4 +40,10 @@ wago_test_SOURCES = \
 wago_test_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_COMMON_LIBS@
+
+calaos_thumb_SOURCES = \
+    main_cover.cpp
+
+calaos_thumb_LDADD = \
+    @CALAOS_HOME_LIBS@
 

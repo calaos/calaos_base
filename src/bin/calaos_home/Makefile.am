@@ -29,7 +29,7 @@ AM_CXXFLAGS = \
 -DTHEME_DIR=\"$(datadir)/calaos\" \
 -DLOCALE_DIR=\"$(datadir)/locale\"
 
-bin_PROGRAMS = calaos_home calaos_thumb
+bin_PROGRAMS = calaos_home
 
 calaos_home_SOURCES = \
         main.cpp						\
@@ -230,12 +230,5 @@ calaos_home_LDADD = \
 	@ECORE_X_LIBS@
 
 calaos_home_LDFLAGS = -rdynamic
-
-calaos_thumb_SOURCES = \
-	main_cover.cpp
-
-calaos_thumb_LDADD = \
-	@CALAOS_HOME_LIBS@ \
-	@CALAOS_COMMON_LIBS@
 
 endif
