@@ -20,7 +20,7 @@
 ./src/bin/calaos_home/controllers/ApplicationController.cpp
 ./src/bin/calaos_home/EdjeObject.cpp
 ./src/bin/calaos_home/EvasSmart.cpp
-./src/bin/calaos_home/main_cover.cpp
+./src/bin/tools/main_cover.cpp
 ./src/bin/calaos_home/main.cpp
 ./src/bin/calaos_home/models/AudioModel.cpp
 ./src/bin/calaos_home/models/CalaosModel.cpp
