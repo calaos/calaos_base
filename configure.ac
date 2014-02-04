@@ -59,10 +59,10 @@ AC_SUBST([requirements_calaos_common])
 have_lua="yes"
 requirement_lua=""
 lua_libs=""
-PKG_CHECK_MODULES([LUA], [lua >= 5.1.0], requirement_lua="lua",
-   [PKG_CHECK_MODULES([LUA], [lua5.1 >= 5.1.0], requirement_lua="lua5.1",
-      [PKG_CHECK_MODULES([LUA], [lua-5.1 >= 5.1.0], requirement_lua="lua-5.1",
-         [PKG_CHECK_MODULES([LUA], [lua51 >= 5.1.0], requirement_lua="lua51",
+PKG_CHECK_MODULES([LUA], [lua5.1 >= 5.1.0], requirement_lua="lua5.1",
+   [PKG_CHECK_MODULES([LUA], [lua-5.1 >= 5.1.0], requirement_lua="lua-5.1",
+      [PKG_CHECK_MODULES([LUA], [lua51 >= 5.1.0], requirement_lua="lua51",
+         [PKG_CHECK_MODULES([LUA], [lua >= 5.1.0], requirement_lua="lua",
             [have_lua="no"])])])])
 
 if test "x${have_lua}" = "xno" ; then
