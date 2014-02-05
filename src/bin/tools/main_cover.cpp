@@ -62,6 +62,7 @@ std::string to_string( const T & Value )
 typedef struct _ThumbSize
 {
         int w, h;
+        bool empty() { return w <= 0 || h <= 0; }
 } ThumbSize;
 
 struct CurlFile
@@ -82,18 +83,26 @@ static size_t thumb_fwrite(void *buffer, size_t size, size_t nmemb, void *stream
         return fwrite(buffer, size, nmemb, out->stream);
 }
 
+static int thumb_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
+{
+        cout << "." << flush;
+
+        return 0;
+}
+
 static void split(const string &str, vector<string> &tokens, const string &delimiters = " ", int max = 0);
 static bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_sizes);
 
 int main (int argc, char **argv)
 {
-        if (argc != 4)
+        if (argc < 3)
         {
                 cout << "Calaos thumbnailer" << endl << "\tUsage:" << endl;
                 cout << "\t\t" << argv[0] << " <image_file> <out_file> <size>" << endl << endl;
                 cout << "\tWhere <image_file> is an image file supported by Evas. <image_file> can be an http link and then the file is downloaded first." << endl;
                 cout << "\tAnd <size> is of the form: 123x123" << endl;
                 cout << endl << "Thumb is saved in <out_file> in JPG format." << endl;
+                cout << endl << "If <image_file> is an url the file is first downloaded." << endl;
 
                 return 1;
         }
@@ -103,23 +112,30 @@ int main (int argc, char **argv)
         string output_file = argv[2];
         bool to_del = false;
 
-        ThumbSize size;
+        ThumbSize size = { 0, 0 };
         vector<string> token;
 
-        string s = argv[3];
+        string s;
+        if (argc == 4) s = argv[3];
         split(s, token, "x", 2);
         if (token.size() != 2)
         {
-                cout << "calaos_thumb: Can't parse size..." << endl;
-                return 1;
+                cout << "calaos_thumb: Can't parse size, using original image size" << endl;
         }
-        from_string(token[0], size.w);
-        from_string(token[1], size.h);
+        else
+        {
+            from_string(token[0], size.w);
+            from_string(token[1], size.h);
+        }
+
+        cout << "calaos_thumb: Using image source: " << input_file << endl;
 
         //Check if it's an url and download it
         if (input_file.compare(0, 7, "http://") == 0 ||
             input_file.compare(0, 8, "https://") == 0)
         {
+                cout << "calaos_thumb: Input image is an URL, starting download: ." << flush;
+
                 CURL *curl;
                 CURLcode res;
                 CurlFile cfile;
@@ -139,6 +155,9 @@ int main (int argc, char **argv)
                         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, true);
                         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, thumb_fwrite);
                         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &cfile);
+                        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, false);
+                        curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, thumb_progress);
+
                         res = curl_easy_perform(curl);
 
                         /* always cleanup */
@@ -147,7 +166,7 @@ int main (int argc, char **argv)
                         if(CURLE_OK != res)
                         {
                                 /* we failed */
-                                fprintf(stderr, "curl told us %d\n", res);
+                                cout << " Failed: curl told us: " << res << endl;
                                 return 1;
                         }
 
@@ -157,6 +176,8 @@ int main (int argc, char **argv)
                         input_file = cfile.filename;
 
                         curl_global_cleanup();
+
+                        cout << " Done." << endl;
                 }
         }
 
@@ -188,12 +209,32 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
         evas_object_resize(im, thumb_size.w, thumb_size.h);
         evas_object_image_fill_set(im, 0, 0, thumb_size.w, thumb_size.h);
         evas_object_image_size_set(im, thumb_size.w, thumb_size.h);
-        evas_object_show(im);
+        if (!thumb_size.empty())
+            evas_object_show(im);
         Ecore_Evas *ee_im = (Ecore_Evas *)evas_object_data_get(im, "Ecore_Evas");
         Evas *evas_im = ecore_evas_get(ee_im);
 
         Evas_Object *image = evas_object_image_add(evas_im);
         evas_object_image_file_set(image, input_file.c_str(), NULL);
+        Evas_Load_Error err = evas_object_image_load_error_get(image);
+        if (err != EVAS_LOAD_ERROR_NONE)
+        {
+                cout << "calaos_thumb: Error, can't load image: " << evas_load_error_str(err) << endl;
+                return false;
+        }
+
+        if (thumb_size.empty())
+        {
+                //Get size from image
+                evas_object_image_size_get(image, &thumb_size.w, &thumb_size.h);
+                cout << "calaos_thumb: Using detected size: " << thumb_size.w << "x" << thumb_size.h << endl;
+                ecore_evas_resize(ee, thumb_size.w, thumb_size.h);
+                evas_object_resize(im, thumb_size.w, thumb_size.h);
+                evas_object_image_fill_set(im, 0, 0, thumb_size.w, thumb_size.h);
+                evas_object_image_size_set(im, thumb_size.w, thumb_size.h);
+                evas_object_show(im);
+        }
+
         evas_object_image_fill_set(image, 0, 0, thumb_size.w, thumb_size.h);
         evas_object_move(image, 0, 0);
         evas_object_resize(image, thumb_size.w, thumb_size.h);
@@ -201,7 +242,9 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
 
         ecore_evas_buffer_pixels_get(ee);
         if (!evas_object_image_save(im, output_file.c_str(), NULL, "quality=85 compress=9"))
-                cout << "evas_object_image_save() failed..." << endl;
+                cout << "calaos_thumb: evas_object_image_save() failed..." << endl;
+        else
+                cout << "calaos_thumb: Save image to " << output_file << endl;
 
         evas_object_del(image);
         evas_object_del(im);
