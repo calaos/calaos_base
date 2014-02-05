@@ -1101,7 +1101,7 @@ void JsonApiClient::processGetCover()
 
         AudioPlayer *player = AudioManager::Instance().get_player(pid);
 
-        string w = "300", h = "300";
+        string w, h;
         if (jsonParam.Exists("width"))
                 w = jsonParam["width"];
         if (jsonParam.Exists("height"))
@@ -1119,7 +1119,9 @@ void JsonApiClient::processGetCover()
                         return;
                 }
 
-                string cmd = "calaos_thumb " + data.svalue + " " + tempfname + " " + w + "x" + h;
+                string cmd = "calaos_thumb " + data.svalue + " " + tempfname;
+                if (w.empty() || h.empty())
+                        cmd += " " + w + "x" + h;
                 exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
         });
 }
@@ -1139,13 +1141,15 @@ void JsonApiClient::processGetCameraPic()
 
         IPCam *camera = CamManager::Instance().get_camera(pid);
 
-        string w = "640", h = "480";
+        string w, h;
         if (jsonParam.Exists("width"))
                 w = jsonParam["width"];
         if (jsonParam.Exists("height"))
                 h = jsonParam["height"];
 
-        string cmd = "calaos_thumb " + camera->get_picture() + " " + tempfname + " " + w + "x" + h;
+        string cmd = "calaos_thumb " + camera->get_picture() + " " + tempfname;
+        if (w.empty() || h.empty())
+                cmd += " " + w + "x" + h;
         exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
 }
 
