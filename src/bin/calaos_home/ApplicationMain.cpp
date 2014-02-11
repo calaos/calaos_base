@@ -90,6 +90,9 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         elm_win_title_set(window, "Calaos Home");
         elm_win_borderless_set(window, true);
 
+        bool bFullscreen = argvOptionCheck(argv, argv + argc, "--fullscreen");
+        elm_win_fullscreen_set(window, bFullscreen);
+
         //Automatically quit main loop when the window is closed
         elm_policy_set(ELM_POLICY_QUIT, ELM_POLICY_QUIT_LAST_WINDOW_CLOSED);
         elm_win_autodel_set(window, true);
