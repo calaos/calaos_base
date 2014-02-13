@@ -93,8 +93,8 @@ class DownloadManager
                  * @param userData, user data
                  */
                 void add(string source, string destination,
-                                sigc::signal<void, string, string, void*> sig,
-                                sigc::signal<void, string, string, double, double, void*> sig_progress,
+                                sigc::slot<void, string, string, void*> sig,
+                                sigc::slot<void, string, string, double, double, void*> sig_progress,
                                 void *userData);
 
                 void add(string source, string destination);

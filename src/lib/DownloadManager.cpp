@@ -29,8 +29,8 @@ DownloadManager::DownloadManager(int _nbDownloadsMax, int _nbTry):
 
 
 void DownloadManager::add(string source, string destination,
-                sigc::signal<void, string, string, void*> sig,
-                sigc::signal<void, string, string, double, double, void*> sig_progress,
+                sigc::slot<void, string, string, void*> sig,
+                sigc::slot<void, string, string, double, double, void*> sig_progress,
                 void *userData)
 {
         //check if download isn't already running
@@ -48,8 +48,8 @@ void DownloadManager::add(string source, string destination,
         data->source = source;
         data->destination = destination;
         data->userData = userData;
-        data->sigUser = sig;
-        data->sigProgressUpdate = sig_progress;
+        data->sigUser.connect(sig);
+        data->sigProgressUpdate.connect(sig_progress);
         data->sigDownload.connect(sigc::mem_fun(*this, &DownloadManager::IPCDownloadDone));
         l.push_back(data);
 
