@@ -78,7 +78,15 @@ void WebCtrl::Add(double _frequency = 60.0)
                 frequency = _frequency;
 
         if (!timer)
-                timer = new EcoreTimer(frequency, (sigc::slot<void>)sigc::mem_fun(*this, &WebCtrl::timerExpired));
+            timer = new EcoreTimer(frequency, [=]() {
+                string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
+                dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
+                    string dest =  "/tmp/calaos_" + param.get_param("id");
+                    string src = dest + ".part";
+                    ecore_file_mv(src.c_str(), dest.c_str());
+                  }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
+                }, NULL);
+            });
         else
                 timer->Reset(frequency);
 
@@ -98,6 +106,7 @@ double WebCtrl::getValueJson(string path, string filename)
         Utils::split(path, tokens, "/");
 
         root = json_load_file(filename.c_str(), 0, &err);
+
         if (tokens.size())
         {
                 if(root)
@@ -120,7 +129,6 @@ double WebCtrl::getValueJson(string path, string filename)
                         if (var)
                         {
                                 value = json_number_value(var);
-                                printf("Read value : %3.3f\n", value);
                                 json_decref(var);
                                 json_decref(root);
                         }
@@ -175,8 +183,3 @@ double WebCtrl::getValue(string path)
                 return 0.0;
 }
 
-void WebCtrl::timerExpired()
-{
-        string filename = "/tmp/calaos_" + param.get_param("id");
-        dlManager->add(param.get_param("url"), filename);
-}

@@ -39,7 +39,6 @@ private:
         DownloadManager *dlManager;
         double frequency;
         EcoreTimer *timer;
-        void timerExpired();
         void downloadFinished(string emission, string source, void* data);
         void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
         Params param;
