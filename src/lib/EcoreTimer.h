@@ -45,10 +45,8 @@ class EcoreTimer
                 EcoreTimer *singleShotTimer;
                 sigc::slot<void> singleShotSlot;
 
-                static void singleShotCallback(void *data);
-
         public:
-                EcoreTimer(double time, sigc::slot<void, void *> slot, void *data = NULL);
+                EcoreTimer(double time, sigc::slot<void, void *> slot, void *data);
                 EcoreTimer(double time, sigc::slot<void> slot);
                 ~EcoreTimer();
 

@@ -81,21 +81,20 @@ void EcoreTimer::Tick()
                 event_signal.emit();
 }
 
-void EcoreTimer::singleShotCallback(void *data)
-{
-        EcoreTimer *timer = reinterpret_cast<EcoreTimer *>(data);
-        if (timer)
-        {
-                sigc::signal<void> sig;
-                sig.connect(timer->singleShotSlot);
-                sig.emit();
-                delete timer;
-        }
-}
-
 void EcoreTimer::singleShot(double time, sigc::slot<void> slot)
 {
-        EcoreTimer *timer = new EcoreTimer(time, (sigc::slot<void, void *>)sigc::ptr_fun(EcoreTimer::singleShotCallback));
+        EcoreTimer *timer = new EcoreTimer(time, [](void *data)
+        {
+                EcoreTimer *t = reinterpret_cast<EcoreTimer *>(data);
+                if (t)
+                {
+                        sigc::signal<void> sig;
+                        sig.connect(t->singleShotSlot);
+                        sig.emit();
+                        delete t;
+                }
+        }, nullptr);
         timer->data = timer;
         timer->singleShotSlot = slot;
 }
+
