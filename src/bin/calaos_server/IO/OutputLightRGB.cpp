@@ -294,3 +294,19 @@ void OutputLightRGB::TimerAutoChange()
 
         setColor();
 }
+
+void OutputLightRGB::stateUpdated(int r, int g, int b)
+{
+        red = r;
+        green = g;
+        blue = b;
+
+        int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+        cmd_state = "set " + Utils::to_string(v);
+
+        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+
+        EmitSignalOutput();
+        emitChange();
+}
+

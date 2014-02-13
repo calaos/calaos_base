@@ -42,6 +42,9 @@ class OutputLightRGB : public Output
                 void setColor();
                 void emitChange();
 
+                //call this function whenever state of light changes to update internal status
+                void stateUpdated(int r, int g, int b);
+
                 virtual void setColorReal(int r, int g, int b) = 0;
 
         public:
