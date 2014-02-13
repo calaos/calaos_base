@@ -32,7 +32,6 @@ class OWTemp : public InputTemp
                 std::string ow_id;
                 std::string ow_req;
                 std::string ow_args;
-                double time;
 
                 virtual void readValue();
 
