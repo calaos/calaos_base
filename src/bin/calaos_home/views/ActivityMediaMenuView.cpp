@@ -50,11 +50,37 @@ ActivityMediaMenuView::~ActivityMediaMenuView()
 }
 
 void ActivityMediaMenuView::addIcon(int position, string type)
-{
+{     
         if (Utils::get_config_option("enable_media_" + type) != "false")
         {
                 EdjeObject *obj = new EdjeObject(theme, evas);
                 obj->LoadEdje("calaos/icons/menu/media/" + type);
+
+                if (type == "music")
+                {
+                        obj->setPartText("item_title", _("Your Music"));
+                        obj->setPartText("item_description", _("Access you media library"));
+                }
+                else if (type == "camera")
+                { 
+                        obj->setPartText("item_title", _("CCTV"));
+                        obj->setPartText("item_description", _("Drive all you cctv cameras"));
+                }
+                else if (type == "photos")
+                {
+                        obj->setPartText("item_title", _("Flickr"));
+                        obj->setPartText("item_description", _("Look at pictures"));
+                }
+                else if (type == "web")
+                {
+                        obj->setPartText("item_title", _("Internet"));
+                        obj->setPartText("item_description", _("Go and surf the web"));
+                }
+                else if (type == "eskiss")
+                {
+                        obj->setPartText("item_title", _("Eskiss"));
+                        obj->setPartText("item_description", _("Play with physics !"));
+                }
                 obj->addCallback("menu", "click," + type, sigc::mem_fun(*this, &ActivityMediaMenuView::ItemCallback));
                 Swallow(obj, string("icon.") + Utils::to_string(position));
                 obj->EmitSignal("show", "calaos");

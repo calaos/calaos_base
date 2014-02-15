@@ -522,12 +522,12 @@ group { \
         } \
 }
 
-MEDIA_MENU_ITEM("calaos/icons/menu/media/music", "calaos/icons/media/music", "Votre Musique", "Accédez à toute votre discothèque", "click,music", "menu")
-MEDIA_MENU_ITEM("calaos/icons/menu/media/camera", "calaos/icons/media/camera", "Vidéosurveillance", "Pilotez toutes vos caméras", "click,camera", "menu")
-MEDIA_MENU_ITEM("calaos/icons/menu/media/photos", "calaos/icons/media/flickr", "Flickr", "Visualisez des photos", "click,photos", "menu")
+MEDIA_MENU_ITEM("calaos/icons/menu/media/music", "calaos/icons/media/music", "Your Music", "Access you media library", "click,music", "menu")
+MEDIA_MENU_ITEM("calaos/icons/menu/media/camera", "calaos/icons/media/camera", "CCTV", "Drive all you cctv cameras", "click,camera", "menu")
+MEDIA_MENU_ITEM("calaos/icons/menu/media/photos", "calaos/icons/media/flickr", "Flickr", "Look at pictures", "click,photos", "menu")
 
-MEDIA_MENU_ITEM("calaos/icons/menu/media/web", "calaos/icons/media/web", "Internet", "Accédez et surfez sur le web", "click,web", "menu")
-MEDIA_MENU_ITEM("calaos/icons/menu/media/eskiss", "calaos/icons/media/eskiss", "Eskiss", "Jouez avec la physique !", "click,eskiss", "menu")
+MEDIA_MENU_ITEM("calaos/icons/menu/media/web", "calaos/icons/media/web", "Internet", "Go and surf the web", "click,web", "menu")
+MEDIA_MENU_ITEM("calaos/icons/menu/media/eskiss", "calaos/icons/media/eskiss", "Eskiss", "Play with physics !", "click,eskiss", "menu")
 
 group
 {

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-02-15 12:23+0100\n"
+"POT-Creation-Date: 2014-02-15 12:48+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -17,27 +17,27 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:247
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:251
 msgid "No lights on"
 msgstr "Aucune lumière allumée"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:249
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:253
 msgid "1 light on"
 msgstr "1 lumière est allumée"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:251
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:255
 msgid " lights on"
 msgstr "Aucune lumière allumée"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:262
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:266
 msgid "No shutter opened"
 msgstr "Aucun volet ouvert"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:264
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:268
 msgid "1 shutter opened"
 msgstr "1 volet est ouvert"
 
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:266
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:270
 msgid " shutters are opened"
 msgstr " volets sont ouverts"
 
@@ -46,7 +46,6 @@ msgid "Restart only application"
 msgstr "Redémarrer l'application seulement"
 
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:292
-#, fuzzy
 msgid "Reboot the machine"
 msgstr "Redémarrer la machine."
 
@@ -250,6 +249,46 @@ msgid ""
 msgstr ""
 "Etat de la maison : <light_blue>Normal</light_blue><br><small>Informations "
 "concernant votre maison</small>"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:61
+msgid "Your Music"
+msgstr "Votre Musique"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:62
+msgid "Access you media library"
+msgstr "Accédez à toute votre discothèque"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:66
+msgid "CCTV"
+msgstr "Vidéosurveillance"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:67
+msgid "Drive all you cctv cameras"
+msgstr "Pilotez toutes vos caméras"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:71
+msgid "Flickr"
+msgstr "Flickr"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:72
+msgid "Look at pictures"
+msgstr "Visualisez des photos"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:76
+msgid "Internet"
+msgstr "Internet"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:77
+msgid "Go and surf the web"
+msgstr "Accédez et surfez sur le web"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:81
+msgid "Eskiss"
+msgstr "Eskiss"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:82
+msgid "Play with physics !"
+msgstr "Jouez avec la physique !"
 
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"
