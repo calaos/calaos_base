@@ -1193,7 +1193,7 @@ group
                 ELEMENT_ACTION_BUTTON_NORMAL("stop_button", "player_buttons", "player_buttons", "player_buttons", "button_action_stop.png", "button_action_glow.png", "player", "player,stop", 0.0, 0.5, 74, -14, 0.0, 0.5, 107, 13)
                 ELEMENT_ACTION_BUTTON_NORMAL("next_button", "player_buttons", "player_buttons", "player_buttons", "button_action_next.png", "button_action_glow.png", "player", "player,next", 0.0, 0.5, 111, -14, 0.0, 0.5, 144, 13)
 
-                HORIZ_SLIDER("player.time.slider", "time_slider_whole", "message.text", "Avancement :", "player.time", "00:00", 50, 180, 215, "slider.png", "slider_on.png", "slider_border.png", "player", "player,time,change", "local", "slider,timer,inactive", "local", "slider,timer,active")
+                HORIZ_SLIDER("player.time.slider", "time_slider_whole", "message.text", "Avancement2 :", "player.time", "00:00", 50, 180, 215, "slider.png", "slider_on.png", "slider_border.png", "player", "player,time,change", "local", "slider,timer,inactive", "local", "slider,timer,active")
 
                 #include "activity_loading.edc"
         }

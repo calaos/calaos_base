@@ -91,6 +91,12 @@ void ActivityPlayerObject::createEdjeObject(string &theme, Evas *e)
 {
         EdjeObject *obj = new EdjeObject(theme, e);
         obj->LoadEdje("calaos/audio/player");
+        obj->setPartText("message.text", _("Position :"));
+        obj->setPartText("text.artist", _("Artist :"));
+        obj->setPartText("text.album", _("Album :"));
+        obj->setPartText("text.title", _("Track :"));
+        obj->setPartText("text.year", _("Year :"));
+        obj->setPartText("text.duration", _("Duration :"));
         obj->Show();
         obj->addCallback("player", "player,volume,*", sigc::mem_fun(*this, &ActivityPlayerObject::changeVolume_cb));
         obj->addCallback("player", "player,play", sigc::mem_fun(*this, &ActivityPlayerObject::play_cb));

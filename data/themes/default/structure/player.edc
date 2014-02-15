@@ -1207,7 +1207,7 @@ part {
     rel1.to: "player_artist_label";
     rel2.to: "player_artist_label";
     color: 231 231 231 140;
-    text { text: "Artiste :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
+    text { text: "Artist :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
   }
   description {
     state: "active" 0.0;
@@ -1282,7 +1282,7 @@ part {
     rel1.to: "player_title_label";
     rel2.to: "player_title_label";
     color: 231 231 231 140;
-    text { text: "Piste :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
+    text { text: "Track :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
   }
   description {
     state: "active" 0.0;
@@ -1320,7 +1320,7 @@ part {
     rel1.to: "player_year_label";
     rel2.to: "player_year_label";
     color: 231 231 231 140;
-    text { text: "Année :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
+    text { text: "Year :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
   }
   description {
     state: "active" 0.0;
@@ -1364,7 +1364,7 @@ part {
     rel1.to: "player_duration_label";
     rel2.to: "player_duration_label";
     color: 231 231 231 140;
-    text { text: "Durée :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
+    text { text: "Duration :"; font: "CalaosContent"; size: 12; min: 0 0; align: 1.0 0.5;}
   }
   description {
     state: "active" 0.0;
@@ -1409,7 +1409,7 @@ ELEMENT_ACTION_BUTTON_NORMAL("volume_more", "player_button_volume_more", "player
 ELEMENT_ACTION_BUTTON_NORMAL("volume_less", "player_button_volume_less", "player_button_volume_less", "player_button_volume_less", "button_action_less_vertical.png", "button_action_vertical_glow.png", "player", "player,volume,moins", 0.5, 0.5, -14, -17, 0.5, 0.5, 13, 16)
 ELEMENT_ACTION_BUTTON_NORMAL("amplifier", "player_button_amp", "player_button_amp", "player_button_amp", "button_info.png", "button_info_glow.png", "player", "player,amplifier", 0.0, 0.0, 0, 0, 1.0, 1.0, -1, -1)
 
-HORIZ_SLIDER("player.time.slider", "time_slider_whole", "message.text", "Avancement :", "player.time", "00:00", 50, 180, 215, "slider.png", "slider_on.png", "slider_border.png", "player", "player,time,change", "local", "slider,timer,inactive", "local", "slider,timer,active")
+HORIZ_SLIDER("player.time.slider", "time_slider_whole", "message.text", "Position :", "player.time", "00:00", 50, 180, 215, "slider.png", "slider_on.png", "slider_border.png", "player", "player,time,change", "local", "slider,timer,inactive", "local", "slider,timer,active")
 VERTI_SLIDER("player.volume.slider", "volume_slider_whole", 50, 180, 215, "slider_vertical.png", "slider_vertical_on.png", "slider_border.png", "player", "player,volume,change", "local", "slider,volume,inactive", "local", "slider,volume,active")
 // End macros
 

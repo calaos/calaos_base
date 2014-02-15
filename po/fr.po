@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-02-15 12:48+0100\n"
+"POT-Creation-Date: 2014-02-15 15:00+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -120,11 +120,36 @@ msgstr "Aucune zone"
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:80
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:81
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:82
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:254
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:255
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:256
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:260
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:261
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:262
 msgid "None"
 msgstr "Aucun"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:94
+msgid "Position :"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:95
+msgid "Artist :"
+msgstr "Artiste :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:96
+msgid "Album :"
+msgstr "Album :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:97
+msgid "Track :"
+msgstr "Piste :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:98
+msgid "Year :"
+msgstr "Année :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:99
+#, fuzzy
+msgid "Duration :"
+msgstr "Durée"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
