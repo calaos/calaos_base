@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-02-14 00:01+0100\n"
+"POT-Creation-Date: 2014-02-15 12:23+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -17,9 +17,33 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:247
+msgid "No lights on"
+msgstr "Aucune lumière allumée"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:249
+msgid "1 light on"
+msgstr "1 lumière est allumée"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:251
+msgid " lights on"
+msgstr "Aucune lumière allumée"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:262
+msgid "No shutter opened"
+msgstr "Aucun volet ouvert"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:264
+msgid "1 shutter opened"
+msgstr "1 volet est ouvert"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:266
+msgid " shutters are opened"
+msgstr " volets sont ouverts"
+
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:282
 msgid "Restart only application"
-msgstr ""
+msgstr "Redémarrer l'application seulement"
 
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:292
 #, fuzzy
@@ -223,7 +247,9 @@ msgstr "Chargement..."
 msgid ""
 "State of the House : <light_blue>Normal</light_blue><br><small>Informations "
 "concerning your House</small>"
-msgstr "Etat de la maison : <light_blue>Normal</light_blue><br><small>Informations concernant votre maison</small>"
+msgstr ""
+"Etat de la maison : <light_blue>Normal</light_blue><br><small>Informations "
+"concernant votre maison</small>"
 
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"

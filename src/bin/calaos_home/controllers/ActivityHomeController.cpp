@@ -18,6 +18,10 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "ActivityHomeController.h"
 
 ActivityHomeController::ActivityHomeController(Evas *e, Evas_Object *p):
@@ -244,11 +248,11 @@ void ActivityHomeController::lights_changed(int count)
         string t;
 
         if (count <= 0)
-                t = "Aucune lumière allumée";
+                t = _("No lights on");
         else if (count == 1)
-                t = "1 lumière est allumée";
+                t = _("1 light on");
         else
-                t = Utils::to_string(count) + " lumières sont allumées";
+                t = Utils::to_string(count) + _(" lights on");
 
         homeView->setLightsOnText(t);
 }
@@ -259,11 +263,11 @@ void ActivityHomeController::shutter_changed(int count)
         string t;
 
         if (count <= 0)
-                t = "Aucune volet ouvert";
+                t = _("No shutter opened");
         else if (count == 1)
-                t = "1 volet est ouvert";
+                t = _("1 shutter opened");
         else
-                t = Utils::to_string(count) + " volets sont ouverts";
+                t = Utils::to_string(count) + _(" shutters are opened");
 
         homeView->setShuttersUpText(t);
 }
