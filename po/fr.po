@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-01-15 09:27+0100\n"
+"POT-Creation-Date: 2014-02-14 00:01+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -214,6 +214,16 @@ msgstr "Non"
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:36
 msgid "My House"
 msgstr "Ma Maison"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:37
+msgid "Loading..."
+msgstr "Chargement..."
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:437
+msgid ""
+"State of the House : <light_blue>Normal</light_blue><br><small>Informations "
+"concerning your House</small>"
+msgstr "Etat de la maison : <light_blue>Normal</light_blue><br><small>Informations concernant votre maison</small>"
 
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"
@@ -427,39 +437,55 @@ msgstr "ERREUR"
 msgid "Quit"
 msgstr "Quitter"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:95
+#: src/bin/calaos_home/views/MainMenuView.cpp:45
+msgid "My Home"
+msgstr "Ma maison"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:46
+msgid "Medias"
+msgstr "Médias"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:47
+msgid "Scenarios"
+msgstr "Scénarios"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:48
+msgid "Configuration"
+msgstr "Configuration"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:100
 msgid "Add new widget."
 msgstr "Ajouter un nouveau widget"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:100
+#: src/bin/calaos_home/views/MainMenuView.cpp:105
 msgid "Widgets configuration."
 msgstr "Configuration des widgets."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:105
+#: src/bin/calaos_home/views/MainMenuView.cpp:110
 msgid "Shut the screen off."
 msgstr "Mettre en veille l'écran."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:110
+#: src/bin/calaos_home/views/MainMenuView.cpp:115
 msgid "Reboot the machine."
 msgstr "Redémarrer la machine."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:117
+#: src/bin/calaos_home/views/MainMenuView.cpp:122
 msgid "Touch the screen once to wake up the machine."
 msgstr "Touchez une fois l'écran pour sortir du mode veille."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:120
+#: src/bin/calaos_home/views/MainMenuView.cpp:125
 msgid "Auto: Off"
 msgstr "Auto: Désactivé"
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:139
+#: src/bin/calaos_home/views/MainMenuView.cpp:144
 msgid "Add widgets on the desktop."
 msgstr "Ajouter des widgets sur le bureau."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:145
+#: src/bin/calaos_home/views/MainMenuView.cpp:150
 msgid "Move and setup your widgets on the desktop."
 msgstr "Déplacez et configurez vos widgets sur le bureau."
 
-#: src/bin/calaos_home/views/MainMenuView.cpp:150
+#: src/bin/calaos_home/views/MainMenuView.cpp:155
 msgid "Please wait during the reboot."
 msgstr "Veuillez patienter pendant la procédure de redémarrage."
 

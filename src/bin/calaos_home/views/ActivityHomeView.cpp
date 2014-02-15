@@ -34,7 +34,7 @@ ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
         pageStatus(NULL)
 {
         setPartText("header.label", _("My House"));
-
+        setPartText("text", _("Loading..."));
         rooms.reserve(6);
         chauffages.reserve(6);
         chauff_change_con.reserve(6);
@@ -434,6 +434,7 @@ void ActivityHomeView::addStatusPage()
 {
         pageStatus = new EdjeObject(theme, evas);
         pageStatus->LoadEdje("calaos/page/home/status");
+        pageStatus->setPartText("title", _("State of the House : <light_blue>Normal</light_blue><br><small>Informations concerning your House</small>"));
         pageStatus->setAutoDelete(true);
 
         pageStatus->addCallback("button.lights_off", "pressed", sigc::mem_fun(*this, &ActivityHomeView::ButtonLightsOffCb));

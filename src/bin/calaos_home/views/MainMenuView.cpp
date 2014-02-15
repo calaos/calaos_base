@@ -42,6 +42,11 @@ MainMenuView::MainMenuView(Evas *_e, Evas_Object *_p):
         try
         {
                 LoadEdje("calaos/main/menu");
+                setPartText("menu_buttons_home_label", _("My Home"));
+                setPartText("menu_buttons_media_label", _("Medias"));
+                setPartText("menu_buttons_scenarios_label", _("Scenarios"));
+                setPartText("menu_buttons_configuration_label", _("Configuration"));
+
         }
         catch(exception const& e)
         {

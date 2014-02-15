@@ -588,11 +588,11 @@ group
                         }
                 }
 
-                MENU_BUTTON("home", "Ma maison", 0.5, 1.0, -284, -94,
+                MENU_BUTTON("home", "My Home", 0.5, 1.0, -284, -94,
                                                  0.5, 1.0, -143, -1)
                 MENU_BUTTON("media", "Medias", 0.5, 1.0, -142, -94,
                                                0.5, 1.0, -1, -1)
-                MENU_BUTTON("scenarios", "Scénarios", 0.5, 1.0, 0, -94,
+                MENU_BUTTON("scenarios", "Scenarios", 0.5, 1.0, 0, -94,
                                                       0.5, 1.0, 141, -1)
                 MENU_BUTTON("configuration", "Configuration", 0.5, 1.0, 142, -94,
                                                               0.5, 1.0, 283, -1)
