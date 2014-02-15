@@ -101,6 +101,12 @@
 # endif /* ifdef __GNUC__ */
 #endif /* ! _WIN32 */
 
+#ifdef HAVE_GETTEXT
+# define _(x) gettext(x)
+#else
+# define _(x) (x)
+#endif
+
 //-----------------------------------------------------------------------------
 using namespace std;
 
