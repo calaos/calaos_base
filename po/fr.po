@@ -147,7 +147,6 @@ msgid "Year :"
 msgstr "Année :"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:99
-#, fuzzy
 msgid "Duration :"
 msgstr "Durée"
 
@@ -220,11 +219,12 @@ msgid "Change your password"
 msgstr "Changement mot de passe"
 
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:30
-#, fuzzy
 msgid ""
 "Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
 "small>"
-msgstr "Récapitulatif : <light_blue>Mot de passe</light_blue><br><small>Changez votre mot de passe !</small>"
+msgstr ""
+"Récapitulatif : <light_blue>Mot de passe</light_blue><br><small>Changez "
+"votre mot de passe !</small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
