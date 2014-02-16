@@ -282,7 +282,6 @@ Eina_Bool zibase_udpDatasvr(void *data, int type, Ecore_Con_Event_Server_Data *e
 		{
 		    if ((strcmp(ListZibaseInfoSensor[i]->id,buf) == 0)||(strcmp(ListZibaseInfoSensor[i]->id,bufOFF) == 0))
 		    {	
-			printf("->match\n");
 			/* extract frame */
 			extract_infos((char*)packet->frame,buf,ListZibaseInfoSensor[i]);
 			break;

@@ -80,7 +80,7 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
-	DownloadManager.h \
+	DownloadManager.h			\
 	http-parser/http_parser.h \
 	http-parser/http_parser.c \
 	zibase.h
