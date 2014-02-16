@@ -197,10 +197,6 @@ int extract_infos(char* frame,char*id,TstZibaseInfoSensor* elm)
 		std::string strid = id;
 		extract_zwave_detectOpen(frame,&valNum);
 		elm->Digital=valNum;
-<<<<<<< HEAD
-=======
-		printf("emit signal with %d\n",valNum);
->>>>>>> add zibase digital io  management, first commit
 		signal_zibase.emit(strid,valNum);		
 	}
 	
@@ -279,10 +275,7 @@ Eina_Bool zibase_udpDatasvr(void *data, int type, Ecore_Con_Event_Server_Data *e
 		c = strstr ((char*)packet->frame, "<id>");
 		sscanf(c,"<id>%[^<]",buf);
 		sscanf(c,"<id>%[^_]",bufOFF);
-=======
 
-		printf("\n RX ID = %s",buf);
->>>>>>> add zibase digital io  management, first commit
 
 		/* search id in list */
 		for ( size_t i = 0, size = ListZibaseInfoSensor.size(); i < size; ++i )
