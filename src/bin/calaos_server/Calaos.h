@@ -62,6 +62,11 @@ namespace Utils
 {
         typedef sigc::signal<void, std::string, int, bool, std::string> type_signal_wago;
         extern type_signal_wago signal_wago;
+
+//typedef sigc::signal<std::string, bool> type_signal_zibase;
+typedef sigc::signal<void,std::string,bool> type_signal_zibase;
+extern type_signal_zibase signal_zibase;
+
 }
 
 #endif

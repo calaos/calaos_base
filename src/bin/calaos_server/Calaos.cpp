@@ -26,6 +26,7 @@
 using namespace Calaos;
 
 Utils::type_signal_wago Utils::signal_wago;
+Utils::type_signal_zibase Utils::signal_zibase;
 
 int CURL_write_callback_server(void *buffer, size_t size, size_t nmemb, void *stream)
 {

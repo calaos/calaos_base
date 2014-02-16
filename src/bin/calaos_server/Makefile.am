@@ -57,6 +57,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_server/IO\
 -I$(top_srcdir)/src/bin/calaos_server/IO/Wago\
 -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire\
+-I$(top_srcdir)/src/bin/calaos_server/IO/zibase\
 -I$(top_srcdir)/src/bin/calaos_server/IO/X10\
 -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts\
 -I$(top_srcdir)/src/bin/calaos_server/Audio\
@@ -113,6 +114,8 @@ Audio/AudioOutput.cpp				\
 IO/IntValue.cpp					\
 IO/Wago/WITemp.cpp					\
 IO/OneWire/OWTemp.cpp					\
+IO/zibase/ZibaseAnalogIn.cpp					\
+IO/zibase/ZibaseDigitalIn.cpp					\
 IPCam/IPCam.cpp					\
 IPCam/CamInput.cpp				\
 IPCam/CamManager.cpp				\
@@ -213,6 +216,8 @@ IO/InPlageHoraire.h				\
 IO/Wago/WagoCtrl.h					\
 IO/InputTime.h					\
 IO/OneWire/OWTemp.h					\
+IO/zibase/ZibaseAnalogIn.h					\
+IO/zibase/ZibaseDigitalIn.h					\
 IO/Wago/WODigital.h					\
 IO/Wago/WITemp.h					\
 IO/Scenario.h					\

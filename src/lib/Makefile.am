@@ -45,6 +45,7 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptBindings.cpp 		\
         LuaScript/ScriptManager.cpp 		\
         TimeRange.cpp 				\
+	zibase.cpp				\
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\
@@ -79,9 +80,10 @@ libcalaos_common_la_SOURCES = \
 	kashmir/winrand.h			\
 	Firmwares.h				\
 	IPC.h					\
-	DownloadManager.h \
+	DownloadManager.h			\
 	http-parser/http_parser.h \
-	http-parser/http_parser.c
+	http-parser/http_parser.c \
+	zibase.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
