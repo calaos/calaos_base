@@ -25,6 +25,13 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/config/menu")
 {
 
+    setPartText("tab1.text", _("Resume"));
+    setPartText("tab1.text.detail", _("Resume of: <light_blue>My Home</light_blue><br><small>Informations about your Calaos System</small"));
+    setPartText("tab2.text", _("Our Partners"));
+    setPartText("tab2.text.detail", _("<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</small>"));
+    setPartText("tab3.text", _("About"));
+    setPartText("tab3.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
+
     grid = elm_gengrid_add(_parent);
 
     elm_gengrid_select_mode_set(grid, ELM_OBJECT_SELECT_MODE_ALWAYS);
@@ -40,7 +47,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
 
     GengridItemConfig *item;
 
-    item = new GengridItemConfig(evas, grid, "Heure et Dates", "clock");
+    item = new GengridItemConfig(evas, grid, _("Date and clock"), "clock");
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {
@@ -48,7 +55,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         menu_item_clicked.emit("clock");
     });
 
-    item = new GengridItemConfig(evas, grid, "Mot de passe", "security");
+    item = new GengridItemConfig(evas, grid, _("Password"), "security");
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {
@@ -56,7 +63,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         menu_item_clicked.emit("security");
     });
 
-    item = new GengridItemConfig(evas, grid, "Mise en Veille", "veille");
+    item = new GengridItemConfig(evas, grid, _("Energy saving"), "veille");
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {

@@ -33,6 +33,9 @@
 ./src/bin/calaos_home/views/ActivityCameraListView.cpp
 ./src/bin/calaos_home/views/ActivityCameraSelectView.cpp
 ./src/bin/calaos_home/views/ActivityConfigView.cpp
+./src/bin/calaos_home/views/ActivityConfigMenuView.cpp
+./src/bin/calaos_home/views/ActivityConfigClockView.cpp
+./src/bin/calaos_home/views/ActivityConfigPasswordView.cpp
 ./src/bin/calaos_home/views/ActivityEditScenarioView.cpp
 ./src/bin/calaos_home/views/ActivityHomeView.cpp
 ./src/bin/calaos_home/views/ActivityKeyboardView.cpp

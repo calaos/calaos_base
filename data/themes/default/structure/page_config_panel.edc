@@ -135,12 +135,12 @@ group
       }
 
       CONFIG_TAB3("module_controls_sizer",
-                  "Récapitulatifs",
-                  "Récapitulatifs de : <light_blue>Ma Maison</light_blue><br><small>Informations concernant votre système Calaos</small>",
-                  "Nos partenaires",
-                  "Les Partenaires de <light_blue>Calaos</light_blue><br><small>Liste non-exhaustive des partenaires Calaos</small>",
-                  "A propos",
-                  "A Propos : <light_blue>Les produits Calaos</light_blue><br><small>Des solutions tactiles.</small>")
+                  "Resume",
+                  "Resume of: <light_blue>My Home</light_blue><br><small>Informations about your Calaos System</small",
+                  "Our Partners",
+                  "<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</small>",
+                  "About",
+                  "About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>")
 
          /* Adds some infos to tabs */
          //Tab1 content

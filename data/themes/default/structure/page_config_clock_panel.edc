@@ -570,10 +570,10 @@ group
       }
 
       CONFIG_TAB2("module_controls_sizer",
-                  "Actions et positions des widgets",
-                  "Récapitulatif : <light_blue>Réglages actuels</light_blue><br><small>Configurez l'heure et la date !</small>",
-                  "A propos",
-                  "A Propos : <light_blue>Widget Heure et Dates</light_blue><br><small>Informations détaillés sur le widget.</small>")
+                  "Actions and positions of widgets",
+                  "Resume : <light_blue>Current settings</light_blue><br><small>Configure Date and Time !</small>",
+                   "About",
+                  "About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>")
 
          /* Adds some infos to tabs */
          //Tab1 content

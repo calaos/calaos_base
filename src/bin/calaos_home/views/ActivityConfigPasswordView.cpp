@@ -23,31 +23,13 @@
 #include <GenlistItemSimpleHeader.h>
 #include <GenlistItemSimple.h>
 #include <Calendar.h>
-
 ActivityConfigPasswordView::ActivityConfigPasswordView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/config/password")
 {
-        printf("Password view constructor\n");
-        TimeZone tz;
-        tzList = elm_genlist_add(_parent);
-
-        elm_object_style_set(tzList, "calaos");
-        elm_genlist_select_mode_set(tzList, ELM_OBJECT_SELECT_MODE_ALWAYS);
-        evas_object_size_hint_fill_set(tzList, EVAS_HINT_FILL, EVAS_HINT_FILL);
-        evas_object_size_hint_weight_set(tzList, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_show(tzList);
-        Swallow(tzList, "timezone_list.swallow");
-
-        for(unsigned int i = 0; i < tz.timeZone.size(); i++)
-        {
-
-                GenlistItemSimple *_item;
-
-                _item = new GenlistItemSimple(evas, tzList, tz.timeZone[i].key, true);
-                _item->Append(tzList);
-        }
-
-
+        setPartText("tab1.text", _("Change your password"));
+        setPartText("tab1.text.detail", _("Resume : <light_blue>Password</light_blue><br><small>Change your password !</small>"));
+        setPartText("tab2.text", _("About"));
+        setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
 
 }
 

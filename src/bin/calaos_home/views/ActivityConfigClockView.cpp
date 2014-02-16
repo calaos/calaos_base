@@ -31,6 +31,11 @@ ActivityConfigClockView::ActivityConfigClockView(Evas *_e, Evas_Object *_parent)
         TimeZone tz;
         tzList = elm_genlist_add(_parent);
 
+        setPartText("tab1.text", _("Action and positions of widgets"));
+        setPartText("tab1.text.detail", _("Resume : <light_blue>Current settings</light_blue><br><small>Configure Date and Time !</small"));
+        setPartText("tab2.text", _("About"));
+        setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
+
         elm_object_style_set(tzList, "calaos");
         elm_genlist_select_mode_set(tzList, ELM_OBJECT_SELECT_MODE_ALWAYS);
         evas_object_size_hint_fill_set(tzList, EVAS_HINT_FILL, EVAS_HINT_FILL);
