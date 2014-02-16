@@ -23,37 +23,86 @@
 #include <GenlistItemSimpleHeader.h>
 #include <GenlistItemSimple.h>
 #include <Calendar.h>
+#include <ApplicationMain.h>
+
+#define DPMS_STANDBY_MAX_VALUE 240 // Max value for DPMS standby (in minutes)
 
 ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/config/screensaver")
 {
-        printf("Screensaver view constructor\n");
-        TimeZone tz;
-        tzList = elm_genlist_add(_parent);
+        EdjeObject *slider;
 
-        elm_object_style_set(tzList, "calaos");
-        elm_genlist_select_mode_set(tzList, ELM_OBJECT_SELECT_MODE_ALWAYS);
-        evas_object_size_hint_fill_set(tzList, EVAS_HINT_FILL, EVAS_HINT_FILL);
-        evas_object_size_hint_weight_set(tzList, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_show(tzList);
-        Swallow(tzList, "timezone_list.swallow");
+        setPartText("tab1.text", _("Configure Touch Screen"));
+        setPartText("tab1.text.detail", _("Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your Touch Screen !</small>"));
+        setPartText("tab2.text", _("About"));
+        setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
 
-        for(unsigned int i = 0; i < tz.timeZone.size(); i++)
-        {
+        setPartText("module_screen", _("Configure power management settings"));
+        setPartText("module_screen_desc", _("Enable if you want to activate automatic screen blanking and the delay after wich the screen will be turned off. You can also ask for a password when the screen is turned on again."));
+        setPartText("tab1.title_icon", _("TouchScreen"));
+        setPartText("tab1.subtitle_icon", _("TouchScreen configuration."));
+        setPartText("tab2.web.label", _("Web Site : "));
+        setPartText("tab2.web", CALAOS_WEBSITE_URL);
+        setPartText("tab2.mail.label", _("Email : "));
+        setPartText("tab2.mail", CALAOS_CONTACT_EMAIL);
+        setPartText("tab2.copyright", CALAOS_COPYRIGHT_TEXT);
 
-                GenlistItemSimple *_item;
+        setPartText("module_screen_time_desc", _("Time before screensaver activation : "));
+        setPartText("module_screen suspend_desc", _("Enable screen saver : "));
 
-                _item = new GenlistItemSimple(evas, tzList, tz.timeZone[i].key, true);
-                _item->Append(tzList);
-        }
+        // Create a new slider for the DPMS standby option
+        slider = new EdjeObject(ApplicationMain::getTheme(), evas);
+        slider->setAutoDelete(true);
+        
+        double slider_val;
+        string option_val;
+
+        option_val = get_config_option("dpms_standby");
+        from_string(option_val, slider_val);
 
 
+        setPartText("module_screen_time_value", to_string((int)(slider_val / 60.0)) + _(" minutes"));
+
+        slider->addCallback("object", "*",
+                            [=](void *data, Evas_Object *edje_object, string emission, string source) 
+                            {
+                                    // Change value on screen when slider move
+                                    if (emission == "slider,move")
+                                    {
+                                            double x;
+                                            string val;
+
+                                            slider->getDragValue("slider", &x, NULL);
+                                            val = to_string((int)(x * DPMS_STANDBY_MAX_VALUE)) +  _(" minutes");
+                                            setPartText("module_screen_time_value", val);
+                                    }
+                                    // Set new value in local_config.xml when slider,changed is received 
+                                    else if (emission == "slider,changed")
+                                    {
+                                            double x;
+                                            
+                                            slider->getDragValue("slider", &x, NULL);
+                                            // Value is store in seconds
+                                            set_config_option("dpms_standby", to_string((int)(x * 60.0 * DPMS_STANDBY_MAX_VALUE)));
+                                    }
+                                    
+                            }
+                );
+        slider->LoadEdje("calaos/slider/horizontal/default");
+        slider->Show();
+        slider->setDragValue("slider", slider_val / 60.0 / DPMS_STANDBY_MAX_VALUE, slider_val / 60.0 / DPMS_STANDBY_MAX_VALUE);   
+        Swallow(slider, "dpms_standby_slider.swallow", true);
+
+        addCallback("object", "*", [=](void *data, Evas_Object *edje_object, string emission, string source) 
+                            {
+                                    printf("Emission : %s | Source : %s\n", emission.c_str(), source.c_str());
+                            });
 
 }
 
 ActivityConfigScreensaverView::~ActivityConfigScreensaverView()
 {
-        evas_object_del(tzList);
+
 }
 
 void ActivityConfigScreensaverView::resetView()

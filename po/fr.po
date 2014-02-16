@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-02-16 18:08+0100\n"
+"POT-Creation-Date: 2014-02-17 00:10+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -177,12 +177,14 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:32
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
 msgid "About"
 msgstr "A propos"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:33
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:37
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:38
 msgid ""
 "About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
 "solutions.</small>"
@@ -225,6 +227,61 @@ msgid ""
 msgstr ""
 "Récapitulatif : <light_blue>Mot de passe</light_blue><br><small>Changez "
 "votre mot de passe !</small>"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:35
+msgid "Configure Touch Screen"
+msgstr "Configurez votre Ecran Tactile"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:36
+msgid ""
+"Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
+"Touch Screen !</small>"
+msgstr ""
+"Récapitulatif : <light_blue>Ecran Tactile</light_blue><br><small>Configurez "
+"votre écran tactile !</small>"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:40
+msgid "Configure power management settings"
+msgstr "Configurez le comportement de vote écran tactile"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:41
+msgid ""
+"Enable if you want to activate automatic screen blanking and the delay after "
+"wich the screen will be turned off. You can also ask for a password when the "
+"screen is turned on again."
+msgstr ""
+"Enable if you want to activate automatic screen blanking and the delay after "
+"wich the screen will be turned off. You can also ask for a password when the "
+"screen is turned on again."
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
+msgid "TouchScreen"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:43
+msgid "TouchScreen configuration."
+msgstr "Configuration de l'écran tactile."
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
+msgid "Web Site : "
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
+msgid "Email : "
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:50
+msgid "Time before screensaver activation : "
+msgstr "Temps d'attente avant la mise en veille : "
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:51
+msgid "Enable screen saver : "
+msgstr "Activer la mise en veille de l'écran : "
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:64
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
+msgid " minutes"
+msgstr " minutes"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64

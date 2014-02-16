@@ -7,15 +7,7 @@ group
       /////////////////////////////////////////////////////////
       //////// clock configuration                       //////
       /////////////////////////////////////////////////////////
-      part {
-         name: "clipper";
-         type: RECT;
-         description {
-            state, "default" 0.0;
-            visible: 1;
-            color: 255 255 255 255;
-         }
-      }
+
 
          /*****************************************/
          /****** corps du module           ********/
@@ -24,7 +16,6 @@ group
 
          part {
          name: "module_screen";
-         clip_to: "clipper";
          type: TEXT;
          description {
             state, "default" 0.0;
@@ -32,13 +23,12 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 60;}
             rel2 { relative: 0.0  0.0; offset: 600 70;}
             color: 255 255 255 255;
-            text { text: "Configurez le comportement de vote écran tactile"; font: ROOM_ELEMENT_FONT; size: 16; min: 0 0; align: 0.0 0.5;}
+            text { text: "Configure power management settings"; font: ROOM_ELEMENT_FONT; size: 16; min: 0 0; align: 0.0 0.5;}
          }
       }
 
       part {
          name: "module_screen_desc";
-         clip_to: "clipper";
          type: TEXTBLOCK;
          description {
             state, "default" 0.0;
@@ -46,44 +36,23 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 90; }
             rel2 { relative: 0.0  0.0; offset: 600 110; }
             color: 231 231 231 200;
-            text { text:"Sélectionner si vous souhaitez activer la mise en veille automatique de l'écran, le délai au bout duquel l'écran se mettra en veille. Vous avez également la possibilité d'ajouter la demande du mot de passe lors de la sortie de veille.";
+            text { text:"Enable if you want to activate automatic screen blanking and the delay after wich the screen will be turned off. You can also ask for a password when the screen is turned on again.";
                style: "HTMLStyle" ;
                min: 0 1;}
          }
       }
 
-
-
-
       /////////////////////////////////////////////////////////
       //////// Activate/Deactivate screen's suspend      //////
-      /////////////////////////////////////////////////////////
+
       part {
-         name: "module_screen_suspend_rect";
-         clip_to: "clipper";
-         type: RECT;
+         name: "module_screen_suspend_field";
+         type: IMAGE;
          description {
             state, "default" 0.0;
             visible: 1;
             rel1 { relative: 0.0  0.0; offset: 82 250;}
             rel2 { relative: 0.0  0.0; offset: 82+183*3+2*5 250+34;}
-            color: 255 255 255 255;
-         }
-         description {
-            state: "manual_conf" 0.0;
-            inherit: "default" 0.0;
-            rel2 { relative: 0.0  0.0; offset: 82+183*3+2*5 250+34+10+34*2+10;}
-         }
-      }
-      part {
-         name: "module_screen_suspend_field";
-         clip_to: "clipper";
-         type: IMAGE;
-         description {
-            state, "default" 0.0;
-            visible: 1;
-            rel1.to: "module_screen_suspend_rect";
-            rel2.to: "module_screen_suspend_rect";
             image { normal: "button_element.png" ; border: 8 9 8 9 ;};
             color: 255 255 255 255;
          }
@@ -91,7 +60,6 @@ group
 
       part {
          name: "module_screen suspend_desc";
-         clip_to: "clipper";
          type: TEXT;
          description {
             state, "default" 0.0;
@@ -99,12 +67,11 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_suspend_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_suspend_field";}
             color: 231 231 231 200;
-            text { text: "Activer la mise en veille de l'écran : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "Enable screen saver : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
       ELEMENT_ACTION_BUTTON_CHECKBOX("module_screen_suspend_btn", "module_screen_suspend_field","module_screen_suspend_field", "button_action_select_unselected.png","button_action_select_selected.png", "button_action_scenario_play_glow.png",  "object", "screen,suspend,uncheck", "screen,suspend,check", "calaos","screen,suspend,uncheck","screen,suspend,check",0.0, 0.0, 524, 7, 0.0,0.0,549, 27);
-
       ///////////////////end suspend screen field
 
 
@@ -112,23 +79,6 @@ group
       //////// Panel with the time configuration 	   //////
       /////////////////////////////////////////////////////////
 
-      part {
-         name: "module_screen_conf";
-         clip_to: "module_screen_suspend_rect";
-         type: RECT;
-         description {
-            state, "default" 0.0;
-            visible: 1;
-            rel1 { relative: 0.0  0.0; offset: 82+5 250+34+10;}
-            rel2 { relative: 0.0  0.0; offset: 82+183*3+2*5+5-3 250+400;}
-            color: 255 255 255 255;
-         }
-         description {
-            state, "not_visible" 0.0;
-            inherit: "default" 0.0;
-            color: 0 0 0 0;
-         }
-      }
 
       //////// Panel with the suspend configuration
 
@@ -137,20 +87,19 @@ group
       /////////////////////////////////////////////////////////
       part {
          name: "module_screen_time_field";
-         clip_to: "module_screen_conf";
          type: IMAGE;
          description {
             state, "default" 0.0;
             visible: 0;
             rel1 { relative: 0.0  0.0; offset: 82+5 250+34+10;}
             rel2 { relative: 0.0  0.0; offset: 82+183*3+2*5-5 250+34+10+34*2;}
+            color: 0 255 0 255;
             image { normal: "button_element.png"; border: 8 9 8 9 ;};
          }
       }
 
       part {
          name: "module_screen_time_desc";
-         clip_to: "module_screen_conf";
          type: TEXT;
          description {
             state, "default" 0.0;
@@ -158,13 +107,12 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_time_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_time_field";}
             color: 231 231 231 200;
-            text { text: "Temps d'attente avant la mise en veille : "; font: ROOM_ELEMENT_FONT; size: 12; min: 1 0; align: 0.0 0.5;}
+            text { text: "Time before screensaver activation : "; font: ROOM_ELEMENT_FONT; size: 12; min: 1 0; align: 0.0 0.5;}
          }
       }
       part {
-         name: "module_screen_time_field_slider";
-         clip_to: "module_screen_conf";
-         type: RECT;
+         name: "dpms_standby_slider.swallow";
+         type: SWALLOW;
          description {
             state, "default" 0.0;
             visible: 1;
@@ -173,12 +121,9 @@ group
          }
       }
 
-      HORIZ_SLIDER("module_screen_time", "module_screen_time_field_slider", "module_screen_time_desc_nouse", "", "module_screen_time_value_nouse", "", 50, 180, 215, "slider.png", "slider_on.png", "slider_border.png", "object", "slider,change", "calaos", "slide,deactivate", "calaos", "slide,activate")
-
 
          part {
          name: "module_screen_time_value";
-         clip_to: "module_screen_conf";
          type: TEXT;
          description {
             state, "default" 0.0;
@@ -186,57 +131,17 @@ group
             rel1 { relative: 0.0  0.0; offset: 275 4; to:"module_screen_time_field";}
             rel2 { relative: 0.0  0.0; offset: 500 30; to:"module_screen_time_field";}
             color: 58 180 215 255;
-            text { text: "45"; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "45 minutes"; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
       //////// end suspend configuration
-
-      /////////////////////////////////////////////////////////
-      //////// Ask password when suspend	        /////////
-      /////////////////////////////////////////////////////////
-
-      part {
-         name: "module_screen_block_field";
-         clip_to: "clipper";
-         type: IMAGE;
-         description {
-            state, "default" 0.0;
-            visible: 1;
-            rel1 { relative: 0.0  0.0; offset: 82 250+34+10*2+34*2+10;}
-            rel2 { relative: 0.0  0.0; offset: 82+183*3+2*5 250+34+10*2+34*3+10;}
-            image { normal: "button_element.png" ; border: 8 9 8 9 ;};
-            color: 255 255 255 255;
-         }
-      }
-
-      part {
-         name: "module_screen_block";
-         clip_to: "clipper";
-         type: TEXT;
-         description {
-            state, "default" 0.0;
-            visible: 1;
-            rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_block_field";}
-            rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_block_field";}
-            color: 231 231 231 200;
-            text { text: "Activer la demande du mot de passe lors de la sortie de veille : "; font:ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
-         }
-      }
-
-      ELEMENT_ACTION_BUTTON_CHECKBOX("module_screen_block_btn", "module_screen_block_field","module_screen_block_field", "button_action_select_unselected.png","button_action_select_selected.png", "button_action_scenario_play_glow.png",  "object", "screen,block,uncheck", "screen,block,check", "calaos","screen,block,uncheck","screen,block,check",0.0, 0.0, 524-5, 7, 0.0,0.0,549-5, 27);
-
-
-
-      //////// end ask password field
-
 
 
       /*** fin corps du module */
 
       part {
          name: "module_controls_deco";
-         clip_to: "clipper";
          description {
             state: "default" 0.0;
             visible: 1;
@@ -249,7 +154,6 @@ group
 
       part {
          name: "module_controls_sizer";
-         clip_to: "clipper";
          type: RECT;
          description {
             state: "default" 0.0;
@@ -415,6 +319,5 @@ group
             rel2.to: "tab2_client";
          }
       }
-
    }
 }
