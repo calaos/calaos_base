@@ -35,7 +35,6 @@ ActivityConfigPasswordView::ActivityConfigPasswordView(Evas *_e, Evas_Object *_p
 
 ActivityConfigPasswordView::~ActivityConfigPasswordView()
 {
-        evas_object_del(tzList);
 }
 
 void ActivityConfigPasswordView::resetView()
