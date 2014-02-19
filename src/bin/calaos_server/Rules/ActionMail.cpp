@@ -27,8 +27,6 @@ using namespace Calaos;
 
 ActionMail::ActionMail(): Action(ACTION_MAIL)
 {
-        sigDownload.connect(sigc::mem_fun(*this, &ActionMail::IPCDownloadDone));
-
         Utils::logger("rule.action.mail") << Priority::DEBUG << "ActionMail::ActionMail(): New Mail action" << log4cpp::eol;
 }
 
@@ -77,43 +75,32 @@ bool ActionMail::Execute()
                 }
                 while (ecore_file_exists(tmpFile.c_str()));
 
-                // Autodestroy file downloader. Will send an ipc when done
+                // Autodestroy file downloader
+                cout << "DL URL: " << camera->get_picture() << endl;
                 FileDownloader* downloader = new FileDownloader(camera->get_picture(), tmpFile, true);
-                IPC::Instance().AddHandler("downloader::" + Utils::to_string(downloader), "*",
-                                           sigDownload, msg);
+                downloader->addCallback([=](string signal, void *sender_data)
+                {
+                        if (signal == "done")
+                        {
+                                mail_attachment_tfile = *(reinterpret_cast<string *>(sender_data));
+                                sendMail();
+                        }
+                        else if (signal == "failed" || signal == "aborted")
+                        {
+                                mail_attachment_tfile.clear();
+                                sendMail();
+                        }
+                });
                 downloader->Start();
         }
         else
         {
-                sendEmail();
+                sendMail();
 
                 Utils::logger("rule.action.mail") << Priority::INFO << "ActionMail::Execute(): Ok, mail is in queue" << log4cpp::eol;
         }
 
         return true;
-}
-
-void ActionMail::IPCDownloadDone(string source, string signal, void *listener_data, void *sender_data)
-{/*
-        if(signal == "done")
-        {
-                MailMessage *msg = reinterpret_cast<MailMessage *>(listener_data);
-                if (msg)
-                {
-                        string file = *(reinterpret_cast<string *>(sender_data));
-                        msg->addAttachment(file, "camera.jpg", "Camera", "image/jpeg");
-
-                        SendMail::Instance().SendMessage(msg);
-                }
-        }
-        else if (signal == "failed" || signal == "aborted")
-        {
-                MailMessage *msg = reinterpret_cast<MailMessage *>(listener_data);
-                if (msg)
-                {
-                        SendMail::Instance().SendMessage(msg);
-                }
-        }*/
 }
 
 void ActionMail::sendMail()
@@ -128,6 +115,26 @@ void ActionMail::sendMail()
                 cpt++;
         }
         while (ecore_file_exists(tmpFile.c_str()));
+
+        //Write body message to a temp file
+        std::ofstream ofs;
+        ofs.open(tmpFile.c_str(), std::ofstream::trunc);
+        ofs << mail_message;
+        ofs.close();
+
+        stringstream cmd;
+        cmd << "calaos_mail ";
+        if (Utils::get_config_option("smtp_debug") == "true")
+                cmd << "--verbose ";
+        cmd << "--from \"" << mail_sender << "\" ";
+        cmd << "--to \"" << mail_recipients << "\" ";
+        cmd << "--subject \"" << mail_subject << "\" ";
+        cmd << "--body " << tmpFile << " ";
+
+        if (!mail_attachment_tfile.empty())
+                cmd << "--attach " << mail_attachment_tfile;
+
+        ecore_exe_run(cmd.str().c_str(), NULL);
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

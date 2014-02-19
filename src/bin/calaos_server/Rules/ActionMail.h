@@ -35,10 +35,7 @@ class ActionMail: public Action
                 string mail_subject;
                 string mail_attachment;
                 string mail_message;
-
-                sigc::signal<void, string, string, void*, void*> sigDownload;
-
-                void IPCDownloadDone(string source, string signal, void* listener_data, void* sender_data);
+                string mail_attachment_tfile;
 
                 void sendMail();
 
