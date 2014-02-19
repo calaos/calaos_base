@@ -107,10 +107,6 @@ int main (int argc, char **argv)
         u_int smtp_port;
         Utils::from_string(Utils::get_config_option("smtp_port"), smtp_port);
 
-        FILE *f = fopen("message", "w");
-        quickmail_fsave(mailobj, f);
-        fclose(f);
-
         if (Utils::get_config_option("smtp_auth") != "true")
                 errmsg = quickmail_send(mailobj, smtp_host.c_str(), smtp_port, nullptr, nullptr,
                                         Utils::get_config_option("smtp_tls") == "true"?1:0);
