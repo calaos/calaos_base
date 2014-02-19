@@ -40,6 +40,8 @@ class ActionMail: public Action
 
                 void IPCDownloadDone(string source, string signal, void* listener_data, void* sender_data);
 
+                void sendMail();
+
         public:
                 ActionMail();
                 ~ActionMail();

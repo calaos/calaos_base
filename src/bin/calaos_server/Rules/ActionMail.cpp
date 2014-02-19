@@ -58,18 +58,6 @@ bool ActionMail::Execute()
                         if (cout) camera = cout->get_cam();
                 }
         }
-/*
-        MailMessage *msg = new MailMessage();
-
-        msg->setSender(mail_sender);
-        msg->setSubject(mail_subject);
-
-        vector<string> recips;
-        split(mail_recipients, recips, ",");
-        for (uint i = 0;i < recips.size();i++)
-                msg->addRecipient(recips[i]);
-
-        msg->setBodyText(mail_message);
 
         if (camera)
         {
@@ -97,11 +85,11 @@ bool ActionMail::Execute()
         }
         else
         {
-                SendMail::Instance().SendMessage(msg);
+                sendEmail();
 
                 Utils::logger("rule.action.mail") << Priority::INFO << "ActionMail::Execute(): Ok, mail is in queue" << log4cpp::eol;
         }
-*/
+
         return true;
 }
 
@@ -126,6 +114,20 @@ void ActionMail::IPCDownloadDone(string source, string signal, void *listener_da
                         SendMail::Instance().SendMessage(msg);
                 }
         }*/
+}
+
+void ActionMail::sendMail()
+{
+        string tmpFile;
+        int cpt = 0;
+        //Get a temporary filename
+        do
+        {
+                tmpFile = "/tmp/calaos_mail_body_";
+                tmpFile += Utils::to_string(cpt);
+                cpt++;
+        }
+        while (ecore_file_exists(tmpFile.c_str()));
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)
