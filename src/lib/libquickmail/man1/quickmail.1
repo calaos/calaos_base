@@ -1,0 +1,52 @@
+.\" Manpage for quickmail.
+.\" Contact brechtsanders@users.sourceforge.net to correct errors or typos.
+.TH man 1 "22 Feb 2013" "1.0" "quickmail man page"
+.SH NAME
+quickmail \- send e-mail from your application.
+.SH SYNOPSIS
+.nf
+quickmail -h server [-p port] [-u username] [-w password] -f email [-t email] [-c email] [-b email] [-s subject] [-m mimetype] [-d body] [-a file] [-v]
+.fi
+.SH DESCRIPTION
+Send e-mail from the command line.
+.nf
+Features:
+- multiple To/Cc/Bcc recipients
+- multiple attachments without size limitation
+- specifying the MIME-type to use for the message body
+- TLS encryption (via libcurl)
+.fi
+.SH OPTIONS
+.nf
+-h server      hostname or IP address of SMTP server
+-p port        TCP port to use for SMTP connection (default is 25)
+-u username    username to use for SMTP authentication
+-w password    password to use for SMTP authentication
+-f email       From e-mail address
+-t email       To e-mail address (multiple -t can be specified)
+-c email       Cc e-mail address (multiple -c can be specified)
+-b email       Bcc e-mail address (multiple -b can be specified)
+-s subject     Subject
+-m mimetype    MIME used for the body (must be specified before -d)
+-d body        Body, if not specified will be read from standard input
+-a file        file to attach (multiple -a can be specified)
+-v             verbose mode
+-?             show help
+.fi
+.SH EXAMPLES
+Send a mail with subject "Foo" and body "Bar" from nobody@dom.com to me@dom.com using SMTP server smtp.dom.com:
+.RS
+quickmail -h smtp.dom.com -f nobody@dom.com -t me@dom.com -s Foo -d Bar
+.RE
+E-mail the output of ls -l with subject "ls -l" from nobody@dom.com to me@dom.com and you@dom.com using SMTP server smtp.dom.com using port 2525:
+.RS
+ls -l | quickmail -h smtp.dom.com -p 2525 -f nobody@dom.com -t me@dom.com -t you@dom.com -s "ls -l"
+.RE
+.SH SEE ALSO
+quickmaillight(3)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Brecht Sanders (brechtsanders@users.sourceforge.net)
+.SH COPYRIGHT
+Distributed under the terms of the GNU General Public License, see <http://www.gnu.org/licenses/>.

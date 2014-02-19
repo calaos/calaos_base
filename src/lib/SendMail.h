@@ -24,16 +24,19 @@
 #include <Utils.h>
 #include <CThread.h>
 #include <Mutex.h>
-#include <vmime/vmime.hpp>
-#include <vmime/platforms/posix/posixHandler.hpp>
+
+
 
 class MailMessage
 {
         friend class SendMail;
 
         private:
-                vmime::messageBuilder vmessage;
                 int sending_count;
+                string subject;
+                string text;
+                string sender;
+                string address;
 
         public:
                 MailMessage();

@@ -76,3 +76,4 @@ po/stamp-po
 src/bin/tools/calaos_config
 src/bin/tools/wago_test
 src/bin/tools/calaos_thumb
+src/bin/tools/calaos_mail

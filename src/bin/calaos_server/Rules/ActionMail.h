@@ -23,7 +23,6 @@
 
 #include <Calaos.h>
 #include <Action.h>
-#include <SendMail.h>
 
 namespace Calaos
 {

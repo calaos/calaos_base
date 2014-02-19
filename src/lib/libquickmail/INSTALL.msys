@@ -1,0 +1,11 @@
+mkdir -p _inst_
+export INSTALLPREFIX=`pwd`/_inst_
+mkdir -p m4
+#autoreconf -f -i -I m4 -I $MINGWPREFIX/share/aclocal &&
+./autogen.sh &&
+./configure --prefix=$INSTALLPREFIX &&
+ # fix building DLLs
+ mv libtool libtool.bak &&
+ sed -e "s/\(allow_undefined=\)yes/\1no/" libtool.bak > libtool &&
+ make install-strip &&
+    echo OK

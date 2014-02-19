@@ -58,7 +58,7 @@ bool ActionMail::Execute()
                         if (cout) camera = cout->get_cam();
                 }
         }
-
+/*
         MailMessage *msg = new MailMessage();
 
         msg->setSender(mail_sender);
@@ -89,7 +89,7 @@ bool ActionMail::Execute()
                 }
                 while (ecore_file_exists(tmpFile.c_str()));
 
-                /* Autodestroy file downloader. Will send an ipc when done */
+                // Autodestroy file downloader. Will send an ipc when done
                 FileDownloader* downloader = new FileDownloader(camera->get_picture(), tmpFile, true);
                 IPC::Instance().AddHandler("downloader::" + Utils::to_string(downloader), "*",
                                            sigDownload, msg);
@@ -101,12 +101,12 @@ bool ActionMail::Execute()
 
                 Utils::logger("rule.action.mail") << Priority::INFO << "ActionMail::Execute(): Ok, mail is in queue" << log4cpp::eol;
         }
-
+*/
         return true;
 }
 
 void ActionMail::IPCDownloadDone(string source, string signal, void *listener_data, void *sender_data)
-{
+{/*
         if(signal == "done")
         {
                 MailMessage *msg = reinterpret_cast<MailMessage *>(listener_data);
@@ -125,7 +125,7 @@ void ActionMail::IPCDownloadDone(string source, string signal, void *listener_da
                 {
                         SendMail::Instance().SendMessage(msg);
                 }
-        }
+        }*/
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

@@ -1,0 +1,57 @@
+
+C++ URI class - Originally based on URI from Poco C++ lirary.
+-----------------------------------------------------------------
+
+Code is standalone and doesn't require original library.
+Few modifications has been made to original source files.
+Base Poco library version used: 1.4.6p2.
+
+
+Code Example:
+	#include "hef_uri_syntax.h"
+	...
+	hef::HfURISyntax uri2("http://example.com/index.html?a=1");
+	printf("host: %s, port: %d\n", uri2.getHost().c_str(), (int)uri2.getPort() );
+	printf("path: %s\n", uri2.getPath().c_str() );
+
+Tested with following C++ compilers:
+
+ * MinGW GCC version 4.7.1
+ * MSVC 6.0
+
+References:
+- http://www.appinf.com/docs/poco/
+- http://pocoproject.org/download/index.html
+
+
+List of modifications to original Poco source files:
+
+ * renamed main namespace Poco -> hef.
+
+ * renamed main class URI -> HfURISyntax.
+
+ * removed Poco namespace.
+
+ * replaced instances of std::sprintf() with sprintf().
+
+ * inserted atoi() in place of internal number formatter class.
+
+ * removed throw expressions and made code to return immediatelly instead.
+   printf-s are also used instead if set using URI::setPrintErrors().
+
+ * new functions: 
+   - static URI::isIPAddress().
+   - URI::setPrintErrors().
+
+ * new function toLowerInPlace2() replaces toLowerInPlace(). 
+   replaced Ascii::toLower() with tolower() defined in header <cctype>.
+   effect: Poco_Striung.h is no more required.
+
+ * changed the way invalid port is handled. now its clamped if
+   outside of 0-65535 range. original functionality was exiting with error.
+
+ * new functionality, saves original string of port number.
+   this string can be later obtained by URI::getPortAsString().
+   may be usefull when expecting that port number may have been auto assigned or not specified.
+
+ * ...

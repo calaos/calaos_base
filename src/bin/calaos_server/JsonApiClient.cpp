@@ -19,11 +19,11 @@
 **
 ******************************************************************************/
 #include "JsonApiClient.h"
-#include <vmime/utility/url.hpp>
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
 #include "TCPConnection.h"
+#include "hef_uri_syntax.h"
 
 #ifndef json_array_foreach
 #define json_array_foreach(array, index, value) \
@@ -242,7 +242,7 @@ void JsonApiClient::ProcessData(string request)
                 http_parser_init(parser, HTTP_REQUEST);
                 parser->data = this;
 
-                vmime::utility::url req_url("http://0.0.0.0" + parse_url);
+                hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
                 if (req_url.getPath() != "/api" &&
                     req_url.getPath() != "/api.php" &&

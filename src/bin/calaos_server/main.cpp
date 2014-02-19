@@ -34,7 +34,6 @@
 #include <Ecore.h>
 #include <EcoreTimer.h>
 #include <NTPClock.h>
-#include <SendMail.h>
 #include <WagoMap.h>
 #include <JsonApiServer.h>
 
@@ -168,9 +167,6 @@ int main (int argc, char **argv)
                 //Start UDP server for wago events
                 wserver = new UDPServer(WAGO_LISTEN_PORT);
         }
-
-        //Setup mailing system
-        SendMail::Instance();
 
         Utils::logger("root") << Priority::INFO << "### All services started successfully, entering main loop ###" << log4cpp::eol;
 

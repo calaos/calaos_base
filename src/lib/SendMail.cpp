@@ -22,6 +22,15 @@
 
 using namespace Utils;
 
+ostream &operator<< (ostream &os, const vmime::exception &e)
+{
+        os << "* vmime::exceptions::" << e.name() << std::endl;
+        os << "    what = " << e.what() << std::endl;
+        if (e.other()) os << *e.other();
+
+        return os;
+}
+
 /* MailMessage implementation */
 MailMessage::MailMessage()
 {
@@ -70,9 +79,16 @@ bool MailMessage::addAttachment(string file, string filename, string title, stri
         }
         catch (vmime::exception &e)
         {
-                Utils::logger("mail") << Priority::ERROR << "MailMessage::addAttachment(): Error, " << e.what() << log4cpp::eol;
-                return false;
+                stringstream s;
+                s << e;
+                Utils::logger("mail") << Priority::ERROR << "MailMessage::addAttachment(): Error, " << s.str() << log4cpp::eol;
         }
+        catch (std::exception &e)
+        {
+                Utils::logger("mail") << Priority::ERROR << "MailMessage::addAttachment(): std Error, " << e.what() << log4cpp::eol;
+        }
+
+        return false;
 }
 
 /* SendMail implementation */
@@ -189,8 +205,14 @@ void SendMail::ThreadProc()
                 }
                 catch (vmime::exception &e)
                 {
-                        Utils::logger("mail") << Priority::ERROR << "SendMail: an exception occured: " << e.what() << log4cpp::eol;
+                        stringstream s;
+                        s << e;
+                        Utils::logger("mail") << Priority::ERROR << "SendMail: an exception occured: " << s.str() << log4cpp::eol;
                 }
+/*                catch (std::exception &e)
+                {
+                        Utils::logger("mail") << Priority::ERROR << "SendMail: a std::exception occured: " << e.what() << log4cpp::eol;
+                }*/
 
                 if (msg->sending_count > 5)
                 {

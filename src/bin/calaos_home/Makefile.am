@@ -14,6 +14,7 @@ AM_CXXFLAGS = \
 -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
+-I$(top_srcdir)/src/lib/uri_parser \
 -I$(top_srcdir)/src/bin/calaos_home/controllers \
 -I$(top_srcdir)/src/bin/calaos_home/views \
 -I$(top_srcdir)/src/bin/calaos_home/views/GenlistItems \

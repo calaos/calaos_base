@@ -4,6 +4,8 @@ AM_CXXFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib/LuaScript \
 	-I$(top_srcdir)/src/lib/http-parser \
+	-I$(top_srcdir)/src/lib/uri_parser \
+	-I$(top_srcdir)/src/lib/libquickmail \
 	-I$(top_srcdir)/src/bin/calaos_server \
 	-I$(top_srcdir)/src/bin/calaos_server/Rules \
 	-I$(top_srcdir)/src/bin/calaos_server/IPCam \
@@ -34,17 +36,16 @@ libcalaos_common_la_SOURCES = \
 	Mutex.cpp 				\
 	NTPClock.cpp 				\
 	Params.cpp 				\
-	SendMail.cpp 				\
 	tcpsocket.cpp 				\
 	threadManager.cpp 			\
 	Utils.cpp 				\
 	TinyXML/tinystr.cpp 			\
-        TinyXML/tinyxml.cpp 			\
+    TinyXML/tinyxml.cpp 			\
 	TinyXML/tinyxmlerror.cpp 		\
-        TinyXML/tinyxmlparser.cpp 		\
+    TinyXML/tinyxmlparser.cpp 		\
 	LuaScript/ScriptBindings.cpp 		\
-        LuaScript/ScriptManager.cpp 		\
-        TimeRange.cpp 				\
+    LuaScript/ScriptManager.cpp 		\
+    TimeRange.cpp 				\
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\
@@ -60,7 +61,6 @@ libcalaos_common_la_SOURCES = \
 	Params.h				\
 	EcoreTimer.h				\
 	EcoreFdHandler.h			\
-	SendMail.h				\
 	Calendar.h				\
 	base64.h				\
 	Utils.h					\
@@ -81,7 +81,11 @@ libcalaos_common_la_SOURCES = \
 	IPC.h					\
 	DownloadManager.h \
 	http-parser/http_parser.h \
-	http-parser/http_parser.c
+	http-parser/http_parser.c \
+	uri_parser/hef_uri_syntax.cpp \
+	uri_parser/hef_uri_syntax.h \
+	libquickmail/quickmail.h \
+	libquickmail/quickmail.c
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

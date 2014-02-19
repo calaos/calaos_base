@@ -23,6 +23,8 @@ AM_CFLAGS = \
 -I$(top_srcdir)/src/lib/cJSON \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/http-parser \
+-I$(top_srcdir)/src/lib/uri_parser \
+-I$(top_srcdir)/src/lib/libquickmail \
 -I$(top_srcdir)/src/bin/calaos_server/\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 @CALAOS_COMMON_CFLAGS@ \
@@ -51,6 +53,8 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/cJSON \
+-I$(top_srcdir)/src/lib/uri_parser \
+-I$(top_srcdir)/src/lib/libquickmail \
 -I$(top_srcdir)/src/lib/http-parser \
 -I$(top_srcdir)/src/bin/calaos_server\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
