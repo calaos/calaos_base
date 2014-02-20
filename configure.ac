@@ -176,7 +176,7 @@ data/themes/default/Makefile
 data/themes/widgets/Makefile
 data/themes/widgets/clock/Makefile
 data/themes/widgets/note/Makefile
-po/Makefile.in
+$po_makefile_in
 ])
 
 AC_OUTPUT
