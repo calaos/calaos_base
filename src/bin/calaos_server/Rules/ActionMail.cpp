@@ -124,6 +124,7 @@ void ActionMail::sendMail()
 
         stringstream cmd;
         cmd << "calaos_mail ";
+        cmd << "--delete "; //force temp file deletion after mail is sent
         if (Utils::get_config_option("smtp_debug") == "true")
                 cmd << "--verbose ";
         cmd << "--from \"" << mail_sender << "\" ";

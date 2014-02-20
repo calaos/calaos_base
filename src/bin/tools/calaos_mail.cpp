@@ -19,6 +19,7 @@
 **
 ******************************************************************************/
 
+#include <Ecore_File.h>
 #include "Utils.h"
 #include "libquickmail/quickmail.h"
 
@@ -30,6 +31,7 @@ void print_usage(void)
         cout << "(c)2014 Calaos Team" << endl << endl;
         cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << endl << endl;
         cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << endl;
+        cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << endl;
         cout << "\t--verbose\t\tVerbose mode to debug smtp transaction" << endl << endl;
 }
 
@@ -42,7 +44,7 @@ int main (int argc, char **argv)
 
         string confTo, confFrom, confSubject, confBody;
         list<string> confAttach;
-        bool verbose = false;
+        bool verbose = false, del = false;
 
         char *argconf = argvOptionParam(argv, argv + argc, "--from");
         if (!argconf) EXIT_USAGE;
@@ -68,6 +70,8 @@ int main (int argc, char **argv)
 
         if (argvOptionCheck(argv, argv + argc, "--verbose"))
                 verbose = true;
+        if (argvOptionCheck(argv, argv + argc, "--delete"))
+                del = true;
 
         Utils::initConfigOptions(nullptr, nullptr, true);
 
@@ -120,6 +124,14 @@ int main (int argc, char **argv)
                 cout << "Error sending e-mail: " << errmsg << endl;
 
         quickmail_destroy(mailobj);
+
+        //delete files if needed
+        if (del)
+        {
+                ecore_file_unlink(confBody.c_str());
+                for (string attach : confAttach)
+                        ecore_file_unlink(attach.c_str());
+        }
 
         return 0;
 }
