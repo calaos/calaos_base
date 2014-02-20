@@ -300,6 +300,26 @@ double Utils::roundValue(double value)
         return v / 100.0;
 }
 
+bool Utils::strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs)
+{
+        if (needle.empty())
+                return true;
+
+        if (needle.length() > str.length())
+                return false;
+
+        if (cs == Utils::CaseSensitive)
+                return memcmp(str.c_str(), needle.c_str(), needle.length()) == 0;
+
+        for (uint i = 0;i < needle.length();i++)
+        {
+                if (tolower(str[i]) != tolower(needle[i]))
+                        return false;
+        }
+
+        return true;
+}
+
 void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
 {
         vector<string> tokens;
