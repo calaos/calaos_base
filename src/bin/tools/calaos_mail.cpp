@@ -22,6 +22,7 @@
 #include <Ecore_File.h>
 #include "Utils.h"
 #include "libquickmail/quickmail.h"
+#include "uri_parser/hef_uri_syntax.h"
 
 using namespace Utils;
 
@@ -108,6 +109,15 @@ int main (int argc, char **argv)
                 quickmail_set_debug_log(mailobj, stderr);
 
         string smtp_host = Utils::get_config_option("smtp_server");
+
+        if (strStartsWith(smtp_host, "smtp://") ||
+            strStartsWith(smtp_host, "smtps://"))
+        {
+                //To be backward compatible with old config where we had full uri
+                hef::HfURISyntax uri(smtp_host);
+                smtp_host = uri.getHost();
+        }
+
         u_int smtp_port;
         Utils::from_string(Utils::get_config_option("smtp_port"), smtp_port);
 
