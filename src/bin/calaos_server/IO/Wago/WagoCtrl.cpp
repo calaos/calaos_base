@@ -132,7 +132,7 @@ bool WagoCtrl::write_single_bit(UWord address, bool val)
         }
         else
         {
-                Utils::logger("wago") << Priority::INFO << "WagoCtrl::write_single_bit(): Ok" << log4cpp::eol;
+                Utils::logger("wago") << Priority::INFO << "WagoCtrl::write_single_bit(" << address << ", " << (val?"true":"false") << "): Ok" << log4cpp::eol;
                 return true;
         }
 }
