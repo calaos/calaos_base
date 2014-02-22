@@ -36,6 +36,7 @@
 #include <NTPClock.h>
 #include <WagoMap.h>
 #include <JsonApiServer.h>
+#include <Zibase.h>
 
 #ifdef HAVE_BREAKPAD
 #include "client/linux/handler/exception_handler.h"
@@ -150,10 +151,10 @@ int main (int argc, char **argv)
         TCPServer::Instance(TCP_LISTEN_PORT);
 
         //Start Json API server
-	unsigned short port = JSONAPI_PORT;
-	string tmp =  Utils::get_config_option("port_api");
-	if (!tmp.empty())
-	  from_string(tmp, port);
+        unsigned short port = JSONAPI_PORT;
+        string tmp =  Utils::get_config_option("port_api");
+        if (!tmp.empty())
+          from_string(tmp, port);
         JsonApiServer::Instance(port);
 
         NTPClock::Instance();
@@ -187,6 +188,9 @@ int main (int argc, char **argv)
 
         //Stop all wagomaps and wait for their threads to terminate correctly.
         WagoMap::stopAllWagoMaps();
+
+        //Stop all zibase
+        Zibase::stopAllZibase();
 
         //Clean up evrything
         delete eventLoop;

@@ -11,6 +11,7 @@ AM_CFLAGS = \
 -I./IO/Wago/libmbus \
 -I./IO/OneWire \
 -I./IO/X10 \
+-I./IO/Zibase \
 -I./IO/Scripts \
 -I./IO/GCE \
 -I./IO/Web \
@@ -41,6 +42,7 @@ AM_CXXFLAGS = \
 -I./IO/Wago/libmbus \
 -I./IO/OneWire \
 -I./IO/X10 \
+-I./IO/Zibase \
 -I./IO/Scripts \
 -I./IO/GCE \
 -I./IO/Web \
@@ -62,6 +64,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_server/IO/Wago\
 -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire\
 -I$(top_srcdir)/src/bin/calaos_server/IO/X10\
+-I$(top_srcdir)/src/bin/calaos_server/IO/Zibase\
 -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts\
 -I$(top_srcdir)/src/bin/calaos_server/Audio\
 -I$(top_srcdir)/src/bin/calaos_server/IPCam\
@@ -270,7 +273,13 @@ IO/Gpio/GpioOutputSwitch.h \
 JsonApiServer.h \
 JsonApiServer.cpp \
 JsonApiClient.h \
-JsonApiClient.cpp
+JsonApiClient.cpp \
+IO/Zibase/Zibase.cpp \
+IO/Zibase/Zibase.h \
+IO/Zibase/ZibaseAnalogIn.cpp \
+IO/Zibase/ZibaseAnalogIn.h \
+IO/Zibase/ZibaseDigitalIn.cpp \
+IO/Zibase/ZibaseDigitalIn.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \
