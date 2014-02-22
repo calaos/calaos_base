@@ -42,6 +42,19 @@ void WOVoletSmart::readConfig()
                 Utils::from_string(get_param("port"), port);
         Utils::from_string(get_param("var_up"), up_address);
         Utils::from_string(get_param("var_down"), down_address);
+
+        //handle knx and 841/849
+        if (get_param("knx") == "true")
+        {
+                up_address += WAGO_KNX_START_ADDRESS;
+                down_address += WAGO_KNX_START_ADDRESS;
+        }
+        if (get_param("wago_841") == "true" && get_param("knx") != "true")
+        {
+                up_address += WAGO_841_START_ADDRESS;
+                down_address += WAGO_841_START_ADDRESS;
+        }
+
         OutputShutterSmart::readConfig();
 }
 
