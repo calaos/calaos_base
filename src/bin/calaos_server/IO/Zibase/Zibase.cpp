@@ -78,9 +78,7 @@ Zibase::Zibase(std::string h, int p):
                 econ_client(nullptr),
                 econ_listen(nullptr)
 {
-        /* allocate Sensor structure for each zibase*/
-        InfoSensor = new(ZibaseInfoSensor);
-
+        
         //Ecore handler
         event_handler_data_cl = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)zibase_udpClientData, this);
         event_handler_data_listen = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)zibase_udpListenData, this);
@@ -128,9 +126,6 @@ Zibase::~Zibase()
         ecore_con_server_del(econ_client);
         ecore_con_server_del(econ_listen);
         
-        if(InfoSensor)
-                delete InfoSensor;
-
         Utils::logger("zibase") << Priority::INFO << "Zibase::~Zibase(): Ok" << log4cpp::eol;
 }
 
@@ -163,6 +158,7 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
 {
 	char* c;
 	
+        ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
         TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;	
       
 	if(InfoSensor)
@@ -181,6 +177,8 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
                         }
                         sig_newframe.emit(InfoSensor);	
                 }
+                
+                delete(InfoSensor);
                 
         }	
 }

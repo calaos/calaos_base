@@ -106,10 +106,7 @@ class Zibase
                       
                 unsigned short my_count =0;
                 TstZAPI_packet stZAPI_packet;
-                ZibaseInfoSensor *InfoSensor;
-                
-                
-
+                                              
         public:
                 ~Zibase();
 
