@@ -46,8 +46,12 @@ class ZibaseInfoSensor
 
         public:
                 ZibaseInfoSensor() { }
-
-                //TODO!
+                            
+                enum eZibaseSensor{ eTEMP,eENERGY,eDETECT,eUNKNOWN};
+                char id[32];
+                eZibaseSensor type;
+                float AnalogVal;
+                bool DigitalVal;              
 };
 
 class Zibase
@@ -70,7 +74,39 @@ class Zibase
 
                 void udpListenData(Ecore_Con_Event_Server_Data *ev);
                 void udpClientData(Ecore_Con_Event_Client_Data *ev);
+                
+                int extract_infos(char* frame,ZibaseInfoSensor* elm);
+                void extract_temp(char* frame,float *val);
+                void extract_energy(char* frame,float *val);
+                void extract_zwave_detectOpen(char* frame,bool *val);
 
+
+                #pragma pack(1)
+                typedef struct {
+                        unsigned char header[4];
+                        unsigned short command;
+                        unsigned char reserved1[16];
+                        unsigned char zibase_id[16];
+                        unsigned char reserved2[12];
+                        unsigned long param1;
+                        unsigned long param2;
+                        unsigned long param3;
+                        unsigned long param4;
+                        unsigned short my_count;
+                        unsigned short your_count;	
+                }TstZAPI_packet;
+                #pragma pack()
+
+                #pragma pack(1)
+                typedef struct {
+                        TstZAPI_packet packet;
+                        unsigned char frame[401];
+                }TstZAPI_Rxpacket;
+                #pragma pack()
+                      
+                unsigned short my_count =0;
+                TstZAPI_packet stZAPI_packet;
+                                              
         public:
                 ~Zibase();
 

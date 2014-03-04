@@ -22,6 +22,7 @@
 #define S_ZibaseAnalogIn_H
 
 #include <InputAnalog.h>
+#include "Zibase.h"
 
 class ZibaseInfoSensor;
 
@@ -35,10 +36,13 @@ class ZibaseAnalogIn : public InputAnalog, public sigc::trackable
 
                 std::string host;
                 int port;
+                std::string id;
 
                 virtual void readValue();
 
                 void valueUpdated(ZibaseInfoSensor *sensor);
+                
+                ZibaseInfoSensor::eZibaseSensor sensor_type;
 
         public:
                 ZibaseAnalogIn(Params &p);

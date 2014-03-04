@@ -27,9 +27,17 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
                 InputAnalog(p),
                 port(0)
 {
-        host = get_param("host");
-        Utils::from_string(get_param("port"), port);
+        std::string type = get_param("zibase_sensor");
 
+        host = get_param("host");
+        Utils::from_string(get_param("port"), port);        
+        id = get_param("zibase_id");
+
+        if(type.compare("temp")==0)
+                sensor_type = ZibaseInfoSensor::eTEMP;   
+        else if(type.compare("energy")==0)
+                sensor_type = ZibaseInfoSensor::eENERGY;   
+        
         Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
 
         Utils::logger("input") << Priority::DEBUG << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok" << log4cpp::eol;
@@ -42,17 +50,18 @@ ZibaseAnalogIn::~ZibaseAnalogIn()
 
 void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)
 {
-/*
-        TODO: get the new value from the sensor object
-        the sensor obj can be for any sensor, we must also check if
-        it's for us
- 
-        if (new_value != value)
+
+        /*check that sensor id match */
+        if((id==sensor->id) && (sensor->type == sensor_type))
         {
-                value = new_value;
-                emitChange();
+               if (sensor->AnalogVal != value)
+                {
+                        value = sensor->AnalogVal;
+                        emitChange();
+                }       
+                
         }
-*/
+
 }
 
 void ZibaseAnalogIn::readValue()

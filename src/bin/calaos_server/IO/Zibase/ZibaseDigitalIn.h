@@ -22,6 +22,7 @@
 #define S_ZibaseDigitalIn_H
 
 #include <InputSwitch.h>
+#include "Zibase.h"
 
 class ZibaseInfoSensor;
 
@@ -33,8 +34,10 @@ class ZibaseDigitalIn : public InputSwitch, public sigc::trackable
         protected:
                 std::string host;
                 int port;
-
+                std::string id;            
+                bool val;
                 void valueUpdated(ZibaseInfoSensor *sensor);
+                ZibaseInfoSensor::eZibaseSensor sensor_type;
 
                 virtual bool readValue();
 
