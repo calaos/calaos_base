@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-02-17 00:10+0100\n"
+"POT-Creation-Date: 2014-03-04 23:25+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -150,11 +150,11 @@ msgstr "Année :"
 msgid "Duration :"
 msgstr "Durée"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:28
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:36
 msgid "Resume"
 msgstr "Récapitulatifs"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:29
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:37
 msgid ""
 "Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
 "your Calaos System</small"
@@ -162,11 +162,11 @@ msgstr ""
 "Récapitulatifs de : <light_blue>Ma Maison</"
 "light_blue><br><small>Informations concernant votre système Calaos</small>"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:30
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
 msgid "Our Partners"
 msgstr "Nos partenaires"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:31
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:39
 msgid ""
 "<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
 "small>"
@@ -174,14 +174,14 @@ msgstr ""
 "Les Partenaires de <light_blue>Calaos</light_blue><br><small>Liste non-"
 "exhaustive des partenaires Calaos</small>"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:32
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
 msgid "About"
 msgstr "A propos"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:33
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:37
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:38
@@ -192,15 +192,49 @@ msgstr ""
 "A Propos : <light_blue>Les produits Calaos</light_blue><br><small>Des "
 "solutions tactiles.</small>"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:50
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:43
+msgid "Product Version: "
+msgstr "Version : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:45
+msgid "Last update: "
+msgstr "Derniére mise à jour : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:47
+msgid "System started since : "
+msgstr "Système démarré depuis : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
+msgid " day"
+msgstr " jour"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:57
+msgid " days"
+msgstr " jours"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:61
+msgid "Machine name : "
+msgstr "Nom de la machine : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:67
+msgid "Network address :"
+msgstr "Adresse réseau : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:70
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
+msgid "Web Site : "
+msgstr "Site Internet : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:72
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
+msgid "Email : "
+msgstr "Email : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:91
 msgid "Date and clock"
 msgstr "Heure et Dates"
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:58
-msgid "Password"
-msgstr "Mot de passe"
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:66
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:109
 msgid "Energy saving"
 msgstr "Mise en Veille"
 
@@ -256,19 +290,11 @@ msgstr ""
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
 msgid "TouchScreen"
-msgstr ""
+msgstr "Ecran tactile"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:43
 msgid "TouchScreen configuration."
 msgstr "Configuration de l'écran tactile."
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
-msgid "Web Site : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
-msgid "Email : "
-msgstr ""
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:50
 msgid "Time before screensaver activation : "
@@ -722,3 +748,6 @@ msgstr ""
 #: src/bin/calaos_home/views/Widget.cpp:210
 msgid "Yes, del this widget"
 msgstr "Oui, supprimer ce widget"
+
+#~ msgid "Password"
+#~ msgstr "Mot de passe"

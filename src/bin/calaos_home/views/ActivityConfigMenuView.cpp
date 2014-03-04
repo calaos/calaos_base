@@ -18,8 +18,16 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <sys/sysinfo.h>
+#include <unistd.h>
+
 #include "ActivityConfigMenuView.h"
 #include "GengridItemConfig.h"
+#include "tcpsocket.h"
 
 ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/config/menu")
@@ -31,6 +39,39 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     setPartText("tab2.text.detail", _("<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</small>"));
     setPartText("tab3.text", _("About"));
     setPartText("tab3.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
+
+    setPartText("tab1.version.label", _("Product Version: "));
+    setPartText("tab1.version", PACKAGE_VERSION);
+    setPartText("tab1.last_update.label", _("Last update: "));
+    setPartText("tab1.last_update", "N/a");
+    setPartText("tab1.uptime.label", _("System started since : "));
+
+    struct sysinfo info;
+    sysinfo(&info);
+    long days = info.uptime / 60 / 60 / 24; 
+    string uptime;
+    uptime = to_string(days);
+    if (days == 1) 
+            uptime += _(" day");
+    else
+            uptime += _(" days");
+
+    setPartText("tab1.uptime", uptime.c_str());
+    
+    setPartText("tab1.hostname.label", _("Machine name : "));
+    char hostname[HOST_NAME_MAX];
+    gethostname(hostname, HOST_NAME_MAX);
+    setPartText("tab1.hostname", hostname);
+
+    string local_ip = TCPSocket::GetLocalIP("eth0");
+    setPartText("tab1.ipaddress.label", _("Network address :"));
+    setPartText("tab1.ipaddress", local_ip.c_str());
+    
+    setPartText("tab3.web.label", _("Web Site : "));
+    setPartText("tab3.web", CALAOS_WEBSITE_URL);
+    setPartText("tab3.mail.label", _("Email : "));
+    setPartText("tab3.mail", CALAOS_CONTACT_EMAIL);
+    setPartText("tab3.copyright", CALAOS_COPYRIGHT_TEXT);
 
     grid = elm_gengrid_add(_parent);
 
@@ -55,13 +96,15 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         menu_item_clicked.emit("clock");
     });
 
-    item = new GengridItemConfig(evas, grid, _("Password"), "security");
-    item->Append(grid);
-    item->item_selected.connect([=](void *data)
-    {
-        cout << "click on item security!" << endl;
-        menu_item_clicked.emit("security");
-    });
+    // Disable for now, as it's only usefull in case of Calaos Network.
+    
+    // item = new GengridItemConfig(evas, grid, _("Password"), "security");
+    // item->Append(grid);
+    // item->item_selected.connect([=](void *data)
+    // {
+    //     cout << "click on item security!" << endl;
+    //     menu_item_clicked.emit("security");
+    // });
 
     item = new GengridItemConfig(evas, grid, _("Energy saving"), "veille");
     item->Append(grid);

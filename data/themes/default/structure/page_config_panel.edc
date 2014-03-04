@@ -101,19 +101,6 @@ group
          }
       }
 
-      part
-      {
-         name: "text";
-         type: TEXT;
-         description
-         {
-            state, "default" 0.0;
-            visible: 1;
-            text { text: "Control panel menu"; font: "CalaosContentBold"; size: 20; min: 0 0; align: 0.5 0.8; }
-            color: 95 95 95 255;
-         }
-      }
-
       part {
          name: "module_controls_deco";
          description {
@@ -157,7 +144,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Version du produit: "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Product Version : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -172,7 +159,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "1.0.0"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "X.X.X"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -188,7 +175,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Dernière mise à jour : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Last update : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -219,7 +206,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Système démarré depuis : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "System started since : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -234,7 +221,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "0 jours"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "0 days"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -250,7 +237,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Nom de la machine : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Machine name : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -265,7 +252,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "Ma maison"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "Machine name : "; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -281,7 +268,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Adresse réseau : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Network address : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -315,7 +302,7 @@ group
             rel1.to: "tab3_client";
             rel2.to: "tab3_client";
             color: 231 231 231 178;
-            text { text: "Site internet : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Web Site : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
