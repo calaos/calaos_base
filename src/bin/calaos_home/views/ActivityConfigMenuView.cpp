@@ -106,7 +106,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     //     menu_item_clicked.emit("security");
     // });
 
-    item = new GengridItemConfig(evas, grid, _("Energy saving"), "veille");
+    item = new GengridItemConfig(evas, grid, _("Screen saver"), "veille");
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {

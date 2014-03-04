@@ -38,7 +38,7 @@ class ActivityConfigClockView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return "Configuration de l'heure et de la data"; }
+                virtual string getTitle() { return _("Configure Clock and Date"); }
 };
 
 #endif // ActivityConfigClockView_H

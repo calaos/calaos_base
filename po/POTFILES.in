@@ -37,6 +37,11 @@
 ./src/bin/calaos_home/views/ActivityConfigClockView.cpp
 ./src/bin/calaos_home/views/ActivityConfigPasswordView.cpp
 ./src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp
+./src/bin/calaos_home/views/ActivityConfigView.h
+./src/bin/calaos_home/views/ActivityConfigMenuView.h
+./src/bin/calaos_home/views/ActivityConfigClockView.h
+./src/bin/calaos_home/views/ActivityConfigPasswordView.h
+./src/bin/calaos_home/views/ActivityConfigScreensaverView.h
 ./src/bin/calaos_home/views/ActivityEditScenarioView.cpp
 ./src/bin/calaos_home/views/ActivityHomeView.cpp
 ./src/bin/calaos_home/views/ActivityKeyboardView.cpp

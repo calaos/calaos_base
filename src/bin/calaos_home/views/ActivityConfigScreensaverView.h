@@ -38,7 +38,7 @@ class ActivityConfigScreensaverView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return "Configuration du mot de passe"; }
+                virtual string getTitle() { return _("Configure Screen saver settings"); }
 };
 
 #endif // ActivityConfigScreensaverView_H
