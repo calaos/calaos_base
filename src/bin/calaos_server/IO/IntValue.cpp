@@ -50,6 +50,8 @@ Internal::~Internal()
 
 void Internal::force_input_bool(bool v)
 {
+        DELETE_NULL(timer);
+
         bvalue = v;
         EmitSignalInput();
 
@@ -174,6 +176,44 @@ bool Internal::set_value(string val)
                 sig += Input::get_param("id") + " ";
                 sig += url_encode(string("state:") + Utils::to_string(svalue));
                 IPC::Instance().SendEvent("events", sig);
+        }
+        else if (get_type() == TBOOL)
+        {
+                if (val.compare(0, 8, "impulse ") == 0)
+                {
+                        string tmp = val;
+                        val.erase(0, 8);
+                        // classic impulse, output goes false after <time> miliseconds
+                        if (is_of_type<int>(tmp))
+                        {
+                                int t;
+                                Utils::from_string(tmp, t);
+
+                                Utils::logger("output") << Priority::INFO << "InternalBool(" << get_param("id")
+                                                << "): got impulse action, staying true for "
+                                                << t << "ms" << log4cpp::eol;
+
+                                set_value(true);
+
+                                timer = new EcoreTimer((double)t / 1000., [=]()
+                                {
+                                        set_value(false);
+                                });
+                        }
+                        else
+                        {
+                                //TODO: implement extended impulse but with something generic for all outputs
+
+                                // extended impulse using pattern
+                                //impulse_extended(tmp);
+                        }
+
+                        return true;
+                }
+                else if (val == "toggle")
+                {
+                        return set_value(!bvalue);
+                }
         }
 
         return true;
