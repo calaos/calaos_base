@@ -27,13 +27,6 @@
 
 namespace Calaos {
 
-typedef struct _BlinkInfo
-{
-        bool state;
-        int duration;
-        int next;
-} BlinkInfo;
-
 class OutputLight : public Output
 {
         private:

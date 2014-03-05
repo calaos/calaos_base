@@ -38,6 +38,12 @@ namespace Calaos
 
                         EcoreTimer *timer;
 
+                        vector<BlinkInfo> blinks;
+                        int current_blink;
+
+                        void impulse_extended(string pattern);
+                        void TimerImpulseExtended();
+
                         void Save(); //save value to file
                         void LoadFromConfig(); //load value from config file
 

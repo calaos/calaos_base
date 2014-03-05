@@ -24,7 +24,6 @@
 #include <Calaos.h>
 #include <Output.h>
 #include <EcoreTimer.h>
-#include <OutputLight.h>
 
 namespace Calaos
 {
