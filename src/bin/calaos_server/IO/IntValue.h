@@ -24,6 +24,7 @@
 #include <Calaos.h>
 #include <Input.h>
 #include <Output.h>
+#include <EcoreTimer.h>
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ namespace Calaos
                         bool bvalue;
                         double dvalue;
                         string svalue;
+
+                        EcoreTimer *timer;
 
                         void Save(); //save value to file
                         void LoadFromConfig(); //load value from config file
