@@ -80,7 +80,7 @@ bool OutputLight::set_value(string val)
         if (val.compare(0, 8,"impulse ") == 0)
         {
                 string tmp = val;
-                val.erase(0, 8);
+                tmp.erase(0, 8);
                 // classic impulse, WODigital goes false after <time> miliseconds
                 if (is_of_type<int>(tmp))
                 {
@@ -104,11 +104,11 @@ bool OutputLight::set_value(string val)
         return false;
 }
 
-void OutputLight::impulse(int _time)
+void OutputLight::impulse(int time)
 {
         Utils::logger("output") << Priority::INFO << "OutputLight(" << get_param("id")
                         << "): got impulse action, staying true for "
-                        << _time << "ms" << log4cpp::eol;
+                        << time << "ms" << log4cpp::eol;
 
         set_value(true);
 

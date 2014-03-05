@@ -176,7 +176,7 @@ bool OutputLightDimmer::set_value(std::string val)
         else if (val.compare(0, 8, "impulse ") == 0)
         {
                 string tmp = val;
-                val.erase(0, 8);
+                tmp.erase(0, 8);
                 // classic impulse, WODigital goes false after <time> miliseconds
                 if (is_of_type<int>(tmp))
                 {
