@@ -202,10 +202,8 @@ bool Internal::set_value(string val)
                         }
                         else
                         {
-                                //TODO: implement extended impulse but with something generic for all outputs
-
                                 // extended impulse using pattern
-                                //impulse_extended(tmp);
+                                impulse_extended(tmp);
                         }
 
                         return true;
@@ -217,6 +215,112 @@ bool Internal::set_value(string val)
         }
 
         return true;
+}
+
+void Internal::impulse_extended(string pattern)
+{
+        /* Extended impulse to do blinking.
+         * It uses a pattern like this one:
+         * - "<on_time> <off_time>"
+         * - "loop <on_time> <off_time>"
+         * - "old" (switch to the old value)
+         * they can be combined together to create different blinking effects
+         */
+
+        DELETE_NULL(timer);
+        blinks.clear();
+
+        Utils::logger("output") << Priority::INFO << "InternalBool(" << get_param("id")
+                        << "): got extended impulse action, parsing blinking pattern..." << log4cpp::eol;
+
+        //Parse the string
+        vector<string> tokens;
+        split(pattern, tokens);
+
+        bool state = true;
+        int loop = -1;
+        for (uint i = 0;i < tokens.size();i++)
+        {
+                if (is_of_type<int>(tokens[i]))
+                {
+                        int blinktime;
+                        from_string(tokens[i], blinktime);
+
+                        BlinkInfo binfo;
+                        binfo.state = state;
+                        binfo.duration = blinktime;
+                        binfo.next = blinks.size() + 1;
+
+                        blinks.push_back(binfo);
+
+                        Utils::logger("output") << Priority::DEBUG << "InternalBool(" << get_param("id")
+                                                << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
+                                                << " for " << binfo.duration << "ms" << log4cpp::eol;
+
+                        state = !state;
+                }
+                else if (tokens[i] == "loop" && loop < 0)
+                {
+                        //set loop mode to the next item
+                        loop = blinks.size();
+
+                        Utils::logger("output") << Priority::DEBUG << "InternalBool("
+                                                << get_param("id") << ")::Parse : Loop all next steps." << log4cpp::eol;
+                }
+                else if (tokens[i] == "old")
+                {
+                        BlinkInfo binfo;
+                        binfo.state = get_value_bool();
+                        binfo.duration = 0;
+                        binfo.next = blinks.size() + 1;
+
+                        blinks.push_back(binfo);
+
+                        Utils::logger("output") << Priority::DEBUG << "InternalBool(" << get_param("id")
+                                                << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
+                                                << log4cpp::eol;
+                }
+        }
+
+        if (loop >= 0)
+        {
+                //tell the last item to loop
+                if (blinks.size() > (uint)loop)
+                        blinks[blinks.size() - 1].next = loop;
+        }
+
+        current_blink = 0;
+
+        if (blinks.size() > 0)
+        {
+                set_value(blinks[current_blink].state);
+
+                timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+                                (sigc::slot<void>)sigc::mem_fun(*this, &Internal::TimerImpulseExtended) );
+        }
+}
+
+void Internal::TimerImpulseExtended()
+{
+        //Stop timer
+        DELETE_NULL(timer);
+
+        //safety checks
+        if (current_blink < 0 || current_blink >= (int)blinks.size())
+                return; //Stops blinking
+
+        current_blink = blinks[current_blink].next;
+
+        //safety checks for new value
+        if (current_blink < 0 || current_blink >= (int)blinks.size())
+                return; //Stops blinking
+
+        //Set new output state
+        set_value(blinks[current_blink].state);
+
+        //restart timer
+        timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+                                (sigc::slot<void>)sigc::mem_fun(*this, &Internal::TimerImpulseExtended) );
 }
 
 void Internal::Save()

@@ -31,6 +31,14 @@ using namespace Utils;
 
 namespace Calaos
 {
+
+        typedef struct _BlinkInfo
+        {
+                bool state;
+                int duration;
+                int next;
+        } BlinkInfo;
+
     void CallUrl(string url, string post_data = "");
 #ifndef UTILS
     std::string get_new_id(std::string prefix);
