@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-03-04 23:35+0100\n"
+"POT-Creation-Date: 2014-03-05 22:13+0900\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -308,6 +308,26 @@ msgstr "Activer la mise en veille de l'écran : "
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
 msgid " minutes"
 msgstr " minutes"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.h:42
+#, fuzzy
+msgid "Configuration center"
+msgstr "Configuration"
+
+#: src/bin/calaos_home/views/ActivityConfigClockView.h:41
+#, fuzzy
+msgid "Configure Clock and Date"
+msgstr "Configurez votre Ecran Tactile"
+
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.h:41
+#, fuzzy
+msgid "Configure Password"
+msgstr "Changement du mot de passe"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.h:41
+#, fuzzy
+msgid "Configure Screen saver settings"
+msgstr "Configurez le comportement de vote écran tactile"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
