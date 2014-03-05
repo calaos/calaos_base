@@ -195,11 +195,11 @@ void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, strin
                 ApplicationMain::Instance().ShowKeyboard("Entrez une URL ci-dessous",
                                                          sigc::mem_fun(*this, &ActivityWebView::goToCallback),
                                                          false,
-                                                         elm_web_uri_get(web));
+                                                         elm_web_url_get(web));
         }
         else if (source == "button.bookmark")
         {
-                string url = elm_web_uri_get(web);
+                string url = elm_web_url_get(web);
 
                 string _url = DEFAULT_BROWSER_URL;
                 _url += "Bookmark.php?new=" + url_encode(url);
@@ -225,6 +225,6 @@ void ActivityWebView::goToCallback(string text)
 
         url += text;
 
-        elm_web_uri_set(web, url.c_str());
+        elm_web_url_set(web, url.c_str());
         elm_object_focus_set(web, true);
 }
