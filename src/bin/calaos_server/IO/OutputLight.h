@@ -38,7 +38,6 @@ class OutputLight : public Output
 {
         private:
                 EcoreTimer *timer;
-                int time;
 
                 vector<BlinkInfo> blinks;
                 int current_blink;
