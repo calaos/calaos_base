@@ -36,7 +36,7 @@ namespace Calaos
                         double dvalue;
                         string svalue;
 
-                        EcoreTimer *timer;
+                        EcoreTimer *timer = NULL;
 
                         vector<BlinkInfo> blinks;
                         int current_blink;
