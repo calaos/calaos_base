@@ -988,7 +988,9 @@ map<Room *, list<IOBase *> > RoomModel::getShuttersUpForRooms()
 
 string IOBase::getIconForIO()
 {
-        if (params["gui_type"] == "light")
+        if (params["gui_type"] == "light" ||
+            params["gui_type"] == "light_dimmer" ||
+            params["gui_type"] == "light_rgb")
                 return "calaos/icons/element/simple/light";
         else if (params["gui_type"] == "scenario")
                 return "calaos/icons/element/simple/scenario";
