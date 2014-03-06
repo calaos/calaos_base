@@ -74,7 +74,6 @@ void OWTemp::readValue()
         if(OW_get(ow_req.c_str(), &res, &len) >= 0)
         {
                 val = atof(res);
-                printf("Temperature read : %3.3f\n", value);
                 free(res);
                 Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): Ok" << log4cpp::eol;
         }

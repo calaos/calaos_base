@@ -50,7 +50,6 @@ WebAnalogIn::~WebAnalogIn()
 void WebAnalogIn::readValue()
 {
         value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
-        printf("Read value : %3.3f\n", value);
         emitChange();
 }
 

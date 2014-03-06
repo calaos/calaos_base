@@ -95,7 +95,6 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
 
         addCallback("object", "*", [=](void *data, Evas_Object *edje_object, string emission, string source) 
                             {
-                                    printf("Emission : %s | Source : %s\n", emission.c_str(), source.c_str());
 				    if (emission == "screen,suspend,check")
 					    EmitSignal("screen,suspend,uncheck", "calaos");
 				    else if (emission == "screen,suspend,uncheck")

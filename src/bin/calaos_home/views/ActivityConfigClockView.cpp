@@ -27,7 +27,6 @@
 ActivityConfigClockView::ActivityConfigClockView(Evas *_e, Evas_Object *_parent):
         ActivityView(_e, _parent, "calaos/page/config/clock")
 {
-        printf("Clock view constructor\n");
         TimeZone tz;
         tzList = elm_genlist_add(_parent);
 

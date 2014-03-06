@@ -66,8 +66,6 @@ static bool dumpCallback(const char* dump_path,
                          void* context,
                          bool succeeded)
 {
-        printf("Dump path: %s/%s.dmp\n", dump_path, minidump_id);
-
         string cmd = "/sbin/crash_report.sh calaosd ";
         cmd += minidump_id;
 
