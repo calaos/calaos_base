@@ -41,6 +41,7 @@ class ConditionOutput: public Condition
                 bool eval(bool val1, std::string oper, bool val2);
                 bool eval(double val1, std::string oper, double val2);
                 bool eval(std::string val1, std::string oper, std::string val2);
+                bool eval(Output *out, std::string oper, std::string val);
 
         public:
                 ConditionOutput();

@@ -95,7 +95,10 @@ class OutputShutterSmart : public Output
                 virtual bool set_value(std::string val);
                 virtual std::string get_value_string();
                 virtual double get_value_double() { return (int)(readPosition() * 100. / (double)time_up); }
+
                 virtual std::string get_command_string() { return cmd_state; }
+
+                virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }
