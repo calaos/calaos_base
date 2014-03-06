@@ -58,6 +58,8 @@ using namespace Calaos;
                         bool login;
                         string terminator, buffer;
 
+                        bool listen_mode = false;
+
                         sigc::signal<void, string, string, void*, void*> sig_events;
 
                         void ProcessRequest(Params &request, ProcessDone_cb callback);
