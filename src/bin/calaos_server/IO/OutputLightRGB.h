@@ -60,6 +60,8 @@ class OutputLightRGB : public Output
                 bool get_value_bool() { if (value == 0) return false; else return true; }
 
                 virtual std::string get_command_string() { return cmd_state; }
+
+                virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }

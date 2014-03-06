@@ -45,6 +45,11 @@ class Output: public IOBase
                 //used to retreive the last state command of the TSTRING output
                 virtual std::string get_command_string() { return ""; }
 
+                //used to get a better condition value in ConditionOutput rules
+                //like if shutter is open or is light on
+                //Note: this is only used for TSTRING outputs
+                virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
+
                 virtual void EmitSignalOutput();
 
                 virtual bool LoadFromXml(TiXmlElement *node)

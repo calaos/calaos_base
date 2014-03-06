@@ -310,3 +310,28 @@ void OutputLightRGB::stateUpdated(int r, int g, int b)
         emitChange();
 }
 
+bool OutputLightRGB::check_condition_value(std::string cvalue, bool equal)
+{
+        if (cvalue == "on" || cvalue == "true")
+        {
+                if ((equal && value > 0) ||
+                    (!equal && value == 0))
+                        return true;
+        }
+        else if (cvalue == "off" || cvalue == "false")
+        {
+                if ((!equal && value > 0) ||
+                    (equal && value == 0))
+                        return true;
+        }
+        else if (is_of_type<int>(cvalue))
+        {
+                int v;
+                Utils::from_string(cvalue, v);
+                if ((equal && value == v) ||
+                    (!equal && value != v))
+                        return true;
+        }
+
+        return false;
+}

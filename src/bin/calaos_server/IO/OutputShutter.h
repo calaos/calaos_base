@@ -87,6 +87,8 @@ class OutputShutter : public Output
                 virtual std::string get_value_string() { return state_volet; }
 
                 virtual std::string get_command_string() { return cmd_state; }
+
+                virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }

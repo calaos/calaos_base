@@ -137,7 +137,7 @@ bool ConditionOutput::Evaluate()
 
                 if (!changed)
                 {
-                        ret = eval(output->get_value_string(), ops, sval);
+                        ret = eval(output, ops, sval);
                 }
                 else
                 {
@@ -258,6 +258,19 @@ bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
                 else
                         return false;
         }
+
+        return false;
+}
+
+bool ConditionOutput::eval(Output *out, string oper, string val)
+{
+        if (oper != "!=" && oper != "==")
+        {
+                Utils::logger("rule.condition.output") << Priority::ERROR << "ConditionOutput::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
+                return false;
+        }
+
+        return out->check_condition_value(val, oper == "==");
 
         return false;
 }

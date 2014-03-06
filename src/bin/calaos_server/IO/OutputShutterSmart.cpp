@@ -590,3 +590,35 @@ std::string OutputShutterSmart::get_value_string()
 
         return " " + Utils::to_string(get_value_double());
 }
+
+bool OutputShutterSmart::check_condition_value(std::string cvalue, bool equal)
+{
+        if (cvalue == "open" || cvalue == "true")
+        {
+                if ((equal && get_value_double() < 100) ||
+                    (!equal && get_value_double() == 100))
+                        return true;
+        }
+        else if (cvalue == "closed" || cvalue == "false")
+        {
+                if ((equal && get_value_double() == 100) ||
+                    (!equal && get_value_double() < 100))
+                        return true;
+        }
+        else if (cvalue == "stop" || cvalue == "stopped")
+        {
+                if ((equal && sens == VSTOP) ||
+                    (!equal && sens != VSTOP))
+                        return true;
+        }
+        else if (is_of_type<int>(cvalue))
+        {
+                int v;
+                Utils::from_string(cvalue, v);
+                if ((equal && get_value_double() == v) ||
+                    (!equal && get_value_double() != v))
+                        return true;
+        }
+
+        return false;
+}

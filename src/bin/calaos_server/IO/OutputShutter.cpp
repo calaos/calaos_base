@@ -359,3 +359,27 @@ void OutputShutter::TimerImpulse()
                 timer_impulse = NULL;
         }
 }
+
+bool OutputShutter::check_condition_value(std::string cvalue, bool equal)
+{
+        if (cvalue == "open" || cvalue == "true")
+        {
+                if ((equal && get_value_string() == "true") ||
+                    (!equal && get_value_string() == "false"))
+                        return true;
+        }
+        else if (cvalue == "closed" || cvalue == "false")
+        {
+                if ((equal && get_value_string() == "false") ||
+                    (!equal && get_value_string() == "true"))
+                        return true;
+        }
+        else if (cvalue == "stop" || cvalue == "stopped")
+        {
+                if ((equal && sens == VSTOP) ||
+                    (!equal && sens != VSTOP))
+                        return true;
+        }
+
+        return false;
+}
