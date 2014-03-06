@@ -1112,6 +1112,8 @@ vector<IOActionList> IOBase::getActionList()
                 v.push_back(IOActionList("set off %1", "Mettre la lumière sans allumer à X pourcent", "Mettre la lumière à %1% sans allumer", IOActionList::ACTION_SLIDER));
                 v.push_back(IOActionList("up %1", "Augmenter l'intensité de X pourcent", "Augmenter l'intensité de %1%", IOActionList::ACTION_NUMBER));
                 v.push_back(IOActionList("down %1", "Baisser l'intensité de X pourcent", "Baisser l'intensité de %1%", IOActionList::ACTION_NUMBER));
+                v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS));
+                v.push_back(IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS));
         }
         else if (params["gui_type"] == "light_rgb")
         {
@@ -1171,6 +1173,9 @@ vector<IOActionList> IOBase::getActionList()
         {
                 v.push_back(IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE));
                 v.push_back(IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE));
+                v.push_back(IOActionList("toggle", "Inverser l'état", IOActionList::ACTION_SIMPLE));
+                v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter l'état", IOActionList::ACTION_TIME_MS));
+                v.push_back(IOActionList("impulse %1", "Activer pendant X secondes", "Activer pendant %1", IOActionList::ACTION_TIME_MS));
         }
         else if (params["gui_type"] == "camera_output")
         {
@@ -1306,6 +1311,8 @@ IOActionList IOBase::getActionListFromAction(string action)
                 else if (tokens[0] == "set") ac = IOActionList("set %1", "Mettre la lumière à X pourcent", "Mettre la lumière à %1%", IOActionList::ACTION_SLIDER);
                 else if (tokens[0] == "up") ac = IOActionList("up %1", "Augmenter l'intensité de X pourcent", "Augmenter l'intensité de %1%", IOActionList::ACTION_NUMBER);
                 else if (tokens[0] == "down") ac = IOActionList("down %1", "Baisser l'intensité de X pourcent", "Baisser l'intensité de %1%", IOActionList::ACTION_NUMBER);
+                else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS);
+                else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS);
 
                 if (tokens.size() > 1)
                         from_string(tokens[tokens.size() - 1], ac.dvalue);
@@ -1379,6 +1386,9 @@ IOActionList IOBase::getActionListFromAction(string action)
         {
                 if (tokens[0] == "true") ac = IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE);
                 else if (tokens[0] == "false") ac = IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE);
+                else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état", IOActionList::ACTION_SIMPLE);
+                else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter l'état", IOActionList::ACTION_TIME_MS);
+                else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Activer pendant X secondes", "Activer pendant %1", IOActionList::ACTION_TIME_MS);
         }
         else if (params["gui_type"] == "camera_output")
         {
