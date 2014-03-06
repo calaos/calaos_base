@@ -87,3 +87,11 @@ void InputSwitchLongPress::resetInput()
         value = 0.;
 }
 
+void InputSwitchLongPress::force_input_double(double v)
+{
+        value = v;
+        EmitSignalInput();
+
+        //reset input value to 0 after 250ms (simulate button press/release)
+        EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchLongPress::resetInput));
+}
