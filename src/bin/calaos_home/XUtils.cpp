@@ -39,7 +39,7 @@ void XUtils::UpdateDPMS(bool enable, int seconds)
         x_display = XOpenDisplay(":0");
         if (!x_display)
         {
-                Utils::logger("root") << Priority::WARN << "XUtils::UpdateDPMS(): trying with $DISPLAY" << log4cpp::eol;
+                cWarningDom("root") <<  "XUtils::UpdateDPMS(): trying with $DISPLAY" << log4cpp::eol;
                 x_display = XOpenDisplay(NULL);
 
                 if (!x_display)
@@ -51,7 +51,7 @@ void XUtils::UpdateDPMS(bool enable, int seconds)
 
         if (!DPMSCapable(x_display))
         {
-                Utils::logger("root") << Priority::WARN << "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
         }
         else
         {
@@ -88,7 +88,7 @@ void XUtils::WakeUpScreen(bool enable)
         x_display = XOpenDisplay(":0");
         if (!x_display)
         {
-                Utils::logger("root") << Priority::WARN << "XUtils::WakeUpScreen(): trying with $DISPLAY" << log4cpp::eol;
+                cWarningDom("root") <<  "XUtils::WakeUpScreen(): trying with $DISPLAY" << log4cpp::eol;
                 x_display = XOpenDisplay(NULL);
 
                 if (!x_display)
@@ -100,7 +100,7 @@ void XUtils::WakeUpScreen(bool enable)
 
         if (!DPMSCapable(x_display))
         {
-                Utils::logger("root") << Priority::WARN << "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
         }
         else
         {
@@ -133,7 +133,7 @@ int XUtils::getDPMSInfo()
 
         if (!DPMSCapable(x_display))
         {
-                Utils::logger("root") << Priority::WARN << "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
         }
         else
         {

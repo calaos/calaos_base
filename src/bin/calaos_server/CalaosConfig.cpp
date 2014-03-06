@@ -270,7 +270,7 @@ void Config::loadStateCache()
         Eet_File *ef = eet_open(file.c_str(), EET_FILE_MODE_READ);
         if (!ef)
         {
-                Utils::logger("root") << Priority::WARN << "Config::loadStateCache() could not open iostates.cache for read !" << log4cpp::eol;
+                cWarningDom("root") <<  "Config::loadStateCache() could not open iostates.cache for read !" << log4cpp::eol;
                 return;
         }
 
@@ -278,13 +278,13 @@ void Config::loadStateCache()
         if (!cache)
         {
                 eet_close(ef);
-                Utils::logger("root") << Priority::WARN << "Config::loadStateCache() could not read iostates.cache, corrupted file?" << log4cpp::eol;
+                cWarningDom("root") <<  "Config::loadStateCache() could not read iostates.cache, corrupted file?" << log4cpp::eol;
                 return;
         }
 
         if (cache->version < CONFIG_STATES_CACHE_VERSION)
         {
-                Utils::logger("root") << Priority::WARN << "Config::loadStateCache() file version too old, upgrading to new format" << log4cpp::eol;
+                cWarningDom("root") <<  "Config::loadStateCache() file version too old, upgrading to new format" << log4cpp::eol;
                 cache->version = CONFIG_STATES_CACHE_VERSION;
         }
 
@@ -320,7 +320,7 @@ void Config::saveStateCache()
         ef = eet_open(tmp.c_str(), EET_FILE_MODE_WRITE);
         if (!ef)
         {
-                Utils::logger("root") << Priority::WARN << "Config::saveStateCache() could not open iostates.cache for write !" << log4cpp::eol;
+                cWarningDom("root") <<  "Config::saveStateCache() could not open iostates.cache for write !" << log4cpp::eol;
                 return;
         }
 

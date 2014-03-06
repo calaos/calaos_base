@@ -185,7 +185,7 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         if (in)
                 cInfoDom("root") <<  "IOFactory::CreateInput(" << type << "): Ok" << log4cpp::eol;
         else
-                Utils::logger("root") << Priority::WARN << "IOFactory::CreateInput(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateInput(" << type << "): Unknown Input type !" << log4cpp::eol;
 
         return in;
 }
@@ -281,7 +281,7 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
         if (out)
                 cInfoDom("root") <<  "IOFactory::CreateOutput(" << type << "): Ok" << log4cpp::eol;
         else
-                Utils::logger("root") << Priority::WARN << "IOFactory::CreateOutput(" << type << "): Unknown Output type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateOutput(" << type << "): Unknown Output type !" << log4cpp::eol;
 
         return out;
 }
@@ -309,7 +309,7 @@ AudioPlayer *IOFactory::CreateAudio (std::string type, Params &params)
         if (player)
                 cInfoDom("root") <<  "IOFactory::CreateAudio(" << type << "): Ok" << log4cpp::eol;
         else
-                Utils::logger("root") << Priority::WARN << "IOFactory::CreateAudio(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateAudio(" << type << "): Unknown Input type !" << log4cpp::eol;
 
         return player;
 }
@@ -349,7 +349,7 @@ IPCam *IOFactory::CreateIPCamera (std::string type, Params &params)
         if (cam)
                 cInfoDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Ok" << log4cpp::eol;
         else
-                Utils::logger("root") << Priority::WARN << "IOFactory::CreateIPCamera(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Unknown Input type !" << log4cpp::eol;
 
         return cam;
 }
