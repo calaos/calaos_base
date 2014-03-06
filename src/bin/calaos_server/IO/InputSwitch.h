@@ -34,6 +34,8 @@ class InputSwitch : public Input
 
                 virtual bool readValue() = 0;
 
+                void emitChanges();
+
         public:
                 InputSwitch(Params &p);
                 ~InputSwitch();
@@ -43,7 +45,7 @@ class InputSwitch : public Input
                 virtual void force_input_bool(bool v)
                 {
                         value = v;
-                        EmitSignalInput();
+                        emitChanges();
                 }
 
                 virtual void hasChanged();

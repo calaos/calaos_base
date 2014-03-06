@@ -38,6 +38,7 @@ class InputSwitchTriple : public Input
 
                 void TimerDone();
                 void resetInput();
+                void emitChange();
 
                 virtual bool readValue() = 0;
 

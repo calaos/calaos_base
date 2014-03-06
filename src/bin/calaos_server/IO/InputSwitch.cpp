@@ -39,20 +39,24 @@ InputSwitch::~InputSwitch()
 void InputSwitch::hasChanged()
 {
         bool val = readValue();
-        
+
         if (val != value)
         {
                 value = val;
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                if (value)
-                        sig += Utils::url_encode(string("state:true"));
-                else
-                        sig += Utils::url_encode(string("state:false"));
-                IPC::Instance().SendEvent("events", sig);
-
-                EmitSignalInput();
+                emitChanges();
         }
 }
 
+void InputSwitch::emitChanges()
+{
+        string sig = "input ";
+        sig += get_param("id") + " ";
+        if (value)
+                sig += Utils::url_encode(string("state:true"));
+        else
+                sig += Utils::url_encode(string("state:false"));
+        IPC::Instance().SendEvent("events", sig);
+
+        EmitSignalInput();
+
+}

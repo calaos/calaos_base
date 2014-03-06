@@ -67,16 +67,7 @@ void InputSwitchTriple::TimerDone()
                 if (count >= 3) value = 3.;
 
                 count = 0;
-
-                EmitSignalInput();
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-                IPC::Instance().SendEvent("events", sig);
-
-                //reset input value to 0 after 250ms (simulate button press/release)
-                EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
+                emitChange();
         }
 
         DELETE_NULL(timer);
@@ -87,12 +78,22 @@ void InputSwitchTriple::resetInput()
         value = 0.;
 }
 
-void InputSwitchTriple::force_input_double(double v)
+void InputSwitchTriple::emitChange()
 {
-        value = v;
         EmitSignalInput();
+
+        string sig = "input ";
+        sig += get_param("id") + " ";
+        sig += Utils::url_encode(string("state:") + Utils::to_string(value));
+        IPC::Instance().SendEvent("events", sig);
 
         //reset input value to 0 after 250ms (simulate button press/release)
         EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
+}
+
+void InputSwitchTriple::force_input_double(double v)
+{
+        value = v;
+        emitChange();
 }
 
