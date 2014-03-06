@@ -93,6 +93,8 @@ void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
         //Clients can listen to all events that happens.
         if (request["0"] == "listen") ListenCommand();
 
+        if (listen_mode) return; //do not treat any other command if in listen mode
+
         bool request_handled = true;
 
         if (request["0"] == "version") BaseCommand(request, callback);
@@ -165,6 +167,8 @@ void TCPConnection::ProcessData(string request)
         {
                 Utils::logger("network") << Priority::DEBUG
                                 << "TCPConnection::ProcessData(): Entering listen mode for client " << ecore_con_client_ip_get(client_conn) << log4cpp::eol;
+
+                listen_mode = true;
 
                 ProcessRequest(p, sigc::mem_fun(*this, &TCPConnection::ProcessingDataDone));
                 //Don't bother with the responde for "listen" command,
