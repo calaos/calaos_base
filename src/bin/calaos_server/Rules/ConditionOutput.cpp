@@ -277,6 +277,14 @@ bool ConditionOutput::eval(Output *out, string oper, string val)
 
 bool ConditionOutput::LoadFromXml(TiXmlElement *node)
 {
+        if (node->Attribute("trigger"))
+        {
+                if (node->Attribute("trigger") == string("true"))
+                        trigger = true;
+                else if (node->Attribute("trigger") == string("false"))
+                        trigger = false;
+        }
+
         node = node->FirstChildElement();
 
         for (; node; node = node->NextSiblingElement())
@@ -313,6 +321,7 @@ bool ConditionOutput::SaveToXml(TiXmlElement *node)
 {
         TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
         cond_node->SetAttribute("type", "output");
+        cond_node->SetAttribute("trigger", trigger?"true":"false");
         node->LinkEndChild(cond_node);
 
         TiXmlElement *cnode = new TiXmlElement("calaos:output");

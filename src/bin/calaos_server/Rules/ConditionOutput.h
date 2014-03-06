@@ -38,6 +38,8 @@ class ConditionOutput: public Condition
                 //based on another output
                 string params_var;
 
+                bool trigger = true;
+
                 bool eval(bool val1, std::string oper, bool val2);
                 bool eval(double val1, std::string oper, double val2);
                 bool eval(std::string val1, std::string oper, std::string val2);
@@ -51,6 +53,8 @@ class ConditionOutput: public Condition
 
                 void setOutput(Output *p) { output = p; }
                 Output *getOutput() { return output; }
+
+                bool useForTrigger() { return trigger; }
 
                 string get_params() { return params; }
                 string get_operator() { return ops; }
