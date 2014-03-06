@@ -85,7 +85,8 @@ libcalaos_common_la_SOURCES = \
 	uri_parser/hef_uri_syntax.cpp \
 	uri_parser/hef_uri_syntax.h \
 	libquickmail/quickmail.h \
-	libquickmail/quickmail.c
+	libquickmail/quickmail.c \
+	EinaLog.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
