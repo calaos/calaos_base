@@ -309,6 +309,14 @@ bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
 
 bool ConditionStd::LoadFromXml(TiXmlElement *node)
 {
+        if (node->Attribute("trigger"))
+        {
+                if (node->Attribute("trigger") == string("true"))
+                        trigger = true;
+                else if (node->Attribute("trigger") == string("false"))
+                        trigger = false;
+        }
+
         node = node->FirstChildElement();
 
         for (; node; node = node->NextSiblingElement())
@@ -330,6 +338,7 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
                                 ops.Add(id, oper);
                                 if (val_var != "")
                                         params_var.Add(id, val_var);
+
                         }
                         else
                         {
@@ -345,6 +354,7 @@ bool ConditionStd::SaveToXml(TiXmlElement *node)
 {
         TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
         cond_node->SetAttribute("type", "standard");
+        cond_node->SetAttribute("trigger", trigger?"true":"false");
         node->LinkEndChild(cond_node);
 
         for (uint i = 0;i < inputs.size();i++)

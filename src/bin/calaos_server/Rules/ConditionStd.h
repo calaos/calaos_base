@@ -37,6 +37,7 @@ class ConditionStd: public Condition
                 //this is used to do the condition test
                 //based on another input
                 Params params_var;
+                bool trigger = true;
 
                 bool eval(bool val1, std::string oper, bool val2);
                 bool eval(double val1, std::string oper, double val2);
@@ -53,6 +54,7 @@ class ConditionStd: public Condition
                 void Assign(int i, Input *obj);
 
                 void getVarIds(vector<Input *> &list);
+                bool useForTrigger() { return trigger; }
 
                 Input *get_input(int i) { return inputs[i]; }
                 Params &get_params() { return params; }

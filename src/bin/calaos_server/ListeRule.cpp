@@ -134,7 +134,8 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                         {
                                 if (cond->get_input(k)->get_param("id") == io_id)
                                 {
-                                        rule->Execute();
+                                        if (cond->useForTrigger())
+                                                rule->Execute();
                                         exec = true;
                                 }
                         }
@@ -147,7 +148,8 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                                 {
                                         if (list[k]->get_param("id") == io_id)
                                         {
-                                                rule->Execute();
+                                                if (cond->useForTrigger())
+                                                        rule->Execute();
                                                 exec = true;
                                         }
                                 }
@@ -161,7 +163,8 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                         }
 
                         ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));
-                        if (ocond && ocond->getOutput()->get_param("id") == io_id)
+                        if (ocond && ocond->getOutput()->get_param("id") == io_id &&
+                            ocond->useForTrigger())
                                 rule->Execute();
                 }
         }
