@@ -1449,14 +1449,12 @@ string IOActionList::getComputedAction(IOBase *io)
                 return ac;
 
         if (type == ACTION_SLIDER ||
-            type == ACTION_NUMBER)
+            type == ACTION_NUMBER ||
+            type == ACTION_TIME_MS)
                 Utils::replace_str(ac, "%1", Utils::to_string(dvalue));
 
         if (type == ACTION_TEXT)
                 Utils::replace_str(ac, "%1", Utils::to_string(svalue));
-
-        if (type == ACTION_TIME_MS)
-                Utils::replace_str(ac, "%1", Utils::time2string(dvalue / 1000, (long)dvalue % 1000));
 
         if (type == ACTION_COLOR)
                 Utils::replace_str(ac, "%1", Utils::to_string(io->computeStateFromRGBValue(red, green, blue)));

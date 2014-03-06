@@ -217,6 +217,13 @@ void GenlistItemScenarioAction::buttonValidTimeClick(void *data, Evas_Object *ed
                         elm_spinner_value_get(spin_sec) * 1000.0 +
                         elm_spinner_value_get(spin_ms);
 
+        if (sc_step == ScenarioData::END_STEP)
+                scenario_data.step_end.actions[sc_action].action =
+                                action.getComputedAction(scenario_data.step_end.actions[sc_action].io);
+        else
+                scenario_data.steps[sc_step].actions[sc_action].action =
+                                action.getComputedAction(scenario_data.steps[sc_step].actions[sc_action].io);
+
         elm_genlist_item_fields_update(item, "action.text",  ELM_GENLIST_ITEM_FIELD_TEXT);
         elm_ctxpopup_dismiss(popup);
 }
