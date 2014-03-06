@@ -81,6 +81,8 @@ static bool dumpCallback(const char* dump_path,
 
 int main (int argc, char **argv)
 {
+        InitEinaLog("calaos_server");
+
         cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
 
         #ifdef HAVE_BREAKPAD
@@ -98,9 +100,9 @@ int main (int argc, char **argv)
         char *confdir = argvOptionParam(argv, argv + argc, "--config");
         char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
-
         Utils::initConfigOptions(confdir, cachedir);
 
+//---------------- TO BE REMOVED
         if (!Utils::fileExists(Utils::getConfigFile("calaosd_log.conf")))
         {
                 //create a default config if it does not exist
@@ -117,6 +119,7 @@ int main (int argc, char **argv)
         }
 
         Utils::InitLoggingSystem(Utils::getConfigFile("calaosd_log.conf"));
+//-------------------
 
         srand(time(NULL));
 

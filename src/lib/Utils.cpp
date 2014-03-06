@@ -374,6 +374,32 @@ int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream
         return nmemb;
 }
 
+static string default_domain;
+static std::unordered_map<std::string, EinaLog *> logger_hash;
+EinaLog *Utils::einaLogger(const char *domain)
+{
+        string d = default_domain;
+        if (domain) d = domain;
+
+        EinaLog *logger = nullptr;
+        auto it = logger_hash.find(d);
+        if (it == logger_hash.end())
+        {
+                logger = new EinaLog(d);
+                logger_hash[d] = logger;
+        }
+        else
+                logger = it->second;
+
+        return logger;
+}
+
+void Utils::InitEinaLog(const char *d)
+{
+        default_domain = d;
+        logger_hash[default_domain] = new EinaLog(default_domain);
+}
+
 void Utils::InitLoggingSystem(std::string conf)
 {
         try

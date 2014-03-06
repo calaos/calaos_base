@@ -7,11 +7,11 @@
 
 using namespace std;
 
-#define Debug()         EinaLog().EinaDebug(__FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define Info()          EinaLog().EinaInfo(__FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define Warning()       EinaLog().EinaWarning(__FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define Error()         EinaLog().EinaError(__FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define Critical()      EinaLog().EinaCritical(__FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define EinaLogDebug(a)         a->EinaDebug(__FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define EinaLogInfo(a)          a->EinaInfo(__FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define EinaLogWarning(a)       a->EinaWarning(__FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define EinaLogError(a)         a->EinaError(__FILE__, __PRETTY_FUNCTION__, __LINE__)
+#define EinaLogCritical(a)      a->EinaCritical(__FILE__, __PRETTY_FUNCTION__, __LINE__)
 
 namespace efl
 {

@@ -47,6 +47,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <unordered_map>
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/types.h>
@@ -180,46 +181,30 @@ using namespace log4cpp;
 int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream);
 int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream);
 //-----------------------------------------------------------------------------
+
+//Log macros
+#define cDebug() EinaLogDebug(Utils::einaLogger())
+#define cInfo() EinaLogInfo(Utils::einaLogger())
+#define cWarning() EinaLogWarning(Utils::einaLogger())
+#define cError() EinaLogError(Utils::einaLogger())
+#define cCritical() EinaLogCritical(Utils::einaLogger())
+
+#define cDebugDom(domain) EinaLogDebug(Utils::einaLogger(domain))
+#define cInfoDom(domain) EinaLogInfo(Utils::einaLogger(domain))
+#define cWarningDom(domain) EinaLogWarning(Utils::einaLogger(domain))
+#define cErrorDom(domain) EinaLogError(Utils::einaLogger(domain))
+#define cCriticalDom(domain) EinaLogCritical(Utils::einaLogger(domain))
+
+//-----------------------------------------------------------------------------
 namespace Utils
 {
+        void InitEinaLog(const char *default_domain);
+        EinaLog *einaLogger(const char *domain = nullptr);
 
+        //--- to be removed when everything has been switched to einalog
         void InitLoggingSystem(std::string conf);
         log4cpp::Category &logger(std::string category);
-
-        /*
-                This is how to log something:
-
-                Utils::logger("category") << Priority::DEBUG << "my log message" << log4cpp::eol;
-
-                or
-
-                Utils::logger("category").debug("my debug message %s", str);
-                Utils::logger("category").error("my error message");
-                Utils::logger("category").info("my info message");
-                Utils::logger("category").warn("my warning message");
-                Utils::logger("category").notice("my notice message");
-                Utils::logger("category").crit("my critical message");
-                Utils::logger("category").alert("my alert message");
-                Utils::logger("category").emerg("my emergency message");
-                Utils::logger("category").fatal("my fatal message");
-
-                The category "root" is the main category for logging
-                Any other string will create a subcategory
-
-                This is all priority available:
-
-                EMERG
-                FATAL
-                ALERT
-                CRIT
-                ERROR
-                WARN
-                NOTICE
-                INFO
-                DEBUG
-                NOTSET --> this one does not print anything
-
-        */
+        //------
 
         bool file_copy(std::string source, std::string dest);
 
