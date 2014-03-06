@@ -54,11 +54,7 @@ class InputSwitchTriple : public Input
                         3: action 3
                 */
                 virtual double get_value_double() { return value; }
-                virtual void force_input_double(double v)
-                {
-                        value = v;
-                        EmitSignalInput();
-                }
+                virtual void force_input_double(double v);
 
                 virtual void hasChanged();
 };

@@ -47,11 +47,7 @@ class InputSwitchLongPress : public Input
 
                 virtual DATA_TYPE get_type() { return TINT; }
                 virtual double get_value_double() { return value; }
-                virtual void force_input_double(double v)
-                {
-                        value = v;
-                        EmitSignalInput();
-                }
+                virtual void force_input_double(double v);
 
                 virtual void hasChanged();
 };
