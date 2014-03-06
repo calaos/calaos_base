@@ -40,7 +40,7 @@ static void _window_resize_cb(void *data, Evas *e, Evas_Object *obj, void *event
 
 ApplicationMain::ApplicationMain(int argc, char **argv)
 {
-        Utils::logger("root") << Priority::INFO << "Calaos Home, starting..." << log4cpp::eol;
+        cInfoDom("root") <<  "Calaos Home, starting..." << log4cpp::eol;
 
         if (system("killall -9 eskiss") == -1)
                 Utils::logger("root") << Priority::CRIT << "Error forking !" << log4cpp::eol;
@@ -57,7 +57,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         if (themefile)
         {
                 ApplicationMain::theme = themefile;
-                Utils::logger("root") << Priority::INFO << "Using specified theme file: " << ApplicationMain::getTheme() << log4cpp::eol;
+                cInfoDom("root") <<  "Using specified theme file: " << ApplicationMain::getTheme() << log4cpp::eol;
         }
 
         //Init efl core

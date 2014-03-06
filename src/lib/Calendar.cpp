@@ -437,7 +437,7 @@ Eina_Bool _CalendarHandle2(void *data, int type, void *event)
         ecore_event_handler_del(calendar->handler);
 
         //ecore_exe_free(calendar->exe);
-        Utils::logger("root") << Priority::INFO << "Calendar: Updating clock...  DONE" << log4cpp::eol;
+        cInfoDom("root") <<  "Calendar: Updating clock...  DONE" << log4cpp::eol;
         calendar->exe = NULL;
         //kill l'application
         //elle sera redémarrée par un daemon extérieur

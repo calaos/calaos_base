@@ -207,7 +207,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         double rise, set;
         int res;
 
-        Utils::logger("root") << Priority::INFO << "Horaire: Computing sunrise/sunset for date " <<
+        cInfoDom("root") <<  "Horaire: Computing sunrise/sunset for date " <<
                                day << "/" << month << "/" << year << log4cpp::eol;
         res = sun_rise_set(year, month, day, longitude, latitude, &rise, &set);
 
@@ -232,7 +232,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         std::stringstream streamrise, streamset;
         streamrise << std::setfill('0') << std::setw(2) << rise_hour << ":" << rise_min;
         streamset << std::setfill('0') << std::setw(2) << set_hour << ":" << set_min;
-        Utils::logger("root") << Priority::INFO << "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
+        cInfoDom("root") <<  "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
                                   streamset.str() << log4cpp::eol;
 
         sunrise_hour_cache = rise_hour;

@@ -145,7 +145,7 @@ void Config::LoadConfigIO()
                 }
         }
 
-        Utils::logger("root") << Priority::INFO << "Config::LoadConfigIO() Done. " << log4cpp::eol;
+        cInfoDom("root") <<  "Config::LoadConfigIO() Done. " << log4cpp::eol;
 }
 
 void Config::SaveConfigIO()
@@ -153,7 +153,7 @@ void Config::SaveConfigIO()
         string file = Utils::getConfigFile(IO_CONFIG);
         string tmp = file + "_tmp";
 
-        Utils::logger("root") << Priority::INFO << "Config::SaveConfigIO() Saving " << file << "..." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::SaveConfigIO() Saving " << file << "..." << log4cpp::eol;
 
         TiXmlDocument document;
         TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
@@ -176,7 +176,7 @@ void Config::SaveConfigIO()
                 ecore_file_mv(tmp.c_str(), file.c_str());
         }
 
-        Utils::logger("root") << Priority::INFO << "Config::SaveConfigIO() Done." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::SaveConfigIO() Done." << log4cpp::eol;
 }
 
 void Config::LoadConfigRule()
@@ -230,7 +230,7 @@ void Config::LoadConfigRule()
                 }
         }
 
-        Utils::logger("root") << Priority::INFO << "Config::LoadConfigRule() Done. " << ListeRule::Instance().size() << " rules loaded." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::LoadConfigRule() Done. " << ListeRule::Instance().size() << " rules loaded." << log4cpp::eol;
 }
 
 void Config::SaveConfigRule()
@@ -238,7 +238,7 @@ void Config::SaveConfigRule()
         string file = Utils::getConfigFile(RULES_CONFIG);
         string tmp = file + "_tmp";
 
-        Utils::logger("root") << Priority::INFO << "Config::SaveConfigRule() Saving " << file << "..." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::SaveConfigRule() Saving " << file << "..." << log4cpp::eol;
 
         TiXmlDocument document;
         TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
@@ -259,7 +259,7 @@ void Config::SaveConfigRule()
                 ecore_file_mv(tmp.c_str(), file.c_str());
         }
 
-        Utils::logger("root") << Priority::INFO << "Config::SaveConfigRule() Done." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::SaveConfigRule() Done." << log4cpp::eol;
 }
 
 void Config::loadStateCache()
@@ -303,7 +303,7 @@ void Config::loadStateCache()
 
         eet_close(ef);
 
-        Utils::logger("root") << Priority::INFO << "Config::loadStateCache(): States cache read successfully." << log4cpp::eol;
+        cInfoDom("root") <<  "Config::loadStateCache(): States cache read successfully." << log4cpp::eol;
 }
 
 void Config::saveStateCache()

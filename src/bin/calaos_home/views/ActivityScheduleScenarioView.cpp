@@ -579,7 +579,7 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
                 if (week_days[0]->isSelected() || week_days[7]->isSelected())
                         range_infos.range_sunday.push_back(edit_range);
 
-                Utils::logger("root") << Priority::INFO << "New TimeRange: " << edit_range.toString() << log4cpp::eol;
+                cInfoDom("root") <<  "New TimeRange: " << edit_range.toString() << log4cpp::eol;
 
                 elm_ctxpopup_dismiss(popup);
         }
