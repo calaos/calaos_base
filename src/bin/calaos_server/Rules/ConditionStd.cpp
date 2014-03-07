@@ -24,353 +24,353 @@
 using namespace Calaos;
 
 ConditionStd::ConditionStd():
-        Condition(COND_STD)
+    Condition(COND_STD)
 {
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::ConditionStd(): New standard condition";
+    cDebugDom("rule.condition.standard") <<  "ConditionStd::ConditionStd(): New standard condition";
 }
 
 ConditionStd::~ConditionStd()
 {
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::~ConditionStd(): Ok";
+    cDebugDom("rule.condition.standard") <<  "ConditionStd::~ConditionStd(): Ok";
 }
 
 void ConditionStd::Add(Input *in)
 {
-        inputs.push_back(in);
+    inputs.push_back(in);
 
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::Add(): Input(" << in->get_param("id") << ") added";
+    cDebugDom("rule.condition.standard") <<  "ConditionStd::Add(): Input(" << in->get_param("id") << ") added";
 }
 
 void ConditionStd::getVarIds(vector<Input *> &list)
 {
-        for (uint i = 0;i < inputs.size();i++)
+    for (uint i = 0;i < inputs.size();i++)
+    {
+        std::string var_id = params_var[inputs[i]->get_param("id")];
+        if (var_id.empty()) continue;
+
+        Input *in = ListeRoom::Instance().get_input(var_id);
+
+        if (in)
         {
-                std::string var_id = params_var[inputs[i]->get_param("id")];
-                if (var_id.empty()) continue;
-
-                Input *in = ListeRoom::Instance().get_input(var_id);
-
-                if (in)
-                {
-                        list.push_back(in);
-                }
+            list.push_back(in);
         }
+    }
 }
 
 bool ConditionStd::Evaluate()
 {
-        std::string sval, oper;
-        bool bval = false;
-        double dval = 0.0;
-        bool ret = false;
+    std::string sval, oper;
+    bool bval = false;
+    double dval = 0.0;
+    bool ret = false;
 
-        for (uint i = 0;i < inputs.size();i++)
+    for (uint i = 0;i < inputs.size();i++)
+    {
+        bool ovar = false;
+        bool changed = false;
+        switch (inputs[i]->get_type())
         {
-                bool ovar = false;
-                bool changed = false;
-                switch (inputs[i]->get_type())
+        case TBOOL:
+            if (params_var[inputs[i]->get_param("id")] != "")
+            {
+                std::string var_id = params_var[inputs[i]->get_param("id")];
+                Input *in = ListeRoom::Instance().get_input(var_id);
+                if (in && in->get_type() == TBOOL)
                 {
-                  case TBOOL:
-                        if (params_var[inputs[i]->get_param("id")] != "")
-                        {
-                                std::string var_id = params_var[inputs[i]->get_param("id")];
-                                Input *in = ListeRoom::Instance().get_input(var_id);
-                                if (in && in->get_type() == TBOOL)
-                                {
-                                        bval = in->get_value_bool();
-                                        ovar = true;
-                                }
-                        }
-
-                        if (!ovar)
-                        {
-                                if (params[inputs[i]->get_param("id")] == "true")
-                                        bval = true;
-                                else if (params[inputs[i]->get_param("id")] == "false")
-                                        bval = false;
-                                else if (params[inputs[i]->get_param("id")] == "changed")
-                                        changed = true;
-                                else
-                                {
-                                        cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(bool) not bool !";
-                                        ret = false;
-                                        break;
-                                }
-                        }
-
-                        if (!changed)
-                        {
-                                oper = ops[inputs[i]->get_param("id")];
-                                ret = eval(inputs[i]->get_value_bool(), oper, bval);
-                        }
-                        else
-                        {
-                                ret = true;
-                        }
-                        break;
-                  case TINT:
-                        if (params_var[inputs[i]->get_param("id")] != "")
-                        {
-                                std::string var_id = params_var[inputs[i]->get_param("id")];
-                                Input *in = ListeRoom::Instance().get_input(var_id);
-                                if (in && in->get_type() == TINT)
-                                {
-                                        dval = in->get_value_double();
-                                        sval = "ovar";
-                                        ovar = true;
-                                }
-                        }
-
-                        if (!ovar)
-                                sval = params[inputs[i]->get_param("id")];
-
-                        if (sval != "")
-                        {
-                                if (!ovar)
-                                {
-                                        if (sval == "changed")
-                                                changed = true;
-                                        else
-                                                dval = atof(sval.c_str());
-                                }
-
-                                if (!changed)
-                                {
-                                        oper = ops[inputs[i]->get_param("id")];
-                                        ret = eval(inputs[i]->get_value_double(), oper, dval);
-                                }
-                                else
-                                {
-                                        ret = true;
-                                }
-                        }
-                        else
-                                cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(int) not int !";
-                        break;
-                  case TSTRING:
-                        if (params_var[inputs[i]->get_param("id")] != "")
-                        {
-                                std::string var_id = params_var[inputs[i]->get_param("id")];
-                                Input *in = ListeRoom::Instance().get_input(var_id);
-                                if (in && in->get_type() == TSTRING)
-                                {
-                                        sval = in->get_value_string();
-                                        ovar = true;
-                                }
-                        }
-                        if (!ovar)
-                        {
-                                sval = Utils::url_decode2(params[inputs[i]->get_param("id")]);
-                                if (sval == "changed") changed = true;
-                        }
-
-                        if (!changed)
-                        {
-                                oper = ops[inputs[i]->get_param("id")];
-                                ret = eval(inputs[i]->get_value_string(), oper, sval);
-                        }
-                        else
-                        {
-                                ret = true;
-                        }
-                        break;
-                  default: break;
+                    bval = in->get_value_bool();
+                    ovar = true;
                 }
+            }
+
+            if (!ovar)
+            {
+                if (params[inputs[i]->get_param("id")] == "true")
+                    bval = true;
+                else if (params[inputs[i]->get_param("id")] == "false")
+                    bval = false;
+                else if (params[inputs[i]->get_param("id")] == "changed")
+                    changed = true;
+                else
+                {
+                    cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(bool) not bool !";
+                    ret = false;
+                    break;
+                }
+            }
+
+            if (!changed)
+            {
+                oper = ops[inputs[i]->get_param("id")];
+                ret = eval(inputs[i]->get_value_bool(), oper, bval);
+            }
+            else
+            {
+                ret = true;
+            }
+            break;
+        case TINT:
+            if (params_var[inputs[i]->get_param("id")] != "")
+            {
+                std::string var_id = params_var[inputs[i]->get_param("id")];
+                Input *in = ListeRoom::Instance().get_input(var_id);
+                if (in && in->get_type() == TINT)
+                {
+                    dval = in->get_value_double();
+                    sval = "ovar";
+                    ovar = true;
+                }
+            }
+
+            if (!ovar)
+                sval = params[inputs[i]->get_param("id")];
+
+            if (sval != "")
+            {
+                if (!ovar)
+                {
+                    if (sval == "changed")
+                        changed = true;
+                    else
+                        dval = atof(sval.c_str());
+                }
+
+                if (!changed)
+                {
+                    oper = ops[inputs[i]->get_param("id")];
+                    ret = eval(inputs[i]->get_value_double(), oper, dval);
+                }
+                else
+                {
+                    ret = true;
+                }
+            }
+            else
+                cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(int) not int !";
+            break;
+        case TSTRING:
+            if (params_var[inputs[i]->get_param("id")] != "")
+            {
+                std::string var_id = params_var[inputs[i]->get_param("id")];
+                Input *in = ListeRoom::Instance().get_input(var_id);
+                if (in && in->get_type() == TSTRING)
+                {
+                    sval = in->get_value_string();
+                    ovar = true;
+                }
+            }
+            if (!ovar)
+            {
+                sval = Utils::url_decode2(params[inputs[i]->get_param("id")]);
+                if (sval == "changed") changed = true;
+            }
+
+            if (!changed)
+            {
+                oper = ops[inputs[i]->get_param("id")];
+                ret = eval(inputs[i]->get_value_string(), oper, sval);
+            }
+            else
+            {
+                ret = true;
+            }
+            break;
+        default: break;
         }
+    }
 
-        if (ret)
-                cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Ok";
-        else
-                cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Failed !";
+    if (ret)
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Ok";
+    else
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Failed !";
 
-        return ret;
+    return ret;
 }
 
 void ConditionStd::Remove(int pos)
 {
-        vector<Input *>::iterator iter = inputs.begin();
-        for (int i = 0;i < pos;iter++, i++) ;
-        inputs.erase(iter);
+    vector<Input *>::iterator iter = inputs.begin();
+    for (int i = 0;i < pos;iter++, i++) ;
+    inputs.erase(iter);
 
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::Remove(): Ok";
+    cDebugDom("rule.condition.standard") <<  "ConditionStd::Remove(): Ok";
 }
 
 void ConditionStd::Assign(int i, Input *obj)
 {
-        inputs[i] = obj;
+    inputs[i] = obj;
 }
 
 bool ConditionStd::eval(bool val1, std::string oper, bool val2)
 {
-        if (oper != "!=" && oper != "==")
-        {
-                cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(bool): Invalid operator (" << oper << ")";
-                return false;
-        }
-
-        if (oper == "==")
-        {
-                if (val1 == val2)
-                        return true;
-                else
-                        return false;
-        }
-
-        if (oper == "!=")
-        {
-                if (val1 != val2)
-                        return true;
-                else
-                        return false;
-        }
-
+    if (oper != "!=" && oper != "==")
+    {
+        cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(bool): Invalid operator (" << oper << ")";
         return false;
+    }
+
+    if (oper == "==")
+    {
+        if (val1 == val2)
+            return true;
+        else
+            return false;
+    }
+
+    if (oper == "!=")
+    {
+        if (val1 != val2)
+            return true;
+        else
+            return false;
+    }
+
+    return false;
 }
 
 bool ConditionStd::eval(double val1, std::string oper, double val2)
 {
-        if (oper == "==")
-        {
-                if (val1 == val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "==")
+    {
+        if (val1 == val2)
+            return true;
+        else
+            return false;
+    }
 
-        if (oper == "!=")
-        {
-                if (val1 != val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "!=")
+    {
+        if (val1 != val2)
+            return true;
+        else
+            return false;
+    }
 
-        if (oper == "SUP")
-        {
-                if (val1 > val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "SUP")
+    {
+        if (val1 > val2)
+            return true;
+        else
+            return false;
+    }
 
-        if (oper == "SUP=")
-        {
-                if (val1 >= val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "SUP=")
+    {
+        if (val1 >= val2)
+            return true;
+        else
+            return false;
+    }
 
-        if (oper == "INF")
-        {
-                if (val1 < val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "INF")
+    {
+        if (val1 < val2)
+            return true;
+        else
+            return false;
+    }
 
-        if (oper == "INF=")
-        {
-                if (val1 <= val2)
-                        return true;
-                else
-                        return false;
-        }
+    if (oper == "INF=")
+    {
+        if (val1 <= val2)
+            return true;
+        else
+            return false;
+    }
 
-        return false;
+    return false;
 }
 
 bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
 {
-        if (oper != "!=" && oper != "==")
-        {
-                cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(string): Invalid operator (" << oper << ")";
-                return false;
-        }
-
-        if (oper == "==")
-        {
-                if (val1 == val2)
-                        return true;
-                else
-                        return false;
-        }
-
-        if (oper == "!=")
-        {
-                if (val1 != val2)
-                        return true;
-                else
-                        return false;
-        }
-
+    if (oper != "!=" && oper != "==")
+    {
+        cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(string): Invalid operator (" << oper << ")";
         return false;
+    }
+
+    if (oper == "==")
+    {
+        if (val1 == val2)
+            return true;
+        else
+            return false;
+    }
+
+    if (oper == "!=")
+    {
+        if (val1 != val2)
+            return true;
+        else
+            return false;
+    }
+
+    return false;
 }
 
 bool ConditionStd::LoadFromXml(TiXmlElement *node)
 {
-        if (node->Attribute("trigger"))
+    if (node->Attribute("trigger"))
+    {
+        if (node->Attribute("trigger") == string("true"))
+            trigger = true;
+        else if (node->Attribute("trigger") == string("false"))
+            trigger = false;
+    }
+
+    node = node->FirstChildElement();
+
+    for (; node; node = node->NextSiblingElement())
+    {
+        if (node->ValueStr() == "calaos:input")
         {
-                if (node->Attribute("trigger") == string("true"))
-                        trigger = true;
-                else if (node->Attribute("trigger") == string("false"))
-                        trigger = false;
+            string id = "", oper = "", val = "", val_var = "";
+
+            if (node->Attribute("id")) id = node->Attribute("id");
+            if (node->Attribute("oper")) oper = node->Attribute("oper");
+            if (node->Attribute("val")) val = node->Attribute("val");
+            if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
+
+            Input *in = ListeRoom::Instance().get_input(id);
+            if (in)
+            {
+                Add(in);
+                params.Add(id, val);
+                ops.Add(id, oper);
+                if (val_var != "")
+                    params_var.Add(id, val_var);
+
+            }
+            else
+            {
+                return false;
+            }
         }
+    }
 
-        node = node->FirstChildElement();
-
-        for (; node; node = node->NextSiblingElement())
-        {
-                if (node->ValueStr() == "calaos:input")
-                {
-                        string id = "", oper = "", val = "", val_var = "";
-
-                        if (node->Attribute("id")) id = node->Attribute("id");
-                        if (node->Attribute("oper")) oper = node->Attribute("oper");
-                        if (node->Attribute("val")) val = node->Attribute("val");
-                        if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
-
-                        Input *in = ListeRoom::Instance().get_input(id);
-                        if (in)
-                        {
-                                Add(in);
-                                params.Add(id, val);
-                                ops.Add(id, oper);
-                                if (val_var != "")
-                                        params_var.Add(id, val_var);
-
-                        }
-                        else
-                        {
-                                return false;
-                        }
-                }
-        }
-
-        return true;
+    return true;
 }
 
 bool ConditionStd::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-        cond_node->SetAttribute("type", "standard");
-        cond_node->SetAttribute("trigger", trigger?"true":"false");
-        node->LinkEndChild(cond_node);
+    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
+    cond_node->SetAttribute("type", "standard");
+    cond_node->SetAttribute("trigger", trigger?"true":"false");
+    node->LinkEndChild(cond_node);
 
-        for (uint i = 0;i < inputs.size();i++)
-        {
-                Input *in = inputs[i];
+    for (uint i = 0;i < inputs.size();i++)
+    {
+        Input *in = inputs[i];
 
-                TiXmlElement *cnode = new TiXmlElement("calaos:input");
+        TiXmlElement *cnode = new TiXmlElement("calaos:input");
 
-                cnode->SetAttribute("id", in->get_param("id"));
-                cnode->SetAttribute("oper", ops[in->get_param("id")]);
-                cnode->SetAttribute("val", params[in->get_param("id")]);
-                if (params_var[in->get_param("id")] != "")
-                        cnode->SetAttribute("val_var", params_var[in->get_param("id")]);
+        cnode->SetAttribute("id", in->get_param("id"));
+        cnode->SetAttribute("oper", ops[in->get_param("id")]);
+        cnode->SetAttribute("val", params[in->get_param("id")]);
+        if (params_var[in->get_param("id")] != "")
+            cnode->SetAttribute("val_var", params_var[in->get_param("id")]);
 
-                cond_node->LinkEndChild(cnode);
-        }
+        cond_node->LinkEndChild(cnode);
+    }
 
-        return true;
+    return true;
 }

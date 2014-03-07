@@ -30,32 +30,32 @@ using namespace Utils;
 
 class ActivityScenariosView: public ActivityView
 {
-        private:
-                Evas_Object *calendar;
-                Evas_Object *schedule_list, *scenario_list;
+private:
+    Evas_Object *calendar;
+    Evas_Object *schedule_list, *scenario_list;
 
-                enum { VIEW_MODE_ALL, VIEW_MODE_LIGHT, VIEW_MODE_SHUTTER, VIEW_MODE_SCHEDULE };
-                int view_mode;
+    enum { VIEW_MODE_ALL, VIEW_MODE_LIGHT, VIEW_MODE_SHUTTER, VIEW_MODE_SCHEDULE };
+    int view_mode;
 
-                void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void loadScenarioList();
+    void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void loadScenarioList();
 
-        public:
-                ActivityScenariosView(Evas *evas, Evas_Object *parent);
-                ~ActivityScenariosView();
+public:
+    ActivityScenariosView(Evas *evas, Evas_Object *parent);
+    ~ActivityScenariosView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void ShowLoading();
-                void HideLoading();
+    void ShowLoading();
+    void HideLoading();
 
-                void loadScenarios();
+    void loadScenarios();
 
-                sigc::signal<void> buttonCreatePressed;
+    sigc::signal<void> buttonCreatePressed;
 
-                sigc::signal<void, Scenario *> schedule_add_click;
-                sigc::signal<void, Scenario *> schedule_modify_click;
-                sigc::signal<void, Scenario *> schedule_del_click;
+    sigc::signal<void, Scenario *> schedule_add_click;
+    sigc::signal<void, Scenario *> schedule_modify_click;
+    sigc::signal<void, Scenario *> schedule_del_click;
 };
 
 #endif // ACTIVITYSCENARIOSVIEW_H

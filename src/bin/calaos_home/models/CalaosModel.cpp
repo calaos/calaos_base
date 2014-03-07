@@ -21,174 +21,174 @@
 #include "CalaosModel.h"
 
 CalaosModel::CalaosModel():
-        discover(NULL),
-        connection(NULL),
-        room_model(NULL),
-        camera_model(NULL),
-        audio_model(NULL),
-        scenario_model(NULL),
-        loaded(false)
+    discover(NULL),
+    connection(NULL),
+    room_model(NULL),
+    camera_model(NULL),
+    audio_model(NULL),
+    scenario_model(NULL),
+    loaded(false)
 {
-        discover = new CalaosDiscover();
-        discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
-        discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
+    discover = new CalaosDiscover();
+    discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
+    discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
 }
 
 CalaosModel::~CalaosModel()
 {
-        DELETE_NULL(room_model);
-        DELETE_NULL(camera_model);
-        DELETE_NULL(audio_model);
-        DELETE_NULL(scenario_model);
+    DELETE_NULL(room_model);
+    DELETE_NULL(camera_model);
+    DELETE_NULL(audio_model);
+    DELETE_NULL(scenario_model);
 
-        DELETE_NULL(discover);
-        DELETE_NULL(connection);
+    DELETE_NULL(discover);
+    DELETE_NULL(connection);
 }
 
 void CalaosModel::discover_found(string address)
 {
-        server_address = address;
+    server_address = address;
 
-        DELETE_NULL(discover)
+    DELETE_NULL(discover)
 
-        cInfoDom("network") << "CalaosModel: found server: " << server_address;
+            cInfoDom("network") << "CalaosModel: found server: " << server_address;
 
-        connection = new CalaosConnection(server_address);
-        connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosModel::connection_ok));
-        connection->lost_connection.connect(sigc::mem_fun(*this, &CalaosModel::lost_connection));
+    connection = new CalaosConnection(server_address);
+    connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosModel::connection_ok));
+    connection->lost_connection.connect(sigc::mem_fun(*this, &CalaosModel::lost_connection));
 
-        load_count = 0;
+    load_count = 0;
 
-        DELETE_NULL(room_model)
-        room_model = new RoomModel(connection);
-        room_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_home_done));
+    DELETE_NULL(room_model)
+            room_model = new RoomModel(connection);
+    room_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_home_done));
 
-        DELETE_NULL(camera_model)
-        camera_model = new CameraModel(connection);
-        camera_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
+    DELETE_NULL(camera_model)
+            camera_model = new CameraModel(connection);
+    camera_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 
-        DELETE_NULL(audio_model)
-        audio_model = new AudioModel(connection);
-        audio_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
+    DELETE_NULL(audio_model)
+            audio_model = new AudioModel(connection);
+    audio_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 
-        DELETE_NULL(scenario_model)
-        scenario_model = new ScenarioModel(connection);
-        scenario_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
+    DELETE_NULL(scenario_model)
+            scenario_model = new ScenarioModel(connection);
+    scenario_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 }
 
 void CalaosModel::discover_error_login(string address)
 {
-        /* this has to be redispatched to the gui and ask user for username/password */
-        server_address = address;
+    /* this has to be redispatched to the gui and ask user for username/password */
+    server_address = address;
 
-        DELETE_NULL(discover)
+    DELETE_NULL(discover)
 
-        cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
+            cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
 
-        login_failed.emit(server_address);
+    login_failed.emit(server_address);
 }
 
 void CalaosModel::connection_ok()
 {
-        cInfoDom("network") << "CalaosModel: Connection success, loading home";
+    cInfoDom("network") << "CalaosModel: Connection success, loading home";
 
-        //First load home and wait it finishes loading all IO (they are needed by AudioModel/CameraModel)
-        room_model->load();
+    //First load home and wait it finishes loading all IO (they are needed by AudioModel/CameraModel)
+    room_model->load();
 }
 
 void CalaosModel::lost_connection()
 {
-        cErrorDom("network") << "CalaosModel: Lost Connection !";
+    cErrorDom("network") << "CalaosModel: Lost Connection !";
 
-        DELETE_NULL(room_model)
-        DELETE_NULL(camera_model)
-        DELETE_NULL(audio_model)
+    DELETE_NULL(room_model)
+            DELETE_NULL(camera_model)
+            DELETE_NULL(audio_model)
 
-        DELETE_NULL(discover);
-        DELETE_NULL(connection);
-        discover = new CalaosDiscover();
-        discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
-        discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
+            DELETE_NULL(discover);
+    DELETE_NULL(connection);
+    discover = new CalaosDiscover();
+    discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
+    discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
 
-        loaded = false;
+    loaded = false;
 }
 
 void CalaosModel::load_done()
 {
-        load_count--;
+    load_count--;
 
-        if (load_count <= 0)
-        {
-                cInfoDom("network") << "CalaosModel: Home loaded";
+    if (load_count <= 0)
+    {
+        cInfoDom("network") << "CalaosModel: Home loaded";
 
-                home_loaded.emit();
+        home_loaded.emit();
 
-                loaded = true;
-        }
+        loaded = true;
+    }
 }
 
 void CalaosModel::load_home_done()
 {
-        camera_model->load();
-        load_count++;
-        audio_model->load();
-        load_count++;
-        scenario_model->load();
-        load_count++;
+    camera_model->load();
+    load_count++;
+    audio_model->load();
+    load_count++;
+    scenario_model->load();
+    load_count++;
 }
 
 string CalaosModel::toString()
 {
-        stringstream s;
+    stringstream s;
 
-        if (room_model)
+    if (room_model)
+    {
+        for (list<Room *>::iterator i = room_model->rooms.begin();i != room_model->rooms.end();i++)
         {
-                for (list<Room *>::iterator i = room_model->rooms.begin();i != room_model->rooms.end();i++)
-                {
-                        Room *room = *i;
-                        s << "[" << room->type << " - " << room->name << "] - " << room->hits << endl;
+            Room *room = *i;
+            s << "[" << room->type << " - " << room->name << "] - " << room->hits << endl;
 
-                        for (list<IOBase *>::iterator j = room->ios.begin();j != room->ios.end();j++)
-                        {
-                                IOBase *io = *j;
+            for (list<IOBase *>::iterator j = room->ios.begin();j != room->ios.end();j++)
+            {
+                IOBase *io = *j;
 
-                                s << "\t" << io->params["type"] << " - " << io->params["id"] << " - " << io->params["name"] << " - " << io->params["hits"] << endl;
-                        }
-                }
+                s << "\t" << io->params["type"] << " - " << io->params["id"] << " - " << io->params["name"] << " - " << io->params["hits"] << endl;
+            }
         }
+    }
 
-        if (camera_model)
+    if (camera_model)
+    {
+        for (list<Camera *>::iterator i = camera_model->cameras.begin();i != camera_model->cameras.end();i++)
         {
-                for (list<Camera *>::iterator i = camera_model->cameras.begin();i != camera_model->cameras.end();i++)
-                {
-                        Camera *camera = *i;
+            Camera *camera = *i;
 
-                        s << "[Camera]" << endl << "\t";
-                        s << camera->params["name"] << " - " << camera->params["jpeg_url"] << endl;
-                }
+            s << "[Camera]" << endl << "\t";
+            s << camera->params["name"] << " - " << camera->params["jpeg_url"] << endl;
         }
+    }
 
-        if (audio_model)
+    if (audio_model)
+    {
+        for (list<AudioPlayer *>::iterator i = audio_model->players.begin();i != audio_model->players.end();i++)
         {
-                for (list<AudioPlayer *>::iterator i = audio_model->players.begin();i != audio_model->players.end();i++)
-                {
-                        AudioPlayer *audio = *i;
+            AudioPlayer *audio = *i;
 
-                        s << "[Audio]" << endl << "\t";
-                        s << audio->params["name"] << " - " << audio->params["id"] << endl;
-                }
+            s << "[Audio]" << endl << "\t";
+            s << audio->params["name"] << " - " << audio->params["id"] << endl;
         }
+    }
 
-        if (scenario_model)
+    if (scenario_model)
+    {
+        for (list<Scenario *>::iterator i = scenario_model->scenarios.begin();i != scenario_model->scenarios.end();i++)
         {
-                for (list<Scenario *>::iterator i = scenario_model->scenarios.begin();i != scenario_model->scenarios.end();i++)
-                {
-                        Scenario *sc = *i;
+            Scenario *sc = *i;
 
-                        s << "[Scenario]" << endl << "\t";
-                        s << sc->ioScenario->params["name"] << " - " << sc->ioScenario->params["id"] << endl;
-                }
+            s << "[Scenario]" << endl << "\t";
+            s << sc->ioScenario->params["name"] << " - " << sc->ioScenario->params["id"] << endl;
         }
+    }
 
-        return s.str();
+    return s.str();
 }

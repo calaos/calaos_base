@@ -23,9 +23,9 @@
 #include "ApplicationMain.h"
 
 ActivityConfigPasswordController::ActivityConfigPasswordController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_PASSWORD)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_PASSWORD)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityConfigPasswordController::~ActivityConfigPasswordController()
@@ -35,8 +35,8 @@ ActivityConfigPasswordController::~ActivityConfigPasswordController()
 
 void ActivityConfigPasswordController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 }
 

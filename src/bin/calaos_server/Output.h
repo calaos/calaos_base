@@ -29,32 +29,32 @@ namespace Calaos
 
 class Output: public IOBase
 {
-        protected:
-                typedef sigc::signal<void, std::string> type_signal_output;
-                type_signal_output signal_output;
-                type_signal_output::iterator iter_output;
+protected:
+    typedef sigc::signal<void, std::string> type_signal_output;
+    type_signal_output signal_output;
+    type_signal_output::iterator iter_output;
 
-        public:
-                Output(Params &p);
-                virtual ~Output();
+public:
+    Output(Params &p);
+    virtual ~Output();
 
-                virtual bool set_value(bool val) { return false; }
-                virtual bool set_value(double val)  { return false; }
-                virtual bool set_value(std::string val)  { return false; }
+    virtual bool set_value(bool val) { return false; }
+    virtual bool set_value(double val)  { return false; }
+    virtual bool set_value(std::string val)  { return false; }
 
-                //used to retreive the last state command of the TSTRING output
-                virtual std::string get_command_string() { return ""; }
+    //used to retreive the last state command of the TSTRING output
+    virtual std::string get_command_string() { return ""; }
 
-                //used to get a better condition value in ConditionOutput rules
-                //like if shutter is open or is light on
-                //Note: this is only used for TSTRING outputs
-                virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
+    //used to get a better condition value in ConditionOutput rules
+    //like if shutter is open or is light on
+    //Note: this is only used for TSTRING outputs
+    virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
 
-                virtual void EmitSignalOutput();
+    virtual void EmitSignalOutput();
 
-                virtual bool LoadFromXml(TiXmlElement *node)
-                        { return false; }
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node)
+    { return false; }
+    virtual bool SaveToXml(TiXmlElement *node);
 };
 
 }

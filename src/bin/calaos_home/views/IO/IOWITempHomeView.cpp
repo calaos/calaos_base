@@ -22,8 +22,8 @@
 #include <ApplicationMain.h>
 
 IOWITempHomeView::IOWITempHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-        GenlistItemBase(_evas, _parent, string("WITemp_") + style_addition, _flags),
-        IOBaseElement(_io)
+    GenlistItemBase(_evas, _parent, string("WITemp_") + style_addition, _flags),
+    IOBaseElement(_io)
 {
 }
 
@@ -33,58 +33,58 @@ IOWITempHomeView::~IOWITempHomeView()
 
 void IOWITempHomeView::ioDeleted()
 {
-        IOBaseElement::ioDeleted();
+    IOBaseElement::ioDeleted();
 
-        DELETE_NULL_FUNC(elm_object_item_del, item)
+    DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
 Evas_Object *IOWITempHomeView::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (!io) return o;
+    if (!io) return o;
 
-        initView();
+    initView();
 
-        return o;
+    return o;
 }
 
 string IOWITempHomeView::getLabelItem(Evas_Object *obj, string part)
 {
-        string text;
+    string text;
 
-        if (!io) return text;
+    if (!io) return text;
 
-        if (part == "text")
-        {
-                text = io->params["name"];
-        }
-        else if (part == "item.value")
-        {
-                text = io->params["state"] + " °C";
+    if (part == "text")
+    {
+        text = io->params["name"];
+    }
+    else if (part == "item.value")
+    {
+        text = io->params["state"] + " °C";
 
-                IOBase *consigne = CalaosModel::Instance().getHome()->getConsigneFromTemp(io);
-                if (consigne)
-                        text += "<consigne> / " + consigne->params["state"] + " °C</consigne>";
-        }
+        IOBase *consigne = CalaosModel::Instance().getHome()->getConsigneFromTemp(io);
+        if (consigne)
+            text += "<consigne> / " + consigne->params["state"] + " °C</consigne>";
+    }
 
-        return text;
+    return text;
 }
 
 void IOWITempHomeView::initView()
 {
-        if (!io || !item)
-                return;
+    if (!io || !item)
+        return;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
-        elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
 }
 
 void IOWITempHomeView::updateView()
 {
-        if (!io || !item)
-                return;
+    if (!io || !item)
+        return;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
-        elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
 }

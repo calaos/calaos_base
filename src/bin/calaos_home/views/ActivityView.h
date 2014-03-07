@@ -29,45 +29,45 @@ using namespace Utils;
 
 class ActivityView: public BaseView
 {
-        public:
-                void _button_quit_clicked();
+public:
+    void _button_quit_clicked();
 
-        protected:
-                Evas_Object *box_buttons;
-                Evas_Object *button_quit;
+protected:
+    Evas_Object *box_buttons;
+    Evas_Object *button_quit;
 
-        public:
-                ActivityView(Evas *evas, Evas_Object *parent);
-                ActivityView(Evas *evas, Evas_Object *parent, string collection);
-                virtual ~ActivityView();
+public:
+    ActivityView(Evas *evas, Evas_Object *parent);
+    ActivityView(Evas *evas, Evas_Object *parent, string collection);
+    virtual ~ActivityView();
 
-                virtual void resetView() = 0;
+    virtual void resetView() = 0;
 
-                virtual void DisableView() { }
-                virtual void EnableView() { }
+    virtual void DisableView() { }
+    virtual void EnableView() { }
 
-                sigc::signal<void> activity_quit;
+    sigc::signal<void> activity_quit;
 };
 
 class ActivityViewFactory
 {
-        private:
-                static string viewTypeString(int viewType);
+private:
+    static string viewTypeString(int viewType);
 
-        public:
-                enum { ACTIVITY_VIEW_NONE, ACTIVITY_VIEW_HOME, ACTIVITY_VIEW_MEDIA,
-                       ACTIVITY_VIEW_SCENARIOS, ACTIVITY_VIEW_CONFIG, ACTIVITY_VIEW_WIDGETS,
-                       ACTIVITY_VIEW_MEDIA_MENU, ACTIVITY_VIEW_CONFIG_MENU,
-                       ACTIVITY_VIEW_CONFIG_CLOCK, ACTIVITY_VIEW_CONFIG_PASSWORD,
-                       ACTIVITY_VIEW_CONFIG_SCREENSAVER,
-                       ACTIVITY_VIEW_CAMERA_LIST, ACTIVITY_VIEW_CAMERA_SELECT,
-                       ACTIVITY_VIEW_AUDIO_LIST,
-                       ACTIVITY_VIEW_KEYBOARD,
-                       ACTIVITY_VIEW_WEB,
-                       ACTIVITY_VIEW_EDIT_SCENARIO, ACTIVITY_VIEW_SCHEDULE_SCENARIO
-                     };
+public:
+    enum { ACTIVITY_VIEW_NONE, ACTIVITY_VIEW_HOME, ACTIVITY_VIEW_MEDIA,
+           ACTIVITY_VIEW_SCENARIOS, ACTIVITY_VIEW_CONFIG, ACTIVITY_VIEW_WIDGETS,
+           ACTIVITY_VIEW_MEDIA_MENU, ACTIVITY_VIEW_CONFIG_MENU,
+           ACTIVITY_VIEW_CONFIG_CLOCK, ACTIVITY_VIEW_CONFIG_PASSWORD,
+           ACTIVITY_VIEW_CONFIG_SCREENSAVER,
+           ACTIVITY_VIEW_CAMERA_LIST, ACTIVITY_VIEW_CAMERA_SELECT,
+           ACTIVITY_VIEW_AUDIO_LIST,
+           ACTIVITY_VIEW_KEYBOARD,
+           ACTIVITY_VIEW_WEB,
+           ACTIVITY_VIEW_EDIT_SCENARIO, ACTIVITY_VIEW_SCHEDULE_SCENARIO
+         };
 
-                static ActivityView *CreateView(Evas *evas, Evas_Object *parent, int viewType);
+    static ActivityView *CreateView(Evas *evas, Evas_Object *parent, int viewType);
 };
 
 #endif // ACTIVITYVIEW_H

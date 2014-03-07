@@ -28,77 +28,77 @@
 
 void print_usage(void)
 {
-        cout << "Calaos Configuration Utility." << endl;
-        cout << "(c)2013 Calaos Team" << endl << endl;
-        cout << "Usage:\tcalaos_config <action> [params]" << endl << endl;
-        cout << "Where action can be:" << endl;
-        cout << "\tlist\t\tLists all keys:values" << endl;
-        cout << "\tset [key]\tSet the value for the specified key" << endl;
-        cout << "\tget [key]\tPrint the value for the specified key" << endl;
-        cout << "\tdel [key]\tDelete entry for the specified key" << endl;
+    cout << "Calaos Configuration Utility." << endl;
+    cout << "(c)2013 Calaos Team" << endl << endl;
+    cout << "Usage:\tcalaos_config <action> [params]" << endl << endl;
+    cout << "Where action can be:" << endl;
+    cout << "\tlist\t\tLists all keys:values" << endl;
+    cout << "\tset [key]\tSet the value for the specified key" << endl;
+    cout << "\tget [key]\tPrint the value for the specified key" << endl;
+    cout << "\tdel [key]\tDelete entry for the specified key" << endl;
 }
 
 int main (int argc, char **argv)
 {
-        if (argc < 2)
-        {
-                print_usage();
-                return 1;
-        }
-        string action = argv[1];
+    if (argc < 2)
+    {
+        print_usage();
+        return 1;
+    }
+    string action = argv[1];
 
-	Utils::InitEinaLog("calaos_config");
+    Utils::InitEinaLog("calaos_config");
 
-        Utils::initConfigOptions(nullptr, nullptr, true);
+    Utils::initConfigOptions(nullptr, nullptr, true);
 
-        if (action == "get")
-        {
-                string key = argv[2];
+    if (action == "get")
+    {
+        string key = argv[2];
 
-                if (key == "hwid")
-                        cout << Utils::getHardwareID();
-                else
-                        cout << Utils::get_config_option(key);
-        }
-        else if (action == "set")
-        {
-                if (argc < 4)
-                {
-                        print_usage();
-                        return 1;
-                }
-                string key = argv[2];
-                string value = argv[3];
-
-                if (key == "hwid")
-                        cError() <<  "Can't change hwid";
-                else
-                        Utils::set_config_option(key, value);
-        }
-        else if (action == "list")
-        {
-                Params options;
-                Utils::get_config_options(options);
-                cout << "Local configuration:" << endl;
-                for (int i = 0;i < options.size();i++)
-                {
-                        std::string key, value;
-                        options.get_item(i, key, value);
-                        cout << key << ": " << value << endl;
-                }
-        }
-        else if (action == "del")
-        {
-                Utils::del_config_option(argv[2]);
-        }
+        if (key == "hwid")
+            cout << Utils::getHardwareID();
         else
+            cout << Utils::get_config_option(key);
+    }
+    else if (action == "set")
+    {
+        if (argc < 4)
         {
-                print_usage();
-                return 1;
+            print_usage();
+            return 1;
         }
+        string key = argv[2];
+        string value = argv[3];
 
-        system("sync");
+        if (key == "hwid")
+            cError() <<  "Can't change hwid";
+        else
+            Utils::set_config_option(key, value);
+    }
+    else if (action == "list")
+    {
+        Params options;
+        Utils::get_config_options(options);
+        cout << "Local configuration:" << endl;
+        for (int i = 0;i < options.size();i++)
+        {
+            std::string key, value;
+            options.get_item(i, key, value);
+            cout << key << ": " << value << endl;
+        }
+    }
+    else if (action == "del")
+    {
+        Utils::del_config_option(argv[2]);
+    }
+    else
+    {
+        print_usage();
+        return 1;
+    }
 
-        return 0;
+    system("sync");
+
+    return 0;
 }
 

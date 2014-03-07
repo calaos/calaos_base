@@ -31,34 +31,34 @@ using namespace Utils;
 
 class ActivityCameraSelectView: public ActivityView
 {
-        private:
-                Evas_Object *camera_video;
-                Camera *camera;
+private:
+    Evas_Object *camera_video;
+    Camera *camera;
 
-                Evas_Object *list_item;
+    Evas_Object *list_item;
 
-                Evas_Object *pager_position;
-                Evas_Object *popup_position;
+    Evas_Object *pager_position;
+    Evas_Object *popup_position;
 
-                void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void buttonSavePositionClick();
-                void positionSelected(void *data);
-                void positionSaved();
+    void buttonSavePositionClick();
+    void positionSelected(void *data);
+    void positionSaved();
 
-        public:
-                ActivityCameraSelectView(Evas *evas, Evas_Object *parent);
-                ~ActivityCameraSelectView();
+public:
+    ActivityCameraSelectView(Evas *evas, Evas_Object *parent);
+    ~ActivityCameraSelectView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void ShowLoading();
-                void HideLoading();
+    void ShowLoading();
+    void HideLoading();
 
-                virtual string getTitle();
+    virtual string getTitle();
 
-                void setCamera(Camera *camera);
+    void setCamera(Camera *camera);
 };
 
 #endif // ACTIVITYCAMERASELECTVIEW_H

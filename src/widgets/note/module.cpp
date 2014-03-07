@@ -22,99 +22,99 @@
 
 CalaosModuleBase * constructor(Evas *evas, const char *id, const char *path)
 {
-        return new ModuleNote(evas, id, path);
+    return new ModuleNote(evas, id, path);
 }
 
 EAPI CalaosModuleApi calaos_modapi =
 {
-        CALAOS_MODULE_API_VERSION,
-        CMOD_WIDGET,
-        "Notes",
-        "Laissez vos notes grâce à l'équivalent numérique du célèbre bout de papier jaune.",
-        "2.0",
-        "Calaos",
-        constructor
+    CALAOS_MODULE_API_VERSION,
+    CMOD_WIDGET,
+    "Notes",
+    "Laissez vos notes grâce à l'équivalent numérique du célèbre bout de papier jaune.",
+    "2.0",
+    "Calaos",
+    constructor
 };
 
 ModuleNote::ModuleNote(Evas *_e, string _id, string _path):
-        CalaosModuleBase(_e, _id, _path)
+    CalaosModuleBase(_e, _id, _path)
 {
-        string theme = module_path + "/default.edj";
-        edje = new EdjeObject(theme, evas);
-        edje->LoadEdje("widget/note");
+    string theme = module_path + "/default.edj";
+    edje = new EdjeObject(theme, evas);
+    edje->LoadEdje("widget/note");
 
-        string path = MODULE_CONFIG_PATH;
-        path += "widget_note/";
-        ecore_file_mkpath(path.c_str());
+    string path = MODULE_CONFIG_PATH;
+    path += "widget_note/";
+    ecore_file_mkpath(path.c_str());
 
-        path += id;
+    path += id;
 
-        if (ecore_file_exists(path.c_str()))
+    if (ecore_file_exists(path.c_str()))
+    {
+        std::ifstream file(path.c_str());
+
+        if (file)
         {
-                std::ifstream file(path.c_str());
+            stringstream buf;
+            buf << file.rdbuf();
+            file.close();
+            text = buf.str();
 
-                if (file)
-                {
-                        stringstream buf;
-                        buf << file.rdbuf();
-                        file.close();
-                        text = buf.str();
-
-                        edje->setPartText("note.text", text);
-                }
+            edje->setPartText("note.text", text);
         }
+    }
 
-        edje->addCallback("note", "*", sigc::mem_fun(*this, &ModuleNote::EdjeCallback));
+    edje->addCallback("note", "*", sigc::mem_fun(*this, &ModuleNote::EdjeCallback));
 }
 
 ModuleNote::~ModuleNote()
 {
-        delete edje;
+    delete edje;
 }
 
 void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
-        cout << "Show keyboard" << endl;
-        ApplicationMain::Instance().ShowKeyboard("Vous pouvez ecrire la nouvelle note a afficher.",
-                                                 sigc::mem_fun(*this, &ModuleNote::KeyboardCb),
-                                                 true,
-                                                 text,
-                                                 1);
+    cout << "Show keyboard" << endl;
+    ApplicationMain::Instance().ShowKeyboard("Vous pouvez ecrire la nouvelle note a afficher.",
+                                             sigc::mem_fun(*this, &ModuleNote::KeyboardCb),
+                                             true,
+                                             text,
+                                             1);
 }
 
 void ModuleNote::KeyboardCb(string t)
 {
-        text = t;
-        edje->setPartText("note.text", text);
+    text = t;
+    edje->setPartText("note.text", text);
 
-        string path = MODULE_CONFIG_PATH;
-        path += "widget_note/";
-        path += id;
-        std::ofstream file(path.c_str());
+    string path = MODULE_CONFIG_PATH;
+    path += "widget_note/";
+    path += id;
+    std::ofstream file(path.c_str());
 
-        if (file)
-        {
-                file << text;
-                file.close();
-        }
+    if (file)
+    {
+        file << text;
+        file.close();
+    }
 }
 
 string ModuleNote::getStringInfo()
 {
-        return text;
+    return text;
 }
 
 void ModuleNote::getSizeMin(int &w, int &h)
 {
-        edje->getSizeMin(&w, &h);
+    edje->getSizeMin(&w, &h);
 }
 
 void ModuleNote::getSizeMax(int &w, int &h)
 {
-        edje->getSizeMax(&w, &h);
+    edje->getSizeMax(&w, &h);
 }
 
 Evas_Object *ModuleNote::getEvasObject()
 {
-        return edje->getEvasObject();
+    return edje->getEvasObject();
 }

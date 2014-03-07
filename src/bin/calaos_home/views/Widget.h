@@ -31,58 +31,58 @@ class ActivityWidgetsView;
 
 class Widget: public EdjeObject
 {
-        protected:
-                Evas_Object *parent;
-                ActivityWidgetsView *view;
+protected:
+    Evas_Object *parent;
+    ActivityWidgetsView *view;
 
-                double x, y, start_time;
-                string id, mtype;
+    double x, y, start_time;
+    string id, mtype;
 
-                ModuleDef mdef;
+    ModuleDef mdef;
 
-                EcoreTimer *timer;
+    EcoreTimer *timer;
 
-                Evas_Object *popup;
+    Evas_Object *popup;
 
-                int offset_x, offset_y;
-                int old_x, old_y, old_w, old_h;
-                int start_x, start_y, start_w, start_h;
-                bool moving, resizing;
+    int offset_x, offset_y;
+    int old_x, old_y, old_w, old_h;
+    int start_x, start_y, start_w, start_h;
+    bool moving, resizing;
 
-                Evas_Object *move_box, *resize_box;
+    Evas_Object *move_box, *resize_box;
 
-                int posx, posy, width, height;
+    int posx, posy, width, height;
 
-                sigc::connection sig_widgetmanager;
+    sigc::connection sig_widgetmanager;
 
-                void _ResetAnim();
+    void _ResetAnim();
 
-                void deleteValid(void *data);
-                void deleteCancel(void *data);
+    void deleteValid(void *data);
+    void deleteCancel(void *data);
 
-        public:
-                Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_Object *parent, ActivityWidgetsView *view);
-                ~Widget();
+public:
+    Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_Object *parent, ActivityWidgetsView *view);
+    ~Widget();
 
-                void Callback(Evas_Object *edje, std::string emission, std::string source);
+    void Callback(Evas_Object *edje, std::string emission, std::string source);
 
-                virtual void Show();
-                virtual void Hide();
-                virtual void Move(int x, int y);
-                virtual void Resize(int w, int h);
+    virtual void Show();
+    virtual void Hide();
+    virtual void Move(int x, int y);
+    virtual void Resize(int w, int h);
 
-                virtual void EditMode();
-                virtual void NormalMode();
+    virtual void EditMode();
+    virtual void NormalMode();
 
-                //Reset position of widget
-                virtual void Reset();
+    //Reset position of widget
+    virtual void Reset();
 
-                //Save config & position to xml
-                virtual void Save(TiXmlElement *node);
+    //Save config & position to xml
+    virtual void Save(TiXmlElement *node);
 
-                virtual string getId() { return id; }
-                virtual string getType() { return mtype; }
-                virtual string getStringInfo();
+    virtual string getId() { return id; }
+    virtual string getType() { return mtype; }
+    virtual string getStringInfo();
 };
 
 #endif

@@ -25,17 +25,17 @@
 ITEM_BUTTON_CALLBACK(GenlistItemSimple, Pressed)
 
 GenlistItemSimple::GenlistItemSimple(Evas *_evas, Evas_Object *_parent, string _label, bool can_select, bool _multiline, void *data, string style_addition):
-        GenlistItemBase(_evas, _parent,
-                        string(can_select? "simple_select":"simple") + string(_multiline? "/multiline":"") + string((style_addition != "")? "/" + style_addition:""),
-                        ELM_GENLIST_ITEM_NONE, data),
-        label(_label),
-        multiline(_multiline)
+    GenlistItemBase(_evas, _parent,
+                    string(can_select? "simple_select":"simple") + string(_multiline? "/multiline":"") + string((style_addition != "")? "/" + style_addition:""),
+                    ELM_GENLIST_ITEM_NONE, data),
+    label(_label),
+    multiline(_multiline)
 {
-        if (multiline)
-        {
-                replace_str(label, "\n", "<br>");
-                replace_str(label, "&", "&amp;");
-        }
+    if (multiline)
+    {
+        replace_str(label, "\n", "<br>");
+        replace_str(label, "&", "&amp;");
+    }
 }
 
 GenlistItemSimple::~GenlistItemSimple()
@@ -44,58 +44,58 @@ GenlistItemSimple::~GenlistItemSimple()
 
 string GenlistItemSimple::getLabelItem(Evas_Object *obj, string part)
 {
-        return label;
+    return label;
 }
 
 Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "icon")
+    if (part == "icon")
+    {
+        if (icon != "")
         {
-                if (icon != "")
-                {
-                        o = elm_icon_add(parent);
-                        elm_image_file_set(o, ApplicationMain::getTheme(), icon.c_str());
+            o = elm_icon_add(parent);
+            elm_image_file_set(o, ApplicationMain::getTheme(), icon.c_str());
 
-                        itemEmitSignal("icon,enabled", "calaos");
-                }
-                else
-                {
-                        itemEmitSignal("icon,disabled", "calaos");
-                }
+            itemEmitSignal("icon,enabled", "calaos");
         }
-        else if (part == "button")
+        else
         {
-                if (button_icon != "")
-                {
-                        o = elm_button_add(parent);
-                        Evas_Object *_icon = elm_icon_add(o);
-                        elm_image_file_set(_icon, ApplicationMain::getTheme(), button_icon.c_str());
-                        elm_object_style_set(o, "calaos/action_button/blue");
-                        elm_object_content_set(o, _icon);
-                        evas_object_smart_callback_add(o, "clicked", _item_button_Pressed, this);
-
-                        itemEmitSignal("button,enabled", "calaos");
-                }
-                else
-                {
-                        itemEmitSignal("button,disabled", "calaos");
-                }
+            itemEmitSignal("icon,disabled", "calaos");
         }
+    }
+    else if (part == "button")
+    {
+        if (button_icon != "")
+        {
+            o = elm_button_add(parent);
+            Evas_Object *_icon = elm_icon_add(o);
+            elm_image_file_set(_icon, ApplicationMain::getTheme(), button_icon.c_str());
+            elm_object_style_set(o, "calaos/action_button/blue");
+            elm_object_content_set(o, _icon);
+            evas_object_smart_callback_add(o, "clicked", _item_button_Pressed, this);
 
-        return o;
+            itemEmitSignal("button,enabled", "calaos");
+        }
+        else
+        {
+            itemEmitSignal("button,disabled", "calaos");
+        }
+    }
+
+    return o;
 }
 
 void GenlistItemSimple::buttonClickPressed()
 {
-        button_pressed.emit();
+    button_pressed.emit();
 }
 
 GenlistItemSimpleKeyValue::GenlistItemSimpleKeyValue(Evas *_evas, Evas_Object *_parent, string _label_key, string _label_value, void *data):
-        GenlistItemBase(_evas, _parent, "simple_info", ELM_GENLIST_ITEM_NONE, data),
-        label_key(_label_key),
-        label_value(_label_value)
+    GenlistItemBase(_evas, _parent, "simple_info", ELM_GENLIST_ITEM_NONE, data),
+    label_key(_label_key),
+    label_value(_label_value)
 {
 }
 
@@ -105,32 +105,32 @@ GenlistItemSimpleKeyValue::~GenlistItemSimpleKeyValue()
 
 string GenlistItemSimpleKeyValue::getLabelItem(Evas_Object *obj, string part)
 {
-        if (part == "key.text")
-                return label_key;
-        if (part == "value.text")
-                return label_value;
+    if (part == "key.text")
+        return label_key;
+    if (part == "value.text")
+        return label_value;
 
-        return "?";
+    return "?";
 }
 
 Evas_Object *GenlistItemSimpleKeyValue::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "icon")
+    if (part == "icon")
+    {
+        if (icon != "")
         {
-                if (icon != "")
-                {
-                        o = elm_icon_add(parent);
-                        elm_image_file_set(o, ApplicationMain::getTheme(), icon.c_str());
+            o = elm_icon_add(parent);
+            elm_image_file_set(o, ApplicationMain::getTheme(), icon.c_str());
 
-                        itemEmitSignal("icon,enabled", "calaos");
-                }
-                else
-                {
-                        itemEmitSignal("icon,disabled", "calaos");
-                }
+            itemEmitSignal("icon,enabled", "calaos");
         }
+        else
+        {
+            itemEmitSignal("icon,disabled", "calaos");
+        }
+    }
 
-        return o;
+    return o;
 }

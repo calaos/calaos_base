@@ -35,36 +35,36 @@ using namespace Utils;
 
 class IPCData
 {
-        public:
-                void *data;
-                DeletorBase *destroy;   //Delete fonction that know how to free data
+public:
+    void *data;
+    DeletorBase *destroy;   //Delete fonction that know how to free data
 
-                IPCData(): data(NULL), destroy(NULL)
-                        { }
-                IPCData(void *d, DeletorBase *del): data(d), destroy(del)
-                        { }
+    IPCData(): data(NULL), destroy(NULL)
+    { }
+    IPCData(void *d, DeletorBase *del): data(d), destroy(del)
+    { }
 };
 
 class IPCMsg
 {
-        public:
-                string source;
-                string emission;
-                void *data;
-                bool auto_delete;       //If set, data will be auto deleted after use
-                IPCData del_data;
+public:
+    string source;
+    string emission;
+    void *data;
+    bool auto_delete;       //If set, data will be auto deleted after use
+    IPCData del_data;
 
-                IPCMsg(): source("*"), emission("*"), data(NULL)
-                        { }
+    IPCMsg(): source("*"), emission("*"), data(NULL)
+    { }
 };
 
 class IPCSignal
 {
-        public:
-                string source;
-                string emission;
-                void *data;
-                sigc::signal<void, string, string, void*, void* > *signal;
+public:
+    string source;
+    string emission;
+    void *data;
+    sigc::signal<void, string, string, void*, void* > *signal;
 };
 
 /**
@@ -72,31 +72,31 @@ class IPCSignal
  */
 class IPC
 {
-        private:
-                int fd_read;
-                int fd_write;
+private:
+    int fd_read;
+    int fd_write;
 
 #ifndef IPHONE_APP
-                Ecore_Fd_Handler *fd_handler;
+    Ecore_Fd_Handler *fd_handler;
 #endif
-                Mutex mutex;
+    Mutex mutex;
 
-                list<IPCMsg> events;
-                list<IPCSignal> signals;
+    list<IPCMsg> events;
+    list<IPCSignal> signals;
 
-                //ctor
-                IPC();
+    //ctor
+    IPC();
 
-        public:
-                static IPC &Instance()
-                {
-                        static IPC ipc;
-                        return ipc;
-                }
+public:
+    static IPC &Instance()
+    {
+        static IPC ipc;
+        return ipc;
+    }
 
-                ~IPC();
+    ~IPC();
 
-                /**
+    /**
                  * Add/delete a callback for event_name event.
                  * signal will be called when a events with the source and the emission is sent
                  * Parameters of the calback signal are:
@@ -105,19 +105,19 @@ class IPC
                  *  - void*: the data of the listener (you)
                  *  - void*: the data of the signal sender
                  */
-                void AddHandler(string source, string emission,
-                                sigc::signal<void, string, string, void*, void*> &signal,
-                                void* data = NULL);
-                void DeleteHandler(sigc::signal<void, string, string, void*, void*> &signal);
+    void AddHandler(string source, string emission,
+                    sigc::signal<void, string, string, void*, void*> &signal,
+                    void* data = NULL);
+    void DeleteHandler(sigc::signal<void, string, string, void*, void*> &signal);
 
-                //used by threads.
-                void SendEvent(string source, string emission, void *data = NULL);
+    //used by threads.
+    void SendEvent(string source, string emission, void *data = NULL);
 
-                //auto_delete_data flag is used to delete void *data automatically after use
-                void SendEvent(string source, string emission, IPCData data, bool auto_delete_data = false);
+    //auto_delete_data flag is used to delete void *data automatically after use
+    void SendEvent(string source, string emission, IPCData data, bool auto_delete_data = false);
 
-                //called by _calaos_ipc_event()
-                void BroadcastEvent();
+    //called by _calaos_ipc_event()
+    void BroadcastEvent();
 };
 
 #endif

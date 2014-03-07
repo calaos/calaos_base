@@ -30,45 +30,45 @@ using namespace Utils;
 
 class ActivityWidgetsView: public ActivityView
 {
-        private:
-                Evas_Object *clipper;
+private:
+    Evas_Object *clipper;
 
-                vector<Widget *> widgets;
+    vector<Widget *> widgets;
 
-                //timer to do some maintenance stuff
-                //like showing/hiding xmas widget
-                EcoreTimer *timer;
+    //timer to do some maintenance stuff
+    //like showing/hiding xmas widget
+    EcoreTimer *timer;
 
-//                ModuleDef xmas_def;
-//                XmasWidget *xmas_widget;
+    //                ModuleDef xmas_def;
+    //                XmasWidget *xmas_widget;
 
-                void _AddWidget(Widget *o);
-                void TimerTick();
+    void _AddWidget(Widget *o);
+    void TimerTick();
 
-        public:
-                ActivityWidgetsView(Evas *evas, Evas_Object *parent);
-                ~ActivityWidgetsView();
+public:
+    ActivityWidgetsView(Evas *evas, Evas_Object *parent);
+    ~ActivityWidgetsView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void dimView();
+    void dimView();
 
-                //Edje callbacks for widgets, so manager can delete them
-                void Callback(void *data, Evas_Object *edje, std::string emission, std::string source);
+    //Edje callbacks for widgets, so manager can delete them
+    void Callback(void *data, Evas_Object *edje, std::string emission, std::string source);
 
-                void EditMode();
-                void NormalMode();
-                void ResetPosition() { for (uint i = 0;i < widgets.size();i++) widgets[i]->Reset(); }
-                void SaveWidgets();
+    void EditMode();
+    void NormalMode();
+    void ResetPosition() { for (uint i = 0;i < widgets.size();i++) widgets[i]->Reset(); }
+    void SaveWidgets();
 
-                void LoadWidgets();
+    void LoadWidgets();
 
-                bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
-                void DeleteWidget(Widget *w);
-                void DeleteAllWidgets();
+    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
+    void DeleteWidget(Widget *w);
+    void DeleteAllWidgets();
 
-                int size() { return widgets.size(); }
-                Widget *getWidget(int i) { return widgets[i]; }
+    int size() { return widgets.size(); }
+    Widget *getWidget(int i) { return widgets[i]; }
 };
 
 #endif // ACTIVITYWIDGETSVIEW_H

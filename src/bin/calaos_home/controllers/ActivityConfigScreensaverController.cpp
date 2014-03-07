@@ -23,9 +23,9 @@
 #include "ApplicationMain.h"
 
 ActivityConfigScreensaverController::ActivityConfigScreensaverController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_SCREENSAVER)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_SCREENSAVER)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityConfigScreensaverController::~ActivityConfigScreensaverController()
@@ -35,8 +35,8 @@ ActivityConfigScreensaverController::~ActivityConfigScreensaverController()
 
 void ActivityConfigScreensaverController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 }
 

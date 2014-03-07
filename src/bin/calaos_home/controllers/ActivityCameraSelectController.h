@@ -31,18 +31,18 @@ using namespace Utils;
 
 class ActivityCameraSelectController: public ActivityController
 {
-        private:
-                Camera *camera;
+private:
+    Camera *camera;
 
-                void createView();
+    void createView();
 
-                void updateView();
+    void updateView();
 
-                void load_done();
+    void load_done();
 
-        public:
-                ActivityCameraSelectController(Camera *cam, Evas *evas, Evas_Object *parent);
-                ~ActivityCameraSelectController();
+public:
+    ActivityCameraSelectController(Camera *cam, Evas *evas, Evas_Object *parent);
+    ~ActivityCameraSelectController();
 };
 
 #endif // ACTIVITYCAMERASELECTCONTROLLER_H

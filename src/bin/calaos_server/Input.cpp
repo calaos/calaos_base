@@ -26,37 +26,37 @@
 using namespace Calaos;
 
 Input::Input(Params &p):
-                IOBase(p)
+    IOBase(p)
 {
-        iter_input = signal_input.connect(sigc::mem_fun(&ListeRule::Instance(), &ListeRule::ExecuteRuleSignal));
+    iter_input = signal_input.connect(sigc::mem_fun(&ListeRule::Instance(), &ListeRule::ExecuteRuleSignal));
 
-        ListeRoom::Instance().addInputHash(this);
+    ListeRoom::Instance().addInputHash(this);
 }
 
 Input::~Input()
 {
-        iter_input->disconnect();
-        ListeRoom::Instance().delInputHash(this);
+    iter_input->disconnect();
+    ListeRoom::Instance().delInputHash(this);
 }
 
 void Input::EmitSignalInput()
 {
-        cDebugDom("input") << "Input::EmitSignalInput(" << get_param("id") << ")";
-        signal_input.emit(get_param("id"));
-	DataLogger::Instance().log(this);
+    cDebugDom("input") << "Input::EmitSignalInput(" << get_param("id") << ")";
+    signal_input.emit(get_param("id"));
+    DataLogger::Instance().log(this);
 }
 
 bool Input::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cnode = new TiXmlElement("calaos:input");
-        node->LinkEndChild(cnode);
+    TiXmlElement *cnode = new TiXmlElement("calaos:input");
+    node->LinkEndChild(cnode);
 
-        for (int i = 0;i < get_params().size();i++)
-        {
-                string key, value;
-                get_params().get_item(i, key, value);
-                cnode->SetAttribute(key, value);
-        }
+    for (int i = 0;i < get_params().size();i++)
+    {
+        string key, value;
+        get_params().get_item(i, key, value);
+        cnode->SetAttribute(key, value);
+    }
 
-        return true;
+    return true;
 }

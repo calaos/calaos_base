@@ -30,25 +30,25 @@ namespace Calaos
 
 class AudioManager
 {
-        private:
-                AudioManager();
+private:
+    AudioManager();
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                vector<AudioPlayer *> players;
-        public:
-                static AudioManager &Instance(); //Singleton
-                ~AudioManager();
+    vector<AudioPlayer *> players;
+public:
+    static AudioManager &Instance(); //Singleton
+    ~AudioManager();
 
-                void Add(AudioPlayer *player, std::string dbhost = "null");
-                void Delete(int i);
-                void Delete(AudioPlayer *obj)
-                        { players.erase(std::remove(players.begin(), players.end(), obj), players.end()); }
-                int get_size() { return players.size(); } //return the number of players available
-                AudioPlayer *get_player(int i) { return players[i]; }
+    void Add(AudioPlayer *player, std::string dbhost = "null");
+    void Delete(int i);
+    void Delete(AudioPlayer *obj)
+    { players.erase(std::remove(players.begin(), players.end(), obj), players.end()); }
+    int get_size() { return players.size(); } //return the number of players available
+    AudioPlayer *get_player(int i) { return players[i]; }
 
-                int searchIdOf(Output *output);
+    int searchIdOf(Output *output);
 };
 
 }

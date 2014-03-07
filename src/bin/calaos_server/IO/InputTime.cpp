@@ -26,83 +26,83 @@ using namespace Calaos;
 using namespace Utils;
 
 InputTime::InputTime(Params &p):
-                Input(p),
-                with_date(false),
-                value(false)
+    Input(p),
+    with_date(false),
+    value(false)
 {
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
+    ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
-        set_param("visible", "false");
-        set_param("gui_type", "time");
+    set_param("visible", "false");
+    set_param("gui_type", "time");
 
-        cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok";
+    cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok";
 }
 
 InputTime::~InputTime()
 {
-        cDebugDom("input") << "InputTime::~InputTime(): Ok";
+    cDebugDom("input") << "InputTime::~InputTime(): Ok";
 }
 
 void InputTime::hasChanged()
 {
-        bool val = false;
+    bool val = false;
 
-        if (get_params().Exists("year") && get_params().Exists("month") && get_params().Exists("day"))
+    if (get_params().Exists("year") && get_params().Exists("month") && get_params().Exists("day"))
+    {
+        with_date = true;
+
+        from_string(get_param("year"), year);
+        from_string(get_param("month"), month);
+        from_string(get_param("day"), day);
+    }
+    else
+    {
+        with_date = false;
+    }
+
+    Utils::from_string(get_param("hour"), hour);
+    Utils::from_string(get_param("min"), minute);
+    Utils::from_string(get_param("sec"), second);
+
+    {
+        struct tm *ctime = NULL;
+        time_t t = time(NULL);
+        ctime = localtime(&t);
+
+        if (with_date)
         {
-                with_date = true;
-
-                from_string(get_param("year"), year);
-                from_string(get_param("month"), month);
-                from_string(get_param("day"), day);
+            if (ctime->tm_mday == day &&
+                ctime->tm_mon + 1 == month &&
+                ctime->tm_year + 1900 == year &&
+                ctime->tm_sec == second &&
+                ctime->tm_min == minute &&
+                ctime->tm_hour == hour)
+            {
+                val = true;
+            }
         }
         else
         {
-                with_date = false;
+            if (ctime->tm_sec == second &&
+                ctime->tm_min == minute &&
+                ctime->tm_hour == hour)
+            {
+                val = true;
+            }
         }
+    }
 
-        Utils::from_string(get_param("hour"), hour);
-        Utils::from_string(get_param("min"), minute);
-        Utils::from_string(get_param("sec"), second);
+    if (val != value)
+    {
+        value = val;
+        EmitSignalInput();
 
-        {
-                struct tm *ctime = NULL;
-                time_t t = time(NULL);
-                ctime = localtime(&t);
-
-                if (with_date)
-                {
-                        if (ctime->tm_mday == day &&
-                            ctime->tm_mon + 1 == month &&
-                            ctime->tm_year + 1900 == year &&
-                            ctime->tm_sec == second &&
-                            ctime->tm_min == minute &&
-                            ctime->tm_hour == hour)
-                        {
-                                val = true;
-                        }
-                }
-                else
-                {
-                        if (ctime->tm_sec == second &&
-                            ctime->tm_min == minute &&
-                            ctime->tm_hour == hour)
-                        {
-                                val = true;
-                        }
-                }
-        }
-
-        if (val != value)
-        {
-                value = val;
-                EmitSignalInput();
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                if (val)
-                        sig += Utils::url_encode("state:true");
-                else
-                        sig += Utils::url_encode("state:false");
-                IPC::Instance().SendEvent("events", sig);
-        }
+        string sig = "input ";
+        sig += get_param("id") + " ";
+        if (val)
+            sig += Utils::url_encode("state:true");
+        else
+            sig += Utils::url_encode("state:false");
+        IPC::Instance().SendEvent("events", sig);
+    }
 }

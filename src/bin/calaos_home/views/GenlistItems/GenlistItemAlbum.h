@@ -29,34 +29,34 @@ using namespace Utils;
 
 class GenlistItemAlbum: public GenlistItemBase
 {
-        private:
-                string label_album, label_artist, label_year;
-                AudioPlayer *player;
-                int item_id;
-                Params item_infos;
-                bool in_query;
-                string cover_fname;
-                bool cover_downloaded;
-                int reqtype;
-                int command_id;
+private:
+    string label_album, label_artist, label_year;
+    AudioPlayer *player;
+    int item_id;
+    Params item_infos;
+    bool in_query;
+    string cover_fname;
+    bool cover_downloaded;
+    int reqtype;
+    int command_id;
 
-                void albumItemGet_cb(Params &infos);
-                void albumItemCoverGet_cb(Params &res);
+    void albumItemGet_cb(Params &infos);
+    void albumItemCoverGet_cb(Params &res);
 
-        public:
-                enum { ALBUM_LIST, ALBUM_ARTIST, ALBUM_YEAR, ALBUM_GENRE };
+public:
+    enum { ALBUM_LIST, ALBUM_ARTIST, ALBUM_YEAR, ALBUM_GENRE };
 
-                GenlistItemAlbum(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id = 0, void *data = NULL);
-                virtual ~GenlistItemAlbum();
+    GenlistItemAlbum(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id = 0, void *data = NULL);
+    virtual ~GenlistItemAlbum();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
+    void buttonClickPlay();
+    void buttonClickAdd();
 
-                int getItemId() { return item_id; }
-                Params getItemInfos() { return item_infos; }
+    int getItemId() { return item_id; }
+    Params getItemInfos() { return item_infos; }
 };
 
 #endif // GENLISTITEMALBUM_H

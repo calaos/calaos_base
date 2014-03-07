@@ -41,63 +41,63 @@ using namespace Utils;
 
 class EAPI ApplicationMain
 {
-        private:
+private:
 
-                //The main canvas
-                Evas *evas;
+    //The main canvas
+    Evas *evas;
 
-                //The main window object
-                Evas_Object *window;
+    //The main window object
+    Evas_Object *window;
 
-                //The elementary layout, it contains the app
-                Evas_Object *layout;
+    //The elementary layout, it contains the app
+    Evas_Object *layout;
 
-                //The main application controller
-                ApplicationController *controller;
+    //The main application controller
+    ApplicationController *controller;
 
-                static string theme;
+    static string theme;
 
-                ApplicationMain(int argc, char **argv);
-        public:
-                static ApplicationMain &Instance(int argc = 0, char **argv = NULL)
-                {
-                        static ApplicationMain appmain(argc, argv);
-                        return appmain;
-                }
-                ~ApplicationMain();
+    ApplicationMain(int argc, char **argv);
+public:
+    static ApplicationMain &Instance(int argc = 0, char **argv = NULL)
+    {
+        static ApplicationMain appmain(argc, argv);
+        return appmain;
+    }
+    ~ApplicationMain();
 
-                void Run();
-                void Stop();
+    void Run();
+    void Stop();
 
-                void Resize();
+    void Resize();
 
-                static const char *getTheme()
-                {
-                        return theme.c_str();
-                }
+    static const char *getTheme()
+    {
+        return theme.c_str();
+    }
 
-                //type is 0 for UTF-8 text, 1 is for keeping evas textblock markup instead
-                void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0)
-                {
-                        if (controller) controller->ShowKeyboard(subtitle, callback, multiline, oldtext, type);
-                }
+    //type is 0 for UTF-8 text, 1 is for keeping evas textblock markup instead
+    void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0)
+    {
+        if (controller) controller->ShowKeyboard(subtitle, callback, multiline, oldtext, type);
+    }
 
-                void ShowWebBrowser(string url = "")
-                {
-                        if (controller) controller->ShowWebBrowser(url);
-                }
+    void ShowWebBrowser(string url = "")
+    {
+        if (controller) controller->ShowWebBrowser(url);
+    }
 
-                void ShowScenarioEditor(Scenario *scenario = NULL)
-                {
-                        if (controller) controller->ShowScenarioEditor(scenario);
-                }
+    void ShowScenarioEditor(Scenario *scenario = NULL)
+    {
+        if (controller) controller->ShowScenarioEditor(scenario);
+    }
 
-                void ShowScenarioSchedule(Scenario *scenario)
-                {
-                        if (controller) controller->ShowScenarioSchedule(scenario);
-                }
+    void ShowScenarioSchedule(Scenario *scenario)
+    {
+        if (controller) controller->ShowScenarioSchedule(scenario);
+    }
 
-                ApplicationController *getMainController() { return controller; }
+    ApplicationController *getMainController() { return controller; }
 };
 
 #endif // APPLICATIONMAIN_H

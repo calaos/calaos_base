@@ -22,8 +22,8 @@
 #include <ApplicationMain.h>
 
 IOWIAnalogHomeView::IOWIAnalogHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-        GenlistItemBase(_evas, _parent, string("WIAnalog_") + style_addition, _flags),
-        IOBaseElement(_io)
+    GenlistItemBase(_evas, _parent, string("WIAnalog_") + style_addition, _flags),
+    IOBaseElement(_io)
 {
 }
 
@@ -33,50 +33,50 @@ IOWIAnalogHomeView::~IOWIAnalogHomeView()
 
 void IOWIAnalogHomeView::ioDeleted()
 {
-        IOBaseElement::ioDeleted();
+    IOBaseElement::ioDeleted();
 
-        DELETE_NULL_FUNC(elm_object_item_del, item)
+    DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
 Evas_Object *IOWIAnalogHomeView::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (!io) return o;
+    if (!io) return o;
 
-        initView();
+    initView();
 
-        return o;
+    return o;
 }
 
 string IOWIAnalogHomeView::getLabelItem(Evas_Object *obj, string part)
 {
-        string text;
+    string text;
 
-        if (!io) return text;
+    if (!io) return text;
 
-        if (part == "text")
-                text = io->params["name"];
-        else if (part == "item.value")
-                text = io->params["state"] + " " + io->params["unit"];
+    if (part == "text")
+        text = io->params["name"];
+    else if (part == "item.value")
+        text = io->params["state"] + " " + io->params["unit"];
 
-        return text;
+    return text;
 }
 
 void IOWIAnalogHomeView::initView()
 {
-        if (!io || !item)
-                return;
+    if (!io || !item)
+        return;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
-        elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
 }
 
 void IOWIAnalogHomeView::updateView()
 {
-        if (!io || !item)
-                return;
+    if (!io || !item)
+        return;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
-        elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "item.value", ELM_GENLIST_ITEM_FIELD_TEXT);
 }

@@ -30,20 +30,20 @@ namespace Calaos
 
 class ActionTouchscreen: public Action
 {
-        private:
-                string action;
+private:
+    string action;
 
-                Ecore_Con_Server *econ;
+    Ecore_Con_Server *econ;
 
-        public:
-                ActionTouchscreen();
-                ActionTouchscreen(string action);
-                ~ActionTouchscreen();
+public:
+    ActionTouchscreen();
+    ActionTouchscreen(string action);
+    ~ActionTouchscreen();
 
-                bool Execute();
+    bool Execute();
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

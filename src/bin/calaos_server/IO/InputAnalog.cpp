@@ -26,81 +26,81 @@
 using namespace Calaos;
 
 InputAnalog::InputAnalog(Params &p):
-                Input(p),
-                real_value_max(0.0),
-                wago_value_max(0.0),
-                value(0.0),
-                timer(0.0),
-                frequency(15.0) // 15 sec. between each read
+    Input(p),
+    real_value_max(0.0),
+    wago_value_max(0.0),
+    value(0.0),
+    timer(0.0),
+    frequency(15.0) // 15 sec. between each read
 {
-        set_param("gui_type", "analog_in");
+    set_param("gui_type", "analog_in");
 
-        readConfig();
+    readConfig();
 
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
+    ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cInfoDom("input") << "InputAnalog::InputAnalog(" << get_param("id") << "): Ok";
+    cInfoDom("input") << "InputAnalog::InputAnalog(" << get_param("id") << "): Ok";
 }
 
 InputAnalog::~InputAnalog()
 {
-        cInfoDom("input") << "InputAnalog::~InputAnalog(): Ok";
+    cInfoDom("input") << "InputAnalog::~InputAnalog(): Ok";
 }
 
 void InputAnalog::readConfig()
 {
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-        if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
-        if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
-        if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
+    if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
+    if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
+    if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
 }
 
 void InputAnalog::emitChange()
 {
-        EmitSignalInput();
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
+    IPC::Instance().SendEvent("events", sig);
 
-        cInfoDom("input") << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double();
+    cInfoDom("input") << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double();
 }
 
 void InputAnalog::hasChanged()
 {
-        readConfig();
+    readConfig();
 
-        double sec = ecore_time_get() - timer;
-        if (sec >= frequency)
-        {
-                timer = ecore_time_get();
+    double sec = ecore_time_get() - timer;
+    if (sec >= frequency)
+    {
+        timer = ecore_time_get();
 
-                readValue();
-        }
+        readValue();
+    }
 }
 
 double InputAnalog::get_value_double()
 {
-        readConfig();
+    readConfig();
 
-        cDebugDom("input") << "InputAnalog::get_value_double(" << get_param("id") << "): "
-                                << value << " * " << real_value_max << " / " << wago_value_max;
+    cDebugDom("input") << "InputAnalog::get_value_double(" << get_param("id") << "): "
+                       << value << " * " << real_value_max << " / " << wago_value_max;
 
-        if (wago_value_max > 0 && real_value_max > 0)
-                return Utils::roundValue(value * real_value_max / wago_value_max);
-        else
-                return Utils::roundValue(value);
+    if (wago_value_max > 0 && real_value_max > 0)
+        return Utils::roundValue(value * real_value_max / wago_value_max);
+    else
+        return Utils::roundValue(value);
 }
 
 void InputAnalog::force_input_double(double v)
 {
-        if (wago_value_max > 0 && real_value_max > 0)
-                value = v * wago_value_max / real_value_max;
-        else
-                value = v;
+    if (wago_value_max > 0 && real_value_max > 0)
+        value = v * wago_value_max / real_value_max;
+    else
+        value = v;
 
-        emitChange();
+    emitChange();
 }

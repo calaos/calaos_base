@@ -37,27 +37,27 @@ using namespace Utils;
 
 class ActivityController: public sigc::trackable
 {
-        protected:
-                Evas *evas;
-                Evas_Object *parent;
-                int viewType;
+protected:
+    Evas *evas;
+    Evas_Object *parent;
+    int viewType;
 
-                ActivityView *view;
+    ActivityView *view;
 
-                virtual void createView();
-                void viewDeleted();
+    virtual void createView();
+    void viewDeleted();
 
-        public:
-                ActivityController(Evas *evas, Evas_Object *parent, int viewType);
-                virtual ~ActivityController();
+public:
+    ActivityController(Evas *evas, Evas_Object *parent, int viewType);
+    virtual ~ActivityController();
 
-                BaseView *getView();
-                virtual void resetView();
+    BaseView *getView();
+    virtual void resetView();
 
-                sigc::signal<void> wants_quit;
-                sigc::signal<void, ActivityController *> view_deleted;
+    sigc::signal<void> wants_quit;
+    sigc::signal<void, ActivityController *> view_deleted;
 
-                virtual bool handleButtonClick(string button) { return false; }
+    virtual bool handleButtonClick(string button) { return false; }
 
 };
 

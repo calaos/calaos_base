@@ -21,10 +21,10 @@
 #include "ActivityCameraSelectController.h"
 
 ActivityCameraSelectController::ActivityCameraSelectController(Camera *cam, Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CAMERA_SELECT),
-        camera(cam)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CAMERA_SELECT),
+    camera(cam)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityCameraSelectController::~ActivityCameraSelectController()
@@ -33,34 +33,34 @@ ActivityCameraSelectController::~ActivityCameraSelectController()
 
 void ActivityCameraSelectController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
+    ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
 
-        if (!CalaosModel::Instance().isLoaded())
-        {
-                cameraView->ShowLoading();
+    if (!CalaosModel::Instance().isLoaded())
+    {
+        cameraView->ShowLoading();
 
-                CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityCameraSelectController::load_done));
+        CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityCameraSelectController::load_done));
 
-                return;
-        }
+        return;
+    }
 
-        updateView();
+    updateView();
 }
 
 void ActivityCameraSelectController::load_done()
 {
-        ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
-        cameraView->HideLoading();
+    ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
+    cameraView->HideLoading();
 
-        updateView();
+    updateView();
 }
 
 void ActivityCameraSelectController::updateView()
 {
-        ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
-        cameraView->setCamera(camera);
+    ActivityCameraSelectView *cameraView = dynamic_cast<ActivityCameraSelectView *>(view);
+    cameraView->setCamera(camera);
 }

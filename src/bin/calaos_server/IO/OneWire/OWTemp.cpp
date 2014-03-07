@@ -31,63 +31,63 @@
 using namespace Calaos;
 
 OWTemp::OWTemp(Params &p):
-                InputTemp(p)
+    InputTemp(p)
 {
-        ow_id = get_param("ow_id");
-        ow_args = get_param("ow_args");
+    ow_id = get_param("ow_id");
+    ow_args = get_param("ow_args");
 
 #ifdef HAVE_OWCAPI_H
-        OW_init(ow_args.c_str());
+    OW_init(ow_args.c_str());
 #endif
 
-        cDebugDom("input") << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id;
+    cDebugDom("input") << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id;
 
-        //read value when calaos_server is started
-        readValue();
-        Calaos::StartReadRules::Instance().ioRead();
+    //read value when calaos_server is started
+    readValue();
+    Calaos::StartReadRules::Instance().ioRead();
 }
 
 OWTemp::~OWTemp()
 {
-        cInfoDom("input") << "OWTemp::~OWTemp(): Ok";
+    cInfoDom("input") << "OWTemp::~OWTemp(): Ok";
 
 #ifdef HAVE_OWCAPI_H
-        OW_finish();
+    OW_finish();
 #endif
 }
 
 void OWTemp::readValue()
 {
-        /* TODO: should be rewritten in async using a thread for all OneWire inputs.
+    /* TODO: should be rewritten in async using a thread for all OneWire inputs.
          * Like in WagoMap.
          */
 
-        ow_id = get_param("ow_id");
+    ow_id = get_param("ow_id");
 
 #ifdef HAVE_OWCAPI_H
-        char *res;
-        size_t len;
-        double val;
+    char *res;
+    size_t len;
+    double val;
 
-        /* Read value */
-        ow_req = ow_id + "/temperature";
-        if(OW_get(ow_req.c_str(), &res, &len) >= 0)
-        {
-                val = atof(res);
-                free(res);
-                cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Ok";
-        }
-        else
-        {
-                cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")";
-        }
+    /* Read value */
+    ow_req = ow_id + "/temperature";
+    if(OW_get(ow_req.c_str(), &res, &len) >= 0)
+    {
+        val = atof(res);
+        free(res);
+        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Ok";
+    }
+    else
+    {
+        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")";
+    }
 
-        if (val != value)
-        {
-                value = val;
-                emitChange();
-        }
+    if (val != value)
+    {
+        value = val;
+        emitChange();
+    }
 #else
-        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !";
+    cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !";
 #endif
 }

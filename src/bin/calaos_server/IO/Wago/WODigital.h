@@ -29,23 +29,23 @@ namespace Calaos {
 
 class WODigital : public OutputLight
 {
-        private:
-                int address;
+private:
+    int address;
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                bool start;
+    bool start;
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-                void WagoWriteCallback(bool status, UWord address, bool value);
+    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoWriteCallback(bool status, UWord address, bool value);
 
-        protected:
-                bool set_value_real(bool val);
+protected:
+    bool set_value_real(bool val);
 
-        public:
-                WODigital(Params &p);
-                virtual ~WODigital();
+public:
+    WODigital(Params &p);
+    virtual ~WODigital();
 };
 
 }

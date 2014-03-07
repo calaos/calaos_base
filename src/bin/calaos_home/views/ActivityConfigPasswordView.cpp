@@ -24,12 +24,12 @@
 #include <GenlistItemSimple.h>
 #include <Calendar.h>
 ActivityConfigPasswordView::ActivityConfigPasswordView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/page/config/password")
+    ActivityView(_e, _parent, "calaos/page/config/password")
 {
-        setPartText("tab1.text", _("Change your password"));
-        setPartText("tab1.text.detail", _("Resume : <light_blue>Password</light_blue><br><small>Change your password !</small>"));
-        setPartText("tab2.text", _("About"));
-        setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
+    setPartText("tab1.text", _("Change your password"));
+    setPartText("tab1.text.detail", _("Resume : <light_blue>Password</light_blue><br><small>Change your password !</small>"));
+    setPartText("tab2.text", _("About"));
+    setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
 
 }
 

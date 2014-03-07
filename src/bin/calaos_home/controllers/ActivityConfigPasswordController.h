@@ -30,12 +30,12 @@ using namespace Utils;
 
 class ActivityConfigPasswordController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-        public:
-                ActivityConfigPasswordController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigPasswordController();
+public:
+    ActivityConfigPasswordController(Evas *evas, Evas_Object *parent);
+    ~ActivityConfigPasswordController();
 };
 
 #endif // ACTIVITYCONFIGPASSWORDCONTROLLER_H

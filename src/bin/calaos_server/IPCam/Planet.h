@@ -34,22 +34,22 @@ namespace Calaos
 
 class Planet: public IPCam
 {
-        protected:
-                string resolution, quality;
-                string saturation, sharpness, contrast, hue;
-                string brightness, color;
+protected:
+    string resolution, quality;
+    string saturation, sharpness, contrast, hue;
+    string brightness, color;
 
-        public:
-                Planet(Params &p);
-                ~Planet();
+public:
+    Planet(Params &p);
+    ~Planet();
 
-                //Standard IPCam functions.
-                virtual std::string get_mpeg_stream(); //return the mpeg4 url stream (if any)
-                virtual std::string get_mjpeg_stream(); //return the mpeg url stream
-                virtual std::string get_picture(); //return the url for a single frame
-                virtual std::string get_picture_real(); //return the real url for a single frame
+    //Standard IPCam functions.
+    virtual std::string get_mpeg_stream(); //return the mpeg4 url stream (if any)
+    virtual std::string get_mjpeg_stream(); //return the mpeg url stream
+    virtual std::string get_picture(); //return the url for a single frame
+    virtual std::string get_picture_real(); //return the real url for a single frame
 
-                virtual void activateCapabilities(std::string cap, std::string cmd, std::string value);
+    virtual void activateCapabilities(std::string cap, std::string cmd, std::string value);
 };
 
 }

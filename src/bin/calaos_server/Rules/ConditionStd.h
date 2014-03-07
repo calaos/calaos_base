@@ -30,44 +30,44 @@ namespace Calaos
 
 class ConditionStd: public Condition
 {
-        protected:
-                std::vector<Input *> inputs;
-                Params params;
-                Params ops;
-                //this is used to do the condition test
-                //based on another input
-                Params params_var;
-                bool trigger = true;
+protected:
+    std::vector<Input *> inputs;
+    Params params;
+    Params ops;
+    //this is used to do the condition test
+    //based on another input
+    Params params_var;
+    bool trigger = true;
 
-                bool eval(bool val1, std::string oper, bool val2);
-                bool eval(double val1, std::string oper, double val2);
-                bool eval(std::string val1, std::string oper, std::string val2);
+    bool eval(bool val1, std::string oper, bool val2);
+    bool eval(double val1, std::string oper, double val2);
+    bool eval(std::string val1, std::string oper, std::string val2);
 
-        public:
-                ConditionStd();
-                ~ConditionStd();
+public:
+    ConditionStd();
+    ~ConditionStd();
 
-                virtual bool Evaluate();
+    virtual bool Evaluate();
 
-                void Add(Input *p);
-                void Remove(int i);
-                void Assign(int i, Input *obj);
+    void Add(Input *p);
+    void Remove(int i);
+    void Assign(int i, Input *obj);
 
-                void getVarIds(vector<Input *> &list);
-                bool useForTrigger() { return trigger; }
+    void getVarIds(vector<Input *> &list);
+    bool useForTrigger() { return trigger; }
 
-                Input *get_input(int i) { return inputs[i]; }
-                Params &get_params() { return params; }
-                Params &get_operator() { return ops; }
-                Params &get_params_var() { return params_var; }
-                void set_param(Params &p) { params = p; }
-                void set_operator(Params &p) { ops = p; }
-                void set_param_var(Params &p) { params_var = p; }
+    Input *get_input(int i) { return inputs[i]; }
+    Params &get_params() { return params; }
+    Params &get_operator() { return ops; }
+    Params &get_params_var() { return params_var; }
+    void set_param(Params &p) { params = p; }
+    void set_operator(Params &p) { ops = p; }
+    void set_param_var(Params &p) { params_var = p; }
 
-                int get_size() { return inputs.size(); }
+    int get_size() { return inputs.size(); }
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

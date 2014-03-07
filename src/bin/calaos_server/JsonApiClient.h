@@ -36,79 +36,79 @@
 
 using namespace Calaos;
 
-        class JsonApiClient: public sigc::trackable
-        {
-                protected:
+class JsonApiClient: public sigc::trackable
+{
+protected:
 
-                        Ecore_Con_Client *client_conn;
-                        Ecore_Event_Handler *exe_handler;
+    Ecore_Con_Client *client_conn;
+    Ecore_Event_Handler *exe_handler;
 
-                        Ecore_Exe *exe_thumb;
-                        string tempfname;
+    Ecore_Exe *exe_thumb;
+    string tempfname;
 
-                        http_parser_settings parser_settings;
-                        http_parser *parser;
+    http_parser_settings parser_settings;
+    http_parser *parser;
 
-                        bool parse_done = false;
-                        unsigned char request_method;
-                        unordered_map<string, string> request_headers;
+    bool parse_done = false;
+    unsigned char request_method;
+    unordered_map<string, string> request_headers;
 
-                        Params jsonParam;
+    Params jsonParam;
 
-                        int player_count;
+    int player_count;
 
-                        int proto_ver;
+    int proto_ver;
 
-                        void CloseConnection();
+    void CloseConnection();
 
-                        //for parsing purposes
-                        bool has_field = false, has_value = false;
-                        string hfield, hvalue;
-                        string bodymessage;
-                        string parse_url;
+    //for parsing purposes
+    bool has_field = false, has_value = false;
+    string hfield, hvalue;
+    string bodymessage;
+    string parse_url;
 
-                        //headers to send back
-                        Params resHeaders;
+    //headers to send back
+    Params resHeaders;
 
-                        void handleRequest();
-                        void sendToClient(string res);
-                        string buildHttpResponse(string code, Params &headers, string body);
-                        void sendJson(json_t *json);
+    void handleRequest();
+    void sendToClient(string res);
+    string buildHttpResponse(string code, Params &headers, string body);
+    void sendJson(json_t *json);
 
-                        //processing functions
-                        void processGetHome();
-                        void processGetState(json_t *jroot);
-                        void processSetState();
-                        void processGetPlaylist();
-                        void processPolling();
-                        void processGetCover();
-                        void processGetCameraPic();
+    //processing functions
+    void processGetHome();
+    void processGetState(json_t *jroot);
+    void processSetState();
+    void processGetPlaylist();
+    void processPolling();
+    void processGetCover();
+    void processGetCameraPic();
 
-                        json_t *buildJsonHome();
-                        json_t *buildJsonCameras();
-                        json_t *buildJsonAudio();
-                        template<typename T> json_t *buildJsonRoomIO(Room *room);
-                        void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
+    json_t *buildJsonHome();
+    json_t *buildJsonCameras();
+    json_t *buildJsonAudio();
+    template<typename T> json_t *buildJsonRoomIO(Room *room);
+    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 
-                        void exeFinished(Ecore_Exe *exe, int exit_code);
+    void exeFinished(Ecore_Exe *exe, int exit_code);
 
-                        friend int _parser_begin(http_parser *parser);
-                        friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
-                        friend int _parser_header_value(http_parser *parser, const char *at, size_t length);
-                        friend int _parser_headers_complete(http_parser *parser);
-                        friend int _parser_message_complete(http_parser *parser);
-                        friend int _parser_url(http_parser *parser, const char *at, size_t length);
-                        friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
-                        friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
+    friend int _parser_begin(http_parser *parser);
+    friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
+    friend int _parser_header_value(http_parser *parser, const char *at, size_t length);
+    friend int _parser_headers_complete(http_parser *parser);
+    friend int _parser_message_complete(http_parser *parser);
+    friend int _parser_url(http_parser *parser, const char *at, size_t length);
+    friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
+    friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
 
-                public:
-                        JsonApiClient(Ecore_Con_Client *cl);
-                        ~JsonApiClient();
+public:
+    JsonApiClient(Ecore_Con_Client *cl);
+    ~JsonApiClient();
 
-                        enum { APIV1 = 0, APIV1_5, APIV2 };
+    enum { APIV1 = 0, APIV1_5, APIV2 };
 
-                        /* Called by TCPServer whenever data comes in */
-                        void ProcessData(string data);
-        };
+    /* Called by TCPServer whenever data comes in */
+    void ProcessData(string data);
+};
 
 #endif

@@ -24,17 +24,17 @@
 using namespace Calaos;
 
 WebOutputLightRGB::WebOutputLightRGB(Params &_p):
-                OutputLightRGB(_p)
+    OutputLightRGB(_p)
 {
-        Calaos::StartReadRules::Instance().addIO();
-        Calaos::StartReadRules::Instance().addIO();
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cDebugDom("output") << "WebOutputLightRGB::WebOutputLightRGB(" << get_param("id") << "): Ok";
+    cDebugDom("output") << "WebOutputLightRGB::WebOutputLightRGB(" << get_param("id") << "): Ok";
 }
 
 WebOutputLightRGB::~WebOutputLightRGB()
 {
-        cDebugDom("output") << "WebOutputLightRGB::~WebOutputLightRGB(): Ok";
+    cDebugDom("output") << "WebOutputLightRGB::~WebOutputLightRGB(): Ok";
 }
 

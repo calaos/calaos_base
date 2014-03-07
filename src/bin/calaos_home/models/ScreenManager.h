@@ -30,42 +30,42 @@
 
 class ScreenManager
 {
-        private:
-                EcoreTimer *timer = nullptr;
-                bool is_suspended = false;
+private:
+    EcoreTimer *timer = nullptr;
+    bool is_suspended = false;
 
-                ScreenManager();
+    ScreenManager();
 
-        public:
-                static ScreenManager& instance()
-                {
-                        static ScreenManager s;
-                        return s;
-                }
+public:
+    static ScreenManager& instance()
+    {
+        static ScreenManager s;
+        return s;
+    }
 
-                ~ScreenManager();
+    ~ScreenManager();
 
-                int getTime();
+    int getTime();
 
-                // Re-init the timer to 0, if the timer reach the time returns by getTime(), the screen will be suspend
-                void updateTimer();
+    // Re-init the timer to 0, if the timer reach the time returns by getTime(), the screen will be suspend
+    void updateTimer();
 
-                void startTimer();
-                void stopTimer();
-                void wakeUp();
-                void suspend();
+    void startTimer();
+    void stopTimer();
+    void wakeUp();
+    void suspend();
 
-                void wakeUpNow();
-                void suspendNow();
+    void wakeUpNow();
+    void suspendNow();
 
-                // Wake up when the screen is on, avoid to flash the screen */
-                void wakeUpNowWhenScreenOn();
+    // Wake up when the screen is on, avoid to flash the screen */
+    void wakeUpNowWhenScreenOn();
 
-                //signals for views
-                sigc::signal<void> wakeup_screen_start;
-                sigc::signal<void> wakeup_screen;
-                sigc::signal<void> suspend_screen_start;
-                sigc::signal<void> suspend_screen;
+    //signals for views
+    sigc::signal<void> wakeup_screen_start;
+    sigc::signal<void> wakeup_screen;
+    sigc::signal<void> suspend_screen_start;
+    sigc::signal<void> suspend_screen;
 };
 
 #endif // SREENMANAGER_H

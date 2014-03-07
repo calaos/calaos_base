@@ -21,11 +21,11 @@
 #include "ActivityKeyboardController.h"
 
 ActivityKeyboardController::ActivityKeyboardController(Evas *e, Evas_Object *p, string _subtitle, ActivityKeyboardCb _cb, bool _multiline, int t):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_KEYBOARD),
-        multiline(_multiline),
-        subtitle(_subtitle),
-        callback(_cb),
-        type(t)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_KEYBOARD),
+    multiline(_multiline),
+    subtitle(_subtitle),
+    callback(_cb),
+    type(t)
 {
 }
 
@@ -35,37 +35,37 @@ ActivityKeyboardController::~ActivityKeyboardController()
 
 void ActivityKeyboardController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityKeyboardView *keyboardView = dynamic_cast<ActivityKeyboardView *>(view);
-        keyboardView->setMultiline(multiline);
-        keyboardView->setSubtitle(subtitle);
-        keyboardView->validPressed.connect(sigc::mem_fun(*this, &ActivityKeyboardController::validButtonPressed));
+    ActivityKeyboardView *keyboardView = dynamic_cast<ActivityKeyboardView *>(view);
+    keyboardView->setMultiline(multiline);
+    keyboardView->setSubtitle(subtitle);
+    keyboardView->validPressed.connect(sigc::mem_fun(*this, &ActivityKeyboardController::validButtonPressed));
 }
 
 void ActivityKeyboardController::validButtonPressed(string text)
 {
-        ActivityKeyboardSig sig;
-        sig.connect(callback);
+    ActivityKeyboardSig sig;
+    sig.connect(callback);
 
-        if (type == 0)
-        {
-                char *s = elm_entry_markup_to_utf8(text.c_str());
-                text = s;
-                free(s);
-        }
-        sig.emit(text);
+    if (type == 0)
+    {
+        char *s = elm_entry_markup_to_utf8(text.c_str());
+        text = s;
+        free(s);
+    }
+    sig.emit(text);
 
-        //Closes the keyboard
-        wants_quit.emit();
+    //Closes the keyboard
+    wants_quit.emit();
 }
 
 void ActivityKeyboardController::setText(string t)
 {
-        if (!view) return;
+    if (!view) return;
 
-        ActivityKeyboardView *keyboardView = dynamic_cast<ActivityKeyboardView *>(view);
-        keyboardView->setText(t);
+    ActivityKeyboardView *keyboardView = dynamic_cast<ActivityKeyboardView *>(view);
+    keyboardView->setText(t);
 }

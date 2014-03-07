@@ -24,7 +24,7 @@ using namespace Calaos;
 
 Gadspot::Gadspot(Params &p): IPCam(p)
 {
-        caps.Add("resolution", "640x480");
+    caps.Add("resolution", "640x480");
 }
 
 Gadspot::~Gadspot()
@@ -33,18 +33,18 @@ Gadspot::~Gadspot()
 
 std::string Gadspot::get_mjpeg_stream()
 {
-        std::string url;
-        url = "http://" + param["host"] + ":" + param["port"];
-        url += "/GetData.cgi";
+    std::string url;
+    url = "http://" + param["host"] + ":" + param["port"];
+    url += "/GetData.cgi";
 
-        return url;
+    return url;
 }
 
 std::string Gadspot::get_picture()
 {
-        std::string url;
-        url = "http://" + param["host"] + ":" + param["port"];
-        url += "/Jpeg/CamImg.jpg";
+    std::string url;
+    url = "http://" + param["host"] + ":" + param["port"];
+    url += "/Jpeg/CamImg.jpg";
 
-        return url;
+    return url;
 }

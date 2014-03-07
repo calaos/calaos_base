@@ -30,22 +30,22 @@ using namespace Utils;
 
 class ActivityMediaView: public ActivityView
 {
-        private:
-                MainContentView *contentView;
+private:
+    MainContentView *contentView;
 
-                void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-        public:
-                ActivityMediaView(Evas *evas, Evas_Object *parent);
-                ~ActivityMediaView();
+public:
+    ActivityMediaView(Evas *evas, Evas_Object *parent);
+    ~ActivityMediaView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void addView(BaseView *view) { contentView->addView(view); }
-                BaseView *getTopView() { return contentView->getTopView(); }
-                void removeTopView() { contentView->removeTopView(); }
+    void addView(BaseView *view) { contentView->addView(view); }
+    BaseView *getTopView() { return contentView->getTopView(); }
+    void removeTopView() { contentView->removeTopView(); }
 
-                sigc::signal<void, string> button_clicked;
+    sigc::signal<void, string> button_clicked;
 };
 
 #endif // ACTIVITYMEDIAVIEW_H

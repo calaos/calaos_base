@@ -26,129 +26,129 @@ ITEM_BUTTON_CALLBACK(GenlistItemAlbumHeader, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemAlbumHeader, Add)
 
 GenlistItemAlbumHeader::GenlistItemAlbumHeader(Evas *_evas, Evas_Object *_parent, AudioPlayer *_player, Params &_album_infos, int _album_id, void *data):
-        GenlistItemBase(_evas, _parent, "browser/album_header", ELM_GENLIST_ITEM_GROUP, data),
-        player(_player),
-        album_infos(_album_infos),
-        album_id(_album_id),
-        in_query(false),
-        cover_downloaded(false),
-        dltimer(NULL)
+    GenlistItemBase(_evas, _parent, "browser/album_header", ELM_GENLIST_ITEM_GROUP, data),
+    player(_player),
+    album_infos(_album_infos),
+    album_id(_album_id),
+    in_query(false),
+    cover_downloaded(false),
+    dltimer(NULL)
 {
 }
 
 GenlistItemAlbumHeader::~GenlistItemAlbumHeader()
 {
-        DELETE_NULL(dltimer);
+    DELETE_NULL(dltimer);
 }
 
 string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, string part)
 {
-        string text;
+    string text;
 
-        if (part == "text")
-        {
-                string album = "Album inconnu";
-                if (album_infos.Exists("name")) album = album_infos["name"];
-                text = album;
-        }
-        else if (part == "text.artist")
-        {
-                if (album_infos.Exists("artist"))
-                        text = album_infos["artist"];
-                else
-                        text = "Na";
-        }
-        else if (part == "text.album")
-        {
-                if (album_infos.Exists("name"))
-                        text = album_infos["name"];
-                else
-                        text = "Na";
-        }
-        else if (part == "text.year")
-        {
-                if (album_infos.Exists("year"))
-                        text = album_infos["year"];
-                else
-                        text = "Na";
-        }
-        else if (part == "text.count")
-        {
-                if (album_infos.Exists("count"))
-                        text = album_infos["count"];
-                else
-                        text = "Na";
-        }
+    if (part == "text")
+    {
+        string album = "Album inconnu";
+        if (album_infos.Exists("name")) album = album_infos["name"];
+        text = album;
+    }
+    else if (part == "text.artist")
+    {
+        if (album_infos.Exists("artist"))
+            text = album_infos["artist"];
+        else
+            text = "Na";
+    }
+    else if (part == "text.album")
+    {
+        if (album_infos.Exists("name"))
+            text = album_infos["name"];
+        else
+            text = "Na";
+    }
+    else if (part == "text.year")
+    {
+        if (album_infos.Exists("year"))
+            text = album_infos["year"];
+        else
+            text = "Na";
+    }
+    else if (part == "text.count")
+    {
+        if (album_infos.Exists("count"))
+            text = album_infos["count"];
+        else
+            text = "Na";
+    }
 
-        return text;
+    return text;
 }
 
 Evas_Object *GenlistItemAlbumHeader::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "calaos.button.play")
+    if (part == "calaos.button.play")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
+        elm_object_style_set(o, "calaos/action_button/blue");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
+    }
+    else if (part == "calaos.button.add")
+    {
+        o = elm_button_add(parent);
+        elm_object_style_set(o, "calaos/action_button/label");
+        elm_object_text_set(o, "Ajouter");
+        evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
+    }
+    else if (part == "calaos.cover")
+    {
+        if (cover_downloaded &&
+            ecore_file_exists(cover_fname.c_str()))
         {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
-                elm_object_style_set(o, "calaos/action_button/blue");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
-        }
-        else if (part == "calaos.button.add")
-        {
-                o = elm_button_add(parent);
-                elm_object_style_set(o, "calaos/action_button/label");
-                elm_object_text_set(o, "Ajouter");
-                evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
-        }
-        else if (part == "calaos.cover")
-        {
-                if (cover_downloaded &&
-                    ecore_file_exists(cover_fname.c_str()))
-                {
-                        o = elm_icon_add(parent);
-                        elm_image_file_set(o, cover_fname.c_str(), NULL);
-                        elm_image_preload_disabled_set(o, false);
+            o = elm_icon_add(parent);
+            elm_image_file_set(o, cover_fname.c_str(), NULL);
+            elm_image_preload_disabled_set(o, false);
 
-                        elm_object_item_signal_emit(item, "show,cover", "calaos");
-                }
-                else
-                {
-                        if (!dltimer)
-                        {
-                                dltimer = new EcoreTimer(0.2, (sigc::slot<void>)
-                                                 sigc::bind(sigc::mem_fun(*player, &AudioPlayer::getDBAlbumCoverItem),
-                                                            album_infos, sigc::mem_fun(*this, &GenlistItemAlbumHeader::albumItemCoverGet_cb), AudioPlayer::AUDIO_COVER_SIZE_MEDIUM));
-                        }
-                }
+            elm_object_item_signal_emit(item, "show,cover", "calaos");
         }
+        else
+        {
+            if (!dltimer)
+            {
+                dltimer = new EcoreTimer(0.2, (sigc::slot<void>)
+                                         sigc::bind(sigc::mem_fun(*player, &AudioPlayer::getDBAlbumCoverItem),
+                                                    album_infos, sigc::mem_fun(*this, &GenlistItemAlbumHeader::albumItemCoverGet_cb), AudioPlayer::AUDIO_COVER_SIZE_MEDIUM));
+            }
+        }
+    }
 
-        return o;
+    return o;
 }
 
 void GenlistItemAlbumHeader::buttonClickPlay()
 {
-        player->playItem(AudioPlayer::DB_ITEM_ALBUM, album_infos["id"]);
+    player->playItem(AudioPlayer::DB_ITEM_ALBUM, album_infos["id"]);
 }
 
 void GenlistItemAlbumHeader::buttonClickAdd()
 {
-        player->addItem(AudioPlayer::DB_ITEM_ALBUM, album_infos["id"]);
+    player->addItem(AudioPlayer::DB_ITEM_ALBUM, album_infos["id"]);
 }
 
 void GenlistItemAlbumHeader::albumItemCoverGet_cb(Params &res)
 {
-        DELETE_NULL(dltimer);
-        if (res["filename"] == "")
-                return;
+    DELETE_NULL(dltimer);
+    if (res["filename"] == "")
+        return;
 
-        if (!ecore_file_exists(res["filename"].c_str()))
-                return;
+    if (!ecore_file_exists(res["filename"].c_str()))
+        return;
 
-        cover_fname = res["filename"];
-        cover_downloaded = true;
+    cover_fname = res["filename"];
+    cover_downloaded = true;
 
-        elm_genlist_item_fields_update(item, "calaos.cover", ELM_GENLIST_ITEM_FIELD_CONTENT);
+    elm_genlist_item_fields_update(item, "calaos.cover", ELM_GENLIST_ITEM_FIELD_CONTENT);
 }

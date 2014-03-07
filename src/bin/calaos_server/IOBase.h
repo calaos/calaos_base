@@ -28,43 +28,43 @@ namespace Calaos
 
 class IOBase
 {
-        private:
-                //we store all params here
-                Params param;
+private:
+    //we store all params here
+    Params param;
 
-                bool auto_sc_mark;
+    bool auto_sc_mark;
 
-        public:
-                IOBase(Params &p): param(p), auto_sc_mark(false) { /* nothing */ }
-                virtual ~IOBase() { /* nothing */ }
+public:
+    IOBase(Params &p): param(p), auto_sc_mark(false) { /* nothing */ }
+    virtual ~IOBase() { /* nothing */ }
 
-                virtual DATA_TYPE get_type() = 0;
+    virtual DATA_TYPE get_type() = 0;
 
-                virtual bool get_value_bool() { return false; }
-                virtual map<string, bool> get_all_values_bool() { map<string, bool> m; return m; }
+    virtual bool get_value_bool() { return false; }
+    virtual map<string, bool> get_all_values_bool() { map<string, bool> m; return m; }
 
-                virtual double get_value_double() { return 0.0; }
-                virtual map<string, double> get_all_values_double() { map<string, double> m; return m; }
+    virtual double get_value_double() { return 0.0; }
+    virtual map<string, double> get_all_values_double() { map<string, double> m; return m; }
 
-                virtual std::string get_value_string() { return ""; }
-                virtual map<string, string> get_all_values_string() { map<string, string> m; return m; }
+    virtual std::string get_value_string() { return ""; }
+    virtual map<string, string> get_all_values_string() { map<string, string> m; return m; }
 
-                virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
+    virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
 
-                virtual void set_param(std::string opt, std::string val)
-                        { param.Add(opt, val); }
-                virtual std::string get_param(std::string opt)
-                        { return param[opt]; }
-                virtual Params &get_params()
-                        { return param; }
+    virtual void set_param(std::string opt, std::string val)
+    { param.Add(opt, val); }
+    virtual std::string get_param(std::string opt)
+    { return param[opt]; }
+    virtual Params &get_params()
+    { return param; }
 
-                virtual bool LoadFromXml(TiXmlElement *node)
-                        { return false; }
-                virtual bool SaveToXml(TiXmlElement *node)
-                        { return false; }
+    virtual bool LoadFromXml(TiXmlElement *node)
+    { return false; }
+    virtual bool SaveToXml(TiXmlElement *node)
+    { return false; }
 
-                bool isAutoScenario() { return auto_sc_mark; }
-                void setAutoScenario(bool m) { auto_sc_mark = m; }
+    bool isAutoScenario() { return auto_sc_mark; }
+    void setAutoScenario(bool m) { auto_sc_mark = m; }
 };
 
 }

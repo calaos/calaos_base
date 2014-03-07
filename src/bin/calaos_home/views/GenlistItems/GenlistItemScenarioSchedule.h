@@ -31,39 +31,39 @@ using namespace Utils;
 class GenlistItemSimple;
 class GenlistItemScenarioSchedule: public GenlistItemBase, public IOBaseElement
 {
-        private:
-                Evas_Object *popup, *pager_popup;
+private:
+    Evas_Object *popup, *pager_popup;
 
-                Scenario *scenario;
+    Scenario *scenario;
 
-                void scenarioPlay(void *data);
-                void scenarioModify(void *data);
-                void scenarioDelete(void *data);
-                void scheduleAdd(void *data);
-                void scheduleModify(void *data);
-                void scheduleDelete(void *data);
+    void scenarioPlay(void *data);
+    void scenarioModify(void *data);
+    void scenarioDelete(void *data);
+    void scheduleAdd(void *data);
+    void scheduleModify(void *data);
+    void scheduleDelete(void *data);
 
-                virtual void ioDeleted();
+    virtual void ioDeleted();
 
-                void deleteScenarioValid(void *data);
-                void deleteScenarioCancel(void *data, GenlistItemSimple *cancel_item);
+    void deleteScenarioValid(void *data);
+    void deleteScenarioCancel(void *data, GenlistItemSimple *cancel_item);
 
-        public:
-                GenlistItemScenarioSchedule(Evas *evas, Evas_Object *parent, bool scheduleView, Scenario *scenario, void *data = NULL);
-                virtual ~GenlistItemScenarioSchedule();
+public:
+    GenlistItemScenarioSchedule(Evas *evas, Evas_Object *parent, bool scheduleView, Scenario *scenario, void *data = NULL);
+    virtual ~GenlistItemScenarioSchedule();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickMore();
+    void buttonClickMore();
 
-                //Called when the real IO changed
-                virtual void initView();
-                virtual void updateView();
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-                sigc::signal<void, Scenario *> schedule_add_click;
-                sigc::signal<void, Scenario *> schedule_modify_click;
-                sigc::signal<void, Scenario *> schedule_del_click;
+    sigc::signal<void, Scenario *> schedule_add_click;
+    sigc::signal<void, Scenario *> schedule_modify_click;
+    sigc::signal<void, Scenario *> schedule_del_click;
 };
 
 #endif // GenlistItemScenarioSchedule_H

@@ -28,20 +28,20 @@ namespace Calaos
 
 class WOAnalog : public OutputAnalog
 {
-        private:
-                int address;
+private:
+    int address;
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                virtual void set_value_real(double val);
+    virtual void set_value_real(double val);
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
-                void WagoWriteCallback(bool status, UWord address, UWord value);
+    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoWriteCallback(bool status, UWord address, UWord value);
 
-        public:
-                WOAnalog(Params &p);
-                ~WOAnalog();
+public:
+    WOAnalog(Params &p);
+    ~WOAnalog();
 };
 
 }

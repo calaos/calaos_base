@@ -30,96 +30,96 @@
 class Zibase;
 class ZibaseManager
 {
-        public:
-                ~ZibaseManager()
-                {
-                        std::for_each(maps.begin(), maps.end(), Delete());
-                        maps.clear();
-                }
+public:
+    ~ZibaseManager()
+    {
+        std::for_each(maps.begin(), maps.end(), Delete());
+        maps.clear();
+    }
 
-                vector<Zibase *> maps;
+    vector<Zibase *> maps;
 };
 
 class ZibaseInfoSensor
 {
-        private:
+private:
 
-        public:
-                ZibaseInfoSensor() { }
-                            
-                enum eZibaseSensor{ eTEMP,eENERGY,eDETECT,eUNKNOWN};
-                char id[32];
-                eZibaseSensor type;
-                float AnalogVal;
-                bool DigitalVal;              
+public:
+    ZibaseInfoSensor() { }
+
+    enum eZibaseSensor{ eTEMP,eENERGY,eDETECT,eUNKNOWN};
+    char id[32];
+    eZibaseSensor type;
+    float AnalogVal;
+    bool DigitalVal;
 };
 
 class Zibase
 {
 
-        protected:
-                std::string host;
-                int port;
+protected:
+    std::string host;
+    int port;
 
-                Zibase(std::string host, int port);
+    Zibase(std::string host, int port);
 
-                static ZibaseManager zibasemaps;
+    static ZibaseManager zibasemaps;
 
-                Ecore_Con_Server *econ_client, *econ_listen;
-                Ecore_Event_Handler *event_handler_data_cl;
-                Ecore_Event_Handler *event_handler_data_listen;
+    Ecore_Con_Server *econ_client, *econ_listen;
+    Ecore_Event_Handler *event_handler_data_cl;
+    Ecore_Event_Handler *event_handler_data_listen;
 
-                friend Eina_Bool zibase_udpClientData(void *data, int type, Ecore_Con_Event_Client_Data *ev);
-                friend Eina_Bool zibase_udpListenData(void *data, int type, Ecore_Con_Event_Server_Data *ev);
+    friend Eina_Bool zibase_udpClientData(void *data, int type, Ecore_Con_Event_Client_Data *ev);
+    friend Eina_Bool zibase_udpListenData(void *data, int type, Ecore_Con_Event_Server_Data *ev);
 
-                void udpListenData(Ecore_Con_Event_Server_Data *ev);
-                void udpClientData(Ecore_Con_Event_Client_Data *ev);
-                
-                int extract_infos(char* frame,ZibaseInfoSensor* elm);
-                void extract_temp(char* frame,float *val);
-                void extract_energy(char* frame,float *val);
-                void extract_zwave_detectOpen(char* frame,bool *val);
+    void udpListenData(Ecore_Con_Event_Server_Data *ev);
+    void udpClientData(Ecore_Con_Event_Client_Data *ev);
+
+    int extract_infos(char* frame,ZibaseInfoSensor* elm);
+    void extract_temp(char* frame,float *val);
+    void extract_energy(char* frame,float *val);
+    void extract_zwave_detectOpen(char* frame,bool *val);
 
 
-                #pragma pack(1)
-                typedef struct {
-                        unsigned char header[4];
-                        unsigned short command;
-                        unsigned char reserved1[16];
-                        unsigned char zibase_id[16];
-                        unsigned char reserved2[12];
-                        unsigned long param1;
-                        unsigned long param2;
-                        unsigned long param3;
-                        unsigned long param4;
-                        unsigned short my_count;
-                        unsigned short your_count;	
-                }TstZAPI_packet;
-                #pragma pack()
+#pragma pack(1)
+    typedef struct {
+        unsigned char header[4];
+        unsigned short command;
+        unsigned char reserved1[16];
+        unsigned char zibase_id[16];
+        unsigned char reserved2[12];
+        unsigned long param1;
+        unsigned long param2;
+        unsigned long param3;
+        unsigned long param4;
+        unsigned short my_count;
+        unsigned short your_count;
+    }TstZAPI_packet;
+#pragma pack()
 
-                #pragma pack(1)
-                typedef struct {
-                        TstZAPI_packet packet;
-                        unsigned char frame[401];
-                }TstZAPI_Rxpacket;
-                #pragma pack()
-                      
-                unsigned short my_count =0;
-                TstZAPI_packet stZAPI_packet;
-                                              
-        public:
-                ~Zibase();
+#pragma pack(1)
+    typedef struct {
+        TstZAPI_packet packet;
+        unsigned char frame[401];
+    }TstZAPI_Rxpacket;
+#pragma pack()
 
-                //Singleton
-                static Zibase &Instance(std::string host, int port);
-                static vector<Zibase *> &get_maps() { return zibasemaps.maps; }
-                static void stopAllZibase();
+    unsigned short my_count =0;
+    TstZAPI_packet stZAPI_packet;
 
-                std::string get_host() { return host; }
-                int get_port() { return port; }
+public:
+    ~Zibase();
 
-                //IO classes needs to connect to this signal to receive sensor frames from zibase
-                sigc::signal<void, ZibaseInfoSensor *> sig_newframe;
+    //Singleton
+    static Zibase &Instance(std::string host, int port);
+    static vector<Zibase *> &get_maps() { return zibasemaps.maps; }
+    static void stopAllZibase();
+
+    std::string get_host() { return host; }
+    int get_port() { return port; }
+
+    //IO classes needs to connect to this signal to receive sensor frames from zibase
+    sigc::signal<void, ZibaseInfoSensor *> sig_newframe;
 };
 
 #endif

@@ -29,15 +29,15 @@ using namespace Utils;
 
 class GengridItemConfig: public GengridItemBase
 {
-        private:
-                string label;
-                string icon_style;
+private:
+    string label;
+    string icon_style;
 
-        public:
-                GengridItemConfig(Evas *evas, Evas_Object *parent, string label, string style_addition, void *data = NULL);
-                virtual ~GengridItemConfig();
+public:
+    GengridItemConfig(Evas *evas, Evas_Object *parent, string label, string style_addition, void *data = NULL);
+    virtual ~GengridItemConfig();
 
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 };
 
 #endif // GENGRIDITEMSIMPLE_H

@@ -24,62 +24,62 @@ using namespace Calaos;
 
 CamServer::CamServer(int p): port(p)
 {
-        cDebugDom("network") << "CamServer::CamServer(): Ok";
+    cDebugDom("network") << "CamServer::CamServer(): Ok";
 }
 
 CamServer::~CamServer()
 {
-        delete socket;
-        socket = NULL;
-        cDebugDom("network") << "CamServer::~CamServer(): Ok";
+    delete socket;
+    socket = NULL;
+    cDebugDom("network") << "CamServer::~CamServer(): Ok";
 }
 
 void CamServer::ThreadProc()
 {
-        cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server";
-        socket = new TCPSocket();
+    cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server";
+    socket = new TCPSocket();
 
-        socket->Create(port);
-        socket->SetReuse();
-        socket->Listen();
-        cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port;
-        quit = false;
+    socket->Create(port);
+    socket->SetReuse();
+    socket->Listen();
+    cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port;
+    quit = false;
 
-        while (!quit)
+    while (!quit)
+    {
+        socket->Accept();
+
+        if (quit) break;
+
+        cDebugDom("network") << "CamServer::ThreadProc(): Got a connection from address "
+                             << socket->GetRemoteIP();
+
+        vector<CamConnection *>::iterator iter = connections.begin();
+        for (uint i = 0;i < connections.size();iter++, i++)
         {
-                socket->Accept();
-
-                if (quit) break;
-
-                cDebugDom("network") << "CamServer::ThreadProc(): Got a connection from address "
-                                << socket->GetRemoteIP();
-
-                vector<CamConnection *>::iterator iter = connections.begin();
-                for (uint i = 0;i < connections.size();iter++, i++)
-                {
-                        //on supprime les connections qui sont finis
-                        if (connections[i]->get_end())
-                        {
-                                delete connections[i];
-                                connections.erase(iter);
-                        }
-                }
-
-                CamConnection *connection = new CamConnection(*socket);
-                connections.push_back(connection);
-                connection->Start(); //Start thread
+            //on supprime les connections qui sont finis
+            if (connections[i]->get_end())
+            {
+                delete connections[i];
+                connections.erase(iter);
+            }
         }
+
+        CamConnection *connection = new CamConnection(*socket);
+        connections.push_back(connection);
+        connection->Start(); //Start thread
+    }
 }
 
 void CamServer::Clean()
 {
-        quit = true;
-        if (socket)
-        {
-                socket->Shutdown();
-                socket->Close();
-        }
+    quit = true;
+    if (socket)
+    {
+        socket->Shutdown();
+        socket->Close();
+    }
 
-        for(uint i = 0;i < connections.size();i++)
-                connections[i]->Clean();
+    for(uint i = 0;i < connections.size();i++)
+        connections[i]->Clean();
 }

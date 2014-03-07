@@ -23,69 +23,69 @@
 using namespace Calaos;
 
 WITemp::WITemp(Params &p):
-                InputTemp(p),
-                port(502),
-                requestInProgress(false),
-                start(true)
+    InputTemp(p),
+    port(502),
+    requestInProgress(false),
+    start(true)
 {
-        host = get_param("host");
+    host = get_param("host");
 
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    Utils::from_string(get_param("var"), address);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        requestInProgress = true;
-        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+    requestInProgress = true;
+    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cDebugDom("input") << "WITemp::WITemp(" << get_param("id") << "): Ok";
+    cDebugDom("input") << "WITemp::WITemp(" << get_param("id") << "): Ok";
 }
 
 WITemp::~WITemp()
 {
-        cDebugDom("input") << "WITemp::~WITemp(" << get_param("id") << "): Ok";
+    cDebugDom("input") << "WITemp::~WITemp(" << get_param("id") << "): Ok";
 }
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
-        requestInProgress = false;
+    requestInProgress = false;
 
-        if (!status)
-        {
-                cErrorDom("input") << "WITemp(" << get_param("id") << "): Failed to read value";
-                if (start)
-                {
-                    Calaos::StartReadRules::Instance().ioRead();
-                    start = false;
-                }
-
-                return;
-        }
-
-        double val = value;
-
-        if (!values.empty())
-                val = (short int)values[0] / 10.0;
-
-        if (val != value)
-        {
-                value = val;
-                emitChange();
-        }
-
+    if (!status)
+    {
+        cErrorDom("input") << "WITemp(" << get_param("id") << "): Failed to read value";
         if (start)
         {
-                Calaos::StartReadRules::Instance().ioRead();
-                start = false;
+            Calaos::StartReadRules::Instance().ioRead();
+            start = false;
         }
+
+        return;
+    }
+
+    double val = value;
+
+    if (!values.empty())
+        val = (short int)values[0] / 10.0;
+
+    if (val != value)
+    {
+        value = val;
+        emitChange();
+    }
+
+    if (start)
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+        start = false;
+    }
 }
 
 void WITemp::readValue()
 {
-        if (!requestInProgress)
-        {
-                requestInProgress = true;
-                WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
-        }
+    if (!requestInProgress)
+    {
+        requestInProgress = true;
+        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+    }
 }

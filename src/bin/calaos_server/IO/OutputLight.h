@@ -29,39 +29,39 @@ namespace Calaos {
 
 class OutputLight : public Output
 {
-        private:
-                EcoreTimer *timer;
+private:
+    EcoreTimer *timer;
 
-                vector<BlinkInfo> blinks;
-                int current_blink;
+    vector<BlinkInfo> blinks;
+    int current_blink;
 
-                void TimerImpulse();
-                void TimerImpulseExtended();
+    void TimerImpulse();
+    void TimerImpulseExtended();
 
-                bool _set_value(bool val);
+    bool _set_value(bool val);
 
-                //impulse, time is in ms
-                void impulse(int time);
+    //impulse, time is in ms
+    void impulse(int time);
 
-                // extended impulse using pattern
-                void impulse_extended(string pattern);
+    // extended impulse using pattern
+    void impulse_extended(string pattern);
 
-        protected:
-                bool value;
+protected:
+    bool value;
 
-                void emitChange();
+    void emitChange();
 
-                virtual bool set_value_real(bool val) = 0;
+    virtual bool set_value_real(bool val) = 0;
 
-        public:
-                OutputLight(Params &p);
-                virtual ~OutputLight();
+public:
+    OutputLight(Params &p);
+    virtual ~OutputLight();
 
-                DATA_TYPE get_type() { return TBOOL; }
+    DATA_TYPE get_type() { return TBOOL; }
 
-                virtual bool set_value(bool val);
-                virtual bool get_value_bool() { return value; }
-                virtual bool set_value(string val);
+    virtual bool set_value(bool val);
+    virtual bool get_value_bool() { return value; }
+    virtual bool set_value(string val);
 };
 
 }

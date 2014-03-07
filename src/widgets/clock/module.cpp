@@ -22,67 +22,67 @@
 
 CalaosModuleBase * constructor(Evas *evas, const char *id, const char *path)
 {
-        return new ModuleClock(evas, id, path);
+    return new ModuleClock(evas, id, path);
 }
 
 EAPI CalaosModuleApi calaos_modapi =
 {
-        CALAOS_MODULE_API_VERSION,
-        CMOD_WIDGET,
-        "Horloge",
-        "L'heure numérique ou analogique avec cette horloge placé sur votre bureau",
-        "2.0",
-        "Calaos",
-        constructor
+    CALAOS_MODULE_API_VERSION,
+    CMOD_WIDGET,
+    "Horloge",
+    "L'heure numérique ou analogique avec cette horloge placé sur votre bureau",
+    "2.0",
+    "Calaos",
+    constructor
 };
 
 ModuleClock::ModuleClock(Evas *_e, string _id, string _path):
-        CalaosModuleBase(_e, _id, _path)
+    CalaosModuleBase(_e, _id, _path)
 {
-        string theme = module_path + "/default.edj";
-        edje_clock = new EdjeObject(theme, evas);
-        edje_clock->LoadEdje("widget/clock");
+    string theme = module_path + "/default.edj";
+    edje_clock = new EdjeObject(theme, evas);
+    edje_clock->LoadEdje("widget/clock");
 }
 
 ModuleClock::~ModuleClock()
 {
-        delete edje_clock;
+    delete edje_clock;
 }
 
 string ModuleClock::getStringInfo()
 {
-        Calendar c;
+    Calendar c;
 
-        //hour
-        string heure = c.hoursToString() + ":" + c.minutesToString() + ":" + c.secondesToString();
+    //hour
+    string heure = c.hoursToString() + ":" + c.minutesToString() + ":" + c.secondesToString();
 
-        //date
-        string date = c.getDayFromDate() + " " + Utils::to_string(c.day) + " " +
-                      c.getMonthFromDate() + " " + Utils::to_string(c.year);
+    //date
+    string date = c.getDayFromDate() + " " + Utils::to_string(c.day) + " " +
+                  c.getMonthFromDate() + " " + Utils::to_string(c.year);
 
-        //timezone
-        int tid = c.timeZone.loadCurrentTimeZone();
-        string tzone;
-        if (tid > 0)
-        {
-                tzone = c.timeZone.timeZone[tid].decalageStr;
-        }
+    //timezone
+    int tid = c.timeZone.loadCurrentTimeZone();
+    string tzone;
+    if (tid > 0)
+    {
+        tzone = c.timeZone.timeZone[tid].decalageStr;
+    }
 
-        return date + " " + heure + " (" + tzone + ")";
+    return date + " " + heure + " (" + tzone + ")";
 }
 
 void ModuleClock::getSizeMin(int &w, int &h)
 {
-        edje_object_size_min_get(edje_clock->getEvasObject(), &w, &h);
+    edje_object_size_min_get(edje_clock->getEvasObject(), &w, &h);
 }
 
 void ModuleClock::getSizeMax(int &w, int &h)
 {
-        edje_object_size_max_get(edje_clock->getEvasObject(), &w, &h);
+    edje_object_size_max_get(edje_clock->getEvasObject(), &w, &h);
 }
 
 Evas_Object *ModuleClock::getEvasObject()
 {
-        return edje_clock->getEvasObject();
+    return edje_clock->getEvasObject();
 }
 

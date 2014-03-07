@@ -29,24 +29,24 @@ namespace Calaos
 
 class WIDigitalLong : public InputSwitchLongPress, public sigc::trackable
 {
-        protected:
-                type_signal_wago::iterator iter;
+protected:
+    type_signal_wago::iterator iter;
 
-                int address;
-                std::string host;
-                int port;
+    int address;
+    std::string host;
+    int port;
 
-                bool udp_value;
+    bool udp_value;
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
 
-                virtual bool readValue();
+    virtual bool readValue();
 
-        public:
-                WIDigitalLong(Params &p);
-                ~WIDigitalLong();
+public:
+    WIDigitalLong(Params &p);
+    ~WIDigitalLong();
 
-                virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
+    virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 
 }

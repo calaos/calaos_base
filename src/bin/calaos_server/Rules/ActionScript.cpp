@@ -24,51 +24,51 @@ using namespace Calaos;
 
 ActionScript::ActionScript(): Action(ACTION_SCRIPT)
 {
-        cDebugDom("rule.action.script") <<  "ActionScript::ActionScript(): New Script action";
+    cDebugDom("rule.action.script") <<  "ActionScript::ActionScript(): New Script action";
 }
 
 ActionScript::~ActionScript()
 {
-        cDebugDom("rule.action.script") <<  "ActionScript::~ActionScript(): Ok";
+    cDebugDom("rule.action.script") <<  "ActionScript::~ActionScript(): Ok";
 }
 
 bool ActionScript::Execute()
 {
-        return ScriptManager::Instance().ExecuteScript(script);
+    return ScriptManager::Instance().ExecuteScript(script);
 }
 
 bool ActionScript::LoadFromXml(TiXmlElement *pnode)
 {
-        TiXmlElement *sc_node = pnode->FirstChildElement("calaos:script");
-        if (!sc_node) return false;
+    TiXmlElement *sc_node = pnode->FirstChildElement("calaos:script");
+    if (!sc_node) return false;
 
-        string type = "";
-        if (sc_node->Attribute("type"))
-                type = sc_node->Attribute("type");
-        if (type == "lua")
-        {
-                TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
+    string type = "";
+    if (sc_node->Attribute("type"))
+        type = sc_node->Attribute("type");
+    if (type == "lua")
+    {
+        TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
 
-                if (tnode)
-                        script = tnode->ValueStr();
-        }
+        if (tnode)
+            script = tnode->ValueStr();
+    }
 
-        return true;
+    return true;
 }
 
 bool ActionScript::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *action_node = new TiXmlElement("calaos:action");
-        action_node->SetAttribute("type", "script");
-        node->LinkEndChild(action_node);
+    TiXmlElement *action_node = new TiXmlElement("calaos:action");
+    action_node->SetAttribute("type", "script");
+    node->LinkEndChild(action_node);
 
-        TiXmlElement *sc_node = new TiXmlElement("calaos:script");
-        sc_node->SetAttribute("type", "lua");
-        action_node->LinkEndChild(sc_node);
+    TiXmlElement *sc_node = new TiXmlElement("calaos:script");
+    sc_node->SetAttribute("type", "lua");
+    action_node->LinkEndChild(sc_node);
 
-        TiXmlText *txt_node = new TiXmlText(script);
-        txt_node->SetCDATA(true);
-        sc_node->LinkEndChild(txt_node);
+    TiXmlText *txt_node = new TiXmlText(script);
+    txt_node->SetCDATA(true);
+    sc_node->LinkEndChild(txt_node);
 
-        return true;
+    return true;
 }

@@ -31,30 +31,30 @@ namespace Calaos
 
 class OutputShutterSmart : public Output
 {
-        protected:
-                int total_time, time_up, time_down;
-                int sens, old_sens;
-                double position; // range: [0..100]
+protected:
+    int total_time, time_up, time_down;
+    int sens, old_sens;
+    double position; // range: [0..100]
 
-                EcoreTimer *timer_end, *timer_update, *timer_impulse;
-                EcoreTimer *timer_up, *timer_down, *timer_calib;
-                double start_time;
-                double start_position;
-                bool is_impulse_action;
-                int impulse_action_time;
-                int impulse_time;
-                bool calibrate;
+    EcoreTimer *timer_end, *timer_update, *timer_impulse;
+    EcoreTimer *timer_up, *timer_down, *timer_calib;
+    double start_time;
+    double start_position;
+    bool is_impulse_action;
+    int impulse_action_time;
+    int impulse_time;
+    bool calibrate;
 
-                std::string cmd_state;
+    std::string cmd_state;
 
-                virtual void readConfig();
+    virtual void readConfig();
 
-                void TimerEnd();
-                void TimerUpdate();
-                void TimerImpulse();
-                void TimerCalibrate();
+    void TimerEnd();
+    void TimerUpdate();
+    void TimerImpulse();
+    void TimerCalibrate();
 
-                /* Subclass infos:
+    /* Subclass infos:
                  * To subclass OutputShutter you have two options. Use the standard Calaos
                  * logic and only reimplement setOutputUp()/setOutputDown(). These functions
                  * needs to only trigger a hardware output, all the states and logic is
@@ -67,38 +67,38 @@ class OutputShutterSmart : public Output
                  * touch with us to see how to do it correctly.
                  */
 
-                //reimplement this to use Calaos shutter logic
-                virtual void setOutputUp(bool enable) {}
-                virtual void setOutputDown(bool enable) {}
+    //reimplement this to use Calaos shutter logic
+    virtual void setOutputUp(bool enable) {}
+    virtual void setOutputDown(bool enable) {}
 
-                //reimplement this to use some hw specific shutter management
-                //tips: UpWait/DownWait func are delaying by 200ms the real Up/Down command
-                //if the shutter is not stopped to avoid up and down being active
-                //at the same time and hurt the shutter motor.
-                virtual void Up(double new_value = -1);
-                virtual void Down(double new_value = -1);
-                virtual void UpWait();
-                virtual void DownWait();
-                virtual void Stop();
-                virtual void Toggle();
-                virtual void ImpulseUp(int ms);
-                virtual void ImpulseDown(int ms);
-                virtual double readPosition();
-                virtual void writePosition(double p);
+    //reimplement this to use some hw specific shutter management
+    //tips: UpWait/DownWait func are delaying by 200ms the real Up/Down command
+    //if the shutter is not stopped to avoid up and down being active
+    //at the same time and hurt the shutter motor.
+    virtual void Up(double new_value = -1);
+    virtual void Down(double new_value = -1);
+    virtual void UpWait();
+    virtual void DownWait();
+    virtual void Stop();
+    virtual void Toggle();
+    virtual void ImpulseUp(int ms);
+    virtual void ImpulseDown(int ms);
+    virtual double readPosition();
+    virtual void writePosition(double p);
 
-        public:
-                OutputShutterSmart(Params &p);
-                ~OutputShutterSmart();
+public:
+    OutputShutterSmart(Params &p);
+    ~OutputShutterSmart();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string();
-                virtual double get_value_double() { return (int)(readPosition() * 100. / (double)time_up); }
+    virtual bool set_value(std::string val);
+    virtual std::string get_value_string();
+    virtual double get_value_double() { return (int)(readPosition() * 100. / (double)time_up); }
 
-                virtual std::string get_command_string() { return cmd_state; }
+    virtual std::string get_command_string() { return cmd_state; }
 
-                virtual bool check_condition_value(string cvalue, bool equal);
+    virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }

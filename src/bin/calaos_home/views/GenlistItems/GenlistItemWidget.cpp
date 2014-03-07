@@ -23,8 +23,8 @@
 #include <ApplicationMain.h>
 
 GenlistItemWidget::GenlistItemWidget(Evas *_evas, Evas_Object *_parent, ModuleDef mod, void *data):
-        GenlistItemBase(_evas, _parent, "widget", ELM_GENLIST_ITEM_NONE, data),
-        modinfo(mod)
+    GenlistItemBase(_evas, _parent, "widget", ELM_GENLIST_ITEM_NONE, data),
+    modinfo(mod)
 {
 }
 
@@ -34,27 +34,27 @@ GenlistItemWidget::~GenlistItemWidget()
 
 string GenlistItemWidget::getLabelItem(Evas_Object *obj, string part)
 {
-        if (part == "title")
-                return modinfo.mod_name;
-        else if (part == "desc")
-                return modinfo.mod_desc;
+    if (part == "title")
+        return modinfo.mod_name;
+    else if (part == "desc")
+        return modinfo.mod_desc;
 
-        return "";
+    return "";
 }
 
 Evas_Object *GenlistItemWidget::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = nullptr;
+    Evas_Object *o = nullptr;
 
-        if (part == "icon")
+    if (part == "icon")
+    {
+        o = elm_icon_add(parent);
+        elm_image_preload_disabled_set(o, false);
+        if (!elm_image_file_set(o, modinfo.mod_icon.c_str(), "icon"))
         {
-                o = elm_icon_add(parent);
-                elm_image_preload_disabled_set(o, false);
-                if (!elm_image_file_set(o, modinfo.mod_icon.c_str(), "icon"))
-                {
-                        elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/widget/icon/default");
-                }
+            elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/widget/icon/default");
         }
+    }
 
-        return o;
+    return o;
 }

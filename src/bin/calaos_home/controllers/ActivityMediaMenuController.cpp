@@ -21,7 +21,7 @@
 #include "ActivityMediaMenuController.h"
 
 ActivityMediaMenuController::ActivityMediaMenuController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_MEDIA_MENU)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_MEDIA_MENU)
 {
 }
 
@@ -31,10 +31,10 @@ ActivityMediaMenuController::~ActivityMediaMenuController()
 
 void ActivityMediaMenuController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityMediaMenuView *mediaMenuView = dynamic_cast<ActivityMediaMenuView *>(view);
-        mediaMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
+    ActivityMediaMenuView *mediaMenuView = dynamic_cast<ActivityMediaMenuView *>(view);
+    mediaMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
 }

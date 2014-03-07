@@ -28,30 +28,30 @@ using namespace std;
 
 class Params
 {
-        protected:
-                std::map<string, string> params;
+protected:
+    std::map<string, string> params;
 
-        public:
-                Params()
-                        { }
-                ~Params()
-                        { }
+public:
+    Params()
+    { }
+    ~Params()
+    { }
 
-                void Add(string key, string value);
-                int size() { return params.size(); }
-                bool Exists(string key);
-                string get_param(string key);
-                string get_param_const(const string key) const;
-                void get_item(int i, string &key, string &value);
-                void Delete(std::string key) { params.erase(key); }
+    void Add(string key, string value);
+    int size() { return params.size(); }
+    bool Exists(string key);
+    string get_param(string key);
+    string get_param_const(const string key) const;
+    void get_item(int i, string &key, string &value);
+    void Delete(std::string key) { params.erase(key); }
 
-                string operator[] (string key);
+    string operator[] (string key);
 
-                void Parse(string str);
+    void Parse(string str);
 
-                string toString();
+    string toString();
 
-                void clear() { params.clear(); }
+    void clear() { params.clear(); }
 };
 
 #endif

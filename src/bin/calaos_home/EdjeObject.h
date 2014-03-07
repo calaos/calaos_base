@@ -37,97 +37,97 @@ typedef sigc::signal<void, void *, Evas_Object *, std::string, std::string> Edje
 
 typedef struct _EdjeCallbackData: public sigc::trackable
 {
-        EdjeCallBackSignal signal_cb;
-        sigc::connection connection;
-        void *user_data;
-        string signal;
-        string source;
+    EdjeCallBackSignal signal_cb;
+    sigc::connection connection;
+    void *user_data;
+    string signal;
+    string source;
 } EdjeCallbackData;
 
 #define CHECK_EDJE_RETURN(...) \
-        if (!edje) \
-        { \
-                cCritical() <<  "EdjeObject: Edje object NULL ! (" << collection  << ")"; \
-                return __VA_ARGS__; \
-        }
+    if (!edje) \
+{ \
+    cCritical() <<  "EdjeObject: Edje object NULL ! (" << collection  << ")"; \
+    return __VA_ARGS__; \
+    }
 
 class EAPI EdjeObject: public sigc::trackable
 {
-        public:
-                void _evasObjectDeleted();
-                void _evasObjectShow();
-                void _evasObjectHide();
+public:
+    void _evasObjectDeleted();
+    void _evasObjectShow();
+    void _evasObjectHide();
 
-        protected:
-                string theme; //Edje theme filename
-                string collection; //Edje collection group
+protected:
+    string theme; //Edje theme filename
+    string collection; //Edje collection group
 
-                Evas *evas;
-                Evas_Object *edje; //The edje object
+    Evas *evas;
+    Evas_Object *edje; //The edje object
 
-                vector<EdjeCallbackData *> callbacks;
+    vector<EdjeCallbackData *> callbacks;
 
-                bool autodelete; //autodelete EdjeObject if Evas_Object is deleted. Be carefull with this
+    bool autodelete; //autodelete EdjeObject if Evas_Object is deleted. Be carefull with this
 
-                list<Evas_Object *> swallow_objs;
-                list<EdjeObject *> swallow_eobjs;
+    list<Evas_Object *> swallow_objs;
+    list<EdjeObject *> swallow_eobjs;
 
-                virtual void objectDeleted() { }
-                virtual void objectShown() { }
-                virtual void objectHidden() { }
+    virtual void objectDeleted() { }
+    virtual void objectShown() { }
+    virtual void objectHidden() { }
 
-        public:
-                EdjeObject(string &_theme, Evas *_evas);
-                EdjeObject(const char *_theme, Evas *_evas);
-                virtual ~EdjeObject();
+public:
+    EdjeObject(string &_theme, Evas *_evas);
+    EdjeObject(const char *_theme, Evas *_evas);
+    virtual ~EdjeObject();
 
-                //load the edje file
-                bool LoadEdje(string collection);
+    //load the edje file
+    bool LoadEdje(string collection);
 
-                virtual void Show() { CHECK_EDJE_RETURN() evas_object_show(edje); }
-                virtual void Hide() { CHECK_EDJE_RETURN() evas_object_hide(edje); }
-                void Move(int x, int y) { CHECK_EDJE_RETURN() evas_object_move(edje, x, y); }
-                void Resize(int w, int h) { CHECK_EDJE_RETURN() evas_object_resize(edje, w, h); }
+    virtual void Show() { CHECK_EDJE_RETURN() evas_object_show(edje); }
+    virtual void Hide() { CHECK_EDJE_RETURN() evas_object_hide(edje); }
+    void Move(int x, int y) { CHECK_EDJE_RETURN() evas_object_move(edje, x, y); }
+    void Resize(int w, int h) { CHECK_EDJE_RETURN() evas_object_resize(edje, w, h); }
 
-                void getGeometry(int *x, int *y, int *w, int *h);
-                void getSizeMin(int *w, int *h) { CHECK_EDJE_RETURN() edje_object_size_min_get(edje, w, h); }
-                void getSizeMax(int *w, int *h) { CHECK_EDJE_RETURN() edje_object_size_max_get(edje, w, h); }
+    void getGeometry(int *x, int *y, int *w, int *h);
+    void getSizeMin(int *w, int *h) { CHECK_EDJE_RETURN() edje_object_size_min_get(edje, w, h); }
+    void getSizeMax(int *w, int *h) { CHECK_EDJE_RETURN() edje_object_size_max_get(edje, w, h); }
 
-                void setLayer(int i) { CHECK_EDJE_RETURN() evas_object_layer_set(edje, i); }
-                int getLayer() { CHECK_EDJE_RETURN(0) return evas_object_layer_get(edje); }
+    void setLayer(int i) { CHECK_EDJE_RETURN() evas_object_layer_set(edje, i); }
+    int getLayer() { CHECK_EDJE_RETURN(0) return evas_object_layer_get(edje); }
 
-                void EmitSignal(string signal, string source) { CHECK_EDJE_RETURN() edje_object_signal_emit(edje, signal.c_str(), source.c_str()); }
+    void EmitSignal(string signal, string source) { CHECK_EDJE_RETURN() edje_object_signal_emit(edje, signal.c_str(), source.c_str()); }
 
-                void setPartText(string part, string text) { CHECK_EDJE_RETURN() edje_object_part_text_set(edje, part.c_str(), text.c_str()); }
-                string getPartText(string part);
+    void setPartText(string part, string text) { CHECK_EDJE_RETURN() edje_object_part_text_set(edje, part.c_str(), text.c_str()); }
+    string getPartText(string part);
 
-                void setDragValue(string part, double x, double y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_set(edje, part.c_str(), x, y); }
-                void getDragValue(string part, double *x, double *y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_get(edje, part.c_str(), x, y); }
+    void setDragValue(string part, double x, double y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_set(edje, part.c_str(), x, y); }
+    void getDragValue(string part, double *x, double *y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_get(edje, part.c_str(), x, y); }
 
-                void Swallow(EdjeObject *obj, string part, bool delete_on_del = false);
-                void Swallow(Evas_Object *obj, string part, bool delete_on_del = false);
+    void Swallow(EdjeObject *obj, string part, bool delete_on_del = false);
+    void Swallow(Evas_Object *obj, string part, bool delete_on_del = false);
 
-                Evas_Object *getEvasObject() { CHECK_EDJE_RETURN(NULL) return edje; }
+    Evas_Object *getEvasObject() { CHECK_EDJE_RETURN(NULL) return edje; }
 
-                void setTheme(string &_theme) { theme = _theme; }
+    void setTheme(string &_theme) { theme = _theme; }
 
-                string getCollection() { return collection; }
+    string getCollection() { return collection; }
 
-                void setAutoDelete(bool autodel) { autodelete = autodel; }
-                bool getAutoDelete() { return autodelete; }
+    void setAutoDelete(bool autodel) { autodelete = autodel; }
+    bool getAutoDelete() { return autodelete; }
 
-                sigc::connection *addCallback(string source, string signal, EdjeCallBack slot_cb, void *user_data = NULL);
-                void delCallback(sigc::connection *connection);
+    sigc::connection *addCallback(string source, string signal, EdjeCallBack slot_cb, void *user_data = NULL);
+    void delCallback(sigc::connection *connection);
 
-                /* Object was deleted */
-                sigc::signal<void> object_deleted;
+    /* Object was deleted */
+    sigc::signal<void> object_deleted;
 
-                /* Object was shown/hidden */
-                sigc::signal<void> object_shown;
-                sigc::signal<void> object_hidden;
+    /* Object was shown/hidden */
+    sigc::signal<void> object_shown;
+    sigc::signal<void> object_hidden;
 
-                /* Edje signal */
-                sigc::signal<void, void *, Evas_Object *, std::string, std::string> object_signal;
+    /* Edje signal */
+    sigc::signal<void, void *, Evas_Object *, std::string, std::string> object_signal;
 };
 
 #endif // EDJEOBJECT_H

@@ -30,26 +30,26 @@ namespace Calaos
 
 class InputSwitchLongPress : public Input
 {
-        protected:
-                double value;
+protected:
+    double value;
 
-                EcoreTimer *timer;
+    EcoreTimer *timer;
 
-                void longPress_timer();
-                void emitChange();
-                void resetInput();
+    void longPress_timer();
+    void emitChange();
+    void resetInput();
 
-                virtual bool readValue() = 0;
+    virtual bool readValue() = 0;
 
-        public:
-                InputSwitchLongPress(Params &p);
-                ~InputSwitchLongPress();
+public:
+    InputSwitchLongPress(Params &p);
+    ~InputSwitchLongPress();
 
-                virtual DATA_TYPE get_type() { return TINT; }
-                virtual double get_value_double() { return value; }
-                virtual void force_input_double(double v);
+    virtual DATA_TYPE get_type() { return TINT; }
+    virtual double get_value_double() { return value; }
+    virtual void force_input_double(double v);
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

@@ -22,58 +22,58 @@
 
 ThreadManager& ThreadManager::Instance()
 {
-        static ThreadManager tm;
-        return tm;
+    static ThreadManager tm;
+    return tm;
 }
 
 ThreadManager::~ThreadManager()
 {
-        if(threads.size()!=0)
-        {
-                string s;
+    if(threads.size()!=0)
+    {
+        string s;
 
-                vector<CThread* >::iterator iter;
-                for (iter = threads.begin();iter!=threads.end();iter++)
-                        s+=Utils::to_string(*iter)+", ";
+        vector<CThread* >::iterator iter;
+        for (iter = threads.begin();iter!=threads.end();iter++)
+            s+=Utils::to_string(*iter)+", ";
 
-                cErrorDom("threads") << "These threads are not terminated : " << s;
-        }
+        cErrorDom("threads") << "These threads are not terminated : " << s;
+    }
 
-        IPC::Instance().DeleteHandler(signal);
-        conn.disconnect();
+    IPC::Instance().DeleteHandler(signal);
+    conn.disconnect();
 }
 
 ThreadManager::ThreadManager()
 {
-        conn = signal.connect(sigc::mem_fun(*this, &ThreadManager::deleteThread));
-        IPC::Instance().AddHandler("threads","deleteThread",signal,NULL);
+    conn = signal.connect(sigc::mem_fun(*this, &ThreadManager::deleteThread));
+    IPC::Instance().AddHandler("threads","deleteThread",signal,NULL);
 }
 
 void ThreadManager::add(CThread* t)
 {
-        threads.push_back(t);
-        cInfoDom("threads") << "Add new thread : " << t;
+    threads.push_back(t);
+    cInfoDom("threads") << "Add new thread : " << t;
 }
 
 void ThreadManager::deleteThread(string source, string s, void* listener_data, void* t)
 {
-        CThread* c = (CThread*) t;
+    CThread* c = (CThread*) t;
 
-        vector<CThread* >::iterator iter;
-        for (iter = threads.begin();iter!=threads.end();iter++)
-        {
-                if (*iter == t) break;
-        }
+    vector<CThread* >::iterator iter;
+    for (iter = threads.begin();iter!=threads.end();iter++)
+    {
+        if (*iter == t) break;
+    }
 
-        if(iter==threads.end())
-        {
-                cErrorDom("threads") << "Try to delete the thread " << t << " but it doesn't exists in the threads list";
-                return ;
-        }
+    if(iter==threads.end())
+    {
+        cErrorDom("threads") << "Try to delete the thread " << t << " but it doesn't exists in the threads list";
+        return ;
+    }
 
-        threads.erase(iter);
+    threads.erase(iter);
 
-        cInfoDom("threads") << "Deleting thread : " << c;
+    cInfoDom("threads") << "Deleting thread : " << c;
 
-        delete c;
+    delete c;
 }

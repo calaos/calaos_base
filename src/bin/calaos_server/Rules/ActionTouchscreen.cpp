@@ -23,60 +23,60 @@
 using namespace Calaos;
 
 ActionTouchscreen::ActionTouchscreen():
-                Action(ACTION_TOUCHSCREEN),
-                econ(NULL)
+    Action(ACTION_TOUCHSCREEN),
+    econ(NULL)
 {
-        econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
+    econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
+    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
 }
 
 ActionTouchscreen::ActionTouchscreen(string _action): Action(ACTION_TOUCHSCREEN), action(_action)
 {
-        econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
+    econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
+    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
 }
 
 ActionTouchscreen::~ActionTouchscreen()
 {
-        ecore_con_server_del(econ);
+    ecore_con_server_del(econ);
 
-        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::~ActionTouchscreen(): Ok";
+    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::~ActionTouchscreen(): Ok";
 }
 
 bool ActionTouchscreen::Execute()
 {
-        if (action.substr(0, 9) == "show,cam,")
-        {
-                ecore_con_server_send(econ, action.c_str(), action.size());
+    if (action.substr(0, 9) == "show,cam,")
+    {
+        ecore_con_server_send(econ, action.c_str(), action.size());
 
-                cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Show camera";
+        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Show camera";
 
-                return true;
-        }
-        else
-        {
-                cWarningDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Unknown action !";
-        }
+        return true;
+    }
+    else
+    {
+        cWarningDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Unknown action !";
+    }
 
-        return false;
+    return false;
 }
 
 bool ActionTouchscreen::LoadFromXml(TiXmlElement *pnode)
 {
-        if (pnode->Attribute("action"))
-                action = pnode->Attribute("action");
+    if (pnode->Attribute("action"))
+        action = pnode->Attribute("action");
 
-        return true;
+    return true;
 }
 
 bool ActionTouchscreen::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *action_node = new TiXmlElement("calaos:action");
-        action_node->SetAttribute("type", "touchscreen");
-        action_node->SetAttribute("action", action);
-        node->LinkEndChild(action_node);
+    TiXmlElement *action_node = new TiXmlElement("calaos:action");
+    action_node->SetAttribute("type", "touchscreen");
+    action_node->SetAttribute("action", action);
+    node->LinkEndChild(action_node);
 
-        return true;
+    return true;
 }

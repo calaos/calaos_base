@@ -33,23 +33,23 @@ using namespace Utils;
 
 class ActivityConfigController: public ActivityController
 {
-        private:
-                ActivityConfigMenuController *mainMenuController;
+private:
+    ActivityConfigMenuController *mainMenuController;
 
-                virtual void createView();
+    virtual void createView();
 
-                void menuIconClick(string icon);
-                void buttonClick(string button);
+    void menuIconClick(string icon);
+    void buttonClick(string button);
 
-                void controllerFinished(ActivityController *controller);
+    void controllerFinished(ActivityController *controller);
 
-        public:
-                ActivityConfigController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigController();
+public:
+    ActivityConfigController(Evas *evas, Evas_Object *parent);
+    ~ActivityConfigController();
 
-                void addSubController(ActivityController *controller);
+    void addSubController(ActivityController *controller);
 
-                void setButtonMode(string mode);
+    void setButtonMode(string mode);
 };
 
 #endif // ACTIVITYCONFIGCONTROLLER_H

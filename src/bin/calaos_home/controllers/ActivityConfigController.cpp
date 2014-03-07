@@ -25,98 +25,98 @@
 #include "ApplicationMain.h"
 
 ActivityConfigController::ActivityConfigController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityConfigController::~ActivityConfigController()
 {
-        DELETE_NULL(mainMenuController);
+    DELETE_NULL(mainMenuController);
 }
 
 void ActivityConfigController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
-        configView->button_clicked.connect(sigc::mem_fun(*this, &ActivityConfigController::buttonClick));
+    ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
+    configView->button_clicked.connect(sigc::mem_fun(*this, &ActivityConfigController::buttonClick));
 
-        mainMenuController = new ActivityConfigMenuController(evas, parent);
-        mainMenuController->menu_icon_click.connect(sigc::mem_fun(*this, &ActivityConfigController::menuIconClick));
-        configView->addView(mainMenuController->getView());
+    mainMenuController = new ActivityConfigMenuController(evas, parent);
+    mainMenuController->menu_icon_click.connect(sigc::mem_fun(*this, &ActivityConfigController::menuIconClick));
+    configView->addView(mainMenuController->getView());
 }
 
 void ActivityConfigController::menuIconClick(string icon)
 {
-        if (icon == "clock")
-        {
-                ActivityConfigClockController *controller = new ActivityConfigClockController(evas, parent, this);
-                addSubController(controller);
-                setButtonMode("mode,back");
-        }
-        else if (icon == "security")
-        {
-                ActivityConfigPasswordController *controller = new ActivityConfigPasswordController(evas, parent);
-                addSubController(controller);
-                setButtonMode("mode,back");
-        }
-        else if (icon == "screensaver")
-        {
-                ActivityConfigScreensaverController *controller = new ActivityConfigScreensaverController(evas, parent);
-                addSubController(controller);
-                setButtonMode("mode,back");
-        }
+    if (icon == "clock")
+    {
+        ActivityConfigClockController *controller = new ActivityConfigClockController(evas, parent, this);
+        addSubController(controller);
+        setButtonMode("mode,back");
+    }
+    else if (icon == "security")
+    {
+        ActivityConfigPasswordController *controller = new ActivityConfigPasswordController(evas, parent);
+        addSubController(controller);
+        setButtonMode("mode,back");
+    }
+    else if (icon == "screensaver")
+    {
+        ActivityConfigScreensaverController *controller = new ActivityConfigScreensaverController(evas, parent);
+        addSubController(controller);
+        setButtonMode("mode,back");
+    }
 }
 
 void ActivityConfigController::buttonClick(string button)
 {
-        ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
+    ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
 
-        if (configView->getTopView()->controller)
-        {
-                if (configView->getTopView()->controller->handleButtonClick(button))
-                        return;
-        }
+    if (configView->getTopView()->controller)
+    {
+        if (configView->getTopView()->controller->handleButtonClick(button))
+            return;
+    }
 
-        if (button != "button.back") return;
+    if (button != "button.back") return;
 
-        configView->EmitSignal("mode,menu", "calaos");
+    configView->EmitSignal("mode,menu", "calaos");
 
-        if (configView->getTopView() != mainMenuController->getView())
-        {
-                configView->removeTopView();
-                configView->setPartText("header.label", configView->getTopView()->getTitle());
+    if (configView->getTopView() != mainMenuController->getView())
+    {
+        configView->removeTopView();
+        configView->setPartText("header.label", configView->getTopView()->getTitle());
 
-                //Enable view reactivates view elements (camera video streams, ...)
-                ActivityView *_view = reinterpret_cast<ActivityView *>(configView->getTopView());
-                if (_view) _view->EnableView();
-        }
+        //Enable view reactivates view elements (camera video streams, ...)
+        ActivityView *_view = reinterpret_cast<ActivityView *>(configView->getTopView());
+        if (_view) _view->EnableView();
+    }
 }
 
 void ActivityConfigController::addSubController(ActivityController *controller)
 {
-        ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
-        controller->view_deleted.connect(sigc::mem_fun(*this, &ActivityConfigController::controllerFinished));
+    ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
+    controller->view_deleted.connect(sigc::mem_fun(*this, &ActivityConfigController::controllerFinished));
 
-        //Disable view disactivates view elements (camera video streams, ...)
-        ActivityView *_view = reinterpret_cast<ActivityView *>(configView->getTopView());
-        if (_view) _view->DisableView();
+    //Disable view disactivates view elements (camera video streams, ...)
+    ActivityView *_view = reinterpret_cast<ActivityView *>(configView->getTopView());
+    if (_view) _view->DisableView();
 
-        configView->addView(controller->getView());
-        configView->setPartText("header.label", controller->getView()->getTitle());
+    configView->addView(controller->getView());
+    configView->setPartText("header.label", controller->getView()->getTitle());
 }
 
 void ActivityConfigController::controllerFinished(ActivityController *controller)
 {
-        DELETE_NULL(controller);
+    DELETE_NULL(controller);
 }
 
 void ActivityConfigController::setButtonMode(string mode)
 {
-        ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
-        configView->EmitSignal(mode, "calaos");
+    ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
+    configView->EmitSignal(mode, "calaos");
 }
 

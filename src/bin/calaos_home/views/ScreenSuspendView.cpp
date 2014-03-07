@@ -24,73 +24,73 @@
 
 static void _window_resize_cb(void *data, Evas *e, Evas_Object *obj, void *event_info)
 {
-        ScreenSuspendView *view = reinterpret_cast<ScreenSuspendView *>(data);
-        if (view)
-                view->ResizeCb();
+    ScreenSuspendView *view = reinterpret_cast<ScreenSuspendView *>(data);
+    if (view)
+        view->ResizeCb();
 }
 
 ScreenSuspendView::ScreenSuspendView(Evas *_e, Evas_Object *p):
-        EdjeObject(ApplicationMain::getTheme(), _e),
-        parent(p)
+    EdjeObject(ApplicationMain::getTheme(), _e),
+    parent(p)
 {
-        evas_object_data_set(edje, "ScreenSuspendView", this);
+    evas_object_data_set(edje, "ScreenSuspendView", this);
 
-        try
+    try
+    {
+        LoadEdje("calaos/screen_suspend");
+    }
+    catch(exception const& e)
+    {
+        cCritical() <<  "ScreenSuspendView: Can't load edje";
+        throw;
+    }
+
+    Move(0, 0);
+    setLayer(5000);
+
+    evas_object_event_callback_add(parent, EVAS_CALLBACK_RESIZE, _window_resize_cb, this);
+
+    object_signal.connect(sigc::mem_fun(*this, &ScreenSuspendView::edjeCallback));
+
+    ScreenManager::instance().wakeup_screen.connect([=]()
+    {
+        EmitSignal("now,wakeup", "calaos");
+        EmitSignal("event,repeat,activate", "calaos");
+        is_during_wakeup = false;
+    });
+
+    ScreenManager::instance().wakeup_screen_start.connect([=]()
+    {
+        if(is_during_wakeup)
+            return;
+
+        EmitSignal("start,wakeup", "calaos");
+        is_during_wakeup = true;
+
+        if(Utils::get_config_option("dpms_block") == "true")
         {
-                LoadEdje("calaos/screen_suspend");
+            //TODO, use a pin code instead of the full password here
+            //and show a PIN code keyboard only with numbers
+            //                        ApplicationMain::Instance().ShowKeyboard(
+            //                                                _("Locked screen, please enter your password to unlock."),
+            //                                                sigc::mem_fun(*this, &ScreenSuspendView::keyboardCallback),
+            //                                                false
+            //                        );
         }
-        catch(exception const& e)
-        {
-                cCritical() <<  "ScreenSuspendView: Can't load edje";
-                throw;
-        }
+    });
 
-        Move(0, 0);
-        setLayer(5000);
+    ScreenManager::instance().suspend_screen.connect([=]()
+    {
+        //TOFIX
+        //ApplicationMain::Instance().ForceCloseKeyboard();
+    });
 
-        evas_object_event_callback_add(parent, EVAS_CALLBACK_RESIZE, _window_resize_cb, this);
-
-        object_signal.connect(sigc::mem_fun(*this, &ScreenSuspendView::edjeCallback));
-
-        ScreenManager::instance().wakeup_screen.connect([=]()
-        {
-                EmitSignal("now,wakeup", "calaos");
-                EmitSignal("event,repeat,activate", "calaos");
-                is_during_wakeup = false;
-        });
-
-        ScreenManager::instance().wakeup_screen_start.connect([=]()
-        {
-                if(is_during_wakeup)
-                        return;
-
-                EmitSignal("start,wakeup", "calaos");
-                is_during_wakeup = true;
-
-                if(Utils::get_config_option("dpms_block") == "true")
-                {
-                        //TODO, use a pin code instead of the full password here
-                        //and show a PIN code keyboard only with numbers
-//                        ApplicationMain::Instance().ShowKeyboard(
-//                                                _("Locked screen, please enter your password to unlock."),
-//                                                sigc::mem_fun(*this, &ScreenSuspendView::keyboardCallback),
-//                                                false
-//                        );
-                }
-        });
-
-        ScreenManager::instance().suspend_screen.connect([=]()
-        {
-                //TOFIX
-                //ApplicationMain::Instance().ForceCloseKeyboard();
-        });
-
-        ScreenManager::instance().suspend_screen_start.connect([=]()
-        {
-                EmitSignal("event,repeat,deactivate", "calaos");
-                EmitSignal("start,suspend", "calaos");
-                is_during_suspend = true;
-        });
+    ScreenManager::instance().suspend_screen_start.connect([=]()
+    {
+        EmitSignal("event,repeat,deactivate", "calaos");
+        EmitSignal("start,suspend", "calaos");
+        is_during_suspend = true;
+    });
 }
 
 ScreenSuspendView::~ScreenSuspendView()
@@ -99,49 +99,49 @@ ScreenSuspendView::~ScreenSuspendView()
 
 void ScreenSuspendView::ResizeCb()
 {
-        Evas_Coord w, h;
+    Evas_Coord w, h;
 
-        evas_object_geometry_get(parent, NULL, NULL, &w, &h);
-        Resize(w, h);
-        Move(0, 0);
+    evas_object_geometry_get(parent, NULL, NULL, &w, &h);
+    Resize(w, h);
+    Move(0, 0);
 }
 
 void ScreenSuspendView::edjeCallback(void *data, Evas_Object *obj, string emission, string source)
 {
-        if (!is_during_wakeup)
-                ScreenManager::instance().updateTimer();
+    if (!is_during_wakeup)
+        ScreenManager::instance().updateTimer();
 
-        if (emission == "event,repeat,deactivate" ||
-            emission == "start,suspend" ||
-            emission == "event,repeat,activate" ||
-            emission == "start,wakeup" ||
-            emission == "start,suspend,stop" ||
-            emission == "now,wakeup" ||
-            (is_during_suspend && emission == "mouse,in"))
-        {
-                return ;
-        }
+    if (emission == "event,repeat,deactivate" ||
+        emission == "start,suspend" ||
+        emission == "event,repeat,activate" ||
+        emission == "start,wakeup" ||
+        emission == "start,suspend,stop" ||
+        emission == "now,wakeup" ||
+        (is_during_suspend && emission == "mouse,in"))
+    {
+        return ;
+    }
 
-        if (is_during_suspend && source == "object" && emission == "end,suspend")
-        {
-                ScreenManager::instance().suspendNow();
-                is_during_suspend = false;
+    if (is_during_suspend && source == "object" && emission == "end,suspend")
+    {
+        ScreenManager::instance().suspendNow();
+        is_during_suspend = false;
 
-                ecore_exe_run("killall -9 eskiss", NULL);
-        }
-        else if (is_during_wakeup && source == "object" && emission == "end,wakeup")
-        {
-                ScreenManager::instance().wakeUpNowWhenScreenOn();
-        }
-        else if (is_during_suspend)
-        {
-                EmitSignal("event,repeat,activate", "calaos");
-                EmitSignal("start,suspend,stop", "calaos");
-                EmitSignal("now,wakeup", "calaos");
+        ecore_exe_run("killall -9 eskiss", NULL);
+    }
+    else if (is_during_wakeup && source == "object" && emission == "end,wakeup")
+    {
+        ScreenManager::instance().wakeUpNowWhenScreenOn();
+    }
+    else if (is_during_suspend)
+    {
+        EmitSignal("event,repeat,activate", "calaos");
+        EmitSignal("start,suspend,stop", "calaos");
+        EmitSignal("now,wakeup", "calaos");
 
-                is_during_suspend = false;
-                ScreenManager::instance().wakeUpNowWhenScreenOn();
-        }
+        is_during_suspend = false;
+        ScreenManager::instance().wakeUpNowWhenScreenOn();
+    }
 }
 
 //void ScreenSuspendView::keyboardCallback(string txt)

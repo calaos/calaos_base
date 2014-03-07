@@ -31,19 +31,19 @@ namespace Calaos
 
 class ZibaseDigitalIn : public InputSwitch, public sigc::trackable
 {
-        protected:
-                std::string host;
-                int port;
-                std::string id;            
-                bool val;
-                void valueUpdated(ZibaseInfoSensor *sensor);
-                ZibaseInfoSensor::eZibaseSensor sensor_type;
+protected:
+    std::string host;
+    int port;
+    std::string id;
+    bool val;
+    void valueUpdated(ZibaseInfoSensor *sensor);
+    ZibaseInfoSensor::eZibaseSensor sensor_type;
 
-                virtual bool readValue();
+    virtual bool readValue();
 
-        public:
-                ZibaseDigitalIn(Params &p);
-                virtual ~ZibaseDigitalIn();
+public:
+    ZibaseDigitalIn(Params &p);
+    virtual ~ZibaseDigitalIn();
 };
 
 }

@@ -23,37 +23,37 @@
 using namespace Calaos;
 
 AudioPlayer::AudioPlayer(Params &p):
-                param(p),
-                database(NULL)
+    param(p),
+    database(NULL)
 {
-        Params pio = param;
+    Params pio = param;
 
-        pio.Add("id", param["oid"]);
-        pio.Add("type", "AudioOutput");
-        aoutput = new AudioOutput(pio, this);
+    pio.Add("id", param["oid"]);
+    pio.Add("type", "AudioOutput");
+    aoutput = new AudioOutput(pio, this);
 
-        pio.Add("id", param["iid"]);
-        pio.Add("type", "AudioInput");
-        ainput = new AudioInput(pio, this);
+    pio.Add("id", param["iid"]);
+    pio.Add("type", "AudioInput");
+    ainput = new AudioInput(pio, this);
 }
 
 AudioPlayer::~AudioPlayer()
 {
-        delete aoutput;
-        delete ainput;
+    delete aoutput;
+    delete ainput;
 }
 
 bool AudioPlayer::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cnode = new TiXmlElement("calaos:audio");
-        node->LinkEndChild(cnode);
+    TiXmlElement *cnode = new TiXmlElement("calaos:audio");
+    node->LinkEndChild(cnode);
 
-        for (int i = 0;i < get_params().size();i++)
-        {
-                string key, value;
-                param.get_item(i, key, value);
-                cnode->SetAttribute(key, value);
-        }
+    for (int i = 0;i < get_params().size();i++)
+    {
+        string key, value;
+        param.get_item(i, key, value);
+        cnode->SetAttribute(key, value);
+    }
 
-        return true;
+    return true;
 }

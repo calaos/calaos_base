@@ -15,95 +15,95 @@ static int base64_initialized = 0;
 int base64_value[BASE64_VALUE_SZ];
 const char base64_code[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-        static void
+static void
 base64_init(void)
 {
-        int i;
+    int i;
 
-        for (i = 0; i < BASE64_VALUE_SZ; i++)
-                base64_value[i] = -1;
+    for (i = 0; i < BASE64_VALUE_SZ; i++)
+        base64_value[i] = -1;
 
-        for (i = 0; i < 64; i++)
-                base64_value[(int) base64_code[i]] = i;
-        base64_value['='] = 0;
+    for (i = 0; i < 64; i++)
+        base64_value[(int) base64_code[i]] = i;
+    base64_value['='] = 0;
 
-        base64_initialized = 1;
+    base64_initialized = 1;
 }
 
-        char *
+char *
 base64_decode(const char *p)
 {
-        static char result[BASE64_RESULT_SZ];
-        int j;
-        int c;
-        long val;
-        if (!p)
-                return NULL;
-        if (!base64_initialized)
-                base64_init();
+    static char result[BASE64_RESULT_SZ];
+    int j;
+    int c;
+    long val;
+    if (!p)
+        return NULL;
+    if (!base64_initialized)
+        base64_init();
+    val = c = 0;
+    for (j = 0; *p && j + 4 < BASE64_RESULT_SZ; p++) {
+        unsigned int k = ((unsigned char) *p) % BASE64_VALUE_SZ;
+        if (base64_value[k] < 0)
+            continue;
+        val <<= 6;
+        val += base64_value[k];
+        if (++c < 4)
+            continue;
+        /* One quantum of four encoding characters/24 bit */
+        result[j++] = val >> 16;        /* High 8 bits */
+        result[j++] = (val >> 8) & 0xff;        /* Mid 8 bits */
+        result[j++] = val & 0xff;       /* Low 8 bits */
         val = c = 0;
-        for (j = 0; *p && j + 4 < BASE64_RESULT_SZ; p++) {
-                unsigned int k = ((unsigned char) *p) % BASE64_VALUE_SZ;
-                if (base64_value[k] < 0)
-                        continue;
-                val <<= 6;
-                val += base64_value[k];
-                if (++c < 4)
-                        continue;
-                /* One quantum of four encoding characters/24 bit */
-                result[j++] = val >> 16;        /* High 8 bits */
-                result[j++] = (val >> 8) & 0xff;        /* Mid 8 bits */
-                result[j++] = val & 0xff;       /* Low 8 bits */
-                val = c = 0;
-        }
-        result[j] = 0;
-        return result;
+    }
+    result[j] = 0;
+    return result;
 }
 
 /* adopted from http://ftp.sunet.se/pub2/gnu/vm/base64-encode.c with adjustments */
-        const char *
+const char *
 base64_encode(const char *decoded_str, int s_size)
 {
-        static char result[BASE64_RESULT_SZ];
-        int bits = 0;
-        int char_count = 0;
-        int out_cnt = 0;
-        int c,i;
+    static char result[BASE64_RESULT_SZ];
+    int bits = 0;
+    int char_count = 0;
+    int out_cnt = 0;
+    int c,i;
 
-        if (!decoded_str)
-                return decoded_str;
+    if (!decoded_str)
+        return decoded_str;
 
-        if (!base64_initialized)
-                base64_init();
+    if (!base64_initialized)
+        base64_init();
 
-        /*     while ((c = (unsigned char) *decoded_str++) && out_cnt < sizeof(result) - 5) { */
-        for (i = 0;i < s_size && out_cnt < (int)sizeof(result) - 5;i++) {
-                c = (unsigned char) *decoded_str++;
-                bits += c;
-                char_count++;
-                if (char_count == 3) {
-                        result[out_cnt++] = base64_code[bits >> 18];
-                        result[out_cnt++] = base64_code[(bits >> 12) & 0x3f];
-                        result[out_cnt++] = base64_code[(bits >> 6) & 0x3f];
-                        result[out_cnt++] = base64_code[bits & 0x3f];
-                        bits = 0;
-                        char_count = 0;
-                } else {
-                        bits <<= 8;
-                }
+    /*     while ((c = (unsigned char) *decoded_str++) && out_cnt < sizeof(result) - 5) { */
+    for (i = 0;i < s_size && out_cnt < (int)sizeof(result) - 5;i++) {
+        c = (unsigned char) *decoded_str++;
+        bits += c;
+        char_count++;
+        if (char_count == 3) {
+            result[out_cnt++] = base64_code[bits >> 18];
+            result[out_cnt++] = base64_code[(bits >> 12) & 0x3f];
+            result[out_cnt++] = base64_code[(bits >> 6) & 0x3f];
+            result[out_cnt++] = base64_code[bits & 0x3f];
+            bits = 0;
+            char_count = 0;
+        } else {
+            bits <<= 8;
         }
-        if (char_count != 0) {
-                bits <<= 16 - (8 * char_count);
-                result[out_cnt++] = base64_code[bits >> 18];
-                result[out_cnt++] = base64_code[(bits >> 12) & 0x3f];
-                if (char_count == 1) {
-                        result[out_cnt++] = '=';
-                        result[out_cnt++] = '=';
-                } else {
-                        result[out_cnt++] = base64_code[(bits >> 6) & 0x3f];
-                        result[out_cnt++] = '=';
-                }
+    }
+    if (char_count != 0) {
+        bits <<= 16 - (8 * char_count);
+        result[out_cnt++] = base64_code[bits >> 18];
+        result[out_cnt++] = base64_code[(bits >> 12) & 0x3f];
+        if (char_count == 1) {
+            result[out_cnt++] = '=';
+            result[out_cnt++] = '=';
+        } else {
+            result[out_cnt++] = base64_code[(bits >> 6) & 0x3f];
+            result[out_cnt++] = '=';
         }
-        result[out_cnt] = '\0';     /* terminate */
-        return result;
+    }
+    result[out_cnt] = '\0';     /* terminate */
+    return result;
 }

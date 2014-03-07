@@ -29,64 +29,64 @@ using namespace Utils;
 
 //This macro is used to add a C callback for elementary buttons on items
 #define ITEM_BUTTON_CALLBACK(_class, it_name) \
-static void _item_button_##it_name(void *data, Evas_Object *obj, void *event_info) \
+    static void _item_button_##it_name(void *data, Evas_Object *obj, void *event_info) \
 { _class *c = reinterpret_cast<_class *>(data); if (data) c->buttonClick##it_name(); }
 
 class GenlistItemBase: public sigc::trackable
 {
-        protected:
-                Evas *evas;
-                Evas_Object *parent;
-                Evas_Object *genlist;
+protected:
+    Evas *evas;
+    Evas_Object *parent;
+    Evas_Object *genlist;
 
-                Elm_Object_Item *item;
+    Elm_Object_Item *item;
 
-                Elm_Genlist_Item_Class item_class;
-                string style;
+    Elm_Genlist_Item_Class item_class;
+    string style;
 
-                void *user_data;
-                Elm_Genlist_Item_Type flags;
+    void *user_data;
+    Elm_Genlist_Item_Type flags;
 
-                DeletorBase *autodel_userdata;
+    DeletorBase *autodel_userdata;
 
-                virtual void itemAdded() {} //item was added to a genlist
+    virtual void itemAdded() {} //item was added to a genlist
 
-        public:
-                GenlistItemBase(Evas *evas, Evas_Object *parent, string style, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE, void *select_user_data = NULL);
-                virtual ~GenlistItemBase();
+public:
+    GenlistItemBase(Evas *evas, Evas_Object *parent, string style, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE, void *select_user_data = NULL);
+    virtual ~GenlistItemBase();
 
-                //Add item to genlist
-                void Append(Evas_Object *genlist, GenlistItemBase *gparent = NULL);
-                void Prepend(Evas_Object *genlist, GenlistItemBase *gparent = NULL);
-                void InsertBefore(Evas_Object *genlist, GenlistItemBase *before, GenlistItemBase *gparent = NULL);
-                void InsertAfter(Evas_Object *genlist, GenlistItemBase *after, GenlistItemBase *gparent = NULL);
+    //Add item to genlist
+    void Append(Evas_Object *genlist, GenlistItemBase *gparent = NULL);
+    void Prepend(Evas_Object *genlist, GenlistItemBase *gparent = NULL);
+    void InsertBefore(Evas_Object *genlist, GenlistItemBase *before, GenlistItemBase *gparent = NULL);
+    void InsertAfter(Evas_Object *genlist, GenlistItemBase *after, GenlistItemBase *gparent = NULL);
 
-                void RemoveItem() { elm_object_item_del(item); }
-                GenlistItemBase *getPreviousItem();
-                GenlistItemBase *getNextItem();
+    void RemoveItem() { elm_object_item_del(item); }
+    GenlistItemBase *getPreviousItem();
+    GenlistItemBase *getNextItem();
 
-                void ShowItem(Elm_Genlist_Item_Scrollto_Type type);
-                void BringInItem(Elm_Genlist_Item_Scrollto_Type type);
+    void ShowItem(Elm_Genlist_Item_Scrollto_Type type);
+    void BringInItem(Elm_Genlist_Item_Scrollto_Type type);
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
-                virtual bool getStateItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual bool getStateItem(Evas_Object *obj, string part);
 
-                void setSelected(bool sel) { elm_genlist_item_selected_set(item, sel); }
-                bool isSelected() { return elm_genlist_item_selected_get(item); }
+    void setSelected(bool sel) { elm_genlist_item_selected_set(item, sel); }
+    bool isSelected() { return elm_genlist_item_selected_get(item); }
 
-                void updateField(string part, Elm_Genlist_Item_Field_Type type) { elm_genlist_item_fields_update(item, part.c_str(),  type); }
+    void updateField(string part, Elm_Genlist_Item_Field_Type type) { elm_genlist_item_fields_update(item, part.c_str(),  type); }
 
-                sigc::signal<void, void *> item_selected;
+    sigc::signal<void, void *> item_selected;
 
-                void setUserData(void *data) { user_data = data; }
-                void *getUserData() { return user_data; }
-                void setAutoDeleteUserData(DeletorBase *how_to_delete_user_data) { autodel_userdata = how_to_delete_user_data; }
+    void setUserData(void *data) { user_data = data; }
+    void *getUserData() { return user_data; }
+    void setAutoDeleteUserData(DeletorBase *how_to_delete_user_data) { autodel_userdata = how_to_delete_user_data; }
 
-                void itemEmitSignal(string signal, string source);
+    void itemEmitSignal(string signal, string source);
 
-                //Used by C callback
-                void emitSelectedSignal();
+    //Used by C callback
+    void emitSelectedSignal();
 };
 
 #endif // GENLISTITEMBASE_H

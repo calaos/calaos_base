@@ -31,73 +31,73 @@ using namespace Utils;
 
 class ActivityScheduleScenarioView: public ActivityView
 {
-        private:
-                TimeRangeInfos range_infos;
+private:
+    TimeRangeInfos range_infos;
 
-                Evas_Object *schedule_list, *month_list;
+    Evas_Object *schedule_list, *month_list;
 
-                GenlistItemSimple *item_all;
-                vector<GenlistItemSimple *> items_months;
-                vector<GenlistItemSimple *> items_periods;
+    GenlistItemSimple *item_all;
+    vector<GenlistItemSimple *> items_months;
+    vector<GenlistItemSimple *> items_periods;
 
-                Evas_Object *popup;
-                Evas_Object *pager_popup;
+    Evas_Object *popup;
+    Evas_Object *pager_popup;
 
-                Evas_Object *spin_start_hours;
-                Evas_Object *spin_start_min;
-                Evas_Object *spin_start_sec;
+    Evas_Object *spin_start_hours;
+    Evas_Object *spin_start_min;
+    Evas_Object *spin_start_sec;
 
-                Evas_Object *spin_end_hours;
-                Evas_Object *spin_end_min;
-                Evas_Object *spin_end_sec;
+    Evas_Object *spin_end_hours;
+    Evas_Object *spin_end_min;
+    Evas_Object *spin_end_sec;
 
-                vector<GenlistItemSimple *> week_days;
+    vector<GenlistItemSimple *> week_days;
 
-                //store current data we are editing, also used to set default value
-                TimeRange edit_range;
+    //store current data we are editing, also used to set default value
+    TimeRange edit_range;
 
-                enum { EDIT_START_TYPE = 0, EDIT_START_TIME, EDIT_START_OFFSET, EDIT_START_TIME_OFFSET,
-                       EDIT_END_TYPE, EDIT_END_TIME, EDIT_END_OFFSET, EDIT_END_TIME_OFFSET,
-                       EDIT_WEEK};
-                int editState;
+    enum { EDIT_START_TYPE = 0, EDIT_START_TIME, EDIT_START_OFFSET, EDIT_START_TIME_OFFSET,
+           EDIT_END_TYPE, EDIT_END_TIME, EDIT_END_OFFSET, EDIT_END_TIME_OFFSET,
+           EDIT_WEEK};
+    int editState;
 
-                stack<int> editStatesHist;
+    stack<int> editStatesHist;
 
-                bool cycle;
+    bool cycle;
 
-                void showTimeRangePopup();
+    void showTimeRangePopup();
 
-                void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void itemAllYearSelected(void *data);
-                void itemMonthSelected(void *data, GenlistItemSimple *item);
-                void itemPeriodSelected(void *data, GenlistItemSimple *item);
+    void itemAllYearSelected(void *data);
+    void itemMonthSelected(void *data, GenlistItemSimple *item);
+    void itemPeriodSelected(void *data, GenlistItemSimple *item);
 
-                void reloadTimeRanges();
+    void reloadTimeRanges();
 
-                void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void buttonValidWeekClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void buttonHeaderBackClick(string button);
+    void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonValidWeekClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonHeaderBackClick(string button);
 
-                void unselectWeekDays(void *data);
-                void unselectAllWeekDays(void *data);
-                void headerWeekButtonClick(string bt);
+    void unselectWeekDays(void *data);
+    void unselectAllWeekDays(void *data);
+    void headerWeekButtonClick(string bt);
 
-                void createTimeSelectTypeList(void *data, Evas_Object *edje_object, string emission, string source);
-                void selectTimeType(void *data);
-                void showTimeSelection(void *data);
-                void showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source);
+    void createTimeSelectTypeList(void *data, Evas_Object *edje_object, string emission, string source);
+    void selectTimeType(void *data);
+    void showTimeSelection(void *data);
+    void showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source);
 
-        public:
-                ActivityScheduleScenarioView(Evas *evas, Evas_Object *parent);
-                ~ActivityScheduleScenarioView();
+public:
+    ActivityScheduleScenarioView(Evas *evas, Evas_Object *parent);
+    ~ActivityScheduleScenarioView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void setTimeRangeInfos(TimeRangeInfos &tr, bool _cycle) { range_infos = tr; reloadTimeRanges(); cycle = _cycle; }
+    void setTimeRangeInfos(TimeRangeInfos &tr, bool _cycle) { range_infos = tr; reloadTimeRanges(); cycle = _cycle; }
 
-                sigc::signal<void, TimeRangeInfos &> buttonValidPressed;
+    sigc::signal<void, TimeRangeInfos &> buttonValidPressed;
 };
 
 #endif // ActivityScheduleScenarioView_H

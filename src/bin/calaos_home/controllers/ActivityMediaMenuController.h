@@ -31,14 +31,14 @@ using namespace Utils;
 
 class ActivityMediaMenuController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-        public:
-                ActivityMediaMenuController(Evas *evas, Evas_Object *parent);
-                ~ActivityMediaMenuController();
+public:
+    ActivityMediaMenuController(Evas *evas, Evas_Object *parent);
+    ~ActivityMediaMenuController();
 
-                sigc::signal<void, string> menu_icon_click;
+    sigc::signal<void, string> menu_icon_click;
 };
 
 #endif // ACTIVITYMEDIAMENUCONTROLLER_H

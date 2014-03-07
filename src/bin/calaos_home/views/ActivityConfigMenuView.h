@@ -29,19 +29,19 @@ using namespace Utils;
 
 class ActivityConfigMenuView: public ActivityView
 {
-        private:
-                Evas_Object *grid;
-                Evas_Object *naviframe;
+private:
+    Evas_Object *grid;
+    Evas_Object *naviframe;
 
-        public:
-                ActivityConfigMenuView(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigMenuView();
+public:
+    ActivityConfigMenuView(Evas *evas, Evas_Object *parent);
+    ~ActivityConfigMenuView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                virtual string getTitle() { return _("Configuration center"); }
+    virtual string getTitle() { return _("Configuration center"); }
 
-                sigc::signal<void, string> menu_item_clicked;
+    sigc::signal<void, string> menu_item_clicked;
 };
 
 #endif // ACTIVITYCONFIGMENUVIEW_H

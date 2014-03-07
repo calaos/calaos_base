@@ -36,18 +36,18 @@
 #include "IO/IOWOVoletSmartHomeView.h"
 
 IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string _collection):
-        BaseView(_evas, _parent),
-        IOBaseElement(_io)
+    BaseView(_evas, _parent),
+    IOBaseElement(_io)
 {
-        try
-        {
-                LoadEdje(_collection);
-        }
-        catch (exception const &e)
-        {
-                cCritical() <<  "IOView: Can't load edje";
-                throw;
-        }
+    try
+    {
+        LoadEdje(_collection);
+    }
+    catch (exception const &e)
+    {
+        cCritical() <<  "IOView: Can't load edje";
+        throw;
+    }
 }
 
 IOView::~IOView()
@@ -55,41 +55,41 @@ IOView::~IOView()
 }
 
 IOBaseElement::IOBaseElement(IOBase *_io):
-        io(_io)
+    io(_io)
 {
-        if (io)
-        {
-                con_deleted = io->io_deleted.connect(sigc::mem_fun(*this, &IOBaseElement::ioDeleted));
-                con_changed = io->io_changed.connect(sigc::mem_fun(*this, &IOBaseElement::updateView));
-        }
+    if (io)
+    {
+        con_deleted = io->io_deleted.connect(sigc::mem_fun(*this, &IOBaseElement::ioDeleted));
+        con_changed = io->io_changed.connect(sigc::mem_fun(*this, &IOBaseElement::updateView));
+    }
 }
 
 IOBaseElement::~IOBaseElement()
 {
-        if (io)
-        {
-                con_deleted.disconnect();
-                con_changed.disconnect();
-        }
+    if (io)
+    {
+        con_deleted.disconnect();
+        con_changed.disconnect();
+    }
 }
 
 void IOBaseElement::setIO(IOBase *_io)
 {
-        io = _io;
+    io = _io;
 
-        if (io)
-        {
-                con_deleted = io->io_deleted.connect(sigc::mem_fun(*this, &IOBaseElement::ioDeleted));
-                con_changed = io->io_changed.connect(sigc::mem_fun(*this, &IOBaseElement::updateView));
-        }
+    if (io)
+    {
+        con_deleted = io->io_deleted.connect(sigc::mem_fun(*this, &IOBaseElement::ioDeleted));
+        con_changed = io->io_changed.connect(sigc::mem_fun(*this, &IOBaseElement::updateView));
+    }
 
-        updateView();
+    updateView();
 }
 
 void IOBaseElement::ioDeleted()
 {
-        io = NULL;
-        updateView();
+    io = NULL;
+    updateView();
 }
 
 void IOBaseElement::initView()
@@ -98,51 +98,51 @@ void IOBaseElement::initView()
 
 IOView *IOViewFactory::CreateIOView(Evas *evas, Evas_Object *parent, IOBase *io, int type)
 {
-        switch (type)
-        {
-        default:
-        case IOView::IO_NONE: return NULL; break;
-        case IOView::IO_SCENARIO_HOME: return new IOScenarioHomeView(evas, parent, io); break;
-        }
+    switch (type)
+    {
+    default:
+    case IOView::IO_NONE: return NULL; break;
+    case IOView::IO_SCENARIO_HOME: return new IOScenarioHomeView(evas, parent, io); break;
+    }
 }
 
 IOView *IOViewFactory::CreateIOView(Evas *evas, Evas_Object *parent, int type)
 {
-        return CreateIOView(evas, parent, NULL, type);
+    return CreateIOView(evas, parent, NULL, type);
 }
 
 IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *parent, IOBase *io, Evas_Object *genlist, string style_addition, GenlistItemBase *gparent)
 {
-        IOBaseElement *element = NULL;
+    IOBaseElement *element = NULL;
 
-        if (io->params["gui_type"] == "light")
-                element = new IOWODigitalHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "scenario")
-                element = new IOGenlistScenarioHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "light_dimmer")
-                element = new IOWODaliHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "light_rgb")
-                element = new IOWODaliRVBHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "var_bool")
-                element = new IOInternalBoolHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "var_int")
-                element = new IOInternalIntHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "var_string")
-                element = new IOInternalStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "analog_in")
-                element = new IOWIAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "analog_out")
-                element = new IOWOAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "temp")
-                element = new IOWITempHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "shutter")
-                element = new IOWOVoletHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
-        else if (io->params["gui_type"] == "shutter_smart")
-                element = new IOWOVoletSmartHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    if (io->params["gui_type"] == "light")
+        element = new IOWODigitalHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "scenario")
+        element = new IOGenlistScenarioHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "light_dimmer")
+        element = new IOWODaliHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "light_rgb")
+        element = new IOWODaliRVBHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "var_bool")
+        element = new IOInternalBoolHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "var_int")
+        element = new IOInternalIntHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "var_string")
+        element = new IOInternalStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "analog_in")
+        element = new IOWIAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "analog_out")
+        element = new IOWOAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "temp")
+        element = new IOWITempHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "shutter")
+        element = new IOWOVoletHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "shutter_smart")
+        element = new IOWOVoletSmartHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
 
-        GenlistItemBase *item = dynamic_cast<GenlistItemBase *>(element);
-        if (item)
-                item->Append(genlist, gparent);
+    GenlistItemBase *item = dynamic_cast<GenlistItemBase *>(element);
+    if (item)
+        item->Append(genlist, gparent);
 
-        return element;
+    return element;
 }

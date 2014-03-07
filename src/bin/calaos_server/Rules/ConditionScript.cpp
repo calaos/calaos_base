@@ -24,73 +24,73 @@
 using namespace Calaos;
 
 ConditionScript::ConditionScript():
-        Condition(COND_SCRIPT)
+    Condition(COND_SCRIPT)
 {
-        cDebugDom("rule.condition.script") <<  "ConditionScript::ConditionScript(): New Script condition";
+    cDebugDom("rule.condition.script") <<  "ConditionScript::ConditionScript(): New Script condition";
 }
 
 ConditionScript::~ConditionScript()
 {
-        cDebugDom("rule.condition.script") <<  "ConditionScript::~ConditionScript(): Ok";
+    cDebugDom("rule.condition.script") <<  "ConditionScript::~ConditionScript(): Ok";
 }
 
 bool ConditionScript::Evaluate()
 {
-        return ScriptManager::Instance().ExecuteScript(script);
+    return ScriptManager::Instance().ExecuteScript(script);
 }
 
 bool ConditionScript::LoadFromXml(TiXmlElement *node)
 {
-        TiXmlElement *sc_node = node->FirstChildElement();
-        if (!sc_node) return false;
+    TiXmlElement *sc_node = node->FirstChildElement();
+    if (!sc_node) return false;
 
-        for (;sc_node;sc_node = sc_node->NextSiblingElement())
+    for (;sc_node;sc_node = sc_node->NextSiblingElement())
+    {
+        if (sc_node->ValueStr() == "calaos:script")
         {
-                if (sc_node->ValueStr() == "calaos:script")
-                {
-                        string type = "";
-                        if (sc_node->Attribute("type"))
-                                type = sc_node->Attribute("type");
-                        if (type == "lua")
-                        {
-                                TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
+            string type = "";
+            if (sc_node->Attribute("type"))
+                type = sc_node->Attribute("type");
+            if (type == "lua")
+            {
+                TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
 
-                                if (tnode)
-                                        script = tnode->ValueStr();
-                        }
-                }
-                else if (sc_node->ValueStr() == "calaos:input" &&
-                         sc_node->Attribute("id"))
-                {
-                        string id = sc_node->Attribute("id");
-                        Input *in = ListeRoom::Instance().get_input(id);
-                        if (in) in_event.push_back(in);
-                }
+                if (tnode)
+                    script = tnode->ValueStr();
+            }
         }
+        else if (sc_node->ValueStr() == "calaos:input" &&
+                 sc_node->Attribute("id"))
+        {
+            string id = sc_node->Attribute("id");
+            Input *in = ListeRoom::Instance().get_input(id);
+            if (in) in_event.push_back(in);
+        }
+    }
 
-        return true;
+    return true;
 }
 
 bool ConditionScript::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-        cond_node->SetAttribute("type", "script");
-        node->LinkEndChild(cond_node);
+    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
+    cond_node->SetAttribute("type", "script");
+    node->LinkEndChild(cond_node);
 
-        for (uint i = 0;i < in_event.size();i++)
-        {
-                TiXmlElement *in_node = new TiXmlElement("calaos:input");
-                in_node->SetAttribute("id", in_event[i]->get_param("id"));
-                cond_node->LinkEndChild(in_node);
-        }
+    for (uint i = 0;i < in_event.size();i++)
+    {
+        TiXmlElement *in_node = new TiXmlElement("calaos:input");
+        in_node->SetAttribute("id", in_event[i]->get_param("id"));
+        cond_node->LinkEndChild(in_node);
+    }
 
-        TiXmlElement *sc_node = new TiXmlElement("calaos:script");
-        sc_node->SetAttribute("type", "lua");
-        cond_node->LinkEndChild(sc_node);
+    TiXmlElement *sc_node = new TiXmlElement("calaos:script");
+    sc_node->SetAttribute("type", "lua");
+    cond_node->LinkEndChild(sc_node);
 
-        TiXmlText *txt_node = new TiXmlText(script);
-        txt_node->SetCDATA(true);
-        sc_node->LinkEndChild(txt_node);
+    TiXmlText *txt_node = new TiXmlText(script);
+    txt_node->SetCDATA(true);
+    sc_node->LinkEndChild(txt_node);
 
-        return true;
+    return true;
 }

@@ -23,10 +23,10 @@
 #include <ApplicationMain.h>
 
 GengridItemConfig::GengridItemConfig(Evas *_evas, Evas_Object *_parent, string _label, string style_addition, void *data):
-        GengridItemBase(_evas, _parent,
-                        "config" + string((style_addition != "")? "/" + style_addition:""),
-                        data),
-        label(_label)
+    GengridItemBase(_evas, _parent,
+                    "config" + string((style_addition != "")? "/" + style_addition:""),
+                    data),
+    label(_label)
 {
 }
 
@@ -36,6 +36,6 @@ GengridItemConfig::~GengridItemConfig()
 
 string GengridItemConfig::getLabelItem(Evas_Object *obj, string part)
 {
-        return label;
+    return label;
 }
 

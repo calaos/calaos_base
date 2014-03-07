@@ -31,19 +31,19 @@ namespace Calaos
 
 class CamServer: public CThread
 {
-        protected:
-                int port;
-                TCPSocket *socket;
-                vector<CamConnection *> connections;
-                bool quit;
+protected:
+    int port;
+    TCPSocket *socket;
+    vector<CamConnection *> connections;
+    bool quit;
 
-        public:
-                CamServer(int port); //port to listen
-                ~CamServer();
+public:
+    CamServer(int port); //port to listen
+    ~CamServer();
 
-                virtual void ThreadProc(); //redefined
+    virtual void ThreadProc(); //redefined
 
-                void Clean();
+    void Clean();
 };
 
 }

@@ -22,9 +22,9 @@
 #include "IOScenarioHomeView.h"
 
 IOScenarioHomeView::IOScenarioHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io):
-        IOView(_evas, _parent, _io, "calaos/element/scenario_home")
+    IOView(_evas, _parent, _io, "calaos/element/scenario_home")
 {
-        addCallback("object", "go", sigc::mem_fun(*this, &IOScenarioHomeView::clickScenario));
+    addCallback("object", "go", sigc::mem_fun(*this, &IOScenarioHomeView::clickScenario));
 }
 
 IOScenarioHomeView::~IOScenarioHomeView()
@@ -33,59 +33,59 @@ IOScenarioHomeView::~IOScenarioHomeView()
 
 void IOScenarioHomeView::initView()
 {
-        if (io)
-        {
-                EmitSignal("show,normal", "calaos");
-        }
-        else
-        {
-                EmitSignal("show,empty", "calaos");
-                EmitSignal("scenario,false", "calaos");
-        }
+    if (io)
+    {
+        EmitSignal("show,normal", "calaos");
+    }
+    else
+    {
+        EmitSignal("show,empty", "calaos");
+        EmitSignal("scenario,false", "calaos");
+    }
 
-        updateView();
+    updateView();
 }
 
 void IOScenarioHomeView::updateView()
 {
-        if (io)
+    if (io)
+    {
+        setPartText("object.text", io->params["name"]);
+
+        //Don't change button state if it's not a SimpleScenario
+        if (io->params["ioBoolState"] == "")
+            return;
+
+        //Only send signal if state really changed.
+        //Without that hack it breaks edje animation for state change
+        if (io->params["state"] != state)
         {
-                setPartText("object.text", io->params["name"]);
+            if (io->params["state"] == "true")
+                EmitSignal("scenario,true", "calaos");
+            else
+                EmitSignal("scenario,false", "calaos");
 
-                //Don't change button state if it's not a SimpleScenario
-                if (io->params["ioBoolState"] == "")
-                        return;
-
-                //Only send signal if state really changed.
-                //Without that hack it breaks edje animation for state change
-                if (io->params["state"] != state)
-                {
-                        if (io->params["state"] == "true")
-                                EmitSignal("scenario,true", "calaos");
-                        else
-                                EmitSignal("scenario,false", "calaos");
-
-                        state = io->params["state"];
-                }
+            state = io->params["state"];
         }
+    }
 }
 
 void IOScenarioHomeView::clickScenario(void *data, Evas_Object *edje_object, string emission, string source)
 {
-        if (!io) return;
+    if (!io) return;
 
-        io->sendAction("true");
+    io->sendAction("true");
 
-        if (io->params["ioBoolState"] == "")
-        {
-                EmitSignal("scenario,true", "calaos");
+    if (io->params["ioBoolState"] == "")
+    {
+        EmitSignal("scenario,true", "calaos");
 
-                //If it's not a SimpleScenario, just flash button when user click it.
-                EcoreTimer::singleShot(0.7, sigc::mem_fun(*this, &IOScenarioHomeView::clickFlashButton_cb));
-        }
+        //If it's not a SimpleScenario, just flash button when user click it.
+        EcoreTimer::singleShot(0.7, sigc::mem_fun(*this, &IOScenarioHomeView::clickFlashButton_cb));
+    }
 }
 
 void IOScenarioHomeView::clickFlashButton_cb()
 {
-        EmitSignal("scenario,false", "calaos");
+    EmitSignal("scenario,false", "calaos");
 }

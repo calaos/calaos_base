@@ -34,21 +34,21 @@ typedef sigc::signal<void, string> ActivityKeyboardSig;
 
 class ActivityKeyboardController: public ActivityController
 {
-        private:
-                bool multiline;
-                string subtitle;
-                ActivityKeyboardCb callback;
-                int type; //0 to get a UTF-8 string and 1 to keep evas textblock markup instead
+private:
+    bool multiline;
+    string subtitle;
+    ActivityKeyboardCb callback;
+    int type; //0 to get a UTF-8 string and 1 to keep evas textblock markup instead
 
-                virtual void createView();
+    virtual void createView();
 
-                void validButtonPressed(string text);
+    void validButtonPressed(string text);
 
-        public:
-                ActivityKeyboardController(Evas *evas, Evas_Object *parent, string subtitle, ActivityKeyboardCb callback, bool multiline, int type);
-                ~ActivityKeyboardController();
+public:
+    ActivityKeyboardController(Evas *evas, Evas_Object *parent, string subtitle, ActivityKeyboardCb callback, bool multiline, int type);
+    ~ActivityKeyboardController();
 
-                void setText(string t);
+    void setText(string t);
 };
 
 #endif // ActivityKeyboardController_H

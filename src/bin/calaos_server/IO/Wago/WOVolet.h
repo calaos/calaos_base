@@ -29,20 +29,20 @@ namespace Calaos
 
 class WOVolet : public OutputShutter
 {
-        private:
-                int up_address, down_address;
-                std::string host;
-                int port;
+private:
+    int up_address, down_address;
+    std::string host;
+    int port;
 
-                virtual void setOutputUp(bool enable);
-                virtual void setOutputDown(bool enable);
+    virtual void setOutputUp(bool enable);
+    virtual void setOutputDown(bool enable);
 
-                void readConfig();
-                void WagoWriteCallback(bool status, UWord address, bool value);
+    void readConfig();
+    void WagoWriteCallback(bool status, UWord address, bool value);
 
-        public:
-                WOVolet(Params &p);
-                ~WOVolet();
+public:
+    WOVolet(Params &p);
+    ~WOVolet();
 };
 
 }

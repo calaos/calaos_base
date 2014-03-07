@@ -21,54 +21,54 @@
 #include "ActivityController.h"
 
 ActivityController::ActivityController(Evas *e, Evas_Object *p, int v):
-        evas(e),
-        parent(p),
-        viewType(v),
-        view(NULL)
+    evas(e),
+    parent(p),
+    viewType(v),
+    view(NULL)
 {
 }
 
 ActivityController::~ActivityController()
 {
-        DELETE_NULL(view);
+    DELETE_NULL(view);
 }
 
 BaseView *ActivityController::getView()
 {
-        createView();
+    createView();
 
-        return dynamic_cast<BaseView *>(view);
+    return dynamic_cast<BaseView *>(view);
 }
 
 void ActivityController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        try
-        {
-                view = ActivityViewFactory::CreateView(evas, parent, viewType);
-        }
-        catch (exception const& e)
-        {
-                cCritical() <<  "ActivityController: Can't create view !";
-                throw;
-        }
+    try
+    {
+        view = ActivityViewFactory::CreateView(evas, parent, viewType);
+    }
+    catch (exception const& e)
+    {
+        cCritical() <<  "ActivityController: Can't create view !";
+        throw;
+    }
 
-        view->activity_quit.connect(sigc::mem_fun(wants_quit, &sigc::signal<void>::emit));
-        view->view_deleted.connect(sigc::mem_fun(*this, &ActivityController::viewDeleted));
+    view->activity_quit.connect(sigc::mem_fun(wants_quit, &sigc::signal<void>::emit));
+    view->view_deleted.connect(sigc::mem_fun(*this, &ActivityController::viewDeleted));
 
-        view->controller = this;
+    view->controller = this;
 }
 
 void ActivityController::viewDeleted()
 {
-        view = NULL;
-        view_deleted.emit(this);
-        cDebug() <<  "ActivityController: view deleted";
+    view = NULL;
+    view_deleted.emit(this);
+    cDebug() <<  "ActivityController: view deleted";
 }
 
 void ActivityController::resetView()
 {
-        if (view)
-                view->resetView();
+    if (view)
+        view->resetView();
 }

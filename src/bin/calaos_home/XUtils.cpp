@@ -33,131 +33,131 @@
 void XUtils::UpdateDPMS(bool enable, int seconds)
 {
 #ifdef HAVE_ECORE_X
-        //X11 display
-        Display *x_display;
+    //X11 display
+    Display *x_display;
 
-        x_display = XOpenDisplay(":0");
+    x_display = XOpenDisplay(":0");
+    if (!x_display)
+    {
+        cWarning() <<  "XUtils::UpdateDPMS(): trying with $DISPLAY";
+        x_display = XOpenDisplay(NULL);
+
         if (!x_display)
         {
-                cWarning() <<  "XUtils::UpdateDPMS(): trying with $DISPLAY";
-                x_display = XOpenDisplay(NULL);
-
-                if (!x_display)
-                {
-                        cError() <<  "XUtils::UpdateDPMS(): Error opening X11 display";
-                        return;
-                }
+            cError() <<  "XUtils::UpdateDPMS(): Error opening X11 display";
+            return;
         }
+    }
 
-        if (!DPMSCapable(x_display))
+    if (!DPMSCapable(x_display))
+    {
+        cWarning() <<  "X display is not DPMS capable !";
+    }
+    else
+    {
+        if (enable)
         {
-                cWarning() <<  "X display is not DPMS capable !";
+            DPMSEnable(x_display);
+
+            int s1 = seconds - 4, s2 = seconds - 2, s3 = seconds;
+            if (s1 < 0) s1 = 0;
+            if (s2 < 0) s2 = 0;
+            if (s3 < 0) s3 = 0;
+
+            //set timeouts
+            DPMSSetTimeouts(x_display, s1, s2, s3);
         }
         else
-        {
-                if (enable)
-                {
-                        DPMSEnable(x_display);
+            DPMSDisable(x_display);
 
-                        int s1 = seconds - 4, s2 = seconds - 2, s3 = seconds;
-                        if (s1 < 0) s1 = 0;
-                        if (s2 < 0) s2 = 0;
-                        if (s3 < 0) s3 = 0;
+        XSetScreenSaver(x_display, 0, 0, 0, 0);
+    }
 
-                        //set timeouts
-                        DPMSSetTimeouts(x_display, s1, s2, s3);
-                }
-                else
-                        DPMSDisable(x_display);
-
-                XSetScreenSaver(x_display, 0, 0, 0, 0);
-        }
-
-        //Close the X11 connection
-        if (x_display)
-                XCloseDisplay(x_display);
+    //Close the X11 connection
+    if (x_display)
+        XCloseDisplay(x_display);
 #endif
 }
 
 void XUtils::WakeUpScreen(bool enable)
 {
 #ifdef HAVE_ECORE_X
-        //X11 display
-        Display *x_display;
+    //X11 display
+    Display *x_display;
 
-        x_display = XOpenDisplay(":0");
+    x_display = XOpenDisplay(":0");
+    if (!x_display)
+    {
+        cWarning() <<  "XUtils::WakeUpScreen(): trying with $DISPLAY";
+        x_display = XOpenDisplay(NULL);
+
         if (!x_display)
         {
-                cWarning() <<  "XUtils::WakeUpScreen(): trying with $DISPLAY";
-                x_display = XOpenDisplay(NULL);
-
-                if (!x_display)
-                {
-                        cError() <<  "XUtils::WakeUpScreen(): Error opening X11 display";
-                        return;
-                }
+            cError() <<  "XUtils::WakeUpScreen(): Error opening X11 display";
+            return;
         }
+    }
 
-        if (!DPMSCapable(x_display))
+    if (!DPMSCapable(x_display))
+    {
+        cWarning() <<  "X display is not DPMS capable !";
+    }
+    else
+    {
+        if (enable)
         {
-                cWarning() <<  "X display is not DPMS capable !";
+            DPMSForceLevel(x_display, DPMSModeOn);
         }
         else
         {
-                if (enable)
-                {
-                        DPMSForceLevel(x_display, DPMSModeOn);
-                }
-                else
-                {
-                        DPMSForceLevel(x_display, DPMSModeOff);
-                }
+            DPMSForceLevel(x_display, DPMSModeOff);
         }
+    }
 
-        //Close the X11 connection
-        if (x_display)
-                XCloseDisplay(x_display);
+    //Close the X11 connection
+    if (x_display)
+        XCloseDisplay(x_display);
 #endif
 }
 
 int XUtils::getDPMSInfo()
 {
 #ifdef HAVE_ECORE_X
-        //X11 display
-        Display *x_display;
-        int ret = DPMS_NOTAVAILABLE;
+    //X11 display
+    Display *x_display;
+    int ret = DPMS_NOTAVAILABLE;
 
-        x_display = XOpenDisplay(":0");
-        if (!x_display)
-                cError() <<  "XUtils::getDPMSInfo(): Error opening X11 display";
+    x_display = XOpenDisplay(":0");
+    if (!x_display)
+        cError() <<  "XUtils::getDPMSInfo(): Error opening X11 display";
 
-        if (!DPMSCapable(x_display))
-        {
-                cWarning() <<  "X display is not DPMS capable !";
-        }
+    if (!DPMSCapable(x_display))
+    {
+        cWarning() <<  "X display is not DPMS capable !";
+    }
+    else
+    {
+        CARD16 mode;
+        BOOL state;
+        DPMSInfo(x_display, &mode, &state);
+
+        if (!state)
+            ret = DPMS_DISABLED;
         else
         {
-                CARD16 mode;
-                BOOL state;
-                DPMSInfo(x_display, &mode, &state);
-
-                if (!state)
-                        ret = DPMS_DISABLED;
-                else
-                {
-                        if (mode == DPMSModeOn) ret = DPMS_ON;
-                        if (mode == DPMSModeOff) ret = DPMS_OFF;
-                        if (mode == DPMSModeStandby) ret = DPMS_STANDBY;
-                        if (mode == DPMSModeSuspend) ret = DPMS_SUSPEND;
-                }
+            if (mode == DPMSModeOn) ret = DPMS_ON;
+            if (mode == DPMSModeOff) ret = DPMS_OFF;
+            if (mode == DPMSModeStandby) ret = DPMS_STANDBY;
+            if (mode == DPMSModeSuspend) ret = DPMS_SUSPEND;
         }
+    }
 
-        //Close the X11 connection
-        if (x_display)
-                XCloseDisplay(x_display);
+    //Close the X11 connection
+    if (x_display)
+        XCloseDisplay(x_display);
 
-        return ret;
+    return ret;
 #endif
-	return 0;
+    return 0;
 }
 

@@ -27,31 +27,31 @@
 
 using namespace std;
 
-        class JsonApiServer
-        {
-                private:
-                        int port;
-                        Ecore_Con_Server *tcp_server;
-                        Ecore_Event_Handler *event_handler_client_add;
-                        Ecore_Event_Handler *event_handler_client_del;
-                        Ecore_Event_Handler *event_handler_data_get;
+class JsonApiServer
+{
+private:
+    int port;
+    Ecore_Con_Server *tcp_server;
+    Ecore_Event_Handler *event_handler_client_add;
+    Ecore_Event_Handler *event_handler_client_del;
+    Ecore_Event_Handler *event_handler_data_get;
 
-                        map<Ecore_Con_Client *, JsonApiClient *> connections;
+    map<Ecore_Con_Client *, JsonApiClient *> connections;
 
-                public:
-                        JsonApiServer(int port); //port to listen
-                        static JsonApiServer &Instance(int port)
-                        {
-                                static JsonApiServer server(port);
+public:
+    JsonApiServer(int port); //port to listen
+    static JsonApiServer &Instance(int port)
+    {
+        static JsonApiServer server(port);
 
-                                return server;
-                        }
-                        ~JsonApiServer();
+        return server;
+    }
+    ~JsonApiServer();
 
 
-                        /* Internal stuff used by ecore-con */
-                        void addConnection(Ecore_Con_Client *client);
-                        void delConnection(Ecore_Con_Client *client);
-                        void getDataConnection(Ecore_Con_Client *client, void *data, int size);
-        };
+    /* Internal stuff used by ecore-con */
+    void addConnection(Ecore_Con_Client *client);
+    void delConnection(Ecore_Con_Client *client);
+    void getDataConnection(Ecore_Con_Client *client, void *data, int size);
+};
 #endif

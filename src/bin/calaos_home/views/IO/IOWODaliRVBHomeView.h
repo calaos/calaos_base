@@ -28,40 +28,40 @@ using namespace Utils;
 
 class IOWODaliRVBHomeView: public GenlistItemBase, public IOBaseElement
 {
-        private:
-                virtual void ioDeleted();
+private:
+    virtual void ioDeleted();
 
-                EdjeObject *slider_red;
-                EdjeObject *slider_green;
-                EdjeObject *slider_blue;
-                Evas_Object *color_preview;
+    EdjeObject *slider_red;
+    EdjeObject *slider_green;
+    EdjeObject *slider_blue;
+    Evas_Object *color_preview;
 
-                void sliderRedObjectDeleted();
-                void sliderGreenObjectDeleted();
-                void sliderBlueObjectDeleted();
+    void sliderRedObjectDeleted();
+    void sliderGreenObjectDeleted();
+    void sliderBlueObjectDeleted();
 
-                void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
 
-        public:
-                IOWODaliRVBHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
-                virtual ~IOWODaliRVBHomeView();
+public:
+    IOWODaliRVBHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    virtual ~IOWODaliRVBHomeView();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                //Called when the real IO changed
-                virtual void initView();
-                virtual void updateView();
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-                void buttonClickOn();
-                void buttonClickOff();
+    void buttonClickOn();
+    void buttonClickOff();
 
-                void buttonClickRedMore();
-                void buttonClickRedLess();
-                void buttonClickGreenMore();
-                void buttonClickGreenLess();
-                void buttonClickBlueMore();
-                void buttonClickBlueLess();
+    void buttonClickRedMore();
+    void buttonClickRedLess();
+    void buttonClickGreenMore();
+    void buttonClickGreenLess();
+    void buttonClickBlueMore();
+    void buttonClickBlueLess();
 };
 
 #endif // IOWODALIRVBHOMEVIEW_H

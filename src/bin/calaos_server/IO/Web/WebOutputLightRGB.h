@@ -29,9 +29,9 @@ namespace Calaos
 
 class WebOutputLightRGB : public OutputLightRGB
 {
-        public:
-                WebOutputLightRGB(Params &p);
-                ~WebOutputLightRGB();
+public:
+    WebOutputLightRGB(Params &p);
+    ~WebOutputLightRGB();
 };
 
 }

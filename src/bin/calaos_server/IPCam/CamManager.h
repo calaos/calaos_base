@@ -29,20 +29,20 @@ namespace Calaos
 
 class CamManager
 {
-        private:
-                CamManager();
+private:
+    CamManager();
 
-                std::vector<IPCam *> ip_cams;
-        public:
-                static CamManager &Instance(); //Singleton
-                ~CamManager();
+    std::vector<IPCam *> ip_cams;
+public:
+    static CamManager &Instance(); //Singleton
+    ~CamManager();
 
-                void Add(IPCam *cam);
-                void Delete(int i);
-                void Delete(IPCam *obj)
-                        { ip_cams.erase(std::remove(ip_cams.begin(), ip_cams.end(), obj), ip_cams.end()); }
-                int get_size() { return ip_cams.size(); } //return the number of IP Cameras available
-                IPCam *get_camera(int i) { return ip_cams[i]; }
+    void Add(IPCam *cam);
+    void Delete(int i);
+    void Delete(IPCam *obj)
+    { ip_cams.erase(std::remove(ip_cams.begin(), ip_cams.end(), obj), ip_cams.end()); }
+    int get_size() { return ip_cams.size(); } //return the number of IP Cameras available
+    IPCam *get_camera(int i) { return ip_cams[i]; }
 };
 
 }

@@ -29,28 +29,28 @@ using namespace Utils;
 
 class CalaosEcoreFdHandler
 {
-        private:
-                Ecore_Fd_Handler *fdhandler;
+private:
+    Ecore_Fd_Handler *fdhandler;
 
-                sigc::signal<void, void *> event_signal_data;
-                sigc::signal<void> event_signal;
-                sigc::connection connection_data;
-                sigc::connection connection;
+    sigc::signal<void, void *> event_signal_data;
+    sigc::signal<void> event_signal;
+    sigc::connection connection_data;
+    sigc::connection connection;
 
-                int fd;
-                bool fdhandler_data;
+    int fd;
+    bool fdhandler_data;
 
-                void *data;
+    void *data;
 
-        public:
-                CalaosEcoreFdHandler(int fd, sigc::slot<void, void *> slot, void *data = NULL);
-                CalaosEcoreFdHandler(int fd, sigc::slot<void> slot);
-                ~CalaosEcoreFdHandler();
+public:
+    CalaosEcoreFdHandler(int fd, sigc::slot<void, void *> slot, void *data = NULL);
+    CalaosEcoreFdHandler(int fd, sigc::slot<void> slot);
+    ~CalaosEcoreFdHandler();
 
-                //private, used by ecore
-                void Tick();
+    //private, used by ecore
+    void Tick();
 
-                double getFd() { return fd; }
+    double getFd() { return fd; }
 };
 
 #endif

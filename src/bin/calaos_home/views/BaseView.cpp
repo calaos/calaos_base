@@ -23,19 +23,19 @@
 #include "ApplicationMain.h"
 
 BaseView::BaseView(Evas *_e, Evas_Object *_p):
-        EdjeObject(ApplicationMain::getTheme(), _e),
-        parent(_p),
-        controller(NULL)
+    EdjeObject(ApplicationMain::getTheme(), _e),
+    parent(_p),
+    controller(NULL)
 {
-        evas_object_data_set(edje, "BaseView", this);
+    evas_object_data_set(edje, "BaseView", this);
 }
 
 BaseView::~BaseView()
 {
-        view_deleted.emit();
+    view_deleted.emit();
 }
 
 void BaseView::objectDeleted()
 {
-        cDebug() <<  "BaseView: Edje object deleted (" << collection  << ")";
+    cDebug() <<  "BaseView: Edje object deleted (" << collection  << ")";
 }

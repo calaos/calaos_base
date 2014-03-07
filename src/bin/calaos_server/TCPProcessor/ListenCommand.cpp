@@ -24,18 +24,18 @@ using namespace Calaos;
 
 void TCPConnection::HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data)
 {
-        if (source != "events") return;
+    if (source != "events") return;
 
-        cDebug() <<  "TCPConnection::ListenCommand(): Sending event: " << emission;
+    cDebug() <<  "TCPConnection::ListenCommand(): Sending event: " << emission;
 
-        emission += terminator;
+    emission += terminator;
 
-        ecore_con_client_send(client_conn, emission.c_str(), emission.length());
+    ecore_con_client_send(client_conn, emission.c_str(), emission.length());
 }
 
 void TCPConnection::ListenCommand()
 {
-        //Attach the callback to IPC
-        sig_events.connect( sigc::mem_fun(*this, &TCPConnection::HandleEventsFromSignals) );
-        IPC::Instance().AddHandler("events", "*", sig_events);
+    //Attach the callback to IPC
+    sig_events.connect( sigc::mem_fun(*this, &TCPConnection::HandleEventsFromSignals) );
+    IPC::Instance().AddHandler("events", "*", sig_events);
 }

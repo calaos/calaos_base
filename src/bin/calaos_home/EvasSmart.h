@@ -26,38 +26,38 @@
 
 class EvasSmart
 {
-        protected:
-                //The main evas object
-                Evas_Object *evas_object;
+protected:
+    //The main evas object
+    Evas_Object *evas_object;
 
-                Evas_Smart *smart_object;
+    Evas_Smart *smart_object;
 
-                static Evas_Smart *EvasSmartClassCreate(string evas_smart_type);
+    static Evas_Smart *EvasSmartClassCreate(string evas_smart_type);
 
-                //Add a memmber Evas object to the smart object
-                void AddMemberObject(Evas_Object *obj)
-                        { evas_object_smart_member_add(obj, evas_object); member_count++; }
-                void DelMemberObject(Evas_Object *obj)
-                        { evas_object_smart_member_del(obj); member_count--; }
+    //Add a memmber Evas object to the smart object
+    void AddMemberObject(Evas_Object *obj)
+    { evas_object_smart_member_add(obj, evas_object); member_count++; }
+    void DelMemberObject(Evas_Object *obj)
+    { evas_object_smart_member_del(obj); member_count--; }
 
-                int member_count;
+    int member_count;
 
-        public:
-                EvasSmart(Evas *evas, string evas_smart_type);
-                virtual ~EvasSmart();
+public:
+    EvasSmart(Evas *evas, string evas_smart_type);
+    virtual ~EvasSmart();
 
-                virtual void SmartMove(int x, int y) { }
-                virtual void SmartResize(int w, int h) { }
-                virtual void SmartShow() { }
-                virtual void SmartHide() { }
-                virtual void SmartColorSet(int r, int g, int b, int a) { }
-                virtual void SmartClipSet(Evas_Object *clip) { }
-                virtual void SmartClipUnset() { }
-                virtual void SmartCalculate() { }
-                virtual void SmartMemberAdd(Evas_Object *child) { }
-                virtual void SmartMemberDel(Evas_Object *child) { }
+    virtual void SmartMove(int x, int y) { }
+    virtual void SmartResize(int w, int h) { }
+    virtual void SmartShow() { }
+    virtual void SmartHide() { }
+    virtual void SmartColorSet(int r, int g, int b, int a) { }
+    virtual void SmartClipSet(Evas_Object *clip) { }
+    virtual void SmartClipUnset() { }
+    virtual void SmartCalculate() { }
+    virtual void SmartMemberAdd(Evas_Object *child) { }
+    virtual void SmartMemberDel(Evas_Object *child) { }
 
-                Evas_Object *getSmartObject() { return evas_object; }
+    Evas_Object *getSmartObject() { return evas_object; }
 };
 
 #endif

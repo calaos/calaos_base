@@ -28,32 +28,32 @@ using namespace Utils;
 
 class IOWOVoletSmartHomeView: public GenlistItemBase, public IOBaseElement
 {
-        private:
-                virtual void ioDeleted();
+private:
+    virtual void ioDeleted();
 
-                EdjeObject *window_slider;
+    EdjeObject *window_slider;
 
-                void sliderObjectDeleted();
+    void sliderObjectDeleted();
 
-        public:
-                IOWOVoletSmartHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
-                virtual ~IOWOVoletSmartHomeView();
+public:
+    IOWOVoletSmartHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    virtual ~IOWOVoletSmartHomeView();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                //Called when the real IO changed
-                virtual void initView();
-                virtual void updateView();
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-                void buttonClickUp();
-                void buttonClickDown();
-                void buttonClickStop();
-                void buttonClickImpulseUp();
-                void buttonClickImpulseDown();
-                void buttonClickSet25();
-                void buttonClickSet50();
-                void buttonClickSet75();
+    void buttonClickUp();
+    void buttonClickDown();
+    void buttonClickStop();
+    void buttonClickImpulseUp();
+    void buttonClickImpulseDown();
+    void buttonClickSet25();
+    void buttonClickSet50();
+    void buttonClickSet75();
 };
 
 #endif // IOWOVOLETSMARTHOMEVIEW_H

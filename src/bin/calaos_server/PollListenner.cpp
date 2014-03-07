@@ -31,65 +31,65 @@ using kashmir::system::DevRand;
 using namespace Calaos;
 
 PollObject::PollObject(string _uuid):
-        uuid(_uuid),
-        timeout(NULL)
+    uuid(_uuid),
+    timeout(NULL)
 {
-        timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
+    timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
 
-        //Attach the callback to IPC
-        sig_events.connect( sigc::mem_fun(*this, &PollObject::HandleEventsFromSignals) );
-        IPC::Instance().AddHandler("events", "*", sig_events);
+    //Attach the callback to IPC
+    sig_events.connect( sigc::mem_fun(*this, &PollObject::HandleEventsFromSignals) );
+    IPC::Instance().AddHandler("events", "*", sig_events);
 
-        cDebugDom("poll_listener") << "PollObject: New object for " << uuid;
+    cDebugDom("poll_listener") << "PollObject: New object for " << uuid;
 }
 
 PollObject::~PollObject()
 {
-        if (timeout)
-        {
-                delete timeout;
-                timeout = NULL;
-        }
+    if (timeout)
+    {
+        delete timeout;
+        timeout = NULL;
+    }
 
-        IPC::Instance().DeleteHandler(sig_events);
+    IPC::Instance().DeleteHandler(sig_events);
 
-        cDebugDom("poll_listener") << "~PollObject: Cleaning object " << uuid;
+    cDebugDom("poll_listener") << "~PollObject: Cleaning object " << uuid;
 }
 
 void PollObject::HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data)
 {
-        vector<string> tokens;
-        split(emission, tokens, " ");
+    vector<string> tokens;
+    split(emission, tokens, " ");
 
-        if (tokens.size() < 3)
-                return;
+    if (tokens.size() < 3)
+        return;
 
-        string id = tokens[0] + ":" + tokens[1];
+    string id = tokens[0] + ":" + tokens[1];
 
-        cDebugDom("poll_listener") << "PollObject: Handling signal: " << id << " -> " << url_decode(tokens[2]);
+    cDebugDom("poll_listener") << "PollObject: Handling signal: " << id << " -> " << url_decode(tokens[2]);
 
-        events.Add(id, url_decode(tokens[2]));
+    events.Add(id, url_decode(tokens[2]));
 }
 
 Eina_Bool _timeout_poll_idler_cb(void *data)
 {
-        PollObject *obj = reinterpret_cast<PollObject *>(data);
-        if (!obj) return ECORE_CALLBACK_CANCEL;
+    PollObject *obj = reinterpret_cast<PollObject *>(data);
+    if (!obj) return ECORE_CALLBACK_CANCEL;
 
-        PollListenner::Instance().Unregister(obj->getUUID());
+    PollListenner::Instance().Unregister(obj->getUUID());
 
-        //delete the ecore_idler
-        return ECORE_CALLBACK_CANCEL;
+    //delete the ecore_idler
+    return ECORE_CALLBACK_CANCEL;
 }
 
 void PollObject::Timeout_cb()
 {
-        delete timeout;
-        timeout = NULL;
+    delete timeout;
+    timeout = NULL;
 
-        cDebugDom("poll_listener") << "PollObject: " << uuid << " Timeout !";
+    cDebugDom("poll_listener") << "PollObject: " << uuid << " Timeout !";
 
-        ecore_idler_add(_timeout_poll_idler_cb, this);
+    ecore_idler_add(_timeout_poll_idler_cb, this);
 }
 
 PollListenner::PollListenner()
@@ -102,59 +102,59 @@ PollListenner::~PollListenner()
 
 string PollListenner::Register()
 {
-        DevRand devrandom;
-        stringstream out;
+    DevRand devrandom;
+    stringstream out;
 
-        uuid_t _uuid;
-        devrandom >> _uuid;
-        out << _uuid;
+    uuid_t _uuid;
+    devrandom >> _uuid;
+    out << _uuid;
 
-        string uuid = out.str();
+    string uuid = out.str();
 
-        pollobjects[uuid] = new PollObject(uuid);
+    pollobjects[uuid] = new PollObject(uuid);
 
-        cDebugDom("poll_listener") << "PollListenner::Register uuid:" << uuid;
+    cDebugDom("poll_listener") << "PollListenner::Register uuid:" << uuid;
 
-        return uuid;
+    return uuid;
 }
 
 bool PollListenner::Unregister(string uuid)
 {
-        if (pollobjects.find(uuid) == pollobjects.end())
-        {
-                cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid << " not found ! ";
-                return false;
-        }
+    if (pollobjects.find(uuid) == pollobjects.end())
+    {
+        cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid << " not found ! ";
+        return false;
+    }
 
-        PollObject *o = pollobjects[uuid];
+    PollObject *o = pollobjects[uuid];
 
-        if (o)
-        {
-                delete o;
-                pollobjects[uuid] = NULL;
-        }
+    if (o)
+    {
+        delete o;
+        pollobjects[uuid] = NULL;
+    }
 
-        pollobjects.erase(uuid);
+    pollobjects.erase(uuid);
 
-        cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid;
+    cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid;
 
-        return true;
+    return true;
 }
 
 bool PollListenner::GetEvents(string uuid, Params &events)
 {
-        if (pollobjects.find(uuid) == pollobjects.end())
-        {
-                cDebugDom("poll_listener") << "PollListenner::GetEvents uuid:" << uuid << " not found ! ";
-                return false;
-        }
+    if (pollobjects.find(uuid) == pollobjects.end())
+    {
+        cDebugDom("poll_listener") << "PollListenner::GetEvents uuid:" << uuid << " not found ! ";
+        return false;
+    }
 
-        PollObject *o = pollobjects[uuid];
+    PollObject *o = pollobjects[uuid];
 
-        events = o->getEvents();
+    events = o->getEvents();
 
-        o->getEvents().clear();
-        o->ResetTimer();
+    o->getEvents().clear();
+    o->ResetTimer();
 
-        return true;
+    return true;
 }

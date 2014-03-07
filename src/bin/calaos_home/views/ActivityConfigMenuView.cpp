@@ -30,7 +30,7 @@
 #include "tcpsocket.h"
 
 ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/config/menu")
+    ActivityView(_e, _parent, "calaos/config/menu")
 {
 
     setPartText("tab1.text", _("Resume"));
@@ -48,13 +48,13 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
 
     struct sysinfo info;
     sysinfo(&info);
-    long days = info.uptime / 60 / 60 / 24; 
+    long days = info.uptime / 60 / 60 / 24;
     string uptime;
     uptime = to_string(days);
-    if (days == 1) 
-            uptime += _(" day");
+    if (days == 1)
+        uptime += _(" day");
     else
-            uptime += _(" days");
+        uptime += _(" days");
 
     setPartText("tab1.uptime", uptime.c_str());
     

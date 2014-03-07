@@ -23,63 +23,63 @@
 using namespace Calaos;
 
 WIDigitalLong::WIDigitalLong(Params &p):
-                InputSwitchLongPress(p),
-                port(502)
+    InputSwitchLongPress(p),
+    port(502)
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    Utils::from_string(get_param("var"), address);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalLong::ReceiveFromWago) );
-        cDebugDom("input") << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok";
+    iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalLong::ReceiveFromWago) );
+    cDebugDom("input") << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok";
 }
 
 WIDigitalLong::~WIDigitalLong()
 {
-        iter->disconnect();
-        cDebugDom("input") << "WIDigitalLong::~WIDigitalLong(): Ok";
+    iter->disconnect();
+    cDebugDom("input") << "WIDigitalLong::~WIDigitalLong(): Ok";
 }
 
 void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
 {
-        if (ip == host && addr == address)
+    if (ip == host && addr == address)
+    {
+        if ((intype == "std" && get_param("knx") != "true") ||
+            (intype == "knx" && get_param("knx") == "true"))
         {
-                if ((intype == "std" && get_param("knx") != "true") ||
-                    (intype == "knx" && get_param("knx") == "true"))
-                {
-                        cInfoDom("input") << "WIDigitalLong::ReceiveFromWago(): Got "
-                                               << Utils::to_string(val) << " on " << intype << " input " << addr
-                                              ;
+            cInfoDom("input") << "WIDigitalLong::ReceiveFromWago(): Got "
+                              << Utils::to_string(val) << " on " << intype << " input " << addr
+                                 ;
 
-                        udp_value = val;
-                        hasChanged();
-                }
+            udp_value = val;
+            hasChanged();
         }
+    }
 }
 
 void WIDigitalLong::WagoReadCallback(bool status, UWord addr, int nb, vector<bool> &values)
 {
-        if (!status)
-        {
-                cErrorDom("input") << "WIDigitalLong(" << get_param("id") << "): Failed to read value";
-                return;
-        }
+    if (!status)
+    {
+        cErrorDom("input") << "WIDigitalLong(" << get_param("id") << "): Failed to read value";
+        return;
+    }
 }
 
 bool WIDigitalLong::readValue()
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    Utils::from_string(get_param("var"), address);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        if (get_param("knx") != "true")
-        {
-                //Force to reconnect in case of disconnection
-                //WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalLong::WagoReadCallback));
-        }
+    if (get_param("knx") != "true")
+    {
+        //Force to reconnect in case of disconnection
+        //WagoMap::Instance(host, port).read_bits((UWord)address, 1, sigc::mem_fun(*this, &WIDigitalLong::WagoReadCallback));
+    }
 
-        return udp_value;
+    return udp_value;
 }
 

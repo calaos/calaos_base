@@ -24,34 +24,34 @@
 using namespace Calaos;
 
 OutputFake::OutputFake(Params &p):
-                Output(p),
-                value(false)
+    Output(p),
+    value(false)
 {
-        cInfoDom("output") << "OutputFake::OutputFake(" << get_param("id") << "): Ok";
+    cInfoDom("output") << "OutputFake::OutputFake(" << get_param("id") << "): Ok";
 
-        set_param("visible", "false");
+    set_param("visible", "false");
 }
 
 OutputFake::~OutputFake()
 {
-        cInfoDom("output") << "OutputFake::~OutputFake(): Ok";
+    cInfoDom("output") << "OutputFake::~OutputFake(): Ok";
 }
 
 bool OutputFake::set_value(bool val)
 {
-        value = val;
+    value = val;
 
-        cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False");
+    cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False");
 
-        string sig = "output ";
-        sig += get_param("id") + " ";
-        if (val)
-                sig += Utils::url_encode(string("state:true"));
-        else
-                sig += Utils::url_encode(string("state:false"));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "output ";
+    sig += get_param("id") + " ";
+    if (val)
+        sig += Utils::url_encode(string("state:true"));
+    else
+        sig += Utils::url_encode(string("state:false"));
+    IPC::Instance().SendEvent("events", sig);
 
-        EmitSignalOutput();
+    EmitSignalOutput();
 
-        return true;
+    return true;
 }

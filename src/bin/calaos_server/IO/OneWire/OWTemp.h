@@ -28,16 +28,16 @@ namespace Calaos
 
 class OWTemp : public InputTemp
 {
-        protected:
-                std::string ow_id;
-                std::string ow_req;
-                std::string ow_args;
+protected:
+    std::string ow_id;
+    std::string ow_req;
+    std::string ow_args;
 
-                virtual void readValue();
+    virtual void readValue();
 
-        public:
-                OWTemp(Params &p);
-                ~OWTemp();
+public:
+    OWTemp(Params &p);
+    ~OWTemp();
 };
 
 }

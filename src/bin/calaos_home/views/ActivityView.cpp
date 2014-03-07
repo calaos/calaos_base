@@ -45,38 +45,38 @@
 
 static void _elm_button_quit(void *data, Evas_Object *obj, void *event_info)
 {
-        ActivityView *ac = reinterpret_cast<ActivityView *>(data);
-        if (!ac) return;
+    ActivityView *ac = reinterpret_cast<ActivityView *>(data);
+    if (!ac) return;
 
-        ac->_button_quit_clicked();
+    ac->_button_quit_clicked();
 }
 
 ActivityView::ActivityView(Evas *_e, Evas_Object *_parent):
-        BaseView(_e, _parent)
+    BaseView(_e, _parent)
 {
 }
 
 ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, string _collection):
-        BaseView(_e, _parent),
-        box_buttons(NULL),
-        button_quit(NULL)
+    BaseView(_e, _parent),
+    box_buttons(NULL),
+    button_quit(NULL)
 {
-        try
-        {
-                LoadEdje(_collection);
-        }
-        catch(exception const& e)
-        {
-                cCritical() <<  "ActivityView: Can't load edje";
-                throw;
-        }
+    try
+    {
+        LoadEdje(_collection);
+    }
+    catch(exception const& e)
+    {
+        cCritical() <<  "ActivityView: Can't load edje";
+        throw;
+    }
 
-        if (edje_object_part_exists(edje, "button.quit"))
-        {
-                button_quit = edje_object_part_external_object_get(edje, "button.quit");
-                elm_object_text_set(button_quit, _("Quit"));
-                evas_object_smart_callback_add(button_quit, "clicked", _elm_button_quit, this);
-        }
+    if (edje_object_part_exists(edje, "button.quit"))
+    {
+        button_quit = edje_object_part_external_object_get(edje, "button.quit");
+        elm_object_text_set(button_quit, _("Quit"));
+        evas_object_smart_callback_add(button_quit, "clicked", _elm_button_quit, this);
+    }
 }
 
 ActivityView::~ActivityView()
@@ -85,75 +85,75 @@ ActivityView::~ActivityView()
 
 void ActivityView::_button_quit_clicked()
 {
-        activity_quit.emit();
+    activity_quit.emit();
 }
 
 ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, int viewType)
 {
-        ActivityView *view = NULL;
+    ActivityView *view = NULL;
 
-        try
+    try
+    {
+        switch (viewType)
         {
-                switch (viewType)
-                {
-                case ACTIVITY_VIEW_HOME: view = new ActivityHomeView(evas, parent); break;
-                case ACTIVITY_VIEW_MEDIA: view = new ActivityMediaView(evas, parent); break;
-                case ACTIVITY_VIEW_SCENARIOS: view = new ActivityScenariosView(evas, parent); break;
-                case ACTIVITY_VIEW_CONFIG: view = new ActivityConfigView(evas, parent); break;
-                case ACTIVITY_VIEW_CONFIG_MENU: view = new ActivityConfigMenuView(evas, parent); break;
-                case ACTIVITY_VIEW_CONFIG_CLOCK: view = new ActivityConfigClockView(evas, parent); break;
-                case ACTIVITY_VIEW_CONFIG_PASSWORD: view = new ActivityConfigPasswordView(evas, parent); break;
-                case ACTIVITY_VIEW_CONFIG_SCREENSAVER: view = new ActivityConfigScreensaverView(evas, parent); break;
-                case ACTIVITY_VIEW_MEDIA_MENU: view = new ActivityMediaMenuView(evas, parent); break;
-                case ACTIVITY_VIEW_CAMERA_LIST: view = new ActivityCameraListView(evas, parent); break;
-                case ACTIVITY_VIEW_CAMERA_SELECT: view = new ActivityCameraSelectView(evas, parent); break;
-                case ACTIVITY_VIEW_AUDIO_LIST: view = new ActivityAudioListView(evas, parent); break;
-                case ACTIVITY_VIEW_WIDGETS: view = new ActivityWidgetsView(evas, parent); break;
-                case ACTIVITY_VIEW_KEYBOARD: view = new ActivityKeyboardView(evas, parent); break;
-                case ACTIVITY_VIEW_WEB: view = new ActivityWebView(evas, parent); break;
-                case ACTIVITY_VIEW_EDIT_SCENARIO: view = new ActivityEditScenarioView(evas, parent); break;
-                case ACTIVITY_VIEW_SCHEDULE_SCENARIO: view = new ActivityScheduleScenarioView(evas, parent); break;
-                default:
-                case ACTIVITY_VIEW_NONE: break;
-                }
+        case ACTIVITY_VIEW_HOME: view = new ActivityHomeView(evas, parent); break;
+        case ACTIVITY_VIEW_MEDIA: view = new ActivityMediaView(evas, parent); break;
+        case ACTIVITY_VIEW_SCENARIOS: view = new ActivityScenariosView(evas, parent); break;
+        case ACTIVITY_VIEW_CONFIG: view = new ActivityConfigView(evas, parent); break;
+        case ACTIVITY_VIEW_CONFIG_MENU: view = new ActivityConfigMenuView(evas, parent); break;
+        case ACTIVITY_VIEW_CONFIG_CLOCK: view = new ActivityConfigClockView(evas, parent); break;
+        case ACTIVITY_VIEW_CONFIG_PASSWORD: view = new ActivityConfigPasswordView(evas, parent); break;
+        case ACTIVITY_VIEW_CONFIG_SCREENSAVER: view = new ActivityConfigScreensaverView(evas, parent); break;
+        case ACTIVITY_VIEW_MEDIA_MENU: view = new ActivityMediaMenuView(evas, parent); break;
+        case ACTIVITY_VIEW_CAMERA_LIST: view = new ActivityCameraListView(evas, parent); break;
+        case ACTIVITY_VIEW_CAMERA_SELECT: view = new ActivityCameraSelectView(evas, parent); break;
+        case ACTIVITY_VIEW_AUDIO_LIST: view = new ActivityAudioListView(evas, parent); break;
+        case ACTIVITY_VIEW_WIDGETS: view = new ActivityWidgetsView(evas, parent); break;
+        case ACTIVITY_VIEW_KEYBOARD: view = new ActivityKeyboardView(evas, parent); break;
+        case ACTIVITY_VIEW_WEB: view = new ActivityWebView(evas, parent); break;
+        case ACTIVITY_VIEW_EDIT_SCENARIO: view = new ActivityEditScenarioView(evas, parent); break;
+        case ACTIVITY_VIEW_SCHEDULE_SCENARIO: view = new ActivityScheduleScenarioView(evas, parent); break;
+        default:
+        case ACTIVITY_VIEW_NONE: break;
         }
-        catch (exception const& e)
-        {
-                cCritical() <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType);
-                throw;
-        }
+    }
+    catch (exception const& e)
+    {
+        cCritical() <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType);
+        throw;
+    }
 
-        if (!view)
-        {
-                cCritical() <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType);
-                throw;
-        }
+    if (!view)
+    {
+        cCritical() <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType);
+        throw;
+    }
 
-        return view;
+    return view;
 }
 
 string ActivityViewFactory::viewTypeString(int viewType)
 {
-        switch (viewType)
-        {
-                case ACTIVITY_VIEW_HOME: return "ActivityHomeView";
-                case ACTIVITY_VIEW_MEDIA: return "ActivityMediaView";
-                case ACTIVITY_VIEW_SCENARIOS: return "ActivityScenariosView";
-                case ACTIVITY_VIEW_CONFIG: return "ActivityConfigView";
-                case ACTIVITY_VIEW_CONFIG_MENU: return "ActivityConfigMenuView";
-                case ACTIVITY_VIEW_CONFIG_CLOCK: return "ActivityConfigClockView";
-                case ACTIVITY_VIEW_CONFIG_PASSWORD: return "ActivityConfigPasswordView";
-                case ACTIVITY_VIEW_CONFIG_SCREENSAVER: return "ActivityConfigScreensaverView";
-                case ACTIVITY_VIEW_CAMERA_SELECT: return "ActivityCameraSelectView";
-                case ACTIVITY_VIEW_CAMERA_LIST: return "ActivityCameraListView";
-                case ACTIVITY_VIEW_AUDIO_LIST: return "ActivityAudioListView";
-                case ACTIVITY_VIEW_WIDGETS: return "ActivityWidgetsView";
-                case ACTIVITY_VIEW_MEDIA_MENU: return "ActivityMediaMenuView";
-                case ACTIVITY_VIEW_KEYBOARD: return "ActivityKeyboardView";
-                case ACTIVITY_VIEW_WEB: return "ActivityWebView";
-                case ACTIVITY_VIEW_EDIT_SCENARIO: return "ActivityEditScenarioView";
-                case ACTIVITY_VIEW_SCHEDULE_SCENARIO: return "ActivityScheduleScenarioView";
-                default:
-                case ACTIVITY_VIEW_NONE: return "NONE";
-        }
+    switch (viewType)
+    {
+    case ACTIVITY_VIEW_HOME: return "ActivityHomeView";
+    case ACTIVITY_VIEW_MEDIA: return "ActivityMediaView";
+    case ACTIVITY_VIEW_SCENARIOS: return "ActivityScenariosView";
+    case ACTIVITY_VIEW_CONFIG: return "ActivityConfigView";
+    case ACTIVITY_VIEW_CONFIG_MENU: return "ActivityConfigMenuView";
+    case ACTIVITY_VIEW_CONFIG_CLOCK: return "ActivityConfigClockView";
+    case ACTIVITY_VIEW_CONFIG_PASSWORD: return "ActivityConfigPasswordView";
+    case ACTIVITY_VIEW_CONFIG_SCREENSAVER: return "ActivityConfigScreensaverView";
+    case ACTIVITY_VIEW_CAMERA_SELECT: return "ActivityCameraSelectView";
+    case ACTIVITY_VIEW_CAMERA_LIST: return "ActivityCameraListView";
+    case ACTIVITY_VIEW_AUDIO_LIST: return "ActivityAudioListView";
+    case ACTIVITY_VIEW_WIDGETS: return "ActivityWidgetsView";
+    case ACTIVITY_VIEW_MEDIA_MENU: return "ActivityMediaMenuView";
+    case ACTIVITY_VIEW_KEYBOARD: return "ActivityKeyboardView";
+    case ACTIVITY_VIEW_WEB: return "ActivityWebView";
+    case ACTIVITY_VIEW_EDIT_SCENARIO: return "ActivityEditScenarioView";
+    case ACTIVITY_VIEW_SCHEDULE_SCENARIO: return "ActivityScheduleScenarioView";
+    default:
+    case ACTIVITY_VIEW_NONE: return "NONE";
+    }
 }

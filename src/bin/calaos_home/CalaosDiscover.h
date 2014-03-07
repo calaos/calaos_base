@@ -34,32 +34,32 @@ using namespace Utils;
 
 class CalaosDiscover: public sigc::trackable
 {
-        public:
-                //Ecore Internal use only
-                void dataGet(Ecore_Con_Server *server, void *data, int size);
+public:
+    //Ecore Internal use only
+    void dataGet(Ecore_Con_Server *server, void *data, int size);
 
-        private:
-                string address;
-                Ecore_Con_Server *econ;
-                Ecore_Con_Server *econ_sender;
+private:
+    string address;
+    Ecore_Con_Server *econ;
+    Ecore_Con_Server *econ_sender;
 
-                Ecore_Event_Handler *event_handler_data_get;
+    Ecore_Event_Handler *event_handler_data_get;
 
-                EcoreTimer *timer;
+    EcoreTimer *timer;
 
-                CalaosConnection *connection;
+    CalaosConnection *connection;
 
-                void loginSuccess();
-                void loginFailed();
-                void timerDiscover();
-                void delayDel();
+    void loginSuccess();
+    void loginFailed();
+    void timerDiscover();
+    void delayDel();
 
-        public:
-                CalaosDiscover();
-                ~CalaosDiscover();
+public:
+    CalaosDiscover();
+    ~CalaosDiscover();
 
-                sigc::signal<void, string> server_found;
-                sigc::signal<void, string> login_error;
+    sigc::signal<void, string> server_found;
+    sigc::signal<void, string> login_error;
 };
 
 #endif // CALAOSDISCOVER_H

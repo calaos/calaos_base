@@ -31,23 +31,23 @@ namespace Calaos
 
 class OutputShutter : public Output
 {
-        protected:
-                int up_address, down_address;
-                int time;
-                int sens, old_sens;
+protected:
+    int up_address, down_address;
+    int time;
+    int sens, old_sens;
 
-                EcoreTimer *timer_end, *timer_impulse;
-                EcoreTimer *timer_up, *timer_down;
-                bool is_impulse_action;
-                int impulse_action_time;
-                int impulse_time;
+    EcoreTimer *timer_end, *timer_impulse;
+    EcoreTimer *timer_up, *timer_down;
+    bool is_impulse_action;
+    int impulse_action_time;
+    int impulse_time;
 
-                std::string state_volet, cmd_state;
+    std::string state_volet, cmd_state;
 
-                void TimerEnd();
-                void TimerImpulse();
+    void TimerEnd();
+    void TimerImpulse();
 
-                /* Subclass infos:
+    /* Subclass infos:
                  * To subclass OutputShutter you have two options. Use the standard Calaos
                  * logic and only reimplement setOutputUp()/setOutputDown(). These functions
                  * needs to only trigger a hardware output, all the states and logic is
@@ -60,35 +60,35 @@ class OutputShutter : public Output
                  * touch with us to see how to do it correctly.
                  */
 
-                //reimplement this to use Calaos shutter logic
-                virtual void setOutputUp(bool enable) {}
-                virtual void setOutputDown(bool enable) {}
+    //reimplement this to use Calaos shutter logic
+    virtual void setOutputUp(bool enable) {}
+    virtual void setOutputDown(bool enable) {}
 
-                //reimplement this to use some hw specific shutter management
-                //tips: UpWait/DownWait func are delaying by 200ms the real Up/Down command
-                // if the shutter is not stopped to avoid up and down being active
-                // at the same time and hurt the shutter motor.
-                virtual void Up();
-                virtual void Down();
-                virtual void UpWait();
-                virtual void DownWait();
-                virtual void Stop();
-                virtual void Toggle();
-                virtual void ImpulseUp(int ms);
-                virtual void ImpulseDown(int ms);
+    //reimplement this to use some hw specific shutter management
+    //tips: UpWait/DownWait func are delaying by 200ms the real Up/Down command
+    // if the shutter is not stopped to avoid up and down being active
+    // at the same time and hurt the shutter motor.
+    virtual void Up();
+    virtual void Down();
+    virtual void UpWait();
+    virtual void DownWait();
+    virtual void Stop();
+    virtual void Toggle();
+    virtual void ImpulseUp(int ms);
+    virtual void ImpulseDown(int ms);
 
-        public:
-                OutputShutter(Params &p);
-                ~OutputShutter();
+public:
+    OutputShutter(Params &p);
+    ~OutputShutter();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string() { return state_volet; }
+    virtual bool set_value(std::string val);
+    virtual std::string get_value_string() { return state_volet; }
 
-                virtual std::string get_command_string() { return cmd_state; }
+    virtual std::string get_command_string() { return cmd_state; }
 
-                virtual bool check_condition_value(string cvalue, bool equal);
+    virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }

@@ -21,7 +21,7 @@
 #include "ActivityWebController.h"
 
 ActivityWebController::ActivityWebController(Evas *e, Evas_Object *p, string _url):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_WEB)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_WEB)
 {
 }
 
@@ -31,10 +31,10 @@ ActivityWebController::~ActivityWebController()
 
 void ActivityWebController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        //ActivityWebView *webView = dynamic_cast<ActivityWebView *>(view);
-        //keyboardView->validPressed.connect(sigc::mem_fun(*this, &ActivityWebController::validButtonPressed));
+    //ActivityWebView *webView = dynamic_cast<ActivityWebView *>(view);
+    //keyboardView->validPressed.connect(sigc::mem_fun(*this, &ActivityWebController::validButtonPressed));
 }

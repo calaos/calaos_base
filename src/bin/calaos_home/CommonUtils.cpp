@@ -25,25 +25,25 @@ using namespace Utils;
 
 Evas_Object *Utils::createPaddingTable(Evas *evas, Evas_Object *parent, int w, int h, int padding_top_bottom, int padding_side)
 {
-        Evas_Object *table = elm_table_add(parent);
-        evas_object_size_hint_min_set(table, w, h);
-        evas_object_show(table);
+    Evas_Object *table = elm_table_add(parent);
+    evas_object_size_hint_min_set(table, w, h);
+    evas_object_show(table);
 
-        Evas_Object *pad = evas_object_rectangle_add(evas);
-        evas_object_size_hint_min_set(pad, w-10, padding_top_bottom);
-        elm_table_pack(table, pad, 1, 0, 1, 1);
+    Evas_Object *pad = evas_object_rectangle_add(evas);
+    evas_object_size_hint_min_set(pad, w-10, padding_top_bottom);
+    elm_table_pack(table, pad, 1, 0, 1, 1);
 
-        pad = evas_object_rectangle_add(evas);
-        evas_object_size_hint_min_set(pad, w-10, padding_top_bottom);
-        elm_table_pack(table, pad, 1, 2, 1, 1);
+    pad = evas_object_rectangle_add(evas);
+    evas_object_size_hint_min_set(pad, w-10, padding_top_bottom);
+    elm_table_pack(table, pad, 1, 2, 1, 1);
 
-        pad = evas_object_rectangle_add(evas);
-        evas_object_size_hint_min_set(pad, padding_side, h);
-        elm_table_pack(table, pad, 0, 1, 1, 1);
+    pad = evas_object_rectangle_add(evas);
+    evas_object_size_hint_min_set(pad, padding_side, h);
+    elm_table_pack(table, pad, 0, 1, 1, 1);
 
-        pad = evas_object_rectangle_add(evas);
-        evas_object_size_hint_min_set(pad, padding_side, h);
-        elm_table_pack(table, pad, 2, 1, 1, 1);
+    pad = evas_object_rectangle_add(evas);
+    evas_object_size_hint_min_set(pad, padding_side, h);
+    elm_table_pack(table, pad, 2, 1, 1, 1);
 
-        return table;
+    return table;
 }

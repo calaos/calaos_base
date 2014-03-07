@@ -29,20 +29,20 @@ namespace Calaos
 
 class WODaliRVB : public OutputLightRGB
 {
-        private:
-                std::string host;
-                int port;
+private:
+    std::string host;
+    int port;
 
-                void WagoUDPCommandRed_cb(bool status, string command, string result);
-                void WagoUDPCommandGreen_cb(bool status, string command, string result);
-                void WagoUDPCommandBlue_cb(bool status, string command, string result);
-                void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommandRed_cb(bool status, string command, string result);
+    void WagoUDPCommandGreen_cb(bool status, string command, string result);
+    void WagoUDPCommandBlue_cb(bool status, string command, string result);
+    void WagoUDPCommand_cb(bool status, string command, string result);
 
-                virtual void setColorReal(int r, int g, int b);
+    virtual void setColorReal(int r, int g, int b);
 
-        public:
-                WODaliRVB(Params &p);
-                ~WODaliRVB();
+public:
+    WODaliRVB(Params &p);
+    ~WODaliRVB();
 };
 
 }

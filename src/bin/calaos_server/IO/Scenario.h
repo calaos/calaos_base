@@ -32,32 +32,32 @@ class AutoScenario;
 
 class Scenario : public Input, public Output
 {
-        protected:
-                bool value;
+protected:
+    bool value;
 
-                AutoScenario *auto_scenario;
+    AutoScenario *auto_scenario;
 
-        public:
-                Scenario(Params &p);
-                ~Scenario();
+public:
+    Scenario(Params &p);
+    ~Scenario();
 
-                virtual DATA_TYPE get_type() { return TBOOL; }
+    virtual DATA_TYPE get_type() { return TBOOL; }
 
-                //Input
-                virtual bool get_value_bool() { return value; }
-                virtual void force_input_bool(bool v);
+    //Input
+    virtual bool get_value_bool() { return value; }
+    virtual void force_input_bool(bool v);
 
-                //Output
-                virtual bool set_value(bool val);
+    //Output
+    virtual bool set_value(bool val);
 
-                virtual void set_param(std::string opt, std::string val)
-                        { Input::set_param(opt, val); }
-                virtual std::string get_param(std::string opt)
-                        { return Input::get_param(opt); }
-                virtual Params &get_params()
-                        { return Input::get_params(); }
+    virtual void set_param(std::string opt, std::string val)
+    { Input::set_param(opt, val); }
+    virtual std::string get_param(std::string opt)
+    { return Input::get_param(opt); }
+    virtual Params &get_params()
+    { return Input::get_params(); }
 
-                AutoScenario *getAutoScenario() { return auto_scenario; }
+    AutoScenario *getAutoScenario() { return auto_scenario; }
 };
 
 }

@@ -35,27 +35,27 @@ namespace Calaos
 
 class IPCam
 {
-        protected:
-                Params param;
-                Output *aoutput;
-                Input *ainput;
-                Params caps;
+protected:
+    Params param;
+    Output *aoutput;
+    Input *ainput;
+    Params caps;
 
-        public:
-                IPCam(Params &p);
-                virtual ~IPCam();
+public:
+    IPCam(Params &p);
+    virtual ~IPCam();
 
-                //Standard IPCam functions.
-                virtual std::string get_cam_url() { return "http://" + param["host"] + ":" + param["port"]; } //return the url of the cam webpage
-                virtual std::string get_mpeg_stream() { return ""; } //return the mpeg url stream
-                virtual std::string get_mjpeg_stream() { return ""; } //return the mjpeg url stream
-                virtual std::string get_picture() { return ""; } //return the url for a single frame
+    //Standard IPCam functions.
+    virtual std::string get_cam_url() { return "http://" + param["host"] + ":" + param["port"]; } //return the url of the cam webpage
+    virtual std::string get_mpeg_stream() { return ""; } //return the mpeg url stream
+    virtual std::string get_mjpeg_stream() { return ""; } //return the mjpeg url stream
+    virtual std::string get_picture() { return ""; } //return the url for a single frame
 
-                //this is used for internal purpose (The CamServer relay)
-                virtual std::string get_picture_real() { return get_picture(); } //return the real url for a single frame
+    //this is used for internal purpose (The CamServer relay)
+    virtual std::string get_picture_real() { return get_picture(); } //return the real url for a single frame
 
-                //Capabilities
-                /*************************************************
+    //Capabilities
+    /*************************************************
                  List of capabilities:
                   * ptz : bool
                   * position : int (number of memory position. if 0, position is not available)
@@ -71,18 +71,18 @@ class IPCam
                   * sharpness: int (range)
                   * hue: int (range)
                 **************************************************/
-                virtual Params getCapabilities() { return caps; }
-                virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
+    virtual Params getCapabilities() { return caps; }
+    virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
 
-                std::string get_param(std::string opt) { return param[opt]; }
-                void set_param(std::string opt, std::string val) { param.Add(opt, val); }
-                Params &get_params() { return param; }
-                Output *get_output() { return aoutput; }
-                Input *get_input() { return ainput; }
+    std::string get_param(std::string opt) { return param[opt]; }
+    void set_param(std::string opt, std::string val) { param.Add(opt, val); }
+    Params &get_params() { return param; }
+    Output *get_output() { return aoutput; }
+    Input *get_input() { return ainput; }
 
-                virtual bool LoadFromXml(TiXmlElement *node)
-                        { return false; }
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node)
+    { return false; }
+    virtual bool SaveToXml(TiXmlElement *node);
 };
 
 }

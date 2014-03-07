@@ -30,22 +30,22 @@ namespace Calaos
 //Manage Denon AV devices
 class AVRDenon: public AVReceiver
 {
-        protected:
+protected:
 
-                int inputFromString(string source);
-                string inputToString(int source);
+    int inputFromString(string source);
+    string inputToString(int source);
 
-                virtual void processMessage(string msg);
-                virtual void connectionEstablished();
+    virtual void processMessage(string msg);
+    virtual void connectionEstablished();
 
-        public:
-                AVRDenon(Params &p);
-                virtual ~AVRDenon();
+public:
+    AVRDenon(Params &p);
+    virtual ~AVRDenon();
 
-                virtual void Power(bool on, int zone = 1);
-                virtual void setVolume(int volume, int zone = 1);
-                virtual void selectInputSource(int source, int zone = 1);
-                virtual bool hasDisplay() { return false; }
+    virtual void Power(bool on, int zone = 1);
+    virtual void setVolume(int volume, int zone = 1);
+    virtual void selectInputSource(int source, int zone = 1);
+    virtual bool hasDisplay() { return false; }
 };
 
 }

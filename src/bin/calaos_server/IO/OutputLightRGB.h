@@ -30,38 +30,38 @@ namespace Calaos
 
 class OutputLightRGB : public Output
 {
-        protected:
-                int value;
-                int old_value;
-                int red, green, blue;
+protected:
+    int value;
+    int old_value;
+    int red, green, blue;
 
-                std::string cmd_state;
+    std::string cmd_state;
 
-                EcoreTimer *timer_auto;
-                void TimerAutoChange();
-                void setColor();
-                void emitChange();
+    EcoreTimer *timer_auto;
+    void TimerAutoChange();
+    void setColor();
+    void emitChange();
 
-                //call this function whenever state of light changes to update internal status
-                void stateUpdated(int r, int g, int b);
+    //call this function whenever state of light changes to update internal status
+    void stateUpdated(int r, int g, int b);
 
-                virtual void setColorReal(int r, int g, int b) = 0;
+    virtual void setColorReal(int r, int g, int b) = 0;
 
-        public:
-                OutputLightRGB(Params &p);
-                ~OutputLightRGB();
+public:
+    OutputLightRGB(Params &p);
+    ~OutputLightRGB();
 
-                DATA_TYPE get_type() { return TSTRING; }
+    DATA_TYPE get_type() { return TSTRING; }
 
-                bool set_value(std::string val);
-                bool set_value(bool val)
-                        { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-                std::string get_value_string() { return Utils::to_string(value); }
-                bool get_value_bool() { if (value == 0) return false; else return true; }
+    bool set_value(std::string val);
+    bool set_value(bool val)
+    { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
+    std::string get_value_string() { return Utils::to_string(value); }
+    bool get_value_bool() { if (value == 0) return false; else return true; }
 
-                virtual std::string get_command_string() { return cmd_state; }
+    virtual std::string get_command_string() { return cmd_state; }
 
-                virtual bool check_condition_value(string cvalue, bool equal);
+    virtual bool check_condition_value(string cvalue, bool equal);
 };
 
 }

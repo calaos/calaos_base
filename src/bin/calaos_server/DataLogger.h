@@ -30,22 +30,22 @@ namespace Calaos
 
 class DataLogger
 {
-        private:
-                DataLogger();
+private:
+    DataLogger();
 
-                void initEetDescriptors();
-                void releaseEetDescriptors();
-		Eet_File *ef;
-                Eina_Hash *hash_values;
-        public:
-                static DataLogger &Instance()
-                {
-                        static DataLogger inst;
-                        return inst;
-                }
-                ~DataLogger();
+    void initEetDescriptors();
+    void releaseEetDescriptors();
+    Eet_File *ef;
+    Eina_Hash *hash_values;
+public:
+    static DataLogger &Instance()
+    {
+        static DataLogger inst;
+        return inst;
+    }
+    ~DataLogger();
 
-		void log(IOBase *io);
+    void log(IOBase *io);
 };
 
 }

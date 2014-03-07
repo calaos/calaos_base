@@ -34,89 +34,89 @@ using namespace Utils;
 class ActivityHomeView;
 class HomeRoomClickData
 {
-        public:
-                ActivityHomeView *view;
-                Room *room;
+public:
+    ActivityHomeView *view;
+    Room *room;
 };
 
 class ActivityHomeView: public ActivityView
 {
-        protected:
-                virtual void objectShown();
-                virtual void objectHidden();
+protected:
+    virtual void objectShown();
+    virtual void objectHidden();
 
-                vector<HomeRoomClickData *> dataRoomCallbacks;
+    vector<HomeRoomClickData *> dataRoomCallbacks;
 
-                vector<IOBase *> chauffages;
-                vector<sigc::connection> chauff_change_con;
-                vector<sigc::connection> chauff_del_con;
-                vector<EdjeObject *> rooms;
+    vector<IOBase *> chauffages;
+    vector<sigc::connection> chauff_change_con;
+    vector<sigc::connection> chauff_del_con;
+    vector<EdjeObject *> rooms;
 
-                Evas_Object *list_top;
-                Evas_Object *list_left;
-                Evas_Object *list_right;
+    Evas_Object *list_top;
+    Evas_Object *list_left;
+    Evas_Object *list_right;
 
-                PagingView *page_view;
+    PagingView *page_view;
 
-                int room_selected;
-                bool mode_detail;
+    int room_selected;
+    bool mode_detail;
 
-                int pageTimer;
+    int pageTimer;
 
-                EdjeObject *pageStatus;
+    EdjeObject *pageStatus;
 
-                void resetRooms();
+    void resetRooms();
 
-                void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void BackToMainViewCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonLightsOffCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonLightsInfoCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonShuttersDownCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonShuttersInfoCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void BackToMainViewCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonLightsOffCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonLightsInfoCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonShuttersDownCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonShuttersInfoCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void selectPage_cb();
+    void selectPage_cb();
 
-                void updateChauffage(int pos);
-                void delChauffage(int pos);
+    void updateChauffage(int pos);
+    void delChauffage(int pos);
 
-                void pagerDragStart();
-                void pagerDragStop();
+    void pagerDragStart();
+    void pagerDragStop();
 
-        public:
-                ActivityHomeView(Evas *evas, Evas_Object *parent);
-                ~ActivityHomeView();
+public:
+    ActivityHomeView(Evas *evas, Evas_Object *parent);
+    ~ActivityHomeView();
 
-                void setRoom(string type, int position, IOBase *chauffage);
-                void hideRoom(int position);
+    void setRoom(string type, int position, IOBase *chauffage);
+    void hideRoom(int position);
 
-                void addStatusPage();
-                void addScenarioPage(list<IOBase *> &ios);
-                void removePage(int p);
-                int getPageCount();
-                int getCurrentPage();
+    void addStatusPage();
+    void addScenarioPage(list<IOBase *> &ios);
+    void removePage(int p);
+    int getPageCount();
+    int getCurrentPage();
 
-                void selectPage(int page, double delay = 0.0);
+    void selectPage(int page, double delay = 0.0);
 
-                void EnableLeftButton();
-                void DisableLeftButton();
-                void EnableRightButton();
-                void DisableRightButton();
+    void EnableLeftButton();
+    void DisableLeftButton();
+    void EnableRightButton();
+    void DisableRightButton();
 
-                void ShowLoading();
-                void HideLoading();
+    void ShowLoading();
+    void HideLoading();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void setLightsOnText(string txt);
-                void setShuttersUpText(string txt);
+    void setLightsOnText(string txt);
+    void setShuttersUpText(string txt);
 
-                void clearLists();
-                void setCurrentRoomDetail(Room *room);
-                void changeCurrentRoomDetail(Room *room);
+    void clearLists();
+    void setCurrentRoomDetail(Room *room);
+    void changeCurrentRoomDetail(Room *room);
 
-                sigc::signal<void> room_left_click;
-                sigc::signal<void> room_right_click;
-                sigc::signal<void, int> room_click;
+    sigc::signal<void> room_left_click;
+    sigc::signal<void> room_right_click;
+    sigc::signal<void, int> room_click;
 };
 
 #endif // ACTIVITYHOMEVIEW_H

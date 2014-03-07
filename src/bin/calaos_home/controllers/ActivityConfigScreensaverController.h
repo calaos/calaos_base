@@ -30,12 +30,12 @@ using namespace Utils;
 
 class ActivityConfigScreensaverController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-        public:
-                ActivityConfigScreensaverController(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigScreensaverController();
+public:
+    ActivityConfigScreensaverController(Evas *evas, Evas_Object *parent);
+    ~ActivityConfigScreensaverController();
 };
 
 #endif // ACTIVITYCONFIGSCREENSAVERCONTROLLER_H

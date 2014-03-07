@@ -28,21 +28,21 @@ namespace Calaos
 
 class X10Output : public OutputLightDimmer
 {
-        private:
-                std::string housecode;
-                bool state_value;
+private:
+    std::string housecode;
+    bool state_value;
 
-                virtual bool set_on_real();
-                virtual bool set_off_real();
-                virtual bool set_value_real(int val);
-                virtual bool set_dim_up_real(int percent);
-                virtual bool set_dim_down_real(int percent);
+    virtual bool set_on_real();
+    virtual bool set_off_real();
+    virtual bool set_value_real(int val);
+    virtual bool set_dim_up_real(int percent);
+    virtual bool set_dim_down_real(int percent);
 
-                bool X10Command(std::string cmd, int *dval = NULL);
+    bool X10Command(std::string cmd, int *dval = NULL);
 
-        public:
-                X10Output(Params &p);
-                ~X10Output();
+public:
+    X10Output(Params &p);
+    ~X10Output();
 };
 
 }

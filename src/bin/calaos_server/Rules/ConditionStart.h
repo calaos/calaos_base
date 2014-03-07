@@ -34,17 +34,17 @@ namespace Calaos
 
 class ConditionStart: public Condition
 {
-        private:
-                bool start;
+private:
+    bool start;
 
-        public:
-                ConditionStart();
-                virtual ~ConditionStart();
+public:
+    ConditionStart();
+    virtual ~ConditionStart();
 
-                virtual bool Evaluate();
+    virtual bool Evaluate();
 
-                virtual bool LoadFromXml(TiXmlElement *node);
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node);
+    virtual bool SaveToXml(TiXmlElement *node);
 };
 
 }

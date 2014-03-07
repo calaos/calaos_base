@@ -29,22 +29,22 @@ using namespace Utils;
 
 class ActivityMediaMenuView: public ActivityView
 {
-        private:
-                list<EdjeObject *> items;
+private:
+    list<EdjeObject *> items;
 
-                void addIcon(int position, string type);
+    void addIcon(int position, string type);
 
-                void ItemCallback(void *data, Evas_Object *edje, string emission, string source);
+    void ItemCallback(void *data, Evas_Object *edje, string emission, string source);
 
-        public:
-                ActivityMediaMenuView(Evas *evas, Evas_Object *parent);
-                ~ActivityMediaMenuView();
+public:
+    ActivityMediaMenuView(Evas *evas, Evas_Object *parent);
+    ~ActivityMediaMenuView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                virtual string getTitle() { return "Multimédia"; }
+    virtual string getTitle() { return "Multimédia"; }
 
-                sigc::signal<void, string> menu_item_clicked;
+    sigc::signal<void, string> menu_item_clicked;
 };
 
 #endif // ACTIVITYMEDIAMENUVIEW_H

@@ -3,24 +3,24 @@
 using namespace Calaos;
 
 GpioOutputSwitch::GpioOutputSwitch(Params &p):
-        OutputLight(p)
+    OutputLight(p)
 {
-        int gpio_nb;
-        Utils::from_string(get_param("gpio"), gpio_nb);
+    int gpio_nb;
+    Utils::from_string(get_param("gpio"), gpio_nb);
 
-        gpioctrl = new GpioCtrl(gpio_nb);
-        gpioctrl->setDirection("out");
+    gpioctrl = new GpioCtrl(gpio_nb);
+    gpioctrl->setDirection("out");
 
 }
 
 GpioOutputSwitch::~GpioOutputSwitch()
 {
-        delete gpioctrl;
+    delete gpioctrl;
 }
 
 
 bool GpioOutputSwitch::set_value_real(bool val)
 {
-        gpioctrl->setval(val);
-        return true;
+    gpioctrl->setval(val);
+    return true;
 }

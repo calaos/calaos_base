@@ -29,25 +29,25 @@ namespace Calaos
 
 class Input: public IOBase
 {
-        protected:
-                typedef sigc::signal<void, std::string> type_signal_input;
-                type_signal_input signal_input;
-                type_signal_input::iterator iter_input;
+protected:
+    typedef sigc::signal<void, std::string> type_signal_input;
+    type_signal_input signal_input;
+    type_signal_input::iterator iter_input;
 
-        public:
-                Input(Params &p);
-                virtual ~Input();
+public:
+    Input(Params &p);
+    virtual ~Input();
 
-                virtual void force_input_bool(bool val) { /* Do nothing */ }
-                virtual void force_input_double(double val) { /* Do nothing */ }
-                virtual void force_input_string(std::string val) { /* Do nothing */ }
+    virtual void force_input_bool(bool val) { /* Do nothing */ }
+    virtual void force_input_double(double val) { /* Do nothing */ }
+    virtual void force_input_string(std::string val) { /* Do nothing */ }
 
-                virtual void EmitSignalInput();
-                virtual void hasChanged() { }
+    virtual void EmitSignalInput();
+    virtual void hasChanged() { }
 
-                virtual bool LoadFromXml(TiXmlElement *node)
-                        { return false; }
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node)
+    { return false; }
+    virtual bool SaveToXml(TiXmlElement *node);
 };
 
 }

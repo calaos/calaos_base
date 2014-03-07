@@ -31,18 +31,18 @@ using namespace Utils;
 
 class ActivityEditScenarioController: public ActivityController
 {
-        private:
-                Scenario *scenario;
+private:
+    Scenario *scenario;
 
-                void createScenario();
+    void createScenario();
 
-                virtual void createView();
+    virtual void createView();
 
-        public:
-                ActivityEditScenarioController(Evas *evas, Evas_Object *parent);
-                ~ActivityEditScenarioController();
+public:
+    ActivityEditScenarioController(Evas *evas, Evas_Object *parent);
+    ~ActivityEditScenarioController();
 
-                void setScenario(Scenario *sc) { scenario = sc; }
+    void setScenario(Scenario *sc) { scenario = sc; }
 };
 
 #endif // ActivityEditScenarioController_H

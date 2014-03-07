@@ -30,52 +30,52 @@ using namespace Utils;
 
 class ViewAnimation
 {
-        private:
-                void viewDeleted()
-                {
-                        view = NULL;
-                }
+private:
+    void viewDeleted()
+    {
+        view = NULL;
+    }
 
-        public:
-                ViewAnimation(BaseView *v):
-                        view(v)
-                {
-                        view->object_deleted.connect(sigc::mem_fun<void>(*this, &ViewAnimation::viewDeleted));
-                }
+public:
+    ViewAnimation(BaseView *v):
+        view(v)
+    {
+        view->object_deleted.connect(sigc::mem_fun<void>(*this, &ViewAnimation::viewDeleted));
+    }
 
-                BaseView *view;
-                EdjeObject *animation;
-                bool pop_me;
+    BaseView *view;
+    EdjeObject *animation;
+    bool pop_me;
 };
 
 class MainContentView: public BaseView, public EvasSmart
 {
-        private:
-                list<ViewAnimation *> views;
-                BaseView *top_item;
+private:
+    list<ViewAnimation *> views;
+    BaseView *top_item;
 
-                Evas_Object *clip;
+    Evas_Object *clip;
 
-                void hideFinished(void *data, Evas_Object *edje_object, string emission, string source);
+    void hideFinished(void *data, Evas_Object *edje_object, string emission, string source);
 
-        public:
-                MainContentView(Evas *evas, Evas_Object *parent);
-                ~MainContentView();
+public:
+    MainContentView(Evas *evas, Evas_Object *parent);
+    ~MainContentView();
 
-                void addView(BaseView *view);
-                void removeTopView();
-                void showView(BaseView *view);
+    void addView(BaseView *view);
+    void removeTopView();
+    void showView(BaseView *view);
 
-                BaseView *getTopView();
+    BaseView *getTopView();
 
 
-                virtual void SmartMove(int x, int y);
-                virtual void SmartResize(int w, int h);
-                virtual void SmartShow();
-                virtual void SmartHide();
-                virtual void SmartColorSet(int r, int g, int b, int a);
-                virtual void SmartClipSet(Evas_Object *clip);
-                virtual void SmartClipUnset();
+    virtual void SmartMove(int x, int y);
+    virtual void SmartResize(int w, int h);
+    virtual void SmartShow();
+    virtual void SmartHide();
+    virtual void SmartColorSet(int r, int g, int b, int a);
+    virtual void SmartClipSet(Evas_Object *clip);
+    virtual void SmartClipUnset();
 };
 
 #endif // MAINCONTENTVIEW_H

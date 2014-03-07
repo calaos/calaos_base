@@ -29,26 +29,26 @@ namespace Calaos
 
 class InputSwitch : public Input
 {
-        protected:
-                bool value;
+protected:
+    bool value;
 
-                virtual bool readValue() = 0;
+    virtual bool readValue() = 0;
 
-                void emitChanges();
+    void emitChanges();
 
-        public:
-                InputSwitch(Params &p);
-                ~InputSwitch();
+public:
+    InputSwitch(Params &p);
+    ~InputSwitch();
 
-                virtual DATA_TYPE get_type() { return TBOOL; }
-                virtual bool get_value_bool() { return value; }
-                virtual void force_input_bool(bool v)
-                {
-                        value = v;
-                        emitChanges();
-                }
+    virtual DATA_TYPE get_type() { return TBOOL; }
+    virtual bool get_value_bool() { return value; }
+    virtual void force_input_bool(bool v)
+    {
+        value = v;
+        emitChanges();
+    }
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

@@ -34,19 +34,19 @@ namespace Calaos
 
 class Axis: public IPCam
 {
-        protected:
-                string resolution, quality, camera;
+protected:
+    string resolution, quality, camera;
 
-        public:
-                Axis(Params &p);
-                ~Axis();
+public:
+    Axis(Params &p);
+    ~Axis();
 
-                //Standard IPCam functions.
-                std::string get_mpeg_stream(); //return the mpeg4 url stream (if any)
-                std::string get_mjpeg_stream(); //return the mpeg url stream
-                std::string get_picture(); //return the url for a single frame
+    //Standard IPCam functions.
+    std::string get_mpeg_stream(); //return the mpeg4 url stream (if any)
+    std::string get_mjpeg_stream(); //return the mpeg url stream
+    std::string get_picture(); //return the url for a single frame
 
-                virtual void activateCapabilities(std::string capability, std::string cmd, std::string value);
+    virtual void activateCapabilities(std::string capability, std::string cmd, std::string value);
 };
 
 }

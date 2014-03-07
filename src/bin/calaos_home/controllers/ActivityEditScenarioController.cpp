@@ -21,9 +21,9 @@
 #include "ActivityEditScenarioController.h"
 
 ActivityEditScenarioController::ActivityEditScenarioController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_EDIT_SCENARIO)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_EDIT_SCENARIO)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityEditScenarioController::~ActivityEditScenarioController()
@@ -32,36 +32,36 @@ ActivityEditScenarioController::~ActivityEditScenarioController()
 
 void ActivityEditScenarioController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityEditScenarioView *scView = dynamic_cast<ActivityEditScenarioView *>(view);
-        scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityEditScenarioController::createScenario));
-        if (scenario)
-        {
-                scView->setScenarioData(scenario->scenario_data);
-        }
-        else
-        {
-                ScenarioData sd;
-                scView->setScenarioData(sd);
-        }
+    ActivityEditScenarioView *scView = dynamic_cast<ActivityEditScenarioView *>(view);
+    scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityEditScenarioController::createScenario));
+    if (scenario)
+    {
+        scView->setScenarioData(scenario->scenario_data);
+    }
+    else
+    {
+        ScenarioData sd;
+        scView->setScenarioData(sd);
+    }
 }
 
 void ActivityEditScenarioController::createScenario()
 {
-        ActivityEditScenarioView *scView = dynamic_cast<ActivityEditScenarioView *>(view);
+    ActivityEditScenarioView *scView = dynamic_cast<ActivityEditScenarioView *>(view);
 
-        if (scenario)
-        {
-                scenario->scenario_data = scView->getScenarioData();
-                CalaosModel::Instance().getScenario()->modifyScenario(scenario);
-        }
-        else
-        {
-                CalaosModel::Instance().getScenario()->createScenario(scView->getScenarioData());
-        }
+    if (scenario)
+    {
+        scenario->scenario_data = scView->getScenarioData();
+        CalaosModel::Instance().getScenario()->modifyScenario(scenario);
+    }
+    else
+    {
+        CalaosModel::Instance().getScenario()->createScenario(scView->getScenarioData());
+    }
 
-        wants_quit.emit();
+    wants_quit.emit();
 }

@@ -30,142 +30,142 @@ using namespace Utils;
 
 class ScenarioAction
 {
-        public:
-                ScenarioAction()
-                {}
+public:
+    ScenarioAction()
+    {}
 
-                IOBase *io;
-                string action;
+    IOBase *io;
+    string action;
 
-                string toString()
-                {
-                        if (!io) return "Empty action !";
-                        return io->params["id"] + " : " + action;
-                }
+    string toString()
+    {
+        if (!io) return "Empty action !";
+        return io->params["id"] + " : " + action;
+    }
 
 };
 
 class ScenarioStep
 {
-        public:
-                ScenarioStep():
-                        pause(1000)
-                {}
+public:
+    ScenarioStep():
+        pause(1000)
+    {}
 
-                vector<ScenarioAction> actions;
-                long int pause; //msec
+    vector<ScenarioAction> actions;
+    long int pause; //msec
 
-                string toString()
-                {
-                        string t = "\t\t[STEP] - pause:" + Utils::to_string(pause);
-                        for (uint i = 0;i < actions.size();i++)
-                                t += "\n\t\t\t" + actions[i].toString();
-                        return t;
-                }
+    string toString()
+    {
+        string t = "\t\t[STEP] - pause:" + Utils::to_string(pause);
+        for (uint i = 0;i < actions.size();i++)
+            t += "\n\t\t\t" + actions[i].toString();
+        return t;
+    }
 };
 
 class ScenarioData
 {
-        public:
-                ScenarioData():
-                        room(NULL),
-                        visible(false),
-                        empty(true)
-                {
-                        params.Add("cycle", "false");
-                        params.Add("enabled", "true");
-                }
+public:
+    ScenarioData():
+        room(NULL),
+        visible(false),
+        empty(true)
+    {
+        params.Add("cycle", "false");
+        params.Add("enabled", "true");
+    }
 
-                string name;
-                Room *room;
-                bool visible;
+    string name;
+    Room *room;
+    bool visible;
 
-                Params params;
+    Params params;
 
-                static const int END_STEP = 0xFEDC1234;
+    static const int END_STEP = 0xFEDC1234;
 
-                vector<ScenarioStep> steps;
-                ScenarioStep step_end;
+    vector<ScenarioStep> steps;
+    ScenarioStep step_end;
 
-                bool empty;
+    bool empty;
 
-                string createRequest();
-                string modifyRequest(IOBase *io);
+    string createRequest();
+    string modifyRequest(IOBase *io);
 
-                string toString()
-                {
-                        string t = "[SCENARIO DATA] - name:" + name + " visible:" + Utils::to_string(visible) +
-                                   "\n" + params.toString();
-                        for (uint i = 0;i < steps.size();i++)
-                                t += "\n\t[Step " + Utils::to_string(i) + "]\n" + steps[i].toString();
-                        t += "\n\t[Step End]\n" + step_end.toString();
-                        return t;
-                }
+    string toString()
+    {
+        string t = "[SCENARIO DATA] - name:" + name + " visible:" + Utils::to_string(visible) +
+                   "\n" + params.toString();
+        for (uint i = 0;i < steps.size();i++)
+            t += "\n\t[Step " + Utils::to_string(i) + "]\n" + steps[i].toString();
+        t += "\n\t[Step End]\n" + step_end.toString();
+        return t;
+    }
 };
 
 class Scenario: public sigc::trackable
 {
-        private:
-                CalaosConnection *connection;
+private:
+    CalaosConnection *connection;
 
-                Room *room;
+    Room *room;
 
-        public:
-                Scenario(CalaosConnection *c):
-                        connection(c),
-                        room(NULL),
-                        ioScenario(NULL),
-                        ioPlage(NULL)
-                {}
+public:
+    Scenario(CalaosConnection *c):
+        connection(c),
+        room(NULL),
+        ioScenario(NULL),
+        ioPlage(NULL)
+    {}
 
-                void scenario_get_cb(bool success, vector<string> result, void *data);
+    void scenario_get_cb(bool success, vector<string> result, void *data);
 
-                IOBase *ioScenario;
-                IOBase *ioPlage;
+    IOBase *ioScenario;
+    IOBase *ioPlage;
 
-                ScenarioData scenario_data;
+    ScenarioData scenario_data;
 
-                string getFirstCategory();
+    string getFirstCategory();
 
-                bool isScheduled() { if (ioPlage) return true; return false; }
+    bool isScheduled() { if (ioPlage) return true; return false; }
 
-                //Return the room where the scenario is
-                Room *getRoom();
+    //Return the room where the scenario is
+    Room *getRoom();
 
-                sigc::signal<void, Scenario *> load_done;
+    sigc::signal<void, Scenario *> load_done;
 };
 
 class ScenarioModel: public sigc::trackable
 {
-        private:
-                CalaosConnection *connection;
+private:
+    CalaosConnection *connection;
 
-                int load_count;
-                void load_scenario_done(Scenario *sc);
-                void load_new_scenario_done(Scenario *sc);
+    int load_count;
+    void load_scenario_done(Scenario *sc);
+    void load_new_scenario_done(Scenario *sc);
 
-                void scenario_list_cb(bool success, vector<string> result, void *data);
+    void scenario_list_cb(bool success, vector<string> result, void *data);
 
-                void notifyScenarioAdd(string notif);
-                void notifyScenarioAddDelayed(string notif);
-                void notifyScenarioDel(Scenario *sc);
-                void notifyScenarioChange(string notif);
+    void notifyScenarioAdd(string notif);
+    void notifyScenarioAddDelayed(string notif);
+    void notifyScenarioDel(Scenario *sc);
+    void notifyScenarioChange(string notif);
 
-        public:
-                ScenarioModel(CalaosConnection *connection);
-                ~ScenarioModel();
+public:
+    ScenarioModel(CalaosConnection *connection);
+    ~ScenarioModel();
 
-                void load();
-                void createScenario(ScenarioData &data);
-                void modifyScenario(Scenario *sc);
-                void deleteScenario(Scenario *sc);
+    void load();
+    void createScenario(ScenarioData &data);
+    void modifyScenario(Scenario *sc);
+    void deleteScenario(Scenario *sc);
 
-                list<Scenario *> scenarios;
+    list<Scenario *> scenarios;
 
-                sigc::signal<void> load_done;
-                sigc::signal<void, Scenario *> scenario_new;
-                sigc::signal<void, Scenario *> scenario_del;
-                sigc::signal<void, Scenario *> scenario_change;
+    sigc::signal<void> load_done;
+    sigc::signal<void, Scenario *> scenario_new;
+    sigc::signal<void, Scenario *> scenario_del;
+    sigc::signal<void, Scenario *> scenario_change;
 };
 
 #endif // SCENARIOMODEL_H

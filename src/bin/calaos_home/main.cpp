@@ -32,58 +32,58 @@ using namespace Utils;
 
 static void echoUsage(char **argv)
 {
-        cout << "Calaos Home GUI - http://www.calaos.fr" << endl;
-        cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
-        cout << endl << "\tOptions:\n";
-        cout << "\t-h, --help\tDisplay this help.\n";
-        cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
-        cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
-        cout << "\t--theme <file.edj>\tUse the given edje file instead of the default.\n";
-        cout << "\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n";
-        cout << endl;
+    cout << "Calaos Home GUI - http://www.calaos.fr" << endl;
+    cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
+    cout << endl << "\tOptions:\n";
+    cout << "\t-h, --help\tDisplay this help.\n";
+    cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
+    cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
+    cout << "\t--theme <file.edj>\tUse the given edje file instead of the default.\n";
+    cout << "\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n";
+    cout << endl;
 }
 
 int main(int argc, char **argv)
 {
-	InitEinaLog("calaos_home");
+    InitEinaLog("calaos_home");
 
 #ifdef ENABLE_NLS
-	/* Set the locale defined by the system */
-	char *curlocale = setlocale(LC_ALL, "");
-	curlocale = curlocale ? 
-	  curlocale :
-	  setlocale(LC_ALL, "C");
-	printf("Current locale : %s\n", curlocale);
-	bindtextdomain(PACKAGE, LOCALE_DIR);
-	textdomain(PACKAGE);
+    /* Set the locale defined by the system */
+    char *curlocale = setlocale(LC_ALL, "");
+    curlocale = curlocale ?
+                    curlocale :
+                    setlocale(LC_ALL, "C");
+    printf("Current locale : %s\n", curlocale);
+    bindtextdomain(PACKAGE, LOCALE_DIR);
+    textdomain(PACKAGE);
 #endif
 
-        //Check command line args
-        if (argvOptionCheck(argv, argv + argc, "-h") ||
-            argvOptionCheck(argv, argv + argc, "--help"))
-        {
-                echoUsage(argv);
-                exit(0);
-        }
+    //Check command line args
+    if (argvOptionCheck(argv, argv + argc, "-h") ||
+        argvOptionCheck(argv, argv + argc, "--help"))
+    {
+        echoUsage(argv);
+        exit(0);
+    }
 
-        char *confdir = argvOptionParam(argv, argv + argc, "--config");
-        char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
+    char *confdir = argvOptionParam(argv, argv + argc, "--config");
+    char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
-        Utils::initConfigOptions(confdir, cachedir);
+    Utils::initConfigOptions(confdir, cachedir);
 
-        try
-        {
-                ApplicationMain::Instance(argc, argv).Run(); //Start main app instance
-        }
-        catch(exception const& e)
-        {
-                cCritical() <<  "An exception occured: " << e.what();
-        }
-        catch(...)
-        {
-                cCritical() <<  "An unknown exception occured !";
-        }
+    try
+    {
+        ApplicationMain::Instance(argc, argv).Run(); //Start main app instance
+    }
+    catch(exception const& e)
+    {
+        cCritical() <<  "An exception occured: " << e.what();
+    }
+    catch(...)
+    {
+        cCritical() <<  "An unknown exception occured !";
+    }
 
-        return 0;
+    return 0;
 }
 

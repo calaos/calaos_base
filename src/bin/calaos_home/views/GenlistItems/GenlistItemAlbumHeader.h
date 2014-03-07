@@ -29,28 +29,28 @@ using namespace Utils;
 
 class GenlistItemAlbumHeader: public GenlistItemBase
 {
-        private:
-                AudioPlayer *player;
-                Params album_infos;
-                int album_id;
-                bool in_query;
-                string cover_fname;
-                bool cover_downloaded;
+private:
+    AudioPlayer *player;
+    Params album_infos;
+    int album_id;
+    bool in_query;
+    string cover_fname;
+    bool cover_downloaded;
 
-                EcoreTimer *dltimer;
+    EcoreTimer *dltimer;
 
-                void albumItemGet_cb(Params &infos);
-                void albumItemCoverGet_cb(Params &res);
+    void albumItemGet_cb(Params &infos);
+    void albumItemCoverGet_cb(Params &res);
 
-        public:
-                GenlistItemAlbumHeader(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params &album_infos, int album_id, void *data = NULL);
-                virtual ~GenlistItemAlbumHeader();
+public:
+    GenlistItemAlbumHeader(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params &album_infos, int album_id, void *data = NULL);
+    virtual ~GenlistItemAlbumHeader();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
+    void buttonClickPlay();
+    void buttonClickAdd();
 };
 
 #endif // GenlistItemAlbumHeader_H

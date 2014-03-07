@@ -29,37 +29,37 @@ namespace Calaos
 
 class WagoCtrl
 {
-        protected:
-                std::string host;
-                int port;
+protected:
+    std::string host;
+    int port;
 
-                mbus_struct *mbus;
+    mbus_struct *mbus;
 
-                bool getBit(unsigned char mot, int pos);
-                void setBit(unsigned char &mot, int pos, bool val);
-        public:
-                WagoCtrl(std::string host, int port = 502);
-                ~WagoCtrl();
+    bool getBit(unsigned char mot, int pos);
+    void setBit(unsigned char &mot, int pos, bool val);
+public:
+    WagoCtrl(std::string host, int port = 502);
+    ~WagoCtrl();
 
-                bool Connect();
-                void Disconnect();
-                bool is_connected();
+    bool Connect();
+    void Disconnect();
+    bool is_connected();
 
-                //bits
-                bool read_bits(Utils::UWord address, int nb, vector<bool> &values);
-                bool write_single_bit(Utils::UWord address, bool val);
-                bool read_single_output_bit(Utils::UWord address);
-                bool write_multiple_bits(Utils::UWord address, int nb, vector<bool> &values);
+    //bits
+    bool read_bits(Utils::UWord address, int nb, vector<bool> &values);
+    bool write_single_bit(Utils::UWord address, bool val);
+    bool read_single_output_bit(Utils::UWord address);
+    bool write_multiple_bits(Utils::UWord address, int nb, vector<bool> &values);
 
-                //Words
-                bool read_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
-                bool write_single_word(Utils::UWord address, Utils::UWord val);
-                bool write_multiple_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
+    //Words
+    bool read_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
+    bool write_single_word(Utils::UWord address, Utils::UWord val);
+    bool write_multiple_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
 
-                void set_host(std::string &h) { host = h; }
-                std::string get_host() { return host; }
-                void set_port(int p) { port = p; }
-                int get_port() { return port; }
+    void set_host(std::string &h) { host = h; }
+    std::string get_host() { return host; }
+    void set_port(int p) { port = p; }
+    int get_port() { return port; }
 };
 
 }

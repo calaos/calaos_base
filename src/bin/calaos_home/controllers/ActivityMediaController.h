@@ -33,23 +33,23 @@ using namespace Utils;
 
 class ActivityMediaController: public ActivityController
 {
-        private:
-                ActivityMediaMenuController *mainMenuController;
+private:
+    ActivityMediaMenuController *mainMenuController;
 
-                virtual void createView();
+    virtual void createView();
 
-                void menuIconClick(string icon);
-                void buttonClick(string button);
+    void menuIconClick(string icon);
+    void buttonClick(string button);
 
-                void controllerFinished(ActivityController *controller);
+    void controllerFinished(ActivityController *controller);
 
-        public:
-                ActivityMediaController(Evas *evas, Evas_Object *parent);
-                ~ActivityMediaController();
+public:
+    ActivityMediaController(Evas *evas, Evas_Object *parent);
+    ~ActivityMediaController();
 
-                void addSubController(ActivityController *controller);
+    void addSubController(ActivityController *controller);
 
-                void setButtonMode(string mode);
+    void setButtonMode(string mode);
 };
 
 #endif // ACTIVITYMEDIACONTROLLER_H

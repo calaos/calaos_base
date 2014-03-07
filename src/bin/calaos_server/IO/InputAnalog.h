@@ -29,29 +29,29 @@ namespace Calaos
 
 class InputAnalog : public Input
 {
-        protected:
-                double real_value_max;
-                double wago_value_max;
+protected:
+    double real_value_max;
+    double wago_value_max;
 
-                double value;
-                double timer;
-                double offset;
-                double frequency;
+    double value;
+    double timer;
+    double offset;
+    double frequency;
 
-                void readConfig();
+    void readConfig();
 
-                void emitChange();
-                virtual void readValue() = 0;
-        public:
-                InputAnalog(Params &p);
-                virtual ~InputAnalog();
+    void emitChange();
+    virtual void readValue() = 0;
+public:
+    InputAnalog(Params &p);
+    virtual ~InputAnalog();
 
-                virtual DATA_TYPE get_type() { return TINT; }
-                virtual void force_input_double(double v);
+    virtual DATA_TYPE get_type() { return TINT; }
+    virtual void force_input_double(double v);
 
-                virtual double get_value_double();
+    virtual double get_value_double();
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

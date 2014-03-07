@@ -29,36 +29,36 @@ using namespace Utils;
 
 class EcoreTimer
 {
-        private:
-                Ecore_Timer *timer;
+private:
+    Ecore_Timer *timer;
 
-                sigc::signal<void, void *> event_signal_data;
-                sigc::signal<void> event_signal;
-                sigc::connection connection_data;
-                sigc::connection connection;
+    sigc::signal<void, void *> event_signal_data;
+    sigc::signal<void> event_signal;
+    sigc::connection connection_data;
+    sigc::connection connection;
 
-                double time;
-                bool timer_data;
+    double time;
+    bool timer_data;
 
-                void *data;
+    void *data;
 
-                EcoreTimer *singleShotTimer;
-                sigc::slot<void> singleShotSlot;
+    EcoreTimer *singleShotTimer;
+    sigc::slot<void> singleShotSlot;
 
-        public:
-                EcoreTimer(double time, sigc::slot<void, void *> slot, void *data);
-                EcoreTimer(double time, sigc::slot<void> slot);
-                ~EcoreTimer();
+public:
+    EcoreTimer(double time, sigc::slot<void, void *> slot, void *data);
+    EcoreTimer(double time, sigc::slot<void> slot);
+    ~EcoreTimer();
 
-                static void singleShot(double time, sigc::slot<void> slot);
+    static void singleShot(double time, sigc::slot<void> slot);
 
-                void Reset();
-                void Reset(double time);
+    void Reset();
+    void Reset(double time);
 
-                //private, used by ecore
-                void Tick();
+    //private, used by ecore
+    void Tick();
 
-                double getTime() { return time; }
+    double getTime() { return time; }
 };
 
 #endif

@@ -35,19 +35,19 @@ enum { ACTION_UNKONWN = 0, ACTION_STD, ACTION_MAIL, ACTION_SCRIPT, ACTION_TOUCHS
 
 class Action
 {
-        protected:
-                int action_type;
+protected:
+    int action_type;
 
-        public:
-                Action(int type);
-                virtual ~Action();
+public:
+    Action(int type);
+    virtual ~Action();
 
-                virtual bool Execute();
+    virtual bool Execute();
 
-                int getType() { return action_type; }
+    int getType() { return action_type; }
 
-                virtual bool LoadFromXml(TiXmlElement *node) { return true; }
-                virtual bool SaveToXml(TiXmlElement *node) { return true; }
+    virtual bool LoadFromXml(TiXmlElement *node) { return true; }
+    virtual bool SaveToXml(TiXmlElement *node) { return true; }
 };
 
 }

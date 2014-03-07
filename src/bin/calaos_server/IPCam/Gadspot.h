@@ -34,15 +34,15 @@ namespace Calaos
 
 class Gadspot: public IPCam
 {
-        protected:
+protected:
 
-        public:
-                Gadspot(Params &p);
-                ~Gadspot();
+public:
+    Gadspot(Params &p);
+    ~Gadspot();
 
-                //Standard IPCam functions.
-                std::string get_mjpeg_stream(); //return the mpeg url stream
-                std::string get_picture(); //return the url for a single frame
+    //Standard IPCam functions.
+    std::string get_mjpeg_stream(); //return the mpeg url stream
+    std::string get_picture(); //return the url for a single frame
 };
 
 }

@@ -28,28 +28,28 @@ CamManager::CamManager()
 
 CamManager::~CamManager()
 {
-        for (uint i = 0;i < ip_cams.size();i++)
-                delete ip_cams[i];
+    for (uint i = 0;i < ip_cams.size();i++)
+        delete ip_cams[i];
 
-        ip_cams.clear();
+    ip_cams.clear();
 }
 
 CamManager &CamManager::Instance()
 {
-        static CamManager inst;
+    static CamManager inst;
 
-        return inst;
+    return inst;
 }
 
 void CamManager::Add(IPCam *module)
 {
-        ip_cams.push_back(module);
+    ip_cams.push_back(module);
 }
 
 void CamManager::Delete(int pos)
 {
-        vector<IPCam *>::iterator iter = ip_cams.begin();
-        for (int i = 0;i < pos;iter++, i++) ;
-        delete ip_cams[pos];
-        ip_cams.erase(iter);
+    vector<IPCam *>::iterator iter = ip_cams.begin();
+    for (int i = 0;i < pos;iter++, i++) ;
+    delete ip_cams[pos];
+    ip_cams.erase(iter);
 }

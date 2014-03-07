@@ -40,67 +40,67 @@ namespace Calaos
 
 typedef struct _rule_idler_cb
 {
-        string input;
-        Ecore_Idler *idler;
+    string input;
+    Ecore_Idler *idler;
 } Rule_idler_cb;
 
 class ListeRule: public sigc::trackable
 {
-        protected:
-                std::vector<Rule *> rules;
+protected:
+    std::vector<Rule *> rules;
 
-                //these input's events are detected in the RunEventLoop() function
-                std::vector<Input *> in_event;
+    //these input's events are detected in the RunEventLoop() function
+    std::vector<Input *> in_event;
 
-                //Rules for autoscenario
-                list<Rule *> rules_scenarios;
+    //Rules for autoscenario
+    list<Rule *> rules_scenarios;
 
-                bool loop;
+    bool loop;
 
-                Mutex mutex;
+    Mutex mutex;
 
-                ListeRule(): loop(false), mutex(false)
-                        { cDebugDom("rule") << "ListeRule::ListeRule(): Ok"; }
+    ListeRule(): loop(false), mutex(false)
+    { cDebugDom("rule") << "ListeRule::ListeRule(): Ok"; }
 
-        public:
-                //singleton
-                static ListeRule &Instance();
+public:
+    //singleton
+    static ListeRule &Instance();
 
-                ~ListeRule();
+    ~ListeRule();
 
-                void Add(Rule *p);
-                void Remove(int i);
-                void Remove(Rule *obj)
-                        { rules.erase(std::remove(rules.begin(), rules.end(), obj), rules.end());
-                          rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj), rules_scenarios.end()); delete obj; }
-                void RemoveRule(Input *obj); //remove all rules containing obj
-                void RemoveRule(Output *obj); //remove all rules containing obj
+    void Add(Rule *p);
+    void Remove(int i);
+    void Remove(Rule *obj)
+    { rules.erase(std::remove(rules.begin(), rules.end(), obj), rules.end());
+        rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj), rules_scenarios.end()); delete obj; }
+    void RemoveRule(Input *obj); //remove all rules containing obj
+    void RemoveRule(Output *obj); //remove all rules containing obj
 
-                void updateAllRulesToInput(Input *oldio, Input *newio);
-                void updateAllRulesToOutput(Output *oldio, Output *newio);
+    void updateAllRulesToInput(Input *oldio, Input *newio);
+    void updateAllRulesToOutput(Output *oldio, Output *newio);
 
-                Rule *get_rule(int i);
-                Rule *operator[] (int i) const;
+    Rule *get_rule(int i);
+    Rule *operator[] (int i) const;
 
-                void Add(Input *in) { in_event.push_back(in); }
-                void Remove(Input *in)
-                        { in_event.erase(std::remove(in_event.begin(), in_event.end(), in), in_event.end()); }
-                //Run a loop to detect event from inputs when time or temperature changes
-                void RunEventLoop();
-                void StopLoop();
+    void Add(Input *in) { in_event.push_back(in); }
+    void Remove(Input *in)
+    { in_event.erase(std::remove(in_event.begin(), in_event.end(), in), in_event.end()); }
+    //Run a loop to detect event from inputs when time or temperature changes
+    void RunEventLoop();
+    void StopLoop();
 
-                int size() { return rules.size(); }
+    int size() { return rules.size(); }
 
-                //Execute all rules where the input 'input_id' is used
-                //The function is called only when a signal is emited from inputs
-                virtual void ExecuteRuleSignal(std::string input_id);
+    //Execute all rules where the input 'input_id' is used
+    //The function is called only when a signal is emited from inputs
+    virtual void ExecuteRuleSignal(std::string input_id);
 
-                /* This executes all rules at program startup. All rules with ConditionStart
+    /* This executes all rules at program startup. All rules with ConditionStart
                  * will be evaluated and executed (only once)
                  */
-                void ExecuteStartRules();
+    void ExecuteStartRules();
 
-                list<Rule *> getRuleAutoScenario(string auto_scenario);
+    list<Rule *> getRuleAutoScenario(string auto_scenario);
 };
 
 }

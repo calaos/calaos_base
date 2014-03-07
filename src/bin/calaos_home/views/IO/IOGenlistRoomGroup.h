@@ -28,34 +28,34 @@ using namespace Utils;
 
 class IOGenlistRoomGroup: public GenlistItemBase
 {
-        private:
-                Room *room;
+private:
+    Room *room;
 
-                virtual void itemAdded();
+    virtual void itemAdded();
 
-        public:
-                IOGenlistRoomGroup(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
-                virtual ~IOGenlistRoomGroup();
+public:
+    IOGenlistRoomGroup(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
+    virtual ~IOGenlistRoomGroup();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 };
 
 class IOGenlistRoomGroupIcon: public GenlistItemBase
 {
-        private:
-                Room *room;
+private:
+    Room *room;
 
-                virtual void itemAdded();
+    virtual void itemAdded();
 
-        public:
-                IOGenlistRoomGroupIcon(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
-                virtual ~IOGenlistRoomGroupIcon();
+public:
+    IOGenlistRoomGroupIcon(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
+    virtual ~IOGenlistRoomGroupIcon();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                Room *getRoom() { return room; }
+    Room *getRoom() { return room; }
 };
 
 #endif // IOGENLISTROOMGROUP_H

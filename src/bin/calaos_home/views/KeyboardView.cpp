@@ -33,21 +33,21 @@
 #define XK_BackSpace                     0xff08
 
 KeyboardView::KeyboardView(Evas *_e, Evas_Object *_parent):
-        BaseView(_e, _parent),
-        keys_upper(false),
-        keys_other(false)
+    BaseView(_e, _parent),
+    keys_upper(false),
+    keys_other(false)
 {
-        try
-        {
-                LoadEdje("calaos/keyboard");
-        }
-        catch (exception const &e)
-        {
-                cCritical() <<  "KeyboardView: Can't load edje";
-                throw;
-        }
+    try
+    {
+        LoadEdje("calaos/keyboard");
+    }
+    catch (exception const &e)
+    {
+        cCritical() <<  "KeyboardView: Can't load edje";
+        throw;
+    }
 
-        addCallback("keyboard", "*", sigc::mem_fun(*this, &KeyboardView::onKeyboardCallback));
+    addCallback("keyboard", "*", sigc::mem_fun(*this, &KeyboardView::onKeyboardCallback));
 }
 
 KeyboardView::~KeyboardView()
@@ -57,95 +57,95 @@ KeyboardView::~KeyboardView()
 void KeyboardView::pressKey(string k)
 {
 #ifdef HAVE_ECORE_X
-        /* Code from enlightenment/Illume */
-        const char *key = NULL;
-        int glyph;
+    /* Code from enlightenment/Illume */
+    const char *key = NULL;
+    int glyph;
 
-        /* utf8 -> glyph id (unicode - ucs4) */
-        glyph = 0;
-        evas_string_char_next_get(k.c_str(), 0, &glyph);
-        if (glyph <= 0) return;
-        /* glyph id -> keysym */
-        if (glyph > 0xff) glyph |= 0x1000000;
+    /* utf8 -> glyph id (unicode - ucs4) */
+    glyph = 0;
+    evas_string_char_next_get(k.c_str(), 0, &glyph);
+    if (glyph <= 0) return;
+    /* glyph id -> keysym */
+    if (glyph > 0xff) glyph |= 0x1000000;
 
-        key = ecore_x_keysym_string_get(glyph);
+    key = ecore_x_keysym_string_get(glyph);
 
-        if (!key) return;
+    if (!key) return;
 
-        ecore_x_test_fake_key_press(key);
+    ecore_x_test_fake_key_press(key);
 #endif
 }
 
 void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
 #ifdef HAVE_ECORE_X
-        if (source == "keyboard" && emission == "key,key_maj")
-        {
-                keys_upper = !keys_upper;
+    if (source == "keyboard" && emission == "key,key_maj")
+    {
+        keys_upper = !keys_upper;
 
-                if (keys_upper)
-                        EmitSignal("keyboard,upper", "calaos");
-                else
-                        EmitSignal("keyboard,lower", "calaos");
-        }
-        else if (source == "keyboard" && emission == "key,key_other")
-        {
-                keys_other = !keys_other;
+        if (keys_upper)
+            EmitSignal("keyboard,upper", "calaos");
+        else
+            EmitSignal("keyboard,lower", "calaos");
+    }
+    else if (source == "keyboard" && emission == "key,key_other")
+    {
+        keys_other = !keys_other;
 
-                if (keys_other)
-                        EmitSignal("keyboard,other", "calaos");
-                else
-                        EmitSignal("keyboard,normal", "calaos");
-        }
-        else if (source == "keyboard" && emission == "key,key_space")
-        {
-                pressKey(" ");
-        }
-        else if (source == "keyboard" && emission == "key,key_del")
-        {
-                ecore_x_test_fake_key_press(ecore_x_keysym_string_get(XK_BackSpace));
-        }
-        else if (source == "keyboard" && emission == "key,key_enter")
-        {
-                ecore_x_test_fake_key_press(ecore_x_keysym_string_get(XK_Return));
+        if (keys_other)
+            EmitSignal("keyboard,other", "calaos");
+        else
+            EmitSignal("keyboard,normal", "calaos");
+    }
+    else if (source == "keyboard" && emission == "key,key_space")
+    {
+        pressKey(" ");
+    }
+    else if (source == "keyboard" && emission == "key,key_del")
+    {
+        ecore_x_test_fake_key_press(ecore_x_keysym_string_get(XK_BackSpace));
+    }
+    else if (source == "keyboard" && emission == "key,key_enter")
+    {
+        ecore_x_test_fake_key_press(ecore_x_keysym_string_get(XK_Return));
 
-                EmitSignal("hide,keyboard", "calaos");
-        }
-        else if (source == "keyboard" && emission == "key,key_multiply")
-        {
-                pressKey("*");
-        }
-        else if (source == "keyboard" && emission == "key,key_question")
-        {
-                pressKey("?");
-        }
-        else if (source == "keyboard" && emission == "key,key_quote")
-        {
-                pressKey("\"");
-        }
-        else if (source == "keyboard" && emission == "key,key_backslash")
-        {
-                pressKey("\\");
-        }
-        else if (source == "keyboard" && emission == "key,key_bracket_open")
-        {
-                pressKey("[");
-        }
-        else if (source == "keyboard" && emission == "key,key_bracket_close")
-        {
-                pressKey("]");
-        }
-        else if (source == "keyboard" && emission == "key,key_double_point")
-        {
-                pressKey(":");
-        }
-        else if (source == "keyboard" && emission.substr(0, 4) == "key,")
-        {
-                emission.erase(0, 4);
-                if (keys_upper)
-                        std::transform (emission.begin(), emission.end(), emission.begin(), to_upper());
+        EmitSignal("hide,keyboard", "calaos");
+    }
+    else if (source == "keyboard" && emission == "key,key_multiply")
+    {
+        pressKey("*");
+    }
+    else if (source == "keyboard" && emission == "key,key_question")
+    {
+        pressKey("?");
+    }
+    else if (source == "keyboard" && emission == "key,key_quote")
+    {
+        pressKey("\"");
+    }
+    else if (source == "keyboard" && emission == "key,key_backslash")
+    {
+        pressKey("\\");
+    }
+    else if (source == "keyboard" && emission == "key,key_bracket_open")
+    {
+        pressKey("[");
+    }
+    else if (source == "keyboard" && emission == "key,key_bracket_close")
+    {
+        pressKey("]");
+    }
+    else if (source == "keyboard" && emission == "key,key_double_point")
+    {
+        pressKey(":");
+    }
+    else if (source == "keyboard" && emission.substr(0, 4) == "key,")
+    {
+        emission.erase(0, 4);
+        if (keys_upper)
+            std::transform (emission.begin(), emission.end(), emission.begin(), to_upper());
 
-                pressKey(emission);
-        }
+        pressKey(emission);
+    }
 #endif
 }

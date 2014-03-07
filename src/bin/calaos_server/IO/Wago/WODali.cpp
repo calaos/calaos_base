@@ -24,68 +24,68 @@
 using namespace Calaos;
 
 WODali::WODali(Params &_p):
-                OutputLightDimmer(_p),
-                port(502)
+    OutputLightDimmer(_p),
+    port(502)
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("visible")) set_param("visible", "true");
 
-        string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
-        WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
+    string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
+    WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
 
-        Calaos::StartReadRules::Instance().addIO();
-        cDebugDom("output") << "WODali::WODali(" << get_param("id") << "): Ok";
+    Calaos::StartReadRules::Instance().addIO();
+    cDebugDom("output") << "WODali::WODali(" << get_param("id") << "): Ok";
 }
 
 WODali::~WODali()
 {
-        cDebugDom("output") << "WODali::WODali(): Ok";
+    cDebugDom("output") << "WODali::WODali(): Ok";
 }
 
 bool WODali::set_value_real(int val)
 {
-        string cmd = "WAGO_DALI_SET " + get_param("line") + " " + get_param("group") +
-                     " " + get_param("address") + " " + Utils::to_string(val) +
-                     " " + get_param("fade_time");
-        WagoMap::Instance(host, port).SendUDPCommand(cmd);
+    string cmd = "WAGO_DALI_SET " + get_param("line") + " " + get_param("group") +
+                 " " + get_param("address") + " " + Utils::to_string(val) +
+                 " " + get_param("fade_time");
+    WagoMap::Instance(host, port).SendUDPCommand(cmd);
 
-        return true;
+    return true;
 }
 
 void WODali::WagoUDPCommand_cb(bool status, string command, string result)
 {
-        if (!status)
-        {
-                cInfoDom("output") << "WODali::WagoUdpCommand(): Error with request " << command;
-                Calaos::StartReadRules::Instance().ioRead();
-
-                return;
-        }
-
-        if (command.find("WAGO_DALI_GET") != string::npos)
-        {
-                vector<string> tokens;
-                split(result, tokens);
-                if (tokens.size() >= 3)
-                {
-                        //get the status of the ballast
-                        if (tokens[1] == "0")
-                        {
-                                value = 0;
-                                old_value = 100;
-                        }
-                        else
-                        {
-                                value = 100;
-                                old_value = 0;
-                        }
-                }
-
-                emitChange();
-        }
-
+    if (!status)
+    {
+        cInfoDom("output") << "WODali::WagoUdpCommand(): Error with request " << command;
         Calaos::StartReadRules::Instance().ioRead();
+
+        return;
+    }
+
+    if (command.find("WAGO_DALI_GET") != string::npos)
+    {
+        vector<string> tokens;
+        split(result, tokens);
+        if (tokens.size() >= 3)
+        {
+            //get the status of the ballast
+            if (tokens[1] == "0")
+            {
+                value = 0;
+                old_value = 100;
+            }
+            else
+            {
+                value = 100;
+                old_value = 0;
+            }
+        }
+
+        emitChange();
+    }
+
+    Calaos::StartReadRules::Instance().ioRead();
 }

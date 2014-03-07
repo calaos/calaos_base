@@ -35,50 +35,50 @@ using namespace Utils;
 
 class CalaosModel
 {
-        private:
-                CalaosModel();
+private:
+    CalaosModel();
 
-                CalaosDiscover *discover;
-                CalaosConnection *connection;
-                string server_address;
+    CalaosDiscover *discover;
+    CalaosConnection *connection;
+    string server_address;
 
-                RoomModel *room_model;
-                CameraModel *camera_model;
-                AudioModel *audio_model;
-                ScenarioModel *scenario_model;
+    RoomModel *room_model;
+    CameraModel *camera_model;
+    AudioModel *audio_model;
+    ScenarioModel *scenario_model;
 
-                void discover_found(string address);
-                void discover_error_login(string address);
-                void connection_ok();
-                void lost_connection();
+    void discover_found(string address);
+    void discover_error_login(string address);
+    void connection_ok();
+    void lost_connection();
 
-                int load_count;
-                void load_home_done();
-                void load_done();
-                bool loaded;
+    int load_count;
+    void load_home_done();
+    void load_done();
+    bool loaded;
 
-                void StartDiscover();
+    void StartDiscover();
 
-        public:
-                static CalaosModel &Instance()
-                {
-                        static CalaosModel inst;
-                        return inst;
-                }
+public:
+    static CalaosModel &Instance()
+    {
+        static CalaosModel inst;
+        return inst;
+    }
 
-                ~CalaosModel();
+    ~CalaosModel();
 
-                string toString();
+    string toString();
 
-                RoomModel *getHome() { return room_model; }
-                CameraModel *getCamera() { return camera_model; }
-                AudioModel *getAudio() { return audio_model; }
-                ScenarioModel *getScenario() { return scenario_model; }
+    RoomModel *getHome() { return room_model; }
+    CameraModel *getCamera() { return camera_model; }
+    AudioModel *getAudio() { return audio_model; }
+    ScenarioModel *getScenario() { return scenario_model; }
 
-                bool isLoaded() { return loaded; }
+    bool isLoaded() { return loaded; }
 
-                sigc::signal<void, string> login_failed;
-                sigc::signal<void> home_loaded;
+    sigc::signal<void, string> login_failed;
+    sigc::signal<void> home_loaded;
 };
 
 #endif // CALAOSMODEL_H

@@ -26,19 +26,19 @@
 
 class ScreenSuspendView: public EdjeObject
 {
-        private:
-                Evas_Object *parent;
+private:
+    Evas_Object *parent;
 
-                bool is_during_wakeup = false;
-                bool is_during_suspend = false;
+    bool is_during_wakeup = false;
+    bool is_during_suspend = false;
 
-                void edjeCallback(void *data, Evas_Object *obj, std::string emission, std::string source);
+    void edjeCallback(void *data, Evas_Object *obj, std::string emission, std::string source);
 
-        public:
-                ScreenSuspendView(Evas *evas, Evas_Object *parent);
-                virtual ~ScreenSuspendView();
+public:
+    ScreenSuspendView(Evas *evas, Evas_Object *parent);
+    virtual ~ScreenSuspendView();
 
-                void ResizeCb();
+    void ResizeCb();
 };
 
 #endif // SCREENSUSPENDVIEW_H

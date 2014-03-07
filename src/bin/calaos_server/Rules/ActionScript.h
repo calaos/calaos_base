@@ -30,17 +30,17 @@ namespace Calaos
 
 class ActionScript: public Action
 {
-        private:
-                string script;
+private:
+    string script;
 
-        public:
-                ActionScript();
-                ~ActionScript();
+public:
+    ActionScript();
+    ~ActionScript();
 
-                bool Execute();
+    bool Execute();
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

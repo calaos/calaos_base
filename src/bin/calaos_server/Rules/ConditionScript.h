@@ -32,24 +32,24 @@ namespace Calaos
 
 class ConditionScript: public Condition
 {
-        private:
-                string script;
+private:
+    string script;
 
-                //These are declared inputs that will trigger the rule execution
-                //Most generaly, inputs are those used in the script
-                vector<Input *> in_event;
+    //These are declared inputs that will trigger the rule execution
+    //Most generaly, inputs are those used in the script
+    vector<Input *> in_event;
 
-        public:
-                ConditionScript();
-                virtual ~ConditionScript();
+public:
+    ConditionScript();
+    virtual ~ConditionScript();
 
-                virtual bool Evaluate();
+    virtual bool Evaluate();
 
-                virtual bool LoadFromXml(TiXmlElement *node);
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node);
+    virtual bool SaveToXml(TiXmlElement *node);
 
-                Input *get_input(int i) { return in_event[i]; }
-                int get_size() { return in_event.size(); }
+    Input *get_input(int i) { return in_event[i]; }
+    int get_size() { return in_event.size(); }
 };
 
 }

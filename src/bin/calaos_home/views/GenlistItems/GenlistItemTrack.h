@@ -29,31 +29,31 @@ using namespace Utils;
 
 class GenlistItemTrack: public GenlistItemBase
 {
-        private:
-                AudioPlayer *player;
-                int item_id, album_id;
-                Params item_infos;
-                bool in_query;
-                int reqtype;
-                int command_id;
+private:
+    AudioPlayer *player;
+    int item_id, album_id;
+    Params item_infos;
+    bool in_query;
+    int reqtype;
+    int command_id;
 
-                void albumItemGet_cb(Params &infos);
+    void albumItemGet_cb(Params &infos);
 
-        public:
-                enum { TRACK_ALBUM, TRACK_PLAYLIST, TRACK_ID };
+public:
+    enum { TRACK_ALBUM, TRACK_PLAYLIST, TRACK_ID };
 
-                GenlistItemTrack(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id, void *data = NULL);
-                virtual ~GenlistItemTrack();
+    GenlistItemTrack(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id, void *data = NULL);
+    virtual ~GenlistItemTrack();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
-                void buttonClickMore();
+    void buttonClickPlay();
+    void buttonClickAdd();
+    void buttonClickMore();
 
-                int getItemId() { return item_id; }
-                Params getItemInfos() { return item_infos; }
+    int getItemId() { return item_id; }
+    Params getItemInfos() { return item_infos; }
 };
 
 #endif // GenlistItemTrack_H

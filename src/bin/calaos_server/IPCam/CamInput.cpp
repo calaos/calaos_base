@@ -25,17 +25,17 @@
 using namespace Calaos;
 
 CamInput::CamInput(Params &p, IPCam *_cam):
-        Input(p),
-        cam(_cam)
+    Input(p),
+    cam(_cam)
 {
-        get_params().Add("gui_type", "camera_input");
-        get_params().Add("visible", "false");
-        cInfoDom("input") << "CamInput::CamInput(): Ok";
+    get_params().Add("gui_type", "camera_input");
+    get_params().Add("visible", "false");
+    cInfoDom("input") << "CamInput::CamInput(): Ok";
 }
 
 CamInput::~CamInput()
 {
-        cInfoDom("input") << "CamInput::~CamInput(): Ok";
+    cInfoDom("input") << "CamInput::~CamInput(): Ok";
 }
 
 void CamInput::AcquireData()
@@ -44,5 +44,5 @@ void CamInput::AcquireData()
 
 std::string CamInput::get_value_string()
 {
-        return "";
+    return "";
 }

@@ -30,27 +30,27 @@
 using namespace Calaos;
 
 WebAnalogIn::WebAnalogIn(Params &p):
-         InputAnalog(p)
+    InputAnalog(p)
 {
-        cInfoDom("input") << "WebAnalogIn::WebAnalogIn()";
+    cInfoDom("input") << "WebAnalogIn::WebAnalogIn()";
 
-        WebCtrl::Instance(p).Add(frequency);
+    WebCtrl::Instance(p).Add(frequency);
 
-        //read value when calaos_server is started
-        readValue();
-        Calaos::StartReadRules::Instance().ioRead();
+    //read value when calaos_server is started
+    readValue();
+    Calaos::StartReadRules::Instance().ioRead();
 }
 
 WebAnalogIn::~WebAnalogIn()
 {
-        cInfoDom("input") << "WebAnalogIn::~WebAnalogIn()";
+    cInfoDom("input") << "WebAnalogIn::~WebAnalogIn()";
 }
 
 
 void WebAnalogIn::readValue()
 {
-        value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
-        emitChange();
+    value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
+    emitChange();
 }
 
 

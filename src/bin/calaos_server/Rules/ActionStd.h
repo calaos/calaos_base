@@ -30,34 +30,34 @@ namespace Calaos
 
 class ActionStd: public Action
 {
-        protected:
-                std::vector<Output *> outputs;
-                Params params;
+protected:
+    std::vector<Output *> outputs;
+    Params params;
 
-                //this is used to do the action
-                //based on another output state
-                Params params_var;
+    //this is used to do the action
+    //based on another output state
+    Params params_var;
 
-        public:
-                ActionStd(): Action(ACTION_STD)
-                        { cDebugDom("rule.action.standard") <<  "ActionStd::ActionStd(): New standard action"; }
-                ~ActionStd();
+public:
+    ActionStd(): Action(ACTION_STD)
+    { cDebugDom("rule.action.standard") <<  "ActionStd::ActionStd(): New standard action"; }
+    ~ActionStd();
 
-                void Add(Output *p);
-                bool Execute();
-                void Remove(int i);
-                void Assign(int i, Output *obj);
+    void Add(Output *p);
+    bool Execute();
+    void Remove(int i);
+    void Assign(int i, Output *obj);
 
-                Output *get_output(int i) { return outputs[i]; }
-                Params &get_params() { return params; }
-                void set_param(Params &p) { params = p; }
-                Params &get_params_var() { return params_var; }
-                void set_param_var(Params &p) { params_var = p; }
+    Output *get_output(int i) { return outputs[i]; }
+    Params &get_params() { return params; }
+    void set_param(Params &p) { params = p; }
+    Params &get_params_var() { return params_var; }
+    void set_param_var(Params &p) { params_var = p; }
 
-                int get_size() { return outputs.size(); }
+    int get_size() { return outputs.size(); }
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

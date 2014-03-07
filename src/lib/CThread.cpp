@@ -21,72 +21,72 @@
 #include <CThread.h>
 
 CThread::CThread():
-                th(0),
-                started(false),
-                stopped(false)
+    th(0),
+    started(false),
+    stopped(false)
 {
 }
 
 CThread::~CThread()
 {
-        stopped = true;
-        End();
+    stopped = true;
+    End();
 }
 
 static void *CThreadProc(void *p)
 {
-        CThread *pThis = (CThread *)p;
-        pThis->started = true;
+    CThread *pThis = (CThread *)p;
+    pThis->started = true;
 
 #ifdef IPHONE_APP
-        pThis->ThreadProc_objc();
+    pThis->ThreadProc_objc();
 #else
-        pThis->ThreadProc();
+    pThis->ThreadProc();
 #endif
 
-        pthread_exit(0);
+    pthread_exit(0);
 }
 
 void CThread::ThreadProc()
 {
-        return;
+    return;
 }
 
 #ifdef IPHONE_APP
 void CThread::ThreadProc_objc()
 {
-	call_thread_with_objcpool(this);
+    call_thread_with_objcpool(this);
 }
 #endif
 
 void CThread::Start()
 {
-        if (th)
-                End();
+    if (th)
+        End();
 
-        if (pthread_create(&th, NULL, CThreadProc, (void *)this) != 0)
-                cErrorDom("threads")
-                                << "CThread::Start(), pthread_create() error...";
+    if (pthread_create(&th, NULL, CThreadProc, (void *)this) != 0)
+        cErrorDom("threads")
+                << "CThread::Start(), pthread_create() error...";
 }
 
 void CThread::KillThread()
 {
-        if(th)
-            pthread_kill(th, SIGKILL);
-        th = 0;
+    if(th)
+        pthread_kill(th, SIGKILL);
+    th = 0;
 }
 
 void CThread::End()
 {
-        stopped = true;
-        if (th)
-        {
-                cDebugDom("threads")
-                                << "CThread::End(), pthread_join() waiting for thread to finish his job..."
-                               ;
-                pthread_join(th, NULL);
-        }
+    stopped = true;
+    if (th)
+    {
+        cDebugDom("threads")
+                << "CThread::End(), pthread_join() waiting for thread to finish his job..."
+                   ;
+        pthread_join(th, NULL);
+    }
 
-        started = false;
-        th = 0;
+    started = false;
+    th = 0;
 }

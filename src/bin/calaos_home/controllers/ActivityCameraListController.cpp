@@ -22,11 +22,11 @@
 #include "ActivityMediaController.h"
 
 ActivityCameraListController::ActivityCameraListController(Evas *e, Evas_Object *p, ActivityMediaController *pc):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CAMERA_LIST),
-        parentController(pc),
-        cameraSelectController(NULL)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CAMERA_LIST),
+    parentController(pc),
+    cameraSelectController(NULL)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityCameraListController::~ActivityCameraListController()
@@ -35,155 +35,155 @@ ActivityCameraListController::~ActivityCameraListController()
 
 void ActivityCameraListController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
-        cameraView->button_left_click.connect(sigc::mem_fun(*this, &ActivityCameraListController::clickLeft));
-        cameraView->button_right_click.connect(sigc::mem_fun(*this, &ActivityCameraListController::clickRight));
-        cameraView->addCallback("cameras", "animation,done", sigc::mem_fun(*this, &ActivityCameraListController::doneCallback));
-        cameraView->addCallback("camera", "select,*", sigc::mem_fun(*this, &ActivityCameraListController::cameraSelectCallback));
+    cameraView->button_left_click.connect(sigc::mem_fun(*this, &ActivityCameraListController::clickLeft));
+    cameraView->button_right_click.connect(sigc::mem_fun(*this, &ActivityCameraListController::clickRight));
+    cameraView->addCallback("cameras", "animation,done", sigc::mem_fun(*this, &ActivityCameraListController::doneCallback));
+    cameraView->addCallback("camera", "select,*", sigc::mem_fun(*this, &ActivityCameraListController::cameraSelectCallback));
 
-        if (!CalaosModel::Instance().isLoaded())
-        {
-                cameraView->ShowLoading();
+    if (!CalaosModel::Instance().isLoaded())
+    {
+        cameraView->ShowLoading();
 
-                CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityCameraListController::load_done));
+        CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityCameraListController::load_done));
 
-                return;
-        }
+        return;
+    }
 
-        page = 0;
-        updatePageView();
-        updateScenarios();
+    page = 0;
+    updatePageView();
+    updateScenarios();
 }
 
 void ActivityCameraListController::load_done()
 {
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
-        cameraView->HideLoading();
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    cameraView->HideLoading();
 
-        page = 0;
-        updatePageView();
-        updateScenarios();
+    page = 0;
+    updatePageView();
+    updateScenarios();
 }
 
 void ActivityCameraListController::updatePageView()
 {
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
-        list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
-        int i = 0;
+    list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
+    int i = 0;
 
-        for (int j = 0;j < page * 4;j++)
-                it++;
+    for (int j = 0;j < page * 4;j++)
+        it++;
 
-        for (int j = 0;j < 4;j++)
-        {
-                //disable unused camera
-                cameraView->disableCamera(j);
-        }
+    for (int j = 0;j < 4;j++)
+    {
+        //disable unused camera
+        cameraView->disableCamera(j);
+    }
 
-        for (;it != CalaosModel::Instance().getCamera()->cameras.end() && i < 4;
-             it++, i++)
-        {
-                Camera *camera = (*it);
+    for (;it != CalaosModel::Instance().getCamera()->cameras.end() && i < 4;
+         it++, i++)
+    {
+        Camera *camera = (*it);
 
-                cameraView->setCamera(camera, i);
-        }
+        cameraView->setCamera(camera, i);
+    }
 
-        if (page == 0)
-                cameraView->DisableLeftButton();
-        else
-                cameraView->EnableLeftButton();
+    if (page == 0)
+        cameraView->DisableLeftButton();
+    else
+        cameraView->EnableLeftButton();
 
-        int page_count = (CalaosModel::Instance().getCamera()->cameras.size() / 4) - 1;
-        if (CalaosModel::Instance().getCamera()->cameras.size() % 4 > 0)
-                page_count++;
+    int page_count = (CalaosModel::Instance().getCamera()->cameras.size() / 4) - 1;
+    if (CalaosModel::Instance().getCamera()->cameras.size() % 4 > 0)
+        page_count++;
 
-        if (page < page_count &&
-                        (CalaosModel::Instance().getCamera()->cameras.size() > 4))
-                cameraView->EnableRightButton();
-        else
-                cameraView->DisableRightButton();
+    if (page < page_count &&
+        (CalaosModel::Instance().getCamera()->cameras.size() > 4))
+        cameraView->EnableRightButton();
+    else
+        cameraView->DisableRightButton();
 
-        cameraView->EmitSignal("show", "calaos");
+    cameraView->EmitSignal("show", "calaos");
 }
 
 void ActivityCameraListController::updateScenarios()
 {
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
-        const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-        list<IOBase *> _page;
+    const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
+    list<IOBase *> _page;
 
-        list<IOBase *>::const_iterator it = scenarios.begin();
-        for (int i = 0;it != scenarios.end();it++, i++)
+    list<IOBase *>::const_iterator it = scenarios.begin();
+    for (int i = 0;it != scenarios.end();it++, i++)
+    {
+        IOBase *io = *it;
+        _page.push_back(io);
+
+        if (_page.size() >= 6)
         {
-                IOBase *io = *it;
-                _page.push_back(io);
-
-                if (_page.size() >= 6)
-                {
-                        cameraView->addScenarioPage(_page);
-                        _page.clear();
-                }
+            cameraView->addScenarioPage(_page);
+            _page.clear();
         }
+    }
 
-        if (_page.size() > 0)
-        {
-                while (_page.size() < 6) _page.push_back(NULL);
-                cameraView->addScenarioPage(_page);
-        }
+    if (_page.size() > 0)
+    {
+        while (_page.size() < 6) _page.push_back(NULL);
+        cameraView->addScenarioPage(_page);
+    }
 }
 
 void ActivityCameraListController::clickLeft()
 {
-        page--;
-        if (page < 0)
-        {
-                page = 0;
-                return;
-        }
+    page--;
+    if (page < 0)
+    {
+        page = 0;
+        return;
+    }
 
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
-        cameraView->EmitSignal("hide,right", "calaos");
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    cameraView->EmitSignal("hide,right", "calaos");
 }
 
 void ActivityCameraListController::clickRight()
 {
-        page++;
-        if (page > (int)(CalaosModel::Instance().getCamera()->cameras.size() / 4))
-        {
-                page = (CalaosModel::Instance().getCamera()->cameras.size() / 4);
-                return;
-        }
+    page++;
+    if (page > (int)(CalaosModel::Instance().getCamera()->cameras.size() / 4))
+    {
+        page = (CalaosModel::Instance().getCamera()->cameras.size() / 4);
+        return;
+    }
 
-        ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
-        cameraView->EmitSignal("hide,left", "calaos");
+    ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
+    cameraView->EmitSignal("hide,left", "calaos");
 }
 
 void ActivityCameraListController::doneCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
-        updatePageView();
+    updatePageView();
 }
 
 void ActivityCameraListController::cameraSelectCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
-        if (emission.substr(0, 7) == "select,")
-                emission = emission.erase(0, 7);
-        int position;
-        from_string(emission, position);
+    if (emission.substr(0, 7) == "select,")
+        emission = emission.erase(0, 7);
+    int position;
+    from_string(emission, position);
 
-        if ((page * 4 + position - 1) >= (int)CalaosModel::Instance().getCamera()->cameras.size())
-                return;
+    if ((page * 4 + position - 1) >= (int)CalaosModel::Instance().getCamera()->cameras.size())
+        return;
 
-        list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
-        for (int j = 0;j < page * 4 + position - 1;j++)
-                it++;
+    list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
+    for (int j = 0;j < page * 4 + position - 1;j++)
+        it++;
 
-        ActivityCameraSelectController *controller = new ActivityCameraSelectController(*it, evas, parent);
-        parentController->addSubController(controller);
+    ActivityCameraSelectController *controller = new ActivityCameraSelectController(*it, evas, parent);
+    parentController->addSubController(controller);
 }

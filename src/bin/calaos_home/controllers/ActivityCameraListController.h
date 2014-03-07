@@ -34,28 +34,28 @@ class ActivityMediaController;
 
 class ActivityCameraListController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-                ActivityMediaController *parentController;
-                ActivityCameraSelectController *cameraSelectController;
+    ActivityMediaController *parentController;
+    ActivityCameraSelectController *cameraSelectController;
 
-                int page;
+    int page;
 
-                void updatePageView();
-                void updateScenarios();
+    void updatePageView();
+    void updateScenarios();
 
-                void clickLeft();
-                void clickRight();
+    void clickLeft();
+    void clickRight();
 
-                void load_done();
+    void load_done();
 
-                void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void cameraSelectCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void cameraSelectCallback(void *data, Evas_Object *edje_object, string emission, string source);
 
-        public:
-                ActivityCameraListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);
-                ~ActivityCameraListController();
+public:
+    ActivityCameraListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);
+    ~ActivityCameraListController();
 };
 
 #endif // ACTIVITYCAMERALISTCONTROLLER_H

@@ -32,22 +32,22 @@ class AudioPlayerData;
 
 class AudioOutput: public Output
 {
-        private:
-                AudioPlayer *player;
-                std::string answer;
+private:
+    AudioPlayer *player;
+    std::string answer;
 
-                void get_volume_cb(AudioPlayerData data);
+    void get_volume_cb(AudioPlayerData data);
 
-        public:
-                AudioOutput(Params &p, AudioPlayer *_player);
-                ~AudioOutput();
+public:
+    AudioOutput(Params &p, AudioPlayer *_player);
+    ~AudioOutput();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string();
+    virtual bool set_value(std::string val);
+    virtual std::string get_value_string();
 
-                AudioPlayer *get_player() { return player; }
+    AudioPlayer *get_player() { return player; }
 };
 
 }

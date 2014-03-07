@@ -26,41 +26,41 @@
 
 class CalaosNetwork: public sigc::trackable
 {
-        private:
-                string username;
-                string password;
+private:
+    string username;
+    string password;
 
-                FileDownloader *fdownloader;
+    FileDownloader *fdownloader;
 
-                bool download_in_progress;
+    bool download_in_progress;
 
-                void register_cb(string result, void *data);
-                void update_ip_cb(string result, void *data);
-                void get_ip_cb(string result, void *data);
+    void register_cb(string result, void *data);
+    void update_ip_cb(string result, void *data);
+    void get_ip_cb(string result, void *data);
 
-        public:
-                CalaosNetwork(string username = "", string password = "");
-                ~CalaosNetwork();
+public:
+    CalaosNetwork(string username = "", string password = "");
+    ~CalaosNetwork();
 
-                /**
+    /**
                   * Registers the user with the machine on calaos network
                   */
-                void Register(string username, string password);
+    void Register(string username, string password);
 
-                /**
+    /**
                   * Update Calaos Network DNS IP
                   */
-                void updateIP(string private_ip);
+    void updateIP(string private_ip);
 
-                /**
+    /**
                   * Query Calaos Network account for private/public IP
                   */
-                void getIP();
+    void getIP();
 
-                /* Signals */
-                sigc::signal<void, string> registered;
-                sigc::signal<void, string> ip_updated;
-                sigc::signal<void, string, string /* public_ip */, string /* private_ip */, bool /* at_home */> ip_retrieved;
+    /* Signals */
+    sigc::signal<void, string> registered;
+    sigc::signal<void, string> ip_updated;
+    sigc::signal<void, string, string /* public_ip */, string /* private_ip */, bool /* at_home */> ip_retrieved;
 
 };
 

@@ -33,41 +33,41 @@ namespace Calaos
 
 class Rule
 {
-        protected:
-                vector<Condition *> conds;
-                vector<Action *> actions;
+protected:
+    vector<Condition *> conds;
+    vector<Action *> actions;
 
-                Params params;
+    Params params;
 
-                bool auto_sc_mark; //true if rule is used by an auto_scenario
+    bool auto_sc_mark; //true if rule is used by an auto_scenario
 
-        public:
-                Rule(string _type, string _name);
-                virtual ~Rule();
+public:
+    Rule(string _type, string _name);
+    virtual ~Rule();
 
-                void AddCondition(Condition *p);
-                void AddAction(Action *p);
-                bool Execute();
-                void RemoveCondition(int i);
-                void RemoveAction(int i);
+    void AddCondition(Condition *p);
+    void AddAction(Action *p);
+    bool Execute();
+    void RemoveCondition(int i);
+    void RemoveAction(int i);
 
-                Condition *get_condition(int i) { return conds[i]; }
-                Action *get_action(int i) { return actions[i]; }
+    Condition *get_condition(int i) { return conds[i]; }
+    Action *get_action(int i) { return actions[i]; }
 
-                int get_size_conds() { return conds.size(); }
-                int get_size_actions() { return actions.size(); }
+    int get_size_conds() { return conds.size(); }
+    int get_size_actions() { return actions.size(); }
 
-                string get_type() { return params["type"]; }
-                string get_name() { return params["name"]; }
-                string get_param(string p) { return params[p]; }
-                void set_param(string p, string v) { params.Add(p, v); }
-                bool param_exists(string p) { return params.Exists(p); }
+    string get_type() { return params["type"]; }
+    string get_name() { return params["name"]; }
+    string get_param(string p) { return params[p]; }
+    void set_param(string p, string v) { params.Add(p, v); }
+    bool param_exists(string p) { return params.Exists(p); }
 
-                bool isAutoScenario() { return auto_sc_mark; }
-                void setAutoScenario(bool m) { auto_sc_mark = m; }
+    bool isAutoScenario() { return auto_sc_mark; }
+    void setAutoScenario(bool m) { auto_sc_mark = m; }
 
-                virtual bool LoadFromXml(TiXmlElement *node);
-                virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node);
+    virtual bool SaveToXml(TiXmlElement *node);
 };
 
 }

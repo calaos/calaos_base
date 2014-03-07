@@ -25,24 +25,24 @@ using namespace Calaos;
 
 StandardMjpeg::StandardMjpeg(Params &p): IPCam(p)
 {
-        //Nothing
-        for (int i = 0;i < p.size();i++)
-        {
-                std::string a, b;
-                p.get_item(i, a, b);
-                cout << a << ":" << b << endl;
-        }
+    //Nothing
+    for (int i = 0;i < p.size();i++)
+    {
+        std::string a, b;
+        p.get_item(i, a, b);
+        cout << a << ":" << b << endl;
+    }
 
-        //actually this is only for testing UI, it does nothing
-        if (param.Exists("ptz"))
-        {
-                caps.Add("ptz", "true");
-                caps.Add("position", "8");
-        }
-        if (param.Exists("zoom"))
-        {
-                caps.Add("zoom", "true");
-        }
+    //actually this is only for testing UI, it does nothing
+    if (param.Exists("ptz"))
+    {
+        caps.Add("ptz", "true");
+        caps.Add("position", "8");
+    }
+    if (param.Exists("zoom"))
+    {
+        caps.Add("zoom", "true");
+    }
 }
 
 StandardMjpeg::~StandardMjpeg()
@@ -51,70 +51,70 @@ StandardMjpeg::~StandardMjpeg()
 
 std::string StandardMjpeg::get_mpeg_stream()
 {
-        string url;
-        if (param["url_mpeg"] != "") url = param["url_mpeg"];
+    string url;
+    if (param["url_mpeg"] != "") url = param["url_mpeg"];
 
-        return url;
+    return url;
 }
 
 std::string StandardMjpeg::get_picture_real()
 {
-        std::string url, user;
+    std::string url, user;
 
-        if (param["url_jpeg"] != "") url = param["url_jpeg"];
+    if (param["url_jpeg"] != "") url = param["url_jpeg"];
 
-        return url;
+    return url;
 }
 
 std::string StandardMjpeg::get_mjpeg_stream()
 {
-        string url;
-        if (param["url_mjpeg"] != "")
-                url = param["url_mjpeg"];
-        else
+    string url;
+    if (param["url_mjpeg"] != "")
+        url = param["url_mjpeg"];
+    else
+    {
+        //Get id
+        int id = -1;
+        for (int i = 0;i < CamManager::Instance().get_size();i++)
         {
-                //Get id
-                int id = -1;
-                for (int i = 0;i < CamManager::Instance().get_size();i++)
-                {
-                        if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
-                                id = i;
-                }
-
-                //get local ip
-                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
-
-                url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + Utils::to_string(id);
+            if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
+                id = i;
         }
 
-        return url;
+        //get local ip
+        string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
+
+        url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + Utils::to_string(id);
+    }
+
+    return url;
 }
 
 std::string StandardMjpeg::get_picture()
 {
-        string url;
-        if (param["url_mjpeg"] != "")
-                url = param["url_jpeg"];
-        else
+    string url;
+    if (param["url_mjpeg"] != "")
+        url = param["url_jpeg"];
+    else
+    {
+        //Get id
+        int id = -1;
+        for (int i = 0;i < CamManager::Instance().get_size();i++)
         {
-                //Get id
-                int id = -1;
-                for (int i = 0;i < CamManager::Instance().get_size();i++)
-                {
-                        if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
-                                id = i;
-                }
-
-                //get local ip
-                string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
-
-                url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + Utils::to_string(id);
+            if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
+                id = i;
         }
 
-        return url;
+        //get local ip
+        string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
+
+        url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + Utils::to_string(id);
+    }
+
+    return url;
 }
 
 void StandardMjpeg::activateCapabilities(std::string cap, std::string cmd, std::string value)
 {
-        //Nothing
+    //Nothing
 }

@@ -24,64 +24,64 @@ using namespace Calaos;
 using namespace Utils;
 
 WOAnalog::WOAnalog(Params &p):
-                OutputAnalog(p),
-                port(502)
+    OutputAnalog(p),
+    port(502)
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    Utils::from_string(get_param("var"), address);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
+    WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cDebugDom("output") << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok";
+    cDebugDom("output") << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok";
 }
 
 WOAnalog::~WOAnalog()
 {
-        cDebugDom("output") << "WOAnalog::~WOAnalog(): Ok";
+    cDebugDom("output") << "WOAnalog::~WOAnalog(): Ok";
 }
 
 void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
-        if (!status)
-        {
-                cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to read value";
-                Calaos::StartReadRules::Instance().ioRead();
-
-                return;
-        }
-
-        if (!values.empty()) value = values[0];
-
-        emitChange();
-
+    if (!status)
+    {
+        cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to read value";
         Calaos::StartReadRules::Instance().ioRead();
+
+        return;
+    }
+
+    if (!values.empty()) value = values[0];
+
+    emitChange();
+
+    Calaos::StartReadRules::Instance().ioRead();
 }
 
 void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 {
-        if (!status)
-        {
-                cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to write value";
-                return;
-        }
+    if (!status)
+    {
+        cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to write value";
+        return;
+    }
 
-        value = _value;
+    value = _value;
 
-        emitChange();
+    emitChange();
 
-        cInfoDom("output") << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")";
+    cInfoDom("output") << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")";
 }
 
 void WOAnalog::set_value_real(double val)
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    Utils::from_string(get_param("var"), address);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        WagoMap::Instance(host, port).write_single_word((UWord)address, val, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
+    WagoMap::Instance(host, port).write_single_word((UWord)address, val, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
 }

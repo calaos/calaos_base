@@ -21,27 +21,27 @@
 #include "ActivityKeyboardView.h"
 
 ActivityKeyboardView::ActivityKeyboardView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/page/keyboard")
+    ActivityView(_e, _parent, "calaos/page/keyboard")
 {
-        setPartText("header.label", "Clavier");
+    setPartText("header.label", "Clavier");
 
-        keyboard = new KeyboardView(evas, parent);
-        Swallow(keyboard, "keyboard");
+    keyboard = new KeyboardView(evas, parent);
+    Swallow(keyboard, "keyboard");
 
-        textblock = elm_entry_add(parent);
-        elm_entry_scrollable_set(textblock, true);
-        Swallow(textblock, "textblock");
-        evas_object_show(textblock);
-        elm_object_focus_set(textblock, true);
+    textblock = elm_entry_add(parent);
+    elm_entry_scrollable_set(textblock, true);
+    Swallow(textblock, "textblock");
+    evas_object_show(textblock);
+    elm_object_focus_set(textblock, true);
 
-        addCallback("button.cleartext", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::clearTextCb));
-        addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::validInputCb));
+    addCallback("button.cleartext", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::clearTextCb));
+    addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::validInputCb));
 }
 
 ActivityKeyboardView::~ActivityKeyboardView()
 {
-        DELETE_NULL(keyboard);
-        DELETE_NULL_FUNC(evas_object_del, textblock);
+    DELETE_NULL(keyboard);
+    DELETE_NULL_FUNC(evas_object_del, textblock);
 }
 
 void ActivityKeyboardView::resetView()
@@ -50,30 +50,30 @@ void ActivityKeyboardView::resetView()
 
 void ActivityKeyboardView::setMultiline(bool multiline)
 {
-        if (multiline)
-                elm_object_style_set(textblock, "calaos/multiline");
-        else
-                elm_object_style_set(textblock, "calaos");
+    if (multiline)
+        elm_object_style_set(textblock, "calaos/multiline");
+    else
+        elm_object_style_set(textblock, "calaos");
 }
 
 void ActivityKeyboardView::setSubtitle(string subtitle)
 {
-        setPartText("module.subtitle", subtitle);
+    setPartText("module.subtitle", subtitle);
 }
 
 void ActivityKeyboardView::clearTextCb(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
-        clearText.emit();
-        elm_entry_entry_set(textblock, "");
+    clearText.emit();
+    elm_entry_entry_set(textblock, "");
 }
 
 void ActivityKeyboardView::validInputCb(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
-        string val = elm_entry_entry_get(textblock);
-        validPressed.emit(val);
+    string val = elm_entry_entry_get(textblock);
+    validPressed.emit(val);
 }
 
 void ActivityKeyboardView::setText(string t)
 {
-        elm_entry_entry_set(textblock, t.c_str());
+    elm_entry_entry_set(textblock, t.c_str());
 }

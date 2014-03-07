@@ -30,28 +30,28 @@ namespace Calaos
 
 class OutputAnalog : public Output
 {
-        protected:
-                double value;
-                double real_value_max;
-                double wago_value_max;
+protected:
+    double value;
+    double real_value_max;
+    double wago_value_max;
 
-                void readConfig();
+    void readConfig();
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
-                void WagoWriteCallback(bool status, UWord address, UWord value);
+    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoWriteCallback(bool status, UWord address, UWord value);
 
-                void emitChange();
-                virtual void set_value_real(double val) = 0;
+    void emitChange();
+    virtual void set_value_real(double val) = 0;
 
-        public:
-                OutputAnalog(Params &p);
-                ~OutputAnalog();
+public:
+    OutputAnalog(Params &p);
+    ~OutputAnalog();
 
-                DATA_TYPE get_type() { return TINT; }
+    DATA_TYPE get_type() { return TINT; }
 
-                virtual bool set_value(double val);
-                virtual double get_value_double();
-                virtual bool set_value(string val);
+    virtual bool set_value(double val);
+    virtual double get_value_double();
+    virtual bool set_value(string val);
 };
 
 }

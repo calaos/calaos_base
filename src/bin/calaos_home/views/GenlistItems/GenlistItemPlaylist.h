@@ -29,25 +29,25 @@ using namespace Utils;
 
 class GenlistItemPlaylist: public GenlistItemBase
 {
-        private:
-                string label;
-                AudioPlayer *player;
-                int playlist_item;
-                Params item_infos;
-                Evas_Object *popup_infos;
+private:
+    string label;
+    AudioPlayer *player;
+    int playlist_item;
+    Params item_infos;
+    Evas_Object *popup_infos;
 
-                void playlistItemGet_cb(Params &infos);
-                void playlistItemDelete_cb(void *data);
+    void playlistItemGet_cb(Params &infos);
+    void playlistItemDelete_cb(void *data);
 
-        public:
-                GenlistItemPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, int playlist_item, void *data = NULL);
-                virtual ~GenlistItemPlaylist();
+public:
+    GenlistItemPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, int playlist_item, void *data = NULL);
+    virtual ~GenlistItemPlaylist();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickMore();
+    void buttonClickPlay();
+    void buttonClickMore();
 };
 
 #endif // GENLISTITEMPLAYLIST_H

@@ -29,21 +29,21 @@ using namespace Utils;
 
 class KeyboardView: public BaseView
 {
-        private:
-                void onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source);
+private:
+    void onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source);
 
-                bool keys_upper;
-                bool keys_other;
+    bool keys_upper;
+    bool keys_other;
 
-        public:
-                KeyboardView(Evas *evas, Evas_Object *parent);
-                ~KeyboardView();
+public:
+    KeyboardView(Evas *evas, Evas_Object *parent);
+    ~KeyboardView();
 
-                //simulate a pressed key
-                void pressKey(string key);
+    //simulate a pressed key
+    void pressKey(string key);
 
-                enum { KEY_ALPHA, KEY_SHIFT, KEY_SPACE, KEY_ENTER };
-                sigc::signal<void, string, int> key_pressed;
+    enum { KEY_ALPHA, KEY_SHIFT, KEY_SPACE, KEY_ENTER };
+    sigc::signal<void, string, int> key_pressed;
 };
 
 #endif // KeyboardView_H

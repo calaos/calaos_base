@@ -28,19 +28,19 @@ using namespace Utils;
 
 class IOScenarioHomeView: public IOView
 {
-        private:
-                void clickScenario(void *data, Evas_Object *edje_object, string emission, string source);
+private:
+    void clickScenario(void *data, Evas_Object *edje_object, string emission, string source);
 
-                string state;
+    string state;
 
-                void clickFlashButton_cb();
+    void clickFlashButton_cb();
 
-        public:
-                IOScenarioHomeView(Evas *evas, Evas_Object *parent, IOBase *io);
-                virtual ~IOScenarioHomeView();
+public:
+    IOScenarioHomeView(Evas *evas, Evas_Object *parent, IOBase *io);
+    virtual ~IOScenarioHomeView();
 
-                virtual void initView();
-                virtual void updateView();
+    virtual void initView();
+    virtual void updateView();
 };
 
 #endif // IOSCENARIOHOMEVIEW_H

@@ -30,21 +30,21 @@ namespace Calaos
 //Manage Pioneer device
 class AVRPioneer: public AVReceiver
 {
-        protected:
+protected:
 
-                void decodeDisplayText(string &text);
+    void decodeDisplayText(string &text);
 
-                virtual void processMessage(string msg);
-                virtual void connectionEstablished();
+    virtual void processMessage(string msg);
+    virtual void connectionEstablished();
 
-        public:
-                AVRPioneer(Params &p);
-                virtual ~AVRPioneer();
+public:
+    AVRPioneer(Params &p);
+    virtual ~AVRPioneer();
 
-                virtual void Power(bool on, int zone = 1);
-                virtual void setVolume(int volume, int zone = 1);
-                virtual void selectInputSource(int source, int zone = 1);
-                virtual bool hasDisplay() { return true; } //Pioneer has display infos through ethernet
+    virtual void Power(bool on, int zone = 1);
+    virtual void setVolume(int volume, int zone = 1);
+    virtual void selectInputSource(int source, int zone = 1);
+    virtual bool hasDisplay() { return true; } //Pioneer has display infos through ethernet
 };
 
 }

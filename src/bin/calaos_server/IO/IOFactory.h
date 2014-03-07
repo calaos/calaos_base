@@ -32,20 +32,20 @@ namespace Calaos
 
 class IOFactory
 {
-        public:
-                static void readParams(TiXmlElement *node, Params &p);
+public:
+    static void readParams(TiXmlElement *node, Params &p);
 
-                static Input *CreateInput (std::string type, Params &params);
-                static Input *CreateInput (TiXmlElement *node);
+    static Input *CreateInput (std::string type, Params &params);
+    static Input *CreateInput (TiXmlElement *node);
 
-                static Output *CreateOutput (std::string type, Params &params);
-                static Output *CreateOutput (TiXmlElement *node);
+    static Output *CreateOutput (std::string type, Params &params);
+    static Output *CreateOutput (TiXmlElement *node);
 
-                static AudioPlayer *CreateAudio (std::string type, Params &params);
-                static AudioPlayer *CreateAudio (TiXmlElement *node);
+    static AudioPlayer *CreateAudio (std::string type, Params &params);
+    static AudioPlayer *CreateAudio (TiXmlElement *node);
 
-                static IPCam *CreateIPCamera (std::string type, Params &params);
-                static IPCam *CreateIPCamera (TiXmlElement *node);
+    static IPCam *CreateIPCamera (std::string type, Params &params);
+    static IPCam *CreateIPCamera (TiXmlElement *node);
 };
 
 }

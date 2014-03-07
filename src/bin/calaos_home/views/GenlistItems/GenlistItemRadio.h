@@ -29,23 +29,23 @@ using namespace Utils;
 
 class GenlistItemRadio: public GenlistItemBase
 {
-        private:
-                AudioPlayer *player;
-                Params item_infos;
+private:
+    AudioPlayer *player;
+    Params item_infos;
 
-                void genreItemGet_cb(Params &infos);
+    void genreItemGet_cb(Params &infos);
 
-        public:
-                GenlistItemRadio(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params item, void *data = NULL);
-                virtual ~GenlistItemRadio();
+public:
+    GenlistItemRadio(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params item, void *data = NULL);
+    virtual ~GenlistItemRadio();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
+    void buttonClickPlay();
+    void buttonClickAdd();
 
-                Params getItemInfos() { return item_infos; }
+    Params getItemInfos() { return item_infos; }
 };
 
 #endif // GenlistItemRadio_H

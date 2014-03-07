@@ -29,381 +29,381 @@ using namespace Calaos;
 
 static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
 {
-        AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
+    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
 
-        if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-                return ECORE_CALLBACK_PASS_ON;
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
 
-        if (o)
-                o->addConnection(ev->server);
-        else
-                cCriticalDom("output")
-                                << "AVReceiver(): _con_server_add, failed to get object !"
-                               ;
+    if (o)
+        o->addConnection(ev->server);
+    else
+        cCriticalDom("output")
+                << "AVReceiver(): _con_server_add, failed to get object !"
+                   ;
 
-        return ECORE_CALLBACK_RENEW;
+    return ECORE_CALLBACK_RENEW;
 }
 
 static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
 {
-        AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
+    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
 
-        if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-                return ECORE_CALLBACK_PASS_ON;
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
 
-        if (o)
-                o->delConnection(ev->server);
-        else
-                cCriticalDom("output")
-                                << "AVReceiver(): _con_server_del, failed to get object !"
-                               ;
+    if (o)
+        o->delConnection(ev->server);
+    else
+        cCriticalDom("output")
+                << "AVReceiver(): _con_server_del, failed to get object !"
+                   ;
 
-        return ECORE_CALLBACK_RENEW;
+    return ECORE_CALLBACK_RENEW;
 }
 
 static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_Data *ev)
 {
-        AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
+    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
 
-        if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-                return ECORE_CALLBACK_PASS_ON;
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
 
-        if (o)
-                o->dataGet(ev->server, ev->data, ev->size);
-        else
-                cCriticalDom("output")
-                                << "AVReceiver(): _con_server_data, failed to get object !"
-                               ;
+    if (o)
+        o->dataGet(ev->server, ev->data, ev->size);
+    else
+        cCriticalDom("output")
+                << "AVReceiver(): _con_server_data, failed to get object !"
+                   ;
 
-        return ECORE_CALLBACK_RENEW;
+    return ECORE_CALLBACK_RENEW;
 }
 
 AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
-        ref_count(0),
-        params(p),
-        econ(NULL),
-        timer_con(NULL),
-        isConnected(false),
-        volume_main(0),
-        volume_zone2(0),
-        volume_zone3(0),
-        power_main(false),
-        power_zone2(false),
-        power_zone3(false),
-        source_main(0),
-        source_zone2(0),
-        source_zone3(0),
-        connection_type(_connection_type)
+    ref_count(0),
+    params(p),
+    econ(NULL),
+    timer_con(NULL),
+    isConnected(false),
+    volume_main(0),
+    volume_zone2(0),
+    volume_zone3(0),
+    power_main(false),
+    power_zone2(false),
+    power_zone3(false),
+    source_main(0),
+    source_zone2(0),
+    source_zone3(0),
+    connection_type(_connection_type)
 {
-        cDebugDom("output") << "AVReceiver::AVReceiver(" << params["id"] << "): Ok";
+    cDebugDom("output") << "AVReceiver::AVReceiver(" << params["id"] << "): Ok";
 
-        if (!params.Exists("visible")) params.Add("visible", "false");
+    if (!params.Exists("visible")) params.Add("visible", "false");
 
-        host = params["host"];
-        port = default_port;
+    host = params["host"];
+    port = default_port;
 
-        if (params.Exists("port"))
-                from_string(params["port"], port);
+    if (params.Exists("port"))
+        from_string(params["port"], port);
 
-        ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
-        ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
-        ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
+    ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
+    ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
+    ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
 
-        timerConnReconnect();
-        timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+    timerConnReconnect();
+    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 }
 
 AVReceiver::~AVReceiver()
 {
-        DELETE_NULL(timer_con);
-        DELETE_NULL_FUNC(ecore_con_server_del, econ);
-        DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
-        DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
-        DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
+    DELETE_NULL(timer_con);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
 
-        cDebugDom("output") << "AVReceiver::~AVReceiver(): Ok";
+    cDebugDom("output") << "AVReceiver::~AVReceiver(): Ok";
 }
 
 void AVReceiver::timerConnReconnect()
 {
-        cDebugDom("output") << "AVReceiver:timerConnReconnect() Connecting to " << host << ":" << port;
+    cDebugDom("output") << "AVReceiver:timerConnReconnect() Connecting to " << host << ":" << port;
 
-        DELETE_NULL_FUNC(ecore_con_server_del, econ);
-        econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port, this);
-        ecore_con_server_data_set(econ, this);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port, this);
+    ecore_con_server_data_set(econ, this);
 
-        cDebugDom("output") << "AVReceiver:timerConnReconnect(): econ == " << econ;
+    cDebugDom("output") << "AVReceiver:timerConnReconnect(): econ == " << econ;
 }
 
 void AVReceiver::addConnection(Ecore_Con_Server *srv)
 {
-        if (srv != econ) return;
+    if (srv != econ) return;
 
-        DELETE_NULL(timer_con);
-        isConnected = true;
+    DELETE_NULL(timer_con);
+    isConnected = true;
 
-        connectionEstablished();
+    connectionEstablished();
 
-        cDebugDom("output") << "AVReceiver: main connection established";
+    cDebugDom("output") << "AVReceiver: main connection established";
 }
 
 void AVReceiver::delConnection(Ecore_Con_Server *srv)
 {
-        if (srv != econ) return;
+    if (srv != econ) return;
 
-        DELETE_NULL(timer_con);
+    DELETE_NULL(timer_con);
 
-        cWarningDom("output") << "AVReceiver: Main Connection closed !";
-        cWarningDom("output") << "AVReceiver: Trying to reconnect...";
+    cWarningDom("output") << "AVReceiver: Main Connection closed !";
+    cWarningDom("output") << "AVReceiver: Trying to reconnect...";
 
-        timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 
-        isConnected = false;
+    isConnected = false;
 }
 
 void AVReceiver::dataGet(Ecore_Con_Server *srv, void *data, int size)
 {
-        if (srv != econ) return;
+    if (srv != econ) return;
 
-        if (connection_type == AVR_CON_CHAR)
-        {
-                string msg((char *)data, size);
-                dataGet(msg);
-        }
-        else if (connection_type == AVR_CON_BYTES)
-        {
-                char *cdata = (char *)data;
-                vector<char> d(cdata, cdata + size);
+    if (connection_type == AVR_CON_CHAR)
+    {
+        string msg((char *)data, size);
+        dataGet(msg);
+    }
+    else if (connection_type == AVR_CON_BYTES)
+    {
+        char *cdata = (char *)data;
+        vector<char> d(cdata, cdata + size);
 
-                //We don't know how to handle these messages,
-                //so we delegate the processing to the child class
-                //processMessage(vector<char>) has to be inherited !
-                processMessage(d);
-        }
+        //We don't know how to handle these messages,
+        //so we delegate the processing to the child class
+        //processMessage(vector<char>) has to be inherited !
+        processMessage(d);
+    }
 }
 
 void AVReceiver::dataGet(string msg)
 {
-        if (msg.find('\n') == string::npos &&
-            msg.find('\r') == string::npos)
-        {
-                //We have not a complete paquet yet, buffurize it.
-                recv_buffer += msg;
+    if (msg.find('\n') == string::npos &&
+        msg.find('\r') == string::npos)
+    {
+        //We have not a complete paquet yet, buffurize it.
+        recv_buffer += msg;
 
-                cDebugDom("output") << "AVReceiver:getData() Bufferize data.";
+        cDebugDom("output") << "AVReceiver:getData() Bufferize data.";
 
-                return;
-        }
+        return;
+    }
 
-        if (!recv_buffer.empty())
-        {
-                //Put last data in buffer
-                recv_buffer += msg;
-                msg = recv_buffer;
-                recv_buffer.clear();
-        }
+    if (!recv_buffer.empty())
+    {
+        //Put last data in buffer
+        recv_buffer += msg;
+        msg = recv_buffer;
+        recv_buffer.clear();
+    }
 
-        replace_str(msg, "\r\n", "\n");
-        replace_str(msg, "\r", "\n");
+    replace_str(msg, "\r\n", "\n");
+    replace_str(msg, "\r", "\n");
 
-        vector<string> tokens;
-        split(msg, tokens, "\n");
+    vector<string> tokens;
+    split(msg, tokens, "\n");
 
-        cDebugDom("output") << "AVReceiver:getData() Got " << tokens.size() << " messages.";
+    cDebugDom("output") << "AVReceiver:getData() Got " << tokens.size() << " messages.";
 
-        for(uint i = 0; i < tokens.size(); i++)
-                processMessage(tokens[i]);
+    for(uint i = 0; i < tokens.size(); i++)
+        processMessage(tokens[i]);
 }
 
 void AVReceiver::processMessage(string msg)
 {
-        cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
+    cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
 }
 
 void AVReceiver::processMessage(vector<char> msg)
 {
-        cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
+    cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
 }
 
 void AVReceiver::sendRequest(string request)
 {
-        if (!econ || !isConnected) return;
+    if (!econ || !isConnected) return;
 
-        cDebugDom("output") << "AVReceiver::sendRequest() Command: " << request;
+    cDebugDom("output") << "AVReceiver::sendRequest() Command: " << request;
 
-        request += command_suffix;
+    request += command_suffix;
 
-        ecore_con_server_send(econ, request.c_str(), request.length());
+    ecore_con_server_send(econ, request.c_str(), request.length());
 }
 
 void AVReceiver::sendRequest(vector<char> request)
 {
-        if (!econ || !isConnected) return;
+    if (!econ || !isConnected) return;
 
-        cDebugDom("output") << "AVReceiver::sendRequest(), " << request.size() << " bytes";
+    cDebugDom("output") << "AVReceiver::sendRequest(), " << request.size() << " bytes";
 
-        ecore_con_server_send(econ, &request[0], request.size());
+    ecore_con_server_send(econ, &request[0], request.size());
 }
 
 bool AVReceiver::getPower(int zone)
 {
-        if (zone == 2) return power_zone2;
-        if (zone == 3) return power_zone3;
-        return power_main;
+    if (zone == 2) return power_zone2;
+    if (zone == 3) return power_zone3;
+    return power_main;
 }
 
 int AVReceiver::getVolume(int zone)
 {
-        if (zone == 2) return volume_zone2;
-        if (zone == 3) return volume_zone3;
-        return volume_main;
+    if (zone == 2) return volume_zone2;
+    if (zone == 3) return volume_zone3;
+    return volume_main;
 }
 
 int AVReceiver::getInputSource(int zone)
 {
-        if (zone == 2) return source_zone2;
-        if (zone == 3) return source_zone3;
-        return source_main;
+    if (zone == 2) return source_zone2;
+    if (zone == 3) return source_zone3;
+    return source_main;
 }
 
 IOAVReceiver::IOAVReceiver(Params &p):
-        Input(p),
-        Output(p),
-        zone(1)
+    Input(p),
+    Output(p),
+    zone(1)
 {
-        Input::get_params().Add("gui_type", "avreceiver");
-        Input::get_params().Add("visible", "false");
-        if (Input::get_params().Exists("zone"))
-                from_string(Input::get_param("zone"), zone);
-        receiver = AVRManager::Instance().Create(p);
+    Input::get_params().Add("gui_type", "avreceiver");
+    Input::get_params().Add("visible", "false");
+    if (Input::get_params().Exists("zone"))
+        from_string(Input::get_param("zone"), zone);
+    receiver = AVRManager::Instance().Create(p);
 
-        if (zone == 1 && receiver)
-                receiver->state_changed_1.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
-        if (zone == 2 && receiver)
-                receiver->state_changed_2.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
-        if (zone == 3 && receiver)
-                receiver->state_changed_3.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
+    if (zone == 1 && receiver)
+        receiver->state_changed_1.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
+    if (zone == 2 && receiver)
+        receiver->state_changed_2.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
+    if (zone == 3 && receiver)
+        receiver->state_changed_3.connect(sigc::mem_fun(*this, &IOAVReceiver::statusChanged));
 }
 
 IOAVReceiver::~IOAVReceiver()
 {
-        AVRManager::Instance().Delete(receiver);
+    AVRManager::Instance().Delete(receiver);
 }
 
 void IOAVReceiver::statusChanged(string param, string value)
 {
-        EmitSignalInput();
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += Input::get_param("id") + " ";
-        sig += url_encode(param + ":" + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += Input::get_param("id") + " ";
+    sig += url_encode(param + ":" + Utils::to_string(value));
+    IPC::Instance().SendEvent("events", sig);
 
-        sig = "output ";
-        sig += Input::get_param("id") + " ";
-        sig += url_encode(param + ":" + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
+    sig = "output ";
+    sig += Input::get_param("id") + " ";
+    sig += url_encode(param + ":" + Utils::to_string(value));
+    IPC::Instance().SendEvent("events", sig);
 }
 
 string IOAVReceiver::get_value_string()
 {
-        if (!receiver) return "";
+    if (!receiver) return "";
 
-        return Utils::to_string(receiver->getInputSource(zone));
+    return Utils::to_string(receiver->getInputSource(zone));
 }
 
 map<string, string> IOAVReceiver::get_all_values_string()
 {
-        map<string, string> m;
+    map<string, string> m;
 
-        if (!receiver)
-                return m;
-
-        if (receiver->getPower(zone))
-                m["power"] = "true";
-        else
-                m["power"] = "false";
-
-        m["volume"] = Utils::to_string(receiver->getVolume(zone));
-        m["input_source"] = Utils::to_string(receiver->getInputSource(zone));
-
-        if (receiver->hasDisplay())
-        {
-                m["has_display"] = "true";
-                m["display_text"] = receiver->getDisplayText();
-        }
-        else
-                m["has_display"] = "false";
-
+    if (!receiver)
         return m;
+
+    if (receiver->getPower(zone))
+        m["power"] = "true";
+    else
+        m["power"] = "false";
+
+    m["volume"] = Utils::to_string(receiver->getVolume(zone));
+    m["input_source"] = Utils::to_string(receiver->getInputSource(zone));
+
+    if (receiver->hasDisplay())
+    {
+        m["has_display"] = "true";
+        m["display_text"] = receiver->getDisplayText();
+    }
+    else
+        m["has_display"] = "false";
+
+    return m;
 }
 
 void IOAVReceiver::force_input_string(string val)
 {
-        if (!receiver) return;
+    if (!receiver) return;
 
-        if (val == "power off" || val == "power false")
-                receiver->Power(false, zone);
-        else if (val == "power on" || val == "power true")
-                receiver->Power(true, zone);
-        else if (val.substr(0, 7) == "volume ")
-        {
-                val.erase(0, 7);
-                int vol;
-                from_string(val, vol);
-                receiver->setVolume(vol, zone);
-        }
-        else if (val.substr(0, 7) == "source ")
-        {
-                val.erase(0, 7);
-                int source;
-                from_string(val, source);
-                receiver->selectInputSource(source, zone);
-        }
-        else if (val.substr(0, 7) == "custom ")
-        {
-                val.erase(0, 7);
-                receiver->sendCustomCommand(val);
-        }
+    if (val == "power off" || val == "power false")
+        receiver->Power(false, zone);
+    else if (val == "power on" || val == "power true")
+        receiver->Power(true, zone);
+    else if (val.substr(0, 7) == "volume ")
+    {
+        val.erase(0, 7);
+        int vol;
+        from_string(val, vol);
+        receiver->setVolume(vol, zone);
+    }
+    else if (val.substr(0, 7) == "source ")
+    {
+        val.erase(0, 7);
+        int source;
+        from_string(val, source);
+        receiver->selectInputSource(source, zone);
+    }
+    else if (val.substr(0, 7) == "custom ")
+    {
+        val.erase(0, 7);
+        receiver->sendCustomCommand(val);
+    }
 }
 
 bool IOAVReceiver::set_value(string val)
 {
-        cInfoDom("output") << "IOAVReceiver(" << get_param("id") << "): got action, " << val;
+    cInfoDom("output") << "IOAVReceiver(" << get_param("id") << "): got action, " << val;
 
-        force_input_string(val);
+    force_input_string(val);
 
-        return true;
+    return true;
 }
 
 bool IOAVReceiver::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cnode = new TiXmlElement("calaos:avr");
-        node->LinkEndChild(cnode);
+    TiXmlElement *cnode = new TiXmlElement("calaos:avr");
+    node->LinkEndChild(cnode);
 
-        for (int i = 0;i < get_params().size();i++)
-        {
-                string key, value;
-                Input::get_params().get_item(i, key, value);
-                cnode->SetAttribute(key, value);
-        }
+    for (int i = 0;i < get_params().size();i++)
+    {
+        string key, value;
+        Input::get_params().get_item(i, key, value);
+        cnode->SetAttribute(key, value);
+    }
 
-        return true;
+    return true;
 }
 
 map<string, string> IOAVReceiver::query_param(string key)
 {
-        map<string, string> m;
+    map<string, string> m;
 
-        if (!receiver) return m;
+    if (!receiver) return m;
 
-        if (key == "input_sources")
-        {
-                AVRList sources = receiver->getSources();
-                AVRList::iterator it = sources.begin();
-                for (;it != sources.end();it++)
-                        m[Utils::to_string((*it).first)] = (*it).second;
-        }
+    if (key == "input_sources")
+    {
+        AVRList sources = receiver->getSources();
+        AVRList::iterator it = sources.begin();
+        for (;it != sources.end();it++)
+            m[Utils::to_string((*it).first)] = (*it).second;
+    }
 
-        return m;
+    return m;
 }

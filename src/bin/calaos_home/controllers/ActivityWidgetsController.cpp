@@ -21,9 +21,9 @@
 #include "ActivityWidgetsController.h"
 
 ActivityWidgetsController::ActivityWidgetsController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_WIDGETS)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_WIDGETS)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityWidgetsController::~ActivityWidgetsController()
@@ -32,50 +32,50 @@ ActivityWidgetsController::~ActivityWidgetsController()
 
 void ActivityWidgetsController::dimView()
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return;
 
-        wview->dimView();
+    wview->dimView();
 }
 
 void ActivityWidgetsController::setEditMode()
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return;
 
-        wview->EditMode();
+    wview->EditMode();
 }
 
 void ActivityWidgetsController::validEdit()
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return;
 
-        wview->SaveWidgets();
-        wview->NormalMode();
+    wview->SaveWidgets();
+    wview->NormalMode();
 }
 
 void ActivityWidgetsController::cancelEdit()
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return;
 
-        wview->ResetPosition();
-        wview->NormalMode();
+    wview->ResetPosition();
+    wview->NormalMode();
 }
 
 int ActivityWidgetsController::getWidgetCount()
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return 0;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return 0;
 
-        return wview->size();
+    return wview->size();
 }
 
 bool ActivityWidgetsController::AddWidget(ModuleDef &mtype, int x, int y, int w, int h, string id)
 {
-        ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
-        if (!wview) return false;
+    ActivityWidgetsView *wview = dynamic_cast<ActivityWidgetsView *>(view);
+    if (!wview) return false;
 
-        return wview->AddWidget(mtype, x, y, w, h, id);
+    return wview->AddWidget(mtype, x, y, w, h, id);
 }

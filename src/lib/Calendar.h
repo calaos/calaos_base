@@ -32,112 +32,112 @@
 
 class TimeZoneElt
 {
-        public:
-                /* la cl du pays  mettre dans /etc/timezone */
-                string key;
-                /* le chemin complet du pays (continent / pays / ville) */
-                string country;
-                /* le dcalage horaire sous forme de chaine de caractre */
-                string decalageStr;
-                /* le dcalage horaire  sous forme d'entier (non utilis) */
-                int decalage;
-                /* le code du pays (fr, de ...) */
-                string code;
+public:
+    /* la cl du pays  mettre dans /etc/timezone */
+    string key;
+    /* le chemin complet du pays (continent / pays / ville) */
+    string country;
+    /* le dcalage horaire sous forme de chaine de caractre */
+    string decalageStr;
+    /* le dcalage horaire  sous forme d'entier (non utilis) */
+    int decalage;
+    /* le code du pays (fr, de ...) */
+    string code;
 
-                TimeZoneElt(string k, string c, string dstr, int d, string id);
+    TimeZoneElt(string k, string c, string dstr, int d, string id);
 };
 
 class TimeZone
 {
-        public:
-                /* le fuseau horaire selectionn,  modifier directement
+public:
+    /* le fuseau horaire selectionn,  modifier directement
                  *avec l'indice du fuseaux horaire dans "timeZone" */
-                int current;
+    int current;
 
-                /* la liste des fuseaux horaires */
-                vector<TimeZoneElt> timeZone;
+    /* la liste des fuseaux horaires */
+    vector<TimeZoneElt> timeZone;
 
-                TimeZone();
-                int loadCurrentTimeZone();
+    TimeZone();
+    int loadCurrentTimeZone();
 };
 
 class EAPI Calendar
 {
-        private:
-                bool restart;
-        public:
+private:
+    bool restart;
+public:
 
-                Ecore_Exe *exe;
+    Ecore_Exe *exe;
 
-                static const int mounths[13];
-                static const char *days[7];
-                static const char* M[13];
+    static const int mounths[13];
+    static const char *days[7];
+    static const char* M[13];
 
-                int hours;
-                int minutes;
-                int secondes;
+    int hours;
+    int minutes;
+    int secondes;
 
-                /* A vrai pour utiliser ntp */
-                bool ntp;
+    /* A vrai pour utiliser ntp */
+    bool ntp;
 
-                int year;
-                int month;
-                int day;
+    int year;
+    int month;
+    int day;
 
-                /* position du jour dans une semaine (lundi:1 ....) */
-                int dayId;
+    /* position du jour dans une semaine (lundi:1 ....) */
+    int dayId;
 
-                TimeZone timeZone;
+    TimeZone timeZone;
 
-                Ecore_Event_Handler* handler;
-                Ecore_Event_Handler* handler2;
+    Ecore_Event_Handler* handler;
+    Ecore_Event_Handler* handler2;
 
-                Calendar();
+    Calendar();
 
-                void setRestart(bool r);
-                bool isRestart();
+    void setRestart(bool r);
+    bool isRestart();
 
-                void initClock();
-                void hoursDec();
-                void hoursUp();
-                void setHours(int val);
-                void minutesDec();
-                void minutesUp();
-                void setMinutes(int val);
-                void secondesDec();
-                void secondesUp();
-                void setSecondes(int val);
-                void setNtp(bool b);
-                void timezoneSelect(int id);
+    void initClock();
+    void hoursDec();
+    void hoursUp();
+    void setHours(int val);
+    void minutesDec();
+    void minutesUp();
+    void setMinutes(int val);
+    void secondesDec();
+    void secondesUp();
+    void setSecondes(int val);
+    void setNtp(bool b);
+    void timezoneSelect(int id);
 
-                string hoursToString();
-                string minutesToString();
-                string secondesToString();
+    string hoursToString();
+    string minutesToString();
+    string secondesToString();
 
-                void monthUp();
-                void monthDown();
-                void setMonth(int m);
+    void monthUp();
+    void monthDown();
+    void setMonth(int m);
 
-                void dayUp();
-                void dayDown();
-                void setDay(int m);
+    void dayUp();
+    void dayDown();
+    void setDay(int m);
 
-                void yearUp();
-                void yearDown();
-                void setYear(int m);
+    void yearUp();
+    void yearDown();
+    void setYear(int m);
 
-                const string getDayFromDate();
-                int getDayIdFromDate();
-                void initDate();
-                const string getMonthFromDate();
-                int getNbDaysInMonth();
+    const string getDayFromDate();
+    int getDayIdFromDate();
+    void initDate();
+    const string getMonthFromDate();
+    int getNbDaysInMonth();
 
-                void apply();
-                void applyTimezone();
+    void apply();
+    void applyTimezone();
 
-        private:
-                bool isleap(int n);
-                void updateDay();
+private:
+    bool isleap(int n);
+    void updateDay();
 };
 
 #endif

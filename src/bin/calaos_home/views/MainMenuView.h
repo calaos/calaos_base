@@ -29,64 +29,64 @@ using namespace Utils;
 
 class MainMenuView: public BaseView
 {
-        public:
-                //These are for private use to get callbacks from C code.
-                void _click_reboot();
-                void _click_suspend();
-                void _click_addwidget();
-                void _click_widget();
+public:
+    //These are for private use to get callbacks from C code.
+    void _click_reboot();
+    void _click_suspend();
+    void _click_addwidget();
+    void _click_widget();
 
-        private:
-                Evas_Object *list;
+private:
+    Evas_Object *list;
 
-                Elm_Object_Item *item_config_addwidget;
-                Elm_Object_Item *item_config_widget;
-                Elm_Object_Item *item_sleep_screen;
-                Elm_Object_Item *item_reboot;
+    Elm_Object_Item *item_config_addwidget;
+    Elm_Object_Item *item_config_widget;
+    Elm_Object_Item *item_sleep_screen;
+    Elm_Object_Item *item_reboot;
 
-                void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void ButtonPressedCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void editWidgetClick();
+    void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void ButtonPressedCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void editWidgetClick();
 
-        public:
-                MainMenuView(Evas *evas, Evas_Object *parent);
-                ~MainMenuView();
+public:
+    MainMenuView(Evas *evas, Evas_Object *parent);
+    ~MainMenuView();
 
-                void UnselectAllMenu();
-                void DisableMenu();
-                void EnableMenu();
+    void UnselectAllMenu();
+    void DisableMenu();
+    void EnableMenu();
 
-                void ShowMenu();
-                void HideMenu();
+    void ShowMenu();
+    void HideMenu();
 
-                void SelectHome();
-                void SelectMedia();
-                void SelectScenario();
-                void SelectConfig();
+    void SelectHome();
+    void SelectMedia();
+    void SelectScenario();
+    void SelectConfig();
 
-                void OpenLinkMenu();
-                void CloseLinkMenu();
+    void OpenLinkMenu();
+    void CloseLinkMenu();
 
-                void setVersionString(string version);
+    void setVersionString(string version);
 
-                /**
+    /**
                  * UI Signals
                  */
-                sigc::signal<void> on_home_click;
-                sigc::signal<void> on_media_click;
-                sigc::signal<void> on_scenario_click;
-                sigc::signal<void> on_config_click;
+    sigc::signal<void> on_home_click;
+    sigc::signal<void> on_media_click;
+    sigc::signal<void> on_scenario_click;
+    sigc::signal<void> on_config_click;
 
-                sigc::signal<void> on_reboot_click;
-                sigc::signal<void> on_suspend_click;
-                sigc::signal<void> on_widget_click;
-                sigc::signal<void> on_addwidget_click;
+    sigc::signal<void> on_reboot_click;
+    sigc::signal<void> on_suspend_click;
+    sigc::signal<void> on_widget_click;
+    sigc::signal<void> on_addwidget_click;
 
-                sigc::signal<void> on_menu_open;
-                sigc::signal<void> on_menu_close;
+    sigc::signal<void> on_menu_open;
+    sigc::signal<void> on_menu_close;
 
-                sigc::signal<void> on_widget_valid_click;
-                sigc::signal<void> on_widget_cancel_click;
+    sigc::signal<void> on_widget_valid_click;
+    sigc::signal<void> on_widget_cancel_click;
 };
 
 #endif // MAINMENUVIEW_H

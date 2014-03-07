@@ -30,34 +30,34 @@ namespace Calaos
 
 class InputSwitchTriple : public Input
 {
-        protected:
-                int count;
-                double value;
+protected:
+    int count;
+    double value;
 
-                EcoreTimer *timer;
+    EcoreTimer *timer;
 
-                void TimerDone();
-                void resetInput();
-                void emitChange();
+    void TimerDone();
+    void resetInput();
+    void emitChange();
 
-                virtual bool readValue() = 0;
+    virtual bool readValue() = 0;
 
-        public:
-                InputSwitchTriple(Params &p);
-                ~InputSwitchTriple();
+public:
+    InputSwitchTriple(Params &p);
+    ~InputSwitchTriple();
 
-                virtual DATA_TYPE get_type() { return TINT; }
+    virtual DATA_TYPE get_type() { return TINT; }
 
-                /* Send the action number
+    /* Send the action number
                         -1: nothing
                         1: action 1
                         2: action 2
                         3: action 3
                 */
-                virtual double get_value_double() { return value; }
-                virtual void force_input_double(double v);
+    virtual double get_value_double() { return value; }
+    virtual void force_input_double(double v);
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

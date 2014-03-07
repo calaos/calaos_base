@@ -21,7 +21,7 @@
 #include "ActivityConfigMenuController.h"
 
 ActivityConfigMenuController::ActivityConfigMenuController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_MENU)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_MENU)
 {
 }
 
@@ -31,11 +31,11 @@ ActivityConfigMenuController::~ActivityConfigMenuController()
 
 void ActivityConfigMenuController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityConfigMenuView *configMenuView = dynamic_cast<ActivityConfigMenuView *>(view);
-        configMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
+    ActivityConfigMenuView *configMenuView = dynamic_cast<ActivityConfigMenuView *>(view);
+    configMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
 }
 

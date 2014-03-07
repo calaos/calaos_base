@@ -26,79 +26,79 @@
 using namespace Calaos;
 
 InputTemp::InputTemp(Params &p):
-                Input(p),
-                value(0.0),
-                timer(0.0),
-                readTime(15.0)
+    Input(p),
+    value(0.0),
+    timer(0.0),
+    readTime(15.0)
 {
-        set_param("gui_type", "temp");
+    set_param("gui_type", "temp");
 
-        Utils::from_string(get_param("offset"), offset);
-        if (!get_params().Exists("visible")) set_param("visible", "true");
-        if (!get_params().Exists("interval"))
-                Utils::from_string(get_param("interval"), readTime);
+    Utils::from_string(get_param("offset"), offset);
+    if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("interval"))
+        Utils::from_string(get_param("interval"), readTime);
 
-        ListeRule::Instance().Add(this); //add this specific input to the EventLoop
+    ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cInfoDom("input") << "InputTemp::InputTemp(" << get_param("id") << "): Ok";
+    cInfoDom("input") << "InputTemp::InputTemp(" << get_param("id") << "): Ok";
 }
 
 InputTemp::~InputTemp()
 {
-        cInfoDom("input") << "InputTemp::~InputTemp(): Ok";
+    cInfoDom("input") << "InputTemp::~InputTemp(): Ok";
 }
 
 void InputTemp::hasChanged()
 {
-        if (!get_params().Exists("interval"))
-                Utils::from_string(get_param("interval"), readTime);
+    if (!get_params().Exists("interval"))
+        Utils::from_string(get_param("interval"), readTime);
 
-        double sec = ecore_time_get() - timer;
-        if (sec >= readTime)
-        {
-                timer = ecore_time_get();
+    double sec = ecore_time_get() - timer;
+    if (sec >= readTime)
+    {
+        timer = ecore_time_get();
 
-                readValue();
-        }
+        readValue();
+    }
 }
 
 double InputTemp::get_value_double()
 {
-        double v;
+    double v;
 
-        if (get_params().Exists("offset"))
-        {
-                Utils::from_string(get_param("offset"), offset);
+    if (get_params().Exists("offset"))
+    {
+        Utils::from_string(get_param("offset"), offset);
 
-                if (offset < 100 && offset > -100)
-                        v = value - offset;
-                else
-                        v = value;
-        }
+        if (offset < 100 && offset > -100)
+            v = value - offset;
         else
-        {
-                v = value;
-        }
+            v = value;
+    }
+    else
+    {
+        v = value;
+    }
 
-        return v;
+    return v;
 }
 
 void InputTemp::emitChange()
 {
-        cInfoDom("input") << "WITemp:changed(" << get_param("id") << ") : " << get_value_double() << " °C";
+    cInfoDom("input") << "WITemp:changed(" << get_param("id") << ") : " << get_value_double() << " °C";
 
-        EmitSignalInput();
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
+    IPC::Instance().SendEvent("events", sig);
 }
 
 void InputTemp::force_input_double(double v)
 {
-        value = v;
-        emitChange();
+    value = v;
+    emitChange();
 }

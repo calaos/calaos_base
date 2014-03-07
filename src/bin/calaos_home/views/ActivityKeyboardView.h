@@ -30,25 +30,25 @@ using namespace Utils;
 
 class ActivityKeyboardView: public ActivityView
 {
-        private:
-                KeyboardView *keyboard;
-                Evas_Object *textblock;
+private:
+    KeyboardView *keyboard;
+    Evas_Object *textblock;
 
-                void clearTextCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void validInputCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void clearTextCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void validInputCb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-        public:
-                ActivityKeyboardView(Evas *evas, Evas_Object *parent);
-                ~ActivityKeyboardView();
+public:
+    ActivityKeyboardView(Evas *evas, Evas_Object *parent);
+    ~ActivityKeyboardView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void setMultiline(bool multiline);
-                void setSubtitle(string subtitle);
-                void setText(string t);
+    void setMultiline(bool multiline);
+    void setSubtitle(string subtitle);
+    void setText(string t);
 
-                sigc::signal<void> clearText;
-                sigc::signal<void, string> validPressed;
+    sigc::signal<void> clearText;
+    sigc::signal<void, string> validPressed;
 };
 
 #endif // ActivityKeyboardView_H

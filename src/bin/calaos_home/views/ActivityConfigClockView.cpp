@@ -25,31 +25,31 @@
 #include <Calendar.h>
 
 ActivityConfigClockView::ActivityConfigClockView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/page/config/clock")
+    ActivityView(_e, _parent, "calaos/page/config/clock")
 {
-        TimeZone tz;
-        tzList = elm_genlist_add(_parent);
+    TimeZone tz;
+    tzList = elm_genlist_add(_parent);
 
-        setPartText("tab1.text", _("Action and positions of widgets"));
-        setPartText("tab1.text.detail", _("Resume : <light_blue>Current settings</light_blue><br><small>Configure Date and Time !</small"));
-        setPartText("tab2.text", _("About"));
-        setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
+    setPartText("tab1.text", _("Action and positions of widgets"));
+    setPartText("tab1.text.detail", _("Resume : <light_blue>Current settings</light_blue><br><small>Configure Date and Time !</small"));
+    setPartText("tab2.text", _("About"));
+    setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
 
-        elm_object_style_set(tzList, "calaos");
-        elm_genlist_select_mode_set(tzList, ELM_OBJECT_SELECT_MODE_ALWAYS);
-        evas_object_size_hint_fill_set(tzList, EVAS_HINT_FILL, EVAS_HINT_FILL);
-        evas_object_size_hint_weight_set(tzList, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-        evas_object_show(tzList);
-        Swallow(tzList, "timezone_list.swallow");
+    elm_object_style_set(tzList, "calaos");
+    elm_genlist_select_mode_set(tzList, ELM_OBJECT_SELECT_MODE_ALWAYS);
+    evas_object_size_hint_fill_set(tzList, EVAS_HINT_FILL, EVAS_HINT_FILL);
+    evas_object_size_hint_weight_set(tzList, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+    evas_object_show(tzList);
+    Swallow(tzList, "timezone_list.swallow");
 
-        for(unsigned int i = 0; i < tz.timeZone.size(); i++)
-        {
+    for(unsigned int i = 0; i < tz.timeZone.size(); i++)
+    {
 
-                GenlistItemSimple *_item;
+        GenlistItemSimple *_item;
 
-                _item = new GenlistItemSimple(evas, tzList, tz.timeZone[i].key, true);
-                _item->Append(tzList);
-        }
+        _item = new GenlistItemSimple(evas, tzList, tz.timeZone[i].key, true);
+        _item->Append(tzList);
+    }
 
 
 
@@ -57,7 +57,7 @@ ActivityConfigClockView::ActivityConfigClockView(Evas *_e, Evas_Object *_parent)
 
 ActivityConfigClockView::~ActivityConfigClockView()
 {
-        evas_object_del(tzList);
+    evas_object_del(tzList);
 }
 
 void ActivityConfigClockView::resetView()

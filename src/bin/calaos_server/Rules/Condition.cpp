@@ -24,18 +24,18 @@ using namespace Calaos;
 
 Condition::Condition(int type): condition_type(type)
 {
-        cDebugDom("rule.condition") <<  "Condition::Condition(): New condition";
+    cDebugDom("rule.condition") <<  "Condition::Condition(): New condition";
 }
 
 Condition::~Condition()
 {
-        cDebugDom("rule.condition") <<  "Condition::~Condition(): Ok";
+    cDebugDom("rule.condition") <<  "Condition::~Condition(): Ok";
 }
 
 bool Condition::Evaluate()
 {
 
-        cErrorDom("rule.condition") <<  "Condition::Evaluate(): Can't evaluate base Condition class !";
+    cErrorDom("rule.condition") <<  "Condition::Evaluate(): Can't evaluate base Condition class !";
 
-        return false;
+    return false;
 }

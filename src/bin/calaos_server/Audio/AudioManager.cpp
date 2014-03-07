@@ -28,42 +28,42 @@ AudioManager::AudioManager()
 
 AudioManager::~AudioManager()
 {
-        for (uint i = 0;i < players.size();i++)
-                delete players[i];
+    for (uint i = 0;i < players.size();i++)
+        delete players[i];
 
-        players.clear();
+    players.clear();
 }
 
 AudioManager &AudioManager::Instance()
 {
-        static AudioManager inst;
+    static AudioManager inst;
 
-        return inst;
+    return inst;
 }
 
 void AudioManager::Add(AudioPlayer *player, std::string dbhost)
 {
-        player->set_param("pid", Utils::to_string(players.size()));
-        players.push_back(player);
+    player->set_param("pid", Utils::to_string(players.size()));
+    players.push_back(player);
 }
 
 void AudioManager::Delete(int pos)
 {
-        vector<AudioPlayer *>::iterator iter = players.begin();
-        for (int i = 0;i < pos;iter++, i++) ;
-        delete players[pos];
-        players.erase(iter);
+    vector<AudioPlayer *>::iterator iter = players.begin();
+    for (int i = 0;i < pos;iter++, i++) ;
+    delete players[pos];
+    players.erase(iter);
 }
 
 int AudioManager::searchIdOf(Output *output)
 {
-        vector<AudioPlayer *>::iterator it;
-        int i = 0;
-        for(it = players.begin();it != players.end();it++)
-        {
-                if((*it)->get_output() == output)
-                        return i;
-                i++;
-        }
-        return -1;
+    vector<AudioPlayer *>::iterator it;
+    int i = 0;
+    for(it = players.begin();it != players.end();it++)
+    {
+        if((*it)->get_output() == output)
+            return i;
+        i++;
+    }
+    return -1;
 }

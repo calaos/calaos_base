@@ -31,36 +31,36 @@ namespace Calaos
 
 class InputTimer : public Input, public Output
 {
-        protected:
-                int hour, minute, second, ms;
+protected:
+    int hour, minute, second, ms;
 
-                EcoreTimer *timer;
-                string value;
-                bool start;
+    EcoreTimer *timer;
+    string value;
+    bool start;
 
-                void StartTimer();
-                void StopTimer();
-                void TimerDone();
+    void StartTimer();
+    void StopTimer();
+    void TimerDone();
 
-        public:
-                InputTimer(Params &prm);
-                ~InputTimer();
+public:
+    InputTimer(Params &prm);
+    ~InputTimer();
 
-                //Input
-                virtual DATA_TYPE get_type() { return TSTRING; }
-                virtual string get_value_string() { return value; }
+    //Input
+    virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual string get_value_string() { return value; }
 
-                //Output
-                virtual bool set_value(string val);
+    //Output
+    virtual bool set_value(string val);
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 
-                virtual void set_param(std::string opt, std::string val)
-                        { Input::set_param(opt, val); }
-                virtual std::string get_param(std::string opt)
-                        { return Input::get_param(opt); }
-                virtual Params &get_params()
-                        { return Input::get_params(); }
+    virtual void set_param(std::string opt, std::string val)
+    { Input::set_param(opt, val); }
+    virtual std::string get_param(std::string opt)
+    { return Input::get_param(opt); }
+    virtual Params &get_params()
+    { return Input::get_params(); }
 };
 
 }

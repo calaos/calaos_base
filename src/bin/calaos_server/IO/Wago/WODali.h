@@ -29,17 +29,17 @@ namespace Calaos
 
 class WODali : public OutputLightDimmer
 {
-        private:
-                std::string host;
-                int port;
+private:
+    std::string host;
+    int port;
 
-                virtual bool set_value_real(int val);
+    virtual bool set_value_real(int val);
 
-                void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommand_cb(bool status, string command, string result);
 
-        public:
-                WODali(Params &p);
-                ~WODali();
+public:
+    WODali(Params &p);
+    ~WODali();
 };
 
 }

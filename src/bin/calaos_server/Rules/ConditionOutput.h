@@ -30,41 +30,41 @@ namespace Calaos
 
 class ConditionOutput: public Condition
 {
-        protected:
-                Output *output;
-                string params;
-                string ops;
-                //this is used to do the condition test
-                //based on another output
-                string params_var;
+protected:
+    Output *output;
+    string params;
+    string ops;
+    //this is used to do the condition test
+    //based on another output
+    string params_var;
 
-                bool trigger = true;
+    bool trigger = true;
 
-                bool eval(bool val1, std::string oper, bool val2);
-                bool eval(double val1, std::string oper, double val2);
-                bool eval(std::string val1, std::string oper, std::string val2);
-                bool eval(Output *out, std::string oper, std::string val);
+    bool eval(bool val1, std::string oper, bool val2);
+    bool eval(double val1, std::string oper, double val2);
+    bool eval(std::string val1, std::string oper, std::string val2);
+    bool eval(Output *out, std::string oper, std::string val);
 
-        public:
-                ConditionOutput();
-                ~ConditionOutput();
+public:
+    ConditionOutput();
+    ~ConditionOutput();
 
-                virtual bool Evaluate();
+    virtual bool Evaluate();
 
-                void setOutput(Output *p) { output = p; }
-                Output *getOutput() { return output; }
+    void setOutput(Output *p) { output = p; }
+    Output *getOutput() { return output; }
 
-                bool useForTrigger() { return trigger; }
+    bool useForTrigger() { return trigger; }
 
-                string get_params() { return params; }
-                string get_operator() { return ops; }
-                string get_params_var() { return params_var; }
-                void set_param(string p) { params = p; }
-                void set_operator(string p) { ops = p; }
-                void set_param_var(string p) { params_var = p; }
+    string get_params() { return params; }
+    string get_operator() { return ops; }
+    string get_params_var() { return params_var; }
+    void set_param(string p) { params = p; }
+    void set_operator(string p) { ops = p; }
+    void set_param_var(string p) { params_var = p; }
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

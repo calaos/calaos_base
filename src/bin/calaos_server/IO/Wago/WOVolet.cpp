@@ -24,59 +24,59 @@
 using namespace Calaos;
 
 WOVolet::WOVolet(Params &p):
-                OutputShutter(p),
-                port(502)
+    OutputShutter(p),
+    port(502)
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        cDebugDom("output") << "WOVolet::WOVolet(" << get_param("id") << "): Ok";
+    cDebugDom("output") << "WOVolet::WOVolet(" << get_param("id") << "): Ok";
 }
 
 WOVolet::~WOVolet()
 {
-        cDebugDom("output") << "WOVolet::~WOVolet(): Ok";
+    cDebugDom("output") << "WOVolet::~WOVolet(): Ok";
 }
 
 void WOVolet::readConfig()
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
-        Utils::from_string(get_param("var_up"), up_address);
-        Utils::from_string(get_param("var_down"), down_address);
+    host = get_param("host");
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
+    Utils::from_string(get_param("var_up"), up_address);
+    Utils::from_string(get_param("var_down"), down_address);
 
-        //handle knx and 841/849
-        if (get_param("knx") == "true")
-        {
-                up_address += WAGO_KNX_START_ADDRESS;
-                down_address += WAGO_KNX_START_ADDRESS;
-        }
-        if (get_param("wago_841") == "true" && get_param("knx") != "true")
-        {
-                up_address += WAGO_841_START_ADDRESS;
-                down_address += WAGO_841_START_ADDRESS;
-        }
+    //handle knx and 841/849
+    if (get_param("knx") == "true")
+    {
+        up_address += WAGO_KNX_START_ADDRESS;
+        down_address += WAGO_KNX_START_ADDRESS;
+    }
+    if (get_param("wago_841") == "true" && get_param("knx") != "true")
+    {
+        up_address += WAGO_841_START_ADDRESS;
+        down_address += WAGO_841_START_ADDRESS;
+    }
 }
 
 void WOVolet::setOutputUp(bool enable)
 {
-        readConfig();
-        WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
+    readConfig();
+    WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
 }
 
 void WOVolet::setOutputDown(bool enable)
 {
-        readConfig();
-        WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
+    readConfig();
+    WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
 }
 
 void WOVolet::WagoWriteCallback(bool status, UWord address, bool value)
 {
-        if (!status)
-        {
-                cErrorDom("output") << "WOVolet(" << get_param("id") << "): Failed to write value";
-                return;
-        }
+    if (!status)
+    {
+        cErrorDom("output") << "WOVolet(" << get_param("id") << "): Failed to write value";
+        return;
+    }
 }

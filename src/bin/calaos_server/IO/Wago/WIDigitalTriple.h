@@ -30,24 +30,24 @@ namespace Calaos
 
 class WIDigitalTriple : public InputSwitchTriple, public sigc::trackable
 {
-        protected:
-                type_signal_wago::iterator iter;
+protected:
+    type_signal_wago::iterator iter;
 
-                int address;
-                std::string host;
-                int port;
+    int address;
+    std::string host;
+    int port;
 
-                bool udp_value;
+    bool udp_value;
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
 
-                virtual bool readValue();
+    virtual bool readValue();
 
-        public:
-                WIDigitalTriple(Params &p);
-                ~WIDigitalTriple();
+public:
+    WIDigitalTriple(Params &p);
+    ~WIDigitalTriple();
 
-                virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
+    virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 
 }

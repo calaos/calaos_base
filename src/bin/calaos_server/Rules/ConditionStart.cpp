@@ -23,44 +23,44 @@
 using namespace Calaos;
 
 ConditionStart::ConditionStart():
-        Condition(COND_START),
-        start(true)
+    Condition(COND_START),
+    start(true)
 {
-        cDebugDom("rule.condition.start") <<  "ConditionStart::ConditionStart(): New Start condition";
+    cDebugDom("rule.condition.start") <<  "ConditionStart::ConditionStart(): New Start condition";
 }
 
 ConditionStart::~ConditionStart()
 {
-        cDebugDom("rule.condition.start") <<  "ConditionStart::~ConditionStart(): Ok";
+    cDebugDom("rule.condition.start") <<  "ConditionStart::~ConditionStart(): Ok";
 }
 
 bool ConditionStart::Evaluate()
 {
-        if (start)
-        {
-                start = false;
-                cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is starting, true";
+    if (start)
+    {
+        start = false;
+        cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is starting, true";
 
-                return true;
-        }
-        else
-        {
-                cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is already started, false";
-        }
+        return true;
+    }
+    else
+    {
+        cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is already started, false";
+    }
 
-        return false;
+    return false;
 }
 
 bool ConditionStart::LoadFromXml(TiXmlElement *node)
 {
-        return true;
+    return true;
 }
 
 bool ConditionStart::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-        cond_node->SetAttribute("type", "start");
-        node->LinkEndChild(cond_node);
+    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
+    cond_node->SetAttribute("type", "start");
+    node->LinkEndChild(cond_node);
 
-        return true;
+    return true;
 }

@@ -25,13 +25,13 @@
 using namespace Calaos;
 
 AudioInput::AudioInput(Params &p, AudioPlayer *_player):
-                Input(p),
-                player(_player),
-                answer(""),
-                status(ERROR)
+    Input(p),
+    player(_player),
+    answer(""),
+    status(ERROR)
 {
-        get_params().Add("gui_type", "audio_input");
-        get_params().Add("visible", "false");
+    get_params().Add("gui_type", "audio_input");
+    get_params().Add("visible", "false");
 }
 
 AudioInput::~AudioInput()
@@ -40,31 +40,31 @@ AudioInput::~AudioInput()
 
 void AudioInput::hasChanged()
 {
-//         if (st != status)
+    //         if (st != status)
+    {
+        status = st;
+        switch (status)
         {
-                status = st;
-                switch (status)
-                {
-                  default:
-                  case ERROR: answer = "onerror"; break;
-                  case PLAY: answer = "onplay"; break;
-                  case PAUSE: answer = "onpause"; break;
-                  case STOP: answer = "onstop"; break;
-                  case SONG_CHANGE: answer = "onsongchange"; break;
-                  case PLAYLIST_CHANGE: answer = "onplaylistchange"; break;
-                  case VOLUME_CHANGE: answer = "onvolumechange"; break;
-                }
-
-                EmitSignalInput();
-
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                sig += url_encode(string("state:") + answer);
-                IPC::Instance().SendEvent("events", sig);
+        default:
+        case ERROR: answer = "onerror"; break;
+        case PLAY: answer = "onplay"; break;
+        case PAUSE: answer = "onpause"; break;
+        case STOP: answer = "onstop"; break;
+        case SONG_CHANGE: answer = "onsongchange"; break;
+        case PLAYLIST_CHANGE: answer = "onplaylistchange"; break;
+        case VOLUME_CHANGE: answer = "onvolumechange"; break;
         }
+
+        EmitSignalInput();
+
+        string sig = "input ";
+        sig += get_param("id") + " ";
+        sig += url_encode(string("state:") + answer);
+        IPC::Instance().SendEvent("events", sig);
+    }
 }
 
 std::string AudioInput::get_value_string()
 {
-        return answer;
+    return answer;
 }

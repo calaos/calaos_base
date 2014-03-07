@@ -30,36 +30,36 @@
 */
 class CThread
 {
-        protected:
-                pthread_t th;
+protected:
+    pthread_t th;
 
-        public:
-                CThread();
-                virtual ~CThread();
+public:
+    CThread();
+    virtual ~CThread();
 
-                bool started;
-                bool stopped;
+    bool started;
+    bool stopped;
 
-                // Start the thread
-                /*
+    // Start the thread
+    /*
                         Create the thread and run it.
                 */
-                void Start();
-                // Wait for the end of the thread
-                void End();
-                // Try to stop the running thread
-                void KillThread();
+    void Start();
+    // Wait for the end of the thread
+    void End();
+    // Try to stop the running thread
+    void KillThread();
 
-                // the threaded member function
-                /*
+    // the threaded member function
+    /*
                         This function run in a new thread after a call to Start().
                 */
-                virtual void ThreadProc();
-	
-                #ifdef IPHONE_APP
-		/* used in obj-c to encapsulate the thread in a NSReleasePool */
-                virtual void ThreadProc_objc();
-                #endif
+    virtual void ThreadProc();
+
+#ifdef IPHONE_APP
+    /* used in obj-c to encapsulate the thread in a NSReleasePool */
+    virtual void ThreadProc_objc();
+#endif
 };
 
 #endif

@@ -34,43 +34,43 @@ enum CalaosModuleType { CMOD_NONE=0, CMOD_WIDGET /* more to come */ };
 
 class CalaosModuleBase
 {
-        protected:
-                Evas *evas;
-                string id;
-                string module_path;
+protected:
+    Evas *evas;
+    string id;
+    string module_path;
 
-        public:
-                CalaosModuleBase(Evas *_evas, string _id, string _module_path):
-                        evas(_evas), id(_id), module_path(_module_path)
-                        { }
+public:
+    CalaosModuleBase(Evas *_evas, string _id, string _module_path):
+        evas(_evas), id(_id), module_path(_module_path)
+    { }
 
-                /* These functions need to be implemented in modules */
-                virtual ~CalaosModuleBase() { }
+    /* These functions need to be implemented in modules */
+    virtual ~CalaosModuleBase() { }
 
-                /* Return a string that represent the current module instance
+    /* Return a string that represent the current module instance
                    It's used to display a list of active module
                 */
-                virtual string getStringInfo() { return ""; }
+    virtual string getStringInfo() { return ""; }
 
-                virtual void getSizeMin(int &w, int &h) { }
-                virtual void getSizeMax(int &w, int &h) { }
+    virtual void getSizeMin(int &w, int &h) { }
+    virtual void getSizeMax(int &w, int &h) { }
 
-                virtual Evas_Object *getEvasObject() { return NULL; }
+    virtual Evas_Object *getEvasObject() { return NULL; }
 };
 
 
 /* Calaos Module API, all modules should define this */
 typedef struct _CalaosModuleApi
 {
-        int                     api_version;            // API version, must be CALAOS_MODULE_API_VERSION
-        CalaosModuleType        type;                   // Module type
-        const char *            name;                   // Module name
-        const char *            desc;                   // Module description
-        const char *            version;                // Module Revision
-        const char *            author;                 // Module author's name
+    int                     api_version;            // API version, must be CALAOS_MODULE_API_VERSION
+    CalaosModuleType        type;                   // Module type
+    const char *            name;                   // Module name
+    const char *            desc;                   // Module description
+    const char *            version;                // Module Revision
+    const char *            author;                 // Module author's name
 
-        // Return a new instance for the derived CalaosModuleBase class
-        CalaosModuleBase * (*create_object)(Evas *evas, const char *id, const char *path);
+    // Return a new instance for the derived CalaosModuleBase class
+    CalaosModuleBase * (*create_object)(Evas *evas, const char *id, const char *path);
 
 } CalaosModuleApi;
 

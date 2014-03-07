@@ -29,17 +29,17 @@ namespace Calaos
 
 class OutputFake : public Output
 {
-        private:
-                bool value;
+private:
+    bool value;
 
-        public:
-                OutputFake(Params &p);
-                ~OutputFake();
+public:
+    OutputFake(Params &p);
+    ~OutputFake();
 
-                DATA_TYPE get_type() { return TBOOL; }
+    DATA_TYPE get_type() { return TBOOL; }
 
-                bool set_value(bool val);
-                bool get_value_bool() { return value; }
+    bool set_value(bool val);
+    bool get_value_bool() { return value; }
 };
 
 }

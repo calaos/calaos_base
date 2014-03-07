@@ -33,73 +33,73 @@ AVRManager::AVRManager()
 
 AVRManager::~AVRManager()
 {
-        for (unsigned int i = 0;i < avrs.size();i++)
-                delete avrs[i];
+    for (unsigned int i = 0;i < avrs.size();i++)
+        delete avrs[i];
 
-        avrs.clear();
+    avrs.clear();
 }
 
 AVRManager &AVRManager::Instance()
 {
-        static AVRManager inst;
+    static AVRManager inst;
 
-        return inst;
+    return inst;
 }
 
 AVReceiver *AVRManager::Create(Params &p)
 {
-        AVReceiver *receiver = getReceiver(p["host"]);
-        if (!receiver)
+    AVReceiver *receiver = getReceiver(p["host"]);
+    if (!receiver)
+    {
+        if (p["model"] == "pioneer")
+            receiver = new AVRPioneer(p);
+        else if (p["model"] == "denon")
+            receiver = new AVRDenon(p);
+        else if (p["model"] == "onkyo")
+            receiver = new AVROnkyo(p);
+        else if (p["model"] == "marantz")
+            receiver = new AVRMarantz(p);
+        else if (p["model"] == "yamaha")
+            receiver = new AVRYamaha(p);
+        else
         {
-                if (p["model"] == "pioneer")
-                        receiver = new AVRPioneer(p);
-                else if (p["model"] == "denon")
-                        receiver = new AVRDenon(p);
-                else if (p["model"] == "onkyo")
-                        receiver = new AVROnkyo(p);
-                else if (p["model"] == "marantz")
-                        receiver = new AVRMarantz(p);
-                else if (p["model"] == "yamaha")
-                        receiver = new AVRYamaha(p);
-                else
-                {
-                        cInfoDom("output") << "AVRManager(): Unknown A/V Receiver model " << p["model"];
-                        return NULL;
-                }
-                avrs.push_back(receiver);
+            cInfoDom("output") << "AVRManager(): Unknown A/V Receiver model " << p["model"];
+            return NULL;
         }
+        avrs.push_back(receiver);
+    }
 
-        receiver->ref_count++;
+    receiver->ref_count++;
 
-        return receiver;
+    return receiver;
 }
 
 void AVRManager::Delete(AVReceiver *obj)
 {
-        bool found = false;
-        for (unsigned int i = 0;i < avrs.size() && !found;i++)
+    bool found = false;
+    for (unsigned int i = 0;i < avrs.size() && !found;i++)
+    {
+        if (avrs[i] == obj)
         {
-                if (avrs[i] == obj)
-                {
-                        obj->ref_count--;
-                        found = true;
-                }
+            obj->ref_count--;
+            found = true;
         }
+    }
 
-        if (obj->ref_count <= 0)
-        {
-                avrs.erase(std::remove(avrs.begin(), avrs.end(), obj), avrs.end());
-                delete obj;
-        }
+    if (obj->ref_count <= 0)
+    {
+        avrs.erase(std::remove(avrs.begin(), avrs.end(), obj), avrs.end());
+        delete obj;
+    }
 }
 
 AVReceiver *AVRManager::getReceiver(string host)
 {
-        for (unsigned int i = 0;i < avrs.size();i++)
-        {
-                if (avrs[i]->host == host)
-                        return avrs[i];
-        }
+    for (unsigned int i = 0;i < avrs.size();i++)
+    {
+        if (avrs[i]->host == host)
+            return avrs[i];
+    }
 
-        return NULL;
+    return NULL;
 }

@@ -29,17 +29,17 @@ using namespace std;
 
 class ThreadManager
 {
-        private:
-                vector<CThread*> threads;
-                sigc::signal<void, string, string, void*, void*> signal;
-                sigc::connection conn;
+private:
+    vector<CThread*> threads;
+    sigc::signal<void, string, string, void*, void*> signal;
+    sigc::connection conn;
 
-        public:
-                static ThreadManager& Instance();
-                ThreadManager();
-                void deleteThread(string source, string s, void*, void*);
-                ~ThreadManager();
-                void add(CThread *c);
+public:
+    static ThreadManager& Instance();
+    ThreadManager();
+    void deleteThread(string source, string s, void*, void*);
+    ~ThreadManager();
+    void add(CThread *c);
 
 };
 

@@ -31,19 +31,19 @@ using namespace Utils;
 
 class ActivityWidgetsController: public ActivityController
 {
-        public:
-                ActivityWidgetsController(Evas *evas, Evas_Object *parent);
-                ~ActivityWidgetsController();
+public:
+    ActivityWidgetsController(Evas *evas, Evas_Object *parent);
+    ~ActivityWidgetsController();
 
-                void dimView();
-                void setEditMode();
+    void dimView();
+    void setEditMode();
 
-                void validEdit();
-                void cancelEdit();
+    void validEdit();
+    void cancelEdit();
 
-                int getWidgetCount();
+    int getWidgetCount();
 
-                bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
+    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
 };
 
 #endif // ACTIVITYWIDGETSCONTROLLER_H

@@ -29,24 +29,24 @@ namespace Calaos
 
 class InputTime : public Input
 {
-        protected:
-                bool with_date; //operation redondante
+protected:
+    bool with_date; //operation redondante
 
-                int hour, minute, second;
-                int day, month, year;
+    int hour, minute, second;
+    int day, month, year;
 
-                bool value;
+    bool value;
 
-        public:
-                InputTime(Params &prm);
-                ~InputTime();
+public:
+    InputTime(Params &prm);
+    ~InputTime();
 
-                virtual DATA_TYPE get_type() { return TBOOL; }
-                virtual bool get_value_bool() { return value; }
+    virtual DATA_TYPE get_type() { return TBOOL; }
+    virtual bool get_value_bool() { return value; }
 
-                bool is_with_date() { return with_date; }
+    bool is_with_date() { return with_date; }
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

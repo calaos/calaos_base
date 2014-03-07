@@ -29,10 +29,10 @@ namespace Utils
 
 struct DeleteEvasObject
 {
-        template <class T> void operator ()(T *&p) const
-        {
-                DELETE_NULL_FUNC(evas_object_del, p);
-        }
+    template <class T> void operator ()(T *&p) const
+    {
+        DELETE_NULL_FUNC(evas_object_del, p);
+    }
 };
 
 Evas_Object *createPaddingTable(Evas *evas, Evas_Object *parent, int w, int h, int padding_top_bottom = 1, int padding_side = 1);

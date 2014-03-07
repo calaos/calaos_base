@@ -39,72 +39,72 @@ typedef sigc::signal<void, bool, vector<string>, void * > CommandDone_sig;
 
 class CalaosCmd
 {
-        public:
-                CalaosCmd():
-                        inProgress(false),
-                        noCallback(false)
-                {}
-                CalaosCmd(string c, CommandDone_cb cb):
-                        command(c),
-                        callback(cb),
-                        user_data(NULL),
-                        inProgress(false),
-                        noCallback(false)
-                {}
+public:
+    CalaosCmd():
+        inProgress(false),
+        noCallback(false)
+    {}
+    CalaosCmd(string c, CommandDone_cb cb):
+        command(c),
+        callback(cb),
+        user_data(NULL),
+        inProgress(false),
+        noCallback(false)
+    {}
 
-                string command;
-                CommandDone_cb callback;
-                void *user_data;
+    string command;
+    CommandDone_cb callback;
+    void *user_data;
 
-                bool inProgress;
-                bool noCallback;
+    bool inProgress;
+    bool noCallback;
 };
 
 class CalaosConnection: public sigc::trackable
 {
-        public:
-                //Ecore Internal use only
-                void addConnection(Ecore_Con_Server *server);
-                void delConnection(Ecore_Con_Server *server);
-                void dataGet(Ecore_Con_Server *server, void *data, int size);
+public:
+    //Ecore Internal use only
+    void addConnection(Ecore_Con_Server *server);
+    void delConnection(Ecore_Con_Server *server);
+    void dataGet(Ecore_Con_Server *server, void *data, int size);
 
-        private:
-                Ecore_Con_Server *econ;
+private:
+    Ecore_Con_Server *econ;
 
-                enum { CALAOS_CON_NONE, CALAOS_CON_LOGIN, CALAOS_CON_OK };
+    enum { CALAOS_CON_NONE, CALAOS_CON_LOGIN, CALAOS_CON_OK };
 
-                int con_state;
+    int con_state;
 
-                string host;
+    string host;
 
-                EcoreTimer *timeout;
+    EcoreTimer *timeout;
 
-                Ecore_Event_Handler *event_handler_data_get;
-                Ecore_Event_Handler *event_handler_add;
-                Ecore_Event_Handler *event_handler_del;
+    Ecore_Event_Handler *event_handler_data_get;
+    Ecore_Event_Handler *event_handler_add;
+    Ecore_Event_Handler *event_handler_del;
 
-                queue<CalaosCmd> commands;
+    queue<CalaosCmd> commands;
 
-                bool sendInProgress;
+    bool sendInProgress;
 
-                CalaosListener *listener;
+    CalaosListener *listener;
 
-                void sendAndDequeue();
-                void TimeoutTick();
+    void sendAndDequeue();
+    void TimeoutTick();
 
-        public:
-                CalaosConnection(string host, bool no_listenner = false);
-                ~CalaosConnection();
+public:
+    CalaosConnection(string host, bool no_listenner = false);
+    ~CalaosConnection();
 
-                void SendCommand(string cmd, CommandDone_cb callback, void *data = NULL);
-                void SendCommand(string cmd);
+    void SendCommand(string cmd, CommandDone_cb callback, void *data = NULL);
+    void SendCommand(string cmd);
 
-                CalaosListener *getListener() { return listener; }
+    CalaosListener *getListener() { return listener; }
 
-                sigc::signal<void> error_login;
-                sigc::signal<void> timeout_connect;
-                sigc::signal<void> lost_connection;
-                sigc::signal<void> connection_ok;
+    sigc::signal<void> error_login;
+    sigc::signal<void> timeout_connect;
+    sigc::signal<void> lost_connection;
+    sigc::signal<void> connection_ok;
 };
 
 #endif // CALAOSCONNECTION_H

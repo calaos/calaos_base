@@ -40,9 +40,9 @@ namespace Calaos
 
 class RulesFactory
 {
-        public:
-                static Condition *CreateCondition(TiXmlElement *node);
-                static Action *CreateAction(TiXmlElement *node);
+public:
+    static Condition *CreateCondition(TiXmlElement *node);
+    static Action *CreateAction(TiXmlElement *node);
 };
 
 }

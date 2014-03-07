@@ -24,79 +24,79 @@ using namespace Calaos;
 
 Condition *RulesFactory::CreateCondition(TiXmlElement *node)
 {
-        Condition *condition = NULL;
+    Condition *condition = NULL;
 
-        /* read type */
-        string type = "";
-        if (node->Attribute("type"))
-                type = node->Attribute("type");
+    /* read type */
+    string type = "";
+    if (node->Attribute("type"))
+        type = node->Attribute("type");
 
-        /* Standard condition */
-        if (type == "standard" || type == "")
-        {
-                condition = new ConditionStd();
-        }
+    /* Standard condition */
+    if (type == "standard" || type == "")
+    {
+        condition = new ConditionStd();
+    }
 
-        /* Start condition */
-        else if (type == "start")
-        {
-                condition = new ConditionStart();
-        }
+    /* Start condition */
+    else if (type == "start")
+    {
+        condition = new ConditionStart();
+    }
 
-        /* Script condition */
-        else if (type == "script")
-        {
-                condition = new ConditionScript();
-        }
+    /* Script condition */
+    else if (type == "script")
+    {
+        condition = new ConditionScript();
+    }
 
-        /* Standard output condition */
-        if (type == "output")
-        {
-                condition = new ConditionOutput();
-        }
+    /* Standard output condition */
+    if (type == "output")
+    {
+        condition = new ConditionOutput();
+    }
 
-        if (condition && !condition->LoadFromXml(node))
-                return NULL;
+    if (condition && !condition->LoadFromXml(node))
+        return NULL;
 
-        return condition;
+    return condition;
 }
 
 
 Action *RulesFactory::CreateAction(TiXmlElement *node)
 {
-        Action *action = NULL;
+    Action *action = NULL;
 
-        /* read type */
-        string type = "";
-        if (node->Attribute("type"))
-                type = node->Attribute("type");
+    /* read type */
+    string type = "";
+    if (node->Attribute("type"))
+        type = node->Attribute("type");
 
-        /* Standard action */
-        if (type == "standard" || type == "")
-        {
-                action = new ActionStd();
-        }
+    /* Standard action */
+    if (type == "standard" || type == "")
+    {
+        action = new ActionStd();
+    }
 
-        /* Mail action */
-        else if (type == "mail")
-        {
-                action = new ActionMail();
-        }
+    /* Mail action */
+    else if (type == "mail")
+    {
+        action = new ActionMail();
+    }
 
-        /* Script action */
-        else if (type == "script")
-        {
-                action = new ActionScript();
-        }
+    /* Script action */
+    else if (type == "script")
+    {
+        action = new ActionScript();
+    }
 
-        /* Touchscreen action */
-        else if (type == "touchscreen")
-        {
-                action = new ActionTouchscreen();
-        }
+    /* Touchscreen action */
+    else if (type == "touchscreen")
+    {
+        action = new ActionTouchscreen();
+    }
 
-        if (action && !action->LoadFromXml(node))
-                return NULL;
+    if (action && !action->LoadFromXml(node))
+        return NULL;
 
-        return action;
+    return action;
 }

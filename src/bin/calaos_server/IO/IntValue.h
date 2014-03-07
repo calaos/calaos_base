@@ -29,62 +29,62 @@
 namespace Calaos
 {
 
-        class Internal : public Input, public Output
-        {
-                protected:
-                        bool bvalue;
-                        double dvalue;
-                        string svalue;
+class Internal : public Input, public Output
+{
+protected:
+    bool bvalue;
+    double dvalue;
+    string svalue;
 
-                        EcoreTimer *timer = NULL;
+    EcoreTimer *timer = NULL;
 
-                        vector<BlinkInfo> blinks;
-                        int current_blink;
+    vector<BlinkInfo> blinks;
+    int current_blink;
 
-                        void impulse_extended(string pattern);
-                        void TimerImpulseExtended();
+    void impulse_extended(string pattern);
+    void TimerImpulseExtended();
 
-                        void Save(); //save value to file
-                        void LoadFromConfig(); //load value from config file
+    void Save(); //save value to file
+    void LoadFromConfig(); //load value from config file
 
-                public:
-                        Internal(Params &p);
-                        ~Internal();
+public:
+    Internal(Params &p);
+    ~Internal();
 
-                        virtual DATA_TYPE get_type()
-                                {
-                                        if (Input::get_param("type") == "InternalBool") return TBOOL;
-                                        if (Input::get_param("type") == "InternalInt") return TINT;
-                                        if (Input::get_param("type") == "InternalString") return TSTRING;
-                                        return TUNKNOWN;
-                                }
+    virtual DATA_TYPE get_type()
+    {
+        if (Input::get_param("type") == "InternalBool") return TBOOL;
+        if (Input::get_param("type") == "InternalInt") return TINT;
+        if (Input::get_param("type") == "InternalString") return TSTRING;
+        return TUNKNOWN;
+    }
 
-                        //Input
-                        virtual bool get_value_bool() { return bvalue; }
-                        virtual double get_value_double() { return dvalue; }
-                        virtual string get_value_string() { return svalue; }
+    //Input
+    virtual bool get_value_bool() { return bvalue; }
+    virtual double get_value_double() { return dvalue; }
+    virtual string get_value_string() { return svalue; }
 
-                        virtual void force_input_bool(bool v);
-                        virtual void force_input_double(double v);
-                        virtual void force_input_string(string v);
+    virtual void force_input_bool(bool v);
+    virtual void force_input_double(double v);
+    virtual void force_input_string(string v);
 
-                        //Output
-                        virtual bool set_value(bool val);
-                        virtual bool set_value(double val);
-                        virtual bool set_value(string val);
+    //Output
+    virtual bool set_value(bool val);
+    virtual bool set_value(double val);
+    virtual bool set_value(string val);
 
-                        //Use common params for input and output
-                        virtual void set_param(std::string opt, std::string val)
-                                { Input::set_param(opt, val); }
-                        virtual std::string get_param(std::string opt)
-                                { return Input::get_param(opt); }
-                        virtual Params &get_params()
-                                { return Input::get_params(); }
+    //Use common params for input and output
+    virtual void set_param(std::string opt, std::string val)
+    { Input::set_param(opt, val); }
+    virtual std::string get_param(std::string opt)
+    { return Input::get_param(opt); }
+    virtual Params &get_params()
+    { return Input::get_params(); }
 
-                        virtual bool LoadFromXml(TiXmlElement *node)
-                                { return false; }
-                        virtual bool SaveToXml(TiXmlElement *node);
-        };
+    virtual bool LoadFromXml(TiXmlElement *node)
+    { return false; }
+    virtual bool SaveToXml(TiXmlElement *node);
+};
 
 }
 #endif

@@ -22,108 +22,108 @@
 
 static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Client_Data *ev)
 {
-        CalaosDiscover *o = reinterpret_cast<CalaosDiscover *>(data);
+    CalaosDiscover *o = reinterpret_cast<CalaosDiscover *>(data);
 
-        if (ev && (o != ecore_con_server_data_get(ecore_con_client_server_get(ev->client))))
-                return ECORE_CALLBACK_PASS_ON;
+    if (ev && (o != ecore_con_server_data_get(ecore_con_client_server_get(ev->client))))
+        return ECORE_CALLBACK_PASS_ON;
 
-        if (o)
-                o->dataGet(ecore_con_client_server_get(ev->client), ev->data, ev->size);
-        else
-                cCriticalDom("network")
-                                << "CalaosDiscover(): _con_server_data, failed to get object !"
-                               ;
+    if (o)
+        o->dataGet(ecore_con_client_server_get(ev->client), ev->data, ev->size);
+    else
+        cCriticalDom("network")
+                << "CalaosDiscover(): _con_server_data, failed to get object !"
+                   ;
 
-        return ECORE_CALLBACK_RENEW;
+    return ECORE_CALLBACK_RENEW;
 }
 
 CalaosDiscover::CalaosDiscover():
-        econ(NULL),
-        econ_sender(NULL),
-        timer(NULL),
-        connection(NULL)
+    econ(NULL),
+    econ_sender(NULL),
+    timer(NULL),
+    connection(NULL)
 {
-        event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
+    event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
 
-        econ = ecore_con_server_add(ECORE_CON_REMOTE_UDP, "0.0.0.0", BCAST_UDP_PORT, this);
-        ecore_con_server_data_set(econ, this);
+    econ = ecore_con_server_add(ECORE_CON_REMOTE_UDP, "0.0.0.0", BCAST_UDP_PORT, this);
+    ecore_con_server_data_set(econ, this);
 
-        econ_sender = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, this);
+    econ_sender = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, this);
 
-        timerDiscover();
+    timerDiscover();
 
-        timer = new EcoreTimer(1.,
-                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
+    timer = new EcoreTimer(1.,
+                           (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
 }
 
 CalaosDiscover::~CalaosDiscover()
 {
-        DELETE_NULL_FUNC(ecore_event_handler_del, event_handler_data_get);
+    DELETE_NULL_FUNC(ecore_event_handler_del, event_handler_data_get);
 
-        DELETE_NULL(timer);
-        DELETE_NULL_FUNC(ecore_con_server_del, econ);
-        DELETE_NULL_FUNC(ecore_con_server_del, econ_sender);
-        DELETE_NULL(connection);
+    DELETE_NULL(timer);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ_sender);
+    DELETE_NULL(connection);
 }
 
 void CalaosDiscover::timerDiscover()
 {
-        cDebugDom("network") << "CalaosDiscover: try to discover server...";
+    cDebugDom("network") << "CalaosDiscover: try to discover server...";
 
-        string packet = "CALAOS_DISCOVER";
-        if (!ecore_con_server_send(econ_sender, packet.c_str(), packet.length()))
-        {
-                econ_sender = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "0.0.0.0", BCAST_UDP_PORT, this);
-                ecore_con_server_send(econ_sender, packet.c_str(), packet.length());
-        }
+    string packet = "CALAOS_DISCOVER";
+    if (!ecore_con_server_send(econ_sender, packet.c_str(), packet.length()))
+    {
+        econ_sender = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "0.0.0.0", BCAST_UDP_PORT, this);
+        ecore_con_server_send(econ_sender, packet.c_str(), packet.length());
+    }
 }
 
 void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
 {
-        if (server != econ) return;
+    if (server != econ) return;
 
-        string msg((char *)data, size);
+    string msg((char *)data, size);
 
-        cDebugDom("network") << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"";
+    cDebugDom("network") << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"";
 
-        if (msg.substr(0, 10) == "CALAOS_IP " && !connection)
-        {
-                msg.erase(0, 10);
-                address = msg;
+    if (msg.substr(0, 10) == "CALAOS_IP " && !connection)
+    {
+        msg.erase(0, 10);
+        address = msg;
 
-                DELETE_NULL(timer);
-                EcoreTimer::singleShot(0.0, sigc::mem_fun(*this, &CalaosDiscover::delayDel));
+        DELETE_NULL(timer);
+        EcoreTimer::singleShot(0.0, sigc::mem_fun(*this, &CalaosDiscover::delayDel));
 
-                connection = new CalaosConnection(address, true);
-                connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosDiscover::loginSuccess));
-                connection->error_login.connect(sigc::mem_fun(*this, &CalaosDiscover::loginFailed));
-        }
+        connection = new CalaosConnection(address, true);
+        connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosDiscover::loginSuccess));
+        connection->error_login.connect(sigc::mem_fun(*this, &CalaosDiscover::loginFailed));
+    }
 }
 
 void CalaosDiscover::delayDel()
 {
-        DELETE_NULL_FUNC(ecore_con_server_del, econ);
-        DELETE_NULL_FUNC(ecore_con_server_del, econ_sender);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    DELETE_NULL_FUNC(ecore_con_server_del, econ_sender);
 }
 
 void CalaosDiscover::loginSuccess()
 {
-        cDebugDom("network") << "CalaosDiscover: Login to host " << address << " successfully";
+    cDebugDom("network") << "CalaosDiscover: Login to host " << address << " successfully";
 
-        DELETE_NULL(connection);
+    DELETE_NULL(connection);
 
-        server_found.emit(address);
+    server_found.emit(address);
 }
 
 void CalaosDiscover::loginFailed()
 {
-        cDebugDom("network") << "CalaosDiscover: Wrong login/password on host " << address;
+    cDebugDom("network") << "CalaosDiscover: Wrong login/password on host " << address;
 
-        DELETE_NULL(connection);
+    DELETE_NULL(connection);
 
-        login_error.emit(address);
+    login_error.emit(address);
 
-        //Restart timer to search again for a valid server
-        timer = new EcoreTimer(1.,
-                (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
+    //Restart timer to search again for a valid server
+    timer = new EcoreTimer(1.,
+                           (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
 }

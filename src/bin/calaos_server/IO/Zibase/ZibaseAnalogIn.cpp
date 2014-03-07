@@ -24,49 +24,49 @@
 using namespace Calaos;
 
 ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
-                InputAnalog(p),
-                port(0)
+    InputAnalog(p),
+    port(0)
 {
-        std::string type = get_param("zibase_sensor");
+    std::string type = get_param("zibase_sensor");
 
-        host = get_param("host");
-        Utils::from_string(get_param("port"), port);        
-        id = get_param("zibase_id");
+    host = get_param("host");
+    Utils::from_string(get_param("port"), port);
+    id = get_param("zibase_id");
 
-        if(type.compare("temp")==0)
-                sensor_type = ZibaseInfoSensor::eTEMP;   
-        else if(type.compare("energy")==0)
-                sensor_type = ZibaseInfoSensor::eENERGY;   
-        
-        Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
+    if(type.compare("temp")==0)
+        sensor_type = ZibaseInfoSensor::eTEMP;
+    else if(type.compare("energy")==0)
+        sensor_type = ZibaseInfoSensor::eENERGY;
 
-        cDebugDom("input") << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok";
+    Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
+
+    cDebugDom("input") << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok";
 }
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
 {
-        cDebugDom("input") << "ZibaseAnalogIn::~ZibaseAnalogIn(): Ok";
+    cDebugDom("input") << "ZibaseAnalogIn::~ZibaseAnalogIn(): Ok";
 }
 
 void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)
 {
 
-        /*check that sensor id match */
-        if((id==sensor->id) && (sensor->type == sensor_type))
+    /*check that sensor id match */
+    if((id==sensor->id) && (sensor->type == sensor_type))
+    {
+        if (sensor->AnalogVal != value)
         {
-               if (sensor->AnalogVal != value)
-                {
-                        value = sensor->AnalogVal;
-                        emitChange();
-                }       
-                
+            value = sensor->AnalogVal;
+            emitChange();
         }
+
+    }
 
 }
 
 void ZibaseAnalogIn::readValue()
 {
-        //don't do anything here, as we can't query the zibase sensor for a value,
-        //the zibase will send us new values
+    //don't do anything here, as we can't query the zibase sensor for a value,
+    //the zibase will send us new values
 }
 

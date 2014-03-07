@@ -30,31 +30,31 @@
 */
 class Mutex
 {
-        public:
-                //Create a mutex. True will lock the mutex a creation
-                Mutex(bool locked = false);
+public:
+    //Create a mutex. True will lock the mutex a creation
+    Mutex(bool locked = false);
 
-                //Open an already existing mutex
-                Mutex(pthread_mutex_t &m);
+    //Open an already existing mutex
+    Mutex(pthread_mutex_t &m);
 
-                ~Mutex();
+    ~Mutex();
 
-                //Return a mutex id
-                pthread_mutex_t &get_mutex();
+    //Return a mutex id
+    pthread_mutex_t &get_mutex();
 
-                //Locking/unlocking of the mutex
-                bool lock();
-                bool try_lock();
-                bool unlock();
+    //Locking/unlocking of the mutex
+    bool lock();
+    bool try_lock();
+    bool unlock();
 
-                //Condition locking
-                bool condition_wait();
-                bool condition_wake(bool all = false);
+    //Condition locking
+    bool condition_wait();
+    bool condition_wake(bool all = false);
 
-        private:
+private:
 
-                pthread_mutex_t mutex;
-                pthread_cond_t condition;
+    pthread_mutex_t mutex;
+    pthread_cond_t condition;
 };
 
 #endif

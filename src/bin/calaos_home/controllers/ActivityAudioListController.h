@@ -33,30 +33,30 @@ class ActivityMediaController;
 
 class ActivityAudioListController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-                ActivityMediaController *parentController;
+    ActivityMediaController *parentController;
 
-                int page;
+    int page;
 
-                void catchBackButton();
+    void catchBackButton();
 
-                void updatePageView();
+    void updatePageView();
 
-                void clickLeft();
-                void clickRight();
+    void clickLeft();
+    void clickRight();
 
-                void load_done();
+    void load_done();
 
-                void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void playerSelectCallback(AudioPlayer *player);
+    void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void playerSelectCallback(AudioPlayer *player);
 
-        public:
-                ActivityAudioListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);
-                ~ActivityAudioListController();
+public:
+    ActivityAudioListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);
+    ~ActivityAudioListController();
 
-                virtual bool handleButtonClick(string button);
+    virtual bool handleButtonClick(string button);
 };
 
 #endif // ACTIVITYAUDIOLISTCONTROLLER_H

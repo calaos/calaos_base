@@ -33,33 +33,33 @@ namespace Calaos
 
 class CamConnection: public CThread
 {
-        protected:
+protected:
 
-                TCPSocket socket;
-                bool end_conn; //fin de connexion
-                bool login;
-                bool quit;
+    TCPSocket socket;
+    bool end_conn; //fin de connexion
+    bool login;
+    bool quit;
 
-                char *pict_buffer;
-                unsigned long int pict_size;
+    char *pict_buffer;
+    unsigned long int pict_size;
 
-                void ProcessRequest(string &request);
+    void ProcessRequest(string &request);
 
-        public:
-                CamConnection(TCPSocket socket); //socket to read from
-                ~CamConnection();
+public:
+    CamConnection(TCPSocket socket); //socket to read from
+    ~CamConnection();
 
-                virtual void ThreadProc(); //redefined
+    virtual void ThreadProc(); //redefined
 
-                bool get_end() { return end_conn; }
+    bool get_end() { return end_conn; }
 
-                void Clean();
+    void Clean();
 
-                //Lib CURL stuff
-                char *get_buffer() { return pict_buffer; }
-                void set_buffer(char *b) { pict_buffer = b; }
-                unsigned long int get_size() { return pict_size; }
-                void set_size(unsigned long int s) { pict_size = s; }
+    //Lib CURL stuff
+    char *get_buffer() { return pict_buffer; }
+    void set_buffer(char *b) { pict_buffer = b; }
+    unsigned long int get_size() { return pict_size; }
+    void set_size(unsigned long int s) { pict_size = s; }
 };
 
 }

@@ -29,28 +29,28 @@ using namespace Utils;
 
 class GenlistItemBrowserPlaylist: public GenlistItemBase
 {
-        private:
-                AudioPlayer *player;
-                int item_id;
-                Params item_infos;
-                bool in_query;
-                bool no_query;
+private:
+    AudioPlayer *player;
+    int item_id;
+    Params item_infos;
+    bool in_query;
+    bool no_query;
 
-                void playlistItemGet_cb(Params &infos);
+    void playlistItemGet_cb(Params &infos);
 
-        public:
-                GenlistItemBrowserPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, void *data = NULL);
-                GenlistItemBrowserPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params &infos, void *data = NULL);
-                virtual ~GenlistItemBrowserPlaylist();
+public:
+    GenlistItemBrowserPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, void *data = NULL);
+    GenlistItemBrowserPlaylist(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params &infos, void *data = NULL);
+    virtual ~GenlistItemBrowserPlaylist();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
+    void buttonClickPlay();
+    void buttonClickAdd();
 
-                int getItemId() { return item_id; }
-                Params getItemInfos() { return item_infos; }
+    int getItemId() { return item_id; }
+    Params getItemInfos() { return item_infos; }
 };
 
 #endif // GenlistItemBrowserPlaylist_H

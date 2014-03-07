@@ -28,21 +28,21 @@
 
 class ModuleClock: public CalaosModuleBase
 {
-        private:
-                EdjeObject *edje_clock;
-                Calendar *calendar;
+private:
+    EdjeObject *edje_clock;
+    Calendar *calendar;
 
-        public:
-                ModuleClock(Evas *evas, string id, string module_path);
+public:
+    ModuleClock(Evas *evas, string id, string module_path);
 
-                virtual ~ModuleClock();
+    virtual ~ModuleClock();
 
-                virtual string getStringInfo();
+    virtual string getStringInfo();
 
-                virtual void getSizeMin(int &w, int &h);
-                virtual void getSizeMax(int &w, int &h);
+    virtual void getSizeMin(int &w, int &h);
+    virtual void getSizeMax(int &w, int &h);
 
-                virtual Evas_Object *getEvasObject();
+    virtual Evas_Object *getEvasObject();
 };
 
 #endif

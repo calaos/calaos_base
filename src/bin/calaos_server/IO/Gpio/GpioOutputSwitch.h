@@ -13,11 +13,11 @@ class GpioOutputSwitch : public OutputLight
     GpioCtrl *gpioctrl;
 
 public:
-        GpioOutputSwitch(Params &p);
-        virtual ~GpioOutputSwitch();
+    GpioOutputSwitch(Params &p);
+    virtual ~GpioOutputSwitch();
 
 protected:
-        bool set_value_real(bool val);
+    bool set_value_real(bool val);
 
 };
 

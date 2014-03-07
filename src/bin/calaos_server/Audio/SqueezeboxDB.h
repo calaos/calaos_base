@@ -32,84 +32,84 @@ class Squeezebox;
 
 class SqueezeboxDB: public AudioDB
 {
-        private:
-                Squeezebox *player;
+private:
+    Squeezebox *player;
 
-                void getAlbums_cb(bool status, string request, string result, AudioPlayerData data);
-                void getAlbumsTitles_cb(bool status, string request, string result, AudioPlayerData data);
+    void getAlbums_cb(bool status, string request, string result, AudioPlayerData data);
+    void getAlbumsTitles_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getArtists_cb(bool status, string request, string result, AudioPlayerData data);
-                void getArtistsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
+    void getArtists_cb(bool status, string request, string result, AudioPlayerData data);
+    void getArtistsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getGenres_cb(bool status, string request, string result, AudioPlayerData data);
-                void getGenresArtists_cb(bool status, string request, string result, AudioPlayerData data);
+    void getGenres_cb(bool status, string request, string result, AudioPlayerData data);
+    void getGenresArtists_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getYears_cb(bool status, string request, string result, AudioPlayerData data);
-                void getYearsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
+    void getYears_cb(bool status, string request, string result, AudioPlayerData data);
+    void getYearsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getPlaylists_cb(bool status, string request, string result, AudioPlayerData data);
-                void getPlaylistsTracks_cb(bool status, string request, string result, AudioPlayerData data);
+    void getPlaylists_cb(bool status, string request, string result, AudioPlayerData data);
+    void getPlaylistsTracks_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getRadios_cb(bool status, string request, string result, AudioPlayerData data);
-                void getRadiosItems_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRadios_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRadiosItems_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getRandoms_cb(bool status, string request, string result, AudioPlayerData data);
-                void getRandomType_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRandoms_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRandomType_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getSearch_cb(bool status, string request, string result, AudioPlayerData data);
+    void getSearch_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getMusicFolder_cb(bool status, string request, string result, AudioPlayerData data);
+    void getMusicFolder_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getStats_genre_cb(bool status, string request, string result, AudioPlayerData data);
-                void getStats_artist_cb(bool status, string request, string result, AudioPlayerData data);
-                void getStats_album_cb(bool status, string request, string result, AudioPlayerData data);
-                void getStats_song_cb(bool status, string request, string result, AudioPlayerData data);
-                void getStats_playlist_cb(bool status, string request, string result, AudioPlayerData data);
-                void getStats_year_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_genre_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_artist_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_album_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_song_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_playlist_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_year_cb(bool status, string request, string result, AudioPlayerData data);
 
-                void getTrackInfos_cb(bool status, string request, string result, AudioPlayerData data);
+    void getTrackInfos_cb(bool status, string request, string result, AudioPlayerData data);
 
-        public:
-                SqueezeboxDB(Squeezebox *squeezebox, Params &p);
-                ~SqueezeboxDB();
+public:
+    SqueezeboxDB(Squeezebox *squeezebox, Params &p);
+    ~SqueezeboxDB();
 
-                virtual void getStats(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getStats(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
 
-                //Album
-                virtual void getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data = AudioPlayerData());
+    //Album
+    virtual void getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data = AudioPlayerData());
 
-                //Artist
-                virtual void getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data = AudioPlayerData());
+    //Artist
+    virtual void getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data = AudioPlayerData());
 
-                //Genre
-                virtual void getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data = AudioPlayerData());
+    //Genre
+    virtual void getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data = AudioPlayerData());
 
-                //Year
-                virtual void getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data = AudioPlayerData());
+    //Year
+    virtual void getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data = AudioPlayerData());
 
-                //Playlists
-                virtual void getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, string playlist_id, AudioPlayerData user_data = AudioPlayerData());
+    //Playlists
+    virtual void getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, string playlist_id, AudioPlayerData user_data = AudioPlayerData());
 
-                //Radios
-                virtual void getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id = "", string search = "", AudioPlayerData user_data = AudioPlayerData());
+    //Radios
+    virtual void getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id = "", string search = "", AudioPlayerData user_data = AudioPlayerData());
 
-                //Random
-                virtual void getRandoms(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
-                virtual void setRandomsType(string type);
-                //TODO:Random genre selection with  "<playerid>  randomplaygenrelist"
+    //Random
+    virtual void getRandoms(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData());
+    virtual void setRandomsType(string type);
+    //TODO:Random genre selection with  "<playerid>  randomplaygenrelist"
 
-                virtual void getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data = AudioPlayerData());
 
-                virtual void getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id = "", AudioPlayerData user_data = AudioPlayerData());
-                virtual void getTrackInfos(AudioRequest_cb callback, string track_id, AudioPlayerData user_data = AudioPlayerData());
+    virtual void getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id = "", AudioPlayerData user_data = AudioPlayerData());
+    virtual void getTrackInfos(AudioRequest_cb callback, string track_id, AudioPlayerData user_data = AudioPlayerData());
 
-                //TODO:Favorites
+    //TODO:Favorites
 };
 
 }

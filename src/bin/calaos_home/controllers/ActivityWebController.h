@@ -31,12 +31,12 @@ using namespace Utils;
 
 class ActivityWebController: public ActivityController
 {
-        private:
-                virtual void createView();
+private:
+    virtual void createView();
 
-        public:
-                ActivityWebController(Evas *evas, Evas_Object *parent, string url = "");
-                ~ActivityWebController();
+public:
+    ActivityWebController(Evas *evas, Evas_Object *parent, string url = "");
+    ~ActivityWebController();
 };
 
 #endif // ActivityWebController_H

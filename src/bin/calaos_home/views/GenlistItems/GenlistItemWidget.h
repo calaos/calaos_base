@@ -30,15 +30,15 @@ using namespace Utils;
 
 class GenlistItemWidget: public GenlistItemBase
 {
-        private:
-                ModuleDef modinfo;
+private:
+    ModuleDef modinfo;
 
-        public:
-                GenlistItemWidget(Evas *evas, Evas_Object *parent, ModuleDef mod, void *data = NULL);
-                virtual ~GenlistItemWidget();
+public:
+    GenlistItemWidget(Evas *evas, Evas_Object *parent, ModuleDef mod, void *data = NULL);
+    virtual ~GenlistItemWidget();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 };
 
 #endif // GenlistItemWidget_H

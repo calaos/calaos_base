@@ -34,88 +34,88 @@ namespace Calaos
 
 class ScenarioAction
 {
-        public:
-                Output *io;
-                string action;
+public:
+    Output *io;
+    string action;
 };
 
 class AutoScenario
 {
-        private:
-                string scenario_id;
-                bool cycle;
-                bool disabled;
+private:
+    string scenario_id;
+    bool cycle;
+    bool disabled;
 
-                //All IO used by this scenario's rules
-                Scenario *ioScenario;
-                Internal *ioIsActive;
-                Internal *ioScheduleEnabled;
-                Internal *ioStep;
-                InputTimer *ioTimer;
-                InPlageHoraire *ioPlage;
+    //All IO used by this scenario's rules
+    Scenario *ioScenario;
+    Internal *ioIsActive;
+    Internal *ioScheduleEnabled;
+    Internal *ioStep;
+    InputTimer *ioTimer;
+    InPlageHoraire *ioPlage;
 
-                Room *roomContainer;
+    Room *roomContainer;
 
-                Rule *ruleStart, *ruleStop, *ruleStepEnd;
-                Rule *rulePlageStart, *rulePlageStop;
-                vector<Rule *> ruleSteps;
+    Rule *ruleStart, *ruleStop, *ruleStepEnd;
+    Rule *rulePlageStart, *rulePlageStop;
+    vector<Rule *> ruleSteps;
 
-                Input *createInput(string type, string id);
-                bool checkCondition(Rule *rule, Input *input, string oper, string value);
-                bool checkAction(Rule *rule, Output *output, string value);
-                void addRuleCondition(Rule *rule, Input *input, string oper, string value);
-                void addRuleAction(Rule *rule, Output *output, string value);
-                void setRuleCondition(Rule *rule, Input *input, string oper, string value);
-                void setRuleAction(Rule *rule, Output *output, string value);
-                string getRuleConditionValue(Rule *rule, Input *input, string oper);
-                string getRuleActionValue(Rule *rule, Output *output);
-                list<Output*> getRuleRealActions(Rule *rule);
+    Input *createInput(string type, string id);
+    bool checkCondition(Rule *rule, Input *input, string oper, string value);
+    bool checkAction(Rule *rule, Output *output, string value);
+    void addRuleCondition(Rule *rule, Input *input, string oper, string value);
+    void addRuleAction(Rule *rule, Output *output, string value);
+    void setRuleCondition(Rule *rule, Input *input, string oper, string value);
+    void setRuleAction(Rule *rule, Output *output, string value);
+    string getRuleConditionValue(Rule *rule, Input *input, string oper);
+    string getRuleActionValue(Rule *rule, Output *output);
+    list<Output*> getRuleRealActions(Rule *rule);
 
-        public:
-                AutoScenario(Input *input);
-                ~AutoScenario();
+public:
+    AutoScenario(Input *input);
+    ~AutoScenario();
 
-                static const int END_STEP = 0xFEDC1234;
+    static const int END_STEP = 0xFEDC1234;
 
-                void checkScenarioRules();
-                void deleteAll();
-                void deleteRules();
+    void checkScenarioRules();
+    void deleteAll();
+    void deleteRules();
 
-                string getScenarioId() { return scenario_id; }
-                bool isCycling() { return cycle; }
-                bool isDisabled() { return disabled; }
-                bool isScheduled() { return ioPlage?true:false; }
-                void setCycling(bool c); //should call checkScenarioRules() to commit changes
-                void setDisabled(bool d); //should call checkScenarioRules() to commit changes
+    string getScenarioId() { return scenario_id; }
+    bool isCycling() { return cycle; }
+    bool isDisabled() { return disabled; }
+    bool isScheduled() { return ioPlage?true:false; }
+    void setCycling(bool c); //should call checkScenarioRules() to commit changes
+    void setDisabled(bool d); //should call checkScenarioRules() to commit changes
 
-                //Try to categorize the scenario, returns either "light", "shutter", "other"
-                //it can be mutliple category, like "light-shutter"
-                string getCategory();
+    //Try to categorize the scenario, returns either "light", "shutter", "other"
+    //it can be mutliple category, like "light-shutter"
+    string getCategory();
 
-                Scenario *getIOScenario() { return ioScenario; }
-                Internal *getIOIsActive() { return ioIsActive; }
-                Internal *getIOScheduleEnabled() { return ioScheduleEnabled; }
-                Internal *getIOStep() { return ioStep; }
-                InputTimer *getIOTimer() { return ioTimer; }
-                InPlageHoraire *getIOPlage() { return ioPlage; }
+    Scenario *getIOScenario() { return ioScenario; }
+    Internal *getIOIsActive() { return ioIsActive; }
+    Internal *getIOScheduleEnabled() { return ioScheduleEnabled; }
+    Internal *getIOStep() { return ioStep; }
+    InputTimer *getIOTimer() { return ioTimer; }
+    InPlageHoraire *getIOPlage() { return ioPlage; }
 
-                Room *getRoomContainer() { return roomContainer; }
+    Room *getRoomContainer() { return roomContainer; }
 
-                Rule *getRuleStart() { return ruleStart; }
-                Rule *getRuleStop() { return ruleStop; }
-                Rule *getRuleStepEnd() { return ruleStepEnd; }
-                Rule *getRulePlageStart() { return rulePlageStart; }
-                Rule *getRulePlageStop() { return rulePlageStop; }
-                vector<Rule *> getRuleSteps() { return ruleSteps; }
+    Rule *getRuleStart() { return ruleStart; }
+    Rule *getRuleStop() { return ruleStop; }
+    Rule *getRuleStepEnd() { return ruleStepEnd; }
+    Rule *getRulePlageStart() { return rulePlageStart; }
+    Rule *getRulePlageStop() { return rulePlageStop; }
+    vector<Rule *> getRuleSteps() { return ruleSteps; }
 
-                void addStep(double pause);
-                void setStepPause(int step, double pause);
-                void addStepAction(int step, Output *out, string action);
-                double getStepPause(int step);
-                int getStepActionCount(int step);
-                ScenarioAction getStepAction(int step, int action);
-                int getEndStepActionCount();
-                ScenarioAction getEndStepAction(int action);
+    void addStep(double pause);
+    void setStepPause(int step, double pause);
+    void addStepAction(int step, Output *out, string action);
+    double getStepPause(int step);
+    int getStepActionCount(int step);
+    ScenarioAction getStepAction(int step, int action);
+    int getEndStepActionCount();
+    ScenarioAction getEndStepAction(int action);
 };
 
 }

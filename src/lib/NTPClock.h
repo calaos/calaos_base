@@ -42,53 +42,53 @@
 
 class NTPClock
 {
-        private:
-                /**
+private:
+    /**
                  * if true, the apps will stop once the ntp is done
                  * on the domotic server, the apps will be restart by a daemon
                  */
-                bool restart;
+    bool restart;
 
-                /**
+    /**
                  * signal called by the signal 'applyDate'
                  */
-                sigc::signal<void, string, string, void*, void*> sig_applyCalendar;
-                /** the command from the server
+    sigc::signal<void, string, string, void*, void*> sig_applyCalendar;
+    /** the command from the server
                  * something as "system date ntp_on"
                  */
-                vector<string> networkCmdCalendarApply;
-                /**
+    vector<string> networkCmdCalendarApply;
+    /**
                  * Calendar use to apply a manual date (no ntp)
                  */
-                Calendar cApply;
+    Calendar cApply;
 
-                bool restartWhenApply;
+    bool restartWhenApply;
 
-                /**
+    /**
                  * the timer used to launch a ntp every n secondes
                  */
-                EcoreTimer *timer;
+    EcoreTimer *timer;
 
-                void TimerTick();
+    void TimerTick();
 
-                /**
+    /**
                  * the exe used during the object apply a date
                  */
-                Ecore_Exe *exe;
-                /**
+    Ecore_Exe *exe;
+    /**
                  * the handle used during the object apply a date
                  */
-                Ecore_Event_Handler *handler;
+    Ecore_Event_Handler *handler;
 
-        public:
+public:
 
 
-                static NTPClock& Instance();
+    static NTPClock& Instance();
 
-                NTPClock();
-                ~NTPClock();
+    NTPClock();
+    ~NTPClock();
 
-                /**
+    /**
                  * When a client retrieve a date command from the server from an udp connection
                  * The udp server is run in a thread.
                  * - it set the command
@@ -96,29 +96,29 @@ class NTPClock
                  *   from the main thread instead of the udp server thread
                  *   ( we use some ecore_* methods to apply the date )
                  */
-                void applyCalendarFromServer(string source,string emission,
-                                void* listener_data, void* sender_data);
-                /**
+    void applyCalendarFromServer(string source,string emission,
+                                 void* listener_data, void* sender_data);
+    /**
                  * See applyCalendarFromServer()
                  */
-                void setNetworkCmdCalendarApply(vector<string> s);
+    void setNetworkCmdCalendarApply(vector<string> s);
 
-                void setRestartWhenApply(bool s);
-                bool isRestartWhenApply();
+    void setRestartWhenApply(bool s);
+    bool isRestartWhenApply();
 
-                /**
+    /**
                  * update the clock, launch a ntp
                  */
-                void updateClock();
+    void updateClock();
 
-                /**
+    /**
                  * enable or disable the ntp in the configuration file
                  */
-                void enable(bool en);
+    void enable(bool en);
 
-                //Private, used by Ecore
-                void Handle1();
-                void Handle2();
+    //Private, used by Ecore
+    void Handle1();
+    void Handle2();
 };
 
 #endif

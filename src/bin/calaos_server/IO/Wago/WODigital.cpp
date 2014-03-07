@@ -23,86 +23,86 @@
 using namespace Calaos;
 
 WODigital::WODigital(Params &p):
-                OutputLight(p),
-                port(502),
-                start(true)
+    OutputLight(p),
+    port(502),
+    start(true)
 {
-        host = get_param("host");
+    host = get_param("host");
 
-        from_string(get_param("var"), address);
+    from_string(get_param("var"), address);
 
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        if (get_param("knx") == "true")
-                address += WAGO_KNX_START_ADDRESS;
+    if (get_param("knx") == "true")
+        address += WAGO_KNX_START_ADDRESS;
 
-        //Do this before translating address to 841/849
-        WagoMap::Instance(host, port).read_output_bits((UWord)address, 1, sigc::mem_fun(*this, &WODigital::WagoReadCallback));
+    //Do this before translating address to 841/849
+    WagoMap::Instance(host, port).read_output_bits((UWord)address, 1, sigc::mem_fun(*this, &WODigital::WagoReadCallback));
 
-        if (get_param("wago_841") == "true" && get_param("knx") != "true")
-                address += WAGO_841_START_ADDRESS;
+    if (get_param("wago_841") == "true" && get_param("knx") != "true")
+        address += WAGO_841_START_ADDRESS;
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cDebugDom("output") << "WODigital::WODigital(" << get_param("id") << "): Ok";
+    cDebugDom("output") << "WODigital::WODigital(" << get_param("id") << "): Ok";
 }
 
 WODigital::~WODigital()
 {
-        cDebugDom("output") << "WODigital::~WODigital(): Ok";
+    cDebugDom("output") << "WODigital::~WODigital(): Ok";
 }
 
 void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
 {
-        if (!status)
-        {
-                cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to read value";
-                if (start)
-                {
-                    Calaos::StartReadRules::Instance().ioRead();
-                    start = false;
-                }
-
-                return;
-        }
-
-        if (!values.empty())
-                value = values[0];
-
-        cInfoDom("output") << "WODigital(" << get_param("id") << "): Reading initial value: " << (value?"true":"false");
-
-        emitChange();
-
+    if (!status)
+    {
+        cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to read value";
         if (start)
         {
             Calaos::StartReadRules::Instance().ioRead();
             start = false;
         }
+
+        return;
+    }
+
+    if (!values.empty())
+        value = values[0];
+
+    cInfoDom("output") << "WODigital(" << get_param("id") << "): Reading initial value: " << (value?"true":"false");
+
+    emitChange();
+
+    if (start)
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+        start = false;
+    }
 }
 
 void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
 {
-        if (!status)
-        {
-                cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to write value";
-                return;
-        }
+    if (!status)
+    {
+        cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to write value";
+        return;
+    }
 }
 
 bool WODigital::set_value_real(bool val)
 {
-        host = get_param("host");
-        Utils::from_string(get_param("var"), address);
-        if (get_param("knx") == "true")
-                address += WAGO_KNX_START_ADDRESS;
-        if (get_param("wago_841") == "true" && get_param("knx") != "true")
-                address += WAGO_841_START_ADDRESS;
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    Utils::from_string(get_param("var"), address);
+    if (get_param("knx") == "true")
+        address += WAGO_KNX_START_ADDRESS;
+    if (get_param("wago_841") == "true" && get_param("knx") != "true")
+        address += WAGO_841_START_ADDRESS;
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        WagoMap::Instance(host, port).write_single_bit((UWord)address, val, sigc::mem_fun(*this, &WODigital::WagoWriteCallback));
+    WagoMap::Instance(host, port).write_single_bit((UWord)address, val, sigc::mem_fun(*this, &WODigital::WagoWriteCallback));
 
-        return true;
+    return true;
 }
 

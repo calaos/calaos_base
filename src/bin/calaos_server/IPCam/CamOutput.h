@@ -33,20 +33,20 @@ class IPCam;
 //-----------------------------------------------------------------------------
 class CamOutput: public Output
 {
-        private:
-                std::string answer;
-                IPCam *cam;
+private:
+    std::string answer;
+    IPCam *cam;
 
-        public:
-                CamOutput(Params &p, IPCam *_cam);
-                ~CamOutput();
+public:
+    CamOutput(Params &p, IPCam *_cam);
+    ~CamOutput();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual bool set_value(std::string val);
-                virtual std::string get_value_string();
+    virtual bool set_value(std::string val);
+    virtual std::string get_value_string();
 
-                IPCam *get_cam() { return cam; }
+    IPCam *get_cam() { return cam; }
 };
 //-----------------------------------------------------------------------------
 }

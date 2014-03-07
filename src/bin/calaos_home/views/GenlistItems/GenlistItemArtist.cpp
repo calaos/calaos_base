@@ -26,12 +26,12 @@ ITEM_BUTTON_CALLBACK(GenlistItemArtist, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemArtist, Add)
 
 GenlistItemArtist::GenlistItemArtist(Evas *_evas, Evas_Object *_parent, AudioPlayer *_player, int _item_id, int request_type, int _command_id, void *data):
-        GenlistItemBase(_evas, _parent, "browser/default", ELM_GENLIST_ITEM_NONE, data),
-        player(_player),
-        item_id(_item_id),
-        in_query(false),
-        reqtype(request_type),
-        command_id(_command_id)
+    GenlistItemBase(_evas, _parent, "browser/default", ELM_GENLIST_ITEM_NONE, data),
+    player(_player),
+    item_id(_item_id),
+    in_query(false),
+    reqtype(request_type),
+    command_id(_command_id)
 {
 }
 
@@ -41,75 +41,75 @@ GenlistItemArtist::~GenlistItemArtist()
 
 string GenlistItemArtist::getLabelItem(Evas_Object *obj, string part)
 {
-        string text;
+    string text;
 
-        if (!in_query)
+    if (!in_query)
+    {
+        switch (reqtype)
         {
-                switch (reqtype)
-                {
-                case ARTIST_LIST: player->getDBArtistItem(item_id, sigc::mem_fun(*this, &GenlistItemArtist::artistItemGet_cb)); break;
-                case ARTIST_GENRE: player->getDBArtistGenreItem(item_id, command_id, sigc::mem_fun(*this, &GenlistItemArtist::artistItemGet_cb)); break;
-                }
-
-                in_query = true;
+        case ARTIST_LIST: player->getDBArtistItem(item_id, sigc::mem_fun(*this, &GenlistItemArtist::artistItemGet_cb)); break;
+        case ARTIST_GENRE: player->getDBArtistGenreItem(item_id, command_id, sigc::mem_fun(*this, &GenlistItemArtist::artistItemGet_cb)); break;
         }
 
-        if (part == "text")
-        {
-                if (item_infos.size() <= 0)
-                        text = "Chargement...";
-                else
-                        text = item_infos["name"];
-        }
+        in_query = true;
+    }
 
-        return text;
+    if (part == "text")
+    {
+        if (item_infos.size() <= 0)
+            text = "Chargement...";
+        else
+            text = item_infos["name"];
+    }
+
+    return text;
 }
 
 Evas_Object *GenlistItemArtist::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "calaos.button.play")
-        {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
-                elm_object_style_set(o, "calaos/action_button/blue");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
-        }
-        else if (part == "calaos.button.add")
-        {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/more");
-                elm_object_style_set(o, "calaos/action_button/blue");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
-        }
-        else if (part == "icon")
-        {
-                o = elm_icon_add(parent);
-                elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/genlist/note_on");
-        }
+    if (part == "calaos.button.play")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
+        elm_object_style_set(o, "calaos/action_button/blue");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
+    }
+    else if (part == "calaos.button.add")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/more");
+        elm_object_style_set(o, "calaos/action_button/blue");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
+    }
+    else if (part == "icon")
+    {
+        o = elm_icon_add(parent);
+        elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/genlist/note_on");
+    }
 
-        return o;
+    return o;
 }
 
 void GenlistItemArtist::buttonClickPlay()
 {
-        player->playItem(AudioPlayer::DB_ITEM_ARTIST, item_infos["id"]);
+    player->playItem(AudioPlayer::DB_ITEM_ARTIST, item_infos["id"]);
 }
 
 void GenlistItemArtist::buttonClickAdd()
 {
-        player->addItem(AudioPlayer::DB_ITEM_ARTIST, item_infos["id"]);
+    player->addItem(AudioPlayer::DB_ITEM_ARTIST, item_infos["id"]);
 }
 
 void GenlistItemArtist::artistItemGet_cb(Params &infos)
 {
-        cout << "Got infos..." << infos.toString() << endl;
-        item_infos = infos;
+    cout << "Got infos..." << infos.toString() << endl;
+    item_infos = infos;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
 }

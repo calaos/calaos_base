@@ -31,29 +31,29 @@ using namespace Utils;
 
 class ActivityHomeController: public ActivityController
 {
-        protected:
-                void createView();
+protected:
+    void createView();
 
-                int page;
+    int page;
 
-                void clickRoomLeft();
-                void clickRoomRight();
+    void clickRoomLeft();
+    void clickRoomRight();
 
-                void updatePageView();
-                void updateScenarios();
+    void updatePageView();
+    void updateScenarios();
 
-                void clickRoom(int room);
+    void clickRoom(int room);
 
-                void load_done();
+    void load_done();
 
-                void lights_changed(int count);
-                void shutter_changed(int count);
+    void lights_changed(int count);
+    void shutter_changed(int count);
 
-                void scenarioReload(Scenario *sc);
+    void scenarioReload(Scenario *sc);
 
-        public:
-                ActivityHomeController(Evas *evas, Evas_Object *parent);
-                ~ActivityHomeController();
+public:
+    ActivityHomeController(Evas *evas, Evas_Object *parent);
+    ~ActivityHomeController();
 };
 
 #endif // ACTIVITYHOMECONTROLLER_H

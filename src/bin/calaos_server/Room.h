@@ -33,64 +33,64 @@ namespace Calaos
 
 class Room
 {
-        protected:
-                string name;
-                string type;
-                int hits;
+protected:
+    string name;
+    string type;
+    int hits;
 
-                vector<Input *> inputs;
-                vector<Output *> outputs;
+    vector<Input *> inputs;
+    vector<Output *> outputs;
 
-        public:
-                Room(string _name, string _type, int _hits = 0);
-                ~Room();
+public:
+    Room(string _name, string _type, int _hits = 0);
+    ~Room();
 
-                string &get_name() { return name; }
-                string &get_type() { return type; }
+    string &get_name() { return name; }
+    string &get_type() { return type; }
 
-                void set_name(string &s);
-                void set_type(string &s);
+    void set_name(string &s);
+    void set_type(string &s);
 
-                int get_hits() { return hits; }
+    int get_hits() { return hits; }
 
-                void set_hits(int h);
+    void set_hits(int h);
 
-                void AddInput(Input *p);
-                void RemoveInput(int i, bool del = true);
-                void AddOutput(Output *p);
-                void RemoveOutput(int i, bool del = true);
+    void AddInput(Input *p);
+    void RemoveInput(int i, bool del = true);
+    void AddOutput(Output *p);
+    void RemoveOutput(int i, bool del = true);
 
-                void RemoveInputFromRoom(Input *in);
-                void RemoveOutputFromRoom(Output *out);
+    void RemoveInputFromRoom(Input *in);
+    void RemoveOutputFromRoom(Output *out);
 
-                Input *get_input(int i) { return inputs[i]; }
-                Output *get_output(int i) { return outputs[i]; }
+    Input *get_input(int i) { return inputs[i]; }
+    Output *get_output(int i) { return outputs[i]; }
 
-                int get_size_in() { return inputs.size(); }
-                int get_size_out() { return outputs.size(); }
+    int get_size_in() { return inputs.size(); }
+    int get_size_out() { return outputs.size(); }
 
-                //Some templated functions to avoid lots of copy/paste
-                //when looping over inputs/outputs the same way
-                //Ex of use:
-                //   room->get_size<Input>()
-                template<typename T,
-                         typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
-                int get_size() { return inputs.size(); }
+    //Some templated functions to avoid lots of copy/paste
+    //when looping over inputs/outputs the same way
+    //Ex of use:
+    //   room->get_size<Input>()
+    template<typename T,
+             typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
+    int get_size() { return inputs.size(); }
 
-                template<typename T,
-                         typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
-                int get_size() { return outputs.size(); }
+    template<typename T,
+             typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
+    int get_size() { return outputs.size(); }
 
-                template<typename T,
-                         typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
-                T get_io(int i) { return inputs[i]; }
+    template<typename T,
+             typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
+    T get_io(int i) { return inputs[i]; }
 
-                template<typename T,
-                         typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
-                T get_io(int i) { return outputs[i]; }
+    template<typename T,
+             typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
+    T get_io(int i) { return outputs[i]; }
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

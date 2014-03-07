@@ -25,111 +25,111 @@ using namespace Calaos;
 using namespace Utils;
 
 OutputAnalog::OutputAnalog(Params &p):
-                Output(p),
-                value(-1),
-                real_value_max(0.0),
-                wago_value_max(0.0)
+    Output(p),
+    value(-1),
+    real_value_max(0.0),
+    wago_value_max(0.0)
 {
-        set_param("gui_type", "analog_out");
+    set_param("gui_type", "analog_out");
 
-        readConfig();
+    readConfig();
 
-        Calaos::StartReadRules::Instance().addIO();
+    Calaos::StartReadRules::Instance().addIO();
 
-        cInfoDom("output") << "OutputAnalog::OutputAnalog(" << get_param("id") << "): Ok";
+    cInfoDom("output") << "OutputAnalog::OutputAnalog(" << get_param("id") << "): Ok";
 }
 
 OutputAnalog::~OutputAnalog()
 {
-        cInfoDom("output") << "OutputAnalog::~OutputAnalog(): Ok";
+    cInfoDom("output") << "OutputAnalog::~OutputAnalog(): Ok";
 }
 
 void OutputAnalog::readConfig()
 {
-        if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
-        if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
-        if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
+    if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
+    if (!get_params().Exists("visible")) set_param("visible", "true");
 }
 
 double OutputAnalog::get_value_double()
 {
-        readConfig();
+    readConfig();
 
-        if (wago_value_max > 0 && real_value_max > 0)
-                return Utils::roundValue(value * real_value_max / wago_value_max);
-        else
-                return Utils::roundValue(value);
+    if (wago_value_max > 0 && real_value_max > 0)
+        return Utils::roundValue(value * real_value_max / wago_value_max);
+    else
+        return Utils::roundValue(value);
 }
 
 void OutputAnalog::emitChange()
 {
-        string sig = "output ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "output ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode(string("state:") + Utils::to_string(value));
+    IPC::Instance().SendEvent("events", sig);
 }
 
 bool OutputAnalog::set_value(double val)
 {
-        UWord v;
+    UWord v;
 
-        readConfig();
+    readConfig();
 
-        if (wago_value_max > 0 && real_value_max > 0)
-                v = (UWord)(val * wago_value_max / real_value_max);
-        else
-                v = (UWord)(val);
+    if (wago_value_max > 0 && real_value_max > 0)
+        v = (UWord)(val * wago_value_max / real_value_max);
+    else
+        v = (UWord)(val);
 
-        set_value_real(v);
+    set_value_real(v);
 
-        value = val;
-        EmitSignalOutput();
-        emitChange();
+    value = val;
+    EmitSignalOutput();
+    emitChange();
 
-        return true;
+    return true;
 }
 
 bool OutputAnalog::set_value(string val)
 {
-        if (val == "inc")
-        {
-                double step = 1.0;
-                if (is_of_type<double>(get_param("step")))
-                        from_string(get_param("step"), step);
+    if (val == "inc")
+    {
+        double step = 1.0;
+        if (is_of_type<double>(get_param("step")))
+            from_string(get_param("step"), step);
 
-                set_value(value + step);
-        }
-        else if (val == "dec")
-        {
-                double step = 1.0;
-                if (is_of_type<double>(get_param("step")))
-                        from_string(get_param("step"), step);
+        set_value(value + step);
+    }
+    else if (val == "dec")
+    {
+        double step = 1.0;
+        if (is_of_type<double>(get_param("step")))
+            from_string(get_param("step"), step);
 
-                set_value(value - step);
-        }
-        else if (val.compare(0, 4, "inc ") == 0)
-        {
-                string t = val;
-                t.erase(0, 4);
+        set_value(value - step);
+    }
+    else if (val.compare(0, 4, "inc ") == 0)
+    {
+        string t = val;
+        t.erase(0, 4);
 
-                double step = 1.0;
-                if (is_of_type<double>(t))
-                        from_string(t, step);
+        double step = 1.0;
+        if (is_of_type<double>(t))
+            from_string(t, step);
 
-                set_value(value + step);
-        }
-        else if (val.compare(0, 4, "dec ") == 0)
-        {
-                string t = val;
-                t.erase(0, 4);
+        set_value(value + step);
+    }
+    else if (val.compare(0, 4, "dec ") == 0)
+    {
+        string t = val;
+        t.erase(0, 4);
 
-                double step = 1.0;
-                if (is_of_type<double>(t))
-                        from_string(t, step);
+        double step = 1.0;
+        if (is_of_type<double>(t))
+            from_string(t, step);
 
-                set_value(value - step);
-        }
+        set_value(value - step);
+    }
 
-        return true;
+    return true;
 }
 

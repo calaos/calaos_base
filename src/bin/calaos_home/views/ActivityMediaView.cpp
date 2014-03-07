@@ -26,19 +26,19 @@
 #include "ActivityMediaView.h"
 
 ActivityMediaView::ActivityMediaView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/page/media")
+    ActivityView(_e, _parent, "calaos/page/media")
 {
-        setPartText("header.label", _("Multimedia"));
+    setPartText("header.label", _("Multimedia"));
 
-        contentView = new MainContentView(evas, parent);
-        Swallow(contentView->getSmartObject(), "calaos.main.content");
+    contentView = new MainContentView(evas, parent);
+    Swallow(contentView->getSmartObject(), "calaos.main.content");
 
-        addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityMediaView::buttonPressed));
+    addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityMediaView::buttonPressed));
 }
 
 ActivityMediaView::~ActivityMediaView()
 {
-        DELETE_NULL(contentView)
+    DELETE_NULL(contentView)
 }
 
 void ActivityMediaView::resetView()
@@ -47,5 +47,5 @@ void ActivityMediaView::resetView()
 
 void ActivityMediaView::buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
-        button_clicked.emit(source);
+    button_clicked.emit(source);
 }

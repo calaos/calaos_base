@@ -24,12 +24,12 @@
 using namespace Calaos;
 
 InputSwitch::InputSwitch(Params &p):
-                Input(p),
-                value(false)
+    Input(p),
+    value(false)
 {
-        if (!get_params().Exists("visible")) set_param("visible", "false");
+    if (!get_params().Exists("visible")) set_param("visible", "false");
 
-        set_param("gui_type", "switch");
+    set_param("gui_type", "switch");
 }
 
 InputSwitch::~InputSwitch()
@@ -38,25 +38,25 @@ InputSwitch::~InputSwitch()
 
 void InputSwitch::hasChanged()
 {
-        bool val = readValue();
+    bool val = readValue();
 
-        if (val != value)
-        {
-                value = val;
-                emitChanges();
-        }
+    if (val != value)
+    {
+        value = val;
+        emitChanges();
+    }
 }
 
 void InputSwitch::emitChanges()
 {
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        if (value)
-                sig += Utils::url_encode(string("state:true"));
-        else
-                sig += Utils::url_encode(string("state:false"));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += get_param("id") + " ";
+    if (value)
+        sig += Utils::url_encode(string("state:true"));
+    else
+        sig += Utils::url_encode(string("state:false"));
+    IPC::Instance().SendEvent("events", sig);
 
-        EmitSignalInput();
+    EmitSignalInput();
 
 }

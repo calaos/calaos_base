@@ -30,22 +30,22 @@ using namespace Utils;
 
 class ActivityConfigView: public ActivityView
 {
-        private:
-                MainContentView *contentView;
+private:
+    MainContentView *contentView;
 
-                void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-        public:
-                ActivityConfigView(Evas *evas, Evas_Object *parent);
-                ~ActivityConfigView();
+public:
+    ActivityConfigView(Evas *evas, Evas_Object *parent);
+    ~ActivityConfigView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void addView(BaseView *view) { contentView->addView(view); }
-                BaseView *getTopView() { return contentView->getTopView(); }
-                void removeTopView() { contentView->removeTopView(); }
+    void addView(BaseView *view) { contentView->addView(view); }
+    BaseView *getTopView() { return contentView->getTopView(); }
+    void removeTopView() { contentView->removeTopView(); }
 
-                sigc::signal<void, string> button_clicked;
+    sigc::signal<void, string> button_clicked;
 };
 
 #endif // ACTIVITYCONFIGVIEW_H

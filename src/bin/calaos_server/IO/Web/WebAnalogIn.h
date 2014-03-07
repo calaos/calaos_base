@@ -30,14 +30,14 @@ namespace Calaos
 
 class WebAnalogIn : public InputAnalog
 {
-        private:
-                string path;
-        protected:
-                virtual void readValue();
+private:
+    string path;
+protected:
+    virtual void readValue();
 
-        public:
-                WebAnalogIn(Params &p);
-                ~WebAnalogIn();
+public:
+    WebAnalogIn(Params &p);
+    ~WebAnalogIn();
 
 
 };

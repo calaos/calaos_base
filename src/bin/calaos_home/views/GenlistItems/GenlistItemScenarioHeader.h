@@ -28,16 +28,16 @@ using namespace Utils;
 
 class GenlistItemScenarioHeader: public GenlistItemBase
 {
-        private:
-                string title;
+private:
+    string title;
 
-                virtual void itemAdded();
-        public:
-                GenlistItemScenarioHeader(Evas *evas, Evas_Object *parent, string title);
-                virtual ~GenlistItemScenarioHeader();
+    virtual void itemAdded();
+public:
+    GenlistItemScenarioHeader(Evas *evas, Evas_Object *parent, string title);
+    virtual ~GenlistItemScenarioHeader();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 };
 
 #endif // GenlistItemScenarioHeader_H

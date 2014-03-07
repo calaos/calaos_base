@@ -29,21 +29,21 @@ namespace Calaos
 
 class WOVoletSmart : public OutputShutterSmart
 {
-        private:
-                std::string host;
-                int port;
-                int up_address, down_address;
+private:
+    std::string host;
+    int port;
+    int up_address, down_address;
 
-                virtual void readConfig();
+    virtual void readConfig();
 
-                virtual void setOutputUp(bool enable);
-                virtual void setOutputDown(bool enable);
+    virtual void setOutputUp(bool enable);
+    virtual void setOutputDown(bool enable);
 
-                void WagoWriteCallback(bool status, UWord address, bool value);
+    void WagoWriteCallback(bool status, UWord address, bool value);
 
-        public:
-                WOVoletSmart(Params &p);
-                ~WOVoletSmart();
+public:
+    WOVoletSmart(Params &p);
+    ~WOVoletSmart();
 };
 
 }

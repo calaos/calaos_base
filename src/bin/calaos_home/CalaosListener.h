@@ -28,48 +28,48 @@
 
 class CalaosListener: public sigc::trackable
 {
-        public:
-                //Ecore Internal use only
-                void addConnection(Ecore_Con_Server *server);
-                void delConnection(Ecore_Con_Server *server);
-                void dataGet(Ecore_Con_Server *server, void *data, int size);
-                void errorConnection(Ecore_Con_Server *server);
+public:
+    //Ecore Internal use only
+    void addConnection(Ecore_Con_Server *server);
+    void delConnection(Ecore_Con_Server *server);
+    void dataGet(Ecore_Con_Server *server, void *data, int size);
+    void errorConnection(Ecore_Con_Server *server);
 
-        private:
-                string address;
-                Ecore_Con_Server *econ;
-                bool login;
+private:
+    string address;
+    Ecore_Con_Server *econ;
+    bool login;
 
-                string buffer;
+    string buffer;
 
-                Ecore_Event_Handler *handler_add;
-                Ecore_Event_Handler *handler_data;
-                Ecore_Event_Handler *handler_del;
-                Ecore_Event_Handler *handler_error;
+    Ecore_Event_Handler *handler_add;
+    Ecore_Event_Handler *handler_data;
+    Ecore_Event_Handler *handler_del;
+    Ecore_Event_Handler *handler_error;
 
-                void processMessage(string msg);
+    void processMessage(string msg);
 
-        public:
-                CalaosListener(string address);
-                ~CalaosListener();
+public:
+    CalaosListener(string address);
+    ~CalaosListener();
 
-                //RoomModel signals
-                sigc::signal<void, string> notify_io_change;
-                sigc::signal<void, string> notify_io_new;
-                sigc::signal<void, string> notify_io_delete;
-                sigc::signal<void, string> notify_room_change;
-                sigc::signal<void, string> notify_room_new;
-                sigc::signal<void, string> notify_room_delete;
+    //RoomModel signals
+    sigc::signal<void, string> notify_io_change;
+    sigc::signal<void, string> notify_io_new;
+    sigc::signal<void, string> notify_io_delete;
+    sigc::signal<void, string> notify_room_change;
+    sigc::signal<void, string> notify_room_new;
+    sigc::signal<void, string> notify_room_delete;
 
-                //AudioModel signals
-                sigc::signal<void, string> notify_audio_change;
+    //AudioModel signals
+    sigc::signal<void, string> notify_audio_change;
 
-                //ScenarioModel signals
-                sigc::signal<void, string> notify_scenario_add;
-                sigc::signal<void, string> notify_scenario_del;
-                sigc::signal<void, string> notify_scenario_change;
+    //ScenarioModel signals
+    sigc::signal<void, string> notify_scenario_add;
+    sigc::signal<void, string> notify_scenario_del;
+    sigc::signal<void, string> notify_scenario_change;
 
-                sigc::signal<void> lost_connection;
+    sigc::signal<void> lost_connection;
 
 };
 

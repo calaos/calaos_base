@@ -38,73 +38,73 @@
 #define UDP 'U'
 
 
-        class TCPSocket
-        {
+class TCPSocket
+{
 
-                public:
+public:
 
-                        TCPSocket();
-                        ~TCPSocket();
+    TCPSocket();
+    ~TCPSocket();
 
-                        bool Create();
-                        bool Create(char nType);
-                        bool Create(int nPort);
-                        bool Create(int nPort, char nType);
+    bool Create();
+    bool Create(char nType);
+    bool Create(int nPort);
+    bool Create(int nPort, char nType);
 
-                        bool Listen();
+    bool Listen();
 
-                        bool Accept(int fdpipe = 0);
+    bool Accept(int fdpipe = 0);
 
-                        bool Connect(int nPort, char *Hostname);
-                        bool Connected()
-                        {
-                                return connected;
-                        }
+    bool Connect(int nPort, char *Hostname);
+    bool Connected()
+    {
+        return connected;
+    }
 
-                        int Send(const void *Message, int nLength, bool block = true);
-                        bool Send(std::string Message);
-                        int Recv(void *Buffer, int nLength, bool block = true);
-                        bool Recv(std::string & Message, int timeout = 0, int fdpipe = 0);
-                        int Broadcast(const void *msg, int len, int bport);
-                        bool Broadcast(std::string msg, int port)
-                        {
-                                if (Broadcast(msg.c_str(), msg.length(), port) >= 0)
-                                        return true;
-                                else
-                                        return false;
-                        }
-                        int SendTo(const void *msg, int len, int bport, std::string host = "");
-                        int SendTo(std::string msg);
-                        bool SendTo(std::string msg, int port)
-                        {
-                                if (SendTo(msg.c_str(), msg.length(), port) >= 0)
-                                        return true;
-                                else
-                                        return false;
-                        }
-                        int RecvFrom(char *msg, int msize, int timeout = 0);
+    int Send(const void *Message, int nLength, bool block = true);
+    bool Send(std::string Message);
+    int Recv(void *Buffer, int nLength, bool block = true);
+    bool Recv(std::string & Message, int timeout = 0, int fdpipe = 0);
+    int Broadcast(const void *msg, int len, int bport);
+    bool Broadcast(std::string msg, int port)
+    {
+        if (Broadcast(msg.c_str(), msg.length(), port) >= 0)
+            return true;
+        else
+            return false;
+    }
+    int SendTo(const void *msg, int len, int bport, std::string host = "");
+    int SendTo(std::string msg);
+    bool SendTo(std::string msg, int port)
+    {
+        if (SendTo(msg.c_str(), msg.length(), port) >= 0)
+            return true;
+        else
+            return false;
+    }
+    int RecvFrom(char *msg, int msize, int timeout = 0);
 
-                        char *GetRemoteIP();
-                        char *GetUDPRemoteIP();
+    char *GetRemoteIP();
+    char *GetUDPRemoteIP();
 
-                        bool Close();
-                        bool Shutdown();
-                        bool InboundClose();
+    bool Close();
+    bool Shutdown();
+    bool InboundClose();
 
-                        void SetReuse();
+    void SetReuse();
 
-                        static std::string GetLocalIP(std::string intf = "eth0");
-                        static vector<string> getAllInterfaces();
-                        static std::string GetLocalIPFor(std::string ip);
-                        static bool GetMacAddr(std::string intf, unsigned char *mac);
+    static std::string GetLocalIP(std::string intf = "eth0");
+    static vector<string> getAllInterfaces();
+    static std::string GetLocalIPFor(std::string ip);
+    static bool GetMacAddr(std::string intf, unsigned char *mac);
 
-                        int get_sockfd() { return sockfd; }
+    int get_sockfd() { return sockfd; }
 
-                private:
+private:
 
-                        int sockfd, newfd;
-                        sockaddr_in INetAddress, RemoteAddress, from;
+    int sockfd, newfd;
+    sockaddr_in INetAddress, RemoteAddress, from;
 
-                        bool connected;
-        };
+    bool connected;
+};
 #endif

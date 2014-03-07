@@ -31,59 +31,59 @@ using namespace Utils;
 
 class GenlistItemScenarioAction: public GenlistItemBase
 {
-        private:
-                ScenarioData &scenario_data;
-                int sc_step;
-                uint sc_action;
+private:
+    ScenarioData &scenario_data;
+    int sc_step;
+    uint sc_action;
 
-                IOActionList action;
-                IOActionList action_temp;
+    IOActionList action;
+    IOActionList action_temp;
 
-                Evas_Object *popup;
-                Evas_Object *pager_action;
+    Evas_Object *popup;
+    Evas_Object *pager_action;
 
-                Evas_Object *color_preview;
+    Evas_Object *color_preview;
 
-                EdjeObject *page;
+    EdjeObject *page;
 
-                Evas_Object *spin_hours;
-                Evas_Object *spin_min;
-                Evas_Object *spin_sec;
-                Evas_Object *spin_ms;
+    Evas_Object *spin_hours;
+    Evas_Object *spin_min;
+    Evas_Object *spin_sec;
+    Evas_Object *spin_ms;
 
-                ScenarioAction &getAction();
-                void createActionList(Evas_Object *glist, GenlistItemBase *header);
+    ScenarioAction &getAction();
+    void createActionList(Evas_Object *glist, GenlistItemBase *header);
 
-                void actionSimple(void *data, IOActionList ac);
-                void actionSlider(void *data, IOActionList ac);
-                void actionNumber(void *data, IOActionList ac);
-                void actionText(void *data, IOActionList ac);
-                void actionTime(void *data, IOActionList ac);
-                void actionColor(void *data, IOActionList ac);
+    void actionSimple(void *data, IOActionList ac);
+    void actionSlider(void *data, IOActionList ac);
+    void actionNumber(void *data, IOActionList ac);
+    void actionText(void *data, IOActionList ac);
+    void actionTime(void *data, IOActionList ac);
+    void actionColor(void *data, IOActionList ac);
 
-                void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void buttonValidClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void buttonValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source);
-                void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void numberSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void sliderRedSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void sliderGreenSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void sliderBlueSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonValidClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void numberSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderRedSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderGreenSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderBlueSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
 
-                void deleteItemSelected(void *data);
+    void deleteItemSelected(void *data);
 
-        public:
-                GenlistItemScenarioAction(Evas *evas, Evas_Object *parent, ScenarioData &scd, int step, int action, void *data = NULL);
-                virtual ~GenlistItemScenarioAction();
+public:
+    GenlistItemScenarioAction(Evas *evas, Evas_Object *parent, ScenarioData &scd, int step, int action, void *data = NULL);
+    virtual ~GenlistItemScenarioAction();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickEdit();
+    void buttonClickEdit();
 
-                void setAction(IOActionList &ac) { action = ac; }
+    void setAction(IOActionList &ac) { action = ac; }
 
-                sigc::signal<void, GenlistItemScenarioAction *, void *> delete_action;
+    sigc::signal<void, GenlistItemScenarioAction *, void *> delete_action;
 };
 
 #endif // GenlistItemScenarioAction_H

@@ -9,8 +9,8 @@ extern "C"
 {
 #endif
 
-        char *base64_decode(const char *p);
-        const char *base64_encode(const char *decoded_str, int);
+char *base64_decode(const char *p);
+const char *base64_encode(const char *decoded_str, int);
 
 #ifdef __cplusplus
 }

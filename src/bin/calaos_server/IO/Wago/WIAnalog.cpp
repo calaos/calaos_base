@@ -23,75 +23,75 @@
 using namespace Calaos;
 
 WIAnalog::WIAnalog(Params &p):
-                InputAnalog(p),
-                port(502),
-                requestInProgress(false),
-                start(true)
+    InputAnalog(p),
+    port(502),
+    requestInProgress(false),
+    start(true)
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        Utils::from_string(get_param("var"), address);
+    Utils::from_string(get_param("var"), address);
 
-        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
-        requestInProgress = true;
+    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
+    requestInProgress = true;
 
-        cDebugDom("input") << "WIAnalog::WIAnalog(" << get_param("id") << "): Ok";
+    cDebugDom("input") << "WIAnalog::WIAnalog(" << get_param("id") << "): Ok";
 }
 
 WIAnalog::~WIAnalog()
 {
-        cDebugDom("input") << "WIAnalog::~WIAnalog(): Ok";
+    cDebugDom("input") << "WIAnalog::~WIAnalog(): Ok";
 }
 
 void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
-        requestInProgress = false;
+    requestInProgress = false;
 
-        if (!status)
-        {
-                cErrorDom("input") << "WIAnalog(" << get_param("id") << "): Failed to read value";
-                if (start)
-                {
-                    Calaos::StartReadRules::Instance().ioRead();
-                    start = false;
-                }
-
-                return;
-        }
-
-        double val = value;
-
-        if (!values.empty())
-        {
-                val = values[0];
-        }
-
-        if (val != value)
-        {
-                value = val;
-                emitChange();
-        }
-
+    if (!status)
+    {
+        cErrorDom("input") << "WIAnalog(" << get_param("id") << "): Failed to read value";
         if (start)
         {
             Calaos::StartReadRules::Instance().ioRead();
             start = false;
         }
+
+        return;
+    }
+
+    double val = value;
+
+    if (!values.empty())
+    {
+        val = values[0];
+    }
+
+    if (val != value)
+    {
+        value = val;
+        emitChange();
+    }
+
+    if (start)
+    {
+        Calaos::StartReadRules::Instance().ioRead();
+        start = false;
+    }
 }
 
 void WIAnalog::readValue()
 {
-        host = get_param("host");
-        if (get_params().Exists("port"))
-                Utils::from_string(get_param("port"), port);
+    host = get_param("host");
+    if (get_params().Exists("port"))
+        Utils::from_string(get_param("port"), port);
 
-        Utils::from_string(get_param("var"), address);
+    Utils::from_string(get_param("var"), address);
 
-        if (!requestInProgress)
-        {
-                requestInProgress = true;
-                WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
-        }
+    if (!requestInProgress)
+    {
+        requestInProgress = true;
+        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
+    }
 }

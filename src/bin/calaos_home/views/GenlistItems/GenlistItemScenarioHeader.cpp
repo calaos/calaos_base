@@ -22,8 +22,8 @@
 #include <ApplicationMain.h>
 
 GenlistItemScenarioHeader::GenlistItemScenarioHeader(Evas *_evas, Evas_Object *_parent, string _title):
-        GenlistItemBase(_evas, _parent, "scenario/header", ELM_GENLIST_ITEM_GROUP),
-        title(_title)
+    GenlistItemBase(_evas, _parent, "scenario/header", ELM_GENLIST_ITEM_GROUP),
+    title(_title)
 {
 }
 
@@ -33,20 +33,20 @@ GenlistItemScenarioHeader::~GenlistItemScenarioHeader()
 
 void GenlistItemScenarioHeader::itemAdded()
 {
-        elm_genlist_item_select_mode_set(item, ELM_OBJECT_SELECT_MODE_DISPLAY_ONLY);
+    elm_genlist_item_select_mode_set(item, ELM_OBJECT_SELECT_MODE_DISPLAY_ONLY);
 }
 
 Evas_Object *GenlistItemScenarioHeader::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        return o;
+    return o;
 }
 
 string GenlistItemScenarioHeader::getLabelItem(Evas_Object *obj, string part)
 {
-        if (part == "elm.text")
-                return title;
+    if (part == "elm.text")
+        return title;
 
-        return "";
+    return "";
 }

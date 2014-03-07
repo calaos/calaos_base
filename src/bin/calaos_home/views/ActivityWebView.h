@@ -30,26 +30,26 @@ using namespace Utils;
 
 class ActivityWebView: public ActivityView
 {
-        private:
-                KeyboardView *keyboard;
-                Evas_Object *web;
+private:
+    KeyboardView *keyboard;
+    Evas_Object *web;
 
-                void buttonCallback(void *data, Evas_Object *edje_object, string emission, string source);
-                void goToCallback(string url);
+    void buttonCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void goToCallback(string url);
 
-        public:
-                ActivityWebView(Evas *evas, Evas_Object *parent);
-                ~ActivityWebView();
+public:
+    ActivityWebView(Evas *evas, Evas_Object *parent);
+    ~ActivityWebView();
 
-                virtual void resetView();
+    virtual void resetView();
 
 
-                //Used by C-Callbacks
-                void _webLoadStarted();
-                void _webLoadProgress();
-                void _webLoadFinished(Elm_Web_Frame_Load_Error *error);
-                void _webTitleChanged();
-                void _webInputMethodChanged(bool en);
+    //Used by C-Callbacks
+    void _webLoadStarted();
+    void _webLoadProgress();
+    void _webLoadFinished(Elm_Web_Frame_Load_Error *error);
+    void _webTitleChanged();
+    void _webInputMethodChanged(bool en);
 };
 
 #endif // ActivityWebView_H

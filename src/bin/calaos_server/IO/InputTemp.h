@@ -29,31 +29,31 @@ namespace Calaos
 
 class InputTemp : public Input
 {
-        protected:
-                int address;
+protected:
+    int address;
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                double value;
-                double timer;
-                double readTime; //interval between each read, can be configured with "interval" parameter
-                double offset;
+    double value;
+    double timer;
+    double readTime; //interval between each read, can be configured with "interval" parameter
+    double offset;
 
-                void emitChange();
-                virtual void readValue() = 0;
+    void emitChange();
+    virtual void readValue() = 0;
 
-        public:
-                InputTemp(Params &p);
-                ~InputTemp();
+public:
+    InputTemp(Params &p);
+    ~InputTemp();
 
-                virtual DATA_TYPE get_type() { return TINT; }
+    virtual DATA_TYPE get_type() { return TINT; }
 
-                virtual void force_input_double(double v);
+    virtual void force_input_double(double v);
 
-                virtual double get_value_double();
+    virtual double get_value_double();
 
-                virtual void hasChanged();
+    virtual void hasChanged();
 };
 
 }

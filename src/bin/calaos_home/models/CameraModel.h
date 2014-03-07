@@ -30,58 +30,58 @@ using namespace Utils;
 
 class Camera: public sigc::trackable
 {
-        private:
-                CalaosConnection *connection;
+private:
+    CalaosConnection *connection;
 
-                Room *room;
+    Room *room;
 
-                void sendAction_cb(bool success, vector<string> result, void *data);
+    void sendAction_cb(bool success, vector<string> result, void *data);
 
-        public:
-                Camera(CalaosConnection *c):
-                        connection(c),
-                        room(NULL)
-                {}
+public:
+    Camera(CalaosConnection *c):
+        connection(c),
+        room(NULL)
+    {}
 
-                void camera_get_cb(bool success, vector<string> result, void *data);
+    void camera_get_cb(bool success, vector<string> result, void *data);
 
-                Params params;
+    Params params;
 
-                //Return the room where the camera is
-                Room *getRoom();
+    //Return the room where the camera is
+    Room *getRoom();
 
-                void MoveCenter();
-                void MoveUp();
-                void MoveDown();
-                void MoveLeft();
-                void MoveRight();
-                void ZoomIn();
-                void ZoomOut();
-                void Recall(int position);
-                void Save(int position);
+    void MoveCenter();
+    void MoveUp();
+    void MoveDown();
+    void MoveLeft();
+    void MoveRight();
+    void ZoomIn();
+    void ZoomOut();
+    void Recall(int position);
+    void Save(int position);
 
-                sigc::signal<void, Camera *> load_done;
+    sigc::signal<void, Camera *> load_done;
 };
 
 class CameraModel: public sigc::trackable
 {
-        private:
-                CalaosConnection *connection;
+private:
+    CalaosConnection *connection;
 
-                int load_count;
-                void load_camera_done(Camera *camera);
+    int load_count;
+    void load_camera_done(Camera *camera);
 
-                void camera_count_cb(bool success, vector<string> result, void *data);
+    void camera_count_cb(bool success, vector<string> result, void *data);
 
-        public:
-                CameraModel(CalaosConnection *connection);
-                ~CameraModel();
+public:
+    CameraModel(CalaosConnection *connection);
+    ~CameraModel();
 
-                void load();
+    void load();
 
-                list<Camera *> cameras;
+    list<Camera *> cameras;
 
-                sigc::signal<void> load_done;
+    sigc::signal<void> load_done;
 };
 
 #endif // CAMERAMODEL_H

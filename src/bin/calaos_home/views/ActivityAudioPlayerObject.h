@@ -30,89 +30,89 @@ using namespace Utils;
 
 class ActivityPlayerObject
 {
-        private:
-                Evas *evas;
-                Evas_Object *parent;
+private:
+    Evas *evas;
+    Evas_Object *parent;
 
-                AudioPlayer *player; //the Audio player Object
-                Evas_Object *gplaylist;
-                Evas_Object *cover, *cover_small;
-                Evas_Object *items_parent;
-                EdjeObject *small_player;
+    AudioPlayer *player; //the Audio player Object
+    Evas_Object *gplaylist;
+    Evas_Object *cover, *cover_small;
+    Evas_Object *items_parent;
+    EdjeObject *small_player;
 
-                //AV Amplifier
-                Evas_Object *amp_panel;
-                bool amp_volume;
+    //AV Amplifier
+    Evas_Object *amp_panel;
+    bool amp_volume;
 
-                string cover_fname;
+    string cover_fname;
 
-                sigc::connection con_volume;
-                sigc::connection con_status;
-                sigc::connection con_track;
-                sigc::connection con_time;
-                sigc::connection con_pl_changed;
-                sigc::connection con_pl_tracksadded;
-                sigc::connection con_pl_trackdel;
-                sigc::connection con_pl_trackmoved;
+    sigc::connection con_volume;
+    sigc::connection con_status;
+    sigc::connection con_track;
+    sigc::connection con_time;
+    sigc::connection con_pl_changed;
+    sigc::connection con_pl_tracksadded;
+    sigc::connection con_pl_trackdel;
+    sigc::connection con_pl_trackmoved;
 
-                vector<sigc::connection *> small_player_connections;
+    vector<sigc::connection *> small_player_connections;
 
-                void onVolumeChange();
-                void onStatusChange();
-                void onTrackChange();
-                void onTimeChange();
+    void onVolumeChange();
+    void onStatusChange();
+    void onTrackChange();
+    void onTimeChange();
 
-                void onPlaylistChanged();
-                void onPlaylistTracksAdded(int count);
-                void onPlaylistTrackDeleted(int del_item);
-                void onPlaylistTrackMoved(int from, int to);
+    void onPlaylistChanged();
+    void onPlaylistTracksAdded(int count);
+    void onPlaylistTrackDeleted(int del_item);
+    void onPlaylistTrackMoved(int from, int to);
 
-                void changeVolume_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void changeTime_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void changeVolumeSmall_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void changeTimeSmall_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void changeVolume_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void changeTime_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void changeVolumeSmall_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void changeTimeSmall_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void play_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void pause_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void stop_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void previous_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void next_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void on_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void off_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
-                void amplifierClick_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void play_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void pause_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void stop_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void previous_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void next_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void on_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void off_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void amplifierClick_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void selectDetail_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void selectDetail_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void coverGet_cb(Params &infos);
-                void coverDownload_cb(string status, void *data);
+    void coverGet_cb(Params &infos);
+    void coverDownload_cb(string status, void *data);
 
-                void amplifierChanged();
-                void inputSourceSelected(void *data);
+    void amplifierChanged();
+    void inputSourceSelected(void *data);
 
-        public:
-                EdjeObject *object; //The elementary video object
+public:
+    EdjeObject *object; //The elementary video object
 
-                ActivityPlayerObject(Evas *e, Evas_Object *parent);
-                ~ActivityPlayerObject();
+    ActivityPlayerObject(Evas *e, Evas_Object *parent);
+    ~ActivityPlayerObject();
 
-                void createEdjeObject(string &theme, Evas *evas);
-                void resetPlayer();
+    void createEdjeObject(string &theme, Evas *evas);
+    void resetPlayer();
 
-                void setPlayer(AudioPlayer *p);
-                void unsetPlayer();
-                AudioPlayer *getPlayer() { return player; }
+    void setPlayer(AudioPlayer *p);
+    void unsetPlayer();
+    AudioPlayer *getPlayer() { return player; }
 
-                void handlePlaylist(Evas_Object *parent, Evas_Object *playlist, EdjeObject *small_player);
-                void unsetPlaylist();
+    void handlePlaylist(Evas_Object *parent, Evas_Object *playlist, EdjeObject *small_player);
+    void unsetPlaylist();
 
-                void amplifierVolumeStartChanged();
-                void amplifierVolumeStopChanged();
-                void amplifierVolumeChanged(double vol);
-                void popupAVDismissed();
-                void amplifierPowerOn();
-                void amplifierPowerOff();
+    void amplifierVolumeStartChanged();
+    void amplifierVolumeStopChanged();
+    void amplifierVolumeChanged(double vol);
+    void popupAVDismissed();
+    void amplifierPowerOn();
+    void amplifierPowerOff();
 
-                sigc::signal<void, ActivityPlayerObject *> player_selected;
+    sigc::signal<void, ActivityPlayerObject *> player_selected;
 };
 
 #endif // ACTIVITYAUDIOPLAYEROBJECT_H

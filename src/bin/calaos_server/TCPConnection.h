@@ -35,77 +35,77 @@
 
 using namespace Calaos;
 
-        typedef sigc::slot<void, Params &> ProcessDone_cb;
-        typedef sigc::signal<void, Params &> ProcessDone_signal;
+typedef sigc::slot<void, Params &> ProcessDone_cb;
+typedef sigc::signal<void, Params &> ProcessDone_signal;
 
-        class TCPConnectionData
-        {
-                public:
-                        ProcessDone_cb callback;
+class TCPConnectionData
+{
+public:
+    ProcessDone_cb callback;
 
-                        int from;
-                        int to;
-                        string svalue;
-                        Params result;
-        };
+    int from;
+    int to;
+    string svalue;
+    Params result;
+};
 
-        class TCPConnection: public sigc::trackable
-        {
-                protected:
+class TCPConnection: public sigc::trackable
+{
+protected:
 
-                        Ecore_Con_Client *client_conn;
+    Ecore_Con_Client *client_conn;
 
-                        bool login;
-                        string terminator, buffer;
+    bool login;
+    string terminator, buffer;
 
-                        bool listen_mode = false;
+    bool listen_mode = false;
 
-                        sigc::signal<void, string, string, void*, void*> sig_events;
+    sigc::signal<void, string, string, void*, void*> sig_events;
 
-                        void ProcessRequest(Params &request, ProcessDone_cb callback);
+    void ProcessRequest(Params &request, ProcessDone_cb callback);
 
-                        void BaseCommand(Params &request, ProcessDone_cb callback);
-                        void CameraCommand(Params &request, ProcessDone_cb callback);
-                        void HomeCommand(Params &request, ProcessDone_cb callback);
-                        void IOCommand(Params &request, ProcessDone_cb callback);
-                        void IRCommand(Params &request, ProcessDone_cb callback);
-                        void RulesCommand(Params &request, ProcessDone_cb callback);
-                        void AudioCommand(Params &request, ProcessDone_cb callback);
-                        void ScenarioCommand(Params &request, ProcessDone_cb callback);
-                        void ListenCommand();
+    void BaseCommand(Params &request, ProcessDone_cb callback);
+    void CameraCommand(Params &request, ProcessDone_cb callback);
+    void HomeCommand(Params &request, ProcessDone_cb callback);
+    void IOCommand(Params &request, ProcessDone_cb callback);
+    void IRCommand(Params &request, ProcessDone_cb callback);
+    void RulesCommand(Params &request, ProcessDone_cb callback);
+    void AudioCommand(Params &request, ProcessDone_cb callback);
+    void ScenarioCommand(Params &request, ProcessDone_cb callback);
+    void ListenCommand();
 
-                        void CloseConnection();
+    void CloseConnection();
 
-                        //IPC callback to handle all events from the system
-                        void HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data);
+    //IPC callback to handle all events from the system
+    void HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data);
 
-                        //Callback when processing data is done and we want to send data back to the client
-                        void ProcessingDataDone(Params &request);
+    //Callback when processing data is done and we want to send data back to the client
+    void ProcessingDataDone(Params &request);
 
-                        /* Callbacks for async audio request */
-                        void get_volume_cb(AudioPlayerData data);
-                        void get_songinfo_cb(AudioPlayerData data);
-                        void get_album_cover_cb(AudioPlayerData data);
-                        void get_album_cover_id_cb(AudioPlayerData data);
-                        void get_current_time_cb(AudioPlayerData data);
-                        void get_status_cb(AudioPlayerData data);
-                        void get_playlist_size_cb(AudioPlayerData data);
-                        void get_playlist_current_cb(AudioPlayerData data);
-                        void get_playlist_item_cb(AudioPlayerData data);
-                        void get_playlist_cover_cb(AudioPlayerData data);
-                        void get_sync_status_cb(AudioPlayerData data);
-                        void get_sync_list_cb(AudioPlayerData data);
-                        void getdb_stats_cb(AudioPlayerData data);
-                        void getdb_years_cb(AudioPlayerData data);
-                        void getdb_default_cb(AudioPlayerData data);
-                        void getdb_default_param_cb(AudioPlayerData data);
+    /* Callbacks for async audio request */
+    void get_volume_cb(AudioPlayerData data);
+    void get_songinfo_cb(AudioPlayerData data);
+    void get_album_cover_cb(AudioPlayerData data);
+    void get_album_cover_id_cb(AudioPlayerData data);
+    void get_current_time_cb(AudioPlayerData data);
+    void get_status_cb(AudioPlayerData data);
+    void get_playlist_size_cb(AudioPlayerData data);
+    void get_playlist_current_cb(AudioPlayerData data);
+    void get_playlist_item_cb(AudioPlayerData data);
+    void get_playlist_cover_cb(AudioPlayerData data);
+    void get_sync_status_cb(AudioPlayerData data);
+    void get_sync_list_cb(AudioPlayerData data);
+    void getdb_stats_cb(AudioPlayerData data);
+    void getdb_years_cb(AudioPlayerData data);
+    void getdb_default_cb(AudioPlayerData data);
+    void getdb_default_param_cb(AudioPlayerData data);
 
-                public:
-                        TCPConnection(Ecore_Con_Client *cl);
-                        ~TCPConnection();
+public:
+    TCPConnection(Ecore_Con_Client *cl);
+    ~TCPConnection();
 
-                        /* Called by TCPServer whenever data comes in */
-                        void ProcessData(string data);
-        };
+    /* Called by TCPServer whenever data comes in */
+    void ProcessData(string data);
+};
 
 #endif

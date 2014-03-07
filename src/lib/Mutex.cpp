@@ -22,75 +22,75 @@
 
 Mutex::Mutex(bool locked)
 {
-        pthread_mutex_init(&mutex, NULL);
-        pthread_cond_init(&condition, NULL);
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&condition, NULL);
 
-        if (locked)
-                lock();
+    if (locked)
+        lock();
 }
 
 Mutex::Mutex(pthread_mutex_t &m)
 {
-        mutex = m;
+    mutex = m;
 }
 
 pthread_mutex_t &Mutex::get_mutex()
 {
-        return mutex;
+    return mutex;
 }
 
 Mutex::~Mutex()
 {
-        pthread_mutex_destroy(&mutex);
-        pthread_cond_destroy(&condition);
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&condition);
 }
 
 bool Mutex::lock()
 {
-        if (pthread_mutex_lock(&mutex) == 0)
-                return true;
-        else
-                return false;
+    if (pthread_mutex_lock(&mutex) == 0)
+        return true;
+    else
+        return false;
 }
 
 bool Mutex::try_lock()
 {
-        if (pthread_mutex_trylock(&mutex) == EBUSY)
-                return false;
-        else
-                return true;
+    if (pthread_mutex_trylock(&mutex) == EBUSY)
+        return false;
+    else
+        return true;
 }
 
 bool Mutex::unlock()
 {
-        if (pthread_mutex_unlock(&mutex) == 0)
-                return true;
-        else
-                return false;
+    if (pthread_mutex_unlock(&mutex) == 0)
+        return true;
+    else
+        return false;
 }
 
 bool Mutex::condition_wait()
 {
-        if (pthread_cond_wait(&condition, &mutex) == 0)
-                return true;
-        else
-                return false;
+    if (pthread_cond_wait(&condition, &mutex) == 0)
+        return true;
+    else
+        return false;
 }
 
 bool Mutex::condition_wake(bool all)
 {
-        if (all)
-        {
-                if (pthread_cond_broadcast(&condition) == 0)
-                        return true;
-                else
-                        return false;
-        }
+    if (all)
+    {
+        if (pthread_cond_broadcast(&condition) == 0)
+            return true;
         else
-        {
-                if (pthread_cond_signal(&condition) == 0)
-                        return true;
-                else
-                        return false;
-        }
+            return false;
+    }
+    else
+    {
+        if (pthread_cond_signal(&condition) == 0)
+            return true;
+        else
+            return false;
+    }
 }

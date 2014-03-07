@@ -29,24 +29,24 @@ namespace Calaos
 
 class ActionMail: public Action
 {
-        private:
-                string mail_sender;
-                string mail_recipients;
-                string mail_subject;
-                string mail_attachment;
-                string mail_message;
-                string mail_attachment_tfile;
+private:
+    string mail_sender;
+    string mail_recipients;
+    string mail_subject;
+    string mail_attachment;
+    string mail_message;
+    string mail_attachment_tfile;
 
-                void sendMail();
+    void sendMail();
 
-        public:
-                ActionMail();
-                ~ActionMail();
+public:
+    ActionMail();
+    ~ActionMail();
 
-                bool Execute();
+    bool Execute();
 
-                bool LoadFromXml(TiXmlElement *node);
-                bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

@@ -28,26 +28,26 @@ using namespace Utils;
 
 class IOGenlistScenarioHomeView: public GenlistItemBase, public IOBaseElement
 {
-        private:
-                Evas_Object *object_button;
+private:
+    Evas_Object *object_button;
 
-                string state;
+    string state;
 
-                virtual void ioDeleted();
-                void clickFlashButton_cb();
+    virtual void ioDeleted();
+    void clickFlashButton_cb();
 
-        public:
-                IOGenlistScenarioHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
-                virtual ~IOGenlistScenarioHomeView();
+public:
+    IOGenlistScenarioHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    virtual ~IOGenlistScenarioHomeView();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                //Called when the real IO changed
-                virtual void initView();
-                virtual void updateView();
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-                void buttonClickGo();
+    void buttonClickGo();
 };
 
 #endif // IOGENLISTSCENARIOHOMEVIEW_H

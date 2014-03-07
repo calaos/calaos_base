@@ -26,8 +26,8 @@ ITEM_BUTTON_CALLBACK(GenlistItemSimpleHeader, Back)
 ITEM_BUTTON_CALLBACK(GenlistItemSimpleHeader, Valid)
 
 GenlistItemSimpleHeader::GenlistItemSimpleHeader(Evas *_evas, Evas_Object *_parent, string _label, string style_addition):
-        GenlistItemBase(_evas, _parent, string("simple_header") + string((style_addition != "")? "/" + style_addition:""), ELM_GENLIST_ITEM_GROUP),
-        label(_label)
+    GenlistItemBase(_evas, _parent, string("simple_header") + string((style_addition != "")? "/" + style_addition:""), ELM_GENLIST_ITEM_GROUP),
+    label(_label)
 {
 }
 
@@ -37,39 +37,39 @@ GenlistItemSimpleHeader::~GenlistItemSimpleHeader()
 
 string GenlistItemSimpleHeader::getLabelItem(Evas_Object *obj, string part)
 {
-        return label;
+    return label;
 }
 
 Evas_Object *GenlistItemSimpleHeader::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "button.valid")
-        {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/popup/valid");
-                elm_object_style_set(o, "calaos/action_button/green");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Valid, this);
-        }
-        else if (part == "button.back")
-        {
-                o = elm_button_add(parent);
-                elm_object_style_set(o, "calaos/action_button/label/back");
-                elm_object_text_set(o, bt_labels[part].c_str());
-                evas_object_smart_callback_add(o, "clicked", _item_button_Back, this);
-        }
+    if (part == "button.valid")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/popup/valid");
+        elm_object_style_set(o, "calaos/action_button/green");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Valid, this);
+    }
+    else if (part == "button.back")
+    {
+        o = elm_button_add(parent);
+        elm_object_style_set(o, "calaos/action_button/label/back");
+        elm_object_text_set(o, bt_labels[part].c_str());
+        evas_object_smart_callback_add(o, "clicked", _item_button_Back, this);
+    }
 
-        return o;
+    return o;
 }
 
 void GenlistItemSimpleHeader::buttonClickValid()
 {
-        button_click.emit("button.valid");
+    button_click.emit("button.valid");
 }
 
 void GenlistItemSimpleHeader::buttonClickBack()
 {
-        button_click.emit("button.back");
+    button_click.emit("button.back");
 }

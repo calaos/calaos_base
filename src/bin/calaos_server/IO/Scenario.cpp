@@ -26,59 +26,59 @@
 using namespace Calaos;
 
 Scenario::Scenario(Params &p):
-                Input(p),
-                Output(p),
-                value(false),
-                auto_scenario(NULL)
+    Input(p),
+    Output(p),
+    value(false),
+    auto_scenario(NULL)
 {
-        cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
+    cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 
-        set_param("gui_type", "scenario");
+    set_param("gui_type", "scenario");
 
-        if (Input::get_param("auto_scenario") != "")
-        {
-                auto_scenario = new AutoScenario(this);
-                Input::setAutoScenario(true);
-        }
+    if (Input::get_param("auto_scenario") != "")
+    {
+        auto_scenario = new AutoScenario(this);
+        Input::setAutoScenario(true);
+    }
 
-        if (!Input::get_params().Exists("visible")) set_param("visible", "true");
+    if (!Input::get_params().Exists("visible")) set_param("visible", "true");
 }
 
 Scenario::~Scenario()
 {
-        DELETE_NULL(auto_scenario);
+    DELETE_NULL(auto_scenario);
 
-        cInfoDom("output") << "Scenario::~Scenario(): Ok";
+    cInfoDom("output") << "Scenario::~Scenario(): Ok";
 }
 
 void Scenario::force_input_bool(bool v)
 {
-        value = v;
-        EmitSignalInput();
+    value = v;
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += Input::get_param("id") + " ";
-        if (v)
-                sig += Utils::url_encode(string("state:true"));
-        else
-                sig += Utils::url_encode(string("state:false"));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += Input::get_param("id") + " ";
+    if (v)
+        sig += Utils::url_encode(string("state:true"));
+    else
+        sig += Utils::url_encode(string("state:false"));
+    IPC::Instance().SendEvent("events", sig);
 
-        //reset input value to 0 after 250ms (simulate button press/release)
-        EcoreTimer::singleShot(0.250, [=]() { value = false; });
+    //reset input value to 0 after 250ms (simulate button press/release)
+    EcoreTimer::singleShot(0.250, [=]() { value = false; });
 }
 
 bool Scenario::set_value(bool val)
 {
-        force_input_bool(val);
+    force_input_bool(val);
 
-        string sig = "output ";
-        sig += Input::get_param("id") + " ";
-        if (val)
-                sig += Utils::url_encode(string("state:true"));
-        else
-                sig += Utils::url_encode(string("state:false"));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "output ";
+    sig += Input::get_param("id") + " ";
+    if (val)
+        sig += Utils::url_encode(string("state:true"));
+    else
+        sig += Utils::url_encode(string("state:false"));
+    IPC::Instance().SendEvent("events", sig);
 
-        return true;
+    return true;
 }

@@ -25,108 +25,108 @@ using namespace std;
 
 void Params::Add(string key, string value)
 {
-        params[key] = value;
+    params[key] = value;
 }
 
 bool Params::Exists(string key)
 {
-        map<string, string>::iterator fter = params.find(key);
-        if (fter != params.end())
-                return true;
-        return false;
+    map<string, string>::iterator fter = params.find(key);
+    if (fter != params.end())
+        return true;
+    return false;
 }
 
 string Params::get_param(string key)
 {
-        if (Exists(key))
-                return params[key];
-        return "";
+    if (Exists(key))
+        return params[key];
+    return "";
 }
 
 string Params::get_param_const(const string key) const
 {
-        map<string, string>::const_iterator fter = params.find(key);
-        if (fter != params.end())
-                return fter->second;
+    map<string, string>::const_iterator fter = params.find(key);
+    if (fter != params.end())
+        return fter->second;
 
-        return "";
+    return "";
 }
 
 string Params::operator[] (string key)
 {
-        return get_param(key);
+    return get_param(key);
 }
 
 void Params::get_item(int i, string &key, string &value)
 {
-        map<string, string>::iterator iter;
-        for (iter = params.begin();iter != params.end();iter++,i--)
+    map<string, string>::iterator iter;
+    for (iter = params.begin();iter != params.end();iter++,i--)
+    {
+        if (i == 0)
         {
-                if (i == 0)
-                {
-                        key = (*iter).first;
-                        value = (*iter).second;
-                        break;
-                }
+            key = (*iter).first;
+            value = (*iter).second;
+            break;
         }
+    }
 }
 
 void Params::Parse(string str)
 {
-        int count = 0;
-        unsigned int i = 0;
+    int count = 0;
+    unsigned int i = 0;
 
-        while (str.length() > 0)
+    while (str.length() > 0)
+    {
+        if (isspace(str[i]))
         {
-                if (isspace(str[i]))
-                {
-                        string sid, val = str.substr(0, i);
-                        stringstream id;
-                        id << count;
-                        sid = id.str();
-                        Add(sid, val);
+            string sid, val = str.substr(0, i);
+            stringstream id;
+            id << count;
+            sid = id.str();
+            Add(sid, val);
 
-                        while (isspace(str[i]))
-                        {
-                                i++;
-                                if (i >= str.length())
-                                        break;
-                        }
+            while (isspace(str[i]))
+            {
+                i++;
+                if (i >= str.length())
+                    break;
+            }
 
-                        str.erase(0, i);
+            str.erase(0, i);
 
-                        i = 0;
-                        count++;
-                }
-                else
-                {
-                        i++;
-                        if (i >= str.length())
-                        {
-                                stringstream id;
-                                string sid;
-                                id << count;
-                                sid = id.str();
-                                Add(sid, str);
-                                break;
-                        }
-                }
+            i = 0;
+            count++;
         }
+        else
+        {
+            i++;
+            if (i >= str.length())
+            {
+                stringstream id;
+                string sid;
+                id << count;
+                sid = id.str();
+                Add(sid, str);
+                break;
+            }
+        }
+    }
 }
 
 string Params::toString()
 {
-        string ret, key, value;
+    string ret, key, value;
 
-        map<string, string>::iterator iter;
-        ret = "Params::toString():\n";
-        for (iter = params.begin();iter != params.end();iter++)
-        {
-                key = (*iter).first;
-                value = (*iter).second;
+    map<string, string>::iterator iter;
+    ret = "Params::toString():\n";
+    for (iter = params.begin();iter != params.end();iter++)
+    {
+        key = (*iter).first;
+        value = (*iter).second;
 
-                ret += "\t" + key + ":" + value + "\n";
-        }
+        ret += "\t" + key + ":" + value + "\n";
+    }
 
-        return ret;
+    return ret;
 }

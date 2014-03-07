@@ -29,22 +29,22 @@ namespace Calaos
 
 class WIAnalog : public InputAnalog
 {
-        protected:
-                int address;
+protected:
+    int address;
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                bool requestInProgress;
-                bool start;
+    bool requestInProgress;
+    bool start;
 
-                virtual void readValue();
+    virtual void readValue();
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
 
-        public:
-                WIAnalog(Params &p);
-                ~WIAnalog();
+public:
+    WIAnalog(Params &p);
+    ~WIAnalog();
 };
 
 }

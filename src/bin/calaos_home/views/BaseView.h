@@ -40,20 +40,20 @@ using namespace Utils;
 class ActivityController;
 class BaseView: public EdjeObject
 {
-        protected:
-                Evas_Object *parent;
+protected:
+    Evas_Object *parent;
 
-                virtual void objectDeleted();
+    virtual void objectDeleted();
 
-        public:
-                BaseView(Evas *evas, Evas_Object *parent);
-                virtual ~BaseView();
+public:
+    BaseView(Evas *evas, Evas_Object *parent);
+    virtual ~BaseView();
 
-                virtual string getTitle() { return "None"; }
+    virtual string getTitle() { return "None"; }
 
-                sigc::signal<void> view_deleted;
+    sigc::signal<void> view_deleted;
 
-                ActivityController *controller;
+    ActivityController *controller;
 };
 
 #endif // BASEVIEW_H

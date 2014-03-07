@@ -28,22 +28,22 @@ using namespace Utils;
 
 class IOWOAnalogHomeView: public GenlistItemBase, public IOBaseElement
 {
-        private:
-                virtual void ioDeleted();
+private:
+    virtual void ioDeleted();
 
-        public:
-                IOWOAnalogHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
-                virtual ~IOWOAnalogHomeView();
+public:
+    IOWOAnalogHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    virtual ~IOWOAnalogHomeView();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                //Called when the real IO changed
-                virtual void initView();
-                virtual void updateView();
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-                void buttonClickMore();
-                void buttonClickLess();
+    void buttonClickMore();
+    void buttonClickLess();
 };
 
 #endif // IOWOANALOGHOMEVIEW_H

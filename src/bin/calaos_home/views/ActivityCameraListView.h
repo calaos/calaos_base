@@ -34,58 +34,58 @@ using namespace Utils;
 class ActivityCameraListView;
 class ActivityCameraObject
 {
-        public:
-                Camera *camera; //the Camera Object
-                Evas_Object *video; //The elementary video object
-                ActivityCameraListView *view; //the view
-                int position; //position in view
+public:
+    Camera *camera; //the Camera Object
+    Evas_Object *video; //The elementary video object
+    ActivityCameraListView *view; //the view
+    int position; //position in view
 
-                ActivityCameraObject():
-                        camera(NULL),
-                        video(NULL),
-                        view(NULL)
-                { }
+    ActivityCameraObject():
+        camera(NULL),
+        video(NULL),
+        view(NULL)
+    { }
 };
 
 class ActivityCameraListView: public ActivityView
 {
-        private:
-                vector<ActivityCameraObject> cameras;
+private:
+    vector<ActivityCameraObject> cameras;
 
-                vector<IOView *> scenarios;
-                PagingView *page_view;
+    vector<IOView *> scenarios;
+    PagingView *page_view;
 
-                void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
+    void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-                void pagerDragStart();
-                void pagerDragStop();
+    void pagerDragStart();
+    void pagerDragStop();
 
-        public:
-                ActivityCameraListView(Evas *evas, Evas_Object *parent);
-                ~ActivityCameraListView();
+public:
+    ActivityCameraListView(Evas *evas, Evas_Object *parent);
+    ~ActivityCameraListView();
 
-                virtual void resetView();
+    virtual void resetView();
 
-                void setCamera(Camera *camera, int position);
-                void disableCamera(int position);
+    void setCamera(Camera *camera, int position);
+    void disableCamera(int position);
 
-                void EnableLeftButton();
-                void DisableLeftButton();
-                void EnableRightButton();
-                void DisableRightButton();
+    void EnableLeftButton();
+    void DisableLeftButton();
+    void EnableRightButton();
+    void DisableRightButton();
 
-                void ShowLoading();
-                void HideLoading();
+    void ShowLoading();
+    void HideLoading();
 
-                void addScenarioPage(list<IOBase *> &scenarios_io);
+    void addScenarioPage(list<IOBase *> &scenarios_io);
 
-                virtual string getTitle() { return "Vidéosurveillance"; }
+    virtual string getTitle() { return "Vidéosurveillance"; }
 
-                virtual void EnableView();
-                virtual void DisableView();
+    virtual void EnableView();
+    virtual void DisableView();
 
-                sigc::signal<void> button_left_click;
-                sigc::signal<void> button_right_click;
+    sigc::signal<void> button_left_click;
+    sigc::signal<void> button_right_click;
 };
 
 #endif // ACTIVITYCAMERALISTVIEW_H

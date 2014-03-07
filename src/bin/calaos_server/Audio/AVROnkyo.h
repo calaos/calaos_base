@@ -30,28 +30,28 @@ namespace Calaos
 //Manage Denon AV devices
 class AVROnkyo: public AVReceiver
 {
-        protected:
+protected:
 
-                //buffer to store received data
-                vector<char> brecv_buffer;
+    //buffer to store received data
+    vector<char> brecv_buffer;
 
-                int inputFromString(string source);
-                string inputToString(int source);
+    int inputFromString(string source);
+    string inputToString(int source);
 
-                virtual void processMessage(vector<char> msg);
-                virtual void processMessage(string msg);
-                virtual void connectionEstablished();
+    virtual void processMessage(vector<char> msg);
+    virtual void processMessage(string msg);
+    virtual void connectionEstablished();
 
-        public:
-                AVROnkyo(Params &p);
-                virtual ~AVROnkyo();
+public:
+    AVROnkyo(Params &p);
+    virtual ~AVROnkyo();
 
-                virtual void Power(bool on, int zone = 1);
-                virtual void setVolume(int volume, int zone = 1);
-                virtual void selectInputSource(int source, int zone = 1);
-                virtual bool hasDisplay() { return false; }
+    virtual void Power(bool on, int zone = 1);
+    virtual void setVolume(int volume, int zone = 1);
+    virtual void selectInputSource(int source, int zone = 1);
+    virtual bool hasDisplay() { return false; }
 
-                virtual void sendCustomCommand(string command);
+    virtual void sendCustomCommand(string command);
 };
 
 }

@@ -22,9 +22,9 @@
 #include "ApplicationMain.h"
 
 ActivityScenariosController::ActivityScenariosController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_SCENARIOS)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_SCENARIOS)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityScenariosController::~ActivityScenariosController()
@@ -33,69 +33,69 @@ ActivityScenariosController::~ActivityScenariosController()
 
 void ActivityScenariosController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
-        scView->buttonCreatePressed.connect(sigc::mem_fun(*this, &ActivityScenariosController::createScenario));
-        scView->schedule_add_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleAdd));
-        scView->schedule_modify_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleModify));
-        scView->schedule_del_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleDel));
+    ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
+    scView->buttonCreatePressed.connect(sigc::mem_fun(*this, &ActivityScenariosController::createScenario));
+    scView->schedule_add_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleAdd));
+    scView->schedule_modify_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleModify));
+    scView->schedule_del_click.connect(sigc::mem_fun(*this, &ActivityScenariosController::scheduleDel));
 
-        if (!CalaosModel::Instance().isLoaded())
-        {
-                scView->ShowLoading();
+    if (!CalaosModel::Instance().isLoaded())
+    {
+        scView->ShowLoading();
 
-                CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityScenariosController::load_done));
+        CalaosModel::Instance().home_loaded.connect(sigc::mem_fun(*this, &ActivityScenariosController::load_done));
 
-                return;
-        }
+        return;
+    }
 
-        updateView();
+    updateView();
 
-        CalaosModel::Instance().getScenario()->scenario_new.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
-        CalaosModel::Instance().getScenario()->scenario_change.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
+    CalaosModel::Instance().getScenario()->scenario_new.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
+    CalaosModel::Instance().getScenario()->scenario_change.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
 }
 
 void ActivityScenariosController::load_done()
 {
-        ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
-        scView->HideLoading();
+    ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
+    scView->HideLoading();
 
-        updateView();
+    updateView();
 
-        CalaosModel::Instance().getScenario()->scenario_new.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
-        CalaosModel::Instance().getScenario()->scenario_change.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
+    CalaosModel::Instance().getScenario()->scenario_new.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
+    CalaosModel::Instance().getScenario()->scenario_change.connect(sigc::mem_fun(*this, &ActivityScenariosController::reloadView));
 }
 
 void ActivityScenariosController::createScenario()
 {
-        ApplicationMain::Instance().ShowScenarioEditor();
+    ApplicationMain::Instance().ShowScenarioEditor();
 }
 
 void ActivityScenariosController::updateView()
 {
-        ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
-        scView->loadScenarios();
+    ActivityScenariosView *scView = dynamic_cast<ActivityScenariosView *>(view);
+    scView->loadScenarios();
 }
 
 void ActivityScenariosController::reloadView(Scenario *sc)
 {
-        updateView();
+    updateView();
 }
 
 void ActivityScenariosController::scheduleAdd(Scenario *sc)
 {
-        ApplicationMain::Instance().ShowScenarioSchedule(sc);
+    ApplicationMain::Instance().ShowScenarioSchedule(sc);
 }
 
 void ActivityScenariosController::scheduleModify(Scenario *sc)
 {
-        ApplicationMain::Instance().ShowScenarioSchedule(sc);
+    ApplicationMain::Instance().ShowScenarioSchedule(sc);
 }
 
 void ActivityScenariosController::scheduleDel(Scenario *sc)
 {
-        ApplicationMain::Instance().ShowScenarioSchedule(sc);
+    ApplicationMain::Instance().ShowScenarioSchedule(sc);
 }

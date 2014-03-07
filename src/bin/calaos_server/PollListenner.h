@@ -31,56 +31,56 @@ namespace Calaos
 
 class PollObject
 {
-        private:
-                sigc::signal<void, string, string, void*, void*> sig_events;
+private:
+    sigc::signal<void, string, string, void*, void*> sig_events;
 
-                string uuid;
-                EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
+    string uuid;
+    EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
 
-                //IPC callback to handle all events from the system
-                void HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data);
+    //IPC callback to handle all events from the system
+    void HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data);
 
-                //Timeout callback
-                void Timeout_cb();
+    //Timeout callback
+    void Timeout_cb();
 
-                Params events;
+    Params events;
 
-        public:
-                PollObject(string uuid);
-                ~PollObject();
+public:
+    PollObject(string uuid);
+    ~PollObject();
 
-                Params &getEvents() { return events; }
-                string getUUID() { return uuid; }
-                void ResetTimer() { timeout->Reset(); }
+    Params &getEvents() { return events; }
+    string getUUID() { return uuid; }
+    void ResetTimer() { timeout->Reset(); }
 };
 
 class PollListenner
 {
-        private:
-                map<string, PollObject *> pollobjects;
+private:
+    map<string, PollObject *> pollobjects;
 
-                PollListenner();
+    PollListenner();
 
-        public:
-                ~PollListenner();
+public:
+    ~PollListenner();
 
-                static PollListenner &Instance()
-                {
-                        static PollListenner pl;
+    static PollListenner &Instance()
+    {
+        static PollListenner pl;
 
-                        return pl;
-                }
+        return pl;
+    }
 
-                // Get an uuid.
-                // The uuid will be automatically unregistered after some time
-                // and become invalid
-                string Register();
+    // Get an uuid.
+    // The uuid will be automatically unregistered after some time
+    // and become invalid
+    string Register();
 
-                // Unregister the uuid, return false if error
-                bool Unregister(string uuid);
+    // Unregister the uuid, return false if error
+    bool Unregister(string uuid);
 
-                // Get events for the registered uuid, return false if error
-                bool GetEvents(string uuid, Params &events);
+    // Get events for the registered uuid, return false if error
+    bool GetEvents(string uuid, Params &events);
 };
 
 }

@@ -24,76 +24,76 @@
 using namespace Calaos;
 
 InputSwitchTriple::InputSwitchTriple(Params &p):
-                Input(p),
-                count(0),
-                value(0.0),
-                timer(NULL)
+    Input(p),
+    count(0),
+    value(0.0),
+    timer(NULL)
 {
-        if (!get_params().Exists("visible")) set_param("visible", "false");
+    if (!get_params().Exists("visible")) set_param("visible", "false");
 
-        set_param("gui_type", "switch3");
+    set_param("gui_type", "switch3");
 }
 
 InputSwitchTriple::~InputSwitchTriple()
 {
-        DELETE_NULL(timer);
+    DELETE_NULL(timer);
 }
 
 void InputSwitchTriple::hasChanged()
 {
-        bool val = false;
+    bool val = false;
 
-        val = readValue();
+    val = readValue();
 
-        if (val)
+    if (val)
+    {
+        if (!timer)
         {
-                if (!timer)
-                {
-                        count = 0;
-                        timer = new EcoreTimer(0.5,
-                                               (sigc::slot<void>)sigc::mem_fun(*this, &InputSwitchTriple::TimerDone));
-                }
-
-                count += 1;
+            count = 0;
+            timer = new EcoreTimer(0.5,
+                                   (sigc::slot<void>)sigc::mem_fun(*this, &InputSwitchTriple::TimerDone));
         }
+
+        count += 1;
+    }
 }
 
 void InputSwitchTriple::TimerDone()
 {
-        if (count > 0)
-        {
-                if (count == 1) value = 1.;
-                if (count == 2) value = 2.;
-                if (count >= 3) value = 3.;
+    if (count > 0)
+    {
+        if (count == 1) value = 1.;
+        if (count == 2) value = 2.;
+        if (count >= 3) value = 3.;
 
-                count = 0;
-                emitChange();
-        }
+        count = 0;
+        emitChange();
+    }
 
-        DELETE_NULL(timer);
+    DELETE_NULL(timer);
 }
 
 void InputSwitchTriple::resetInput()
 {
-        value = 0.;
+    value = 0.;
 }
 
 void InputSwitchTriple::emitChange()
 {
-        EmitSignalInput();
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode(string("state:") + Utils::to_string(value));
+    IPC::Instance().SendEvent("events", sig);
 
-        //reset input value to 0 after 250ms (simulate button press/release)
-        EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
+    //reset input value to 0 after 250ms (simulate button press/release)
+    EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
 }
 
 void InputSwitchTriple::force_input_double(double v)
 {
-        value = v;
-        emitChange();
+    value = v;
+    emitChange();
 }
 

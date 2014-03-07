@@ -21,9 +21,9 @@
 #include "ActivityScheduleScenarioController.h"
 
 ActivityScheduleScenarioController::ActivityScheduleScenarioController(Evas *e, Evas_Object *p):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_SCHEDULE_SCENARIO)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_SCHEDULE_SCENARIO)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityScheduleScenarioController::~ActivityScheduleScenarioController()
@@ -32,22 +32,22 @@ ActivityScheduleScenarioController::~ActivityScheduleScenarioController()
 
 void ActivityScheduleScenarioController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 
-        ActivityScheduleScenarioView *scView = dynamic_cast<ActivityScheduleScenarioView *>(view);
-        if (scenario->isScheduled())
-        {
-                scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
-                scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validModifySchedule));
-        }
-        else
-        {
-                scenario->ioScenario->range_infos = TimeRangeInfos(); //clear if needed
-                scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
-                scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validAddSchedule));
-        }
+    ActivityScheduleScenarioView *scView = dynamic_cast<ActivityScheduleScenarioView *>(view);
+    if (scenario->isScheduled())
+    {
+        scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
+        scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validModifySchedule));
+    }
+    else
+    {
+        scenario->ioScenario->range_infos = TimeRangeInfos(); //clear if needed
+        scView->setTimeRangeInfos(scenario->ioScenario->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
+        scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validAddSchedule));
+    }
 }
 
 void ActivityScheduleScenarioController::validAddSchedule(TimeRangeInfos &tr)

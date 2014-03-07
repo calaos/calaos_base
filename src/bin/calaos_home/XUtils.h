@@ -26,12 +26,12 @@
 class XUtils
 {
 public:
-        enum { DPMS_NOTAVAILABLE, DPMS_DISABLED, DPMS_ON, DPMS_OFF, DPMS_STANDBY, DPMS_SUSPEND };
+    enum { DPMS_NOTAVAILABLE, DPMS_DISABLED, DPMS_ON, DPMS_OFF, DPMS_STANDBY, DPMS_SUSPEND };
 
-        //DPMS extension
-        static void UpdateDPMS(bool enable, int seconds);
-        static int getDPMSInfo();
-        static void WakeUpScreen(bool enable);
+    //DPMS extension
+    static void UpdateDPMS(bool enable, int seconds);
+    static int getDPMSInfo();
+    static void WakeUpScreen(bool enable);
 };
 
 #endif

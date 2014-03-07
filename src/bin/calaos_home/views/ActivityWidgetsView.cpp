@@ -22,50 +22,50 @@
 #include <time.h>
 
 ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
-        ActivityView(_e, _parent, "calaos/page/widgets")
+    ActivityView(_e, _parent, "calaos/page/widgets")
 {
-        clipper = evas_object_rectangle_add(evas);
-        evas_object_color_set(clipper, 0, 0, 0, 0);
-        evas_object_show(clipper);
+    clipper = evas_object_rectangle_add(evas);
+    evas_object_color_set(clipper, 0, 0, 0, 0);
+    evas_object_show(clipper);
 
-        Swallow(clipper, "widgets.swallow", true);
+    Swallow(clipper, "widgets.swallow", true);
 
-        //Create a temporary dir for modules
-        if (ecore_file_is_dir("/tmp/calaos_widgets"))
-                ecore_file_recursive_rm("/tmp/calaos_widgets");
+    //Create a temporary dir for modules
+    if (ecore_file_is_dir("/tmp/calaos_widgets"))
+        ecore_file_recursive_rm("/tmp/calaos_widgets");
 
-        ecore_file_mkpath("/tmp/calaos_widgets");
+    ecore_file_mkpath("/tmp/calaos_widgets");
 
-        //add search paths for modules
-        ModuleManager::Instance().addPath(PACKAGE_LIB_DIR "/calaos/widgets");
-        ModuleManager::Instance().addPath("/usr/lib/calaos/widgets");
-        ModuleManager::Instance().SearchModules();
+    //add search paths for modules
+    ModuleManager::Instance().addPath(PACKAGE_LIB_DIR "/calaos/widgets");
+    ModuleManager::Instance().addPath("/usr/lib/calaos/widgets");
+    ModuleManager::Instance().SearchModules();
 
-        LoadWidgets();
+    LoadWidgets();
 }
 
 ActivityWidgetsView::~ActivityWidgetsView()
 {
-        for_each(widgets.begin(), widgets.end(), Delete());
-        widgets.clear();
+    for_each(widgets.begin(), widgets.end(), Delete());
+    widgets.clear();
 
-        if (timer) delete timer;
-        timer = NULL;
+    if (timer) delete timer;
+    timer = NULL;
 }
 
 void ActivityWidgetsView::resetView()
 {
-        EmitSignal("normal", "calaos");
+    EmitSignal("normal", "calaos");
 }
 
 void ActivityWidgetsView::dimView()
 {
-        EmitSignal("fade", "calaos");
+    EmitSignal("fade", "calaos");
 }
 
 void ActivityWidgetsView::TimerTick()
 {
-/*
+    /*
         time_t tt = time(NULL);
         struct tm *t = localtime(&tt);
 
@@ -105,175 +105,175 @@ void ActivityWidgetsView::TimerTick()
 
 void ActivityWidgetsView::DeleteWidget(Widget *w)
 {
-        //delete the specified widget instance
-        for (uint i = 0;i < widgets.size();i++)
+    //delete the specified widget instance
+    for (uint i = 0;i < widgets.size();i++)
+    {
+        if (w == widgets[i])
         {
-                if (w == widgets[i])
-                {
-                        delete w;
-                        widgets.erase(std::remove(widgets.begin(), widgets.end(), w), widgets.end());
+            delete w;
+            widgets.erase(std::remove(widgets.begin(), widgets.end(), w), widgets.end());
 
-                        SaveWidgets();
-                }
+            SaveWidgets();
         }
+    }
 
-        if (widgets.size() <= 0/* && !xmas_widget*/)
-                evas_object_color_set(clipper, 255, 255, 255, 0);
+    if (widgets.size() <= 0/* && !xmas_widget*/)
+        evas_object_color_set(clipper, 255, 255, 255, 0);
 }
 
 void ActivityWidgetsView::DeleteAllWidgets()
 {
-        for_each(widgets.begin(), widgets.end(), Delete());
-        widgets.clear();
-        SaveWidgets();
-        //if (!xmas_widget) evas_object_color_set(clipper, 255, 255, 255, 0);
-        evas_object_color_set(clipper, 0, 0, 0, 0);
+    for_each(widgets.begin(), widgets.end(), Delete());
+    widgets.clear();
+    SaveWidgets();
+    //if (!xmas_widget) evas_object_color_set(clipper, 255, 255, 255, 0);
+    evas_object_color_set(clipper, 0, 0, 0, 0);
 }
 
 void ActivityWidgetsView::EditMode()
 {
-        for (uint i = 0;i < widgets.size();i++)
-        {
-                widgets[i]->EditMode();
-        }
+    for (uint i = 0;i < widgets.size();i++)
+    {
+        widgets[i]->EditMode();
+    }
 }
 
 void ActivityWidgetsView::NormalMode()
 {
-        for (uint i = 0;i < widgets.size();i++)
-        {
-                widgets[i]->NormalMode();
-        }
+    for (uint i = 0;i < widgets.size();i++)
+    {
+        widgets[i]->NormalMode();
+    }
 }
 
 void ActivityWidgetsView::_AddWidget(Widget *o)
 {
-        widgets.push_back(o);
-        evas_object_clip_set(o->getEvasObject(), clipper);
-        evas_object_color_set(clipper, 255, 255, 255, 255);
+    widgets.push_back(o);
+    evas_object_clip_set(o->getEvasObject(), clipper);
+    evas_object_color_set(clipper, 255, 255, 255, 255);
 }
 
 void ActivityWidgetsView::LoadWidgets()
 {
-        std::string file = Utils::getConfigFile(WIDGET_CONFIG);
-        TiXmlDocument document(file);
+    std::string file = Utils::getConfigFile(WIDGET_CONFIG);
+    TiXmlDocument document(file);
 
-        if (!document.LoadFile())
+    if (!document.LoadFile())
+    {
+        cError() <<  "There was a parse error in " << file;
+        cError() <<  document.ErrorDesc();
+        cError() <<  "In file " << file << " At line " << document.ErrorRow();
+
+        //force save of file
+        SaveWidgets();
+    }
+    else
+    {
+        TiXmlHandle docHandle(&document);
+
+        TiXmlElement *node = docHandle.FirstChildElement("calaos:widgets").FirstChildElement("calaos:widget").ToElement();
+        for(; node; node = node->NextSiblingElement())
         {
-                cError() <<  "There was a parse error in " << file;
-                cError() <<  document.ErrorDesc();
-                cError() <<  "In file " << file << " At line " << document.ErrorRow();
+            if (node->ValueStr() == "calaos:widget" &&
+                node->Attribute("id") &&
+                node->Attribute("type") &&
+                node->Attribute("posx") &&
+                node->Attribute("posy") &&
+                node->Attribute("width") &&
+                node->Attribute("height"))
+            {
+                string type, id;
 
-                //force save of file
-                SaveWidgets();
-        }
-        else
-        {
-                TiXmlHandle docHandle(&document);
+                type = node->Attribute("type");
+                id = node->Attribute("id");
 
-                TiXmlElement *node = docHandle.FirstChildElement("calaos:widgets").FirstChildElement("calaos:widget").ToElement();
-                for(; node; node = node->NextSiblingElement())
+                int x, y, w, h;
+                from_string(node->Attribute("posx"), x);
+                from_string(node->Attribute("posy"), y);
+                from_string(node->Attribute("width"), w);
+                from_string(node->Attribute("height"), h);
+
+                ModuleDef t;
+                vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
+                for (uint i = 0;i < mods.size();i++)
                 {
-                        if (node->ValueStr() == "calaos:widget" &&
-                            node->Attribute("id") &&
-                            node->Attribute("type") &&
-                            node->Attribute("posx") &&
-                            node->Attribute("posy") &&
-                            node->Attribute("width") &&
-                            node->Attribute("height"))
-                        {
-                                string type, id;
-
-                                type = node->Attribute("type");
-                                id = node->Attribute("id");
-
-                                int x, y, w, h;
-                                from_string(node->Attribute("posx"), x);
-                                from_string(node->Attribute("posy"), y);
-                                from_string(node->Attribute("width"), w);
-                                from_string(node->Attribute("height"), h);
-
-                                ModuleDef t;
-                                vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
-                                for (uint i = 0;i < mods.size();i++)
-                                {
-                                        if (mods[i].mod_fname == type)
-                                        {
-                                                t = mods[i];
-                                                AddWidget(t, x, y, w, h, id);
-                                                break;
-                                        }
-                                }
-
-                                Show();
-                        }
+                    if (mods[i].mod_fname == type)
+                    {
+                        t = mods[i];
+                        AddWidget(t, x, y, w, h, id);
+                        break;
+                    }
                 }
 
+                Show();
+            }
         }
 
-        //Check each 6 hours
-        if (!timer) timer = new EcoreTimer(60.0 * 6.0, (sigc::slot<void>)sigc::mem_fun(*this, &ActivityWidgetsView::TimerTick) );
-        TimerTick();
+    }
+
+    //Check each 6 hours
+    if (!timer) timer = new EcoreTimer(60.0 * 6.0, (sigc::slot<void>)sigc::mem_fun(*this, &ActivityWidgetsView::TimerTick) );
+    TimerTick();
 }
 
 void ActivityWidgetsView::SaveWidgets()
 {
-        TiXmlDocument document;
-        TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
-        TiXmlElement *rootnode = new TiXmlElement("calaos:widgets");
-        rootnode->SetAttribute("xmlns:calaos", "http://www.calaos.fr");
-        document.LinkEndChild(decl);
-        document.LinkEndChild(rootnode);
+    TiXmlDocument document;
+    TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
+    TiXmlElement *rootnode = new TiXmlElement("calaos:widgets");
+    rootnode->SetAttribute("xmlns:calaos", "http://www.calaos.fr");
+    document.LinkEndChild(decl);
+    document.LinkEndChild(rootnode);
 
-        for (int i = 0;i < (int)widgets.size();i++)
-        {
-                widgets[i]->Save(rootnode);
-        }
+    for (int i = 0;i < (int)widgets.size();i++)
+    {
+        widgets[i]->Save(rootnode);
+    }
 
-        string file = Utils::getConfigFile(WIDGET_CONFIG);
-        document.SaveFile(file);
+    string file = Utils::getConfigFile(WIDGET_CONFIG);
+    document.SaveFile(file);
 }
 
 bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h, string id)
 {
+    for (uint i = 0;i < widgets.size();i++)
+    {
+        if (widgets[i]->getId() == id) id = "";
+    }
+
+    for (int nid = 0;nid < 9999;nid++)
+    {
+        bool failed = false;
         for (uint i = 0;i < widgets.size();i++)
         {
-                if (widgets[i]->getId() == id) id = "";
+            if (widgets[i]->getId() == Utils::to_string(nid))
+                failed = true;
         }
 
-        for (int nid = 0;nid < 9999;nid++)
+        if (!failed)
         {
-                bool failed = false;
-                for (uint i = 0;i < widgets.size();i++)
-                {
-                        if (widgets[i]->getId() == Utils::to_string(nid))
-                                failed = true;
-                }
-
-                if (!failed)
-                {
-                        id = Utils::to_string(nid);
-                        break;
-                }
+            id = Utils::to_string(nid);
+            break;
         }
+    }
 
-        //create new widget
-        try
-        {
-                Widget *widget = new Widget(theme, evas, type, id, parent, this);
-                _AddWidget(widget);
-                widget->Move(x, y);
-                widget->Resize(w, h);
-                widget->Show();
-        }
-        catch(const std::exception &e)
-        {
-                cErrorDom("module") << "ActivityWidgetsView: Error creating widget, " <<
-                        e.what();
-                return false;
-        }
+    //create new widget
+    try
+    {
+        Widget *widget = new Widget(theme, evas, type, id, parent, this);
+        _AddWidget(widget);
+        widget->Move(x, y);
+        widget->Resize(w, h);
+        widget->Show();
+    }
+    catch(const std::exception &e)
+    {
+        cErrorDom("module") << "ActivityWidgetsView: Error creating widget, " <<
+                               e.what();
+        return false;
+    }
 
-        SaveWidgets();
+    SaveWidgets();
 
-        return true;
+    return true;
 }

@@ -29,26 +29,26 @@ using namespace Utils;
 
 class GenlistItemYear: public GenlistItemBase
 {
-        private:
-                AudioPlayer *player;
-                int item_id;
-                Params item_infos;
-                bool in_query;
+private:
+    AudioPlayer *player;
+    int item_id;
+    Params item_infos;
+    bool in_query;
 
-                void yearItemGet_cb(Params &infos);
+    void yearItemGet_cb(Params &infos);
 
-        public:
-                GenlistItemYear(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, void *data = NULL);
-                virtual ~GenlistItemYear();
+public:
+    GenlistItemYear(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, void *data = NULL);
+    virtual ~GenlistItemYear();
 
-                virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-                virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
-                void buttonClickPlay();
-                void buttonClickAdd();
+    void buttonClickPlay();
+    void buttonClickAdd();
 
-                int getItemId() { return item_id; }
-                Params getItemInfos() { return item_infos; }
+    int getItemId() { return item_id; }
+    Params getItemInfos() { return item_infos; }
 };
 
 #endif // GenlistItemYear_H

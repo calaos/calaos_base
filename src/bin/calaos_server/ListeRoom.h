@@ -46,63 +46,63 @@ typedef enum { PLAGE_HORAIRE, CONSIGNE, ACTIVE } ChauffType;
 
 class ListeRoom
 {
-        protected:
-                std::vector<Room *> rooms;
-                Eina_Hash *input_table;
-                Eina_Hash *output_table;
+protected:
+    std::vector<Room *> rooms;
+    Eina_Hash *input_table;
+    Eina_Hash *output_table;
 
-                list<Scenario *> auto_scenario_cache;
+    list<Scenario *> auto_scenario_cache;
 
-                ListeRoom();
+    ListeRoom();
 
-        public:
-                //singleton
-                static ListeRoom &Instance();
+public:
+    //singleton
+    static ListeRoom &Instance();
 
-                ~ListeRoom();
+    ~ListeRoom();
 
-                void Add(Room *p);
-                void Remove(int i);
-                Room *get_room(int i);
-                Room *operator[] (int i) const;
+    void Add(Room *p);
+    void Remove(int i);
+    Room *get_room(int i);
+    Room *operator[] (int i) const;
 
-                Input *get_input(std::string i);
-                Output *get_output(std::string i);
+    Input *get_input(std::string i);
+    Output *get_output(std::string i);
 
-                Input *get_input(int i);
-                Output *get_output(int i);
-                bool delete_input(Input *in, bool del = true);
-                bool delete_output(Output *out, bool del = true);
+    Input *get_input(int i);
+    Output *get_output(int i);
+    bool delete_input(Input *in, bool del = true);
+    bool delete_output(Output *out, bool del = true);
 
-                int get_nb_input();
-                int get_nb_output();
+    int get_nb_input();
+    int get_nb_output();
 
-                int size() { return rooms.size(); }
+    int size() { return rooms.size(); }
 
-                Input *get_chauffage_var(std::string &chauff_id, ChauffType type);
+    Input *get_chauffage_var(std::string &chauff_id, ChauffType type);
 
-                //Auto scenarios
+    //Auto scenarios
 
-                void addScenarioCache(Scenario *sc);
-                void delScenarioCache(Scenario *sc);
-                list<Scenario *> getAutoScenarios();
-                void checkAutoScenario();
+    void addScenarioCache(Scenario *sc);
+    void delScenarioCache(Scenario *sc);
+    list<Scenario *> getAutoScenarios();
+    void checkAutoScenario();
 
-                Room * searchRoomByNameAndType(string name,string type);
+    Room * searchRoomByNameAndType(string name,string type);
 
-                Room *getRoomByInput(Input *o);
-                Room *getRoomByOutput(Output *o);
+    Room *getRoomByInput(Input *o);
+    Room *getRoomByOutput(Output *o);
 
-                bool deleteIO(Input *input, bool modify = false);
-                bool deleteIO(Output *output, bool modify = false);
+    bool deleteIO(Input *input, bool modify = false);
+    bool deleteIO(Output *output, bool modify = false);
 
-                Input* createInput(Params param, Room *room);
-                Output* createOutput(Params param, Room *room);
+    Input* createInput(Params param, Room *room);
+    Output* createOutput(Params param, Room *room);
 
-                void addInputHash(Input *input);
-                void delInputHash(Input *input);
-                void addOutputHash(Output *output);
-                void delOutputHash(Output *output);
+    void addInputHash(Input *input);
+    void delInputHash(Input *input);
+    void addOutputHash(Output *output);
+    void delOutputHash(Output *output);
 };
 
 }

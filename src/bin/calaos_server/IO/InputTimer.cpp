@@ -25,136 +25,136 @@
 using namespace Calaos;
 
 InputTimer::InputTimer(Params &p):
-                Input(p),
-                Output(p),
-                timer(NULL),
-                value("true"),
-                start(false)
+    Input(p),
+    Output(p),
+    timer(NULL),
+    value("true"),
+    start(false)
 {
-        set_param("visible", "false");
-        set_param("gui_type", "timer");
+    set_param("visible", "false");
+    set_param("gui_type", "timer");
 
-        cDebugDom("input") << "InputTimer::InputTimer(" << get_param("id") << "): Ok";
+    cDebugDom("input") << "InputTimer::InputTimer(" << get_param("id") << "): Ok";
 }
 
 InputTimer::~InputTimer()
 {
-        cDebugDom("input") << "InputTimer::~InputTimer(): Ok";
+    cDebugDom("input") << "InputTimer::~InputTimer(): Ok";
 }
 
 bool InputTimer::set_value(string command)
 {
-        if( command == "start")
-                command = "true";
+    if( command == "start")
+        command = "true";
 
-        if(command == "stop")
-                command = "false";
+    if(command == "stop")
+        command = "false";
 
-        if (command == "true")
+    if (command == "true")
+    {
+        cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer";
+        StartTimer();
+    }
+    else if(command == "false")
+    {
+        cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer";
+        StopTimer();
+    }
+    else
+    {
+        //set the time
+        vector<string> valSplit;
+        vector<string>::reverse_iterator it;
+        split(command, valSplit, ":");
+        int i = 0;
+
+        ms = 0;
+        second = 0;
+        minute = 0;
+        hour = 0;
+
+        for(it = valSplit.rbegin(); it != valSplit.rend(); it++)
         {
-                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer";
-                StartTimer();
-        }
-        else if(command == "false")
-        {
-                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer";
-                StopTimer();
-        }
-        else
-        {
-                //set the time
-                vector<string> valSplit;
-                vector<string>::reverse_iterator it;
-                split(command, valSplit, ":");
-                int i = 0;
-
-                ms = 0;
-                second = 0;
-                minute = 0;
-                hour = 0;
-
-                for(it = valSplit.rbegin(); it != valSplit.rend(); it++)
-                {
-                        int j;
-                        if( from_string(*it, j) )
-                        {
-                                if(i==0)
-                                        ms = j;
-                                else if(i==1)
-                                        second = j;
-                                else if(i==2)
-                                        minute = j;
-                                else
-                                        hour = j;
-                                i++;
-                        }
-                        else
-                                cWarningDom("output") <<
-                                        "InputTimer: Invalid time value: " <<j;
-                }
-
-                set_param("hour", Utils::to_string(hour));
-                set_param("min", Utils::to_string(minute));
-                set_param("sec", Utils::to_string(second));
-                set_param("msec", Utils::to_string(ms));
-
-                // Restart timer if it was running
-                if(timer)
-                        StartTimer();
+            int j;
+            if( from_string(*it, j) )
+            {
+                if(i==0)
+                    ms = j;
+                else if(i==1)
+                    second = j;
+                else if(i==2)
+                    minute = j;
+                else
+                    hour = j;
+                i++;
+            }
+            else
+                cWarningDom("output") <<
+                                         "InputTimer: Invalid time value: " <<j;
         }
 
-        if(command == "true" || command == "false")
-        {
-                string sig = "input ";
-                sig += get_param("id") + " ";
-                sig += Utils::url_encode("state:");
-                sig += Utils::url_encode(value);
-                IPC::Instance().SendEvent("events", sig);
-        }
+        set_param("hour", Utils::to_string(hour));
+        set_param("min", Utils::to_string(minute));
+        set_param("sec", Utils::to_string(second));
+        set_param("msec", Utils::to_string(ms));
 
-        return true;
+        // Restart timer if it was running
+        if(timer)
+            StartTimer();
+    }
+
+    if(command == "true" || command == "false")
+    {
+        string sig = "input ";
+        sig += get_param("id") + " ";
+        sig += Utils::url_encode("state:");
+        sig += Utils::url_encode(value);
+        IPC::Instance().SendEvent("events", sig);
+    }
+
+    return true;
 }
 
 void InputTimer::StartTimer()
 {
-        long int msec = 0;
-        Utils::from_string(get_param("hour"), hour);
-        Utils::from_string(get_param("min"), minute);
-        Utils::from_string(get_param("sec"), second);
-        Utils::from_string(get_param("msec"), ms);
-        msec = second + minute * 60 + hour * 3600;
-        msec *= 1000; //in milisecond
-        msec += ms;
+    long int msec = 0;
+    Utils::from_string(get_param("hour"), hour);
+    Utils::from_string(get_param("min"), minute);
+    Utils::from_string(get_param("sec"), second);
+    Utils::from_string(get_param("msec"), ms);
+    msec = second + minute * 60 + hour * 3600;
+    msec *= 1000; //in milisecond
+    msec += ms;
 
-        //security check: do not allow timer lower than 50 ms !
-        if (msec < 50) msec = 50;
+    //security check: do not allow timer lower than 50 ms !
+    if (msec < 50) msec = 50;
 
-        if (timer) delete timer;
-        timer = new EcoreTimer((double)msec / 1000.,
-                (sigc::slot<void>)sigc::mem_fun(*this, &InputTimer::TimerDone));
+    if (timer) delete timer;
+    timer = new EcoreTimer((double)msec / 1000.,
+                           (sigc::slot<void>)sigc::mem_fun(*this, &InputTimer::TimerDone));
 
-        value = "false";
+    value = "false";
 }
 
 void InputTimer::StopTimer()
 {
-        if (timer) delete timer;
-        timer = NULL;
-        value = "false";
+    if (timer) delete timer;
+    timer = NULL;
+    value = "false";
 }
 
 void InputTimer::TimerDone()
 {
-        if (timer) delete timer;
-        timer = NULL;
-        value = "true";
+    if (timer) delete timer;
+    timer = NULL;
+    value = "true";
 
-        EmitSignalInput();
+    EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode("state:true");
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "input ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode("state:true");
+    IPC::Instance().SendEvent("events", sig);
 }
 
 void InputTimer::hasChanged()

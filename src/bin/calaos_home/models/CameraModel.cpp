@@ -22,155 +22,155 @@
 #include "CalaosModel.h"
 
 CameraModel::CameraModel(CalaosConnection *con):
-        connection(con)
+    connection(con)
 {
 }
 
 CameraModel::~CameraModel()
 {
-        for_each(cameras.begin(), cameras.end(), Delete());
+    for_each(cameras.begin(), cameras.end(), Delete());
 }
 
 void CameraModel::load()
 {
-        connection->SendCommand("camera ?", sigc::mem_fun(*this, &CameraModel::camera_count_cb));
+    connection->SendCommand("camera ?", sigc::mem_fun(*this, &CameraModel::camera_count_cb));
 }
 
 void CameraModel::camera_count_cb(bool success, vector<string> result, void *data)
 {
-        if (!success) return;
+    if (!success) return;
 
-        if (result.size() < 2) return;
+    if (result.size() < 2) return;
 
-        if (is_of_type<int>(result[1]))
+    if (is_of_type<int>(result[1]))
+    {
+        int count;
+        from_string(result[1], count);
+
+        load_count = 0;
+
+        if (count == 0)
         {
-                int count;
-                from_string(result[1], count);
-
-                load_count = 0;
-
-                if (count == 0)
-                {
-                        //No camera found
-                        load_done.emit();
-                }
-
-                for (int i = 0;i < count;i++)
-                {
-                        Camera *cam = new Camera(connection);
-                        cameras.push_back(cam);
-
-                        cam->params.Add("num", Utils::to_string(cameras.size() - 1));
-
-                        load_count++;
-                        cam->load_done.connect(sigc::mem_fun(*this, &CameraModel::load_camera_done));
-
-                        string cmd = "camera get " + Utils::to_string(i);
-                        connection->SendCommand(cmd, sigc::mem_fun(*cam, &Camera::camera_get_cb));
-                }
+            //No camera found
+            load_done.emit();
         }
-        else
+
+        for (int i = 0;i < count;i++)
         {
-                //Load of camera failed because of a wrong reply
-                load_done.emit();
+            Camera *cam = new Camera(connection);
+            cameras.push_back(cam);
+
+            cam->params.Add("num", Utils::to_string(cameras.size() - 1));
+
+            load_count++;
+            cam->load_done.connect(sigc::mem_fun(*this, &CameraModel::load_camera_done));
+
+            string cmd = "camera get " + Utils::to_string(i);
+            connection->SendCommand(cmd, sigc::mem_fun(*cam, &Camera::camera_get_cb));
         }
+    }
+    else
+    {
+        //Load of camera failed because of a wrong reply
+        load_done.emit();
+    }
 }
 
 void CameraModel::load_camera_done(Camera *camera)
 {
-        load_count--;
+    load_count--;
 
-        cout << "[CAMERA load done]" << endl;
+    cout << "[CAMERA load done]" << endl;
 
-        if (load_count <= 0)
-        {
-                cout << "[CAMERA LOAD DONE sending signal]" << endl;
-                load_done.emit();
-        }
+    if (load_count <= 0)
+    {
+        cout << "[CAMERA LOAD DONE sending signal]" << endl;
+        load_done.emit();
+    }
 }
 
 void Camera::camera_get_cb(bool success, vector<string> result, void *data)
 {
-        for (uint b = 2;b < result.size();b++)
-        {
-                vector<string> tmp;
-                Utils::split(result[b], tmp, ":", 2);
+    for (uint b = 2;b < result.size();b++)
+    {
+        vector<string> tmp;
+        Utils::split(result[b], tmp, ":", 2);
 
-                if (tmp.size() < 2) continue;
+        if (tmp.size() < 2) continue;
 
-                params.Add(tmp[0], tmp[1]);
-        }
+        params.Add(tmp[0], tmp[1]);
+    }
 
-        load_done.emit(this);
+    load_done.emit(this);
 }
 
 Room *Camera::getRoom()
 {
-        if (room) return room;
+    if (room) return room;
 
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(params["oid"]);
-        if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
-                return NULL;
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(params["oid"]);
+    if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
+        return NULL;
 
-        IOBase *output = (*it).second;
-        return output->getRoom();
+    IOBase *output = (*it).second;
+    return output->getRoom();
 }
 
 void Camera::sendAction_cb(bool success, vector<string> result, void *data)
 {
-        //do nothing...
+    //do nothing...
 }
 
 void Camera::MoveCenter()
 {
-        string cmd = "camera move " + params["num"] + " home";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " home";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::MoveUp()
 {
-        string cmd = "camera move " + params["num"] + " up";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " up";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::MoveDown()
 {
-        string cmd = "camera move " + params["num"] + " down";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " down";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::MoveLeft()
 {
-        string cmd = "camera move " + params["num"] + " left";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " left";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::MoveRight()
 {
-        string cmd = "camera move " + params["num"] + " right";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " right";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::ZoomIn()
 {
-        string cmd = "camera move " + params["num"] + " zoomin";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " zoomin";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::ZoomOut()
 {
-        string cmd = "camera move " + params["num"] + " zoomout";
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " zoomout";
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::Recall(int position)
 {
-        string cmd = "camera move " + params["num"] + " " + Utils::to_string(position);
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera move " + params["num"] + " " + Utils::to_string(position);
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }
 
 void Camera::Save(int position)
 {
-        string cmd = "camera save " + params["num"] + " " + Utils::to_string(position);
-        connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    string cmd = "camera save " + params["num"] + " " + Utils::to_string(position);
+    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
 }

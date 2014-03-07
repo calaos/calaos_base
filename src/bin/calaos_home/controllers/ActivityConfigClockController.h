@@ -32,14 +32,14 @@ using namespace Utils;
 
 class ActivityConfigClockController: public ActivityController
 {
-        private:
-                void createView();
+private:
+    void createView();
 
-                ActivityConfigController *parentController;
+    ActivityConfigController *parentController;
 
-        public:
-                ActivityConfigClockController(Evas *evas, Evas_Object *parent, ActivityConfigController *parentController);
-                ~ActivityConfigClockController();
+public:
+    ActivityConfigClockController(Evas *evas, Evas_Object *parent, ActivityConfigController *parentController);
+    ~ActivityConfigClockController();
 };
 
 #endif // ACTIVITYCONFIGCLOCKCONTROLLER_H

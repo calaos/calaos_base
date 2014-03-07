@@ -26,9 +26,9 @@ ITEM_BUTTON_CALLBACK(GenlistItemRadio, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemRadio, Add)
 
 GenlistItemRadio::GenlistItemRadio(Evas *_evas, Evas_Object *_parent, AudioPlayer *_player, Params _item, void *data):
-        GenlistItemBase(_evas, _parent, "browser/default/noselect", ELM_GENLIST_ITEM_NONE, data),
-        player(_player),
-        item_infos(_item)
+    GenlistItemBase(_evas, _parent, "browser/default/noselect", ELM_GENLIST_ITEM_NONE, data),
+    player(_player),
+    item_infos(_item)
 {
 }
 
@@ -38,59 +38,59 @@ GenlistItemRadio::~GenlistItemRadio()
 
 string GenlistItemRadio::getLabelItem(Evas_Object *obj, string part)
 {
-        string text;
+    string text;
 
-        if (part == "text")
-                text = item_infos["name"];
+    if (part == "text")
+        text = item_infos["name"];
 
-        return text;
+    return text;
 }
 
 Evas_Object *GenlistItemRadio::getPartItem(Evas_Object *obj, string part)
 {
-        Evas_Object *o = NULL;
+    Evas_Object *o = NULL;
 
-        if (part == "calaos.button.play")
-        {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
-                elm_object_style_set(o, "calaos/action_button/blue");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
-        }
-        else if (part == "calaos.button.add")
-        {
-                o = elm_button_add(parent);
-                Evas_Object *icon = elm_icon_add(o);
-                elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/more");
-                elm_object_style_set(o, "calaos/action_button/blue");
-                elm_object_content_set(o, icon);
-                evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
-        }
-        else if (part == "icon")
-        {
-                o = elm_icon_add(parent);
-                elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/genlist/radio");
-        }
+    if (part == "calaos.button.play")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/play");
+        elm_object_style_set(o, "calaos/action_button/blue");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Play, this);
+    }
+    else if (part == "calaos.button.add")
+    {
+        o = elm_button_add(parent);
+        Evas_Object *icon = elm_icon_add(o);
+        elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/action_button/more");
+        elm_object_style_set(o, "calaos/action_button/blue");
+        elm_object_content_set(o, icon);
+        evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
+    }
+    else if (part == "icon")
+    {
+        o = elm_icon_add(parent);
+        elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/genlist/radio");
+    }
 
-        return o;
+    return o;
 }
 
 void GenlistItemRadio::buttonClickPlay()
 {
-        player->playItem(AudioPlayer::DB_ITEM_RADIO, item_infos["id"] + ":" + item_infos["radio_id"]);
+    player->playItem(AudioPlayer::DB_ITEM_RADIO, item_infos["id"] + ":" + item_infos["radio_id"]);
 }
 
 void GenlistItemRadio::buttonClickAdd()
 {
-        player->addItem(AudioPlayer::DB_ITEM_RADIO, item_infos["id"] + ":" + item_infos["radio_id"]);
+    player->addItem(AudioPlayer::DB_ITEM_RADIO, item_infos["id"] + ":" + item_infos["radio_id"]);
 }
 
 void GenlistItemRadio::genreItemGet_cb(Params &infos)
 {
-        cout << "Got infos..." << infos.toString() << endl;
-        item_infos = infos;
+    cout << "Got infos..." << infos.toString() << endl;
+    item_infos = infos;
 
-        elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
+    elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
 }

@@ -25,60 +25,60 @@
 using namespace Calaos;
 
 CamOutput::CamOutput(Params &p, IPCam *_cam):
-        Output(p),
-        cam(_cam)
+    Output(p),
+    cam(_cam)
 {
-        get_params().Add("gui_type", "camera_output");
-        get_params().Add("visible", "false");
-        cInfoDom("output") << "CamOutput::CamOutput(): Ok";
+    get_params().Add("gui_type", "camera_output");
+    get_params().Add("visible", "false");
+    cInfoDom("output") << "CamOutput::CamOutput(): Ok";
 }
 
 CamOutput::~CamOutput()
 {
-        cInfoDom("output") << "CamOutput::~CamOutput(): Ok";
+    cInfoDom("output") << "CamOutput::~CamOutput(): Ok";
 }
 
 bool CamOutput::set_value(std::string val)
 {
-        cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val;
+    cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val;
 
-        if (val == "mpeg_stream?")
-        {
-                answer = cam->get_mpeg_stream();
-        }
-        else if (val == "mjpeg_stream?")
-        {
-                answer = cam->get_mjpeg_stream();
-        }
-        else if (val == "single_frame?")
-        {
-                answer = cam->get_picture();
-        }
-        else if (val.compare(0, 5, "move ") == 0)
-        {
-                val.erase(0, 5);
-                cam->activateCapabilities("ptz", "move", val);
-        }
-        else if (val.compare(0, 5, "save ") == 0)
-        {
-                val.erase(0, 5);
-                cam->activateCapabilities("position", "save", val);
-        }
-        else if (val.compare(0, 7, "recall ") == 0)
-        {
-                val.erase(0, 7);
-                cam->activateCapabilities("position", "recall", val);
-        }
+    if (val == "mpeg_stream?")
+    {
+        answer = cam->get_mpeg_stream();
+    }
+    else if (val == "mjpeg_stream?")
+    {
+        answer = cam->get_mjpeg_stream();
+    }
+    else if (val == "single_frame?")
+    {
+        answer = cam->get_picture();
+    }
+    else if (val.compare(0, 5, "move ") == 0)
+    {
+        val.erase(0, 5);
+        cam->activateCapabilities("ptz", "move", val);
+    }
+    else if (val.compare(0, 5, "save ") == 0)
+    {
+        val.erase(0, 5);
+        cam->activateCapabilities("position", "save", val);
+    }
+    else if (val.compare(0, 7, "recall ") == 0)
+    {
+        val.erase(0, 7);
+        cam->activateCapabilities("position", "recall", val);
+    }
 
-        string sig = "output ";
-        sig += get_param("id") + " ";
-        sig += url_encode(string("state:") + val);
-        IPC::Instance().SendEvent("events", sig);
+    string sig = "output ";
+    sig += get_param("id") + " ";
+    sig += url_encode(string("state:") + val);
+    IPC::Instance().SendEvent("events", sig);
 
-        return true;
+    return true;
 }
 
 std::string CamOutput::get_value_string()
 {
-        return answer;
+    return answer;
 }

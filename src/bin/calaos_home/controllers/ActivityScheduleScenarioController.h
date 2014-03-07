@@ -31,19 +31,19 @@ using namespace Utils;
 
 class ActivityScheduleScenarioController: public ActivityController
 {
-        private:
-                Scenario *scenario;
+private:
+    Scenario *scenario;
 
-                void validAddSchedule(TimeRangeInfos &tr);
-                void validModifySchedule(TimeRangeInfos &tr);
+    void validAddSchedule(TimeRangeInfos &tr);
+    void validModifySchedule(TimeRangeInfos &tr);
 
-                virtual void createView();
+    virtual void createView();
 
-        public:
-                ActivityScheduleScenarioController(Evas *evas, Evas_Object *parent);
-                ~ActivityScheduleScenarioController();
+public:
+    ActivityScheduleScenarioController(Evas *evas, Evas_Object *parent);
+    ~ActivityScheduleScenarioController();
 
-                void setScenario(Scenario *sc) { scenario = sc; }
+    void setScenario(Scenario *sc) { scenario = sc; }
 };
 
 #endif // ActivityScheduleScenarioController_H

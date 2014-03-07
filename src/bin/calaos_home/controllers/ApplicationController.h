@@ -47,62 +47,62 @@ using namespace Utils;
 
 class EAPI ApplicationController: public sigc::trackable
 {
-        private:
-                Evas *evas;
-                Evas_Object *layout;
-                Evas_Object *main_pager; /* This is the main elementary pager, which is holding all "pages" (home, media, camera, ...) */
+private:
+    Evas *evas;
+    Evas_Object *layout;
+    Evas_Object *main_pager; /* This is the main elementary pager, which is holding all "pages" (home, media, camera, ...) */
 
-                MainMenuView *menuView;
-                MainContentView *contentView;
-                EdjeObject *mouseCursor;
+    MainMenuView *menuView;
+    MainContentView *contentView;
+    EdjeObject *mouseCursor;
 
-                bool menu_hidden;
+    bool menu_hidden;
 
-                /* The main "pages" comes here */
-                ActivityWidgetsController *widgetsController;
-                ActivityHomeController *homeController;
-                ActivityMediaController *mediaController;
-                ActivityScenariosController *scenariosController;
-                ActivityConfigController *configController;
-                ActivityKeyboardController *keyboardController;
-                ActivityWebController *webController;
-                ActivityEditScenarioController *editScController;
-                ActivityScheduleScenarioController *scheduleScController;
+    /* The main "pages" comes here */
+    ActivityWidgetsController *widgetsController;
+    ActivityHomeController *homeController;
+    ActivityMediaController *mediaController;
+    ActivityScenariosController *scenariosController;
+    ActivityConfigController *configController;
+    ActivityKeyboardController *keyboardController;
+    ActivityWebController *webController;
+    ActivityEditScenarioController *editScController;
+    ActivityScheduleScenarioController *scheduleScController;
 
-                void onMenuHomeClick();
-                void onMenuMediaClick();
-                void onMenuScenarioClick();
-                void onMenuConfigClick();
+    void onMenuHomeClick();
+    void onMenuMediaClick();
+    void onMenuScenarioClick();
+    void onMenuConfigClick();
 
-                void onMenuRebootClick();
-                void onMenuWidgetClick();
-                void onMenuAddWidgetClick();
-                void onMenuSuspendClick();
+    void onMenuRebootClick();
+    void onMenuWidgetClick();
+    void onMenuAddWidgetClick();
+    void onMenuSuspendClick();
 
-                /* CalaosModel signals */
-                void home_loaded();
-                void login_failed(string host);
+    /* CalaosModel signals */
+    void home_loaded();
+    void login_failed(string host);
 
-                void activityQuit();
-                void activityKeyboardQuit();
-                void activityWebQuit();
-                void activityEditScenarioQuit();
-                void activityScheduleScenarioQuit();
+    void activityQuit();
+    void activityKeyboardQuit();
+    void activityWebQuit();
+    void activityEditScenarioQuit();
+    void activityScheduleScenarioQuit();
 
-                void controllerFinished(ActivityController *controller);
-                void resetOtherViews();
+    void controllerFinished(ActivityController *controller);
+    void resetOtherViews();
 
-        public:
-                ApplicationController(Evas *evas, Evas_Object *layout);
-                ~ApplicationController();
+public:
+    ApplicationController(Evas *evas, Evas_Object *layout);
+    ~ApplicationController();
 
-                void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0);
-                void ShowWebBrowser(string url);
+    void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0);
+    void ShowWebBrowser(string url);
 
-                void ShowScenarioEditor(Scenario *scenario);
-                void ShowScenarioSchedule(Scenario *scenario);
+    void ShowScenarioEditor(Scenario *scenario);
+    void ShowScenarioSchedule(Scenario *scenario);
 
-                ActivityWidgetsController *getWidgetController() { return widgetsController; }
+    ActivityWidgetsController *getWidgetController() { return widgetsController; }
 };
 
 #endif // APPLICATIONCONTROLLER_H

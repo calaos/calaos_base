@@ -47,32 +47,32 @@ namespace Calaos
 
 class Config
 {
-        private:
-                Config();
+private:
+    Config();
 
-                void initEetDescriptors();
-                void releaseEetDescriptors();
-                void loadStateCache();
-                void saveStateCache();
+    void initEetDescriptors();
+    void releaseEetDescriptors();
+    void loadStateCache();
+    void saveStateCache();
 
-                Eina_Hash *cache_states;
+    Eina_Hash *cache_states;
 
-        public:
-                static Config &Instance()
-                {
-                        static Config inst;
-                        return inst;
-                }
-                ~Config();
+public:
+    static Config &Instance()
+    {
+        static Config inst;
+        return inst;
+    }
+    ~Config();
 
-                void LoadConfigIO();
-                void LoadConfigRule();
+    void LoadConfigIO();
+    void LoadConfigRule();
 
-                void SaveConfigIO();
-                void SaveConfigRule();
+    void SaveConfigIO();
+    void SaveConfigRule();
 
-                void SaveValueIO(string id, string value, bool save = true);
-                bool ReadValueIO(string id, string &value);
+    void SaveValueIO(string id, string value, bool save = true);
+    bool ReadValueIO(string id, string &value);
 };
 
 }

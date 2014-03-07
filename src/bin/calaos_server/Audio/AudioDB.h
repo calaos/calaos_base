@@ -29,50 +29,50 @@ namespace Calaos
 
 class AudioDB
 {
-        protected:
-                Params param;
+protected:
+    Params param;
 
-        public:
-                AudioDB(Params &p);
-                virtual ~AudioDB();
+public:
+    AudioDB(Params &p);
+    virtual ~AudioDB();
 
-                virtual void getStats(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getStats(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Album
-                virtual void getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data = AudioPlayerData()) {}
+    //Album
+    virtual void getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Artist
-                virtual void getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data = AudioPlayerData()) {}
+    //Artist
+    virtual void getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Genre
-                virtual void getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data = AudioPlayerData()) {}
+    //Genre
+    virtual void getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Year
-                virtual void getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data = AudioPlayerData()) {}
+    //Year
+    virtual void getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Playlists
-                virtual void getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, string playlist_id, AudioPlayerData user_data = AudioPlayerData()) {}
+    //Playlists
+    virtual void getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, string playlist_id, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Radios
-                virtual void getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id = "", string search = "", AudioPlayerData user_data = AudioPlayerData()) {}
+    //Radios
+    virtual void getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id = "", string search = "", AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //Random
-                virtual void getRandoms(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void setRandomsType(string type) {}
-                //TODO:Random genre selection with  "<playerid>  randomplaygenrelist"
+    //Random
+    virtual void getRandoms(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void setRandomsType(string type) {}
+    //TODO:Random genre selection with  "<playerid>  randomplaygenrelist"
 
-                virtual void getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                virtual void getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id = "", AudioPlayerData user_data = AudioPlayerData()) {}
-                virtual void getTrackInfos(AudioRequest_cb callback, string track_id, AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id = "", AudioPlayerData user_data = AudioPlayerData()) {}
+    virtual void getTrackInfos(AudioRequest_cb callback, string track_id, AudioPlayerData user_data = AudioPlayerData()) {}
 
-                //TODO:Favorites
+    //TODO:Favorites
 };
 
 }

@@ -32,19 +32,19 @@ class IPCam;
 
 class CamInput: public Input
 {
-        private:
-                IPCam *cam;
+private:
+    IPCam *cam;
 
-        public:
-                CamInput(Params &p, IPCam *_cam);
-                ~CamInput();
+public:
+    CamInput(Params &p, IPCam *_cam);
+    ~CamInput();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual void AcquireData();
-                virtual std::string get_value_string();
+    virtual void AcquireData();
+    virtual std::string get_value_string();
 
-                IPCam *get_cam() { return cam; }
+    IPCam *get_cam() { return cam; }
 };
 
 }

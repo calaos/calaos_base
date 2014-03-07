@@ -32,44 +32,44 @@ using namespace Utils;
 namespace Calaos
 {
 
-        typedef struct _BlinkInfo
-        {
-                bool state;
-                int duration;
-                int next;
-        } BlinkInfo;
+typedef struct _BlinkInfo
+{
+    bool state;
+    int duration;
+    int next;
+} BlinkInfo;
 
-    void CallUrl(string url, string post_data = "");
+void CallUrl(string url, string post_data = "");
 #ifndef UTILS
-    std::string get_new_id(std::string prefix);
-    std::string get_new_scenario_id();
+std::string get_new_id(std::string prefix);
+std::string get_new_scenario_id();
 #endif
 
-    //This class only counts all IO at start and wait for them
-    //to read their values. After all values are read, it calls ExecuteStartRules
-    class StartReadRules
+//This class only counts all IO at start and wait for them
+//to read their values. After all values are read, it calls ExecuteStartRules
+class StartReadRules
+{
+private:
+    int count_io;
+
+    StartReadRules();
+
+public:
+    static StartReadRules &Instance()
     {
-            private:
-                    int count_io;
+        static StartReadRules st;
+        return st;
+    }
 
-                    StartReadRules();
-
-            public:
-                    static StartReadRules &Instance()
-                    {
-                            static StartReadRules st;
-                            return st;
-                    }
-
-                    void addIO();
-                    void ioRead();
-    };
+    void addIO();
+    void ioRead();
+};
 }
 
 namespace Utils
 {
-        typedef sigc::signal<void, std::string, int, bool, std::string> type_signal_wago;
-        extern type_signal_wago signal_wago;
+typedef sigc::signal<void, std::string, int, bool, std::string> type_signal_wago;
+extern type_signal_wago signal_wago;
 }
 
 #endif

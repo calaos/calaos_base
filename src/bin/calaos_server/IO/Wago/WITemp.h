@@ -29,22 +29,22 @@ namespace Calaos
 
 class WITemp : public InputTemp
 {
-        protected:
-                int address;
+protected:
+    int address;
 
-                std::string host;
-                int port;
+    std::string host;
+    int port;
 
-                bool requestInProgress;
-                bool start;
+    bool requestInProgress;
+    bool start;
 
-                void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
 
-                virtual void readValue();
+    virtual void readValue();
 
-        public:
-                WITemp(Params &p);
-                ~WITemp();
+public:
+    WITemp(Params &p);
+    ~WITemp();
 };
 
 }

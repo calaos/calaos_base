@@ -31,23 +31,23 @@ using namespace Utils;
 
 class ActivityScenariosController: public ActivityController
 {
-        private:
-                void createScenario();
+private:
+    void createScenario();
 
-                void scheduleAdd(Scenario *sc);
-                void scheduleModify(Scenario *sc);
-                void scheduleDel(Scenario *sc);
+    void scheduleAdd(Scenario *sc);
+    void scheduleModify(Scenario *sc);
+    void scheduleDel(Scenario *sc);
 
-                void load_done();
-                void updateView();
+    void load_done();
+    void updateView();
 
-                virtual void createView();
+    virtual void createView();
 
-                void reloadView(Scenario *sc);
+    void reloadView(Scenario *sc);
 
-        public:
-                ActivityScenariosController(Evas *evas, Evas_Object *parent);
-                ~ActivityScenariosController();
+public:
+    ActivityScenariosController(Evas *evas, Evas_Object *parent);
+    ~ActivityScenariosController();
 };
 
 #endif // ACTIVITYSCENARIOSCONTROLLER_H

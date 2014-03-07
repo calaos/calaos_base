@@ -23,10 +23,10 @@
 #include "ApplicationMain.h"
 
 ActivityConfigClockController::ActivityConfigClockController(Evas *e, Evas_Object *p, ActivityConfigController *pc):
-        ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_CLOCK),
-        parentController(pc)
+    ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_CLOCK),
+    parentController(pc)
 {
-        CalaosModel::Instance();
+    CalaosModel::Instance();
 }
 
 ActivityConfigClockController::~ActivityConfigClockController()
@@ -36,8 +36,8 @@ ActivityConfigClockController::~ActivityConfigClockController()
 
 void ActivityConfigClockController::createView()
 {
-        if (view) return;
+    if (view) return;
 
-        ActivityController::createView();
+    ActivityController::createView();
 }
 

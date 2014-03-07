@@ -31,24 +31,24 @@ class AudioPlayer;
 
 class AudioInput: public Input, public sigc::trackable
 {
-        private:
-                AudioPlayer *player;
-                std::string answer;
-                int status;
-                int st;
+private:
+    AudioPlayer *player;
+    std::string answer;
+    int status;
+    int st;
 
-        public:
-                AudioInput(Params &p, AudioPlayer *_player);
-                ~AudioInput();
+public:
+    AudioInput(Params &p, AudioPlayer *_player);
+    ~AudioInput();
 
-                virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-                virtual void hasChanged();
-                virtual std::string get_value_string();
+    virtual void hasChanged();
+    virtual std::string get_value_string();
 
-                void set_status(int s) { st = s; hasChanged(); }
+    void set_status(int s) { st = s; hasChanged(); }
 
-                AudioPlayer *get_player() { return player; }
+    AudioPlayer *get_player() { return player; }
 };
 
 }

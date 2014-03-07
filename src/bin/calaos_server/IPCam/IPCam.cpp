@@ -24,36 +24,36 @@ using namespace Calaos;
 
 IPCam::IPCam(Params &p): param(p)
 {
-        if (!param.Exists("port")) param.Add("port", "80");
+    if (!param.Exists("port")) param.Add("port", "80");
 
-        Params pio = param;
+    Params pio = param;
 
-        pio.Add("id", param["oid"]);
-        pio.Add("type", "CamOutput");
-        aoutput = new CamOutput(pio, this);
+    pio.Add("id", param["oid"]);
+    pio.Add("type", "CamOutput");
+    aoutput = new CamOutput(pio, this);
 
-        pio.Add("id", param["iid"]);
-        pio.Add("type", "CamInput");
-        ainput = new CamInput(pio, this);
+    pio.Add("id", param["iid"]);
+    pio.Add("type", "CamInput");
+    ainput = new CamInput(pio, this);
 }
 
 IPCam::~IPCam()
 {
-        delete aoutput;
-        delete ainput;
+    delete aoutput;
+    delete ainput;
 }
 
 bool IPCam::SaveToXml(TiXmlElement *node)
 {
-        TiXmlElement *cnode = new TiXmlElement("calaos:camera");
-        node->LinkEndChild(cnode);
+    TiXmlElement *cnode = new TiXmlElement("calaos:camera");
+    node->LinkEndChild(cnode);
 
-        for (int i = 0;i < get_params().size();i++)
-        {
-                string key, value;
-                param.get_item(i, key, value);
-                cnode->SetAttribute(key, value);
-        }
+    for (int i = 0;i < get_params().size();i++)
+    {
+        string key, value;
+        param.get_item(i, key, value);
+        cnode->SetAttribute(key, value);
+    }
 
-        return true;
+    return true;
 }

@@ -31,22 +31,22 @@ namespace Calaos
 
 class ZibaseAnalogIn : public InputAnalog, public sigc::trackable
 {
-        protected:
-                int address;
+protected:
+    int address;
 
-                std::string host;
-                int port;
-                std::string id;
+    std::string host;
+    int port;
+    std::string id;
 
-                virtual void readValue();
+    virtual void readValue();
 
-                void valueUpdated(ZibaseInfoSensor *sensor);
-                
-                ZibaseInfoSensor::eZibaseSensor sensor_type;
+    void valueUpdated(ZibaseInfoSensor *sensor);
 
-        public:
-                ZibaseAnalogIn(Params &p);
-                ~ZibaseAnalogIn();
+    ZibaseInfoSensor::eZibaseSensor sensor_type;
+
+public:
+    ZibaseAnalogIn(Params &p);
+    ~ZibaseAnalogIn();
 };
 
 }
