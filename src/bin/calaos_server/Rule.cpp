@@ -29,7 +29,7 @@ Rule::Rule(string type, string name):
         params.Add("type", type);
         params.Add("name", name);
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::Rule("
+        cDebugDom("rule") << "Rule::Rule("
                               << type << "," << name << "): Ok" << log4cpp::eol;
 }
 
@@ -41,21 +41,21 @@ Rule::~Rule()
         for (uint i = 0;i < actions.size();i++)
                 delete actions[i];
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::~Rule(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::~Rule(): Ok" << log4cpp::eol;
 }
 
 void Rule::AddCondition(Condition *cond)
 {
         conds.push_back(cond);
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::AddCondition(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::AddCondition(): Ok" << log4cpp::eol;
 }
 
 void Rule::AddAction(Action *act)
 {
         actions.push_back(act);
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::AddAction(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::AddAction(): Ok" << log4cpp::eol;
 }
 
 bool Rule::Execute()
@@ -64,7 +64,7 @@ bool Rule::Execute()
         bool cond = true;
         bool action = true;
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution..." << log4cpp::eol;
+        cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution..." << log4cpp::eol;
 
         for (uint i = 0;i < conds.size();i++)
                 if (!conds[i]->Evaluate()) cond = false;
@@ -72,13 +72,13 @@ bool Rule::Execute()
         //Actions are executed only if all conditions are true
         if (cond)
         {
-                Utils::logger("rule") << Priority::INFO << "Rule(" << get_param("type") << "," << get_param("name")
+                cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
                                       << "): Starting execution (" << actions.size() << " actions)" << log4cpp::eol;
 
                 for (uint i = 0;i < actions.size();i++)
                         if (!actions[i]->Execute()) action = false;
 
-                Utils::logger("rule") << Priority::INFO << "Rule(" << get_param("type") << "," << get_param("name")
+                cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
                                       << "): Execution done." << log4cpp::eol;
         }
         else
@@ -92,9 +92,9 @@ bool Rule::Execute()
                 ret = false;
 
         if (ret)
-                Utils::logger("rule") << Priority::DEBUG << "Rule::Execute(): Ok" << log4cpp::eol;
+                cDebugDom("rule") << "Rule::Execute(): Ok" << log4cpp::eol;
         else if (cond)
-                Utils::logger("rule") << Priority::WARN << "Rule::Execute(): Failed !" << log4cpp::eol;
+                cWarningDom("rule") << "Rule::Execute(): Failed !" << log4cpp::eol;
 
         return ret;
 }
@@ -105,7 +105,7 @@ void Rule::RemoveCondition(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         conds.erase(iter);
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::RemoveCondition(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::RemoveCondition(): Ok" << log4cpp::eol;
 }
 
 void Rule::RemoveAction(int pos)
@@ -114,7 +114,7 @@ void Rule::RemoveAction(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         actions.erase(iter);
 
-        Utils::logger("rule") << Priority::DEBUG << "Rule::RemoveAction(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::RemoveAction(): Ok" << log4cpp::eol;
 }
 
 bool Rule::LoadFromXml(TiXmlElement *node)
