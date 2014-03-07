@@ -40,7 +40,7 @@ PollObject::PollObject(string _uuid):
         sig_events.connect( sigc::mem_fun(*this, &PollObject::HandleEventsFromSignals) );
         IPC::Instance().AddHandler("events", "*", sig_events);
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "PollObject: New object for " << uuid << log4cpp::eol;
+        cDebugDom("poll_listener") << "PollObject: New object for " << uuid << log4cpp::eol;
 }
 
 PollObject::~PollObject()
@@ -53,7 +53,7 @@ PollObject::~PollObject()
 
         IPC::Instance().DeleteHandler(sig_events);
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "~PollObject: Cleaning object " << uuid << log4cpp::eol;
+        cDebugDom("poll_listener") << "~PollObject: Cleaning object " << uuid << log4cpp::eol;
 }
 
 void PollObject::HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data)
@@ -66,7 +66,7 @@ void PollObject::HandleEventsFromSignals(string source, string emission, void *m
 
         string id = tokens[0] + ":" + tokens[1];
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "PollObject: Handling signal: " << id << " -> " << url_decode(tokens[2]) << log4cpp::eol;
+        cDebugDom("poll_listener") << "PollObject: Handling signal: " << id << " -> " << url_decode(tokens[2]) << log4cpp::eol;
 
         events.Add(id, url_decode(tokens[2]));
 }
@@ -87,7 +87,7 @@ void PollObject::Timeout_cb()
         delete timeout;
         timeout = NULL;
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "PollObject: " << uuid << " Timeout !" << log4cpp::eol;
+        cDebugDom("poll_listener") << "PollObject: " << uuid << " Timeout !" << log4cpp::eol;
 
         ecore_idler_add(_timeout_poll_idler_cb, this);
 }
@@ -113,7 +113,7 @@ string PollListenner::Register()
 
         pollobjects[uuid] = new PollObject(uuid);
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "PollListenner::Register uuid:" << uuid << log4cpp::eol;
+        cDebugDom("poll_listener") << "PollListenner::Register uuid:" << uuid << log4cpp::eol;
 
         return uuid;
 }
@@ -122,7 +122,7 @@ bool PollListenner::Unregister(string uuid)
 {
         if (pollobjects.find(uuid) == pollobjects.end())
         {
-                Utils::logger("poll_listenner") << Priority::DEBUG << "PollListenner::Unregister uuid:" << uuid << " not found ! " << log4cpp::eol;
+                cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid << " not found ! " << log4cpp::eol;
                 return false;
         }
 
@@ -136,7 +136,7 @@ bool PollListenner::Unregister(string uuid)
 
         pollobjects.erase(uuid);
 
-        Utils::logger("poll_listenner") << Priority::DEBUG << "PollListenner::Unregister uuid:" << uuid << log4cpp::eol;
+        cDebugDom("poll_listener") << "PollListenner::Unregister uuid:" << uuid << log4cpp::eol;
 
         return true;
 }
@@ -145,7 +145,7 @@ bool PollListenner::GetEvents(string uuid, Params &events)
 {
         if (pollobjects.find(uuid) == pollobjects.end())
         {
-                Utils::logger("poll_listenner") << Priority::DEBUG << "PollListenner::GetEvents uuid:" << uuid << " not found ! " << log4cpp::eol;
+                cDebugDom("poll_listener") << "PollListenner::GetEvents uuid:" << uuid << " not found ! " << log4cpp::eol;
                 return false;
         }
 
