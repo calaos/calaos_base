@@ -61,7 +61,7 @@ WagoMap::WagoMap(std::string h, int p):
 
         Start();
 
-        Utils::logger("wago") << Priority::INFO << "WagoMap::WagoMap(" << host << "," << port << "): Ok" << log4cpp::eol;
+        cInfoDom("wago") << "WagoMap::WagoMap(" << host << "," << port << "): Ok" << log4cpp::eol;
 }
 
 WagoMap::~WagoMap()
@@ -77,7 +77,7 @@ WagoMap::~WagoMap()
 
         End();
 
-        Utils::logger("wago") << Priority::INFO << "WagoMap::~WagoMap(): Ok" << log4cpp::eol;
+        cInfoDom("wago") << "WagoMap::~WagoMap(): Ok" << log4cpp::eol;
 }
 
 WagoMap &WagoMap::Instance(std::string h, int p)
@@ -112,7 +112,7 @@ void WagoMap::WagoModbusHeartBeatTick()
 void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
 {
         if (!status)
-                Utils::logger("wago") << Priority::ERROR << "WagoMap::WagoModbusReadHeartbeatCallback(): failed to read !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoMap::WagoModbusReadHeartbeatCallback(): failed to read !" << log4cpp::eol;
 }
 
 void WagoMap::IPCCallbacks(string source, string emission, void *listener_data, void *sender_data)
@@ -299,7 +299,7 @@ void WagoMap::ThreadProc()
 
                 if (!wago.is_connected())
                 {
-                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, Connecting to " << host << log4cpp::eol;
+                        cDebugDom("wago") << "WagoMap: MBUS, Connecting to " << host << log4cpp::eol;
                         wago.Connect();
                 }
 
@@ -320,12 +320,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -337,12 +337,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -354,12 +354,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.write_single_bit(cmd.address, cmd.value_bit))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.write_single_bit(cmd.address, cmd.value_bit))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -371,12 +371,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -388,12 +388,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -405,12 +405,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -422,12 +422,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.write_single_word(cmd.address, cmd.value_word))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.write_single_word(cmd.address, cmd.value_word))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -439,12 +439,12 @@ void WagoMap::ThreadProc()
                         cmd.status = true;
                         if (!wago.write_multiple_words(cmd.address, cmd.count, cmd.values_words))
                         {
-                                Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
+                                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host << log4cpp::eol;
                                 wago.Connect();
                                 if (!wago.write_multiple_words(cmd.address, cmd.count, cmd.values_words))
                                 {
                                         cmd.status = false;
-                                        Utils::logger("wago") << Priority::DEBUG << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
+                                        cDebugDom("wago") << "WagoMap: MBUS, failed to send request" << log4cpp::eol;
                                 }
                         }
 
@@ -472,7 +472,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Serv
         }
         else
         {
-                Utils::logger("wago") << Priority::CRIT
+                cCriticalDom("wago")
                                 << "WagoMap:(): _ecore_con_handler_data_get, failed to get WagoMap object !"
                                 << log4cpp::eol;
         }
@@ -484,7 +484,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
 {
         bool restart_timer = false;
 
-        Utils::logger("wago") << Priority::DEBUG << "WagoMap: UDP, sending command: " << command << log4cpp::eol;
+        cDebugDom("wago") << "WagoMap: UDP, sending command: " << command << log4cpp::eol;
 
         if (udp_commands.empty())
                 restart_timer = true;
@@ -508,7 +508,7 @@ void WagoMap::SendUDPCommand(string command)
 {
         bool restart_timer = false;
 
-        Utils::logger("wago") << Priority::DEBUG << "WagoMap: UDP, sending command: " << command << log4cpp::eol;
+        cDebugDom("wago") << "WagoMap: UDP, sending command: " << command << log4cpp::eol;
 
         if (udp_commands.empty())
                 restart_timer = true;
@@ -536,7 +536,7 @@ void WagoMap::udpRequest_cb(bool status, string res)
         }
 
         WagoMapCmd &cmd = udp_commands.front();
-        Utils::logger("wago") << Priority::DEBUG << "WagoMap: UDP, getting result for command " << cmd.udp_command << log4cpp::eol;
+        cDebugDom("wago") << "WagoMap: UDP, getting result for command " << cmd.udp_command << log4cpp::eol;
 
         cmd.udp_result = res;
 
@@ -550,7 +550,7 @@ void WagoMap::udpRequest_cb(bool status, string res)
 
 void WagoMap::UDPCommandTimeout_cb()
 {
-        Utils::logger("wago") << Priority::DEBUG << "WagoMap: UDP, Timeout ! " << log4cpp::eol;
+        cDebugDom("wago") << "WagoMap: UDP, Timeout ! " << log4cpp::eol;
 
         udpRequest_cb(false, "");
 }
@@ -572,7 +572,7 @@ void WagoMap::UDPCommand_cb()
 
         cmd.inProgress = true;
 
-        Utils::logger("wago") << Priority::DEBUG << "WagoMap: UDP, real sending command: " << cmd.udp_command << log4cpp::eol;
+        cDebugDom("wago") << "WagoMap: UDP, real sending command: " << cmd.udp_command << log4cpp::eol;
 
         if (!udp_timeout_timer && !cmd.no_callback)
                 udp_timeout_timer = new EcoreTimer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
@@ -601,7 +601,7 @@ void WagoMap::WagoHeartBeatTick()
         }
         else
         {
-                Utils::logger("wago") << Priority::DEBUG << "WagoHeartbeat: No interface found corresponding to network : " << get_host() << log4cpp::eol;
+                cDebugDom("wago") << "WagoHeartbeat: No interface found corresponding to network : " << get_host() << log4cpp::eol;
         }
 
 
