@@ -226,7 +226,7 @@ void Squeezebox::addConnection(Ecore_Con_Server *srv)
         }
         else
         {
-                cWarninglDom("squeezebox")
+                cWarningDom("squeezebox")
                                 << "Squeezebox:addConnection() Wrong Ecore_Con_Server object"
                                 << log4cpp::eol;
         }
@@ -268,7 +268,7 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
         }
         else
         {
-                cWarninglDom("squeezebox")
+                cWarningDom("squeezebox")
                                 << "Squeezebox:delConnection(): Wrong Ecore_Con_Server object (" << srv << ") where econ == " << econ << " and enotif == " << enotif
                                 << log4cpp::eol;
         }
@@ -349,7 +349,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
         }
         else
         {
-                cWarninglDom("squeezebox")
+                cWarningDom("squeezebox")
                                 << "Squeezebox:dataGet() Wrong Ecore_Con_Server object"
                                 << log4cpp::eol;
         }
