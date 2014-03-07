@@ -54,7 +54,7 @@ ListeRoom::~ListeRoom()
 
         eina_shutdown();
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::~ListeRoom(): Ok" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::~ListeRoom(): Ok" << log4cpp::eol;
 }
 
 void ListeRoom::addInputHash(Input *input)
@@ -68,7 +68,7 @@ void ListeRoom::addInputHash(Input *input)
                 id = input->get_param("iid");
         }
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::addInputHash(" << id << ")" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::addInputHash(" << id << ")" << log4cpp::eol;
 
         eina_hash_add(input_table, id.c_str(), input);
 }
@@ -84,7 +84,7 @@ void ListeRoom::delInputHash(Input *input)
                 id = input->get_param("iid");
         }
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::delInputHash(" << id << ")" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::delInputHash(" << id << ")" << log4cpp::eol;
 
         eina_hash_del(input_table, id.c_str(), NULL);
 }
@@ -100,7 +100,7 @@ void ListeRoom::addOutputHash(Output *output)
                 id = output->get_param("oid");
         }
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::addOutputHash(" << id << ")" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::addOutputHash(" << id << ")" << log4cpp::eol;
 
         eina_hash_add(output_table, id.c_str(), output);
 }
@@ -116,7 +116,7 @@ void ListeRoom::delOutputHash(Output *output)
                 id = output->get_param("oid");
         }
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::delOutputHash(" << id << ")" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::delOutputHash(" << id << ")" << log4cpp::eol;
 
         eina_hash_del(output_table, id.c_str(), NULL);
 }
@@ -125,7 +125,7 @@ void ListeRoom::Add(Room *p)
 {
         rooms.push_back(p);
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::Add(" << p->get_name() << "," << p->get_type() << "): Ok" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::Add(" << p->get_name() << "," << p->get_type() << "): Ok" << log4cpp::eol;
 }
 
 void ListeRoom::Remove(int pos)
@@ -135,7 +135,7 @@ void ListeRoom::Remove(int pos)
         delete rooms[pos];
         rooms.erase(iter);
 
-        Utils::logger("room") << Priority::DEBUG << "ListeRoom::Remove(): Ok" << log4cpp::eol;
+        cDebugDom("room") << "ListeRoom::Remove(): Ok" << log4cpp::eol;
 }
 
 Room *ListeRoom::operator[] (int i) const
@@ -286,7 +286,7 @@ void ListeRoom::delScenarioCache(Scenario *sc)
 
 list<Scenario *> ListeRoom::getAutoScenarios()
 {
-        Utils::logger("room") << Priority::DEBUG << "getAutoScenario(): Found " << auto_scenario_cache.size() << " auto_scenarios." << log4cpp::eol;
+        cDebugDom("room") << "getAutoScenario(): Found " << auto_scenario_cache.size() << " auto_scenarios." << log4cpp::eol;
 
         return auto_scenario_cache;
 }

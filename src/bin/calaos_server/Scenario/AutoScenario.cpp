@@ -24,7 +24,7 @@ AutoScenario::AutoScenario(Input *input):
         rulePlageStop(NULL)
 
 {
-        Utils::logger("scenario") << Priority::INFO << "AutoScenario::AutoScenario(" << input->get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::AutoScenario(" << input->get_param("id") << "): Ok" << log4cpp::eol;
 
         scenario_id = input->get_param("auto_scenario");
         cycle = (input->get_param("cycle") == "true")?true:false;
@@ -62,7 +62,7 @@ void AutoScenario::setDisabled(bool d)
 
 void AutoScenario::deleteAll()
 {
-        Utils::logger("scenario") << Priority::INFO << "AutoScenario::delete(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::delete(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
 
         //delete rules
         if (ruleStart)
@@ -105,7 +105,7 @@ void AutoScenario::deleteAll()
 
 void AutoScenario::deleteRules()
 {
-        Utils::logger("scenario") << Priority::INFO << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
 
         //delete rules
         if (ruleStepEnd)
@@ -390,15 +390,15 @@ void AutoScenario::checkScenarioRules()
                 }
         }
 
-        Utils::logger("scenario") << Priority::DEBUG << "AutoScenario Check: " << ioScenario->get_param("id") <<
+        cDebugDom("scenario") << "AutoScenario Check: " << ioScenario->get_param("id") <<
                                      ", scenario_id: " << scenario_id <<
                                      ", " << srules.size() << " rules checked" << log4cpp::eol;
-        Utils::logger("scenario") << Priority::DEBUG << "Found " << ruleSteps.size() << " steps, " <<
+        cDebugDom("scenario") << "Found " << ruleSteps.size() << " steps, " <<
                                      ((ioPlage)?"has schedule, ":"has no schedule, ") <<
                                      ((disabled)?"schedule is disabled ":"schedule is enabled ") <<
                                      ((cycle)?"cycling":"") <<
                                      log4cpp::eol;
-        Utils::logger("scenario") << Priority::DEBUG << "Found rules (" <<
+        cDebugDom("scenario") << "Found rules (" <<
                                      "ruleStart:" << ((ruleStart)?"yes":"no") << " - " <<
                                      "ruleStop:" << ((ruleStop)?"yes":"no") << " - " <<
                                      "rulePlageStart:" << ((rulePlageStart)?"yes":"no") << " - " <<
