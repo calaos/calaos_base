@@ -64,7 +64,7 @@ void ActivityController::viewDeleted()
 {
         view = NULL;
         view_deleted.emit(this);
-        Utils::logger("root") << Priority::DEBUG << "ActivityController: view deleted" << log4cpp::eol;
+        cDebugDom("root") <<  "ActivityController: view deleted" << log4cpp::eol;
 }
 
 void ActivityController::resetView()

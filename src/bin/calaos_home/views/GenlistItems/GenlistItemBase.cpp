@@ -52,7 +52,7 @@ GenlistItemBase::~GenlistItemBase()
                 delete autodel_userdata;
         }
 
-        Utils::logger("root") << Priority::DEBUG << "GenlistItemBase: item deleted" << log4cpp::eol;
+        cDebugDom("root") <<  "GenlistItemBase: item deleted" << log4cpp::eol;
 }
 
 void GenlistItemBase::Append(Evas_Object *_genlist, GenlistItemBase *gparent)

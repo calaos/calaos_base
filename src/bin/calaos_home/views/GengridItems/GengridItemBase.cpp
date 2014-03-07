@@ -51,7 +51,7 @@ GengridItemBase::~GengridItemBase()
                 delete autodel_userdata;
         }
 
-        Utils::logger("root") << Priority::DEBUG << "GengridItemBase: item deleted" << log4cpp::eol;
+        cDebugDom("root") <<  "GengridItemBase: item deleted" << log4cpp::eol;
 }
 
 void GengridItemBase::Append(Evas_Object *_gengrid)

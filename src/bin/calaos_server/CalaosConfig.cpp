@@ -335,7 +335,7 @@ void Config::saveStateCache()
                 ecore_file_mv(tmp.c_str(), file.c_str());
         }
 
-        Utils::logger("root") << Priority::DEBUG << "Config::saveStateCache(): States cache written successfully." << log4cpp::eol;
+        cDebugDom("root") <<  "Config::saveStateCache(): States cache written successfully." << log4cpp::eol;
 }
 
 void Config::SaveValueIO(string id, string value, bool save)

@@ -26,7 +26,7 @@ void TCPConnection::HandleEventsFromSignals(string source, string emission, void
 {
         if (source != "events") return;
 
-        Utils::logger("root") << Priority::DEBUG << "TCPConnection::ListenCommand(): Sending event: " << emission << log4cpp::eol;
+        cDebugDom("root") <<  "TCPConnection::ListenCommand(): Sending event: " << emission << log4cpp::eol;
 
         emission += terminator;
 
