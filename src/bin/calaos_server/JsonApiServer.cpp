@@ -35,9 +35,9 @@ JsonApiServer::JsonApiServer(int p): port(p), tcp_server(NULL)
         event_handler_client_del = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "JsonApiServer::JsonApiServer(): Init TCP Server" << log4cpp::eol;
-        Utils::logger("network") << Priority::INFO
+        cInfoDom("network")
                         << "JsonApiServer::JsonApiServer(): Listening on port " << port << log4cpp::eol;
 }
 
@@ -50,7 +50,7 @@ JsonApiServer::~JsonApiServer()
         ecore_event_handler_del(event_handler_client_del);
         ecore_event_handler_del(event_handler_data_get);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "JsonApiServer::~JsonApiServer(): Ok" << log4cpp::eol;
 }
 
@@ -125,7 +125,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
 
 void JsonApiServer::addConnection(Ecore_Con_Client *client)
 {
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "JsonApiServer::addConnection(): Got a new connection from address "
                         << ecore_con_client_ip_get(client)
                         << log4cpp::eol;
@@ -136,7 +136,7 @@ void JsonApiServer::addConnection(Ecore_Con_Client *client)
 
 void JsonApiServer::delConnection(Ecore_Con_Client *client)
 {
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "JsonApiServer::delConnection(): Connection from adress "
                         << ecore_con_client_ip_get(client) << " closed."
                         << log4cpp::eol;
@@ -159,7 +159,7 @@ void JsonApiServer::getDataConnection(Ecore_Con_Client *client, void *data, int 
 {
         string d((char *)data, size);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "JsonApiServer::getDataConnection(): Got data from client at address "
                         << ecore_con_client_ip_get(client)
                         << log4cpp::eol;

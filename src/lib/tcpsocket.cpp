@@ -55,7 +55,7 @@ bool TCPSocket::Create()
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "socket(AF_INET, SOCK_STREAM): " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "socket(AF_INET, SOCK_STREAM): " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -67,7 +67,7 @@ bool TCPSocket::Create()
 	        if (setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &set_option,
 			       sizeof(set_option)))
 	        {
-	                Utils::logger("network") << Priority::ERROR << "setsockopt: " << strerror(errno) << log4cpp::eol;
+	                cErrorDom("network") << "setsockopt: " << strerror(errno) << log4cpp::eol;
 	                return false;
 	        }
 	}
@@ -86,7 +86,7 @@ void TCPSocket::SetReuse()
 
         r = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (int *) &reuse, sizeof(reuse));
         if (r == -1)
-                Utils::logger("network") << Priority::ERROR << "setsockopt: SO_REUSEADDR: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "setsockopt: SO_REUSEADDR: " << strerror(errno) << log4cpp::eol;
 }
 
 
@@ -102,7 +102,7 @@ bool TCPSocket::Create(char nType)
 
                 if (sockfd == -1)
                 {
-                        Utils::logger("network") << Priority::ERROR << "socket(AF_INET, SOCK_DGRAM): " << strerror(errno) << log4cpp::eol;
+                        cErrorDom("network") << "socket(AF_INET, SOCK_DGRAM): " << strerror(errno) << log4cpp::eol;
                         return false;
                 }
 
@@ -120,7 +120,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
 
         if ((Host = gethostbyname(Hostname)) == NULL)
         {
-                Utils::logger("network") << Priority::ERROR << "gethostbyname(" << Hostname << "): " << hstrerror(h_errno) << log4cpp::eol;
+                cErrorDom("network") << "gethostbyname(" << Hostname << "): " << hstrerror(h_errno) << log4cpp::eol;
                 return false;
         }
 
@@ -132,7 +132,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
 
         if (connect(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Connect(): " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Connect(): " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -148,7 +148,7 @@ int TCPSocket::Broadcast(const void *msg, int len, int bport)
         struct sockaddr_in sin;
         if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char *) &on, sizeof(on)) < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Broadcast(): setsockopt(SO_BROADCAST): " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Broadcast(): setsockopt(SO_BROADCAST): " << strerror(errno) << log4cpp::eol;
                 return -1;
         }
 
@@ -160,7 +160,7 @@ int TCPSocket::Broadcast(const void *msg, int len, int bport)
         int ret = sendto(sockfd, msg, len, MSG_NOSIGNAL, (struct sockaddr *) &sin, sizeof(sin));
         if (ret < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Broadcast(): sendto: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Broadcast(): sendto: " << strerror(errno) << log4cpp::eol;
                 return -1;
         }
 
@@ -184,7 +184,7 @@ int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
                 hostInfo = gethostbyname(host.c_str());
                 if (hostInfo == NULL)
                 {
-                        Utils::logger("network") << Priority::ERROR << "gethostbyname(" << host << "): " << hstrerror(h_errno) << log4cpp::eol;
+                        cErrorDom("network") << "gethostbyname(" << host << "): " << hstrerror(h_errno) << log4cpp::eol;
                         return -1;
                 }
                 sin.sin_family = hostInfo->h_addrtype;
@@ -194,7 +194,7 @@ int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
         int ret = sendto(sockfd, msg, len, MSG_NOSIGNAL, (struct sockaddr *) &sin, sizeof(sin));
         if (ret < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::SendTo(), sendto: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::SendTo(), sendto: " << strerror(errno) << log4cpp::eol;
                 return -1;
         }
 
@@ -208,7 +208,7 @@ int TCPSocket::SendTo(std::string msg)
         int ret = sendto(sockfd, msg.c_str(), msg.length(), MSG_NOSIGNAL, (struct sockaddr*)&from, sizeof(from));
         if (ret < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::SendTo(), sendto: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::SendTo(), sendto: " << strerror(errno) << log4cpp::eol;
                 return -1;
         }
 
@@ -243,7 +243,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
         int nb = recvfrom(sockfd, msg, msize, MSG_NOSIGNAL, (struct sockaddr *) &from, (socklen_t *) & addr_in_size);
         if (nb < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::RecvFrom(), recvfrom: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::RecvFrom(), recvfrom: " << strerror(errno) << log4cpp::eol;
                 return -1;
         }
         return nb;
@@ -340,7 +340,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
 
                 if (ret <= 0)
                 {
-                        Utils::logger("network") << Priority::ERROR << "TCPSocket::Recv(): " << strerror(errno) << log4cpp::eol;
+                        cErrorDom("network") << "TCPSocket::Recv(): " << strerror(errno) << log4cpp::eol;
                         return false;
                 }
 
@@ -365,7 +365,7 @@ bool TCPSocket::Close()
 
         if (res == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Close(), close: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Close(), close: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -411,7 +411,7 @@ bool TCPSocket::Create(int nPort)
 
         if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Create(), bind: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Create(), bind: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -429,7 +429,7 @@ bool TCPSocket::Create(int nPort, char nType)
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sockfd == -1)
                 {
-                        Utils::logger("network") << Priority::ERROR << "socket(AF_INET, SOCK_STREAM): " << strerror(errno) << log4cpp::eol;
+                        cErrorDom("network") << "socket(AF_INET, SOCK_STREAM): " << strerror(errno) << log4cpp::eol;
                         return false;
                 }
         }
@@ -438,7 +438,7 @@ bool TCPSocket::Create(int nPort, char nType)
                 sockfd = socket(AF_INET, SOCK_DGRAM, 0);
                 if (sockfd == -1)
                 {
-                        Utils::logger("network") << Priority::ERROR << "socket(AF_INET, SOCK_DGRAM): " << strerror(errno) << log4cpp::eol;
+                        cErrorDom("network") << "socket(AF_INET, SOCK_DGRAM): " << strerror(errno) << log4cpp::eol;
                         return false;
                 }
         }
@@ -453,7 +453,7 @@ bool TCPSocket::Create(int nPort, char nType)
 
         if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Create(), bind: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Create(), bind: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -468,7 +468,7 @@ bool TCPSocket::Listen()
 
         if (listen(sockfd, 5) == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Listen(), listen: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Listen(), listen: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -501,7 +501,7 @@ bool TCPSocket::Accept(int fdpipe)
 
         if ((newfd = accept(sockfd, (struct sockaddr *) &RemoteAddress, (socklen_t *)&sin_size)) == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Accept(), accept: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Accept(), accept: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
         return true;
@@ -532,7 +532,7 @@ bool TCPSocket::Shutdown()
 
         if (res == -1)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::Shutdown(), shutdown: " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::Shutdown(), shutdown: " << strerror(errno) << log4cpp::eol;
                 return false;
         }
 
@@ -547,7 +547,7 @@ std::string TCPSocket::GetLocalIP(std::string intf)
         int skfd = socket(AF_INET, SOCK_DGRAM, 0);
         if (skfd < 0)
         {
-                Utils::logger("network") << Priority::ERROR << "TCPSocket::GetLocalIP(): can't open socket! " << strerror(errno) << log4cpp::eol;
+                cErrorDom("network") << "TCPSocket::GetLocalIP(): can't open socket! " << strerror(errno) << log4cpp::eol;
                 return "";
         }
 
@@ -607,12 +607,12 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
         int result = inet_pton(AF_INET, ip_search.c_str(), &(sa.sin_addr));
         if (result == 0) //not an ip address
         {
-                Utils::logger("network") << Priority::INFO << ip_search << " is not a valid ip address" << log4cpp::eol;
+                cInfoDom("network") << ip_search << " is not a valid ip address" << log4cpp::eol;
                 //Get the first interface ip address
                 if (intf.size() > 0)
                 {
                         ip = TCPSocket::GetLocalIP(intf[0]);
-                        Utils::logger("network") << Priority::INFO << "Using local ip address: " << ip << log4cpp::eol;
+                        cInfoDom("network") << "Using local ip address: " << ip << log4cpp::eol;
                         return ip;
                 }
 
@@ -633,7 +633,7 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
                         found_ip = true;
         }
 
-        Utils::logger("network") << Priority::INFO << "Using local ip address: " << ip << log4cpp::eol;
+        cInfoDom("network") << "Using local ip address: " << ip << log4cpp::eol;
 
         if (found_ip)
                 return ip;
@@ -651,7 +651,7 @@ bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
         sock = socket(AF_INET, SOCK_DGRAM, 0);
         if (sock < 0)
         {
-                Utils::logger("network") << Priority::ERROR <<
+                cErrorDom("network") <<
                                 "TCPSocket::GetMacAddr(): can't open socket! "
                                 << strerror(errno)
                                 << log4cpp::eol;

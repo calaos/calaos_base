@@ -35,9 +35,9 @@ TCPServer::TCPServer(int p): port(p), tcp_server(NULL)
         event_handler_client_del = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPServer::TCPServer(): Init TCP Server" << log4cpp::eol;
-        Utils::logger("network") << Priority::INFO
+        cInfoDom("network")
                         << "TCPServer::TCPServer(): Listening on port " << port << log4cpp::eol;
 }
 
@@ -50,7 +50,7 @@ TCPServer::~TCPServer()
         ecore_event_handler_del(event_handler_client_del);
         ecore_event_handler_del(event_handler_data_get);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPServer::~TCPServer(): Ok" << log4cpp::eol;
 }
 
@@ -125,7 +125,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
 
 void TCPServer::addConnection(Ecore_Con_Client *client)
 {
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPServer::addConnection(): Got a new connection from address "
                         << ecore_con_client_ip_get(client)
                         << log4cpp::eol;
@@ -136,7 +136,7 @@ void TCPServer::addConnection(Ecore_Con_Client *client)
 
 void TCPServer::delConnection(Ecore_Con_Client *client)
 {
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPServer::delConnection(): Connection from adress "
                         << ecore_con_client_ip_get(client) << " closed."
                         << log4cpp::eol;
@@ -159,7 +159,7 @@ void TCPServer::getDataConnection(Ecore_Con_Client *client, void *data, int size
 {
         string d((char *)data, size);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPServer::getDataConnection(): Got data from client at address "
                         << ecore_con_client_ip_get(client)
                         << log4cpp::eol;

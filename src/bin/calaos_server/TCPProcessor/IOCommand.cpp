@@ -512,7 +512,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                                 }
                                 catch(...)
                                 {
-                                        Utils::logger("network") << Priority::ERROR << "TCPConnection::IOCommand(InPlageHoraire): wrong parameters for months: " << m << log4cpp::eol;
+                                        cErrorDom("network") << "TCPConnection::IOCommand(InPlageHoraire): wrong parameters for months: " << m << log4cpp::eol;
 
                                         result.Add("5", "error");
                                 }

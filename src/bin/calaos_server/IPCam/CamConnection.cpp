@@ -51,20 +51,20 @@ void CamConnection::ProcessRequest(string &request)
 
         if (list.size() < 3)
         {
-                Utils::logger("network") << Priority::ERROR << "CamConnection::ProcessRequest(): request too small." << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): request too small." << log4cpp::eol;
                 return;
         }
 
         if (list[0] != "GET")
         {
-                Utils::logger("network") << Priority::ERROR << "CamConnection::ProcessRequest(): Only GET request supported!" << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Only GET request supported!" << log4cpp::eol;
                 return;
         }
 
         if (list[1].find ("/GetCamera.cgi?id=", 0) == request.npos &&
             list[1].find ("/GetPicture.cgi?id=", 0) == request.npos)
         {
-                Utils::logger("network") << Priority::ERROR << "CamConnection::ProcessRequest(): Wrong request! : " << list[1] << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong request! : " << list[1] << log4cpp::eol;
                 return;
         }
 
@@ -81,7 +81,7 @@ void CamConnection::ProcessRequest(string &request)
 
         if (_camid == "" || camid < 0 || camid > CamManager::Instance().get_size() - 1)
         {
-                Utils::logger("network") << Priority::ERROR << "CamConnection::ProcessRequest(): Wrong id!" << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong id!" << log4cpp::eol;
                 return;
         }
 

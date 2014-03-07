@@ -35,7 +35,7 @@ UDPServer::UDPServer(int p):
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
 
         cDebugDom("network") << "Starting UDP server..." << log4cpp::eol;
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "UDPServer::UDPServer(): Listenning on port " << port << log4cpp::eol;
 }
 
@@ -58,7 +58,7 @@ UDPServer::~UDPServer()
 
         ecore_event_handler_del(event_handler_data_get);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "UDPServer::~UDPServer(): Ok" << log4cpp::eol;
 }
 
@@ -91,12 +91,12 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 {
         if (request == "CALAOS_DISCOVER")
         {
-                Utils::logger("network") << Priority::DEBUG
+                cDebugDom("network")
                                 << "UDPServer: Got a CALAOS_DISCOVER" << log4cpp::eol;
 
                 string remote_ip = ecore_con_client_ip_get(client);
 
-                Utils::logger("network") << Priority::DEBUG
+                cDebugDom("network")
                                 << "UDPServer: Remote IP: " << remote_ip << log4cpp::eol;
 
                 string ip = TCPSocket::GetLocalIPFor(remote_ip);
@@ -139,12 +139,12 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
                         ecore_con_client_send(client, packet.c_str(), packet.length() + 1);
 
-                        Utils::logger("network") << Priority::DEBUG
+                        cDebugDom("network")
                                         << "UDPServer: Sending answer: " << packet << log4cpp::eol;
                 }
                 else
                 {
-                        Utils::logger("network") << Priority::ERROR
+                        cErrorDom("network")
                                         << "UDPServer: No interface found corresponding to network : "
                                         << remote_ip << log4cpp::eol;
                 }
@@ -158,7 +158,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                 bool val;
                 from_string(p["3"], val);
 
-                Utils::logger("network") << Priority::INFO
+                cInfoDom("network")
                                          << "UDPServer: received input " << Utils::to_string(input)
                                          << " state=" << Utils::to_string(val) << log4cpp::eol;
 
@@ -174,7 +174,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                 bool val;
                 from_string(p["3"], val);
 
-                Utils::logger("network") << Priority::INFO
+                cInfoDom("network")
                                          << "UDPServer: received input " << Utils::to_string(input)
                                          << " state=" << Utils::to_string(val) << log4cpp::eol;
 

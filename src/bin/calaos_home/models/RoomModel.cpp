@@ -1486,7 +1486,7 @@ void IOBase::loadPlage()
 
         if (params["gui_type"] != "time_range")
         {
-                Utils::logger("network") << Priority::ERROR << "IOBase:loadPlage(): " << params["id"]
+                cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
                                          << " is not of type time_range, but " << params["gui_type"]
                                          << " instead." << log4cpp::eol;
                 return;
@@ -1535,7 +1535,7 @@ void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
                 case 6: range_infos.range_saturday.push_back(tr); break;
                 case 7: range_infos.range_sunday.push_back(tr); break;
                 default:
-                        Utils::logger("network") << Priority::ERROR << "IOBase:loadPlage(): " << params["id"]
+                        cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
                                                  << " unknown range day. Debug infos: " << result[i] << log4cpp::eol;
                         break;
                 }
@@ -1552,7 +1552,7 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
 
         if (result.size() < 5)
         {
-                Utils::logger("network") << Priority::ERROR << "IOBase:loadPlage(): " << params["id"]
+                cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
                                          << "error reading months!" << log4cpp::eol;
                 io_changed.emit(); //io has changed
 
@@ -1570,7 +1570,7 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
         }
         catch(...)
         {
-                Utils::logger("network") << Priority::ERROR << "IOBase:loadPlage(): " << params["id"]
+                cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
                                          << " wrong parameters for months: " << m << log4cpp::eol;
         }
 

@@ -65,7 +65,7 @@ void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
                 {
                         CloseConnection();
 
-                        Utils::logger("network") << Priority::WARN
+                        cWarningDom("network")
                                         << "TCPConnection: Wrong username/password got (" << request["1"]
                                 << "/" << request["2"] << ")" << log4cpp::eol;
                 }
@@ -146,7 +146,7 @@ void TCPConnection::ProcessData(string request)
         terminator = request.substr(i + 1, request.length() - i + 1);
         request.erase(i + 1, request.length() - i + 1);
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPConnection::ProcessData(): New request: \"" << request << "\"" << log4cpp::eol;
 
         Params p;
@@ -165,7 +165,7 @@ void TCPConnection::ProcessData(string request)
         }
         else if (p["0"] == "listen")
         {
-                Utils::logger("network") << Priority::DEBUG
+                cDebugDom("network")
                                 << "TCPConnection::ProcessData(): Entering listen mode for client " << ecore_con_client_ip_get(client_conn) << log4cpp::eol;
 
                 listen_mode = true;
@@ -193,7 +193,7 @@ void TCPConnection::ProcessingDataDone(Params &response)
                         res += " ";
         }
 
-        Utils::logger("network") << Priority::DEBUG
+        cDebugDom("network")
                         << "TCPConnection::ProcessData(): We send: \"" << res << "\"" << log4cpp::eol;
         res += terminator;
 
