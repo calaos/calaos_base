@@ -401,31 +401,6 @@ void Utils::InitEinaLog(const char *d)
         logger_hash[default_domain] = new EinaLog(default_domain);
 }
 
-void Utils::InitLoggingSystem(std::string conf)
-{
-        try
-        {
-                log4cpp::PropertyConfigurator::configure(conf);
-        }
-        catch (log4cpp::ConfigureFailure& f)
-        {
-                std::ostringstream output;
-                output << f.what();
-                syslog(LOG_ERR, "Failed to parse log4cpp configuration file %s", output.str().c_str());
-                cerr << "Failed to parse log4cpp configuration file: " << f.what() << endl;
-        }
-}
-
-log4cpp::Category &Utils::logger(std::string category)
-{
-        if (category == "root")
-                return log4cpp::Category::getRoot();
-        else
-                return log4cpp::Category::getInstance(category);
-
-        return log4cpp::Category::getRoot();
-}
-
 static string _configBase;
 static string _cacheBase;
 

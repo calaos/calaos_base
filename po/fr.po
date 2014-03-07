@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-03-05 22:13+0900\n"
+"POT-Creation-Date: 2014-03-07 14:24+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -175,14 +175,14 @@ msgstr ""
 "exhaustive des partenaires Calaos</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
 msgid "About"
 msgstr "A propos"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:37
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:38
 msgid ""
@@ -238,11 +238,11 @@ msgstr "Heure et Dates"
 msgid "Screen saver"
 msgstr "Mise en veille de l'écran : "
 
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:34
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:33
 msgid "Action and positions of widgets"
 msgstr "Actions et positions des widgets"
 
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:34
 msgid ""
 "Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
 "and Time !</small"
@@ -757,7 +757,7 @@ msgstr "Déplacez et configurez vos widgets sur le bureau."
 msgid "Please wait during the reboot."
 msgstr "Veuillez patienter pendant la procédure de redémarrage."
 
-#: src/bin/calaos_home/views/Widget.cpp:206
+#: src/bin/calaos_home/views/Widget.cpp:205
 msgid ""
 "Confirmation<br><small><light_blue>Are you sure to want delete this widget?</"
 "light_blue></small>"
@@ -765,7 +765,7 @@ msgstr ""
 "Confirmation<br><small><light_blue>Êtes-vous sûr de vouloir supprimer cette "
 "étape?</light_blue></small>"
 
-#: src/bin/calaos_home/views/Widget.cpp:210
+#: src/bin/calaos_home/views/Widget.cpp:209
 msgid "Yes, del this widget"
 msgstr "Oui, supprimer ce widget"
 

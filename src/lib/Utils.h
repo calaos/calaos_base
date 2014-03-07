@@ -69,17 +69,6 @@
 
 using namespace efl::eina::log;
 
-#include <log4cpp/Category.hh>
-#include <log4cpp/Appender.hh>
-#include <log4cpp/OstreamAppender.hh>
-#include <log4cpp/FileAppender.hh>
-#include <log4cpp/Layout.hh>
-#include <log4cpp/BasicLayout.hh>
-#include <log4cpp/Priority.hh>
-#include <log4cpp/NDC.hh>
-#include <log4cpp/PatternLayout.hh>
-#include <log4cpp/PropertyConfigurator.hh>
-
 #ifdef EAPI
 # undef EAPI
 #endif /* ifdef EAPI */
@@ -119,7 +108,6 @@ using namespace std;
 typedef unsigned int uint;
 #endif
 
-using namespace log4cpp;
 //-----------------------------------------------------------------------------
 // Some common defines
 //-----------------------------------------------------------------------------
@@ -200,11 +188,6 @@ namespace Utils
 {
         void InitEinaLog(const char *default_domain);
         EinaLog *einaLogger(const char *domain = nullptr);
-
-        //--- to be removed when everything has been switched to einalog
-        void InitLoggingSystem(std::string conf);
-        log4cpp::Category &logger(std::string category);
-        //------
 
         bool file_copy(std::string source, std::string dest);
 
@@ -320,7 +303,7 @@ namespace Utils
                 virtual ~DeletorBase() {}
                 virtual void operator() (void *b) const
                 {
-                        logger("root") << Priority::CRIT << "DeletorBase() called, this is an error. It should never happen"
+		  cCritical() << "DeletorBase() called, this is an error. It should never happen"
                                        << ", because it means the application leaks memory!";
                 }
         };

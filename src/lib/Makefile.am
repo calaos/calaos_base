@@ -51,7 +51,6 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptManager.h		\
 	LuaScript/ScriptBindings.h		\
 	LuaScript/Lunar.h			\
-	FakeLogging.h				\
 	FileDownloader.h			\
 	CThread.h				\
 	NTPClock.h				\

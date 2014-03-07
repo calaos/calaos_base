@@ -46,6 +46,8 @@ int main (int argc, char **argv)
         string confTo, confFrom, confSubject, confBody;
         list<string> confAttach;
         bool verbose = false, del = false;
+	
+	Utils::InitEinaLog("calaos_mail");
 
         char *argconf = argvOptionParam(argv, argv + argc, "--from");
         if (!argconf) EXIT_USAGE;
@@ -75,23 +77,6 @@ int main (int argc, char **argv)
                 del = true;
 
         Utils::initConfigOptions(nullptr, nullptr, true);
-
-        //TODO: remove log4cpp and use our own logging system here...
-        if (!Utils::fileExists(Utils::getConfigFile("calaos_console_log.conf")))
-        {
-                //create a default config if it does not exist
-                std::ofstream conf(Utils::getConfigFile("calaos_console_log.conf").c_str(), std::ofstream::out);
-                conf << "log4j.rootCategory=INFO, Console" << std::endl;
-                conf << "log4j.appender.Console=org.apache.log4j.ConsoleAppender" << std::endl;
-                conf << "log4j.appender.Console.layout=org.apache.log4j.PatternLayout" << std::endl;
-                conf << "log4j.appender.Console.layout.ConversionPattern=%p %c : %m%n" << std::endl;
-                conf << "log4j.appender.Syslog=org.apache.log4j.LocalSyslogAppender" << std::endl;
-                conf << "log4j.appender.Syslog.syslogName=calaos_server" << std::endl;
-                conf << "log4j.appender.Syslog.facility=0" << std::endl;
-                conf << "log4j.appender.Syslog.layout=org.apache.log4j.SimpleLayout" << std::endl;
-                conf.close();
-        }
-        Utils::InitLoggingSystem(Utils::getConfigFile("calaos_console_log.conf"));
 
         quickmail_initialize();
 
