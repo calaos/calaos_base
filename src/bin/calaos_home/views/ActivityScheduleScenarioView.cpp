@@ -684,6 +684,18 @@ void ActivityScheduleScenarioView::itemPeriodSelected(void *data, GenlistItemSim
 
 void ActivityScheduleScenarioView::reloadTimeRanges()
 {
+    int scount = range_infos.range_monday.size() +
+                 range_infos.range_tuesday.size() +
+                 range_infos.range_wednesday.size() +
+                 range_infos.range_thursday.size() +
+                 range_infos.range_friday.size() +
+                 range_infos.range_saturday.size() +
+                 range_infos.range_sunday.size();
+
+    while (scount > 0)
+    {
+        //Load shedule items
+    }
 /*
     //------------TEST schedule list
     for (int i = 0;i < 5;i++)
