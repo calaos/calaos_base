@@ -36,14 +36,14 @@ OutputLightDimmer::OutputLightDimmer(Params &_p):
 
         if (!get_params().Exists("visible")) set_param("visible", "true");
 
-        Utils::logger("output") << Priority::INFO << "OutputLightDimmer::OutputLightDimmer(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputLightDimmer::OutputLightDimmer(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 OutputLightDimmer::~OutputLightDimmer()
 {
         DELETE_NULL(hold_timer);
         DELETE_NULL(impulseTimer);
-        Utils::logger("output") << Priority::INFO << "OutputLightDimmer::OutputLightDimmer(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputLightDimmer::OutputLightDimmer(): Ok" << log4cpp::eol;
 }
 
 /* List of actions where value is in percent
@@ -62,7 +62,7 @@ bool OutputLightDimmer::set_value(std::string val)
 {
         bool ret = true;
 
-        Utils::logger("output") << Priority::INFO << "OutputLightDimmer(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "OutputLightDimmer(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         if (val == "on" || val == "true")
         {
@@ -287,7 +287,7 @@ void OutputLightDimmer::HoldPress_cb()
 
 void OutputLightDimmer::impulse(int _time)
 {
-        Utils::logger("output") << Priority::INFO << "OutputLightDimmer(" << get_param("id")
+        cInfoDom("output") << "OutputLightDimmer(" << get_param("id")
                         << "): got impulse action, staying true for "
                         << _time << "ms" << log4cpp::eol;
 
@@ -318,7 +318,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
         DELETE_NULL(impulseTimer);
         blinks.clear();
 
-        Utils::logger("output") << Priority::INFO << "OutputLightDimmer(" << get_param("id")
+        cInfoDom("output") << "OutputLightDimmer(" << get_param("id")
                         << "): got extended impulse action, parsing blinking pattern..." << log4cpp::eol;
 
         //Parse the string
@@ -341,7 +341,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
 
                         blinks.push_back(binfo);
 
-                        Utils::logger("output") << Priority::DEBUG << "OutputLightDimmer(" << get_param("id")
+                        cDebugDom("output") << "OutputLightDimmer(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
                                                 << " for " << binfo.duration << "ms" << log4cpp::eol;
 
@@ -352,7 +352,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
                         //set loop mode to the next item
                         loop = blinks.size();
 
-                        Utils::logger("output") << Priority::DEBUG << "OutputLightDimmer("
+                        cDebugDom("output") << "OutputLightDimmer("
                                                 << get_param("id") << ")::Parse : Loop all next steps." << log4cpp::eol;
                 }
                 else if (tokens[i] == "old")
@@ -364,7 +364,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
 
                         blinks.push_back(binfo);
 
-                        Utils::logger("output") << Priority::DEBUG << "OutputLightDimmer(" << get_param("id")
+                        cDebugDom("output") << "OutputLightDimmer(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
                                                 << log4cpp::eol;
                 }

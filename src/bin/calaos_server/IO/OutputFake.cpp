@@ -27,21 +27,21 @@ OutputFake::OutputFake(Params &p):
                 Output(p),
                 value(false)
 {
-        Utils::logger("output") << Priority::INFO << "OutputFake::OutputFake(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputFake::OutputFake(" << get_param("id") << "): Ok" << log4cpp::eol;
 
         set_param("visible", "false");
 }
 
 OutputFake::~OutputFake()
 {
-        Utils::logger("output") << Priority::INFO << "OutputFake::~OutputFake(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputFake::~OutputFake(): Ok" << log4cpp::eol;
 }
 
 bool OutputFake::set_value(bool val)
 {
         value = val;
 
-        Utils::logger("output") << Priority::INFO << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False") << log4cpp::eol;
+        cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False") << log4cpp::eol;
 
         string sig = "output ";
         sig += get_param("id") + " ";

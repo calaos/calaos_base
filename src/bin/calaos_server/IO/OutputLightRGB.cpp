@@ -32,12 +32,12 @@ OutputLightRGB::OutputLightRGB(Params &_p):
         set_param("gui_type", "light_rgb");
         if (!get_params().Exists("visible")) set_param("visible", "true");
 
-        Utils::logger("output") << Priority::INFO << "OutputLightRGB::OutputLightRGB(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputLightRGB::OutputLightRGB(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 OutputLightRGB::~OutputLightRGB()
 {
-        Utils::logger("output") << Priority::INFO << "OutputLightRGB::~OutputLightRGB(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputLightRGB::~OutputLightRGB(): Ok" << log4cpp::eol;
 }
 
 /* List of actions where value is in percent
@@ -50,7 +50,7 @@ bool OutputLightRGB::set_value(std::string val)
 {
         bool ret = true;
 
-        Utils::logger("output") << Priority::INFO << "OutputLightRGB(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "OutputLightRGB(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         if (val == "on" || val == "true")
         {

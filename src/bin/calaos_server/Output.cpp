@@ -40,7 +40,7 @@ Output::~Output()
 
 void Output::EmitSignalOutput()
 {
-        Utils::logger("output") << Priority::DEBUG << "Input::EmitSignalOutput(" << get_param("id") << ")" << log4cpp::eol;
+        cDebugDom("output") << "Input::EmitSignalOutput(" << get_param("id") << ")" << log4cpp::eol;
         signal_output.emit(get_param("id"));
 	DataLogger::Instance().log(this);
 }

@@ -31,7 +31,7 @@ Internal::Internal(Params &p):
                 dvalue(0.0),
                 svalue("")
 {
-        Utils::logger("output") << Priority::INFO << "Internal::Internal(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "Internal::Internal(" << get_param("id") << "): Ok" << log4cpp::eol;
 
         if (!Input::get_params().Exists("visible")) Input::set_param("visible", "false");
         if (!Input::get_params().Exists("rw")) Input::set_param("rw", "false");
@@ -45,7 +45,7 @@ Internal::Internal(Params &p):
 
 Internal::~Internal()
 {
-        Utils::logger("output") << Priority::INFO << "Internal::~Internal(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "Internal::~Internal(): Ok" << log4cpp::eol;
 }
 
 void Internal::force_input_bool(bool v)
@@ -68,7 +68,7 @@ void Internal::force_input_bool(bool v)
 
 bool Internal::set_value(bool val)
 {
-        Utils::logger("output") << Priority::INFO << "InternalBool(" << get_param("id") << "): got action, " << ((val)?"True":"False") << log4cpp::eol;
+        cInfoDom("output") << "InternalBool(" << get_param("id") << "): got action, " << ((val)?"True":"False") << log4cpp::eol;
 
         force_input_bool(val);
 
@@ -98,7 +98,7 @@ void Internal::force_input_double(double v)
 
 bool Internal::set_value(double val)
 {
-        Utils::logger("output") << Priority::INFO << "InternalInt(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "InternalInt(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         force_input_double(val);
 
@@ -168,7 +168,7 @@ bool Internal::set_value(string val)
         }
         else if (get_type() == TSTRING)
         {
-                Utils::logger("output") << Priority::INFO << "InternalString(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+                cInfoDom("output") << "InternalString(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
                 force_input_string(val);
 
@@ -189,7 +189,7 @@ bool Internal::set_value(string val)
                                 int t;
                                 Utils::from_string(tmp, t);
 
-                                Utils::logger("output") << Priority::INFO << "InternalBool(" << get_param("id")
+                                cInfoDom("output") << "InternalBool(" << get_param("id")
                                                 << "): got impulse action, staying true for "
                                                 << t << "ms" << log4cpp::eol;
 
@@ -230,7 +230,7 @@ void Internal::impulse_extended(string pattern)
         DELETE_NULL(timer);
         blinks.clear();
 
-        Utils::logger("output") << Priority::INFO << "InternalBool(" << get_param("id")
+        cInfoDom("output") << "InternalBool(" << get_param("id")
                         << "): got extended impulse action, parsing blinking pattern..." << log4cpp::eol;
 
         //Parse the string
@@ -253,7 +253,7 @@ void Internal::impulse_extended(string pattern)
 
                         blinks.push_back(binfo);
 
-                        Utils::logger("output") << Priority::DEBUG << "InternalBool(" << get_param("id")
+                        cDebugDom("output") << "InternalBool(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
                                                 << " for " << binfo.duration << "ms" << log4cpp::eol;
 
@@ -264,7 +264,7 @@ void Internal::impulse_extended(string pattern)
                         //set loop mode to the next item
                         loop = blinks.size();
 
-                        Utils::logger("output") << Priority::DEBUG << "InternalBool("
+                        cDebugDom("output") << "InternalBool("
                                                 << get_param("id") << ")::Parse : Loop all next steps." << log4cpp::eol;
                 }
                 else if (tokens[i] == "old")
@@ -276,7 +276,7 @@ void Internal::impulse_extended(string pattern)
 
                         blinks.push_back(binfo);
 
-                        Utils::logger("output") << Priority::DEBUG << "InternalBool(" << get_param("id")
+                        cDebugDom("output") << "InternalBool(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
                                                 << log4cpp::eol;
                 }

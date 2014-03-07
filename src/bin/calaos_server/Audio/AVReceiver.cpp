@@ -37,7 +37,7 @@ static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Ad
         if (o)
                 o->addConnection(ev->server);
         else
-                Utils::logger("output") << Priority::CRIT
+                cCriticalDom("output")
                                 << "AVReceiver(): _con_server_add, failed to get object !"
                                 << log4cpp::eol;
 
@@ -54,7 +54,7 @@ static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_De
         if (o)
                 o->delConnection(ev->server);
         else
-                Utils::logger("output") << Priority::CRIT
+                cCriticalDom("output")
                                 << "AVReceiver(): _con_server_del, failed to get object !"
                                 << log4cpp::eol;
 
@@ -71,7 +71,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
         if (o)
                 o->dataGet(ev->server, ev->data, ev->size);
         else
-                Utils::logger("output") << Priority::CRIT
+                cCriticalDom("output")
                                 << "AVReceiver(): _con_server_data, failed to get object !"
                                 << log4cpp::eol;
 
@@ -95,7 +95,7 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
         source_zone3(0),
         connection_type(_connection_type)
 {
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver::AVReceiver(" << params["id"] << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver::AVReceiver(" << params["id"] << "): Ok" << log4cpp::eol;
 
         if (!params.Exists("visible")) params.Add("visible", "false");
 
@@ -121,18 +121,18 @@ AVReceiver::~AVReceiver()
         DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
         DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver::~AVReceiver(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver::~AVReceiver(): Ok" << log4cpp::eol;
 }
 
 void AVReceiver::timerConnReconnect()
 {
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver:timerConnReconnect() Connecting to " << host << ":" << port << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver:timerConnReconnect() Connecting to " << host << ":" << port << log4cpp::eol;
 
         DELETE_NULL_FUNC(ecore_con_server_del, econ);
         econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port, this);
         ecore_con_server_data_set(econ, this);
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver:timerConnReconnect(): econ == " << econ << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver:timerConnReconnect(): econ == " << econ << log4cpp::eol;
 }
 
 void AVReceiver::addConnection(Ecore_Con_Server *srv)
@@ -144,7 +144,7 @@ void AVReceiver::addConnection(Ecore_Con_Server *srv)
 
         connectionEstablished();
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver: main connection established" << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver: main connection established" << log4cpp::eol;
 }
 
 void AVReceiver::delConnection(Ecore_Con_Server *srv)
@@ -153,8 +153,8 @@ void AVReceiver::delConnection(Ecore_Con_Server *srv)
 
         DELETE_NULL(timer_con);
 
-        Utils::logger("output") << Priority::WARN << "AVReceiver: Main Connection closed !" << log4cpp::eol;
-        Utils::logger("output") << Priority::WARN << "AVReceiver: Trying to reconnect..." << log4cpp::eol;
+        cWarningDom("output") << "AVReceiver: Main Connection closed !" << log4cpp::eol;
+        cWarningDom("output") << "AVReceiver: Trying to reconnect..." << log4cpp::eol;
 
         timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 
@@ -190,7 +190,7 @@ void AVReceiver::dataGet(string msg)
                 //We have not a complete paquet yet, buffurize it.
                 recv_buffer += msg;
 
-                Utils::logger("output") << Priority::DEBUG << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
+                cDebugDom("output") << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
 
                 return;
         }
@@ -209,7 +209,7 @@ void AVReceiver::dataGet(string msg)
         vector<string> tokens;
         split(msg, tokens, "\n");
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver:getData() Got " << tokens.size() << " messages." << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver:getData() Got " << tokens.size() << " messages." << log4cpp::eol;
 
         for(uint i = 0; i < tokens.size(); i++)
                 processMessage(tokens[i]);
@@ -217,19 +217,19 @@ void AVReceiver::dataGet(string msg)
 
 void AVReceiver::processMessage(string msg)
 {
-        Utils::logger("output") << Priority::WARN << "AVReceiver:processMessage(): Should be inherited !" << log4cpp::eol;
+        cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !" << log4cpp::eol;
 }
 
 void AVReceiver::processMessage(vector<char> msg)
 {
-        Utils::logger("output") << Priority::WARN << "AVReceiver:processMessage(): Should be inherited !" << log4cpp::eol;
+        cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !" << log4cpp::eol;
 }
 
 void AVReceiver::sendRequest(string request)
 {
         if (!econ || !isConnected) return;
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver::sendRequest() Command: " << request << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver::sendRequest() Command: " << request << log4cpp::eol;
 
         request += command_suffix;
 
@@ -240,7 +240,7 @@ void AVReceiver::sendRequest(vector<char> request)
 {
         if (!econ || !isConnected) return;
 
-        Utils::logger("output") << Priority::DEBUG << "AVReceiver::sendRequest(), " << request.size() << " bytes" << log4cpp::eol;
+        cDebugDom("output") << "AVReceiver::sendRequest(), " << request.size() << " bytes" << log4cpp::eol;
 
         ecore_con_server_send(econ, &request[0], request.size());
 }
@@ -369,7 +369,7 @@ void IOAVReceiver::force_input_string(string val)
 
 bool IOAVReceiver::set_value(string val)
 {
-        Utils::logger("output") << Priority::INFO << "IOAVReceiver(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "IOAVReceiver(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         force_input_string(val);
 

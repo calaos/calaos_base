@@ -30,17 +30,17 @@ CamOutput::CamOutput(Params &p, IPCam *_cam):
 {
         get_params().Add("gui_type", "camera_output");
         get_params().Add("visible", "false");
-        Utils::logger("output") << Priority::INFO << "CamOutput::CamOutput(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "CamOutput::CamOutput(): Ok" << log4cpp::eol;
 }
 
 CamOutput::~CamOutput()
 {
-        Utils::logger("output") << Priority::INFO << "CamOutput::~CamOutput(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "CamOutput::~CamOutput(): Ok" << log4cpp::eol;
 }
 
 bool CamOutput::set_value(std::string val)
 {
-        Utils::logger("output") << Priority::INFO << "CamOutput(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         if (val == "mpeg_stream?")
         {

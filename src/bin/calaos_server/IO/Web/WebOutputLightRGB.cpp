@@ -30,11 +30,11 @@ WebOutputLightRGB::WebOutputLightRGB(Params &_p):
         Calaos::StartReadRules::Instance().addIO();
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::DEBUG << "WebOutputLightRGB::WebOutputLightRGB(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WebOutputLightRGB::WebOutputLightRGB(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WebOutputLightRGB::~WebOutputLightRGB()
 {
-        Utils::logger("output") << Priority::DEBUG << "WebOutputLightRGB::~WebOutputLightRGB(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WebOutputLightRGB::~WebOutputLightRGB(): Ok" << log4cpp::eol;
 }
 

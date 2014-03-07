@@ -52,12 +52,12 @@ bool InputTimer::set_value(string command)
 
         if (command == "true")
         {
-                Utils::logger("output") << Priority::INFO << "InputTimer(" << get_param("id") << "): got action, Start Timer" << log4cpp::eol;
+                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer" << log4cpp::eol;
                 StartTimer();
         }
         else if(command == "false")
         {
-                Utils::logger("output") << Priority::INFO << "InputTimer(" << get_param("id") << "): got action, Stop Timer" << log4cpp::eol;
+                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer" << log4cpp::eol;
                 StopTimer();
         }
         else
@@ -89,7 +89,7 @@ bool InputTimer::set_value(string command)
                                 i++;
                         }
                         else
-                                Utils::logger("output") << Priority::WARN <<
+                                cWarningDom("output") <<
                                         "InputTimer: Invalid time value: " <<j<< log4cpp::eol;
                 }
 

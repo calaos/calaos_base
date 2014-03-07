@@ -31,7 +31,7 @@ Scenario::Scenario(Params &p):
                 value(false),
                 auto_scenario(NULL)
 {
-        Utils::logger("output") << Priority::INFO << "Scenario::Scenario(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok" << log4cpp::eol;
 
         set_param("gui_type", "scenario");
 
@@ -48,7 +48,7 @@ Scenario::~Scenario()
 {
         DELETE_NULL(auto_scenario);
 
-        Utils::logger("output") << Priority::INFO << "Scenario::~Scenario(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "Scenario::~Scenario(): Ok" << log4cpp::eol;
 }
 
 void Scenario::force_input_bool(bool v)

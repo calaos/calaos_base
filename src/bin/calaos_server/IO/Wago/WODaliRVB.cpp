@@ -44,19 +44,19 @@ WODaliRVB::WODaliRVB(Params &_p):
         Calaos::StartReadRules::Instance().addIO();
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::DEBUG << "WODaliRVB::WODaliRVB(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODaliRVB::WODaliRVB(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WODaliRVB::~WODaliRVB()
 {
-        Utils::logger("output") << Priority::DEBUG << "WODaliRVB::~WODaliRVB(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODaliRVB::~WODaliRVB(): Ok" << log4cpp::eol;
 }
 
 void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::INFO << "WODaliRVB::WagoUdpCommandRed(): Error with request " << command << log4cpp::eol;
+                cInfoDom("output") << "WODaliRVB::WagoUdpCommandRed(): Error with request " << command << log4cpp::eol;
                 Calaos::StartReadRules::Instance().ioRead();
 
                 return;
@@ -81,7 +81,7 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::INFO << "WODaliRVB::WagoUdpCommandGreen(): Error with request " << command << log4cpp::eol;
+                cInfoDom("output") << "WODaliRVB::WagoUdpCommandGreen(): Error with request " << command << log4cpp::eol;
                 Calaos::StartReadRules::Instance().ioRead();
 
                 return;
@@ -106,7 +106,7 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::INFO << "WODaliRVB::WagoUdpCommandBlue(): Error with request " << command << log4cpp::eol;
+                cInfoDom("output") << "WODaliRVB::WagoUdpCommandBlue(): Error with request " << command << log4cpp::eol;
                 Calaos::StartReadRules::Instance().ioRead();
 
                 return;
@@ -131,7 +131,7 @@ void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::INFO << "WODaliRVB::WagoUdpCommand(): Error with request " << command << log4cpp::eol;
+                cInfoDom("output") << "WODaliRVB::WagoUdpCommand(): Error with request " << command << log4cpp::eol;
 
                 return;
         }

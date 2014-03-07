@@ -37,7 +37,7 @@ OutputShutter::OutputShutter(Params &p):
 
         if (!get_params().Exists("visible")) set_param("visible", "true");
 
-        Utils::logger("output") << Priority::INFO << "OutputShutter::OutputShutter(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputShutter::OutputShutter(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 OutputShutter::~OutputShutter()
@@ -47,12 +47,12 @@ OutputShutter::~OutputShutter()
         if (timer_up) delete timer_up;
         if (timer_down) delete timer_down;
 
-        Utils::logger("output") << Priority::INFO << "OutputShutter::~OutputShutter(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputShutter::~OutputShutter(): Ok" << log4cpp::eol;
 }
 
 bool OutputShutter::set_value(std::string val)
 {
-        Utils::logger("output") << Priority::INFO << "OutputShutter(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "OutputShutter(" << get_param("id") << "): got action, " << val << log4cpp::eol;
 
         Utils::from_string(get_param("time"), time);
 

@@ -36,19 +36,19 @@ WOAnalog::WOAnalog(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::DEBUG << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WOAnalog::~WOAnalog()
 {
-        Utils::logger("output") << Priority::DEBUG << "WOAnalog::~WOAnalog(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOAnalog::~WOAnalog(): Ok" << log4cpp::eol;
 }
 
 void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WOAnalog(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
                 Calaos::StartReadRules::Instance().ioRead();
 
                 return;
@@ -65,7 +65,7 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WOAnalog(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
+                cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
                 return;
         }
 
@@ -73,7 +73,7 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 
         emitChange();
 
-        Utils::logger("output") << Priority::INFO << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")" << log4cpp::eol;
+        cInfoDom("output") << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")" << log4cpp::eol;
 }
 
 void WOAnalog::set_value_real(double val)

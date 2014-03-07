@@ -45,19 +45,19 @@ WODigital::WODigital(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::DEBUG << "WODigital::WODigital(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODigital::WODigital(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WODigital::~WODigital()
 {
-        Utils::logger("output") << Priority::DEBUG << "WODigital::~WODigital(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODigital::~WODigital(): Ok" << log4cpp::eol;
 }
 
 void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WODigital(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
                 if (start)
                 {
                     Calaos::StartReadRules::Instance().ioRead();
@@ -70,7 +70,7 @@ void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool
         if (!values.empty())
                 value = values[0];
 
-        Utils::logger("output") << Priority::INFO << "WODigital(" << get_param("id") << "): Reading initial value: " << (value?"true":"false") << log4cpp::eol;
+        cInfoDom("output") << "WODigital(" << get_param("id") << "): Reading initial value: " << (value?"true":"false") << log4cpp::eol;
 
         emitChange();
 
@@ -85,7 +85,7 @@ void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WODigital(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
+                cErrorDom("output") << "WODigital(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
                 return;
         }
 }

@@ -53,12 +53,12 @@ AVRMarantz::AVRMarantz(Params &p):
 
         command_suffix = "\r";
 
-        Utils::logger("output") << Priority::INFO << "AVRMarantz::AVRMarantz(" << params["host"] << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRMarantz::AVRMarantz(" << params["host"] << "): Ok" << log4cpp::eol;
 }
 
 AVRMarantz::~AVRMarantz()
 {
-        Utils::logger("output") << Priority::INFO << "AVRMarantz::~AVRMarantz(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRMarantz::~AVRMarantz(): Ok" << log4cpp::eol;
 }
 
 void AVRMarantz::connectionEstablished()
@@ -78,7 +78,7 @@ void AVRMarantz::connectionEstablished()
 
 void AVRMarantz::processMessage(string msg)
 {
-        Utils::logger("output") << Priority::DEBUG << "AVRMarantz::processMessage(): Recv: " << msg << log4cpp::eol;
+        cDebugDom("output") << "AVRMarantz::processMessage(): Recv: " << msg << log4cpp::eol;
 
         if (msg.substr(0, 2) == "MV") //master volume changed
         {

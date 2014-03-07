@@ -36,12 +36,12 @@ OutputAnalog::OutputAnalog(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("output") << Priority::INFO << "OutputAnalog::OutputAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputAnalog::OutputAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 OutputAnalog::~OutputAnalog()
 {
-        Utils::logger("output") << Priority::INFO << "OutputAnalog::~OutputAnalog(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputAnalog::~OutputAnalog(): Ok" << log4cpp::eol;
 }
 
 void OutputAnalog::readConfig()

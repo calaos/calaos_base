@@ -50,12 +50,12 @@ AVRPioneer::AVRPioneer(Params &p):
 
         command_suffix = "\r";
 
-        Utils::logger("output") << Priority::INFO << "AVRPioneer::AVRPioneer(" << params["host"] << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRPioneer::AVRPioneer(" << params["host"] << "): Ok" << log4cpp::eol;
 }
 
 AVRPioneer::~AVRPioneer()
 {
-        Utils::logger("output") << Priority::INFO << "AVRPioneer::~AVRPioneer(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRPioneer::~AVRPioneer(): Ok" << log4cpp::eol;
 }
 
 void AVRPioneer::connectionEstablished()
@@ -74,7 +74,7 @@ void AVRPioneer::connectionEstablished()
 
 void AVRPioneer::processMessage(string msg)
 {
-        Utils::logger("output") << Priority::DEBUG << "AVRPioneer::processMessage(): Recv: " << msg << log4cpp::eol;
+        cDebugDom("output") << "AVRPioneer::processMessage(): Recv: " << msg << log4cpp::eol;
 
         if (msg.substr(0, 3) == "VOL") //volume changed
         {

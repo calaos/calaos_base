@@ -37,12 +37,12 @@ WODali::WODali(Params &_p):
         WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
 
         Calaos::StartReadRules::Instance().addIO();
-        Utils::logger("output") << Priority::DEBUG << "WODali::WODali(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODali::WODali(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WODali::~WODali()
 {
-        Utils::logger("output") << Priority::DEBUG << "WODali::WODali(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WODali::WODali(): Ok" << log4cpp::eol;
 }
 
 bool WODali::set_value_real(int val)
@@ -59,7 +59,7 @@ void WODali::WagoUDPCommand_cb(bool status, string command, string result)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::INFO << "WODali::WagoUdpCommand(): Error with request " << command << log4cpp::eol;
+                cInfoDom("output") << "WODali::WagoUdpCommand(): Error with request " << command << log4cpp::eol;
                 Calaos::StartReadRules::Instance().ioRead();
 
                 return;

@@ -45,12 +45,12 @@ AVROnkyo::AVROnkyo(Params &p):
         source_names[AVReceiver::AVR_INPUT_APORT] = "Universal Port";
         source_names[AVReceiver::AVR_INPUT_MULTIIN] = "Multi Ch. In";
 
-        Utils::logger("output") << Priority::INFO << "AVROnkyo::AVROnkyo(" << params["host"] << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVROnkyo::AVROnkyo(" << params["host"] << "): Ok" << log4cpp::eol;
 }
 
 AVROnkyo::~AVROnkyo()
 {
-        Utils::logger("output") << Priority::INFO << "AVROnkyo::~AVROnkyo(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVROnkyo::~AVROnkyo(): Ok" << log4cpp::eol;
 }
 
 void AVROnkyo::connectionEstablished()
@@ -127,7 +127,7 @@ void AVROnkyo::processMessage(vector<char> data)
                 //We don't have a complete paquet yet, buffurize it.
                 brecv_buffer.insert(brecv_buffer.end(), data.begin(), data.end());
 
-                Utils::logger("output") << Priority::DEBUG << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
+                cDebugDom("output") << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
 
                 return;
         }
@@ -178,13 +178,13 @@ void AVROnkyo::processMessage(vector<char> data)
                 //We don't have a complete paquet yet, buffurize it.
                 brecv_buffer.insert(data.end(), data.begin(), data.end());
 
-                Utils::logger("output") << Priority::DEBUG << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
+                cDebugDom("output") << "AVReceiver:getData() Bufferize data." << log4cpp::eol;
         }
 }
 
 void AVROnkyo::processMessage(string msg)
 {
-        Utils::logger("output") << Priority::DEBUG << "AVROnkyo::processMessage(): Recv new message: " << msg << log4cpp::eol;
+        cDebugDom("output") << "AVROnkyo::processMessage(): Recv new message: " << msg << log4cpp::eol;
 
         if (msg.substr(0, 3) == "MVL") //master volume changed
         {

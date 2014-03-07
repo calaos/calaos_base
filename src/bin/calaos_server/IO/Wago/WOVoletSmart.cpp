@@ -27,12 +27,12 @@ WOVoletSmart::WOVoletSmart(Params &p):
                 OutputShutterSmart(p),
                 port(502)
 {
-        Utils::logger("output") << Priority::DEBUG << "WOVoletSmart::WOVoletSmart(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOVoletSmart::WOVoletSmart(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WOVoletSmart::~WOVoletSmart()
 {
-        Utils::logger("output") << Priority::DEBUG << "WOVoletSmart::~WOVoletSmart(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOVoletSmart::~WOVoletSmart(): Ok" << log4cpp::eol;
 }
 
 void WOVoletSmart::readConfig()
@@ -74,7 +74,7 @@ void WOVoletSmart::WagoWriteCallback(bool status, UWord address, bool value)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WOVoletSmart(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
+                cErrorDom("output") << "WOVoletSmart(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
                 return;
         }
 }

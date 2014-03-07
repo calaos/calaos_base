@@ -31,12 +31,12 @@ WOVolet::WOVolet(Params &p):
         if (get_params().Exists("port"))
                 Utils::from_string(get_param("port"), port);
 
-        Utils::logger("output") << Priority::DEBUG << "WOVolet::WOVolet(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOVolet::WOVolet(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WOVolet::~WOVolet()
 {
-        Utils::logger("output") << Priority::DEBUG << "WOVolet::~WOVolet(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "WOVolet::~WOVolet(): Ok" << log4cpp::eol;
 }
 
 void WOVolet::readConfig()
@@ -76,7 +76,7 @@ void WOVolet::WagoWriteCallback(bool status, UWord address, bool value)
 {
         if (!status)
         {
-                Utils::logger("output") << Priority::ERROR << "WOVolet(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
+                cErrorDom("output") << "WOVolet(" << get_param("id") << "): Failed to write value" << log4cpp::eol;
                 return;
         }
 }
