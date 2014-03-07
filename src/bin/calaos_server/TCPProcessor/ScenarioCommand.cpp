@@ -31,7 +31,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
 
         if (request["0"] != "scenario")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand() wrong command !" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand() wrong command !";
 
                 ProcessDone_signal sig;
                 sig.connect(callback);
@@ -42,7 +42,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
 
         if (request["1"] == "list")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand(list)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand(list)";
 
                 list<Scenario *> l = ListeRoom::Instance().getAutoScenarios();
                 list<Scenario *>::iterator it = l.begin();
@@ -52,7 +52,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["1"] == "get")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand(get)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand(get)";
 
                 Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(request["2"]));
                 if (sc && sc->getAutoScenario())
@@ -99,7 +99,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["1"] == "create")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand(create)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand(create)";
 
                 Params params;
                 string room_name;
@@ -171,7 +171,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["1"] == "delete")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand(delete)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand(delete)";
 
                 Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(request["2"]));
                 if (sc && sc->getAutoScenario())
@@ -192,7 +192,7 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["1"] == "modify")
         {
-                cDebugDom("network") << "TCPConnection::ScenarioCommand(modify)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ScenarioCommand(modify)";
 
                 Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(request["2"]));
                 if (scenario && scenario->getAutoScenario())

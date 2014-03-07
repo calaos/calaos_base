@@ -66,7 +66,7 @@ void CThread::Start()
 
         if (pthread_create(&th, NULL, CThreadProc, (void *)this) != 0)
                 cErrorDom("threads")
-                                << "CThread::Start(), pthread_create() error..." << log4cpp::eol;
+                                << "CThread::Start(), pthread_create() error...";
 }
 
 void CThread::KillThread()
@@ -83,7 +83,7 @@ void CThread::End()
         {
                 cDebugDom("threads")
                                 << "CThread::End(), pthread_join() waiting for thread to finish his job..."
-                                << log4cpp::eol;
+                               ;
                 pthread_join(th, NULL);
         }
 

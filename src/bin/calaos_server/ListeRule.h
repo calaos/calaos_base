@@ -60,7 +60,7 @@ class ListeRule: public sigc::trackable
                 Mutex mutex;
 
                 ListeRule(): loop(false), mutex(false)
-                        { cDebugDom("rule") << "ListeRule::ListeRule(): Ok" << log4cpp::eol; }
+                        { cDebugDom("rule") << "ListeRule::ListeRule(): Ok"; }
 
         public:
                 //singleton

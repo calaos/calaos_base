@@ -32,7 +32,7 @@ static Eina_Bool _ecore_con_handler_add(void *data, int type, Ecore_Con_Event_Se
         else
                 cCriticalDom("network.connection")
                                 << "CalaosConnection(): _con_server_add, failed to get object !"
-                                << log4cpp::eol;
+                               ;
 
         return ECORE_CALLBACK_RENEW;
 }
@@ -49,7 +49,7 @@ static Eina_Bool _ecore_con_handler_del(void *data, int type, Ecore_Con_Event_Se
         else
                 cCriticalDom("network.connection")
                                 << "CalaosConnection(): _con_server_del, failed to get object !"
-                                << log4cpp::eol;
+                               ;
 
         return ECORE_CALLBACK_RENEW;
 }
@@ -66,7 +66,7 @@ static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Eve
         else
                 cCriticalDom("network.connection")
                                 << "CalaosConnection(): _con_server_data, failed to get object !"
-                                << log4cpp::eol;
+                               ;
 
         return ECORE_CALLBACK_RENEW;
 }
@@ -131,7 +131,7 @@ void CalaosConnection::addConnection(Ecore_Con_Server *server)
                 cmd += Utils::url_encode(password);
                 cmd += "\r\n";
 
-                cDebugDom("network.connection") << "CalaosConnection: trying to log in." << log4cpp::eol;
+                cDebugDom("network.connection") << "CalaosConnection: trying to log in.";
 
                 ecore_con_server_send(econ, cmd.c_str(), cmd.length());
         }
@@ -145,14 +145,14 @@ void CalaosConnection::delConnection(Ecore_Con_Server *server)
         {
                 error_login.emit();
 
-                cCriticalDom("network.connection") << "CalaosConnection: Login failed !" << log4cpp::eol;
+                cCriticalDom("network.connection") << "CalaosConnection: Login failed !";
 
                 return;
         }
 
         lost_connection.emit();
 
-        cCriticalDom("network.connection") << "CalaosConnection: Connection closed !" << log4cpp::eol;
+        cCriticalDom("network.connection") << "CalaosConnection: Connection closed !";
 }
 
 void CalaosConnection::dataGet(Ecore_Con_Server *server, void *data, int size)
@@ -165,7 +165,7 @@ void CalaosConnection::dataGet(Ecore_Con_Server *server, void *data, int size)
         {
                 con_state = CALAOS_CON_OK;
 
-                cDebugDom("network.connection") << "CalaosConnection: Successfully logged in." << log4cpp::eol;
+                cDebugDom("network.connection") << "CalaosConnection: Successfully logged in.";
 
                 connection_ok.emit();
         }
@@ -178,7 +178,7 @@ void CalaosConnection::dataGet(Ecore_Con_Server *server, void *data, int size)
                              && !msg.empty() )
                         msg.erase(msg.length() - 1, 1);
 
-                cDebugDom("network.connection") << "CalaosConnection: Received: " << msg << log4cpp::eol;
+                cDebugDom("network.connection") << "CalaosConnection: Received: " << msg;
 
                 //Here we split command result.
                 vector<string> v;
@@ -203,12 +203,12 @@ void CalaosConnection::TimeoutTick()
         {
                 timeout_connect.emit();
 
-                cCriticalDom("network.connection") << "CalaosConnection: Timeout connecting to " << host << log4cpp::eol;
+                cCriticalDom("network.connection") << "CalaosConnection: Timeout connecting to " << host;
         }
 
         if (con_state == CALAOS_CON_OK)
         {
-                cCriticalDom("network.connection") << "CalaosConnection: Timeout waiting answer..." << log4cpp::eol;
+                cCriticalDom("network.connection") << "CalaosConnection: Timeout waiting answer...";
 
                 vector<string> v;
                 CalaosCmd &cmd = commands.front();
@@ -264,7 +264,7 @@ void CalaosConnection::sendAndDequeue()
         if (!timeout)
                 timeout = new EcoreTimer(TIMEOUT_SEND, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::TimeoutTick));
 
-        cDebugDom("network.connection") << "CalaosConnection: Sending command: " << cmd.command << log4cpp::eol;
+        cDebugDom("network.connection") << "CalaosConnection: Sending command: " << cmd.command;
 
         cmd.command += "\n\r";
         ecore_con_server_send(econ, cmd.command.c_str(), cmd.command.length());

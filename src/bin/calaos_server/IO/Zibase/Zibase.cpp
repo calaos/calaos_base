@@ -116,7 +116,7 @@ Zibase::Zibase(std::string h, int p):
         ecore_con_server_flush(econ_client);
         
         
-        cInfoDom("zibase") << "Zibase(" << host << "," << port << "): Ok" << log4cpp::eol;
+        cInfoDom("zibase") << "Zibase(" << host << "," << port << "): Ok";
 }
 
 Zibase::~Zibase()
@@ -126,7 +126,7 @@ Zibase::~Zibase()
         ecore_con_server_del(econ_client);
         ecore_con_server_del(econ_listen);
         
-        cInfoDom("zibase") << "Zibase::~Zibase(): Ok" << log4cpp::eol;
+        cInfoDom("zibase") << "Zibase::~Zibase(): Ok";
 }
 
 Zibase &Zibase::Instance(std::string h, int p)

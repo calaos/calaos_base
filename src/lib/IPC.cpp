@@ -53,7 +53,7 @@ IPC::IPC(): mutex(false)
         }
         else
         {
-                cErrorDom("ipc") << "IPC::IPC(): Error creating pipe !" << log4cpp::eol;
+                cErrorDom("ipc") << "IPC::IPC(): Error creating pipe !";
         }
 #endif
 }
@@ -104,7 +104,7 @@ void IPC::SendEvent(string source, string emission, void* data)
         mutex.unlock();
 
         cDebugDom("ipc") << "IPC::SendEvent(" << source << " , " << emission <<
-                        ") : " << events.size() << " events waiting." << log4cpp::eol;
+                        ") : " << events.size() << " events waiting.";
 
 #ifdef IPHONE_APP
 		calaos_broadcast_ipc();
@@ -118,7 +118,7 @@ void IPC::SendEvent(string source, string emission, void* data)
                 string s = "wake_up";
                 if (write(fd_write, s.c_str(), s.length()) < 0)
                 {
-                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
+                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !";
                 }
 //         }
 #endif
@@ -149,7 +149,7 @@ void IPC::SendEvent(string source, string emission, IPCData data, bool auto_dele
                 string s = "wake_up";
                 if (write(fd_write, s.c_str(), s.length()) < 0)
                 {
-                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
+                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !";
                 }
 //         }
 #endif
@@ -182,7 +182,7 @@ void IPC::BroadcastEvent()
                         events.erase(itd);
 
                         cDebugDom("ipc") << "IPC::BroadcastEvent(\"" <<
-                                msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")" << log4cpp::eol;
+                                msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")";
 
                         list<IPCSignal>::iterator it;
 
@@ -221,7 +221,7 @@ void IPC::BroadcastEvent()
                                 {
                                         cErrorDom("ipc") << "IPC::BroadcastEvent(\"" <<
                                                 msg.source<<"\"  ,  \""<<msg.emission<< "\") " <<
-                                                "DeletorBase or data is NULL, can't delete. (Memory leak?)" << log4cpp::eol;
+                                                "DeletorBase or data is NULL, can't delete. (Memory leak?)";
                                 }
                         }
 
@@ -231,7 +231,7 @@ void IPC::BroadcastEvent()
         }
         else
         {
-                cErrorDom("ipc") << "IPC::BroadcastEvent(): Error reading from pipe !" << log4cpp::eol;
+                cErrorDom("ipc") << "IPC::BroadcastEvent(): Error reading from pipe !";
         }
 #endif
 }

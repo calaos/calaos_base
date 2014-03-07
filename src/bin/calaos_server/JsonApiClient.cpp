@@ -187,7 +187,7 @@ JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
         parser->data = this;
 
         cDebugDom("network") << "JsonApiClient::JsonApiClient("
-                                 << this << "): Ok" << log4cpp::eol;
+                                 << this << "): Ok";
 
         exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
 
@@ -208,7 +208,7 @@ JsonApiClient::~JsonApiClient()
         ecore_file_unlink(tempfname.c_str());
 
         cDebugDom("network") << "JsonApiClient::~JsonApiClient("
-                                 << this << "): Ok" << log4cpp::eol;
+                                 << this << "): Ok";
 }
 
 void JsonApiClient::ProcessData(string request)
@@ -220,7 +220,7 @@ void JsonApiClient::ProcessData(string request)
         if (parser->upgrade)
         {
                 /* handle new protocol */
-                cDebugDom("network") << "Protocol Upgrade not supported, closing connection." << log4cpp::eol;
+                cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
                 CloseConnection();
 
                 return;
@@ -331,7 +331,7 @@ void JsonApiClient::sendToClient(string res)
         if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
         {
                 cCriticalDom("network")
-                                         << "JsonApiClient::handleRequest(): Error sending data ! Closing connection." << log4cpp::eol;
+                                         << "JsonApiClient::handleRequest(): Error sending data ! Closing connection.";
 
                 CloseConnection();
         }
@@ -347,7 +347,7 @@ void JsonApiClient::handleRequest()
 
         if (!jroot || !json_is_object(jroot))
         {
-                cDebugDom("network") << "JsonApiClient: JSON - Error loading json : " << jerr.text << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: JSON - Error loading json : " << jerr.text;
 
                 Params headers;
                 headers.Add("Connection", "close");
@@ -392,7 +392,7 @@ void JsonApiClient::handleRequest()
 
         if (user != jsonParam["cn_user"] || pass != jsonParam["cn_pass"])
         {
-                cDebugDom("network") << "JsonApiClient: Login failed!" << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: Login failed!";
 
                 Params headers;
                 headers.Add("Connection", "close");
@@ -570,7 +570,7 @@ void JsonApiClient::sendJson(json_t *json)
         char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
         if (!d)
         {
-                cDebugDom("network") << "JsonApiClient: json_dumps failed!" << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: json_dumps failed!";
 
                 Params headers;
                 headers.Add("Connection", "close");

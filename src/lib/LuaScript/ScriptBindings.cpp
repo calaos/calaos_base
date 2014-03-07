@@ -85,7 +85,7 @@ int Calaos::Lua_print(lua_State *L)
         #ifdef CALAOS_INSTALLER
         LuaPrinter::Instance().Print(QString::fromUtf8(msg.c_str()));
         #else
-        cInfoDom("script.lua") << "LuaPrint: "<< msg << log4cpp::eol;
+        cInfoDom("script.lua") << "LuaPrint: "<< msg;
         #endif
 
         return 0;
@@ -126,7 +126,7 @@ const char Lua_Calaos::className[] = "Calaos";
 Lua_Calaos::Lua_Calaos()
 {
         #ifndef CALAOS_INSTALLER
-        cDebugDom("script.lua") << "Lua_Calaos::Lua_Calaos(): Ok " << log4cpp::eol;
+        cDebugDom("script.lua") << "Lua_Calaos::Lua_Calaos(): Ok ";
         #endif
 }
 
@@ -140,7 +140,7 @@ Lua_Calaos::Lua_Calaos(lua_State *L)
 Lua_Calaos::~Lua_Calaos()
 {
         #ifndef CALAOS_INSTALLER
-        cDebugDom("script.lua") << "Lua_Calaos::~Lua_Calaos(): Ok " << log4cpp::eol;
+        cDebugDom("script.lua") << "Lua_Calaos::~Lua_Calaos(): Ok ";
         #endif
 }
 

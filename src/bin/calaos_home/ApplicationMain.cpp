@@ -40,10 +40,10 @@ static void _window_resize_cb(void *data, Evas *e, Evas_Object *obj, void *event
 
 ApplicationMain::ApplicationMain(int argc, char **argv)
 {
-        cInfoDom("root") <<  "Calaos Home, starting..." << log4cpp::eol;
+        cInfoDom("root") <<  "Calaos Home, starting...";
 
         if (system("killall -9 eskiss") == -1)
-                cCriticalDom("root") <<  "Error forking !" << log4cpp::eol;
+                cCriticalDom("root") <<  "Error forking !";
 
         //init random generator
         srand(time(NULL));
@@ -57,7 +57,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         if (themefile)
         {
                 ApplicationMain::theme = themefile;
-                cInfoDom("root") <<  "Using specified theme file: " << ApplicationMain::getTheme() << log4cpp::eol;
+                cInfoDom("root") <<  "Using specified theme file: " << ApplicationMain::getTheme();
         }
 
         //Init efl core
@@ -155,7 +155,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         }
         catch(exception const& e)
         {
-                cCriticalDom("root") <<  "Can't create ApplicationController" << log4cpp::eol;
+                cCriticalDom("root") <<  "Can't create ApplicationController";
                 throw;
         }
 }

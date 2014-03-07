@@ -24,25 +24,25 @@ using namespace Calaos;
 
 CamServer::CamServer(int p): port(p)
 {
-        cDebugDom("network") << "CamServer::CamServer(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::CamServer(): Ok";
 }
 
 CamServer::~CamServer()
 {
         delete socket;
         socket = NULL;
-        cDebugDom("network") << "CamServer::~CamServer(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::~CamServer(): Ok";
 }
 
 void CamServer::ThreadProc()
 {
-        cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server";
         socket = new TCPSocket();
 
         socket->Create(port);
         socket->SetReuse();
         socket->Listen();
-        cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port << log4cpp::eol;
+        cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port;
         quit = false;
 
         while (!quit)
@@ -52,7 +52,7 @@ void CamServer::ThreadProc()
                 if (quit) break;
 
                 cDebugDom("network") << "CamServer::ThreadProc(): Got a connection from address "
-                                << socket->GetRemoteIP() << log4cpp::eol;
+                                << socket->GetRemoteIP();
 
                 vector<CamConnection *>::iterator iter = connections.begin();
                 for (uint i = 0;i < connections.size();iter++, i++)

@@ -32,13 +32,13 @@ WIDigitalTriple::WIDigitalTriple(Params &p):
                 Utils::from_string(get_param("port"), port);
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalTriple::ReceiveFromWago) );
-        cDebugDom("input") << "WIDigitalTriple::WIDigitalTriple(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalTriple::WIDigitalTriple(" << get_param("id") << "): Ok";
 }
 
 WIDigitalTriple::~WIDigitalTriple()
 {
         iter->disconnect();
-        cDebugDom("input") << "WIDigitalTriple::~WIDigitalTriple(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalTriple::~WIDigitalTriple(): Ok";
 }
 
 void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
@@ -50,7 +50,7 @@ void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::s
                 {
                         cInfoDom("input") << "WIDigitalTriple::ReceiveFromWago(): Got "
                                                << Utils::to_string(val) << " on " << intype << " input " << addr
-                                               << log4cpp::eol;
+                                              ;
 
                         udp_value = val;
                         hasChanged();
@@ -62,7 +62,7 @@ void WIDigitalTriple::WagoReadCallback(bool status, UWord addr, int nb, vector<b
 {
         if (!status)
         {
-                cErrorDom("input") << "WIDigitalTriple(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WIDigitalTriple(" << get_param("id") << "): Failed to read value";
                 return;
         }
 }

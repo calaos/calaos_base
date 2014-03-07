@@ -32,7 +32,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Client_D
         else
                 cCriticalDom("network")
                                 << "CalaosDiscover(): _con_server_data, failed to get object !"
-                                << log4cpp::eol;
+                               ;
 
         return ECORE_CALLBACK_RENEW;
 }
@@ -68,7 +68,7 @@ CalaosDiscover::~CalaosDiscover()
 
 void CalaosDiscover::timerDiscover()
 {
-        cDebugDom("network") << "CalaosDiscover: try to discover server..." << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: try to discover server...";
 
         string packet = "CALAOS_DISCOVER";
         if (!ecore_con_server_send(econ_sender, packet.c_str(), packet.length()))
@@ -84,7 +84,7 @@ void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
 
         string msg((char *)data, size);
 
-        cDebugDom("network") << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"" << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"";
 
         if (msg.substr(0, 10) == "CALAOS_IP " && !connection)
         {
@@ -108,7 +108,7 @@ void CalaosDiscover::delayDel()
 
 void CalaosDiscover::loginSuccess()
 {
-        cDebugDom("network") << "CalaosDiscover: Login to host " << address << " successfully" << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: Login to host " << address << " successfully";
 
         DELETE_NULL(connection);
 
@@ -117,7 +117,7 @@ void CalaosDiscover::loginSuccess()
 
 void CalaosDiscover::loginFailed()
 {
-        cDebugDom("network") << "CalaosDiscover: Wrong login/password on host " << address << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: Wrong login/password on host " << address;
 
         DELETE_NULL(connection);
 

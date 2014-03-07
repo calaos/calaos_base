@@ -40,7 +40,7 @@ Output::~Output()
 
 void Output::EmitSignalOutput()
 {
-        cDebugDom("output") << "Input::EmitSignalOutput(" << get_param("id") << ")" << log4cpp::eol;
+        cDebugDom("output") << "Input::EmitSignalOutput(" << get_param("id") << ")";
         signal_output.emit(get_param("id"));
 	DataLogger::Instance().log(this);
 }

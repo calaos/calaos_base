@@ -33,7 +33,7 @@ void Firmwares::checkUpdate(sigc::slot<void, string> callback)
         {
                 cWarningDom("firmwares")
                                 << "A download is already in progress, aborting checkUpdate()"
-                                << log4cpp::eol;
+                               ;
                 return;
         }
 
@@ -139,7 +139,7 @@ void Firmwares::downloadFirmware(sigc::slot<void, string, FileProgress *> callba
         {
                 cWarningDom("firmwares")
                                 << "A download is already in progress, aborting downloadFirmware()"
-                                << log4cpp::eol;
+                               ;
                 return;
         }
 

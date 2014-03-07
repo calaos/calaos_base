@@ -56,7 +56,7 @@ void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *
 
                 if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
                 {
-                        cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << result[i] << "\' !" << log4cpp::eol;
+                        cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << result[i] << "\' !";
                         continue;
                 }
 
@@ -142,7 +142,7 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
                         map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(tmp[0]);
                         if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
                         {
-                                cErrorDom("scenario") << "ScenarioModel::scenario_get Unknown action id \'" << tmp[0] << "\' with action \'" << tmp[1] << "\' !" << log4cpp::eol;
+                                cErrorDom("scenario") << "ScenarioModel::scenario_get Unknown action id \'" << tmp[0] << "\' with action \'" << tmp[1] << "\' !";
                                 continue;
                         }
                         IOBase *io = (*it).second;
@@ -322,7 +322,7 @@ void ScenarioModel::notifyScenarioAddDelayed(string notif)
 
         if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
         {
-                cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << split_id[1] << "\' !" << log4cpp::eol;
+                cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << split_id[1] << "\' !";
                 return;
         }
 
@@ -348,7 +348,7 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
 {
         if (!sc)
         {
-                cErrorDom("scenario") << "ScenarioModel::notifyScenarioDel sc is NULL!" << log4cpp::eol;
+                cErrorDom("scenario") << "ScenarioModel::notifyScenarioDel sc is NULL!";
                 return;
         }
 
@@ -357,7 +357,7 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
 
         if (it == scenarios.end())
         {
-                cErrorDom("scenario") << "ScenarioModel: Unknown scenario \'" << sc->ioScenario->params["id"] << "\' !" << log4cpp::eol;
+                cErrorDom("scenario") << "ScenarioModel: Unknown scenario \'" << sc->ioScenario->params["id"] << "\' !";
                 return;
         }
 

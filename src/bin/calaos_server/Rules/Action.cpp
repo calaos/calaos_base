@@ -24,17 +24,17 @@ using namespace Calaos;
 
 Action::Action(int type): action_type(type)
 {
-        cDebugDom("rule.action") <<  "Action::Action(): New action" << log4cpp::eol;
+        cDebugDom("rule.action") <<  "Action::Action(): New action";
 }
 
 Action::~Action()
 {
-        cDebugDom("rule.action") <<  "Action::~Action(): Ok" << log4cpp::eol;
+        cDebugDom("rule.action") <<  "Action::~Action(): Ok";
 }
 
 bool Action::Execute()
 {
-        cErrorDom("rule.action") <<  "Action::Execute(): Can't execute base Action class !" << log4cpp::eol;
+        cErrorDom("rule.action") <<  "Action::Execute(): Can't execute base Action class !";
 
         return false;
 }

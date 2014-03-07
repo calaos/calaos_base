@@ -24,7 +24,7 @@ AutoScenario::AutoScenario(Input *input):
         rulePlageStop(NULL)
 
 {
-        cInfoDom("scenario") << "AutoScenario::AutoScenario(" << input->get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::AutoScenario(" << input->get_param("id") << "): Ok";
 
         scenario_id = input->get_param("auto_scenario");
         cycle = (input->get_param("cycle") == "true")?true:false;
@@ -62,7 +62,7 @@ void AutoScenario::setDisabled(bool d)
 
 void AutoScenario::deleteAll()
 {
-        cInfoDom("scenario") << "AutoScenario::delete(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::delete(" << ioScenario->get_param("id") << ")";
 
         //delete rules
         if (ruleStart)
@@ -105,7 +105,7 @@ void AutoScenario::deleteAll()
 
 void AutoScenario::deleteRules()
 {
-        cInfoDom("scenario") << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")" << log4cpp::eol;
+        cInfoDom("scenario") << "AutoScenario::deleteRules(" << ioScenario->get_param("id") << ")";
 
         //delete rules
         if (ruleStepEnd)
@@ -392,19 +392,18 @@ void AutoScenario::checkScenarioRules()
 
         cDebugDom("scenario") << "AutoScenario Check: " << ioScenario->get_param("id") <<
                                      ", scenario_id: " << scenario_id <<
-                                     ", " << srules.size() << " rules checked" << log4cpp::eol;
+                                     ", " << srules.size() << " rules checked";
         cDebugDom("scenario") << "Found " << ruleSteps.size() << " steps, " <<
                                      ((ioPlage)?"has schedule, ":"has no schedule, ") <<
                                      ((disabled)?"schedule is disabled ":"schedule is enabled ") <<
-                                     ((cycle)?"cycling":"") <<
-                                     log4cpp::eol;
+	  ((cycle)?"cycling":"");
         cDebugDom("scenario") << "Found rules (" <<
                                      "ruleStart:" << ((ruleStart)?"yes":"no") << " - " <<
                                      "ruleStop:" << ((ruleStop)?"yes":"no") << " - " <<
                                      "rulePlageStart:" << ((rulePlageStart)?"yes":"no") << " - " <<
                                      "rulePlageStop:" << ((rulePlageStop)?"yes":"no") << " - " <<
                                      "ruleStepEnd:" << ((ruleStepEnd)?"yes":"no") <<
-                                     ")" << log4cpp::eol;
+                                     ")";
 
         //Create missing rules
 

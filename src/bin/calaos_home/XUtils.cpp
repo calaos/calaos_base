@@ -39,19 +39,19 @@ void XUtils::UpdateDPMS(bool enable, int seconds)
         x_display = XOpenDisplay(":0");
         if (!x_display)
         {
-                cWarningDom("root") <<  "XUtils::UpdateDPMS(): trying with $DISPLAY" << log4cpp::eol;
+                cWarningDom("root") <<  "XUtils::UpdateDPMS(): trying with $DISPLAY";
                 x_display = XOpenDisplay(NULL);
 
                 if (!x_display)
                 {
-                        cErrorDom("root") <<  "XUtils::UpdateDPMS(): Error opening X11 display" << log4cpp::eol;
+                        cErrorDom("root") <<  "XUtils::UpdateDPMS(): Error opening X11 display";
                         return;
                 }
         }
 
         if (!DPMSCapable(x_display))
         {
-                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !";
         }
         else
         {
@@ -88,19 +88,19 @@ void XUtils::WakeUpScreen(bool enable)
         x_display = XOpenDisplay(":0");
         if (!x_display)
         {
-                cWarningDom("root") <<  "XUtils::WakeUpScreen(): trying with $DISPLAY" << log4cpp::eol;
+                cWarningDom("root") <<  "XUtils::WakeUpScreen(): trying with $DISPLAY";
                 x_display = XOpenDisplay(NULL);
 
                 if (!x_display)
                 {
-                        cErrorDom("root") <<  "XUtils::WakeUpScreen(): Error opening X11 display" << log4cpp::eol;
+                        cErrorDom("root") <<  "XUtils::WakeUpScreen(): Error opening X11 display";
                         return;
                 }
         }
 
         if (!DPMSCapable(x_display))
         {
-                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !";
         }
         else
         {
@@ -129,11 +129,11 @@ int XUtils::getDPMSInfo()
 
         x_display = XOpenDisplay(":0");
         if (!x_display)
-                cErrorDom("root") <<  "XUtils::getDPMSInfo(): Error opening X11 display" << log4cpp::eol;
+                cErrorDom("root") <<  "XUtils::getDPMSInfo(): Error opening X11 display";
 
         if (!DPMSCapable(x_display))
         {
-                cWarningDom("root") <<  "X display is not DPMS capable !" << log4cpp::eol;
+                cWarningDom("root") <<  "X display is not DPMS capable !";
         }
         else
         {

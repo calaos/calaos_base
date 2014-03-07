@@ -48,7 +48,7 @@ static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Ad
         {
                 cCriticalDom("squeezebox")
                                 << "Squeezebox(): _con_server_add, failed to get object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -71,7 +71,7 @@ static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_De
         {
                 cCriticalDom("squeezebox")
                                 << "Squeezebox(): _con_server_del, failed to get object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -94,7 +94,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
         {
                 cCriticalDom("squeezebox")
                                 << "Squeezebox(): _con_server_data, failed to get object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -130,7 +130,7 @@ Squeezebox::Squeezebox(Params &p):
                 param.Delete("port");
         id = param["id"];
 
-        cDebugDom("squeezebox") <<  "Squeezebox: new device (" << id << ") at " << host << ":" << port_cli << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox: new device (" << id << ") at " << host << ":" << port_cli;
 
         //Create DB
         database = new SqueezeboxDB(this, param);
@@ -171,29 +171,29 @@ Squeezebox::~Squeezebox()
         ecore_event_handler_del(ehandler_del);
         ecore_event_handler_del(ehandler_data);
 
-        cDebugDom("squeezebox") <<  "Squeezebox::~Squeezebox(): Ok" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox::~Squeezebox(): Ok";
 }
 
 void Squeezebox::timerNotificationReconnect()
 {
-        cDebugDom("squeezebox") <<  "Squeezebox:timerNotificationReconnect() Connecting to " << host << ":" << port_cli << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox:timerNotificationReconnect() Connecting to " << host << ":" << port_cli;
 
         if (enotif) ecore_con_server_del(enotif);
         enotif = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port_cli, this);
         ecore_con_server_data_set(enotif, this);
 
-        cDebugDom("squeezebox") <<  "Squeezebox:timerNotificationReconnect(): econ == " << econ << " and enotif == " << enotif << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox:timerNotificationReconnect(): econ == " << econ << " and enotif == " << enotif;
 }
 
 void Squeezebox::timerConnReconnect()
 {
-        cDebugDom("squeezebox") <<  "Squeezebox:timerConnReconnect() Connecting to " << host << ":" << port_cli << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox:timerConnReconnect() Connecting to " << host << ":" << port_cli;
 
         if (econ) ecore_con_server_del(econ);
         econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port_cli, this);
         ecore_con_server_data_set(econ, this);
 
-        cDebugDom("squeezebox") <<  "Squeezebox:timerConnReconnect(): econ == " << econ << " and enotif == " << enotif << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox:timerConnReconnect(): econ == " << econ << " and enotif == " << enotif;
 }
 
 void Squeezebox::addConnection(Ecore_Con_Server *srv)
@@ -210,7 +210,7 @@ void Squeezebox::addConnection(Ecore_Con_Server *srv)
                 //string cmd = "subscribe playlist,mixer,pause,stop\n\r";
                 string cmd = "listen 1\n\r";
 
-                cDebugDom("squeezebox") <<  "Squeezebox: trying to subscribe to events" << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox: trying to subscribe to events";
 
                 ecore_con_server_send(enotif, cmd.c_str(), cmd.length());
         }
@@ -222,13 +222,13 @@ void Squeezebox::addConnection(Ecore_Con_Server *srv)
                         timer_con = NULL;
                 }
 
-                cDebugDom("squeezebox") <<  "Squeezebox: main connection established" << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox: main connection established";
         }
         else
         {
                 cWarningDom("squeezebox")
                                 << "Squeezebox:addConnection() Wrong Ecore_Con_Server object"
-                                << log4cpp::eol;
+                               ;
         }
 }
 
@@ -242,8 +242,8 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
                         timer_notification = NULL;
                 }
 
-                cWarningDom("squeezebox") <<  "Squeezebox: Notification Connection closed !" << log4cpp::eol;
-                cWarningDom("squeezebox") <<  "Squeezebox: Trying to reconnect..." << log4cpp::eol;
+                cWarningDom("squeezebox") <<  "Squeezebox: Notification Connection closed !";
+                cWarningDom("squeezebox") <<  "Squeezebox: Trying to reconnect...";
 
                 timer_notification = new EcoreTimer(SQ_RECONNECT,
                                                     (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
@@ -258,8 +258,8 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
                         timer_con = NULL;
                 }
 
-                cWarningDom("squeezebox") <<  "Squeezebox: Main Connection closed !" << log4cpp::eol;
-                cWarningDom("squeezebox") <<  "Squeezebox: Trying to reconnect..." << log4cpp::eol;
+                cWarningDom("squeezebox") <<  "Squeezebox: Main Connection closed !";
+                cWarningDom("squeezebox") <<  "Squeezebox: Trying to reconnect...";
 
                 timer_con = new EcoreTimer(SQ_RECONNECT,
                                            (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
@@ -270,7 +270,7 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
         {
                 cWarningDom("squeezebox")
                                 << "Squeezebox:delConnection(): Wrong Ecore_Con_Server object (" << srv << ") where econ == " << econ << " and enotif == " << enotif
-                                << log4cpp::eol;
+                               ;
         }
 }
 
@@ -286,7 +286,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                         //We have not a complete paquet yet, buffurize it.
                         buffer_notif += msg;
 
-                        cDebugDom("squeezebox") <<  "Squeezebox:getData(notification) Bufferize data." << log4cpp::eol;
+                        cDebugDom("squeezebox") <<  "Squeezebox:getData(notification) Bufferize data.";
 
                         return;
                 }
@@ -308,7 +308,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                 split(msg, tokens, "\n");
 
                 isConnected = true;
-                cDebugDom("squeezebox") <<  "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox:notification Got " << tokens.size() << " messages.";
 
                 for(uint j = 0; j < tokens.size(); j++)
                         processNotificationMessage(tokens[j]);
@@ -321,7 +321,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                         //We have not a complete paquet yet, buffurize it.
                         buffer_main += msg;
 
-                        cDebugDom("squeezebox") <<  "Squeezebox:getData(main) Bufferize data." << log4cpp::eol;
+                        cDebugDom("squeezebox") <<  "Squeezebox:getData(main) Bufferize data.";
 
                         return;
                 }
@@ -342,7 +342,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
                 vector<string> tokens;
                 split(msg, tokens, "\n");
 
-                cDebugDom("squeezebox") <<  "Squeezebox:notification Got " << tokens.size() << " messages." << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox:notification Got " << tokens.size() << " messages.";
 
                 for(uint j = 0; j < tokens.size(); j++)
                         processMessage(true, tokens[j]);
@@ -351,13 +351,13 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
         {
                 cWarningDom("squeezebox")
                                 << "Squeezebox:dataGet() Wrong Ecore_Con_Server object"
-                                << log4cpp::eol;
+                               ;
         }
 }
 
 void Squeezebox::processNotificationMessage(string msg)
 {
-        cDebugDom("squeezebox") <<  "Squeezebox:processNotificationMessage() Message: \"" << msg << "\"" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox:processNotificationMessage() Message: \"" << msg << "\"";
 
         Params p;
         p.Parse(msg);
@@ -509,11 +509,11 @@ void Squeezebox::processMessage(bool status, string msg)
 {
         if (status)
         {
-                cDebugDom("squeezebox") <<  "Squeezebox:processMessage() Message: \"" << msg << "\"" << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox:processMessage() Message: \"" << msg << "\"";
         }
         else
         {
-                cDebugDom("squeezebox") <<  "Squeezebox:processMessage() sending failed !" << log4cpp::eol;
+                cDebugDom("squeezebox") <<  "Squeezebox:processMessage() sending failed !";
 
                 //Try reconnecting to avoid unwanted data from old command to alter current command
                 if (ecore_con_server_connected_get(econ))
@@ -597,7 +597,7 @@ void Squeezebox::_sendRequest()
         //Do the real work here, get the next available request and process it
         SqueezeboxCommand &cmd = squeeze_commands.front();
 
-        cDebugDom("squeezebox") <<  "Squeezebox: sending command: \"" << cmd.request << "\"" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox: sending command: \"" << cmd.request << "\"";
 
         cmd.inProgress = true;
 
@@ -617,7 +617,7 @@ void Squeezebox::_sendRequest()
 
 void Squeezebox::requestTimeout_cb()
 {
-        cDebugDom("squeezebox") <<  "Squeezebox: Request: Timeout ! " << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "Squeezebox: Request: Timeout ! ";
 
         processMessage(false, "");
 }
@@ -922,7 +922,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
 
                 if (!json)
                 {
-                        cDebugDom("squeezebox") <<  "JSON - Error loading json : " << jerr.text << log4cpp::eol;
+                        cDebugDom("squeezebox") <<  "JSON - Error loading json : " << jerr.text;
 
                         get_album_cover_std(adata);
 
@@ -979,11 +979,11 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
                                                 }
                                         }
 
-                                        cDebugDom("squeezebox") <<  "JSON - artwork_url not found in remoteMeta!" << log4cpp::eol;
+                                        cDebugDom("squeezebox") <<  "JSON - artwork_url not found in remoteMeta!";
                                 }
                                 else
                                 {
-                                        cDebugDom("squeezebox") <<  "JSON - remoteMeta not found!" << log4cpp::eol;
+                                        cDebugDom("squeezebox") <<  "JSON - remoteMeta not found!";
                                 }
                         }
                 }
@@ -997,7 +997,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
 }
 void Squeezebox::get_album_cover_std(AudioPlayerData data)
 {
-        cDebugDom("squeezebox") <<  "get_album_cover(): trying with standard CLI way..." << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "get_album_cover(): trying with standard CLI way...";
 
         string cmd = id;
         cmd += " path ?";
@@ -1052,7 +1052,7 @@ void Squeezebox::get_album_cover_id(string track_id, AudioRequest_cb callback, A
         if (track_id == "") track_id = "0";
         aurl << "http://" << host << ":" << port_web << "/music/" << track_id << "/cover.jpg";
 
-        cDebugDom("squeezebox") <<  "get_album_cover_id(): \"" << aurl << "\"" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "get_album_cover_id(): \"" << aurl << "\"";
 
         user_data.svalue = aurl.str();
 
@@ -1107,7 +1107,7 @@ void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, strin
         if (aid == "") aid = "0";
         aurl << "http://" << host << ":" << port_web << "/music/" << aid << "/cover.jpg";
 
-        cDebugDom("squeezebox") <<  "get_playlist_album_cover(): \"" << aurl << "\"" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "get_playlist_album_cover(): \"" << aurl << "\"";
 
         data.get_chain_data().svalue = aurl.str();
 

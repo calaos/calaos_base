@@ -29,9 +29,9 @@ WagoCtrl::WagoCtrl(std::string h, int p): host(h), port(p)
         if (host == "") host = "127.0.0.1";
 
         if (!mbus)
-                cErrorDom("wago") << "WagoCtrl::WagoCtrl(" << host << ", " << port << "): Cant init modbus structure !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::WagoCtrl(" << host << ", " << port << "): Cant init modbus structure !";
 
-        cInfoDom("wago") << "WagoCtrl::WagoCtrl(" << host << ", " << port << "): Ok" << log4cpp::eol;
+        cInfoDom("wago") << "WagoCtrl::WagoCtrl(" << host << ", " << port << "): Ok";
 }
 
 WagoCtrl::~WagoCtrl()
@@ -41,7 +41,7 @@ WagoCtrl::~WagoCtrl()
         if (mbus)
                 mbus_free(mbus);
 
-        cInfoDom("wago") << "WagoCtrl::~WagoCtrl(): Ok" << log4cpp::eol;
+        cInfoDom("wago") << "WagoCtrl::~WagoCtrl(): Ok";
 }
 
 bool WagoCtrl::getBit(unsigned char mot, int pos)
@@ -65,12 +65,12 @@ bool WagoCtrl::Connect()
         if (is_connected()) mbus_close(mbus);
         if (mbus_connect(mbus, host.c_str(), (mbus_uword)port, 0))
         {
-                cErrorDom("wago") << "WagoCtrl::Connect(): Can't connect..." << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::Connect(): Can't connect...";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::Connect(): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::Connect(): Ok";
                 return true;
         }
 }
@@ -78,7 +78,7 @@ bool WagoCtrl::Connect()
 void WagoCtrl::Disconnect()
 {
         mbus_close(mbus);
-        cInfoDom("wago") << "WagoCtrl::Disconnect(): Ok" << log4cpp::eol;
+        cInfoDom("wago") << "WagoCtrl::Disconnect(): Ok";
 }
 
 bool WagoCtrl::is_connected()
@@ -105,12 +105,12 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::read_bits(): Error reading bits!" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::read_bits(): Error reading bits!";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::read_bits(" << address << "," << nb <<"): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::read_bits(" << address << "," << nb <<"): Ok";
                 return true;
         }
 }
@@ -127,12 +127,12 @@ bool WagoCtrl::write_single_bit(UWord address, bool val)
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::write_single_bit(): Error writing single bit!" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::write_single_bit(): Error writing single bit!";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::write_single_bit(" << address << ", " << (val?"true":"false") << "): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::write_single_bit(" << address << ", " << (val?"true":"false") << "): Ok";
                 return true;
         }
 }
@@ -166,12 +166,12 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::write_multiple_bits(): Error writing multiple words... !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::write_multiple_bits(): Error writing multiple words... !";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::write_multiple_bits(): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::write_multiple_bits(): Ok";
                 return true;
         }
 }
@@ -190,12 +190,12 @@ bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::read_words(): Error reading words... !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::read_words(): Error reading words... !";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::read_words(): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::read_words(): Ok";
                 return true;
         }
 }
@@ -208,12 +208,12 @@ bool WagoCtrl::write_single_word(UWord address, UWord val)
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::write_single_word(): Error writing single word... !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::write_single_word(): Error writing single word... !";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::write_single_word(): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::write_single_word(): Ok";
                 return true;
         }
 }
@@ -232,12 +232,12 @@ bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values
 
         if (ret != 0)
         {
-                cErrorDom("wago") << "WagoCtrl::write_multiple_words(): Error writing multiple words... !" << log4cpp::eol;
+                cErrorDom("wago") << "WagoCtrl::write_multiple_words(): Error writing multiple words... !";
                 return false;
         }
         else
         {
-                cInfoDom("wago") << "WagoCtrl::write_multiple_words(): Ok" << log4cpp::eol;
+                cInfoDom("wago") << "WagoCtrl::write_multiple_words(): Ok";
                 return true;
         }
 }

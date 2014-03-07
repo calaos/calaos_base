@@ -35,12 +35,12 @@ InputTime::InputTime(Params &p):
         set_param("visible", "false");
         set_param("gui_type", "time");
 
-        cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok";
 }
 
 InputTime::~InputTime()
 {
-        cDebugDom("input") << "InputTime::~InputTime(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTime::~InputTime(): Ok";
 }
 
 void InputTime::hasChanged()

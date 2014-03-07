@@ -28,12 +28,12 @@ static int _CamConnection_CURL_write_callback(void *buffer, size_t size, size_t 
 CamConnection::CamConnection(TCPSocket s): socket(s), end_conn(false), login(false),
                         pict_buffer(NULL), pict_size(0)
 {
-        cDebugDom("network") << "CamConnection::CamConnection(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::CamConnection(): Ok";
 }
 
 CamConnection::~CamConnection()
 {
-        cDebugDom("network") << "CamConnection::~CamConnection(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::~CamConnection(): Ok";
         if (pict_buffer)
         {
                 free(pict_buffer);
@@ -51,20 +51,20 @@ void CamConnection::ProcessRequest(string &request)
 
         if (list.size() < 3)
         {
-                cErrorDom("network") << "CamConnection::ProcessRequest(): request too small." << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): request too small.";
                 return;
         }
 
         if (list[0] != "GET")
         {
-                cErrorDom("network") << "CamConnection::ProcessRequest(): Only GET request supported!" << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Only GET request supported!";
                 return;
         }
 
         if (list[1].find ("/GetCamera.cgi?id=", 0) == request.npos &&
             list[1].find ("/GetPicture.cgi?id=", 0) == request.npos)
         {
-                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong request! : " << list[1] << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong request! : " << list[1];
                 return;
         }
 
@@ -81,7 +81,7 @@ void CamConnection::ProcessRequest(string &request)
 
         if (_camid == "" || camid < 0 || camid > CamManager::Instance().get_size() - 1)
         {
-                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong id!" << log4cpp::eol;
+                cErrorDom("network") << "CamConnection::ProcessRequest(): Wrong id!";
                 return;
         }
 
@@ -223,7 +223,7 @@ void CamConnection::ThreadProc()
 
                 if (status == -1)
                 {
-                        cDebugDom("network") << "CamConnection::ThreadProc(): Connection ended..." << log4cpp::eol;
+                        cDebugDom("network") << "CamConnection::ThreadProc(): Connection ended...";
                         break;
                 }
                 else if ( status == 0 )
@@ -253,7 +253,7 @@ void CamConnection::ThreadProc()
 
         socket.InboundClose();
         end_conn = true;
-        cDebugDom("network") << "CamConnection::ThreadProc(): Closing remote connexion !" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::ThreadProc(): Closing remote connexion !";
 }
 
 void CamConnection::Clean()

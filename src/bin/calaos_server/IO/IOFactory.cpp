@@ -183,9 +183,9 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
         }
 
         if (in)
-                cInfoDom("root") <<  "IOFactory::CreateInput(" << type << "): Ok" << log4cpp::eol;
+                cInfoDom("root") <<  "IOFactory::CreateInput(" << type << "): Ok";
         else
-                cWarningDom("root") <<  "IOFactory::CreateInput(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateInput(" << type << "): Unknown Input type !";
 
         return in;
 }
@@ -222,7 +222,7 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
         }
         else if (type == "WONeon")
         {
-                cErrorDom("root") <<  "IOFactory::CreateOutput(" << type << "): WONeon is deprecated !" << log4cpp::eol;
+                cErrorDom("root") <<  "IOFactory::CreateOutput(" << type << "): WONeon is deprecated !";
         }
         else if (type == "X10Output")
         {
@@ -279,9 +279,9 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
         }
 
         if (out)
-                cInfoDom("root") <<  "IOFactory::CreateOutput(" << type << "): Ok" << log4cpp::eol;
+                cInfoDom("root") <<  "IOFactory::CreateOutput(" << type << "): Ok";
         else
-                cWarningDom("root") <<  "IOFactory::CreateOutput(" << type << "): Unknown Output type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateOutput(" << type << "): Unknown Output type !";
 
         return out;
 }
@@ -307,9 +307,9 @@ AudioPlayer *IOFactory::CreateAudio (std::string type, Params &params)
         }
 
         if (player)
-                cInfoDom("root") <<  "IOFactory::CreateAudio(" << type << "): Ok" << log4cpp::eol;
+                cInfoDom("root") <<  "IOFactory::CreateAudio(" << type << "): Ok";
         else
-                cWarningDom("root") <<  "IOFactory::CreateAudio(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateAudio(" << type << "): Unknown Input type !";
 
         return player;
 }
@@ -347,9 +347,9 @@ IPCam *IOFactory::CreateIPCamera (std::string type, Params &params)
         }
 
         if (cam)
-                cInfoDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Ok" << log4cpp::eol;
+                cInfoDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Ok";
         else
-                cWarningDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Unknown Input type !" << log4cpp::eol;
+                cWarningDom("root") <<  "IOFactory::CreateIPCamera(" << type << "): Unknown Input type !";
 
         return cam;
 }

@@ -31,7 +31,7 @@ Room::Room(string _name, string _type, int _hits):
                 type(_type),
                 hits(_hits)
 {
-        cDebugDom("room") << "Room::Room(" << name << ", " << type << "): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::Room(" << name << ", " << type << "): Ok";
 }
 
 Room::~Room()
@@ -45,21 +45,21 @@ Room::~Room()
         inputs.clear();
         outputs.clear();
 
-        cDebugDom("room") << "Room::~Room(): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::~Room(): Ok";
 }
 
 void Room::AddInput(Input *in)
 {
         inputs.push_back(in);
 
-        cDebugDom("room") << "Room::AddInput(" << in->get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::AddInput(" << in->get_param("id") << "): Ok";
 }
 
 void Room::AddOutput(Output *out)
 {
         outputs.push_back(out);
 
-        cDebugDom("room") << "Room::AddOutput(" << out->get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::AddOutput(" << out->get_param("id") << "): Ok";
 }
 
 void Room::RemoveInput(int pos, bool del)
@@ -75,7 +75,7 @@ void Room::RemoveInput(int pos, bool del)
         if (del) delete inputs[pos];
         inputs.erase(iter);
 
-        cDebugDom("room") << "Room::RemoveInput(): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::RemoveInput(): Ok";
 }
 
 void Room::RemoveOutput(int pos, bool del)
@@ -91,7 +91,7 @@ void Room::RemoveOutput(int pos, bool del)
         if (del) delete outputs[pos];
         outputs.erase(iter);
 
-        cDebugDom("room") << "Room::RemoveOutput(): Ok" << log4cpp::eol;
+        cDebugDom("room") << "Room::RemoveOutput(): Ok";
 }
 
 void Room::RemoveInputFromRoom(Input *in)

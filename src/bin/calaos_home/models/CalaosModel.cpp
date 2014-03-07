@@ -51,7 +51,7 @@ void CalaosModel::discover_found(string address)
 
         DELETE_NULL(discover)
 
-        cInfoDom("network") << "CalaosModel: found server: " << server_address << log4cpp::eol;
+        cInfoDom("network") << "CalaosModel: found server: " << server_address;
 
         connection = new CalaosConnection(server_address);
         connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosModel::connection_ok));
@@ -83,14 +83,14 @@ void CalaosModel::discover_error_login(string address)
 
         DELETE_NULL(discover)
 
-        cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address << log4cpp::eol;
+        cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
 
         login_failed.emit(server_address);
 }
 
 void CalaosModel::connection_ok()
 {
-        cInfoDom("network") << "CalaosModel: Connection success, loading home" << log4cpp::eol;
+        cInfoDom("network") << "CalaosModel: Connection success, loading home";
 
         //First load home and wait it finishes loading all IO (they are needed by AudioModel/CameraModel)
         room_model->load();
@@ -98,7 +98,7 @@ void CalaosModel::connection_ok()
 
 void CalaosModel::lost_connection()
 {
-        cErrorDom("network") << "CalaosModel: Lost Connection !" << log4cpp::eol;
+        cErrorDom("network") << "CalaosModel: Lost Connection !";
 
         DELETE_NULL(room_model)
         DELETE_NULL(camera_model)
@@ -119,7 +119,7 @@ void CalaosModel::load_done()
 
         if (load_count <= 0)
         {
-                cInfoDom("network") << "CalaosModel: Home loaded" << log4cpp::eol;
+                cInfoDom("network") << "CalaosModel: Home loaded";
 
                 home_loaded.emit();
 

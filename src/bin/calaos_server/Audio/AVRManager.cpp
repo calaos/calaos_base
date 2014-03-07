@@ -63,7 +63,7 @@ AVReceiver *AVRManager::Create(Params &p)
                         receiver = new AVRYamaha(p);
                 else
                 {
-                        cInfoDom("output") << "AVRManager(): Unknown A/V Receiver model " << p["model"] << log4cpp::eol;
+                        cInfoDom("output") << "AVRManager(): Unknown A/V Receiver model " << p["model"];
                         return NULL;
                 }
                 avrs.push_back(receiver);

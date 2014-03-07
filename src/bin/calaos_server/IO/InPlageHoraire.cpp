@@ -29,7 +29,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
         value(false)
 {
         ListeRule::Instance().Add(this); //add this specific input to the EventLoop
-        cDebugDom("input") << "InPlageHoraire::InPlageHoraire(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InPlageHoraire::InPlageHoraire(" << get_param("id") << "): Ok";
 
         set_param("visible", "false");
         set_param("gui_type", "time_range");
@@ -39,7 +39,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
 
 InPlageHoraire::~InPlageHoraire()
 {
-        cDebugDom("input") << "InPlageHoraire::~InPlageHoraire(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InPlageHoraire::~InPlageHoraire(): Ok";
 }
 
 void InPlageHoraire::clear()
@@ -94,7 +94,7 @@ void InPlageHoraire::hasChanged()
         if (val != value)
         {
                 value = val;
-                cInfoDom("input") << "InPlageHoraire(" << get_param("id") << "): Changed to " << (value?"true":"false") << log4cpp::eol;
+                cInfoDom("input") << "InPlageHoraire(" << get_param("id") << "): Changed to " << (value?"true":"false");
 
                 EmitSignalInput();
 
@@ -231,7 +231,7 @@ void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
                 }
 
                 cDebugDom("input") << "InPlageHoraire::LoadPlage(): Adding plage: "
-                                       << sstart.str() << " ===> " << sstop.str() << log4cpp::eol;
+                                       << sstart.str() << " ===> " << sstop.str();
 
                 plage.push_back(h);
         }
@@ -242,7 +242,7 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
         TiXmlHandle docHandle(pnode);
         TiXmlElement *node = docHandle.FirstChildElement().ToElement();
 
-        cDebugDom("input") << "InPlageHoraire::LoadFromXml(): Loading plage content" << log4cpp::eol;
+        cDebugDom("input") << "InPlageHoraire::LoadFromXml(): Loading plage content";
 
         //try to load months
         if (pnode->Attribute("months"))
@@ -258,8 +258,8 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
                 }
                 catch(...)
                 {
-                        cErrorDom("input") << "InPlageHoraire::LoadFromXml(): wrong parameters for months: " << m << log4cpp::eol;
-                        cErrorDom("input") << "InPlageHoraire::LoadFromXml(): Setting all months to active" << log4cpp::eol;
+                        cErrorDom("input") << "InPlageHoraire::LoadFromXml(): wrong parameters for months: " << m;
+                        cErrorDom("input") << "InPlageHoraire::LoadFromXml(): Setting all months to active";
 
                         months.set(); //set all months by default
                 }

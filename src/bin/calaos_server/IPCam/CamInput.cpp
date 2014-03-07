@@ -30,12 +30,12 @@ CamInput::CamInput(Params &p, IPCam *_cam):
 {
         get_params().Add("gui_type", "camera_input");
         get_params().Add("visible", "false");
-        cInfoDom("input") << "CamInput::CamInput(): Ok" << log4cpp::eol;
+        cInfoDom("input") << "CamInput::CamInput(): Ok";
 }
 
 CamInput::~CamInput()
 {
-        cInfoDom("input") << "CamInput::~CamInput(): Ok" << log4cpp::eol;
+        cInfoDom("input") << "CamInput::~CamInput(): Ok";
 }
 
 void CamInput::AcquireData()

@@ -42,16 +42,16 @@ WIDigitalBP::WIDigitalBP(Params &p):
         }
         else
         {
-                cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Not reading initial state for KNX inputs" << log4cpp::eol;
+                cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Not reading initial state for KNX inputs";
         }
 
-        cDebugDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Ok";
 }
 
 WIDigitalBP::~WIDigitalBP()
 {
         iter->disconnect();
-        cDebugDom("input") << "WIDigitalBP::~WIDigitalBP(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalBP::~WIDigitalBP(): Ok";
 }
 
 void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
@@ -63,7 +63,7 @@ void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::strin
                 {
                         cInfoDom("input") << "WIDigitalBP::ReceiveFromWago(): Got "
                                                << Utils::to_string(val) << " on " << intype << " input " << addr
-                                               << log4cpp::eol;
+                                              ;
 
                         udp_value = val;
                         hasChanged();
@@ -75,7 +75,7 @@ void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bo
 {
         if (!status)
         {
-                cErrorDom("input") << "WIDigitalBP(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WIDigitalBP(" << get_param("id") << "): Failed to read value";
                 if (initial)
                 {
                         Calaos::StartReadRules::Instance().ioRead();
@@ -91,9 +91,9 @@ void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bo
                         value = values[0];
 
                 if (value)
-                        cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Reading initial state: true" << log4cpp::eol;
+                        cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Reading initial state: true";
                 else
-                        cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Reading initial state: false" << log4cpp::eol;
+                        cInfoDom("input") << "WIDigitalBP::WIDigitalBP(" << get_param("id") << "): Reading initial state: false";
                 initial = false;
 
                 Calaos::StartReadRules::Instance().ioRead();

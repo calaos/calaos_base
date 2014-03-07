@@ -321,7 +321,7 @@ namespace Utils
                 virtual void operator() (void *b) const
                 {
                         logger("root") << Priority::CRIT << "DeletorBase() called, this is an error. It should never happen"
-                                       << ", because it means the application leaks memory!" << log4cpp::eol;
+                                       << ", because it means the application leaks memory!";
                 }
         };
 

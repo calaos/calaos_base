@@ -160,9 +160,9 @@ void ActivityWidgetsView::LoadWidgets()
 
         if (!document.LoadFile())
         {
-                cErrorDom("root") <<  "There was a parse error in " << file << log4cpp::eol;
-                cErrorDom("root") <<  document.ErrorDesc() << log4cpp::eol;
-                cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
+                cErrorDom("root") <<  "There was a parse error in " << file;
+                cErrorDom("root") <<  document.ErrorDesc();
+                cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow();
 
                 //force save of file
                 SaveWidgets();
@@ -269,7 +269,7 @@ bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h,
         catch(const std::exception &e)
         {
                 cErrorDom("module") << "ActivityWidgetsView: Error creating widget, " <<
-                        e.what() << log4cpp::eol;
+                        e.what();
                 return false;
         }
 

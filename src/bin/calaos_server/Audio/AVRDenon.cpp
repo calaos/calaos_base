@@ -51,12 +51,12 @@ AVRDenon::AVRDenon(Params &p):
 
         command_suffix = "\r";
 
-        cInfoDom("output") << "AVRDenon::AVRDenon(" << params["host"] << "): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRDenon::AVRDenon(" << params["host"] << "): Ok";
 }
 
 AVRDenon::~AVRDenon()
 {
-        cInfoDom("output") << "AVRDenon::~AVRDenon(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "AVRDenon::~AVRDenon(): Ok";
 }
 
 void AVRDenon::connectionEstablished()
@@ -75,7 +75,7 @@ void AVRDenon::connectionEstablished()
 
 void AVRDenon::processMessage(string msg)
 {
-        cDebugDom("output") << "AVRDenon::processMessage(): Recv: " << msg << log4cpp::eol;
+        cDebugDom("output") << "AVRDenon::processMessage(): Recv: " << msg;
 
         if (msg.substr(0, 2) == "MV") //master volume changed
         {

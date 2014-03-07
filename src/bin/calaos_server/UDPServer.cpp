@@ -34,9 +34,9 @@ UDPServer::UDPServer(int p):
 
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
 
-        cDebugDom("network") << "Starting UDP server..." << log4cpp::eol;
+        cDebugDom("network") << "Starting UDP server...";
         cDebugDom("network")
-                        << "UDPServer::UDPServer(): Listenning on port " << port << log4cpp::eol;
+                        << "UDPServer::UDPServer(): Listenning on port " << port;
 }
 
 UDPServer::~UDPServer()
@@ -59,7 +59,7 @@ UDPServer::~UDPServer()
         ecore_event_handler_del(event_handler_data_get);
 
         cDebugDom("network")
-                        << "UDPServer::~UDPServer(): Ok" << log4cpp::eol;
+                        << "UDPServer::~UDPServer(): Ok";
 }
 
 Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev)
@@ -81,7 +81,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
         {
                 cCriticalDom("network")
                                 << "UDPServer(): _ecore_con_handler_data_get, failed to get UDPServer object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -92,12 +92,12 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
         if (request == "CALAOS_DISCOVER")
         {
                 cDebugDom("network")
-                                << "UDPServer: Got a CALAOS_DISCOVER" << log4cpp::eol;
+                                << "UDPServer: Got a CALAOS_DISCOVER";
 
                 string remote_ip = ecore_con_client_ip_get(client);
 
                 cDebugDom("network")
-                                << "UDPServer: Remote IP: " << remote_ip << log4cpp::eol;
+                                << "UDPServer: Remote IP: " << remote_ip;
 
                 string ip = TCPSocket::GetLocalIPFor(remote_ip);
                 if (ip != "")
@@ -140,13 +140,13 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                         ecore_con_client_send(client, packet.c_str(), packet.length() + 1);
 
                         cDebugDom("network")
-                                        << "UDPServer: Sending answer: " << packet << log4cpp::eol;
+                                        << "UDPServer: Sending answer: " << packet;
                 }
                 else
                 {
                         cErrorDom("network")
                                         << "UDPServer: No interface found corresponding to network : "
-                                        << remote_ip << log4cpp::eol;
+                                        << remote_ip;
                 }
         }
         else if (request.compare(0, 9, "WAGO INT ") == 0)
@@ -160,7 +160,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
                 cInfoDom("network")
                                          << "UDPServer: received input " << Utils::to_string(input)
-                                         << " state=" << Utils::to_string(val) << log4cpp::eol;
+                                         << " state=" << Utils::to_string(val);
 
                 //send a signal
                 Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "std");
@@ -176,7 +176,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
                 cInfoDom("network")
                                          << "UDPServer: received input " << Utils::to_string(input)
-                                         << " state=" << Utils::to_string(val) << log4cpp::eol;
+                                         << " state=" << Utils::to_string(val);
 
                 //send a signal
                 Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "knx");

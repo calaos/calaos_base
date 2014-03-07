@@ -41,7 +41,7 @@ bool AudioOutput::set_value(std::string value)
 {
         string val = value;
 
-        cInfoDom("output") << "AudioOutput(" << get_param("id") << "): got action \"" << val << "\"" << log4cpp::eol;
+        cInfoDom("output") << "AudioOutput(" << get_param("id") << "): got action \"" << val << "\"";
 
         //list of all available player functions
         if (val == "play")

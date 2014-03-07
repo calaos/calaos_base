@@ -36,9 +36,9 @@ TCPServer::TCPServer(int p): port(p), tcp_server(NULL)
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
         cDebugDom("network")
-                        << "TCPServer::TCPServer(): Init TCP Server" << log4cpp::eol;
+                        << "TCPServer::TCPServer(): Init TCP Server";
         cInfoDom("network")
-                        << "TCPServer::TCPServer(): Listening on port " << port << log4cpp::eol;
+                        << "TCPServer::TCPServer(): Listening on port " << port;
 }
 
 TCPServer::~TCPServer()
@@ -51,7 +51,7 @@ TCPServer::~TCPServer()
         ecore_event_handler_del(event_handler_data_get);
 
         cDebugDom("network")
-                        << "TCPServer::~TCPServer(): Ok" << log4cpp::eol;
+                        << "TCPServer::~TCPServer(): Ok";
 }
 
 Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev)
@@ -71,7 +71,7 @@ Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Cl
         {
                 cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_client_add, failed to get TCPServer object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -94,7 +94,7 @@ Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Cl
         {
                 cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_client_del, failed to get TCPServer object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_CANCEL;
@@ -117,7 +117,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
         {
                 cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_data_get, failed to get TCPServer object !"
-                                << log4cpp::eol;
+                               ;
         }
 
         return ECORE_CALLBACK_RENEW;
@@ -128,7 +128,7 @@ void TCPServer::addConnection(Ecore_Con_Client *client)
         cDebugDom("network")
                         << "TCPServer::addConnection(): Got a new connection from address "
                         << ecore_con_client_ip_get(client)
-                        << log4cpp::eol;
+                       ;
 
         TCPConnection *conn = new TCPConnection(client);
         connections[client] = conn;
@@ -139,14 +139,14 @@ void TCPServer::delConnection(Ecore_Con_Client *client)
         cDebugDom("network")
                         << "TCPServer::delConnection(): Connection from adress "
                         << ecore_con_client_ip_get(client) << " closed."
-                        << log4cpp::eol;
+                       ;
 
         map<Ecore_Con_Client *, TCPConnection *>::iterator it = connections.find(client);
         if (it == connections.end())
         {
                 cCriticalDom("network")
                                 << "TCPServer::delConnection(): Can't find corresponding TCPConnection !"
-                                << log4cpp::eol;
+                               ;
 
                 return;
         }
@@ -162,14 +162,14 @@ void TCPServer::getDataConnection(Ecore_Con_Client *client, void *data, int size
         cDebugDom("network")
                         << "TCPServer::getDataConnection(): Got data from client at address "
                         << ecore_con_client_ip_get(client)
-                        << log4cpp::eol;
+                       ;
 
         map<Ecore_Con_Client *, TCPConnection *>::iterator it = connections.find(client);
         if (it == connections.end())
         {
                 cCriticalDom("network")
                                 << "TCPServer::getDataConnection(): Can't find corresponding TCPConnection !"
-                                << log4cpp::eol;
+                               ;
 
                 return;
         }

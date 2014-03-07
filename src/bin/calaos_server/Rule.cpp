@@ -30,7 +30,7 @@ Rule::Rule(string type, string name):
         params.Add("name", name);
 
         cDebugDom("rule") << "Rule::Rule("
-                              << type << "," << name << "): Ok" << log4cpp::eol;
+                              << type << "," << name << "): Ok";
 }
 
 Rule::~Rule()
@@ -41,21 +41,21 @@ Rule::~Rule()
         for (uint i = 0;i < actions.size();i++)
                 delete actions[i];
 
-        cDebugDom("rule") << "Rule::~Rule(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::~Rule(): Ok";
 }
 
 void Rule::AddCondition(Condition *cond)
 {
         conds.push_back(cond);
 
-        cDebugDom("rule") << "Rule::AddCondition(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::AddCondition(): Ok";
 }
 
 void Rule::AddAction(Action *act)
 {
         actions.push_back(act);
 
-        cDebugDom("rule") << "Rule::AddAction(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::AddAction(): Ok";
 }
 
 bool Rule::Execute()
@@ -64,7 +64,7 @@ bool Rule::Execute()
         bool cond = true;
         bool action = true;
 
-        cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution..." << log4cpp::eol;
+        cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution...";
 
         for (uint i = 0;i < conds.size();i++)
                 if (!conds[i]->Evaluate()) cond = false;
@@ -73,13 +73,13 @@ bool Rule::Execute()
         if (cond)
         {
                 cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
-                                      << "): Starting execution (" << actions.size() << " actions)" << log4cpp::eol;
+                                      << "): Starting execution (" << actions.size() << " actions)";
 
                 for (uint i = 0;i < actions.size();i++)
                         if (!actions[i]->Execute()) action = false;
 
                 cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
-                                      << "): Execution done." << log4cpp::eol;
+                                      << "): Execution done.";
         }
         else
         {
@@ -92,9 +92,9 @@ bool Rule::Execute()
                 ret = false;
 
         if (ret)
-                cDebugDom("rule") << "Rule::Execute(): Ok" << log4cpp::eol;
+                cDebugDom("rule") << "Rule::Execute(): Ok";
         else if (cond)
-                cWarningDom("rule") << "Rule::Execute(): Failed !" << log4cpp::eol;
+                cWarningDom("rule") << "Rule::Execute(): Failed !";
 
         return ret;
 }
@@ -105,7 +105,7 @@ void Rule::RemoveCondition(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         conds.erase(iter);
 
-        cDebugDom("rule") << "Rule::RemoveCondition(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::RemoveCondition(): Ok";
 }
 
 void Rule::RemoveAction(int pos)
@@ -114,7 +114,7 @@ void Rule::RemoveAction(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         actions.erase(iter);
 
-        cDebugDom("rule") << "Rule::RemoveAction(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "Rule::RemoveAction(): Ok";
 }
 
 bool Rule::LoadFromXml(TiXmlElement *node)

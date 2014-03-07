@@ -134,7 +134,7 @@ EdjeObject *ActivityAudioListView::createRootButton(string title, string subtitl
 
         if (!edje_object_part_table_pack(browser_root->getEvasObject(), "table", obj->getEvasObject(),
                                          col, row, 1, 1))
-                cCriticalDom("root") <<  "ActivityAudioListView::createRootButton(), failed to pack object into table !" << log4cpp::eol;
+                cCriticalDom("root") <<  "ActivityAudioListView::createRootButton(), failed to pack object into table !";
 
         return obj;
 }

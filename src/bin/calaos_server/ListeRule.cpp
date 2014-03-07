@@ -36,7 +36,7 @@ ListeRule::~ListeRule()
 
         rules.clear();
 
-        cDebugDom("rule") << "ListeRule::~ListeRule(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "ListeRule::~ListeRule(): Ok";
 }
 
 void ListeRule::Add(Rule *r)
@@ -46,7 +46,7 @@ void ListeRule::Add(Rule *r)
         if (r->param_exists("auto_scenario"))
                 rules_scenarios.push_back(r);
 
-        cDebugDom("rule") << "ListeRule::Add(" << r->get_name() << "," << r->get_type() << "): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "ListeRule::Add(" << r->get_name() << "," << r->get_type() << "): Ok";
 }
 
 void ListeRule::Remove(int pos)
@@ -60,7 +60,7 @@ void ListeRule::Remove(int pos)
         delete rules[pos];
         rules.erase(iter);
 
-        cDebugDom("rule") << "ListeRule::Remove(): Ok" << log4cpp::eol;
+        cDebugDom("rule") << "ListeRule::Remove(): Ok";
 }
 
 Rule *ListeRule::operator[] (int i) const
@@ -85,7 +85,7 @@ void ListeRule::RunEventLoop()
 
         loop = false;
 
-//        cDebugDom("rule") << "ListeRule::RunEventLoop(): Loop exited" << log4cpp::eol;
+//        cDebugDom("rule") << "ListeRule::RunEventLoop(): Loop exited";
 }
 
 void ListeRule::StopLoop()
@@ -116,12 +116,12 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                 cb->input = io_id;
                 cb->idler = ecore_idler_add(_execute_rule_signal_idler_cb, cb);
 
-                cDebugDom("rule") << "ListeRule::ExecuteRuleSignal(): Mutex locked, execute rule later for input " << io_id << log4cpp::eol;
+                cDebugDom("rule") << "ListeRule::ExecuteRuleSignal(): Mutex locked, execute rule later for input " << io_id;
 
                 return;
         }
 
-        cDebugDom("rule") << "ListeRule::ExecuteRuleSignal(): received signal for id " << io_id << log4cpp::eol;
+        cDebugDom("rule") << "ListeRule::ExecuteRuleSignal(): received signal for id " << io_id;
 
         for (uint i = 0;i < rules.size();i++)
         {

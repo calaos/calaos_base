@@ -53,7 +53,7 @@ PagingView::PagingView(Evas *_e, Evas_Object *_parent):
         }
         catch(exception const& e)
         {
-                cCriticalDom("root") <<  "PagingView: Can't load edje" << log4cpp::eol;
+                cCriticalDom("root") <<  "PagingView: Can't load edje";
                 throw;
         }
 
@@ -122,7 +122,7 @@ int PagingView::addPage(Evas_Object *content)
         }
         catch(exception const& e)
         {
-                cCriticalDom("root") <<  "PagingView: Can't load edje calaos/paging_view/selector" << log4cpp::eol;
+                cCriticalDom("root") <<  "PagingView: Can't load edje calaos/paging_view/selector";
                 throw;
         }
 
@@ -147,7 +147,7 @@ void PagingView::delPage(int page)
 {
         if (page < 0 || page >= (int)pages.size())
         {
-                cCriticalDom("root") <<  "PagingView: delPage(" << page << ") out of bound [size: " << pages.size() << "] !" << log4cpp::eol;
+                cCriticalDom("root") <<  "PagingView: delPage(" << page << ") out of bound [size: " << pages.size() << "] !";
                 return;
         }
 

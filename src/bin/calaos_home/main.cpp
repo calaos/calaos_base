@@ -93,11 +93,11 @@ int main(int argc, char **argv)
         }
         catch(exception const& e)
         {
-                cCriticalDom("root") <<  "An exception occured: " << e.what() << log4cpp::eol;
+                cCriticalDom("root") <<  "An exception occured: " << e.what();
         }
         catch(...)
         {
-                cCriticalDom("root") <<  "An unknown exception occured !" << log4cpp::eol;
+                cCriticalDom("root") <<  "An unknown exception occured !";
         }
 
         return 0;

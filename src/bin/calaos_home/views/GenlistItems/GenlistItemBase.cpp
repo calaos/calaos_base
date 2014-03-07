@@ -52,7 +52,7 @@ GenlistItemBase::~GenlistItemBase()
                 delete autodel_userdata;
         }
 
-        cDebugDom("root") <<  "GenlistItemBase: item deleted" << log4cpp::eol;
+        cDebugDom("root") <<  "GenlistItemBase: item deleted";
 }
 
 void GenlistItemBase::Append(Evas_Object *_genlist, GenlistItemBase *gparent)
@@ -171,7 +171,7 @@ Evas_Object *_item_part_get(void *data, Evas_Object *obj, const char *part)
         GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
         if (!item)
         {
-                cErrorDom("home") << "GenlistItemBase : _item_part_get(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GenlistItemBase : _item_part_get(): Can't cast data !";
                 return NULL;
         }
 
@@ -183,7 +183,7 @@ void _item_delete(void *data, Evas_Object *obj)
         GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
         if (!item)
         {
-                cErrorDom("home") << "GenlistItemBase : _item_delete(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GenlistItemBase : _item_delete(): Can't cast data !";
                 return;
         }
 
@@ -195,7 +195,7 @@ Eina_Bool _item_state(void *data, Evas_Object *obj, const char *part)
         GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
         if (!item)
         {
-                cErrorDom("home") << "GenlistItemBase : _item_state(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GenlistItemBase : _item_state(): Can't cast data !";
                 return false;
         }
 
@@ -207,7 +207,7 @@ char *_item_label(void *data, Evas_Object *obj, const char *part)
         GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
         if (!item)
         {
-                cErrorDom("home") << "GenlistItemBase : _item_label(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GenlistItemBase : _item_label(): Can't cast data !";
                 return NULL;
         }
 
@@ -219,7 +219,7 @@ void _item_sel_cb(void *data, Evas_Object *obj, void *event_info)
         GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
         if (!item)
         {
-                cErrorDom("home") << "GenlistItemBase : _item_sel_cb(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GenlistItemBase : _item_sel_cb(): Can't cast data !";
                 return;
         }
         item->emitSelectedSignal();

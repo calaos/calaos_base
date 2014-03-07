@@ -44,11 +44,11 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
 
         readConfig();
 
-        cInfoDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value" << log4cpp::eol;
+        cInfoDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value";
 
         string initpos;
         if (!Config::Instance().ReadValueIO(get_param("id"), initpos))
-                cErrorDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value failed!" << log4cpp::eol;
+                cErrorDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value failed!";
         else
                 from_string(initpos, position);
 
@@ -63,7 +63,7 @@ OutputShutterSmart::~OutputShutterSmart()
         if (timer_up) delete timer_up;
         if (timer_down) delete timer_down;
 
-        cInfoDom("output") << "OutputShutterSmart::~OutputShutterSmart(): Ok" << log4cpp::eol;
+        cInfoDom("output") << "OutputShutterSmart::~OutputShutterSmart(): Ok";
 }
 
 void OutputShutterSmart::readConfig()
@@ -104,7 +104,7 @@ void OutputShutterSmart::readConfig()
 */
 bool OutputShutterSmart::set_value(std::string val)
 {
-        cInfoDom("output") << "OutputShutterSmart(" << get_param("id") << "): got action, " << val << log4cpp::eol;
+        cInfoDom("output") << "OutputShutterSmart(" << get_param("id") << "): got action, " << val;
 
         if (calibrate) return false;
 

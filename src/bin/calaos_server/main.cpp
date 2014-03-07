@@ -170,7 +170,7 @@ int main (int argc, char **argv)
                 wserver = new UDPServer(WAGO_LISTEN_PORT);
         }
 
-        cInfoDom("root") <<  "### All services started successfully, entering main loop ###" << log4cpp::eol;
+        cInfoDom("root") <<  "### All services started successfully, entering main loop ###";
 
         //Check if any Start Rules need to be executed.
         Calaos::StartReadRules::Instance().addIO();

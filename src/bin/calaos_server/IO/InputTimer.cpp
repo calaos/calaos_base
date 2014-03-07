@@ -34,12 +34,12 @@ InputTimer::InputTimer(Params &p):
         set_param("visible", "false");
         set_param("gui_type", "timer");
 
-        cDebugDom("input") << "InputTimer::InputTimer(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTimer::InputTimer(" << get_param("id") << "): Ok";
 }
 
 InputTimer::~InputTimer()
 {
-        cDebugDom("input") << "InputTimer::~InputTimer(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTimer::~InputTimer(): Ok";
 }
 
 bool InputTimer::set_value(string command)
@@ -52,12 +52,12 @@ bool InputTimer::set_value(string command)
 
         if (command == "true")
         {
-                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer" << log4cpp::eol;
+                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer";
                 StartTimer();
         }
         else if(command == "false")
         {
-                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer" << log4cpp::eol;
+                cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer";
                 StopTimer();
         }
         else
@@ -90,7 +90,7 @@ bool InputTimer::set_value(string command)
                         }
                         else
                                 cWarningDom("output") <<
-                                        "InputTimer: Invalid time value: " <<j<< log4cpp::eol;
+                                        "InputTimer: Invalid time value: " <<j;
                 }
 
                 set_param("hour", Utils::to_string(hour));

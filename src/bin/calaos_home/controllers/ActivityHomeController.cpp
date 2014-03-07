@@ -233,7 +233,7 @@ void ActivityHomeController::clickRoom(int selected_room)
 
         if (it == CalaosModel::Instance().getHome()->rooms_type.end())
         {
-                cErrorDom("home") << "ActivityHomeController::clickRoom(): Can't get room !" << log4cpp::eol;
+                cErrorDom("home") << "ActivityHomeController::clickRoom(): Can't get room !";
 
                 return;
         }

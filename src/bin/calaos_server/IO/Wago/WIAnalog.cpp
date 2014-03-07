@@ -37,12 +37,12 @@ WIAnalog::WIAnalog(Params &p):
         WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
         requestInProgress = true;
 
-        cDebugDom("input") << "WIAnalog::WIAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIAnalog::WIAnalog(" << get_param("id") << "): Ok";
 }
 
 WIAnalog::~WIAnalog()
 {
-        cDebugDom("input") << "WIAnalog::~WIAnalog(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIAnalog::~WIAnalog(): Ok";
 }
 
 void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
@@ -51,7 +51,7 @@ void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
 
         if (!status)
         {
-                cErrorDom("input") << "WIAnalog(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WIAnalog(" << get_param("id") << "): Failed to read value";
                 if (start)
                 {
                     Calaos::StartReadRules::Instance().ioRead();

@@ -32,13 +32,13 @@ WIDigitalLong::WIDigitalLong(Params &p):
                 Utils::from_string(get_param("port"), port);
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalLong::ReceiveFromWago) );
-        cDebugDom("input") << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok";
 }
 
 WIDigitalLong::~WIDigitalLong()
 {
         iter->disconnect();
-        cDebugDom("input") << "WIDigitalLong::~WIDigitalLong(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalLong::~WIDigitalLong(): Ok";
 }
 
 void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
@@ -50,7 +50,7 @@ void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::str
                 {
                         cInfoDom("input") << "WIDigitalLong::ReceiveFromWago(): Got "
                                                << Utils::to_string(val) << " on " << intype << " input " << addr
-                                               << log4cpp::eol;
+                                              ;
 
                         udp_value = val;
                         hasChanged();
@@ -62,7 +62,7 @@ void WIDigitalLong::WagoReadCallback(bool status, UWord addr, int nb, vector<boo
 {
         if (!status)
         {
-                cErrorDom("input") << "WIDigitalLong(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WIDigitalLong(" << get_param("id") << "): Failed to read value";
                 return;
         }
 }

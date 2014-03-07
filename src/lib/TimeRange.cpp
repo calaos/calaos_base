@@ -195,8 +195,8 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 longitude = 2.548828;
                 latitude = 46.422713;
 
-                cErrorDom("root") <<  "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
-                cErrorDom("root") <<  "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
+                cErrorDom("root") <<  "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!";
+                cErrorDom("root") <<  "Horaire: Please go to the webpage of the server to set these parameters.";
         }
         else
         {
@@ -208,7 +208,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         int res;
 
         cInfoDom("root") <<  "Horaire: Computing sunrise/sunset for date " <<
-                               day << "/" << month << "/" << year << log4cpp::eol;
+                               day << "/" << month << "/" << year;
         res = sun_rise_set(year, month, day, longitude, latitude, &rise, &set);
 
         if (res != 0)
@@ -218,7 +218,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 set_hour = 0;
                 set_min = 0;
 
-                cErrorDom("root") <<  "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
+                cErrorDom("root") <<  "Horaire: Error in sunset/sunrise calculation!";
 
                 return;
         }
@@ -233,7 +233,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
         streamrise << std::setfill('0') << std::setw(2) << rise_hour << ":" << rise_min;
         streamset << std::setfill('0') << std::setw(2) << set_hour << ":" << set_min;
         cInfoDom("root") <<  "Horaire: sunrise is at " << streamrise.str() << " and sunset is at " <<
-                                  streamset.str() << log4cpp::eol;
+                                  streamset.str();
 
         sunrise_hour_cache = rise_hour;
         sunrise_min_cache = rise_min;

@@ -42,12 +42,12 @@ X10Output::X10Output(Params &p):
                 old_value--;
         }
 
-        cDebugDom("output") << "X10Output::X10Output(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("output") << "X10Output::X10Output(" << get_param("id") << "): Ok";
 }
 
 X10Output::~X10Output()
 {
-        cDebugDom("output") << "X10Output::~X10Output(): Ok" << log4cpp::eol;
+        cDebugDom("output") << "X10Output::~X10Output(): Ok";
 }
 
 bool X10Output::set_on_real()

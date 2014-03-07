@@ -32,7 +32,7 @@ using namespace Calaos;
 WebAnalogIn::WebAnalogIn(Params &p):
          InputAnalog(p)
 {
-        cInfoDom("input") << "WebAnalogIn::WebAnalogIn()" << log4cpp::eol;
+        cInfoDom("input") << "WebAnalogIn::WebAnalogIn()";
 
         WebCtrl::Instance(p).Add(frequency);
 
@@ -43,7 +43,7 @@ WebAnalogIn::WebAnalogIn(Params &p):
 
 WebAnalogIn::~WebAnalogIn()
 {
-        cInfoDom("input") << "WebAnalogIn::~WebAnalogIn()" << log4cpp::eol;
+        cInfoDom("input") << "WebAnalogIn::~WebAnalogIn()";
 }
 
 

@@ -60,7 +60,7 @@ bool OutputLight::set_value(bool val)
 bool OutputLight::_set_value(bool val)
 {
         cInfoDom("output") << "OutputLight(" << get_param("id")
-                        << "): got action, " << ((val)?"True":"False") << log4cpp::eol;
+                        << "): got action, " << ((val)?"True":"False");
 
         if (set_value_real(val))
         {
@@ -108,7 +108,7 @@ void OutputLight::impulse(int time)
 {
         cInfoDom("output") << "OutputLight(" << get_param("id")
                         << "): got impulse action, staying true for "
-                        << time << "ms" << log4cpp::eol;
+                        << time << "ms";
 
         set_value(true);
 
@@ -138,7 +138,7 @@ void OutputLight::impulse_extended(string pattern)
         blinks.clear();
 
         cInfoDom("output") << "OutputLight(" << get_param("id")
-                        << "): got extended impulse action, parsing blinking pattern..." << log4cpp::eol;
+                        << "): got extended impulse action, parsing blinking pattern...";
 
         //Parse the string
         vector<string> tokens;
@@ -162,7 +162,7 @@ void OutputLight::impulse_extended(string pattern)
 
                         cDebugDom("output") << "OutputLight(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
-                                                << " for " << binfo.duration << "ms" << log4cpp::eol;
+                                                << " for " << binfo.duration << "ms";
 
                         state = !state;
                 }
@@ -172,7 +172,7 @@ void OutputLight::impulse_extended(string pattern)
                         loop = blinks.size();
 
                         cDebugDom("output") << "OutputLight("
-                                                << get_param("id") << ")::Parse : Loop all next steps." << log4cpp::eol;
+                                                << get_param("id") << ")::Parse : Loop all next steps.";
                 }
                 else if (tokens[i] == "old")
                 {
@@ -185,7 +185,7 @@ void OutputLight::impulse_extended(string pattern)
 
                         cDebugDom("output") << "OutputLight(" << get_param("id")
                                                 << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
-                                                << log4cpp::eol;
+                                               ;
                 }
         }
 

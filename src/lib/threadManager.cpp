@@ -36,7 +36,7 @@ ThreadManager::~ThreadManager()
                 for (iter = threads.begin();iter!=threads.end();iter++)
                         s+=Utils::to_string(*iter)+", ";
 
-                cErrorDom("threads") << "These threads are not terminated : " << s << log4cpp::eol;
+                cErrorDom("threads") << "These threads are not terminated : " << s;
         }
 
         IPC::Instance().DeleteHandler(signal);
@@ -52,7 +52,7 @@ ThreadManager::ThreadManager()
 void ThreadManager::add(CThread* t)
 {
         threads.push_back(t);
-        cInfoDom("threads") << "Add new thread : " << t << log4cpp::eol;
+        cInfoDom("threads") << "Add new thread : " << t;
 }
 
 void ThreadManager::deleteThread(string source, string s, void* listener_data, void* t)
@@ -67,13 +67,13 @@ void ThreadManager::deleteThread(string source, string s, void* listener_data, v
 
         if(iter==threads.end())
         {
-                cErrorDom("threads") << "Try to delete the thread " << t << " but it doesn't exists in the threads list" << log4cpp::eol;
+                cErrorDom("threads") << "Try to delete the thread " << t << " but it doesn't exists in the threads list";
                 return ;
         }
 
         threads.erase(iter);
 
-        cInfoDom("threads") << "Deleting thread : " << c << log4cpp::eol;
+        cInfoDom("threads") << "Deleting thread : " << c;
 
         delete c;
 }
