@@ -69,7 +69,7 @@ Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Cl
         }
         else
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_client_add, failed to get TCPServer object !"
                                 << log4cpp::eol;
         }
@@ -92,7 +92,7 @@ Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Cl
         }
         else
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_client_del, failed to get TCPServer object !"
                                 << log4cpp::eol;
         }
@@ -115,7 +115,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
         }
         else
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "TCPServer(): _ecore_con_handler_data_get, failed to get TCPServer object !"
                                 << log4cpp::eol;
         }
@@ -144,7 +144,7 @@ void TCPServer::delConnection(Ecore_Con_Client *client)
         map<Ecore_Con_Client *, TCPConnection *>::iterator it = connections.find(client);
         if (it == connections.end())
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "TCPServer::delConnection(): Can't find corresponding TCPConnection !"
                                 << log4cpp::eol;
 
@@ -167,7 +167,7 @@ void TCPServer::getDataConnection(Ecore_Con_Client *client, void *data, int size
         map<Ecore_Con_Client *, TCPConnection *>::iterator it = connections.find(client);
         if (it == connections.end())
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "TCPServer::getDataConnection(): Can't find corresponding TCPConnection !"
                                 << log4cpp::eol;
 

@@ -330,7 +330,7 @@ void JsonApiClient::sendToClient(string res)
 {
         if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                          << "JsonApiClient::handleRequest(): Error sending data ! Closing connection." << log4cpp::eol;
 
                 CloseConnection();

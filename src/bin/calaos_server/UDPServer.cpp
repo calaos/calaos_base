@@ -79,7 +79,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
         }
         else
         {
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "UDPServer(): _ecore_con_handler_data_get, failed to get UDPServer object !"
                                 << log4cpp::eol;
         }

@@ -30,7 +30,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Client_D
         if (o)
                 o->dataGet(ecore_con_client_server_get(ev->client), ev->data, ev->size);
         else
-                Utils::logger("network") << Priority::CRIT
+                cCriticalDom("network")
                                 << "CalaosDiscover(): _con_server_data, failed to get object !"
                                 << log4cpp::eol;
 

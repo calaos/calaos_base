@@ -128,7 +128,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
         INetAddress.sin_port = htons(nPort);
         INetAddress.sin_addr = *((struct in_addr *) Host->h_addr);
         res = memset(&(INetAddress.sin_zero), '\0', 8);
-        if (!res) Utils::logger("network") << Priority::CRIT << "Failed to set memory !" << log4cpp::eol;
+        if (!res) cCriticalDom("network") << "Failed to set memory !" << log4cpp::eol;
 
         if (connect(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
@@ -330,7 +330,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
                                 //the pipe tell us to stop receiving data
                                 char c;
                                 res = read(fdpipe, &c, 1);
-                                if (res <= 0) Utils::logger("network") << Priority::CRIT << "Failed to read the pipe !" << log4cpp::eol;
+                                if (res <= 0) cCriticalDom("network") << "Failed to read the pipe !" << log4cpp::eol;
                                 return false;
                         }
                 }
@@ -407,7 +407,7 @@ bool TCPSocket::Create(int nPort)
         INetAddress.sin_port = htons(nPort);
         INetAddress.sin_addr.s_addr = INADDR_ANY;
         res = memset(&(INetAddress.sin_zero), '\0', 8);
-        if (!res) Utils::logger("network") << Priority::CRIT << "Failed to set memory !" << log4cpp::eol;
+        if (!res) cCriticalDom("network") << "Failed to set memory !" << log4cpp::eol;
 
         if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
@@ -449,7 +449,7 @@ bool TCPSocket::Create(int nPort, char nType)
         INetAddress.sin_port = htons(nPort);
         INetAddress.sin_addr.s_addr = INADDR_ANY;
         res = memset(&(INetAddress.sin_zero), '\0', 8);
-        if (!res) Utils::logger("network") << Priority::CRIT << "Failed to set memory !" << log4cpp::eol;
+        if (!res) cCriticalDom("network") << "Failed to set memory !" << log4cpp::eol;
 
         if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
         {
