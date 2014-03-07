@@ -27,12 +27,12 @@ SqueezeboxDB::SqueezeboxDB(Squeezebox *squeezebox, Params &p):
                 AudioDB(p),
                 player(squeezebox)
 {
-        Utils::logger("squeezebox") << Priority::DEBUG << "SqueezeboxDB: new Database at " << param["host"] << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "SqueezeboxDB: new Database at " << param["host"] << log4cpp::eol;
 }
 
 SqueezeboxDB::~SqueezeboxDB()
 {
-        Utils::logger("squeezebox") << Priority::DEBUG << "SqueezeboxDB::~SqueezeboxDB(): Ok" << log4cpp::eol;
+        cDebugDom("squeezebox") <<  "SqueezeboxDB::~SqueezeboxDB(): Ok" << log4cpp::eol;
 }
 
 void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
