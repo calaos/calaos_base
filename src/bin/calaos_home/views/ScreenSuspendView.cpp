@@ -41,7 +41,7 @@ ScreenSuspendView::ScreenSuspendView(Evas *_e, Evas_Object *p):
         }
         catch(exception const& e)
         {
-                cCriticalDom("root") <<  "ScreenSuspendView: Can't load edje";
+                cCritical() <<  "ScreenSuspendView: Can't load edje";
                 throw;
         }
 

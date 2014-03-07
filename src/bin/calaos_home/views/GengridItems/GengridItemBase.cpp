@@ -51,7 +51,7 @@ GengridItemBase::~GengridItemBase()
                 delete autodel_userdata;
         }
 
-        cDebugDom("root") <<  "GengridItemBase: item deleted";
+        cDebug() <<  "GengridItemBase: item deleted";
 }
 
 void GengridItemBase::Append(Evas_Object *_gengrid)

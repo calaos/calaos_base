@@ -160,9 +160,9 @@ void ActivityWidgetsView::LoadWidgets()
 
         if (!document.LoadFile())
         {
-                cErrorDom("root") <<  "There was a parse error in " << file;
-                cErrorDom("root") <<  document.ErrorDesc();
-                cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow();
+                cError() <<  "There was a parse error in " << file;
+                cError() <<  document.ErrorDesc();
+                cError() <<  "In file " << file << " At line " << document.ErrorRow();
 
                 //force save of file
                 SaveWidgets();

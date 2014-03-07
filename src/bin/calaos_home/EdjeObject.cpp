@@ -83,7 +83,7 @@ EdjeObject::~EdjeObject()
         {
                 void *data = evas_object_event_callback_del_full(edje, EVAS_CALLBACK_DEL, _edje_del, this);
                 if (!data)
-                        cCriticalDom("root") <<  "EdjeObject::~EdjeObject : Something went wrong with callback deletion !";
+                        cCritical() <<  "EdjeObject::~EdjeObject : Something went wrong with callback deletion !";
 
                 //Emit deleted signal only if the Evas_Object is still alive
                 objectDeleted();

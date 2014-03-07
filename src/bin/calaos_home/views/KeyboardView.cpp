@@ -43,7 +43,7 @@ KeyboardView::KeyboardView(Evas *_e, Evas_Object *_parent):
         }
         catch (exception const &e)
         {
-                cCriticalDom("root") <<  "KeyboardView: Can't load edje";
+                cCritical() <<  "KeyboardView: Can't load edje";
                 throw;
         }
 

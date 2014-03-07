@@ -50,7 +50,7 @@ void ActivityController::createView()
         }
         catch (exception const& e)
         {
-                cCriticalDom("root") <<  "ActivityController: Can't create view !";
+                cCritical() <<  "ActivityController: Can't create view !";
                 throw;
         }
 
@@ -64,7 +64,7 @@ void ActivityController::viewDeleted()
 {
         view = NULL;
         view_deleted.emit(this);
-        cDebugDom("root") <<  "ActivityController: view deleted";
+        cDebug() <<  "ActivityController: view deleted";
 }
 
 void ActivityController::resetView()

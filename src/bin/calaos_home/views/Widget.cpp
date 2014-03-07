@@ -76,7 +76,7 @@ Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_
 
         if (!LoadEdje("calaos/widget/base"))
         {
-                cCriticalDom("root") << "FATAL ERROR ! Exiting ...."; 
+                cCritical() << "FATAL ERROR ! Exiting ...."; 
                 exit(1);
         }
 

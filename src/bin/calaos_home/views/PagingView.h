@@ -26,7 +26,7 @@
 #define CHECK_SCROLL_RETURN(...) \
         if (!edje) \
         { \
-                cCriticalDom("root") <<  "PagingView: Scroller object NULL !"; \
+                cCritical() <<  "PagingView: Scroller object NULL !"; \
                 return __VA_ARGS__; \
         }
 

@@ -73,7 +73,7 @@ void NTPClock::updateClock()
         if (Utils::get_config_option("use_ntp") == "true")
         {
                 handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle1, this);
-                cInfoDom("root") <<  "NTPClock::updateClock() Updating clock...";
+                cInfo() <<  "NTPClock::updateClock() Updating clock...";
 
                 string cmd = "/usr/sbin/ntpdate calaos.fr";
 
@@ -115,7 +115,7 @@ void NTPClock::applyCalendarFromServer(string source, string s,
 {
         if (networkCmdCalendarApply[2] == "ntp_on")
         {
-                cInfoDom("root") <<  "Enabling NTP";
+                cInfo() <<  "Enabling NTP";
                 enable(true);
 
                 int timeZone;
@@ -129,7 +129,7 @@ void NTPClock::applyCalendarFromServer(string source, string s,
         }
         else if (networkCmdCalendarApply[2] == "ntp_off")
         {
-                cInfoDom("root") <<  "Disabling NTP, update date and clock.";
+                cInfo() <<  "Disabling NTP, update date and clock.";
                 enable(false);
 
                 {
@@ -194,7 +194,7 @@ void NTPClock::Handle2()
 {
         ecore_event_handler_del(handler);
 
-        cInfoDom("root") <<  "NTPClock: Updating clock...  DONE";
+        cInfo() <<  "NTPClock: Updating clock...  DONE";
 
         exe = NULL;
         //kill l'application
@@ -202,7 +202,7 @@ void NTPClock::Handle2()
 
         if (isRestartWhenApply())
         {
-                cInfoDom("root") <<  "NTPClock: Restart the application";
+                cInfo() <<  "NTPClock: Restart the application";
                 pid_t pid = getpid();
                 kill(pid, SIGKILL);
         }

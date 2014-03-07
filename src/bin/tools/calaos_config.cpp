@@ -86,7 +86,7 @@ int main (int argc, char **argv)
                 string value = argv[3];
 
                 if (key == "hwid")
-                        cErrorDom("root") <<  "Can't change hwid";
+                        cError() <<  "Can't change hwid";
                 else
                         Utils::set_config_option(key, value);
         }

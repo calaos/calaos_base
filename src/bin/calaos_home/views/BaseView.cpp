@@ -37,5 +37,5 @@ BaseView::~BaseView()
 
 void BaseView::objectDeleted()
 {
-        cDebugDom("root") <<  "BaseView: Edje object deleted (" << collection  << ")";
+        cDebug() <<  "BaseView: Edje object deleted (" << collection  << ")";
 }
