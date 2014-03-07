@@ -40,12 +40,12 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
         
         Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
 
-        Utils::logger("input") << Priority::DEBUG << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
 {
-        Utils::logger("input") << Priority::DEBUG << "ZibaseAnalogIn::~ZibaseAnalogIn(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "ZibaseAnalogIn::~ZibaseAnalogIn(): Ok" << log4cpp::eol;
 }
 
 void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)

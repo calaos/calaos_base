@@ -40,7 +40,7 @@ OWTemp::OWTemp(Params &p):
         OW_init(ow_args.c_str());
 #endif
 
-        Utils::logger("input") << Priority::DEBUG << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id << log4cpp::eol;
+        cDebugDom("input") << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id << log4cpp::eol;
 
         //read value when calaos_server is started
         readValue();
@@ -49,7 +49,7 @@ OWTemp::OWTemp(Params &p):
 
 OWTemp::~OWTemp()
 {
-        Utils::logger("input") << Priority::INFO << "OWTemp::~OWTemp(): Ok" << log4cpp::eol;
+        cInfoDom("input") << "OWTemp::~OWTemp(): Ok" << log4cpp::eol;
 
 #ifdef HAVE_OWCAPI_H
         OW_finish();
@@ -75,11 +75,11 @@ void OWTemp::readValue()
         {
                 val = atof(res);
                 free(res);
-                Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): Ok" << log4cpp::eol;
+                cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Ok" << log4cpp::eol;
         }
         else
         {
-                Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")" << log4cpp::eol;
+                cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")" << log4cpp::eol;
         }
 
         if (val != value)
@@ -88,6 +88,6 @@ void OWTemp::readValue()
                 emitChange();
         }
 #else
-        Utils::logger("input") << Priority::INFO << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !" << log4cpp::eol;
+        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !" << log4cpp::eol;
 #endif
 }

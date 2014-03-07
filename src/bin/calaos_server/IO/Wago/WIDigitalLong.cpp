@@ -32,13 +32,13 @@ WIDigitalLong::WIDigitalLong(Params &p):
                 Utils::from_string(get_param("port"), port);
 
         iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalLong::ReceiveFromWago) );
-        Utils::logger("input") << Priority::DEBUG << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalLong::WIDigitalLong(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WIDigitalLong::~WIDigitalLong()
 {
         iter->disconnect();
-        Utils::logger("input") << Priority::DEBUG << "WIDigitalLong::~WIDigitalLong(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WIDigitalLong::~WIDigitalLong(): Ok" << log4cpp::eol;
 }
 
 void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)
@@ -48,7 +48,7 @@ void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::str
                 if ((intype == "std" && get_param("knx") != "true") ||
                     (intype == "knx" && get_param("knx") == "true"))
                 {
-                        Utils::logger("input") << Priority::INFO << "WIDigitalLong::ReceiveFromWago(): Got "
+                        cInfoDom("input") << "WIDigitalLong::ReceiveFromWago(): Got "
                                                << Utils::to_string(val) << " on " << intype << " input " << addr
                                                << log4cpp::eol;
 
@@ -62,7 +62,7 @@ void WIDigitalLong::WagoReadCallback(bool status, UWord addr, int nb, vector<boo
 {
         if (!status)
         {
-                Utils::logger("input") << Priority::ERROR << "WIDigitalLong(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WIDigitalLong(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
                 return;
         }
 }

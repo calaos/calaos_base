@@ -36,12 +36,12 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
 
         Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseDigitalIn::valueUpdated));
 
-        Utils::logger("input") << Priority::DEBUG << "ZibaseDigitalIn::ZibaseDigitalIn(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "ZibaseDigitalIn::ZibaseDigitalIn(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 ZibaseDigitalIn::~ZibaseDigitalIn()
 {
-        Utils::logger("input") << Priority::DEBUG << "ZibaseDigitalIn::~ZibaseDigitalIn(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "ZibaseDigitalIn::~ZibaseDigitalIn(): Ok" << log4cpp::eol;
 }
 
 void ZibaseDigitalIn::valueUpdated(ZibaseInfoSensor *sensor)

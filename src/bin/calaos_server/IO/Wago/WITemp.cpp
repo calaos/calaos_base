@@ -39,12 +39,12 @@ WITemp::WITemp(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("input") << Priority::DEBUG << "WITemp::WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WITemp::WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 WITemp::~WITemp()
 {
-        Utils::logger("input") << Priority::DEBUG << "WITemp::~WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "WITemp::~WITemp(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
@@ -53,7 +53,7 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
         if (!status)
         {
-                Utils::logger("input") << Priority::ERROR << "WITemp(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
+                cErrorDom("input") << "WITemp(" << get_param("id") << "): Failed to read value" << log4cpp::eol;
                 if (start)
                 {
                     Calaos::StartReadRules::Instance().ioRead();

@@ -35,12 +35,12 @@ InputTime::InputTime(Params &p):
         set_param("visible", "false");
         set_param("gui_type", "time");
 
-        Utils::logger("input") << Priority::DEBUG << "InputTime::InputTime(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 InputTime::~InputTime()
 {
-        Utils::logger("input") << Priority::DEBUG << "InputTime::~InputTime(): Ok" << log4cpp::eol;
+        cDebugDom("input") << "InputTime::~InputTime(): Ok" << log4cpp::eol;
 }
 
 void InputTime::hasChanged()

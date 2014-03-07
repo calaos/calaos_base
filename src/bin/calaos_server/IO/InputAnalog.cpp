@@ -41,12 +41,12 @@ InputAnalog::InputAnalog(Params &p):
 
         Calaos::StartReadRules::Instance().addIO();
 
-        Utils::logger("input") << Priority::INFO << "InputAnalog::InputAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
+        cInfoDom("input") << "InputAnalog::InputAnalog(" << get_param("id") << "): Ok" << log4cpp::eol;
 }
 
 InputAnalog::~InputAnalog()
 {
-        Utils::logger("input") << Priority::INFO << "InputAnalog::~InputAnalog(): Ok" << log4cpp::eol;
+        cInfoDom("input") << "InputAnalog::~InputAnalog(): Ok" << log4cpp::eol;
 }
 
 void InputAnalog::readConfig()
@@ -66,7 +66,7 @@ void InputAnalog::emitChange()
         sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
         IPC::Instance().SendEvent("events", sig);
 
-        Utils::logger("input") << Priority::INFO << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double() << log4cpp::eol;
+        cInfoDom("input") << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double() << log4cpp::eol;
 }
 
 void InputAnalog::hasChanged()
@@ -86,7 +86,7 @@ double InputAnalog::get_value_double()
 {
         readConfig();
 
-        Utils::logger("input") << Priority::DEBUG << "InputAnalog::get_value_double(" << get_param("id") << "): "
+        cDebugDom("input") << "InputAnalog::get_value_double(" << get_param("id") << "): "
                                 << value << " * " << real_value_max << " / " << wago_value_max << log4cpp::eol;
 
         if (wago_value_max > 0 && real_value_max > 0)

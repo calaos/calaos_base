@@ -41,7 +41,7 @@ Input::~Input()
 
 void Input::EmitSignalInput()
 {
-        Utils::logger("input") << Priority::DEBUG << "Input::EmitSignalInput(" << get_param("id") << ")" << log4cpp::eol;
+        cDebugDom("input") << "Input::EmitSignalInput(" << get_param("id") << ")" << log4cpp::eol;
         signal_input.emit(get_param("id"));
 	DataLogger::Instance().log(this);
 }
