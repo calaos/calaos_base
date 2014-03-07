@@ -76,8 +76,7 @@ Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_
 
         if (!LoadEdje("calaos/widget/base"))
         {
-                Utils::logger("root").fatal("FATAL ERROR !");
-                Utils::logger("root").fatal(" exiting...");
+                cCriticalDom("root") << "FATAL ERROR ! Exiting ...."); 
                 exit(1);
         }
 

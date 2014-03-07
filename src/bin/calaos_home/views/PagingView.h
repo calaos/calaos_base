@@ -26,7 +26,7 @@
 #define CHECK_SCROLL_RETURN(...) \
         if (!edje) \
         { \
-                Utils::logger("root") << Priority::CRIT << "PagingView: Scroller object NULL !" << log4cpp::eol; \
+                cCriticalDom("root") <<  "PagingView: Scroller object NULL !" << log4cpp::eol; \
                 return __VA_ARGS__; \
         }
 

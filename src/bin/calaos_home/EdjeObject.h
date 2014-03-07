@@ -47,7 +47,7 @@ typedef struct _EdjeCallbackData: public sigc::trackable
 #define CHECK_EDJE_RETURN(...) \
         if (!edje) \
         { \
-                Utils::logger("root") << Priority::CRIT << "EdjeObject: Edje object NULL ! (" << collection  << ")" << log4cpp::eol; \
+                cCriticalDom("root") <<  "EdjeObject: Edje object NULL ! (" << collection  << ")" << log4cpp::eol; \
                 return __VA_ARGS__; \
         }
 

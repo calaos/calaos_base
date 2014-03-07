@@ -601,9 +601,7 @@ void WagoMap::WagoHeartBeatTick()
         }
         else
         {
-                Utils::logger("root") << Priority::DEBUG
-                                << "WagoHeartbeat: No interface found corresponding to network : "
-                                << get_host() << log4cpp::eol;
+                Utils::logger("wago") << Priority::DEBUG << "WagoHeartbeat: No interface found corresponding to network : " << get_host() << log4cpp::eol;
         }
 
 
