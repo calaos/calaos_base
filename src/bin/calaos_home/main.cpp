@@ -45,6 +45,7 @@ static void echoUsage(char **argv)
 
 int main(int argc, char **argv)
 {
+	InitEinaLog("calaos_home");
 
 #ifdef ENABLE_NLS
 	/* Set the locale defined by the system */
