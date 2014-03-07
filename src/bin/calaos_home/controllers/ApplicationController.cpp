@@ -49,7 +49,7 @@ ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
                 }
                 catch(exception const& e)
                 {
-                        Utils::logger("root") << Priority::CRIT << "ApplicationController: Can't load mouse cursor" << log4cpp::eol;
+                        cCriticalDom("root") <<  "ApplicationController: Can't load mouse cursor" << log4cpp::eol;
                         throw;
                 }
 

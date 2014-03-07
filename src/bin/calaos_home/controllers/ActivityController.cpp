@@ -50,7 +50,7 @@ void ActivityController::createView()
         }
         catch (exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "ActivityController: Can't create view !" << log4cpp::eol;
+                cCriticalDom("root") <<  "ActivityController: Can't create view !" << log4cpp::eol;
                 throw;
         }
 

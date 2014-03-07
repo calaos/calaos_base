@@ -45,7 +45,7 @@ IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string _collectio
         }
         catch (exception const &e)
         {
-                Utils::logger("root") << Priority::CRIT << "IOView: Can't load edje" << log4cpp::eol;
+                cCriticalDom("root") <<  "IOView: Can't load edje" << log4cpp::eol;
                 throw;
         }
 }

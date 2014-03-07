@@ -49,7 +49,7 @@ bool Utils::file_copy(std::string source, std::string dest)
         while ((num = fread(buf, 1, sizeof(buf), f1)) > 0)
         {
                 res = fwrite(buf, 1, num, f2);
-                if (res <= 0) Utils::logger("root") << Priority::CRIT << "Failed to fwrite !" << log4cpp::eol;
+                if (res <= 0) cCriticalDom("root") <<  "Failed to fwrite !" << log4cpp::eol;
         }
 
         fclose(f1);

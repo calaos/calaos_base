@@ -107,7 +107,7 @@ void MainContentView::removeTopView()
 
 void MainContentView::showView(BaseView *view)
 {
-        Utils::logger("root") << Priority::CRIT << "MainMenuView:showView() not implemented !" << log4cpp::eol;
+        cCriticalDom("root") <<  "MainMenuView:showView() not implemented !" << log4cpp::eol;
 
         if (!view)
                 throw(runtime_error("MainContentView::showView(): view is NULL !"));

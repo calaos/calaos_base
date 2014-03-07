@@ -50,7 +50,7 @@ MainMenuView::MainMenuView(Evas *_e, Evas_Object *_p):
         }
         catch(exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "MainMenuView: Can't load edje" << log4cpp::eol;
+                cCriticalDom("root") <<  "MainMenuView: Can't load edje" << log4cpp::eol;
                 throw;
         }
 

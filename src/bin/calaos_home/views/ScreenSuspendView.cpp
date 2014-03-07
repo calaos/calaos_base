@@ -41,7 +41,7 @@ ScreenSuspendView::ScreenSuspendView(Evas *_e, Evas_Object *p):
         }
         catch(exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "ScreenSuspendView: Can't load edje" << log4cpp::eol;
+                cCriticalDom("root") <<  "ScreenSuspendView: Can't load edje" << log4cpp::eol;
                 throw;
         }
 

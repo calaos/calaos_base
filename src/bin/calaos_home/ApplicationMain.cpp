@@ -43,7 +43,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         cInfoDom("root") <<  "Calaos Home, starting..." << log4cpp::eol;
 
         if (system("killall -9 eskiss") == -1)
-                Utils::logger("root") << Priority::CRIT << "Error forking !" << log4cpp::eol;
+                cCriticalDom("root") <<  "Error forking !" << log4cpp::eol;
 
         //init random generator
         srand(time(NULL));
@@ -155,7 +155,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         }
         catch(exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "Can't create ApplicationController" << log4cpp::eol;
+                cCriticalDom("root") <<  "Can't create ApplicationController" << log4cpp::eol;
                 throw;
         }
 }

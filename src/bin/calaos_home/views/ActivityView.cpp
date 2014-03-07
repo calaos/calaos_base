@@ -67,7 +67,7 @@ ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, string _collection):
         }
         catch(exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "ActivityView: Can't load edje" << log4cpp::eol;
+                cCriticalDom("root") <<  "ActivityView: Can't load edje" << log4cpp::eol;
                 throw;
         }
 
@@ -119,13 +119,13 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
         }
         catch (exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType) << log4cpp::eol;
+                cCriticalDom("root") <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType) << log4cpp::eol;
                 throw;
         }
 
         if (!view)
         {
-                Utils::logger("root") << Priority::CRIT << "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType) << log4cpp::eol;
+                cCriticalDom("root") <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType) << log4cpp::eol;
                 throw;
         }
 

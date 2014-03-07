@@ -93,11 +93,11 @@ int main(int argc, char **argv)
         }
         catch(exception const& e)
         {
-                Utils::logger("root") << Priority::CRIT << "An exception occured: " << e.what() << log4cpp::eol;
+                cCriticalDom("root") <<  "An exception occured: " << e.what() << log4cpp::eol;
         }
         catch(...)
         {
-                Utils::logger("root") << Priority::CRIT << "An unknown exception occured !" << log4cpp::eol;
+                cCriticalDom("root") <<  "An unknown exception occured !" << log4cpp::eol;
         }
 
         return 0;
