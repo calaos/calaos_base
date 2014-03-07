@@ -26,19 +26,19 @@ using namespace Calaos;
 ConditionStd::ConditionStd():
         Condition(COND_STD)
 {
-        Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::ConditionStd(): New standard condition" << log4cpp::eol;
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::ConditionStd(): New standard condition" << log4cpp::eol;
 }
 
 ConditionStd::~ConditionStd()
 {
-        Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::~ConditionStd(): Ok" << log4cpp::eol;
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::~ConditionStd(): Ok" << log4cpp::eol;
 }
 
 void ConditionStd::Add(Input *in)
 {
         inputs.push_back(in);
 
-        Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::Add(): Input(" << in->get_param("id") << ") added" << log4cpp::eol;
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::Add(): Input(" << in->get_param("id") << ") added" << log4cpp::eol;
 }
 
 void ConditionStd::getVarIds(vector<Input *> &list)
@@ -92,7 +92,7 @@ bool ConditionStd::Evaluate()
                                         changed = true;
                                 else
                                 {
-                                        Utils::logger("rule.condition.standard") << Priority::WARN << "ConditionStd::Evaluate(): get_value(bool) not bool !" << log4cpp::eol;
+                                        cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(bool) not bool !" << log4cpp::eol;
                                         ret = false;
                                         break;
                                 }
@@ -145,7 +145,7 @@ bool ConditionStd::Evaluate()
                                 }
                         }
                         else
-                                Utils::logger("rule.condition.standard") << Priority::WARN << "ConditionStd::Evaluate(): get_value(int) not int !" << log4cpp::eol;
+                                cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(int) not int !" << log4cpp::eol;
                         break;
                   case TSTRING:
                         if (params_var[inputs[i]->get_param("id")] != "")
@@ -179,9 +179,9 @@ bool ConditionStd::Evaluate()
         }
 
         if (ret)
-                Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::Evaluate(): Ok" << log4cpp::eol;
+                cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Ok" << log4cpp::eol;
         else
-                Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::Evaluate(): Failed !" << log4cpp::eol;
+                cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Failed !" << log4cpp::eol;
 
         return ret;
 }
@@ -192,7 +192,7 @@ void ConditionStd::Remove(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         inputs.erase(iter);
 
-        Utils::logger("rule.condition.standard") << Priority::DEBUG << "ConditionStd::Remove(): Ok" << log4cpp::eol;
+        cDebugDom("rule.condition.standard") <<  "ConditionStd::Remove(): Ok" << log4cpp::eol;
 }
 
 void ConditionStd::Assign(int i, Input *obj)
@@ -204,7 +204,7 @@ bool ConditionStd::eval(bool val1, std::string oper, bool val2)
 {
         if (oper != "!=" && oper != "==")
         {
-                Utils::logger("rule.condition.standard") << Priority::ERROR << "ConditionStd::eval(bool): Invalid operator (" << oper << ")" << log4cpp::eol;
+                cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(bool): Invalid operator (" << oper << ")" << log4cpp::eol;
                 return false;
         }
 
@@ -284,7 +284,7 @@ bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
 {
         if (oper != "!=" && oper != "==")
         {
-                Utils::logger("rule.condition.standard") << Priority::ERROR << "ConditionStd::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
+                cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
                 return false;
         }
 

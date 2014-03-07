@@ -28,14 +28,14 @@ using namespace Calaos;
 
 ActionStd::~ActionStd()
 {
-        Utils::logger("rule.action.standard") << Priority::DEBUG << "ActionStd::~ActionStd(): Ok" << log4cpp::eol;
+        cDebugDom("rule.action.standard") <<  "ActionStd::~ActionStd(): Ok" << log4cpp::eol;
 }
 
 void ActionStd::Add(Output *out)
 {
         outputs.push_back(out);
 
-        Utils::logger("rule.action.standard") << Priority::DEBUG << "ActionStd::Add(): Output(" << out->get_param("id") << ") added" << log4cpp::eol;
+        cDebugDom("rule.action.standard") <<  "ActionStd::Add(): Output(" << out->get_param("id") << ") added" << log4cpp::eol;
 }
 
 bool ActionStd::Execute()
@@ -140,9 +140,9 @@ bool ActionStd::Execute()
         }
 
         if (ret)
-                Utils::logger("rule.action.standard") << Priority::DEBUG << "ActionStd::Execute(): Ok" << log4cpp::eol;
+                cDebugDom("rule.action.standard") <<  "ActionStd::Execute(): Ok" << log4cpp::eol;
         else
-                Utils::logger("rule.action.standard") << Priority::ERROR << "ActionStd::Execute(): Failed !" << log4cpp::eol;
+                cErrorDom("rule.action.standard") <<  "ActionStd::Execute(): Failed !" << log4cpp::eol;
 
         return ret;
 }
@@ -153,7 +153,7 @@ void ActionStd::Remove(int pos)
         for (int i = 0;i < pos;iter++, i++) ;
         outputs.erase(iter);
 
-        Utils::logger("rule.action.standard") << Priority::DEBUG << "ActionStd::Remove(): Ok" << log4cpp::eol;
+        cDebugDom("rule.action.standard") <<  "ActionStd::Remove(): Ok" << log4cpp::eol;
 }
 
 void ActionStd::Assign(int i, Output *obj)
@@ -177,7 +177,7 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
 
                         if (id == "OutTouchscreen" && ListeRule::Instance().size() > 0)
                         {
-                                Utils::logger("rule.action.standard") << Priority::INFO << "ActionStd::LoadFromXml(): Converting old OutTouchscreen to new ActionTouchscreen" << log4cpp::eol;
+                                cInfoDom("rule.action.standard") <<  "ActionStd::LoadFromXml(): Converting old OutTouchscreen to new ActionTouchscreen" << log4cpp::eol;
                                 Rule *rule = ListeRule::Instance().get_rule(ListeRule::Instance().size() - 1);
                                 ActionTouchscreen *action = new ActionTouchscreen(val);
                                 rule->AddAction(dynamic_cast<Action *>(action));

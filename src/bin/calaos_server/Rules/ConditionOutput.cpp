@@ -26,12 +26,12 @@ using namespace Calaos;
 ConditionOutput::ConditionOutput():
         Condition(COND_OUTPUT)
 {
-        Utils::logger("rule.condition.output") << Priority::DEBUG << "ConditionOutput::ConditionOutput(): New output condition" << log4cpp::eol;
+        cDebugDom("rule.condition.output") <<  "ConditionOutput::ConditionOutput(): New output condition" << log4cpp::eol;
 }
 
 ConditionOutput::~ConditionOutput()
 {
-        Utils::logger("rule.condition.output") << Priority::DEBUG << "ConditionOutput::~ConditionOutput(): Ok" << log4cpp::eol;
+        cDebugDom("rule.condition.output") <<  "ConditionOutput::~ConditionOutput(): Ok" << log4cpp::eol;
 }
 
 bool ConditionOutput::Evaluate()
@@ -66,7 +66,7 @@ bool ConditionOutput::Evaluate()
                                 changed = true;
                         else
                         {
-                                Utils::logger("rule.condition.output") << Priority::WARN << "ConditionOutput::Evaluate(): get_value(bool) not bool !" << log4cpp::eol;
+                                cWarningDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): get_value(bool) not bool !" << log4cpp::eol;
                                 ret = false;
                                 break;
                         }
@@ -116,7 +116,7 @@ bool ConditionOutput::Evaluate()
                         }
                 }
                 else
-                        Utils::logger("rule.condition.output") << Priority::WARN << "ConditionOutput::Evaluate(): get_value(int) not int !" << log4cpp::eol;
+                        cWarningDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): get_value(int) not int !" << log4cpp::eol;
                 break;
         case TSTRING:
                 if (params_var != "")
@@ -148,9 +148,9 @@ bool ConditionOutput::Evaluate()
         }
 
         if (ret)
-                Utils::logger("rule.condition.output") << Priority::DEBUG << "ConditionOutput::Evaluate(): Ok" << log4cpp::eol;
+                cDebugDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): Ok" << log4cpp::eol;
         else
-                Utils::logger("rule.condition.output") << Priority::DEBUG << "ConditionOutput::Evaluate(): Failed !" << log4cpp::eol;
+                cDebugDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): Failed !" << log4cpp::eol;
 
         return ret;
 }
@@ -159,7 +159,7 @@ bool ConditionOutput::eval(bool val1, std::string oper, bool val2)
 {
         if (oper != "!=" && oper != "==")
         {
-                Utils::logger("rule.condition.output") << Priority::ERROR << "ConditionOutput::eval(bool): Invalid operator (" << oper << ")" << log4cpp::eol;
+                cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(bool): Invalid operator (" << oper << ")" << log4cpp::eol;
                 return false;
         }
 
@@ -239,7 +239,7 @@ bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
 {
         if (oper != "!=" && oper != "==")
         {
-                Utils::logger("rule.condition.output") << Priority::ERROR << "ConditionOutput::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
+                cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
                 return false;
         }
 
@@ -266,7 +266,7 @@ bool ConditionOutput::eval(Output *out, string oper, string val)
 {
         if (oper != "!=" && oper != "==")
         {
-                Utils::logger("rule.condition.output") << Priority::ERROR << "ConditionOutput::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
+                cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(string): Invalid operator (" << oper << ")" << log4cpp::eol;
                 return false;
         }
 

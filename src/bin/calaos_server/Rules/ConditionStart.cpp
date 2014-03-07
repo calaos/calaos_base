@@ -26,12 +26,12 @@ ConditionStart::ConditionStart():
         Condition(COND_START),
         start(true)
 {
-        Utils::logger("rule.condition.start") << Priority::DEBUG << "ConditionStart::ConditionStart(): New Start condition" << log4cpp::eol;
+        cDebugDom("rule.condition.start") <<  "ConditionStart::ConditionStart(): New Start condition" << log4cpp::eol;
 }
 
 ConditionStart::~ConditionStart()
 {
-        Utils::logger("rule.condition.start") << Priority::DEBUG << "ConditionStart::~ConditionStart(): Ok" << log4cpp::eol;
+        cDebugDom("rule.condition.start") <<  "ConditionStart::~ConditionStart(): Ok" << log4cpp::eol;
 }
 
 bool ConditionStart::Evaluate()
@@ -39,13 +39,13 @@ bool ConditionStart::Evaluate()
         if (start)
         {
                 start = false;
-                Utils::logger("rule.condition.start") << Priority::DEBUG << "ConditionStart::Evaluate(): calaosd is starting, true" << log4cpp::eol;
+                cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is starting, true" << log4cpp::eol;
 
                 return true;
         }
         else
         {
-                Utils::logger("rule.condition.start") << Priority::DEBUG << "ConditionStart::Evaluate(): calaosd is already started, false" << log4cpp::eol;
+                cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is already started, false" << log4cpp::eol;
         }
 
         return false;

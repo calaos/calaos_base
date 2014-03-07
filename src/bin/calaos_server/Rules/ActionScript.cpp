@@ -24,12 +24,12 @@ using namespace Calaos;
 
 ActionScript::ActionScript(): Action(ACTION_SCRIPT)
 {
-        Utils::logger("rule.action.script") << Priority::DEBUG << "ActionScript::ActionScript(): New Script action" << log4cpp::eol;
+        cDebugDom("rule.action.script") <<  "ActionScript::ActionScript(): New Script action" << log4cpp::eol;
 }
 
 ActionScript::~ActionScript()
 {
-        Utils::logger("rule.action.script") << Priority::DEBUG << "ActionScript::~ActionScript(): Ok" << log4cpp::eol;
+        cDebugDom("rule.action.script") <<  "ActionScript::~ActionScript(): Ok" << log4cpp::eol;
 }
 
 bool ActionScript::Execute()

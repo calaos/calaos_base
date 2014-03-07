@@ -28,21 +28,21 @@ ActionTouchscreen::ActionTouchscreen():
 {
         econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-        Utils::logger("rule.action.touchscreen") << Priority::DEBUG << "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action" << log4cpp::eol;
+        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action" << log4cpp::eol;
 }
 
 ActionTouchscreen::ActionTouchscreen(string _action): Action(ACTION_TOUCHSCREEN), action(_action)
 {
         econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-        Utils::logger("rule.action.touchscreen") << Priority::DEBUG << "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action" << log4cpp::eol;
+        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action" << log4cpp::eol;
 }
 
 ActionTouchscreen::~ActionTouchscreen()
 {
         ecore_con_server_del(econ);
 
-        Utils::logger("rule.action.touchscreen") << Priority::DEBUG << "ActionTouchscreen::~ActionTouchscreen(): Ok" << log4cpp::eol;
+        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::~ActionTouchscreen(): Ok" << log4cpp::eol;
 }
 
 bool ActionTouchscreen::Execute()
@@ -51,13 +51,13 @@ bool ActionTouchscreen::Execute()
         {
                 ecore_con_server_send(econ, action.c_str(), action.size());
 
-                Utils::logger("rule.action.touchscreen") << Priority::DEBUG << "ActionTouchscreen::Execute(): Show camera" << log4cpp::eol;
+                cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Show camera" << log4cpp::eol;
 
                 return true;
         }
         else
         {
-                Utils::logger("rule.action.touchscreen") << Priority::WARN << "ActionTouchscreen::Execute(): Unknown action !" << log4cpp::eol;
+                cWarningDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Unknown action !" << log4cpp::eol;
         }
 
         return false;

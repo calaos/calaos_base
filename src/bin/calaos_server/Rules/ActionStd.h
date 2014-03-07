@@ -40,7 +40,7 @@ class ActionStd: public Action
 
         public:
                 ActionStd(): Action(ACTION_STD)
-                        { Utils::logger("rule.action.standard") << Priority::DEBUG << "ActionStd::ActionStd(): New standard action" << log4cpp::eol; }
+                        { cDebugDom("rule.action.standard") <<  "ActionStd::ActionStd(): New standard action" << log4cpp::eol; }
                 ~ActionStd();
 
                 void Add(Output *p);
