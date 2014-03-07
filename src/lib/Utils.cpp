@@ -396,6 +396,7 @@ EinaLog *Utils::einaLogger(const char *domain)
 
 void Utils::InitEinaLog(const char *d)
 {
+        eina_init();
         default_domain = d;
         logger_hash[default_domain] = new EinaLog(default_domain);
 }
