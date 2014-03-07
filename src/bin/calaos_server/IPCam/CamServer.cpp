@@ -24,25 +24,25 @@ using namespace Calaos;
 
 CamServer::CamServer(int p): port(p)
 {
-        Utils::logger("network") << Priority::DEBUG << "CamServer::CamServer(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::CamServer(): Ok" << log4cpp::eol;
 }
 
 CamServer::~CamServer()
 {
         delete socket;
         socket = NULL;
-        Utils::logger("network") << Priority::DEBUG << "CamServer::~CamServer(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::~CamServer(): Ok" << log4cpp::eol;
 }
 
 void CamServer::ThreadProc()
 {
-        Utils::logger("network") << Priority::DEBUG << "CamServer::ThreadProc(): Init IPCam relay server" << log4cpp::eol;
+        cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server" << log4cpp::eol;
         socket = new TCPSocket();
 
         socket->Create(port);
         socket->SetReuse();
         socket->Listen();
-        Utils::logger("network") << Priority::DEBUG << "CamServer::ThreadProc(): Listening on port " << port << log4cpp::eol;
+        cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port << log4cpp::eol;
         quit = false;
 
         while (!quit)
@@ -51,7 +51,7 @@ void CamServer::ThreadProc()
 
                 if (quit) break;
 
-                Utils::logger("network") << Priority::DEBUG << "CamServer::ThreadProc(): Got a connection from address "
+                cDebugDom("network") << "CamServer::ThreadProc(): Got a connection from address "
                                 << socket->GetRemoteIP() << log4cpp::eol;
 
                 vector<CamConnection *>::iterator iter = connections.begin();

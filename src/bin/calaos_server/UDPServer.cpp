@@ -34,7 +34,7 @@ UDPServer::UDPServer(int p):
 
         event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
 
-        Utils::logger("network") << Priority::DEBUG << "Starting UDP server..." << log4cpp::eol;
+        cDebugDom("network") << "Starting UDP server..." << log4cpp::eol;
         Utils::logger("network") << Priority::DEBUG
                         << "UDPServer::UDPServer(): Listenning on port " << port << log4cpp::eol;
 }

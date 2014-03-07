@@ -28,12 +28,12 @@ static int _CamConnection_CURL_write_callback(void *buffer, size_t size, size_t 
 CamConnection::CamConnection(TCPSocket s): socket(s), end_conn(false), login(false),
                         pict_buffer(NULL), pict_size(0)
 {
-        Utils::logger("network") << Priority::DEBUG << "CamConnection::CamConnection(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::CamConnection(): Ok" << log4cpp::eol;
 }
 
 CamConnection::~CamConnection()
 {
-        Utils::logger("network") << Priority::DEBUG << "CamConnection::~CamConnection(): Ok" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::~CamConnection(): Ok" << log4cpp::eol;
         if (pict_buffer)
         {
                 free(pict_buffer);
@@ -223,7 +223,7 @@ void CamConnection::ThreadProc()
 
                 if (status == -1)
                 {
-                        Utils::logger("network") << Priority::DEBUG << "CamConnection::ThreadProc(): Connection ended..." << log4cpp::eol;
+                        cDebugDom("network") << "CamConnection::ThreadProc(): Connection ended..." << log4cpp::eol;
                         break;
                 }
                 else if ( status == 0 )
@@ -253,7 +253,7 @@ void CamConnection::ThreadProc()
 
         socket.InboundClose();
         end_conn = true;
-        Utils::logger("network") << Priority::DEBUG << "CamConnection::ThreadProc(): Closing remote connexion !" << log4cpp::eol;
+        cDebugDom("network") << "CamConnection::ThreadProc(): Closing remote connexion !" << log4cpp::eol;
 }
 
 void CamConnection::Clean()

@@ -32,7 +32,7 @@ void TCPConnection::RulesCommand(Params &request, ProcessDone_cb callback)
 
         if (request["0"] == "rules")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::RulesCommand(rules)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::RulesCommand(rules)" << log4cpp::eol;
                 if (request["1"] == "?")
                 {
                         map<std::string, int> rtype;

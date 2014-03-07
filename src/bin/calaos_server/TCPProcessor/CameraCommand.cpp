@@ -29,7 +29,7 @@ void TCPConnection::CameraCommand(Params &request, ProcessDone_cb callback)
         //camera functions
         if (request["0"] == "camera")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::CameraCommand(camera)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::CameraCommand(camera)" << log4cpp::eol;
                 if (request["1"] == "?")
                 {
                         int cpt = 0;

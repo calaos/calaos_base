@@ -30,13 +30,13 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
         Params result = request;
         if (request["0"] == "version")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(version)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::BaseCommand(version)" << log4cpp::eol;
                 if (request["1"] == "?")
                         result.Add("1", Utils::get_config_option("fw_version"));
         }
         else if (request["0"] == "save")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(save)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::BaseCommand(save)" << log4cpp::eol;
 
                 Config::Instance().SaveConfigIO();
                 Config::Instance().SaveConfigRule();
@@ -50,7 +50,7 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["0"] == "system")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(system)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::BaseCommand(system)" << log4cpp::eol;
 
                 if (request["1"] == "reboot")
                 {
@@ -100,19 +100,19 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
         }
         else if (request["0"] == "firmware")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(firmware)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::BaseCommand(firmware)" << log4cpp::eol;
 
                 if (request["1"] == "webupdate")
                 {
                         //try to update firmware from /tmp/image.tar.bz2
-                        Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(save): Firmware update requested by web." << log4cpp::eol;
+                        cDebugDom("network") << "TCPConnection::BaseCommand(save): Firmware update requested by web." << log4cpp::eol;
                         int unused = system("fw_update.sh");
                         (void)unused;
                 }
         }
         else if (request["0"] == "poll_listen")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::BaseCommand(poll_listen)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::BaseCommand(poll_listen)" << log4cpp::eol;
 
                 if (request["1"] == "register")
                 {

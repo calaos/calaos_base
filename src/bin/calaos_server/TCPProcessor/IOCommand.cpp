@@ -48,7 +48,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                 input = ListeRoom::Instance().get_input(id);
 
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::IOCommand(input)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::IOCommand(input)" << log4cpp::eol;
                 if (input && request["2"] == "get")
                 {
                         result.Add("1", "id:" + id);
@@ -536,7 +536,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                 output = ListeRoom::Instance().get_output(id);
 
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::IOCommand(output)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::IOCommand(output)" << log4cpp::eol;
                 if (output && request["2"] == "get")
                 {
                         result.Add("1", "id:" + id);

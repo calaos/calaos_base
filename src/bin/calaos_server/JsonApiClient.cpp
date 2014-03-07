@@ -186,7 +186,7 @@ JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
         http_parser_init(parser, HTTP_REQUEST);
         parser->data = this;
 
-        Utils::logger("network") << Priority::DEBUG << "JsonApiClient::JsonApiClient("
+        cDebugDom("network") << "JsonApiClient::JsonApiClient("
                                  << this << "): Ok" << log4cpp::eol;
 
         exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
@@ -207,7 +207,7 @@ JsonApiClient::~JsonApiClient()
         CloseConnection();
         ecore_file_unlink(tempfname.c_str());
 
-        Utils::logger("network") << Priority::DEBUG << "JsonApiClient::~JsonApiClient("
+        cDebugDom("network") << "JsonApiClient::~JsonApiClient("
                                  << this << "): Ok" << log4cpp::eol;
 }
 
@@ -220,7 +220,7 @@ void JsonApiClient::ProcessData(string request)
         if (parser->upgrade)
         {
                 /* handle new protocol */
-                Utils::logger("network") << Priority::DEBUG << "Protocol Upgrade not supported, closing connection." << log4cpp::eol;
+                cDebugDom("network") << "Protocol Upgrade not supported, closing connection." << log4cpp::eol;
                 CloseConnection();
 
                 return;
@@ -347,7 +347,7 @@ void JsonApiClient::handleRequest()
 
         if (!jroot || !json_is_object(jroot))
         {
-                Utils::logger("network") << Priority::DEBUG << "JsonApiClient: JSON - Error loading json : " << jerr.text << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: JSON - Error loading json : " << jerr.text << log4cpp::eol;
 
                 Params headers;
                 headers.Add("Connection", "close");
@@ -392,7 +392,7 @@ void JsonApiClient::handleRequest()
 
         if (user != jsonParam["cn_user"] || pass != jsonParam["cn_pass"])
         {
-                Utils::logger("network") << Priority::DEBUG << "JsonApiClient: Login failed!" << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: Login failed!" << log4cpp::eol;
 
                 Params headers;
                 headers.Add("Connection", "close");
@@ -570,7 +570,7 @@ void JsonApiClient::sendJson(json_t *json)
         char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
         if (!d)
         {
-                Utils::logger("network") << Priority::DEBUG << "JsonApiClient: json_dumps failed!" << log4cpp::eol;
+                cDebugDom("network") << "JsonApiClient: json_dumps failed!" << log4cpp::eol;
 
                 Params headers;
                 headers.Add("Connection", "close");

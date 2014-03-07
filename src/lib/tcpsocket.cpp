@@ -234,7 +234,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
                 if (!select(sockfd + 1, &events, NULL, NULL, &tv))
                 {
                         //timeout !
-                        Utils::logger("network") << Priority::DEBUG << "TCPSocket::RecvFrom(): Timeout!" << log4cpp::eol;
+                        cDebugDom("network") << "TCPSocket::RecvFrom(): Timeout!" << log4cpp::eol;
                         return -1;
                 }
         }
@@ -321,7 +321,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
                         if (!select(fd + 1, &events, NULL, NULL, &tv))
                         {
                                 //timeout !
-                                Utils::logger("network") << Priority::DEBUG << "TCPSocket::Recv(): Timeout!" << log4cpp::eol;
+                                cDebugDom("network") << "TCPSocket::Recv(): Timeout!" << log4cpp::eol;
                                 return false;
                         }
 
@@ -488,14 +488,14 @@ bool TCPSocket::Accept(int fdpipe)
 
         if (!select(sockfd + 1, &events, NULL, NULL, NULL))
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPSocket::Accept(): Terminating." << log4cpp::eol;
+                cDebugDom("network") << "TCPSocket::Accept(): Terminating." << log4cpp::eol;
                 return false;
         }
 
         if (fdpipe > 0 && FD_ISSET(fdpipe, &events))
         {
                 //the pipe tell us to stop
-                Utils::logger("network") << Priority::DEBUG << "TCPSocket::Accept(): Forced exit by pipe." << log4cpp::eol;
+                cDebugDom("network") << "TCPSocket::Accept(): Forced exit by pipe." << log4cpp::eol;
                 return false;
         }
 

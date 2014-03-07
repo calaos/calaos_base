@@ -28,7 +28,7 @@ TCPConnection::TCPConnection(Ecore_Con_Client *cl):
                 client_conn(cl),
                 login(false)
 {
-        Utils::logger("network") << Priority::DEBUG << "TCPConnection::TCPConnection("
+        cDebugDom("network") << "TCPConnection::TCPConnection("
                                  << this << "): Ok" << log4cpp::eol;
 }
 
@@ -36,7 +36,7 @@ TCPConnection::~TCPConnection()
 {
         CloseConnection();
 
-        Utils::logger("network") << Priority::DEBUG << "TCPConnection::~TCPConnection("
+        cDebugDom("network") << "TCPConnection::~TCPConnection("
                                  << this << "): Ok" << log4cpp::eol;
 }
 
@@ -47,7 +47,7 @@ void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
         /* login <user> <password> */
         if (!login && request["0"] == "login")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::ProcessRequest(login)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::ProcessRequest(login)" << log4cpp::eol;
 
                 std::string user = Utils::get_config_option("calaos_user");
                 std::string pass = Utils::get_config_option("calaos_password");

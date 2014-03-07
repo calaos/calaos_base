@@ -68,7 +68,7 @@ CalaosDiscover::~CalaosDiscover()
 
 void CalaosDiscover::timerDiscover()
 {
-        Utils::logger("network") << Priority::DEBUG << "CalaosDiscover: try to discover server..." << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: try to discover server..." << log4cpp::eol;
 
         string packet = "CALAOS_DISCOVER";
         if (!ecore_con_server_send(econ_sender, packet.c_str(), packet.length()))
@@ -84,7 +84,7 @@ void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
 
         string msg((char *)data, size);
 
-        Utils::logger("network") << Priority::DEBUG << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"" << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: DataServer: some data arrived msg: \"" << msg << "\"" << log4cpp::eol;
 
         if (msg.substr(0, 10) == "CALAOS_IP " && !connection)
         {
@@ -108,7 +108,7 @@ void CalaosDiscover::delayDel()
 
 void CalaosDiscover::loginSuccess()
 {
-        Utils::logger("network") << Priority::DEBUG << "CalaosDiscover: Login to host " << address << " successfully" << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: Login to host " << address << " successfully" << log4cpp::eol;
 
         DELETE_NULL(connection);
 
@@ -117,7 +117,7 @@ void CalaosDiscover::loginSuccess()
 
 void CalaosDiscover::loginFailed()
 {
-        Utils::logger("network") << Priority::DEBUG << "CalaosDiscover: Wrong login/password on host " << address << log4cpp::eol;
+        cDebugDom("network") << "CalaosDiscover: Wrong login/password on host " << address << log4cpp::eol;
 
         DELETE_NULL(connection);
 

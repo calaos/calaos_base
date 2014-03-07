@@ -36,7 +36,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
 
         if (request["0"] == "home")
         {
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::HomeCommand(home)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::HomeCommand(home)" << log4cpp::eol;
                 if (request["1"] == "?")
                 {
                         std::map<std::string, int> list;
@@ -92,7 +92,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                                 found = true;
                 }
 
-                Utils::logger("network") << Priority::DEBUG << "TCPConnection::HomeCommand(room)" << log4cpp::eol;
+                cDebugDom("network") << "TCPConnection::HomeCommand(room)" << log4cpp::eol;
                 if (found && request["2"] == "?")
                 {
                         vector<Room *> rooms;
