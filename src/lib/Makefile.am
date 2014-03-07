@@ -46,6 +46,7 @@ libcalaos_common_la_SOURCES = \
 	LuaScript/ScriptBindings.cpp 		\
     LuaScript/ScriptManager.cpp 		\
     TimeRange.cpp 				\
+    TimeRange.h				\
 	Mutex.h					\
 	CalaosNetwork.h				\
 	LuaScript/ScriptManager.h		\

@@ -36,6 +36,25 @@ TimeRange::TimeRange():
 {
 }
 
+bool TimeRange::operator==(const TimeRange &other) const
+{
+    return (start_type == other.start_type &&
+            end_type == other.end_type &&
+            start_offset == other.start_offset &&
+            end_offset == other.end_offset &&
+            shour == other.shour &&
+            smin == other.smin &&
+            ssec == other.ssec &&
+            ehour == other.ehour &&
+            emin == other.emin &&
+            esec == other.esec);
+}
+
+bool TimeRange::operator!=(const TimeRange &other) const
+{
+    return !(*this == other);
+}
+
 long TimeRange::getStartTimeSec(int year, int month, int day)
 {
     long v = 0;

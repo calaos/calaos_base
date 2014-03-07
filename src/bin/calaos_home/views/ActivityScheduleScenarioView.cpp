@@ -105,6 +105,7 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
     item->Append(month_list);
     items_months.push_back(item);
 
+<<<<<<< HEAD
     header = new GenlistItemScenarioHeader(evas, parent, "Périodes prédéfinies");
     header->Append(month_list);
 
@@ -123,6 +124,32 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
     item = new GenlistItemSimple(evas, parent, _("Winter"), true, false, NULL, "check");
     item->Append(month_list);
     items_periods.push_back(item);
+=======
+    /*
+         * Can't use that for now. Seasons are not the same all over the world at the same monthes
+         * (northern hemisphere/southern hemisphere have the opposite) We need to handle that
+         * maybe from longitude/latitude in local_config.xml
+         *
+        header = new GenlistItemScenarioHeader(evas, parent, "Périodes prédéfinies");
+        header->Append(month_list);
+
+        item = new GenlistItemSimple(evas, parent, _("Spring"), true, false, NULL, "check");
+        item->Append(month_list);
+        items_periods.push_back(item);
+
+        item = new GenlistItemSimple(evas, parent, _("Summer"), true, false, NULL, "check");
+        item->Append(month_list);
+        items_periods.push_back(item);
+
+        item = new GenlistItemSimple(evas, parent, _("Fall"), true, false, NULL, "check");
+        item->Append(month_list);
+        items_periods.push_back(item);
+
+        item = new GenlistItemSimple(evas, parent, _("Winter"), true, false, NULL, "check");
+        item->Append(month_list);
+        items_periods.push_back(item);
+        */
+>>>>>>> Some work on Time scheduling
 
     //Set up selection callback
     item_all->item_selected.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::itemAllYearSelected));
@@ -233,9 +260,15 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
         header->setButtonLabel("button.back", "Début");
         header->button_click.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonHeaderBackClick));
     }
+<<<<<<< HEAD
 
     GenlistItemSimple *item;
 
+=======
+
+    GenlistItemSimple *item;
+
+>>>>>>> Some work on Time scheduling
     for (int i = 0;i < 4;i++)
     {
         switch (i)
@@ -402,7 +435,11 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
     page->setAutoDelete(true);
 
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonBackClick));
+<<<<<<< HEAD
     cout << "### editState (" << editState << ") < EDIT_END_TYPE (" << EDIT_END_TYPE << ")" << endl;
+=======
+
+>>>>>>> Some work on Time scheduling
     if (cycle && editState < EDIT_END_TYPE)
         page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::createTimeSelectTypeList));
     else
@@ -511,9 +548,15 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
     header->Append(glist);
 
     if (cycle)
+<<<<<<< HEAD
         header->setButtonLabel("button.back", "Fin");
     else
         header->setButtonLabel("button.back", "Début");
+=======
+        header->setButtonLabel("button.back", _("End"));
+    else
+        header->setButtonLabel("button.back", _("Beginning"));
+>>>>>>> Some work on Time scheduling
     header->button_click.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::headerWeekButtonClick));
 
     week_days.clear();
@@ -579,7 +622,7 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
         if (week_days[0]->isSelected() || week_days[7]->isSelected())
             range_infos.range_sunday.push_back(edit_range);
 
-        cInfo() <<  "New TimeRange: " << edit_range.toString();
+        cDebug() <<  "New TimeRange: " << edit_range.toString();
 
         elm_ctxpopup_dismiss(popup);
     }
@@ -641,6 +684,7 @@ void ActivityScheduleScenarioView::itemPeriodSelected(void *data, GenlistItemSim
 
 void ActivityScheduleScenarioView::reloadTimeRanges()
 {
+/*
     //------------TEST schedule list
     for (int i = 0;i < 5;i++)
     {
@@ -648,4 +692,5 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
         item->Append(schedule_list);
     }
     //----------------
+*/
 }

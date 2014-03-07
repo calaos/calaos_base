@@ -27,39 +27,45 @@ enum { BADDAY = -1, SUNDAY = 0, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SA
 
 class TimeRange
 {
-        private:
-                //keep computed values in cache
-                int cyear, cmonth, cday;
-                int sunrise_hour_cache, sunrise_min_cache;
-                int sunset_hour_cache, sunset_min_cache;
+private:
+    //keep computed values in cache
+    int cyear, cmonth, cday;
+    int sunrise_hour_cache, sunrise_min_cache;
+    int sunset_hour_cache, sunset_min_cache;
 
-                long getTimezoneOffset();
-                void computeSunSetRise(int year, int month, int day,
-                                       int &rise_hour, int &rise_min,
-                                       int &set_hour, int &set_min);
+    long getTimezoneOffset();
+    void computeSunSetRise(int year, int month, int day,
+                           int &rise_hour, int &rise_min,
+                           int &set_hour, int &set_min);
 
-        public:
+public:
 
-                /* horaire type.
+    /* horaire type.
                  * When horaire type is HTYPE_NORMAL, the time properties are the real time.
                  * When HTYPE_SUNRISE, HTYPE_SUNSET or HTYPE_NOON are used, the time properties
                  * are used as an offset from the computed time.
                  */
 
-                enum { HTYPE_NORMAL = 0, HTYPE_SUNRISE, HTYPE_SUNSET, HTYPE_NOON };
-                int start_type;
-                int end_type;
+    bool operator==(const TimeRange &other) const;
+    bool operator!=(const TimeRange &other) const;
 
-                int start_offset; //should be 1 or -1
-                int end_offset; //should be 1 or -1
+    enum { HTYPE_NORMAL = 0, HTYPE_SUNRISE, HTYPE_SUNSET, HTYPE_NOON };
+    int start_type;
+    int end_type;
 
-                string shour, smin, ssec;
-                string ehour, emin, esec;
+    int start_offset; //should be 1 or -1
+    int end_offset; //should be 1 or -1
 
-                TimeRange();
+    string shour, smin, ssec;
+    string ehour, emin, esec;
 
-                long getStartTimeSec(int year, int month, int day);
-                long getEndTimeSec(int year, int month, int day);
+    TimeRange();
 
-                string toString();
+    long getStartTimeSec(int year, int month, int day);
+    long getEndTimeSec(int year, int month, int day);
+
+    string toString();
+
+    //flag to ease the loading in UI
+    bool isLoaded = false;
 };
