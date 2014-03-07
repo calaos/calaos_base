@@ -53,7 +53,7 @@ IPC::IPC(): mutex(false)
         }
         else
         {
-                Utils::logger("ipc") << Priority::ERROR << "IPC::IPC(): Error creating pipe !" << log4cpp::eol;
+                cErrorDom("ipc") << "IPC::IPC(): Error creating pipe !" << log4cpp::eol;
         }
 #endif
 }
@@ -103,7 +103,7 @@ void IPC::SendEvent(string source, string emission, void* data)
         events.push_back(msg);
         mutex.unlock();
 
-        Utils::logger("ipc") << Priority::DEBUG << "IPC::SendEvent(" << source << " , " << emission <<
+        cDebugDom("ipc") << "IPC::SendEvent(" << source << " , " << emission <<
                         ") : " << events.size() << " events waiting." << log4cpp::eol;
 
 #ifdef IPHONE_APP
@@ -118,7 +118,7 @@ void IPC::SendEvent(string source, string emission, void* data)
                 string s = "wake_up";
                 if (write(fd_write, s.c_str(), s.length()) < 0)
                 {
-                        Utils::logger("ipc") << Priority::ERROR << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
+                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
                 }
 //         }
 #endif
@@ -149,7 +149,7 @@ void IPC::SendEvent(string source, string emission, IPCData data, bool auto_dele
                 string s = "wake_up";
                 if (write(fd_write, s.c_str(), s.length()) < 0)
                 {
-                        Utils::logger("ipc") << Priority::ERROR << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
+                        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !" << log4cpp::eol;
                 }
 //         }
 #endif
@@ -181,7 +181,7 @@ void IPC::BroadcastEvent()
                         IPCMsg msg = (*itd);
                         events.erase(itd);
 
-                        Utils::logger("ipc") << Priority::DEBUG << "IPC::BroadcastEvent(\"" <<
+                        cDebugDom("ipc") << "IPC::BroadcastEvent(\"" <<
                                 msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")" << log4cpp::eol;
 
                         list<IPCSignal>::iterator it;
@@ -219,7 +219,7 @@ void IPC::BroadcastEvent()
                                 }
                                 else
                                 {
-                                        Utils::logger("ipc") << Priority::ERROR << "IPC::BroadcastEvent(\"" <<
+                                        cErrorDom("ipc") << "IPC::BroadcastEvent(\"" <<
                                                 msg.source<<"\"  ,  \""<<msg.emission<< "\") " <<
                                                 "DeletorBase or data is NULL, can't delete. (Memory leak?)" << log4cpp::eol;
                                 }
@@ -231,7 +231,7 @@ void IPC::BroadcastEvent()
         }
         else
         {
-                Utils::logger("ipc") << Priority::ERROR << "IPC::BroadcastEvent(): Error reading from pipe !" << log4cpp::eol;
+                cErrorDom("ipc") << "IPC::BroadcastEvent(): Error reading from pipe !" << log4cpp::eol;
         }
 #endif
 }

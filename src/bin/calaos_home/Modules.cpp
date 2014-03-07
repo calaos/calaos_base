@@ -46,7 +46,7 @@ void ModuleManager::SearchModules()
 {
         for (uint i = 0;i < search_paths.size();i++)
         {
-                Utils::logger("module") << Priority::INFO << "ModuleManager: searching modules in: " << search_paths[i] << log4cpp::eol;
+                cInfoDom("module") << "ModuleManager: searching modules in: " << search_paths[i] << log4cpp::eol;
                 char *fname = NULL;
                 void *data = NULL;
                 Eina_List *subdir = ecore_file_ls(search_paths[i].c_str());
@@ -93,7 +93,7 @@ void ModuleManager::SearchModules()
                                 CalaosModuleApi *api = (CalaosModuleApi *)dlsym(handle, "calaos_modapi");
                                 if (!api)
                                 {
-                                        Utils::logger("module") << Priority::ERROR << "ModuleManager: module " << p << ". calaos_modapi export not found: " << dlerror() << log4cpp::eol;
+                                        cErrorDom("module") << "ModuleManager: module " << p << ". calaos_modapi export not found: " << dlerror() << log4cpp::eol;
                                         continue;
                                 }
 
@@ -101,7 +101,7 @@ void ModuleManager::SearchModules()
                                 {
                                         dlclose(handle);
 
-                                        Utils::logger("module") << Priority::ERROR << "ModuleManager: module " << p << ". The API version doesn't match" << log4cpp::eol;
+                                        cErrorDom("module") << "ModuleManager: module " << p << ". The API version doesn't match" << log4cpp::eol;
 
                                         continue;
                                 }
@@ -126,13 +126,13 @@ void ModuleManager::SearchModules()
                                 mdef.inst = NULL;
                                 mdef.api = api;
 
-                                Utils::logger("module") << Priority::INFO << "ModuleManager: found module: " << mdef.mod_name << log4cpp::eol;
+                                cInfoDom("module") << "ModuleManager: found module: " << mdef.mod_name << log4cpp::eol;
 
                                 modules.push_back(mdef);
                         }
                         else
                         {
-                                Utils::logger("module") << Priority::WARN << "ModuleManager: file " << p << " : failed to dlopen: " << dlerror() << log4cpp::eol;
+                                cWarningDom("module") << "ModuleManager: file " << p << " : failed to dlopen: " << dlerror() << log4cpp::eol;
                         }
 
                 }
@@ -169,8 +169,8 @@ bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef 
                 mdef.handle = type.handle;
                 mdef.api = type.api;
 
-                Utils::logger("module") << Priority::INFO << "ModuleManager: New module instance: " << mdef.mod_name << log4cpp::eol;
-                Utils::logger("module") << Priority::INFO << "ModuleManager: module icon: " << mdef.mod_icon << log4cpp::eol;
+                cInfoDom("module") << "ModuleManager: New module instance: " << mdef.mod_name << log4cpp::eol;
+                cInfoDom("module") << "ModuleManager: module icon: " << mdef.mod_icon << log4cpp::eol;
 
                 mods_inst.push_back(mdef);
 

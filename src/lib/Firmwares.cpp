@@ -31,7 +31,7 @@ void Firmwares::checkUpdate(sigc::slot<void, string> callback)
 {
         if (download_in_progress)
         {
-                Utils::logger("firmwares") << Priority::WARN
+                cWarningDom("firmwares")
                                 << "A download is already in progress, aborting checkUpdate()"
                                 << log4cpp::eol;
                 return;
@@ -137,7 +137,7 @@ void Firmwares::downloadFirmware(sigc::slot<void, string, FileProgress *> callba
 {
         if (download_in_progress)
         {
-                Utils::logger("firmwares") << Priority::WARN
+                cWarningDom("firmwares")
                                 << "A download is already in progress, aborting downloadFirmware()"
                                 << log4cpp::eol;
                 return;

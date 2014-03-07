@@ -30,7 +30,7 @@ static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Ad
         if (o)
                 o->addConnection(ev->server);
         else
-                Utils::logger("network.listener") << Priority::CRIT
+                cCriticalDom("network.listener")
                                 << "CalaosListener(): _con_server_add, failed to get object !"
                                 << log4cpp::eol;
 
@@ -47,7 +47,7 @@ static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_De
         if (o)
                 o->delConnection(ev->server);
         else
-                Utils::logger("network.listener") << Priority::CRIT
+                cCriticalDom("network.listener")
                                 << "CalaosListener(): _con_server_del, failed to get object !"
                                 << log4cpp::eol;
 
@@ -64,7 +64,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
         if (o)
                 o->dataGet(ev->server, ev->data, ev->size);
         else
-                Utils::logger("network.listener") << Priority::CRIT
+                cCriticalDom("network.listener")
                                 << "CalaosListener(): _con_server_data, failed to get object !"
                                 << log4cpp::eol;
 
@@ -81,7 +81,7 @@ static Eina_Bool _con_server_error(void *data, int type, Ecore_Con_Event_Server_
         if (o)
                 o->errorConnection(ev->server);
         else
-                Utils::logger("network.listener") << Priority::CRIT
+                cCriticalDom("network.listener")
                                 << "CalaosListener(): _con_server_error, failed to get object !"
                                 << log4cpp::eol;
 
@@ -99,7 +99,7 @@ CalaosListener::CalaosListener(string _address):
         handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_con_server_error, this);
 
         //connect the listenner
-        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Connecting to " << address << ":" << TCP_LISTEN_PORT << log4cpp::eol;
+        cDebugDom("network.listener") << "CalaosListener: Connecting to " << address << ":" << TCP_LISTEN_PORT << log4cpp::eol;
         econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, address.c_str(), TCP_LISTEN_PORT, this);
         ecore_con_server_data_set(econ, this);
 }
@@ -136,7 +136,7 @@ void CalaosListener::addConnection(Ecore_Con_Server *server)
         cmd += Utils::url_encode(password);
         cmd += "\r\n";
 
-        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: trying to log in." << log4cpp::eol;
+        cDebugDom("network.listener") << "CalaosListener: trying to log in." << log4cpp::eol;
 
         ecore_con_server_send(econ, cmd.c_str(), cmd.length());
 }
@@ -147,13 +147,13 @@ void CalaosListener::delConnection(Ecore_Con_Server *server)
 
         if (login)
         {
-                Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Wrong login/password." << log4cpp::eol;
+                cDebugDom("network.listener") << "CalaosListener: Wrong login/password." << log4cpp::eol;
 
                 return;
         }
 
-        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection closed !" << log4cpp::eol;
-        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
+        cWarningDom("network.listener") << "CalaosListener: Connection closed !" << log4cpp::eol;
+        cWarningDom("network.listener") << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
 
         lost_connection.emit();
 }
@@ -168,7 +168,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
         {
                 login = false;
 
-                Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Successfully logged in." << log4cpp::eol;
+                cDebugDom("network.listener") << "CalaosListener: Successfully logged in." << log4cpp::eol;
 
                 string cmd = "listen\n\r";
                 ecore_con_server_send(econ, cmd.c_str(), cmd.length());
@@ -182,7 +182,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
                 //We have not a complete paquet yet, buffurize it.
                 buffer += msg;
 
-                Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Bufferize data." << log4cpp::eol;
+                cDebugDom("network.listener") << "CalaosListener: Bufferize data." << log4cpp::eol;
 
                 return;
         }
@@ -204,7 +204,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
 
         split(msg, tokens, "\n");
 
-        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Got " << tokens.size() << " messages." << log4cpp::eol;
+        cDebugDom("network.listener") << "CalaosListener: Got " << tokens.size() << " messages." << log4cpp::eol;
 
         for(unsigned int j = 0; j < tokens.size(); j++)
                 processMessage(tokens[j]);
@@ -216,8 +216,8 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
         econ = NULL;
 
-        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Connection error !" << log4cpp::eol;
-        Utils::logger("network.listener") << Priority::WARN << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
+        cWarningDom("network.listener") << "CalaosListener: Connection error !" << log4cpp::eol;
+        cWarningDom("network.listener") << "CalaosListener: Trying to reconnect..." << log4cpp::eol;
 
         lost_connection.emit();
 
@@ -225,7 +225,7 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
 void CalaosListener::processMessage(string msg)
 {
-        Utils::logger("network.listener") << Priority::DEBUG << "CalaosListener: Message: \"" << msg << "\"" << log4cpp::eol;
+        cDebugDom("network.listener") << "CalaosListener: Message: \"" << msg << "\"" << log4cpp::eol;
 
         vector<string> msgSplit;
 

@@ -162,7 +162,7 @@ Evas_Object *_item_part_get(void *data, Evas_Object *obj, const char *part)
         GengridItemBase *item = reinterpret_cast<GengridItemBase *>(data);
         if (!item)
         {
-                Utils::logger("home") << Priority::ERROR << "GengridItemBase : _item_part_get(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GengridItemBase : _item_part_get(): Can't cast data !" << log4cpp::eol;
                 return NULL;
         }
 
@@ -174,7 +174,7 @@ void _item_delete(void *data, Evas_Object *obj)
         GengridItemBase *item = reinterpret_cast<GengridItemBase *>(data);
         if (!item)
         {
-                Utils::logger("home") << Priority::ERROR << "GengridItemBase : _item_delete(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GengridItemBase : _item_delete(): Can't cast data !" << log4cpp::eol;
                 return;
         }
 
@@ -186,7 +186,7 @@ Eina_Bool _item_state(void *data, Evas_Object *obj, const char *part)
         GengridItemBase *item = reinterpret_cast<GengridItemBase *>(data);
         if (!item)
         {
-                Utils::logger("home") << Priority::ERROR << "GengridItemBase : _item_state(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GengridItemBase : _item_state(): Can't cast data !" << log4cpp::eol;
                 return false;
         }
 
@@ -198,7 +198,7 @@ char *_item_label(void *data, Evas_Object *obj, const char *part)
         GengridItemBase *item = reinterpret_cast<GengridItemBase *>(data);
         if (!item)
         {
-                Utils::logger("home") << Priority::ERROR << "GengridItemBase : _item_label(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GengridItemBase : _item_label(): Can't cast data !" << log4cpp::eol;
                 return NULL;
         }
 
@@ -210,7 +210,7 @@ void _item_sel_cb(void *data, Evas_Object *obj, void *event_info)
         GengridItemBase *item = reinterpret_cast<GengridItemBase *>(data);
         if (!item)
         {
-                Utils::logger("home") << Priority::ERROR << "GengridItemBase : _item_sel_cb(): Can't cast data !" << log4cpp::eol;
+                cErrorDom("home") << "GengridItemBase : _item_sel_cb(): Can't cast data !" << log4cpp::eol;
                 return;
         }
         item->emitSelectedSignal();

@@ -41,7 +41,7 @@ void CalaosNetwork::Register(string cn_user, string cn_pass)
 {
         if (download_in_progress)
         {
-                Utils::logger("calaos_network") << Priority::WARN
+                cWarningDom("calaos_network")
                                 << "A download is already in progress, aborting Register()"
                                 << log4cpp::eol;
                 return;
@@ -141,7 +141,7 @@ void CalaosNetwork::updateIP(string priv_ip)
 {
         if (download_in_progress)
         {
-                Utils::logger("calaos_network") << Priority::WARN
+                cWarningDom("calaos_network")
                                 << "A download is already in progress, aborting updateIP()"
                                 << log4cpp::eol;
                 return;
@@ -221,7 +221,7 @@ void CalaosNetwork::getIP()
 {
         if (download_in_progress)
         {
-                Utils::logger("calaos_network") << Priority::WARN
+                cWarningDom("calaos_network")
                                 << "A download is already in progress, aborting getIP();"
                                 << log4cpp::eol;
                 return;

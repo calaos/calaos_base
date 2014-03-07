@@ -268,7 +268,7 @@ bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h,
         }
         catch(const std::exception &e)
         {
-                Utils::logger("module") << Priority::ERROR << "ActivityWidgetsView: Error creating widget, " <<
+                cErrorDom("module") << "ActivityWidgetsView: Error creating widget, " <<
                         e.what() << log4cpp::eol;
                 return false;
         }

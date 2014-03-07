@@ -33,14 +33,14 @@ static jmp_buf panic_jmp;
 ScriptManager::ScriptManager()
 {
 #ifndef CALAOS_INSTALLER
-        Utils::logger("script.lua") << Priority::DEBUG << "ScriptManager::ScriptManager(): Ok" << log4cpp::eol;
+        cDebugDom("script.lua") << "ScriptManager::ScriptManager(): Ok" << log4cpp::eol;
 #endif
 }
 
 ScriptManager::~ScriptManager()
 {
 #ifndef CALAOS_INSTALLER
-        Utils::logger("script.lua") << Priority::DEBUG << "ScriptManager::~ScriptManager(): Ok" << log4cpp::eol;
+        cDebugDom("script.lua") << "ScriptManager::~ScriptManager(): Ok" << log4cpp::eol;
 #endif
 }
 
@@ -120,7 +120,7 @@ bool ScriptManager::ExecuteScript(string script)
                 {
                         string msg = lua_tostring(L, -1);
                         #ifndef CALAOS_INSTALLER
-                        Utils::logger("script.lua") << Priority::ERROR
+                        cErrorDom("script.lua")
                                         << "ScriptManager::ExecuteScript(): Syntax Error: "
                                         << msg << log4cpp::eol;
                         #endif
@@ -130,7 +130,7 @@ bool ScriptManager::ExecuteScript(string script)
                 {
                         string msg = lua_tostring(L, -1);
                         #ifndef CALAOS_INSTALLER
-                        Utils::logger("script.lua") << Priority::ERROR
+                        cErrorDom("script.lua")
                                         << "ScriptManager::ExecuteScript(): LUA memory allocation error: "
                                         << msg << log4cpp::eol;
                         #endif
@@ -143,7 +143,7 @@ bool ScriptManager::ExecuteScript(string script)
                 {
                         ret = false;
                         #ifndef CALAOS_INSTALLER
-                        Utils::logger("script.lua") << Priority::ERROR
+                        cErrorDom("script.lua")
                                         << "ScriptManager::ExecuteScript(): Script panic !"
                                         << log4cpp::eol;
                         #endif
@@ -163,7 +163,7 @@ bool ScriptManager::ExecuteScript(string script)
 
                         string msg = lua_tostring(L, -1);
                         #ifndef CALAOS_INSTALLER
-                        Utils::logger("script.lua") << Priority::ERROR
+                        cErrorDom("script.lua")
                                         << "ScriptManager::ExecuteScript(): "
                                         << errcode << " : " << msg
                                         << log4cpp::eol;
@@ -176,7 +176,7 @@ bool ScriptManager::ExecuteScript(string script)
                         {
                                 ret = false;
                                 #ifndef CALAOS_INSTALLER
-                                Utils::logger("script.lua") << Priority::ERROR
+                                cErrorDom("script.lua")
                                                 << "ScriptManager::ExecuteScript(): Script must return either \"true\" or \"false\""
                                                 << log4cpp::eol;
                                 #endif

@@ -39,7 +39,7 @@ ListeRoom::ListeRoom()
         input_table = eina_hash_string_superfast_new(NULL);
         output_table = eina_hash_string_superfast_new(NULL);
 
-        Utils::logger("rooms") << Priority::DEBUG << "ListeRoom::ListeRoom(): Ok" << log4cpp::eol;
+        cDebugDom("rooms") << "ListeRoom::ListeRoom(): Ok" << log4cpp::eol;
 }
 
 ListeRoom::~ListeRoom()

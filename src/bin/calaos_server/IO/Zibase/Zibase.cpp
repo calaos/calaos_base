@@ -116,7 +116,7 @@ Zibase::Zibase(std::string h, int p):
         ecore_con_server_flush(econ_client);
         
         
-        Utils::logger("zibase") << Priority::INFO << "Zibase(" << host << "," << port << "): Ok" << log4cpp::eol;
+        cInfoDom("zibase") << "Zibase(" << host << "," << port << "): Ok" << log4cpp::eol;
 }
 
 Zibase::~Zibase()
@@ -126,7 +126,7 @@ Zibase::~Zibase()
         ecore_con_server_del(econ_client);
         ecore_con_server_del(econ_listen);
         
-        Utils::logger("zibase") << Priority::INFO << "Zibase::~Zibase(): Ok" << log4cpp::eol;
+        cInfoDom("zibase") << "Zibase::~Zibase(): Ok" << log4cpp::eol;
 }
 
 Zibase &Zibase::Instance(std::string h, int p)

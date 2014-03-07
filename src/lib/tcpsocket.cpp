@@ -42,12 +42,12 @@ TCPSocket::TCPSocket()
         sockfd = 0;
         connected = false;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::TCPSocket new (" << this << ")" << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::TCPSocket new (" << this << ")" << log4cpp::eol;
 }
 
 TCPSocket::~TCPSocket()
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::~TCPSocket (" << this << ") deleted fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::~TCPSocket (" << this << ") deleted fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 }
 
 bool TCPSocket::Create()
@@ -73,7 +73,7 @@ bool TCPSocket::Create()
 	}
 #endif  // SO_NOSIGPIPE
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Create(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Create(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         return true;
 };
@@ -82,7 +82,7 @@ void TCPSocket::SetReuse()
 {
         int r, reuse = 1;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::SetReuse(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::SetReuse(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         r = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (int *) &reuse, sizeof(reuse));
         if (r == -1)
@@ -92,7 +92,7 @@ void TCPSocket::SetReuse()
 
 bool TCPSocket::Create(char nType)
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Create(" << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Create(" << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (nType == TCP)
                 return Create();
@@ -116,7 +116,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
         hostent *Host;
         void *res;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Connect(" << this << ", " << nPort << ", " << Hostname << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Connect(" << this << ", " << nPort << ", " << Hostname << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if ((Host = gethostbyname(Hostname)) == NULL)
         {
@@ -142,7 +142,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
 
 int TCPSocket::Broadcast(const void *msg, int len, int bport)
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Broadcast(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Broadcast(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         int on = 1;
         struct sockaddr_in sin;
@@ -169,7 +169,7 @@ int TCPSocket::Broadcast(const void *msg, int len, int bport)
 
 int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         struct sockaddr_in sin;
 
@@ -203,7 +203,7 @@ int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
 
 int TCPSocket::SendTo(std::string msg)
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         int ret = sendto(sockfd, msg.c_str(), msg.length(), MSG_NOSIGNAL, (struct sockaddr*)&from, sizeof(from));
         if (ret < 0)
@@ -221,7 +221,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
         fd_set events;
         struct timeval tv;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::RecvFrom(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::RecvFrom(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (timeout > 0)
         {
@@ -254,7 +254,7 @@ int TCPSocket::Send(const void *Message, int nLength, bool block)
         int Bytes_Sent;
         unsigned int flags = 0;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Send(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Send(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (!block)
                 flags = MSG_DONTWAIT | MSG_NOSIGNAL;
@@ -298,7 +298,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
         char buf[4096];
         int ret;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Recv(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Recv(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         //timeout stuff
         fd_set events;
@@ -354,7 +354,7 @@ bool TCPSocket::Close()
 {
         int res;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Close(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Close(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (sockfd < 1) return false;
 
@@ -382,7 +382,7 @@ bool TCPSocket::InboundClose()
         int res;
         res = close(newfd);
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::InboundClose(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::InboundClose(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (res == -1)
                 return false;
@@ -399,7 +399,7 @@ bool TCPSocket::Create(int nPort)
         if (sockfd == -1)
                 return false;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Create(" << nPort << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Create(" << nPort << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         SetReuse();
 
@@ -422,7 +422,7 @@ bool TCPSocket::Create(int nPort, char nType)
 {
         void *res;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Create(" << nPort << ", " << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Create(" << nPort << ", " << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (nType == TCP)
         {
@@ -464,7 +464,7 @@ bool TCPSocket::Create(int nPort, char nType)
 
 bool TCPSocket::Listen()
 {
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Listen(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Listen(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (listen(sockfd, 5) == -1)
         {
@@ -479,7 +479,7 @@ bool TCPSocket::Accept(int fdpipe)
 {
         size_t sin_size = sizeof(struct sockaddr_in);
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Accept(" << fdpipe << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Accept(" << fdpipe << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         fd_set events;
         FD_ZERO(&events);
@@ -521,7 +521,7 @@ bool TCPSocket::Shutdown()
 {
         int res;
 
-        Utils::logger("socket") << Priority::DEBUG << "TCPSocket::Shutdown(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
+        cDebugDom("socket") << "TCPSocket::Shutdown(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd) << log4cpp::eol;
 
         if (sockfd < 1) return false;
 

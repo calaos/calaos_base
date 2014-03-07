@@ -126,11 +126,11 @@ void FileDownloader::Destroy()
 
 bool FileDownloader::Start()
 {
-        Utils::logger("downloader") << Priority::DEBUG << "FileDownloader: Start download (" << url << ")" << log4cpp::eol;
+        cDebugDom("downloader") << "FileDownloader: Start download (" << url << ")" << log4cpp::eol;
 
         if (url_con)
         {
-                Utils::logger("downloader") << Priority::WARN
+                cWarningDom("downloader")
                                 << "A download is already in progress..."
                                 << log4cpp::eol;
 
@@ -150,7 +150,7 @@ bool FileDownloader::Start()
                 cb_signal.emit("failed", &err);
                 cb_signal_user.emit("failed", &err, user_data);
 
-                Utils::logger("downloader") << Priority::ERROR
+                cErrorDom("downloader")
                                 << "Download failed: " << err
                                 << log4cpp::eol;
 
@@ -190,7 +190,7 @@ bool FileDownloader::Start()
                 cb_signal.emit("failed", &err);
                 cb_signal_user.emit("failed", &err, user_data);
 
-                Utils::logger("downloader") << Priority::ERROR
+                cErrorDom("downloader")
                                 << "Download failed: " << err
                                 << log4cpp::eol;
 
@@ -226,7 +226,7 @@ bool FileDownloader::Start()
                 cb_signal.emit("failed", &err);
                 cb_signal_user.emit("failed", &err, user_data);
 
-                Utils::logger("downloader") << Priority::ERROR
+                cErrorDom("downloader")
                                 << "Download failed: " << err
                                 << log4cpp::eol;
 
@@ -255,7 +255,7 @@ void FileDownloader::Cancel()
         if (dest.empty())
                 ecore_file_unlink(tmpFile.c_str());
 
-        Utils::logger("downloader") << Priority::DEBUG
+        cDebugDom("downloader")
                         << "FileDownloader: Download aborted! (" << url << ")"
                         << log4cpp::eol;
 
@@ -304,7 +304,7 @@ void FileDownloader::completeCb(int status)
                 cb_signal.emit("failed", &err);
                 cb_signal_user.emit("failed", &err, user_data);
 
-                Utils::logger("downloader") << Priority::ERROR
+                cErrorDom("downloader")
                                 << "Download failed: " << err
                                 << log4cpp::eol;
 
@@ -314,7 +314,7 @@ void FileDownloader::completeCb(int status)
                 return;
         }
 
-        Utils::logger("downloader") << Priority::DEBUG
+        cDebugDom("downloader")
                         << "FileDownloader: Download done. (" << url << ")"
                         << log4cpp::eol;
 
@@ -338,7 +338,7 @@ void FileDownloader::completeCb(int status)
                 fseek(dl_file, 0, SEEK_SET);
                 buff.buffer = (char *)malloc(buff.bufsize);
                 if (fread(buff.buffer, buff.bufsize, 1, dl_file) <= 0)
-                        Utils::logger("downloader") << Priority::CRIT
+                        cCriticalDom("downloader")
                                         << "FileDownloader: fread failed ! (" << url << ")"
                                         << log4cpp::eol;
                 fclose(dl_file);
