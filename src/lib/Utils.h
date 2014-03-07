@@ -48,6 +48,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <unordered_map>
+#include <stdexcept>
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/types.h>
