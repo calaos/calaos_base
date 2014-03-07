@@ -44,7 +44,7 @@ void XUtils::UpdateDPMS(bool enable, int seconds)
 
                 if (!x_display)
                 {
-                        Utils::logger("root") << Priority::ERROR << "XUtils::UpdateDPMS(): Error opening X11 display" << log4cpp::eol;
+                        cErrorDom("root") <<  "XUtils::UpdateDPMS(): Error opening X11 display" << log4cpp::eol;
                         return;
                 }
         }
@@ -93,7 +93,7 @@ void XUtils::WakeUpScreen(bool enable)
 
                 if (!x_display)
                 {
-                        Utils::logger("root") << Priority::ERROR << "XUtils::WakeUpScreen(): Error opening X11 display" << log4cpp::eol;
+                        cErrorDom("root") <<  "XUtils::WakeUpScreen(): Error opening X11 display" << log4cpp::eol;
                         return;
                 }
         }
@@ -129,7 +129,7 @@ int XUtils::getDPMSInfo()
 
         x_display = XOpenDisplay(":0");
         if (!x_display)
-                Utils::logger("root") << Priority::ERROR << "XUtils::getDPMSInfo(): Error opening X11 display" << log4cpp::eol;
+                cErrorDom("root") <<  "XUtils::getDPMSInfo(): Error opening X11 display" << log4cpp::eol;
 
         if (!DPMSCapable(x_display))
         {

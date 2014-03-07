@@ -160,9 +160,9 @@ void ActivityWidgetsView::LoadWidgets()
 
         if (!document.LoadFile())
         {
-                Utils::logger("root") << Priority::ERROR << "There was a parse error in " << file << log4cpp::eol;
-                Utils::logger("root") << Priority::ERROR << document.ErrorDesc() << log4cpp::eol;
-                Utils::logger("root") << Priority::ERROR << "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
+                cErrorDom("root") <<  "There was a parse error in " << file << log4cpp::eol;
+                cErrorDom("root") <<  document.ErrorDesc() << log4cpp::eol;
+                cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
 
                 //force save of file
                 SaveWidgets();

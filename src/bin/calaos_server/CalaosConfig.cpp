@@ -114,9 +114,9 @@ void Config::LoadConfigIO()
 
         if (!document.LoadFile())
         {
-              Utils::logger("root") << Priority::ERROR << "Config::LoadConfigIO() There was a parse error"<< log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
+              cErrorDom("root") <<  "Config::LoadConfigIO() There was a parse error"<< log4cpp::eol;
+              cErrorDom("root") <<  document.ErrorDesc() << log4cpp::eol;
+              cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
 
               exit(-1);
         }
@@ -196,9 +196,9 @@ void Config::LoadConfigRule()
 
         if (!document.LoadFile())
         {
-                Utils::logger("root") << Priority::ERROR << "Config::LoadConfigRule() There was a parse error in " << file << log4cpp::eol;
-                Utils::logger("root") << Priority::ERROR << document.ErrorDesc() << log4cpp::eol;
-                Utils::logger("root") << Priority::ERROR << "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
+                cErrorDom("root") <<  "Config::LoadConfigRule() There was a parse error in " << file << log4cpp::eol;
+                cErrorDom("root") <<  document.ErrorDesc() << log4cpp::eol;
+                cErrorDom("root") <<  "In file " << file << " At line " << document.ErrorRow() << log4cpp::eol;
 
                 exit(-1);
         }
@@ -209,7 +209,7 @@ void Config::LoadConfigRule()
 
         if (!rule_node)
         {
-                Utils::logger("root") << Priority::ERROR << "Config::LoadConfigRule() Error, <calaos:rules> node not found in file " << file << log4cpp::eol;
+                cErrorDom("root") <<  "Config::LoadConfigRule() Error, <calaos:rules> node not found in file " << file << log4cpp::eol;
         }
 
         for(; rule_node; rule_node = rule_node->NextSiblingElement())

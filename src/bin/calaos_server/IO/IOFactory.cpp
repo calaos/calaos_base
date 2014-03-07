@@ -222,7 +222,7 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
         }
         else if (type == "WONeon")
         {
-                Utils::logger("root") << Priority::ERROR << "IOFactory::CreateOutput(" << type << "): WONeon is deprecated !" << log4cpp::eol;
+                cErrorDom("root") <<  "IOFactory::CreateOutput(" << type << "): WONeon is deprecated !" << log4cpp::eol;
         }
         else if (type == "X10Output")
         {

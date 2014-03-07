@@ -555,9 +555,9 @@ string Utils::get_config_option(string _key)
 
         if (!document.LoadFile())
         {
-              Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << " At line " << document.ErrorRow() << log4cpp::eol;
+              cErrorDom("root") <<  "There was an exception in XML parsing." << log4cpp::eol;
+              cErrorDom("root") <<  "Parse error: " << document.ErrorDesc() << log4cpp::eol;
+              cErrorDom("root") <<  " At line " << document.ErrorRow() << log4cpp::eol;
 
               return value;
         }
@@ -589,9 +589,9 @@ bool Utils::set_config_option(string key, string value)
 
         if (!document.LoadFile())
         {
-              Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
+              cErrorDom("root") <<  "There was an exception in XML parsing." << log4cpp::eol;
+              cErrorDom("root") <<  "Parse error: " << document.ErrorDesc() << log4cpp::eol;
+              cErrorDom("root") <<  "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }
@@ -635,9 +635,9 @@ bool Utils::del_config_option(string key)
 
         if (!document.LoadFile())
         {
-              Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
+              cErrorDom("root") <<  "There was an exception in XML parsing." << log4cpp::eol;
+              cErrorDom("root") <<  "Parse error: " << document.ErrorDesc() << log4cpp::eol;
+              cErrorDom("root") <<  "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }
@@ -670,9 +670,9 @@ bool Utils::get_config_options(Params &options)
 
         if (!document.LoadFile())
         {
-              Utils::logger("root") << Priority::ERROR << "There was an exception in XML parsing." << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "Parse error: " << document.ErrorDesc() << log4cpp::eol;
-              Utils::logger("root") << Priority::ERROR << "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
+              cErrorDom("root") <<  "There was an exception in XML parsing." << log4cpp::eol;
+              cErrorDom("root") <<  "Parse error: " << document.ErrorDesc() << log4cpp::eol;
+              cErrorDom("root") <<  "In file " << getConfigFile(LOCAL_CONFIG) << " At line " << document.ErrorRow() << log4cpp::eol;
 
               return false;
         }

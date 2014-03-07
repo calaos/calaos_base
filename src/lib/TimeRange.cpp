@@ -195,8 +195,8 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 longitude = 2.548828;
                 latitude = 46.422713;
 
-                Utils::logger("root") << Priority::ERROR << "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
-                Utils::logger("root") << Priority::ERROR << "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
+                cErrorDom("root") <<  "Horaire: To use sunset/sunrise, you have to set your longitude/latitude in configuration!" << log4cpp::eol;
+                cErrorDom("root") <<  "Horaire: Please go to the webpage of the server to set these parameters." << log4cpp::eol;
         }
         else
         {
@@ -218,7 +218,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                 set_hour = 0;
                 set_min = 0;
 
-                Utils::logger("root") << Priority::ERROR << "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
+                cErrorDom("root") <<  "Horaire: Error in sunset/sunrise calculation!" << log4cpp::eol;
 
                 return;
         }

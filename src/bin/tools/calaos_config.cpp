@@ -86,7 +86,7 @@ int main (int argc, char **argv)
                 string value = argv[3];
 
                 if (key == "hwid")
-                        Utils::logger("root") << Priority::ERROR << "Can't change hwid" << log4cpp::eol;
+                        cErrorDom("root") <<  "Can't change hwid" << log4cpp::eol;
                 else
                         Utils::set_config_option(key, value);
         }
