@@ -15,6 +15,7 @@ AM_CXXFLAGS = \
 	-DPACKAGE_BIN_DIR=\"$(bindir)\" \
 	-DPACKAGE_LIB_DIR=\"$(libdir)\" \
 	-DPACKAGE_DATA_DIR=\"$(pkgdatadir)/calaos\" \
+	-DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
 	-DETC_DIR=\"$(sysconfdir)\" \
 	@CALAOS_COMMON_CFLAGS@
 
@@ -86,7 +87,9 @@ libcalaos_common_la_SOURCES = \
 	uri_parser/hef_uri_syntax.h \
 	libquickmail/quickmail.h \
 	libquickmail/quickmail.c \
-	EinaLog.h
+	EinaLog.h \
+	Prefix.cpp \
+	Prefix.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
