@@ -84,7 +84,6 @@ void ScenarioModel::load_scenario_done(Scenario *sc)
     if (load_count <= 0)
     {
         load_done.emit();
-
         cDebug() << "[SCENARIO LOAD DONE sending signal]";
     }
 }

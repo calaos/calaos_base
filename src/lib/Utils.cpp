@@ -497,8 +497,8 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 
     if (!quiet)
     {
-        cout << "# Using config path: " << getConfigFile("") << endl;
-        cout << "# Using cache path: " << getCacheFile("") << endl;
+        cInfo() << "Using config path: " << getConfigFile("");
+        cInfo() << "Using cache path: " << getCacheFile("");
     }
 
     if (!ecore_file_can_write(getConfigFile("").c_str()))
@@ -769,3 +769,4 @@ string Utils::getFileContentBase64(const char *filename)
 
     return Utils::Base64_encode(&buff[0], filesize);
 }
+

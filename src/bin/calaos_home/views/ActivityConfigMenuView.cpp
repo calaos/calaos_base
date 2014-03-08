@@ -110,7 +110,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {
-        cDebug() << "click on item veille!";
+        cDebug() << "click on item Screensaver!";
         menu_item_clicked.emit("screensaver");
     });
 

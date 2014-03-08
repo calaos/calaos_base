@@ -84,6 +84,7 @@ void CameraModel::load_camera_done(Camera *camera)
 
     if (load_count <= 0)
     {
+
         cDebug() << "[CAMERA LOAD DONE sending signal]";
         load_done.emit();
     }
