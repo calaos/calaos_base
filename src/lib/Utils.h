@@ -122,8 +122,6 @@ typedef unsigned int uint;
 #define RULES_CONFIG            "rules.xml"
 #define WIDGET_CONFIG           "widgets.xml"
 
-#define DEFAULT_THEME           PACKAGE_DATA_DIR"/calaos/themes/default.edj"
-
 #define DEFAULT_URL             "http://update.calaos.fr/fwupdate.xml"
 #define CALAOS_NETWORK_URL      "https://www.calaos.fr/calaos_network"
 #define CALAOS_WEBSITE_URL      "http://www.calaos.fr"
