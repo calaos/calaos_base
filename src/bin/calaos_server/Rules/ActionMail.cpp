@@ -22,6 +22,7 @@
 #include <ListeRoom.h>
 #include <IPCam.h>
 #include <FileDownloader.h>
+#include <Prefix.h>
 
 using namespace Calaos;
 
@@ -123,19 +124,29 @@ void ActionMail::sendMail()
     ofs.close();
 
     stringstream cmd;
-    cmd << "calaos_mail ";
-    cmd << "--delete "; //force temp file deletion after mail is sent
-    if (Utils::get_config_option("smtp_debug") == "true")
-        cmd << "--verbose ";
-    cmd << "--from \"" << mail_sender << "\" ";
-    cmd << "--to \"" << mail_recipients << "\" ";
-    cmd << "--subject \"" << mail_subject << "\" ";
-    cmd << "--body " << tmpFile << " ";
 
-    if (!mail_attachment_tfile.empty())
-        cmd << "--attach " << mail_attachment_tfile;
+    cmd << Prefix::Instance().binDirectoryGet();
+    cmd << "/calaos_mail ";
 
-    ecore_exe_run(cmd.str().c_str(), NULL);
+    if (ecore_file_exists(cmd.str().c_str()))
+    {
+        cmd << "--delete "; //force temp file deletion after mail is sent
+        if (Utils::get_config_option("smtp_debug") == "true")
+            cmd << "--verbose ";
+        cmd << "--from \"" << mail_sender << "\" ";
+        cmd << "--to \"" << mail_recipients << "\" ";
+        cmd << "--subject \"" << mail_subject << "\" ";
+        cmd << "--body " << tmpFile << " ";
+
+        if (!mail_attachment_tfile.empty())
+            cmd << "--attach " << mail_attachment_tfile;
+
+        ecore_exe_run(cmd.str().c_str(), NULL);
+    }
+    else
+    {
+        cError() << "Command " << cmd << " not found";
+    }
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

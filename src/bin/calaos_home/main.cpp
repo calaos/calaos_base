@@ -26,6 +26,7 @@
 # include <libintl.h>
 #endif
 
+#include "Prefix.h"
 #include "ApplicationMain.h"
 
 using namespace Utils;
@@ -47,14 +48,16 @@ int main(int argc, char **argv)
 {
     InitEinaLog("calaos_home");
 
+    Prefix::Instance(argc, argv);
+
 #ifdef ENABLE_NLS
     /* Set the locale defined by the system */
     char *curlocale = setlocale(LC_ALL, "");
     curlocale = curlocale ?
                     curlocale :
                     setlocale(LC_ALL, "C");
-    printf("Current locale : %s\n", curlocale);
-    bindtextdomain(PACKAGE, LOCALE_DIR);
+    cInfo() << "Current locale : " << curlocale;
+    bindtextdomain(PACKAGE, Prefix::Instance().localeDirectoryGet().c_str());
     textdomain(PACKAGE);
 #endif
 

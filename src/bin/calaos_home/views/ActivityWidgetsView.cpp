@@ -18,7 +18,9 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+
 #include "ActivityWidgetsView.h"
+#include "Prefix.h"
 #include <time.h>
 
 ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
@@ -37,8 +39,7 @@ ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
     ecore_file_mkpath("/tmp/calaos_widgets");
 
     //add search paths for modules
-    ModuleManager::Instance().addPath(PACKAGE_LIB_DIR "/calaos/widgets");
-    ModuleManager::Instance().addPath("/usr/lib/calaos/widgets");
+    ModuleManager::Instance().addPath(Prefix::Instance().libDirectoryGet() + "/calaos/widgets");
     ModuleManager::Instance().SearchModules();
 
     LoadWidgets();
