@@ -21,20 +21,22 @@
 class Prefix
 {
 public:
-    static Prefix &Instance(int argc, char **argv)
+    static Prefix &Instance(int argc = 0, char **argv = nullptr)
     {
         static Prefix prefix(argc, argv);
         return prefix;
     }
 
-    Eina_Prefix *pfx;
-    Prefix(int argc, char **argv);
     ~Prefix();
 
     string binDirectoryGet();
     string libDirectoryGet();
     string dataDirectoryGet();
     string localeDirectoryGet();
+
+private:
+    Eina_Prefix *pfx;
+    Prefix(int argc, char **argv);
 };
 
 #endif // CPREFIX_H
