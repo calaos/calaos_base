@@ -29,17 +29,21 @@ using namespace Utils;
 
 class GenlistItemScenarioScheduleTime: public GenlistItemBase
 {
-private:
+    private:
+        TimeRange range;
 
-public:
-    GenlistItemScenarioScheduleTime(Evas *evas, Evas_Object *parent, void *data = NULL);
-    virtual ~GenlistItemScenarioScheduleTime();
+    public:
+        GenlistItemScenarioScheduleTime(Evas *evas, Evas_Object *parent, TimeRange &range, void *data = NULL);
+        virtual ~GenlistItemScenarioScheduleTime();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+        virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+        virtual string getLabelItem(Evas_Object *obj, string part);
 
-    void buttonClickEdit();
-    void buttonClickDelete();
+        void buttonClickEdit();
+        void buttonClickDelete();
+
+        sigc::signal<void> edit_click;
+        sigc::signal<void> del_click;
 };
 
 #endif // GenlistItemScenarioScheduleTime_H

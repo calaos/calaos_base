@@ -263,6 +263,36 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
     cday = day;
 }
 
+long TimeRange::getStartTimeSec()
+{
+    struct tm *ctime = NULL;
+    time_t t = time(NULL);
+    ctime = localtime(&t);
+
+    return getStartTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+}
+
+long TimeRange::getEndTimeSec()
+{
+    struct tm *ctime = NULL;
+    time_t t = time(NULL);
+    ctime = localtime(&t);
+
+    return getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+}
+
+bool TimeRange::isSameStartEnd()
+{
+    struct tm *ctime = NULL;
+    time_t t = time(NULL);
+    ctime = localtime(&t);
+
+    long start = getStartTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+    long end = getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
+
+    return start == end;
+}
+
 string TimeRange::toString()
 {
     stringstream str;

@@ -236,7 +236,7 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
         title_label = _("End of schedulling<br><small><light_blue>End time of the scenario</light_blue></small>");
         header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
         header->Append(glist);
-        header->setButtonLabel("button.back", "Début");
+        header->setButtonLabel("button.back", _("Start"));
         header->button_click.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonHeaderBackClick));
     }
 
@@ -497,9 +497,21 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
     }
     else
     {
+        if (edit_range.start_type == TimeRange::HTYPE_NORMAL ||
+            edit_range.start_offset != 0)
+        {
+            edit_range.shour = Utils::to_string(elm_spinner_value_get(spin_start_hours));
+            edit_range.smin = Utils::to_string(elm_spinner_value_get(spin_start_min));
+            edit_range.ssec = Utils::to_string(elm_spinner_value_get(spin_start_sec));
+        }
+
+        edit_range.end_type = edit_range.start_type;
+        edit_range.end_offset = edit_range.start_offset;
         edit_range.ehour = edit_range.shour;
         edit_range.emin = edit_range.smin;
         edit_range.esec = edit_range.ssec;
+
+        cout <<  "showWeekSelection: TimeRange: " << edit_range.toString() << endl;
     }
 
     Evas_Object *table = createPaddingTable(evas, parent, 300, 300);
@@ -566,6 +578,8 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
 {
     if (bt == "button.back")
     {
+        editState = editStatesHist.top();
+        editStatesHist.pop();
         elm_naviframe_item_pop(pager_popup);
     }
     else if (bt == "button.valid")
@@ -585,9 +599,11 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
         if (week_days[0]->isSelected() || week_days[7]->isSelected())
             range_infos.range_sunday.push_back(edit_range);
 
-        cDebug() <<  "New TimeRange: " << edit_range.toString();
+        cout <<  "New TimeRange: " << edit_range.toString() << endl;
 
         elm_ctxpopup_dismiss(popup);
+
+        reloadTimeRanges();
     }
 }
 
@@ -647,25 +663,39 @@ void ActivityScheduleScenarioView::itemPeriodSelected(void *data, GenlistItemSim
 
 void ActivityScheduleScenarioView::reloadTimeRanges()
 {
-    int scount = range_infos.range_monday.size() +
-                 range_infos.range_tuesday.size() +
-                 range_infos.range_wednesday.size() +
-                 range_infos.range_thursday.size() +
-                 range_infos.range_friday.size() +
-                 range_infos.range_saturday.size() +
-                 range_infos.range_sunday.size();
+    elm_genlist_clear(schedule_list);
 
-    while (scount > 0)
+    vector<TimeRange> trange_sorted;
+    auto sortTimeRange = [&trange_sorted](vector<TimeRange> &range, int day)
     {
-        //Load shedule items
-    }
-/*
-    //------------TEST schedule list
-    for (int i = 0;i < 5;i++)
+        for (TimeRange &t: range)
+        {
+            auto it = std::find(trange_sorted.begin(), trange_sorted.end(), t);
+            if (it != trange_sorted.end())
+            {
+                //timerange already in trange_sorted, add the day of week flag
+                it->dayOfWeek.set(day);
+            }
+            else
+            {
+                TimeRange newtr = t;
+                newtr.dayOfWeek.set(day);
+                trange_sorted.push_back(newtr);
+            }
+        }
+    };
+
+    sortTimeRange(range_infos.range_monday, 0);
+    sortTimeRange(range_infos.range_tuesday, 1);
+    sortTimeRange(range_infos.range_wednesday, 2);
+    sortTimeRange(range_infos.range_thursday, 3);
+    sortTimeRange(range_infos.range_friday, 4);
+    sortTimeRange(range_infos.range_saturday, 5);
+    sortTimeRange(range_infos.range_sunday, 6);
+
+    for (TimeRange &t: trange_sorted)
     {
-        GenlistItemScenarioScheduleTime *item = new GenlistItemScenarioScheduleTime(evas, parent);
+        GenlistItemScenarioScheduleTime *item = new GenlistItemScenarioScheduleTime(evas, parent, t);
         item->Append(schedule_list);
     }
-    //----------------
-*/
 }

@@ -64,8 +64,14 @@ public:
     long getStartTimeSec(int year, int month, int day);
     long getEndTimeSec(int year, int month, int day);
 
+    //compute value for today
+    long getStartTimeSec();
+    long getEndTimeSec();
+
+    bool isSameStartEnd();
+
     string toString();
 
     //flag to ease the loading in UI
-    bool isLoaded = false;
+    bitset<7> dayOfWeek;
 };

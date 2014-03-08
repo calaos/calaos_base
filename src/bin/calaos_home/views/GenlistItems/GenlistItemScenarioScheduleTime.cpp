@@ -28,8 +28,9 @@
 ITEM_BUTTON_CALLBACK(GenlistItemScenarioScheduleTime, Edit)
 ITEM_BUTTON_CALLBACK(GenlistItemScenarioScheduleTime, Delete)
 
-GenlistItemScenarioScheduleTime::GenlistItemScenarioScheduleTime(Evas *_evas, Evas_Object *_parent, void *data):
-    GenlistItemBase(_evas, _parent, "scenario/schedule/time", ELM_GENLIST_ITEM_NONE, data)
+GenlistItemScenarioScheduleTime::GenlistItemScenarioScheduleTime(Evas *_evas, Evas_Object *_parent, TimeRange &r, void *data):
+    GenlistItemBase(_evas, _parent, "scenario/schedule/time", ELM_GENLIST_ITEM_NONE, data),
+    range(r)
 {
 }
 
@@ -43,13 +44,88 @@ string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, string pa
 
     if (part == "text")
     {
-        text = "Exécution à 12h30";
+        bool same = range.isSameStartEnd();
+        string starttxt;
+        if (same)
+            starttxt = _("Execute at ");
+        else
+            starttxt = _("Start at ");
+
+        auto offsetString = [=](bool isstart)
+        {
+            if (isstart)
+            {
+                int h, m, s;
+                from_string(range.shour, h);
+                from_string(range.smin, m);
+                from_string(range.ssec, s);
+                int v = h * 3600 + m * 60 + s;
+
+                if (range.start_offset == 1)
+                    return string(" +") + Utils::time2string_digit(v);
+                else if (range.start_offset == -1)
+                    return string(" -") + Utils::time2string_digit(v);
+
+            }
+            else
+            {
+                int h, m, s;
+                from_string(range.ehour, h);
+                from_string(range.emin, m);
+                from_string(range.esec, s);
+                int v = h * 3600 + m * 60 + s;
+
+                if (range.end_offset == 1)
+                    return string(" +") + Utils::time2string_digit(v);
+                else
+                    if (range.end_offset == -1)
+                        return string(" -") + Utils::time2string_digit(v);
+            }
+
+            return string();
+        };
+
+        if (range.start_type == TimeRange::HTYPE_NORMAL)
+            text = starttxt + Utils::time2string_digit(range.getStartTimeSec());
+        else if (range.start_type == TimeRange::HTYPE_SUNRISE)
+            text = starttxt + _("Sunrise") + offsetString(true) + " (" + Utils::time2string_digit(range.getStartTimeSec()) + ")";
+        else if (range.start_type == TimeRange::HTYPE_SUNSET)
+            text = starttxt + _("Sunset") + offsetString(true) + " (" + Utils::time2string_digit(range.getStartTimeSec()) + ")";
+        else if (range.start_type == TimeRange::HTYPE_NOON)
+            text = starttxt + _("Noon") + offsetString(true) + " (" + Utils::time2string_digit(range.getStartTimeSec()) + ")";
+
+        if (!same)
+        {
+            text += ", ";
+
+            starttxt = _("stop at ");
+
+            if (range.end_type == TimeRange::HTYPE_NORMAL)
+                text += starttxt + Utils::time2string_digit(range.getEndTimeSec());
+            else if (range.end_type == TimeRange::HTYPE_SUNRISE)
+                text += starttxt + _("Sunrise") + offsetString(false) + " (" + Utils::time2string_digit(range.getEndTimeSec()) + ")";
+            else if (range.end_type == TimeRange::HTYPE_SUNSET)
+                text += starttxt + _("Sunset") + offsetString(false) + " (" + Utils::time2string_digit(range.getEndTimeSec()) + ")";
+            else if (range.end_type == TimeRange::HTYPE_NOON)
+                text += starttxt + _("Noon") + offsetString(false) + " (" + Utils::time2string_digit(range.getEndTimeSec()) + ")";
+        }
     }
 
-    itemEmitSignal("monday,active", "calaos");
-    itemEmitSignal("tuesday,active", "calaos");
-    itemEmitSignal("thirsday,active", "calaos");
-    itemEmitSignal("friday,active", "calaos");
+    auto setDay = [=](string day, int active)
+    {
+        if (active == 1)
+            itemEmitSignal(day + ",active", "calaos");
+        else
+            itemEmitSignal(day + ",inactive", "calaos");
+    };
+
+    setDay("monday", range.dayOfWeek[0]);
+    setDay("tuesday", range.dayOfWeek[1]);
+    setDay("wednesday", range.dayOfWeek[2]);
+    setDay("thursday", range.dayOfWeek[3]);
+    setDay("friday", range.dayOfWeek[4]);
+    setDay("saturday", range.dayOfWeek[5]);
+    setDay("sunday", range.dayOfWeek[6]);
 
     return text;
 }
@@ -87,10 +163,10 @@ Evas_Object *GenlistItemScenarioScheduleTime::getPartItem(Evas_Object *obj, stri
 
 void GenlistItemScenarioScheduleTime::buttonClickEdit()
 {
-
+    edit_click.emit();
 }
 
 void GenlistItemScenarioScheduleTime::buttonClickDelete()
 {
-
+    del_click.emit();
 }
