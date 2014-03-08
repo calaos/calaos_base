@@ -11,7 +11,7 @@ AM_CXXFLAGS = \
 -I./Scenario \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
--DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
+-DPACKAGE_DATA_DIR=\"$(datadir)\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/uri_parser \
@@ -27,7 +27,6 @@ AM_CXXFLAGS = \
 @EWEBKIT_CFLAGS@ \
 -DETC_DIR=\"$(sysconfdir)/calaos\" \
 -DLIBMBUS \
--DTHEME_DIR=\"$(datadir)/calaos\" \
 -DLOCALE_DIR=\"$(datadir)/locale\"
 
 bin_PROGRAMS = calaos_home

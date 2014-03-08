@@ -28,8 +28,9 @@
 #include <curl/curl.h>
 #include <Ecore_Evas.h>
 #include "ScreenSuspendView.h"
+#include "Prefix.h"
 
-string ApplicationMain::theme = THEME_DIR"/default.edj";
+string ApplicationMain::theme = "";
 
 static void _window_resize_cb(void *data, Evas *e, Evas_Object *obj, void *event_info)
 {
@@ -58,6 +59,14 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
     {
         ApplicationMain::theme = themefile;
         cInfo() <<  "Using specified theme file: " << ApplicationMain::getTheme();
+    }
+    else
+    {
+        ApplicationMain::theme = Prefix::Instance().dataDirectoryGet() + "/default.edj";
+        if (ecore_file_exists(ApplicationMain::theme.c_str()))
+            cInfo() << "Using theme file " << theme;
+        else
+            cError() << theme << " Not found!";
     }
 
     //Init efl core
