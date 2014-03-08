@@ -42,7 +42,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
 {
     cInfo() <<  "Calaos Home, starting...";
 
-    if (system("killall -9 eskiss") == -1)
+    if (system("killall -9 eskiss 2> /dev/null") == -1)
         cCritical() <<  "Error forking !";
 
     //init random generator
