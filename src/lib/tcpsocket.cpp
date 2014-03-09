@@ -42,12 +42,12 @@ TCPSocket::TCPSocket()
     sockfd = 0;
     connected = false;
 
-    cDebugDom("socket") << "TCPSocket::TCPSocket new (" << this << ")";
+    cDebugDom("socket") << "new";
 }
 
 TCPSocket::~TCPSocket()
 {
-    cDebugDom("socket") << "TCPSocket::~TCPSocket (" << this << ") deleted fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "deleted fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 }
 
 bool TCPSocket::Create()
@@ -73,7 +73,7 @@ bool TCPSocket::Create()
     }
 #endif  // SO_NOSIGPIPE
 
-    cDebugDom("socket") << "TCPSocket::Create(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     return true;
 };
@@ -82,7 +82,7 @@ void TCPSocket::SetReuse()
 {
     int r, reuse = 1;
 
-    cDebugDom("socket") << "TCPSocket::SetReuse(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     r = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (int *) &reuse, sizeof(reuse));
     if (r == -1)
@@ -92,7 +92,7 @@ void TCPSocket::SetReuse()
 
 bool TCPSocket::Create(char nType)
 {
-    cDebugDom("socket") << "TCPSocket::Create(" << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (nType == TCP)
         return Create();
@@ -116,7 +116,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
     hostent *Host;
     void *res;
 
-    cDebugDom("socket") << "TCPSocket::Connect(" << this << ", " << nPort << ", " << Hostname << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") <<  nPort << ", " << Hostname << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if ((Host = gethostbyname(Hostname)) == NULL)
     {
@@ -132,7 +132,7 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
 
     if (connect(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
     {
-        cErrorDom("network") << "TCPSocket::Connect(): " << strerror(errno);
+        cErrorDom("network") << "connect error : " << strerror(errno);
         return false;
     }
 
@@ -142,13 +142,13 @@ bool TCPSocket::Connect(int nPort, char *Hostname)
 
 int TCPSocket::Broadcast(const void *msg, int len, int bport)
 {
-    cDebugDom("socket") << "TCPSocket::Broadcast(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     int on = 1;
     struct sockaddr_in sin;
     if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (char *) &on, sizeof(on)) < 0)
     {
-        cErrorDom("network") << "TCPSocket::Broadcast(): setsockopt(SO_BROADCAST): " << strerror(errno);
+        cErrorDom("network") << "setsockopt(SO_BROADCAST): " << strerror(errno);
         return -1;
     }
 
@@ -160,7 +160,7 @@ int TCPSocket::Broadcast(const void *msg, int len, int bport)
     int ret = sendto(sockfd, msg, len, MSG_NOSIGNAL, (struct sockaddr *) &sin, sizeof(sin));
     if (ret < 0)
     {
-        cErrorDom("network") << "TCPSocket::Broadcast(): sendto: " << strerror(errno);
+        cErrorDom("network") << "sendto: " << strerror(errno);
         return -1;
     }
 
@@ -169,7 +169,7 @@ int TCPSocket::Broadcast(const void *msg, int len, int bport)
 
 int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
 {
-    cDebugDom("socket") << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     struct sockaddr_in sin;
 
@@ -194,7 +194,7 @@ int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
     int ret = sendto(sockfd, msg, len, MSG_NOSIGNAL, (struct sockaddr *) &sin, sizeof(sin));
     if (ret < 0)
     {
-        cErrorDom("network") << "TCPSocket::SendTo(), sendto: " << strerror(errno);
+        cErrorDom("network") << "sendto: " << strerror(errno);
         return -1;
     }
 
@@ -203,12 +203,12 @@ int TCPSocket::SendTo(const void *msg, int len, int bport, std::string host)
 
 int TCPSocket::SendTo(std::string msg)
 {
-    cDebugDom("socket") << "TCPSocket::SendTo(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     int ret = sendto(sockfd, msg.c_str(), msg.length(), MSG_NOSIGNAL, (struct sockaddr*)&from, sizeof(from));
     if (ret < 0)
     {
-        cErrorDom("network") << "TCPSocket::SendTo(), sendto: " << strerror(errno);
+        cErrorDom("network") << "sendto: " << strerror(errno);
         return -1;
     }
 
@@ -221,7 +221,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
     fd_set events;
     struct timeval tv;
 
-    cDebugDom("socket") << "TCPSocket::RecvFrom(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (timeout > 0)
     {
@@ -234,7 +234,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
         if (!select(sockfd + 1, &events, NULL, NULL, &tv))
         {
             //timeout !
-            cDebugDom("network") << "TCPSocket::RecvFrom(): Timeout!";
+            cDebugDom("network") << "Timeout!";
             return -1;
         }
     }
@@ -243,7 +243,7 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
     int nb = recvfrom(sockfd, msg, msize, MSG_NOSIGNAL, (struct sockaddr *) &from, (socklen_t *) & addr_in_size);
     if (nb < 0)
     {
-        cErrorDom("network") << "TCPSocket::RecvFrom(), recvfrom: " << strerror(errno);
+        cErrorDom("network") << "recvfrom: " << strerror(errno);
         return -1;
     }
     return nb;
@@ -254,7 +254,7 @@ int TCPSocket::Send(const void *Message, int nLength, bool block)
     int Bytes_Sent;
     unsigned int flags = 0;
 
-    cDebugDom("socket") << "TCPSocket::Send(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (!block)
         flags = MSG_DONTWAIT | MSG_NOSIGNAL;
@@ -298,7 +298,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
     char buf[4096];
     int ret;
 
-    cDebugDom("socket") << "TCPSocket::Recv(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     //timeout stuff
     fd_set events;
@@ -321,7 +321,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             if (!select(fd + 1, &events, NULL, NULL, &tv))
             {
                 //timeout !
-                cDebugDom("network") << "TCPSocket::Recv(): Timeout!";
+                cDebugDom("network") << "Timeout!";
                 return false;
             }
 
@@ -340,7 +340,7 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
 
         if (ret <= 0)
         {
-            cErrorDom("network") << "TCPSocket::Recv(): " << strerror(errno);
+            cErrorDom("network") << strerror(errno);
             return false;
         }
 
@@ -354,7 +354,7 @@ bool TCPSocket::Close()
 {
     int res;
 
-    cDebugDom("socket") << "TCPSocket::Close(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (sockfd < 1) return false;
 
@@ -365,7 +365,7 @@ bool TCPSocket::Close()
 
     if (res == -1)
     {
-        cErrorDom("network") << "TCPSocket::Close(), close: " << strerror(errno);
+        cErrorDom("network") << "close: " << strerror(errno);
         return false;
     }
 
@@ -382,7 +382,7 @@ bool TCPSocket::InboundClose()
     int res;
     res = close(newfd);
 
-    cDebugDom("socket") << "TCPSocket::InboundClose(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (res == -1)
         return false;
@@ -399,7 +399,7 @@ bool TCPSocket::Create(int nPort)
     if (sockfd == -1)
         return false;
 
-    cDebugDom("socket") << "TCPSocket::Create(" << nPort << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << nPort << ", fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     SetReuse();
 
@@ -411,7 +411,7 @@ bool TCPSocket::Create(int nPort)
 
     if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
     {
-        cErrorDom("network") << "TCPSocket::Create(), bind: " << strerror(errno);
+        cErrorDom("network") << "bind: " << strerror(errno);
         return false;
     }
 
@@ -422,7 +422,7 @@ bool TCPSocket::Create(int nPort, char nType)
 {
     void *res;
 
-    cDebugDom("socket") << "TCPSocket::Create(" << nPort << ", " << nType << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << nPort << ", " << nType << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (nType == TCP)
     {
@@ -453,7 +453,7 @@ bool TCPSocket::Create(int nPort, char nType)
 
     if (::bind(sockfd, (struct sockaddr *) &INetAddress, sizeof(struct sockaddr)) == -1)
     {
-        cErrorDom("network") << "TCPSocket::Create(), bind: " << strerror(errno);
+        cErrorDom("network") << "bind: " << strerror(errno);
         return false;
     }
 
@@ -464,11 +464,11 @@ bool TCPSocket::Create(int nPort, char nType)
 
 bool TCPSocket::Listen()
 {
-    cDebugDom("socket") << "TCPSocket::Listen(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (listen(sockfd, 5) == -1)
     {
-        cErrorDom("network") << "TCPSocket::Listen(), listen: " << strerror(errno);
+        cErrorDom("network") << "listen: " << strerror(errno);
         return false;
     }
 
@@ -479,7 +479,7 @@ bool TCPSocket::Accept(int fdpipe)
 {
     size_t sin_size = sizeof(struct sockaddr_in);
 
-    cDebugDom("socket") << "TCPSocket::Accept(" << fdpipe << ", " << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << fdpipe << " fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     fd_set events;
     FD_ZERO(&events);
@@ -488,20 +488,20 @@ bool TCPSocket::Accept(int fdpipe)
 
     if (!select(sockfd + 1, &events, NULL, NULL, NULL))
     {
-        cDebugDom("network") << "TCPSocket::Accept(): Terminating.";
+        cDebugDom("network") << "Terminating.";
         return false;
     }
 
     if (fdpipe > 0 && FD_ISSET(fdpipe, &events))
     {
         //the pipe tell us to stop
-        cDebugDom("network") << "TCPSocket::Accept(): Forced exit by pipe.";
+        cDebugDom("network") << "Forced exit by pipe.";
         return false;
     }
 
     if ((newfd = accept(sockfd, (struct sockaddr *) &RemoteAddress, (socklen_t *)&sin_size)) == -1)
     {
-        cErrorDom("network") << "TCPSocket::Accept(), accept: " << strerror(errno);
+        cErrorDom("network") << "accept: " << strerror(errno);
         return false;
     }
     return true;
@@ -521,7 +521,7 @@ bool TCPSocket::Shutdown()
 {
     int res;
 
-    cDebugDom("socket") << "TCPSocket::Shutdown(" << this << "), fd=" << Utils::to_string((!newfd)?sockfd:newfd);
+    cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
     if (sockfd < 1) return false;
 
@@ -532,7 +532,7 @@ bool TCPSocket::Shutdown()
 
     if (res == -1)
     {
-        cErrorDom("network") << "TCPSocket::Shutdown(), shutdown: " << strerror(errno);
+        cErrorDom("network") << "shutdown: " << strerror(errno);
         return false;
     }
 
@@ -547,7 +547,7 @@ std::string TCPSocket::GetLocalIP(std::string intf)
     int skfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (skfd < 0)
     {
-        cErrorDom("network") << "TCPSocket::GetLocalIP(): can't open socket! " << strerror(errno);
+        cErrorDom("network") << "can't open socket! " << strerror(errno);
         return "";
     }
 
@@ -651,10 +651,7 @@ bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0)
     {
-        cErrorDom("network") <<
-                                "TCPSocket::GetMacAddr(): can't open socket! "
-                             << strerror(errno)
-                                ;
+        cErrorDom("network") << "can't open socket! " << strerror(errno);
 
         return false;
     }
