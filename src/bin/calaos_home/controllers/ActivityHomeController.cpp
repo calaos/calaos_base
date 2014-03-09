@@ -175,7 +175,7 @@ void ActivityHomeController::updateScenarios()
 
     homeView->selectPage(1, 0.35);
 
-    cout << "PageView count: " << homeView->getCurrentPage() << endl;
+    cDebug() << "PageView count: " << homeView->getCurrentPage();
 }
 
 void ActivityHomeController::scenarioReload(Scenario *sc)
@@ -189,10 +189,10 @@ void ActivityHomeController::scenarioReload(Scenario *sc)
     int currentpage = homeView->getCurrentPage();
 
     int count = homeView->getPageCount();
-    cout << "PageView count: " << count << endl;
+    cDebug() << "PageView count: " << count;
     for (int i = 1;i < count;i++)
     {
-        cout << "PageView i: " << i << endl;
+        cDebug() << "PageView i: " << i;
         homeView->removePage(1);
     }
 

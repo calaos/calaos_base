@@ -359,7 +359,7 @@ void JsonApiClient::handleRequest()
         return;
     }
 
-    cout << json_dumps(jroot, JSON_INDENT(4)) << endl;
+    cDebug() << json_dumps(jroot, JSON_INDENT(4));
 
     const char *key;
     json_t *value;

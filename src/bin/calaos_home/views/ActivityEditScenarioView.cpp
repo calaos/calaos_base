@@ -58,7 +58,7 @@ void ActivityEditScenarioView::setScenarioData(ScenarioData &data)
 {
     scenario_data = data;
 
-    cout << "SCENARIO is empty? :" << scenario_data.toString() << endl;
+    cDebug() << "SCENARIO is empty? :" << scenario_data.toString();
 
     if (scenario_data.empty)
         scenario_data.name = _("My new scenario");

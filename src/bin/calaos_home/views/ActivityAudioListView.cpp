@@ -297,8 +297,8 @@ void ActivityAudioListView::albumSelected(void *data)
     GenlistItemAlbum *item_album = reinterpret_cast<GenlistItemAlbum *>(data);
     if (!data) return;
 
-    cout << "Click on Item #" << item_album->getItemId() << endl;
-    cout << "Item infos: " << item_album->getItemInfos().toString() << endl;
+    cDebug() << "Click on Item #" << item_album->getItemId();
+    cDebug() << "Item infos: " << item_album->getItemInfos().toString();
 
     if (!player_current) return;
 
@@ -362,8 +362,8 @@ void ActivityAudioListView::artistSelected(void *data)
     GenlistItemArtist *item_artist = reinterpret_cast<GenlistItemArtist *>(data);
     if (!data) return;
 
-    cout << "Click on Item #" << item_artist->getItemId() << endl;
-    cout << "Item infos: " << item_artist->getItemInfos().toString() << endl;
+    cDebug() << "Click on Item #" << item_artist->getItemId();
+    cDebug() << "Item infos: " << item_artist->getItemInfos().toString();
 
     if (!player_current) return;
 
@@ -383,7 +383,7 @@ void ActivityAudioListView::browserShowArtistAlbum(Params &infos, Params artist_
 
     EmitSignal("browser,loading,stop", "calaos");
 
-    cout << "RESULT infos: " << artist_infos.toString() << endl;
+    cDebug() << "RESULT infos: " << artist_infos.toString();
 
     artist_infos.Add("count", infos["count"]);
     int count;
@@ -431,8 +431,8 @@ void ActivityAudioListView::genreSelected(void *data)
     GenlistItemGenre *item_genre = reinterpret_cast<GenlistItemGenre *>(data);
     if (!data) return;
 
-    cout << "Click on Item #" << item_genre->getItemId() << endl;
-    cout << "Item infos: " << item_genre->getItemInfos().toString() << endl;
+    cDebug() << "Click on Item #" << item_genre->getItemId();
+    cDebug() << "Item infos: " << item_genre->getItemInfos().toString();
 
     if (!player_current) return;
 
@@ -452,7 +452,7 @@ void ActivityAudioListView::browserShowGenreArtist(Params &infos, Params genre_i
 
     EmitSignal("browser,loading,stop", "calaos");
 
-    cout << "RESULT infos: " << genre_infos.toString() << endl;
+    cDebug() << "RESULT infos: " << genre_infos.toString();
 
     genre_infos.Add("count", infos["count"]);
     int count;
@@ -500,8 +500,8 @@ void ActivityAudioListView::yearSelected(void *data)
     GenlistItemYear *item_year = reinterpret_cast<GenlistItemYear *>(data);
     if (!data) return;
 
-    cout << "Click on Item #" << item_year->getItemId() << endl;
-    cout << "Item infos: " << item_year->getItemInfos().toString() << endl;
+    cDebug() << "Click on Item #" << item_year->getItemId();
+    cDebug() << "Item infos: " << item_year->getItemInfos().toString();
 
     if (!player_current) return;
 
@@ -521,7 +521,7 @@ void ActivityAudioListView::browserShowYearAlbum(Params &infos, Params year_info
 
     EmitSignal("browser,loading,stop", "calaos");
 
-    cout << "RESULT infos: " << year_infos.toString() << endl;
+    cDebug() << "RESULT infos: " << year_infos.toString();
 
     year_infos.Add("count", infos["count"]);
     int count;
@@ -630,8 +630,8 @@ void ActivityAudioListView::playlistSelected(void *data)
     GenlistItemBrowserPlaylist *item_pl = reinterpret_cast<GenlistItemBrowserPlaylist *>(data);
     if (!data) return;
 
-    cout << "Click on Item #" << item_pl->getItemId() << endl;
-    cout << "Item infos: " << item_pl->getItemInfos().toString() << endl;
+    cDebug() << "Click on Item #" << item_pl->getItemId();
+    cDebug() << "Item infos: " << item_pl->getItemInfos().toString();
 
     if (!player_current) return;
 
@@ -651,7 +651,7 @@ void ActivityAudioListView::browserShowPlaylistTracks(Params &infos, Params pl_i
 
     EmitSignal("browser,loading,stop", "calaos");
 
-    cout << "RESULT infos: " << pl_infos.toString() << endl;
+    cDebug() << "RESULT infos: " << pl_infos.toString();
 
     pl_infos.Add("count", infos["count"]);
     int count;
@@ -705,7 +705,7 @@ void ActivityAudioListView::itemRadioLoaded(list<Params> &infos)
     {
         Params &pitem = *it;
 
-        cout << "item type: " << pitem.toString() << endl;
+        cDebug() << "item type: " << pitem.toString();
 
         if (pitem["type"] == "xmlbrowser")
         {

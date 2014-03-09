@@ -139,7 +139,7 @@ void GenlistItemTrack::albumItemGet_cb(Params &infos)
     if (!item_infos.Exists("id") && item_infos.Exists("track_id"))
         item_infos.Add("id", item_infos["track_id"]);
 
-    cout << "Got infos..." << item_infos.toString() << endl;
+    cDebug() << "Got infos..." << item_infos.toString();
 
     elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
 }

@@ -510,8 +510,6 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
         edit_range.ehour = edit_range.shour;
         edit_range.emin = edit_range.smin;
         edit_range.esec = edit_range.ssec;
-
-        cout <<  "showWeekSelection: TimeRange: " << edit_range.toString() << endl;
     }
 
     Evas_Object *table = createPaddingTable(evas, parent, 300, 300);
@@ -599,7 +597,7 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
         if (week_days[0]->isSelected() || week_days[7]->isSelected())
             range_infos.range_sunday.push_back(edit_range);
 
-        cout <<  "New TimeRange: " << edit_range.toString() << endl;
+        cDebugDom("auto_scenario") <<  "New TimeRange: " << edit_range.toString();
 
         elm_ctxpopup_dismiss(popup);
 

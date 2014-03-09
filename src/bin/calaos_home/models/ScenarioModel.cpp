@@ -79,13 +79,13 @@ void ScenarioModel::load_scenario_done(Scenario *sc)
 {
     load_count--;
 
-    cout << "[SCENARIO load done] load_count:" << load_count << endl;
+    cDebug() << "[SCENARIO load done] load_count:" << load_count;
 
     if (load_count <= 0)
     {
         load_done.emit();
 
-        cout << "[SCENARIO LOAD DONE sending signal]" << endl;
+        cDebug() << "[SCENARIO LOAD DONE sending signal]";
     }
 }
 

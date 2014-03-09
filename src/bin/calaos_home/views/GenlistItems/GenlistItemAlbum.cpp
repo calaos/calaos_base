@@ -117,7 +117,7 @@ void GenlistItemAlbum::buttonClickAdd()
 
 void GenlistItemAlbum::albumItemGet_cb(Params &infos)
 {
-    cout << "Got infos..." << infos.toString() << endl;
+    cDebug() << "Got infos..." << infos.toString();
     item_infos = infos;
 
     label_album = infos["name"];

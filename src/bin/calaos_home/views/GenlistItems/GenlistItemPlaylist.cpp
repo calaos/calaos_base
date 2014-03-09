@@ -194,7 +194,7 @@ void GenlistItemPlaylist::buttonClickMore()
 
 void GenlistItemPlaylist::playlistItemGet_cb(Params &infos)
 {
-    cout << "Got infos..." << infos.toString() << endl;
+    cDebug() << "Got infos..." << infos.toString();
     item_infos = infos;
 
     label = "";

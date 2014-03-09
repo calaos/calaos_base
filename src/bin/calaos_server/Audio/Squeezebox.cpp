@@ -918,7 +918,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
         json_error_t jerr;
         json_t *json = json_loads(res.c_str(), 0, &jerr);
 
-        cout << json_dumps(json, JSON_INDENT(4)) << endl;
+        cDebug() << json_dumps(json, JSON_INDENT(4));
 
         if (!json)
         {

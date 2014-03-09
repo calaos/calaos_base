@@ -539,7 +539,7 @@ void ActivityPlayerObject::onPlaylistTrackMoved(int from, int to)
 {
     if (!gplaylist) return;
 
-    cout << "NOT IMPLEMENTED! Track moved ==== " << from << "  -->  " << to << endl;
+    cWarning() << "NOT IMPLEMENTED! Track moved ==== " << from << "  -->  " << to;
 }
 
 static void _elm_volume_changed(void *data, Evas_Object *obj, void *event_info)

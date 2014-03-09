@@ -30,7 +30,7 @@ StandardMjpeg::StandardMjpeg(Params &p): IPCam(p)
     {
         std::string a, b;
         p.get_item(i, a, b);
-        cout << a << ":" << b << endl;
+        cDebug() << a << ":" << b;
     }
 
     //actually this is only for testing UI, it does nothing

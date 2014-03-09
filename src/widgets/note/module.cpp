@@ -74,7 +74,7 @@ ModuleNote::~ModuleNote()
 
 void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
-    cout << "Show keyboard" << endl;
+    cDebug() << "Show keyboard";
     ApplicationMain::Instance().ShowKeyboard("Vous pouvez ecrire la nouvelle note a afficher.",
                                              sigc::mem_fun(*this, &ModuleNote::KeyboardCb),
                                              true,

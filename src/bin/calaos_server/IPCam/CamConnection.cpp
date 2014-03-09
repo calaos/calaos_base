@@ -166,7 +166,7 @@ void CamConnection::ProcessRequest(string &request)
         if (buf[0] != 0xFF || buf[1] != 0xD8 ||
             buf[2] != 0xFF)
         {
-            cout << "Error in SOI !!" << endl;
+            cDebug() << "Error in SOI !!";
             printf("%02X%02X%02X%02X\n", buf[0], buf[1], buf[2], buf[3]);
 
             continue;

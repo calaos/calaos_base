@@ -76,7 +76,7 @@ bool ActionMail::Execute()
         while (ecore_file_exists(tmpFile.c_str()));
 
         // Autodestroy file downloader
-        cout << "DL URL: " << camera->get_picture() << endl;
+        cDebug() << "DL URL: " << camera->get_picture();
         FileDownloader* downloader = new FileDownloader(camera->get_picture(), tmpFile, true);
         downloader->addCallback([=](string signal, void *sender_data)
         {

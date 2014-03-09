@@ -89,7 +89,7 @@ void GenlistItemRadio::buttonClickAdd()
 
 void GenlistItemRadio::genreItemGet_cb(Params &infos)
 {
-    cout << "Got infos..." << infos.toString() << endl;
+    cDebug() << "Got infos..." << infos.toString();
     item_infos = infos;
 
     elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);

@@ -93,11 +93,11 @@ void AudioModel::load_audio_done(AudioPlayer *audio)
 {
     load_count--;
 
-    cout << "[AUDIO load done]" << endl;
+    cDebug() << "[AUDIO load done]";
 
     if (load_count <= 0)
     {
-        cout << "[AUDIO LOAD DONE sending signal]" << endl;
+        cDebug() << "[AUDIO LOAD DONE sending signal]";
         load_done.emit();
     }
 }

@@ -91,7 +91,7 @@ void RoomModel::load_room_done(Room *room)
 {
     room_loaded--;
 
-    cout << "[ROOM load done]" << endl;
+    cDebug() << "[ROOM load done]";
 
     if (room_loaded <= 0)
     {
@@ -102,7 +102,7 @@ void RoomModel::load_room_done(Room *room)
 
         updateRoomType();
 
-        cout << "[ROOM LOAD DONE sending signal]" << endl;
+        cDebug() << "[ROOM LOAD DONE sending signal]";
 
         load_done.emit();
     }

@@ -80,11 +80,11 @@ void CameraModel::load_camera_done(Camera *camera)
 {
     load_count--;
 
-    cout << "[CAMERA load done]" << endl;
+    cDebug() << "[CAMERA load done]";
 
     if (load_count <= 0)
     {
-        cout << "[CAMERA LOAD DONE sending signal]" << endl;
+        cDebug() << "[CAMERA LOAD DONE sending signal]";
         load_done.emit();
     }
 }

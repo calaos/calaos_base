@@ -57,7 +57,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
         uptime += _(" days");
 
     setPartText("tab1.uptime", uptime.c_str());
-    
+
     setPartText("tab1.hostname.label", _("Machine name : "));
     char hostname[HOST_NAME_MAX];
     gethostname(hostname, HOST_NAME_MAX);
@@ -66,7 +66,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     string local_ip = TCPSocket::GetLocalIP("eth0");
     setPartText("tab1.ipaddress.label", _("Network address :"));
     setPartText("tab1.ipaddress", local_ip.c_str());
-    
+
     setPartText("tab3.web.label", _("Web Site : "));
     setPartText("tab3.web", CALAOS_WEBSITE_URL);
     setPartText("tab3.mail.label", _("Email : "));
@@ -92,17 +92,17 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {
-        cout << "click on item clock!" << endl;
+        cDebug() << "click on item clock!";
         menu_item_clicked.emit("clock");
     });
 
     // Disable for now, as it's only usefull in case of Calaos Network.
-    
+
     // item = new GengridItemConfig(evas, grid, _("Password"), "security");
     // item->Append(grid);
     // item->item_selected.connect([=](void *data)
     // {
-    //     cout << "click on item security!" << endl;
+    //     cDebug() << "click on item security!";
     //     menu_item_clicked.emit("security");
     // });
 
@@ -110,7 +110,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     item->Append(grid);
     item->item_selected.connect([=](void *data)
     {
-        cout << "click on item veille!" << endl;
+        cDebug() << "click on item veille!";
         menu_item_clicked.emit("screensaver");
     });
 
