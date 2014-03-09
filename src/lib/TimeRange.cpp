@@ -24,16 +24,33 @@
 #include "sunset.c"
 
 TimeRange::TimeRange():
-    cyear(0), cmonth(0), cday(0),
-    sunrise_hour_cache(0), sunrise_min_cache(0),
-    sunset_hour_cache(0), sunset_min_cache(0),
-    start_type(HTYPE_NORMAL),
-    end_type(HTYPE_NORMAL),
-    start_offset(1),
-    end_offset(1),
     shour("0"), smin("0"), ssec("0"),
     ehour("0"), emin("0"), esec("0")
 {
+}
+
+TimeRange::TimeRange(string proto):
+    shour("0"), smin("0"), ssec("0"),
+    ehour("0"), emin("0"), esec("0")
+{
+    vector<string> tokens;
+    split(proto, tokens, ":", 11);
+
+    shour = tokens[1];
+    smin = tokens[2];
+    ssec = tokens[3];
+    from_string(tokens[4], start_type);
+    from_string(tokens[5], start_offset);
+    if (start_offset < 0) start_offset = -1;
+    if (start_offset >= 0) start_offset = 1;
+
+    ehour = tokens[6];
+    emin = tokens[7];
+    esec = tokens[8];
+    from_string(tokens[9], start_type);
+    from_string(tokens[10], start_offset);
+    if (start_offset < 0) start_offset = -1;
+    if (start_offset >= 0) start_offset = 1;
 }
 
 bool TimeRange::operator==(const TimeRange &other) const
@@ -291,6 +308,19 @@ bool TimeRange::isSameStartEnd()
     long end = getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
 
     return start == end;
+}
+
+string TimeRange::toProtoCommand(int day)
+{
+    string s = Utils::to_string(day + 1) + ":";
+    s += shour + ":" + smin + ":" + ssec;
+    s += ":" + Utils::to_string(start_type);
+    s += ":" + Utils::to_string(start_offset); //1 or -1
+    s += ":" + ehour + ":" + emin + ":" + esec;
+    s += ":" + Utils::to_string(end_type);
+    s += ":" + Utils::to_string(end_offset); //1 or -1
+
+    return s;
 }
 
 string TimeRange::toString()

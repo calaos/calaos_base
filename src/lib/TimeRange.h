@@ -29,9 +29,9 @@ class TimeRange
 {
 private:
     //keep computed values in cache
-    int cyear, cmonth, cday;
-    int sunrise_hour_cache, sunrise_min_cache;
-    int sunset_hour_cache, sunset_min_cache;
+    int cyear = 0, cmonth = 0, cday = 0;
+    int sunrise_hour_cache = 0, sunrise_min_cache = 0;
+    int sunset_hour_cache = 0, sunset_min_cache = 0;
 
     long getTimezoneOffset();
     void computeSunSetRise(int year, int month, int day,
@@ -50,16 +50,17 @@ public:
     bool operator!=(const TimeRange &other) const;
 
     enum { HTYPE_NORMAL = 0, HTYPE_SUNRISE, HTYPE_SUNSET, HTYPE_NOON };
-    int start_type;
-    int end_type;
+    int start_type = HTYPE_NORMAL;
+    int end_type = HTYPE_NORMAL;
 
-    int start_offset; //should be 1 or -1
-    int end_offset; //should be 1 or -1
+    int start_offset = 1; //should be 1 or -1
+    int end_offset = 1; //should be 1 or -1
 
     string shour, smin, ssec;
     string ehour, emin, esec;
 
     TimeRange();
+    TimeRange(string proto);
 
     long getStartTimeSec(int year, int month, int day);
     long getEndTimeSec(int year, int month, int day);
@@ -70,6 +71,7 @@ public:
 
     bool isSameStartEnd();
 
+    string toProtoCommand(int day);
     string toString();
 
     //flag to ease the loading in UI
