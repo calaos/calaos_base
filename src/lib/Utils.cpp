@@ -378,14 +378,13 @@ static string default_domain;
 static std::unordered_map<std::string, EinaLog *> logger_hash;
 EinaLog *Utils::einaLogger(const char *domain)
 {
-    string tmp = default_domain;
+    string d = default_domain;
     
     if (domain)
-      tmp = domain;
+      d = domain;
 
     // Prefix all domains with calaos_. We can so filter log domains
     // with export EINA_LOG_LEVELS_GLOB="calaos*:5"
-    string d = "calaos_" + tmp;
 
     //add domain prefix to ease eina logs filtering
     if (!Utils::strStartsWith(d, "calaos_"))
