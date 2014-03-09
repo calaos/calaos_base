@@ -97,5 +97,5 @@ void ActivityScenariosController::scheduleModify(Scenario *sc)
 
 void ActivityScenariosController::scheduleDel(Scenario *sc)
 {
-    ApplicationMain::Instance().ShowScenarioSchedule(sc);
+    sc->deleteSchedule();
 }
