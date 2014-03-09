@@ -18,9 +18,11 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
+#include <Ecore_File.h>
+
 #include "AudioModel.h"
 #include "CalaosModel.h"
-#include <Ecore_File.h>
+#include "Prefix.h"
 
 static Eina_Bool exe_callback(void *data, int type, void *event)
 {
@@ -745,7 +747,9 @@ void AudioPlayer::getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int 
     data->callback = callback;
     data->item = item;
 
-    string cmd = "calaos_thumb " + item["cover_url"] + " " + fname + " " + cmdsize;
+    string cmd;
+    cmd = Prefix::Instance().binDirectoryGet();
+    cmd += "calaos_thumb " + item["cover_url"] + " " + fname + " " + cmdsize;
     data->thumb_exe = ecore_exe_run(cmd.c_str(), data);
     if (!data->thumb_exe)
     {
