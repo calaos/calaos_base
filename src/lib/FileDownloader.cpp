@@ -126,13 +126,11 @@ void FileDownloader::Destroy()
 
 bool FileDownloader::Start()
 {
-    cDebugDom("downloader") << "FileDownloader: Start download (" << url << ")";
+    cDebugDom("downloader") << "Start download (" << url << ")";
 
     if (url_con)
     {
-        cWarningDom("downloader")
-                << "A download is already in progress..."
-                   ;
+        cWarningDom("downloader") << "A download is already in progress...";
 
         return false;
     }
@@ -150,9 +148,7 @@ bool FileDownloader::Start()
         cb_signal.emit("failed", &err);
         cb_signal_user.emit("failed", &err, user_data);
 
-        cErrorDom("downloader")
-                << "Download failed: " << err
-                   ;
+        cErrorDom("downloader") << "Download failed: " << err;
 
         return false;
     }
@@ -190,9 +186,7 @@ bool FileDownloader::Start()
         cb_signal.emit("failed", &err);
         cb_signal_user.emit("failed", &err, user_data);
 
-        cErrorDom("downloader")
-                << "Download failed: " << err
-                   ;
+        cErrorDom("downloader") << "Download failed: " << err;
 
         ecore_con_url_free(url_con);
         url_con = NULL;
@@ -226,9 +220,7 @@ bool FileDownloader::Start()
         cb_signal.emit("failed", &err);
         cb_signal_user.emit("failed", &err, user_data);
 
-        cErrorDom("downloader")
-                << "Download failed: " << err
-                   ;
+        cErrorDom("downloader") << "Download failed: " << err;
 
         ecore_con_url_free(url_con);
         url_con = NULL;
@@ -255,9 +247,7 @@ void FileDownloader::Cancel()
     if (dest.empty())
         ecore_file_unlink(tmpFile.c_str());
 
-    cDebugDom("downloader")
-            << "FileDownloader: Download aborted! (" << url << ")"
-               ;
+    cDebugDom("downloader") << "Download aborted! (" << url << ")";
 
     IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                               "aborted",
@@ -304,9 +294,7 @@ void FileDownloader::completeCb(int status)
         cb_signal.emit("failed", &err);
         cb_signal_user.emit("failed", &err, user_data);
 
-        cErrorDom("downloader")
-                << "Download failed: " << err
-                   ;
+        cErrorDom("downloader") << "Download failed: " << err;
 
         if (dest.empty())
             ecore_file_unlink(tmpFile.c_str());
@@ -314,9 +302,7 @@ void FileDownloader::completeCb(int status)
         return;
     }
 
-    cDebugDom("downloader")
-            << "FileDownloader: Download done. (" << url << ")"
-               ;
+    cDebugDom("downloader") << "Download done. (" << url << ")";
 
     if (!dest.empty())
     {
@@ -338,9 +324,7 @@ void FileDownloader::completeCb(int status)
         fseek(dl_file, 0, SEEK_SET);
         buff.buffer = (char *)malloc(buff.bufsize);
         if (fread(buff.buffer, buff.bufsize, 1, dl_file) <= 0)
-            cCriticalDom("downloader")
-                    << "FileDownloader: fread failed ! (" << url << ")"
-                       ;
+            cCriticalDom("downloader") << "FileDownloader: fread failed ! (" << url << ")";
         fclose(dl_file);
 
         ecore_file_unlink(tmpFile.c_str());
