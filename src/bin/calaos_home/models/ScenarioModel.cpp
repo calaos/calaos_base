@@ -335,6 +335,42 @@ void Scenario::deleteSchedule()
     ioPlage = nullptr;
 }
 
+void Scenario::setSchedules(TimeRangeInfos &tr)
+{
+    if (!ioPlage)
+    {
+        cCriticalDom("scenario") << "called with ioPlage == null!";
+        return;
+    }
+
+    string cmd = "input " + ioPlage->params["id"] + " plage set";
+
+    auto addRange = [=,&cmd](vector<TimeRange> &ranges, int day)
+    {
+        for (TimeRange &t: ranges)
+            cmd += " " + t.toProtoCommand(day);
+    };
+
+    addRange(tr.range_monday, 0);
+    addRange(tr.range_tuesday, 1);
+    addRange(tr.range_wednesday, 2);
+    addRange(tr.range_thursday, 3);
+    addRange(tr.range_friday, 4);
+    addRange(tr.range_saturday, 5);
+    addRange(tr.range_sunday, 6);
+
+    connection->SendCommand(cmd);
+
+    //Send months
+    stringstream ssmonth;
+    ssmonth << tr.range_months;
+    string str = ssmonth.str();
+    std::reverse(str.begin(), str.end());
+
+    cmd = "input " + ioPlage->params["id"] + " plage months set " + str;
+    connection->SendCommand(cmd);
+}
+
 void ScenarioModel::createScenario(ScenarioData &data)
 {
     string cmd = data.createRequest();

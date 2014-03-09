@@ -130,6 +130,7 @@ public:
     bool isScheduled() { if (ioPlage) return true; return false; }
     void createSchedule(sigc::slot<void, IOBase *> callback);
     void deleteSchedule();
+    void setSchedules(TimeRangeInfos &tr);
 
     //Return the room where the scenario is
     Room *getRoom();

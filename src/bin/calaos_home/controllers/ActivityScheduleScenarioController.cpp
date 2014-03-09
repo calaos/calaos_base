@@ -52,10 +52,16 @@ void ActivityScheduleScenarioController::createView()
 
 void ActivityScheduleScenarioController::validAddSchedule(TimeRangeInfos &tr)
 {
-
+    //create the schedule IO if needed
+    scenario->createSchedule([=,&tr](IOBase *schedule)
+    {
+        //then set all TimeRanges for the Schedule IO
+        scenario->setSchedules(tr);
+    });
 }
 
 void ActivityScheduleScenarioController::validModifySchedule(TimeRangeInfos &tr)
 {
-
+    //same protocol for setting timeranges
+    validAddSchedule(tr);
 }
