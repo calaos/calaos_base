@@ -23,9 +23,7 @@
 
 #include <Utils.h>
 
-#ifndef CALAOS_INSTALLER
 #include <Ecore.h>
-#endif
 
 #include <ScriptBindings.h>
 

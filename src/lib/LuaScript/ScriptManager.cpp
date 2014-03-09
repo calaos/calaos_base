@@ -21,10 +21,6 @@
 #include <ScriptManager.h>
 #include <setjmp.h>
 
-#ifdef CALAOS_INSTALLER
-#include <QTime>
-#endif
-
 using namespace Calaos;
 
 double ScriptManager::start_time = 0.0;
@@ -32,16 +28,12 @@ static jmp_buf panic_jmp;
 
 ScriptManager::ScriptManager()
 {
-#ifndef CALAOS_INSTALLER
-        cDebugDom("script.lua") << "ScriptManager::ScriptManager(): Ok";
-#endif
+    cDebugDom("script.lua");
 }
 
 ScriptManager::~ScriptManager()
 {
-#ifndef CALAOS_INSTALLER
-        cDebugDom("script.lua") << "ScriptManager::~ScriptManager(): Ok";
-#endif
+    cDebugDom("script.lua");
 }
 
 bool ScriptManager::ExecuteScript(string script)
@@ -105,12 +97,7 @@ bool ScriptManager::ExecuteScript(string script)
         //Set a hook to kill script in case of a wrong use (infinite loop, ...)
         lua_sethook(L, Lua_DebugHook, LUA_MASKLINE | LUA_MASKCOUNT, 1);
 
-        #ifndef CALAOS_INSTALLER
         start_time = ecore_time_get();
-        #else
-        QTime t = QTime::currentTime();
-        start_time = (double)t.second() + (((double) t.msec()) / 1000);
-        #endif
 
         int err = luaL_loadbuffer(L, script.c_str(), script.length(), "CalaosScript");
         if (err)
@@ -119,21 +106,13 @@ bool ScriptManager::ExecuteScript(string script)
                 if (err == LUA_ERRSYNTAX)
                 {
                         string msg = lua_tostring(L, -1);
-                        #ifndef CALAOS_INSTALLER
-                        cErrorDom("script.lua")
-                                        << "ScriptManager::ExecuteScript(): Syntax Error: "
-                                        << msg;
-                        #endif
+                        cErrorDom("script.lua") << "Syntax Error: " << msg;
                         errorMsg = "Syntax Error:\n" + msg;
                 }
                 else if (err == LUA_ERRMEM)
                 {
                         string msg = lua_tostring(L, -1);
-                        #ifndef CALAOS_INSTALLER
-                        cErrorDom("script.lua")
-                                        << "ScriptManager::ExecuteScript(): LUA memory allocation error: "
-                                        << msg;
-                        #endif
+                        cErrorDom("script.lua") << "LUA memory allocation error: " << msg;
                         errorMsg = "Fatal Error:\nLUA memory allocation error:\n" + msg;
                 }
         }
@@ -142,11 +121,7 @@ bool ScriptManager::ExecuteScript(string script)
                 if (setjmp(panic_jmp) == 1)
                 {
                         ret = false;
-                        #ifndef CALAOS_INSTALLER
-                        cErrorDom("script.lua")
-                                        << "ScriptManager::ExecuteScript(): Script panic !"
-                                       ;
-                        #endif
+                        cErrorDom("script.lua") << "Script panic !"                                       ;
                         errorMsg = "Fatal Error:\nScript panic !";
                 }
 
@@ -162,12 +137,7 @@ bool ScriptManager::ExecuteScript(string script)
                         else errcode = "Unknown error";
 
                         string msg = lua_tostring(L, -1);
-                        #ifndef CALAOS_INSTALLER
-                        cErrorDom("script.lua")
-                                        << "ScriptManager::ExecuteScript(): "
-                                        << errcode << " : " << msg
-                                       ;
-                        #endif
+                        cErrorDom("script.lua") << errcode << " : " << msg;
                         errorMsg = "Error " + errcode + " :\n\t" + msg;
                 }
                 else
@@ -175,11 +145,7 @@ bool ScriptManager::ExecuteScript(string script)
                         if (!lua_isboolean(L, -1))
                         {
                                 ret = false;
-                                #ifndef CALAOS_INSTALLER
-                                cErrorDom("script.lua")
-                                                << "ScriptManager::ExecuteScript(): Script must return either \"true\" or \"false\""
-                                               ;
-                                #endif
+                                cErrorDom("script.lua") << "Script must return either \"true\" or \"false\"";
                                 errorMsg = "Error:\nScript must return either \"true\" or \"false\"";
                         }
                         else
