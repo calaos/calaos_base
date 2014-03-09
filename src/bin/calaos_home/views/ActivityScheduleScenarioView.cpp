@@ -157,6 +157,7 @@ void ActivityScheduleScenarioView::buttonPressed(void *data, Evas_Object *_edje,
     else if (source == "button.add")
     {
         //clear time range, we want a new one
+        is_edit = false;
         edit_range = TimeRange();
         editState = EDIT_START_TYPE;
         showTimeRangePopup();
@@ -582,6 +583,11 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
     }
     else if (bt == "button.valid")
     {
+        if (is_edit)
+        {
+            deleteTimeRange(old_range);
+        }
+
         if (week_days[0]->isSelected() || week_days[1]->isSelected())
             range_infos.range_monday.push_back(edit_range);
         if (week_days[0]->isSelected() || week_days[2]->isSelected())
@@ -677,6 +683,7 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
             else
             {
                 TimeRange newtr = t;
+                newtr.dayOfWeek.reset();
                 newtr.dayOfWeek.set(day);
                 trange_sorted.push_back(newtr);
             }
@@ -695,5 +702,82 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
     {
         GenlistItemScenarioScheduleTime *item = new GenlistItemScenarioScheduleTime(evas, parent, t);
         item->Append(schedule_list);
+        item->edit_click.connect([=]()
+        {
+            is_edit = true;
+            old_range = t;
+            edit_range = t;
+            editState = EDIT_START_TYPE;
+            showTimeRangePopup();
+        });
+        item->del_click.connect([=]()
+        {
+            Evas_Object *table = createPaddingTable(evas, parent, 280, 260);
+
+            Evas_Object *glist = elm_genlist_add(table);
+            elm_object_style_set(glist, "calaos");
+            elm_genlist_select_mode_set(glist, ELM_OBJECT_SELECT_MODE_ALWAYS);
+            evas_object_size_hint_fill_set(glist, EVAS_HINT_FILL, EVAS_HINT_FILL);
+            evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+            evas_object_show(glist);
+
+            string title_label = _("Confirmation");
+            title_label += "<br><small><light_blue>";
+            title_label += _("Are you sure to delete this schedule?");
+            title_label +=  "</light_blue></small>";
+            GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
+            header->Append(glist);
+
+            Evas_Object *popup_del = elm_ctxpopup_add(parent);
+
+            GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete this schedule"), true);
+            _item->Append(glist, header);
+            _item->item_selected.connect([=](void *)
+            {
+                deleteTimeRange(t);
+                elm_ctxpopup_dismiss(popup_del);
+                reloadTimeRanges();
+            });
+
+            _item = new GenlistItemSimple(evas, parent, "Non", true);
+            _item->Append(glist, header);
+            _item->item_selected.connect([=](void *)
+            {
+                elm_ctxpopup_dismiss(popup_del);
+            });
+
+            elm_table_pack(table, glist, 1, 1, 1, 1);
+
+            elm_object_content_set(popup_del, table);
+            elm_object_style_set(popup_del, "calaos");
+            elm_ctxpopup_direction_priority_set(popup_del,
+                                                ELM_CTXPOPUP_DIRECTION_DOWN,
+                                                ELM_CTXPOPUP_DIRECTION_UP,
+                                                ELM_CTXPOPUP_DIRECTION_LEFT,
+                                                ELM_CTXPOPUP_DIRECTION_RIGHT);
+
+            Evas_Coord x,y;
+            evas_pointer_canvas_xy_get(evas, &x, &y);
+            evas_object_move(popup_del, x, y);
+            evas_object_show(popup_del);
+        });
     }
+}
+
+void ActivityScheduleScenarioView::deleteTimeRange(const TimeRange &range)
+{
+    auto delRange = [=](vector<TimeRange> &vrange)
+    {
+        auto it = std::find(vrange.begin(), vrange.end(), range);
+        if (it != vrange.end())
+            vrange.erase(it);
+    };
+
+    delRange(range_infos.range_monday);
+    delRange(range_infos.range_tuesday);
+    delRange(range_infos.range_wednesday);
+    delRange(range_infos.range_thursday);
+    delRange(range_infos.range_friday);
+    delRange(range_infos.range_saturday);
+    delRange(range_infos.range_sunday);
 }

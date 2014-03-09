@@ -33,6 +33,7 @@ class ActivityScheduleScenarioView: public ActivityView
 {
 private:
     TimeRangeInfos range_infos;
+    bool is_edit = false; //true if range is edited from an existing one
 
     Evas_Object *schedule_list, *month_list;
 
@@ -55,6 +56,7 @@ private:
 
     //store current data we are editing, also used to set default value
     TimeRange edit_range;
+    TimeRange old_range;
 
     enum { EDIT_START_TYPE = 0, EDIT_START_TIME, EDIT_START_OFFSET, EDIT_START_TIME_OFFSET,
            EDIT_END_TYPE, EDIT_END_TIME, EDIT_END_OFFSET, EDIT_END_TIME_OFFSET,
@@ -88,6 +90,8 @@ private:
     void selectTimeType(void *data);
     void showTimeSelection(void *data);
     void showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source);
+
+    void deleteTimeRange(const TimeRange &range);
 
 public:
     ActivityScheduleScenarioView(Evas *evas, Evas_Object *parent);
