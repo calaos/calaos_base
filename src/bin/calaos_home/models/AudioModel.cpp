@@ -366,7 +366,7 @@ void AudioPlayer::unregisterChange()
 
     if (changeReg < 0)
     {
-        cWarningDom("network") << "AudioPlayer: WARNING, unregisterChange() called too many times !";
+        cWarningDom("network") << "called too many times !";
         changeReg = 0;
     }
 

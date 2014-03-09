@@ -1535,7 +1535,7 @@ void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
         case 6: range_infos.range_saturday.push_back(tr); break;
         case 7: range_infos.range_sunday.push_back(tr); break;
         default:
-            cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
+            cErrorDom("network") << params["id"]
                                  << " unknown range day. Debug infos: " << result[i];
             break;
         }
@@ -1552,7 +1552,7 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
 
     if (result.size() < 5)
     {
-        cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
+        cErrorDom("network") << params["id"]
                              << "error reading months!";
         io_changed.emit(); //io has changed
 
@@ -1570,7 +1570,7 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
     }
     catch(...)
     {
-        cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
+        cErrorDom("network") << params["id"]
                              << " wrong parameters for months: " << m;
     }
 

@@ -24,25 +24,25 @@ using namespace Calaos;
 
 CamServer::CamServer(int p): port(p)
 {
-    cDebugDom("network") << "CamServer::CamServer(): Ok";
+    cDebugDom("network");
 }
 
 CamServer::~CamServer()
 {
     delete socket;
     socket = NULL;
-    cDebugDom("network") << "CamServer::~CamServer(): Ok";
+    cDebugDom("network");
 }
 
 void CamServer::ThreadProc()
 {
-    cDebugDom("network") << "CamServer::ThreadProc(): Init IPCam relay server";
+    cDebugDom("network") << "Init IPCam relay server";
     socket = new TCPSocket();
 
     socket->Create(port);
     socket->SetReuse();
     socket->Listen();
-    cDebugDom("network") << "CamServer::ThreadProc(): Listening on port " << port;
+    cDebugDom("network") << "Listening on port " << port;
     quit = false;
 
     while (!quit)
@@ -51,7 +51,7 @@ void CamServer::ThreadProc()
 
         if (quit) break;
 
-        cDebugDom("network") << "CamServer::ThreadProc(): Got a connection from address "
+        cDebugDom("network") << "Got a connection from address "
                              << socket->GetRemoteIP();
 
         vector<CamConnection *>::iterator iter = connections.begin();

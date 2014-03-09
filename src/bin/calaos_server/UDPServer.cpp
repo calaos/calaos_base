@@ -35,8 +35,7 @@ UDPServer::UDPServer(int p):
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
 
     cDebugDom("network") << "Starting UDP server...";
-    cDebugDom("network")
-            << "UDPServer::UDPServer(): Listenning on port " << port;
+    cDebugDom("network") << "Listenning on port " << port;
 }
 
 UDPServer::~UDPServer()
@@ -58,8 +57,7 @@ UDPServer::~UDPServer()
 
     ecore_event_handler_del(event_handler_data_get);
 
-    cDebugDom("network")
-            << "UDPServer::~UDPServer(): Ok";
+    cDebugDom("network");
 }
 
 Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev)
@@ -79,9 +77,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     }
     else
     {
-        cCriticalDom("network")
-                << "UDPServer(): _ecore_con_handler_data_get, failed to get UDPServer object !"
-                   ;
+        cCriticalDom("network")  << "failed to get UDPServer object !" ;
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -91,13 +87,11 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 {
     if (request == "CALAOS_DISCOVER")
     {
-        cDebugDom("network")
-                << "UDPServer: Got a CALAOS_DISCOVER";
+        cDebugDom("network") << "Got a CALAOS_DISCOVER";
 
         string remote_ip = ecore_con_client_ip_get(client);
 
-        cDebugDom("network")
-                << "UDPServer: Remote IP: " << remote_ip;
+        cDebugDom("network") << "Remote IP: " << remote_ip;
 
         string ip = TCPSocket::GetLocalIPFor(remote_ip);
         if (ip != "")
@@ -139,13 +133,11 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
             ecore_con_client_send(client, packet.c_str(), packet.length() + 1);
 
-            cDebugDom("network")
-                    << "UDPServer: Sending answer: " << packet;
+            cDebugDom("network") << "Sending answer: " << packet;
         }
         else
         {
-            cErrorDom("network")
-                    << "UDPServer: No interface found corresponding to network : "
+            cErrorDom("network") << "No interface found corresponding to network : "
                     << remote_ip;
         }
     }
@@ -159,7 +151,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
         from_string(p["3"], val);
 
         cInfoDom("network")
-                << "UDPServer: received input " << Utils::to_string(input)
+                << "received input " << Utils::to_string(input)
                 << " state=" << Utils::to_string(val);
 
         //send a signal
@@ -175,7 +167,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
         from_string(p["3"], val);
 
         cInfoDom("network")
-                << "UDPServer: received input " << Utils::to_string(input)
+                << "received input " << Utils::to_string(input)
                 << " state=" << Utils::to_string(val);
 
         //send a signal

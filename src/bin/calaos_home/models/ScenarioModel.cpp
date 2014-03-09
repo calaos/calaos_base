@@ -56,7 +56,7 @@ void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *
 
         if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
         {
-            cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << result[i] << "\' !";
+            cErrorDom("scenario") << "Unknown Input \'" << result[i] << "\' !";
             continue;
         }
 
@@ -145,7 +145,7 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
             map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(tmp[0]);
             if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
             {
-                cErrorDom("scenario") << "ScenarioModel::scenario_get Unknown action id \'" << tmp[0] << "\' with action \'" << tmp[1] << "\' !";
+                cErrorDom("scenario") << "Unknown action id \'" << tmp[0] << "\' with action \'" << tmp[1] << "\' !";
                 continue;
             }
             IOBase *io = (*it).second;

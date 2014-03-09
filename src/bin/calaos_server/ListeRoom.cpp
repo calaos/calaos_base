@@ -39,7 +39,7 @@ ListeRoom::ListeRoom()
     input_table = eina_hash_string_superfast_new(NULL);
     output_table = eina_hash_string_superfast_new(NULL);
 
-    cDebugDom("rooms") << "ListeRoom::ListeRoom(): Ok";
+    cDebugDom("rooms");
 }
 
 ListeRoom::~ListeRoom()
@@ -54,7 +54,7 @@ ListeRoom::~ListeRoom()
 
     eina_shutdown();
 
-    cDebugDom("room") << "ListeRoom::~ListeRoom(): Ok";
+    cDebugDom("room");
 }
 
 void ListeRoom::addInputHash(Input *input)
@@ -68,7 +68,7 @@ void ListeRoom::addInputHash(Input *input)
         id = input->get_param("iid");
     }
 
-    cDebugDom("room") << "ListeRoom::addInputHash(" << id << ")";
+    cDebugDom("room") << id;
 
     eina_hash_add(input_table, id.c_str(), input);
 }
@@ -84,7 +84,7 @@ void ListeRoom::delInputHash(Input *input)
         id = input->get_param("iid");
     }
 
-    cDebugDom("room") << "ListeRoom::delInputHash(" << id << ")";
+    cDebugDom("room") << id;
 
     eina_hash_del(input_table, id.c_str(), NULL);
 }
@@ -100,7 +100,7 @@ void ListeRoom::addOutputHash(Output *output)
         id = output->get_param("oid");
     }
 
-    cDebugDom("room") << "ListeRoom::addOutputHash(" << id << ")";
+    cDebugDom("room") << id;
 
     eina_hash_add(output_table, id.c_str(), output);
 }
@@ -116,7 +116,7 @@ void ListeRoom::delOutputHash(Output *output)
         id = output->get_param("oid");
     }
 
-    cDebugDom("room") << "ListeRoom::delOutputHash(" << id << ")";
+    cDebugDom("room") << id;
 
     eina_hash_del(output_table, id.c_str(), NULL);
 }
@@ -125,7 +125,7 @@ void ListeRoom::Add(Room *p)
 {
     rooms.push_back(p);
 
-    cDebugDom("room") << "ListeRoom::Add(" << p->get_name() << "," << p->get_type() << "): Ok";
+    cDebugDom("room") << p->get_name() << "," << p->get_type();
 }
 
 void ListeRoom::Remove(int pos)
@@ -135,7 +135,7 @@ void ListeRoom::Remove(int pos)
     delete rooms[pos];
     rooms.erase(iter);
 
-    cDebugDom("room") << "ListeRoom::Remove(): Ok";
+    cDebugDom("room");
 }
 
 Room *ListeRoom::operator[] (int i) const
@@ -286,7 +286,7 @@ void ListeRoom::delScenarioCache(Scenario *sc)
 
 list<Scenario *> ListeRoom::getAutoScenarios()
 {
-    cDebugDom("room") << "getAutoScenario(): Found " << auto_scenario_cache.size() << " auto_scenarios.";
+    cDebugDom("room") << "Found " << auto_scenario_cache.size() << " auto_scenarios.";
 
     return auto_scenario_cache;
 }
