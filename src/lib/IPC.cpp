@@ -19,11 +19,7 @@
  **
  ******************************************************************************/
 #include <IPC.h>
-#ifdef IPHONE_APP
-#import "ObjCWrapper.h"
-#endif
 
-#ifndef IPHONE_APP
 static Eina_Bool _calaos_ipc_event(void *data, Ecore_Fd_Handler *fdh)
 {
     //We got something from the pipe
@@ -31,11 +27,9 @@ static Eina_Bool _calaos_ipc_event(void *data, Ecore_Fd_Handler *fdh)
 
     return 1;
 }
-#endif
 
 IPC::IPC(): mutex(false)
 {
-#ifndef IPHONE_APP
     int fds[2];
 
     if (pipe(fds) == 0)
@@ -53,17 +47,14 @@ IPC::IPC(): mutex(false)
     }
     else
     {
-        cErrorDom("ipc") << "IPC::IPC(): Error creating pipe !";
+        cErrorDom("ipc") << "Error creating pipe !";
     }
-#endif
 }
 
 IPC::~IPC()
 {
-#ifndef IPHONE_APP
     close(fd_read);
     close(fd_write);
-#endif
 }
 
 void IPC::AddHandler(string source, string emission, sigc::signal<void, std::string, std::string, void*, void*> &signal, void *data)
@@ -103,12 +94,8 @@ void IPC::SendEvent(string source, string emission, void* data)
     events.push_back(msg);
     mutex.unlock();
 
-    cDebugDom("ipc") << "IPC::SendEvent(" << source << " , " << emission <<
+    cDebugDom("ipc") << "(" << source << " , " << emission <<
                         ") : " << events.size() << " events waiting.";
-
-#ifdef IPHONE_APP
-    calaos_broadcast_ipc();
-#else
     /* The mutex2 slows down everything, it's faster to write everytime to the pipe */
     //         if (mutex2.try_lock())
     //         {
@@ -118,10 +105,9 @@ void IPC::SendEvent(string source, string emission, void* data)
     string s = "wake_up";
     if (write(fd_write, s.c_str(), s.length()) < 0)
     {
-        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !";
+        cErrorDom("ipc") << "Error writing to pipe !";
     }
     //         }
-#endif
 }
 
 void IPC::SendEvent(string source, string emission, IPCData data, bool auto_delete_data)
@@ -137,9 +123,6 @@ void IPC::SendEvent(string source, string emission, IPCData data, bool auto_dele
     events.push_back(msg);
     mutex.unlock();
 
-#ifdef IPHONE_APP
-    calaos_broadcast_ipc();
-#else
     /* The mutex2 slows down everything, it's faster to write everytime to the pipe */
     //         if (mutex2.try_lock())
     //         {
@@ -149,10 +132,9 @@ void IPC::SendEvent(string source, string emission, IPCData data, bool auto_dele
     string s = "wake_up";
     if (write(fd_write, s.c_str(), s.length()) < 0)
     {
-        cErrorDom("ipc") << "IPC::IPC(): Error writing to pipe !";
+        cErrorDom("ipc") << "Error writing to pipe !";
     }
     //         }
-#endif
 }
 
 void IPC::BroadcastEvent()
@@ -160,10 +142,8 @@ void IPC::BroadcastEvent()
     char evname[MAX_EVENT_NAME];
     memset(evname, '\0', MAX_EVENT_NAME);
 
-#ifndef IPHONE_APP
     if (read(fd_read, evname, MAX_EVENT_NAME) > 0)
     {
-#endif
         /* The mutex2 slows down everything, it's faster to write everytime to the pipe */
         //                mutex2.lock();
         while(events.size() > 0)
@@ -181,7 +161,7 @@ void IPC::BroadcastEvent()
             IPCMsg msg = (*itd);
             events.erase(itd);
 
-            cDebugDom("ipc") << "IPC::BroadcastEvent(\"" <<
+            cDebugDom("ipc") << "(\"" <<
                                 msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")";
 
             list<IPCSignal>::iterator it;
@@ -204,11 +184,6 @@ void IPC::BroadcastEvent()
                 }
             }
 
-#ifdef IPHONE_APP
-            //Here we also send the IPC message to the Cocoa framework, so UI can react on them
-            cocoa_send_notification(msg.source, msg.emission, msg.data);
-#endif
-
             //Delete data if flag is set
             if (msg.auto_delete)
             {
@@ -219,7 +194,7 @@ void IPC::BroadcastEvent()
                 }
                 else
                 {
-                    cErrorDom("ipc") << "IPC::BroadcastEvent(\"" <<
+                    cErrorDom("ipc") << "(\"" <<
                                         msg.source<<"\"  ,  \""<<msg.emission<< "\") " <<
                                         "DeletorBase or data is NULL, can't delete. (Memory leak?)";
                 }
@@ -227,11 +202,9 @@ void IPC::BroadcastEvent()
 
         }
         //                mutex2.unlock();
-#ifndef IPHONE_APP
     }
     else
     {
-        cErrorDom("ipc") << "IPC::BroadcastEvent(): Error reading from pipe !";
+        cErrorDom("ipc") << "Error reading from pipe !";
     }
-#endif
 }

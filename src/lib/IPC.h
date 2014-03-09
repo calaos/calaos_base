@@ -24,9 +24,7 @@
 #include <Utils.h>
 #include <Mutex.h>
 #include <sigc++/sigc++.h>
-#ifndef IPHONE_APP
 #include <Ecore.h>
-#endif
 
 using namespace Utils;
 
@@ -76,9 +74,7 @@ private:
     int fd_read;
     int fd_write;
 
-#ifndef IPHONE_APP
     Ecore_Fd_Handler *fd_handler;
-#endif
     Mutex mutex;
 
     list<IPCMsg> events;
