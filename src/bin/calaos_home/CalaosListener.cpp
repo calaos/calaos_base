@@ -31,8 +31,7 @@ static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Ad
         o->addConnection(ev->server);
     else
         cCriticalDom("network.listener")
-                << "CalaosListener(): _con_server_add, failed to get object !"
-                   ;
+                << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -48,8 +47,7 @@ static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_De
         o->delConnection(ev->server);
     else
         cCriticalDom("network.listener")
-                << "CalaosListener(): _con_server_del, failed to get object !"
-                   ;
+                << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -65,8 +63,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
         o->dataGet(ev->server, ev->data, ev->size);
     else
         cCriticalDom("network.listener")
-                << "CalaosListener(): _con_server_data, failed to get object !"
-                   ;
+                << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -82,8 +79,7 @@ static Eina_Bool _con_server_error(void *data, int type, Ecore_Con_Event_Server_
         o->errorConnection(ev->server);
     else
         cCriticalDom("network.listener")
-                << "CalaosListener(): _con_server_error, failed to get object !"
-                   ;
+                << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -99,7 +95,7 @@ CalaosListener::CalaosListener(string _address):
     handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_con_server_error, this);
 
     //connect the listenner
-    cDebugDom("network.listener") << "CalaosListener: Connecting to " << address << ":" << TCP_LISTEN_PORT;
+    cDebugDom("network.listener") << "Connecting to " << address << ":" << TCP_LISTEN_PORT;
     econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, address.c_str(), TCP_LISTEN_PORT, this);
     ecore_con_server_data_set(econ, this);
 }
@@ -136,7 +132,7 @@ void CalaosListener::addConnection(Ecore_Con_Server *server)
     cmd += Utils::url_encode(password);
     cmd += "\r\n";
 
-    cDebugDom("network.listener") << "CalaosListener: trying to log in.";
+    cDebugDom("network.listener") << "trying to log in.";
 
     ecore_con_server_send(econ, cmd.c_str(), cmd.length());
 }
@@ -147,13 +143,13 @@ void CalaosListener::delConnection(Ecore_Con_Server *server)
 
     if (login)
     {
-        cDebugDom("network.listener") << "CalaosListener: Wrong login/password.";
+        cDebugDom("network.listener") << "Wrong login/password.";
 
         return;
     }
 
-    cWarningDom("network.listener") << "CalaosListener: Connection closed !";
-    cWarningDom("network.listener") << "CalaosListener: Trying to reconnect...";
+    cWarningDom("network.listener") << "Connection closed !";
+    cWarningDom("network.listener") << "Trying to reconnect...";
 
     lost_connection.emit();
 }
@@ -168,7 +164,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
     {
         login = false;
 
-        cDebugDom("network.listener") << "CalaosListener: Successfully logged in.";
+        cDebugDom("network.listener") << "Successfully logged in.";
 
         string cmd = "listen\n\r";
         ecore_con_server_send(econ, cmd.c_str(), cmd.length());
@@ -182,7 +178,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
         //We have not a complete paquet yet, buffurize it.
         buffer += msg;
 
-        cDebugDom("network.listener") << "CalaosListener: Bufferize data.";
+        cDebugDom("network.listener") << "Bufferize data.";
 
         return;
     }
@@ -204,7 +200,7 @@ void CalaosListener::dataGet(Ecore_Con_Server *server, void *data, int size)
 
     split(msg, tokens, "\n");
 
-    cDebugDom("network.listener") << "CalaosListener: Got " << tokens.size() << " messages.";
+    cDebugDom("network.listener") << "Got " << tokens.size() << " messages.";
 
     for(unsigned int j = 0; j < tokens.size(); j++)
         processMessage(tokens[j]);
@@ -216,8 +212,8 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
     econ = NULL;
 
-    cWarningDom("network.listener") << "CalaosListener: Connection error !";
-    cWarningDom("network.listener") << "CalaosListener: Trying to reconnect...";
+    cWarningDom("network.listener") << "Connection error !";
+    cWarningDom("network.listener") << "Trying to reconnect...";
 
     lost_connection.emit();
 
@@ -225,7 +221,7 @@ void CalaosListener::errorConnection(Ecore_Con_Server *server)
 
 void CalaosListener::processMessage(string msg)
 {
-    cDebugDom("network.listener") << "CalaosListener: Message: \"" << msg << "\"";
+    cDebugDom("network.listener") << "Message: \"" << msg << "\"";
 
     vector<string> msgSplit;
 
