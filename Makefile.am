@@ -86,6 +86,6 @@ endif
 EXTRA_DIST = \
 AUTHORS \
 COPYING \
-README \
+README.md \
 autogen.sh \
 m4/efl_compiler.m4
