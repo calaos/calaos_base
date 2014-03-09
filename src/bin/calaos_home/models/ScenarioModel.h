@@ -128,6 +128,8 @@ public:
     string getFirstCategory();
 
     bool isScheduled() { if (ioPlage) return true; return false; }
+    void createSchedule(sigc::slot<void, IOBase *> callback);
+    void deleteSchedule();
 
     //Return the room where the scenario is
     Room *getRoom();

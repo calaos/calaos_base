@@ -133,6 +133,10 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
                 if (it != CalaosModel::Instance().getHome()->getCacheOutputs().end())
                 {
                     ioPlage = (*it).second;
+                    ioPlage->io_deleted.connect([=]()
+                    {
+                        ioPlage = nullptr;
+                    });
                 }
             }
         }
@@ -277,6 +281,60 @@ string ScenarioData::modifyRequest(IOBase *io)
     return req;
 }
 
+void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
+{
+    string cmd = "scenario add_schedule " + ioScenario->params["id"];
+    connection->SendCommand(cmd, [=](bool success, vector<string> result, void *user_data)
+    {
+        if (!success || result.size() != 3)
+        {
+            callback(nullptr);
+            return;
+        }
+
+        //result should be:
+        //scenario scenario_id_0 schedule_id:timerange_0
+
+        if (result[1] != ioScenario->params["id"] ||
+            !Utils::strStartsWith(result[2], "schedule_id:"))
+        {
+            callback(nullptr);
+            return;
+        }
+
+        string id = result[2].substr(string("schedule_id:").length());
+
+        //We need to delay a bit because we have to wait for RoomModel to load the io id first
+        EcoreTimer::singleShot(0.5, [=]()
+        {
+            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(id);
+
+            if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
+            {
+                cErrorDom("scenario") << "Unknown Input \'" << id << "\' !";
+
+                callback(nullptr);
+                return;
+            }
+
+            ioPlage = it->second;
+            ioPlage->io_deleted.connect([=]()
+            {
+                ioPlage = nullptr;
+            });
+
+            callback(ioPlage);
+        });
+    });
+}
+
+void Scenario::deleteSchedule()
+{
+    string cmd = "scenario del_schedule " + ioScenario->params["id"];
+    connection->SendCommand(cmd);
+    ioPlage = nullptr;
+}
+
 void ScenarioModel::createScenario(ScenarioData &data)
 {
     string cmd = data.createRequest();
@@ -321,7 +379,7 @@ void ScenarioModel::notifyScenarioAddDelayed(string notif)
 
     if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
     {
-        cErrorDom("scenario") << "ScenarioModel: Unknown Input \'" << split_id[1] << "\' !";
+        cErrorDom("scenario") << "Unknown Input \'" << split_id[1] << "\' !";
         return;
     }
 
@@ -347,7 +405,7 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
 {
     if (!sc)
     {
-        cErrorDom("scenario") << "ScenarioModel::notifyScenarioDel sc is NULL!";
+        cErrorDom("scenario") << "sc is NULL!";
         return;
     }
 
@@ -356,7 +414,7 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
 
     if (it == scenarios.end())
     {
-        cErrorDom("scenario") << "ScenarioModel: Unknown scenario \'" << sc->ioScenario->params["id"] << "\' !";
+        cErrorDom("scenario") << "Unknown scenario \'" << sc->ioScenario->params["id"] << "\' !";
         return;
     }
 
