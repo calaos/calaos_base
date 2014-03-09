@@ -47,7 +47,7 @@ int main (int argc, char **argv)
     }
     string action = argv[1];
 
-    Utils::InitEinaLog("calaos_config");
+    Utils::InitEinaLog("config");
 
     Utils::initConfigOptions(nullptr, nullptr, true);
 

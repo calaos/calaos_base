@@ -47,7 +47,7 @@ int main (int argc, char **argv)
     list<string> confAttach;
     bool verbose = false, del = false;
 
-    Utils::InitEinaLog("calaos_mail");
+    Utils::InitEinaLog("mail");
 
     char *argconf = argvOptionParam(argv, argv + argc, "--from");
     if (!argconf) EXIT_USAGE;

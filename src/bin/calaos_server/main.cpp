@@ -79,7 +79,7 @@ static bool dumpCallback(const char* dump_path,
 
 int main (int argc, char **argv)
 {
-    InitEinaLog("calaos_server");
+    InitEinaLog("server");
 
     cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
 

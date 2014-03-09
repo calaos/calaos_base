@@ -46,7 +46,7 @@ static void echoUsage(char **argv)
 
 int main(int argc, char **argv)
 {
-    InitEinaLog("calaos_home");
+    InitEinaLog("home");
 
     Prefix::Instance(argc, argv);
 
