@@ -315,6 +315,43 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
             IPC::Instance().SendEvent("events", sig);
         }
     }
+    else if (request["1"] == "add_schedule")
+    {
+        cDebugDom("network") << "add_schedule";
+
+        Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(request["2"]));
+        if (sc && sc->getAutoScenario())
+        {
+            sc->getAutoScenario()->addSchedule();
+
+            //Resave config
+            Config::Instance().SaveConfigIO();
+            Config::Instance().SaveConfigRule();
+
+            result.clear();
+            result.Add("0", "scenario");
+            result.Add("1", request["2"]);
+            result.Add("2", string("schedule_id:") + sc->getAutoScenario()->getIOPlage()->get_param("id"));
+        }
+    }
+    else if (request["1"] == "del_schedule")
+    {
+        cDebugDom("network") << "add_schedule";
+
+        Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(request["2"]));
+        if (sc && sc->getAutoScenario())
+        {
+            sc->getAutoScenario()->deleteSchedule();
+
+            //Resave config
+            Config::Instance().SaveConfigIO();
+            Config::Instance().SaveConfigRule();
+
+            result.clear();
+            result.Add("0", "scenario");
+            result.Add("1", "ok");
+        }
+    }
 
     ProcessDone_signal sig;
     sig.connect(callback);

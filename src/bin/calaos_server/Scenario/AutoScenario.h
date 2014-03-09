@@ -116,6 +116,9 @@ public:
     ScenarioAction getStepAction(int step, int action);
     int getEndStepActionCount();
     ScenarioAction getEndStepAction(int action);
+
+    void addSchedule();
+    void deleteSchedule();
 };
 
 }

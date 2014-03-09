@@ -697,3 +697,19 @@ string AutoScenario::getCategory()
 
     return cat;
 }
+
+void AutoScenario::addSchedule()
+{
+    if (ioPlage) return;
+
+    ioPlage = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
+}
+
+void AutoScenario::deleteSchedule()
+{
+    if (ioPlage)
+        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioPlage));
+    ioPlage = nullptr;
+
+    checkScenarioRules();
+}
