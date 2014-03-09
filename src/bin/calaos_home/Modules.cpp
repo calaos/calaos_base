@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <Modules.h>
+#include "Prefix.h"
 
 ModuleManager::ModuleManager()
 {
@@ -112,7 +113,7 @@ void ModuleManager::SearchModules()
                 if (tok.size() > 2)
                     module_name = tok[tok.size() - 2];
 
-                string themepath = PACKAGE_DATA_DIR;
+                string themepath = Prefix::Instance().dataDirectoryGet();
                 themepath += "/widgets/" + module_name;
 
                 ModuleDef mdef;
@@ -152,7 +153,7 @@ bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef 
     if (tok.size() > 2)
         module_name = tok[tok.size() - 2];
 
-    string themepath = PACKAGE_DATA_DIR;
+    string themepath = Prefix::Instance().dataDirectoryGet();
     themepath += "/widgets/" + module_name;
 
     CalaosModuleBase *cmod = type.api->create_object(evas, id.c_str(), themepath.c_str());
