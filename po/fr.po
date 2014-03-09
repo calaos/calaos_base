@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-03-07 18:08+0100\n"
+"POT-Creation-Date: 2014-03-09 23:26+0100\n"
 "PO-Revision-Date: 2013-11-16 00:17+0100\n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -399,19 +399,19 @@ msgid "Paused time before the next step"
 msgstr "Temps de pause avant la prochaine étape"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:557
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:452
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:453
 #, c-format
 msgid "%.0f<br><subtitle>Hours</subtitle>"
 msgstr "%.0f<br><subtitle>Heures</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:567
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:462
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:463
 #, c-format
 msgid "%.0f<br><subtitle>Min.</subtitle>"
 msgstr "%.0f<br><subtitle>Min.</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:577
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:472
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:473
 #, c-format
 msgid "%.0f<br><subtitle>Sec.</subtitle>"
 msgstr "%.0f<br><subtitle>Sec.</subtitle>"
@@ -422,6 +422,7 @@ msgid "%.0f<br><subtitle>Ms.</subtitle>"
 msgstr "%.0f<br><subtitle>Ms.</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:724
 msgid "Confirmation"
 msgstr "Confirmation"
 
@@ -557,7 +558,7 @@ msgstr "Novembre"
 msgid "December"
 msgstr "Décembre"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:230
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:231
 msgid ""
 "Start of schedulling<br><small><light_blue>Start time of the scenario</"
 "light_blue></small>"
@@ -565,7 +566,7 @@ msgstr ""
 "Début de la planification<br><small><light_blue>Heure de départ du scénario</"
 "light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:236
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:237
 msgid ""
 "End of schedulling<br><small><light_blue>End time of the scenario</"
 "light_blue></small>"
@@ -573,23 +574,27 @@ msgstr ""
 "Fin de la planification<br><small><light_blue>Heure de fin du scénario</"
 "light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:249
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:240
+msgid "Start"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:250
 msgid "Use a fixed time"
 msgstr "Utiliser une heure fixe"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:250
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:251
 msgid "Use the sunrise"
 msgstr "Utiliser le lever du soleil"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:251
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:252
 msgid "Use the sunset"
 msgstr "Utiliser le coucher du soleil"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:252
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:253
 msgid "Use the midday sun"
 msgstr "Utiliser le soleil de midi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:309
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:310
 msgid ""
 "<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
 "time</small></light_blue>"
@@ -597,19 +602,19 @@ msgstr ""
 "<b>Décalage de l'heure</b><br><light_blue><small>Vous pouvez choisir de "
 "décaler l'heure du soleil</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:321
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:322
 msgid "Use the exact sun time"
 msgstr "Utiliser l'heure exacte du soleil"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:322
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:323
 msgid "Add time"
 msgstr "Ajouter une durée"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:323
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:324
 msgid "Substract time"
 msgstr "Soustraire une durée"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:418
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:419
 msgid ""
 "<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</"
 "small></light_blue>"
@@ -617,7 +622,7 @@ msgstr ""
 "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
 "départ du scénario</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:420
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:421
 msgid ""
 "<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</"
 "small></light_blue>"
@@ -625,7 +630,7 @@ msgstr ""
 "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de fin "
 "du scénario</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:422
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:423
 msgid ""
 "<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</"
 "small></light_blue>"
@@ -633,7 +638,7 @@ msgstr ""
 "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
 "décalage de fin du scénario</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:424
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:425
 msgid ""
 "<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</"
 "small></light_blue>"
@@ -641,7 +646,7 @@ msgstr ""
 "<b>Choisir une heure de planification</b><br><light_blue><small>Heure de "
 "décalage de fin du scénario</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:515
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:526
 msgid ""
 "Days of the week<br><small><light_blue>Days of the week when scenario is "
 "executed.</light_blue></small>"
@@ -649,54 +654,91 @@ msgstr ""
 "Jours de la semaine<br><small><light_blue>Jours de la semaine où le scénario "
 "sera exécuté.</light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:520
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:531
 #, fuzzy
 msgid "End"
 msgstr "Activé"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:522
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:533
 msgid "Beginning"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:534
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:545
 msgid "Everyday"
 msgstr "Tous les jours"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:535
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:546
 msgid "Monday"
 msgstr "Lundi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:536
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:547
 msgid "Tuesday"
 msgstr "Mardi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:537
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:548
 msgid "Wednesday"
 msgstr "Mercredi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:538
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:549
 msgid "Thursday"
 msgstr "Jeudi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:539
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:550
 msgid "Friday"
 msgstr "Vendredi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:540
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:551
 msgid "Saturday"
 msgstr "Samedi"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:541
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:552
 msgid "Sunday"
 msgstr "Dimanche"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:542
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:553
 msgid "ERROR"
 msgstr "ERREUR"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:726
+#, fuzzy
+msgid "Are you sure to delete this schedule?"
+msgstr "Êtes-vous sûr de vouloir supprimer cette étape ?"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:733
+#, fuzzy
+msgid "Yes, delete this schedule"
+msgstr "Oui, supprimer l'étape"
 
 #: src/bin/calaos_home/views/ActivityView.cpp:77
 msgid "Quit"
 msgstr "Quitter"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:50
+msgid "Execute at "
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:52
+msgid "Start at "
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:91
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:106
+msgid "Sunrise"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:93
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:108
+msgid "Sunset"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:95
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:110
+msgid "Noon"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:101
+msgid "stop at "
+msgstr ""
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:45
 msgid "My Home"
