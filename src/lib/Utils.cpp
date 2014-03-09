@@ -400,6 +400,11 @@ EinaLog *Utils::einaLogger(const char *domain)
 
 void Utils::InitEinaLog(const char *d)
 {
+    //try to get env variable EINA_LOG_LEVELS_GLOB
+    //and if not defined set it to print INF messages by default
+    if (!getenv("EINA_LOG_LEVELS_GLOB"))
+        setenv("EINA_LOG_LEVELS_GLOB", "calaos*:3", true);
+
     eina_init();
     default_domain = d;
     logger_hash[default_domain] = new EinaLog(default_domain);
