@@ -57,6 +57,8 @@ void ActivityScheduleScenarioController::validAddSchedule(TimeRangeInfos &tr)
     {
         //then set all TimeRanges for the Schedule IO
         scenario->setSchedules(tr);
+
+        wants_quit.emit();
     });
 }
 
