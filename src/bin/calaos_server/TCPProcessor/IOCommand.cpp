@@ -420,15 +420,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                     if (day == 6) h = plage->getDimanche();
                     for (uint i = 0;i < h.size();i++)
                     {
-                        std::string s = Utils::to_string(day + 1) + ":";
-                        s += h[i].shour + ":" + h[i].smin + ":" + h[i].ssec;
-                        s += ":" + Utils::to_string(h[i].start_type);
-                        s += ":" + Utils::to_string(h[i].start_offset); //1 or -1
-                        s += ":" + h[i].ehour + ":" + h[i].emin + ":" + h[i].esec;
-                        s += ":" + Utils::to_string(h[i].end_type);
-                        s += ":" + Utils::to_string(h[i].end_offset); //1 or -1
-
-                        result.Add(Utils::to_string(cpt), s);
+                        result.Add(Utils::to_string(cpt), h[i].toProtoCommand(day));
                         cpt++;
                     }
                 }
@@ -440,37 +432,18 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                 for (int i = 4;i < request.size();i++)
                 {
-                    vector<string> tokens;
-                    split(request[Utils::to_string(i)], tokens, ":", 11);
-
+                    string sched = request[Utils::to_string(i)];
                     vector<TimeRange> h;
-
-                    TimeRange tr;
-                    tr.shour = tokens[1];
-                    tr.smin = tokens[2];
-                    tr.ssec = tokens[3];
-                    from_string(tokens[4], tr.start_type);
-                    from_string(tokens[5], tr.start_offset);
-                    if (tr.start_offset < 0) tr.start_offset = -1;
-                    if (tr.start_offset >= 0) tr.start_offset = 1;
-
-                    tr.ehour = tokens[6];
-                    tr.emin = tokens[7];
-                    tr.esec = tokens[8];
-                    from_string(tokens[9], tr.start_type);
-                    from_string(tokens[10], tr.start_offset);
-                    if (tr.start_offset < 0) tr.start_offset = -1;
-                    if (tr.start_offset >= 0) tr.start_offset = 1;
-
+                    TimeRange tr(sched);
                     h.push_back(tr);
 
-                    if (tokens[0] == "1") plage->setLundi(h);
-                    if (tokens[0] == "2") plage->setMardi(h);
-                    if (tokens[0] == "3") plage->setMercredi(h);
-                    if (tokens[0] == "4") plage->setJeudi(h);
-                    if (tokens[0] == "5") plage->setVendredi(h);
-                    if (tokens[0] == "6") plage->setSamedi(h);
-                    if (tokens[0] == "7") plage->setDimanche(h);
+                    if (sched[0] == '1') plage->setLundi(h);
+                    if (sched[0] == '2') plage->setMardi(h);
+                    if (sched[0] == '3') plage->setMercredi(h);
+                    if (sched[0] == '4') plage->setJeudi(h);
+                    if (sched[0] == '5') plage->setVendredi(h);
+                    if (sched[0] == '6') plage->setSamedi(h);
+                    if (sched[0] == '7') plage->setDimanche(h);
 
                     request[Utils::to_string(i)] = "";
                 }
