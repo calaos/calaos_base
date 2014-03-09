@@ -444,13 +444,6 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                     split(request[Utils::to_string(i)], tokens, ":", 11);
 
                     vector<TimeRange> h;
-                    if (tokens[0] == "1") h = plage->getLundi();
-                    if (tokens[0] == "2") h = plage->getMardi();
-                    if (tokens[0] == "3") h = plage->getMercredi();
-                    if (tokens[0] == "4") h = plage->getJeudi();
-                    if (tokens[0] == "5") h = plage->getVendredi();
-                    if (tokens[0] == "6") h = plage->getSamedi();
-                    if (tokens[0] == "7") h = plage->getDimanche();
 
                     TimeRange tr;
                     tr.shour = tokens[1];
