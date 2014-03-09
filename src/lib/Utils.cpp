@@ -381,6 +381,10 @@ EinaLog *Utils::einaLogger(const char *domain)
     string d = default_domain;
     if (domain) d = domain;
 
+    //add domain prefix to ease eina logs filtering
+    if (!Utils::strStartsWith(d, "calaos_"))
+        d.insert(0, "calaos_");
+
     EinaLog *logger = nullptr;
     auto it = logger_hash.find(d);
     if (it == logger_hash.end())
