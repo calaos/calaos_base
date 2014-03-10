@@ -60,7 +60,7 @@ protected:
     Mutex mutex;
 
     ListeRule(): loop(false), mutex(false)
-    { cDebugDom("rule") }
+      { cDebugDom("rule"); }
 
 public:
     //singleton

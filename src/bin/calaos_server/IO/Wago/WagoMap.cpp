@@ -61,7 +61,7 @@ WagoMap::WagoMap(std::string h, int p):
 
     Start();
 
-    cInfoDom("wago") << << host << "," << port;
+    cInfoDom("wago") << host << "," << port;
 }
 
 WagoMap::~WagoMap()

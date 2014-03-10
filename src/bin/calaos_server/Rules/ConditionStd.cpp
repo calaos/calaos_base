@@ -179,9 +179,9 @@ bool ConditionStd::Evaluate()
     }
 
     if (ret)
-        cDebugDom("rule.condition.standard") << "Ok";;
+        cDebugDom("rule.condition.standard") << "Ok";
     else
-        cDebugDom("rule.condition.standard") <<  "Failed !";
+        cDebugDom("rule.condition.standard") << "Failed !";
 
     return ret;
 }
