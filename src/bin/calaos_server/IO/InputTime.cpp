@@ -35,12 +35,12 @@ InputTime::InputTime(Params &p):
     set_param("visible", "false");
     set_param("gui_type", "time");
 
-    cDebugDom("input") << "InputTime::InputTime(" << get_param("id") << "): Ok";
+    cDebugDom("input") << get_param("id");
 }
 
 InputTime::~InputTime()
 {
-    cDebugDom("input") << "InputTime::~InputTime(): Ok";
+    cDebugDom("input");
 }
 
 void InputTime::hasChanged()

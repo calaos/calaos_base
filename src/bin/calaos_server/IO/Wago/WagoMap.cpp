@@ -61,7 +61,7 @@ WagoMap::WagoMap(std::string h, int p):
 
     Start();
 
-    cInfoDom("wago") << "WagoMap::WagoMap(" << host << "," << port << "): Ok";
+    cInfoDom("wago") << << host << "," << port;
 }
 
 WagoMap::~WagoMap()
@@ -77,7 +77,7 @@ WagoMap::~WagoMap()
 
     End();
 
-    cInfoDom("wago") << "WagoMap::~WagoMap(): Ok";
+    cInfoDom("wago");
 }
 
 WagoMap &WagoMap::Instance(std::string h, int p)
@@ -112,7 +112,7 @@ void WagoMap::WagoModbusHeartBeatTick()
 void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
 {
     if (!status)
-        cErrorDom("wago") << "WagoMap::WagoModbusReadHeartbeatCallback(): failed to read !";
+        cErrorDom("wago") << "failed to read !";
 }
 
 void WagoMap::IPCCallbacks(string source, string emission, void *listener_data, void *sender_data)
@@ -299,7 +299,7 @@ void WagoMap::ThreadProc()
 
         if (!wago.is_connected())
         {
-            cDebugDom("wago") << "WagoMap: MBUS, Connecting to " << host;
+            cDebugDom("wago") << "Connecting to " << host;
             wago.Connect();
         }
 
@@ -320,12 +320,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -337,12 +337,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -354,12 +354,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.write_single_bit(cmd.address, cmd.value_bit))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.write_single_bit(cmd.address, cmd.value_bit))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -371,12 +371,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -388,12 +388,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -405,12 +405,12 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -422,7 +422,7 @@ void WagoMap::ThreadProc()
             cmd.status = true;
             if (!wago.write_single_word(cmd.address, cmd.value_word))
             {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
+                cDebugDom("wago") << "MBUS, reconnecting to " << host;
                 wago.Connect();
                 if (!wago.write_single_word(cmd.address, cmd.value_word))
                 {
@@ -444,7 +444,7 @@ void WagoMap::ThreadProc()
                 if (!wago.write_multiple_words(cmd.address, cmd.count, cmd.values_words))
                 {
                     cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
+                    cDebugDom("wago") << "MBUS, failed to send request";
                 }
             }
 
@@ -472,10 +472,8 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Serv
     }
     else
     {
-        cCriticalDom("wago")
-                << "WagoMap:(): _ecore_con_handler_data_get, failed to get WagoMap object !"
-                   ;
-    }
+        cCriticalDom("wago") << "failed to get WagoMap object !";
+   }
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -484,7 +482,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
 {
     bool restart_timer = false;
 
-    cDebugDom("wago") << "WagoMap: UDP, sending command: " << command;
+    cDebugDom("wago") << "UDP, sending command: " << command;
 
     if (udp_commands.empty())
         restart_timer = true;
@@ -508,7 +506,7 @@ void WagoMap::SendUDPCommand(string command)
 {
     bool restart_timer = false;
 
-    cDebugDom("wago") << "WagoMap: UDP, sending command: " << command;
+    cDebugDom("wago") << "UDP, sending command: " << command;
 
     if (udp_commands.empty())
         restart_timer = true;
@@ -536,7 +534,7 @@ void WagoMap::udpRequest_cb(bool status, string res)
     }
 
     WagoMapCmd &cmd = udp_commands.front();
-    cDebugDom("wago") << "WagoMap: UDP, getting result for command " << cmd.udp_command;
+    cDebugDom("wago") << "UDP, getting result for command " << cmd.udp_command;
 
     cmd.udp_result = res;
 
@@ -550,7 +548,7 @@ void WagoMap::udpRequest_cb(bool status, string res)
 
 void WagoMap::UDPCommandTimeout_cb()
 {
-    cDebugDom("wago") << "WagoMap: UDP, Timeout ! ";
+    cDebugDom("wago") << "UDP, Timeout ! ";
 
     udpRequest_cb(false, "");
 }
@@ -572,7 +570,7 @@ void WagoMap::UDPCommand_cb()
 
     cmd.inProgress = true;
 
-    cDebugDom("wago") << "WagoMap: UDP, real sending command: " << cmd.udp_command;
+    cDebugDom("wago") << "UDP, real sending command: " << cmd.udp_command;
 
     if (!udp_timeout_timer && !cmd.no_callback)
         udp_timeout_timer = new EcoreTimer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
@@ -601,7 +599,7 @@ void WagoMap::WagoHeartBeatTick()
     }
     else
     {
-        cDebugDom("wago") << "WagoHeartbeat: No interface found corresponding to network : " << get_host();
+        cDebugDom("wago") << "No interface found corresponding to network : " << get_host();
     }
 
 

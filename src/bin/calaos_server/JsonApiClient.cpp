@@ -186,8 +186,7 @@ JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
     http_parser_init(parser, HTTP_REQUEST);
     parser->data = this;
 
-    cDebugDom("network") << "JsonApiClient::JsonApiClient("
-                         << this << "): Ok";
+    cDebugDom("network") << this;
 
     exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
 
@@ -207,8 +206,7 @@ JsonApiClient::~JsonApiClient()
     CloseConnection();
     ecore_file_unlink(tempfname.c_str());
 
-    cDebugDom("network") << "JsonApiClient::~JsonApiClient("
-                         << this << "): Ok";
+    cDebugDom("network") << this;
 }
 
 void JsonApiClient::ProcessData(string request)
@@ -331,7 +329,7 @@ void JsonApiClient::sendToClient(string res)
     if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
     {
         cCriticalDom("network")
-                << "JsonApiClient::handleRequest(): Error sending data ! Closing connection.";
+                << "Error sending data ! Closing connection.";
 
         CloseConnection();
     }
@@ -347,7 +345,7 @@ void JsonApiClient::handleRequest()
 
     if (!jroot || !json_is_object(jroot))
     {
-        cDebugDom("network") << "JsonApiClient: JSON - Error loading json : " << jerr.text;
+        cDebugDom("network") << "Error loading json : " << jerr.text;
 
         Params headers;
         headers.Add("Connection", "close");
@@ -392,7 +390,7 @@ void JsonApiClient::handleRequest()
 
     if (user != jsonParam["cn_user"] || pass != jsonParam["cn_pass"])
     {
-        cDebugDom("network") << "JsonApiClient: Login failed!";
+        cDebugDom("network") << "Login failed!";
 
         Params headers;
         headers.Add("Connection", "close");
@@ -570,7 +568,7 @@ void JsonApiClient::sendJson(json_t *json)
     char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)
     {
-        cDebugDom("network") << "JsonApiClient: json_dumps failed!";
+        cDebugDom("network") << "json_dumps failed!";
 
         Params headers;
         headers.Add("Connection", "close");

@@ -40,12 +40,12 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 
     Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
 
-    cDebugDom("input") << "ZibaseAnalogIn::ZibaseAnalogIn(" << get_param("id") << "): Ok";
+    cDebugDom("input") << get_param("id");
 }
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
 {
-    cDebugDom("input") << "ZibaseAnalogIn::~ZibaseAnalogIn(): Ok";
+    cDebugDom("input");
 }
 
 void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)

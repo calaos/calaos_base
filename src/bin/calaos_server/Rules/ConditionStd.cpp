@@ -26,19 +26,19 @@ using namespace Calaos;
 ConditionStd::ConditionStd():
     Condition(COND_STD)
 {
-    cDebugDom("rule.condition.standard") <<  "ConditionStd::ConditionStd(): New standard condition";
+    cDebugDom("rule.condition.standard") <<  "New standard condition";
 }
 
 ConditionStd::~ConditionStd()
 {
-    cDebugDom("rule.condition.standard") <<  "ConditionStd::~ConditionStd(): Ok";
+    cDebugDom("rule.condition.standard");
 }
 
 void ConditionStd::Add(Input *in)
 {
     inputs.push_back(in);
 
-    cDebugDom("rule.condition.standard") <<  "ConditionStd::Add(): Input(" << in->get_param("id") << ") added";
+    cDebugDom("rule.condition.standard") <<  "Input(" << in->get_param("id") << ") added";
 }
 
 void ConditionStd::getVarIds(vector<Input *> &list)
@@ -92,7 +92,7 @@ bool ConditionStd::Evaluate()
                     changed = true;
                 else
                 {
-                    cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(bool) not bool !";
+                    cWarningDom("rule.condition.standard") <<  "get_value(bool) not bool !";
                     ret = false;
                     break;
                 }
@@ -145,7 +145,7 @@ bool ConditionStd::Evaluate()
                 }
             }
             else
-                cWarningDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): get_value(int) not int !";
+                cWarningDom("rule.condition.standard") <<  "get_value(int) not int !";
             break;
         case TSTRING:
             if (params_var[inputs[i]->get_param("id")] != "")
@@ -179,9 +179,9 @@ bool ConditionStd::Evaluate()
     }
 
     if (ret)
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Ok";
+        cDebugDom("rule.condition.standard") << "Ok";;
     else
-        cDebugDom("rule.condition.standard") <<  "ConditionStd::Evaluate(): Failed !";
+        cDebugDom("rule.condition.standard") <<  "Failed !";
 
     return ret;
 }
@@ -192,7 +192,7 @@ void ConditionStd::Remove(int pos)
     for (int i = 0;i < pos;iter++, i++) ;
     inputs.erase(iter);
 
-    cDebugDom("rule.condition.standard") <<  "ConditionStd::Remove(): Ok";
+    cDebugDom("rule.condition.standard");
 }
 
 void ConditionStd::Assign(int i, Input *obj)
@@ -204,7 +204,7 @@ bool ConditionStd::eval(bool val1, std::string oper, bool val2)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(bool): Invalid operator (" << oper << ")";
+        cErrorDom("rule.condition.standard") <<  "Invalid operator (" << oper << ")";
         return false;
     }
 
@@ -284,7 +284,7 @@ bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.standard") <<  "ConditionStd::eval(string): Invalid operator (" << oper << ")";
+        cErrorDom("rule.condition.standard") <<  "Invalid operator (" << oper << ")";
         return false;
     }
 

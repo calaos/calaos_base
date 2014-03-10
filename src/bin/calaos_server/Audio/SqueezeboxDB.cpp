@@ -27,12 +27,12 @@ SqueezeboxDB::SqueezeboxDB(Squeezebox *squeezebox, Params &p):
     AudioDB(p),
     player(squeezebox)
 {
-    cDebugDom("squeezebox") <<  "SqueezeboxDB: new Database at " << param["host"];
+    cDebugDom("squeezebox") <<  "new Database at " << param["host"];
 }
 
 SqueezeboxDB::~SqueezeboxDB()
 {
-    cDebugDom("squeezebox") <<  "SqueezeboxDB::~SqueezeboxDB(): Ok";
+    cDebugDom("squeezebox");
 }
 
 void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)

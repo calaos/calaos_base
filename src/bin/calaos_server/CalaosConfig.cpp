@@ -114,7 +114,7 @@ void Config::LoadConfigIO()
 
     if (!document.LoadFile())
     {
-        cError() <<  "Config::LoadConfigIO() There was a parse error";
+        cError() <<  "There was a parse error";
         cError() <<  document.ErrorDesc();
         cError() <<  "In file " << file << " At line " << document.ErrorRow();
 
@@ -145,7 +145,7 @@ void Config::LoadConfigIO()
         }
     }
 
-    cInfo() <<  "Config::LoadConfigIO() Done. ";
+    cInfo() <<  "Done. ";
 }
 
 void Config::SaveConfigIO()
@@ -153,7 +153,7 @@ void Config::SaveConfigIO()
     string file = Utils::getConfigFile(IO_CONFIG);
     string tmp = file + "_tmp";
 
-    cInfo() <<  "Config::SaveConfigIO() Saving " << file << "...";
+    cInfo() <<  "Saving " << file << "...";
 
     TiXmlDocument document;
     TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
@@ -176,7 +176,7 @@ void Config::SaveConfigIO()
         ecore_file_mv(tmp.c_str(), file.c_str());
     }
 
-    cInfo() <<  "Config::SaveConfigIO() Done.";
+    cInfo() <<  "Done.";
 }
 
 void Config::LoadConfigRule()
@@ -196,7 +196,7 @@ void Config::LoadConfigRule()
 
     if (!document.LoadFile())
     {
-        cError() <<  "Config::LoadConfigRule() There was a parse error in " << file;
+        cError() <<  "There was a parse error in " << file;
         cError() <<  document.ErrorDesc();
         cError() <<  "In file " << file << " At line " << document.ErrorRow();
 
@@ -209,7 +209,7 @@ void Config::LoadConfigRule()
 
     if (!rule_node)
     {
-        cError() <<  "Config::LoadConfigRule() Error, <calaos:rules> node not found in file " << file;
+        cError() <<  "Error, <calaos:rules> node not found in file " << file;
     }
 
     for(; rule_node; rule_node = rule_node->NextSiblingElement())
@@ -230,7 +230,7 @@ void Config::LoadConfigRule()
         }
     }
 
-    cInfo() <<  "Config::LoadConfigRule() Done. " << ListeRule::Instance().size() << " rules loaded.";
+    cInfo() <<  "Done. " << ListeRule::Instance().size() << " rules loaded.";
 }
 
 void Config::SaveConfigRule()
@@ -238,7 +238,7 @@ void Config::SaveConfigRule()
     string file = Utils::getConfigFile(RULES_CONFIG);
     string tmp = file + "_tmp";
 
-    cInfo() <<  "Config::SaveConfigRule() Saving " << file << "...";
+    cInfo() <<  "Saving " << file << "...";
 
     TiXmlDocument document;
     TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
@@ -259,7 +259,7 @@ void Config::SaveConfigRule()
         ecore_file_mv(tmp.c_str(), file.c_str());
     }
 
-    cInfo() <<  "Config::SaveConfigRule() Done.";
+    cInfo() <<  "Done.";
 }
 
 void Config::loadStateCache()
@@ -270,7 +270,7 @@ void Config::loadStateCache()
     Eet_File *ef = eet_open(file.c_str(), EET_FILE_MODE_READ);
     if (!ef)
     {
-        cWarning() <<  "Config::loadStateCache() could not open iostates.cache for read !";
+        cWarning() <<  "Could not open iostates.cache for read !";
         return;
     }
 
@@ -278,13 +278,13 @@ void Config::loadStateCache()
     if (!cache)
     {
         eet_close(ef);
-        cWarning() <<  "Config::loadStateCache() could not read iostates.cache, corrupted file?";
+        cWarning() <<  "Could not read iostates.cache, corrupted file?";
         return;
     }
 
     if (cache->version < CONFIG_STATES_CACHE_VERSION)
     {
-        cWarning() <<  "Config::loadStateCache() file version too old, upgrading to new format";
+        cWarning() <<  "File version too old, upgrading to new format";
         cache->version = CONFIG_STATES_CACHE_VERSION;
     }
 
@@ -303,7 +303,7 @@ void Config::loadStateCache()
 
     eet_close(ef);
 
-    cInfo() <<  "Config::loadStateCache(): States cache read successfully.";
+    cInfo() <<  "States cache read successfully.";
 }
 
 void Config::saveStateCache()
@@ -320,7 +320,7 @@ void Config::saveStateCache()
     ef = eet_open(tmp.c_str(), EET_FILE_MODE_WRITE);
     if (!ef)
     {
-        cWarning() <<  "Config::saveStateCache() could not open iostates.cache for write !";
+        cWarning() <<  "Could not open iostates.cache for write !";
         return;
     }
 
@@ -335,7 +335,7 @@ void Config::saveStateCache()
         ecore_file_mv(tmp.c_str(), file.c_str());
     }
 
-    cDebug() <<  "Config::saveStateCache(): States cache written successfully.";
+    cDebug() <<  "States cache written successfully.";
 }
 
 void Config::SaveValueIO(string id, string value, bool save)

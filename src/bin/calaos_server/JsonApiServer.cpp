@@ -35,10 +35,8 @@ JsonApiServer::JsonApiServer(int p): port(p), tcp_server(NULL)
     event_handler_client_del = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
-    cDebugDom("network")
-            << "JsonApiServer::JsonApiServer(): Init TCP Server";
-    cInfoDom("network")
-            << "JsonApiServer::JsonApiServer(): Listening on port " << port;
+    cDebugDom("network") << "Init TCP Server";
+    cInfoDom("network")  << "Listening on port " << port;
 }
 
 JsonApiServer::~JsonApiServer()
@@ -50,8 +48,7 @@ JsonApiServer::~JsonApiServer()
     ecore_event_handler_del(event_handler_client_del);
     ecore_event_handler_del(event_handler_data_get);
 
-    cDebugDom("network")
-            << "JsonApiServer::~JsonApiServer(): Ok";
+    cDebugDom("network");
 }
 
 Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev)
@@ -69,9 +66,7 @@ Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Cl
     }
     else
     {
-        cCriticalDom("network")
-                << "JsonApiServer(): _ecore_con_handler_client_add, failed to get JsonApiServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get JsonApiServer object !";
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -92,9 +87,7 @@ Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Cl
     }
     else
     {
-        cCriticalDom("network")
-                << "JsonApiServer(): _ecore_con_handler_client_del, failed to get JsonApiServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get JsonApiServer object !";
     }
 
     return ECORE_CALLBACK_CANCEL;
@@ -115,9 +108,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     }
     else
     {
-        cCriticalDom("network")
-                << "JsonApiServer(): _ecore_con_handler_data_get, failed to get JsonApiServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get JsonApiServer object !";
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -126,9 +117,8 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
 void JsonApiServer::addConnection(Ecore_Con_Client *client)
 {
     cDebugDom("network")
-            << "JsonApiServer::addConnection(): Got a new connection from address "
-            << ecore_con_client_ip_get(client)
-               ;
+            << "Got a new connection from address "
+            << ecore_con_client_ip_get(client);
 
     JsonApiClient *conn = new JsonApiClient(client);
     connections[client] = conn;
@@ -137,16 +127,13 @@ void JsonApiServer::addConnection(Ecore_Con_Client *client)
 void JsonApiServer::delConnection(Ecore_Con_Client *client)
 {
     cDebugDom("network")
-            << "JsonApiServer::delConnection(): Connection from adress "
-            << ecore_con_client_ip_get(client) << " closed."
-               ;
+            << "Connection from adress "
+            << ecore_con_client_ip_get(client) << " closed.";
 
     map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
-        cCriticalDom("network")
-                << "JsonApiServer::delConnection(): Can't find corresponding JsonApiClient !"
-                   ;
+        cCriticalDom("network") << "Can't find corresponding JsonApiClient !";
 
         return;
     }
@@ -160,16 +147,13 @@ void JsonApiServer::getDataConnection(Ecore_Con_Client *client, void *data, int 
     string d((char *)data, size);
 
     cDebugDom("network")
-            << "JsonApiServer::getDataConnection(): Got data from client at address "
-            << ecore_con_client_ip_get(client)
-               ;
+            << "Got data from client at address "
+            << ecore_con_client_ip_get(client);
 
     map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
-        cCriticalDom("network")
-                << "JsonApiServer::getDataConnection(): Can't find corresponding JsonApiClient !"
-                   ;
+        cCriticalDom("network") << "Can't find corresponding JsonApiClient !";
 
         return;
     }

@@ -56,12 +56,12 @@ AVRYamaha::AVRYamaha(Params &p):
 
     command_suffix = "\r\n";
 
-    cInfoDom("output") << "AVRYamaha::AVRYamaha(" << params["host"] << "): Ok";
+    cInfoDom("output") << params["host"] << ": Ok";
 }
 
 AVRYamaha::~AVRYamaha()
 {
-    cInfoDom("output") << "AVRYamaha::~AVRYamaha(): Ok";
+    cInfoDom("output");
 }
 
 void AVRYamaha::connectionEstablished()
@@ -84,7 +84,7 @@ void AVRYamaha::connectionEstablished()
 
 void AVRYamaha::processMessage(string msg)
 {
-    cDebugDom("output") << "AVRYamaha::processMessage(): Recv: " << msg;
+    cDebugDom("output") << "Recv: " << msg;
 
     if (msg.substr(0, 6) == "@MAIN:")
     {

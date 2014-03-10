@@ -40,7 +40,7 @@ protected:
 
 public:
     ActionStd(): Action(ACTION_STD)
-    { cDebugDom("rule.action.standard") <<  "ActionStd::ActionStd(): New standard action"; }
+    { cDebugDom("rule.action.standard") <<  "New standard action"; }
     ~ActionStd();
 
     void Add(Output *p);

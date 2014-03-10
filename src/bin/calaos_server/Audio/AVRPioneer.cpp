@@ -50,12 +50,12 @@ AVRPioneer::AVRPioneer(Params &p):
 
     command_suffix = "\r";
 
-    cInfoDom("output") << "AVRPioneer::AVRPioneer(" << params["host"] << "): Ok";
+    cInfoDom("output") << params["host"];
 }
 
 AVRPioneer::~AVRPioneer()
 {
-    cInfoDom("output") << "AVRPioneer::~AVRPioneer(): Ok";
+    cInfoDom("output");
 }
 
 void AVRPioneer::connectionEstablished()
@@ -74,7 +74,7 @@ void AVRPioneer::connectionEstablished()
 
 void AVRPioneer::processMessage(string msg)
 {
-    cDebugDom("output") << "AVRPioneer::processMessage(): Recv: " << msg;
+    cDebugDom("output") << "Recv: " << msg;
 
     if (msg.substr(0, 3) == "VOL") //volume changed
     {

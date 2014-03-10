@@ -28,14 +28,14 @@ using namespace Calaos;
 
 ActionStd::~ActionStd()
 {
-    cDebugDom("rule.action.standard") <<  "ActionStd::~ActionStd(): Ok";
+    cDebugDom("rule.action.standard");
 }
 
 void ActionStd::Add(Output *out)
 {
     outputs.push_back(out);
 
-    cDebugDom("rule.action.standard") <<  "ActionStd::Add(): Output(" << out->get_param("id") << ") added";
+    cDebugDom("rule.action.standard") <<  "Output(" << out->get_param("id") << ") added";
 }
 
 bool ActionStd::Execute()
@@ -140,9 +140,9 @@ bool ActionStd::Execute()
     }
 
     if (ret)
-        cDebugDom("rule.action.standard") <<  "ActionStd::Execute(): Ok";
+        cDebugDom("rule.action.standard") <<  "Ok";
     else
-        cErrorDom("rule.action.standard") <<  "ActionStd::Execute(): Failed !";
+        cErrorDom("rule.action.standard") <<  "Failed !";
 
     return ret;
 }
@@ -153,7 +153,7 @@ void ActionStd::Remove(int pos)
     for (int i = 0;i < pos;iter++, i++) ;
     outputs.erase(iter);
 
-    cDebugDom("rule.action.standard") <<  "ActionStd::Remove(): Ok";
+    cDebugDom("rule.action.standard") <<  "Ok";
 }
 
 void ActionStd::Assign(int i, Output *obj)
@@ -177,7 +177,7 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
 
             if (id == "OutTouchscreen" && ListeRule::Instance().size() > 0)
             {
-                cInfoDom("rule.action.standard") <<  "ActionStd::LoadFromXml(): Converting old OutTouchscreen to new ActionTouchscreen";
+                cInfoDom("rule.action.standard") <<  "Converting old OutTouchscreen to new ActionTouchscreen";
                 Rule *rule = ListeRule::Instance().get_rule(ListeRule::Instance().size() - 1);
                 ActionTouchscreen *action = new ActionTouchscreen(val);
                 rule->AddAction(dynamic_cast<Action *>(action));

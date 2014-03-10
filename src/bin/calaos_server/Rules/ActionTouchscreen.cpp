@@ -28,21 +28,21 @@ ActionTouchscreen::ActionTouchscreen():
 {
     econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
+    cDebugDom("rule.action.touchscreen") <<  "New Touchscreen action";
 }
 
 ActionTouchscreen::ActionTouchscreen(string _action): Action(ACTION_TOUCHSCREEN), action(_action)
 {
     econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
-    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::ActionTouchscreen(): New Touchscreen action";
+    cDebugDom("rule.action.touchscreen") <<  "New Touchscreen action";
 }
 
 ActionTouchscreen::~ActionTouchscreen()
 {
     ecore_con_server_del(econ);
 
-    cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::~ActionTouchscreen(): Ok";
+    cDebugDom("rule.action.touchscreen");
 }
 
 bool ActionTouchscreen::Execute()
@@ -51,13 +51,13 @@ bool ActionTouchscreen::Execute()
     {
         ecore_con_server_send(econ, action.c_str(), action.size());
 
-        cDebugDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Show camera";
+        cDebugDom("rule.action.touchscreen") <<  "Show camera";
 
         return true;
     }
     else
     {
-        cWarningDom("rule.action.touchscreen") <<  "ActionTouchscreen::Execute(): Unknown action !";
+        cWarningDom("rule.action.touchscreen") <<  "Unknown action !";
     }
 
     return false;

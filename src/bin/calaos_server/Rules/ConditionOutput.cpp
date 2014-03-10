@@ -26,12 +26,12 @@ using namespace Calaos;
 ConditionOutput::ConditionOutput():
     Condition(COND_OUTPUT)
 {
-    cDebugDom("rule.condition.output") <<  "ConditionOutput::ConditionOutput(): New output condition";
+    cDebugDom("rule.condition.output") <<  "New output condition";
 }
 
 ConditionOutput::~ConditionOutput()
 {
-    cDebugDom("rule.condition.output") <<  "ConditionOutput::~ConditionOutput(): Ok";
+    cDebugDom("rule.condition.output") <<  "Ok";
 }
 
 bool ConditionOutput::Evaluate()
@@ -66,7 +66,7 @@ bool ConditionOutput::Evaluate()
                 changed = true;
             else
             {
-                cWarningDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): get_value(bool) not bool !";
+                cWarningDom("rule.condition.output") <<  "get_value(bool) not bool !";
                 ret = false;
                 break;
             }
@@ -116,7 +116,7 @@ bool ConditionOutput::Evaluate()
             }
         }
         else
-            cWarningDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): get_value(int) not int !";
+            cWarningDom("rule.condition.output") <<  "get_value(int) not int !";
         break;
     case TSTRING:
         if (params_var != "")
@@ -148,9 +148,9 @@ bool ConditionOutput::Evaluate()
     }
 
     if (ret)
-        cDebugDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): Ok";
+        cDebugDom("rule.condition.output") <<  "Ok";
     else
-        cDebugDom("rule.condition.output") <<  "ConditionOutput::Evaluate(): Failed !";
+        cDebugDom("rule.condition.output") <<  "Failed !";
 
     return ret;
 }
@@ -159,7 +159,7 @@ bool ConditionOutput::eval(bool val1, std::string oper, bool val2)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(bool): Invalid operator (" << oper << ")";
+        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
         return false;
     }
 
@@ -239,7 +239,7 @@ bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(string): Invalid operator (" << oper << ")";
+        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
         return false;
     }
 
@@ -266,7 +266,7 @@ bool ConditionOutput::eval(Output *out, string oper, string val)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.output") <<  "ConditionOutput::eval(string): Invalid operator (" << oper << ")";
+        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
         return false;
     }
 

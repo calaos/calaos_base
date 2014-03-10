@@ -26,12 +26,12 @@ using namespace Calaos;
 ConditionScript::ConditionScript():
     Condition(COND_SCRIPT)
 {
-    cDebugDom("rule.condition.script") <<  "ConditionScript::ConditionScript(): New Script condition";
+    cDebugDom("rule.condition.script") <<  "New Script condition";
 }
 
 ConditionScript::~ConditionScript()
 {
-    cDebugDom("rule.condition.script") <<  "ConditionScript::~ConditionScript(): Ok";
+    cDebugDom("rule.condition.script");
 }
 
 bool ConditionScript::Evaluate()

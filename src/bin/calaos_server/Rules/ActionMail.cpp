@@ -28,12 +28,12 @@ using namespace Calaos;
 
 ActionMail::ActionMail(): Action(ACTION_MAIL)
 {
-    cDebugDom("rule.action.mail") <<  "ActionMail::ActionMail(): New Mail action";
+    cDebugDom("rule.action.mail") <<  "New Mail action";
 }
 
 ActionMail::~ActionMail()
 {
-    cDebugDom("rule.action.mail") <<  "ActionMail::~ActionMail(): Ok";
+    cDebugDom("rule.action.mail");
 }
 
 bool ActionMail::Execute()
@@ -60,7 +60,7 @@ bool ActionMail::Execute()
 
     if (camera)
     {
-        cInfoDom("rule.action.mail") <<  "ActionMail::Execute(): Need to download camera ("
+        cInfoDom("rule.action.mail") <<  "Need to download camera ("
                                       << camera->get_param("name")
                                       << ") attachment";
 
@@ -98,7 +98,7 @@ bool ActionMail::Execute()
     {
         sendMail();
 
-        cInfoDom("rule.action.mail") <<  "ActionMail::Execute(): Ok, mail is in queue";
+        cInfoDom("rule.action.mail") <<  "Ok, mail is in queue";
     }
 
     return true;

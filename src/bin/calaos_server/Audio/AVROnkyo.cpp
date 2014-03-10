@@ -127,7 +127,7 @@ void AVROnkyo::processMessage(vector<char> data)
         //We don't have a complete paquet yet, buffurize it.
         brecv_buffer.insert(brecv_buffer.end(), data.begin(), data.end());
 
-        cDebugDom("output") << "AVReceiver:getData() Bufferize data.";
+        cDebugDom("output") << "Bufferize data.";
 
         return;
     }
@@ -178,13 +178,13 @@ void AVROnkyo::processMessage(vector<char> data)
         //We don't have a complete paquet yet, buffurize it.
         brecv_buffer.insert(data.end(), data.begin(), data.end());
 
-        cDebugDom("output") << "AVReceiver:getData() Bufferize data.";
+        cDebugDom("output") << "Bufferize data.";
     }
 }
 
 void AVROnkyo::processMessage(string msg)
 {
-    cDebugDom("output") << "AVROnkyo::processMessage(): Recv new message: " << msg;
+    cDebugDom("output") << "Recv new message: " << msg;
 
     if (msg.substr(0, 3) == "MVL") //master volume changed
     {

@@ -45,21 +45,21 @@ Room::~Room()
     inputs.clear();
     outputs.clear();
 
-    cDebugDom("room") << "Room::~Room(): Ok";
+    cDebugDom("room");
 }
 
 void Room::AddInput(Input *in)
 {
     inputs.push_back(in);
 
-    cDebugDom("room") << "Room::AddInput(" << in->get_param("id") << "): Ok";
+    cDebugDom("room") << "(" << in->get_param("id") << "): Ok";
 }
 
 void Room::AddOutput(Output *out)
 {
     outputs.push_back(out);
 
-    cDebugDom("room") << "Room::AddOutput(" << out->get_param("id") << "): Ok";
+    cDebugDom("room") << "(" << out->get_param("id") << "): Ok";
 }
 
 void Room::RemoveInput(int pos, bool del)
@@ -75,7 +75,7 @@ void Room::RemoveInput(int pos, bool del)
     if (del) delete inputs[pos];
     inputs.erase(iter);
 
-    cDebugDom("room") << "Room::RemoveInput(): Ok";
+    cDebugDom("room");
 }
 
 void Room::RemoveOutput(int pos, bool del)
@@ -91,7 +91,7 @@ void Room::RemoveOutput(int pos, bool del)
     if (del) delete outputs[pos];
     outputs.erase(iter);
 
-    cDebugDom("room") << "Room::RemoveOutput(): Ok";
+    cDebugDom("room");
 }
 
 void Room::RemoveInputFromRoom(Input *in)

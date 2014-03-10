@@ -28,16 +28,14 @@ TCPConnection::TCPConnection(Ecore_Con_Client *cl):
     client_conn(cl),
     login(false)
 {
-    cDebugDom("network") << "TCPConnection::TCPConnection("
-                         << this << "): Ok";
+    cDebugDom("network") << this;
 }
 
 TCPConnection::~TCPConnection()
 {
     CloseConnection();
 
-    cDebugDom("network") << "TCPConnection::~TCPConnection("
-                         << this << "): Ok";
+    cDebugDom("network") << this;
 }
 
 void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
@@ -47,7 +45,7 @@ void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
     /* login <user> <password> */
     if (!login && request["0"] == "login")
     {
-        cDebugDom("network") << "TCPConnection::ProcessRequest(login)";
+        cDebugDom("network");
 
         std::string user = Utils::get_config_option("calaos_user");
         std::string pass = Utils::get_config_option("calaos_password");
@@ -66,7 +64,7 @@ void TCPConnection::ProcessRequest(Params &request, ProcessDone_cb callback)
             CloseConnection();
 
             cWarningDom("network")
-                    << "TCPConnection: Wrong username/password got (" << request["1"]
+                    << "Wrong username/password got (" << request["1"]
                     << "/" << request["2"] << ")";
         }
 
@@ -147,7 +145,7 @@ void TCPConnection::ProcessData(string request)
     request.erase(i + 1, request.length() - i + 1);
 
     cDebugDom("network")
-            << "TCPConnection::ProcessData(): New request: \"" << request << "\"";
+            << "New request: \"" << request << "\"";
 
     Params p;
     p.Parse(request);
@@ -166,7 +164,7 @@ void TCPConnection::ProcessData(string request)
     else if (p["0"] == "listen")
     {
         cDebugDom("network")
-                << "TCPConnection::ProcessData(): Entering listen mode for client " << ecore_con_client_ip_get(client_conn);
+                << "Entering listen mode for client " << ecore_con_client_ip_get(client_conn);
 
         listen_mode = true;
 
@@ -194,13 +192,13 @@ void TCPConnection::ProcessingDataDone(Params &response)
     }
 
     cDebugDom("network")
-            << "TCPConnection::ProcessData(): We send: \"" << res << "\"";
+            << "We send: \"" << res << "\"";
     res += terminator;
 
     if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
     {
         cCriticalDom("network")
-                << "TCPConnection::ProcessData(): Error sending data ! Closing connection.";
+                << "Error sending data ! Closing connection.";
 
         CloseConnection();
     }

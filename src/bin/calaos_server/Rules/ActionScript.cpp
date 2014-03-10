@@ -24,12 +24,12 @@ using namespace Calaos;
 
 ActionScript::ActionScript(): Action(ACTION_SCRIPT)
 {
-    cDebugDom("rule.action.script") <<  "ActionScript::ActionScript(): New Script action";
+    cDebugDom("rule.action.script") <<  "New Script action";
 }
 
 ActionScript::~ActionScript()
 {
-    cDebugDom("rule.action.script") <<  "ActionScript::~ActionScript(): Ok";
+    cDebugDom("rule.action.script");
 }
 
 bool ActionScript::Execute()

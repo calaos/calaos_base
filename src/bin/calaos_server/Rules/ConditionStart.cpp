@@ -26,12 +26,12 @@ ConditionStart::ConditionStart():
     Condition(COND_START),
     start(true)
 {
-    cDebugDom("rule.condition.start") <<  "ConditionStart::ConditionStart(): New Start condition";
+    cDebugDom("rule.condition.start") <<  "New Start condition";
 }
 
 ConditionStart::~ConditionStart()
 {
-    cDebugDom("rule.condition.start") <<  "ConditionStart::~ConditionStart(): Ok";
+    cDebugDom("rule.condition.start") <<  "Ok";
 }
 
 bool ConditionStart::Evaluate()
@@ -39,13 +39,13 @@ bool ConditionStart::Evaluate()
     if (start)
     {
         start = false;
-        cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is starting, true";
+        cDebugDom("rule.condition.start") <<  "calaosd is starting, true";
 
         return true;
     }
     else
     {
-        cDebugDom("rule.condition.start") <<  "ConditionStart::Evaluate(): calaosd is already started, false";
+        cDebugDom("rule.condition.start") <<  "calaosd is already started, false";
     }
 
     return false;

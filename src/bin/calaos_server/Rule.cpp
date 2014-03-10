@@ -41,21 +41,21 @@ Rule::~Rule()
     for (uint i = 0;i < actions.size();i++)
         delete actions[i];
 
-    cDebugDom("rule") << "Rule::~Rule(): Ok";
+    cDebugDom("rule");
 }
 
 void Rule::AddCondition(Condition *cond)
 {
     conds.push_back(cond);
 
-    cDebugDom("rule") << "Rule::AddCondition(): Ok";
+    cDebugDom("rule");
 }
 
 void Rule::AddAction(Action *act)
 {
     actions.push_back(act);
 
-    cDebugDom("rule") << "Rule::AddAction(): Ok";
+    cDebugDom("rule");
 }
 
 bool Rule::Execute()
@@ -92,9 +92,9 @@ bool Rule::Execute()
         ret = false;
 
     if (ret)
-        cDebugDom("rule") << "Rule::Execute(): Ok";
+        cDebugDom("rule");
     else if (cond)
-        cWarningDom("rule") << "Rule::Execute(): Failed !";
+        cWarningDom("rule") << "Failed !";
 
     return ret;
 }
@@ -105,7 +105,7 @@ void Rule::RemoveCondition(int pos)
     for (int i = 0;i < pos;iter++, i++) ;
     conds.erase(iter);
 
-    cDebugDom("rule") << "Rule::RemoveCondition(): Ok";
+    cDebugDom("rule");
 }
 
 void Rule::RemoveAction(int pos)
@@ -114,7 +114,7 @@ void Rule::RemoveAction(int pos)
     for (int i = 0;i < pos;iter++, i++) ;
     actions.erase(iter);
 
-    cDebugDom("rule") << "Rule::RemoveAction(): Ok";
+    cDebugDom("rule");
 }
 
 bool Rule::LoadFromXml(TiXmlElement *node)

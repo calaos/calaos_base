@@ -37,10 +37,7 @@ static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Ad
     if (o)
         o->addConnection(ev->server);
     else
-        cCriticalDom("output")
-                << "AVReceiver(): _con_server_add, failed to get object !"
-                   ;
-
+        cCriticalDom("output") << "failed to get object !";
     return ECORE_CALLBACK_RENEW;
 }
 
@@ -54,9 +51,7 @@ static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_De
     if (o)
         o->delConnection(ev->server);
     else
-        cCriticalDom("output")
-                << "AVReceiver(): _con_server_del, failed to get object !"
-                   ;
+        cCriticalDom("output") << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -71,9 +66,7 @@ static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_D
     if (o)
         o->dataGet(ev->server, ev->data, ev->size);
     else
-        cCriticalDom("output")
-                << "AVReceiver(): _con_server_data, failed to get object !"
-                   ;
+        cCriticalDom("output") << "failed to get object !";
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -95,7 +88,7 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     source_zone3(0),
     connection_type(_connection_type)
 {
-    cDebugDom("output") << "AVReceiver::AVReceiver(" << params["id"] << "): Ok";
+    cDebugDom("output") << params["id"];
 
     if (!params.Exists("visible")) params.Add("visible", "false");
 
@@ -121,18 +114,18 @@ AVReceiver::~AVReceiver()
     DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
     DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
 
-    cDebugDom("output") << "AVReceiver::~AVReceiver(): Ok";
+    cDebugDom("output");
 }
 
 void AVReceiver::timerConnReconnect()
 {
-    cDebugDom("output") << "AVReceiver:timerConnReconnect() Connecting to " << host << ":" << port;
+    cDebugDom("output") << "Connecting to " << host << ":" << port;
 
     DELETE_NULL_FUNC(ecore_con_server_del, econ);
     econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port, this);
     ecore_con_server_data_set(econ, this);
 
-    cDebugDom("output") << "AVReceiver:timerConnReconnect(): econ == " << econ;
+    cDebugDom("output") << "econ == " << econ;
 }
 
 void AVReceiver::addConnection(Ecore_Con_Server *srv)
@@ -144,7 +137,7 @@ void AVReceiver::addConnection(Ecore_Con_Server *srv)
 
     connectionEstablished();
 
-    cDebugDom("output") << "AVReceiver: main connection established";
+    cDebugDom("output") << "main connection established";
 }
 
 void AVReceiver::delConnection(Ecore_Con_Server *srv)
@@ -153,8 +146,8 @@ void AVReceiver::delConnection(Ecore_Con_Server *srv)
 
     DELETE_NULL(timer_con);
 
-    cWarningDom("output") << "AVReceiver: Main Connection closed !";
-    cWarningDom("output") << "AVReceiver: Trying to reconnect...";
+    cWarningDom("output") << "Main Connection closed !";
+    cWarningDom("output") << "Trying to reconnect...";
 
     timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 
@@ -190,7 +183,7 @@ void AVReceiver::dataGet(string msg)
         //We have not a complete paquet yet, buffurize it.
         recv_buffer += msg;
 
-        cDebugDom("output") << "AVReceiver:getData() Bufferize data.";
+        cDebugDom("output") << "Bufferize data.";
 
         return;
     }
@@ -209,7 +202,7 @@ void AVReceiver::dataGet(string msg)
     vector<string> tokens;
     split(msg, tokens, "\n");
 
-    cDebugDom("output") << "AVReceiver:getData() Got " << tokens.size() << " messages.";
+    cDebugDom("output") << "Got " << tokens.size() << " messages.";
 
     for(uint i = 0; i < tokens.size(); i++)
         processMessage(tokens[i]);
@@ -217,19 +210,19 @@ void AVReceiver::dataGet(string msg)
 
 void AVReceiver::processMessage(string msg)
 {
-    cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
+    cWarningDom("output") << "Should be inherited !";
 }
 
 void AVReceiver::processMessage(vector<char> msg)
 {
-    cWarningDom("output") << "AVReceiver:processMessage(): Should be inherited !";
+    cWarningDom("output") << "Should be inherited !";
 }
 
 void AVReceiver::sendRequest(string request)
 {
     if (!econ || !isConnected) return;
 
-    cDebugDom("output") << "AVReceiver::sendRequest() Command: " << request;
+    cDebugDom("output") << "Command: " << request;
 
     request += command_suffix;
 
@@ -240,7 +233,7 @@ void AVReceiver::sendRequest(vector<char> request)
 {
     if (!econ || !isConnected) return;
 
-    cDebugDom("output") << "AVReceiver::sendRequest(), " << request.size() << " bytes";
+    cDebugDom("output") << request.size() << " bytes";
 
     ecore_con_server_send(econ, &request[0], request.size());
 }
@@ -369,7 +362,7 @@ void IOAVReceiver::force_input_string(string val)
 
 bool IOAVReceiver::set_value(string val)
 {
-    cInfoDom("output") << "IOAVReceiver(" << get_param("id") << "): got action, " << val;
+    cInfoDom("output") << get_param("id") << " got action, " << val;
 
     force_input_string(val);
 

@@ -53,12 +53,12 @@ AVRMarantz::AVRMarantz(Params &p):
 
     command_suffix = "\r";
 
-    cInfoDom("output") << "AVRMarantz::AVRMarantz(" << params["host"] << "): Ok";
+    cInfoDom("output") <<  params["host"];
 }
 
 AVRMarantz::~AVRMarantz()
 {
-    cInfoDom("output") << "AVRMarantz::~AVRMarantz(): Ok";
+    cInfoDom("output");
 }
 
 void AVRMarantz::connectionEstablished()
@@ -78,7 +78,7 @@ void AVRMarantz::connectionEstablished()
 
 void AVRMarantz::processMessage(string msg)
 {
-    cDebugDom("output") << "AVRMarantz::processMessage(): Recv: " << msg;
+    cDebugDom("output") << "Recv: " << msg;
 
     if (msg.substr(0, 2) == "MV") //master volume changed
     {
