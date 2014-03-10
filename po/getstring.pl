@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-my $midcheck = 0;
+my $hackcheck = 0;
 my @mids;
 my @mstr;
 
@@ -29,7 +29,6 @@ sub write_results()
 		print $tmpfile "$_";
 		print $tmpfile "\n";
 	}
-
 	
 	@mids = (); #clear
 	@mstr = (); #clear
@@ -37,22 +36,32 @@ sub write_results()
 
 while( my $line = <$infile>) 
 {   
-	print "Inside While...\n";
 	$line =~ s/^\s+//;  # remove leading whitespace
 	$line =~ s/\s+$//; # remove trailing whitespace
 	if (length($line) == 0)
 	{
-		print "Looping1\n";
 		next;
 	}
-		
+	
+	if($hackcheck == 0)
+	{
+		if($line =~ /^#: src/ )
+		{
+			$hackcheck = 1;
+		}
+		else
+		{
+        	print $tmpfile $line;
+        	print $tmpfile "\n";		
+		    next;
+	    }
+	}
 
     # retain comments
 	if($line =~ /^#/)
 	{
         print $tmpfile $line;
         print $tmpfile "\n";
-        print "Looping1\n";
 		next;
 	}
 
@@ -60,15 +69,17 @@ while( my $line = <$infile>)
 	if($line =~ /^msgstr/)
 	{
         write_results();
-        print "Looping1\n";
 		next;
 	}
 
 	$line =~ s/^msgid//g;
 	push (@mids, $line);
 
+	# escape the text
 	my $escaped = quotemeta $line;
+	# translate
 	my $res = `php translate.php $escaped $ARGV[1] $ARGV[2]`;
+	# stock
 	push (@mstr, $res);
 }
 
