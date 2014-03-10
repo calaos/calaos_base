@@ -36,7 +36,8 @@ module_la_CFLAGS = \
 	@CALAOS_HOME_CFLAGS@
 module_la_LIBADD = \
 	@CALAOS_HOME_LIBS@ \
-	@CALAOS_COMMON_LIBS@
+	@CALAOS_COMMON_LIBS@ \
+	$(top_builddir)/src/lib/libcalaos_common.la
 
 module_la_LDFLAGS = -no-undefined @lt_enable_auto_import@ -module -avoid-version -export-dynamic
 module_la_LIBTOOLFLAGS = --tag=disable-static
