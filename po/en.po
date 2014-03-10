@@ -1,0 +1,823 @@
+# English translations for calaos package.
+# Copyright (C) 2013 The Calaos Project
+# This file is distributed under the same license as the calaos package.
+# Nicolas Aguirre <aguirre.nicolas@gmail.com>, 2013.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: calaos 2.0\n"
+"Report-Msgid-Bugs-To: http://calaos.fr\n"
+"POT-Creation-Date: 2014-03-11 22:27+0900\n"
+"PO-Revision-Date: 2014-03-11 22:27+0900\n"
+"Last-Translator: Sanjeev <iamsanjeev@gmail.com>\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:251
+msgid "No lights on"
+msgstr "No lights on"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:253
+msgid "1 light on"
+msgstr "1 light on"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:255
+msgid " lights on"
+msgstr " lights on"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:266
+msgid "No shutter opened"
+msgstr "No shutter opened"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:268
+msgid "1 shutter opened"
+msgstr "1 shutter opened"
+
+#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:270
+msgid " shutters are opened"
+msgstr " shutters are opened"
+
+#: src/bin/calaos_home/controllers/ApplicationController.cpp:282
+msgid "Restart only application"
+msgstr "Restart only application"
+
+#: src/bin/calaos_home/controllers/ApplicationController.cpp:292
+msgid "Reboot the machine"
+msgstr "Reboot the machine"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+msgid "My Albums"
+msgstr "My Albums"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+msgid "Access to your albums."
+msgstr "Access to your albums."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+msgid "Artists"
+msgstr "Artists"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+msgid "Display by artists."
+msgstr "Display by artists."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+msgid "Years"
+msgstr "Years"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+msgid "Sort songs by year."
+msgstr "Sort songs by year."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
+msgid "Genre"
+msgstr "Genre"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
+msgid "Music Directory"
+msgstr "Music Directory"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
+msgid "Playlists"
+msgstr "Playlists"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+msgid "Radios"
+msgstr "Radios"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+msgid "Web radios web and online service."
+msgstr "Web radios web and online service."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+msgid "Search..."
+msgstr "Search..."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+msgid "Search into your music library."
+msgstr "Search into your music library."
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:776
+msgid "Search into radios"
+msgstr "Search into radios"
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:790
+msgid "Search into your music library"
+msgstr "Search into your music library"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:64
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:77
+msgid "No zone"
+msgstr "No zone"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:67
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:68
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:69
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:80
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:81
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:82
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:260
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:261
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:262
+msgid "None"
+msgstr "None"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:94
+msgid "Position :"
+msgstr "Position :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:95
+msgid "Artist :"
+msgstr "Artist :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:96
+msgid "Album :"
+msgstr "Album :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:97
+msgid "Track :"
+msgstr "Track :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:98
+msgid "Year :"
+msgstr "Year :"
+
+#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:99
+msgid "Duration :"
+msgstr "Duration :"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:36
+msgid "Resume"
+msgstr "Resume"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:37
+msgid ""
+"Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
+"your Calaos System</small"
+msgstr ""
+"Resume of: <light_blue>My Home</light_blue><br><small>Information about "
+"your Calaos System</small"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
+msgid "Our Partners"
+msgstr "Our Partners"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:39
+msgid ""
+"<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
+"small>"
+msgstr ""
+"<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
+"small>"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
+msgid "About"
+msgstr "About"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:38
+msgid ""
+"About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
+"solutions.</small>"
+msgstr ""
+"About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
+"solutions.</small>"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:43
+msgid "Product Version: "
+msgstr "Product Version: "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:45
+msgid "Last update: "
+msgstr "Last update: "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:47
+msgid "System started since : "
+msgstr "System started since : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
+msgid " day"
+msgstr " day"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:57
+msgid " days"
+msgstr " days"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:61
+msgid "Machine name : "
+msgstr "Machine name : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:67
+msgid "Network address :"
+msgstr "Network address :"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:70
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
+msgid "Web Site : "
+msgstr "Web Site : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:72
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
+msgid "Email : "
+msgstr "Email : "
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:91
+msgid "Date and clock"
+msgstr "Date and clock"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:109
+msgid "Screen saver"
+msgstr "Screen saver"
+
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:33
+msgid "Action and positions of widgets"
+msgstr "Action and positions of widgets"
+
+#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:34
+msgid ""
+"Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
+"and Time !</small"
+msgstr ""
+"Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
+"and Time !</small"
+
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:29
+msgid "Change your password"
+msgstr "Change your password"
+
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:30
+msgid ""
+"Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
+"small>"
+msgstr ""
+"Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
+"small>"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:35
+msgid "Configure Touch Screen"
+msgstr "Configure Touch Screen"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:36
+msgid ""
+"Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
+"Touch Screen !</small>"
+msgstr ""
+"Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
+"Touch Screen !</small>"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:40
+msgid "Configure power management settings"
+msgstr "Configure power management settings"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:41
+msgid ""
+"Enable if you want to activate automatic screen blanking and the delay after "
+"wich the screen will be turned off. You can also ask for a password when the "
+"screen is turned on again."
+msgstr ""
+"Enable if you want to activate automatic screen blanking and the delay after "
+"wich the screen will be turned off. You can also ask for a password when the "
+"screen is turned on again."
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
+msgid "TouchScreen"
+msgstr "TouchScreen"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:43
+msgid "TouchScreen configuration."
+msgstr "TouchScreen configuration."
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:50
+msgid "Time before screensaver activation : "
+msgstr "Time before screensaver activation : "
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:51
+msgid "Enable screen saver : "
+msgstr "Enable screen saver : "
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:64
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
+msgid " minutes"
+msgstr " minutes"
+
+#: src/bin/calaos_home/views/ActivityConfigMenuView.h:42
+#, fuzzy
+msgid "Configuration center"
+msgstr "Configuration"
+
+#: src/bin/calaos_home/views/ActivityConfigClockView.h:41
+#, fuzzy
+msgid "Configure Clock and Date"
+msgstr "Configure Clock and Date"
+
+#: src/bin/calaos_home/views/ActivityConfigPasswordView.h:41
+#, fuzzy
+msgid "Configure Password"
+msgstr "Configure Password"
+
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.h:41
+#, fuzzy
+msgid "Configure Screen saver settings"
+msgstr "Configure Screen saver settings"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
+msgid "My new scenario"
+msgstr "My new scenario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:91
+msgid "Scenario name: "
+msgstr "Scenario name: "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+msgid "Displayed in the interface: "
+msgstr "Displayed in the interface: "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
+msgid "Enabled in"
+msgstr "Enabled in"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+msgid "Don't display it."
+msgstr "Don't display it."
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+msgid "Infinite loop: "
+msgstr "Infinite loop: "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
+msgid "Enabled"
+msgstr "Enabled"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+msgid "Disabled"
+msgstr "Disabled"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:152
+msgid "Enter the name of scenario"
+msgstr "Enter the name of scenario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:182
+msgid "Don't display it"
+msgstr "Don't display it"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:492
+msgid "Final step"
+msgstr "Final step"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:477
+msgid "Step"
+msgstr "Step"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+msgid "Scenario step"
+msgstr "Scenario step"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+msgid "Progress of your scenario"
+msgstr "Progress of your scenario"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+msgid "Choose a time"
+msgstr "Choose a time"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+msgid "Paused time before the next step"
+msgstr "Paused time before the next step"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:557
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:453
+#, c-format
+msgid "%.0f<br><subtitle>Hours</subtitle>"
+msgstr "%.0f<br><subtitle>Hours</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:567
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:463
+#, c-format
+msgid "%.0f<br><subtitle>Min.</subtitle>"
+msgstr "%.0f<br><subtitle>Min.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:577
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:473
+#, c-format
+msgid "%.0f<br><subtitle>Sec.</subtitle>"
+msgstr "%.0f<br><subtitle>Sec.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:587
+#, c-format
+msgid "%.0f<br><subtitle>Ms.</subtitle>"
+msgstr "%.0f<br><subtitle>Ms.</subtitle>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:724
+msgid "Confirmation"
+msgstr "Confirmation"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+msgid "Are you sure to want deleting this step?"
+msgstr "Are you sure to want deleting this step?"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:639
+msgid "Yes, del this step"
+msgstr "Yes, del this step"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:643
+msgid "No"
+msgstr "No"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:36
+msgid "My House"
+msgstr "My House"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:37
+msgid "Loading..."
+msgstr "Loading..."
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:437
+msgid ""
+"State of the House : <light_blue>Normal</light_blue><br><small>Informations "
+"concerning your House</small>"
+msgstr ""
+"State of the House : <light_blue>Normal</light_blue><br><small>Informations "
+"concerning your House</small>"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:61
+msgid "Your Music"
+msgstr "Your Music"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:62
+msgid "Access you media library"
+msgstr "Access you media library"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:66
+msgid "CCTV"
+msgstr "CCTV"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:67
+msgid "Drive all you cctv cameras"
+msgstr "Drive all you cctv cameras"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:71
+msgid "Flickr"
+msgstr "Flickr"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:72
+msgid "Look at pictures"
+msgstr "Look at pictures"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:76
+msgid "Internet"
+msgstr "Internet"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:77
+msgid "Go and surf the web"
+msgstr "Go and surf the web"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:81
+msgid "Eskiss"
+msgstr "Eskiss"
+
+#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:82
+msgid "Play with physics !"
+msgstr "Play with physics !"
+
+#: src/bin/calaos_home/views/ActivityMediaView.cpp:31
+msgid "Multimedia"
+msgstr "Multimedia"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:33
+msgid "Scheduling"
+msgstr "Scheduling"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:52
+msgid "Month of year"
+msgstr "Month of year"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:55
+msgid "All year"
+msgstr "All year"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:60
+msgid "January"
+msgstr "January"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:64
+msgid "February"
+msgstr "February"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:68
+msgid "March"
+msgstr "March"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:72
+msgid "April"
+msgstr "April"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:76
+msgid "May"
+msgstr "May"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:80
+msgid "June"
+msgstr "June"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:84
+msgid "July"
+msgstr "July"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:88
+msgid "August"
+msgstr "August"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:92
+msgid "September"
+msgstr "September"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:96
+msgid "October"
+msgstr "October"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:100
+msgid "November"
+msgstr "November"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:104
+msgid "December"
+msgstr "December"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:231
+msgid ""
+"Start of schedulling<br><small><light_blue>Start time of the scenario</"
+"light_blue></small>"
+msgstr ""
+"Start of schedulling<br><small><light_blue>Start time of the scenario</"
+"light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:237
+msgid ""
+"End of schedulling<br><small><light_blue>End time of the scenario</"
+"light_blue></small>"
+msgstr ""
+"End of schedulling<br><small><light_blue>End time of the scenario</"
+"light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:240
+msgid "Start"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:250
+msgid "Use a fixed time"
+msgstr "Use a fixed time"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:251
+msgid "Use the sunrise"
+msgstr "Use the sunrise"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:252
+msgid "Use the sunset"
+msgstr "Use the sunset"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:253
+msgid "Use the midday sun"
+msgstr "Use the midday sun"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:310
+msgid ""
+"<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
+"time</small></light_blue>"
+msgstr ""
+"<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
+"time</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:322
+msgid "Use the exact sun time"
+msgstr "Use the exact sun time"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:323
+msgid "Add time"
+msgstr "Add time"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:324
+msgid "Substract time"
+msgstr "Substract time"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:419
+msgid ""
+"<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</"
+"small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:421
+msgid ""
+"<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</"
+"small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:423
+msgid ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</"
+"small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:425
+msgid ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</"
+"small></light_blue>"
+msgstr ""
+"<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</"
+"small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:526
+msgid ""
+"Days of the week<br><small><light_blue>Days of the week when scenario is "
+"executed.</light_blue></small>"
+msgstr ""
+"Days of the week<br><small><light_blue>Days of the week when scenario is "
+"executed.</light_blue></small>"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:531
+#, fuzzy
+msgid "End"
+msgstr "End"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:533
+msgid "Beginning"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:545
+msgid "Everyday"
+msgstr "Everyday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:546
+msgid "Monday"
+msgstr "Monday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:547
+msgid "Tuesday"
+msgstr "Tuesday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:548
+msgid "Wednesday"
+msgstr "Wednesday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:549
+msgid "Thursday"
+msgstr "Thursday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:550
+msgid "Friday"
+msgstr "Friday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:551
+msgid "Saturday"
+msgstr "Saturday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:552
+msgid "Sunday"
+msgstr "Sunday"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:553
+msgid "ERROR"
+msgstr "ERROR"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:726
+#, fuzzy
+msgid "Are you sure to delete this schedule?"
+msgstr "Are you sure to delete this schedule?"
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:733
+#, fuzzy
+msgid "Yes, delete this schedule"
+msgstr "Oui, supprimer l'étape"
+
+#: src/bin/calaos_home/views/ActivityView.cpp:77
+msgid "Quit"
+msgstr "Quit"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:50
+msgid "Execute at "
+msgstr "Execute at "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:52
+msgid "Start at "
+msgstr "Start at "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:91
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:106
+msgid "Sunrise"
+msgstr "Sunrise "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:93
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:108
+msgid "Sunset"
+msgstr "Sunset"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:95
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:110
+msgid "Noon"
+msgstr "Noon"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:101
+msgid "stop at "
+msgstr "stop at "
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:45
+msgid "My Home"
+msgstr "My Home"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:46
+msgid "Medias"
+msgstr "Media"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:47
+msgid "Scenarios"
+msgstr "Scenarios"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:48
+msgid "Configuration"
+msgstr "Configuration"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:100
+msgid "Add new widget."
+msgstr "Add new widget."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:105
+msgid "Widgets configuration."
+msgstr "Widgets configuration."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:110
+msgid "Shut the screen off."
+msgstr "Shut the screen off."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:115
+msgid "Reboot the machine."
+msgstr "Reboot the machine."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:122
+msgid "Touch the screen once to wake up the machine."
+msgstr "Touch the screen once to wake up the machine."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:125
+msgid "Auto: Off"
+msgstr "Auto: Off"
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:144
+msgid "Add widgets on the desktop."
+msgstr "Add widgets on the desktop."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:150
+msgid "Move and setup your widgets on the desktop."
+msgstr "Move and setup your widgets on the desktop."
+
+#: src/bin/calaos_home/views/MainMenuView.cpp:155
+msgid "Please wait during the reboot."
+msgstr "Please wait during the reboot."
+
+#: src/bin/calaos_home/views/Widget.cpp:205
+msgid ""
+"Confirmation<br><small><light_blue>Are you sure to want delete this widget?</"
+"light_blue></small>"
+msgstr ""
+"Confirmation<br><small><light_blue>Are you sure to want delete this widget?</"
+"light_blue></small>"
+
+#: src/bin/calaos_home/views/Widget.cpp:209
+msgid "Yes, del this widget"
+msgstr "Yes, del this widget"
+
+#~ msgid "Spring"
+#~ msgstr "Printemps"
+
+#~ msgid "Summer"
+#~ msgstr "Summer"
+
+#~ msgid "Fall"
+#~ msgstr "Fall"
+
+#~ msgid "Winter"
+#~ msgstr "Winter"
+
+#~ msgid "Energy saving"
+#~ msgstr "Energy saving"
+
+#~ msgid "Password"
+#~ msgstr "Password"
