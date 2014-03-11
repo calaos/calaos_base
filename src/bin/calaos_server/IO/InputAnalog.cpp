@@ -41,12 +41,12 @@ InputAnalog::InputAnalog(Params &p):
 
     Calaos::StartReadRules::Instance().addIO();
 
-    cInfoDom("input") << "InputAnalog::InputAnalog(" << get_param("id") << "): Ok";
+    cInfoDom("input") << get_param("id") << ": Ok";
 }
 
 InputAnalog::~InputAnalog()
 {
-    cInfoDom("input") << "InputAnalog::~InputAnalog(): Ok";
+    cInfoDom("input");
 }
 
 void InputAnalog::readConfig()
@@ -66,7 +66,7 @@ void InputAnalog::emitChange()
     sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
     IPC::Instance().SendEvent("events", sig);
 
-    cInfoDom("input") << "InputAnalog:changed(" << get_param("id") << ") : " << get_value_double();
+    cInfoDom("input") << get_param("id") << ": " << get_value_double();
 }
 
 void InputAnalog::hasChanged()
@@ -86,7 +86,7 @@ double InputAnalog::get_value_double()
 {
     readConfig();
 
-    cDebugDom("input") << "InputAnalog::get_value_double(" << get_param("id") << "): "
+    cDebugDom("input") << get_param("id") << ": "
                        << value << " * " << real_value_max << " / " << wago_value_max;
 
     if (wago_value_max > 0 && real_value_max > 0)

@@ -44,19 +44,19 @@ WODaliRVB::WODaliRVB(Params &_p):
     Calaos::StartReadRules::Instance().addIO();
     Calaos::StartReadRules::Instance().addIO();
 
-    cDebugDom("output") << "WODaliRVB::WODaliRVB(" << get_param("id") << "): Ok";
+    cDebugDom("output") << get_param("id") << ": Ok";
 }
 
 WODaliRVB::~WODaliRVB()
 {
-    cDebugDom("output") << "WODaliRVB::~WODaliRVB(): Ok";
+    cDebugDom("output");
 }
 
 void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
 {
     if (!status)
     {
-        cInfoDom("output") << "WODaliRVB::WagoUdpCommandRed(): Error with request " << command;
+        cInfoDom("output") << "Error with request " << command;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
@@ -81,7 +81,7 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
 {
     if (!status)
     {
-        cInfoDom("output") << "WODaliRVB::WagoUdpCommandGreen(): Error with request " << command;
+        cInfoDom("output") << "Error with request " << command;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
@@ -106,7 +106,7 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result
 {
     if (!status)
     {
-        cInfoDom("output") << "WODaliRVB::WagoUdpCommandBlue(): Error with request " << command;
+        cInfoDom("output") << "Error with request " << command;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
@@ -131,7 +131,7 @@ void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
 {
     if (!status)
     {
-        cInfoDom("output") << "WODaliRVB::WagoUdpCommand(): Error with request " << command;
+        cInfoDom("output") << "Error with request " << command;
 
         return;
     }

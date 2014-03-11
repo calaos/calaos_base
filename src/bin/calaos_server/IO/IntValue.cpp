@@ -31,7 +31,7 @@ Internal::Internal(Params &p):
     dvalue(0.0),
     svalue("")
 {
-    cInfoDom("output") << "Internal::Internal(" << get_param("id") << "): Ok";
+    cInfoDom("output") << get_param("id") << ": Ok";
 
     if (!Input::get_params().Exists("visible")) Input::set_param("visible", "false");
     if (!Input::get_params().Exists("rw")) Input::set_param("rw", "false");
@@ -45,7 +45,7 @@ Internal::Internal(Params &p):
 
 Internal::~Internal()
 {
-    cInfoDom("output") << "Internal::~Internal(): Ok";
+    cInfoDom("output");
 }
 
 void Internal::force_input_bool(bool v)
@@ -68,7 +68,7 @@ void Internal::force_input_bool(bool v)
 
 bool Internal::set_value(bool val)
 {
-    cInfoDom("output") << "InternalBool(" << get_param("id") << "): got action, " << ((val)?"True":"False");
+    cInfoDom("output") << get_param("id") << ": got action, " << ((val)?"True":"False");
 
     force_input_bool(val);
 
@@ -98,7 +98,7 @@ void Internal::force_input_double(double v)
 
 bool Internal::set_value(double val)
 {
-    cInfoDom("output") << "InternalInt(" << get_param("id") << "): got action, " << val;
+    cInfoDom("output") << get_param("id") << ": got action, " << val;
 
     force_input_double(val);
 
@@ -168,7 +168,7 @@ bool Internal::set_value(string val)
     }
     else if (get_type() == TSTRING)
     {
-        cInfoDom("output") << "InternalString(" << get_param("id") << "): got action, " << val;
+        cInfoDom("output") << get_param("id") << ": got action, " << val;
 
         force_input_string(val);
 
@@ -189,8 +189,8 @@ bool Internal::set_value(string val)
                 int t;
                 Utils::from_string(tmp, t);
 
-                cInfoDom("output") << "InternalBool(" << get_param("id")
-                                   << "): got impulse action, staying true for "
+                cInfoDom("output") << get_param("id")
+                                   << ": got impulse action, staying true for "
                                    << t << "ms";
 
                 set_value(true);
@@ -230,8 +230,7 @@ void Internal::impulse_extended(string pattern)
     DELETE_NULL(timer);
     blinks.clear();
 
-    cInfoDom("output") << "InternalBool(" << get_param("id")
-                       << "): got extended impulse action, parsing blinking pattern...";
+    cInfoDom("output") << get_param("id") << ": got extended impulse action, parsing blinking pattern...";
 
     //Parse the string
     vector<string> tokens;
@@ -253,8 +252,8 @@ void Internal::impulse_extended(string pattern)
 
             blinks.push_back(binfo);
 
-            cDebugDom("output") << "InternalBool(" << get_param("id")
-                                << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
+            cDebugDom("output") << get_param("id")
+                                << ": Add blink step " << ((binfo.state)?"True":"False")
                                 << " for " << binfo.duration << "ms";
 
             state = !state;
@@ -264,8 +263,7 @@ void Internal::impulse_extended(string pattern)
             //set loop mode to the next item
             loop = blinks.size();
 
-            cDebugDom("output") << "InternalBool("
-                                << get_param("id") << ")::Parse : Loop all next steps.";
+            cDebugDom("output") << get_param("id") << ": Loop all next steps.";
         }
         else if (tokens[i] == "old")
         {
@@ -276,9 +274,8 @@ void Internal::impulse_extended(string pattern)
 
             blinks.push_back(binfo);
 
-            cDebugDom("output") << "InternalBool(" << get_param("id")
-                                << ")::Parse : Add blink step " << ((binfo.state)?"True":"False")
-                                   ;
+            cDebugDom("output") << get_param("id")
+                                << ": Add blink step " << ((binfo.state)?"True":"False");
         }
     }
 

@@ -30,13 +30,13 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
     Params result = request;
     if (request["0"] == "version")
     {
-        cDebugDom("network") << "TCPConnection::BaseCommand(version)";
+        cDebugDom("network") << "version";
         if (request["1"] == "?")
             result.Add("1", Utils::get_config_option("fw_version"));
     }
     else if (request["0"] == "save")
     {
-        cDebugDom("network") << "TCPConnection::BaseCommand(save)";
+        cDebugDom("network") << "save";
 
         Config::Instance().SaveConfigIO();
         Config::Instance().SaveConfigRule();
@@ -50,7 +50,7 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
     }
     else if (request["0"] == "system")
     {
-        cDebugDom("network") << "TCPConnection::BaseCommand(system)";
+        cDebugDom("network") << "system";
 
         if (request["1"] == "reboot")
         {
@@ -100,19 +100,19 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
     }
     else if (request["0"] == "firmware")
     {
-        cDebugDom("network") << "TCPConnection::BaseCommand(firmware)";
+        cDebugDom("network") << "firmware";
 
         if (request["1"] == "webupdate")
         {
             //try to update firmware from /tmp/image.tar.bz2
-            cDebugDom("network") << "TCPConnection::BaseCommand(save): Firmware update requested by web.";
+            cDebugDom("network") << "save: Firmware update requested by web.";
             int unused = system("fw_update.sh");
             (void)unused;
         }
     }
     else if (request["0"] == "poll_listen")
     {
-        cDebugDom("network") << "TCPConnection::BaseCommand(poll_listen)";
+        cDebugDom("network") << "poll_listen";
 
         if (request["1"] == "register")
         {

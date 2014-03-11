@@ -183,9 +183,9 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
     }
 
     if (in)
-        cInfo() <<  "IOFactory::CreateInput(" << type << "): Ok";
+        cInfo() <<  type << ": Ok";
     else
-        cWarning() <<  "IOFactory::CreateInput(" << type << "): Unknown Input type !";
+        cWarning() <<  type << ": Unknown Input type !";
 
     return in;
 }
@@ -222,7 +222,7 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
     }
     else if (type == "WONeon")
     {
-        cError() <<  "IOFactory::CreateOutput(" << type << "): WONeon is deprecated !";
+        cError() <<  type << ": WONeon is deprecated !";
     }
     else if (type == "X10Output")
     {
@@ -279,9 +279,9 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
     }
 
     if (out)
-        cInfo() <<  "IOFactory::CreateOutput(" << type << "): Ok";
+        cInfo() <<  type << ": Ok";
     else
-        cWarning() <<  "IOFactory::CreateOutput(" << type << "): Unknown Output type !";
+        cWarning() <<  type << ": Unknown Output type !";
 
     return out;
 }
@@ -307,9 +307,9 @@ AudioPlayer *IOFactory::CreateAudio (std::string type, Params &params)
     }
 
     if (player)
-        cInfo() <<  "IOFactory::CreateAudio(" << type << "): Ok";
+        cInfo() << type << ": Ok";
     else
-        cWarning() <<  "IOFactory::CreateAudio(" << type << "): Unknown Input type !";
+        cWarning() << type << ": Unknown Input type !";
 
     return player;
 }
@@ -347,9 +347,9 @@ IPCam *IOFactory::CreateIPCamera (std::string type, Params &params)
     }
 
     if (cam)
-        cInfo() <<  "IOFactory::CreateIPCamera(" << type << "): Ok";
+        cInfo() << type << ": Ok";
     else
-        cWarning() <<  "IOFactory::CreateIPCamera(" << type << "): Unknown Input type !";
+        cWarning() << type << ": Unknown Input type !";
 
     return cam;
 }

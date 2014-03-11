@@ -29,7 +29,7 @@ void TCPConnection::CameraCommand(Params &request, ProcessDone_cb callback)
     //camera functions
     if (request["0"] == "camera")
     {
-        cDebugDom("network") << "TCPConnection::CameraCommand(camera)";
+        cDebugDom("network") << "camera";
         if (request["1"] == "?")
         {
             int cpt = 0;

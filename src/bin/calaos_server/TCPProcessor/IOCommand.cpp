@@ -48,7 +48,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
         input = ListeRoom::Instance().get_input(id);
 
-        cDebugDom("network") << "TCPConnection::IOCommand(input)";
+        cDebugDom("network");
         if (input && request["2"] == "get")
         {
             result.Add("1", "id:" + id);
@@ -478,7 +478,7 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 }
                 catch(...)
                 {
-                    cErrorDom("network") << "TCPConnection::IOCommand(InPlageHoraire): wrong parameters for months: " << m;
+                    cErrorDom("network") << "wrong parameters for months: " << m;
 
                     result.Add("5", "error");
                 }

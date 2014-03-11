@@ -32,7 +32,7 @@ void TCPConnection::AudioCommand(Params &request, ProcessDone_cb callback)
     {
         Output* output = NULL;
 
-        cDebugDom("network") << "TCPConnection::AudioCommand(audio)";
+        cDebugDom("network");
         if (request["1"] == "?")
         {
             result.Add("1", Utils::to_string(AudioManager::Instance().get_size()));

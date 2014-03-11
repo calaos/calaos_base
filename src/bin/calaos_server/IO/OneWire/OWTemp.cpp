@@ -40,7 +40,7 @@ OWTemp::OWTemp(Params &p):
     OW_init(ow_args.c_str());
 #endif
 
-    cDebugDom("input") << "OWTemp(" << get_param("id") << "): OW_ID : " << ow_id;
+    cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 
     //read value when calaos_server is started
     readValue();
@@ -49,7 +49,7 @@ OWTemp::OWTemp(Params &p):
 
 OWTemp::~OWTemp()
 {
-    cInfoDom("input") << "OWTemp::~OWTemp(): Ok";
+    cInfoDom("input");
 
 #ifdef HAVE_OWCAPI_H
     OW_finish();
@@ -75,11 +75,11 @@ void OWTemp::readValue()
     {
         val = atof(res);
         free(res);
-        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Ok";
+        cInfoDom("input") << get_param("id") << ": Ok";
     }
     else
     {
-        cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): Cannot read One Wire Temperature Sensor (" << ow_id << ")";
+        cInfoDom("input") << get_param("id") << ": Cannot read One Wire Temperature Sensor (" << ow_id << ")";
     }
 
     if (val != value)
@@ -88,6 +88,6 @@ void OWTemp::readValue()
         emitChange();
     }
 #else
-    cInfoDom("input") << "OWTemp::OWTemp(" << get_param("id") << "): One Wire support not enabled !";
+    cInfoDom("input") << get_param("id") << ": One Wire support not enabled !";
 #endif
 }

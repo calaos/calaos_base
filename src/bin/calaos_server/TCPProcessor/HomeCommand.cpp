@@ -36,7 +36,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
 
     if (request["0"] == "home")
     {
-        cDebugDom("network") << "TCPConnection::HomeCommand(home)";
+        cDebugDom("network") << "home";
         if (request["1"] == "?")
         {
             std::map<std::string, int> list;
@@ -92,7 +92,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                 found = true;
         }
 
-        cDebugDom("network") << "TCPConnection::HomeCommand(room)";
+        cDebugDom("network") << "room";
         if (found && request["2"] == "?")
         {
             vector<Room *> rooms;

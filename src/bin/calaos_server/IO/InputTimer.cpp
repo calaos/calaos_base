@@ -34,12 +34,12 @@ InputTimer::InputTimer(Params &p):
     set_param("visible", "false");
     set_param("gui_type", "timer");
 
-    cDebugDom("input") << "InputTimer::InputTimer(" << get_param("id") << "): Ok";
+    cDebugDom("input") << get_param("id") << ": Ok";
 }
 
 InputTimer::~InputTimer()
 {
-    cDebugDom("input") << "InputTimer::~InputTimer(): Ok";
+    cDebugDom("input");
 }
 
 bool InputTimer::set_value(string command)
@@ -52,12 +52,12 @@ bool InputTimer::set_value(string command)
 
     if (command == "true")
     {
-        cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Start Timer";
+        cInfoDom("output") << get_param("id") << ": got action, Start Timer";
         StartTimer();
     }
     else if(command == "false")
     {
-        cInfoDom("output") << "InputTimer(" << get_param("id") << "): got action, Stop Timer";
+        cInfoDom("output") << get_param("id") << ": got action, Stop Timer";
         StopTimer();
     }
     else
@@ -89,8 +89,7 @@ bool InputTimer::set_value(string command)
                 i++;
             }
             else
-                cWarningDom("output") <<
-                                         "InputTimer: Invalid time value: " <<j;
+                cWarningDom("output") << "Invalid time value: " << j;
         }
 
         set_param("hour", Utils::to_string(hour));

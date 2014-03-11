@@ -29,7 +29,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
     value(false)
 {
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
-    cDebugDom("input") << "InPlageHoraire::InPlageHoraire(" << get_param("id") << "): Ok";
+    cDebugDom("input") << get_param("id") << ": Ok";
 
     set_param("visible", "false");
     set_param("gui_type", "time_range");
@@ -39,7 +39,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
 
 InPlageHoraire::~InPlageHoraire()
 {
-    cDebugDom("input") << "InPlageHoraire::~InPlageHoraire(): Ok";
+    cDebugDom("input");
 }
 
 void InPlageHoraire::clear()
@@ -94,7 +94,7 @@ void InPlageHoraire::hasChanged()
     if (val != value)
     {
         value = val;
-        cInfoDom("input") << "InPlageHoraire(" << get_param("id") << "): Changed to " << (value?"true":"false");
+        cInfoDom("input") << get_param("id") << ": Changed to " << (value?"true":"false");
 
         EmitSignalInput();
 
@@ -258,8 +258,8 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
         }
         catch(...)
         {
-            cErrorDom("input") << "InPlageHoraire::LoadFromXml(): wrong parameters for months: " << m;
-            cErrorDom("input") << "InPlageHoraire::LoadFromXml(): Setting all months to active";
+            cErrorDom("input") << "Wrong parameters for months: " << m;
+            cErrorDom("input") << "Setting all months to active";
 
             months.set(); //set all months by default
         }

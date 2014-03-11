@@ -42,12 +42,12 @@ InputTemp::InputTemp(Params &p):
 
     Calaos::StartReadRules::Instance().addIO();
 
-    cInfoDom("input") << "InputTemp::InputTemp(" << get_param("id") << "): Ok";
+    cInfoDom("input") << get_param("id") << ": Ok";
 }
 
 InputTemp::~InputTemp()
 {
-    cInfoDom("input") << "InputTemp::~InputTemp(): Ok";
+    cInfoDom("input");
 }
 
 void InputTemp::hasChanged()
@@ -87,7 +87,7 @@ double InputTemp::get_value_double()
 
 void InputTemp::emitChange()
 {
-    cInfoDom("input") << "WITemp:changed(" << get_param("id") << ") : " << get_value_double() << " °C";
+    cInfoDom("input") << get_param("id") << ": " << get_value_double() << " °C";
 
     EmitSignalInput();
 

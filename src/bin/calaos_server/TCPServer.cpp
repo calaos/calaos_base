@@ -36,9 +36,9 @@ TCPServer::TCPServer(int p): port(p), tcp_server(NULL)
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
     cDebugDom("network")
-            << "TCPServer::TCPServer(): Init TCP Server";
+            << "Init TCP Server";
     cInfoDom("network")
-            << "TCPServer::TCPServer(): Listening on port " << port;
+            << "Listening on port " << port;
 }
 
 TCPServer::~TCPServer()
@@ -50,8 +50,7 @@ TCPServer::~TCPServer()
     ecore_event_handler_del(event_handler_client_del);
     ecore_event_handler_del(event_handler_data_get);
 
-    cDebugDom("network")
-            << "TCPServer::~TCPServer(): Ok";
+    cDebugDom("network");
 }
 
 Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev)
@@ -69,9 +68,7 @@ Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Cl
     }
     else
     {
-        cCriticalDom("network")
-                << "TCPServer(): _ecore_con_handler_client_add, failed to get TCPServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get TCPServer object !";
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -92,9 +89,7 @@ Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Cl
     }
     else
     {
-        cCriticalDom("network")
-                << "TCPServer(): _ecore_con_handler_client_del, failed to get TCPServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get TCPServer object !";
     }
 
     return ECORE_CALLBACK_CANCEL;
@@ -115,9 +110,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     }
     else
     {
-        cCriticalDom("network")
-                << "TCPServer(): _ecore_con_handler_data_get, failed to get TCPServer object !"
-                   ;
+        cCriticalDom("network") << "failed to get TCPServer object !";
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -126,7 +119,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
 void TCPServer::addConnection(Ecore_Con_Client *client)
 {
     cDebugDom("network")
-            << "TCPServer::addConnection(): Got a new connection from address "
+            << "Got a new connection from address "
             << ecore_con_client_ip_get(client)
                ;
 
@@ -137,7 +130,7 @@ void TCPServer::addConnection(Ecore_Con_Client *client)
 void TCPServer::delConnection(Ecore_Con_Client *client)
 {
     cDebugDom("network")
-            << "TCPServer::delConnection(): Connection from adress "
+            << "Connection from adress "
             << ecore_con_client_ip_get(client) << " closed."
                ;
 
@@ -145,8 +138,7 @@ void TCPServer::delConnection(Ecore_Con_Client *client)
     if (it == connections.end())
     {
         cCriticalDom("network")
-                << "TCPServer::delConnection(): Can't find corresponding TCPConnection !"
-                   ;
+                << "Can't find corresponding TCPConnection !";
 
         return;
     }
@@ -160,16 +152,14 @@ void TCPServer::getDataConnection(Ecore_Con_Client *client, void *data, int size
     string d((char *)data, size);
 
     cDebugDom("network")
-            << "TCPServer::getDataConnection(): Got data from client at address "
-            << ecore_con_client_ip_get(client)
-               ;
+            << "Got data from client at address "
+            << ecore_con_client_ip_get(client);
 
     map<Ecore_Con_Client *, TCPConnection *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network")
-                << "TCPServer::getDataConnection(): Can't find corresponding TCPConnection !"
-                   ;
+                << "Can't find corresponding TCPConnection !";
 
         return;
     }

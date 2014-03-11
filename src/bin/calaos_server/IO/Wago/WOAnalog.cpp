@@ -36,19 +36,19 @@ WOAnalog::WOAnalog(Params &p):
 
     Calaos::StartReadRules::Instance().addIO();
 
-    cDebugDom("output") << "WOAnalog::WOAnalog(" << get_param("id") << "): Ok";
+    cDebugDom("output") << get_param("id");
 }
 
 WOAnalog::~WOAnalog()
 {
-    cDebugDom("output") << "WOAnalog::~WOAnalog(): Ok";
+    cDebugDom("output");
 }
 
 void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
     if (!status)
     {
-        cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to read value";
+        cErrorDom("output") << get_param("id") << ": Failed to read value";
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
@@ -65,7 +65,7 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 {
     if (!status)
     {
-        cErrorDom("output") << "WOAnalog(" << get_param("id") << "): Failed to write value";
+        cErrorDom("output") << get_param("id") << ": Failed to write value";
         return;
     }
 
@@ -73,7 +73,7 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
 
     emitChange();
 
-    cInfoDom("output") << "WOAnalog(" << get_param("id") << "), executed action " << value << " (" << get_value_double() << ")";
+    cInfoDom("output") << get_param("id") << ", executed action " << value << " (" << get_value_double() << ")";
 }
 
 void WOAnalog::set_value_real(double val)
