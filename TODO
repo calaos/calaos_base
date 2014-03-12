@@ -1,5 +1,7 @@
 For next 2.0.0 release:
 
+- https://github.com/calaos/calaos_base/issues?state=open
+
 - Finish calaos_home Configuration pannel
 - Remove the old calaos_web and make calaos_web_newgen available instead for basic house control
 - Translation! At least in english/french
