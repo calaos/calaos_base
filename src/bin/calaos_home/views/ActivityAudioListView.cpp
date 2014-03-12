@@ -233,10 +233,10 @@ void ActivityAudioListView::setEditMode()
 
     Params &stats = player_current->getPlayer()->getDBStats();
 
-    string s = "<small><blue>Discothèque : </blue>" +
-               stats["albums"] + " albums avec " +
-               stats["tracks"] + " pistes par " +
-               stats["artists"] + " artistes.</small>";
+    string s = _("<small><blue>Media library : </blue>") +
+               stats["albums"] + _(" albums with ") +
+               stats["tracks"] + _(" tracks by ") +
+               stats["artists"] + _(" artists.</small>");
     setPartText("browser.message", s);
 
     createRootBrowserPage();
