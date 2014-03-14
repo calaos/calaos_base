@@ -71,7 +71,11 @@ void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *
         sc->load_done.connect(sigc::mem_fun(*this, &ScenarioModel::load_scenario_done));
 
         string cmd = "scenario get " + result[i];
-        connection->SendCommand(cmd, sigc::mem_fun(*sc, &Scenario::scenario_get_cb));
+        connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
+        {
+            sc->scenario_get_cb(_success, _result, _data);
+            sc->load_done.emit(sc);
+        });
     }
 }
 
@@ -161,8 +165,6 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
                 scenario_data.steps[step].actions.push_back(sa);
         }
     }
-
-    load_done.emit(this);
 }
 
 Room *Scenario::getRoom()
