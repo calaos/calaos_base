@@ -1487,7 +1487,7 @@ void IOBase::loadPlage()
 
     if (params["gui_type"] != "time_range")
     {
-        cErrorDom("network") << "IOBase:loadPlage(): " << params["id"]
+        cErrorDom("network") << params["id"]
                              << " is not of type time_range, but " << params["gui_type"]
                              << " instead.";
         return;
