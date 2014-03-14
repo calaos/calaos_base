@@ -475,6 +475,10 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                     plage->months = mset;
 
                     result.Add("5", "ok");
+
+                    string sig = "input_range_change ";
+                    sig += input->get_param("id") + " ";
+                    IPC::Instance().SendEvent("events", sig);
                 }
                 catch(...)
                 {
