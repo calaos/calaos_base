@@ -208,6 +208,11 @@ void Room::load_io_done(IOBase *io)
         }
     }
 
+    if (_type == "time_range")
+    {
+        io->loadPlage();
+    }
+
     if (io_loaded <= 0)
     {
         ios.sort(IOHitsCompare);
