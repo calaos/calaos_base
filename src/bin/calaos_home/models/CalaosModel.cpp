@@ -59,20 +59,20 @@ void CalaosModel::discover_found(string address)
 
     load_count = 0;
 
-    DELETE_NULL(room_model)
-            room_model = new RoomModel(connection);
+    DELETE_NULL(room_model);
+    room_model = new RoomModel(connection);
     room_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_home_done));
 
-    DELETE_NULL(camera_model)
-            camera_model = new CameraModel(connection);
+    DELETE_NULL(camera_model);
+    camera_model = new CameraModel(connection);
     camera_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 
-    DELETE_NULL(audio_model)
-            audio_model = new AudioModel(connection);
+    DELETE_NULL(audio_model);
+    audio_model = new AudioModel(connection);
     audio_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 
-    DELETE_NULL(scenario_model)
-            scenario_model = new ScenarioModel(connection);
+    DELETE_NULL(scenario_model);
+    scenario_model = new ScenarioModel(connection);
     scenario_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 }
 
