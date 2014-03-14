@@ -131,10 +131,10 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
         {
             scenario_data.params.Add(tmp[0], tmp[1]);
 
-            if (tmp[0] != "schedule" && tmp[1] != "false")
+            if (tmp[0] == "schedule" && tmp[1] != "false")
             {
-                map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(tmp[1]);
-                if (it != CalaosModel::Instance().getHome()->getCacheOutputs().end())
+                map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(tmp[1]);
+                if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
                 {
                     ioPlage = (*it).second;
                     ioPlage->io_deleted.connect([=]()
