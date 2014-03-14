@@ -305,19 +305,31 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
         }
 
         string id = result[2].substr(string("schedule_id:").length());
+        double start_time = ecore_time_get();
 
         //We need to delay a bit because we have to wait for RoomModel to load the io id first
-        EcoreTimer::singleShot(0.5, [=]()
+        timer = new EcoreTimer(0.05, [=]()
         {
             map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(id);
 
             if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
             {
-                cErrorDom("scenario") << "Unknown Input \'" << id << "\' !";
+                if (ecore_time_get() - start_time >= 5.0)
+                {
+                    cErrorDom("scenario") << "I was not able to find input \'" << id << "\' for 5s! This is bad... Giving up.";
+                    delete timer;
 
-                callback(nullptr);
+                    callback(nullptr);
+                }
+                else
+                {
+                    cDebugDom("scenario") << "Still waiting for input \'" << id << "\'....";
+                }
+
                 return;
             }
+
+            DELETE_NULL(timer);
 
             ioPlage = it->second;
             ioPlage->io_deleted.connect([=]()

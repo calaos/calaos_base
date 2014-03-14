@@ -108,20 +108,18 @@ class Scenario: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    Room *room;
+    Room *room = nullptr;
+    EcoreTimer *timer = nullptr;
 
 public:
     Scenario(CalaosConnection *c):
-        connection(c),
-        room(NULL),
-        ioScenario(NULL),
-        ioPlage(NULL)
+        connection(c)
     {}
 
     void scenario_get_cb(bool success, vector<string> result, void *data);
 
-    IOBase *ioScenario;
-    IOBase *ioPlage;
+    IOBase *ioScenario = nullptr;
+    IOBase *ioPlage = nullptr;
 
     ScenarioData scenario_data;
 
