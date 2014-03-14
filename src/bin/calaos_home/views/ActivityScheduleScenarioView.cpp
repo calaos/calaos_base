@@ -131,11 +131,30 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
     */
 
     //Set up selection callback
-    item_all->item_selected.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::itemAllYearSelected));
+    item_all->item_selected.connect([=](void *data)
+    {
+        if (item_all->isSelected())
+        {
+            for (uint i = 0;i < items_months.size();i++)
+                items_months[i]->setSelected(false);
+            range_infos.range_months.set();
+        }
+    });
     for (uint i = 0;i < items_months.size();i++)
-        items_months[i]->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityScheduleScenarioView::itemMonthSelected), items_months[i]));
-    for (uint i = 0;i < items_periods.size();i++)
-        items_periods[i]->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityScheduleScenarioView::itemPeriodSelected), items_periods[i]));
+    {
+        GenlistItemSimple *it = items_months[i];
+        it->item_selected.connect([=](void *data)
+        {
+            if (item_all->isSelected())
+            {
+                item_all->setSelected(false);
+                range_infos.range_months.reset();
+            }
+            range_infos.range_months.set(i);
+        });
+    }
+//    for (uint i = 0;i < items_periods.size();i++)
+//        items_periods[i]->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityScheduleScenarioView::itemPeriodSelected), items_periods[i]));
 }
 
 ActivityScheduleScenarioView::~ActivityScheduleScenarioView()
@@ -636,35 +655,6 @@ void ActivityScheduleScenarioView::unselectAllWeekDays(void *data)
     week_days[0]->setSelected(false);
 }
 
-void ActivityScheduleScenarioView::itemAllYearSelected(void *data)
-{
-    if (item_all->isSelected())
-    {
-        for (uint i = 0;i < items_months.size();i++)
-            items_months[i]->setSelected(false);
-        for (uint i = 0;i < items_periods.size();i++)
-            items_periods[i]->setSelected(false);
-    }
-}
-
-void ActivityScheduleScenarioView::itemMonthSelected(void *data, GenlistItemSimple *item)
-{
-    if (!elm_genlist_selected_items_get(month_list))
-    {
-        item_all->setSelected(true);
-    }
-    else
-        item_all->setSelected(false);
-}
-
-void ActivityScheduleScenarioView::itemPeriodSelected(void *data, GenlistItemSimple *item)
-{
-    if (!elm_genlist_selected_items_get(month_list))
-        item_all->setSelected(true);
-    else
-        item_all->setSelected(false);
-}
-
 void ActivityScheduleScenarioView::reloadTimeRanges()
 {
     elm_genlist_clear(schedule_list);
@@ -761,6 +751,22 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
             evas_object_move(popup_del, x, y);
             evas_object_show(popup_del);
         });
+    }
+
+    //reload months
+    if (range_infos.range_months.all())
+    {
+        //all months are selected
+
+        item_all->setSelected(true);
+        for (uint i = 0;i < items_months.size();i++)
+            items_months[i]->setSelected(false);
+    }
+    else
+    {
+        item_all->setSelected(false);
+        for (uint i = 0;i < items_months.size();i++)
+            items_months[i]->setSelected(range_infos.range_months.test(i));
     }
 }
 

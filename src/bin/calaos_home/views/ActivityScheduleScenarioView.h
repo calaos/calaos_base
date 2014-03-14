@@ -71,10 +71,6 @@ private:
 
     void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
-    void itemAllYearSelected(void *data);
-    void itemMonthSelected(void *data, GenlistItemSimple *item);
-    void itemPeriodSelected(void *data, GenlistItemSimple *item);
-
     void reloadTimeRanges();
 
     void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
