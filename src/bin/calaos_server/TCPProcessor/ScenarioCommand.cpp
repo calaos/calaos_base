@@ -332,6 +332,10 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
             result.Add("0", "scenario");
             result.Add("1", request["2"]);
             result.Add("2", string("schedule_id:") + sc->getAutoScenario()->getIOPlage()->get_param("id"));
+
+            string sig = "modify_scenario id:";
+            sig += request["2"];
+            IPC::Instance().SendEvent("events", sig);
         }
     }
     else if (request["1"] == "del_schedule")
@@ -350,6 +354,10 @@ void TCPConnection::ScenarioCommand(Params &request, ProcessDone_cb callback)
             result.clear();
             result.Add("0", "scenario");
             result.Add("1", "ok");
+
+            string sig = "modify_scenario id:";
+            sig += request["2"];
+            IPC::Instance().SendEvent("events", sig);
         }
     }
 
