@@ -472,6 +472,8 @@ void ScenarioModel::notifyScenarioChange(string notif)
     if (split_id.size() < 2)
         return;
 
+    cDebug() << "scenario id: " << split_id[1] << " changed, broadcasting signal";
+
     list<Scenario *>::iterator it = scenarios.begin();
     for (;it != scenarios.end();it++)
     {

@@ -387,6 +387,7 @@ void IOBase::notifyChange(string notif)
     {
         //Reload InPlageHoraire
         loadPlage();
+        io_changed.emit();
 
         return;
     }
