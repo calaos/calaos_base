@@ -385,8 +385,6 @@ void IOBase::notifyChange(string notif)
     vector<string> tok;
     split(notif, tok);
 
-    if (tok.size() < 3) return;
-
     if (io_type == IO_INPUT && params["gui_type"] == "time_range" &&
         tok[0] == "input_range_change")
     {
@@ -400,6 +398,8 @@ void IOBase::notifyChange(string notif)
     if ((io_type == IO_INPUT && tok[0] != "input") ||
         (io_type == IO_OUTPUT && tok[0] != "output"))
         return;
+
+    if (tok.size() < 3) return;
 
     for_each(tok.begin(), tok.end(), UrlDecode());
     vector<string> p;
@@ -1579,6 +1579,9 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
         cErrorDom("network") << params["id"]
                              << " wrong parameters for months: " << m;
     }
+
+    cDebugDom("network") << params["id"]
+                         << " TimeRange reloaded successfully";
 
     io_changed.emit(); //io has changed
 }
