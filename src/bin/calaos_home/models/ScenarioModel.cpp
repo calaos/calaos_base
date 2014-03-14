@@ -482,7 +482,19 @@ void ScenarioModel::notifyScenarioChange(string notif)
         Scenario *sc = *it;
         if (sc->ioScenario && sc->ioScenario->params["id"] == split_id[1])
         {
-            scenario_change.emit(sc);
+            cDebugDom("scenario") << "Reload scenario " << split_id[1];
+            string cmd = "scenario get " + split_id[1];
+            connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
+            {
+                //clear scenario data before reloading them again
+                sc->scenario_data = ScenarioData();
+                sc->scenario_data.params.Add("id", split_id[1]);
+                sc->ioPlage = nullptr;
+
+                sc->scenario_get_cb(_success, _result, _data);
+                scenario_change.emit(sc);
+            });
+
             break;
         }
     }
