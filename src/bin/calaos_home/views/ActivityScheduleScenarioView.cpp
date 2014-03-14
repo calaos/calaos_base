@@ -137,7 +137,6 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
         {
             for (uint i = 0;i < items_months.size();i++)
                 items_months[i]->setSelected(false);
-            range_infos.range_months.set();
         }
     });
     for (uint i = 0;i < items_months.size();i++)
@@ -146,11 +145,7 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
         it->item_selected.connect([=](void *data)
         {
             if (item_all->isSelected())
-            {
                 item_all->setSelected(false);
-                range_infos.range_months.reset();
-            }
-            range_infos.range_months.set(i);
         });
     }
 //    for (uint i = 0;i < items_periods.size();i++)
@@ -171,6 +166,18 @@ void ActivityScheduleScenarioView::buttonPressed(void *data, Evas_Object *_edje,
 {
     if (source == "button.valid")
     {
+        range_infos.range_months.reset();
+        if (item_all->isSelected())
+            range_infos.range_months.set();
+        else
+        {
+            for (uint i = 0;i < items_months.size();i++)
+            {
+                if (items_months[i]->isSelected())
+                    range_infos.range_months.set(i);
+            }
+        }
+
         buttonValidPressed.emit(range_infos);
     }
     else if (source == "button.add")
