@@ -97,8 +97,11 @@ using namespace efl::eina::log;
 
 #ifdef HAVE_GETTEXT
 # define _(x) gettext(x)
+# define gettext_noop(String) String
+# define N_(String) gettext_noop (String)
 #else
 # define _(x) (x)
+# define N_(x) (x)
 #endif
 
 //-----------------------------------------------------------------------------
