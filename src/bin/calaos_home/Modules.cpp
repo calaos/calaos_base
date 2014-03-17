@@ -117,8 +117,8 @@ void ModuleManager::SearchModules()
                 themepath += "/widgets/" + module_name;
 
                 ModuleDef mdef;
-                mdef.mod_name = api->name;
-                mdef.mod_desc = api->desc;
+                mdef.mod_name = gettext(api->name);
+                mdef.mod_desc = gettext(api->desc);
                 mdef.mod_version = api->version;
                 mdef.mod_author = api->author;
                 mdef.mod_icon = themepath + "/icon.edj";

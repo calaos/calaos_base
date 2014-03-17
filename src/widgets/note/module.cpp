@@ -29,8 +29,8 @@ EAPI CalaosModuleApi calaos_modapi =
 {
     CALAOS_MODULE_API_VERSION,
     CMOD_WIDGET,
-    "Notes",
-    "Laissez vos notes grâce à l'équivalent numérique du célèbre bout de papier jaune.",
+    N_("Notes"),
+    N_("Let messages on the screen thanks to the numeric version of the well known yellow paper.") ,
     "2.0",
     "Calaos",
     constructor
@@ -75,7 +75,7 @@ ModuleNote::~ModuleNote()
 void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, string emission, string source)
 {
     cDebug() << "Show keyboard";
-    ApplicationMain::Instance().ShowKeyboard("Vous pouvez ecrire la nouvelle note a afficher.",
+    ApplicationMain::Instance().ShowKeyboard(_("You can now write the new note to display."),
                                              sigc::mem_fun(*this, &ModuleNote::KeyboardCb),
                                              true,
                                              text,
