@@ -41,6 +41,26 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     elm_object_style_set(scenario_list, "calaos");
     elm_genlist_homogeneous_set(scenario_list, true);
     evas_object_show(scenario_list);
+
+    Evas_Object *btn = edje_object_part_external_object_get(edje, "button.calendar.today");
+    elm_object_text_set(btn, _("Today"));
+
+    btn = edje_object_part_external_object_get(edje, "button.create");
+    elm_object_text_set(btn, _("Create a new scenario"));
+
+    btn = edje_object_part_external_object_get(edje, "button.list.all");
+    elm_object_text_set(btn, _("All"));
+
+    btn = edje_object_part_external_object_get(edje, "button.list.light");
+    elm_object_text_set(btn, _("Lights"));
+
+    btn = edje_object_part_external_object_get(edje, "button.list.volets");
+    elm_object_text_set(btn, _("Shutters"));
+
+    btn = edje_object_part_external_object_get(edje, "button.list.schedule");
+    elm_object_text_set(btn, _("Scheduled"));
+
+
 }
 
 ActivityScenariosView::~ActivityScenariosView()
@@ -136,21 +156,21 @@ void ActivityScenariosView::loadScenarioList()
     if (view_mode == VIEW_MODE_ALL ||
         view_mode == VIEW_MODE_SCHEDULE)
     {
-        headerLight = new GenlistItemScenarioHeader(evas, parent, "Scénarios Lumière");
+        headerLight = new GenlistItemScenarioHeader(evas, parent, _("Lights scenarios"));
         headerLight->Append(scenario_list);
-        headerShutter = new GenlistItemScenarioHeader(evas, parent, "Scénarios Volets");
+        headerShutter = new GenlistItemScenarioHeader(evas, parent, _("Shutters scenarios"));
         headerShutter->Append(scenario_list);
-        headerOther = new GenlistItemScenarioHeader(evas, parent, "Scénarios autre");
+        headerOther = new GenlistItemScenarioHeader(evas, parent, _("Other Scenarios"));
         headerOther->Append(scenario_list);
     }
     else if (view_mode == VIEW_MODE_LIGHT)
     {
-        headerLight = new GenlistItemScenarioHeader(evas, parent, "Scénarios Lumière");
+        headerLight = new GenlistItemScenarioHeader(evas, parent, _("Lights scenarios"));
         headerLight->Append(scenario_list);
     }
     else if (view_mode == VIEW_MODE_SHUTTER)
     {
-        headerShutter = new GenlistItemScenarioHeader(evas, parent, "Scénarios Volets");
+        headerShutter = new GenlistItemScenarioHeader(evas, parent, _("Shutters scenarios"));
         headerShutter->Append(scenario_list);
     }
 

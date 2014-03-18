@@ -121,42 +121,42 @@ void GenlistItemScenarioSchedule::buttonClickMore()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = "Paramètres du scénario<br><small><light_blue>Modifier, supprimer ou ajouter une planification.</light_blue></small>";
+    string title_label = _("Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
     GenlistItemSimple *_item;
 
-    _item = new GenlistItemSimple(evas, glist, "Modifier le scénario", true);
+    _item = new GenlistItemSimple(evas, glist, _("Modify the scenario"), true);
     _item->setIcon("calaos/icons/genlist/edit");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioModify));
 
-    _item = new GenlistItemSimple(evas, glist, "Supprimer le scénario", true);
+    _item = new GenlistItemSimple(evas, glist, _("Delete the scenario"), true);
     _item->setIcon("calaos/icons/genlist/trash");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioDelete));
 
-    _item = new GenlistItemSimple(evas, glist, "Executer le scénario maintenant", true);
+    _item = new GenlistItemSimple(evas, glist, _("Run the scenario now"), true);
     _item->setIcon("calaos/icons/genlist/play");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioPlay));
 
     if (scenario->scenario_data.params["schedule"] == "false")
     {
-        _item = new GenlistItemSimple(evas, glist, "Ajouter une planification", true);
+        _item = new GenlistItemSimple(evas, glist, _("Add a schedule"), true);
         _item->setIcon("calaos/icons/genlist/plus");
         _item->Append(glist, header);
         _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleAdd));
     }
     else
     {
-        _item = new GenlistItemSimple(evas, glist, "Modifier la planification", true);
+        _item = new GenlistItemSimple(evas, glist, _("Schedule modification"), true);
         _item->setIcon("calaos/icons/genlist/clock");
         _item->Append(glist, header);
         _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleModify));
 
-        _item = new GenlistItemSimple(evas, glist, "Supprimer la planification", true);
+        _item = new GenlistItemSimple(evas, glist, _("Delete schedule"), true);
         _item->setIcon("calaos/icons/genlist/trash");
         _item->Append(glist, header);
         _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleDelete));
@@ -215,15 +215,15 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = "Confirmation<br><small><light_blue>Êtes-vous sûr de vouloir supprimer ce scénario?</light_blue></small>";
+    string title_label = _("Confirmation<br><small><light_blue>Are you sure you want to delete this scenarios?</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
-    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, "Oui, supprimer le scénario", true);
+    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete the scenario"), true);
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioValid));
 
-    _item = new GenlistItemSimple(evas, parent, "Non", true);
+    _item = new GenlistItemSimple(evas, parent, _("No"), true);
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioCancel), _item));
 

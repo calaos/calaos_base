@@ -81,7 +81,7 @@ static void _web_inputmethod_changed(void *data, Evas_Object *obj, void *event_i
 ActivityWebView::ActivityWebView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/web")
 {
-    setPartText("header.label", "Navigateur Web");
+    setPartText("header.label", _("Web browser"));
 
     keyboard = new KeyboardView(evas, parent);
     Swallow(keyboard, "keyboard");
@@ -110,6 +110,24 @@ ActivityWebView::ActivityWebView(Evas *_e, Evas_Object *_parent):
 
         goToCallback(DEFAULT_BROWSER_URL);
     }
+
+    Evas_Object *btn = edje_object_part_external_object_get(edje, "button.back");
+    elm_object_text_set(btn, _("Back to menu"));
+
+    btn = edje_object_part_external_object_get(edje, "button.reload");
+    elm_object_text_set(btn, _("Reload"));
+
+    btn = edje_object_part_external_object_get(edje, "button.stop");
+    elm_object_text_set(btn, _("Stop"));
+
+    btn = edje_object_part_external_object_get(edje, "button.home");
+    elm_object_text_set(btn, _("Home page"));
+
+    btn = edje_object_part_external_object_get(edje, "button.go");
+    elm_object_text_set(btn, _("Go to..."));
+
+    btn = edje_object_part_external_object_get(edje, "button.bookmark");
+    elm_object_text_set(btn, _("Add to favorites"));
 
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityWebView::buttonCallback));
 }

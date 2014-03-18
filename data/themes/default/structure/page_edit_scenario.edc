@@ -239,7 +239,7 @@ group
                                 rel2.to: "wizard_base_1";
                                 rel1 { relative: 0.0 0.0; offset: 4+60 0; }
                                 rel2 { relative: 1.0 1.0; offset: -1 -1; }
-                                text { text: "<b><huge>Informations</huge></b><br><light_blue><small>Saisissez le nom et <br>les informations du scénario.</small></light_blue>"; style: "HTMLStyle"; }
+                                text { text: ""; style: "HTMLStyle"; }
                         }
                 }
                 part
@@ -254,7 +254,7 @@ group
                                 rel2.to: "wizard_base_1";
                                 rel1 { relative: 0.0 0.0; offset: 4+60 0; }
                                 rel2 { relative: 1.0 1.0; offset: -1 -1; }
-                                text { text: "<disabled><b><huge>Informations</huge></b><br><small>Saisissez le nom et <br>les informations du scénario.</small></disabled>"; style: "HTMLStyle"; }
+                                text { text: ""; style: "HTMLStyle"; }
                         }
                 }
 
@@ -270,7 +270,7 @@ group
                                 rel2.to: "wizard_base_2";
                                 rel1 { relative: 0.0 0.0; offset: 4+70 0; }
                                 rel2 { relative: 1.0 1.0; offset: -1 -1; }
-                                text { text: "<b><huge>Configuration</huge></b><br><light_blue><small>Ajoutez les éléments de vos<br>pièces et configurez-les.</small></light_blue>"; style: "HTMLStyle"; }
+                                text { text: ""; style: "HTMLStyle"; }
                         }
                 }
                 part
@@ -519,7 +519,7 @@ group
                                 max: 512 -1;
                                 rel1 { relative: 0.0 0.5; offset: 0  -100; }
                                 rel2 { relative: 1.0 0.5; offset: -1 -100+72; }
-                                text { text: "<big>Création ou modification d'un scénario</big><br><br><small><disabled>Utilisez les champs ci-dessous pour nommer votre scénario afin de l'identifier<br>rapidement. Choisissez également si le scénario sera visible ou non.</disabled></small>"; style: "HTMLStyle"; }
+                                text { text: "<big>Scenario creation or modification</big><br><br><small><disabled>Use the following field to enter the name of your scenario to find it <br>quickly. Also, choose the visibility of you scenario.</disabled></small>"; style: "HTMLStyle"; }
                         }
                 }
 
@@ -573,7 +573,7 @@ group
                                 rel2.to: "item_back_name";
                                 text
                                 {
-                                        text: "Nom du scénario: <blue>Mon Nouveau Scénario</blue>";
+                                        text: "Scenario name: <blue>My new scenario</blue>";
                                         style: "StandardText";
                                 }
                         }
@@ -766,7 +766,7 @@ group
                                 rel1.to: "home_list_deco";
                                 rel2.to: "home_list_deco";
                                 text {
-                                        text: "<small><disabled>Sélectionnez et ajoutez les éléments désirés à votre scénario.<br>Vous pourrez ensuite définir les actions.</disabled></small>";
+                                        text: "<small><disabled>Select and add wanted items into your scenario.<br>You will then define the actions.</disabled></small>";
                                         style: "HTMLStyle";
                                 }
                         }
@@ -826,7 +826,7 @@ group
                                 rel1.to: "actions_list_deco";
                                 rel2.to: "actions_list_deco";
                                 text {
-                                        text: "<small><disabled>Modifiez les éléments ajoutés à la liste ci-dessous. Les actions définissent<br>ce qui se passera lors de l'execution du scénario.</disabled></small>";
+                                        text: "<small><disabled>Modify items added to the following list. The Actions define <br>what is going to happend when the scenario is executed.</disabled></small>";
                                         style: "HTMLStyle";
                                 }
                         }
@@ -871,7 +871,7 @@ group
                                 fixed: 1 0;
                                 params
                                 {
-                                        string: "label" "Etape 1";
+                                        string: "label" "Step 1";
                                         string: "style" "calaos/button/position";
                                 }
                                 rel1 { relative: 0.0 0.0; offset: -124 8; to_x: "button.step.add"; }

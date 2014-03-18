@@ -96,7 +96,7 @@ group
                                 fixed: 1 0;
                                 params
                                 {
-                                        string: "label" "Ajouter";
+                                        string: "label" "Add";
                                         string: "style" "calaos/button/position";
                                 }
                                 rel1 { relative: 1.0 0.5; offset: -85 -18; }
@@ -121,7 +121,7 @@ group
                                 rel1.to: "schedule_list_deco";
                                 rel2.to: "schedule_list_deco";
                                 text {
-                                        text: "<big><disabled>Heures d'exécutions</disabled></big>";
+                                        text: "<big><disabled>Hours of execution</disabled></big>";
                                         style: "HTMLStyle";
                                 }
                         }

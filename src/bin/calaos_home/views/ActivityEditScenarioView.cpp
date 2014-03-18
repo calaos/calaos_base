@@ -43,6 +43,17 @@ ActivityEditScenarioView::ActivityEditScenarioView(Evas *_e, Evas_Object *_paren
     pager_step = elm_naviframe_add(parent);
     evas_object_show(pager_step);
     Swallow(pager_step, "step.content");
+
+    setPartText("title_step.1", _("<b><huge>Informations</huge></b><br><light_blue><small>Enter the name and<br> the informations about the scenario.</small></light_blue>"));
+
+    setPartText("title_step.1.disabled", _("<disabled><b><huge>Informations</huge></b><br><light_blue><small>Enter the name and<br> the informations about the scenario.</small></light_blue></disabled>"));
+
+    setPartText("title_step.2", _("<b><huge>Configuration</huge></b><br><light_blue><small>Add items of your<br> rooms and configure them.</small></light_blue>"));
+
+    setPartText("title_step.2.disabled", _("<disabled><b><huge>Configuration</huge></b><br><light_blue><small>Add items of your<br> rooms and configure them.</small></light_blue></disabled>"));
+
+
+
 }
 
 ActivityEditScenarioView::~ActivityEditScenarioView()
@@ -90,6 +101,12 @@ void ActivityEditScenarioView::showStep(int step)
             pageName->addCallback("button.*selected", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageNameVisiblePressed));
             pageName->setPartText("name.text", string(_("Scenario name: ")) + "<blue>" + scenario_data.name + "</blue>");
             updateVisibility();
+
+            pageName->setPartText("title_step.2", _("<big>Scenario creation or modification</big><br><br><small><disabled>Use the following field to enter the name of your scenario to find it <br>quickly. Also, choose the visibility of you scenario.</disabled></small>"));
+
+            pageName->setPartText("name.text", _("Scenario name: <blue>My new scenario</blue>"));
+            pageName->setPartText("visible.text", _("Display in interface: <blue>Enabled</blue>"));
+
         }
         elm_naviframe_item_push(pager_step, NULL, NULL, NULL, pageName->getEvasObject(), "calaos");
     }
@@ -107,7 +124,11 @@ void ActivityEditScenarioView::showStep(int step)
             pageActions->addCallback("button.step.delete", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::buttonStepDelPressed));
             pageActions->addCallback("button.*selected", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageActionsCyclePressed));
             updateCycling();
-
+            
+            pageName->setPartText("home_text", _("<small><disabled>Select and add wanted items into your scenario.<br>You will then define the actions.</disabled></small>"));
+            pageName->setPartText("action_text", _("<small><disabled>Modify items added to the following list. The Actions define <br>what is going to happend when the scenario is executed.</disabled></small>"));
+            Evas_Object *btn = edje_object_part_external_object_get(pageName->getEvasObject(), "button.step");
+            elm_object_text_set(btn, _("Step 1"));
             //Load page Actions and items
             loadPageActions();
         }
@@ -540,7 +561,7 @@ void ActivityEditScenarioView::stepPauseChange(void *data, int step, GenlistItem
     if (edje_object_part_exists(page->getEvasObject(), "button.back"))
     {
         Evas_Object *button = edje_object_part_external_object_get(page->getEvasObject(), "button.back");
-        elm_object_text_set(button, "Etapes");
+        elm_object_text_set(button, _("Steps"));
     }
 
     long pause = scenario_data.steps[step].pause;

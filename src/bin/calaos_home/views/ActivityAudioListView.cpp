@@ -48,6 +48,12 @@ ActivityAudioListView::ActivityAudioListView(Evas *_e, Evas_Object *_parent):
         players[players.size() - 1].player_selected.connect(sigc::mem_fun(*this, &ActivityAudioListView::playerSelected));
     }
 
+    Evas_Object *btn = edje_object_part_external_object_get(edje, "button.browser.back");
+    elm_object_text_set(btn, _("My Music"));
+
+    btn = edje_object_part_external_object_get(edje, "button.browser.root");
+    elm_object_text_set(btn, _("Back"));
+
     addCallback("button.browser.back", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserButtonBack));
     addCallback("button.browser.root", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserButtonRoot));
 

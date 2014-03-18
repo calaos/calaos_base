@@ -81,7 +81,7 @@ group
                                 params
                                 {
                                         string: "style" "calaos/button/position/browser_icon";
-                                        string: "label" "Tous";
+                                        string: "label" "All";
                                         string: "icon" "calaos/icons/element/scenario";
                                 }
                                 rel1 { relative: 0.0 1.0; offset: 15 -44; to: "scenario_list_deco_buttons"; }
@@ -101,7 +101,7 @@ group
                                 params
                                 {
                                         string: "style" "calaos/button/position/browser";
-                                        string: "label" "Lumières";
+                                        string: "label" "Lights";
                                 }
                                 rel1 { relative: 0.0 1.0; offset: 103 -44; to: "scenario_list_deco_buttons"; }
                                 rel2 { relative: 0.0 1.0; offset: 213 -3; to: "scenario_list_deco_buttons"; }
@@ -120,7 +120,7 @@ group
                                 params
                                 {
                                         string: "style" "calaos/button/position/browser";
-                                        string: "label" "Volets";
+                                        string: "label" "Shutters";
                                 }
                                 rel1 { relative: 0.0 1.0; offset: 216 -44; to: "scenario_list_deco_buttons"; }
                                 rel2 { relative: 0.0 1.0; offset: 299 -3; to: "scenario_list_deco_buttons"; }
@@ -139,7 +139,7 @@ group
                                 params
                                 {
                                         string: "style" "calaos/button/position/browser";
-                                        string: "label" "Planifiés";
+                                        string: "label" "Scheduled";
                                 }
                                 rel1 { relative: 0.0 1.0; offset: 302 -44; to: "scenario_list_deco_buttons"; }
                                 rel2 { relative: 0.0 1.0; offset: 422 -3; to: "scenario_list_deco_buttons"; }
@@ -202,7 +202,7 @@ group
                                 rel1.to: "schedule_top_bg";
                                 rel2.to: "schedule_top_bg";
                                 text {
-                                        text: "A la date du: <blue>Dimanche 23 Décembre 2012</blue>";
+                                        text: "On <blue>Sunday, December 23th, 2012</blue>";
                                         style: "StandardText";
                                 }
                         }
@@ -239,7 +239,7 @@ group
                                 params
                                 {
                                         string: "style" "calaos/action_button/label";
-                                        string: "label" "Auj.";
+                                        string: "label" "Today";
                                 }
                         }
                 }

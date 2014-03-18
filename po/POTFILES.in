@@ -174,3 +174,5 @@
 ./src/lib/TinyXML/tinyxmlerror.cpp
 ./src/lib/TinyXML/tinyxmlparser.cpp
 ./src/lib/Utils.cpp
+./src/widgets/note/module.cpp
+./src/widgets/clock/module.cpp
