@@ -24,6 +24,7 @@ using namespace Calaos;
 
 GpioCtrl::GpioCtrl(int _gpionum)
 {
+    fd_handler = NULL;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
     exportGpio();
@@ -136,4 +137,32 @@ void GpioCtrl::closeFd(void)
 int GpioCtrl::getGpioNum(void)
 {
     return gpionum;
+}
+
+Eina_Bool _fd_handler_cb(void *data, Ecore_Fd_Handler *fd_handler)
+{
+    GpioCtrl *gpioctrl = (GpioCtrl*) data;
+    gpioctrl->emitChange();
+    return ECORE_CALLBACK_RENEW;
+}
+
+void GpioCtrl::emitChange(void)
+{
+    event_signal.emit();
+}
+
+bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
+{
+    if (fd == -1)
+        return false;
+
+    if (fd_handler)
+        ecore_main_fd_handler_del(fd_handler);
+
+    connection = event_signal.connect(slot);
+    fd_handler = ecore_main_fd_handler_add(fd, ECORE_FD_ERROR, _fd_handler_cb, this, NULL, NULL);
+    if (!fd_handler)
+        return false;
+
+    return true;
 }

@@ -22,6 +22,7 @@
 #define GPIOCTRL_H
 
 #include <Utils.h>
+#include <Ecore.h>
 
 namespace Calaos
 {
@@ -34,6 +35,10 @@ private:
     int writeFile(string path, string value);
     int readFile(string path, string &value);
     int fd;
+    sigc::connection connection;
+    sigc::signal<void> event_signal;
+    Ecore_Fd_Handler *fd_handler;
+    
 public:
     GpioCtrl(int _gpionum);
     ~GpioCtrl();
@@ -45,7 +50,8 @@ public:
     int getFd(void);
     void closeFd(void);
     int getGpioNum(void);
-
+    bool setValueChanged(sigc::slot<void> slot);
+    void emitChange(void);
 };
 }
 #endif // GPIOCTRL_H
