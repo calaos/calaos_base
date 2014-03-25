@@ -268,6 +268,8 @@ IO/Web/WebOutputLightRGB.cpp \
 IO/Web/WebOutputLightRGB.h \
 IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
+IO/Gpio/GpioInputSwitch.cpp \
+IO/Gpio/GpioInputSwitch.h \
 IO/Gpio/GpioOutputSwitch.cpp \
 IO/Gpio/GpioOutputSwitch.h \
 JsonApiServer.h \
