@@ -260,7 +260,8 @@ bool Room::SaveToXml(TiXmlElement *node)
             input->get_param("type") == "InternalString" ||
             input->get_param("type") == "InPlageHoraire" ||
             input->get_param("type") == "WIAnalog" ||
-            input->get_param("type") == "WebAnalogIn")
+            input->get_param("type") == "WebAnalogIn" ||
+            input->get_param("type") == "GpioInputSwitch")
         {
             input->SaveToXml(room_node);
         }

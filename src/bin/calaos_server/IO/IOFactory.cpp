@@ -48,6 +48,7 @@
 #include <AVReceiver.h>
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
+#include <GpioInputSwitch.h>
 #include <ZibaseAnalogIn.h>
 #include <ZibaseDigitalIn.h>
 
@@ -180,6 +181,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
     else if (type == "ZibaseDigitalIn")
     {
         in = new ZibaseDigitalIn(params);
+    }
+    else if (type == "GpioInputSwitch")
+    {
+        in = new GpioInputSwitch(params);
     }
 
     if (in)
