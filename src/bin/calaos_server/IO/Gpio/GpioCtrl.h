@@ -45,6 +45,7 @@ public:
     bool exportGpio();
     bool unexportGpio();
     bool setDirection(string direction);
+    bool setEdge(string direction);
     bool setval(bool val);
     bool getVal(bool &val);
     int getFd(void);

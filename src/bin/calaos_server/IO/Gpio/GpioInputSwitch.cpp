@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <GpioInputSwitch.h>
+#include <Utils.h>
 
 using namespace Calaos;
 
@@ -31,17 +32,26 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
     Utils::from_string(get_param("gpio"), gpio_nb);
 
     gpioctrl = new GpioCtrl(gpio_nb);
-    gpioctrl->setDirection("out");
+    gpioctrl->setDirection("in");
 
     gpioctrl->setValueChanged([=] {
             gpioctrl->getVal(value);
             hasChanged();
+            cInfo() << "Input value changed, new value : " << value;
         });
+
+    cInfo() << "Create gpio input for gpio " << gpio_nb;
 }
 
 GpioInputSwitch::~GpioInputSwitch()
 {
     delete gpioctrl;
+}
+
+bool GpioInputSwitch::readValue()
+{
+      gpioctrl->getVal(value);
+      return value;
 }
 
 

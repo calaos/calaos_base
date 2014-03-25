@@ -27,23 +27,27 @@ GpioCtrl::GpioCtrl(int _gpionum)
     fd_handler = NULL;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
+    cDebug() << "Create GpioCtrl for " <<gpionum_str;
     exportGpio();
     fd = -1;
 }
 
 GpioCtrl::~GpioCtrl()
 {
-    unexportGpio();
+    //unexportGpio();
     if (fd == -1)
         close(fd);
     fd = -1;
+    cDebug() << "Delete GpioCtrl";
 }
 
 int GpioCtrl::writeFile(string path, string value)
 {
     ofstream ofspath(path.c_str());
-    if (ofspath.is_open())
+    cDebug() << "ofstream " << path;
+    if (!ofspath.is_open())
     {
+        cError() << "Unable to export GPIO " << gpionum;
         // Unable to export GPIO
         return false;
     }
@@ -56,11 +60,12 @@ int GpioCtrl::writeFile(string path, string value)
 int GpioCtrl::readFile(string path, string &value)
 {
     ifstream ifspath(path.c_str());
-    if (ifspath.is_open())
+    if (!ifspath.is_open())
     {
+        cError() << "Unable to read file " << strerror(errno);
         return false;
     }
-
+    
     ifspath >> value;
     ifspath.close();
 
@@ -87,6 +92,16 @@ bool GpioCtrl::setDirection(string direction)
     return writeFile(path, direction);
 }
 
+// Set GPIO signal edge : "none", "rising", "falling" or "both"
+bool GpioCtrl::setEdge(string direction)
+{
+    string strval;
+    char tmp[4096];
+    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/edge", gpionum);
+    string path(tmp);
+    return writeFile(path, direction);
+}
+
 bool GpioCtrl::setval(bool val)
 {
     string strval;
@@ -107,25 +122,20 @@ bool GpioCtrl::getVal(bool &val)
     string path(tmp);
 
     if (!readFile(path, strval))
+    {
+        cError() << "Unable to read file " << path;
         return false;
+    }
+
+    cInfo() << "Read value : " << strval;
     if (strval == "1")
-        return true;
+        val  =true;
     else
-        return false;
+        val = false;
+
+    return true;
 }
 
-int GpioCtrl::getFd(void)
-{
-    string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
-    string path(tmp);
-
-    if (fd == -1)
-        fd = open(path.c_str(), O_RDONLY);
-    return fd;
-
-}
 
 void GpioCtrl::closeFd(void)
 {
@@ -142,27 +152,60 @@ int GpioCtrl::getGpioNum(void)
 Eina_Bool _fd_handler_cb(void *data, Ecore_Fd_Handler *fd_handler)
 {
     GpioCtrl *gpioctrl = (GpioCtrl*) data;
+
     gpioctrl->emitChange();
     return ECORE_CALLBACK_RENEW;
 }
 
 void GpioCtrl::emitChange(void)
 {
+    bool val;
+    unsigned char buf[3];
+    if (fd == -1)
+        return;
+
+    lseek(fd, 0, SEEK_SET);
+    memset(buf, 0, 3);
+    read(fd, buf, 2);
+
+    cInfo() << "Emit Change, new value : " << buf;
+
     event_signal.emit();
 }
 
 bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 {
+
+    string strval;
+    char tmp[4096];
+    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
+    string path(tmp);
+
     if (fd == -1)
-        return false;
+    {
+        fd = open(path.c_str(), O_RDONLY);
+
+        if (fd == -1)
+        {
+            cError() << "Unable to get fd " << strerror(errno);
+            return false;
+        }
+    }
 
     if (fd_handler)
         ecore_main_fd_handler_del(fd_handler);
 
+    // Programm both edge to trigger fd
+    setEdge("rising");
+
     connection = event_signal.connect(slot);
     fd_handler = ecore_main_fd_handler_add(fd, ECORE_FD_ERROR, _fd_handler_cb, this, NULL, NULL);
+    cDebug() << "Create Ecore_Fd_Handler " << fd_handler;
     if (!fd_handler)
+    {
+        cError() << "Unable to create fd_handler";
         return false;
+    }
 
     return true;
 }

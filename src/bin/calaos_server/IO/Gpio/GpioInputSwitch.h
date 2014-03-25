@@ -32,9 +32,14 @@ class GpioInputSwitch : public InputSwitch
 {
 private:
     GpioCtrl *gpioctrl;
+
+protected:
+    virtual bool readValue();
+
 public:
     GpioInputSwitch(Params &p);
     virtual ~GpioInputSwitch();
+
 };
 
 }
