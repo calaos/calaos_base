@@ -37,7 +37,6 @@ protected:
 
     void longPress_timer();
     void emitChange();
-    void resetInput();
 
     virtual bool readValue() = 0;
 
