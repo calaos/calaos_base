@@ -41,6 +41,6 @@ GpioOutputSwitch::~GpioOutputSwitch()
 
 bool GpioOutputSwitch::set_value_real(bool val)
 {
-    gpioctrl->setval(val);
+    gpioctrl->setVal(val);
     return true;
 }

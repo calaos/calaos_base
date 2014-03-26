@@ -25,6 +25,7 @@ using namespace Calaos;
 GpioCtrl::GpioCtrl(int _gpionum)
 {
     fd_handler = NULL;
+    debounce = false;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
     cDebugDom("input") << "Create GpioCtrl for " <<gpionum_str;
@@ -96,15 +97,15 @@ bool GpioCtrl::setEdge(string direction)
     return writeFile(path, direction);
 }
 
-bool GpioCtrl::setval(bool val)
+bool GpioCtrl::setVal(bool value)
 {
     string strval;
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
-    strval = Utils::to_string(val);
+    strval = Utils::to_string(value);
     return writeFile(path, strval);
 }
 
-bool GpioCtrl::getVal(bool &val)
+bool GpioCtrl::getVal(bool &value)
 {
     string strval;
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
@@ -117,9 +118,9 @@ bool GpioCtrl::getVal(bool &val)
 
     cInfo() << "Read value : " << strval;
     if (strval == "1")
-        val  =true;
+        value = true;
     else
-        val = false;
+        value = false;
 
     return true;
 }
@@ -147,22 +148,41 @@ Eina_Bool _fd_handler_cb(void *data, Ecore_Fd_Handler *fd_handler)
 
 void GpioCtrl::emitChange(void)
 {
-    unsigned char buf[3];
+    char buf[2];
+
     if (fd == -1)
         return;
 
-    lseek(fd, 0, SEEK_SET);
-    memset(buf, 0, 3);
-    read(fd, buf, 2);
+    cInfoDom("input") << "Input change detected";
 
-    event_signal.emit();
+    lseek(fd, 0, SEEK_SET);
+    memset(buf, 0, 2);
+    read(fd, buf, 1);
+
+   
+    if (debounce)
+    {
+        cInfoDom("input") << "debouncing....";
+        return;
+    }
+    else
+    {
+        debounce = true;
+
+        EcoreTimer::singleShot(0.05, [=](){
+            cInfoDom("input") << "Debounce finished";
+            debounce = false;
+            event_signal.emit();
+        });
+    }
+    
 }
 
 bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 {
     string strval;
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
-
+   
     if (fd == -1)
     {
         fd = open(path.c_str(), O_RDONLY);
@@ -178,7 +198,7 @@ bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
         ecore_main_fd_handler_del(fd_handler);
 
     // Programm both edge to trigger fd
-    setEdge("rising");
+    setEdge("both");
 
     connection = event_signal.connect(slot);
     fd_handler = ecore_main_fd_handler_add(fd, ECORE_FD_ERROR, _fd_handler_cb, this, NULL, NULL);

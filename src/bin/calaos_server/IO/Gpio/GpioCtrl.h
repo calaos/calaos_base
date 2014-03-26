@@ -23,6 +23,7 @@
 
 #include <Utils.h>
 #include <Ecore.h>
+#include <EcoreTimer.h>
 
 namespace Calaos
 {
@@ -38,7 +39,8 @@ private:
     sigc::connection connection;
     sigc::signal<void> event_signal;
     Ecore_Fd_Handler *fd_handler;
-    
+    bool debounce;
+
 public:
     GpioCtrl(int _gpionum);
     ~GpioCtrl();
@@ -46,8 +48,8 @@ public:
     bool unexportGpio();
     bool setDirection(string direction);
     bool setEdge(string direction);
-    bool setval(bool val);
-    bool getVal(bool &val);
+    bool setVal(bool value);
+    bool getVal(bool &value);
     int getFd(void);
     void closeFd(void);
     int getGpioNum(void);
