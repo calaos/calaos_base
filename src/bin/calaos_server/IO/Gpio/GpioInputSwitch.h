@@ -34,6 +34,7 @@ private:
     GpioCtrl *gpioctrl;
 
 protected:
+    bool val;
     virtual bool readValue();
 
 public:

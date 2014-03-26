@@ -35,23 +35,24 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
     gpioctrl->setDirection("in");
 
     gpioctrl->setValueChanged([=] {
-            gpioctrl->getVal(value);
+            gpioctrl->getVal(val);
             hasChanged();
-            cInfo() << "Input value changed, new value : " << value;
+            cInfoDom("Input") << "Input value changed, new value : " << value;
         });
 
-    cInfo() << "Create gpio input for gpio " << gpio_nb;
+    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb;
 }
 
 GpioInputSwitch::~GpioInputSwitch()
 {
+    cDebugDom("input");
     delete gpioctrl;
 }
 
 bool GpioInputSwitch::readValue()
 {
-      gpioctrl->getVal(value);
-      return value;
+    cInfoDom("Input") << "Read Value : " << val;
+    return val;
 }
 
 

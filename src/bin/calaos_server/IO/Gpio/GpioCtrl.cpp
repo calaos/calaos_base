@@ -27,7 +27,7 @@ GpioCtrl::GpioCtrl(int _gpionum)
     fd_handler = NULL;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
-    cDebug() << "Create GpioCtrl for " <<gpionum_str;
+    cDebugDom("input") << "Create GpioCtrl for " <<gpionum_str;
     exportGpio();
     fd = -1;
 }
@@ -38,7 +38,7 @@ GpioCtrl::~GpioCtrl()
     if (fd == -1)
         close(fd);
     fd = -1;
-    cDebug() << "Delete GpioCtrl";
+    cDebugDom("input") << "Delete GpioCtrl";
 }
 
 int GpioCtrl::writeFile(string path, string value)
@@ -47,7 +47,7 @@ int GpioCtrl::writeFile(string path, string value)
     cDebug() << "ofstream " << path;
     if (!ofspath.is_open())
     {
-        cError() << "Unable to export GPIO " << gpionum;
+        cErrorDom("input") << "Unable to export GPIO " << gpionum;
         // Unable to export GPIO
         return false;
     }
@@ -62,7 +62,7 @@ int GpioCtrl::readFile(string path, string &value)
     ifstream ifspath(path.c_str());
     if (!ifspath.is_open())
     {
-        cError() << "Unable to read file " << strerror(errno);
+        cErrorDom("input") << "Unable to read file " << strerror(errno);
         return false;
     }
     
@@ -123,7 +123,7 @@ bool GpioCtrl::getVal(bool &val)
 
     if (!readFile(path, strval))
     {
-        cError() << "Unable to read file " << path;
+        cErrorDom("input") << "Unable to read file " << path;
         return false;
     }
 
@@ -168,8 +168,6 @@ void GpioCtrl::emitChange(void)
     memset(buf, 0, 3);
     read(fd, buf, 2);
 
-    cInfo() << "Emit Change, new value : " << buf;
-
     event_signal.emit();
 }
 
@@ -200,10 +198,10 @@ bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 
     connection = event_signal.connect(slot);
     fd_handler = ecore_main_fd_handler_add(fd, ECORE_FD_ERROR, _fd_handler_cb, this, NULL, NULL);
-    cDebug() << "Create Ecore_Fd_Handler " << fd_handler;
+    cDebugDom("input") << "Create Ecore_Fd_Handler " << fd_handler;
     if (!fd_handler)
     {
-        cError() << "Unable to create fd_handler";
+        cErrorDom("input") << "Unable to create fd_handler";
         return false;
     }
 
