@@ -85,41 +85,29 @@ bool GpioCtrl::unexportGpio()
 // Set GPIO direction : "in" or "out"
 bool GpioCtrl::setDirection(string direction)
 {
-    string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/direction", gpionum);
-    string path(tmp);
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/direction";
     return writeFile(path, direction);
 }
 
 // Set GPIO signal edge : "none", "rising", "falling" or "both"
 bool GpioCtrl::setEdge(string direction)
 {
-    string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/edge", gpionum);
-    string path(tmp);
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/edge";
     return writeFile(path, direction);
 }
 
 bool GpioCtrl::setval(bool val)
 {
     string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
-    string path(tmp);
-
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
     strval = Utils::to_string(val);
-
     return writeFile(path, strval);
 }
 
 bool GpioCtrl::getVal(bool &val)
 {
     string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
-    string path(tmp);
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
 
     if (!readFile(path, strval))
     {
@@ -159,7 +147,6 @@ Eina_Bool _fd_handler_cb(void *data, Ecore_Fd_Handler *fd_handler)
 
 void GpioCtrl::emitChange(void)
 {
-    bool val;
     unsigned char buf[3];
     if (fd == -1)
         return;
@@ -173,11 +160,8 @@ void GpioCtrl::emitChange(void)
 
 bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 {
-
     string strval;
-    char tmp[4096];
-    snprintf(tmp, sizeof(tmp) - 1, "/sys/class/gpio/gpio%d/value", gpionum);
-    string path(tmp);
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
 
     if (fd == -1)
     {
