@@ -49,6 +49,7 @@
 #include <WebAnalogIn.h>
 #include <GpioOutputSwitch.h>
 #include <GpioInputSwitch.h>
+#include <GpioInputSwitchLongPress.h>
 #include <ZibaseAnalogIn.h>
 #include <ZibaseDigitalIn.h>
 
@@ -185,6 +186,10 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
     else if (type == "GpioInputSwitch")
     {
         in = new GpioInputSwitch(params);
+    }
+    else if (type == "GpioInputSwitchLongPress")
+    {
+        in = new GpioInputSwitchLongPress(params);
     }
 
     if (in)
