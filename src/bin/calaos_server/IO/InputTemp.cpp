@@ -35,7 +35,7 @@ InputTemp::InputTemp(Params &p):
 
     Utils::from_string(get_param("offset"), offset);
     if (!get_params().Exists("visible")) set_param("visible", "true");
-    if (!get_params().Exists("interval"))
+    if (get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
 
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
