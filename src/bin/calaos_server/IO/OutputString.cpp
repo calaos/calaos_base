@@ -18,44 +18,50 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include <ListeRule.h>
-#include <WebInputTemp.h>
-#include <WebCtrl.h>
-#include <jansson.h>
-#include <IOFactory.h>
+#include <OutputString.h>
+#include <IPC.h>
 
 using namespace Calaos;
+using namespace Utils;
 
-REGISTER_INPUT(WebInputTemp)
-
-WebInputTemp::WebInputTemp(Params &p):
-    InputTemp(p)
+OutputString::OutputString(Params &p):
+    Output(p),
+    value("")
 {
-    cInfoDom("input") << "WebInputTemp::WebInputTemp()";
+    set_param("gui_type", "string_out");
 
-    // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(readTime);
+    readConfig();
 
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
+    cInfoDom("output") << get_param("id") << "): Ok";
 }
 
-WebInputTemp::~WebInputTemp()
+OutputString::~OutputString()
 {
-    cInfoDom("input") << "WebInputTemp::~WebInputTemp()";
+    cInfoDom("output");
 }
 
-
-void WebInputTemp::readValue()
+void OutputString::readConfig()
 {
-  // Read the value
-    value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
+    if (!get_params().Exists("visible")) set_param("visible", "true");
+}
+
+void OutputString::emitChange()
+{
+    string sig = "output ";
+    sig += get_param("id") + " ";
+    sig += Utils::url_encode(string("state:") + value);
+    IPC::Instance().SendEvent("events", sig);
+}
+
+bool OutputString::set_value(string val)
+{
+
+    readConfig();
+
+    value = val;
+    EmitSignalOutput();
     emitChange();
-}
 
+    return true;
+}
 

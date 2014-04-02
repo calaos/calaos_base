@@ -279,7 +279,7 @@ bool Room::SaveToXml(TiXmlElement *node)
             output->get_param("type") == "X10Output" || output->get_param("type") == "WODali" ||
             output->get_param("type") == "WODaliRVB" || output->get_param("type") == "WOVoletSmart" ||
             output->get_param("type") == "WOAnalog" || output->get_param("type") == "AVReceiver" ||
-            output->get_param("type") == "GpioOutputSwitch")
+            output->get_param("type") == "GpioOutputSwitch" || output->get_param("type") == "WebOutputString")
         {
             output->SaveToXml(room_node);
         }

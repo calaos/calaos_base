@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,44 +18,33 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
+#ifndef S_OutputString_H
+#define S_OutputString_H
+
+#include <Calaos.h>
+#include <Output.h>
+
+namespace Calaos
+{
+
+class OutputString : public Output
+{
+protected:
+    string value;
+
+    void readConfig();
+
+    void emitChange();
+    virtual void set_value_real(string val) = 0;
+
+public:
+    OutputString(Params &p);
+    ~OutputString();
+
+    DATA_TYPE get_type() { return TSTRING; }
+
+    bool set_value(string val);
+};
+
+}
 #endif
-
-#include <ListeRule.h>
-#include <WebInputTemp.h>
-#include <WebCtrl.h>
-#include <jansson.h>
-#include <IOFactory.h>
-
-using namespace Calaos;
-
-REGISTER_INPUT(WebInputTemp)
-
-WebInputTemp::WebInputTemp(Params &p):
-    InputTemp(p)
-{
-    cInfoDom("input") << "WebInputTemp::WebInputTemp()";
-
-    // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(readTime);
-
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
-}
-
-WebInputTemp::~WebInputTemp()
-{
-    cInfoDom("input") << "WebInputTemp::~WebInputTemp()";
-}
-
-
-void WebInputTemp::readValue()
-{
-  // Read the value
-    value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
-    emitChange();
-}
-
-

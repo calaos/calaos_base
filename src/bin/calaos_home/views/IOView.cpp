@@ -133,6 +133,8 @@ IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *paren
         element = new IOWIAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "analog_out")
         element = new IOWOAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "string_out")
+        element = new IOInternalStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "temp")
         element = new IOWITempHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "shutter")

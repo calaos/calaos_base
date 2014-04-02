@@ -23,39 +23,33 @@
 #endif
 
 #include <ListeRule.h>
-#include <WebInputTemp.h>
+#include <WebOutputString.h>
 #include <WebCtrl.h>
 #include <jansson.h>
-#include <IOFactory.h>
 
 using namespace Calaos;
 
-REGISTER_INPUT(WebInputTemp)
-
-WebInputTemp::WebInputTemp(Params &p):
-    InputTemp(p)
+WebOutputString::WebOutputString(Params &p):
+    OutputString(p)
 {
-    cInfoDom("input") << "WebInputTemp::WebInputTemp()";
-
-    // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(readTime);
-
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
+    cInfoDom("output") << "WebOutputString::WebOutputString()";
 }
 
-WebInputTemp::~WebInputTemp()
+WebOutputString::~WebOutputString()
 {
-    cInfoDom("input") << "WebInputTemp::~WebInputTemp()";
+    cInfoDom("output") << "WebOutputString::~WebOutputString()";
 }
 
 
-void WebInputTemp::readValue()
+void WebOutputString::readValue()
 {
   // Read the value
-    value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
+    value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
     emitChange();
 }
 
 
+void WebOutputString::set_value_real(string val)
+{
+    cInfoDom("output") << "Set new string value " << val;
+}

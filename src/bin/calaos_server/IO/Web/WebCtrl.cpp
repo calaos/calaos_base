@@ -94,9 +94,9 @@ void WebCtrl::Add(double _frequency = 60.0)
         dlManager = new DownloadManager();
 }
 
-double WebCtrl::getValueJson(string path, string filename)
+string WebCtrl::getValueJson(string path, string filename)
 {
-    double value = 0.0;
+    string value;
     json_t *root, *parent, *var;
     json_error_t err;
 
@@ -128,7 +128,7 @@ double WebCtrl::getValueJson(string path, string filename)
             }
             if (var)
             {
-                value = json_number_value(var);
+                value = json_string_value(var);
                 json_decref(var);
                 json_decref(root);
             }
@@ -141,21 +141,21 @@ double WebCtrl::getValueJson(string path, string filename)
         if (var)
         {
             json_decref(var);
-            value = json_number_value(var);
+            value = json_string_value(var);
             json_decref(root);
         }
     }
     return value;
 }
 
-double WebCtrl::getValueXml(string path, string filename)
+string WebCtrl::getValueXml(string path, string filename)
 {
-    double value = 0.0;
+    string value;
     TiXmlDocument document(filename);
     if (!document.LoadFile())
     {
         // Error loading file
-        return 0.0;
+        return "";
     }
 
     vector<string> tokens;
@@ -169,7 +169,17 @@ double WebCtrl::getValueXml(string path, string filename)
     return value;
 }
 
-double WebCtrl::getValue(string path)
+double WebCtrl::getValueDouble(string path)
+{
+    double val;
+    string value;
+
+    value = getValue(path);
+    from_string(value, val);
+    return val;
+}
+
+string WebCtrl::getValue(string path)
 {
     string filename;
 
@@ -180,6 +190,7 @@ double WebCtrl::getValue(string path)
     else if (file_type == XML)
         return getValueXml(path, filename);
     else
-        return 0.0;
+        return "";
 }
+
 

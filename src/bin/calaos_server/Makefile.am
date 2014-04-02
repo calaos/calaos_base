@@ -256,6 +256,8 @@ IO/InputAnalog.h				\
 IO/InputAnalog.cpp				\
 IO/OutputAnalog.h				\
 IO/OutputAnalog.cpp				\
+IO/OutputString.h				\
+IO/OutputString.cpp				\
 IO/OutputShutter.h				\
 IO/OutputShutter.cpp			\
 IO/OutputShutterSmart.h			\
@@ -268,6 +270,8 @@ IO/Web/WebInputTemp.cpp \
 IO/Web/WebInputTemp.h \
 IO/Web/WebOutputLightRGB.cpp \
 IO/Web/WebOutputLightRGB.h \
+IO/Web/WebOutputString.cpp \
+IO/Web/WebOutputString.h \
 IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
 IO/Gpio/GpioInputSwitch.cpp \

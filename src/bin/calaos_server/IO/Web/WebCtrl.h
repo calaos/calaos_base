@@ -50,9 +50,10 @@ public:
     ~WebCtrl();
     enum {XML, JSON, UNKNOWN};
     void Add(double _frequency);
-    double getValueJson(string path, string filename);
-    double getValueXml(string path, string filename);
-    double getValue(string path);
+    string getValueJson(string path, string filename);
+    string getValueXml(string path, string filename);
+    string getValue(string path);
+    double getValueDouble(string path);
 
 };
 

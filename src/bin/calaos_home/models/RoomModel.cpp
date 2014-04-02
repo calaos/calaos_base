@@ -248,7 +248,8 @@ void Room::updateVisibleIO()
             io->params["gui_type"] == "light_rgb" ||
             io->params["gui_type"] == "shutter" ||
             io->params["gui_type"] == "shutter_smart" ||
-            io->params["gui_type"] == "analog_out")
+            io->params["gui_type"] == "analog_out"  ||
+            io->params["gui_type"] == "string_out")
         {
             if (io->params["visible"] == "true")
                 visible_ios.push_back(io);
@@ -1004,7 +1005,7 @@ string IOBase::getIconForIO()
         return "calaos/icons/element/simple/internal_bool";
     else if (params["gui_type"] == "var_int")
         return "calaos/icons/element/simple/internal_int";
-    else if (params["gui_type"] == "var_string")
+    else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
         return "calaos/icons/element/simple/internal_string";
     else if (params["gui_type"] == "shutter" ||
              params["gui_type"] == "shutter_smart")
@@ -1169,7 +1170,7 @@ vector<IOActionList> IOBase::getActionList()
         if (params["auto_scenario"] != "")
             v.push_back(IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE));
     }
-    else if (params["gui_type"] == "var_string")
+    else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
     {
         v.push_back(IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT));
     }
@@ -1264,7 +1265,7 @@ IOActionList IOBase::getActionFromState()
     {
         ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
     }
-    else if (params["gui_type"] == "var_string")
+    else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
     {
         ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
         ac.svalue = "Un Texte";
@@ -1380,7 +1381,7 @@ IOActionList IOBase::getActionListFromAction(string action)
         if (tokens[0] == "true") ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
         else if (tokens[0] == "false") ac = IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE);
     }
-    else if (params["gui_type"] == "var_string")
+    else if (params["gui_type"] == "var_string" || params["gui_type"] == "var_string")
     {
         ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
         ac.svalue = action;
