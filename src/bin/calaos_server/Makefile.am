@@ -270,6 +270,8 @@ IO/Gpio/GpioCtrl.cpp \
 IO/Gpio/GpioCtrl.h \
 IO/Gpio/GpioInputSwitch.cpp \
 IO/Gpio/GpioInputSwitch.h \
+IO/Gpio/GpioInputSwitchTriple.cpp \
+IO/Gpio/GpioInputSwitchTriple.h \
 IO/Gpio/GpioInputSwitchLongPress.cpp \
 IO/Gpio/GpioInputSwitchLongPress.h \
 IO/Gpio/GpioOutputSwitch.cpp \

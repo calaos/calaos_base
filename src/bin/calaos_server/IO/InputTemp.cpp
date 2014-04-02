@@ -52,7 +52,7 @@ InputTemp::~InputTemp()
 
 void InputTemp::hasChanged()
 {
-    if (get_params().Exists("interval"))
+    if (!get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
 
     double sec = ecore_time_get() - timer;
