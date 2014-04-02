@@ -20,8 +20,11 @@
  ******************************************************************************/
 #include <OutputFake.h>
 #include <IPC.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(OutputFake)
 
 OutputFake::OutputFake(Params &p):
     Output(p),

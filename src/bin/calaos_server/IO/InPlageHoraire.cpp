@@ -21,8 +21,12 @@
 #include <InPlageHoraire.h>
 #include <ListeRule.h>
 #include <IPC.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(InPlageHoraire)
+REGISTER_INPUT_USERTYPE(TimeRange, InPlageHoraire)
 
 InPlageHoraire::InPlageHoraire(Params &p):
     Input(p),

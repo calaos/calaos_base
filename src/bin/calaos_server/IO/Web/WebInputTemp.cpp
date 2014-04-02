@@ -26,8 +26,11 @@
 #include <WebInputTemp.h>
 #include <WebCtrl.h>
 #include <jansson.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WebInputTemp)
 
 WebInputTemp::WebInputTemp(Params &p):
     InputTemp(p)

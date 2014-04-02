@@ -23,12 +23,15 @@
 #endif
 
 #include <OWTemp.h>
+#include <IOFactory.h>
 
 #ifdef HAVE_OWCAPI_H
 #include <owcapi.h>
 #endif
 
 using namespace Calaos;
+
+REGISTER_INPUT(OWTemp)
 
 OWTemp::OWTemp(Params &p):
     InputTemp(p)

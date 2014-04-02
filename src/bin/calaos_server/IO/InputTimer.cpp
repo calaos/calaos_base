@@ -21,8 +21,11 @@
 #include <InputTimer.h>
 #include <ListeRule.h>
 #include <IPC.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(InputTimer)
 
 InputTimer::InputTimer(Params &p):
     Input(p),

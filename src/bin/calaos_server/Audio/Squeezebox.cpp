@@ -22,6 +22,7 @@
 #include <SqueezeboxDB.h>
 #include <AudioManager.h>
 #include <FileDownloader.h>
+#include <IOFactory.h>
 
 // The JSON parser
 #include <jansson.h>
@@ -30,6 +31,9 @@
 #define SQ_RECONNECT    3.0
 
 using namespace Calaos;
+
+REGISTER_AUDIO_USERTYPE(slim, Squeezebox)
+REGISTER_AUDIO(Squeezebox)
 
 static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
 {

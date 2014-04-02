@@ -20,8 +20,11 @@
  ******************************************************************************/
 #include <X10Output.h>
 #include <Ecore.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(X10Output)
 
 X10Output::X10Output(Params &p):
     OutputLightDimmer(p)

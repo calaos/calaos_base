@@ -30,22 +30,79 @@
 namespace Calaos
 {
 
-class IOFactory
+class Registrar
 {
 public:
-    static void readParams(TiXmlElement *node, Params &p);
+    Registrar(string type, function<Input *(Params &)> classFunc);
+    Registrar(string type, function<Output *(Params &)> classFunc);
+    Registrar(string type, function<AudioPlayer *(Params &)> classFunc);
+    Registrar(string type, function<IPCam *(Params &)> classFunc);
+};
 
-    static Input *CreateInput (std::string type, Params &params);
-    static Input *CreateInput (TiXmlElement *node);
+#define REGISTER_FACTORY(NAME, TYPE, RETURNCLASS) static Registrar NAME##_reg_(#NAME, [](Params &_p) -> RETURNCLASS * { return new TYPE(_p); });
 
-    static Output *CreateOutput (std::string type, Params &params);
-    static Output *CreateOutput (TiXmlElement *node);
+#define REGISTER_INPUT_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, Input)
+#define REGISTER_INPUT(TYPE) REGISTER_INPUT_USERTYPE(TYPE, TYPE)
 
-    static AudioPlayer *CreateAudio (std::string type, Params &params);
-    static AudioPlayer *CreateAudio (TiXmlElement *node);
+#define REGISTER_OUTPUT_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, Output)
+#define REGISTER_OUTPUT(TYPE) REGISTER_OUTPUT_USERTYPE(TYPE, TYPE)
 
-    static IPCam *CreateIPCamera (std::string type, Params &params);
-    static IPCam *CreateIPCamera (TiXmlElement *node);
+#define REGISTER_AUDIO_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, AudioPlayer)
+#define REGISTER_AUDIO(TYPE) REGISTER_AUDIO_USERTYPE(TYPE, TYPE)
+
+#define REGISTER_CAMERA_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, IPCam)
+#define REGISTER_CAMERA(TYPE) REGISTER_CAMERA_USERTYPE(TYPE, TYPE)
+
+class IOFactory
+{
+private:
+    IOFactory() {}
+
+    unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
+    unordered_map<string, function<Output *(Params &)>> outputFunctionRegistry;
+    unordered_map<string, function<AudioPlayer *(Params &)>> audioFunctionRegistry;
+    unordered_map<string, function<IPCam *(Params &)>> camFunctionRegistry;
+
+public:
+    void readParams(TiXmlElement *node, Params &p);
+
+    Input *CreateInput(string type, Params &params);
+    Input *CreateInput(TiXmlElement *node);
+
+    Output *CreateOutput(string type, Params &params);
+    Output *CreateOutput(TiXmlElement *node);
+
+    AudioPlayer *CreateAudio(string type, Params &params);
+    AudioPlayer *CreateAudio(TiXmlElement *node);
+
+    IPCam *CreateIPCamera(string type, Params &params);
+    IPCam *CreateIPCamera(TiXmlElement *node);
+
+    void RegisterClass(string type, function<Input *(Params &)> classFunc)
+    {
+        inputFunctionRegistry[type] = classFunc;
+    }
+
+    void RegisterClass(string type, function<Output *(Params &)> classFunc)
+    {
+        outputFunctionRegistry[type] = classFunc;
+    }
+
+    void RegisterClass(string type, function<AudioPlayer *(Params &)> classFunc)
+    {
+        audioFunctionRegistry[type] = classFunc;
+    }
+
+    void RegisterClass(string type, function<IPCam *(Params &)> classFunc)
+    {
+        camFunctionRegistry[type] = classFunc;
+    }
+
+    static IOFactory &Instance()
+    {
+        static IOFactory inst;
+        return inst;
+    }
 };
 
 }

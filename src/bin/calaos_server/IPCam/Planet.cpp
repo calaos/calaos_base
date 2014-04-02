@@ -21,8 +21,11 @@
 #include <Planet.h>
 #include <CamManager.h>
 #include <tcpsocket.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_CAMERA(Planet)
 
 Planet::Planet(Params &p): IPCam(p), saturation("127"), sharpness("127"),
     contrast("127"), hue("127"), brightness("127")

@@ -20,15 +20,18 @@
  ******************************************************************************/
 #include <GpioInputSwitchLongPress.h>
 #include <Utils.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(GpioInputSwitchLongPress)
 
 GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
     InputSwitchLongPress(p),
     gpioctrl(NULL)
 {
     int gpio_nb;
-    
+
     Utils::from_string(get_param("gpio"), gpio_nb);
 
     gpioctrl = new GpioCtrl(gpio_nb);

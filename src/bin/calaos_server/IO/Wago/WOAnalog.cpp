@@ -19,9 +19,14 @@
  **
  ******************************************************************************/
 #include <WOAnalog.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
 using namespace Utils;
+
+REGISTER_OUTPUT(WOAnalog)
+REGISTER_OUTPUT_USERTYPE(WagoOutputAnalog, WOAnalog)
 
 WOAnalog::WOAnalog(Params &p):
     OutputAnalog(p),
@@ -31,6 +36,8 @@ WOAnalog::WOAnalog(Params &p):
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
 

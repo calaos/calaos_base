@@ -19,8 +19,11 @@
  **
  ******************************************************************************/
 #include "GpioOutputSwitch.h"
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(GpioOutputSwitch)
 
 GpioOutputSwitch::GpioOutputSwitch(Params &p):
     OutputLight(p)

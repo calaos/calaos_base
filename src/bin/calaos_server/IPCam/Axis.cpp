@@ -19,8 +19,11 @@
  **
  ******************************************************************************/
 #include <Axis.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_CAMERA(Axis)
 
 Axis::Axis(Params &p): IPCam(p), quality("30"), camera("1")
 {

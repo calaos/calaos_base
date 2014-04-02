@@ -19,8 +19,13 @@
  **
  ******************************************************************************/
 #include <WITemp.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WITemp)
+REGISTER_INPUT_USERTYPE(WagoInputTemp, WITemp)
 
 WITemp::WITemp(Params &p):
     InputTemp(p),
@@ -33,6 +38,8 @@ WITemp::WITemp(Params &p):
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     requestInProgress = true;
     WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));

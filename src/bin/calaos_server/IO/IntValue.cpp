@@ -21,8 +21,13 @@
 #include <IntValue.h>
 #include <IPC.h>
 #include <CalaosConfig.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT_USERTYPE(InternalInt, Internal)
+REGISTER_INPUT_USERTYPE(InternalBool, Internal)
+REGISTER_INPUT_USERTYPE(InternalString, Internal)
 
 Internal::Internal(Params &p):
     Input(p),

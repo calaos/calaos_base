@@ -20,15 +20,18 @@
  ******************************************************************************/
 #include <GpioInputSwitch.h>
 #include <Utils.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(GpioInputSwitch)
 
 GpioInputSwitch::GpioInputSwitch(Params &p):
     InputSwitch(p),
     gpioctrl(NULL)
 {
     int gpio_nb;
-    
+
     Utils::from_string(get_param("gpio"), gpio_nb);
 
     gpioctrl = new GpioCtrl(gpio_nb);

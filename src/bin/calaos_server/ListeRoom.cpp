@@ -584,7 +584,7 @@ Input* ListeRoom::createInput(Params param, Room *room)
     {
         if (!param.Exists("msec")) param.Add("msec", "0");
         std::string type = param["type"];
-        input = IOFactory::CreateInput(type, param);
+        input = IOFactory::Instance().CreateInput(type, param);
         if (input) room->AddInput(input);
 
         //also add the it as an output
@@ -607,7 +607,7 @@ Input* ListeRoom::createInput(Params param, Room *room)
     else if (param["type"] == "scenario")
     {
         std::string type = param["type"];
-        input = IOFactory::CreateInput(type, param);
+        input = IOFactory::Instance().CreateInput(type, param);
         if (input) room->AddInput(input);
 
         //also add it as an output
@@ -632,7 +632,7 @@ Input* ListeRoom::createInput(Params param, Room *room)
         if (!param.Exists("name")) param.Add("name", "Value");
 
         std::string type = param["type"];
-        input = IOFactory::CreateInput(type, param);
+        input = IOFactory::Instance().CreateInput(type, param);
         if (input) room->AddInput(input);
 
         //also add it as an output
@@ -655,7 +655,7 @@ Input* ListeRoom::createInput(Params param, Room *room)
     else
     {
         std::string type = param["type"];
-        input = IOFactory::CreateInput(type, param);
+        input = IOFactory::Instance().CreateInput(type, param);
         if (input) room->AddInput(input);
 
         string sig = "new_input id:";
@@ -699,7 +699,7 @@ Output* ListeRoom::createOutput(Params param, Room *room)
     if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("output_"));
 
     std::string type = param["type"];
-    output = IOFactory::CreateOutput(type, param);
+    output = IOFactory::Instance().CreateOutput(type, param);
     if (output) room->AddOutput(output);
 
     string sig = "new_output id:";

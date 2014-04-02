@@ -21,8 +21,11 @@
 #include <AVReceiver.h>
 #include <IPC.h>
 #include <AVRManager.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT_USERTYPE(AVReceiver, IOAVReceiver)
 
 #define AVR_TIMEOUT      40.0
 #define AVR_RECONNECT    10.0

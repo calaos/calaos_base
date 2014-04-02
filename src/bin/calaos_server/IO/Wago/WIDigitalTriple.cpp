@@ -19,8 +19,13 @@
  **
  ******************************************************************************/
 #include <WIDigitalTriple.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WIDigitalTriple)
+REGISTER_INPUT_USERTYPE(WagoInputSwitchTriple, WIDigitalTriple)
 
 WIDigitalTriple::WIDigitalTriple(Params &p):
     InputSwitchTriple(p),
@@ -30,6 +35,8 @@ WIDigitalTriple::WIDigitalTriple(Params &p):
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalTriple::ReceiveFromWago) );
     cDebugDom("input") << get_param("id");

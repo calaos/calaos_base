@@ -410,7 +410,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                             param.Add("id", param["iid"] + "_" + param["oid"]);
 
                         std::string type = param["type"];
-                        IPCam *cam = IOFactory::CreateIPCamera(type, param);
+                        IPCam *cam = IOFactory::Instance().CreateIPCamera(type, param);
                         if (cam)
                         {
                             CamManager::Instance().Add(cam);
@@ -441,7 +441,7 @@ void TCPConnection::HomeCommand(Params &request, ProcessDone_cb callback)
                         if (!param.Exists("id")) param.Add("id", "please replace by the MAC address");
 
                         std::string type = param["type"];
-                        AudioPlayer *player = IOFactory::CreateAudio(type, param);
+                        AudioPlayer *player = IOFactory::Instance().CreateAudio(type, param);
 
                         if (player)
                         {

@@ -20,8 +20,11 @@
  ******************************************************************************/
 #include "ZibaseDigitalIn.h"
 #include "Zibase.h"
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(ZibaseDigitalIn)
 
 ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
     InputSwitch(p),

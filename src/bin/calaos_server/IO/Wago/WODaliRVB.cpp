@@ -20,8 +20,13 @@
  ******************************************************************************/
 #include <WODaliRVB.h>
 #include <IPC.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(WODaliRVB)
+REGISTER_OUTPUT_USERTYPE(WagoOutputDimmerRGB, WODaliRVB)
 
 WODaliRVB::WODaliRVB(Params &_p):
     OutputLightRGB(_p),
@@ -30,6 +35,8 @@ WODaliRVB::WODaliRVB(Params &_p):
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     //reqd initial state
     string cmd;

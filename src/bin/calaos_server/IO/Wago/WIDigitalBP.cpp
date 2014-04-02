@@ -19,8 +19,14 @@
  **
  ******************************************************************************/
 #include <WIDigitalBP.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WIDigitalBP)
+REGISTER_INPUT_USERTYPE(WIDigital, WIDigitalBP)
+REGISTER_INPUT_USERTYPE(WagoInputSwitch, WIDigitalBP)
 
 WIDigitalBP::WIDigitalBP(Params &p):
     InputSwitch(p),
@@ -31,6 +37,8 @@ WIDigitalBP::WIDigitalBP(Params &p):
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalBP::ReceiveFromWago) );
 

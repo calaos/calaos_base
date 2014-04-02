@@ -21,9 +21,12 @@
 #include <InputTime.h>
 #include <IPC.h>
 #include <ListeRule.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
 using namespace Utils;
+
+REGISTER_INPUT(InputTime)
 
 InputTime::InputTime(Params &p):
     Input(p),

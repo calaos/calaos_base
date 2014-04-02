@@ -20,8 +20,12 @@
  ******************************************************************************/
 #include <StandardMjpeg.h>
 #include <CamManager.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_CAMERA(StandardMjpeg)
+REGISTER_CAMERA_USERTYPE(standard_mjpeg, StandardMjpeg)
 
 StandardMjpeg::StandardMjpeg(Params &p): IPCam(p)
 {

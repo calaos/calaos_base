@@ -20,8 +20,11 @@
  ******************************************************************************/
 #include "ZibaseAnalogIn.h"
 #include "Zibase.h"
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(ZibaseAnalogIn);
 
 ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
     InputAnalog(p),

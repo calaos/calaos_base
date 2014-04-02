@@ -165,7 +165,7 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
     {
         if (node->ValueStr() == "calaos:input")
         {
-            Input *in = IOFactory::CreateInput(node);
+            Input *in = IOFactory::Instance().CreateInput(node);
             if (in)
             {
                 AddInput(in);
@@ -179,12 +179,12 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
         }
         else if (node->ValueStr() == "calaos:output")
         {
-            Output *out = IOFactory::CreateOutput(node);
+            Output *out = IOFactory::Instance().CreateOutput(node);
             if (out) AddOutput(out);
         }
         else if (node->ValueStr() == "calaos:audio")
         {
-            AudioPlayer *player = IOFactory::CreateAudio(node);
+            AudioPlayer *player = IOFactory::Instance().CreateAudio(node);
             if (player)
             {
                 if (AudioManager::Instance().get_size() <= 0)
@@ -198,7 +198,7 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
         }
         else if (node->ValueStr() == "calaos:internal")
         {
-            Input *in = IOFactory::CreateInput(node);
+            Input *in = IOFactory::Instance().CreateInput(node);
             if (in)
             {
                 Internal *intern = dynamic_cast<Internal *>(in);
@@ -211,7 +211,7 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
         }
         else if (node->ValueStr() == "calaos:camera")
         {
-            IPCam *camera = IOFactory::CreateIPCamera(node);
+            IPCam *camera = IOFactory::Instance().CreateIPCamera(node);
             if (camera)
             {
                 CamManager::Instance().Add(camera);
@@ -222,7 +222,7 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
         }
         else if (node->ValueStr() == "calaos:avr")
         {
-            Output *o = IOFactory::CreateOutput(node);
+            Output *o = IOFactory::Instance().CreateOutput(node);
             if (o)
             {
                 IOAVReceiver *receiver = dynamic_cast<IOAVReceiver *>(o);

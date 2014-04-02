@@ -26,8 +26,11 @@
 #include <WebInputAnalog.h>
 #include <WebCtrl.h>
 #include <jansson.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WebInputAnalog)
 
 WebInputAnalog::WebInputAnalog(Params &p):
     InputAnalog(p)

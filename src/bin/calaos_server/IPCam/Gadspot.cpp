@@ -19,8 +19,11 @@
  **
  ******************************************************************************/
 #include <Gadspot.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_CAMERA(Gadspot)
 
 Gadspot::Gadspot(Params &p): IPCam(p)
 {

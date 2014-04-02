@@ -20,16 +20,20 @@
  ******************************************************************************/
 #include <WOVolet.h>
 #include <IPC.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(WOVolet)
+REGISTER_OUTPUT_USERTYPE(WagoOutputShutter, WOVolet)
 
 WOVolet::WOVolet(Params &p):
     OutputShutter(p),
     port(502)
 {
-    host = get_param("host");
-    if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+    readConfig();
+    WagoMap::Instance(host, port);
 
     cDebugDom("output") << get_param("id") << ": Ok";
 }

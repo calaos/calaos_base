@@ -20,15 +20,18 @@
  ******************************************************************************/
 #include <GpioInputSwitchTriple.h>
 #include <Utils.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(GpioInputSwitchTriple)
 
 GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
     InputSwitchTriple(p),
     gpioctrl(NULL)
 {
     int gpio_nb;
-    
+
     Utils::from_string(get_param("gpio"), gpio_nb);
 
     gpioctrl = new GpioCtrl(gpio_nb);

@@ -19,8 +19,13 @@
  **
  ******************************************************************************/
 #include <WIDigitalLong.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WIDigitalLong)
+REGISTER_INPUT_USERTYPE(WagoInputSwitchLongPress, WIDigitalLong)
 
 WIDigitalLong::WIDigitalLong(Params &p):
     InputSwitchLongPress(p),
@@ -30,6 +35,8 @@ WIDigitalLong::WIDigitalLong(Params &p):
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     iter = Utils::signal_wago.connect( sigc::mem_fun(this, &WIDigitalLong::ReceiveFromWago) );
     cDebugDom("input") << get_param("id") << ": Ok";

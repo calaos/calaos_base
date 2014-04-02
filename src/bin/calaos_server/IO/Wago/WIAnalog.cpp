@@ -19,8 +19,13 @@
  **
  ******************************************************************************/
 #include <WIAnalog.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(WIAnalog)
+REGISTER_INPUT_USERTYPE(WagoInputAnalog, WIAnalog)
 
 WIAnalog::WIAnalog(Params &p):
     InputAnalog(p),
@@ -31,6 +36,8 @@ WIAnalog::WIAnalog(Params &p):
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     Utils::from_string(get_param("var"), address);
 

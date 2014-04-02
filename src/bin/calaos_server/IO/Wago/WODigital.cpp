@@ -19,8 +19,13 @@
  **
  ******************************************************************************/
 #include <WODigital.h>
+#include <IOFactory.h>
+#include <WagoMap.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(WODigital)
+REGISTER_OUTPUT_USERTYPE(WagoOutputLight, WODigital)
 
 WODigital::WODigital(Params &p):
     OutputLight(p),
@@ -33,6 +38,8 @@ WODigital::WODigital(Params &p):
 
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     if (get_param("knx") == "true")
         address += WAGO_KNX_START_ADDRESS;

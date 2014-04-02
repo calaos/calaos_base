@@ -22,8 +22,11 @@
 #include <IPC.h>
 #include <AutoScenario.h>
 #include <EcoreTimer.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_INPUT(Scenario)
 
 Scenario::Scenario(Params &p):
     Input(p),

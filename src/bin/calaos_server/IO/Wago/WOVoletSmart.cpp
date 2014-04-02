@@ -20,13 +20,21 @@
  ******************************************************************************/
 #include <WOVoletSmart.h>
 #include <IPC.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(WOVoletSmart)
+REGISTER_OUTPUT_USERTYPE(WagoOutputShutterSmart, WOVoletSmart)
 
 WOVoletSmart::WOVoletSmart(Params &p):
     OutputShutterSmart(p),
     port(502)
 {
+    readConfig();
+    WagoMap::Instance(host, port);
+
     cDebugDom("output") << get_param("id") << ": Ok";
 }
 

@@ -20,8 +20,13 @@
  ******************************************************************************/
 #include <WODali.h>
 #include <IPC.h>
+#include <WagoMap.h>
+#include <IOFactory.h>
 
 using namespace Calaos;
+
+REGISTER_OUTPUT(WODali)
+REGISTER_OUTPUT_USERTYPE(WagoOutputDimmer, WODali)
 
 WODali::WODali(Params &_p):
     OutputLightDimmer(_p),
@@ -30,6 +35,8 @@ WODali::WODali(Params &_p):
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+
+    WagoMap::Instance(host, port);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
 
