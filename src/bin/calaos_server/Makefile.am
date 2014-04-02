@@ -262,8 +262,8 @@ IO/OutputShutterSmart.h			\
 IO/OutputShutterSmart.cpp 	\
 IO/Web/WebCtrl.cpp \
 IO/Web/WebCtrl.h \
-IO/Web/WebAnalogIn.cpp \
-IO/Web/WebAnalogIn.h \
+IO/Web/WebInputAnalog.cpp \
+IO/Web/WebInputAnalog.h \
 IO/Web/WebOutputLightRGB.cpp \
 IO/Web/WebOutputLightRGB.h \
 IO/Gpio/GpioCtrl.cpp \

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,39 +18,26 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
-#include <ListeRule.h>
-#include <WebAnalogIn.h>
-#include <WebCtrl.h>
-#include <jansson.h>
+#ifndef WEBINPUTANALOG_H
+#define WEBINPUTANALOG_H
 
-using namespace Calaos;
+#include <Calaos.h>
+#include <InputAnalog.h>
 
-WebAnalogIn::WebAnalogIn(Params &p):
-    InputAnalog(p)
+namespace Calaos
 {
-    cInfoDom("input") << "WebAnalogIn::WebAnalogIn()";
 
-    WebCtrl::Instance(p).Add(frequency);
+class WebInputAnalog : public InputAnalog
+{
+protected:
+    virtual void readValue();
 
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
+public:
+    WebInputAnalog(Params &p);
+    ~WebInputAnalog();
+};
+
 }
 
-WebAnalogIn::~WebAnalogIn()
-{
-    cInfoDom("input") << "WebAnalogIn::~WebAnalogIn()";
-}
-
-
-void WebAnalogIn::readValue()
-{
-    value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
-    emitChange();
-}
-
-
+#endif // WEBINPUTANALOG_H

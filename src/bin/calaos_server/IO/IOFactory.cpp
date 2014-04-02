@@ -46,7 +46,8 @@
 #include <WOAnalog.h>
 #include <OWTemp.h>
 #include <AVReceiver.h>
-#include <WebAnalogIn.h>
+#include <WebInputAnalog.h>
+#include <WebInputTemp.h>
 #include <GpioOutputSwitch.h>
 #include <GpioInputSwitch.h>
 #include <GpioInputSwitchLongPress.h>
@@ -137,9 +138,13 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
     {
         in = new OWTemp(params);
     }
-    else if (type == "WebAnalogIn")
+    else if (type == "WebInputAnalog")
     {
-        in = new WebAnalogIn(params);
+        in = new WebInputAnalog(params);
+    }
+    else if (type == "WebInputTemp")
+    {
+        in = new WebInputTemp(params);
     }
     else if (type == "scenario")
     {
