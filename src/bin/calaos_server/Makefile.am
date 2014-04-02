@@ -264,6 +264,8 @@ IO/Web/WebCtrl.cpp \
 IO/Web/WebCtrl.h \
 IO/Web/WebInputAnalog.cpp \
 IO/Web/WebInputAnalog.h \
+IO/Web/WebInputTemp.cpp \
+IO/Web/WebInputTemp.h \
 IO/Web/WebOutputLightRGB.cpp \
 IO/Web/WebOutputLightRGB.h \
 IO/Gpio/GpioCtrl.cpp \
