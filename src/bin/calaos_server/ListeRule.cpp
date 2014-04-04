@@ -123,6 +123,8 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
 
     cDebugDom("rule") << "Received signal for id " << io_id;
 
+    unordered_map<Rule *, bool> execRules;
+
     for (uint i = 0;i < rules.size();i++)
     {
         Rule *rule = rules[i];
@@ -134,8 +136,13 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             {
                 if (cond->get_input(k)->get_param("id") == io_id)
                 {
-                    if (cond->useForTrigger())
-                        rule->Execute();
+                    if (cond->useForTrigger() &&
+                        rule->CheckConditions())
+                    {
+                        //Add only rules once to the exec list
+                        if (execRules.find(rule) == execRules.end())
+                            execRules[rule] = true;
+                    }
                     exec = true;
                 }
             }
@@ -148,8 +155,12 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
                 {
                     if (list[k]->get_param("id") == io_id)
                     {
-                        if (cond->useForTrigger())
-                            rule->Execute();
+                        if (cond->useForTrigger() &&
+                            rule->CheckConditions())
+                        {
+                            if (execRules.find(rule) == execRules.end())
+                                execRules[rule] = true;
+                        }
                         exec = true;
                     }
                 }
@@ -158,15 +169,29 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             ConditionScript *scond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
             for (int k = 0;scond && k < scond->get_size();k++)
             {
-                if (scond->get_input(k)->get_param("id") == io_id)
-                    rule->Execute();
+                if (scond->get_input(k)->get_param("id") == io_id &&
+                    rule->CheckConditions())
+                {
+                    if (execRules.find(rule) == execRules.end())
+                        execRules[rule] = true;
+                }
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));
             if (ocond && ocond->getOutput()->get_param("id") == io_id &&
-                ocond->useForTrigger())
-                rule->Execute();
+                ocond->useForTrigger() &&
+                rule->CheckConditions())
+            {
+                if (execRules.find(rule) == execRules.end())
+                    execRules[rule] = true;
+            }
         }
+    }
+
+    //Execute all rules actions now
+    for (auto it: execRules)
+    {
+        it.first->ExecuteActions();
     }
 
     mutex.unlock();

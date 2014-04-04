@@ -60,41 +60,47 @@ void Rule::AddAction(Action *act)
 
 bool Rule::Execute()
 {
-    bool ret;
-    bool cond = true;
-    bool action = true;
-
     cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution...";
 
-    for (uint i = 0;i < conds.size();i++)
-        if (!conds[i]->Evaluate()) cond = false;
+    if (CheckConditions())
+        return ExecuteActions();
 
-    //Actions are executed only if all conditions are true
-    if (cond)
+    return false;
+}
+
+bool Rule::CheckConditions()
+{
+    bool ret = true;
+
+    for (Condition *condition: conds)
     {
-        cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
-                         << "): Starting execution (" << actions.size() << " actions)";
-
-        for (uint i = 0;i < actions.size();i++)
-            if (!actions[i]->Execute()) action = false;
-
-        cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
-                         << "): Execution done.";
-    }
-    else
-    {
-        return false;
+        if (!condition->Evaluate())
+            ret = false;
     }
 
-    if (cond && action)
-        ret = true;
-    else
-        ret = false;
+    cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): checking conditions: " << (ret?"true":"false");
 
-    if (ret)
-        cDebugDom("rule");
-    else if (cond)
-        cWarningDom("rule") << "Failed !";
+    return ret;
+}
+
+bool Rule::ExecuteActions()
+{
+    bool ret = true;
+
+    cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                     << "): Starting execution (" << actions.size() << " actions)";
+
+    for (Action *action: actions)
+    {
+        if (!action->Execute())
+            ret = false;
+    }
+
+    cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                     << "): Execution done.";
+
+    if (!ret)
+        cWarningDom("rule") << "One or more Actions execution Failed !";
 
     return ret;
 }

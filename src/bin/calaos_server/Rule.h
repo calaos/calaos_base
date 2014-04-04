@@ -48,6 +48,8 @@ public:
     void AddCondition(Condition *p);
     void AddAction(Action *p);
     bool Execute();
+    bool CheckConditions();
+    bool ExecuteActions();
     void RemoveCondition(int i);
     void RemoveAction(int i);
 
