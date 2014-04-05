@@ -220,16 +220,12 @@ void WebCtrl::setValue(string value)
             << data << " | "
             << data_type;
 
-    //filename = "/tmp/calaos_" + param.get_param("id");
-    /*
-    if (file_type == JSON)
-        return getValueJson(path, filename);
-    else if (file_type == XML)
-        return getValueXml(path, filename);
-    else
-        return "";
-    */
 }
 
+void WebCtrl::setValue(int r, int g, int b)
+{
+    char tmp[16];
+    snprintf(tmp, sizeof(tmp), "%02x%02x%02x", r, g, b);
 
-
+    setValue(tmp);
+}

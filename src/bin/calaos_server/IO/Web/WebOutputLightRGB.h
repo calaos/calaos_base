@@ -18,17 +18,23 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef _WEB_OUTPUT_LIGHT_RGB_H_
-#define _WEB_OUTPUT_LIGHT_RGB_H_
 
+#ifndef WEBOUTPUTLIGHTRGB_H
+#define WEBOUTPUTLIGHTRGB_H
+
+#include <Calaos.h>
 #include <OutputLightRGB.h>
-
 
 namespace Calaos
 {
 
 class WebOutputLightRGB : public OutputLightRGB
 {
+
+protected:
+    virtual void readValue();
+    virtual void setColorReal(int r, int g, int b);
+
 public:
     WebOutputLightRGB(Params &p);
     ~WebOutputLightRGB();
@@ -36,4 +42,4 @@ public:
 
 }
 
-#endif /* _WEB_OUTPUT_LIGHT_RGB_H_ */
+#endif // WEBOUTPUTLIGHTRGB_H

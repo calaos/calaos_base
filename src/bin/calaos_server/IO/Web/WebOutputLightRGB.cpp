@@ -18,23 +18,38 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <ListeRule.h>
 #include <WebOutputLightRGB.h>
-#include <OutputLightRGB.h>
+#include <WebCtrl.h>
+#include <jansson.h>
 
 using namespace Calaos;
 
-WebOutputLightRGB::WebOutputLightRGB(Params &_p):
-    OutputLightRGB(_p)
+WebOutputLightRGB::WebOutputLightRGB(Params &p):
+    OutputLightRGB(p)
 {
-    Calaos::StartReadRules::Instance().addIO();
-    Calaos::StartReadRules::Instance().addIO();
-    Calaos::StartReadRules::Instance().addIO();
-
-    cDebugDom("output") << get_param("id") << ": Ok";
+    cInfoDom("output") << "WebOutputLightRGB::WebOutputLightRGB()";  
 }
 
 WebOutputLightRGB::~WebOutputLightRGB()
 {
-    cDebugDom("output");
+    cInfoDom("output") << "WebOutputLightRGB::~WebOutputLightRGB()";
 }
 
+
+void WebOutputLightRGB::readValue()
+{
+  // Read the value
+
+}
+
+
+void WebOutputLightRGB::setColorReal(int r, int g , int b)
+{
+  //    cInfoDom("output") << "Set new string value " << ;
+    WebCtrl::Instance(get_params()).setValue(r, g, b);
+}

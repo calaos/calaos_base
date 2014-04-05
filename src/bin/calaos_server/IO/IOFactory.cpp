@@ -49,6 +49,7 @@
 #include <WebInputAnalog.h>
 #include <WebInputTemp.h>
 #include <WebOutputString.h>
+#include <WebOutputLightRGB.h>
 #include <GpioOutputSwitch.h>
 #include <GpioInputSwitch.h>
 #include <GpioInputSwitchLongPress.h>
@@ -301,6 +302,10 @@ Output *IOFactory::CreateOutput(std::string type, Params &params)
     else if (type == "WebOutputString")
     {
         out = new WebOutputString(params);
+    }
+    else if (type == "WebOutputLightRGB")
+    {
+        out = new WebOutputLightRGB(params);
     }
 
     if (out)
