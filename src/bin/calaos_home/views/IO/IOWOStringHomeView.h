@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,39 +18,33 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef IOWOSTRINGHOMEVIEW_H
+#define IOWOSTRINGHOMEVIEW_H
 
-#include <ListeRule.h>
-#include <WebOutputString.h>
-#include <WebCtrl.h>
-#include <jansson.h>
+#include <Utils.h>
+#include <GenlistItemBase.h>
 
-using namespace Calaos;
+using namespace Utils;
 
-WebOutputString::WebOutputString(Params &p):
-    OutputString(p)
+class IOWOStringHomeView: public GenlistItemBase, public IOBaseElement
 {
-    cInfoDom("output") << "WebOutputString::WebOutputString()";  
-}
+private:
+    virtual void ioDeleted();
 
-WebOutputString::~WebOutputString()
-{
-    cInfoDom("output") << "WebOutputString::~WebOutputString()";
-}
+    void changeTextCb(string text);
 
+public:
+    IOWOStringHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    virtual ~IOWOStringHomeView();
 
-void WebOutputString::readValue()
-{
-  // Read the value
-    value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
-    emitChange();
-}
+    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual string getLabelItem(Evas_Object *obj, string part);
 
+    //Called when the real IO changed
+    virtual void initView();
+    virtual void updateView();
 
-void WebOutputString::set_value_real(string val)
-{
-    cInfoDom("output") << "Set new string value " << val;
-    WebCtrl::Instance(get_params()).setValue(val);
-}
+    void buttonClickText();
+};
+
+#endif // IOWOSTRINGHOMEVIEW_H

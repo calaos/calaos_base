@@ -193,4 +193,43 @@ string WebCtrl::getValue(string path)
         return "";
 }
 
+void WebCtrl::setValue(string value)
+{
+    string url =  param.get_param("url");
+    string data = param.get_param("data");
+    string data_type = param.get_param("data_type");
+
+    // Case where there is no data to send, we assume the value is in the url
+    if (param.get_param("data") == "")
+    {
+    string filename;
+
+        replace_str(url, "__##VALUE##__", url_encode(value));
+    }
+    else
+    {
+        replace_str(data, "__##VALUE##__", value);
+    }
+
+    FileDownloader *fdownloader = new FileDownloader(url, data, data_type, true);
+    fdownloader->Start();
+
+    cInfo() << "Set value with param : " 
+            << url << " | "
+            << param.get_param("request_type") << " | "
+            << data << " | "
+            << data_type;
+
+    //filename = "/tmp/calaos_" + param.get_param("id");
+    /*
+    if (file_type == JSON)
+        return getValueJson(path, filename);
+    else if (file_type == XML)
+        return getValueXml(path, filename);
+    else
+        return "";
+    */
+}
+
+
 

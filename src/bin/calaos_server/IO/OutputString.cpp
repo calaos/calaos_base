@@ -32,7 +32,7 @@ OutputString::OutputString(Params &p):
 
     readConfig();
 
-    cInfoDom("output") << get_param("id") << "): Ok";
+    cInfoDom("output") << get_param("id") << ": Ok";
 }
 
 OutputString::~OutputString()
@@ -55,9 +55,10 @@ void OutputString::emitChange()
 
 bool OutputString::set_value(string val)
 {
-
     readConfig();
 
+    set_value_real(val);
+   
     value = val;
     EmitSignalOutput();
     emitChange();

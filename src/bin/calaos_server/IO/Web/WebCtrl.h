@@ -54,7 +54,7 @@ public:
     string getValueXml(string path, string filename);
     string getValue(string path);
     double getValueDouble(string path);
-
+    void setValue(string value);
 };
 
 }

@@ -91,6 +91,7 @@ calaos_home_SOURCES = \
         views/IO/IOWITempHomeView.cpp				\
         views/IO/IOWOVoletHomeView.cpp				\
         views/IO/IOWOVoletSmartHomeView.cpp			\
+	views/IO/IOWOStringHomeView.cpp				\
         views/IO/IOGenlistRoomGroup.cpp				\
         views/GenlistItems/GenlistItemPlaylist.cpp		\
         views/GenlistItems/GenlistItemAlbum.cpp			\
@@ -172,6 +173,7 @@ calaos_home_SOURCES = \
 	views/IO/IOInternalStringHomeView.h			\
 	views/IO/IOGenlistScenarioHomeView.h			\
 	views/IO/IOWOVoletSmartHomeView.h			\
+	views/IO/IOWOStringHomeView.h				\
 	views/IO/IOWOVoletHomeView.h				\
 	views/IO/IOWITempHomeView.h				\
 	views/IO/IOInternalIntHomeView.h			\
