@@ -33,7 +33,16 @@ InputTemp::InputTemp(Params &p):
 {
     set_param("gui_type", "temp");
 
-    Utils::from_string(get_param("offset"), offset);
+    coeff_a = 1.0;
+    coeff_b = 0.0;
+
+    if (get_params().Exists("coeff_a"))
+      Utils::from_string(get_param("coeff_a"), coeff_a);
+    if (get_params().Exists("coeff_b"))
+      Utils::from_string(get_param("coeff_b"), coeff_b);
+    if (get_params().Exists("offset"))
+      Utils::from_string(get_param("offset"), coeff_b);
+
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
@@ -66,21 +75,9 @@ void InputTemp::hasChanged()
 
 double InputTemp::get_value_double()
 {
-    double v;
+    double v;    
 
-    if (get_params().Exists("offset"))
-    {
-        Utils::from_string(get_param("offset"), offset);
-
-        if (offset < 100 && offset > -100)
-            v = value - offset;
-        else
-            v = value;
-    }
-    else
-    {
-        v = value;
-    }
+    v = coeff_a * value + coeff_b;
 
     return v;
 }

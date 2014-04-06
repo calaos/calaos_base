@@ -39,6 +39,8 @@ protected:
     double timer;
     double readTime; //interval between each read, can be configured with "interval" parameter
     double offset;
+    double coeff_a;
+    double coeff_b;
 
     void emitChange();
     virtual void readValue() = 0;
