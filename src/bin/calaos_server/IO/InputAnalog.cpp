@@ -54,6 +54,7 @@ void InputAnalog::readConfig()
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
     if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
+    if (get_params().Exists("interval")) Utils::from_string(get_param("interval"), frequency);
     if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
 }
 

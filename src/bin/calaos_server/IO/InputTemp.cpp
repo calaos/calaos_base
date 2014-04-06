@@ -44,6 +44,8 @@ InputTemp::InputTemp(Params &p):
       Utils::from_string(get_param("offset"), coeff_b);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (get_params().Exists("frequency"))
+        Utils::from_string(get_param("frequency"), readTime);
     if (get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
 
@@ -61,9 +63,6 @@ InputTemp::~InputTemp()
 
 void InputTemp::hasChanged()
 {
-    if (!get_params().Exists("interval"))
-        Utils::from_string(get_param("interval"), readTime);
-
     double sec = ecore_time_get() - timer;
     if (sec >= readTime)
     {
