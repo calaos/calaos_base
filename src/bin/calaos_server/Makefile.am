@@ -250,6 +250,8 @@ IO/InputSwitchTriple.h			\
 IO/InputSwitchTriple.cpp		\
 IO/InputSwitchLongPress.h		\
 IO/InputSwitchLongPress.cpp		\
+IO/InputString.h				\
+IO/InputString.cpp				\
 IO/InputTemp.h					\
 IO/InputTemp.cpp				\
 IO/InputAnalog.h				\
@@ -266,6 +268,8 @@ IO/Web/WebCtrl.cpp \
 IO/Web/WebCtrl.h \
 IO/Web/WebInputAnalog.cpp \
 IO/Web/WebInputAnalog.h \
+IO/Web/WebInputString.cpp \
+IO/Web/WebInputString.h \
 IO/Web/WebInputTemp.cpp \
 IO/Web/WebInputTemp.h \
 IO/Web/WebOutputLightRGB.cpp \

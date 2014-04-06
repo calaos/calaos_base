@@ -249,7 +249,7 @@ void Room::updateVisibleIO()
             io->params["gui_type"] == "shutter" ||
             io->params["gui_type"] == "shutter_smart" ||
             io->params["gui_type"] == "analog_out"  ||
-            io->params["gui_type"] == "string_out")
+            io->params["gui_type"] == "string_in")
         {
             if (io->params["visible"] == "true")
                 visible_ios.push_back(io);
@@ -1005,7 +1005,7 @@ string IOBase::getIconForIO()
         return "calaos/icons/element/simple/internal_bool";
     else if (params["gui_type"] == "var_int")
         return "calaos/icons/element/simple/internal_int";
-    else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
+    else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out" || params["gui_type"] == "string_in")
         return "calaos/icons/element/simple/internal_string";
     else if (params["gui_type"] == "shutter" ||
              params["gui_type"] == "shutter_smart")

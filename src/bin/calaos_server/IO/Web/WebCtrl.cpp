@@ -115,7 +115,23 @@ string WebCtrl::getValueJson(string path, string filename)
             for (it = tokens.begin();it != tokens.end();it++)
             {
                 string val = *it;
-                var = json_object_get(parent, val.c_str());
+                // Test if the token is an array index
+                // if it's the case, it must be something like [x]
+                if (val[0] == '[')
+                {
+                    int idx;
+                    // Remove last char
+                    val.pop_back();
+                    // Read array index
+                    from_string(val, idx);
+                    var = json_array_get(parent, idx);
+                }
+                // Toke is a normal object name
+                else
+                {
+                    var = json_object_get(parent, val.c_str());
+                }
+
                 if (!var)
                 {
                     var = parent;
@@ -125,7 +141,9 @@ string WebCtrl::getValueJson(string path, string filename)
                 {
                     parent = var;
                 }
+                
             }
+
             if (var)
             {
                 if (json_is_string(var))
@@ -134,6 +152,10 @@ string WebCtrl::getValueJson(string path, string filename)
                     value = to_string(json_number_value(var));
                 json_decref(var);
                 json_decref(root);
+            }
+            else
+            {
+                cError() << "Error, " << path << " Can't be read";
             }
 
         }

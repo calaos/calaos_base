@@ -262,6 +262,7 @@ bool Room::SaveToXml(TiXmlElement *node)
             input->get_param("type") == "WIAnalog" ||
             input->get_param("type") == "WebInputAnalog" ||
             input->get_param("type") == "WebInputTemp" ||
+            input->get_param("type") == "WebInputString" ||
             input->get_param("type") == "GpioInputSwitch" ||
             input->get_param("type") == "GpioInputSwitchLongPress" ||
             input->get_param("type") == "GpioInputSwitchTriple")
