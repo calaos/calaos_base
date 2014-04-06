@@ -29,6 +29,8 @@
 
 using namespace Calaos;
 
+REGISTER_OUTPUT(WebOutputLightRGB)
+
 WebOutputLightRGB::WebOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
@@ -50,6 +52,5 @@ void WebOutputLightRGB::readValue()
 
 void WebOutputLightRGB::setColorReal(int r, int g , int b)
 {
-  //    cInfoDom("output") << "Set new string value " << ;
     WebCtrl::Instance(get_params()).setValue(r, g, b);
 }

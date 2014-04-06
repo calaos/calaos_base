@@ -19,45 +19,32 @@
  **
  ******************************************************************************/
 #include <IOFactory.h>
-#include <WagoMap.h>
-
-#include <InputTime.h>
-#include <InputTimer.h>
-#include <OutputFake.h>
-#include <WODigital.h>
-#include <WIDigitalBP.h>
-#include <WIDigitalTriple.h>
-#include <WIDigitalLong.h>
-#include <Squeezebox.h>
-#include <IntValue.h>
-#include <WITemp.h>
-#include <Gadspot.h>
-#include <Axis.h>
-#include <StandardMjpeg.h>
-#include <Planet.h>
-#include <Scenario.h>
-#include <WOVolet.h>
-#include <WOVoletSmart.h>
-#include <X10Output.h>
-#include <InPlageHoraire.h>
-#include <WODali.h>
-#include <WODaliRVB.h>
-#include <WIAnalog.h>
-#include <WOAnalog.h>
-#include <OWTemp.h>
-#include <AVReceiver.h>
-#include <WebInputAnalog.h>
-#include <WebInputTemp.h>
-#include <WebOutputString.h>
-#include <WebOutputLightRGB.h>
-#include <GpioOutputSwitch.h>
-#include <GpioInputSwitch.h>
-#include <GpioInputSwitchLongPress.h>
-#include <GpioInputSwitchTriple.h>
-#include <ZibaseAnalogIn.h>
-#include <ZibaseDigitalIn.h>
 
 using namespace Calaos;
+
+Registrar::Registrar(string type, function<Input *(Params &)> classFunc)
+{
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    IOFactory::Instance().RegisterClass(type, classFunc);
+}
+
+Registrar::Registrar(string type, function<Output *(Params &)> classFunc)
+{
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    IOFactory::Instance().RegisterClass(type, classFunc);
+}
+
+Registrar::Registrar(string type, function<AudioPlayer *(Params &)> classFunc)
+{
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    IOFactory::Instance().RegisterClass(type, classFunc);
+}
+
+Registrar::Registrar(string type, function<IPCam *(Params &)> classFunc)
+{
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    IOFactory::Instance().RegisterClass(type, classFunc);
+}
 
 void IOFactory::readParams(TiXmlElement *node, Params &p)
 {
@@ -71,145 +58,20 @@ void IOFactory::readParams(TiXmlElement *node, Params &p)
 
 Input *IOFactory::CreateInput(std::string type, Params &params)
 {
-    Input *in = NULL;
+    Input *obj = nullptr;
 
-    if (type == "InputTime")
-    {
-        in = new InputTime(params);
-    }
-    else if (type == "InputTimer")
-    {
-        in = new InputTimer(params);
-    }
-    else if (type == "WIDigitalBP" || type == "WIDigital")
-    {
-        in = new WIDigitalBP(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
 
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WIDigitalTriple")
-    {
-        in = new WIDigitalTriple(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
+    auto it = inputFunctionRegistry.find(type);
+    if (it != inputFunctionRegistry.end())
+        obj = it->second(params);
 
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WIDigitalLong")
-    {
-        in = new WIDigitalLong(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
-
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WITemp")
-    {
-        in = new WITemp(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
-
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WIAnalog")
-    {
-        in = new WIAnalog(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
-
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "OWTemp")
-    {
-        in = new OWTemp(params);
-    }
-    else if (type == "WebInputAnalog")
-    {
-        in = new WebInputAnalog(params);
-    }
-    else if (type == "WebInputTemp")
-    {
-        in = new WebInputTemp(params);
-    }
-    else if (type == "scenario")
-    {
-        in = new Scenario(params);
-    }
-    else if (type == "InPlageHoraire")
-    {
-        in = new InPlageHoraire(params);
-    }
-    else if (type == "internbool" || type == "internalbool" ||
-             type == "InternalBoolOutput" || type == "InternalBoolInput" ||
-             type == "InternalBool")
-    {
-        type = "InternalBool";
-        params.Add("type", type);
-
-        in = new Internal(params);
-    }
-    else if (type == "internint" || type == "internalint" ||
-             type == "InternalIntOutput" || type == "InternalIntInput" ||
-             type == "InternalInt")
-    {
-        type = "InternalInt";
-        params.Add("type", type);
-
-        in = new Internal(params);
-    }
-    else if (type == "internstring" || type == "internalstring" ||
-             type == "InternalStringOutput" || type == "InternalStringInput" ||
-             type == "InternalString")
-    {
-        type = "InternalString";
-        params.Add("type", type);
-
-        in = new Internal(params);
-    }
-    else if (type == "ZibaseAnalogIn")
-    {
-        in = new ZibaseAnalogIn(params);
-    }
-    else if (type == "ZibaseDigitalIn")
-    {
-        in = new ZibaseDigitalIn(params);
-    }
-    else if (type == "GpioInputSwitch")
-    {
-        in = new GpioInputSwitch(params);
-    }
-    else if (type == "GpioInputSwitchLongPress")
-    {
-        in = new GpioInputSwitchLongPress(params);
-    }
-    else if (type == "GpioInputSwitchTriple")
-    {
-        in = new GpioInputSwitchTriple(params);
-    }
-
-    if (in)
-        cInfo() <<  type << ": Ok";
+    if (obj)
+        cInfo() << type << ": Ok";
     else
         cWarning() <<  type << ": Unknown Input type !";
 
-    return in;
+    return obj;
 }
 
 Input *IOFactory::CreateInput(TiXmlElement *node)
@@ -225,95 +87,20 @@ Input *IOFactory::CreateInput(TiXmlElement *node)
 
 Output *IOFactory::CreateOutput(std::string type, Params &params)
 {
-    Output *out = NULL;
+    Output *obj = nullptr;
 
-    if (type == "OutputFake")
-    {
-        out = new OutputFake(params);
-    }
-    else if (type == "WODigital")
-    {
-        out = new WODigital(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
 
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WONeon")
-    {
-        cError() <<  type << ": WONeon is deprecated !";
-    }
-    else if (type == "X10Output")
-    {
-        out = new X10Output(params);
-    }
-    else if (type == "WOVolet")
-    {
-        out = new WOVolet(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
+    auto it = outputFunctionRegistry.find(type);
+    if (it != outputFunctionRegistry.end())
+        obj = it->second(params);
 
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WOVoletSmart")
-    {
-        out = new WOVoletSmart(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
-
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "WODali")
-    {
-        out = new WODali(params);
-    }
-    else if (type == "WODaliRVB")
-    {
-        out = new WODaliRVB(params);
-    }
-    else if (type == "WOAnalog")
-    {
-        out = new WOAnalog(params);
-        int port;
-        Utils::from_string(params["port"], port);
-        std::string host = params["host"];
-        if (!params.Exists("port"))
-            port = 502;
-
-        WagoMap::Instance(host, port);
-    }
-    else if (type == "AVReceiver")
-    {
-        out = new IOAVReceiver(params);
-    }
-    else if (type == "GpioOutputSwitch")
-    {
-        out = new GpioOutputSwitch(params);
-    }
-    else if (type == "WebOutputString")
-    {
-        out = new WebOutputString(params);
-    }
-    else if (type == "WebOutputLightRGB")
-    {
-        out = new WebOutputLightRGB(params);
-    }
-
-    if (out)
-        cInfo() <<  type << ": Ok";
+    if (obj)
+        cInfo() << type << ": Ok";
     else
-        cWarning() <<  type << ": Unknown Output type !";
+        cWarning() << type << ": Unknown Output type !";
 
-    return out;
+    return obj;
 }
 
 Output *IOFactory::CreateOutput(TiXmlElement *node)
@@ -329,19 +116,20 @@ Output *IOFactory::CreateOutput(TiXmlElement *node)
 
 AudioPlayer *IOFactory::CreateAudio (std::string type, Params &params)
 {
-    AudioPlayer *player = NULL;
+    AudioPlayer *obj = nullptr;
 
-    if (type == "slim")
-    {
-        player = new Squeezebox(params);
-    }
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
 
-    if (player)
+    auto it = audioFunctionRegistry.find(type);
+    if (it != audioFunctionRegistry.end())
+        obj = it->second(params);
+
+    if (obj)
         cInfo() << type << ": Ok";
     else
         cWarning() << type << ": Unknown Input type !";
 
-    return player;
+    return obj;
 }
 
 AudioPlayer *IOFactory::CreateAudio(TiXmlElement *node)
@@ -357,31 +145,20 @@ AudioPlayer *IOFactory::CreateAudio(TiXmlElement *node)
 
 IPCam *IOFactory::CreateIPCamera (std::string type, Params &params)
 {
-    IPCam *cam = NULL;
+    IPCam *obj = nullptr;
 
-    if (type == "axis")
-    {
-        cam = new Axis(params);
-    }
-    else if (type == "gadspot")
-    {
-        cam = new Gadspot(params);
-    }
-    else if (type == "planet")
-    {
-        cam = new Planet(params);
-    }
-    else if (type == "standard_mjpeg")
-    {
-        cam = new StandardMjpeg(params);
-    }
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
 
-    if (cam)
+    auto it = camFunctionRegistry.find(type);
+    if (it != camFunctionRegistry.end())
+        obj = it->second(params);
+
+    if (obj)
         cInfo() << type << ": Ok";
     else
         cWarning() << type << ": Unknown Input type !";
 
-    return cam;
+    return obj;
 }
 
 IPCam *IOFactory::CreateIPCamera(TiXmlElement *node)

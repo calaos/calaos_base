@@ -29,6 +29,8 @@
 
 using namespace Calaos;
 
+REGISTER_OUTPUT(WebOutputString)
+
 WebOutputString::WebOutputString(Params &p):
     OutputString(p)
 {
