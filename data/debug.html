@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+
+    <head>
+        <title>Calaos API Debug tool</title>
+        <style>
+            body{
+                font-family: verdana;
+          background: #e8e8e8;
+            }
+            h1{
+   
+                font-size: 20px;
+            }
+            h2{
+                font-size: 16px;
+                margin-top: 20px;
+                color: #AAAAAA;
+            }
+            #buttons{
+                clear: left;
+            }
+            input{
+                width: 100%;
+            }
+            form{
+                
+                width: 100%;
+            }
+            textarea{
+                width: 100%;
+                font-family: monaco,monospace;
+                font-size: 12px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <form name="commandform">
+            <h1>Calaos API Debug Tool</h1>
+            <h2>URL:</h2>
+            <input name="commandurl" type="text" size="60" value="/api.php">
+            <div id="buttons">
+                <button type="button" onclick="getHTML('GET')">GET</button>
+                <button type="button" onclick="getHTML('PUT')">PUT</button>
+                <button type="button" onclick="getHTML('POST')">POST</button>
+                <button type="button" onclick="getHTML('DELETE')">DELETE</button>
+            </div>
+            <h2>Message Body:</h2>
+            <textarea name="messagebody" rows="10" cols="100"></textarea>
+            <h2>Command Response:</h2>
+            <textarea name="response" rows="25" cols="100"></textarea>
+        </form>
+    </body>
+</html>
+
+<script language="JavaScript">
+function getHTML(command)
+{
+    if (window.XMLHttpRequest)
+    {
+        var http = new XMLHttpRequest();
+        http.open(command, document.commandform.commandurl.value, true);
+
+        http.onreadystatechange = function()
+        {
+            if(http.readyState == 4)
+            {
+                if(http.status==200)
+                {
+                    document.commandform.response.value="Bad JSON: "+http.responseText
+                    document.commandform.response.value=JSON.stringify(JSON.parse(http.responseText), null, '\t');
+                }
+                else
+                {
+                    document.commandform.response.value="Error "+http.status
+                }
+            }
+        }
+        http.send(document.commandform.messagebody.value);
+    }
+    return false;
+}
+</script>

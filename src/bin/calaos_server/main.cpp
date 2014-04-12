@@ -37,6 +37,7 @@
 #include <WagoMap.h>
 #include <JsonApiServer.h>
 #include <Zibase.h>
+#include <Prefix.h>
 
 #ifdef HAVE_BREAKPAD
 #include "client/linux/handler/exception_handler.h"
@@ -83,6 +84,8 @@ int main (int argc, char **argv)
 
     cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
 
+    Prefix::Instance(argc, argv);
+
 #ifdef HAVE_BREAKPAD
     google_breakpad::ExceptionHandler eh("/mnt/ext3/backtraces", NULL, dumpCallback, NULL, true);
 #endif
@@ -106,6 +109,8 @@ int main (int argc, char **argv)
     eina_init();
     ecore_init();
     ecore_con_init();
+
+    
 
     //Changes the default folder for config files
     char *buf = new char[PATH_MAX];

@@ -24,6 +24,7 @@
 #include "PollListenner.h"
 #include "TCPConnection.h"
 #include "hef_uri_syntax.h"
+#include "Prefix.h"
 
 #ifndef json_array_foreach
 #define json_array_foreach(array, index, value) \
@@ -242,6 +243,21 @@ void JsonApiClient::ProcessData(string request)
 
         hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
+        if (req_url.getPath() == "/" || 
+            req_url.getPath() == "/index.html" ||
+            req_url.getPath() == "/debug.html")
+        { 
+            Params headers;
+            headers.Add("Connection", "Keep-Alive");
+            headers.Add("Content-Type", "text/html");
+            string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
+            cDebug() << "send file " << fileName << "to Client";
+            string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
+            sendToClient(res);
+            return;
+            
+        }
+
         if (req_url.getPath() != "/api" &&
             req_url.getPath() != "/api.php" &&
             req_url.getPath() != "/api/v1" /*&&
@@ -256,6 +272,7 @@ void JsonApiClient::ProcessData(string request)
 
             return;
         }
+
 
         //get protocol version, if nothing is set default to v1
         proto_ver = APIV1;
@@ -299,6 +316,15 @@ void JsonApiClient::ProcessData(string request)
 void JsonApiClient::CloseConnection()
 {
     DELETE_NULL_FUNC(ecore_con_client_del, client_conn);
+}
+
+string JsonApiClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
+{
+    ifstream file(fileName);
+    string body((std::istreambuf_iterator<char>(file)),
+                    std::istreambuf_iterator<char>());
+
+    return buildHttpResponse(code, headers, body);
 }
 
 string JsonApiClient::buildHttpResponse(string code, Params &headers, string body)
@@ -419,6 +445,14 @@ void JsonApiClient::handleRequest()
         processGetCameraPic();
 
     json_decref(jroot);
+}
+
+void JsonApiClient::handleDebugPage()
+{
+    Params headers;
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponseFromFile(HTTP_200, headers, "debug.html");
+    sendToClient(res);
 }
 
 template<typename T>
@@ -1127,8 +1161,8 @@ void JsonApiClient::processGetCover()
 void JsonApiClient::processGetCameraPic()
 {
     int pid;
-    Utils::from_string(jsonParam["camera_id"], pid);
-    if (pid < 0 || pid >= CamManager::Instance().get_size())
+    Utils::from_string(jsonParam["camera_id"], pid); 
+   if (pid < 0 || pid >= CamManager::Instance().get_size())
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
