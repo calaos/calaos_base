@@ -286,6 +286,10 @@ IO/Gpio/GpioInputSwitchLongPress.cpp \
 IO/Gpio/GpioInputSwitchLongPress.h \
 IO/Gpio/GpioOutputSwitch.cpp \
 IO/Gpio/GpioOutputSwitch.h \
+IO/Gpio/GpioOutputShutter.h \
+IO/Gpio/GpioOutputShutter.cpp \
+IO/Gpio/GpioOutputShutterSmart.h \
+IO/Gpio/GpioOutputShutterSmart.cpp \
 JsonApiServer.h \
 JsonApiServer.cpp \
 JsonApiClient.h \

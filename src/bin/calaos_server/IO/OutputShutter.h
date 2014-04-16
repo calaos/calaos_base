@@ -32,7 +32,6 @@ namespace Calaos
 class OutputShutter : public Output
 {
 protected:
-    int up_address, down_address;
     int time;
     int sens, old_sens;
 
