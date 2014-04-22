@@ -50,7 +50,7 @@ Condition *RulesFactory::CreateCondition(TiXmlElement *node)
     }
 
     /* Standard output condition */
-    if (type == "output")
+    else if (type == "output")
     {
         condition = new ConditionOutput();
     }
