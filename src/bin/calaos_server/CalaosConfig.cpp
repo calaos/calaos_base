@@ -321,6 +321,7 @@ void Config::saveStateCache()
     if (!ef)
     {
         cWarning() <<  "Could not open iostates.cache for write !";
+        delete cache;
         return;
     }
 
