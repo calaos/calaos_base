@@ -71,7 +71,6 @@ protected:
     Params resHeaders;
 
     void handleRequest();
-    void handleDebugPage();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);

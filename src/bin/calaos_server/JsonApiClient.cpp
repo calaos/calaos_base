@@ -254,8 +254,8 @@ void JsonApiClient::ProcessData(string request)
             cDebug() << "send file " << fileName << "to Client";
             string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
             sendToClient(res);
+
             return;
-            
         }
 
         if (req_url.getPath() != "/api" &&
@@ -333,6 +333,9 @@ string JsonApiClient::buildHttpResponse(string code, Params &headers, string bod
 
     //HTTP code
     res << code << "\r\n";
+
+    if (!headers.Exists("Content-Length"))
+        headers.Add("Content-Length", Utils::to_string(body.length()));
 
     //headers
     for (int i = 0;i < headers.size();i++)
@@ -445,14 +448,6 @@ void JsonApiClient::handleRequest()
         processGetCameraPic();
 
     json_decref(jroot);
-}
-
-void JsonApiClient::handleDebugPage()
-{
-    Params headers;
-    headers.Add("Content-Type", "text/html");
-    string res = buildHttpResponseFromFile(HTTP_200, headers, "debug.html");
-    sendToClient(res);
 }
 
 template<typename T>
