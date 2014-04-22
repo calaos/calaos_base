@@ -94,6 +94,7 @@ void ModuleManager::SearchModules()
                 CalaosModuleApi *api = (CalaosModuleApi *)dlsym(handle, "calaos_modapi");
                 if (!api)
                 {
+                    dlclose(handle);
                     cErrorDom("module") << "ModuleManager: module " << p << ". calaos_modapi export not found: " << dlerror();
                     continue;
                 }
