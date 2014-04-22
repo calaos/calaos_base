@@ -237,6 +237,11 @@ void JsonApiClient::ProcessData(string request)
         //Finally parsing of request is done, we can search for
         //a response for the requested path
 
+
+        cDebugDom("network") << "Client headers: ";
+        for (auto it = request_headers.begin();it!= request_headers.end();++it)
+            cDebugDom("network") << it->first << ": " << it->second;
+
         //init parser again
         http_parser_init(parser, HTTP_REQUEST);
         parser->data = this;
@@ -248,7 +253,7 @@ void JsonApiClient::ProcessData(string request)
             req_url.getPath() == "/debug.html")
         { 
             Params headers;
-            headers.Add("Connection", "Keep-Alive");
+            headers.Add("Connection", "Close");
             headers.Add("Content-Type", "text/html");
             string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
             cDebug() << "send file " << fileName << "to Client";
@@ -298,7 +303,7 @@ void JsonApiClient::ProcessData(string request)
                 resHeaders.Add("Access-Control-Allow-Headers", "{" + jsonParam["Access-Control-Request-Headers"] + "}");
 
             Params headers;
-            headers.Add("Connection", "Keep-Alive");
+            headers.Add("Connection", "Close");
             headers.Add("Cache-Control", "no-cache, must-revalidate");
             headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
             headers.Add("Content-Type", "text/html");
@@ -310,6 +315,18 @@ void JsonApiClient::ProcessData(string request)
 
         //handle request now
         handleRequest();
+    }
+}
+
+void JsonApiClient::DataWritten(int size)
+{
+    data_size -= size;
+
+    if (conn_close && data_size <= 0)
+    {
+        cDebugDom("network")
+                << "All data sent, close connection";
+        CloseConnection();
     }
 }
 
@@ -337,6 +354,19 @@ string JsonApiClient::buildHttpResponse(string code, Params &headers, string bod
     if (!headers.Exists("Content-Length"))
         headers.Add("Content-Length", Utils::to_string(body.length()));
 
+    if (request_headers["Connection"] == "close" ||
+        request_headers["Connection"] == "Close")
+    {
+        headers.Add("Connection", "Close");
+        cDebugDom("network")
+                << "Client requested Connection: Close";
+    }
+
+    if (headers["Connection"] == "Close" || headers["Connection"] == "close")
+        conn_close = true;
+    else
+        conn_close = false;
+
     //headers
     for (int i = 0;i < headers.size();i++)
     {
@@ -355,6 +385,10 @@ string JsonApiClient::buildHttpResponse(string code, Params &headers, string bod
 
 void JsonApiClient::sendToClient(string res)
 {
+    data_size += res.length();
+
+    cDebugDom("network") << res;
+
     if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
     {
         cCriticalDom("network")
@@ -613,7 +647,7 @@ void JsonApiClient::sendJson(json_t *json)
     string data(d);
 
     Params headers;
-    headers.Add("Connection", "Keep-Alive");
+    headers.Add("Connection", "Close");
     headers.Add("Cache-Control", "no-cache, must-revalidate");
     headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
     headers.Add("Content-Type", "application/json");

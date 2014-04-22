@@ -35,6 +35,7 @@ private:
     Ecore_Event_Handler *event_handler_client_add;
     Ecore_Event_Handler *event_handler_client_del;
     Ecore_Event_Handler *event_handler_data_get;
+    Ecore_Event_Handler *event_handler_client_write;
 
     map<Ecore_Con_Client *, JsonApiClient *> connections;
 
@@ -53,5 +54,6 @@ public:
     void addConnection(Ecore_Con_Client *client);
     void delConnection(Ecore_Con_Client *client);
     void getDataConnection(Ecore_Con_Client *client, void *data, int size);
+    void dataWritten(Ecore_Con_Client *client, int size);
 };
 #endif

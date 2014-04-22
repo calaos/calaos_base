@@ -23,6 +23,7 @@
 static Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev);
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
 static Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Client_Del *ev);
+static Eina_Bool _ecore_con_handler_data_write(void *data, int type, Ecore_Con_Event_Client_Write *ev);
 
 JsonApiServer::JsonApiServer(int p): port(p), tcp_server(NULL)
 {
@@ -33,6 +34,7 @@ JsonApiServer::JsonApiServer(int p): port(p), tcp_server(NULL)
 
     event_handler_client_add = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_ADD, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_add, this);
     event_handler_client_del = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
+    event_handler_client_write = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_WRITE, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_write, this);
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_client_del, this);
 
     cDebugDom("network") << "Init TCP Server";
@@ -47,6 +49,7 @@ JsonApiServer::~JsonApiServer()
     ecore_event_handler_del(event_handler_client_add);
     ecore_event_handler_del(event_handler_client_del);
     ecore_event_handler_del(event_handler_data_get);
+    ecore_event_handler_del(event_handler_client_write);
 
     cDebugDom("network");
 }
@@ -114,6 +117,27 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     return ECORE_CALLBACK_RENEW;
 }
 
+Eina_Bool _ecore_con_handler_data_write(void *data, int type, Ecore_Con_Event_Client_Write *ev)
+{
+    JsonApiServer *tcpserver = reinterpret_cast<JsonApiServer *>(data);
+
+    if (ev && (tcpserver != ecore_con_server_data_get(ecore_con_client_server_get(ev->client))))
+    {
+        return ECORE_CALLBACK_PASS_ON;
+    }
+
+    if (tcpserver)
+    {
+        tcpserver->dataWritten(ev->client, ev->size);
+    }
+    else
+    {
+        cCriticalDom("network") << "failed to get JsonApiServer object !";
+    }
+
+    return ECORE_CALLBACK_RENEW;
+}
+
 void JsonApiServer::addConnection(Ecore_Con_Client *client)
 {
     cDebugDom("network")
@@ -159,5 +183,23 @@ void JsonApiServer::getDataConnection(Ecore_Con_Client *client, void *data, int 
     }
 
     it->second->ProcessData(d);
+}
+
+void JsonApiServer::dataWritten(Ecore_Con_Client *client, int size)
+{
+    cDebugDom("network")
+            << Utils::to_string(size) << " bytes written"
+            << " to client at address "
+            << ecore_con_client_ip_get(client);
+
+    map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
+    if (it == connections.end())
+    {
+        cCriticalDom("network") << "Can't find corresponding JsonApiClient !";
+
+        return;
+    }
+
+    it->second->DataWritten(size);
 }
 

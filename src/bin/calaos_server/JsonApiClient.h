@@ -70,6 +70,10 @@ protected:
     //headers to send back
     Params resHeaders;
 
+    //set to true if connection need to be closed after data has been sent
+    bool conn_close = false; //by default we keep-alive connection unless client asks us to close it
+    int data_size = 0; //data count remaining
+
     void handleRequest();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);
@@ -108,8 +112,11 @@ public:
 
     enum { APIV1 = 0, APIV1_5, APIV2 };
 
-    /* Called by TCPServer whenever data comes in */
+    /* Called by JsonApiServer whenever data comes in */
     void ProcessData(string data);
+
+    /* Called by JsonApiServer whenever data has been written to client */
+    void DataWritten(int size);
 };
 
 #endif
