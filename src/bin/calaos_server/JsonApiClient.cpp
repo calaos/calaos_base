@@ -33,10 +33,10 @@
     index++)
 #endif
 
-#define HTTP_400 "HTTP/1.1 400 Bad Request"
-#define HTTP_404 "HTTP/1.1 404 Not Found"
-#define HTTP_500 "HTTP/1.1 500 Internal Server Error"
-#define HTTP_200 "HTTP/1.1 200 OK"
+#define HTTP_400 "HTTP/1.0 400 Bad Request"
+#define HTTP_404 "HTTP/1.0 404 Not Found"
+#define HTTP_500 "HTTP/1.0 500 Internal Server Error"
+#define HTTP_200 "HTTP/1.0 200 OK"
 
 #define HTTP_400_BODY "<html><head>" \
     "<title>400 Bad Request</title>" \
@@ -238,7 +238,7 @@ void JsonApiClient::ProcessData(string request)
         //a response for the requested path
 
 
-        cDebugDom("network") << "Client headers: ";
+        cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor);
         for (auto it = request_headers.begin();it!= request_headers.end();++it)
             cDebugDom("network") << it->first << ": " << it->second;
 
