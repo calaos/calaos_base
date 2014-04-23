@@ -1276,7 +1276,7 @@ void JsonApiClient::processConfig(json_t *jroot)
             const char *key;
             json_t *value;
 
-            json_object_foreach(jroot, key, value)
+            json_object_foreach(jfiles, key, value)
             {
                 if (key && json_is_string(value))
                 {
