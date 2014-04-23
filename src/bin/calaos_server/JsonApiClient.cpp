@@ -1266,6 +1266,7 @@ void JsonApiClient::processConfig(json_t *jroot)
                             json_string(Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str()).c_str()));
 
         json_object_set_new(jret, "config_files", jfiles);
+        json_object_set_new(jret, "success", json_string("true"));
     }
     else if (jsonParam["type"] == "put")
     {
