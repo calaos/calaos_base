@@ -110,7 +110,7 @@ int main (int argc, char **argv)
     ecore_init();
     ecore_con_init();
 
-    
+    ecore_app_args_set(argc, (const char **)argv);
 
     //Changes the default folder for config files
     char *buf = new char[PATH_MAX];

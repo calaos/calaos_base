@@ -25,6 +25,10 @@
 #include "TCPConnection.h"
 #include "hef_uri_syntax.h"
 #include "Prefix.h"
+#include "CalaosConfig.h"
+#include <Ecore.h>
+
+using namespace Calaos;
 
 #ifndef json_array_foreach
 #define json_array_foreach(array, index, value) \
@@ -322,6 +326,13 @@ void JsonApiClient::DataWritten(int size)
 {
     data_size -= size;
 
+    if (data_size <= 0 && need_restart)
+    {
+        cDebugDom("network")
+                << "All config files written, restart calaos_server";
+        ecore_app_restart();
+    }
+
     if (conn_close && data_size <= 0)
     {
         cDebugDom("network")
@@ -480,6 +491,8 @@ void JsonApiClient::handleRequest()
         processGetCover();
     else if (jsonParam["action"] == "get_camera_pic")
         processGetCameraPic();
+    else if (jsonParam["action"] == "config")
+        processConfig(jroot);
 
     json_decref(jroot);
 }
@@ -1191,7 +1204,7 @@ void JsonApiClient::processGetCameraPic()
 {
     int pid;
     Utils::from_string(jsonParam["camera_id"], pid); 
-   if (pid < 0 || pid >= CamManager::Instance().get_size())
+    if (pid < 0 || pid >= CamManager::Instance().get_size())
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
@@ -1232,5 +1245,88 @@ void JsonApiClient::exeFinished(Ecore_Exe *exe, int exit_code)
     json_object_set_new(jret, "contenttype", json_string("image/jpeg"));
     json_object_set_new(jret, "encoding", json_string("base64"));
     json_object_set_new(jret, "data", json_string(Utils::getFileContentBase64(tempfname.c_str()).c_str()));
+    sendJson(jret);
+}
+
+void JsonApiClient::processConfig(json_t *jroot)
+{
+    json_t *jret = json_object();
+
+    if (jsonParam["type"] == "get")
+    {
+        Config::Instance().SaveConfigIO();
+        Config::Instance().SaveConfigRule();
+
+        json_t *jfiles = json_object();
+        json_object_set_new(jfiles, "io.xml",
+                            json_string(Utils::getFileContent(Utils::getConfigFile(IO_CONFIG).c_str()).c_str()));
+        json_object_set_new(jfiles, "rules.xml",
+                            json_string(Utils::getFileContent(Utils::getConfigFile(RULES_CONFIG).c_str()).c_str()));
+        json_object_set_new(jfiles, "local_config.xml",
+                            json_string(Utils::getFileContent(Utils::getConfigFile(LOCAL_CONFIG).c_str()).c_str()));
+
+        json_object_set_new(jret, "config_files", jfiles);
+    }
+    else if (jsonParam["type"] == "put")
+    {
+        bool ret = true;
+        json_t *jfiles = json_object_get(jroot, "config_files");
+        if (jfiles && json_is_object(jfiles))
+        {
+            const char *key;
+            json_t *value;
+
+            json_object_foreach(jroot, key, value)
+            {
+                if (key && json_is_string(value))
+                {
+                    string skey = key;
+                    if (skey != IO_CONFIG &&
+                        skey != RULES_CONFIG &&
+                        skey != LOCAL_CONFIG)
+                    {
+                        cErrorDom("network") << "Error, file " << skey << " is not a valid config filename";
+                        ret = false;
+                        continue;
+                    }
+
+                    string filecontent = json_string_value(value);
+
+                    ofstream ofs(Utils::getConfigFile(key), ios::out | ios::trunc);
+
+                    if (ofs.is_open())
+                    {
+                        ofs << filecontent;
+                        ofs.close();
+                    }
+                    else
+                    {
+                        cErrorDom("network") << "Error, key " << key << " is not a string";
+                        ret = false;
+                    }
+                }
+                else
+                {
+                    cErrorDom("network") << "Error, key " << key << " is not a string";
+                    ret = false;
+                }
+            }
+        }
+        else
+        {
+            ret = false;
+            cErrorDom("network") << "Error, wrong query";
+        }
+
+        json_object_set_new(jret, "success", json_string(ret?"true":"false"));
+
+        if (ret)
+            need_restart = true;
+    }
+    else
+    {
+        json_object_set_new(jret, "success", json_string("false"));
+    }
+
     sendJson(jret);
 }

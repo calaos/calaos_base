@@ -74,6 +74,9 @@ protected:
     bool conn_close = false; //by default we keep-alive connection unless client asks us to close it
     int data_size = 0; //data count remaining
 
+    //special case when config was written, we need to restart calaos_server
+    bool need_restart = false;
+
     void handleRequest();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);
@@ -88,6 +91,7 @@ protected:
     void processPolling();
     void processGetCover();
     void processGetCameraPic();
+    void processConfig(json_t *jroot);
 
     json_t *buildJsonHome();
     json_t *buildJsonCameras();
