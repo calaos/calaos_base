@@ -252,10 +252,10 @@ void JsonApiClient::ProcessData(string request)
 
         hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
-        if (req_url.getPath() == "/" || 
+        if (req_url.getPath() == "/" ||
             req_url.getPath() == "/index.html" ||
             req_url.getPath() == "/debug.html")
-        { 
+        {
             Params headers;
             headers.Add("Connection", "Close");
             headers.Add("Content-Type", "text/html");
@@ -1136,7 +1136,7 @@ void JsonApiClient::processPolling()
                 string key, value;
                 events.get_item(i, key, value);
 
-                string ev = key + ":" + value;
+                string ev = key + ":" + url_encode(value);
                 vector<string> spl;
                 Utils::split(ev, spl, ":");
 
@@ -1203,7 +1203,7 @@ void JsonApiClient::processGetCover()
 void JsonApiClient::processGetCameraPic()
 {
     int pid;
-    Utils::from_string(jsonParam["camera_id"], pid); 
+    Utils::from_string(jsonParam["camera_id"], pid);
     if (pid < 0 || pid >= CamManager::Instance().get_size())
     {
         json_t *jret = json_object();
