@@ -23,7 +23,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 60;}
             rel2 { relative: 0.0  0.0; offset: 600 70;}
             color: 255 255 255 255;
-            text { text: "Configure power management settings"; font: ROOM_ELEMENT_FONT; size: 16; min: 0 0; align: 0.0 0.5;}
+            text { text: "Configure power management settings"; font: "CalaosContent"; size: 16; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -67,7 +67,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_suspend_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_suspend_field";}
             color: 231 231 231 200;
-            text { text: "Enable screen saver : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "Enable screen saver : "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -107,7 +107,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_time_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_time_field";}
             color: 231 231 231 200;
-            text { text: "Time before screensaver activation : "; font: ROOM_ELEMENT_FONT; size: 12; min: 1 0; align: 0.0 0.5;}
+            text { text: "Time before screensaver activation : "; font: "CalaosContent"; size: 12; min: 1 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -211,7 +211,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "Écran tactile"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.5 0.5;}
+            text { text: "Écran tactile"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.5 0.5;}
          }
       }
       part {
@@ -226,7 +226,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Configuration de l'écran tactile."; font: MODULE_LABEL_FONT; size: 10; min: 0 0; align: 0.5 0.5;}
+            text { text: "Configuration de l'écran tactile."; font: "CalaosContent"; size: 10; min: 0 0; align: 0.5 0.5;}
          }
       }
 
@@ -242,7 +242,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: "Site internet : "; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Site internet : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -257,7 +257,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 58 180 215 255;
-            text { text: "www.calaos.fr"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "www.calaos.fr"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -273,7 +273,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: "Email : "; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Email : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -288,7 +288,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 58 180 215 255;
-            text { text: "contact@calaos.fr"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "contact@calaos.fr"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
       part {
@@ -303,7 +303,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: COPYRIGHT_TEXT; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.5 0.5;}
+            text { text: COPYRIGHT_TEXT; font: "CalaosContent"; size: 13; min: 0 0; align: 0.5 0.5;}
          }
       }
 

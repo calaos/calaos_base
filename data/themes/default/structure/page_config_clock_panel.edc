@@ -169,7 +169,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 60;}
             rel2 { relative: 0.0  0.0; offset: 600 70;}
             color: 255 255 255 255;
-            text { text: "Configurez l'heure du système"; font: ROOM_ELEMENT_FONT; size: 16; min: 0 0; align: 0.0 0.5;}
+            text { text: "Configurez l'heure du système"; font: "CalaosContent"; size: 16; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -182,7 +182,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 80;}
             rel2 { relative: 0.0  0.0; offset: 600 90;}
             color: 255 255 255 255;
-            text { text: "Lors de la mise à jour de l'heure et de la date, l'application redémarrera."; font: ROOM_ELEMENT_FONT; size: 10; min: 0 0; align: 0.0 0.5;}
+            text { text: "Lors de la mise à jour de l'heure et de la date, l'application redémarrera."; font: "CalaosContent"; size: 10; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -226,7 +226,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_clock_ntp_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_clock_ntp_field";}
             color: 231 231 231 200;
-            text { text: "Mettre l'horloge à jour dynamiquement depuis internet : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "Mettre l'horloge à jour dynamiquement depuis internet : "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -284,7 +284,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_clock_hours_field";}
             rel2 { relative: 0.0  0.0; offset: 80 30; to:"module_clock_hours_field";}
             color: 231 231 231 200;
-            text { text: "heures : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "heures : "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -298,7 +298,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 5 4; to:"module_clock_hours_field";}
             rel2 { relative: 0.0  0.0; offset: 30 30; to:"module_clock_hours_field";}
             color: 58 180 215 255;
-            text { text: "12"; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "12"; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -333,7 +333,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_clock_minutes_field";}
             rel2 { relative: 0.0  0.0; offset: 80 30; to:"module_clock_minutes_field";}
             color: 231 231 231 200;
-            text { text: "Minutes : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "Minutes : "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -347,7 +347,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 75 4; to:"module_clock_minutes_field";}
             rel2 { relative: 0.0  0.0; offset: 100 30; to:"module_clock_minutes_field";}
             color: 58 180 215 255;
-            text { text: "45"; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "45"; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -383,7 +383,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_clock_secondes_field";}
             rel2 { relative: 0.0  0.0; offset: 80 30; to:"module_clock_secondes_field";}
             color: 231 231 231 200;
-            text { text: "secondes : "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "secondes : "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -397,7 +397,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 75 4; to:"module_clock_secondes_field";}
             rel2 { relative: 0.0  0.0; offset: 100 30; to:"module_clock_secondes_field";}
             color: 58 180 215 255;
-            text { text: "45"; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "45"; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -433,7 +433,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_clock_date_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_clock_date_field";}
             color: 58 180 215 255;
-            text { text: "Dimanche 32 Decembre 2013 "; font: ROOM_ELEMENT_FONT; size: 12; min: 0 0; align: 0.0 0.5;}
+            text { text: "Dimanche 32 Decembre 2013 "; font: "CalaosContent"; size: 12; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -462,7 +462,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 82 110+34+10;}
             rel2 { relative: 0.0  0.0; offset: 600 110+34+10*2;}
             color: 255 255 255 255;
-            text { text: "Fuseaux horaires"; font: ROOM_ELEMENT_FONT; size: 16; min: 0 0; align: 0.0 0.5; }
+            text { text: "Fuseaux horaires"; font: "CalaosContent"; size: 16; min: 0 0; align: 0.0 0.5; }
          }
          description {
             state, "manual_conf" 0.0;
@@ -481,7 +481,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 0  10+8; to:"module_clock_timezone";}
             rel2 { relative: 0.0  0.0; offset: 518 20+8; to:"module_clock_timezone";}
             color: 255 255 255 255;
-            text { text: "Changer votre fuseau horaire en utilisant la liste de choix déroulante ci-dessous."; font: ROOM_ELEMENT_FONT; size: 10; min: 0 0; align: 0.0 0.5;}
+            text { text: "Changer votre fuseau horaire en utilisant la liste de choix déroulante ci-dessous."; font: "CalaosContent"; size: 10; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -618,7 +618,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "Heure et Dates"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.5 0.5;}
+            text { text: "Heure et Dates"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.5 0.5;}
          }
       }
       part {
@@ -633,7 +633,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Réglage horloge système."; font: MODULE_LABEL_FONT; size: 10; min: 0 0; align: 0.5 0.5;}
+            text { text: "Réglage horloge système."; font: "CalaosContent"; size: 10; min: 0 0; align: 0.5 0.5;}
          }
       }
 
@@ -649,7 +649,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Heure actuelle :"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Heure actuelle :"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -665,7 +665,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "x widgets"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "x widgets"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -682,7 +682,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Date :"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Date :"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -698,7 +698,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "x widgets"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "x widgets"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -715,7 +715,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 231 231 231 178;
-            text { text: "Fuseau Horaire :"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Fuseau Horaire :"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
 
@@ -731,7 +731,7 @@ group
             rel1.to: "tab1_client";
             rel2.to: "tab1_client";
             color: 58 180 215 255;
-            text { text: "x widgets"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "x widgets"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -751,7 +751,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: "Site internet : "; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Site internet : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -766,7 +766,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 58 180 215 255;
-            text { text: "www.calaos.fr"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "www.calaos.fr"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
 
@@ -782,7 +782,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: "Email : "; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.0 0.5;}
+            text { text: "Email : "; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5;}
          }
       }
       part {
@@ -797,7 +797,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 58 180 215 255;
-            text { text: "contact@calaos.fr"; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 1.0 0.5;}
+            text { text: "contact@calaos.fr"; font: "CalaosContent"; size: 13; min: 0 0; align: 1.0 0.5;}
          }
       }
       part {
@@ -812,7 +812,7 @@ group
             rel1.to: "tab2_client";
             rel2.to: "tab2_client";
             color: 231 231 231 178;
-            text { text: COPYRIGHT_TEXT; font: MODULE_LABEL_FONT; size: 13; min: 0 0; align: 0.5 0.5;}
+            text { text: COPYRIGHT_TEXT; font: "CalaosContent"; size: 13; min: 0 0; align: 0.5 0.5;}
          }
       }
 

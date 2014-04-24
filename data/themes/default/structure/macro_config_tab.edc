@@ -535,7 +535,7 @@ part { \
     rel1.to: "tab1_client"; \
     rel2.to: "tab1_client"; \
     color: 0 0 0 0; \
-    text { text: text1; font: MODULE_LABEL_FONT; size: 14; min: 0 0; align: 0.0 0.0;} \
+    text { text: text1; font: "CalaosContent"; size: 14; min: 0 0; align: 0.0 0.0;} \
   } \
   description { \
     state: "visible" 0.0; \
@@ -555,7 +555,7 @@ part { \
     rel1.to: "tab2_client"; \
     rel2.to: "tab2_client"; \
     color: 0 0 0 0; \
-    text { text: text2; font: MODULE_LABEL_FONT; size: 14; min: 0 0; align: 0.0 0.0;} \
+    text { text: text2; font: "CalaosContent"; size: 14; min: 0 0; align: 0.0 0.0;} \
   } \
   description { \
     state: "visible" 0.0; \
@@ -575,7 +575,7 @@ part { \
     rel1.to: "tab3_client"; \
     rel2.to: "tab3_client"; \
     color: 0 0 0 0; \
-    text { text: text3; font: MODULE_LABEL_FONT; size: 14; min: 0 0; align: 0.0 0.0;} \
+    text { text: text3; font: "CalaosContent"; size: 14; min: 0 0; align: 0.0 0.0;} \
   } \
   description { \
     state: "visible" 0.0; \
@@ -1368,7 +1368,7 @@ part { \
     rel1.to: "tab1_client"; \
     rel2.to: "tab1_client"; \
     color: 0 0 0 0; \
-    text { text: text1; font: MODULE_LABEL_FONT; size: 14; min: 0 0; align: 0.0 0.0;} \
+    text { text: text1; font: "CalaosContent"; size: 14; min: 0 0; align: 0.0 0.0;} \
   } \
   description { \
     state: "visible" 0.0; \
@@ -1388,7 +1388,7 @@ part { \
     rel1.to: "tab2_client"; \
     rel2.to: "tab2_client"; \
     color: 0 0 0 0; \
-    text { text: text2; font: MODULE_LABEL_FONT; size: 14; min: 0 0; align: 0.0 0.0;} \
+    text { text: text2; font: "CalaosContent"; size: 14; min: 0 0; align: 0.0 0.0;} \
   } \
   description { \
     state: "visible" 0.0; \
