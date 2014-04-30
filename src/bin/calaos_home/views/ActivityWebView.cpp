@@ -31,6 +31,10 @@
 #define USER_AGENT              "Mozilla/5.0 (X11; U; Linux x86; fr) AppleWebKit/536.6 (KHTML, like Gecko, Safari/536.6) Calaos/2.0"
 #define DEFAULT_BROWSER_URL     "https://127.0.0.1/calaos_bookmarks/"
 
+#ifndef elm_web_uri_get
+#define elm_web_uri_get elm_web_url_get 
+#endif
+
 static void _web_load_started(void *data, Evas_Object *obj, void *event_info)
 {
     ActivityWebView *view = reinterpret_cast<ActivityWebView *>(data);
