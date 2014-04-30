@@ -22,10 +22,11 @@
 
 using namespace Calaos;
 
-GpioCtrl::GpioCtrl(int _gpionum)
+GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 {
     fd_handler = NULL;
     debounce = false;
+    debounce_time = _debounce_time;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
     cDebugDom("input") << "Create GpioCtrl for " <<gpionum_str;

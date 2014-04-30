@@ -40,9 +40,10 @@ private:
     sigc::signal<void> event_signal;
     Ecore_Fd_Handler *fd_handler;
     bool debounce;
+    double debounce_time;
 
 public:
-    GpioCtrl(int _gpionum);
+    GpioCtrl(int _gpionum, double _debounce_time = 0.05);
     ~GpioCtrl();
     bool exportGpio();
     bool unexportGpio();

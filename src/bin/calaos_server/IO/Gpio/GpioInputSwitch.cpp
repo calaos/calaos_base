@@ -31,10 +31,12 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
     gpioctrl(NULL)
 {
     int gpio_nb;
+    double debounce;
 
     Utils::from_string(get_param("gpio"), gpio_nb);
+    Utils::from_string(get_param("debounce"), debounce);
 
-    gpioctrl = new GpioCtrl(gpio_nb);
+    gpioctrl = new GpioCtrl(gpio_nb, debounce);
     gpioctrl->setDirection("in");
 
     gpioctrl->setValueChanged([=] {
