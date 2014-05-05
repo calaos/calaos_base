@@ -72,7 +72,7 @@ WebCtrl &WebCtrl::Instance(Params &p)
 }
 
 
-void WebCtrl::Add(double _frequency = 60.0)
+void WebCtrl::Add(double _frequency, std::function<void()> fileDownloaded_cb)
 {
     if (frequency > _frequency )
         frequency = _frequency;
@@ -84,6 +84,7 @@ void WebCtrl::Add(double _frequency = 60.0)
                 string dest =  "/tmp/calaos_" + param.get_param("id");
                 string src = dest + ".part";
                 ecore_file_mv(src.c_str(), dest.c_str());
+                fileDownloaded_cb();
             }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
             }, NULL);
         });

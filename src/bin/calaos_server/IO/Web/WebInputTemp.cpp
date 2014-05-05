@@ -38,10 +38,11 @@ WebInputTemp::WebInputTemp(Params &p):
     cInfoDom("input") << "WebInputTemp::WebInputTemp()";
 
     // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(readTime);
-
-    //read value when calaos_server is started
-    readValue();
+    WebCtrl::Instance(p).Add(readTime, [=]()
+    {
+        readValue();
+        Calaos::StartReadRules::Instance().ioRead();
+    });
 }
 
 WebInputTemp::~WebInputTemp()
@@ -49,12 +50,10 @@ WebInputTemp::~WebInputTemp()
     cInfoDom("input") << "WebInputTemp::~WebInputTemp()";
 }
 
-
 void WebInputTemp::readValue()
 {
   // Read the value
     value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
     emitChange();
 }
-
 

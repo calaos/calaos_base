@@ -38,11 +38,11 @@ WebInputAnalog::WebInputAnalog(Params &p):
     cInfoDom("input") << "WebInputAnalog::WebInputAnalog()";
 
     // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(frequency);
-
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
+    WebCtrl::Instance(p).Add(frequency, [=]()
+    {
+        readValue();
+        Calaos::StartReadRules::Instance().ioRead();
+    });
 }
 
 WebInputAnalog::~WebInputAnalog()

@@ -49,7 +49,7 @@ public:
     WebCtrl();
     ~WebCtrl();
     enum {XML, JSON, UNKNOWN};
-    void Add(double _frequency);
+    void Add(double _frequency = 60.0, std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
     string getValueJson(string path, string filename);
     string getValueXml(string path, string filename);
     string getValue(string path);
