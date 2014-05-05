@@ -141,7 +141,6 @@ string WebCtrl::getValueJson(string path, string filename)
                 {
                     parent = var;
                 }
-                
             }
 
             if (var)

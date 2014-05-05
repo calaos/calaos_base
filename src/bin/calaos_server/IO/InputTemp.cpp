@@ -74,7 +74,7 @@ void InputTemp::hasChanged()
 
 double InputTemp::get_value_double()
 {
-    double v;    
+    double v;
 
     v = coeff_a * value + coeff_b;
 
