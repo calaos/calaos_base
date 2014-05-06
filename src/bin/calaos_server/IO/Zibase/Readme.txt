@@ -35,7 +35,7 @@ Energy monitor sensor definition example:
 	<calaos:input  gui_type="analog_in" host="XX.XX.XX.XX" id="input_4" name="Conso Maison" port="17100"  type="ZibaseAnalogIn" zibase_id="WSABCDEFG" unit="W" var="0" visible="true"  zibase_sensor ="energy" />
         </calaos:room>
 
----------------------------ZibaseAnalogIn: -----------------------------------------------------------------
+---------------------------ZibaseDigitalIn: -----------------------------------------------------------------
 Mandatory fields for ZibaseDigitalIn module, are the following (to be filled in io.xml calaos conf file)
 
 host="zibase @ip"
@@ -53,6 +53,40 @@ other fields are used by calaos but not used by zibase module.
 Door/window detector sensor definition example:
       <calaos:room name="garage" type="garage" hits="0">
 	<calaos:input gui_type="switch" id="input_30" name="Detecteur garage" time="1" type="ZibaseDigitalIn" var="0" visible="true" host="XX.XX.XX.XX" zibase_id="ZA4" port="17100" zibase_sensor ="detect" />
+        </calaos:room>
+
+---------------------------ZibaseDigitalOut: -----------------------------------------------------------------
+Mandatory fields for ZibaseDigitalOut module, are the following (to be filled in io.xml calaos conf file)
+
+host="zibase @ip"
+name="label to be displayed by calaos home"
+zibase_id= radio id of the sensor, this is the id writen in the zibase configurator (when new sensor is added)
+
+port= local oprt to use for the udp connection (works with 17100)
+protocol= protocol radio used to communicate with the actuator 
+	0=>DEFAULT_PROTOCOL
+	1=>VISONIC433
+	2=>VISONIC868
+	3=>CHACON
+	4=>DOMIA
+	5=>RFX10
+	6=>ZWAVE
+	7=>RFSTS10
+	8=>XDD433alrm
+	9=>XDD868alrmn
+	10=>XDD868shutter
+	11=>XDD868pilot
+	12=>XDD868boiler
+
+nbburst= number of radio frame sent by zibase (by default 0, and should be less than 5)
+        
+type=ZibaseDigitalOut (say to calaos that we use the module ZibaseDigitalOut for this output)
+
+other fields are used by calaos but not used by zibase module.
+
+Wallplug actuator definition example:
+      <calaos:room name="garage" type="garage" hits="0">
+	<calaos:input gui_type="shutter" id="output_1" name="Test Wallplug" time="1" type="ZibaseDigitalOut" var="0" visible="true" host="XX.XX.XX.XX" zibase_id="ZA8" port="17100" protocol ="6" nbburst ="0" />
         </calaos:room>
 
 
