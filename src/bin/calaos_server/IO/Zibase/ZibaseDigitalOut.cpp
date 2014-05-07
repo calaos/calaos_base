@@ -49,19 +49,19 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
         {
             case 'A':prot->house_code = ZibaseInfoProtocol::A;break;
             case 'B':prot->house_code = ZibaseInfoProtocol::B;break;
-            case 'C':prot->house_code = ZibaseInfoProtocol::C;break;                                
+            case 'C':prot->house_code = ZibaseInfoProtocol::C;break;
             case 'D':prot->house_code = ZibaseInfoProtocol::D;break;
             case 'E':prot->house_code = ZibaseInfoProtocol::E;break;
             case 'F':prot->house_code = ZibaseInfoProtocol::F;break;
-            case 'G':prot->house_code = ZibaseInfoProtocol::G;break;                                
+            case 'G':prot->house_code = ZibaseInfoProtocol::G;break;
             case 'H':prot->house_code = ZibaseInfoProtocol::H;break;
             case 'I':prot->house_code = ZibaseInfoProtocol::I;break;
             case 'J':prot->house_code = ZibaseInfoProtocol::J;break;
             case 'K':prot->house_code = ZibaseInfoProtocol::K;break;
-            case 'L':prot->house_code = ZibaseInfoProtocol::L;break;                                
+            case 'L':prot->house_code = ZibaseInfoProtocol::L;break;
             case 'M':prot->house_code = ZibaseInfoProtocol::M;break;
             case 'N':prot->house_code = ZibaseInfoProtocol::N;break;
-            case 'O':prot->house_code = ZibaseInfoProtocol::O;break;                                
+            case 'O':prot->house_code = ZibaseInfoProtocol::O;break;
             case 'P':prot->house_code = ZibaseInfoProtocol::P;break;
             default:prot->house_code = ZibaseInfoProtocol::A;break;
         }
@@ -73,15 +73,15 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
             prot->protocol = (ZibaseInfoProtocol::eZibaseProtocol)protocol;
         else
             prot->protocol=ZibaseInfoProtocol::eDFLT_PROTOCOL;
-                
-        prot->nb_burst = nbburst;   
-        prot->ID=id;             
+
+        prot->nb_burst = nbburst;
+        prot->ID=id;
         /* connect signal */
         Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseDigitalOut::valueUpdated));
 
         /* read variable to know output state*/
         Zibase::Instance(host, port).rw_variable(prot);
-              
+
         /* specify to calaos that he must read value*/
         Calaos::StartReadRules::Instance().addIO();
 
@@ -101,17 +101,17 @@ ZibaseDigitalOut::~ZibaseDigitalOut()
 
 void ZibaseDigitalOut::valueUpdated(ZibaseInfoSensor *sensor)
 {
-    /*check that sensor id match */       
+    /*check that sensor id match */
     if((id==sensor->id) && sensor->Error == false)
-    {                                        
-        value = sensor->DigitalVal;                                                
-        emitChange();                                           
+    {
+        value = sensor->DigitalVal;
+        emitChange();
     }
 }
 
 bool ZibaseDigitalOut::set_value_real(bool val)
-{           
-    Zibase::Instance(host, port).rf_frame_sending(val,prot); 
+{
+    Zibase::Instance(host, port).rf_frame_sending(val,prot);
     return true;
 }
 

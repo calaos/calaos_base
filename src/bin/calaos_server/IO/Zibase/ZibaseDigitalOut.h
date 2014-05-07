@@ -31,23 +31,23 @@ namespace Calaos
 
 class ZibaseDigitalOut : public OutputLight
 {
-    protected:
-        std::string host;
-        int port;
-        std::string id;
-        int nbburst;
-        int protocol;
+protected:
+    std::string host;
+    int port;
+    std::string id;
+    int nbburst;
+    int protocol;
 
-        void valueUpdated(ZibaseInfoSensor *sensor);
-        ZibaseInfoSensor::eZibaseSensor sensor_type;
+    void valueUpdated(ZibaseInfoSensor *sensor);
+    ZibaseInfoSensor::eZibaseSensor sensor_type;
 
-        ZibaseInfoProtocol *prot;
+    ZibaseInfoProtocol *prot;
 
-        bool set_value_real(bool val);
+    bool set_value_real(bool val);
 
-    public:
-        ZibaseDigitalOut(Params &p);
-        virtual ~ZibaseDigitalOut();
+public:
+    ZibaseDigitalOut(Params &p);
+    virtual ~ZibaseDigitalOut();
 };
 
 }

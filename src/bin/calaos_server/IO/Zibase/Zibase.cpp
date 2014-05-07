@@ -27,7 +27,7 @@
 /*                      MACROS                          */
 /********************************************************/
 #define BIG_ENDIAN_W(x) (unsigned short)((x<<8)|(x>>8))
-#define BIG_ENDIAN_L(x) (unsigned long)(((x&0x000000FF)<<24)|((x&0x0000FF00)<<8) | ((x&0x00FF0000)>>8) | ((x&0xFF000000)>>24)) 
+#define BIG_ENDIAN_L(x) (unsigned long)(((x&0x000000FF)<<24)|((x&0x0000FF00)<<8) | ((x&0x00FF0000)>>8) | ((x&0xFF000000)>>24))
 
 /********************************************************/
 /*                      DEFINE                          */
@@ -101,7 +101,7 @@ Zibase::Zibase(std::string h, int p):
     econ_client(nullptr),
     econ_listen(nullptr)
 {
-        
+
     //Ecore handler
     event_handler_data_cl = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)zibase_udpClientData, this);
     event_handler_data_listen = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)zibase_udpListenData, this);
@@ -113,7 +113,7 @@ Zibase::Zibase(std::string h, int p):
                                        this);
     ecore_con_server_data_set(econ_listen, this);
 
-    //Create udp socket to send data (discover zibase, registering, etc...)            
+    //Create udp socket to send data (discover zibase, registering, etc...)
     econ_client = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
                                            host.c_str(), //zibase host from io.xml
                                            ZIBASE_UDP_PORT,
@@ -131,8 +131,8 @@ Zibase::Zibase(std::string h, int p):
     stZAPI_packet.param3 = 0;
     stZAPI_packet.param4 = 0;
     stZAPI_packet.my_count = 0;
-    stZAPI_packet.your_count = 0;	
-    /* Send nop command to see if zibase  present*/	
+    stZAPI_packet.your_count = 0;
+    /* Send nop command to see if zibase  present*/
 
     stZAPI_packet.command = BIG_ENDIAN_W(NOP_CMD);
 
@@ -145,7 +145,7 @@ Zibase::Zibase(std::string h, int p):
     if (zibase_queue_req.empty())
     {
         /*push request as we wait for an answer */
-        zibase_queue_req.push(req);       
+        zibase_queue_req.push(req);
         ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
         ecore_con_server_flush(econ_client);
     }
@@ -173,7 +173,7 @@ Zibase &Zibase::Instance(std::string h, int p)
         if (zibasemaps.maps[i]->get_host() == h &&
             zibasemaps.maps[i]->get_port() == p)
         {
-                return *zibasemaps.maps[i];
+            return *zibasemaps.maps[i];
         }
     }
 
@@ -196,47 +196,47 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
 
     ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
     TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;
-    unsigned char *p = packet->frame;	
-              
+    unsigned char *p = packet->frame;
+
     if(InfoSensor)
     {
         /* check this is a zibase RF_FRAME_RECEIVING frame */
         if((strstr((char*)p, "Received radio ID") != NULL) && (BIG_ENDIAN_W(packet->packet.command==RFFRAME_RECEIVING_CMD)))
         {
-            /* check ID */	
-            p = packet->frame;	
+            /* check ID */
+            p = packet->frame;
             c = strstr ((char*)p, "<id>");
-            sscanf(c,"<id>%[^<]",InfoSensor->id);		
+            sscanf(c,"<id>%[^<]",InfoSensor->id);
             extract_infos((char*)p,InfoSensor);
             /* suppress _OFF string if present*/
             if(strstr (c, "_OFF")!=NULL)
             {
-                    sscanf(c,"<id>%[^_]",InfoSensor->id);
+                sscanf(c,"<id>%[^_]",InfoSensor->id);
             }
             InfoSensor->Error = false;
-            sig_newframe.emit(InfoSensor);	
+            sig_newframe.emit(InfoSensor);
         }
-        p = (unsigned char*)ev->data;	
-        if(strstr ((char*)p, "ZSIG") != NULL) 
+        p = (unsigned char*)ev->data;
+        if(strstr ((char*)p, "ZSIG") != NULL)
         {
-            p = packet->frame;	
+            p = packet->frame;
             if(strstr ((char*)p, "ERR_") != NULL)
-            {                               
+            {
                 /* Send Error signal*/
                 ZibaseQueuRequest req = zibase_queue_req.front();
-                /* Convert variable in string ID*/ 
-                memset(InfoSensor->id,0,sizeof(InfoSensor->id));                       
-                req.ID.copy(InfoSensor->id,req.ID.size(),0);   
-                                                                   
-                InfoSensor->Error = true;                               
+                /* Convert variable in string ID*/
+                memset(InfoSensor->id,0,sizeof(InfoSensor->id));
+                req.ID.copy(InfoSensor->id,req.ID.size(),0);
+
+                InfoSensor->Error = true;
                 sig_newframe.emit(InfoSensor);
 
-                PopAndCheckFifo();  
-                //Utils::logger("zibase") << Priority::INFO << "Zibase::An error from zibase has been received" <<log4cpp::eol;                              
-            }	                                 
-        }                
-        delete(InfoSensor);                
-    }	
+                PopAndCheckFifo();
+                //Utils::logger("zibase") << Priority::INFO << "Zibase::An error from zibase has been received" <<log4cpp::eol;
+            }
+        }
+        delete(InfoSensor);
+    }
 }
 
 void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
@@ -245,18 +245,18 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
     TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;
     ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
     bool checkFifoEmpty = true;
-            
-            
+
+
     if(InfoSensor)
-    {    
-        /* Check ACK Frame */     
+    {
+        /* Check ACK Frame */
         if((strstr ((char*)ev->data, "ZSIG") != NULL) && (BIG_ENDIAN_W(packet->packet.command==ACK_CMD)))
-        {                  
+        {
             /* check element in fifo*/
             ZibaseQueuRequest req = zibase_queue_req.front();
             /* check request type*/
             if(req.RunningReq == ZibaseQueuRequest::eNOP)
-            {                                
+            {
                 std::string remote_ip = ecore_con_server_ip_get(ev->server);
                 std::string myip = TCPSocket::GetLocalIPFor(remote_ip);
 
@@ -264,9 +264,9 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                 vector<string> splitter;
                 Utils::split(myip, splitter, ".", 4);
                 int ipHexa = (atoi(splitter[0].c_str())<<24) |
-                         (atoi(splitter[1].c_str())<<16) |
-                         (atoi(splitter[2].c_str())<<8) |
-                         (atoi(splitter[3].c_str()));
+                        (atoi(splitter[1].c_str())<<16) |
+                        (atoi(splitter[2].c_str())<<8) |
+                        (atoi(splitter[3].c_str()));
 
 
                 /*Zibase present,  Send register frame */
@@ -277,7 +277,7 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                 stZAPI_packet.param2 = BIG_ENDIAN_L(port);
 
                 ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-                ecore_con_server_flush(econ_client);                    
+                ecore_con_server_flush(econ_client);
             }
             else if(req.RunningReq == ZibaseQueuRequest::eREAD)
             {
@@ -286,39 +286,39 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                 /* for now, only read zwave ACK frame are treated, otherwise, assume this is a standard ACK command*/
                 if((BIG_ENDIAN_L(packet->packet.param2)) == PARAM3_READZWAVE)
                 {
-                                                                                             
+
                     /* Convert variable in string ID*/
                     vartoId(BIG_ENDIAN_L(packet->packet.param3),InfoSensor->id);
                     InfoSensor->DigitalVal = BIG_ENDIAN_L(packet->packet.param1);
                     InfoSensor->Error = false;
-                    sig_newframe.emit(InfoSensor);	                                                                             
+                    sig_newframe.emit(InfoSensor);
                 }
-                    
+
             }
             else if(req.RunningReq == ZibaseQueuRequest::eWRITE)
             {
 
                 /*an ack has been received, now wait if device is reachable or not*/
-                req.ackReceived = true; 
+                req.ackReceived = true;
                 /* restart timeout */
                 StopTimer();
                 StartTimer(3.0);
-                checkFifoEmpty = false;                                                                                                                
-            }                       
+                checkFifoEmpty = false;
+            }
 
             if(checkFifoEmpty == true)
-            {                        	
-                PopAndCheckFifo();                              
-            }                             
-                
+            {
+                PopAndCheckFifo();
+            }
+
         }
         delete(InfoSensor);
-    }      
+    }
 }
 
 void Zibase::ZibaseCommand_Timeout()
-{               
-    StopTimer();      
+{
+    StopTimer();
     if(!zibase_queue_req.empty())
     {
         ZibaseQueuRequest req = zibase_queue_req.front();
@@ -328,34 +328,34 @@ void Zibase::ZibaseCommand_Timeout()
             ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
             if(InfoSensor)
             {
-                /* Convert variable in string ID*/ 
-                memset(InfoSensor->id,0,sizeof(InfoSensor->id));                       
-                req.ID.copy(InfoSensor->id,req.ID.size(),0);   
-                                           
+                /* Convert variable in string ID*/
+                memset(InfoSensor->id,0,sizeof(InfoSensor->id));
+                req.ID.copy(InfoSensor->id,req.ID.size(),0);
+
                 InfoSensor->DigitalVal = req.valueWritten;
                 InfoSensor->Error = false;
-                sig_newframe.emit(InfoSensor);	
+                sig_newframe.emit(InfoSensor);
                 delete(InfoSensor);
-            }                                        
-        }                        
-                   
-        zibase_queue_req.pop();                 
+            }
+        }
+
+        zibase_queue_req.pop();
         if(!zibase_queue_req.empty())
         {
-                /* pop element in timeout */
-                req = zibase_queue_req.front();
-                                       
-                ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
-                ecore_con_server_flush(econ_client);
-                /* arm timer*/                                  
-                //zibase_timer = new EcoreTimer(3.0, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));                        
-                StartTimer(3.0);
-        } 
-    }                            
+            /* pop element in timeout */
+            req = zibase_queue_req.front();
+
+            ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
+            ecore_con_server_flush(econ_client);
+            /* arm timer*/
+            //zibase_timer = new EcoreTimer(3.0, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
+            StartTimer(3.0);
+        }
+    }
 }
 
-int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)          
-                 
+int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
+
 {
     int ret = 0;
     unsigned long action = 0;
@@ -365,14 +365,14 @@ int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
         action |= (prot->nb_burst<<24);
     switch (val)
     {
-        case ZibaseInfoProtocol::eON:
-                action |= ACTION_ON;
+    case ZibaseInfoProtocol::eON:
+        action |= ACTION_ON;
         break;
-        case ZibaseInfoProtocol::eOFF:
-                action |= ACTION_OFF;
+    case ZibaseInfoProtocol::eOFF:
+        action |= ACTION_OFF;
         break;
-        default:
-                ret = -1;                
+    default:
+        ret = -1;
         break;
     }
 
@@ -396,26 +396,26 @@ int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
         memcpy(req.frame,(unsigned char*)&stZAPI_packet,sizeof(TstZAPI_packet));
 
         if (zibase_queue_req.empty())
-        {                        
+        {
             /*push request as we wait for an answer */
-            zibase_queue_req.push(req);   
-            /* send immediatly data*/    
+            zibase_queue_req.push(req);
+            /* send immediatly data*/
             ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-            ecore_con_server_flush(econ_client);                 
-             /* restart timer*/
+            ecore_con_server_flush(econ_client);
+            /* restart timer*/
             StopTimer();
             StartTimer(3.0);
         }
-        else zibase_queue_req.push(req);                                              
+        else zibase_queue_req.push(req);
     }
-    return ret;  	
+    return ret;
 }
 
 int Zibase::rw_variable(ZibaseInfoProtocol * prot)
 {
     unsigned long NumVar_offset = 0;
     int ret = 0;
-                
+
     if(prot->protocol == ZibaseInfoProtocol::eZWAVE)
     {
         NumVar_offset = 256;
@@ -440,17 +440,17 @@ int Zibase::rw_variable(ZibaseInfoProtocol * prot)
         memcpy(req.frame,(unsigned char*)&stZAPI_packet,sizeof(TstZAPI_packet));
 
         if (zibase_queue_req.empty())
-        {                       
+        {
             /*push request as we wait for an answer */
-            zibase_queue_req.push(req);   
-            /* send immediatly data*/    
+            zibase_queue_req.push(req);
+            /* send immediatly data*/
             ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
             ecore_con_server_flush(econ_client);
             /* restart timer*/
             StopTimer();
-            StartTimer(3.0);                        
+            StartTimer(3.0);
         }
-        else zibase_queue_req.push(req);                                                 	
+        else zibase_queue_req.push(req);
     }
     return ret;
 }
@@ -497,8 +497,8 @@ void Zibase::extract_zwave_detectOpen(char* frame,bool *val)
             sscanf(c,"<id>%[^<]",localBuf);
             /*search _OFF in id name, to know if door close, val = 1 if door opened */
             if(strstr (localBuf, "_OFF")==NULL)
-	            *val = 1;
-            else *val = 0; 
+                *val = 1;
+            else *val = 0;
         }
     }
 }
@@ -511,7 +511,7 @@ int Zibase::extract_infos(char* frame,ZibaseInfoSensor* elm)
     if(c != NULL)
     {
         extract_energy(frame,&elm->AnalogVal);
-        elm->type = ZibaseInfoSensor::eENERGY;		
+        elm->type = ZibaseInfoSensor::eENERGY;
     }
 
     c = strstr (frame, "T=<tem>");
@@ -523,11 +523,11 @@ int Zibase::extract_infos(char* frame,ZibaseInfoSensor* elm)
 
     c = strstr (frame, "CMD/INTER");
     if(c != NULL)
-    {		
+    {
         extract_zwave_detectOpen(frame,&elm->DigitalVal);
         elm->type = ZibaseInfoSensor::eDETECT;
     }
-    return 0;		
+    return 0;
 }
 
 
@@ -545,15 +545,15 @@ int Zibase::vartoId(unsigned long var, char*id)
         ID[0]='Z';
         ID[1]='A'+house_code;
         if(device < 10)
-                ID[2]='1'+device;
+            ID[2]='1'+device;
         else
         {
-                ID[2]='1';
-                ID[3]='0'+(device-10);
+            ID[2]='1';
+            ID[3]='0'+(device-10);
         }
-        strcpy(id,ID);        
+        strcpy(id,ID);
     }
-    return 0;		
+    return 0;
 }
 
 int Zibase::StopTimer(void)
@@ -562,20 +562,20 @@ int Zibase::StopTimer(void)
     {
         delete zibase_timer;
         zibase_timer = NULL;
-    }   
-    return (0);	
+    }
+    return (0);
 }
 
 int Zibase::StartTimer(float timeout)
 {
-    zibase_timer = new EcoreTimer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));	
-    return (0);	
+    zibase_timer = new EcoreTimer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
+    return (0);
 }
 
 int Zibase::PopAndCheckFifo(void)
 {
     ZibaseQueuRequest req;
-    zibase_queue_req.pop();	               
+    zibase_queue_req.pop();
     StopTimer();
     if(!zibase_queue_req.empty())
     {
@@ -583,9 +583,9 @@ int Zibase::PopAndCheckFifo(void)
         req = zibase_queue_req.front();
         ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
         ecore_con_server_flush(econ_client);
-        /* rearm timer*/                                                 
+        /* rearm timer*/
         StartTimer(3.0);
-    } 	
+    }
 
-    return(0);	
-}	
+    return(0);
+}
