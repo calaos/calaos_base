@@ -1,3 +1,5 @@
+if HAVE_CALAOS_HOME_BIN
 SUBDIRS = clock note
 
 MAINTAINERCLEANFILES = Makefile.in
+endif

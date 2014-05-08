@@ -25,7 +25,7 @@ AM_CXXFLAGS = \
 @CALAOS_HOME_CFLAGS@ \
 -DLIBMBUS
 
-bin_PROGRAMS = calaos_config wago_test calaos_thumb calaos_mail
+bin_PROGRAMS = calaos_config wago_test calaos_mail
 
 calaos_config_SOURCES = \
         calaos_config.cpp
@@ -41,11 +41,14 @@ wago_test_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_COMMON_LIBS@
 
+if HAVE_CALAOS_HOME_BIN
+bin_PROGRAMS += calaos_thumb
 calaos_thumb_SOURCES = \
-    main_cover.cpp
+	main_cover.cpp
 
 calaos_thumb_LDADD = \
-    @CALAOS_HOME_LIBS@
+	@CALAOS_HOME_LIBS@
+endif
 
 calaos_mail_SOURCES = \
 	calaos_mail.cpp

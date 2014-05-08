@@ -88,9 +88,11 @@ AC_SUBST([requirements_calaos_server])
 CALAOS_COMMON_LIBS="${CALAOS_COMMON_LIBS} ${LUA_LIBS} ${lua_libs}"
 CALAOS_COMMON_CFLAGS="${CALAOS_COMMON_CFLAGS} ${LUA_CFLAGS}"
 
-requirements_calaos_home="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} elementary >= ${efl_ver} openssl >= 1.0.0 libcurl"
+requirements_calaos_home="evas >= ${efl_ver} edje >= ${efl_ver} eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} elementary >= ${efl_ver} openssl >= 1.0.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_HOME], [${requirements_calaos_home}], [have_calaos_home_dep="yes"], [have_calaos_home_dep="no"])
 AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"])
+
+AC_SUBST([requirements_calaos_home])
 
 EFL_CHECK_FUNCS([CALAOS_HOME], [dlopen])
 
