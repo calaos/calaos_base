@@ -39,7 +39,10 @@ public:
     Registrar(string type, function<IPCam *(Params &)> classFunc);
 };
 
-#define REGISTER_FACTORY(NAME, TYPE, RETURNCLASS) static Registrar NAME##_reg_(#NAME, [](Params &_p) -> RETURNCLASS * { return new TYPE(_p); });
+#define REGISTER_FACTORY(NAME, TYPE, RETURNCLASS) \
+static Registrar NAME##_reg_(#NAME, \
+    function<RETURNCLASS *(Params &)>( \
+        [](Params &_p) -> RETURNCLASS * { return new TYPE(_p); } ));
 
 #define REGISTER_INPUT_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, Input)
 #define REGISTER_INPUT(TYPE) REGISTER_INPUT_USERTYPE(TYPE, TYPE)
