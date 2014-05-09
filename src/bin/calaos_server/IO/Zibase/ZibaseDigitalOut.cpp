@@ -44,7 +44,18 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
     if(prot)
     {
         /* Transform ID in house code / device code */
-        char housecode=id[1];
+        char housecode;
+         char *device;
+        if(protocol==ZibaseInfoProtocol::eZWAVE)
+        {
+            housecode=id[1];
+            device=&id[2];
+        }
+        else
+        {
+            housecode=id[0];
+            device=&id[1];
+        }
         switch(housecode)
         {
             case 'A':prot->house_code = ZibaseInfoProtocol::A;break;
@@ -66,7 +77,7 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
             default:prot->house_code = ZibaseInfoProtocol::A;break;
         }
 
-        char *device=&id[2];
+
         prot->device_number = (unsigned char)atoi(device);
 
         if(protocol<=ZibaseInfoProtocol::eXDD868boiler)

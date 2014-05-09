@@ -141,7 +141,6 @@ Zibase::Zibase(std::string h, int p):
     req.RunningReq = ZibaseQueuRequest::eNOP;
     req.ID="NOID";
     /* do not copy data as we are on the first frame sent */
-
     if (zibase_queue_req.empty())
     {
         /*push request as we wait for an answer */
@@ -420,7 +419,13 @@ int Zibase::rw_variable(ZibaseInfoProtocol * prot)
     {
         NumVar_offset = 256;
         stZAPI_packet.param3 = BIG_ENDIAN_L(PARAM3_READZWAVE);
-    }else ret = -1;
+    }
+    else if(prot->protocol == ZibaseInfoProtocol::eCHACON)
+    {
+        NumVar_offset = 0;
+        stZAPI_packet.param3 = BIG_ENDIAN_L(PARAM3_READZWAVE);
+    }
+    else ret = -1;
 
     if(ret == 0)
     {
@@ -536,23 +541,28 @@ int Zibase::vartoId(unsigned long var, char*id)
     unsigned char house_code;
     unsigned char device;
     char ID[4];
+    unsigned char offset = 0;
     memset(ID,0x00,sizeof(ID));
+    house_code = (var&0xF0)>>4;
+    device = (var&0x0f);
+
     if(var>=ZWAVE_VAR_MIN)
     {
+
         /* ZWAVE variable*/
-        house_code = (var&0xF0)>>4;
-        device = (var&0x0f);
         ID[0]='Z';
-        ID[1]='A'+house_code;
-        if(device < 10)
-            ID[2]='1'+device;
-        else
-        {
-            ID[2]='1';
-            ID[3]='0'+(device-10);
-        }
-        strcpy(id,ID);
+        offset = 1;
     }
+    ID[offset]='A'+house_code;
+    if(device < 10)
+        ID[offset+1]='1'+device;
+    else
+    {
+        ID[offset+1]='1';
+        ID[offset+2]='0'+(device-10);
+    }
+    strcpy(id,ID);
+
     return 0;
 }
 
