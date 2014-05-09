@@ -51,7 +51,18 @@ void WebOutputLight::readValue()
 
 bool WebOutputLight::set_value_real(bool val)
 {
-    val ? WebCtrl::Instance(get_params()).setValue("on") : 
-        WebCtrl::Instance(get_params()).setValue("off");
+    string on_value = "on";
+    string off_value = "off";
+
+    if (get_params().Exists("on_value"))
+        on_value = get_param("on_value");
+
+    if (get_params().Exists("off_value"))
+        on_value = get_param("off_value");
+
+
+    val ? WebCtrl::Instance(get_params()).setValue(on_value) :
+        WebCtrl::Instance(get_params()).setValue(off_value);
+
     return true;
 }
