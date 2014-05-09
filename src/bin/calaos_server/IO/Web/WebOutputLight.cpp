@@ -58,7 +58,7 @@ bool WebOutputLight::set_value_real(bool val)
         on_value = get_param("on_value");
 
     if (get_params().Exists("off_value"))
-        on_value = get_param("off_value");
+        off_value = get_param("off_value");
 
 
     val ? WebCtrl::Instance(get_params()).setValue(on_value) :
