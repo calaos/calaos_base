@@ -82,3 +82,4 @@ calaos.creator*
 calaos.files
 calaos.includes
 po/remove-potcdate.sed
+Makefile.am.user*
