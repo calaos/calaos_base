@@ -44,6 +44,10 @@ private:
     Params param;
     int file_type;
     static unordered_map<string, WebCtrl> hash;
+    void launchDownload();
+
+    std::function<void()> fileDownloaded_cb;
+
 public:
     static WebCtrl &Instance(Params &p); //Singleton
     WebCtrl();

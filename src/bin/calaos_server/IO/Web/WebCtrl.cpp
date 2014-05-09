@@ -72,27 +72,35 @@ WebCtrl &WebCtrl::Instance(Params &p)
 }
 
 
-void WebCtrl::Add(double _frequency, std::function<void()> fileDownloaded_cb)
+void WebCtrl::Add(double _frequency, std::function<void()> _fileDownloaded_cb)
 {
+    fileDownloaded_cb = _fileDownloaded_cb;
     if (frequency > _frequency )
         frequency = _frequency;
 
     if (!timer)
         timer = new EcoreTimer(frequency, [=]() {
-            string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
-            dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
-                string dest =  "/tmp/calaos_" + param.get_param("id");
-                string src = dest + ".part";
-                ecore_file_mv(src.c_str(), dest.c_str());
-                fileDownloaded_cb();
-            }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
-            }, NULL);
+            launchDownload();
         });
     else
         timer->Reset(frequency);
 
     if (!dlManager)
         dlManager = new DownloadManager();
+    launchDownload();
+}
+
+void WebCtrl::launchDownload()
+{
+    string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
+
+    dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
+        string dest =  "/tmp/calaos_" + param.get_param("id");
+        string src = dest + ".part";
+        ecore_file_mv(src.c_str(), dest.c_str());
+        fileDownloaded_cb();
+    }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
+    }, NULL);
 }
 
 string WebCtrl::getValueJson(string path, string filename)
