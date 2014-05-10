@@ -37,7 +37,7 @@ WebInputString::WebInputString(Params &p):
     cInfoDom("input") << "WebInputString::WebInputString()";
 
     // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(frequency, [=]()
+    WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
     {
         readValue();
         Calaos::StartReadRules::Instance().ioRead();
@@ -47,6 +47,7 @@ WebInputString::WebInputString(Params &p):
 
 WebInputString::~WebInputString()
 {
+    WebCtrl::Instance(get_params()).Del(get_param("path"));
     cInfoDom("input") << "WebInputString::~WebInputString()";
 }
 
