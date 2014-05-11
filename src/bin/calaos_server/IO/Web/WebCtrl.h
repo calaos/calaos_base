@@ -46,7 +46,7 @@ private:
     static unordered_map<string, WebCtrl> hash;
     void launchDownload();
 
-    unordered_map<string, std::function<void()>> fileDownloadedHashCb;
+    vector<pair<string, std::function<void()>>> fileDownloadedCallbacks;
 
 public:
     static WebCtrl &Instance(Params &p); //Singleton

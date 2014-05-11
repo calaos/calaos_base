@@ -76,10 +76,7 @@ void WebCtrl::Add(string path,
                   double _frequency,
                   std::function<void()> fileDownloaded_cb)
 {
-    if (fileDownloadedHashCb.find(path) == fileDownloadedHashCb.end())
-    {
-        fileDownloadedHashCb[path] = fileDownloaded_cb;
-    }
+    fileDownloadedCallbacks.push_back(std::make_pair(path, fileDownloaded_cb));
 
     if (frequency > _frequency )
         frequency = _frequency;
@@ -98,7 +95,11 @@ void WebCtrl::Add(string path,
 
 void WebCtrl::Del(string path)
 {
-    fileDownloadedHashCb.erase(path);
+    for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+    {
+        if (fileDownloadedCallbacks[i].first == path)
+            fileDownloadedCallbacks.erase(fileDownloadedCallbacks.begin() + i);
+    }
 }
 
 void WebCtrl::launchDownload()
@@ -109,8 +110,9 @@ void WebCtrl::launchDownload()
         string dest =  "/tmp/calaos_" + param.get_param("id");
         string src = dest + ".part";
         ecore_file_mv(src.c_str(), dest.c_str());
-        for( auto const& fileDownloaded_cb: fileDownloadedHashCb ) {
-            fileDownloaded_cb.second();
+        for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+        {
+            fileDownloadedCallbacks[i].second();
         }
     }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
     }, NULL);
