@@ -301,7 +301,9 @@ IO/Zibase/Zibase.h \
 IO/Zibase/ZibaseAnalogIn.cpp \
 IO/Zibase/ZibaseAnalogIn.h \
 IO/Zibase/ZibaseDigitalIn.cpp \
-IO/Zibase/ZibaseDigitalIn.h
+IO/Zibase/ZibaseDigitalIn.h \
+IO/Zibase/ZibaseDigitalOut.cpp \
+IO/Zibase/ZibaseDigitalOut.h
 
 calaos_server_LDADD = \
 @CALAOS_SERVER_LIBS@ \
