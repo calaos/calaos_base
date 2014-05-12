@@ -31,9 +31,10 @@
 #define USER_AGENT              "Mozilla/5.0 (X11; U; Linux x86; fr) AppleWebKit/536.6 (KHTML, like Gecko, Safari/536.6) Calaos/2.0"
 #define DEFAULT_BROWSER_URL     "https://127.0.0.1/calaos_bookmarks/"
 
-#ifndef elm_web_uri_get
-#define elm_web_uri_get elm_web_url_get 
-#endif
+#ifndef HAVE_ELM_WEB_URL
+#define elm_web_url_get elm_web_uri_get
+#define elm_web_url_set elm_web_uri_set
+#endif 
 
 static void _web_load_started(void *data, Evas_Object *obj, void *event_info)
 {
@@ -217,11 +218,11 @@ void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, strin
         ApplicationMain::Instance().ShowKeyboard("Entrez une URL ci-dessous",
                                                  sigc::mem_fun(*this, &ActivityWebView::goToCallback),
                                                  false,
-                                                 elm_web_uri_get(web));
+                                                 elm_web_url_get(web));
     }
     else if (source == "button.bookmark")
     {
-        string url = elm_web_uri_get(web);
+        string url = elm_web_url_get(web);
 
         string _url = DEFAULT_BROWSER_URL;
         _url += "Bookmark.php?new=" + url_encode(url);
@@ -247,6 +248,6 @@ void ActivityWebView::goToCallback(string text)
 
     url += text;
 
-    elm_web_uri_set(web, url.c_str());
+    elm_web_url_set(web, url.c_str());
     elm_object_focus_set(web, true);
 }

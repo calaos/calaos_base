@@ -94,6 +94,16 @@ AM_CONDITIONAL([HAVE_CALAOS_HOME_BIN], [test "x${have_calaos_home_dep}" = "xyes"
 
 AC_SUBST([requirements_calaos_home])
 
+
+### Check if elm_web_url_get is present. This function has been added in efl 1.8 and elm_web_uri_get
+### has been deprecated and  elm_web_uri_get has been removed in efl 1.10
+PKG_CHECK_MODULES([ELM_WEB_URL], [elementary >= 1.7.99], [have_elm_web_url="yes"], [have_elm_web_url="no"])
+AM_CONDITIONAL([HAVE_ELM_WEB_URL], [test "x${have_elm_web_url}" = "xyes"])
+if test "x${have_elm_web_url}" == "xyes"
+then 
+     AC_DEFINE([HAVE_ELM_WEB_URL], [1], [elm_web_url])
+fi
+
 EFL_CHECK_FUNCS([CALAOS_HOME], [dlopen])
 
 ## Theme
