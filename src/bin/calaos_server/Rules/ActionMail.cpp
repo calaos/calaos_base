@@ -126,10 +126,11 @@ void ActionMail::sendMail()
     stringstream cmd;
 
     cmd << Prefix::Instance().binDirectoryGet();
-    cmd << "/calaos_mail ";
+    cmd << "/calaos_mail";
 
     if (ecore_file_exists(cmd.str().c_str()))
     {
+        cmd << " ";
         cmd << "--delete "; //force temp file deletion after mail is sent
         if (Utils::get_config_option("smtp_debug") == "true")
             cmd << "--verbose ";
@@ -141,6 +142,7 @@ void ActionMail::sendMail()
         if (!mail_attachment_tfile.empty())
             cmd << "--attach " << mail_attachment_tfile;
 
+        cInfo() << "Executing command : " << cmd;
         ecore_exe_run(cmd.str().c_str(), NULL);
     }
     else
