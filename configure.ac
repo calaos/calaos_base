@@ -1,4 +1,6 @@
-AC_INIT([calaos], [2.0], [raoul.hecky@gmail.com])
+
+CALAOS_VERSION
+AC_INIT([calaos], [calaos_version], [team@calaos.fr])
 AC_PREREQ([2.59])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_MACRO_DIR([m4])
@@ -196,7 +198,6 @@ AC_OUTPUT
 #####################################################################
 ## Info
 
-echo
 echo
 echo
 echo "------------------------------------------------------------------------"
