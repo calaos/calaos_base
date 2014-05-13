@@ -51,13 +51,20 @@ static UDPServer *wserver = NULL;
 static CamServer *camserver = NULL;
 static EcoreTimer *watchdogLoop = NULL;
 
+static void echoVersion(char **argv)
+{
+    cout << "Calaos Version: \n\t" PACKAGE_STRING << endl;
+}
+
 static void echoUsage(char **argv)
 {
-    cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
-    cout << endl << "\tOptions:\n";
-    cout << "\t-h, --help\tDisplay this help.\n";
-    cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
-    cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
+    echoVersion(argv);
+    cout << _("Usage:\n\t") << argv[0] << _(" [options]") << endl;
+    cout << endl << _("\tOptions:\n");
+    cout << _("\t-h, --help\tDisplay this help.\n");
+    cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
+    cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
+    cout << _("\t-v, --version\tDisplay current version and exit.\n");
     cout << endl;
 }
 
@@ -97,6 +104,16 @@ int main (int argc, char **argv)
         echoUsage(argv);
         exit(0);
     }
+
+    //Check command line args
+    if (argvOptionCheck(argv, argv + argc, "-v") ||
+        argvOptionCheck(argv, argv + argc, "--version"))
+    {
+        echoVersion(argv);
+        exit(0);
+    }
+
+
 
     char *confdir = argvOptionParam(argv, argv + argc, "--config");
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");

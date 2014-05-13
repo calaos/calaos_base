@@ -31,16 +31,23 @@
 
 using namespace Utils;
 
+static void echoVersion(char **argv)
+{
+    cout << "Calaos Version: \n\t" PACKAGE_STRING << endl;
+}
+
 static void echoUsage(char **argv)
 {
-    cout << "Calaos Home GUI - http://www.calaos.fr" << endl;
-    cout << "Usage:\n\t" << argv[0] << " [options]" << endl;
-    cout << endl << "\tOptions:\n";
-    cout << "\t-h, --help\tDisplay this help.\n";
-    cout << "\t--config <path>\tSet <path> as the directory for config files.\n";
-    cout << "\t--cache <path>\tSet <path> as the directory for cache files.\n";
-    cout << "\t--theme <file.edj>\tUse the given edje file instead of the default.\n";
-    cout << "\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n";
+    cout << "Calaos Home - http://www.calaos.fr" << endl;
+    echoVersion(argv);
+    cout << _("Usage:\n\t") << argv[0] << _(" [options]") << endl;
+    cout << endl << _("\tOptions:\n");
+    cout << _("\t-h, --help\tDisplay this help.\n");
+    cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
+    cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
+    cout << _("\t--theme <file.edj>\tUse the given edje file instead of the default.\n");
+    cout << _("\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n");
+    cout << _("\t-v, --version\tDisplay current version and exit.\n");
     cout << endl;
 }
 
@@ -66,6 +73,13 @@ int main(int argc, char **argv)
         argvOptionCheck(argv, argv + argc, "--help"))
     {
         echoUsage(argv);
+        exit(0);
+    }
+
+    if (argvOptionCheck(argv, argv + argc, "-v") ||
+        argvOptionCheck(argv, argv + argc, "--version"))
+    {
+        echoVersion(argv);
         exit(0);
     }
 
