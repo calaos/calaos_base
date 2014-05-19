@@ -34,6 +34,8 @@ protected:
     double value;
     double real_value_max;
     double wago_value_max;
+    double coeff_a;
+    double coeff_b;
 
     void readConfig();
 

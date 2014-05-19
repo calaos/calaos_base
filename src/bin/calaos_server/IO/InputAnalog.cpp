@@ -54,6 +54,8 @@ void InputAnalog::readConfig()
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
     if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
+    if (get_params().Exists("coeff_a")) Utils::from_string(get_param("coeff_b"), coeff_a);
+    if (get_params().Exists("coeff_b")) Utils::from_string(get_param("coeff_a"), coeff_b);
     if (get_params().Exists("interval")) Utils::from_string(get_param("interval"), frequency);
     if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
 }
@@ -87,13 +89,18 @@ double InputAnalog::get_value_double()
 {
     readConfig();
 
-    cDebugDom("input") << get_param("id") << ": "
-                       << value << " * " << real_value_max << " / " << wago_value_max;
-
     if (wago_value_max > 0 && real_value_max > 0)
+    {
+        cDebugDom("input") << get_param("id") << ": "
+                           << value << " * " << real_value_max << " / " << wago_value_max;
         return Utils::roundValue(value * real_value_max / wago_value_max);
+    }
     else
-        return Utils::roundValue(value);
+    {
+        cDebugDom("input") << get_param("id") << ": "
+                           << coeff_a << " * " << value << " + " << coeff_b;
+        return Utils::roundValue(value * coeff_a + coeff_b);
+    }
 }
 
 void InputAnalog::force_input_double(double v)
@@ -101,7 +108,7 @@ void InputAnalog::force_input_double(double v)
     if (wago_value_max > 0 && real_value_max > 0)
         value = v * wago_value_max / real_value_max;
     else
-        value = v;
+        value = v * coeff_a + coeff_b;
 
     emitChange();
 }
