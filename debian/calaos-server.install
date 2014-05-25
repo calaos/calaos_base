@@ -1,1 +1,4 @@
 debian/tmp/usr/bin/calaos_server
+debian/tmp/usr/bin/calaos_mail
+debian/tmp/usr/bin/wago_test
+

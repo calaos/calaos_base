@@ -1,3 +1,11 @@
+calaos (2.0-beta1-0-gc92f9cb) unstable; urgency=low
+
+  * Remove depencies not used anymore : log4cpp and libvmime
+  * Install binaries calaos_mail and calaos_config with calaos_server
+  * use git describe --long --tags --always master for version number
+
+ -- Nicolas Aguirre <nico@calaos.fr>  Sun, 25 May 2014 14:34:38 +0000
+
 calaos (2.0.0-1~20131030145757.gitac7cc7d) unstable; urgency=low
 
   [ Nicolas Aguirre ]
