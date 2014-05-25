@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-04-22 15:19+0200\n"
+"POT-Creation-Date: 2014-05-25 14:13+0000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Michael Bouchaud (yoz) <yoz@efl.so>\n"
 "Language-Team: French\n"
@@ -43,6 +43,46 @@ msgstr "Redémarrer l'application seulement"
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:292
 msgid "Reboot the machine"
 msgstr "Redémarrer la machine."
+
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+msgid ""
+"Usage:\n"
+"\t"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+msgid " [options]"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:63
+msgid "\tOptions:\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:64
+msgid "\t-h, --help\tDisplay this help.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:65
+msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:66
+msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:48
+msgid "\t--theme <file.edj>\tUse the given edje file instead of the default.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:49
+msgid ""
+"\t--set-elm-config\tForce calaos_home to set the correct elementary config "
+"options for touchscreen usage.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:67
+msgid "\t-v, --version\tDisplay current version and exit.\n"
+msgstr ""
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:52
 msgid "My Music"
@@ -323,8 +363,8 @@ msgstr "Temps d'attente avant la mise en veille : "
 msgid "Enable screen saver : "
 msgstr "Activer la mise en veille de l'écran : "
 
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:64
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:68
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:80
 msgid " minutes"
 msgstr " minutes"
 
@@ -542,7 +582,7 @@ msgid "Loading..."
 msgstr "Chargement..."
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:74
-#: src/bin/calaos_home/views/ActivityWebView.cpp:115
+#: src/bin/calaos_home/views/ActivityWebView.cpp:120
 msgid "Back to menu"
 msgstr "Retour au menu"
 
@@ -882,27 +922,27 @@ msgstr "Êtes-vous sûr de vouloir supprimer cette étape ?"
 msgid "Yes, delete this schedule"
 msgstr "Oui, supprimer l'étape"
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:84
+#: src/bin/calaos_home/views/ActivityWebView.cpp:89
 msgid "Web browser"
 msgstr "Navigateur Internet"
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:118
+#: src/bin/calaos_home/views/ActivityWebView.cpp:123
 msgid "Reload"
 msgstr "Recharger"
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:121
+#: src/bin/calaos_home/views/ActivityWebView.cpp:126
 msgid "Stop"
 msgstr "Stop"
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:124
+#: src/bin/calaos_home/views/ActivityWebView.cpp:129
 msgid "Home page"
 msgstr "Page d'acceuil"
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:127
+#: src/bin/calaos_home/views/ActivityWebView.cpp:132
 msgid "Go to..."
 msgstr "Aller à..."
 
-#: src/bin/calaos_home/views/ActivityWebView.cpp:130
+#: src/bin/calaos_home/views/ActivityWebView.cpp:135
 msgid "Add to favorites"
 msgstr "Ajouter aux favoris"
 
