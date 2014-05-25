@@ -44,8 +44,8 @@ void ActivityScheduleScenarioController::createView()
     }
     else
     {
-        scenario->ioPlage->range_infos = TimeRangeInfos(); //clear if needed
-        scView->setTimeRangeInfos(scenario->ioPlage->range_infos, (scenario->scenario_data.params["cycle"] == "true"));
+        TimeRangeInfos tr;
+        scView->setTimeRangeInfos(tr, (scenario->scenario_data.params["cycle"] == "true"));
         scView->buttonValidPressed.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioController::validAddSchedule));
     }
 }
