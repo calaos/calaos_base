@@ -291,7 +291,7 @@ void OutputLightDimmer::impulse(int _time)
                        << ": got impulse action, staying true for "
                        << _time << "ms";
 
-    set_value("true");
+    set_value(true);
 
     DELETE_NULL(impulseTimer);
     impulseTimer = new EcoreTimer((double)_time / 1000.,
@@ -300,7 +300,7 @@ void OutputLightDimmer::impulse(int _time)
 
 void OutputLightDimmer::TimerImpulse()
 {
-    set_value("false");
+    set_value(false);
 
     DELETE_NULL(impulseTimer);
 }
@@ -379,7 +379,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
 
     if (blinks.size() > 0)
     {
-        set_value(blinks[current_blink].state?"true":"false");
+        set_value(blinks[current_blink].state);
 
         impulseTimer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
                                       (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::TimerImpulseExtended) );
@@ -391,6 +391,8 @@ void OutputLightDimmer::TimerImpulseExtended()
     //Stop timer
     DELETE_NULL(impulseTimer);
 
+    cDebugDom("output") << "Next impulse from pattern.";
+
     //safety checks
     if (current_blink < 0 || current_blink >= (int)blinks.size())
         return; //Stops blinking
@@ -401,8 +403,10 @@ void OutputLightDimmer::TimerImpulseExtended()
     if (current_blink < 0 || current_blink >= (int)blinks.size())
         return; //Stops blinking
 
+    cDebugDom("output") << "Next state is: " << (blinks[current_blink].state?"true":"false");
+
     //Set new output state
-    set_value(blinks[current_blink].state?"true":"false");
+    set_value(blinks[current_blink].state);
 
     //restart timer
     impulseTimer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
