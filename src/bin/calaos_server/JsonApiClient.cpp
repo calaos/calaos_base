@@ -329,7 +329,7 @@ void JsonApiClient::DataWritten(int size)
     if (data_size <= 0 && need_restart)
     {
         cDebugDom("network")
-                << "All config files written, restart calaos_server";
+                << "All config files written, restarting calaos_server";
         ecore_app_restart();
     }
 
