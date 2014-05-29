@@ -591,16 +591,7 @@ vector<string> TCPSocket::getAllInterfaces()
 
 std::string TCPSocket::GetLocalIPFor(std::string ip_search)
 {
-    bool found_ip = false;
     string ip;
-    vector<string> intf = TCPSocket::getAllInterfaces();
-
-    /* This is not the correct way to check. We need a way to look
-         * for the conresponding net interface for the given ip address.
-         * We need to look for a way to get the right route for that ip
-         * address. And if nothing is found, try getting the default route.
-         * link: http://stackoverflow.com/questions/15668653/how-to-find-the-default-networking-interface-in-linux
-         */
 
     //check if the string is a correct ip address
     struct sockaddr_in sa;
@@ -611,6 +602,7 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
         //Get the first interface ip address
         if (intf.size() > 0)
         {
+            vector<string> intf = TCPSocket::getAllInterfaces();
             ip = TCPSocket::GetLocalIP(intf[0]);
             cDebugDom("network") << "Using local ip address: " << ip;
             return ip;
@@ -619,25 +611,43 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
         return std::string();
     }
 
-    for (uint j = 0;j < intf.size() && !found_ip;j++)
-    {
-        ip = TCPSocket::GetLocalIP(intf[j]);
+    int sock = socket ( AF_INET, SOCK_DGRAM, 0);
 
-        if (ip == "") continue;
-        vector<string> splitter, splitter2;
-        Utils::split(ip, splitter, ".", 4);
-        Utils::split(ip_search, splitter2, ".", 4);
-        if (splitter[0] == splitter2[0] &&
-            splitter[1] == splitter2[1] &&
-            splitter[2] == splitter2[2])
-            found_ip = true;
+    if(sock < 0)
+    {
+        cErrorDom("network") << "Can't create socket";
+        return ip;
     }
 
-    cDebugDom("network") << "Using local ip address: " << ip;
+    struct sockaddr_in serv;
+    memset(&serv, 0, sizeof(serv));
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = inet_addr(ip_search.c_str());
+    serv.sin_port = htons(80);
 
-    if (found_ip)
-        return ip;
-    return std::string();
+    int err = connect(sock, (const struct sockaddr *)&serv, sizeof(serv));
+
+    struct sockaddr_in name;
+    socklen_t namelen = sizeof(name);
+    err = getsockname(sock, (struct sockaddr *) &name, &namelen);
+
+    char buffer[100];
+    memset(&buffer, 0, 100);
+    const char* p = inet_ntop(AF_INET, &name.sin_addr, buffer, 100);
+
+    if (p)
+    {
+        ip = buffer;
+    }
+    else
+    {
+        cErrorDom("network") << "Can't get IP: " << strerror(errno);
+    }
+
+    cDebugDom("network") << "Using local ip address: " << ip << " for ip: " << ip_search;
+    close(sock);
+
+    return ip;
 }
 
 bool TCPSocket::GetMacAddr(std::string intf, unsigned char *mac)
