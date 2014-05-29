@@ -607,12 +607,12 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
     int result = inet_pton(AF_INET, ip_search.c_str(), &(sa.sin_addr));
     if (result == 0) //not an ip address
     {
-        cInfoDom("network") << ip_search << " is not a valid ip address";
+        cWarningDom("network") << ip_search << " is not a valid ip address";
         //Get the first interface ip address
         if (intf.size() > 0)
         {
             ip = TCPSocket::GetLocalIP(intf[0]);
-            cInfoDom("network") << "Using local ip address: " << ip;
+            cDebugDom("network") << "Using local ip address: " << ip;
             return ip;
         }
 
@@ -633,7 +633,7 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
             found_ip = true;
     }
 
-    cInfoDom("network") << "Using local ip address: " << ip;
+    cDebugDom("network") << "Using local ip address: " << ip;
 
     if (found_ip)
         return ip;
