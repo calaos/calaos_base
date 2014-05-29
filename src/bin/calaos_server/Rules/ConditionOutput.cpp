@@ -285,6 +285,8 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
             trigger = false;
     }
 
+    cDebugDom("rule.condition.output") << "trigger: " << (trigger?"true":"false");
+
     node = node->FirstChildElement();
 
     for (; node; node = node->NextSiblingElement())
