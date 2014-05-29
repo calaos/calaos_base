@@ -600,11 +600,11 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
     {
         cWarningDom("network") << ip_search << " is not a valid ip address";
         //Get the first interface ip address
+        vector<string> intf = TCPSocket::getAllInterfaces();
         if (intf.size() > 0)
         {
-            vector<string> intf = TCPSocket::getAllInterfaces();
             ip = TCPSocket::GetLocalIP(intf[0]);
-            cDebugDom("network") << "Using local ip address: " << ip;
+            cDebugDom("network") << "Using local ip address: " << ip << " for ip: " << ip_search;
             return ip;
         }
 
@@ -625,11 +625,11 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
     serv.sin_addr.s_addr = inet_addr(ip_search.c_str());
     serv.sin_port = htons(80);
 
-    int err = connect(sock, (const struct sockaddr *)&serv, sizeof(serv));
+    connect(sock, (const struct sockaddr *)&serv, sizeof(serv));
 
     struct sockaddr_in name;
     socklen_t namelen = sizeof(name);
-    err = getsockname(sock, (struct sockaddr *) &name, &namelen);
+    getsockname(sock, (struct sockaddr *) &name, &namelen);
 
     char buffer[100];
     memset(&buffer, 0, 100);
