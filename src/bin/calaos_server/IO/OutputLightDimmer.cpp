@@ -64,6 +64,9 @@ bool OutputLightDimmer::set_value(std::string val)
 
     cInfoDom("output") << get_param("id") << ": got action, " << val;
 
+    // Setting a new value will also stop any running impulse actions
+    DELETE_NULL(impulseTimer);
+
     if (val == "on" || val == "true")
     {
         //switch the light on only if value == 0
