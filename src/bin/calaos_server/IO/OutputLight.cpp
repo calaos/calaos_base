@@ -25,7 +25,6 @@ using namespace Calaos;
 
 OutputLight::OutputLight(Params &p):
     Output(p),
-    timer(NULL),
     value(false)
 {
     if (!get_params().Exists("visible")) set_param("visible", "true");

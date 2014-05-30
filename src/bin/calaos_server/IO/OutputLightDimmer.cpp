@@ -27,7 +27,6 @@ OutputLightDimmer::OutputLightDimmer(Params &_p):
     Output(_p),
     value(0),
     old_value(100),
-    hold_timer(NULL),
     press_detected(false),
     press_sens(false),
     stop_after_press(false)

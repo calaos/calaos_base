@@ -34,8 +34,8 @@ protected:
     int value;
     int old_value;
 
-    EcoreTimer *hold_timer;
-    EcoreTimer *impulseTimer;
+    EcoreTimer *hold_timer = nullptr;
+    EcoreTimer *impulseTimer = nullptr;
 
     vector<BlinkInfo> blinks;
     int current_blink;

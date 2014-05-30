@@ -30,7 +30,7 @@ namespace Calaos {
 class OutputLight : public Output
 {
 private:
-    EcoreTimer *timer;
+    EcoreTimer *timer = nullptr;
 
     vector<BlinkInfo> blinks;
     int current_blink;
