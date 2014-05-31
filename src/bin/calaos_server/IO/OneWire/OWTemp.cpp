@@ -56,12 +56,22 @@ void OWTemp::readValue()
     double val;
     string ow_req;
 
+    double t0;
+
     /* Read value */
     ow_req = ow_id + "/temperature";
+    t0 = ecore_time_get();
     if (Owctrl::Instance(ow_args).getValue(ow_req, res))
     {
+        
 	from_string(res, val);
-	cInfoDom("input") << ow_id << ": Ok";
+	if (val != value)
+        {
+            value = val;
+            emitChange();
+	    cInfoDom("input") << ow_id << ": Ok value :  " << val;
+        }
+
     }
     else
     {
