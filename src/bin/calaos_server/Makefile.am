@@ -120,6 +120,7 @@ Audio/AudioOutput.cpp				\
 IO/IntValue.cpp					\
 IO/Wago/WITemp.cpp					\
 IO/OneWire/OWTemp.cpp					\
+IO/OneWire/OWCtrl.cpp					\
 IPCam/IPCam.cpp					\
 IPCam/CamInput.cpp				\
 IPCam/CamManager.cpp				\
@@ -220,6 +221,7 @@ IO/InPlageHoraire.h				\
 IO/Wago/WagoCtrl.h					\
 IO/InputTime.h					\
 IO/OneWire/OWTemp.h					\
+IO/OneWire/OWCtrl.h					\
 IO/Wago/WODigital.h					\
 IO/Wago/WITemp.h					\
 IO/Scenario.h					\

@@ -35,7 +35,7 @@ private:
     bool auto_sc_mark;
 
 public:
-    IOBase(Params &p): param(p), auto_sc_mark(false) { /* nothing */ }
+    IOBase(Params &p): param(p), auto_sc_mark(false) { cInfoDom("input") << "IOBASE"; }
     virtual ~IOBase() { /* nothing */ }
 
     virtual DATA_TYPE get_type() = 0;

@@ -22,12 +22,10 @@
 #include "config.h"
 #endif
 
+#include <OWCtrl.h>
 #include <OWTemp.h>
 #include <IOFactory.h>
 
-#ifdef HAVE_OWCAPI_H
-#include <owcapi.h>
-#endif
 
 using namespace Calaos;
 
@@ -38,25 +36,20 @@ OWTemp::OWTemp(Params &p):
 {
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
+    cInfoDom("input") << "frequency : " << get_param("frequency");
 
-#ifdef HAVE_OWCAPI_H
-    OW_init(ow_args.c_str());
-#endif
-
+    Owctrl::Instance(ow_args);
     cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 
     //read value when calaos_server is started
     readValue();
     Calaos::StartReadRules::Instance().ioRead();
+
 }
 
 OWTemp::~OWTemp()
 {
     cInfoDom("input");
-
-#ifdef HAVE_OWCAPI_H
-    OW_finish();
-#endif
 }
 
 void OWTemp::readValue()
@@ -64,25 +57,19 @@ void OWTemp::readValue()
     /* TODO: should be rewritten in async using a thread for all OneWire inputs.
          * Like in WagoMap.
          */
-
-    ow_id = get_param("ow_id");
-
-#ifdef HAVE_OWCAPI_H
-    char *res;
-    size_t len;
-    double val;
+  string res;
+  double val;
 
     /* Read value */
     ow_req = ow_id + "/temperature";
-    if(OW_get(ow_req.c_str(), &res, &len) >= 0)
-    {
-        val = atof(res);
-        free(res);
-        cInfoDom("input") << get_param("id") << ": Ok";
-    }
+    if (Owctrl::Instance(ow_args).getValue(ow_req, res))
+      {
+	from_string(res, val);
+        cInfoDom("input") << ow_id << ": Ok";
+      }
     else
     {
-        cInfoDom("input") << get_param("id") << ": Cannot read One Wire Temperature Sensor (" << ow_id << ")";
+      cErrorDom("input") << "Cannot read One Wire Temperature Sensor (" << ow_id << ") : " << strerror(errno);
     }
 
     if (val != value)
@@ -90,7 +77,6 @@ void OWTemp::readValue()
         value = val;
         emitChange();
     }
-#else
-    cInfoDom("input") << get_param("id") << ": One Wire support not enabled !";
-#endif
+
+
 }
