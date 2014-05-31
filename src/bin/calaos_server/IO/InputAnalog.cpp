@@ -66,7 +66,7 @@ void InputAnalog::readConfig()
     if (get_params().Exists("coeff_a"))
       Utils::from_string(get_param("coeff_b"), coeff_a);
     else 
-      coeff_a = 1.0
+      coeff_a = 1.0;
 
     if (get_params().Exists("coeff_b"))
       Utils::from_string(get_param("coeff_a"), coeff_b);

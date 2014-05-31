@@ -54,6 +54,8 @@ void OWTemp::readValue()
 {
     string res;
     double val;
+    string ow_req;
+
     /* Read value */
     ow_req = ow_id + "/temperature";
     if (Owctrl::Instance(ow_args).getValue(ow_req, res))
