@@ -22,19 +22,22 @@
 #define S_OWTemp_H
 
 #include <InputTemp.h>
+#include <EcoreTimer.h>
 
 namespace Calaos
 {
 
 class OWTemp : public InputTemp
 {
+private:
+    char retry;
+    EcoreTimer *retry_timer;
 protected:
     std::string ow_id;
-    std::string ow_req;
     std::string ow_args;
 
     virtual void readValue();
-
+    void readValueReal();
 public:
     OWTemp(Params &p);
     ~OWTemp();

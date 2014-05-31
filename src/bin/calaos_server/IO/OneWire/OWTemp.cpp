@@ -39,10 +39,7 @@ OWTemp::OWTemp(Params &p):
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
 
-#ifdef HAVE_OWCAPI_H
-    OW_init(ow_args.c_str());
-#endif
-
+    retry = 0;
     cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 
     //read value when calaos_server is started
@@ -53,10 +50,47 @@ OWTemp::OWTemp(Params &p):
 OWTemp::~OWTemp()
 {
     cInfoDom("input");
+}
 
-#ifdef HAVE_OWCAPI_H
-    OW_finish();
-#endif
+void OWTemp::readValueReal()
+{
+    #ifdef HAVE_OWCAPI_H
+    char *res;
+    size_t len;
+    double val;
+    std::string ow_req;
+
+    /* Read value */
+    if ( OW_init(ow_args.c_str()) != 0)
+    {
+        cError() << "Init errror OWFS : %s" << strerror(errno);
+    }
+    else
+    {
+        ow_req = ow_id + "/temperature";
+        if(OW_get(ow_req.c_str(), &res, &len) >= 0)
+        {
+            val = atof(res);
+            free(res);
+            cInfoDom("input") << get_param("id") << ": Ok";
+        }
+        else
+        {
+            cInfoDom("input") << get_param("id") << ": Cannot read One Wire Temperature Sensor (" << ow_id << ")";
+            val = 0;
+        }
+
+        if (val != value)
+        {
+            value = val;
+            emitChange();
+        }
+        OW_finish();
+        retry = 0;
+        delete retry_timer;
+        retry_timer = nullptr;
+    }
+    #endif
 }
 
 void OWTemp::readValue()
@@ -65,30 +99,32 @@ void OWTemp::readValue()
          * Like in WagoMap.
          */
 
-    ow_id = get_param("ow_id");
+    if (retry != 0)
+        return;
 
-#ifdef HAVE_OWCAPI_H
-    char *res;
-    size_t len;
-    double val;
+#ifdef HAVE_OWCAPI_H    
 
-    /* Read value */
-    ow_req = ow_id + "/temperature";
-    if(OW_get(ow_req.c_str(), &res, &len) >= 0)
+    if ( OW_init(ow_args.c_str()) != 0)
     {
-        val = atof(res);
-        free(res);
-        cInfoDom("input") << get_param("id") << ": Ok";
+        cError() << "Init errror OWFS : %s" << strerror(errno);
+        retry = 3;
+        retry_timer = new EcoreTimer(1.0, [=]() {
+            retry--;
+            if (retry != 0)
+                readValueReal();
+            else
+            {
+                delete retry_timer;
+                retry_timer = nullptr;
+            }
+        });
+
     }
     else
     {
-        cInfoDom("input") << get_param("id") << ": Cannot read One Wire Temperature Sensor (" << ow_id << ")";
-    }
+        readValueReal();
+        retry = 0;
 
-    if (val != value)
-    {
-        value = val;
-        emitChange();
     }
 #else
     cInfoDom("input") << get_param("id") << ": One Wire support not enabled !";
