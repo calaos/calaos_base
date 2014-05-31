@@ -56,15 +56,14 @@ void OWTemp::readValue()
     double val;
     string ow_req;
 
-    double t0;
-
     /* Read value */
     ow_req = ow_id + "/temperature";
-    t0 = ecore_time_get();
+
     if (Owctrl::Instance(ow_args).getValue(ow_req, res))
     {
         
 	from_string(res, val);
+	val = roundValue(val);
 	if (val != value)
         {
             value = val;
