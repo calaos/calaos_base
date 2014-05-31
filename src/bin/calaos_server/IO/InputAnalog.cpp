@@ -30,8 +30,7 @@ InputAnalog::InputAnalog(Params &p):
     real_value_max(0.0),
     wago_value_max(0.0),
     value(0.0),
-    timer(0.0),
-    frequency(15.0) // 15 sec. between each read
+    timer(0.0)
 {
     set_param("gui_type", "analog_in");
 
@@ -51,13 +50,35 @@ InputAnalog::~InputAnalog()
 
 void InputAnalog::readConfig()
 {
-    if (!get_params().Exists("visible")) set_param("visible", "true");
-    if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
-    if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
-    if (get_params().Exists("coeff_a")) Utils::from_string(get_param("coeff_b"), coeff_a);
-    if (get_params().Exists("coeff_b")) Utils::from_string(get_param("coeff_a"), coeff_b);
-    if (get_params().Exists("interval")) Utils::from_string(get_param("interval"), frequency);
-    if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
+    if (!get_params().Exists("visible"))
+      set_param("visible", "true");
+
+    if (get_params().Exists("real_max")) 
+      Utils::from_string(get_param("real_max"), real_value_max);
+    else 
+      real_value_max = 0.0;
+
+    if (get_params().Exists("wago_max"))
+      Utils::from_string(get_param("wago_max"), wago_value_max);
+    else 
+      wago_value_max = 0.0;
+
+    if (get_params().Exists("coeff_a"))
+      Utils::from_string(get_param("coeff_b"), coeff_a);
+    else 
+      coeff_a = 1.0
+
+    if (get_params().Exists("coeff_b"))
+      Utils::from_string(get_param("coeff_a"), coeff_b);
+    else
+      coeff_b = 0.0;
+
+    if (get_params().Exists("interval"))
+      Utils::from_string(get_param("interval"), frequency);
+    else if (get_params().Exists("frequency"))
+      Utils::from_string(get_param("frequency"), frequency);
+    else
+      frequency = 15.0;
 }
 
 void InputAnalog::emitChange()

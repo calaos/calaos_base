@@ -18,51 +18,57 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <OWCtrl.h>
-#include <OWTemp.h>
-#include <IOFactory.h>
+
+#ifdef HAVE_OWCAPI_H
+#include <owcapi.h>
+#endif
 
 
 using namespace Calaos;
 
-REGISTER_INPUT(OWTemp)
-
-OWTemp::OWTemp(Params &p):
-InputTemp(p)
+Owctrl::Owctrl(string args)
 {
-    ow_id = get_param("ow_id");
-    ow_args = get_param("ow_args");
-
-    Owctrl::Instance(ow_args);
-    cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
-
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
-}
-
-OWTemp::~OWTemp()
-{
-    cInfoDom("input");
-}
-
-void OWTemp::readValue()
-{
-    string res;
-    double val;
-    /* Read value */
-    ow_req = ow_id + "/temperature";
-    if (Owctrl::Instance(ow_args).getValue(ow_req, res))
+#ifdef HAVE_OWCAPI_H
+    if (OW_init(args.c_str()) != 0)
     {
-	from_string(res, val);
-	cInfoDom("input") << ow_id << ": Ok";
+	cErrorDom("input") << "Unable to initialize OW library : " << strerror(errno);
     }
     else
     {
-	cErrorDom("input") << "Cannot read One Wire Temperature Sensor (" << ow_id << ") : " << strerror(errno);
+	cInfoDom("input") << "OW Library initialization ok";
     }
+#endif
+}
+
+
+Owctrl::~Owctrl()
+{
+    OW_finish();
+
+}
+
+bool Owctrl::getValue(string path, string &value)
+{
+    char *res;
+    size_t len;
+#ifdef HAVE_OWCAPI_H
+    if (OW_get(path.c_str(), &res, &len) >= 0)
+    {
+	value = res;
+	return true;
+    }
+    else
+    {
+	return false;
+    }
+#else
+    cInfoDom("input") << ow_id << ": One Wire support not enabled !";
+#endif
+}
+
+Owctrl &Owctrl::Instance(string args)
+{
+    static Owctrl inst(args);
+    return inst;
 }
