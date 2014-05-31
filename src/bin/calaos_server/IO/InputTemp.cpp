@@ -28,8 +28,7 @@ using namespace Calaos;
 InputTemp::InputTemp(Params &p):
     Input(p),
     value(0.0),
-    timer(0.0),
-    readTime(15.0)
+    timer(0.0)
 {
     set_param("gui_type", "temp");
 
@@ -46,8 +45,12 @@ InputTemp::InputTemp(Params &p):
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("frequency"))
         Utils::from_string(get_param("frequency"), readTime);
-    if (get_params().Exists("interval"))
+    else if (get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
+    else
+      readTime = 15.0;
+
+    cInfoDom("input") << "frequency : " << readTime << " seconds";
 
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
