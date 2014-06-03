@@ -46,13 +46,13 @@ void AudioInput::hasChanged()
         switch (status)
         {
         default:
-        case ERROR: answer = "onerror"; break;
-        case PLAY: answer = "onplay"; break;
-        case PAUSE: answer = "onpause"; break;
-        case STOP: answer = "onstop"; break;
-        case SONG_CHANGE: answer = "onsongchange"; break;
-        case PLAYLIST_CHANGE: answer = "onplaylistchange"; break;
-        case VOLUME_CHANGE: answer = "onvolumechange"; break;
+        case AudioError: answer = "onerror"; break;
+        case AudioPlay: answer = "onplay"; break;
+        case AudioPause: answer = "onpause"; break;
+        case AudioStop: answer = "onstop"; break;
+        case AudioSongChange: answer = "onsongchange"; break;
+        case AudioPlaylistChange: answer = "onplaylistchange"; break;
+        case AudioVolumeChange: answer = "onvolumechange"; break;
         }
 
         EmitSignalInput();

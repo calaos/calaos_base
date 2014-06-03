@@ -795,12 +795,12 @@ void JsonApiClient::processGetState(json_t *jroot)
                                 string status;
                                 switch (data5.ivalue)
                                 {
-                                case PLAY: status = "playing"; break;
-                                case PAUSE: status = "pause"; break;
-                                case STOP: status = "stop"; break;
+                                case AudioPlay: status = "playing"; break;
+                                case AudioPause: status = "pause"; break;
+                                case AudioStop: status = "stop"; break;
                                 default:
-                                case ERROR: status = "error"; break;
-                                case SONG_CHANGE: status = "song_change"; break;
+                                case AudioError: status = "error"; break;
+                                case AudioSongChange: status = "song_change"; break;
                                 }
 
                                 json_object_set_new(jplayer,

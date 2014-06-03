@@ -974,11 +974,11 @@ void TCPConnection::get_status_cb(AudioPlayerData data)
     string status;
     switch (data.ivalue)
     {
-    case PLAY: status = "playing"; break;
-    case PAUSE: status = "pause"; break;
-    case STOP: status = "stop"; break;
-    case ERROR: status = "error"; break;
-    case SONG_CHANGE: status = "song_change"; break;
+    case AudioPlay: status = "playing"; break;
+    case AudioPause: status = "pause"; break;
+    case AudioStop: status = "stop"; break;
+    case AudioError: status = "error"; break;
+    case AudioSongChange: status = "song_change"; break;
     }
     result.Add("2", "status:" + status);
 

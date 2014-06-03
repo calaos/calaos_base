@@ -359,7 +359,7 @@ public:
 
 //-----------------------------------------------------------------------------
 typedef enum { TBOOL, TINT, TSTRING, TUNKNOWN } DATA_TYPE;
-enum { PLAY, PAUSE, STOP, ERROR, SONG_CHANGE, PLAYLIST_CHANGE, VOLUME_CHANGE };
+enum { AudioPlay, AudioPause, AudioStop, AudioError, AudioSongChange, AudioPlaylistChange, AudioVolumeChange };
 typedef enum { UNKNOWN, SLIMSERVER, IRTRANS, CALAOS } SOCKET_TYPE;
 //-----------------------------------------------------------------------------
 enum { VUP, VDOWN, VSTOP, VNONE };

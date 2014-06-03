@@ -372,7 +372,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(SONG_CHANGE);
+            if (ain) ain->set_status(AudioSongChange);
 
             string sig = "audio ";
             sig += get_param("pid") + " songchanged";
@@ -386,7 +386,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(PLAYLIST_CHANGE);
+            if (ain) ain->set_status(AudioPlaylistChange);
 
             string sig = "audio_playlist ";
             sig += get_param("pid") + " playlist move " + p["3"] + " " + p["4"];
@@ -400,7 +400,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(PLAYLIST_CHANGE);
+            if (ain) ain->set_status(AudioPlaylistChange);
 
             string sig = "audio_playlist ";
             sig += get_param("pid") + " playlist delete " + p["3"];
@@ -414,7 +414,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(PLAYLIST_CHANGE);
+            if (ain) ain->set_status(AudioPlaylistChange);
 
             string sig = "audio_playlist ";
             sig += get_param("pid") + " playlist reload";
@@ -428,7 +428,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(PLAYLIST_CHANGE);
+            if (ain) ain->set_status(AudioPlaylistChange);
 
             string sig = "audio_playlist ";
             sig += get_param("pid") + " playlist tracksadded";
@@ -442,7 +442,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(PLAYLIST_CHANGE);
+            if (ain) ain->set_status(AudioPlaylistChange);
 
             string sig = "audio_playlist ";
             sig += get_param("pid") + " playlist cleared";
@@ -455,9 +455,9 @@ void Squeezebox::processNotificationMessage(string msg)
             if (ain)
             {
                 if (p["3"] == "" || p["3"] == "0")
-                    ain->set_status(PLAY);
+                    ain->set_status(AudioPlay);
                 else
-                    ain->set_status(PAUSE);
+                    ain->set_status(AudioPause);
             }
 
             string sig = "audio_status ";
@@ -474,7 +474,7 @@ void Squeezebox::processNotificationMessage(string msg)
         {
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(STOP);
+            if (ain) ain->set_status(AudioStop);
 
             string sig = "audio_status ";
             sig += get_param("pid") + " stop";
@@ -491,7 +491,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
         //notify the player's input
         AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-        if (ain) ain->set_status(VOLUME_CHANGE);
+        if (ain) ain->set_status(AudioVolumeChange);
 
         string sig = "audio_volume ";
         sig += get_param("pid") + " change " + p["3"];
@@ -1243,13 +1243,13 @@ void Squeezebox::get_status_cb(bool status, string request, string result, Audio
     data.get_chain_data().svalue = url_decode2(p["2"]);
 
     if (data.get_chain_data().svalue == "play")
-        data.get_chain_data().ivalue = PLAY;
+        data.get_chain_data().ivalue = AudioPlay;
     else if (data.get_chain_data().svalue == "pause")
-        data.get_chain_data().ivalue = PAUSE;
+        data.get_chain_data().ivalue = AudioPause;
     else if (data.get_chain_data().svalue == "stop")
-        data.get_chain_data().ivalue = STOP;
+        data.get_chain_data().ivalue = AudioStop;
     else
-        data.get_chain_data().ivalue = STOP;
+        data.get_chain_data().ivalue = AudioStop;
 
     AudioRequest_signal sig;
     sig.connect(data.callback);
