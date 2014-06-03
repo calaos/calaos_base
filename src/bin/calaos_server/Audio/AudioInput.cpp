@@ -28,7 +28,7 @@ AudioInput::AudioInput(Params &p, AudioPlayer *_player):
     Input(p),
     player(_player),
     answer(""),
-    status(ERROR)
+    status(AudioError)
 {
     get_params().Add("gui_type", "audio_input");
     get_params().Add("visible", "false");
