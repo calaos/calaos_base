@@ -72,7 +72,7 @@ void CThread::Start()
 void CThread::KillThread()
 {
     if(th)
-        pthread_kill(th, SIGKILL);
+        pthread_kill(th, 9);
     th = 0;
 }
 
