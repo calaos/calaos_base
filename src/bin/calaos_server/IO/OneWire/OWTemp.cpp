@@ -57,7 +57,27 @@ void OWTemp::readValue()
     string ow_req;
 
     /* Read value */
+
     ow_req = ow_id + "/temperature";
+
+    if ( OW_init(ow_args.c_str()) != 0)
+    {
+        cError() << "Init errror OWFS :" << strerror(errno);
+    }
+    else
+    {
+        ow_req = ow_id + "/temperature";
+        if(OW_get(ow_req.c_str(), &res, &len) >= 0)
+        {
+            val = atof(res);
+            free(res);
+            cInfoDom("input") << get_param("id") << ": Ok";
+        }
+        else
+        {
+            cInfoDom("input") << get_param("id") << ": Cannot read One Wire Temperature Sensor (" << ow_id << ")";
+            val = 0;
+        }
 
     if (Owctrl::Instance(ow_args).getValue(ow_req, res))
     {
