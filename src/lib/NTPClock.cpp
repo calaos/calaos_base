@@ -203,8 +203,7 @@ void NTPClock::Handle2()
     if (isRestartWhenApply())
     {
         cInfo() <<  "NTPClock: Restart the application";
-        pid_t pid = getpid();
-        kill(pid, SIGKILL);
+        ecore_app_restart();
     }
     else
     {
