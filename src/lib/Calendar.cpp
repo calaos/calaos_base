@@ -444,8 +444,7 @@ Eina_Bool _CalendarHandle2(void *data, int type, void *event)
 
     if (calendar->isRestart())
     {
-        pid_t pid = getpid();
-        kill(pid, SIGKILL);
+		ecore_app_restart();
     }
 
     return 0;
