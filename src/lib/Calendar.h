@@ -61,7 +61,7 @@ public:
     int loadCurrentTimeZone();
 };
 
-class EAPI Calendar
+class Calendar
 {
 private:
     bool restart;
