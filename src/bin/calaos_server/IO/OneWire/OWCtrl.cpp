@@ -44,15 +44,17 @@ Owctrl::Owctrl(string args)
 
 Owctrl::~Owctrl()
 {
+#ifdef HAVE_OWCAPI_H
     OW_finish();
-
+#endif
 }
 
 bool Owctrl::getValue(string path, string &value)
 {
+#ifdef HAVE_OWCAPI_H
     char *res;
     size_t len;
-#ifdef HAVE_OWCAPI_H
+
     if (OW_get(path.c_str(), &res, &len) >= 0)
     {
 	value = res;
@@ -63,8 +65,9 @@ bool Owctrl::getValue(string path, string &value)
 	return false;
     }
 #else
-    cInfoDom("input") << ow_id << ": One Wire support not enabled !";
+    cInfoDom("input") << "One Wire support not enabled !";
 #endif
+    return false;
 }
 
 Owctrl &Owctrl::Instance(string args)
