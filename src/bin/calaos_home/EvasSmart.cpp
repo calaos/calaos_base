@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <EvasSmart.h>
+using namespace std;
 
 static void _smart_add(Evas_Object *o);
 static void _smart_del(Evas_Object *o);

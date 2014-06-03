@@ -21,7 +21,8 @@
 #ifndef CEVASSMART_H
 #define CEVASSMART_H
 
-#include <Utils.h>
+#include <iostream>
+#include <map>
 #include <Evas.h>
 
 class EvasSmart
@@ -32,7 +33,7 @@ protected:
 
     Evas_Smart *smart_object;
 
-    static Evas_Smart *EvasSmartClassCreate(string evas_smart_type);
+    static Evas_Smart *EvasSmartClassCreate(std::string evas_smart_type);
 
     //Add a memmber Evas object to the smart object
     void AddMemberObject(Evas_Object *obj)
@@ -43,7 +44,7 @@ protected:
     int member_count;
 
 public:
-    EvasSmart(Evas *evas, string evas_smart_type);
+    EvasSmart(Evas *evas, std::string evas_smart_type);
     virtual ~EvasSmart();
 
     virtual void SmartMove(int x, int y) { }
