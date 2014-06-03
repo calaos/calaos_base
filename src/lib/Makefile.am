@@ -19,6 +19,26 @@ AM_CXXFLAGS = \
 	-DETC_DIR=\"$(sysconfdir)\" \
 	@CALAOS_COMMON_CFLAGS@
 
+AM_CFLAGS = \
+	-I. \
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib/LuaScript \
+	-I$(top_srcdir)/src/lib/http-parser \
+	-I$(top_srcdir)/src/lib/uri_parser \
+	-I$(top_srcdir)/src/lib/libquickmail \
+	-I$(top_srcdir)/src/bin/calaos_server \
+	-I$(top_srcdir)/src/bin/calaos_server/Rules \
+	-I$(top_srcdir)/src/bin/calaos_server/IPCam \
+	-I$(top_srcdir)/src/bin/calaos_server/Audio \
+	-I$(top_srcdir)/src/bin/calaos_server/IO \
+	-I$(top_srcdir)/src/bin/calaos_server/IO/libmbus \
+	-DPACKAGE_BIN_DIR=\"$(bindir)\" \
+	-DPACKAGE_LIB_DIR=\"$(libdir)\" \
+	-DPACKAGE_DATA_DIR=\"$(pkgdatadir)\" \
+	-DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
+	-DETC_DIR=\"$(sysconfdir)\" \
+	@CALAOS_COMMON_CFLAGS@
+
 
 noinst_LTLIBRARIES = \
 	libcalaos_common.la
