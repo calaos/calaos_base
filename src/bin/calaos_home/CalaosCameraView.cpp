@@ -5,11 +5,9 @@ Eina_Bool _url_data_cb(void *data, int type, void *event_info)
     Ecore_Con_Event_Url_Data *url_data = reinterpret_cast<Ecore_Con_Event_Url_Data *>(event_info);
     CalaosCameraView *view = reinterpret_cast<CalaosCameraView *>(data);
 
-    vector<unsigned char> buf;
-    buf.reserve(url_data->size);
-    std::copy(url_data->data, url_data->data + url_data->size, std::back_inserter(buf));
+    view->buffer.reserve(view->buffer.size() + url_data->size);
+    std::copy(url_data->data, url_data->data + url_data->size, std::back_inserter(view->buffer));
 
-    view->buffer.insert(view->buffer.end(), buf.begin(), buf.end());
     cout << "read data: " << view->buffer.size() << endl;
 }
 
@@ -66,6 +64,7 @@ void CalaosCameraView::SmartResize(int w, int h)
 {
     evas_object_resize(clip, w, h);
     evas_object_resize(camImage, w, h);
+    evas_object_image_fill_set(camImage, 0, 0, w, h);
 }
 
 void CalaosCameraView::SmartShow()
