@@ -66,7 +66,6 @@
 #include <sigc++/sigc++.h>
 
 //This is for logging
-#include <syslog.h>
 #include <EinaLog.h>
 
 using namespace efl::eina::log;
