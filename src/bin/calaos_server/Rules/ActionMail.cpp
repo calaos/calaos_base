@@ -142,12 +142,12 @@ void ActionMail::sendMail()
         if (!mail_attachment_tfile.empty())
             cmd << "--attach " << mail_attachment_tfile;
 
-        cInfo() << "Executing command : " << cmd.c_str();
+        cInfo() << "Executing command : " << cmd.str();
         ecore_exe_run(cmd.str().c_str(), NULL);
     }
     else
     {
-        cError() << "Command " << cmd.c_str() << " not found";
+        cError() << "Command " << cmd.str() << " not found";
     }
 }
 
