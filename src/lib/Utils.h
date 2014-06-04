@@ -97,6 +97,7 @@ using namespace efl::eina::log;
 #endif /* ! _WIN32 */
 
 #ifdef HAVE_GETTEXT
+#include <libintl.h>
 # define _(x) gettext(x)
 # define gettext_noop(String) String
 # define N_(String) gettext_noop (String)
