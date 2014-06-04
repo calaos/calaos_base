@@ -1046,7 +1046,7 @@ void Squeezebox::get_album_cover_id(string track_id, AudioRequest_cb callback, A
     if (track_id == "") track_id = "0";
     aurl << "http://" << host << ":" << port_web << "/music/" << track_id << "/cover.jpg";
 
-    cDebugDom("squeezebox") <<  "\"" << aurl << "\"";
+    cDebugDom("squeezebox") <<  "\"" << aurl.str() << "\"";
 
     user_data.svalue = aurl.str();
 
@@ -1101,7 +1101,7 @@ void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, strin
     if (aid == "") aid = "0";
     aurl << "http://" << host << ":" << port_web << "/music/" << aid << "/cover.jpg";
 
-    cDebugDom("squeezebox") <<  "\"" << aurl << "\"";
+    cDebugDom("squeezebox") <<  "\"" << aurl.str() << "\"";
 
     data.get_chain_data().svalue = aurl.str();
 
