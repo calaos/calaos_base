@@ -40,8 +40,6 @@ Eina_Bool _url_data_cb(void *data, int type, void *event_info)
             view->headers.Add(key, val);
 
         }
-
-        cout << url_data->data << endl;
     }
 
     view->processData();
@@ -153,6 +151,7 @@ void CalaosCameraView::setCameraUrl(string url)
     buffer.clear();
     formatDetected = false;
     format_error = false;
+    nextContentLength = -1;
 
     if (!ecore_con_url_get(ecurl))
     {
@@ -162,19 +161,36 @@ void CalaosCameraView::setCameraUrl(string url)
     }
 }
 
+bool CalaosCameraView::readEnd(int pos, int &lineend, int &nextstart)
+{
+    bool foundr = false;
+
+    for (int i = pos;i < buffer.size();i++)
+    {
+        if (buffer[i] == '\r')
+            foundr = true;
+        else if (buffer[i] == '\n')
+        {
+            lineend = i - (foundr?1:0);
+            nextstart = i + 1;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void CalaosCameraView::processData()
 {
     if (!formatDetected)
     {
         //first frame, we need to look for the boundary
         //and for content-type/content-length if present
-        if (buffer.size() < 2)
+        if (buffer.size() < 4)
             return; //need more data
 
         if (buffer[0] != '-' || buffer[1] != '-')
         {
-            cWarningDom("camera") << "Wrong start of frame!";
-
             //try to detect of the data is directly the jpeg picture
             if (buffer[0] == 0xFF && buffer[1] == 0xD8)
             {
@@ -182,23 +198,150 @@ void CalaosCameraView::processData()
                 single_frame = true;
             }
             else
+            {
+                cWarningDom("camera") << "Wrong start of frame, give up!";
                 format_error = true;
+            }
+
+            formatDetected = true;
+            return;
+        }
+
+        //search for the line end after the boundary to get the boundary text
+        int end, next;
+        if (!readEnd(2, end, next))
+        {
+            if (buffer.size() > 500)
+            {
+                cWarningDom("camera") << "Boundary not found, give up!";
+                format_error = true;
+            }
+
+            return; //need more data;
+        }
+
+        //get boundary
+        boundary = string((char *)&buffer[0], end);
+
+        cDebugDom("camera") << "Found boundary \"" << boundary << "\"";
+
+        int i = next;
+        while (readEnd(next, end, next))
+        {
+            int len = end - i;
+
+            if (len == 0)
+            {
+                //line is empty, data starts now
+                nextDataStart = next;
+                formatDetected = true;
+                scanpos = 0;
+                break;
+            }
+
+            if (len > 15)
+            {
+                string s((char *)&buffer[i], len);
+                if (Utils::strStartsWith(s, "Content-Length", Utils::CaseInsensitive))
+                {
+                    Utils::from_string(s.substr(15), nextContentLength);
+                    cDebugDom("camera") << "Found content length header: \"" << nextContentLength << "\"";
+                    //nextContentLength = -1; //to test code without content-length header
+                }
+            }
+
+            i = next;
+        }
+
+        if (!formatDetected)
+        {
+            cWarningDom("camera") << "Something is wrong in the data, give up!";
+            format_error = true;
+        }
+    }
+
+    if (formatDetected && !single_frame)
+    {
+        //we should be positionned at the start of data
+        //small check to be sure
+        if (!(buffer[nextDataStart] == 0xFF && buffer[nextDataStart + 1] == 0xD8))
+        {
+            cWarningDom("camera") << "Wrong image data.";
+            format_error = true;
+
+            EcoreTimer::singleShot(0, [=]()
+            {
+                cDebugDom("camera") << "Cancel stream";
+                ecore_con_url_free(ecurl);
+                ecurl = nullptr;
+            });
 
             return;
         }
 
-        //search for the 0x0A/0x0D after the boundary to get the boundary text
-        int i = 2;
-        while ((buffer[i] != 0x0A || buffer[i] != 0x0D) && i < buffer.size() - 1)
-            i++;
+        if (nextContentLength >= 0)
+        {
+            //the content-length is known, fast path
+            if (buffer.size() < nextContentLength + nextDataStart + 2)
+                return; //need more data
 
-        if (buffer[i] != 0x0A || buffer[i] != 0x0D)
-            return; //need more data
+            cDebugDom("camera") << "Set new frame";
 
-        //get boundary
-        boundary.clear();
-        boundary.reserve(i);
-        std::copy(buffer.begin(), buffer.begin() + i, boundary.begin());
+            evas_object_image_memfile_set(camImage, &buffer[nextDataStart], nextContentLength, NULL, NULL);
+            //evas_object_image_size_get(camImage, &w, &h);
+
+            if (buffer[nextDataStart + nextContentLength] == '\r') //assume a \n always follows \r
+                nextContentLength += 2;
+            else if (buffer[nextDataStart + nextContentLength] == '\n')
+                nextContentLength += 1;
+
+            //remove unused data from buffer
+            auto iter = buffer.begin();
+            buffer.erase(iter, iter + (nextDataStart + nextContentLength));
+
+            //reset for next frame
+            nextContentLength = -1;
+            formatDetected = false;
+            nextDataStart = 0;
+            scanpos = 0;
+        }
+        else
+        {
+            int i;
+            cDebugDom("camera") << "scanpos: " << scanpos;
+            scanpos = 0;
+            for (i = nextDataStart + scanpos;
+                 i < buffer.size() - boundary.length();i++)
+            {
+                if (buffer[i] == '-' && buffer[i + 1] == '-' &&
+                    !boundary.compare(0, boundary.length(), (const char *)&buffer[i], boundary.length()))
+                {
+                    //boundary found
+                    //check for newline between boundary and data
+                    nextContentLength = i - nextDataStart;
+                    /*if (buffer[i - 2] == '\r')
+                        nextContentLength -= 2;
+                    else if (buffer[i - 1] == '\n')
+                        nextContentLength -= 1;*/
+
+                    evas_object_image_memfile_set(camImage, &buffer[nextDataStart], nextContentLength, NULL, NULL);
+                    //evas_object_image_size_get(camImage, &w, &h);
+
+                    //remove unused data from buffer
+                    auto iter = buffer.begin();
+                    buffer.erase(iter, iter + (nextDataStart + nextContentLength));
+
+                    //reset for next frame
+                    nextContentLength = -1;
+                    formatDetected = false;
+                    nextDataStart = 0;
+                    scanpos = 0;
+                    return;
+                }
+            }
+
+            scanpos += i;
+        }
     }
 }
 

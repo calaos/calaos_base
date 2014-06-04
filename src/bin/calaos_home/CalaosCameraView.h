@@ -22,16 +22,20 @@ private:
     Ecore_Event_Handler *handler_data = nullptr;
     Ecore_Event_Handler *handler_complete = nullptr;
 
-    vector<char> buffer;
+    vector<unsigned char> buffer;
     Params headers;
 
     bool formatDetected;
     bool single_frame;
     bool format_error;
     string boundary;
+    int nextContentLength;
+    int nextDataStart;
+    int scanpos;
 
     void processData();
     void requestCompleted();
+    bool readEnd(int pos, int &lineend, int &nextstart);
 
     friend Eina_Bool _url_data_cb(void *data, int type, void *event_info);
     friend Eina_Bool _url_complete_cb(void *data, int type, void *event_info);

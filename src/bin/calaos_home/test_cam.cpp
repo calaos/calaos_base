@@ -26,8 +26,11 @@ EAPI_MAIN int elm_main(int argc, char **argv)
     Evas_Object *o = cam->getSmartObject();
 
     //cam->setCameraUrl("http://test:test@10.7.0.102/image.jpg");
-    cam->setCameraUrl("http://192.168.0.47/axis-cgi/jpg/image.cgi");
+    //cam->setCameraUrl("http://192.168.0.47/axis-cgi/jpg/image.cgi");
     //cam->setCameraUrl("http://192.168.0.47/axis-cgi/mjpg/video.cgi");
+    //cam->setCameraUrl("http://192.168.0.47");
+    cam->setCameraUrl("http://192.168.0.13/video.mjpg");
+    //cam->setCameraUrl("http://192.168.0.13/image.jpg");
 
     evas_object_resize(o, 640, 480);
     evas_object_move(o, 0, 0);
