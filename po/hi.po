@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos 2.0\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2014-03-11 22:27+0900\n"
+"POT-Creation-Date: 2014-06-03 10:20+0200\n"
 "PO-Revision-Date: 2014-03-11 22:27+0900\n"
 "Last-Translator: Sanjeev <iamsanjeev@gmail.com>\n"
 "Language-Team: Hindi\n"
@@ -49,63 +49,128 @@ msgstr " केवल application को पुनः आरंभ "
 msgid "Reboot the machine"
 msgstr " मशीन पुनः आरंभ कर दें"
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+msgid ""
+"Usage:\n"
+"\t"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+msgid " [options]"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:63
+msgid "\tOptions:\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:64
+msgid "\t-h, --help\tDisplay this help.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:65
+msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:66
+msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:48
+msgid "\t--theme <file.edj>\tUse the given edje file instead of the default.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:49
+msgid ""
+"\t--set-elm-config\tForce calaos_home to set the correct elementary config "
+"options for touchscreen usage.\n"
+msgstr ""
+
+#: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:67
+msgid "\t-v, --version\tDisplay current version and exit.\n"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:52
+#, fuzzy
+msgid "My Music"
+msgstr " आपका संगीत "
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:55
+msgid "Back"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
 msgid "My Albums"
 msgstr "मेरे एल्बम "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:92
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
 msgid "Access to your albums."
 msgstr " अपनी एल्बम की उपयोग. "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
 msgid "Artists"
 msgstr " कलाकार"
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:95
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
 msgid "Display by artists."
 msgstr " कलाकारों द्वारा प्रदर्शित करना. "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
 msgid "Years"
 msgstr "वर्ष"
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
 msgid "Sort songs by year."
 msgstr " वर्ष से गाने छांटना. "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
 msgid "Genre"
 msgstr "शैली "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
 msgid "Music Directory"
 msgstr " संगीत संग्रह "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
 msgid "Playlists"
 msgstr " प्लेलिस्ट "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
 msgid "Radios"
 msgstr " रेडियो "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
 msgid "Web radios web and online service."
 msgstr "वेब रेडियो वेब और ऑनलाइन सेवा . "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
 msgid "Search..."
 msgstr "खोज ... "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
 msgid "Search into your music library."
 msgstr " अपने संगीत लाइब्रेरी में खोज . "
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:776
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:242
+msgid "<small><blue>Media library : </blue>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:243
+msgid " albums with "
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:244
+msgid " tracks by "
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:245
+msgid " artists.</small>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:782
 msgid "Search into radios"
 msgstr " रेडियो में खोजें"
 
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:790
+#: src/bin/calaos_home/views/ActivityAudioListView.cpp:796
 msgid "Search into your music library"
 msgstr " अपनी संगीत लाइब्रेरी में खोजें"
 
@@ -158,20 +223,20 @@ msgstr "फिर से शुरू "
 msgid ""
 "Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
 "your Calaos System</small"
-msgstr " "
-" सारांश: <light_blue> मेरा घर </light_blue><br><small> के बारे में जानकारी  "
-" आपके Calaos सिस्टम </small"
+msgstr ""
+"  सारांश: <light_blue> मेरा घर </light_blue><br><small> के बारे में जानकारी   आपके "
+"Calaos सिस्टम </small"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
 msgid "Our Partners"
 msgstr " हमारे भागीदार "
+
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:39
 msgid ""
 "<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
 "small>"
 msgstr ""
-"<light_blue>Calaos</light_blue> भागीदार<br><small>हमारे भागीदार की सूची</"
-"small>"
+"<light_blue>Calaos</light_blue> भागीदार<br><small>हमारे भागीदार की सूची</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
@@ -179,6 +244,7 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
 msgid "About"
 msgstr " सूचना"
+
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
@@ -186,9 +252,10 @@ msgstr " सूचना"
 msgid ""
 "About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
 "solutions.</small>"
-msgstr " "
-"सूचना : <light_blue>Calaos उत्पादों</light_blue><br><small>टचस्क्रीन "
-"सुविधा.</small>"
+msgstr ""
+" सूचना : <light_blue>Calaos उत्पादों</light_blue><br><small>टचस्क्रीन सुविधा.</"
+"small>"
+
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:43
 msgid "Product Version: "
 msgstr "उत्पाद संस्करण: "
@@ -208,6 +275,7 @@ msgstr " दिन "
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:57
 msgid " days"
 msgstr "दिन"
+
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:61
 msgid "Machine name : "
 msgstr " मशीन का नाम :"
@@ -243,8 +311,8 @@ msgid ""
 "Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
 "and Time !</small"
 msgstr ""
-"फिर से शुरू : <light_blue>वर्तमान सेटिंग्स</light_blue><br><small>कॉन्फ़िगर तिथि "
-"और समय !</small"
+"फिर से शुरू : <light_blue>वर्तमान सेटिंग्स</light_blue><br><small>कॉन्फ़िगर तिथि और "
+"समय !</small"
 
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:29
 msgid "Change your password"
@@ -254,9 +322,10 @@ msgstr " आपके पासवर्ड बदलें"
 msgid ""
 "Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
 "small>"
-msgstr " "
-"फिर से शुरू : <light_blue> पासवर्ड </light_blue><br><small> अपना पासवर्ड बदलें !</"
-" small>"
+msgstr ""
+" फिर से शुरू : <light_blue> पासवर्ड </light_blue><br><small> अपना पासवर्ड बदलें !</ "
+"small>"
+
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:35
 msgid "Configure Touch Screen"
 msgstr " टच स्क्रीन की संरचना"
@@ -265,8 +334,9 @@ msgstr " टच स्क्रीन की संरचना"
 msgid ""
 "Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
 "Touch Screen !</small>"
-msgstr " "
-"फिर से शुरू : <light_blue>टच स्क्रीन</light_blue><br><small>अपने टच स्क्रीन की संरचना </small>"
+msgstr ""
+" फिर से शुरू : <light_blue>टच स्क्रीन</light_blue><br><small>अपने टच स्क्रीन की "
+"संरचना </small>"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:40
 msgid "Configure power management settings"
@@ -277,10 +347,9 @@ msgid ""
 "Enable if you want to activate automatic screen blanking and the delay after "
 "wich the screen will be turned off. You can also ask for a password when the "
 "screen is turned on again."
-msgstr " "
-" आप के बाद स्वत: स्क्रीन blanking और देरी को सक्रिय करना चाहते हैं तो सक्रिय करें"
-"स्क्रीन बंद कर दिया जाएगा जो . जब आप एक पासवर्ड के लिए पूछ सकते हैं "
-"स्क्रीन फिर से चालू है. "
+msgstr ""
+"  आप के बाद स्वत: स्क्रीन blanking और देरी को सक्रिय करना चाहते हैं तो सक्रिय करेंस्क्रीन "
+"बंद कर दिया जाएगा जो . जब आप एक पासवर्ड के लिए पूछ सकते हैं स्क्रीन फिर से चालू है. "
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
 msgid "TouchScreen"
@@ -298,8 +367,8 @@ msgstr " स्क्रीनसेवर सक्रियता से प�
 msgid "Enable screen saver : "
 msgstr " स्क्रीन सेवर सक्रिय करें: "
 
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:64
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:68
+#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:80
 msgid " minutes"
 msgstr " मिनट "
 
@@ -324,112 +393,182 @@ msgid "Configure Screen saver settings"
 msgstr "स्क्रीन सेवर सेटिंग्स की संरचना "
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:75
 msgid "My new scenario"
 msgstr " मेरा नया परिदृश्य "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:91
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:47
+#, fuzzy
+msgid ""
+"<b><huge>Informations</huge></b><br><light_blue><small>Enter the name "
+"and<br> the informations about the scenario.</small></light_blue>"
+msgstr ""
+"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के अंत समय</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:49
+#, fuzzy
+msgid ""
+"<disabled><b><huge>Informations</huge></b><br><light_blue><small>Enter the "
+"name and<br> the informations about the scenario.</small></light_blue></"
+"disabled>"
+msgstr ""
+"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के अंत समय</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:51
+#, fuzzy
+msgid ""
+"<b><huge>Configuration</huge></b><br><light_blue><small>Add items of "
+"your<br> rooms and configure them.</small></light_blue>"
+msgstr ""
+"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के अंत समय</small></light_blue>"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:53
+msgid ""
+"<disabled><b><huge>Configuration</huge></b><br><light_blue><small>Add items "
+"of your<br> rooms and configure them.</small></light_blue></disabled>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:102
 msgid "Scenario name: "
 msgstr "परिदृश्य का नाम: "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:105
+msgid ""
+"<big>Scenario creation or modification</big><br><br><small><disabled>Use the "
+"following field to enter the name of your scenario to find it <br>quickly. "
+"Also, choose the visibility of you scenario.</disabled></small>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:107
+msgid "Scenario name: <blue>My new scenario</blue>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:108
+#, fuzzy
+msgid "Display in interface: <blue>Enabled</blue>"
+msgstr " इंटरफ़ेस में प्रदर्शित: "
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:128
+msgid ""
+"<small><disabled>Select and add wanted items into your scenario.<br>You will "
+"then define the actions.</disabled></small>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:129
+msgid ""
+"<small><disabled>Modify items added to the following list. The Actions "
+"define <br>what is going to happend when the scenario is executed.</"
+"disabled></small>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:131
+#, fuzzy
+msgid "Step 1"
+msgstr "कदम"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
 msgid "Displayed in the interface: "
 msgstr " इंटरफ़ेस में प्रदर्शित: "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:125
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
 msgid "Enabled in"
 msgstr "सक्षम में "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:130
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
 msgid "Don't display it."
 msgstr "प्रदर्शित न करें . "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
 msgid "Infinite loop: "
 msgstr "अनंत लूप :"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:139
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
 msgid "Enabled"
 msgstr "सक्षम"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:144
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
 msgid "Disabled"
 msgstr "निष्क्रिय"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:152
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:173
 msgid "Enter the name of scenario"
 msgstr "परिदृश्य का नाम दर्ज करें "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:182
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:203
 msgid "Don't display it"
 msgstr " यह प्रदर्शित न करें "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:492
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:513
 msgid "Final step"
 msgstr "अंतिम कदम"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:395
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:477
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:498
 msgid "Step"
 msgstr "कदम"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
 msgid "Scenario step"
 msgstr "परिदृश्य कदम"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:468
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
 msgid "Progress of your scenario"
 msgstr " अपने परिदृश्य की प्रगति"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
 msgid "Choose a time"
 msgstr " एक समय चुनें "
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:537
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
 msgid "Paused time before the next step"
 msgstr "अगले कदम से पहले समय रोका गया"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:557
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:453
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:564
+#, fuzzy
+msgid "Steps"
+msgstr "कदम"
+
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:578
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:488
 #, c-format
 msgid "%.0f<br><subtitle>Hours</subtitle>"
 msgstr "%.0f<br><subtitle>घंटे</subtitle>"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:567
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:463
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:588
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:498
 #, c-format
 msgid "%.0f<br><subtitle>Min.</subtitle>"
 msgstr "%.0f<br><subtitle>मिन.</subtitle>"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:577
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:473
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:598
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:508
 #, c-format
 msgid "%.0f<br><subtitle>Sec.</subtitle>"
 msgstr "%.0f<br><subtitle>सेक.</subtitle>"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:587
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:608
 #, c-format
 msgid "%.0f<br><subtitle>Ms.</subtitle>"
 msgstr "%.0f<br><subtitle>कुमारी.</subtitle>"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:724
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:730
 msgid "Confirmation"
 msgstr " पुष्टि"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:635
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
 msgid "Are you sure to want deleting this step?"
 msgstr " यदि आप इस step को हटाने चाहते हैं ? "
 
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:639
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:660
 msgid "Yes, del this step"
 msgstr "हाँ , इस step को हटाना"
 
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:643
+#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:664
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:226
 msgid "No"
 msgstr "नहीं"
 
@@ -441,12 +580,42 @@ msgstr " मेरा घर"
 msgid "Loading..."
 msgstr " प्रगति ... "
 
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:437
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:74
+#: src/bin/calaos_home/views/ActivityWebView.cpp:120
+msgid "Back to menu"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:77
+#: src/bin/calaos_home/views/ActivityView.cpp:77
+msgid "Quit"
+msgstr " छोड़ो "
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:80
+msgid "Save state of the room"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:446
 msgid ""
 "State of the House : <light_blue>Normal</light_blue><br><small>Informations "
 "concerning your House</small>"
-"State of the House : <light_blue>साधारण</light_blue><br><small>अपने घर के विषय में  "
-"जानकारी</small>"
+msgstr ""
+"State of the House : <light_blue>साधारण</light_blue><br><small>अपने घर के विषय "
+"में  जानकारी</small>"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:451
+#, fuzzy
+msgid "All lights off"
+msgstr " lights संचालित है"
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:454
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:460
+msgid "More infos"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityHomeView.cpp:457
+#, fuzzy
+msgid "All shutters closed"
+msgstr " 1 शटर खोला है"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:61
 msgid "Your Music"
@@ -491,6 +660,50 @@ msgstr " भौतिकी खेल ! "
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"
 msgstr " मल्टीमीडिया "
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:46
+msgid "Today"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:49
+#, fuzzy
+msgid "Create a new scenario"
+msgstr " मेरा नया परिदृश्य "
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:52
+msgid "All"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:55
+#, fuzzy
+msgid "Lights"
+msgstr " lights संचालित है"
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:58
+msgid "Shutters"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:61
+#, fuzzy
+msgid "Scheduled"
+msgstr " निर्धारण "
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:159
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:168
+#, fuzzy
+msgid "Lights scenarios"
+msgstr "परिदृश्यों "
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:161
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:173
+#, fuzzy
+msgid "Shutters scenarios"
+msgstr "परिदृश्यों "
+
+#: src/bin/calaos_home/views/ActivityScenariosView.cpp:163
+#, fuzzy
+msgid "Other Scenarios"
+msgstr "परिदृश्यों "
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:33
 msgid "Scheduling"
@@ -552,159 +765,241 @@ msgstr "नवंबर "
 msgid "December"
 msgstr "दिसंबर "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:231
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:155
+msgid "Apply"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:158
+msgid "Add"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:160
+msgid "<big><disabled>Hours of execution</disabled></big>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:161
+msgid "<big><disabled>Specific schedule</disabled></big>"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:266
 msgid ""
 "Start of schedulling<br><small><light_blue>Start time of the scenario</"
 "light_blue></small>"
 msgstr ""
-"निर्धारण प्रारंभ<br><small><light_blue>परिदृश्य के आरंभ समय</"
-"light_blue></small>"
+"निर्धारण प्रारंभ<br><small><light_blue>परिदृश्य के आरंभ समय</light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:237
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:272
 msgid ""
 "End of schedulling<br><small><light_blue>End time of the scenario</"
 "light_blue></small>"
-msgstr " "
-"परिदृश्य के अंत समय<small><light_blue> परिदृश्य के अंत समय </ "
-" light_blue></small>"
+msgstr ""
+" परिदृश्य के अंत समय<small><light_blue> परिदृश्य के अंत समय </  light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:240
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:275
 msgid "Start"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:250
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:285
 msgid "Use a fixed time"
 msgstr " एक निश्चित समय का उपयोग करें "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:251
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:286
 msgid "Use the sunrise"
 msgstr " सूर्योदय का प्रयोग करें"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:252
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:287
 msgid "Use the sunset"
 msgstr " सूर्यास्त का प्रयोग करें"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:253
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:288
 msgid "Use the midday sun"
 msgstr " दोपहर समय का उपयोग "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:303
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:345
 msgid ""
 "<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
 "time</small></light_blue>"
-"<b>समय ऑफसेट</b><br><light_blue><small>आप सूरज समय शिफ्ट करने के लिए चुन सकते हैं "
-"</small></light_blue>"
+msgstr ""
+"<b>समय ऑफसेट</b><br><light_blue><small>आप सूरज समय शिफ्ट करने के लिए चुन सकते हैं </"
+"small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:322
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:357
 msgid "Use the exact sun time"
 msgstr " सटीक सूरज समय का उपयोग करें "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:323
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:358
 msgid "Add time"
 msgstr " समय जोड़ें "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:324
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:359
 msgid "Substract time"
 msgstr " घटाना समय "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:419
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:454
 msgid ""
 "<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</"
 "small></light_blue>"
 msgstr ""
-"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के आरंभ समय</"
-"small></light_blue>"
+"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के आरंभ समय</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:421
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:456
 msgid ""
 "<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</"
 "small></light_blue>"
 msgstr ""
-"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के अंत समय</"
-"small></light_blue>"
+"<b>निर्धारण चुनें</b><br><light_blue><small>परिदृश्य के अंत समय</small></light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:423
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:458
 msgid ""
 "<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</"
 "small></light_blue>"
 msgstr ""
-"<b>समय shift चुनें</b><br><light_blue><small>परिदृश्य के आरंभ समय shift</"
-"small></light_blue>"
+"<b>समय shift चुनें</b><br><light_blue><small>परिदृश्य के आरंभ समय shift</small></"
+"light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:425
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:460
 msgid ""
 "<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</"
 "small></light_blue>"
-msgstr " "
-"<b>समय shift चुनें</b><br><light_blue><small>परिदृश्य के अंत समय shift</"
-"small></light_blue>"
+msgstr ""
+" <b>समय shift चुनें</b><br><light_blue><small>परिदृश्य के अंत समय shift</small></"
+"light_blue>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:526
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:561
 msgid ""
 "Days of the week<br><small><light_blue>Days of the week when scenario is "
 "executed.</light_blue></small>"
-msgstr " "
-"सप्ताह के दिन <small> <light_blue> सप्ताह के जो दिन जिसमें परिदृश्य काम करें"
-"</light_blue></small>"
+msgstr ""
+" सप्ताह के दिन <small> <light_blue> सप्ताह के जो दिन जिसमें परिदृश्य काम करें</"
+"light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:531
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:566
 #, fuzzy
 msgid "End"
 msgstr "अंत"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:533
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:568
 msgid "Beginning"
 msgstr "आरंभ"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:545
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:580
 msgid "Everyday"
 msgstr "हर दिन"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:546
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:581
 msgid "Monday"
 msgstr " सोमवार"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:547
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:582
 msgid "Tuesday"
 msgstr "मंगलवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:548
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:583
 msgid "Wednesday"
 msgstr "बुधवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:532
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:584
 msgid "Thursday"
 msgstr "गुरुवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:550
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:585
 msgid "Friday"
 msgstr "शुक्रवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:551
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:586
 msgid "Saturday"
 msgstr "शनिवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:552
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:587
 msgid "Sunday"
 msgstr "रविवार "
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:553
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:588
 msgid "ERROR"
 msgstr "त्रुटि"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:726
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:732
 #, fuzzy
 msgid "Are you sure to delete this schedule?"
 msgstr "आप इस कार्यक्रम को हटाना चाहते हैं?"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:733
+#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:739
 #, fuzzy
 msgid "Yes, delete this schedule"
 msgstr "हाँ, इस कार्यक्रम को हटाना"
 
-#: src/bin/calaos_home/views/ActivityView.cpp:77
-msgid "Quit"
-msgstr " छोड़ो "
+#: src/bin/calaos_home/views/ActivityWebView.cpp:89
+msgid "Web browser"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityWebView.cpp:123
+msgid "Reload"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityWebView.cpp:126
+msgid "Stop"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityWebView.cpp:129
+msgid "Home page"
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityWebView.cpp:132
+msgid "Go to..."
+msgstr ""
+
+#: src/bin/calaos_home/views/ActivityWebView.cpp:135
+msgid "Add to favorites"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:124
+#, fuzzy
+msgid ""
+"Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</"
+"light_blue></small>"
+msgstr ""
+"पुष्टि<br><small><light_blue>आप इस विजेट को हटाना चाहते हैं ?</light_blue></small>"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:130
+#, fuzzy
+msgid "Modify the scenario"
+msgstr " मेरा नया परिदृश्य "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:135
+#, fuzzy
+msgid "Delete the scenario"
+msgstr "परिदृश्य का नाम दर्ज करें "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:140
+#, fuzzy
+msgid "Run the scenario now"
+msgstr " मेरा नया परिदृश्य "
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:147
+msgid "Add a schedule"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:154
+msgid "Schedule modification"
+msgstr ""
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:159
+#, fuzzy
+msgid "Delete schedule"
+msgstr "हाँ, इस कार्यक्रम को हटाना"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:218
+#, fuzzy
+msgid ""
+"Confirmation<br><small><light_blue>Are you sure you want to delete this "
+"scenarios?</light_blue></small>"
+msgstr ""
+"पुष्टि<br><small><light_blue>आप इस विजेट को हटाना चाहते हैं ?</light_blue></small>"
+
+#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:222
+#, fuzzy
+msgid "Yes, delete the scenario"
+msgstr "हाँ, इस कार्यक्रम को हटाना"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:50
 msgid "Execute at "
@@ -790,26 +1085,42 @@ msgid ""
 "Confirmation<br><small><light_blue>Are you sure to want delete this widget?</"
 "light_blue></small>"
 msgstr ""
-"पुष्टि<br><small><light_blue>आप इस विजेट को हटाना चाहते हैं ?</"
-"light_blue></small>"
+"पुष्टि<br><small><light_blue>आप इस विजेट को हटाना चाहते हैं ?</light_blue></small>"
 
 #: src/bin/calaos_home/views/Widget.cpp:209
 msgid "Yes, del this widget"
 msgstr "हाँ , इस विजेट को हटाना "
 
+#: src/widgets/note/module.cpp:32
+msgid "Notes"
+msgstr ""
 
+#: src/widgets/note/module.cpp:33
+msgid ""
+"Let messages on the screen thanks to the numeric version of the well known "
+"yellow paper."
+msgstr ""
+
+#: src/widgets/note/module.cpp:78
+msgid "You can now write the new note to display."
+msgstr ""
+
+#: src/widgets/clock/module.cpp:32
+msgid "Clock"
+msgstr ""
+
+#: src/widgets/clock/module.cpp:33
+msgid "Numeric or Analogic clock to be placed on your main page."
+msgstr ""
 
 #~ msgid "Spring"
 #~ msgstr "वसंत"
 
-
 #~ msgid "Summer"
 #~ msgstr "समर "
 
-
 #~ msgid "Fall"
 #~ msgstr "गिर"
-
 
 #~ msgid "Winter"
 #~ msgstr "शीतकालीन "
