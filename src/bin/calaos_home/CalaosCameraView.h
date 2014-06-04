@@ -1,10 +1,11 @@
 #ifndef CALAOSCAMERAVIEW_H
 #define CALAOSCAMERAVIEW_H
 
+#include <Utils.h>
 #include "EvasSmart.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
-#include <vector>
+#include <Params.h>
 
 using namespace std;
 
@@ -21,7 +22,16 @@ private:
     Ecore_Event_Handler *handler_data = nullptr;
     Ecore_Event_Handler *handler_complete = nullptr;
 
-    vector<unsigned char> buffer;
+    vector<char> buffer;
+    Params headers;
+
+    bool formatDetected;
+    bool single_frame;
+    bool format_error;
+    string boundary;
+
+    void processData();
+    void requestCompleted();
 
     friend Eina_Bool _url_data_cb(void *data, int type, void *event_info);
     friend Eina_Bool _url_complete_cb(void *data, int type, void *event_info);
