@@ -172,7 +172,7 @@ string WebCtrl::getValueJson(string path, string filename)
                 if (json_is_string(var))
                     value = json_string_value(var);
                 else if (json_is_number(var))
-                    value = to_string(json_number_value(var));
+                    value = Utils::to_string(json_number_value(var));
                 json_decref(var);
                 json_decref(root);
             }
