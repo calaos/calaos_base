@@ -307,9 +307,8 @@ void CalaosCameraView::processData()
         }
         else
         {
-            int i;
+            int i = 0;
             cDebugDom("camera") << "scanpos: " << scanpos;
-            scanpos = 0;
             for (i = nextDataStart + scanpos;
                  i < buffer.size() - boundary.length();i++)
             {
@@ -319,13 +318,18 @@ void CalaosCameraView::processData()
                     //boundary found
                     //check for newline between boundary and data
                     nextContentLength = i - nextDataStart;
-                    /*if (buffer[i - 2] == '\r')
+                    if (buffer[i - 2] == '\r')
                         nextContentLength -= 2;
                     else if (buffer[i - 1] == '\n')
-                        nextContentLength -= 1;*/
+                        nextContentLength -= 1;
 
                     evas_object_image_memfile_set(camImage, &buffer[nextDataStart], nextContentLength, NULL, NULL);
                     //evas_object_image_size_get(camImage, &w, &h);
+
+                    if (buffer[nextDataStart + nextContentLength] == '\r') //assume a \n always follows \r
+                        nextContentLength += 2;
+                    else if (buffer[nextDataStart + nextContentLength] == '\n')
+                        nextContentLength += 1;
 
                     //remove unused data from buffer
                     auto iter = buffer.begin();
@@ -336,11 +340,13 @@ void CalaosCameraView::processData()
                     formatDetected = false;
                     nextDataStart = 0;
                     scanpos = 0;
+                    cDebugDom("camera") << "scanpos: " << scanpos << " --> return";
                     return;
                 }
             }
 
-            scanpos += i;
+            scanpos = i - nextDataStart;
+            cDebugDom("camera") << "--> scanpos: " << scanpos;
         }
     }
 }

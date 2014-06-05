@@ -29,9 +29,9 @@ private:
     bool single_frame;
     bool format_error;
     string boundary;
-    int nextContentLength;
-    int nextDataStart;
-    int scanpos;
+    long int nextContentLength;
+    long int nextDataStart;
+    long int scanpos;
 
     void processData();
     void requestCompleted();
