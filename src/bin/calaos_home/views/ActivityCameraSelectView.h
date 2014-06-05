@@ -29,10 +29,12 @@
 
 using namespace Utils;
 
+class CalaosCameraView;
+
 class ActivityCameraSelectView: public ActivityView
 {
 private:
-    Evas_Object *camera_video;
+    CalaosCameraView *camera_video;
     Camera *camera;
 
     Evas_Object *list_item;

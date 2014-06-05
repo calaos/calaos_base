@@ -21,6 +21,7 @@
 #include "ActivityCameraSelectView.h"
 #include "GenlistItems/GenlistItemSimple.h"
 #include "GenlistItems/GenlistItemSimpleHeader.h"
+#include "CalaosCameraView.h"
 
 ActivityCameraSelectView::ActivityCameraSelectView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/media/camera_select"),
@@ -42,7 +43,7 @@ ActivityCameraSelectView::~ActivityCameraSelectView()
 {
     elm_genlist_clear(list_item);
 
-    DELETE_NULL_FUNC(evas_object_del, camera_video);
+    DELETE_NULL(camera_video);
     DELETE_NULL_FUNC(evas_object_del, list_item);
 }
 
@@ -93,19 +94,17 @@ void ActivityCameraSelectView::setCamera(Camera *cam)
     if (!cam) return;
     camera = cam;
 
-    if (camera_video)
-        evas_object_del(camera_video);
+    DELETE_NULL(camera_video);
 
-    camera_video = elm_video_add(parent);
+    camera_video = new CalaosCameraView(evas);
 
-    Swallow(camera_video, "camera.swallow");
-    elm_video_file_set(camera_video, camera->params["mjpeg_url"].c_str());
-    elm_video_play(camera_video);
-    evas_object_show(camera_video);
+    Swallow(camera_video->getSmartObject(), "camera.swallow");
+    camera_video->setCameraUrl(camera->params["mjpeg_url"]);
+    camera_video->play();
+    evas_object_show(camera_video->getSmartObject());
 
-    evas_object_smart_callback_add(elm_video_emotion_get(camera_video), "frame_decode", _smart_cam_cb, this);
-    evas_object_smart_callback_add(elm_video_emotion_get(camera_video), "decode_stop", _smart_cam_stop_cb, camera_video);
-    evas_object_smart_callback_add(elm_video_emotion_get(camera_video), "playback_finished", _smart_cam_stop_cb, camera_video);
+    //TODO: this should be done in a signal from CalaosCameraView
+    EmitSignal("show,picture", "calaos");
 
     if (camera->params["ptz"] == "true")
         EmitSignal("ptz,true", "calaos");
