@@ -14,4 +14,4 @@ EvasSmart.cpp \
 b64.o
 "
 gcc -g -c -o b64.o ../../lib/base64.c -I../../lib
-g++ -g -std=c++11 -o test_cam $SRC $PKG -I../../lib  -I.  -DETC_DIR=""
+g++ -Wall -g -std=c++11 -o test_cam $SRC $PKG -I../../lib  -I.  -DETC_DIR=""

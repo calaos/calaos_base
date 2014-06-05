@@ -9,7 +9,6 @@ using namespace std;
 EAPI_MAIN int elm_main(int argc, char **argv)
 {
     Evas_Object *win = NULL;
-    Evas_Object *btn = NULL;
 
     ecore_init();
     ecore_con_init();

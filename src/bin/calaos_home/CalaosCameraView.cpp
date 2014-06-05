@@ -165,7 +165,7 @@ bool CalaosCameraView::readEnd(int pos, int &lineend, int &nextstart)
 {
     bool foundr = false;
 
-    for (int i = pos;i < buffer.size();i++)
+    for (uint i = pos;i < buffer.size();i++)
     {
         if (buffer[i] == '\r')
             foundr = true;
@@ -282,7 +282,7 @@ void CalaosCameraView::processData()
         if (nextContentLength >= 0)
         {
             //the content-length is known, fast path
-            if (buffer.size() < nextContentLength + nextDataStart + 2)
+            if ((int)buffer.size() < nextContentLength + nextDataStart + 2)
                 return; //need more data
 
             cDebugDom("camera") << "Set new frame";
@@ -307,7 +307,7 @@ void CalaosCameraView::processData()
         }
         else
         {
-            int i = 0;
+            uint i = 0;
             cDebugDom("camera") << "scanpos: " << scanpos;
             for (i = nextDataStart + scanpos;
                  i < buffer.size() - boundary.length();i++)
