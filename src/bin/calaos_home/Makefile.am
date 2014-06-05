@@ -222,7 +222,9 @@ calaos_home_SOURCES = \
 	models/ScreenManager.h \
 	models/ScreenManager.cpp \
 	views/ScreenSuspendView.h \
-	views/ScreenSuspendView.cpp
+	views/ScreenSuspendView.cpp \
+	CalaosCameraView.cpp \
+	CalaosCameraView.h
 
 calaos_home_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \

@@ -46,6 +46,9 @@ public:
 
     void setCameraUrl(string url);
 
+    void play();
+    void stop();
+
     virtual void SmartMove(int x, int y);
     virtual void SmartResize(int w, int h);
     virtual void SmartShow();

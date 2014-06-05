@@ -31,12 +31,13 @@
 
 using namespace Utils;
 
+class CalaosCameraView;
 class ActivityCameraListView;
 class ActivityCameraObject
 {
 public:
     Camera *camera; //the Camera Object
-    Evas_Object *video; //The elementary video object
+    CalaosCameraView *video; //The video object
     ActivityCameraListView *view; //the view
     int position; //position in view
 

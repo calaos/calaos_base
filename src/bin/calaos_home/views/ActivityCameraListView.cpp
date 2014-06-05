@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "ActivityCameraListView.h"
+#include "CalaosCameraView.h"
 
 ActivityCameraListView::ActivityCameraListView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/media/camera_list")
@@ -40,7 +41,7 @@ ActivityCameraListView::ActivityCameraListView(Evas *_e, Evas_Object *_parent):
 ActivityCameraListView::~ActivityCameraListView()
 {
     for (int i = 0;i < 4;i++)
-        DELETE_NULL_FUNC(evas_object_del, cameras[i].video);
+        DELETE_NULL(cameras[i].video);
 
     for_each(scenarios.begin(), scenarios.end(), Delete());
     DELETE_NULL(page_view);
@@ -65,20 +66,19 @@ static void _smart_cam_stop_cb(void *data, Evas_Object *obj, void *event_info)
     if (!ac) return;
 
     //Restart the playing of stream if it stops
-    elm_video_play(ac->video);
+    ac->video->play();
 }
 
 void ActivityCameraListView::setCamera(Camera *camera, int position)
 {
-    if (cameras[position].video)
-        evas_object_del(cameras[position].video);
+    DELETE_NULL(cameras[position].video);
 
-    Evas_Object *video = elm_video_add(parent);
+    CalaosCameraView *video = new CalaosCameraView(evas);
 
-    Swallow(video, "camera.swallow." + Utils::to_string(position + 1));
-    elm_video_file_set(video, camera->params["mjpeg_url"].c_str());
-    elm_video_play(video);
-    evas_object_show(video);
+    Swallow(video->getSmartObject(), "camera.swallow." + Utils::to_string(position + 1));
+    video->setCameraUrl(camera->params["mjpeg_url"]);
+    video->play();
+    evas_object_show(video->getSmartObject());
 
     setPartText("camera.title." + Utils::to_string(position + 1), camera->params["name"]);
 
@@ -86,10 +86,6 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
     cameras[position].camera = camera;
     cameras[position].view = this; //For the C callback
     cameras[position].position = position; //For the C callback
-
-    evas_object_smart_callback_add(elm_video_emotion_get(video), "frame_decode", _smart_cam_cb, &cameras[position]);
-    evas_object_smart_callback_add(elm_video_emotion_get(video), "decode_stop", _smart_cam_stop_cb, &cameras[position]);
-    evas_object_smart_callback_add(elm_video_emotion_get(video), "playback_finished", _smart_cam_stop_cb, &cameras[position]);
 }
 
 void ActivityCameraListView::disableCamera(int position)
@@ -97,8 +93,7 @@ void ActivityCameraListView::disableCamera(int position)
     setPartText("camera.title." + Utils::to_string(position + 1), "Aucune caméra");
     EmitSignal("hide,picture," + Utils::to_string(position + 1), "calaos");
 
-    if (cameras[position].video)
-        evas_object_del(cameras[position].video);
+    DELETE_NULL(cameras[position].video);
 
     ActivityCameraObject ac;
     cameras[position] = ac;
@@ -174,7 +169,7 @@ void ActivityCameraListView::EnableView()
     for (unsigned int i = 0;i < cameras.size();i++)
     {
         if (cameras[i].video)
-            elm_video_play(cameras[i].video);
+            cameras[i].video->play();
     }
 }
 
@@ -183,7 +178,7 @@ void ActivityCameraListView::DisableView()
     for (unsigned int i = 0;i < cameras.size();i++)
     {
         if (cameras[i].video)
-            elm_video_pause(cameras[i].video);
+            cameras[i].video->stop();
     }
 }
 

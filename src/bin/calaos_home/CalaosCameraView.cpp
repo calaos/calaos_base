@@ -134,31 +134,6 @@ void CalaosCameraView::SmartClipUnset()
 void CalaosCameraView::setCameraUrl(string url)
 {
     cameraUrl = url;
-
-    if (ecurl)
-        ecore_con_url_free(ecurl);
-
-    ecurl = ecore_con_url_new(cameraUrl.c_str());
-    if (!ecurl)
-    {
-        cErrorDom("camera") << "Failed to create ecore_con_url!";
-        return;
-    }
-    ecore_con_url_data_set(ecurl, this);
-    ecore_con_url_ssl_verify_peer_set(ecurl, false);
-
-    single_frame = false;
-    buffer.clear();
-    formatDetected = false;
-    format_error = false;
-    nextContentLength = -1;
-
-    if (!ecore_con_url_get(ecurl))
-    {
-        cErrorDom("camera") << "Could not realize request!";
-        ecore_con_url_free(ecurl);
-        ecurl = nullptr;
-    }
 }
 
 bool CalaosCameraView::readEnd(int pos, int &lineend, int &nextstart)
@@ -371,4 +346,39 @@ void CalaosCameraView::requestCompleted()
             cWarningDom("camera") << "Restarting request to camera...";
         setCameraUrl(cameraUrl);
     });
+}
+
+void CalaosCameraView::play()
+{
+    if (ecurl)
+        ecore_con_url_free(ecurl);
+
+    ecurl = ecore_con_url_new(cameraUrl.c_str());
+    if (!ecurl)
+    {
+        cErrorDom("camera") << "Failed to create ecore_con_url!";
+        return;
+    }
+    ecore_con_url_data_set(ecurl, this);
+    ecore_con_url_ssl_verify_peer_set(ecurl, false);
+
+    single_frame = false;
+    buffer.clear();
+    formatDetected = false;
+    format_error = false;
+    nextContentLength = -1;
+
+    if (!ecore_con_url_get(ecurl))
+    {
+        cErrorDom("camera") << "Could not realize request!";
+        ecore_con_url_free(ecurl);
+        ecurl = nullptr;
+    }
+}
+
+void CalaosCameraView::stop()
+{
+    if (ecurl)
+        ecore_con_url_free(ecurl);
+    ecurl = nullptr;
 }
