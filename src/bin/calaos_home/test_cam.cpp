@@ -32,11 +32,22 @@ EAPI_MAIN int elm_main(int argc, char **argv)
     //cam->setCameraUrl("http://192.168.0.13/video.mjpg");
     //cam->setCameraUrl("http://192.168.0.13/image.jpg");
 
+    CalaosCameraView *cam2 = new CalaosCameraView(evas_object_evas_get(win));
+    Evas_Object *o2 = cam2->getSmartObject();
+    cam2->setCameraUrl("http://192.168.0.47/axis-cgi/mjpg/video.cgi");
+
+    cam->play();
+    cam2->play();
+
     evas_object_resize(o, 640, 480);
     evas_object_move(o, 0, 0);
     evas_object_show(o);
 
-    evas_object_resize(win, 640, 480);
+    evas_object_resize(o2, 640, 480);
+    evas_object_move(o2, 640, 0);
+    evas_object_show(o2);
+
+    evas_object_resize(win, 640*2, 480);
     evas_object_show(win);
 
     elm_run();

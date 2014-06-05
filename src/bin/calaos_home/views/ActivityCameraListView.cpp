@@ -86,6 +86,9 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
     cameras[position].camera = camera;
     cameras[position].view = this; //For the C callback
     cameras[position].position = position; //For the C callback
+
+    //this should be done in a signal from CalaosCameraView
+    EmitSignal("show,picture," + Utils::to_string(position + 1), "calaos");
 }
 
 void ActivityCameraListView::disableCamera(int position)

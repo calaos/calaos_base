@@ -7,7 +7,7 @@ Eina_Bool _url_data_cb(void *data, int type, void *event_info)
     CalaosCameraView *view = reinterpret_cast<CalaosCameraView *>(data);
 
     if (view != ecore_con_url_data_get(url_data->url_con))
-        return false;
+        return true;
 
     view->buffer.reserve(view->buffer.size() + url_data->size);
     std::copy(url_data->data, url_data->data + url_data->size, std::back_inserter(view->buffer));
@@ -53,7 +53,7 @@ Eina_Bool _url_complete_cb(void *data, int type, void *event_info)
     CalaosCameraView *view = reinterpret_cast<CalaosCameraView *>(data);
 
     if (view != ecore_con_url_data_get(url_complete->url_con))
-        return false;
+        return true;
 
     cDebugDom("camera") << "completed: " << view->buffer.size();
 
@@ -344,7 +344,7 @@ void CalaosCameraView::requestCompleted()
     {
         if (!single_frame)
             cWarningDom("camera") << "Restarting request to camera...";
-        setCameraUrl(cameraUrl);
+        play();
     });
 }
 
@@ -374,6 +374,8 @@ void CalaosCameraView::play()
         ecore_con_url_free(ecurl);
         ecurl = nullptr;
     }
+
+    cDebugDom("camera") << "Request started to " << cameraUrl;
 }
 
 void CalaosCameraView::stop()
