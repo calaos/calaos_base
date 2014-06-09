@@ -230,8 +230,8 @@ void CalaosCameraView::processData()
 
         if (!formatDetected)
         {
-            cWarningDom("camera") << "Something is wrong in the data, give up!";
-            format_error = true;
+            cWarningDom("camera") << "need more data...";
+            return;
         }
     }
 
@@ -239,6 +239,12 @@ void CalaosCameraView::processData()
     {
         //we should be positionned at the start of data
         //small check to be sure
+        if (buffer.size() <= nextDataStart)
+        {
+            cWarningDom("camera") << "need more data...";
+            return;
+        }
+
         if (!(buffer[nextDataStart] == 0xFF && buffer[nextDataStart + 1] == 0xD8))
         {
             cWarningDom("camera") << "Wrong image data.";

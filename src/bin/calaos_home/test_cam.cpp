@@ -27,7 +27,7 @@ EAPI_MAIN int elm_main(int argc, char **argv)
     //cam->setCameraUrl("http://test:test@10.7.0.102/image.jpg");
     //cam->setCameraUrl("http://192.168.0.47/axis-cgi/jpg/image.cgi");
     //cam->setCameraUrl("http://192.168.0.47/axis-cgi/mjpg/video.cgi");
-    cam->setCameraUrl("http://192.168.0.49/ip-camp-dump.raw");
+    cam->setCameraUrl("http://192.168.0.37:8080/video");
     //cam->setCameraUrl("http://192.168.0.47");
     //cam->setCameraUrl("http://192.168.0.13/video.mjpg");
     //cam->setCameraUrl("http://192.168.0.13/image.jpg");
