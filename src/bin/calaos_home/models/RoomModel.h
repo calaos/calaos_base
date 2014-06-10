@@ -84,6 +84,8 @@ public:
     //months where InPlageHoraire is activated
     enum { JANUARY = 0, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
     bitset<12> range_months;
+
+    vector<int> isScheduledDate(tm scDate, int day);
 };
 
 class Room;

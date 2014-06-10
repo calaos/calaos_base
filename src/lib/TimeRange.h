@@ -23,8 +23,6 @@
 
 using namespace Utils;
 
-enum { BADDAY = -1, SUNDAY = 0, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY };
-
 class TimeRange
 {
 private:
@@ -39,6 +37,8 @@ private:
                            int &set_hour, int &set_min);
 
 public:
+
+    enum { BADDAY = -1, SUNDAY = 0, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY };
 
     /* horaire type.
                  * When horaire type is HTYPE_NORMAL, the time properties are the real time.

@@ -50,6 +50,7 @@
 #include <stdexcept>
 #include <memory>
 #include <functional>
+#include <ctime>
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/types.h>

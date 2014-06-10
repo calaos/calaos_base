@@ -1586,3 +1586,32 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
 
     io_changed.emit(); //io has changed
 }
+
+vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate, int day)
+{
+    vector<int> ret;
+
+    //check month
+    if (!range_months.test(scDate.tm_mon))
+        return ret;
+
+    auto checkRange = [=,&ret](vector<TimeRange> &range)
+    {
+        for (uint i = 0;i < range.size();i++)
+            ret.push_back(i);
+    };
+
+    switch (day)
+    {
+    case 0: checkRange(range_monday); break;
+    case 1: checkRange(range_tuesday); break;
+    case 2: checkRange(range_wednesday); break;
+    case 3: checkRange(range_thursday); break;
+    case 4: checkRange(range_friday); break;
+    case 5: checkRange(range_saturday); break;
+    case 6: checkRange(range_sunday); break;
+    default: break;
+    }
+
+    return ret;
+}

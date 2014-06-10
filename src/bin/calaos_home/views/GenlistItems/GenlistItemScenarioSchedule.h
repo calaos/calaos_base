@@ -35,6 +35,9 @@ private:
     Evas_Object *popup, *pager_popup;
 
     Scenario *scenario;
+    int scheduleRange = TimeRange::BADDAY;
+    int scheduleRangeNum = 0;
+    struct tm scDate;
 
     void scenarioPlay(void *data);
     void scenarioModify(void *data);
@@ -49,8 +52,15 @@ private:
     void deleteScenarioCancel(void *data, GenlistItemSimple *cancel_item);
 
 public:
-    GenlistItemScenarioSchedule(Evas *evas, Evas_Object *parent, bool scheduleView, Scenario *scenario, void *data = NULL);
+    GenlistItemScenarioSchedule(Evas *evas, Evas_Object *parent, bool scheduleView, Scenario *sc, void *data = NULL);
     virtual ~GenlistItemScenarioSchedule();
+
+    void setScheduleRange(int day, int num, struct tm sdate)
+    {
+        scheduleRange = day;
+        scheduleRangeNum = num;
+        scDate = sdate;
+    }
 
     virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
     virtual string getLabelItem(Evas_Object *obj, string part);

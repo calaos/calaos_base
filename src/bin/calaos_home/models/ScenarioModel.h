@@ -119,21 +119,33 @@ public:
     void scenario_get_cb(bool success, vector<string> result, void *data);
 
     IOBase *ioScenario = nullptr;
-    IOBase *ioPlage = nullptr;
+    IOBase *ioSchedule = nullptr;
 
     ScenarioData scenario_data;
 
     string getFirstCategory();
 
-    bool isScheduled() { if (ioPlage) return true; return false; }
+    bool isScheduled() { if (ioSchedule) return true; return false; }
     void createSchedule(sigc::slot<void, IOBase *> callback);
     void deleteSchedule();
     void setSchedules(TimeRangeInfos &tr);
+
+    bool isScheduledDate(struct tm *scDate);
 
     //Return the room where the scenario is
     Room *getRoom();
 
     sigc::signal<void, Scenario *> load_done;
+};
+
+//small object for keeping a specific timerange and a scenario in sync
+//mainly used for calendar view
+class ScenarioSchedule
+{
+public:
+    Scenario *scenario;
+    int day = TimeRange::BADDAY;
+    int timeRangeNum = 0;
 };
 
 class ScenarioModel: public sigc::trackable
@@ -162,6 +174,8 @@ public:
     void deleteScenario(Scenario *sc);
 
     list<Scenario *> scenarios;
+
+    list<ScenarioSchedule> getScenarioForDate(struct tm scDate);
 
     sigc::signal<void> load_done;
     sigc::signal<void, Scenario *> scenario_new;

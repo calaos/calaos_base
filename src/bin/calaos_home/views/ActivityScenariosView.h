@@ -37,6 +37,8 @@ private:
     enum { VIEW_MODE_ALL, VIEW_MODE_LIGHT, VIEW_MODE_SHUTTER, VIEW_MODE_SCHEDULE };
     int view_mode;
 
+    struct tm currDate;
+
     void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
     void loadScenarioList();
 

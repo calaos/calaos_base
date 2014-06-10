@@ -68,13 +68,13 @@ void InPlageHoraire::hasChanged()
 
     switch (ctime->tm_wday)
     {
-    case MONDAY: plage = &plg_lundi; break;
-    case TUESDAY: plage = &plg_mardi; break;
-    case WEDNESDAY: plage = &plg_mercredi; break;
-    case THURSDAY: plage = &plg_jeudi; break;
-    case FRIDAY: plage = &plg_vendredi; break;
-    case SATURDAY: plage = &plg_samedi; break;
-    case SUNDAY: plage = &plg_dimanche; break;
+    case TimeRange::MONDAY: plage = &plg_lundi; break;
+    case TimeRange::TUESDAY: plage = &plg_mardi; break;
+    case TimeRange::WEDNESDAY: plage = &plg_mercredi; break;
+    case TimeRange::THURSDAY: plage = &plg_jeudi; break;
+    case TimeRange::FRIDAY: plage = &plg_vendredi; break;
+    case TimeRange::SATURDAY: plage = &plg_samedi; break;
+    case TimeRange::SUNDAY: plage = &plg_dimanche; break;
     default: break;
     }
 

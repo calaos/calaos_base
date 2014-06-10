@@ -60,7 +60,9 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     btn = edje_object_part_external_object_get(edje, "button.list.schedule");
     elm_object_text_set(btn, _("Scheduled"));
 
-
+    //default to today
+    time_t t = time(0);
+    currDate = *localtime(&t);
 }
 
 ActivityScenariosView::~ActivityScenariosView()
@@ -236,16 +238,16 @@ void ActivityScenariosView::loadScenarioList()
 void ActivityScenariosView::loadScenarios()
 {
     elm_genlist_clear(schedule_list);
-    //------------TEST schedule list
-    //        for (int i = 0;i < 10;i++)
-    //        {
-    //                GenlistItemScenarioSchedule *item = new GenlistItemScenarioSchedule(evas, parent, true);
-    //                item->Append(schedule_list);
-    //        }
-    //----------------
-    if (CalaosModel::Instance().getScenario()->scenarios.size() > 0)
+
+    list<ScenarioSchedule> lst = CalaosModel::Instance().getScenario()->getScenarioForDate(currDate);
+    for (auto i = lst.begin();i != lst.end();i++)
     {
-        GenlistItemScenarioSchedule *item = new GenlistItemScenarioSchedule(evas, parent, true, *CalaosModel::Instance().getScenario()->scenarios.begin());
+        ScenarioSchedule sc = *i;
+        GenlistItemScenarioSchedule *item = new GenlistItemScenarioSchedule(evas, parent, true, sc.scenario);
+        item->setScheduleRange(sc.day, sc.timeRangeNum, currDate);
+        item->schedule_add_click.connect(sigc::mem_fun(schedule_add_click, &sigc::signal<void, Scenario *>::emit));
+        item->schedule_modify_click.connect(sigc::mem_fun(schedule_modify_click, &sigc::signal<void, Scenario *>::emit));
+        item->schedule_del_click.connect(sigc::mem_fun(schedule_del_click, &sigc::signal<void, Scenario *>::emit));
         item->Append(schedule_list);
     }
 

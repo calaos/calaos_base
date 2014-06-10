@@ -136,10 +136,10 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
                 map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(tmp[1]);
                 if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
                 {
-                    ioPlage = (*it).second;
-                    ioPlage->io_deleted.connect([=]()
+                    ioSchedule = (*it).second;
+                    ioSchedule->io_deleted.connect([=]()
                     {
-                        ioPlage = nullptr;
+                        ioSchedule = nullptr;
                     });
                 }
             }
@@ -331,13 +331,13 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
 
             DELETE_NULL(timer);
 
-            ioPlage = it->second;
-            ioPlage->io_deleted.connect([=]()
+            ioSchedule = it->second;
+            ioSchedule->io_deleted.connect([=]()
             {
-                ioPlage = nullptr;
+                ioSchedule = nullptr;
             });
 
-            callback(ioPlage);
+            callback(ioSchedule);
         });
     });
 }
@@ -346,18 +346,18 @@ void Scenario::deleteSchedule()
 {
     string cmd = "scenario del_schedule " + ioScenario->params["id"];
     connection->SendCommand(cmd);
-    ioPlage = nullptr;
+    ioSchedule = nullptr;
 }
 
 void Scenario::setSchedules(TimeRangeInfos &tr)
 {
-    if (!ioPlage)
+    if (!ioSchedule)
     {
         cCriticalDom("scenario") << "called with ioPlage == null!";
         return;
     }
 
-    string cmd = "input " + ioPlage->params["id"] + " plage set";
+    string cmd = "input " + ioSchedule->params["id"] + " plage set";
 
     auto addRange = [=,&cmd](vector<TimeRange> &ranges, int day)
     {
@@ -381,7 +381,7 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
-    cmd = "input " + ioPlage->params["id"] + " plage months set " + str;
+    cmd = "input " + ioSchedule->params["id"] + " plage months set " + str;
     connection->SendCommand(cmd);
 }
 
@@ -501,7 +501,7 @@ void ScenarioModel::notifyScenarioChange(string notif)
                 //clear scenario data before reloading them again
                 sc->scenario_data = ScenarioData();
                 sc->scenario_data.params.Add("id", split_id[1]);
-                sc->ioPlage = nullptr;
+                sc->ioSchedule = nullptr;
 
                 sc->scenario_get_cb(_success, _result, _data);
                 scenario_change.emit(sc);
@@ -510,4 +510,43 @@ void ScenarioModel::notifyScenarioChange(string notif)
             break;
         }
     }
+}
+
+list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
+{
+    list<ScenarioSchedule> retList;
+
+    auto it = scenarios.begin();
+    for (;it != scenarios.end();it++)
+    {
+        Scenario *sc = *it;
+
+        if (!sc->isScheduled())
+            continue;
+
+        auto checkScenario = [=,&retList](int day)
+        {
+            vector<int> num;
+            num = sc->ioSchedule->range_infos.isScheduledDate(scDate, day);
+
+            for (uint i = 0;i < num.size();i++)
+            {
+                ScenarioSchedule s;
+                s.scenario = sc;
+                s.day = day;
+                s.timeRangeNum = num[i];
+                retList.push_back(s);
+            }
+        };
+
+        checkScenario(TimeRange::MONDAY);
+        checkScenario(TimeRange::TUESDAY);
+        checkScenario(TimeRange::WEDNESDAY);
+        checkScenario(TimeRange::THURSDAY);
+        checkScenario(TimeRange::FRIDAY);
+        checkScenario(TimeRange::SATURDAY);
+        checkScenario(TimeRange::SUNDAY);
+    }
+
+    return retList;
 }

@@ -76,7 +76,10 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
     CalaosCameraView *video = new CalaosCameraView(evas);
 
     Swallow(video->getSmartObject(), "camera.swallow." + Utils::to_string(position + 1));
-    video->setCameraUrl(camera->params["mjpeg_url"]);
+    if (camera->params["mjpeg_url"] != "")
+        video->setCameraUrl(camera->params["mjpeg_url"]);
+    else
+        video->setCameraUrl(camera->params["jpeg_url"]);
     video->play();
     evas_object_show(video->getSmartObject());
 
