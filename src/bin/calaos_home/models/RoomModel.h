@@ -81,11 +81,15 @@ public:
     vector<TimeRange> range_saturday;
     vector<TimeRange> range_sunday;
 
+    vector<TimeRange> &getRange(int day);
+
     //months where InPlageHoraire is activated
     enum { JANUARY = 0, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
     bitset<12> range_months;
 
-    vector<int> isScheduledDate(tm scDate, int day);
+    vector<int> isScheduledDate(tm scDate);
+
+    string toString();
 };
 
 class Room;

@@ -78,25 +78,16 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
 
         if (scenario->isScheduled())
         {
-            auto getTimeForDate = [=,&text](vector<TimeRange> &range)
-            {
-                if (scheduleRangeNum >= 0 && scheduleRangeNum < range.size())
-                {
-                    TimeRange tr = range[scheduleRangeNum];
-                    text = tr.getStartTimeSec(scDate.tm_year + 1900, scDate.tm_mon + 1, scDate.tm_mday);
-                }
-            };
+            vector<TimeRange> &v = scenario->ioSchedule->range_infos.getRange(scheduleRange);
 
-            switch (scheduleRange)
+            if (scheduleRangeNum >= 0 && scheduleRangeNum < (int)v.size())
             {
-            case TimeRange::MONDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_monday); break;
-            case TimeRange::TUESDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_tuesday); break;
-            case TimeRange::WEDNESDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_wednesday); break;
-            case TimeRange::THURSDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_thursday); break;
-            case TimeRange::FRIDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_friday); break;
-            case TimeRange::SATURDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_saturday); break;
-            case TimeRange::SUNDAY: getTimeForDate(scenario->ioSchedule->range_infos.range_sunday); break;
-            default: break;
+                TimeRange tr = v[scheduleRangeNum];
+                cDebugDom("scenario") << "Get time for scenario: " << scenario->ioScenario->params["name"];
+                text = Utils::time2string_digit(tr.getStartTimeSec(scDate.tm_year + 1900, scDate.tm_mon + 1, scDate.tm_mday));
+                cDebugDom("scenario") << "time: " << text;
+                cDebugDom("scenario") << "Schedule: ";
+                cDebugDom("scenario") << scenario->ioSchedule->range_infos.toString();
             }
         }
     }

@@ -1678,9 +1678,11 @@ void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
     io_changed.emit(); //io has changed
 }
 
-vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate, int day)
+vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
 {
     vector<int> ret;
+
+    cDebugDom("scenario") << "Checking scenario for date ";
 
     //check month
     if (!range_months.test(scDate.tm_mon))
@@ -1688,21 +1690,72 @@ vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate, int day)
 
     auto checkRange = [=,&ret](vector<TimeRange> &range)
     {
+        cDebugDom("scenario") << "day: " << scDate.tm_wday << " range size: " << range.size();
         for (uint i = 0;i < range.size();i++)
+        {
+            cDebugDom("scenario") << "adding range: " << i;
             ret.push_back(i);
+        }
     };
 
-    switch (day)
+    switch (scDate.tm_wday)
     {
-    case 0: checkRange(range_monday); break;
-    case 1: checkRange(range_tuesday); break;
-    case 2: checkRange(range_wednesday); break;
-    case 3: checkRange(range_thursday); break;
-    case 4: checkRange(range_friday); break;
-    case 5: checkRange(range_saturday); break;
-    case 6: checkRange(range_sunday); break;
+    case 1: checkRange(range_monday); break;
+    case 2: checkRange(range_tuesday); break;
+    case 3: checkRange(range_wednesday); break;
+    case 4: checkRange(range_thursday); break;
+    case 5: checkRange(range_friday); break;
+    case 6: checkRange(range_saturday); break;
+    case 0: checkRange(range_sunday); break;
     default: break;
     }
 
+    cDebugDom("scenario") << "Range size: " << ret.size();
     return ret;
+}
+
+vector<TimeRange> &TimeRangeInfos::getRange(int day)
+{
+    switch (day)
+    {
+    case TimeRange::MONDAY: return range_monday; break;
+    case TimeRange::TUESDAY: return range_tuesday; break;
+    case TimeRange::WEDNESDAY: return range_wednesday; break;
+    case TimeRange::THURSDAY: return range_thursday; break;
+    case TimeRange::FRIDAY: return range_friday; break;
+    case TimeRange::SATURDAY: return range_saturday; break;
+    case TimeRange::SUNDAY: return range_sunday; break;
+    default: break;
+    }
+    vector<TimeRange> v;
+    return v;
+}
+
+string TimeRangeInfos::toString()
+{
+    stringstream str;
+
+    str << "*** Monday ***" << endl;
+    for (uint i = 0; i < range_monday.size();i++)
+        str << "\t" << range_monday[i].toString() << endl;
+    str << "*** Tuesday ***" << endl;
+    for (uint i = 0; i < range_tuesday.size();i++)
+        str << "\t" << range_tuesday[i].toString() << endl;
+    str << "*** Wednesday ***" << endl;
+    for (uint i = 0; i < range_wednesday.size();i++)
+        str << "\t" << range_wednesday[i].toString() << endl;
+    str << "*** Thursday ***" << endl;
+    for (uint i = 0; i < range_thursday.size();i++)
+        str << "\t" << range_thursday[i].toString() << endl;
+    str << "*** Friday ***" << endl;
+    for (uint i = 0; i < range_friday.size();i++)
+        str << "\t" << range_friday[i].toString() << endl;
+    str << "*** Saturday ***" << endl;
+    for (uint i = 0; i < range_saturday.size();i++)
+        str << "\t" << range_saturday[i].toString() << endl;
+    str << "*** Sunday ***" << endl;
+    for (uint i = 0; i < range_sunday.size();i++)
+        str << "\t" << range_sunday[i].toString() << endl;
+
+    return str.str();
 }

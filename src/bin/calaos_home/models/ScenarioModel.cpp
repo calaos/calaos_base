@@ -521,13 +521,19 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
     {
         Scenario *sc = *it;
 
+        cDebugDom("scenario") << "Checking scenario: " << sc->ioScenario->params["name"];
+
         if (!sc->isScheduled())
             continue;
 
+        cDebugDom("scenario") << "Scenario schedule: ";
+        cout << sc->ioSchedule->range_infos.toString();
+
         auto checkScenario = [=,&retList](int day)
         {
+            cDebugDom("scenario") << "Checking day: " << day;
             vector<int> num;
-            num = sc->ioSchedule->range_infos.isScheduledDate(scDate, day);
+            num = sc->ioSchedule->range_infos.isScheduledDate(scDate);
 
             for (uint i = 0;i < num.size();i++)
             {
@@ -539,14 +545,33 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
             }
         };
 
-        checkScenario(TimeRange::MONDAY);
-        checkScenario(TimeRange::TUESDAY);
-        checkScenario(TimeRange::WEDNESDAY);
-        checkScenario(TimeRange::THURSDAY);
-        checkScenario(TimeRange::FRIDAY);
-        checkScenario(TimeRange::SATURDAY);
-        checkScenario(TimeRange::SUNDAY);
+        switch (scDate.tm_wday)
+        {
+        case 1: checkScenario(TimeRange::MONDAY); break;
+        case 2: checkScenario(TimeRange::TUESDAY); break;
+        case 3: checkScenario(TimeRange::WEDNESDAY); break;
+        case 4: checkScenario(TimeRange::THURSDAY); break;
+        case 5: checkScenario(TimeRange::FRIDAY); break;
+        case 6: checkScenario(TimeRange::SATURDAY); break;
+        case 0: checkScenario(TimeRange::SUNDAY); break;
+        default: break;
+        }
     }
+
+    retList.sort([](const ScenarioSchedule &a, const ScenarioSchedule &b)
+    {
+        long timea = 0, timeb = 0;
+
+        vector<TimeRange> &vtr = a.scenario->ioSchedule->range_infos.getRange(a.day);
+        if (a.timeRangeNum >= 0 && a.timeRangeNum < (int)vtr.size())
+            timea = vtr[a.timeRangeNum].getStartTimeSec();
+
+        vtr = b.scenario->ioSchedule->range_infos.getRange(b.day);
+        if (b.timeRangeNum >= 0 && b.timeRangeNum < (int)vtr.size())
+            timeb = vtr[b.timeRangeNum].getStartTimeSec();
+
+        return timea > timeb;
+    });
 
     return retList;
 }
