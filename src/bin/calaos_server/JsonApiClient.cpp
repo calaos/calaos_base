@@ -337,6 +337,8 @@ void JsonApiClient::DataWritten(int size)
     {
         cDebugDom("network")
                 << "All data sent, close connection";
+        //force all remaining data to be written before closing
+        ecore_con_client_flush(client_conn);
         CloseConnection();
     }
 }
