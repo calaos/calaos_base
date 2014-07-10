@@ -212,8 +212,6 @@ public:
 
     void load();
 
-    AudioPlayer *getForId(string id);
-
     list<AudioPlayer *> players;
 
     sigc::signal<void> load_done;

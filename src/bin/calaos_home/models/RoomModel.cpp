@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "RoomModel.h"
-#include "CalaosModel.h"
 
 bool IOHitsCompare(const IOBase *lhs, const IOBase *rhs)
 {
@@ -259,8 +258,7 @@ void Room::updateVisibleIO()
         }
 
         if (io->params["gui_type"] == "camera_output" ||
-            io->params["gui_type"] == "audio_output" ||
-            io->params["gui_type"] == "avreceiver")
+            io->params["gui_type"] == "audio_output")
         {
             scenario_ios.push_back(io);
         }
@@ -1213,30 +1211,6 @@ vector<IOActionList> IOBase::getActionList()
         v.push_back(IOActionList("sleep %1", "Eteindre la zone dans X secondes (sleep mode)", "Eteindre la zone dans %1% secondes (sleep mode)", IOActionList::ACTION_NUMBER));
         //TODO: playlist/song selection and playing here
     }
-    else if (params["gui_type"] == "avreceiver")
-    {
-        v.push_back(IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("power off", _("Power Off"), IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("volume %1", _("Change volume"), _("Change volume to %1%"), IOActionList::ACTION_SLIDER));
-
-        AudioPlayer *player = CalaosModel::Instance().getAudio()->getForId(params["id"]);
-        if (player)
-        {
-            map<int, string> inputs = player->getInputSources();
-            map<int, string>::iterator it = inputs.begin();
-
-            for (;it != inputs.end();it++)
-            {
-                int source_id = (*it).first;
-                string input_name = (*it).second;
-
-                string src_action = "source " + Utils::to_string(source_id);
-                string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
-
-                v.push_back(IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE));
-            }
-        }
-    }
 
     return v;
 }
@@ -1313,10 +1287,6 @@ IOActionList IOBase::getActionFromState()
     else if (params["gui_type"] == "audio_output")
     {
         ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
-    }
-    else if (params["gui_type"] == "avreceiver")
-    {
-        ac = IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE);
     }
 
     return ac;
@@ -1468,43 +1438,6 @@ IOActionList IOBase::getActionListFromAction(string action)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
         //TODO: playlist/song selection and playing here
-    }
-    else if (params["gui_type"] == "avreceiver")
-    {
-        if (tokens[0] == "power on") ac = IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "power off") ac = IOActionList("power off", _("Power Off"), IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "volume")
-        {
-            ac = IOActionList("volume %1", _("Change volume"), _("Change volume to %1%"), IOActionList::ACTION_SLIDER);
-            from_string(tokens[tokens.size() - 1], ac.dvalue);
-        }
-        else if (tokens[0] == "source")
-        {
-            int inputid;
-            from_string(tokens[tokens.size() - 1], inputid);
-
-            AudioPlayer *player = CalaosModel::Instance().getAudio()->getForId(params["id"]);
-            if (player)
-            {
-                map<int, string> inputs = player->getInputSources();
-                map<int, string>::iterator it = inputs.begin();
-
-                for (;it != inputs.end();it++)
-                {
-                    int source_id = (*it).first;
-                    string input_name = (*it).second;
-
-                    string src_action = "source " + Utils::to_string(source_id);
-                    string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
-
-                    if (inputid == source_id)
-                    {
-                        ac = IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE);
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     return ac;
