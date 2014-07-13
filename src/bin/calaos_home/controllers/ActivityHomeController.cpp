@@ -263,11 +263,11 @@ void ActivityHomeController::shutter_changed(int count)
     string t;
 
     if (count <= 0)
-        t = _("No shutter opened");
+        t = _("No shutter open");
     else if (count == 1)
-        t = _("1 shutter opened");
+        t = _("1 shutter open");
     else
-        t = Utils::to_string(count) + _(" shutters are opened");
+        t = Utils::to_string(count) + _(" shutters are open");
 
     homeView->setShuttersUpText(t);
 }

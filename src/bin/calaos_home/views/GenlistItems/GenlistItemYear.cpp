@@ -50,7 +50,7 @@ string GenlistItemYear::getLabelItem(Evas_Object *obj, string part)
     if (part == "text")
     {
         if (item_infos.size() <= 0)
-            text = "Chargement...";
+            text = _("Loading...");
         else
             text = item_infos["year"];
     }

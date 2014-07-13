@@ -43,7 +43,10 @@ string GenlistItemPlaylistHeader::getLabelItem(Evas_Object *obj, string part)
     string text;
 
     if (part == "text")
-        text = "Liste de lecture: <light_blue>" + pl_infos["name"] + "</light_blue>";
+    {
+        text = _("Playlist:");
+        text += " <light_blue>" + pl_infos["name"] + "</light_blue>";
+    }
     else if (part == "text.count")
         text = pl_infos["count"];
 

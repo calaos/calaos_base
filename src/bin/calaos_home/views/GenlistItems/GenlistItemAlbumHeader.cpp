@@ -47,7 +47,7 @@ string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, string part)
 
     if (part == "text")
     {
-        string album = "Album inconnu";
+        string album = _("Unkown album");
         if (album_infos.Exists("name")) album = album_infos["name"];
         text = album;
     }

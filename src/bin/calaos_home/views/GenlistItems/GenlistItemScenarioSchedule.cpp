@@ -102,12 +102,12 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
     }
     else if (part == "actions.text")
     {
-        text = "Aucune actions.";
+        text = _("No actions.");
         if (scenario->scenario_data.steps.size() > 1)
-            text = Utils::to_string(scenario->scenario_data.steps.size()) + " étapes.";
+            text = Utils::to_string(scenario->scenario_data.steps.size()) + " " + _("steps") + ".";
         else if (scenario->scenario_data.steps.size() == 1 &&
                  scenario->scenario_data.steps[0].actions.size() > 0)
-            text = Utils::to_string(scenario->scenario_data.steps[0].actions.size()) + " actions.";
+            text = Utils::to_string(scenario->scenario_data.steps[0].actions.size()) + " " + _("actions") + ".";
     }
 
     if (scenario->scenario_data.params["schedule"] != "false")
@@ -151,17 +151,17 @@ void GenlistItemScenarioSchedule::buttonClickMore()
 
     GenlistItemSimple *_item;
 
-    _item = new GenlistItemSimple(evas, glist, _("Modify the scenario"), true);
+    _item = new GenlistItemSimple(evas, glist, _("Modify scenario"), true);
     _item->setIcon("calaos/icons/genlist/edit");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioModify));
 
-    _item = new GenlistItemSimple(evas, glist, _("Delete the scenario"), true);
+    _item = new GenlistItemSimple(evas, glist, _("Delete scenario"), true);
     _item->setIcon("calaos/icons/genlist/trash");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioDelete));
 
-    _item = new GenlistItemSimple(evas, glist, _("Run the scenario now"), true);
+    _item = new GenlistItemSimple(evas, glist, _("Run scenario now"), true);
     _item->setIcon("calaos/icons/genlist/play");
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scenarioPlay));
@@ -239,11 +239,11 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Confirmation<br><small><light_blue>Are you sure you want to delete this scenarios?</light_blue></small>");
+    string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this scenarios?</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
-    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete the scenario"), true);
+    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete scenario"), true);
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioValid));
 

@@ -279,7 +279,7 @@ void ApplicationController::onMenuRebootClick()
 
     GenlistItemSimple *item;
 
-    item = new GenlistItemSimple(evas, glist, _("Restart only application"), true);
+    item = new GenlistItemSimple(evas, glist, _("Restart application only"), true);
     item->Append(glist);
     item->item_selected.connect([this, popup](void *)
     {
@@ -289,7 +289,7 @@ void ApplicationController::onMenuRebootClick()
         system("systemctl restart calaos-home");
     });
 
-    item = new GenlistItemSimple(evas, glist, _("Reboot the machine"), true);
+    item = new GenlistItemSimple(evas, glist, _("Reboot machine"), true);
     item->Append(glist);
     item->item_selected.connect([this, popup](void *)
     {

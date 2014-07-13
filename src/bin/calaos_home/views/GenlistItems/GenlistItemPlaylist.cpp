@@ -45,7 +45,7 @@ string GenlistItemPlaylist::getLabelItem(Evas_Object *obj, string part)
 
     player->getPlaylistItem(playlist_item, sigc::mem_fun(*this, &GenlistItemPlaylist::playlistItemGet_cb));
 
-    return "Chargement ...";
+    return _("Loading...");
 }
 
 Evas_Object *GenlistItemPlaylist::getPartItem(Evas_Object *obj, string part)
@@ -87,14 +87,15 @@ void GenlistItemPlaylist::buttonClickMore()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = "Info de la <light_blue>piste #" + Utils::to_string(playlist_item + 1) + "</light_blue><br><small>Détails de la piste.</small>";
+    string title_label = _("<light_blue>Track #%1</light_blue> infos<br><small>Track details.</small>");
+    Utils::replace_str(title_label, "%1", Utils::to_string(playlist_item + 1));
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
     string infolabel;
     if (label == "")
     {
-        GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Chargement", "...");
+        GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Loading"), "...");
         it->Append(glist, header);
     }
     else
@@ -102,19 +103,19 @@ void GenlistItemPlaylist::buttonClickMore()
         if (item_infos["artist"] != "")
         {
             infolabel = item_infos["artist"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Artiste :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Artist :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["album"] != "")
         {
             infolabel = item_infos["album"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Album :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Album :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["title"] != "")
         {
             infolabel = item_infos["title"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Titre :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Title :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["duration"] != "")
@@ -122,25 +123,25 @@ void GenlistItemPlaylist::buttonClickMore()
             double dur;
             from_string(item_infos["duration"], dur);
             infolabel = Utils::time2string_digit((long)dur);
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Durée :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Duration :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["genre"] != "")
         {
             infolabel = item_infos["genre"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Genre :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Genre :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["type"] != "")
         {
             infolabel = item_infos["type"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Type de flux :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Stream type :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["bitrate"] != "")
         {
             infolabel = item_infos["bitrate"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Débit :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Bitrate :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["filesize"] != "")
@@ -150,29 +151,29 @@ void GenlistItemPlaylist::buttonClickMore()
             s /= 1024;
             s /= 1024;
             infolabel = Utils::to_string(s) + " Mo";
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Taille :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Size :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["samplerate"] != "")
         {
             infolabel = item_infos["samplerate"] + " Hz";
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Echantillonage :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Sampling :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["tagversion"] != "")
         {
             infolabel = item_infos["tagversion"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Version du tag :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Tag version :"), infolabel);
             it->Append(glist, header);
         }
         if (item_infos["comment"] != "")
         {
             infolabel = item_infos["comment"];
-            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, "Commentaire :", infolabel);
+            GenlistItemSimpleKeyValue *it = new GenlistItemSimpleKeyValue(evas, glist, _("Comments :"), infolabel);
             it->Append(glist, header);
         }
 
-        GenlistItemSimple *it = new GenlistItemSimple(evas, glist, "Supprimer la piste", true);
+        GenlistItemSimple *it = new GenlistItemSimple(evas, glist, _("Remove track"), true);
         it->Append(glist, header);
         it->setIcon("calaos/icons/genlist/trash");
         it->item_selected.connect(sigc::mem_fun(*this, &GenlistItemPlaylist::playlistItemDelete_cb));

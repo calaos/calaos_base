@@ -57,7 +57,7 @@ string GenlistItemAlbum::getLabelItem(Evas_Object *obj, string part)
     if (part == "album.text")
     {
         if (label_album == "")
-            return "Chargement ...";
+            return _("Loading...");
         else
             return label_album;
     }
