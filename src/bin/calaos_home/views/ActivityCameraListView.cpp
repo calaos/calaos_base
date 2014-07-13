@@ -60,15 +60,6 @@ static void _smart_cam_cb(void *data, Evas_Object *obj, void *event_info)
     evas_object_smart_callback_del(obj, "frame_decode", _smart_cam_cb);
 }
 
-static void _smart_cam_stop_cb(void *data, Evas_Object *obj, void *event_info)
-{
-    ActivityCameraObject *ac = reinterpret_cast<ActivityCameraObject *>(data);
-    if (!ac) return;
-
-    //Restart the playing of stream if it stops
-    ac->video->play();
-}
-
 void ActivityCameraListView::setCamera(Camera *camera, int position)
 {
     DELETE_NULL(cameras[position].video);
