@@ -77,6 +77,9 @@ protected:
     //special case when config was written, we need to restart calaos_server
     bool need_restart = false;
 
+    //timer to close the connection after data has been written
+    EcoreTimer *closeTimer = nullptr;
+
     void handleRequest();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);

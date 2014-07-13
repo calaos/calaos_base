@@ -326,6 +326,8 @@ void JsonApiClient::DataWritten(int size)
 {
     data_size -= size;
 
+    cDebugDom("network") << size << " bytes has been written, " << data_size << " bytes remaining";
+
     if (data_size <= 0 && need_restart)
     {
         cDebugDom("network")
@@ -339,12 +341,21 @@ void JsonApiClient::DataWritten(int size)
                 << "All data sent, close connection";
         //force all remaining data to be written before closing
         ecore_con_client_flush(client_conn);
-        CloseConnection();
+
+        //Close connection in 500ms if not closed by client. This forces the closing and
+        //has to be done because lighttpd mod_proxy keeps connection open regardless of the Connection: close header
+        if (!closeTimer)
+            closeTimer = new EcoreTimer(0.5, sigc::mem_fun(this, &JsonApiClient::CloseConnection));
+        else
+            closeTimer->Reset(0.5);
     }
 }
 
 void JsonApiClient::CloseConnection()
 {
+    DELETE_NULL(closeTimer);
+
+    cDebugDom("network") << "Closing connection";
     DELETE_NULL_FUNC(ecore_con_client_del, client_conn);
 }
 
@@ -401,6 +412,7 @@ void JsonApiClient::sendToClient(string res)
     data_size += res.length();
 
     cDebugDom("network") << res;
+    cDebugDom("network") << "Sending " << res.length() << " bytes, data_size = " << data_size;
 
     if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
     {
