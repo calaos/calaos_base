@@ -180,7 +180,7 @@ void ActivityEditScenarioView::pageNameEditName_cb(string text)
 {
     scenario_data.name = text;
     if (pageName)
-        pageName->setPartText("name.text", string(_t("Scenario name") + ": <blue>" + scenario_data.name + "</blue>");
+        pageName->setPartText("name.text", string(_("Scenario name")) + ": <blue>" + scenario_data.name + "</blue>");
 }
 
 void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
