@@ -289,7 +289,8 @@ void Room::updateVisibleIO()
         }
 
         if (io->params["gui_type"] == "camera_output" ||
-            io->params["gui_type"] == "audio_output")
+            io->params["gui_type"] == "audio_output" ||
+            io->params["gui_type"] == "avreceiver")
         {
             scenario_ios.push_back(io);
         }
@@ -1341,6 +1342,10 @@ IOActionList IOBase::getActionFromState()
     else if (params["gui_type"] == "audio_output")
     {
         ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
+    }
+    else if (params["gui_type"] == "avreceiver")
+    {
+        ac = IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE);
     }
 
     return ac;
