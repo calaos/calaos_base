@@ -194,7 +194,7 @@ void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Display scenario<br><small><light_blue>Choosea room.</light_blue></small>");
+    string title_label = _("Display scenario<br><small><light_blue>Choose a room.</light_blue></small>");
     GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
@@ -653,7 +653,7 @@ void ActivityEditScenarioView::buttonStepDelPressed(void *data, Evas_Object *_ed
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = string(_("Confirmation")) + "<br><small><light_blue>" + string(_("Are you sure to want deleting this step?")) + "</light_blue></small>";
+    string title_label = string(_("Confirmation")) + "<br><small><light_blue>" + string(_("Are you sure to delete this step?")) + "</light_blue></small>";
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
