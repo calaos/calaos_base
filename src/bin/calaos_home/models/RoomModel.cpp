@@ -1050,6 +1050,8 @@ string IOBase::getIconForIO()
         return "calaos/icons/element/simple/camera";
     else if (params["gui_type"] == "audio_output")
         return "calaos/icons/element/simple/music";
+    else if (params["gui_type"] == "avreceiver")
+        return "calaos/icons/element/simple/music";
 
     return "";
 }
