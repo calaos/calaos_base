@@ -124,7 +124,7 @@ void ActivityEditScenarioView::showStep(int step)
             pageActions->addCallback("button.step.delete", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::buttonStepDelPressed));
             pageActions->addCallback("button.*selected", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageActionsCyclePressed));
             updateCycling();
-            
+
             pageName->setPartText("home_text", _("<small><disabled>Select and add wanted items into your scenario.<br>You will then define the actions.</disabled></small>"));
             pageName->setPartText("action_text", _("<small><disabled>Modify items added to the following list. The Actions define <br>what is going to happend when the scenario is executed.</disabled></small>"));
             Evas_Object *btn = edje_object_part_external_object_get(pageName->getEvasObject(), "button.step");
@@ -180,7 +180,7 @@ void ActivityEditScenarioView::pageNameEditName_cb(string text)
 {
     scenario_data.name = text;
     if (pageName)
-        pageName->setPartText("name.text", "Nom du scénario: <blue>" + scenario_data.name + "</blue>");
+        pageName->setPartText("name.text", string(_t("Scenario name") + ": <blue>" + scenario_data.name + "</blue>");
 }
 
 void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
@@ -194,7 +194,7 @@ void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = "Visibilité du scénario<br><small><light_blue>Choisissez une pièce.</light_blue></small>";
+    string title_label = _("Display scenario<br><small><light_blue>Choosea room.</light_blue></small>");
     GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
