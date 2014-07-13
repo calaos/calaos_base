@@ -239,7 +239,8 @@ void GenlistItemScenarioAction::actionSlider(void *data, IOActionList ac)
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidClick));
     page->addCallback("slider_obj:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderSignalCallback));
     page->setDragValue("slider", action_temp.dvalue / 100.0, 0.0);
-    string t = "<b>" + _("Choose value") + "</b><br><light_blue><small>" + ac.title + "</small></light_blue>";
+    string t = "<b>";
+    t += _("Choose value") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     elm_naviframe_item_push(pager_action, NULL, NULL, NULL, page->getEvasObject(), "calaos");
@@ -266,7 +267,8 @@ void GenlistItemScenarioAction::actionNumber(void *data, IOActionList ac)
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonBackClick));
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidClick));
     page->addCallback("button.pad.*", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::numberSignalCallback));
-    string t = "<b>" + _("Choose number") + "</b><br><light_blue><small>" + ac.title + "</small></light_blue>";
+    string t = "<b>";
+    t += _("Choose number") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
     page->setPartText("value", Utils::to_string(action_temp.dvalue));
 
@@ -324,7 +326,8 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
     page->setAutoDelete(true);
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonBackClick));
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidTimeClick));
-    string t = "<b>" + _("Choose duration") + "</b><br><light_blue><small>" + ac.title + "</small></light_blue>";
+    string t = "<b>";
+    t += _("Choose duration") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     double sec = action_temp.dvalue / 1000.0;
@@ -337,7 +340,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_hours = elm_spinner_add(parent);
     elm_object_style_set(spin_hours, "calaos/time/vertical");
-    f = "%.0f<br><subtitle>" + _("Hours") + "</subtitle>";
+    f = string("%.0f<br><subtitle>") + _("Hours") + "</subtitle>";
     elm_spinner_label_format_set(spin_hours, f.c_str());
     elm_spinner_min_max_set(spin_hours, 0, 99);
     elm_spinner_step_set(spin_hours, 1);
@@ -348,7 +351,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_min = elm_spinner_add(parent);
     elm_object_style_set(spin_min, "calaos/time/vertical");
-    f = "%.0f<br><subtitle>" + _("Min.") + "</subtitle>";
+    f = string("%.0f<br><subtitle>") + _("Min.") + "</subtitle>";
     elm_spinner_label_format_set(spin_min, f.c_str());
     elm_spinner_min_max_set(spin_min, 0, 59);
     elm_spinner_step_set(spin_min, 1);
@@ -359,7 +362,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_sec = elm_spinner_add(parent);
     elm_object_style_set(spin_sec, "calaos/time/vertical");
-    f = "%.0f<br><subtitle>" + _("Sec.") + "</subtitle>";
+    f = string("%.0f<br><subtitle>") + _("Sec.") + "</subtitle>";
     elm_spinner_label_format_set(spin_sec, f.c_str());
     elm_spinner_min_max_set(spin_sec, 0, 59);
     elm_spinner_step_set(spin_sec, 1);
@@ -370,7 +373,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_ms = elm_spinner_add(parent);
     elm_object_style_set(spin_ms, "calaos/time/vertical");
-    f = "%.0f<br><subtitle>" + _("Ms.") + "</subtitle>";
+    f = string("%.0f<br><subtitle>") + _("Ms.") + "</subtitle>";
     elm_spinner_label_format_set(spin_ms, f.c_str());
     elm_spinner_min_max_set(spin_ms, 0, 999);
     elm_spinner_step_set(spin_ms, 1);
@@ -395,7 +398,8 @@ void GenlistItemScenarioAction::actionColor(void *data, IOActionList ac)
     page->addCallback("slider.green:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderGreenSignalCallback));
     page->addCallback("slider.blue:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderBlueSignalCallback));
     page->setDragValue("slider", action_temp.dvalue / 100.0, 0.0);
-    string t = "<b>" + _("Choose color") + "</b><br><light_blue><small>" + ac.title + "</small></light_blue>";
+    string t = "<b>";
+    t += _("Choose color") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     page->setDragValue("slider.red:slider", action_temp.red / 100.0, 0.0);
