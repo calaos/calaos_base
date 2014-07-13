@@ -104,6 +104,21 @@ void AudioModel::load_audio_done(AudioPlayer *audio)
     }
 }
 
+AudioPlayer *AudioModel::getForId(string id)
+{
+    if (id == "")
+        return nullptr;
+
+    for (AudioPlayer *pl: players)
+    {
+        if (pl->params["input_id"] == id ||
+            pl->params["output_id"] == id)
+            return pl;
+    }
+
+    return nullptr;
+}
+
 void AudioPlayer::audio_get_cb(bool success, vector<string> result, void *data)
 {
     for (uint b = 2;b < result.size();b++)

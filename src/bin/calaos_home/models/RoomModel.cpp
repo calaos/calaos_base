@@ -1211,6 +1211,32 @@ vector<IOActionList> IOBase::getActionList()
         v.push_back(IOActionList("sleep %1", "Eteindre la zone dans X secondes (sleep mode)", "Eteindre la zone dans %1% secondes (sleep mode)", IOActionList::ACTION_NUMBER));
         //TODO: playlist/song selection and playing here
     }
+    else if (params["gui_type"] == "avreceiver")
+    {
+        v.push_back(IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("power off", _("Power Off"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("volume %1", _("Change volume"), _("Change volume to %1%"), IOActionList::ACTION_SLIDER));
+
+        cout << params.toString() << endl;
+
+        AudioPlayer *player = CalaosModel::Instance().getAudio()->getForId(params["id"]);
+        if (player)
+        {
+            map<int, string> inputs = player->getInputSources();
+            map<int, string>::iterator it = inputs.begin();
+
+            for (;it != inputs.end();it++)
+            {
+                int source_id = (*it).first;
+                string input_name = (*it).second;
+
+                string src_action = "source " + Utils::to_string(source_id);
+                string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
+
+                v.push_back(IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE));
+            }
+        }
+    }
 
     return v;
 }
