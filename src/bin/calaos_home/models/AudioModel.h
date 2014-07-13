@@ -62,8 +62,6 @@ private:
 
     Params db_stats;
 
-    map<int, string> amplifier_inputs;
-
     string itemTypeToString(int type);
     int itemStringToType(string type);
 
@@ -85,9 +83,6 @@ private:
     void db_default_item_list_get_cb(bool success, vector<string> result, void *data);
 
     void db_album_track_count_get_cb(bool success, vector<string> result, void *data);
-
-    void getInputSource_cb(bool success, vector<string> result, void *data);
-    void getAmpStates_cb(bool success, vector<string> result, void *data);
 
 public:
     AudioPlayer(CalaosConnection *c):
@@ -143,7 +138,6 @@ public:
 
     //Amplifier
     IOBase *getAmplifier();
-    map<int, string> getInputSources() { return amplifier_inputs; }
     string getAmplifierStatus(string key);
 
     //Database queries

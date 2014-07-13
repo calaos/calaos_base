@@ -213,6 +213,37 @@ void Room::load_io_done(IOBase *io)
         io->loadPlage();
     }
 
+    if (_type == "avreceiver")
+    {
+        io->sendUserCommand("states?", [=](bool success, vector<string> result, void *data)
+        {
+            if (!success) return;
+
+            for (unsigned int i = 2;i < result.size();i++)
+            {
+                vector<string> tok;
+                split(result[i], tok, ":", 2);
+
+                io->params.Add(tok[0], tok[1]);
+            }
+        });
+        io->sendUserCommand("query input_sources ?", [=](bool success, vector<string> result, void *data)
+        {
+            if (!success) return;
+
+            io->amplifier_inputs.clear();
+            for (unsigned int i = 4;i < result.size();i++)
+            {
+                vector<string> tok;
+                int num;
+                split(result[i], tok, ":", 2);
+                from_string(tok[0], num);
+
+                io->amplifier_inputs[num] = tok[1];
+            }
+        });
+    }
+
     if (io_loaded <= 0)
     {
         ios.sort(IOHitsCompare);
@@ -1219,22 +1250,17 @@ vector<IOActionList> IOBase::getActionList()
 
         cout << params.toString() << endl;
 
-        AudioPlayer *player = CalaosModel::Instance().getAudio()->getForId(params["id"]);
-        if (player)
+        map<int, string>::iterator it = amplifier_inputs.begin();
+
+        for (;it != amplifier_inputs.end();it++)
         {
-            map<int, string> inputs = player->getInputSources();
-            map<int, string>::iterator it = inputs.begin();
+            int source_id = (*it).first;
+            string input_name = (*it).second;
 
-            for (;it != inputs.end();it++)
-            {
-                int source_id = (*it).first;
-                string input_name = (*it).second;
+            string src_action = "source " + Utils::to_string(source_id);
+            string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
 
-                string src_action = "source " + Utils::to_string(source_id);
-                string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
-
-                v.push_back(IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE));
-            }
+            v.push_back(IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE));
         }
     }
 
@@ -1464,6 +1490,38 @@ IOActionList IOBase::getActionListFromAction(string action)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
         //TODO: playlist/song selection and playing here
+    }
+    else if (params["gui_type"] == "avreceiver")
+    {
+        if (tokens[0] == "power on") ac = IOActionList("power on", _("Power On"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "power off") ac = IOActionList("power off", _("Power Off"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "volume")
+        {
+            ac = IOActionList("volume %1", _("Change volume"), _("Change volume to %1%"), IOActionList::ACTION_SLIDER);
+            from_string(tokens[tokens.size() - 1], ac.dvalue);
+        }
+        else if (tokens[0] == "source")
+        {
+            int inputid;
+            from_string(tokens[tokens.size() - 1], inputid);
+
+            map<int, string>::iterator it = amplifier_inputs.begin();
+
+            for (;it != amplifier_inputs.end();it++)
+            {
+                int source_id = (*it).first;
+                string input_name = (*it).second;
+
+                string src_action = "source " + Utils::to_string(source_id);
+                string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
+
+                if (inputid == source_id)
+                {
+                    ac = IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE);
+                    break;
+                }
+            }
+        }
     }
 
     return ac;

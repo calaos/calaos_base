@@ -149,13 +149,6 @@ void AudioPlayer::audio_get_cb(bool success, vector<string> result, void *data)
     cmd = "audio " + params["num"] + " database stats?";
     connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 
-    IOBase *amp = getAmplifier();
-    if (amp)
-    {
-        amp->sendUserCommand("states?", sigc::mem_fun(*this, &AudioPlayer::getAmpStates_cb));
-        amp->sendUserCommand("query input_sources ?", sigc::mem_fun(*this, &AudioPlayer::getInputSource_cb));
-    }
-
     load_done.emit(this);
 }
 
@@ -802,38 +795,6 @@ IOBase *AudioPlayer::getAmplifier()
         return NULL;
 
     return (*it).second;
-}
-
-void AudioPlayer::getInputSource_cb(bool success, vector<string> result, void *data)
-{
-    if (!success) return;
-
-    amplifier_inputs.clear();
-    for (unsigned int i = 4;i < result.size();i++)
-    {
-        vector<string> tok;
-        int num;
-        split(result[i], tok, ":", 2);
-        from_string(tok[0], num);
-
-        amplifier_inputs[num] = tok[1];
-    }
-}
-
-void AudioPlayer::getAmpStates_cb(bool success, vector<string> result, void *data)
-{
-    if (!success) return;
-
-    IOBase *amp = getAmplifier();
-    if (!amp) return;
-
-    for (unsigned int i = 2;i < result.size();i++)
-    {
-        vector<string> tok;
-        split(result[i], tok, ":", 2);
-
-        amp->params.Add(tok[0], tok[1]);
-    }
 }
 
 string AudioPlayer::getAmplifierStatus(string key)

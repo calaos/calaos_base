@@ -627,7 +627,8 @@ void ActivityPlayerObject::amplifierClick_cb(void *data, Evas_Object *_edje, std
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    map<int, string> inputs = player->getInputSources();
+    map<int, string> inputs;
+    if (player->getAmplifier()) inputs = player->getAmplifier()->amplifier_inputs;
     map<int, string>::iterator it = inputs.begin();
 
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, "Source d'entrée");

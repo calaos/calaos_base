@@ -147,6 +147,9 @@ public:
 
     TimeRangeInfos range_infos;
 
+    //AVReceiver specifiv functions
+    map<int, string> amplifier_inputs;
+
     //signals
     sigc::signal<void, IOBase *> load_done;
     sigc::signal<void> io_changed;
