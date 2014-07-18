@@ -47,10 +47,10 @@ TimeRange::TimeRange(string proto):
     ehour = tokens[6];
     emin = tokens[7];
     esec = tokens[8];
-    from_string(tokens[9], start_type);
-    from_string(tokens[10], start_offset);
-    if (start_offset < 0) start_offset = -1;
-    if (start_offset >= 0) start_offset = 1;
+    from_string(tokens[9], end_type);
+    from_string(tokens[10], end_offset);
+    if (end_offset < 0) end_offset = -1;
+    if (end_offset >= 0) end_offset = 1;
 }
 
 bool TimeRange::operator==(const TimeRange &other) const
