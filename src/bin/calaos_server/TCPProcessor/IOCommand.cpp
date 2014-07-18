@@ -433,17 +433,17 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 for (int i = 4;i < request.size();i++)
                 {
                     string sched = request[Utils::to_string(i)];
-                    vector<TimeRange> h;
                     TimeRange tr(sched);
-                    h.push_back(tr);
 
-                    if (sched[0] == '1') plage->AddLundi(h);
-                    if (sched[0] == '2') plage->AddMardi(h);
-                    if (sched[0] == '3') plage->AddMercredi(h);
-                    if (sched[0] == '4') plage->AddJeudi(h);
-                    if (sched[0] == '5') plage->AddVendredi(h);
-                    if (sched[0] == '6') plage->AddSamedi(h);
-                    if (sched[0] == '7') plage->AddDimanche(h);
+                    cDebugDom("network") << "New range: " << sched << "  --> " << tr.toString();
+
+                    if (sched[0] == '1') plage->AddLundi(tr);
+                    if (sched[0] == '2') plage->AddMardi(tr);
+                    if (sched[0] == '3') plage->AddMercredi(tr);
+                    if (sched[0] == '4') plage->AddJeudi(tr);
+                    if (sched[0] == '5') plage->AddVendredi(tr);
+                    if (sched[0] == '6') plage->AddSamedi(tr);
+                    if (sched[0] == '7') plage->AddDimanche(tr);
 
                     request[Utils::to_string(i)] = "";
                 }
