@@ -357,6 +357,9 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
         return;
     }
 
+    cDebugDom("scenario") << "Saving Scenario schedule: ";
+    cout << tr.toString();
+
     string cmd = "input " + ioSchedule->params["id"] + " plage set";
 
     auto addRange = [=,&cmd](vector<TimeRange> &ranges, int day)

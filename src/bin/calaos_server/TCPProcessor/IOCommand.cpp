@@ -437,13 +437,13 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                     TimeRange tr(sched);
                     h.push_back(tr);
 
-                    if (sched[0] == '1') plage->setLundi(h);
-                    if (sched[0] == '2') plage->setMardi(h);
-                    if (sched[0] == '3') plage->setMercredi(h);
-                    if (sched[0] == '4') plage->setJeudi(h);
-                    if (sched[0] == '5') plage->setVendredi(h);
-                    if (sched[0] == '6') plage->setSamedi(h);
-                    if (sched[0] == '7') plage->setDimanche(h);
+                    if (sched[0] == '1') plage->AddLundi(h);
+                    if (sched[0] == '2') plage->AddMardi(h);
+                    if (sched[0] == '3') plage->AddMercredi(h);
+                    if (sched[0] == '4') plage->AddJeudi(h);
+                    if (sched[0] == '5') plage->AddVendredi(h);
+                    if (sched[0] == '6') plage->AddSamedi(h);
+                    if (sched[0] == '7') plage->AddDimanche(h);
 
                     request[Utils::to_string(i)] = "";
                 }
