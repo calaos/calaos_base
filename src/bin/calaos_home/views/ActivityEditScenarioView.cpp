@@ -103,10 +103,6 @@ void ActivityEditScenarioView::showStep(int step)
             updateVisibility();
 
             pageName->setPartText("title_step.2", _("<big>Scenario creation or modification</big><br><br><small><disabled>Use the following field to enter the name of your scenario to find it <br>quickly. Also, choose the visibility of you scenario.</disabled></small>"));
-
-            pageName->setPartText("name.text", _("Scenario name: <blue>My new scenario</blue>"));
-            pageName->setPartText("visible.text", _("Display in interface: <blue>Enabled</blue>"));
-
         }
         elm_naviframe_item_push(pager_step, NULL, NULL, NULL, pageName->getEvasObject(), "calaos");
     }
