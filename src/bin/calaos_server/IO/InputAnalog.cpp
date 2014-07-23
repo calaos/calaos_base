@@ -64,12 +64,12 @@ void InputAnalog::readConfig()
       wago_value_max = 0.0;
 
     if (get_params().Exists("coeff_a"))
-      Utils::from_string(get_param("coeff_b"), coeff_a);
+      Utils::from_string(get_param("coeff_a"), coeff_a);
     else 
       coeff_a = 1.0;
 
     if (get_params().Exists("coeff_b"))
-      Utils::from_string(get_param("coeff_a"), coeff_b);
+      Utils::from_string(get_param("coeff_b"), coeff_b);
     else
       coeff_b = 0.0;
 
