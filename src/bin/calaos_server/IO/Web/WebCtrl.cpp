@@ -150,7 +150,8 @@ string WebCtrl::getValueJson(string path, string filename)
                 if (val[0] == '[')
                 {
                     int idx;
-                    // Remove last char
+                    // Remove first and last char
+                    val.erase(0, 1);
                     val.pop_back();
                     // Read array index
                     from_string(val, idx);
