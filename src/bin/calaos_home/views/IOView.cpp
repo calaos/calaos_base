@@ -136,6 +136,8 @@ IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *paren
         element = new IOWOAnalogHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "string_out")
         element = new IOWOStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
+    else if (io->params["gui_type"] == "string_in")
+        element = new IOWOStringHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "temp")
         element = new IOWITempHomeView(evas, parent, io, style_addition, ELM_GENLIST_ITEM_NONE);
     else if (io->params["gui_type"] == "shutter")
