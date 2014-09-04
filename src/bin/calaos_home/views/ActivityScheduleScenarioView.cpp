@@ -263,13 +263,13 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
     GenlistItemSimpleHeader *header = NULL;
     if (editState == EDIT_START_TYPE)
     {
-        title_label = _("Start of schedulling<br><small><light_blue>Start time of the scenario</light_blue></small>");
+        title_label = _("Schedule start time<br><small><light_blue>Start time of the scenario</light_blue></small>");
         header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
     }
     else
     {
-        title_label = _("End of schedulling<br><small><light_blue>End time of the scenario</light_blue></small>");
+        title_label = _("Schedule stop<br><small><light_blue>End time of the scenario</light_blue></small>");
         header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
         header->Append(glist);
         header->setButtonLabel("button.back", _("Start"));
@@ -345,7 +345,7 @@ void ActivityScheduleScenarioView::selectTimeType(void *data)
         string title_label = _("<b>Offset time</b><br><light_blue><small>You can choose to shift the sun time</small></light_blue>");
         GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
         header->Append(glist);
-        header->setButtonLabel("button.back", "Début");
+        header->setButtonLabel("button.back", _("Beginning"));
         header->button_click.connect(sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonHeaderBackClick));
 
         GenlistItemSimple *item = NULL;
@@ -451,13 +451,13 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
         page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::showWeekSelection));
     string t;
     if (editState == EDIT_START_TIME)
-        t = _("<b>Choose a scheduling</b><br><light_blue><small>Start time of scenario</small></light_blue>");
+        t = _("<b>Choose a schedule</b><br><light_blue><small>Start time of scenario</small></light_blue>");
     else if (editState == EDIT_END_TIME)
-        t = _("<b>Choose a scheduling</b><br><light_blue><small>End time of scenario</small></light_blue>");
+        t = _("<b>Choose a schedule</b><br><light_blue><small>End time of scenario</small></light_blue>");
     else if (editState == EDIT_START_TIME_OFFSET)
-        t = _("<b>Choose a time shift</b><br><light_blue><small>Shifting start of scenario</small></light_blue>");
+        t = _("<b>Choose a time shift</b><br><light_blue><small>Shifting offset of scenario</small></light_blue>");
     else if (editState == EDIT_END_TIME_OFFSET)
-        t = _("<b>Choose a time shift</b><br><light_blue><small>Shifteng end of scenario</small></light_blue>");
+        t = _("<b>Choose a time shift</b><br><light_blue><small>Shifting offset of scenario</small></light_blue>");
     page->setPartText("text", t);
 
     int hour_value, min_value, sec_value;
@@ -736,7 +736,7 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
 
             Evas_Object *popup_del = elm_ctxpopup_add(parent);
 
-            GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete this schedule"), true);
+            GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete it"), true);
             _item->Append(glist, header);
             _item->item_selected.connect([=](void *)
             {

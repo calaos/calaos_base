@@ -77,7 +77,7 @@ ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
     elm_object_text_set(btn, _("Quit"));
 
     btn = edje_object_part_external_object_get(edje, "button.save_room");
-    elm_object_text_set(btn, _("Save state of the room"));
+    elm_object_text_set(btn, _("Save room state"));
 
     addCallback("home", "*", sigc::mem_fun(*this, &ActivityHomeView::EdjeCallback));
     addCallback("button.back", "pressed", sigc::mem_fun(*this, &ActivityHomeView::BackToMainViewCb));
@@ -443,18 +443,18 @@ void ActivityHomeView::addStatusPage()
 {
     pageStatus = new EdjeObject(theme, evas);
     pageStatus->LoadEdje("calaos/page/home/status");
-    pageStatus->setPartText("title", _("State of the House : <light_blue>Normal</light_blue><br><small>Informations concerning your House</small>"));
+    pageStatus->setPartText("title", _("House state : <light_blue>Normal</light_blue><br><small>Informations about your house</small>"));
     pageStatus->setAutoDelete(true);
     
     Evas_Object *edj = pageStatus->getEvasObject();
     Evas_Object *btn = edje_object_part_external_object_get(edj, "button.lights_off");
-    elm_object_text_set(btn, _("All lights off"));
+    elm_object_text_set(btn, _("Switch lights off"));
 
     btn = edje_object_part_external_object_get(edj, "button.lights_info");
     elm_object_text_set(btn, _("More infos"));
 
     btn = edje_object_part_external_object_get(edj, "button.shutters_down");
-    elm_object_text_set(btn, _("All shutters closed"));
+    elm_object_text_set(btn, _("Close all shutters"));
 
     btn = edje_object_part_external_object_get(edj, "button.shutters_info");
     elm_object_text_set(btn, _("More infos"));

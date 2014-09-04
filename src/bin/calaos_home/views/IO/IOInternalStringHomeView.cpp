@@ -98,7 +98,7 @@ void IOInternalStringHomeView::buttonClickText()
 {
     if (!io) return;
 
-    ApplicationMain::Instance().ShowKeyboard("Changer la valeur",
+    ApplicationMain::Instance().ShowKeyboard(_("Change value"),
                                              sigc::mem_fun(*this, &IOInternalStringHomeView::changeTextCb),
                                              false);
 }

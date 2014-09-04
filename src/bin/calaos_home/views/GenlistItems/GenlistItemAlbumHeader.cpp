@@ -47,7 +47,7 @@ string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, string part)
 
     if (part == "text")
     {
-        string album = _("Unkown album");
+        string album = _("Unknown album");
         if (album_infos.Exists("name")) album = album_infos["name"];
         text = album;
     }
@@ -56,28 +56,28 @@ string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, string part)
         if (album_infos.Exists("artist"))
             text = album_infos["artist"];
         else
-            text = "Na";
+            text = _("Na");
     }
     else if (part == "text.album")
     {
         if (album_infos.Exists("name"))
             text = album_infos["name"];
         else
-            text = "Na";
+            text = _("Na");
     }
     else if (part == "text.year")
     {
         if (album_infos.Exists("year"))
             text = album_infos["year"];
         else
-            text = "Na";
+            text = _("Na");
     }
     else if (part == "text.count")
     {
         if (album_infos.Exists("count"))
             text = album_infos["count"];
         else
-            text = "Na";
+            text = _("Na");
     }
 
     return text;
@@ -100,7 +100,7 @@ Evas_Object *GenlistItemAlbumHeader::getPartItem(Evas_Object *obj, string part)
     {
         o = elm_button_add(parent);
         elm_object_style_set(o, "calaos/action_button/label");
-        elm_object_text_set(o, "Ajouter");
+        elm_object_text_set(o, _("Add"));
         evas_object_smart_callback_add(o, "clicked", _item_button_Add, this);
     }
     else if (part == "calaos.cover")

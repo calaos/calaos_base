@@ -97,7 +97,7 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
         icon = elm_icon_add(list);
         elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/widget");
         elm_image_resizable_set(icon, true, true);
-        item_config_addwidget = elm_list_item_append(list, _("Add new widget."), icon, NULL, _item_addwidget_cb, this);
+        item_config_addwidget = elm_list_item_append(list, _("Add a widget."), icon, NULL, _item_addwidget_cb, this);
 
         icon = elm_icon_add(list);
         elm_image_file_set(icon, ApplicationMain::getTheme(), "calaos/icons/widget");
@@ -128,7 +128,7 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
             int val;
             from_string(Utils::get_config_option("dpms_standby"), val);
 
-            string _t = "Auto: " + Utils::time2string(val);
+            string _t = _("Auto: ") + Utils::time2string(val);
             edje_object_part_text_set(elm_list_item_object_get(item_sleep_screen), "object.more_infos",
                                       _t.c_str());
         }

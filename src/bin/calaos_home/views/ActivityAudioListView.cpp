@@ -104,13 +104,13 @@ void ActivityAudioListView::createRootBrowserPage()
     obj = createRootButton(_("Years"), _("Sort songs by year."), stats["years"], 1, 0);
     obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowYears));
 
-    obj = createRootButton(_("Genre"), "Afficher les titres par genres.", stats["genres"], 1, 1);
+    obj = createRootButton(_("Genre"), _("Show titles by genre."), stats["genres"], 1, 1);
     obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowGenres));
 
-    obj = createRootButton(_("Music Directory"), "Navigate your music library by directory.", "", 2, 0);
+    obj = createRootButton(_("Music Directory"), _("Browse your music library by directory."), "", 2, 0);
     obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowFolders));
 
-    obj = createRootButton(_("Playlists"), "Your saved playlists", stats["playlists"], 2, 1);
+    obj = createRootButton(_("Playlists"), _("Your saved playlists."), stats["playlists"], 2, 1);
     obj->addCallback("button", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserShowPlaylists));
 
     obj = createRootButton(_("Radios"), _("Web radios web and online service."), "", 3, 0);

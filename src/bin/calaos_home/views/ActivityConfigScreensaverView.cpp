@@ -38,7 +38,7 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
     setPartText("tab2.text.detail", _("About : <light_blue>Calaos products</light_blue><br><small>Touchscreen solutions.</small>"));
 
     setPartText("module_screen", _("Configure power management settings"));
-    setPartText("module_screen_desc", _("Enable if you want to activate automatic screen blanking and the delay after wich the screen will be turned off. You can also ask for a password when the screen is turned on again."));
+    setPartText("module_screen_desc", _("Enable if you want to activate automatic screen blanking and the delay after which the screen will be turned off. You can also ask for a password when the screen is turned on again."));
     setPartText("tab1.title_icon", _("TouchScreen"));
     setPartText("tab1.subtitle_icon", _("TouchScreen configuration."));
     setPartText("tab2.web.label", _("Web Site : "));

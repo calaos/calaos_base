@@ -104,11 +104,11 @@ void GenlistItemScenarioAction::buttonClickEdit()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Edit element<br><small><light_blue>Choose the action that will be executed</light_blue></small>");
+    string title_label = _("Edit element<br><small><light_blue>Choose action that will be executed</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
-    GenlistItemSimple *del_item = new GenlistItemSimple(evas, glist, "Supprimer cette action", true);
+    GenlistItemSimple *del_item = new GenlistItemSimple(evas, glist, _("Remove action"), true);
     del_item->Append(glist, header);
     del_item->setIcon("calaos/icons/genlist/trash");
     del_item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioAction::deleteItemSelected));

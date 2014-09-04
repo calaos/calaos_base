@@ -23,7 +23,7 @@
 ActivityConfigView::ActivityConfigView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/config")
 {
-    setPartText("header.label", "Centre de configuration");
+    setPartText("header.label", _("Control Panel"));
 
     contentView = new MainContentView(evas, parent);
     Swallow(contentView->getSmartObject(), "calaos.main.content");

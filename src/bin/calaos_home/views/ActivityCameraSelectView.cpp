@@ -208,11 +208,11 @@ void ActivityCameraSelectView::buttonSavePositionClick()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, "Sauver la <light_blue>position actuelle</light_blue><br><small>Sélectionnez une position.</small>");
+    GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, _("Save the <light_blue>actual position</light_blue><br><small>Choose a position.</small>"));
     header->Append(glist);
     for (int i = 0;i < 8;i++)
     {
-        string label = "Position " + Utils::to_string(i + 1);
+        string label = _("Position") + " " + Utils::to_string(i + 1);
         int *user_data = new int(i + 1);
         GenlistItemSimple *item  = new GenlistItemSimple(evas, glist, label, true, false, user_data);
         item->Append(glist, header);
@@ -241,7 +241,7 @@ void ActivityCameraSelectView::positionSelected(void *data)
 {
     int *user_data = reinterpret_cast<int *>(data);
     int position = *user_data;
-    string text = "<center>Sauvegarde à la <light_blue>position #" + Utils::to_string(position) + "</light_blue></center>";
+    string text = _("<center>Save to <light_blue>position #") + Utils::to_string(position) + "</light_blue></center>";
 
     camera->Save(position);
 

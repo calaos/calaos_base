@@ -43,7 +43,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     setPartText("tab1.version.label", _("Product Version: "));
     setPartText("tab1.version", PACKAGE_VERSION);
     setPartText("tab1.last_update.label", _("Last update: "));
-    setPartText("tab1.last_update", "N/a");
+    setPartText("tab1.last_update", _("Na"));
     setPartText("tab1.uptime.label", _("System started since : "));
 
     struct sysinfo info;

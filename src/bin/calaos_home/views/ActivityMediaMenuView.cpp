@@ -59,22 +59,22 @@ void ActivityMediaMenuView::addIcon(int position, string type)
         if (type == "music")
         {
             obj->setPartText("item_title", _("Your Music"));
-            obj->setPartText("item_description", _("Access you media library"));
+            obj->setPartText("item_description", _("Access your media library"));
         }
         else if (type == "camera")
         {
             obj->setPartText("item_title", _("CCTV"));
-            obj->setPartText("item_description", _("Drive all you cctv cameras"));
+            obj->setPartText("item_description", _("Drive all your cctv cameras"));
         }
         else if (type == "photos")
         {
             obj->setPartText("item_title", _("Flickr"));
-            obj->setPartText("item_description", _("Look at pictures"));
+            obj->setPartText("item_description", _("Browse your pictures"));
         }
         else if (type == "web")
         {
             obj->setPartText("item_title", _("Internet"));
-            obj->setPartText("item_description", _("Go and surf the web"));
+            obj->setPartText("item_description", _("Go surf the web"));
         }
         else if (type == "eskiss")
         {

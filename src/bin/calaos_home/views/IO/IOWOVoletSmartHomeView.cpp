@@ -151,23 +151,24 @@ string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
         int percent = io->getPercentVoletSmart();
 
         if (percent == 0)
-            text = "Etat : <light_blue>Ouvert.</light_blue>";
+            text = _("State: <light_blue>Open.</light_blue>");
         else if (percent > 0 && percent < 50)
-            text = "Etat : <light_blue>Ouvert à " + Utils::to_string(percent) + "%.</light_blue>";
+            text = _("State: <light_blue>%1% open.</light_blue>");
         else if (percent >= 50 && percent < 100)
-            text = "Etat : <light_blue>Fermé à " + Utils::to_string(percent) + "%.</light_blue>";
+            text = ("State: <light_blue>%1% closed.</light_blue>");
         else if (percent == 100)
-            text = "Etat : <light_blue>Fermé.</light_blue>";
+            text = _("State: <light_blue>Closed.</light_blue>");
+        Utils::replace_str(text, "%1", Utils::to_string(percent));
     }
     else if (part == "shutter.action")
     {
         string status = io->getStatusVoletSmart();
         if (status == "stop" || status == "")
-            text = "Action : <light_blue>Arrêté</light_blue>";
+            text = "Action: <light_blue>Stopped.</light_blue>";
         else if (status == "down")
-            text = "Action : <light_blue>Fermeture.</light_blue>";
+            text = "Action: <light_blue>Closing.</light_blue>";
         else if (status == "up")
-            text = "Action : <light_blue>Ouverture.</light_blue>";
+            text = "Action: <light_blue>Opening.</light_blue>";
     }
 
     return text;

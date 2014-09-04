@@ -87,7 +87,7 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
 
 void ActivityCameraListView::disableCamera(int position)
 {
-    setPartText("camera.title." + Utils::to_string(position + 1), "Aucune caméra");
+    setPartText("camera.title." + Utils::to_string(position + 1), _("No camera"));
     EmitSignal("hide,picture," + Utils::to_string(position + 1), "calaos");
 
     DELETE_NULL(cameras[position].video);

@@ -67,7 +67,7 @@ void ActivityPlayerObject::resetPlayer()
     object->setPartText("player.artist", _("None"));
     object->setPartText("player.album", _("None"));
     object->setPartText("player.title", _("None"));
-    object->setPartText("player.year", "Na");
+    object->setPartText("player.year", _("Na"));
     object->setPartText("player.duration", "0:00");
 
     object->EmitSignal("player,stop", "calaos");
@@ -76,11 +76,11 @@ void ActivityPlayerObject::resetPlayer()
     {
         small_player->setPartText("player.name", _("No zone"));
         small_player->setPartText("player.volume", "0%");
-        small_player->setPartText("player.type", "Na");
+        small_player->setPartText("player.type", _("Na"));
         small_player->setPartText("player.artist", _("None"));
         small_player->setPartText("player.album", _("None"));
         small_player->setPartText("player.title", _("None"));
-        small_player->setPartText("player.year", "Na");
+        small_player->setPartText("player.year", _("Na"));
         small_player->setPartText("player.duration", "0:00");
 
         small_player->EmitSignal("player,stop", "calaos");

@@ -202,15 +202,15 @@ void Widget::Callback(Evas_Object *edj, std::string emission, std::string source
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
-        string title_label = _("Confirmation<br><small><light_blue>Are you sure to want delete this widget?</light_blue></small>");
+        string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this widget?</light_blue></small>");
         GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
 
-        GenlistItemSimple *item = new GenlistItemSimple(evas, parent, _("Yes, del this widget"), true);
+        GenlistItemSimple *item = new GenlistItemSimple(evas, parent, _("Yes, delete it"), true);
         item->Append(glist, header);
         item->item_selected.connect(sigc::mem_fun(*this, &Widget::deleteValid));
 
-        item = new GenlistItemSimple(evas, parent, "Non", true);
+        item = new GenlistItemSimple(evas, parent, _("No"), true);
         item->Append(glist, header);
         item->item_selected.connect(sigc::mem_fun(*this, &Widget::deleteCancel));
 

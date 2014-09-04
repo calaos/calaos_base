@@ -79,7 +79,7 @@ Evas_Object *GenlistItemPlaylistHeader::getPartItem(Evas_Object *obj, string par
     {
         o = elm_button_add(parent);
         elm_object_style_set(o, "calaos/action_button/label");
-        elm_object_text_set(o, "Supprimer");
+        elm_object_text_set(o, _("Remove"));
         evas_object_smart_callback_add(o, "clicked", _item_button_Del, this);
     }
 

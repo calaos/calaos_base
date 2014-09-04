@@ -234,7 +234,7 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
-    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete scenario"), true);
+    GenlistItemSimple *_item = new GenlistItemSimple(evas, parent, _("Yes, delete it"), true);
     _item->Append(glist, header);
     _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::deleteScenarioValid));
 

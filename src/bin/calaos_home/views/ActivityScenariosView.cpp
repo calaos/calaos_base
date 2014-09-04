@@ -26,7 +26,7 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/scenarios"),
     view_mode(VIEW_MODE_ALL)
 {
-    setPartText("header.label", "Gestion des scénarios");
+    setPartText("header.label", _("Scenario management"));
 
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityScenariosView::buttonPressed));
 
