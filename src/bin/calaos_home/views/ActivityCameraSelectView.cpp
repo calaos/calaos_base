@@ -212,7 +212,8 @@ void ActivityCameraSelectView::buttonSavePositionClick()
     header->Append(glist);
     for (int i = 0;i < 8;i++)
     {
-        string label = _("Position") + " " + Utils::to_string(i + 1);
+        string label = _("Position %1");
+        Utils::replace_str(label, "%1", Utils::to_string(i + 1));
         int *user_data = new int(i + 1);
         GenlistItemSimple *item  = new GenlistItemSimple(evas, glist, label, true, false, user_data);
         item->Append(glist, header);
@@ -241,7 +242,8 @@ void ActivityCameraSelectView::positionSelected(void *data)
 {
     int *user_data = reinterpret_cast<int *>(data);
     int position = *user_data;
-    string text = _("<center>Save to <light_blue>position #") + Utils::to_string(position) + "</light_blue></center>";
+    string text = _("<center>Save to <light_blue>position #%1</light_blue></center>");
+    Utils::replace_str(text, "%1", Utils::to_string(position));
 
     camera->Save(position);
 
