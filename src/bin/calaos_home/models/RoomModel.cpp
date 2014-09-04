@@ -1160,89 +1160,89 @@ vector<IOActionList> IOBase::getActionList()
     }
     else if (params["gui_type"] == "light_rgb")
     {
-        v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("set %1", "Choisir une couleur", "Mettre la couleur", IOActionList::ACTION_COLOR));
-        v.push_back(IOActionList("set_red %1", "Choisir l'intensité du rouge", "Mettre le rouge à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("up_red %1", "Augmenter le rouge de X pourcent", "Augmenter le rouge de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("down_red %1", "Baisser le rouge de X pourcent", "Baisser le rouge de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("set_green %1", "Choisir l'intensité du vert", "Mettre le vert à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("up_green %1", "Augmenter le vert", "Augmenter le vert de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("down_green %1", "Baisser le vert", "Baisser le vert de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("set_blue %1", "Choisir l'intensité du bleu", "Mettre le bleu à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("up_blue %1", "Augmenter le blue", "Augmenter le bleu de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("down_blue %1", "Baisser le blue", "Baisser le bleu de %1%", IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("set %1", _("Choose color"), _("Set color"), IOActionList::ACTION_COLOR));
+        v.push_back(IOActionList("set_red %1", _("Choose red brightness"), _("Set red to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("up_red %1", _("Increase red for X percent"), _("Increase red for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("down_red %1", _("Decrease red for X percent"), _("Decrease red for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("set_green %1", _("Choose green brightness"), _("Set green to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("up_green %1", _("Increase green for X percent"), _("Increase green for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("down_green %1", _("Decrease green for X percent"), _("Decrease green for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("set_blue %1", _("Choose blue brightness"), _("Set blue to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("up_blue %1", _("Increase blue for X percent"), _("Increase blue for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("down_blue %1", _("Decrease blue for X percent"), _("Decrease blue for %1%"), IOActionList::ACTION_NUMBER));
     }
     else if (params["gui_type"] == "shutter")
     {
-        v.push_back(IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("stop", "Arrêter le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état du volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("impulse up %1", "Impulsion sur la montée", "Monter le volet de %1", IOActionList::ACTION_TIME_MS));
-        v.push_back(IOActionList("impulse down %1", "Impulsion sur la descente", "Descendre le volet de %1", IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("down", _("Close shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("stop", _("Stop shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle shutter state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("impulse up %1", _("Impulse up"), _("Open shutter for %1"), IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("impulse down %1", _("Impulse down"), _("Close shutter for %1"), IOActionList::ACTION_TIME_MS));
     }
     else if (params["gui_type"] == "shutter_smart")
     {
-        v.push_back(IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("stop", "Arrêter le volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état du volet", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("set %1", "Mettre le volet à une position", "Mettre le volet à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("up %1", "Monter le volet de X pourcent", "Monter le volet de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("down %1", "Descendre le volet de X pourcent", "Descendre le volet de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("calibrate", "Lancer la calibration", IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("down", _("Close shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("stop", _("Stop shutter"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle shutter state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("set %1", _("Set shutter to a position"), _("Set shutter to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("up %1", _("Open shutter for X percent"), _("Open shutter for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("down %1", _("Close shutter for X percent"), _("Close shutter for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("calibrate", _("Start shutter calibration"), IOActionList::ACTION_SIMPLE));
     }
     else if (params["gui_type"] == "analog_out")
     {
-        v.push_back(IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("%1", _("Set value"), _("Set value to %1"), IOActionList::ACTION_NUMBER));
     }
     else if (params["gui_type"] == "scenario")
     {
-        v.push_back(IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("true", _("Execute scenario"), IOActionList::ACTION_SIMPLE));
         if (params["auto_scenario"] != "")
-            v.push_back(IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE));
+            v.push_back(IOActionList("false", _("Stop scenario"), IOActionList::ACTION_SIMPLE));
     }
     else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
     {
-        v.push_back(IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT));
+        v.push_back(IOActionList("%1", _("Set text"), _("Set text to '%1'"), IOActionList::ACTION_TEXT));
     }
     else if (params["gui_type"] == "var_int")
     {
-        v.push_back(IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("%1", _("Set value"), _("Set value to %1"), IOActionList::ACTION_NUMBER));
     }
     else if (params["gui_type"] == "var_bool")
     {
-        v.push_back(IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter l'état", IOActionList::ACTION_TIME_MS));
-        v.push_back(IOActionList("impulse %1", "Activer pendant X secondes", "Activer pendant %1", IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("true", _("Activate"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("false", _("Deactivate"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", _("Blink state"), IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("impulse %1", _("Activate for X seconds"), _("Activate for %1"), IOActionList::ACTION_TIME_MS));
     }
     else if (params["gui_type"] == "camera_output")
     {
-        v.push_back(IOActionList("recall %1", "Déplacer à la position mémorisée", "Déplacer à la position %1", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("save %1", "Mémoriser la position", "Sauvegarder à la position %1", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("move up", "Déplacer vers le haut", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("move down", "Déplacer vers le bas", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("move left", "Déplacer vers la gauche", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("move right", "Déplacer vers la droite", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("move home", "Déplacer à la position initiale", IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("recall %1", _("Move camera to a saved position"), _("Move camera to position %1"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("save %1", _("Save position"), _("Save to position %1"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("move up", _("Move up"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("move down", _("Move down"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("move left", _("Move left"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("move right", _("Move right"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("move home", _("Move to default"), IOActionList::ACTION_SIMPLE));
     }
     else if (params["gui_type"] == "audio_output")
     {
-        v.push_back(IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("pause", "Mettre en pause", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("stop", "Arrêter la lecture", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("next", "Piste suivante", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("previous", "Piste précédente", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("volume set %1", "Changer le volume", "Changer le volume à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("volume up %1", "Monter le volume de X pourcent", "Monter le volume de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("volume down %1", "Baisser le volume de X pourcent", "Descendre le volume de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("power on", "Allumer la zone de musique", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("power off", "Eteindre la zone de musique", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("sleep %1", "Eteindre la zone dans X secondes (sleep mode)", "Eteindre la zone dans %1% secondes (sleep mode)", IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("pause", _("Pause"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("stop", _("Stop playing"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("next", _("Next track"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("previous", _("Previous track"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("volume set %1", _("Change volume"), _("Set volume to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("volume up %1", _("Increase volume for X percent"), _("Increase volume for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("volume down %1", _("Decrease volume for X percent"), _("Decrease volume for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("power on", _("Power on music zone"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("power off", _("Power off music zone"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("sleep %1", _("Power off music zone in X seconds (Sleep mode)"), _("Power off music zone in %1% seconds (sleep mode)"), IOActionList::ACTION_NUMBER));
         //TODO: playlist/song selection and playing here
     }
     else if (params["gui_type"] == "avreceiver")
