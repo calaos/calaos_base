@@ -1140,23 +1140,23 @@ vector<IOActionList> IOBase::getActionList()
 
     if (params["gui_type"] == "light")
     {
-        v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS));
-        v.push_back(IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", _("Blink the light"), IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("impulse %1", _("Switch light on for X seconds"), _("Switch light on for %1"), IOActionList::ACTION_TIME_MS));
     }
     else if (params["gui_type"] == "light_dimmer")
     {
-        v.push_back(IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE));
-        v.push_back(IOActionList("set %1", "Mettre la lumière à X pourcent", "Mettre la lumière à %1%", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("set off %1", "Mettre la lumière sans allumer à X pourcent", "Mettre la lumière à %1% sans allumer", IOActionList::ACTION_SLIDER));
-        v.push_back(IOActionList("up %1", "Augmenter l'intensité de X pourcent", "Augmenter l'intensité de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("down %1", "Baisser l'intensité de X pourcent", "Baisser l'intensité de %1%", IOActionList::ACTION_NUMBER));
-        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS));
-        v.push_back(IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE));
+        v.push_back(IOActionList("set %1", _("Dim the light to X percent"), _("Dim the light to %1%"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("set off %1", _("Dim the light to X percent without switching on"), _("Dim the light to %1% without switching on"), IOActionList::ACTION_SLIDER));
+        v.push_back(IOActionList("up %1", _("Brighten light for X percent"), _("Brighten light for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("down %1", _("Dim light for X percent"), _("Dim light for %1%"), IOActionList::ACTION_NUMBER));
+        v.push_back(IOActionList("impulse loop %1 %1 %1 %1", _("Blink the light"), IOActionList::ACTION_TIME_MS));
+        v.push_back(IOActionList("impulse %1", _("Switch light on for X seconds"), _("Switch light on for %1"), IOActionList::ACTION_TIME_MS));
     }
     else if (params["gui_type"] == "light_rgb")
     {
