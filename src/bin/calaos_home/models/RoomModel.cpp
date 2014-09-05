@@ -1277,71 +1277,71 @@ IOActionList IOBase::getActionFromState()
     if (params["gui_type"] == "light")
     {
         if (params["state"] == "true")
-            ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
         else
-            ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "light_dimmer")
     {
         if (params["state"] == "true")
-            ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
         else if (params["state"] == "false")
-            ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
         else
-            ac = IOActionList("set %1", "Mettre la lumière à X pourcent", "Mettre la lumière à %1%", IOActionList::ACTION_SLIDER);
+            ac = IOActionList("set %1", _("Set light to X percent"), _("Set light to %1%"), IOActionList::ACTION_SLIDER);
 
         ac.dvalue = getDaliValueFromState();
     }
     else if (params["gui_type"] == "light_rgb")
     {
         if (params["state"] == "true")
-            ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
         else if (params["state"] == "false")
-            ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
+            ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
         else
-            ac = IOActionList("set %1", "Choisir une couleur", "Mettre la couleur", IOActionList::ACTION_COLOR);
+            ac = IOActionList("set %1", _("Choose color"), _("Set color"), IOActionList::ACTION_COLOR);
 
         getRGBValueFromState(ac.red, ac.green, ac.blue);
     }
     else if (params["gui_type"] == "shutter")
     {
-        ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
+        ac = IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "shutter_smart")
     {
-        ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
+        ac = IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "analog_out")
     {
-        ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
+        ac = IOActionList("%1", _("Set value"), _("Set value to %1"), IOActionList::ACTION_NUMBER);
         ac.dvalue = 0.0;
     }
     else if (params["gui_type"] == "scenario")
     {
-        ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
+        ac = IOActionList("true", _("Execute scenario"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "var_string" || params["gui_type"] == "string_out")
     {
-        ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
+        ac = IOActionList("%1", _("Set text"), _("Set text to '%1'"), IOActionList::ACTION_TEXT);
         ac.svalue = "Un Texte";
     }
     else if (params["gui_type"] == "var_int")
     {
-        ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
+        ac = IOActionList("%1", _("Set value"), _("Set value to %1"), IOActionList::ACTION_NUMBER);
         ac.dvalue = 0.0;
     }
     else if (params["gui_type"] == "var_bool")
     {
-        ac = IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE);
+        ac = IOActionList("true", _("Activate"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "camera_output")
     {
-        ac = IOActionList("recall %1", "Déplacer à la position mémorisée", "Déplacer à la position %1", IOActionList::ACTION_NUMBER);
+        ac = IOActionList("recall %1", _("Move camera to a saved position"), _("Move camera to position %1"), IOActionList::ACTION_NUMBER);
         ac.dvalue = 0.0;
     }
     else if (params["gui_type"] == "audio_output")
     {
-        ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
+        ac = IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "avreceiver")
     {
@@ -1361,139 +1361,139 @@ IOActionList IOBase::getActionListFromAction(string action)
 
     if (params["gui_type"] == "light")
     {
-        if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS);
-        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS);
+        if (tokens[0] == "true") ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "false") ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", _("Blink the light"), IOActionList::ACTION_TIME_MS);
+        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", _("Switch light on for X seconds"), _("Switch light on for %1"), IOActionList::ACTION_TIME_MS);
 
         if (tokens.size() > 1)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
     }
     else if (params["gui_type"] == "light_dimmer")
     {
-        if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "set" && tokens[1] == "off") ac = IOActionList("set off %1", "Mettre la lumière sans allumer à X pourcent", "Mettre la lumière à %1% sans allumer", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "set") ac = IOActionList("set %1", "Mettre la lumière à X pourcent", "Mettre la lumière à %1%", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "up") ac = IOActionList("up %1", "Augmenter l'intensité de X pourcent", "Augmenter l'intensité de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "down") ac = IOActionList("down %1", "Baisser l'intensité de X pourcent", "Baisser l'intensité de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter la lumière", IOActionList::ACTION_TIME_MS);
-        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Allumer la lumière pendant X secondes", "Allumer la lumière pendant %1", IOActionList::ACTION_TIME_MS);
+        if (tokens[0] == "true") ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "false") ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "set" && tokens[1] == "off") ac = IOActionList("set off %1", _("Dim the light to X percent without switching on"), _("Dim the light to %1% without switching on"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "set") ac = IOActionList("set %1", _("Dim the light to X percent"), _("Dim the light to %1%"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "up") ac = IOActionList("up %1", _("Brighten light for X percent"), _("Brighten light for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "down") ac = IOActionList("down %1", _("Dim light for X percent"), _("Dim light for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", _("Blink the light"), IOActionList::ACTION_TIME_MS);
+        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", _("Switch light on for X seconds"), _("Switch light on for %1"), IOActionList::ACTION_TIME_MS);
 
         if (tokens.size() > 1)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
     }
     else if (params["gui_type"] == "light_rgb")
     {
-        if (tokens[0] == "true") ac = IOActionList("true", "Allumer la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "false") ac = IOActionList("false", "Eteindre la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état de la lumière", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "set") ac = IOActionList("set %1", "Choisir une couleur", "Mettre la couleur", IOActionList::ACTION_COLOR);
-        else if (tokens[0] == "set_red") ac = IOActionList("set_red %1", "Choisir l'intensité du rouge", "Mettre le rouge à %1%", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "up_red") ac = IOActionList("up_red %1", "Augmenter le rouge de X pourcent", "Augmenter le rouge de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "down_red") ac = IOActionList("down_red %1", "Baisser le rouge de X pourcent", "Baisser le rouge de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "set_green") ac = IOActionList("set_green %1", "Choisir l'intensité du vert", "Mettre le vert à %1%", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "up_green") ac = IOActionList("up_green %1", "Augmenter le vert", "Augmenter le vert de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "down_green") ac = IOActionList("down_green %1", "Baisser le vert", "Baisser le vert de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "set_blue") ac = IOActionList("set_blue %1", "Choisir l'intensité du bleu", "Mettre le bleu à %1%", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "up_blue") ac = IOActionList("up_blue %1", "Augmenter le blue", "Augmenter le bleu de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "down_blue") ac = IOActionList("down_blue %1", "Baisser le blue", "Baisser le bleu de %1%", IOActionList::ACTION_NUMBER);
+        if (tokens[0] == "true") ac = IOActionList("true", _("Switch light on"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "false") ac = IOActionList("false", _("Switch light off"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle light state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "set") ac = IOActionList("set %1", _("Choose color"), _("Set color"), IOActionList::ACTION_COLOR);
+        else if (tokens[0] == "set_red") ac = IOActionList("set_red %1", _("Choose red brightness"), _("Set red to %1%"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "up_red") ac = IOActionList("up_red %1", _("Increase red for X percent"), _("Increase red for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "down_red") ac = IOActionList("down_red %1", _("Decrease red for X percent"), _("Decrease red for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "set_green") ac = IOActionList("set_green %1", _("Choose green brightness"), _("Set green to %1%"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "up_green") ac = IOActionList("up_green %1", _("Increase green for X percent"), _("Increase green for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "down_green") ac = IOActionList("down_green %1", _("Decrease green for X percent"), _("Decrease green for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "set_blue") ac = IOActionList("set_blue %1", _("Choose blue brightness"), _("Set blue to %1%"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "up_blue") ac = IOActionList("up_blue %1", _("Increase blue for X percent"), _("Increase blue for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "down_blue") ac = IOActionList("down_blue %1", _("Decrease blue for X percent"), _("Decrease blue for %1%"), IOActionList::ACTION_NUMBER);
 
         if (tokens.size() > 1)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
     }
     else if (params["gui_type"] == "shutter")
     {
-        if (tokens[0] == "up") ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "down") ac = IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "stop") ac = IOActionList("stop", "Arrêter le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état du volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "impulse" && tokens[1] == "up") ac = IOActionList("impulse up %1", "Impulsion sur la montée", "Monter le volet de %1", IOActionList::ACTION_TIME_MS);
-        else if (tokens[0] == "impulse" && tokens[1] == "down") ac = IOActionList("impulse down %1", "Impulsion sur la descente", "Descendre le volet de %1", IOActionList::ACTION_TIME_MS);
+        if (tokens[0] == "up") ac = IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "down") ac = IOActionList("down", _("Close shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "stop") ac = IOActionList("stop", _("Stop shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle shutter state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "impulse" && tokens[1] == "up") ac = IOActionList("impulse up %1", _("Impulse up"), _("Open shutter for %1"), IOActionList::ACTION_TIME_MS);
+        else if (tokens[0] == "impulse" && tokens[1] == "down") ac = IOActionList("impulse down %1", _("Impulse down"), _("Close shutter for %1"), IOActionList::ACTION_TIME_MS);
 
         if (tokens.size() > 1)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
     }
     else if (params["gui_type"] == "shutter_smart")
     {
-        if (tokens[0] == "up") ac = IOActionList("up", "Monter le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "down") ac = IOActionList("down", "Descendre le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "stop") ac = IOActionList("stop", "Arrêter le volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état du volet", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "set") ac = IOActionList("set %1", "Mettre le volet à une position", "Mettre le volet à %1%", IOActionList::ACTION_SLIDER);
-        else if (tokens[0] == "up") ac = IOActionList("up %1", "Monter le volet de X pourcent", "Monter le volet de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "down") ac = IOActionList("down %1", "Descendre le volet de X pourcent", "Descendre le volet de %1%", IOActionList::ACTION_NUMBER);
-        else if (tokens[0] == "calibrate") ac = IOActionList("calibrate", "Lancer la calibration", IOActionList::ACTION_SIMPLE);
+        if (tokens[0] == "up") ac = IOActionList("up", _("Open shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "down") ac = IOActionList("down", _("Close shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "stop") ac = IOActionList("stop", _("Stop shutter"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle shutter state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "set") ac = IOActionList("set %1", _("Set shutter to a position"), _("Set shutter to %1%"), IOActionList::ACTION_SLIDER);
+        else if (tokens[0] == "up") ac = IOActionList("up %1", _("Open shutter for X percent"), _("Open shutter for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "down") ac = IOActionList("down %1", _("Close shutter for X percent"), _("Close shutter for %1%"), IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "calibrate") ac = IOActionList("calibrate", _("Start shutter calibration"), IOActionList::ACTION_SIMPLE);
 
         if (tokens.size() > 1)
             from_string(tokens[tokens.size() - 1], ac.dvalue);
     }
     else if (params["gui_type"] == "analog_out")
     {
-        ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
+        ac = IOActionList("%1", "Mettre une valeur", _("Set value to %1"), IOActionList::ACTION_NUMBER);
         from_string(tokens[0], ac.dvalue);
     }
     else if (params["gui_type"] == "scenario")
     {
-        if (tokens[0] == "true") ac = IOActionList("true", "Lancer le scénario", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "false") ac = IOActionList("false", "Arrêter le scénario", IOActionList::ACTION_SIMPLE);
+        if (tokens[0] == "true") ac = IOActionList("true", _("Execute scenario"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "false") ac = IOActionList("false", _("Stop scenario"), IOActionList::ACTION_SIMPLE);
     }
     else if (params["gui_type"] == "var_string" || params["gui_type"] == "var_string")
     {
-        ac = IOActionList("%1", "Mettre une texte", "Mettre le texte '%1'", IOActionList::ACTION_TEXT);
+        ac = IOActionList("%1", _("Set text"), _("Set text to '%1'"), IOActionList::ACTION_TEXT);
         ac.svalue = action;
     }
     else if (params["gui_type"] == "var_int")
     {
-        ac = IOActionList("%1", "Mettre une valeur", "Mettre la valeur %1", IOActionList::ACTION_NUMBER);
+        ac = IOActionList("%1", _("Set value"), _("Set value to %1"), IOActionList::ACTION_NUMBER);
         from_string(tokens[0], ac.dvalue);
     }
     else if (params["gui_type"] == "var_bool")
     {
-        if (tokens[0] == "true") ac = IOActionList("true", "Activer", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "false") ac = IOActionList("false", "Désactiver", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "toggle") ac = IOActionList("toggle", "Inverser l'état", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", "Faire clignoter l'état", IOActionList::ACTION_TIME_MS);
-        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Activer pendant X secondes", "Activer pendant %1", IOActionList::ACTION_TIME_MS);
+        if (tokens[0] == "true") ac = IOActionList("true", _("Activate"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "false") ac = IOActionList("false", _("Deactivate"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "toggle") ac = IOActionList("toggle", _("Toggle state"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", _("Blink state"), IOActionList::ACTION_TIME_MS);
+        else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Activer pendant X secondes", _("Activate for %1"), IOActionList::ACTION_TIME_MS);
     }
     else if (params["gui_type"] == "camera_output")
     {
         if (tokens[0] == "recall")
         {
-            ac = IOActionList("recall %1", "Déplacer à la position mémorisée", "Déplacer à la position %1", IOActionList::ACTION_NUMBER);
+            ac = IOActionList("recall %1", _("Move camera to a saved position"), _("Move camera to position %1"), IOActionList::ACTION_NUMBER);
             from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (tokens[0] == "save") ac = IOActionList("save %1", "Mémoriser la position", "Sauvegarder à la position %1", IOActionList::ACTION_NUMBER);
+        else if (tokens[0] == "save") ac = IOActionList("save %1", _("Save position"), _("Save to position %1"), IOActionList::ACTION_NUMBER);
         else if (tokens[0] == "move")
         {
-            if (tokens[1] == "up") ac = IOActionList("move up", "Déplacer vers le haut", IOActionList::ACTION_SIMPLE);
-            else if (tokens[1] == "down") ac = IOActionList("move up", "Déplacer vers le bas", IOActionList::ACTION_SIMPLE);
-            else if (tokens[1] == "left") ac = IOActionList("move left", "Déplacer vers la gauche", IOActionList::ACTION_SIMPLE);
-            else if (tokens[1] == "right") ac = IOActionList("move right", "Déplacer vers la droite", IOActionList::ACTION_SIMPLE);
-            else if (tokens[1] == "home") ac = IOActionList("move home", "Déplacer à la position initiale", IOActionList::ACTION_SIMPLE);
+            if (tokens[1] == "up") ac = IOActionList("move up", _("Move up"), IOActionList::ACTION_SIMPLE);
+            else if (tokens[1] == "down") ac = IOActionList("move up", _("Move down"), IOActionList::ACTION_SIMPLE);
+            else if (tokens[1] == "left") ac = IOActionList("move left", _("Move left"), IOActionList::ACTION_SIMPLE);
+            else if (tokens[1] == "right") ac = IOActionList("move right", _("Move right"), IOActionList::ACTION_SIMPLE);
+            else if (tokens[1] == "home") ac = IOActionList("move home", _("Move to default"), IOActionList::ACTION_SIMPLE);
         }
     }
     else if (params["gui_type"] == "audio_output")
     {
-        if (tokens[0] == "play") ac = IOActionList("play", "Mettre en lecture", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "pause") ac = IOActionList("pause", "Mettre en pause", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "stop") ac = IOActionList("stop", "Arrêter la lecture", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "next") ac = IOActionList("next", "Piste suivante", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "previous") ac = IOActionList("previous", "Piste précédente", IOActionList::ACTION_SIMPLE);
+        if (tokens[0] == "play") ac = IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "pause") ac = IOActionList("pause", _("Plause"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "stop") ac = IOActionList("stop", _("Stop playing"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "next") ac = IOActionList("next", _("Next track"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "previous") ac = IOActionList("previous", _("Previous track"), IOActionList::ACTION_SIMPLE);
         else if (tokens[0] == "volume")
         {
-            if (tokens[1] == "set") ac = IOActionList("volume set %1", "Changer le volume", "Changer le volume à %1%", IOActionList::ACTION_SLIDER);
-            else if (tokens[1] == "up") ac = IOActionList("volume up %1", "Monter le volume de X pourcent", "Monter le volume de %1%", IOActionList::ACTION_NUMBER);
-            else if (tokens[1] == "down") ac = IOActionList("volume down %1", "Baisser le volume de X pourcent", "Descendre le volume de %1%", IOActionList::ACTION_NUMBER);
+            if (tokens[1] == "set") ac = IOActionList("volume set %1", _("Change volume"), _("Set volume to %1%"), IOActionList::ACTION_SLIDER);
+            else if (tokens[1] == "up") ac = IOActionList("volume up %1", _("Increase volume for X percent"), _("Increase volume for %1%"), IOActionList::ACTION_NUMBER);
+            else if (tokens[1] == "down") ac = IOActionList("volume down %1", _("Decrease volume for X percent"), _("Decrease volume for %1%"), IOActionList::ACTION_NUMBER);
             from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
-        else if (tokens[0] == "power" && tokens[1] == "on") ac = IOActionList("power on", "Allumer la zone de musique", IOActionList::ACTION_SIMPLE);
-        else if (tokens[0] == "power" && tokens[1] == "off") ac = IOActionList("power off", "Eteindre la zone de musique", IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "power" && tokens[1] == "on") ac = IOActionList("power on", _("Power on music zone"), IOActionList::ACTION_SIMPLE);
+        else if (tokens[0] == "power" && tokens[1] == "off") ac = IOActionList("power off", _("Power off music zone"), IOActionList::ACTION_SIMPLE);
         else if (tokens[0] == "sleep")
         {
-            ac = IOActionList("sleep %1", "Eteindre la zone dans X secondes (sleep mode)", "Eteindre la zone dans %1% secondes (sleep mode)", IOActionList::ACTION_NUMBER);
+            ac = IOActionList("sleep %1", _("Power off music zone in X seconds (Sleep mode)"), _("Power off music zone in %1% seconds (sleep mode)"), IOActionList::ACTION_NUMBER);
             from_string(tokens[tokens.size() - 1], ac.dvalue);
         }
         //TODO: playlist/song selection and playing here
