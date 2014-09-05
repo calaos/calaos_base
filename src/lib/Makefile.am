@@ -17,7 +17,8 @@ AM_CXXFLAGS = \
 	-DPACKAGE_DATA_DIR=\"$(pkgdatadir)\" \
 	-DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
 	-DETC_DIR=\"$(sysconfdir)\" \
-	@CALAOS_COMMON_CFLAGS@
+	@CALAOS_COMMON_CFLAGS@ \
+	-DTIXML_USE_STL
 
 AM_CFLAGS = \
 	-I. \

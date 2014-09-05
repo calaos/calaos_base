@@ -73,7 +73,8 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/bin/calaos_server/Scenario\
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_SERVER_CFLAGS@ \
--DLIBMBUS
+-DLIBMBUS \
+-DTIXML_USE_STL
 
 
 bin_PROGRAMS = calaos_server

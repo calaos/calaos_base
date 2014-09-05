@@ -27,7 +27,8 @@ AM_CXXFLAGS = \
 @EWEBKIT_CFLAGS@ \
 -DETC_DIR=\"$(sysconfdir)/calaos\" \
 -DLIBMBUS \
--DLOCALE_DIR=\"$(datadir)/locale\"
+-DLOCALE_DIR=\"$(datadir)/locale\" \
+-DTIXML_USE_STL
 
 bin_PROGRAMS = calaos_home
 
