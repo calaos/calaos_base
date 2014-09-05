@@ -62,8 +62,8 @@ void ListeRoom::addInputHash(Input *input)
     if (!input) return;
 
     string id = input->get_param("id");
-    if (input->get_param("type") == "CamInput" ||
-        input->get_param("type") == "AudioInput")
+    if (input->get_param("gui_type") == "camera_input" ||
+        input->get_param("gui_type") == "audio_input")
     {
         id = input->get_param("iid");
     }
@@ -78,8 +78,8 @@ void ListeRoom::delInputHash(Input *input)
     if (!input) return;
 
     string id = input->get_param("id");
-    if (input->get_param("type") == "CamInput" ||
-        input->get_param("type") == "AudioInput")
+    if (input->get_param("gui_type") == "camera_input" ||
+        input->get_param("gui_type") == "audio_input")
     {
         id = input->get_param("iid");
     }
@@ -94,8 +94,8 @@ void ListeRoom::addOutputHash(Output *output)
     if (!output) return;
 
     string id = output->get_param("id");
-    if (output->get_param("type") == "CamOutput" ||
-        output->get_param("type") == "AudioOutput")
+    if (output->get_param("gui_type") == "camera_output" ||
+        output->get_param("gui_type") == "audio_output")
     {
         id = output->get_param("oid");
     }
@@ -110,8 +110,8 @@ void ListeRoom::delOutputHash(Output *output)
     if (!output) return;
 
     string id = output->get_param("id");
-    if (output->get_param("type") == "CamOutput" ||
-        output->get_param("type") == "AudioOutput")
+    if (output->get_param("gui_type") == "camera_output" ||
+        output->get_param("gui_type") == "audio_output")
     {
         id = output->get_param("oid");
     }
@@ -263,9 +263,9 @@ Input *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
             {
                 switch (type)
                 {
-                case PLAGE_HORAIRE: if (in->get_param("type") == "InPlageHoraire") return in; break;
-                case CONSIGNE: if (in->get_param("type") == "InternalInt") return in; break;
-                case ACTIVE: if (in->get_param("type") == "InternalBool") return in; break;
+                case PLAGE_HORAIRE: if (in->get_param("gui_type") == "time_range") return in; break;
+                case CONSIGNE: if (in->get_param("gui_type") == "var_int") return in; break;
+                case ACTIVE: if (in->get_param("gui_type") == "var_bool") return in; break;
                 }
             }
         }
@@ -370,12 +370,10 @@ bool ListeRoom::deleteIO(Input *input, bool modify)
         ListeRule::Instance().RemoveRule(input);
 
     bool done = false;
-    if (input->get_param("type") == "CamInput"
-        || input->get_param("type") == "AudioInput"
-        || input->get_param("type") == "IRInput"
-        || input->get_param("type") == "CamOutput"
-        || input->get_param("type") == "AudioOutput"
-        || input->get_param("type") == "IROutput")
+    if (input->get_param("gui_type") == "camera_input"
+        || input->get_param("gui_type") == "audio_input"
+        || input->get_param("gui_type") == "camera_output"
+        || input->get_param("gui_type") == "audio_output")
     {
         CamInput *icam = dynamic_cast<CamInput *>(input);
         if (icam)
@@ -402,14 +400,15 @@ bool ListeRoom::deleteIO(Input *input, bool modify)
     }
     else
     {
-        if (input->get_param("type") == "InputTime"
-            || input->get_param("type") == "WITemp"
-            || input->get_param("type") == "WIAnalog"
-            || input->get_param("type") == "OWTemp"
-            || input->get_param("type") == "InPlageHoraire"
-            || input->get_param("type") == "InputTimer")
+        //Remove input from polling list
+        if (input->get_param("gui_type") == "time"
+            || input->get_param("gui_type") == "temp"
+            || input->get_param("gui_type") == "analog_in"
+            || input->get_param("gui_type") == "time_range"
+            || input->get_param("gui_type") == "timer")
             ListeRule::Instance().Remove(input);
-        if (input->get_param("type") == "InputTimer")
+
+        if (input->get_param("gui_type") == "timer")
         {
             //also delete the output
             InputTimer *tm = dynamic_cast<InputTimer *> (input);
@@ -419,7 +418,7 @@ bool ListeRoom::deleteIO(Input *input, bool modify)
             if (o) ListeRoom::Instance().delete_output(o, false);
         }
 
-        if (input->get_param("type") == "scenario" || input->get_param("type") == "Scenario")
+        if (input->get_param("gui_type") == "scenario")
         {
             //also delete the output
             Scenario *sc = dynamic_cast<Scenario *> (input);
@@ -433,9 +432,9 @@ bool ListeRoom::deleteIO(Input *input, bool modify)
             }
         }
 
-        if (input->get_param("type") == "InternalBool" ||
-            input->get_param("type") == "InternalInt" ||
-            input->get_param("type") == "InternalString")
+        if (input->get_param("gui_type") == "var_bool" ||
+            input->get_param("gui_type") == "var_int" ||
+            input->get_param("gui_type") == "var_string")
         {
             //also delete the output
             Internal *internal = dynamic_cast<Internal *> (input);
@@ -464,12 +463,10 @@ bool ListeRoom::deleteIO(Output *output, bool modify)
         ListeRule::Instance().RemoveRule(output);
 
     bool done = false;
-    if (output->get_param("type") == "CamInput"
-        || output->get_param("type") == "AudioInput"
-        || output->get_param("type") == "IRInput"
-        || output->get_param("type") == "CamOutput"
-        || output->get_param("type") == "AudioOutput"
-        || output->get_param("type") == "IROutput")
+    if (output->get_param("gui_type") == "camera_input"
+        || output->get_param("gui_type") == "audio_input"
+        || output->get_param("gui_type") == "camera_output"
+        || output->get_param("gui_type") == "audio_output")
     {
         CamOutput *icam = dynamic_cast<CamOutput *>(output);
         if (icam)
@@ -492,9 +489,9 @@ bool ListeRoom::deleteIO(Output *output, bool modify)
             done = true;
         }
     }
-    else if (output->get_param("type") != "OutTouchscreen")
+    else if (output->get_param("type") != "OutTouchscreen") //TODO: rewrite output touchscreen
     {
-        if (output->get_param("type") == "InputTimer")
+        if (output->get_param("gui_type") == "timer")
         {
             //also delete the input
             InputTimer *tm = dynamic_cast<InputTimer *> (output);
@@ -504,8 +501,7 @@ bool ListeRoom::deleteIO(Output *output, bool modify)
             if (in) ListeRoom::Instance().delete_input(in, false);
         }
 
-        if (output->get_param("type") == "scenario"
-            || output->get_param("type") == "Scenario")
+        if (output->get_param("gui_type") == "scenario")
         {
             //also delete the input
             Scenario *sc = dynamic_cast<Scenario *> (output);
@@ -517,9 +513,9 @@ bool ListeRoom::deleteIO(Output *output, bool modify)
             }
         }
 
-        if (output->get_param("type") == "InternalBool" ||
-            output->get_param("type") == "InternalInt" ||
-            output->get_param("type") == "InternalString")
+        if (output->get_param("gui_type") == "var_bool" ||
+            output->get_param("gui_type") == "var_int" ||
+            output->get_param("gui_type") == "var_string")
         {
             //also delete the input
             Internal *internal = dynamic_cast<Internal *> (output);
@@ -542,37 +538,13 @@ bool ListeRoom::deleteIO(Output *output, bool modify)
 
 Input* ListeRoom::createInput(Params param, Room *room)
 {
-    Input *input = NULL;
+    Input *input = nullptr;
 
-    if (!param.Exists("name")) param.Add("name", "Input");
-    if (!param.Exists("type")) param.Add("type", "WIDigital");
-    if (param["type"] != "scenario" && param["type"] != "InputTimeDate" &&
-        param["type"] != "InputTime" && param["type"] != "X10Output" &&
-        param["type"] != "InternalInt" && param["type"] != "InternalBool" &&
-        param["type"] != "InternalString" && param["type"] != "InputTimer")
-    {
-        if (!param.Exists("var")) param.Add("var", "0");
-        if (!param.Exists("host")) param.Add("host", "10.0.0.123");
-        if (!param.Exists("port")) param.Add("port", "502");
-    }
+    if (!param.Exists("name")) param.Add("<No Name>", "Input");
+    if (!param.Exists("type")) return nullptr;
+    if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("input_"));
 
-    if (param["type"] == "InternalBool" || param["type"] == "InternalInt" || param["type"] == "InternalString")
-    {
-        if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("intern_"));
-    }
-    else
-    {
-        if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("input_"));
-    }
-
-    if (param["type"] == "InputTime" || param["type"] == "InputTimeDate" ||
-        param["type"] == "InputTimer")
-    {
-        if (!param.Exists("hour")) param.Add("hour", "0");
-        if (!param.Exists("min")) param.Add("min", "0");
-        if (!param.Exists("sec")) param.Add("sec", "0");
-    }
-    if (param["type"] == "InputTimeDate")
+   if (param["type"] == "InputTimeDate")
     {
         if (!param.Exists("year")) param.Add("year", "0");
         if (!param.Exists("month")) param.Add("month", "0");
@@ -672,30 +644,8 @@ Output* ListeRoom::createOutput(Params param, Room *room)
 {
     Output *output = NULL;
 
-    if (!param.Exists("name")) param.Add("name", "Output");
-    if (!param.Exists("type")) param.Add("type", "WODigital");
-    if (!param.Exists("host")) param.Add("host", "10.0.0.123");
-    if (!param.Exists("port")) param.Add("port", "502");
-    if (param["type"] == "WOVolet")
-    {
-        if (!param.Exists("var_up")) param.Add("var_up", "0");
-        if (!param.Exists("var_down")) param.Add("var_down", "0");
-        if (!param.Exists("time")) param.Add("time", "30");
-    }
-    if (param["type"] == "WOVoletSmart")
-    {
-        if (!param.Exists("var_up")) param.Add("var_up", "0");
-        if (!param.Exists("var_down")) param.Add("var_down", "0");
-        if (!param.Exists("time_up")) param.Add("time_up", "30");
-        if (!param.Exists("time_down")) param.Add("time_down", "28");
-    }
-    else if (param["type"] == "WONeon")
-    {
-        if (!param.Exists("var")) param.Add("var", "0");
-        if (!param.Exists("var_relay")) param.Add("var_relay", "0");
-    }
-    else if (param["type"] == "WODali" && (param["type"] == "WODaliRVB"))
-        if (!param.Exists("var")) param.Add("var", "0");
+    if (!param.Exists("name")) param.Add("<No Name>", "Output");
+    if (!param.Exists("type")) return nullptr;
     if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("output_"));
 
     std::string type = param["type"];
