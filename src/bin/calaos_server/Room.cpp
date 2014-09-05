@@ -250,22 +250,17 @@ bool Room::SaveToXml(TiXmlElement *node)
     {
         Input *input = get_input(i);
 
-        if (input->get_param("type") == "WIDigital" || input->get_param("type") == "WIDigitalBP" ||
-            input->get_param("type") == "WIDigitalTriple" || input->get_param("type") == "WITemp" ||
-            input->get_param("type") == "OWTemp" || input->get_param("type") == "WIDigitalLong" ||
-            input->get_param("type") == "scenario" || input->get_param("type") == "WIDigitalBP" ||
-            input->get_param("type") == "InputTime" || input->get_param("type") == "InputTimer" ||
-            input->get_param("type") == "InternalBool" ||
-            input->get_param("type") == "InternalInt" ||
-            input->get_param("type") == "InternalString" ||
-            input->get_param("type") == "InPlageHoraire" ||
-            input->get_param("type") == "WIAnalog" ||
-            input->get_param("type") == "WebInputAnalog" ||
-            input->get_param("type") == "WebInputTemp" ||
-            input->get_param("type") == "WebInputString" ||
-            input->get_param("type") == "GpioInputSwitch" ||
-            input->get_param("type") == "GpioInputSwitchLongPress" ||
-            input->get_param("type") == "GpioInputSwitchTriple")
+        if (input->get_param("gui_type") == "switch" || input->get_param("gui_type") == "switch3" ||
+            input->get_param("gui_type") == "switch_long" ||
+            input->get_param("gui_type") == "temp" ||
+            input->get_param("gui_type") == "scenario" ||
+            input->get_param("gui_type") == "time" || input->get_param("gui_type") == "timer" ||
+            input->get_param("gui_type") == "var_bool" ||
+            input->get_param("gui_type") == "var_int" ||
+            input->get_param("gui_type") == "var_string" ||
+            input->get_param("gui_type") == "time_range" ||
+            input->get_param("gui_type") == "analog_in" ||
+            input->get_param("gui_type") == "string_in")
         {
             input->SaveToXml(room_node);
         }
@@ -275,13 +270,10 @@ bool Room::SaveToXml(TiXmlElement *node)
     {
         Output *output = get_output(i);
 
-        if (output->get_param("type") == "WODigital" || output->get_param("type") == "OutputFake" ||
-            output->get_param("type") == "WONeon" || output->get_param("type") == "WOVolet" ||
-            output->get_param("type") == "X10Output" || output->get_param("type") == "WODali" ||
-            output->get_param("type") == "WODaliRVB" || output->get_param("type") == "WOVoletSmart" ||
-            output->get_param("type") == "WOAnalog" || output->get_param("type") == "AVReceiver" ||
-            output->get_param("type") == "GpioOutputSwitch" || output->get_param("type") == "WebOutputString" || 
-            output->get_param("type") == "WebOutputLightRGB")
+        if (output->get_param("gui_type") == "light" || output->get_param("gui_type") == "analog_out" ||
+            output->get_param("gui_type") == "shutter_smart" || output->get_param("gui_type") == "shutter" ||
+            output->get_param("gui_type") == "light_dimmer" || output->get_param("gui_type") == "light_rgb" ||
+            output->get_param("gui_type") == "avreceiver" || output->get_param("gui_type") == "string_out")
         {
             output->SaveToXml(room_node);
         }
