@@ -62,9 +62,20 @@ libcalaos_common_la_SOURCES = \
 	threadManager.cpp 			\
 	Utils.cpp 				\
 	TinyXML/tinystr.cpp 			\
-    TinyXML/tinyxml.cpp 			\
+	TinyXML/tinyxml.cpp 			\
 	TinyXML/tinyxmlerror.cpp 		\
-    TinyXML/tinyxmlparser.cpp 		\
+	TinyXML/tinyxmlparser.cpp 		\
+	TinyXML/xpath_expression.cpp 		\
+	TinyXML/xpath_processor.cpp 		\
+	TinyXML/xpath_stack.cpp 		\
+	TinyXML/xpath_static.cpp 		\
+	TinyXML/xpath_stream.cpp 		\
+	TinyXML/xpath_syntax.cpp 		\
+	TinyXML/action_store.cpp 		\
+	TinyXML/lex_util.cpp 			\
+	TinyXML/node_set.cpp 			\
+	TinyXML/tokenlist.cpp 			\
+	TinyXML/xml_util.cpp 			\
 	LuaScript/ScriptBindings.cpp 		\
     LuaScript/ScriptManager.cpp 		\
     TimeRange.cpp 				\

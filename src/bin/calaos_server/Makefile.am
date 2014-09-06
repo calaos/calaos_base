@@ -58,6 +58,7 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/lib/uri_parser \
 -I$(top_srcdir)/src/lib/libquickmail \
 -I$(top_srcdir)/src/lib/http-parser \
+-I$(top_srcdir)/src/lib/TinyXML \
 -I$(top_srcdir)/src/bin/calaos_server\
 -I$(top_srcdir)/src/bin/calaos_server/Rules\
 -I$(top_srcdir)/src/bin/calaos_server/IO\

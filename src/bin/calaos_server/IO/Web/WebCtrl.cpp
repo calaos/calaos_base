@@ -22,6 +22,10 @@
 #include <jansson.h>
 #include <Params.h>
 
+#include <TinyXML/tinyxml.h>
+#include <TinyXML/xpath_processor.h>
+
+
 using namespace Calaos;
 
 unordered_map<string, WebCtrl> WebCtrl::hash;
@@ -187,7 +191,6 @@ string WebCtrl::getValueJson(string path, string filename)
             {
                 cError() << "Error, " << path << " Can't be read";
             }
-
         }
     }
     else
@@ -209,18 +212,19 @@ string WebCtrl::getValueXml(string path, string filename)
     TiXmlDocument document(filename);
     if (!document.LoadFile())
     {
+        cError() << "Error loading file " << filename;
         // Error loading file
         return "";
     }
+    cInfo() << "Search for xpath " << path << ", in file" << filename;
 
-    vector<string> tokens;
+    TinyXPath::xpath_processor proc(document.RootElement(), path.c_str());
+    // TinyXPath::expression_result result = proc.er_compute_xpath();
 
-    Utils::split(path, tokens, "/");
-    TiXmlHandle docHandle(&document);
+    // value = result.S_get_string();
+    value = proc.S_compute_xpath();
+    cInfo() << "Result : " << value;
 
-
-    //TiXmlElement *root = docHandle.FirstChildElement(*it).ToElement();
-    /* Do something */
     return value;
 }
 
