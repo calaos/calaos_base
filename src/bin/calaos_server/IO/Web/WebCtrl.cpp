@@ -262,22 +262,25 @@ string WebCtrl::getValueText(string path, string filename)
     vector<string> tokens;
     vector<string> items;
     int line_nb;
-    int item_nb;
+    unsigned int item_nb;
     ifstream file(filename);
     string line;
     int i;
 
+    if (!file.is_open())
+    {
+        cError() << "Error reading file " << filename;
+        return "";
+    }
+
     Utils::split(path, tokens, "/");
     from_string(tokens[0], line_nb);
-
     for (i = 0; i < line_nb; i++)
     {
         getline(file, line);
         cInfo() << line;
     }
 
-    cInfo() << "Line content " << line;
-    
     if (tokens.size() == 3 && tokens[2] != "")
       {
         Utils::split(line, items, tokens[2]);
