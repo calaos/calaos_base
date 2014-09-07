@@ -62,10 +62,12 @@ WebCtrl &WebCtrl::Instance(Params &p)
         string str_file_type = p.get_param("file_type");
         int file_type;
 
-        if (str_file_type == "xml")
+        if (str_file_type == "xml" || str_file_type == "XML")
             file_type = WebCtrl::XML;
-        else if (str_file_type == "json")
+        else if (str_file_type == "json" || str_file_type == "JSON")
             file_type = WebCtrl::JSON;
+        else if (str_file_type == "text" || str_file_type == "TEXT")
+            file_type = WebCtrl::TEXT;
         else
             file_type = WebCtrl::UNKNOWN;
 
@@ -115,17 +117,30 @@ void WebCtrl::Del(string path)
 void WebCtrl::launchDownload()
 {
     string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
+    string u = param.get_param("url");
 
-    dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
-        string dest =  "/tmp/calaos_" + param.get_param("id");
-        string src = dest + ".part";
-        ecore_file_mv(src.c_str(), dest.c_str());
+    if (u.find("http://") == 0)
+    {
+        cInfo() << "url is http://";
+        dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
+            string dest =  "/tmp/calaos_" + param.get_param("id");
+            string src = dest + ".part";
+            ecore_file_mv(src.c_str(), dest.c_str());
+            for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+              {
+                fileDownloadedCallbacks[i].second();
+              }
+          }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
+          }, NULL);
+    }
+    else
+    {
+        cInfo() << "Url is local";
         for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
         {
             fileDownloadedCallbacks[i].second();
         }
-    }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
-    }, NULL);
+    }
 }
 
 string WebCtrl::getValueJson(string path, string filename)
@@ -208,25 +223,78 @@ string WebCtrl::getValueJson(string path, string filename)
 
 string WebCtrl::getValueXml(string path, string filename)
 {
-    string value;
     TiXmlDocument document(filename);
+    string value;
+    string xpath;
+
     if (!document.LoadFile())
     {
         cError() << "Error loading file " << filename;
         // Error loading file
         return "";
     }
-    cInfo() << "Search for xpath " << path << ", in file" << filename;
 
-    TinyXPath::xpath_processor proc(document.RootElement(), path.c_str());
-    // TinyXPath::expression_result result = proc.er_compute_xpath();
-
-    // value = result.S_get_string();
+    xpath = path + "/text()";
+    TinyXPath::xpath_processor proc(document.RootElement(), xpath.c_str());
     value = proc.S_compute_xpath();
-    cInfo() << "Result : " << value;
 
     return value;
 }
+
+/* 
+ * Read plain text file and return value find in path Path is of type:
+ * line/pos/separator line is the line number in the file. This
+ * function read the correspondig line. If sepearator exists, the line
+ * is split with separator as delimiter. The value returned is the pos
+ * value in the list. In case separator doesn't exist the value
+ * returned is the whole line found.
+ * Example : the file contains : 
+ * 10.0,10.1,10.2,10.3
+ * 20.0,20.1,20.2,20.3
+ * 
+ * If The path is "2/4/,"
+ * The value returned will be the 4th token of the second line : 20.3
+ * 
+ */
+string WebCtrl::getValueText(string path, string filename)
+{
+    string value;
+    vector<string> tokens;
+    vector<string> items;
+    int line_nb;
+    int item_nb;
+    ifstream file(filename);
+    string line;
+    int i;
+
+    Utils::split(path, tokens, "/");
+    from_string(tokens[0], line_nb);
+
+    for (i = 0; i < line_nb; i++)
+    {
+        getline(file, line);
+        cInfo() << line;
+    }
+
+    cInfo() << "Line content " << line;
+    
+    if (tokens.size() == 3 && tokens[2] != "")
+      {
+        Utils::split(line, items, tokens[2]);
+        from_string(tokens[1], item_nb);
+        if (item_nb <= 0)
+          item_nb = 1;
+        if (items.size() >= item_nb)
+            value = items[item_nb - 1];
+      }
+    else
+      {
+        value = line;
+      }
+
+    return value;
+}
+
 
 double WebCtrl::getValueDouble(string path)
 {
@@ -241,13 +309,28 @@ double WebCtrl::getValueDouble(string path)
 string WebCtrl::getValue(string path)
 {
     string filename;
+    string url =  param.get_param("url");
 
-    filename = "/tmp/calaos_" + param.get_param("id");
+    cInfo() << "GetValue()";
+    if (url.find("http://") != 0)
+    {
+
+        filename = url;
+    }
+    else
+    {
+        filename = "/tmp/calaos_" + param.get_param("id");
+    }
+
+    cInfo() << "Filename : " << filename << " file type : " << file_type;
 
     if (file_type == JSON)
         return getValueJson(path, filename);
     else if (file_type == XML)
         return getValueXml(path, filename);
+    else if (file_type == TEXT)
+        return getValueText(path, filename);
+
     else
         return "";
 }

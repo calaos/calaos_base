@@ -34,7 +34,6 @@ namespace Calaos
 class WebCtrl
 {
 private:    
-
     WebCtrl(Params &p, int file_type);
     DownloadManager *dlManager;
     double frequency;
@@ -45,20 +44,20 @@ private:
     int file_type;
     static unordered_map<string, WebCtrl> hash;
     void launchDownload();
-
     vector<pair<string, std::function<void()>>> fileDownloadedCallbacks;
 
 public:
     static WebCtrl &Instance(Params &p); //Singleton
     WebCtrl();
     ~WebCtrl();
-    enum {XML, JSON, UNKNOWN};
+    enum {XML, JSON, TEXT, UNKNOWN};
     void Add(string path, double _frequency = 60.0,
              std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
     void Del(string path);
 
     string getValueJson(string path, string filename);
     string getValueXml(string path, string filename);
+    string getValueText(string path, string filename);
     string getValue(string path);
     double getValueDouble(string path);
 
