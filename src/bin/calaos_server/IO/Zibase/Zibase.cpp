@@ -221,17 +221,23 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
             p = packet->frame;
             if(strstr ((char*)p, "ERR_") != NULL)
             {
-                /* Send Error signal*/
-                ZibaseQueuRequest req = zibase_queue_req.front();
-                /* Convert variable in string ID*/
-                memset(InfoSensor->id,0,sizeof(InfoSensor->id));
-                req.ID.copy(InfoSensor->id,req.ID.size(),0);
+                /* Check fifo is no empty (to avoid treating error frame not associated to a request ->
+                 *Zibase ERR device unreachable frame for example)*/
+                if(!zibase_queue_req.empty())
+                {
+                    /* Send Error signal */
+                    ZibaseQueuRequest req = zibase_queue_req.front();
 
-                InfoSensor->Error = true;
-                sig_newframe.emit(InfoSensor);
+                    /* Convert variable in string ID*/
+                    memset(InfoSensor->id,0,sizeof(InfoSensor->id));
+                    req.ID.copy(InfoSensor->id,req.ID.size(),0);
 
-                PopAndCheckFifo();
-                //Utils::logger("zibase") << Priority::INFO << "Zibase::An error from zibase has been received" <<log4cpp::eol;
+                    InfoSensor->Error = true;
+                    sig_newframe.emit(InfoSensor);
+
+                    PopAndCheckFifo();
+                    //Utils::logger("zibase") << Priority::INFO << "Zibase::An error from zibase has been received" <<log4cpp::eol;
+                }
             }
         }
         delete(InfoSensor);
@@ -252,59 +258,61 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
         if((strstr ((char*)ev->data, "ZSIG") != NULL) && (BIG_ENDIAN_W(packet->packet.command==ACK_CMD)))
         {
             /* check element in fifo*/
-            ZibaseQueuRequest req = zibase_queue_req.front();
-            /* check request type*/
-            if(req.RunningReq == ZibaseQueuRequest::eNOP)
+            if(!zibase_queue_req.empty())
             {
-                std::string remote_ip = ecore_con_server_ip_get(ev->server);
-                std::string myip = TCPSocket::GetLocalIPFor(remote_ip);
+                ZibaseQueuRequest req = zibase_queue_req.front();
+                /* check request type*/
+                if(req.RunningReq == ZibaseQueuRequest::eNOP)
+                {
+                    std::string remote_ip = ecore_con_server_ip_get(ev->server);
+                    std::string myip = TCPSocket::GetLocalIPFor(remote_ip);
 
 
-                vector<string> splitter;
-                Utils::split(myip, splitter, ".", 4);
-                int ipHexa = (atoi(splitter[0].c_str())<<24) |
-                        (atoi(splitter[1].c_str())<<16) |
-                        (atoi(splitter[2].c_str())<<8) |
-                        (atoi(splitter[3].c_str()));
+                    vector<string> splitter;
+                    Utils::split(myip, splitter, ".", 4);
+                    int ipHexa = (atoi(splitter[0].c_str())<<24) |
+                            (atoi(splitter[1].c_str())<<16) |
+                            (atoi(splitter[2].c_str())<<8) |
+                            (atoi(splitter[3].c_str()));
 
 
-                /*Zibase present,  Send register frame */
-                my_count++;
-                stZAPI_packet.my_count=BIG_ENDIAN_W(my_count);
-                stZAPI_packet.command = BIG_ENDIAN_W(REG_CMD);
-                stZAPI_packet.param1 = BIG_ENDIAN_L(ipHexa);
-                stZAPI_packet.param2 = BIG_ENDIAN_L(port);
+                    /*Zibase present,  Send register frame */
+                    my_count++;
+                    stZAPI_packet.my_count=BIG_ENDIAN_W(my_count);
+                    stZAPI_packet.command = BIG_ENDIAN_W(REG_CMD);
+                    stZAPI_packet.param1 = BIG_ENDIAN_L(ipHexa);
+                    stZAPI_packet.param2 = BIG_ENDIAN_L(port);
 
-                ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-                ecore_con_server_flush(econ_client);
-            }
-            else if(req.RunningReq == ZibaseQueuRequest::eREAD)
-            {
-
-                /* check param of frame */
-                /* for now, only read zwave ACK frame are treated, otherwise, assume this is a standard ACK command*/
-                if((BIG_ENDIAN_L(packet->packet.param2)) == PARAM3_READZWAVE)
+                    ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
+                    ecore_con_server_flush(econ_client);
+                }
+                else if(req.RunningReq == ZibaseQueuRequest::eREAD)
                 {
 
-                    /* Convert variable in string ID*/
-                    vartoId(BIG_ENDIAN_L(packet->packet.param3),InfoSensor->id);
-                    InfoSensor->DigitalVal = BIG_ENDIAN_L(packet->packet.param1);
-                    InfoSensor->Error = false;
-                    sig_newframe.emit(InfoSensor);
+                    /* check param of frame */
+                    /* for now, only read zwave ACK frame are treated, otherwise, assume this is a standard ACK command*/
+                    if((BIG_ENDIAN_L(packet->packet.param2)) == PARAM3_READZWAVE)
+                    {
+
+                        /* Convert variable in string ID*/
+                        vartoId(BIG_ENDIAN_L(packet->packet.param3),InfoSensor->id);
+                        InfoSensor->DigitalVal = BIG_ENDIAN_L(packet->packet.param1);
+                        InfoSensor->Error = false;
+                        sig_newframe.emit(InfoSensor);
+                    }
+
                 }
+                else if(req.RunningReq == ZibaseQueuRequest::eWRITE)
+                {
 
+                    /*an ack has been received, now wait if device is reachable or not*/
+                    req.ackReceived = true;
+                    /* restart timeout */
+                    StopTimer();
+                    StartTimer(3.0);
+                    checkFifoEmpty = false;
+                }
             }
-            else if(req.RunningReq == ZibaseQueuRequest::eWRITE)
-            {
-
-                /*an ack has been received, now wait if device is reachable or not*/
-                req.ackReceived = true;
-                /* restart timeout */
-                StopTimer();
-                StartTimer(3.0);
-                checkFifoEmpty = false;
-            }
-
             if(checkFifoEmpty == true)
             {
                 PopAndCheckFifo();
