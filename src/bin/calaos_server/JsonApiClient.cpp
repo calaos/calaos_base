@@ -911,9 +911,12 @@ void JsonApiClient::processSetState()
                 output->set_value(jsonParam["value"] == "true");
             else if (output->get_type() == TINT)
             {
-                double dv;
-                Utils::from_string(jsonParam["value"], dv);
-                output->set_value(dv);
+                if (!output->set_value(jsonParam["value"]))
+                  {
+                    double dv;
+                    Utils::from_string(jsonParam["value"], dv);
+                    output->set_value(dv);
+                  }
             }
             else if (output->get_type() == TSTRING)
                 output->set_value(jsonParam["value"]);

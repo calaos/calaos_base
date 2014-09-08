@@ -103,6 +103,7 @@ bool OutputAnalog::set_value(string val)
             from_string(get_param("step"), step);
 
         set_value(value + step);
+        return true;
     }
     else if (val == "dec")
     {
@@ -111,6 +112,7 @@ bool OutputAnalog::set_value(string val)
             from_string(get_param("step"), step);
 
         set_value(value - step);
+        return true;
     }
     else if (val.compare(0, 4, "inc ") == 0)
     {
@@ -122,6 +124,7 @@ bool OutputAnalog::set_value(string val)
             from_string(t, step);
 
         set_value(value + step);
+        return true;
     }
     else if (val.compare(0, 4, "dec ") == 0)
     {
@@ -133,8 +136,9 @@ bool OutputAnalog::set_value(string val)
             from_string(t, step);
 
         set_value(value - step);
+        return true;
     }
 
-    return true;
+    return false;
 }
 
