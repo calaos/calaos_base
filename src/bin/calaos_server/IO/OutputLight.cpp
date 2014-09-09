@@ -98,6 +98,14 @@ bool OutputLight::set_value(string val)
     {
         return set_value(!value);
     }
+    else if (val == "true" || val == "on")
+    {
+        return set_value(true);
+    }
+    else if (val == "false" || val == "off")
+    {
+        return set_value(false);
+    }
 
     return false;
 }

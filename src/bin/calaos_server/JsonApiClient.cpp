@@ -907,19 +907,8 @@ void JsonApiClient::processSetState()
             success = false;
         else
         {
-            if (output->get_type() == TBOOL)
-                output->set_value(jsonParam["value"] == "true");
-            else if (output->get_type() == TINT)
-            {
-                if (!output->set_value(jsonParam["value"]))
-                  {
-                    double dv;
-                    Utils::from_string(jsonParam["value"], dv);
-                    output->set_value(dv);
-                  }
-            }
-            else if (output->get_type() == TSTRING)
-                output->set_value(jsonParam["value"]);
+            if (!output->set_value(jsonParam["value"]))
+                success = false;
         }
     }
     else if (jsonParam["type"] == "audio")

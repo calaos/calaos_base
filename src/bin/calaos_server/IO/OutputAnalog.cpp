@@ -99,20 +99,18 @@ bool OutputAnalog::set_value(string val)
     if (val == "inc")
     {
         double step = 1.0;
-        if (is_of_type<double>(get_param("step")))
-            from_string(get_param("step"), step);
+        if (Utils::is_of_type<double>(get_param("step")))
+            Utils::from_string(get_param("step"), step);
 
         set_value(value + step);
-        return true;
     }
     else if (val == "dec")
     {
         double step = 1.0;
-        if (is_of_type<double>(get_param("step")))
-            from_string(get_param("step"), step);
+        if (Utils::is_of_type<double>(get_param("step")))
+            Utils::from_string(get_param("step"), step);
 
         set_value(value - step);
-        return true;
     }
     else if (val.compare(0, 4, "inc ") == 0)
     {
@@ -120,11 +118,10 @@ bool OutputAnalog::set_value(string val)
         t.erase(0, 4);
 
         double step = 1.0;
-        if (is_of_type<double>(t))
-            from_string(t, step);
+        if (Utils::is_of_type<double>(t))
+            Utils::from_string(t, step);
 
         set_value(value + step);
-        return true;
     }
     else if (val.compare(0, 4, "dec ") == 0)
     {
@@ -132,13 +129,23 @@ bool OutputAnalog::set_value(string val)
         t.erase(0, 4);
 
         double step = 1.0;
-        if (is_of_type<double>(t))
-            from_string(t, step);
+        if (Utils::is_of_type<double>(t))
+            Utils::from_string(t, step);
 
         set_value(value - step);
-        return true;
+    }
+    else if (Utils::is_of_type<double>(val))
+    {
+        double dval;
+        Utils::from_string(val, dval);
+
+        set_value(dval);
+    }
+    else
+    {
+        return false;
     }
 
-    return false;
+    return true;
 }
 

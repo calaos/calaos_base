@@ -135,16 +135,16 @@ bool Internal::set_value(string val)
         if (val == "inc")
         {
             double step = 1.0;
-            if (is_of_type<double>(get_param("step")))
-                from_string(get_param("step"), step);
+            if (Utils::is_of_type<double>(get_param("step")))
+                Utils::from_string(get_param("step"), step);
 
             set_value(dvalue + step);
         }
         else if (val == "dec")
         {
             double step = 1.0;
-            if (is_of_type<double>(get_param("step")))
-                from_string(get_param("step"), step);
+            if (Utils::is_of_type<double>(get_param("step")))
+                Utils::from_string(get_param("step"), step);
 
             set_value(dvalue - step);
         }
@@ -154,8 +154,8 @@ bool Internal::set_value(string val)
             t.erase(0, 4);
 
             double step = 1.0;
-            if (is_of_type<double>(t))
-                from_string(t, step);
+            if (Utils::is_of_type<double>(t))
+                Utils::from_string(t, step);
 
             set_value(dvalue + step);
         }
@@ -165,10 +165,21 @@ bool Internal::set_value(string val)
             t.erase(0, 4);
 
             double step = 1.0;
-            if (is_of_type<double>(t))
-                from_string(t, step);
+            if (Utils::is_of_type<double>(t))
+                Utils::from_string(t, step);
 
             set_value(dvalue - step);
+        }
+        else if (Utils::is_of_type<double>(val))
+        {
+            double dval;
+            Utils::from_string(val, dval);
+
+            set_value(dval);
+        }
+        else
+        {
+            return false;
         }
     }
     else if (get_type() == TSTRING)
@@ -189,7 +200,7 @@ bool Internal::set_value(string val)
             string tmp = val;
             tmp.erase(0, 8);
             // classic impulse, output goes false after <time> miliseconds
-            if (is_of_type<int>(tmp))
+            if (Utils::is_of_type<int>(tmp))
             {
                 int t;
                 Utils::from_string(tmp, t);
@@ -216,6 +227,18 @@ bool Internal::set_value(string val)
         else if (val == "toggle")
         {
             return set_value(!bvalue);
+        }
+        else if (val == "true" || val == "on")
+        {
+            return set_value(true);
+        }
+        else if (val == "false" || val == "off")
+        {
+            return set_value(false);
+        }
+        else
+        {
+            return false;
         }
     }
 
