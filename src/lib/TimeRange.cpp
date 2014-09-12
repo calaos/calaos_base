@@ -21,7 +21,7 @@
 #include <TimeRange.h>
 #include <sys/time.h>
 
-#include "sunset.c"
+#include "sunset.h"
 
 TimeRange::TimeRange():
     shour("0"), smin("0"), ssec("0"),

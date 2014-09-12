@@ -61,29 +61,47 @@ libcalaos_common_la_SOURCES = \
 	tcpsocket.cpp 				\
 	threadManager.cpp 			\
 	Utils.cpp 				\
+	TinyXML/tinyxpath_conf.h		\
+	TinyXML/byte_stream.h			\
+	TinyXML/lex_token.h			\
 	TinyXML/tinystr.cpp 			\
+	TinyXML/tinystr.h 			\
 	TinyXML/tinyxml.cpp 			\
+	TinyXML/tinyxml.h 			\
 	TinyXML/tinyxmlerror.cpp 		\
 	TinyXML/tinyxmlparser.cpp 		\
 	TinyXML/xpath_expression.cpp 		\
+	TinyXML/xpath_expression.h 		\
 	TinyXML/xpath_processor.cpp 		\
+	TinyXML/xpath_processor.h 		\
 	TinyXML/xpath_stack.cpp 		\
+	TinyXML/xpath_stack.h	 		\
 	TinyXML/xpath_static.cpp 		\
+	TinyXML/xpath_static.h 			\
 	TinyXML/xpath_stream.cpp 		\
+	TinyXML/xpath_stream.h 			\
 	TinyXML/xpath_syntax.cpp 		\
+	TinyXML/xpath_syntax.h	 		\
 	TinyXML/action_store.cpp 		\
+	TinyXML/action_store.h	 		\
 	TinyXML/lex_util.cpp 			\
+	TinyXML/lex_util.h 			\
 	TinyXML/node_set.cpp 			\
+	TinyXML/node_set.h 			\
 	TinyXML/tokenlist.cpp 			\
+	TinyXML/tokenlist.h 			\
 	TinyXML/xml_util.cpp 			\
+	TinyXML/xml_util.h 			\
 	LuaScript/ScriptBindings.cpp 		\
-    LuaScript/ScriptManager.cpp 		\
-    TimeRange.cpp 				\
-    TimeRange.h				\
+	LuaScript/ScriptBindings.h		\
+	LuaScript/ScriptManager.cpp 		\
+	LuaScript/ScriptManager.h		\
+	TimeRange.cpp 				\
+	TimeRange.h				\
+	sunset.c				\
+	sunset.h				\
 	Mutex.h					\
 	CalaosNetwork.h				\
-	LuaScript/ScriptManager.h		\
-	LuaScript/ScriptBindings.h		\
 	LuaScript/Lunar.h			\
 	FileDownloader.h			\
 	CThread.h				\
