@@ -1,315 +1,314 @@
-
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CFLAGS = \
--I. \
--I./Rules \
--I./IPCam \
--I./Audio \
--I./IO \
--I./IO/Wago \
--I./IO/Wago/libmbus \
--I./IO/OneWire \
--I./IO/X10 \
--I./IO/Zibase \
--I./IO/ZWave \
--I./IO/Scripts \
--I./IO/GCE \
--I./IO/Web \
--I./Gpio \
--I./Scenario \
--DPACKAGE_BIN_DIR=\"$(bindir)\" \
--DPACKAGE_LIB_DIR=\"$(libdir)\" \
--DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
--I$(top_srcdir)/src/lib \
--I$(top_srcdir)/src/lib/cJSON \
--I$(top_srcdir)/src/lib/LuaScript \
--I$(top_srcdir)/src/lib/http-parser \
--I$(top_srcdir)/src/lib/uri_parser \
--I$(top_srcdir)/src/lib/libquickmail \
--I$(top_srcdir)/src/bin/calaos_server/\
--I$(top_srcdir)/src/bin/calaos_server/Rules\
-@CALAOS_COMMON_CFLAGS@ \
-@CALAOS_SERVER_CFLAGS@ \
--DLIBMBUS
+AM_CFLAGS =                                             \
+  -DLIBMBUS                                             \
+  -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
+  -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
+  -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
+  -I$(top_srcdir)/src/bin/calaos_server/                \
+  -I$(top_srcdir)/src/bin/calaos_server/Rules           \
+  -I$(top_srcdir)/src/lib                               \
+  -I$(top_srcdir)/src/lib/LuaScript                     \
+  -I$(top_srcdir)/src/lib/cJSON                         \
+  -I$(top_srcdir)/src/lib/http-parser                   \
+  -I$(top_srcdir)/src/lib/libquickmail                  \
+  -I$(top_srcdir)/src/lib/uri_parser                    \
+  -I.                                                   \
+  -I./Audio                                             \
+  -I./Gpio                                              \
+  -I./IO                                                \
+  -I./IO/GCE                                            \
+  -I./IO/OneWire                                        \
+  -I./IO/Scripts                                        \
+  -I./IO/Wago                                           \
+  -I./IO/Wago/libmbus                                   \
+  -I./IO/Web                                            \
+  -I./IO/X10                                            \
+  -I./IO/ZWave                                          \
+  -I./IO/Zibase                                         \
+  -I./IPCam                                             \
+  -I./Rules                                             \
+  -I./Scenario                                          \
+  @CALAOS_COMMON_CFLAGS@                                \
+  @CALAOS_SERVER_CFLAGS@
 
-AM_CXXFLAGS = \
--I. \
--I./Rules \
--I./IPCam \
--I./Audio \
--I./IO \
--I./IO/Wago \
--I./IO/Wago/libmbus \
--I./IO/OneWire \
--I./IO/X10 \
--I./IO/Zibase \
--I./IO/ZWave \
--I./IO/Scripts \
--I./IO/GCE \
--I./IO/Web \
--I./IO/Gpio\
--I./Scenario \
--DPACKAGE_BIN_DIR=\"$(bindir)\" \
--DPACKAGE_LIB_DIR=\"$(libdir)\" \
--DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
--DETC_DIR=\"$(sysconfdir)/calaos/\" \
--I$(top_srcdir)/src/lib \
--I$(top_srcdir)/src/lib/LuaScript \
--I$(top_srcdir)/src/lib/cJSON \
--I$(top_srcdir)/src/lib/uri_parser \
--I$(top_srcdir)/src/lib/libquickmail \
--I$(top_srcdir)/src/lib/http-parser \
--I$(top_srcdir)/src/lib/TinyXML \
--I$(top_srcdir)/src/bin/calaos_server\
--I$(top_srcdir)/src/bin/calaos_server/Rules\
--I$(top_srcdir)/src/bin/calaos_server/IO\
--I$(top_srcdir)/src/bin/calaos_server/IO/Wago\
--I$(top_srcdir)/src/bin/calaos_server/IO/OneWire\
--I$(top_srcdir)/src/bin/calaos_server/IO/X10\
--I$(top_srcdir)/src/bin/calaos_server/IO/Zibase\
--I$(top_srcdir)/src/bin/calaos_server/IO/Scripts\
--I$(top_srcdir)/src/bin/calaos_server/Audio\
--I$(top_srcdir)/src/bin/calaos_server/IPCam\
--I$(top_srcdir)/src/bin/calaos_server/TCPProcessor\
--I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus\
--I$(top_srcdir)/src/bin/calaos_server/Scenario\
-@CALAOS_COMMON_CFLAGS@ \
-@CALAOS_SERVER_CFLAGS@ \
--DLIBMBUS \
--DTIXML_USE_STL
+AM_CXXFLAGS =                                                 \
+        -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
+        -DLIBMBUS                                             \
+        -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
+        -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
+        -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
+        -DTIXML_USE_STL                                       \
+        -I$(top_srcdir)/src/bin/calaos_server/Audio           \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
+        -I$(top_srcdir)/src/bin/calaos_server/IO              \
+        -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
+        -I$(top_srcdir)/src/bin/calaos_server/Rules           \
+        -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
+        -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
+        -I$(top_srcdir)/src/bin/calaos_server                 \
+        -I$(top_srcdir)/src/lib                               \
+        -I$(top_srcdir)/src/lib/LuaScript                     \
+        -I$(top_srcdir)/src/lib/TinyXML                       \
+        -I$(top_srcdir)/src/lib/cJSON                         \
+        -I$(top_srcdir)/src/lib/http-parser                   \
+        -I$(top_srcdir)/src/lib/libquickmail                  \
+        -I$(top_srcdir)/src/lib/uri_parser                    \
+        -I.                                                   \
+        -I./Audio                                             \
+        -I./IO                                                \
+        -I./IO/GCE                                            \
+        -I./IO/Gpio                                           \
+        -I./IO/OneWire                                        \
+        -I./IO/Scripts                                        \
+        -I./IO/Wago                                           \
+        -I./IO/Wago/libmbus                                   \
+        -I./IO/Web                                            \
+        -I./IO/X10                                            \
+        -I./IO/ZWave                                          \
+        -I./IO/Zibase                                         \
+        -I./IPCam                                             \
+        -I./Rules                                             \
+        -I./Scenario                                          \
+        @CALAOS_COMMON_CFLAGS@                                \
+        @CALAOS_SERVER_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
 calaos_server_SOURCES = \
-	main.cpp					\
-	Calaos.cpp					\
-	Room.cpp					\
-	IO/InputTime.cpp				\
-	IO/InputTimer.cpp				\
-	IO/OutputFake.cpp				\
-	IO/IOFactory.cpp				\
-	ListeRoom.cpp					\
-	Rules/Action.cpp				\
-	Rules/ActionStd.cpp				\
-	Rules/ActionTouchscreen.cpp			\
-	Rules/ActionMail.cpp				\
-	Rules/ActionScript.cpp				\
-	Rules/Condition.cpp				\
-	Rules/ConditionStd.cpp				\
-	Rules/ConditionOutput.cpp			\
-	Rules/ConditionStart.cpp			\
-	Rules/ConditionScript.cpp			\
-	Rules/RulesFactory.cpp				\
-	Rule.cpp					\
-	DataLogger.cpp 					\
-	Output.cpp					\
-	ListeRule.cpp					\
-	CalaosConfig.cpp				\
-	IO/Wago/WagoCtrl.cpp				\
-	IO/Wago/WODigital.cpp				\
-	IO/Wago/WagoMap.cpp				\
-	IO/Wago/WIDigitalBP.cpp				\
-	IO/Wago/WIDigitalTriple.cpp			\
-	IO/Wago/WIDigitalLong.cpp			\
-	TCPServer.cpp					\
-	TCPConnection.cpp				\
-	Audio/AudioDB.cpp				\
-	Audio/AudioManager.cpp				\
-	Audio/Squeezebox.cpp				\
-	Audio/SqueezeboxDB.cpp				\
-	Audio/AudioInput.cpp				\
-	Audio/AudioOutput.cpp				\
-	IO/IntValue.cpp					\
-	IO/Wago/WITemp.cpp				\
-	IO/OneWire/OWTemp.cpp				\
-	IO/OneWire/OWCtrl.cpp				\
-	IPCam/IPCam.cpp					\
-	IPCam/CamInput.cpp				\
-	IPCam/CamManager.cpp				\
-	IPCam/CamOutput.cpp				\
-	IO/Scenario.cpp					\
-	IPCam/Gadspot.cpp				\
-	IPCam/Axis.cpp					\
-	IPCam/StandardMjpeg.cpp				\
-	IO/Wago/WOVolet.cpp				\
-	UDPServer.cpp					\
-	IO/X10/X10Output.cpp				\
-	IO/InPlageHoraire.cpp				\
-	Input.cpp					\
-	IPCam/Planet.cpp				\
-	TCPProcessor/BaseCommand.cpp			\
-	TCPProcessor/CameraCommand.cpp			\
-	TCPProcessor/IOCommand.cpp			\
-	TCPProcessor/HomeCommand.cpp			\
-	TCPProcessor/RulesCommand.cpp			\
-	TCPProcessor/ListenCommand.cpp			\
-	TCPProcessor/ScenarioCommand.cpp		\
-	IPCam/CamConnection.cpp				\
-	IPCam/CamServer.cpp				\
-	IO/Wago/WODali.cpp				\
-	IO/Wago/WODaliRVB.cpp				\
-	TCPProcessor/AudioCommand.cpp			\
-	Audio/AudioPlayer.cpp				\
-	IO/Wago/WOVoletSmart.cpp			\
-	IO/Wago/libmbus/mbus.c				\
-	IO/Wago/libmbus/mbus_cmd.c			\
-	IO/Wago/libmbus/mbus_rqst.c			\
-	IO/Wago/libmbus/mbus_sock.c			\
-	Scenario/AutoScenario.cpp			\
-	IO/Wago/WOAnalog.cpp				\
-	IO/Wago/WIAnalog.cpp				\
-	PollListenner.cpp				\
-	Audio/AVRManager.cpp				\
-	Audio/AVReceiver.cpp				\
-	Audio/AVRPioneer.cpp				\
-	Audio/AVRDenon.cpp				\
-	Audio/AVROnkyo.cpp				\
-	Audio/AVRMarantz.cpp				\
-	Audio/AVRYamaha.cpp				\
-	IPCam/Planet.h					\
-	IPCam/Axis.h					\
-	IPCam/StandardMjpeg.h				\
-	IPCam/CamOutput.h				\
-	IPCam/CamServer.h				\
-	IPCam/Gadspot.h					\
-	IPCam/CamManager.h				\
-	IPCam/IPCam.h					\
-	IPCam/CamConnection.h				\
-	IPCam/CamInput.h				\
-	UDPServer.h					\
-	Scenario/AutoScenario.h				\
-	Audio/AudioPlayerData.h				\
-	Audio/AVRDenon.h				\
-	Audio/AudioPlayer.h				\
-	Audio/AudioManager.h				\
-	Audio/AVRManager.h				\
-	Audio/AudioDB.h					\
-	Audio/AVRPioneer.h				\
-	Audio/SqueezeboxDB.h				\
-	Audio/Squeezebox.h				\
-	Audio/AVROnkyo.h				\
-	Audio/AudioOutput.h				\
-	Audio/AVRMarantz.h				\
-	Audio/AVReceiver.h				\
-	Audio/AVRYamaha.h				\
-	Audio/AudioInput.h				\
-	PollListenner.h					\
-	DataLogger.h					\
-	IOBase.h					\
-	Input.h						\
-	Rule.h						\
-	TCPConnection.h					\
-	Calaos.h					\
-	ListeRoom.h					\
-	Output.h					\
-	CalaosConfig.h					\
-	Rules/RulesFactory.h				\
-	Rules/ActionTouchscreen.h			\
-	Rules/ConditionStd.h				\
-	Rules/Condition.h				\
-	Rules/ConditionOutput.h				\
-	Rules/ConditionStart.h				\
-	Rules/Action.h					\
-	Rules/ActionStd.h				\
-	Rules/ConditionScript.h				\
-	Rules/ActionMail.h				\
-	Rules/ActionScript.h				\
-	Room.h						\
-	ListeRule.h					\
-	IO/Wago/WIDigitalBP.h				\
-	IO/Wago/WODali.h				\
-	IO/Wago/WIAnalog.h				\
-	IO/InPlageHoraire.h				\
-	IO/Wago/WagoCtrl.h				\
-	IO/InputTime.h					\
-	IO/OneWire/OWTemp.h				\
-	IO/OneWire/OWCtrl.h				\
-	IO/Wago/WODigital.h				\
-	IO/Wago/WITemp.h				\
-	IO/Scenario.h					\
-	IO/X10/X10Output.h				\
-	IO/InputTimer.h					\
-	IO/Wago/libmbus/mbus.h				\
-	IO/Wago/libmbus/mbus_conf.h			\
-	IO/Wago/WOVoletSmart.h				\
-	IO/Wago/WagoMap.h				\
-	IO/IntValue.h					\
-	IO/Wago/WOAnalog.h				\
-	IO/IOFactory.h					\
-	IO/Wago/WODaliRVB.h				\
-	IO/Wago/WIDigitalTriple.h			\
-	IO/Wago/WIDigitalLong.h				\
-	IO/Wago/WOVolet.h				\
-	IO/OutputFake.h					\
-	TCPServer.h					\
-	IO/OutputLight.h				\
-	IO/OutputLight.cpp				\
-	IO/OutputLightDimmer.h				\
-	IO/OutputLightDimmer.cpp			\
-	IO/OutputLightRGB.h				\
-	IO/OutputLightRGB.cpp				\
-	IO/InputSwitch.h				\
-	IO/InputSwitch.cpp				\
-	IO/InputSwitchTriple.h				\
-	IO/InputSwitchTriple.cpp			\
-	IO/InputSwitchLongPress.h			\
-	IO/InputSwitchLongPress.cpp			\
-	IO/InputString.h				\
-	IO/InputString.cpp				\
-	IO/InputTemp.h					\
-	IO/InputTemp.cpp				\
-	IO/InputAnalog.h				\
-	IO/InputAnalog.cpp				\
-	IO/OutputAnalog.h				\
-	IO/OutputAnalog.cpp				\
-	IO/OutputString.h				\
-	IO/OutputString.cpp				\
-	IO/OutputShutter.h				\
-	IO/OutputShutter.cpp				\
-	IO/OutputShutterSmart.h				\
-	IO/OutputShutterSmart.cpp 			\
-	IO/Web/WebCtrl.cpp 				\
-	IO/Web/WebCtrl.h 				\
-	IO/Web/WebInputAnalog.cpp 			\
-	IO/Web/WebInputAnalog.h 			\
-	IO/Web/WebInputString.cpp 			\
-	IO/Web/WebInputString.h 			\
-	IO/Web/WebInputTemp.cpp 			\
-	IO/Web/WebInputTemp.h 				\
-	IO/Web/WebOutputLightRGB.cpp 			\
-	IO/Web/WebOutputLightRGB.h 			\
-	IO/Web/WebOutputLight.cpp 			\
-	IO/Web/WebOutputLight.h 			\
-	IO/Web/WebOutputString.cpp 			\
-	IO/Web/WebOutputString.h 			\
-	IO/Gpio/GpioCtrl.cpp 				\
-	IO/Gpio/GpioCtrl.h 				\
-	IO/Gpio/GpioInputSwitch.cpp 			\
-	IO/Gpio/GpioInputSwitch.h 			\
-	IO/Gpio/GpioInputSwitchTriple.cpp 		\
-	IO/Gpio/GpioInputSwitchTriple.h 		\
-	IO/Gpio/GpioInputSwitchLongPress.cpp 		\
-	IO/Gpio/GpioInputSwitchLongPress.h 		\
-	IO/Gpio/GpioOutputSwitch.cpp 			\
-	IO/Gpio/GpioOutputSwitch.h 			\
-	IO/Gpio/GpioOutputShutter.h 			\
-	IO/Gpio/GpioOutputShutter.cpp 			\
-	IO/Gpio/GpioOutputShutterSmart.h 		\
-	IO/Gpio/GpioOutputShutterSmart.cpp 		\
-	JsonApiServer.h 				\
-	JsonApiServer.cpp 				\
-	JsonApiClient.h 				\
-	JsonApiClient.cpp 				\
-	IO/Zibase/Zibase.cpp 				\
-	IO/Zibase/Zibase.h 				\
-	IO/Zibase/ZibaseAnalogIn.cpp 			\
-	IO/Zibase/ZibaseAnalogIn.h 			\
-	IO/Zibase/ZibaseDigitalIn.cpp 			\
-	IO/Zibase/ZibaseDigitalIn.h 			\
-	IO/Zibase/ZibaseDigitalOut.cpp 			\
-	IO/Zibase/ZibaseDigitalOut.h
+        Audio/AVRDenon.cpp                              \
+        Audio/AVRDenon.h                                \
+        Audio/AVRManager.cpp                            \
+        Audio/AVRManager.h                              \
+        Audio/AVRMarantz.cpp                            \
+        Audio/AVRMarantz.h                              \
+        Audio/AVROnkyo.cpp                              \
+        Audio/AVROnkyo.h                                \
+        Audio/AVRPioneer.cpp                            \
+        Audio/AVRPioneer.h                              \
+        Audio/AVRYamaha.cpp                             \
+        Audio/AVRYamaha.h                               \
+        Audio/AVReceiver.cpp                            \
+        Audio/AVReceiver.h                              \
+        Audio/AudioDB.cpp                               \
+        Audio/AudioDB.h                                 \
+        Audio/AudioInput.cpp                            \
+        Audio/AudioInput.h                              \
+        Audio/AudioManager.cpp                          \
+        Audio/AudioManager.h                            \
+        Audio/AudioOutput.cpp                           \
+        Audio/AudioOutput.h                             \
+        Audio/AudioPlayer.cpp                           \
+        Audio/AudioPlayer.h                             \
+        Audio/AudioPlayerData.h                         \
+        Audio/Squeezebox.cpp                            \
+        Audio/Squeezebox.h                              \
+        Audio/SqueezeboxDB.cpp                          \
+        Audio/SqueezeboxDB.h                            \
+        Calaos.cpp                                      \
+        Calaos.h                                        \
+        CalaosConfig.cpp                                \
+        CalaosConfig.h                                  \
+        DataLogger.cpp                                  \
+        DataLogger.h                                    \
+        IO/Gpio/GpioCtrl.cpp                            \
+        IO/Gpio/GpioCtrl.h                              \
+        IO/Gpio/GpioInputSwitch.cpp                     \
+        IO/Gpio/GpioInputSwitch.h                       \
+        IO/Gpio/GpioInputSwitchLongPress.cpp            \
+        IO/Gpio/GpioInputSwitchLongPress.h              \
+        IO/Gpio/GpioInputSwitchTriple.cpp               \
+        IO/Gpio/GpioInputSwitchTriple.h                 \
+        IO/Gpio/GpioOutputShutter.cpp                   \
+        IO/Gpio/GpioOutputShutter.h                     \
+        IO/Gpio/GpioOutputShutterSmart.cpp              \
+        IO/Gpio/GpioOutputShutterSmart.h                \
+        IO/Gpio/GpioOutputSwitch.cpp                    \
+        IO/Gpio/GpioOutputSwitch.h                      \
+        IO/IOFactory.cpp                                \
+        IO/IOFactory.h                                  \
+        IO/InPlageHoraire.cpp                           \
+        IO/InPlageHoraire.h                             \
+        IO/InputAnalog.cpp                              \
+        IO/InputAnalog.h                                \
+        IO/InputString.cpp                              \
+        IO/InputString.h                                \
+        IO/InputSwitch.cpp                              \
+        IO/InputSwitch.h                                \
+        IO/InputSwitchLongPress.cpp                     \
+        IO/InputSwitchLongPress.h                       \
+        IO/InputSwitchTriple.cpp                        \
+        IO/InputSwitchTriple.h                          \
+        IO/InputTemp.cpp                                \
+        IO/InputTemp.h                                  \
+        IO/InputTime.cpp                                \
+        IO/InputTime.h                                  \
+        IO/InputTimer.cpp                               \
+        IO/InputTimer.h                                 \
+        IO/IntValue.cpp                                 \
+        IO/IntValue.h                                   \
+        IO/OneWire/OWCtrl.cpp                           \
+        IO/OneWire/OWCtrl.h                             \
+        IO/OneWire/OWTemp.cpp                           \
+        IO/OneWire/OWTemp.h                             \
+        IO/OutputAnalog.cpp                             \
+        IO/OutputAnalog.h                               \
+        IO/OutputFake.cpp                               \
+        IO/OutputFake.h                                 \
+        IO/OutputLight.cpp                              \
+        IO/OutputLight.h                                \
+        IO/OutputLightDimmer.cpp                        \
+        IO/OutputLightDimmer.h                          \
+        IO/OutputLightRGB.cpp                           \
+        IO/OutputLightRGB.h                             \
+        IO/OutputShutter.cpp                            \
+        IO/OutputShutter.h                              \
+        IO/OutputShutterSmart.cpp                       \
+        IO/OutputShutterSmart.h                         \
+        IO/OutputString.cpp                             \
+        IO/OutputString.h                               \
+        IO/Scenario.cpp                                 \
+        IO/Scenario.h                                   \
+        IO/Wago/WIAnalog.cpp                            \
+        IO/Wago/WIAnalog.h                              \
+        IO/Wago/WIDigitalBP.cpp                         \
+        IO/Wago/WIDigitalBP.h                           \
+        IO/Wago/WIDigitalLong.cpp                       \
+        IO/Wago/WIDigitalLong.h                         \
+        IO/Wago/WIDigitalTriple.cpp                     \
+        IO/Wago/WIDigitalTriple.h                       \
+        IO/Wago/WITemp.cpp                              \
+        IO/Wago/WITemp.h                                \
+        IO/Wago/WOAnalog.cpp                            \
+        IO/Wago/WOAnalog.h                              \
+        IO/Wago/WODali.cpp                              \
+        IO/Wago/WODali.h                                \
+        IO/Wago/WODaliRVB.cpp                           \
+        IO/Wago/WODaliRVB.h                             \
+        IO/Wago/WODigital.cpp                           \
+        IO/Wago/WODigital.h                             \
+        IO/Wago/WOVolet.cpp                             \
+        IO/Wago/WOVolet.h                               \
+        IO/Wago/WOVoletSmart.cpp                        \
+        IO/Wago/WOVoletSmart.h                          \
+        IO/Wago/WagoCtrl.cpp                            \
+        IO/Wago/WagoCtrl.h                              \
+        IO/Wago/WagoMap.cpp                             \
+        IO/Wago/WagoMap.h                               \
+        IO/Wago/libmbus/mbus.c                          \
+        IO/Wago/libmbus/mbus.h                          \
+        IO/Wago/libmbus/mbus_cmd.c                      \
+        IO/Wago/libmbus/mbus_conf.h                     \
+        IO/Wago/libmbus/mbus_rqst.c                     \
+        IO/Wago/libmbus/mbus_sock.c                     \
+        IO/Web/WebCtrl.cpp                              \
+        IO/Web/WebCtrl.h                                \
+        IO/Web/WebInputAnalog.cpp                       \
+        IO/Web/WebInputAnalog.h                         \
+        IO/Web/WebInputString.cpp                       \
+        IO/Web/WebInputString.h                         \
+        IO/Web/WebInputTemp.cpp                         \
+        IO/Web/WebInputTemp.h                           \
+        IO/Web/WebOutputLight.cpp                       \
+        IO/Web/WebOutputLight.h                         \
+        IO/Web/WebOutputLightRGB.cpp                    \
+        IO/Web/WebOutputLightRGB.h                      \
+        IO/Web/WebOutputString.cpp                      \
+        IO/Web/WebOutputString.h                        \
+        IO/X10/X10Output.cpp                            \
+        IO/X10/X10Output.h                              \
+        IO/Zibase/Zibase.cpp                            \
+        IO/Zibase/Zibase.h                              \
+        IO/Zibase/ZibaseAnalogIn.cpp                    \
+        IO/Zibase/ZibaseAnalogIn.h                      \
+        IO/Zibase/ZibaseDigitalIn.cpp                   \
+        IO/Zibase/ZibaseDigitalIn.h                     \
+        IO/Zibase/ZibaseDigitalOut.cpp                  \
+        IO/Zibase/ZibaseDigitalOut.h                    \
+        IOBase.h                                        \
+        IPCam/Axis.cpp                                  \
+        IPCam/Axis.h                                    \
+        IPCam/CamConnection.cpp                         \
+        IPCam/CamConnection.h                           \
+        IPCam/CamInput.cpp                              \
+        IPCam/CamInput.h                                \
+        IPCam/CamManager.cpp                            \
+        IPCam/CamManager.h                              \
+        IPCam/CamOutput.cpp                             \
+        IPCam/CamOutput.h                               \
+        IPCam/CamServer.cpp                             \
+        IPCam/CamServer.h                               \
+        IPCam/Gadspot.cpp                               \
+        IPCam/Gadspot.h                                 \
+        IPCam/IPCam.cpp                                 \
+        IPCam/IPCam.h                                   \
+        IPCam/Planet.cpp                                \
+        IPCam/Planet.h                                  \
+        IPCam/StandardMjpeg.cpp                         \
+        IPCam/StandardMjpeg.h                           \
+        Input.cpp                                       \
+        Input.h                                         \
+        JsonApiClient.cpp                               \
+        JsonApiClient.h                                 \
+        JsonApiServer.cpp                               \
+        JsonApiServer.h                                 \
+        ListeRoom.cpp                                   \
+        ListeRoom.h                                     \
+        ListeRule.cpp                                   \
+        ListeRule.h                                     \
+        Output.cpp                                      \
+        Output.h                                        \
+        PollListenner.cpp                               \
+        PollListenner.h                                 \
+        Room.cpp                                        \
+        Room.h                                          \
+        Rule.cpp                                        \
+        Rule.h                                          \
+        Rules/Action.cpp                                \
+        Rules/Action.h                                  \
+        Rules/ActionMail.cpp                            \
+        Rules/ActionMail.h                              \
+        Rules/ActionScript.cpp                          \
+        Rules/ActionScript.h                            \
+        Rules/ActionStd.cpp                             \
+        Rules/ActionStd.h                               \
+        Rules/ActionTouchscreen.cpp                     \
+        Rules/ActionTouchscreen.h                       \
+        Rules/Condition.cpp                             \
+        Rules/Condition.h                               \
+        Rules/ConditionOutput.cpp                       \
+        Rules/ConditionOutput.h                         \
+        Rules/ConditionScript.cpp                       \
+        Rules/ConditionScript.h                         \
+        Rules/ConditionStart.cpp                        \
+        Rules/ConditionStart.h                          \
+        Rules/ConditionStd.cpp                          \
+        Rules/ConditionStd.h                            \
+        Rules/RulesFactory.cpp                          \
+        Rules/RulesFactory.h                            \
+        Scenario/AutoScenario.cpp                       \
+        Scenario/AutoScenario.h                         \
+        TCPConnection.cpp                               \
+        TCPConnection.h                                 \
+        TCPProcessor/AudioCommand.cpp                   \
+        TCPProcessor/BaseCommand.cpp                    \
+        TCPProcessor/CameraCommand.cpp                  \
+        TCPProcessor/HomeCommand.cpp                    \
+        TCPProcessor/IOCommand.cpp                      \
+        TCPProcessor/ListenCommand.cpp                  \
+        TCPProcessor/RulesCommand.cpp                   \
+        TCPProcessor/ScenarioCommand.cpp                \
+        TCPServer.cpp                                   \
+        TCPServer.h                                     \
+        UDPServer.cpp                                   \
+        UDPServer.h                                     \
+        main.cpp
 
-calaos_server_LDADD = \
-@CALAOS_SERVER_LIBS@ \
-$(top_builddir)/src/lib/libcalaos_common.la
+calaos_server_LDADD =                                   \
+        @CALAOS_SERVER_LIBS@                            \
+        $(top_builddir)/src/lib/libcalaos_common.la
