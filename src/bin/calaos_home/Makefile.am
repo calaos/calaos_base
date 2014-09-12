@@ -1,7 +1,7 @@
 if HAVE_CALAOS_HOME_BIN
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CXXFLAGS = \
+AM_CPPFLAGS = \
 -DETC_DIR=\"$(sysconfdir)/calaos\" \
 -DLIBMBUS \
 -DLOCALE_DIR=\"$(datadir)/locale\" \
@@ -19,13 +19,6 @@ AM_CXXFLAGS = \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/uri_parser \
--I. \
--I./Audio \
--I./IO \
--I./IO/libmbus \
--I./IPCam \
--I./Rules \
--I./Scenario \
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_HOME_CFLAGS@ \
 @EWEBKIT_CFLAGS@
@@ -113,16 +106,20 @@ calaos_home_SOURCES = \
         views/ActivityCameraSelectView.cpp                      \
         views/ActivityCameraSelectView.h                        \
         views/ActivityConfigClockView.cpp                       \
+        views/ActivityConfigClockView.h                         \
         views/ActivityConfigMenuView.cpp                        \
         views/ActivityConfigMenuView.h                          \
         views/ActivityConfigPasswordView.cpp                    \
+        views/ActivityConfigPasswordView.h                      \
         views/ActivityConfigScreensaverView.cpp                 \
+        views/ActivityConfigScreensaverView.h                   \
         views/ActivityConfigView.cpp                            \
         views/ActivityConfigView.h                              \
         views/ActivityEditScenarioView.cpp                      \
         views/ActivityEditScenarioView.h                        \
         views/ActivityHomeView.cpp                              \
         views/ActivityHomeView.h                                \
+        views/ActivityIntl.h                                    \
         views/ActivityKeyboardView.cpp                          \
         views/ActivityKeyboardView.h                            \
         views/ActivityMediaMenuView.cpp                         \

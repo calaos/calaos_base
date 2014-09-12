@@ -7,7 +7,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([1.6 dist-bzip2 subdir-objects foreign])
+AM_INIT_AUTOMAKE([tar-ustar 1.6 dist-xz subdir-objects foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_GNU_SOURCE

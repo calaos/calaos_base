@@ -18,9 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <GpioOutputShutter.h>
 #include <IOFactory.h>
 #include "GpioCtrl.h"
+
+#include "GpioOutputShutter.h"
 
 using namespace Calaos;
 

@@ -1,49 +1,20 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CFLAGS =                                             \
-  -DLIBMBUS                                             \
-  -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
-  -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
-  -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
-  -I$(top_srcdir)/src/bin/calaos_server/                \
-  -I$(top_srcdir)/src/bin/calaos_server/Rules           \
-  -I$(top_srcdir)/src/lib                               \
-  -I$(top_srcdir)/src/lib/LuaScript                     \
-  -I$(top_srcdir)/src/lib/cJSON                         \
-  -I$(top_srcdir)/src/lib/http-parser                   \
-  -I$(top_srcdir)/src/lib/libquickmail                  \
-  -I$(top_srcdir)/src/lib/uri_parser                    \
-  -I.                                                   \
-  -I./Audio                                             \
-  -I./Gpio                                              \
-  -I./IO                                                \
-  -I./IO/GCE                                            \
-  -I./IO/OneWire                                        \
-  -I./IO/Scripts                                        \
-  -I./IO/Wago                                           \
-  -I./IO/Wago/libmbus                                   \
-  -I./IO/Web                                            \
-  -I./IO/X10                                            \
-  -I./IO/ZWave                                          \
-  -I./IO/Zibase                                         \
-  -I./IPCam                                             \
-  -I./Rules                                             \
-  -I./Scenario                                          \
-  @CALAOS_COMMON_CFLAGS@                                \
-  @CALAOS_SERVER_CFLAGS@
-
-AM_CXXFLAGS =                                                 \
+AM_CPPFLAGS =                                                 \
         -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
         -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
+        -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DTIXML_USE_STL                                       \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
         -I$(top_srcdir)/src/bin/calaos_server/IO              \
@@ -59,22 +30,6 @@ AM_CXXFLAGS =                                                 \
         -I$(top_srcdir)/src/lib/http-parser                   \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
-        -I.                                                   \
-        -I./Audio                                             \
-        -I./IO                                                \
-        -I./IO/GCE                                            \
-        -I./IO/Gpio                                           \
-        -I./IO/OneWire                                        \
-        -I./IO/Scripts                                        \
-        -I./IO/Wago                                           \
-        -I./IO/Wago/libmbus                                   \
-        -I./IO/Web                                            \
-        -I./IO/X10                                            \
-        -I./IO/ZWave                                          \
-        -I./IO/Zibase                                         \
-        -I./IPCam                                             \
-        -I./Rules                                             \
-        -I./Scenario                                          \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@
 

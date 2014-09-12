@@ -543,6 +543,7 @@ images/icons/icon_config_l18n.png                                       \
 images/icons/icon_config_network.png                                    \
 images/icons/icon_config_security.png                                   \
 images/icons/icon_config_terminal.png                                   \
+images/icons/icon_config_unknown.png                                    \
 images/icons/icon_config_veille.png                                     \
 images/icons/icon_config_widget.png                                     \
 images/icons/icon_disclosure.png                                        \
