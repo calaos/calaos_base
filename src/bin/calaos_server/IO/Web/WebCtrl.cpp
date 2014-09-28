@@ -121,7 +121,6 @@ void WebCtrl::launchDownload()
 
     if (u.find("http://") == 0)
     {
-        cInfo() << "url is http://";
         dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
@@ -135,7 +134,6 @@ void WebCtrl::launchDownload()
     }
     else
     {
-        cInfo() << "Url is local";
         for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
         {
             fileDownloadedCallbacks[i].second();
@@ -278,7 +276,6 @@ string WebCtrl::getValueText(string path, string filename)
     for (i = 0; i < line_nb; i++)
     {
         getline(file, line);
-        cInfo() << line;
     }
 
     if (tokens.size() == 3 && tokens[2] != "")
@@ -314,7 +311,6 @@ string WebCtrl::getValue(string path)
     string filename;
     string url =  param.get_param("url");
 
-    cInfo() << "GetValue()";
     if (url.find("http://") != 0)
     {
 
@@ -325,7 +321,7 @@ string WebCtrl::getValue(string path)
         filename = "/tmp/calaos_" + param.get_param("id");
     }
 
-    cInfo() << "Filename : " << filename << " file type : " << file_type;
+    cDebug() << "Filename : " << filename << " file type : " << file_type;
 
     if (file_type == JSON)
         return getValueJson(path, filename);
@@ -359,11 +355,11 @@ void WebCtrl::setValue(string value)
     FileDownloader *fdownloader = new FileDownloader(url, data, data_type, true);
     fdownloader->Start();
 
-    cInfo() << "Set value with param : " 
-            << url << " | "
-            << param.get_param("request_type") << " | "
-            << data << " | "
-            << data_type;
+    cDebug() << "Set value with param : " 
+             << url << " | "
+             << param.get_param("request_type") << " | "
+             << data << " | "
+             << data_type;
 
 }
 
