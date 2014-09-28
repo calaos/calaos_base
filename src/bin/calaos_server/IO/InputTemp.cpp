@@ -34,7 +34,7 @@ InputTemp::InputTemp(Params &p):
 
     coeff_a = 1.0;
     coeff_b = 0.0;
-
+    timer = ecore_time_get();
     if (get_params().Exists("coeff_a"))
       Utils::from_string(get_param("coeff_a"), coeff_a);
     if (get_params().Exists("coeff_b"))
@@ -44,7 +44,7 @@ InputTemp::InputTemp(Params &p):
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("frequency"))
-        Utils::from_string(get_param("frequency"), readTime);
+        Utils::from_string(get_param("frequency"), readTime / 1000.0);
     else if (get_params().Exists("interval"))
         Utils::from_string(get_param("interval"), readTime);
     else
