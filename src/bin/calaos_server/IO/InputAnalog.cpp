@@ -89,14 +89,15 @@ void InputAnalog::readConfig()
 
 void InputAnalog::emitChange()
 {
+    double v = get_value_double();
     EmitSignalInput();
 
     string sig = "input ";
     sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
+    sig += Utils::url_encode(string("state:") + Utils::to_string(v));
     IPC::Instance().SendEvent("events", sig);
 
-    cInfoDom("input") << get_param("id") << ": " << get_value_double();
+    cInfoDom("input") << get_param("id") << ": " << v;
 }
 
 void InputAnalog::hasChanged()

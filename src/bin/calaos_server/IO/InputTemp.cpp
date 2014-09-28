@@ -93,13 +93,14 @@ double InputTemp::get_value_double()
 
 void InputTemp::emitChange()
 {
-    cInfoDom("input") << get_param("id") << ": " << get_value_double() << " °C";
+    double v = get_value_double();
+    cInfoDom("input") << get_param("id") << ": " << v << " °C";
 
     EmitSignalInput();
 
     string sig = "input ";
     sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
+    sig += Utils::url_encode(string("state:") + Utils::to_string(v));
     IPC::Instance().SendEvent("events", sig);
 }
 
