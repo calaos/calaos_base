@@ -58,6 +58,7 @@ bool Owctrl::getValue(string path, string &value)
     if (OW_get(path.c_str(), &res, &len) >= 0)
     {
 	value = res;
+        free(res);
 	return true;
     }
     else
