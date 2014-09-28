@@ -45,6 +45,7 @@ Owctrl::Owctrl(string args)
 Owctrl::~Owctrl()
 {
 #ifdef HAVE_OWCAPI_H
+    cInfoDom("input") << "OW Library uninitialization";
     OW_finish();
 #endif
 }
