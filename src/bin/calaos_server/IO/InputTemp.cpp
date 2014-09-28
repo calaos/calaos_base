@@ -44,9 +44,16 @@ InputTemp::InputTemp(Params &p):
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (get_params().Exists("frequency"))
-        Utils::from_string(get_param("frequency"), readTime / 1000.0);
+    {
+        /* Frequency is in milliseconds */
+        Utils::from_string(get_param("frequency"), readTime);
+        readTime /= 1000.0;
+    }
     else if (get_params().Exists("interval"))
+    {
+        /* interval is in seconds for legacy reasons */
         Utils::from_string(get_param("interval"), readTime);
+    }
     else
       readTime = 15.0;
 

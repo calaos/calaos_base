@@ -29,13 +29,12 @@ InputAnalog::InputAnalog(Params &p):
     Input(p),
     real_value_max(0.0),
     wago_value_max(0.0),
-    value(0.0),
-    timer(0.0)
+    value(0.0)
 {
     set_param("gui_type", "analog_in");
 
     readConfig();
-
+    timer = ecore_time_get();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
     Calaos::StartReadRules::Instance().addIO();
@@ -74,9 +73,16 @@ void InputAnalog::readConfig()
       coeff_b = 0.0;
 
     if (get_params().Exists("interval"))
-      Utils::from_string(get_param("interval"), frequency);
+    {
+        /* Interval for legacy reasons is in seconds */
+        Utils::from_string(get_param("interval"), frequency);
+    }
     else if (get_params().Exists("frequency"))
-      Utils::from_string(get_param("frequency"), frequency);
+    {
+        Utils::from_string(get_param("frequency"), frequency);
+        /* frequency parameter is in millisecond */
+        frequency /= 1000.0;
+    }
     else
       frequency = 15.0;
 }
