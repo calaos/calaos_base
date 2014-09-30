@@ -123,10 +123,26 @@ bool OutputLightRGB::set_value(std::string val)
     {
         val.erase(0, 4);
         int percent;
-        from_string(val, percent);
+
+        if (val.compare(0, 1, "#") == 0)
+          {
+            val.erase(0, 1);
+            percent = std::stoul(val, nullptr, 16);
+          }
+        else if(val.compare(0, 2, "0x") == 0)
+          {
+            val.erase(0, 2);
+            percent = std::stoul(val, nullptr, 16);
+          }
+        else
+          {
+            from_string(val, percent);
+          }
+
         red = percent >> 16;
         green = (percent >> 8) & 0x0000FF;
         blue = percent & 0x0000FF;
+
         if (red < 0) red = 0;
         if (red > 255) red = 255;
         if (green < 0) green = 0;
