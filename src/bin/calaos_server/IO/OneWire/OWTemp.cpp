@@ -32,7 +32,8 @@ using namespace Calaos;
 REGISTER_INPUT(OWTemp)
 
 OWTemp::OWTemp(Params &p):
-InputTemp(p)
+InputTemp(p),
+start(true)
 {
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
@@ -40,9 +41,10 @@ InputTemp(p)
     Owctrl::Instance(ow_args);
     cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 
-    //read value when calaos_server is started
-    readValue();
-    Calaos::StartReadRules::Instance().ioRead();
+    Calaos::StartReadRules::Instance().addIO();
+    EcoreTimer::singleShot(0.1, [=] {
+	readValue();
+      });
 }
 
 OWTemp::~OWTemp()
@@ -62,7 +64,11 @@ void OWTemp::readValue()
 
     if (Owctrl::Instance(ow_args).getValue(ow_req, res))
     {
-        
+        if (start)
+	{
+            Calaos::StartReadRules::Instance().ioRead();
+            start = false;
+	}
 	from_string(res, val);
 	val = roundValue(val);
 	if (val != value)

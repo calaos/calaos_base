@@ -35,7 +35,7 @@ private:
 protected:
     std::string ow_id;
     std::string ow_args;
-
+    bool start;
     virtual void readValue();
     void readValueReal();
 public:
