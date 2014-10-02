@@ -38,7 +38,7 @@ int ScreenManager::getTime()
     int t;
     Utils::from_string(time, t);
 
-    return t;
+    return t * 60;
 }
 
 void ScreenManager::updateTimer()

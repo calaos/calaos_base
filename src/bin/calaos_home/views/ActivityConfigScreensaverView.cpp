@@ -56,16 +56,22 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
 
     double slider_val;
     string option_val;
+    bool enabled = false;
 
     if (get_config_option("dpms_enable") == "true")
-        EmitSignal("screen,suspend,check", "calaos");
+        enabled = true;
     else
-        EmitSignal("screen,suspend,uncheck", "calaos");
+        enabled = false;
 
     option_val = get_config_option("dpms_standby");
     from_string(option_val, slider_val);
+    if ((slider_val == 0) && enabled)
+        enabled = false;
 
-    setPartText("module_screen_time_value", Utils::to_string((int)(slider_val / 60.0)) + _(" minutes"));
+    enabled ?  EmitSignal("screen,suspend,check", "calaos") :
+      EmitSignal("screen,suspend,uncheck", "calaos");
+
+    setPartText("module_screen_time_value", Utils::to_string((int)(slider_val)) + _(" minutes"));
 
     slider->addCallback("object", "*",
                         [=](void *data, Evas_Object *edje_object, string emission, string source)
@@ -86,15 +92,25 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
             double x;
 
             slider->getDragValue("slider", &x, NULL);
+            if (x == 0)
+            {
+                EmitSignal("screen,suspend,uncheck", "calaos");
+                set_config_option("dpms_enable", "false");
+            }
+            else
+            {
+                EmitSignal("screen,suspend,check", "calaos");
+                set_config_option("dpms_enable", "true");
+            }
             // Value is store in seconds
-            set_config_option("dpms_standby", Utils::to_string((int)(x * 60.0 * DPMS_STANDBY_MAX_VALUE)));
+            set_config_option("dpms_standby", Utils::to_string((int)(x * DPMS_STANDBY_MAX_VALUE)));
         }
 
     }
     );
     slider->LoadEdje("calaos/slider/horizontal/default");
     slider->Show();
-    slider->setDragValue("slider", slider_val / 60.0 / DPMS_STANDBY_MAX_VALUE, slider_val / 60.0 / DPMS_STANDBY_MAX_VALUE);
+    slider->setDragValue("slider", slider_val / DPMS_STANDBY_MAX_VALUE, slider_val / DPMS_STANDBY_MAX_VALUE);
     Swallow(slider, "dpms_standby_slider.swallow", true);
 
     addCallback("object", "*", [=](void *data, Evas_Object *edje_object, string emission, string source)
@@ -103,11 +119,19 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
         {
             EmitSignal("screen,suspend,uncheck", "calaos");
             set_config_option("dpms_enable", "false");
+            set_config_option("dpms_standby", "0.0");
+            slider->setDragValue("slider", 0.0 / DPMS_STANDBY_MAX_VALUE, 0.0 / DPMS_STANDBY_MAX_VALUE);
+            setPartText("module_screen_time_value", _("0 minutes"));
+
         }
         else if (emission == "screen,suspend,uncheck")
         {
             EmitSignal("screen,suspend,check", "calaos");
             set_config_option("dpms_enable", "true");
+            set_config_option("dpms_standby", "1.0");
+            slider->setDragValue("slider", 1.0 / DPMS_STANDBY_MAX_VALUE, 1.0 / DPMS_STANDBY_MAX_VALUE);
+
+            setPartText("module_screen_time_value", _("1 minute"));
         }
     });
 
@@ -121,4 +145,3 @@ ActivityConfigScreensaverView::~ActivityConfigScreensaverView()
 void ActivityConfigScreensaverView::resetView()
 {
 }
-
