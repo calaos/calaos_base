@@ -43,8 +43,8 @@ start(true)
 
     Calaos::StartReadRules::Instance().addIO();
     EcoreTimer::singleShot(0.1, [=] {
-	readValue();
-      });
+        readValue();
+    });
 }
 
 OWTemp::~OWTemp()
