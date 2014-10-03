@@ -24,24 +24,36 @@
 #include <InputTemp.h>
 #include <EcoreTimer.h>
 
-namespace Calaos
+using namespace Calaos;
+
+class OWTemp;
+
+struct OWData
 {
+    OWTemp *owTemp;
+    bool ret;
+    string result;
+};
 
 class OWTemp : public InputTemp
 {
 private:
     char retry;
     EcoreTimer *retry_timer;
+
 protected:
     std::string ow_id;
     std::string ow_args;
     bool start;
+
+    friend void *_ow_thread_callback(void *data);
+    void readValue_cb(bool ret, string res);
     virtual void readValue();
     void readValueReal();
+
 public:
     OWTemp(Params &p);
     ~OWTemp();
 };
 
-}
 #endif
