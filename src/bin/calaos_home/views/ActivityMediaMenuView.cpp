@@ -31,8 +31,10 @@ ActivityMediaMenuView::ActivityMediaMenuView(Evas *_e, Evas_Object *_parent):
     if (Utils::get_config_option("enable_media_camera") != "false")
         addIcon(pos++, "camera");
 
-    if (Utils::get_config_option("enable_media_photos") != "false")
-        addIcon(pos++, "photos");
+//TODO: remove flickr icon for now, as it's not working anymore and
+//      and we don't have any alternative yet.
+//    if (Utils::get_config_option("enable_media_photos") != "false")
+//        addIcon(pos++, "photos");
 
 #ifdef HAVE_EWEBKIT
     if (Utils::get_config_option("enable_media_web") != "false")
@@ -50,7 +52,7 @@ ActivityMediaMenuView::~ActivityMediaMenuView()
 }
 
 void ActivityMediaMenuView::addIcon(int position, string type)
-{     
+{
     if (Utils::get_config_option("enable_media_" + type) != "false")
     {
         EdjeObject *obj = new EdjeObject(theme, evas);
