@@ -37,7 +37,7 @@ private:
 
     //timer to do some maintenance stuff
     //like showing/hiding xmas widget
-    EcoreTimer *timer;
+    EcoreTimer *timer = nullptr;
 
     //                ModuleDef xmas_def;
     //                XmasWidget *xmas_widget;
