@@ -85,7 +85,7 @@ public:
     eZibaseRunningReq RunningReq;
     std::string ID;
     bool valueWritten;
-    unsigned char frame[70];
+    unsigned char frame[86];
     bool ackReceived;
 };
 
