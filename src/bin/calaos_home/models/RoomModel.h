@@ -81,7 +81,7 @@ public:
     vector<TimeRange> range_saturday;
     vector<TimeRange> range_sunday;
 
-    vector<TimeRange> &getRange(int day);
+    vector<TimeRange> getRange(int day);
 
     //months where InPlageHoraire is activated
     enum { JANUARY = 0, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };

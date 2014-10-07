@@ -565,7 +565,7 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
     {
         long timea = 0, timeb = 0;
 
-        vector<TimeRange> &vtr = a.scenario->ioSchedule->range_infos.getRange(a.day);
+        vector<TimeRange> vtr = a.scenario->ioSchedule->range_infos.getRange(a.day);
         if (a.timeRangeNum >= 0 && a.timeRangeNum < (int)vtr.size())
             timea = vtr[a.timeRangeNum].getStartTimeSec();
 

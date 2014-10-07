@@ -1714,7 +1714,7 @@ vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
     return ret;
 }
 
-vector<TimeRange> &TimeRangeInfos::getRange(int day)
+vector<TimeRange> TimeRangeInfos::getRange(int day)
 {
     switch (day)
     {

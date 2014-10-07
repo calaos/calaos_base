@@ -78,7 +78,7 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
 
         if (scenario->isScheduled())
         {
-            vector<TimeRange> &v = scenario->ioSchedule->range_infos.getRange(scheduleRange);
+            vector<TimeRange> v = scenario->ioSchedule->range_infos.getRange(scheduleRange);
 
             if (scheduleRangeNum >= 0 && scheduleRangeNum < (int)v.size())
             {
