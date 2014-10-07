@@ -85,6 +85,20 @@ void ActivityScenariosView::HideLoading()
     EmitSignal("hide,loading", "calaos");
 }
 
+static void _calendar_cb(void *data, Evas_Object *obj, void *event_info)
+{
+    ActivityScenariosView *view = reinterpret_cast<ActivityScenariosView *>(data);
+    if (view)
+    {
+        struct tm ndate;
+        if (!elm_calendar_selected_time_get(obj, &ndate))
+             return;
+
+        view->setCalendarDate(ndate);
+        view->reloadCalendar();
+    }
+}
+
 void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
     if (source == "button.calendar")
@@ -98,6 +112,8 @@ void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::s
 
         const char *weekdays[] = { "DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM" };
         elm_calendar_weekdays_names_set(calendar, weekdays);
+
+        evas_object_smart_callback_add(calendar, "changed", _calendar_cb, this);
 
         //Mark sundays
         struct tm sunday = { 0, 0, 12, 7, 0, 0, 6, 0, -1, 0, NULL };
@@ -235,9 +251,47 @@ void ActivityScenariosView::loadScenarioList()
     }
 }
 
-void ActivityScenariosView::loadScenarios()
+void ActivityScenariosView::reloadCalendar()
 {
     elm_genlist_clear(schedule_list);
+
+    string weekday;
+    switch (currDate.tm_wday)
+    {
+    case 0: weekday = _("Sunday"); break;
+    case 1: weekday = _("Monday"); break;
+    case 2: weekday = _("Tuesday"); break;
+    case 3: weekday = _("Wednesday"); break;
+    case 4: weekday = _("Thursday"); break;
+    case 5: weekday = _("Friday"); break;
+    case 6: weekday = _("Saturday"); break;
+    default: break;
+    }
+
+    string month;
+    switch (currDate.tm_mon)
+    {
+    case 0: month = _("January"); break;
+    case 1: month = _("February"); break;
+    case 2: month = _("Mars"); break;
+    case 3: month = _("April"); break;
+    case 4: month = _("May"); break;
+    case 5: month = _("June"); break;
+    case 6: month = _("July"); break;
+    case 7: month = _("August"); break;
+    case 8: month = _("September"); break;
+    case 9: month = _("October"); break;
+    case 10: month = _("November"); break;
+    case 11: month = _("December"); break;
+    default: break;
+    }
+
+    string label = _("On <blue>%1, %2 %3, %4</blue>");
+    Utils::replace_str(label, "%1", weekday);
+    Utils::replace_str(label, "%2", month);
+    Utils::replace_str(label, "%3", Utils::to_string(currDate.tm_mday));
+    Utils::replace_str(label, "%4", Utils::to_string(currDate.tm_year + 1900));
+    setPartText("schedule.date", label);
 
     list<ScenarioSchedule> lst = CalaosModel::Instance().getScenario()->getScenarioForDate(currDate);
     for (auto i = lst.begin();i != lst.end();i++)
@@ -250,6 +304,10 @@ void ActivityScenariosView::loadScenarios()
         item->schedule_del_click.connect(sigc::mem_fun(schedule_del_click, &sigc::signal<void, Scenario *>::emit));
         item->Append(schedule_list);
     }
+}
 
+void ActivityScenariosView::loadScenarios()
+{
+    reloadCalendar();
     loadScenarioList();
 }

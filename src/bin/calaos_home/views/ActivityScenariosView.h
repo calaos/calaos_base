@@ -58,6 +58,9 @@ public:
     sigc::signal<void, Scenario *> schedule_add_click;
     sigc::signal<void, Scenario *> schedule_modify_click;
     sigc::signal<void, Scenario *> schedule_del_click;
+
+    void setCalendarDate(struct tm &newdate) { currDate = newdate; }
+    void reloadCalendar();
 };
 
 #endif // ACTIVITYSCENARIOSVIEW_H
