@@ -412,12 +412,15 @@ void ScenarioModel::deleteScenario(Scenario *sc)
 
 void ScenarioModel::notifyScenarioAdd(string notif)
 {
+    cDebugDom("scenario") << "New scenario notif, start timer to load scenario data...";
+
     //We need to delay the load of the scenario because we have to wait for RoomModel to load the scenario id first
     EcoreTimer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), notif));
 }
 
 void ScenarioModel::notifyScenarioAddDelayed(string notif)
 {
+    cDebugDom("scenario") << "New scenario, load data";
     vector<string> tok, split_id;
     split(notif, tok);
 
@@ -446,11 +449,16 @@ void ScenarioModel::notifyScenarioAddDelayed(string notif)
     sc->load_done.connect(sigc::mem_fun(*this, &ScenarioModel::load_new_scenario_done));
 
     string cmd = "scenario get " + split_id[1];
-    connection->SendCommand(cmd, sigc::mem_fun(*sc, &Scenario::scenario_get_cb));
+    connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
+    {
+        sc->scenario_get_cb(_success, _result, _data);
+        sc->load_done.emit(sc);
+    });
 }
 
 void ScenarioModel::load_new_scenario_done(Scenario *sc)
 {
+    cDebugDom("scenario") << "New scenario, load done, emit signal";
     scenario_new.emit(sc);
 }
 
