@@ -453,6 +453,10 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 string sig = "input_range_change ";
                 sig += input->get_param("id") + " ";
                 IPC::Instance().SendEvent("events", sig);
+
+                //Resave config
+                Config::Instance().SaveConfigIO();
+                Config::Instance().SaveConfigRule();
             }
             else if (plage && request["3"] == "months" && request["4"] == "get")
             {
@@ -486,6 +490,10 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
 
                     result.Add("5", "error");
                 }
+
+                //Resave config
+                Config::Instance().SaveConfigIO();
+                Config::Instance().SaveConfigRule();
             }
             else
                 result.Add("4", "Error: not found");
