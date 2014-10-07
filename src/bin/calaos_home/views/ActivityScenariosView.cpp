@@ -140,6 +140,12 @@ void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::s
         evas_object_move(popup, x, y);
         evas_object_show(popup);
     }
+    else if (source == "button.calendar.today")
+    {
+        time_t t = time(0);
+        currDate = *localtime(&t);
+        reloadCalendar();
+    }
     else if (source == "button.create")
     {
         buttonCreatePressed.emit();
