@@ -723,6 +723,8 @@ void AutoScenario::addSchedule()
     if (ioPlage) return;
 
     ioPlage = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
+    
+    checkScenarioRules();
 }
 
 void AutoScenario::deleteSchedule()
