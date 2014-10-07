@@ -41,8 +41,9 @@ ActivityMediaMenuView::ActivityMediaMenuView(Evas *_e, Evas_Object *_parent):
         addIcon(pos++, "web");
 #endif
 
-    if (Utils::get_config_option("enable_media_eskiss") != "false")
-        addIcon(pos++, "eskiss");
+//TODO: remove eskiss for now, it's not built in calaos-os and is not working anymore.
+//    if (Utils::get_config_option("enable_media_eskiss") != "false")
+//        addIcon(pos++, "eskiss");
 }
 
 ActivityMediaMenuView::~ActivityMediaMenuView()
