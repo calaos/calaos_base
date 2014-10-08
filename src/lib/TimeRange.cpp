@@ -310,7 +310,7 @@ bool TimeRange::isSameStartEnd()
     return start == end;
 }
 
-string TimeRange::toProtoCommand(int day)
+string TimeRange::toProtoCommand(int day) const
 {
     string s = Utils::to_string(day + 1) + ":";
     s += shour + ":" + smin + ":" + ssec;

@@ -676,9 +676,9 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
     elm_genlist_clear(schedule_list);
 
     vector<TimeRange> trange_sorted;
-    auto sortTimeRange = [&trange_sorted](vector<TimeRange> &range, int day)
+    auto sortTimeRange = [&trange_sorted](const vector<TimeRange> &range, int day)
     {
-        for (TimeRange &t: range)
+        for (const TimeRange &t: range)
         {
             auto it = std::find(trange_sorted.begin(), trange_sorted.end(), t);
             if (it != trange_sorted.end())

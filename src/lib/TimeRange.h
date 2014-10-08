@@ -71,7 +71,7 @@ public:
 
     bool isSameStartEnd();
 
-    string toProtoCommand(int day);
+    string toProtoCommand(int day) const;
     string toString();
 
     //flag to ease the loading in UI

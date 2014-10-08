@@ -1688,7 +1688,7 @@ vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
     if (!range_months.test(scDate.tm_mon))
         return ret;
 
-    auto checkRange = [=,&ret](vector<TimeRange> &range)
+    auto checkRange = [=,&ret](const vector<TimeRange> &range)
     {
         cDebugDom("scenario") << "day: " << scDate.tm_wday << " range size: " << range.size();
         for (uint i = 0;i < range.size();i++)

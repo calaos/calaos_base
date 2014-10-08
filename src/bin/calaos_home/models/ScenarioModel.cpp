@@ -362,9 +362,9 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
 
     string cmd = "input " + ioSchedule->params["id"] + " plage set";
 
-    auto addRange = [=,&cmd](vector<TimeRange> &ranges, int day)
+    auto addRange = [=,&cmd](const vector<TimeRange> &ranges, int day)
     {
-        for (TimeRange &t: ranges)
+        for (const TimeRange &t: ranges)
             cmd += " " + t.toProtoCommand(day);
     };
 
