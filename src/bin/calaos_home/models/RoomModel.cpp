@@ -1574,14 +1574,6 @@ string IOActionList::getComputedAction(IOBase *io)
 
 void IOBase::loadPlage()
 {
-    range_infos.range_monday.clear();
-    range_infos.range_tuesday.clear();
-    range_infos.range_wednesday.clear();
-    range_infos.range_thursday.clear();
-    range_infos.range_friday.clear();
-    range_infos.range_saturday.clear();
-    range_infos.range_sunday.clear();
-
     if (params["gui_type"] != "time_range")
     {
         cErrorDom("network") << params["id"]
@@ -1597,6 +1589,14 @@ void IOBase::loadPlage()
 void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
 {
     if (!success) return;
+
+    range_infos.range_monday.clear();
+    range_infos.range_tuesday.clear();
+    range_infos.range_wednesday.clear();
+    range_infos.range_thursday.clear();
+    range_infos.range_friday.clear();
+    range_infos.range_saturday.clear();
+    range_infos.range_sunday.clear();
 
     for (uint i = 3;i < result.size();i++)
     {
