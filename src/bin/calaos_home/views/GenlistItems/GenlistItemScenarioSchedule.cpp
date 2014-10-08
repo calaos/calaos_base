@@ -32,6 +32,10 @@ GenlistItemScenarioSchedule::GenlistItemScenarioSchedule(Evas *_evas, Evas_Objec
     IOBaseElement(sc->ioScenario),
     scenario(sc)
 {
+    CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *s)
+    {
+        if (scenario == s) updateView();
+    });
 }
 
 GenlistItemScenarioSchedule::~GenlistItemScenarioSchedule()

@@ -310,6 +310,8 @@ void AutoScenario::checkScenarioRules()
     ioPlage = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(scenario_id + "_schedule"));
     if (ioPlage)
     {
+        ioPlage->setAutoScenarioPtr(this);
+
         if (!ioScheduleEnabled)
             ioScheduleEnabled = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
 

@@ -34,6 +34,7 @@
 #include <WODigital.h>
 #include <Scenario.h>
 #include <CalaosConfig.h>
+#include <AutoScenario.h>
 
 using namespace Calaos;
 
@@ -454,6 +455,14 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                 sig += input->get_param("id") + " ";
                 IPC::Instance().SendEvent("events", sig);
 
+                //this timerange is part of a autoscenario
+                if (plage->getAutoScenarioPtr())
+                {
+                    sig = "modify_scenario id:";
+                    sig += plage->getAutoScenarioPtr()->getIOScenario()->get_param("id");
+                    IPC::Instance().SendEvent("events", sig);
+                }
+
                 //Resave config
                 Config::Instance().SaveConfigIO();
                 Config::Instance().SaveConfigRule();
@@ -483,6 +492,14 @@ void TCPConnection::IOCommand(Params &request, ProcessDone_cb callback)
                     string sig = "input_range_change ";
                     sig += input->get_param("id") + " ";
                     IPC::Instance().SendEvent("events", sig);
+
+                    //this timerange is part of a autoscenario
+                    if (plage->getAutoScenarioPtr())
+                    {
+                        sig = "modify_scenario id:";
+                        sig += plage->getAutoScenarioPtr()->getIOScenario()->get_param("id");
+                        IPC::Instance().SendEvent("events", sig);
+                    }
                 }
                 catch(...)
                 {

@@ -26,6 +26,8 @@
 namespace Calaos
 {
 
+class AutoScenario;
+
 class IOBase
 {
 private:
@@ -33,6 +35,7 @@ private:
     Params param;
 
     bool auto_sc_mark;
+    AutoScenario *ascenario = nullptr;
 
 public:
     IOBase(Params &p): param(p), auto_sc_mark(false) { cInfoDom("input") << "IOBASE"; }
@@ -65,6 +68,9 @@ public:
 
     bool isAutoScenario() { return auto_sc_mark; }
     void setAutoScenario(bool m) { auto_sc_mark = m; }
+
+    void setAutoScenarioPtr(AutoScenario *sc) { ascenario = sc; }
+    AutoScenario *getAutoScenarioPtr() { return ascenario; }
 };
 
 }
