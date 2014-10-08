@@ -323,7 +323,10 @@ void AutoScenario::checkScenarioRules()
         //It will automatically delete all rules using this input
         ioScheduleEnabled = dynamic_cast<Internal *>(ListeRoom::Instance().get_input(scenario_id + "_is_schedule_enabled"));
         if (ioScheduleEnabled)
+        {
             ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioScheduleEnabled));
+            ioScheduleEnabled = NULL;
+        }
     }
 
     /* search needed rules for scenario */
@@ -723,7 +726,7 @@ void AutoScenario::addSchedule()
     if (ioPlage) return;
 
     ioPlage = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
-    
+
     checkScenarioRules();
 }
 
