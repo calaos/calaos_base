@@ -95,7 +95,7 @@ public:
 
     virtual void resetView();
 
-    void setTimeRangeInfos(TimeRangeInfos &tr, bool _cycle) { range_infos = tr; reloadTimeRanges(); cycle = _cycle; }
+    void setTimeRangeInfos(const TimeRangeInfos &tr, bool _cycle) { range_infos = tr; reloadTimeRanges(); cycle = _cycle; }
 
     sigc::signal<void, TimeRangeInfos &> buttonValidPressed;
 };
