@@ -581,7 +581,7 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
         if (b.timeRangeNum >= 0 && b.timeRangeNum < (int)vtr.size())
             timeb = vtr[b.timeRangeNum].getStartTimeSec();
 
-        return timea > timeb;
+        return timea < timeb;
     });
 
     return retList;
