@@ -63,7 +63,26 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     gethostname(hostname, HOST_NAME_MAX);
     setPartText("tab1.hostname", hostname);
 
-    string local_ip = TCPSocket::GetLocalIP("eth0");
+    string local_ip = "";
+    // Get All interfaces
+    vector<string> intf = TCPSocket::getAllInterfaces();
+    if (intf.size() > 0)
+    {
+        for (unsigned int i = 0; i < intf.size(); i++)
+        {
+            // Do not try to get ip of loopback interface
+            if (intf[i] != "lo")
+            {
+                // get the ip of the interface
+                local_ip = TCPSocket::GetLocalIP(intf[i]);
+                // If the ip is set, return, so we return the first interface
+                // with a valid address: TODO : display the list of all
+                // interfaces with a valid address and Display ipv6 address
+                if (local_ip != "")
+                    break;
+            }
+        }
+    }
     setPartText("tab1.ipaddress.label", _("Network address :"));
     setPartText("tab1.ipaddress", local_ip.c_str());
 
