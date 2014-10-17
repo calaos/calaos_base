@@ -37,6 +37,9 @@ InputTimer::InputTimer(Params &p):
     set_param("visible", "false");
     set_param("gui_type", "timer");
 
+    if (get_param("autostart") == "true")
+        StartTimer();
+
     cDebugDom("input") << get_param("id") << ": Ok";
 }
 
@@ -157,6 +160,9 @@ void InputTimer::TimerDone()
     sig += get_param("id") + " ";
     sig += Utils::url_encode("state:true");
     IPC::Instance().SendEvent("events", sig);
+
+    if (get_param("autorestart") == "true")
+        StartTimer();
 }
 
 void InputTimer::hasChanged()
