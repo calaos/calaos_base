@@ -36,6 +36,7 @@ WebInputTemp::WebInputTemp(Params &p):
     InputTemp(p)
 {
     cInfoDom("input") << "WebInputTemp::WebInputTemp()";
+    Calaos::StartReadRules::Instance().addIO();
 
     // Add input to WebCtrl instance
     WebCtrl::Instance(p).Add(get_param("path"), readTime, [=]()

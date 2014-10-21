@@ -36,6 +36,7 @@ WebInputAnalog::WebInputAnalog(Params &p):
     InputAnalog(p)
 {
     cInfoDom("input") << "WebInputAnalog::WebInputAnalog()";
+    Calaos::StartReadRules::Instance().addIO();
 
     // Add input to WebCtrl instance
     WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()

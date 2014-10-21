@@ -93,9 +93,6 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
         /* read variable to know output state*/
         Zibase::Instance(host, port).rw_variable(prot);
 
-        /* specify to calaos that he must read value*/
-        Calaos::StartReadRules::Instance().addIO();
-
         //Utils::logger("output") << Priority::DEBUG << "ZibaseDigitalOut::ZibaseDigitalOut(" << get_param("id") << "): Ok" << log4cpp::eol;
         cDebugDom("output") << get_param("id");
 

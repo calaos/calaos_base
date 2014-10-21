@@ -32,8 +32,6 @@ OutputString::OutputString(Params &p):
 
     readConfig();
 
-    Calaos::StartReadRules::Instance().addIO();
-
     cInfoDom("output") << get_param("id") << ": Ok";
 }
 

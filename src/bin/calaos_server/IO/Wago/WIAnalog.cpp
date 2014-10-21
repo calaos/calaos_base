@@ -44,6 +44,8 @@ WIAnalog::WIAnalog(Params &p):
     WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
     requestInProgress = true;
 
+    Calaos::StartReadRules::Instance().addIO();
+
     cDebugDom("input") << get_param("id") << ": Ok";
 }
 

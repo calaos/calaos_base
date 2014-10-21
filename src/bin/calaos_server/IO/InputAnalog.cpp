@@ -37,8 +37,6 @@ InputAnalog::InputAnalog(Params &p):
     timer = ecore_time_get();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
-    Calaos::StartReadRules::Instance().addIO();
-
     cInfoDom("input") << get_param("id") << ": Ok";
 }
 
