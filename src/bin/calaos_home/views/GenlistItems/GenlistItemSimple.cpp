@@ -47,6 +47,21 @@ string GenlistItemSimple::getLabelItem(Evas_Object *obj, string part)
     return label;
 }
 
+static void
+_button_mouse_up_cb(void *data,
+                    Evas *evas EINA_UNUSED,
+                    Evas_Object *obj,
+                    void *event_info)
+{
+  Evas_Event_Mouse_Up *ev = (Evas_Event_Mouse_Up*)event_info;
+  /*
+   * Edje/Elementary HACK block event propagation of adding by adding flag
+   * ON_HOLD to evas event This event is read bu elementary genlist code to see
+   * if the item selection event have to be emited or not
+   */
+  ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
+}
+
 Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, string part)
 {
     Evas_Object *o = NULL;
@@ -75,6 +90,7 @@ Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, string part)
             elm_object_style_set(o, "calaos/action_button/blue");
             elm_object_content_set(o, _icon);
             evas_object_smart_callback_add(o, "clicked", _item_button_Pressed, this);
+            evas_object_event_callback_add(o, EVAS_CALLBACK_MOUSE_UP, _button_mouse_up_cb, NULL);
 
             itemEmitSignal("button,enabled", "calaos");
         }
