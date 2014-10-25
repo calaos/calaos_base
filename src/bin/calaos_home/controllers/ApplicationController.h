@@ -90,7 +90,7 @@ private:
     void activityScheduleScenarioQuit();
 
     void controllerFinished(ActivityController *controller);
-    void resetOtherViews();
+    void resetOtherViews(bool showLastView = true);
 
 public:
     ApplicationController(Evas *evas, Evas_Object *layout);

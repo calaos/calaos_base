@@ -63,7 +63,7 @@ public:
     ~MainContentView();
 
     void addView(BaseView *view);
-    void removeTopView();
+    void removeTopView(bool showLastView = true);
     void showView(BaseView *view);
 
     BaseView *getTopView();

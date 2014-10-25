@@ -120,11 +120,11 @@ ApplicationController::~ApplicationController()
     DELETE_NULL(scheduleScController);
 }
 
-void ApplicationController::resetOtherViews()
+void ApplicationController::resetOtherViews(bool showLastView)
 {
     if (contentView->getTopView() != widgetsController->getView())
     {
-        contentView->removeTopView();
+        contentView->removeTopView(showLastView);
         homeController = NULL;
         mediaController = NULL;
         scenariosController = NULL;
@@ -136,7 +136,7 @@ void ApplicationController::onMenuHomeClick()
 {
     if (!homeController)
     {
-        resetOtherViews();
+        resetOtherViews(false);
 
         homeController = new ActivityHomeController(evas, layout);
         homeController->wants_quit.connect(sigc::mem_fun(*this, &ApplicationController::activityQuit));
@@ -154,7 +154,7 @@ void ApplicationController::onMenuMediaClick()
 {
     if (!mediaController)
     {
-        resetOtherViews();
+        resetOtherViews(false);
 
         mediaController = new ActivityMediaController(evas, layout);
         mediaController->wants_quit.connect(sigc::mem_fun(*this, &ApplicationController::activityQuit));
@@ -172,7 +172,7 @@ void ApplicationController::onMenuScenarioClick()
 {
     if (!scenariosController)
     {
-        resetOtherViews();
+        resetOtherViews(false);
 
         scenariosController = new ActivityScenariosController(evas, layout);
         scenariosController->wants_quit.connect(sigc::mem_fun(*this, &ApplicationController::activityQuit));
@@ -190,7 +190,7 @@ void ApplicationController::onMenuConfigClick()
 {
     if (!configController)
     {
-        resetOtherViews();
+        resetOtherViews(false);
 
         configController = new ActivityConfigController(evas, layout);
         configController->wants_quit.connect(sigc::mem_fun(*this, &ApplicationController::activityQuit));

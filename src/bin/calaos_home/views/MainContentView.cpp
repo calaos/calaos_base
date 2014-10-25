@@ -85,7 +85,7 @@ void MainContentView::addView(BaseView *view)
     va->animation->EmitSignal("elm,action,push", "elm");
 }
 
-void MainContentView::removeTopView()
+void MainContentView::removeTopView(bool showLastView)
 {
     if (views.size() <= 0)
         return;
@@ -96,7 +96,7 @@ void MainContentView::removeTopView()
     va->animation->EmitSignal("elm,action,pop", "elm");
     va->pop_me = true;
 
-    if (views.size() > 0)
+    if (views.size() > 0 && showLastView)
     {
         ViewAnimation *last_va = views.back();
         last_va->view->Show();
