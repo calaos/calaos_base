@@ -251,6 +251,7 @@ void Widget::Show()
 void Widget::Hide()
 {
     edje_object_signal_emit(edje, "hide", "calaos");
+    EdjeObject::Hide();
 }
 
 void Widget::Move(int wx, int wy)

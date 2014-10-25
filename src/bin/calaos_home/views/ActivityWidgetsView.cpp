@@ -57,11 +57,21 @@ ActivityWidgetsView::~ActivityWidgetsView()
 void ActivityWidgetsView::resetView()
 {
     EmitSignal("normal", "calaos");
+
+    for_each(widgets.begin(), widgets.end(), [](Widget *w)
+    {
+        w->Show();
+    });
 }
 
 void ActivityWidgetsView::dimView()
 {
     EmitSignal("fade", "calaos");
+
+    for_each(widgets.begin(), widgets.end(), [](Widget *w)
+    {
+        w->Hide();
+    });
 }
 
 void ActivityWidgetsView::TimerTick()
