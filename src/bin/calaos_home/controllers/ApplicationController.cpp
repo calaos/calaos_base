@@ -72,7 +72,7 @@ ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
 
     menuView = new MainMenuView(evas, layout);
 
-    menuView->setVersionString(get_config_option("fw_version"));
+    menuView->setVersionString(PACKAGE_VERSION);
 
     menuView->on_home_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuHomeClick));
     menuView->on_media_click.connect(sigc::mem_fun(*this, &ApplicationController::onMenuMediaClick));
