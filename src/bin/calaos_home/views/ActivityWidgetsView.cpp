@@ -23,6 +23,14 @@
 #include "Prefix.h"
 #include <time.h>
 
+static void _view_move(void *data, Evas *e , Evas_Object *obj, void *event_info)
+{
+    ActivityWidgetsView *o = reinterpret_cast<ActivityWidgetsView *>(data);
+    if (!o) return;
+
+    o->_viewMovedResized();
+}
+
 ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/page/widgets")
 {
@@ -31,6 +39,9 @@ ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
     evas_object_show(clipper);
 
     Swallow(clipper, "widgets.swallow", true);
+
+    evas_object_event_callback_add(edje, EVAS_CALLBACK_MOVE, _view_move, this);
+    evas_object_event_callback_add(edje, EVAS_CALLBACK_RESIZE, _view_move, this);
 
     //Create a temporary dir for modules
     if (ecore_file_is_dir("/tmp/calaos_widgets"))
@@ -52,6 +63,17 @@ ActivityWidgetsView::~ActivityWidgetsView()
 
     if (timer) delete timer;
     timer = NULL;
+}
+
+void ActivityWidgetsView::_viewMovedResized()
+{
+    Evas_Coord xpos, ypos, wi, he;
+    evas_object_geometry_get(clipper, &xpos, &ypos, &wi, &he);
+    if (xmas_widget)
+    {
+        xmas_widget->Move(xpos, ypos);
+        xmas_widget->Resize(wi, he);
+    }
 }
 
 void ActivityWidgetsView::resetView()
@@ -76,42 +98,42 @@ void ActivityWidgetsView::dimView()
 
 void ActivityWidgetsView::TimerTick()
 {
-    /*
-        time_t tt = time(NULL);
-        struct tm *t = localtime(&tt);
+    time_t tt = time(NULL);
+    struct tm *t = localtime(&tt);
 
-        if (t->tm_mon == 11) //december
+    if (t->tm_mon == 11) //december
+    {
+        if (t->tm_mday >= 22 && !xmas_widget)
         {
-                if (t->tm_mday >= 22 && !xmas_widget)
-                {
-                        //Create the Xmas widget
-                        xmas_widget = new XmasWidget(theme, evas, xmas_def, "xmas");
-                        evas_object_clip_set(xmas_widget->get_edje(), clipper);
-                        evas_object_color_set(clipper, 255, 255, 255, 255);
-                        xmas_widget->Show();
-                }
+            //Create the Xmas widget
+            xmas_widget = new XmasWidget(theme, evas, xmas_def, "xmas", parent, this);
+            evas_object_clip_set(xmas_widget->getEvasObject(), clipper);
+            evas_object_color_set(clipper, 255, 255, 255, 255);
+            _viewMovedResized();
+            xmas_widget->Show();
+        }
+    }
+
+    if (t->tm_mon == 0) //january
+    {
+        if (t->tm_mday < 4 && !xmas_widget)
+        {
+            //Create the Xmas widget
+            xmas_widget = new XmasWidget(theme, evas, xmas_def, "xmas", parent, this);
+            evas_object_clip_set(xmas_widget->getEvasObject(), clipper);
+            evas_object_color_set(clipper, 255, 255, 255, 255);
+            _viewMovedResized();
+            xmas_widget->Show();
         }
 
-        if (t->tm_mon == 0) //january
+        if (t->tm_mday >= 4 && xmas_widget)
         {
-                if (t->tm_mday < 4 && !xmas_widget)
-                {
-                        //Create the Xmas widget
-                        xmas_widget = new XmasWidget(theme, evas, xmas_def, "xmas");
-                        evas_object_clip_set(xmas_widget->get_edje(), clipper);
-                        evas_object_color_set(clipper, 255, 255, 255, 255);
-                        xmas_widget->Show();
-                }
-
-                if (t->tm_mday >= 4 && xmas_widget)
-                {
-                        delete xmas_widget;
-                        xmas_widget = NULL;
-                        if (widgets.size() <= 0)
-                                evas_object_color_set(clipper, 255, 255, 255, 0);
-                }
+            delete xmas_widget;
+            xmas_widget = NULL;
+            if (widgets.size() <= 0)
+                evas_object_color_set(clipper, 255, 255, 255, 0);
         }
-*/
+    }
 }
 
 void ActivityWidgetsView::DeleteWidget(Widget *w)
@@ -128,7 +150,7 @@ void ActivityWidgetsView::DeleteWidget(Widget *w)
         }
     }
 
-    if (widgets.size() <= 0/* && !xmas_widget*/)
+    if (widgets.size() <= 0 && !xmas_widget)
         evas_object_color_set(clipper, 255, 255, 255, 0);
 }
 
@@ -137,7 +159,7 @@ void ActivityWidgetsView::DeleteAllWidgets()
     for_each(widgets.begin(), widgets.end(), Delete());
     widgets.clear();
     SaveWidgets();
-    //if (!xmas_widget) evas_object_color_set(clipper, 255, 255, 255, 0);
+    if (!xmas_widget) evas_object_color_set(clipper, 255, 255, 255, 0);
     evas_object_color_set(clipper, 0, 0, 0, 0);
 }
 

@@ -126,8 +126,6 @@ Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_
     int w, h;
     module->getSizeMin(w, h);
     Resize(w, h);
-
-    //        set_layer(-5);
 }
 
 Widget::~Widget()

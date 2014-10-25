@@ -21,10 +21,11 @@
 #ifndef ACTIVITYWIDGETSVIEW_H
 #define ACTIVITYWIDGETSVIEW_H
 
-#include <Utils.h>
+#include "Utils.h"
 #include "ActivityView.h"
-#include <Modules.h>
-#include <Widget.h>
+#include "Modules.h"
+#include "Widget.h"
+#include "Xmas.h"
 
 using namespace Utils;
 
@@ -39,8 +40,8 @@ private:
     //like showing/hiding xmas widget
     EcoreTimer *timer = nullptr;
 
-    //                ModuleDef xmas_def;
-    //                XmasWidget *xmas_widget;
+    ModuleDef xmas_def;
+    XmasWidget *xmas_widget = nullptr;
 
     void _AddWidget(Widget *o);
     void TimerTick();
@@ -69,6 +70,8 @@ public:
 
     int size() { return widgets.size(); }
     Widget *getWidget(int i) { return widgets[i]; }
+
+    void _viewMovedResized();
 };
 
 #endif // ACTIVITYWIDGETSVIEW_H

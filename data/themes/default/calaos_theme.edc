@@ -84,6 +84,7 @@ collections
 
         // calaos/page/widgets
         #include "structure/page_widgets.edc"
+        #include "structure/xmas_widget.edc"
 
         // calaos/page/home
         #include "structure/page_home.edc"

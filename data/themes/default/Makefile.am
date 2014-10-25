@@ -877,7 +877,8 @@ structure/slider_horizontal_macro.edc           \
 structure/slider_vertical_macro.edc             \
 structure/styles.edc                            \
 structure/utils.edc                             \
-structure/vert_level_indicator_macro.edc
+structure/vert_level_indicator_macro.edc        \
+structure/xmas_widget.edc
 
 FONT = \
 fonts/RepetitionScrolling.ttf                   \

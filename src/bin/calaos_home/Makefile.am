@@ -221,6 +221,8 @@ calaos_home_SOURCES = \
         views/ScreenSuspendView.cpp                             \
         views/ScreenSuspendView.h                               \
         views/WebKitError.h                                     \
+        views/Xmas.h                                            \
+        views/Xmas.cpp                                          \
         views/Widget.cpp                                        \
         views/Widget.h
 
