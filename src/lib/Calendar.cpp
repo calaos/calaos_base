@@ -107,6 +107,7 @@ Calendar::Calendar():exe(NULL), handler(NULL)
 void Calendar::initClock()
 {
     //récupération de l'heure du système
+    tzset(); //Force reload of timezone data
     time_t tt = time(NULL);
     struct tm *t = localtime(&tt);
 
@@ -123,6 +124,7 @@ void Calendar::initClock()
  */
 void Calendar::initDate()
 {
+    tzset(); //Force reload of timezone data
     time_t tt = time(NULL);
     struct tm *t = localtime(&tt);
 

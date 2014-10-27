@@ -63,6 +63,7 @@ void InPlageHoraire::hasChanged()
     vector<TimeRange> *plage = NULL;
 
     struct tm *ctime = NULL;
+    tzset(); //Force reload of timezone data
     time_t t = time(NULL);
     ctime = localtime(&t);
 

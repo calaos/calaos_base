@@ -98,6 +98,7 @@ void ActivityWidgetsView::dimView()
 
 void ActivityWidgetsView::TimerTick()
 {
+    tzset(); //Force reload of timezone data
     time_t tt = time(NULL);
     struct tm *t = localtime(&tt);
 

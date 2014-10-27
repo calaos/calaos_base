@@ -144,6 +144,7 @@ void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::s
     }
     else if (source == "button.calendar.today")
     {
+        tzset(); //Force reload of timezone data
         time_t t = time(0);
         currDate = *localtime(&t);
         reloadCalendar();

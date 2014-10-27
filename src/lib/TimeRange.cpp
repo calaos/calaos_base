@@ -193,6 +193,7 @@ long TimeRange::getTimezoneOffset()
     off = (long)difftime(t1, t2);
 #endif
 
+    tzset(); //Force reload of timezone data
     t1 = time(NULL);
     struct tm *timeinfo = localtime(&t1);
 
@@ -283,6 +284,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
 long TimeRange::getStartTimeSec()
 {
     struct tm *ctime = NULL;
+    tzset(); //Force reload of timezone data
     time_t t = time(NULL);
     ctime = localtime(&t);
 
@@ -292,6 +294,7 @@ long TimeRange::getStartTimeSec()
 long TimeRange::getEndTimeSec()
 {
     struct tm *ctime = NULL;
+    tzset(); //Force reload of timezone data
     time_t t = time(NULL);
     ctime = localtime(&t);
 
@@ -301,6 +304,7 @@ long TimeRange::getEndTimeSec()
 bool TimeRange::isSameStartEnd()
 {
     struct tm *ctime = NULL;
+    tzset(); //Force reload of timezone data
     time_t t = time(NULL);
     ctime = localtime(&t);
 
@@ -328,6 +332,7 @@ string TimeRange::toString()
     stringstream str;
 
     struct tm *ctime = NULL;
+    tzset(); //Force reload of timezone data
     time_t t = time(NULL);
     ctime = localtime(&t);
 

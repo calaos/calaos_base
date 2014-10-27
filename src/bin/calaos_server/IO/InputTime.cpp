@@ -69,6 +69,7 @@ void InputTime::hasChanged()
 
     {
         struct tm *ctime = NULL;
+        tzset(); //Force reload of timezone data
         time_t t = time(NULL);
         ctime = localtime(&t);
 
