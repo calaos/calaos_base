@@ -29,7 +29,13 @@ REGISTER_INPUT(MySensorsInputAnalog)
 MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
     InputAnalog(p)
 {
-    MySensorsController::Instance(get_params());
+    string nodeId = get_param("node_id");
+    string sensorId = get_param("sensor_id");
+
+    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
+    {
+        readValue();
+    });
     cInfoDom("input") << "MySensorsInputAnalog::MySensorsInputAnalog()";
 }
 
@@ -38,14 +44,11 @@ MySensorsInputAnalog::~MySensorsInputAnalog()
     cInfoDom("input") << "MySensorsInputAnalog::~MySensorsInputAnalog()";
 }
 
-
 void MySensorsInputAnalog::readValue()
 {
     // Read the value
-    int nodeId;
-    int sensorId;
-    Utils::from_string(get_param("node_id"), nodeId);
-    Utils::from_string(get_param("sensor_id"), sensorId);
+    string nodeId = get_param("node_id");
+    string sensorId = get_param("sensor_id");
 
     string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
     double v;

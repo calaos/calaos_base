@@ -25,6 +25,7 @@
 #include <EcoreTimer.h>
 #include <Params.h>
 #include <unordered_map>
+#include <termios.h>
 
 namespace Calaos
 {
@@ -37,7 +38,7 @@ private:
 
     //gateway configuration
     //Can be serial with gateway="serial" or TCP with gateway="tcp"
-    //With serial: port="/dev/ttyUSB0" speed="115200"
+    //With serial: port="/dev/ttyUSB0"
     //With TCP: host="x.x.x.x" port="xxx"
     Params param;
 
@@ -45,8 +46,25 @@ private:
     //Key in hash is <node_id>;<sensor_id>
     std::unordered_map<string, Params> hashSensors;
 
+    std::unordered_map<string, sigc::signal<void>> sensorsCb;
+
+    //serial
+    int serialfd = 0;
+    struct termios currentTermios;
+    struct termios oldTermios;
+
+    EcoreTimer *timer = nullptr;
+
+    Ecore_Fd_Handler *serial_handler = nullptr;
+
     void openSerial();
+    void closeSerial();
     void openTCP();
+    void serialError();
+    void openSerialLater(double time = 2.0); //default 2s
+
+    void writeData(const string &data);
+    void readData(string &data);
 
 public:
     static MySensorsController &Instance(const Params &p)
@@ -56,9 +74,12 @@ public:
     }
     ~MySensorsController();
 
-    string getValue(int nodeid, int sensorid, string key = "payload");
-    void setValue(int nodeid, int sensorid, string payload);
+    string getValue(string nodeid, string sensorid, string key = "payload");
+    void setValue(string nodeid, string sensorid, string payload);
 
+    void registerIO(string nodeid, string sensorid, sigc::slot<void> callback);
+
+    Eina_Bool _serialHandler(Ecore_Fd_Handler *handler);
 };
 
 }
