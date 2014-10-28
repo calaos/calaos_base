@@ -191,24 +191,9 @@ Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
         if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
             serialError();
 
-        cDebugDom("mysensors") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
+        //cDebugDom("mysensors") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
 
-        dataBuffer += data;
-
-        if (dataBuffer.find('\n') == string::npos)
-        {
-            //We don't have a complete paquet yet, wait for more data.
-            return ECORE_CALLBACK_RENEW;
-        }
-
-        size_t pos;
-        while ((pos = dataBuffer.find_first_of('\n')) != string::npos)
-        {
-            string message = dataBuffer.substr(0, pos); //extract message
-            dataBuffer.erase(0, pos); //remove from buffer
-            processMessage(message);
-        }
-
+        readNewData(data);
     }
 
     if (ecore_main_fd_handler_active_get(handler, ECORE_FD_WRITE))
@@ -224,9 +209,57 @@ void MySensorsController::openTCP()
     cInfoDom("mysensors") << "TCP gateway not implemented yet";
 }
 
+void MySensorsController::readNewData(const string &data)
+{
+    dataBuffer += data;
+
+    if (dataBuffer.find('\n') == string::npos)
+    {
+        //We don't have a complete paquet yet, wait for more data.
+        return;
+    }
+
+    size_t pos;
+    while ((pos = dataBuffer.find_first_of('\n')) != string::npos)
+    {
+        string message = dataBuffer.substr(0, pos); //extract message
+        dataBuffer.erase(0, pos + 1); //remove from buffer
+        processMessage(message);
+    }
+}
+
 void MySensorsController::processMessage(string msg)
 {
     cDebugDom("mysensors") << msg;
+    //keep in sync with the lua Vera version here:
+    //https://github.com/mysensors/Vera/blob/master/L_Arduino.lua
+
+    vector<string> tokens;
+    Utils::split(msg, tokens, ";", 6);
+
+    string nodeid = tokens[0];
+    string sensorid = tokens[1];
+    int messagetype;
+    Utils::from_string(tokens[2], messagetype);
+    string ack = tokens[3];
+    int subtype;
+    Utils::from_string(tokens[4], subtype);
+    string payload = tokens[5];
+
+    switch (messagetype)
+    {
+    case MySensors::PRESENTATION:
+        break;
+    case MySensors::SET_VARIABLE:
+        break;
+    case MySensors::REQUEST_VARIABLE:
+        break;
+    case MySensors::INTERNAL:
+        break;
+    case MySensors::STREAM:
+        break;
+    default: break;
+    }
 }
 
 void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<void> callback)

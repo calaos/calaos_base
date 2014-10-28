@@ -66,7 +66,7 @@ private:
     void openSerialLater(double time = 2.0); //default 2s
 
     void writeData(const string &data);
-    void readData(string &data);
+    void readNewData(const string &data);
     void processMessage(string msg);
 
 public:
