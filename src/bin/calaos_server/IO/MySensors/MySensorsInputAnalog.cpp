@@ -57,6 +57,9 @@ void MySensorsInputAnalog::readValue()
     Utils::from_string(sv, v);
 
     if (v != value)
+    {
+        value = v;
         emitChange();
+    }
 }
 

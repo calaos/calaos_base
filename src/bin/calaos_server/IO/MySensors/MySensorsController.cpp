@@ -80,7 +80,7 @@ void MySensorsController::openSerial()
         currentTermios = oldTermios;
         ::cfmakeraw(&currentTermios); // Enable raw access
 
-        //setup 
+        //setup
         currentTermios.c_cflag |= CREAD | CLOCAL;
         currentTermios.c_lflag &= (~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ISIG));
         currentTermios.c_iflag &= (~(INPCK | IGNPAR | PARMRK | ISTRIP | ICRNL | IXANY));
@@ -147,6 +147,7 @@ void MySensorsController::openSerial()
 
 void MySensorsController::closeSerial()
 {
+    if (serialfd == 0) return;
     ::tcdrain(serialfd); //flush
     ::tcsetattr(serialfd, TCSAFLUSH | TCSANOW, &oldTermios); // Restore old termios
     ::close(serialfd);
@@ -163,9 +164,9 @@ void MySensorsController::openSerialLater(double t)
     if (timer) return;
     timer = new EcoreTimer(t, [=]()
     {
-        openSerial();
         delete timer;
         timer = NULL;
+        openSerial();
     });
 }
 
@@ -179,12 +180,53 @@ Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
         return ECORE_CALLBACK_CANCEL;
     }
 
+    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_READ))
+    {
+        int bytesAvail = -1;
+        if (::ioctl(serialfd, FIONREAD, &bytesAvail) == -1)
+            bytesAvail = 4096;
+
+        string data;
+        data.resize(bytesAvail);
+        if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
+            serialError();
+
+        cDebugDom("mysensors") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
+
+        dataBuffer += data;
+
+        if (dataBuffer.find('\n') == string::npos)
+        {
+            //We don't have a complete paquet yet, wait for more data.
+            return ECORE_CALLBACK_RENEW;
+        }
+
+        size_t pos;
+        while ((pos = dataBuffer.find_first_of('\n')) != string::npos)
+        {
+            string message = dataBuffer.substr(0, pos); //extract message
+            dataBuffer.erase(0, pos); //remove from buffer
+            processMessage(message);
+        }
+
+    }
+
+    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_WRITE))
+    {
+//        cDebugDom("mysensors") << "Data written on serial port";
+    }
+
     return ECORE_CALLBACK_RENEW;
 }
 
 void MySensorsController::openTCP()
 {
     cInfoDom("mysensors") << "TCP gateway not implemented yet";
+}
+
+void MySensorsController::processMessage(string msg)
+{
+    cDebugDom("mysensors") << msg;
 }
 
 void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<void> callback)

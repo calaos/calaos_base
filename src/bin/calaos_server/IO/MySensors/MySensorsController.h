@@ -57,6 +57,8 @@ private:
 
     Ecore_Fd_Handler *serial_handler = nullptr;
 
+    string dataBuffer;
+
     void openSerial();
     void closeSerial();
     void openTCP();
@@ -65,6 +67,7 @@ private:
 
     void writeData(const string &data);
     void readData(string &data);
+    void processMessage(string msg);
 
 public:
     static MySensorsController &Instance(const Params &p)
