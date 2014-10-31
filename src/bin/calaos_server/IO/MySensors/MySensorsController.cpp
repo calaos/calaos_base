@@ -29,6 +29,9 @@ using namespace Calaos;
 MySensorsController::MySensorsController(const Params &p):
     param(p)
 {
+    sensorsIds.resize(255, false);
+    sensorsIds[0] = true; //ID 0 is the gateway
+
     if (param["gateway"] == "serial")
         openSerial();
     else if (param["gateway"] == "tcp")
@@ -255,11 +258,106 @@ void MySensorsController::processMessage(string msg)
     case MySensors::REQUEST_VARIABLE:
         break;
     case MySensors::INTERNAL:
+    {
+        switch (subtype)
+        {
+        case MySensors::I_LOG_MESSAGE:
+        case MySensors::I_GATEWAY_READY:
+            cInfoDom("mysensors") << payload;
+            break;
+        case MySensors::I_ID_REQUEST:
+            processRequestId(nodeid, sensorid);
+            break;
+        case MySensors::I_TIME:
+            processTime(nodeid, sensorid);
+            break;
+        case MySensors::I_SKETCH_NAME:
+            processNodeInfos(nodeid, sensorid, "name");
+            break;
+        case MySensors::I_SKETCH_VERSION:
+            processNodeInfos(nodeid, sensorid, "version");
+            break;
+        }
         break;
+    }
     case MySensors::STREAM:
         break;
     default: break;
     }
+}
+
+void MySensorsController::processRequestId(string node_id, string sensor_id)
+{
+    //A node is requesting a new free id
+    int newId = getNextFreeId();
+
+    if (newId == 0xDEAD) //no more free ids...
+    {
+        cErrorDom("mysensors") << "A new node is requesting a free ID, but all 255 IDs are already taken. Give up.";
+        return;
+    }
+
+    sendMessage(node_id, sensor_id, MySensors::INTERNAL, MySensors::I_ID_RESPONSE, Utils::to_string(newId));
+}
+
+void MySensorsController::processTime(string node_id, string sensor_id)
+{
+    //Request time from one sensor, send back time as the seconds since 1970
+    sendMessage(node_id, sensor_id, MySensors::INTERNAL, MySensors::I_ID_RESPONSE, Utils::to_string(time(NULL)));
+}
+
+void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key)
+{
+    //TODO
+}
+
+void MySensorsController::sendMessage(string node_id, string sensor_id, int msgType, int subType, string payload)
+{
+    stringstream data;
+
+    //check for payload size
+    //should not exceed 25 bytes
+    if (payload.length() > 25)
+    {
+        cWarningDom("mysensors") << "Payload size exceeds 25 bytes, truncating!";
+        payload = payload.substr(0, 25);
+    }
+    data << node_id << ";" << sensor_id << ";" << msgType << ";" << subType << ";" << payload << "\n";
+
+    if (param["gateway"] == "serial")
+    {
+        if (::write(serialfd, data.str().c_str(), data.str().length()) == -1)
+            serialError();
+    }
+    else if (param["gateway"] == "tcp")
+    {
+        //TODO
+    }
+}
+
+int MySensorsController::getNextFreeId()
+{
+    bool retry = true;
+    for (uint i = nextFreeId;i < sensorsIds.size();i++)
+    {
+        if (!sensorsIds[i]) //free
+        {
+            nextFreeId = i;
+            break;
+        }
+
+        if (i == sensorsIds.size() - 1)
+        {
+            //we are at the end, restart at the beginning in case we missed one
+            if (retry)
+                i = 0;
+            else
+                return 0xDEAD;
+            retry = false;
+        }
+    }
+
+    return nextFreeId;
 }
 
 void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<void> callback)

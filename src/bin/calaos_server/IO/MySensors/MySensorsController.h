@@ -30,6 +30,14 @@
 namespace Calaos
 {
 
+class MySensorsSensor
+{
+public:
+    Params param;
+    string node_id;
+    string sensor_id;
+};
+
 class MySensorsController
 {
 private:
@@ -44,9 +52,12 @@ private:
 
     //Keep values of sensors in cache
     //Key in hash is <node_id>;<sensor_id>
-    std::unordered_map<string, Params> hashSensors;
+    std::unordered_map<string, MySensorsSensor> hashSensors;
+    std::vector<bool> sensorsIds;
 
     std::unordered_map<string, sigc::signal<void>> sensorsCb;
+
+    int nextFreeId = 0;
 
     //serial
     int serialfd = 0;
@@ -68,6 +79,13 @@ private:
     void writeData(const string &data);
     void readNewData(const string &data);
     void processMessage(string msg);
+    void sendMessage(string node_id, string sensor_id, int msgType, int subType, string payload);
+
+    int getNextFreeId();
+
+    void processRequestId(string node_id, string sensor_id);
+    void processTime(string node_id, string sensor_id);
+    void processNodeInfos(string node_id, string sensor_id, string key);
 
 public:
     static MySensorsController &Instance(const Params &p)

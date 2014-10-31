@@ -118,7 +118,7 @@ enum InternalType
     I_BATTERY_LEVEL = 0,        // Use this to report the battery level (in percent 0-100).
     I_TIME = 1,                 // Sensors can request the current time from the Controller using this message. The time will be reported as the seconds since 1970
     I_VERSION = 2,              // Sensors report their library version at startup using this message type
-    I_REQUEST_ID = 3,           // Use this to request a unique radioId from the Controller.
+    I_ID_REQUEST = 3,           // Use this to request a unique radioId from the Controller.
     I_ID_RESPONSE = 4,          // Id response back to sensor. Payload contains sensor id.
     I_INCLUSION_MODE = 5,       // Start/stop inclusion mode of the Controller (1=start, 0=stop).
     I_CONFIG = 6,               // Config request from node. Reply with (M)etric or (I)mperal back to sensor.
