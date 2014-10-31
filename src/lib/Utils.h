@@ -179,6 +179,8 @@ typedef unsigned int uint;
 #define DELETE_NULL_FUNC(fn, p) \
     if (p) { fn(p); p = NULL; }
 
+#define VAR_UNUSED(x) (void)x;
+
 //Curl callback
 int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream);
 int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream);
