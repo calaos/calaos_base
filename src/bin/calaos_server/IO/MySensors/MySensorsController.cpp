@@ -29,8 +29,7 @@ using namespace Calaos;
 MySensorsController::MySensorsController(const Params &p):
     param(p)
 {
-    sensorsIds.resize(255, false);
-    sensorsIds[0] = true; //ID 0 is the gateway
+    hashSensors["0"] = MySensorsNode(); //Gateway
 
     if (param["gateway"] == "serial")
         openSerial();
@@ -272,10 +271,16 @@ void MySensorsController::processMessage(string msg)
             processTime(nodeid, sensorid);
             break;
         case MySensors::I_SKETCH_NAME:
-            processNodeInfos(nodeid, sensorid, "name");
+            processNodeInfos(nodeid, sensorid, "name", payload);
             break;
         case MySensors::I_SKETCH_VERSION:
-            processNodeInfos(nodeid, sensorid, "version");
+            processNodeInfos(nodeid, sensorid, "version", payload);
+            break;
+        case MySensors::I_BATTERY_LEVEL:
+            processNodeInfos(nodeid, sensorid, "battery_level", payload);
+            break;
+        case MySensors::I_VERSION:
+            processNodeInfos(nodeid, sensorid, "version_lib", payload);
             break;
         }
         break;
@@ -306,9 +311,10 @@ void MySensorsController::processTime(string node_id, string sensor_id)
     sendMessage(node_id, sensor_id, MySensors::INTERNAL, MySensors::I_ID_RESPONSE, Utils::to_string(time(NULL)));
 }
 
-void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key)
+void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key, string payload)
 {
-    //TODO
+    VAR_UNUSED(sensor_id)
+    hashSensors[node_id].param[key] = payload;
 }
 
 void MySensorsController::sendMessage(string node_id, string sensor_id, int msgType, int subType, string payload)
@@ -337,27 +343,13 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
 
 int MySensorsController::getNextFreeId()
 {
-    bool retry = true;
-    for (uint i = nextFreeId;i < sensorsIds.size();i++)
+    for (uint i = 1;i < 255;i++)
     {
-        if (!sensorsIds[i]) //free
-        {
-            nextFreeId = i;
-            break;
-        }
-
-        if (i == sensorsIds.size() - 1)
-        {
-            //we are at the end, restart at the beginning in case we missed one
-            if (retry)
-                i = 0;
-            else
-                return 0xDEAD;
-            retry = false;
-        }
+        if (hashSensors.find(Utils::to_string(i)) == hashSensors.end())
+            return i;
     }
 
-    return nextFreeId;
+    return 0xDEAD;
 }
 
 void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<void> callback)
@@ -366,6 +358,20 @@ void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<
     key += ";";
     key += sensorid;
 
+    //check id
+    int id;
+    Utils::from_string(nodeid, id);
+    if (id < 0 || id > 254)
+    {
+        cErrorDom("mysensors") << "Wrong node_id: " << nodeid;
+        return;
+    }
+
+    //create a node object
+
+    MySensorsNode node;
+    //TODO: load from cache
+    hashSensors[nodeid] = node;
     sensorsCb[key].connect(callback);
 }
 
