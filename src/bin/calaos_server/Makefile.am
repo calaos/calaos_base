@@ -188,10 +188,13 @@ calaos_server_SOURCES = \
         IO/Zibase/ZibaseDigitalOut.cpp                  \
         IO/Zibase/ZibaseDigitalOut.h                    \
         IO/MySensors/MySensors.h	                    \
+        IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsController.cpp            \
         IO/MySensors/MySensorsController.h              \
         IO/MySensors/MySensorsInputAnalog.h             \
         IO/MySensors/MySensorsInputAnalog.cpp           \
+        IO/MySensors/MySensorsOutputLight.h             \
+        IO/MySensors/MySensorsOutputLight.cpp           \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \

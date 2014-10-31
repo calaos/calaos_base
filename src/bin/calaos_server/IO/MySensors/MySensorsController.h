@@ -53,6 +53,8 @@ private:
 
     MySensorsController(const Params &p);
 
+    string gatewayVersion;
+
     //gateway configuration
     //Can be serial with gateway="serial" or TCP with gateway="tcp"
     //With serial: port="/dev/ttyUSB0"
@@ -85,13 +87,15 @@ private:
     void writeData(const string &data);
     void readNewData(const string &data);
     void processMessage(string msg);
-    void sendMessage(string node_id, string sensor_id, int msgType, int subType, string payload);
+    void sendMessage(string node_id, string sensor_id, int msgType, int ack, int subType, string payload);
 
     int getNextFreeId();
 
     void processRequestId(string node_id, string sensor_id);
     void processTime(string node_id, string sensor_id);
     void processNodeInfos(string node_id, string sensor_id, string key, string payload);
+    void processSensorUpdate(string node_id, string sensor_id, int subtype, string payload);
+    void processSensorRequest(string node_id, string sensor_id, int subtype, string payload);
 
 public:
     static MySensorsController &Instance(const Params &p)
@@ -102,7 +106,7 @@ public:
     ~MySensorsController();
 
     string getValue(string nodeid, string sensorid, string key = "payload");
-    void setValue(string nodeid, string sensorid, string payload);
+    void setValue(string nodeid, string sensorid, int dataType, string payload);
 
     void registerIO(string nodeid, string sensorid, sigc::slot<void> callback);
 

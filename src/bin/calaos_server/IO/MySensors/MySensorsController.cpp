@@ -137,6 +137,9 @@ void MySensorsController::openSerial()
                                                    NULL);
 
         cInfoDom("mysensors") << "Serial port opened.";
+
+        //request lib version from gateway
+        sendMessage("0", "0", MySensors::INTERNAL, 0, MySensors::I_VERSION, "Get Version");
     }
     else
     {
@@ -251,10 +254,19 @@ void MySensorsController::processMessage(string msg)
     switch (messagetype)
     {
     case MySensors::PRESENTATION:
+        //payload contains lib version
+        if (!gatewayVersion.empty() &&
+            payload != gatewayVersion)
+            cWarningDom("mysensors") << "Gateway version and node (" << nodeid << ") version mismatch!";
+        //create a node if needed
+        if (!hashSensors[nodeid].sensor_data.Exists(sensorid))
+            hashSensors[nodeid].sensor_data[sensorid] = string();
         break;
     case MySensors::SET_VARIABLE:
+        processSensorUpdate(nodeid, sensorid, subtype, payload);
         break;
     case MySensors::REQUEST_VARIABLE:
+        processSensorRequest(nodeid, sensorid, subtype, payload);
         break;
     case MySensors::INTERNAL:
     {
@@ -280,7 +292,7 @@ void MySensorsController::processMessage(string msg)
             processNodeInfos(nodeid, sensorid, "battery_level", payload);
             break;
         case MySensors::I_VERSION:
-            processNodeInfos(nodeid, sensorid, "version_lib", payload);
+            gatewayVersion = payload;
             break;
         }
         break;
@@ -302,13 +314,13 @@ void MySensorsController::processRequestId(string node_id, string sensor_id)
         return;
     }
 
-    sendMessage(node_id, sensor_id, MySensors::INTERNAL, MySensors::I_ID_RESPONSE, Utils::to_string(newId));
+    sendMessage(node_id, sensor_id, MySensors::INTERNAL, 0, MySensors::I_ID_RESPONSE, Utils::to_string(newId));
 }
 
 void MySensorsController::processTime(string node_id, string sensor_id)
 {
     //Request time from one sensor, send back time as the seconds since 1970
-    sendMessage(node_id, sensor_id, MySensors::INTERNAL, MySensors::I_ID_RESPONSE, Utils::to_string(time(NULL)));
+    sendMessage(node_id, sensor_id, MySensors::INTERNAL, 0, MySensors::I_ID_RESPONSE, Utils::to_string(time(NULL)));
 }
 
 void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key, string payload)
@@ -317,7 +329,24 @@ void MySensorsController::processNodeInfos(string node_id, string sensor_id, str
     hashSensors[node_id].param[key] = payload;
 }
 
-void MySensorsController::sendMessage(string node_id, string sensor_id, int msgType, int subType, string payload)
+void MySensorsController::processSensorUpdate(string node_id, string sensor_id, int subtype, string payload)
+{
+    //cache data
+    hashSensors[node_id].sensor_data[sensor_id] = payload;
+
+    //notify calaos IO that value changed
+    string key = node_id;
+    key += ";";
+    key += sensor_id;
+
+    sensorsCb[key].emit();
+}
+
+void MySensorsController::processSensorRequest(string node_id, string sensor_id, int subtype, string payload)
+{
+}
+
+void MySensorsController::sendMessage(string node_id, string sensor_id, int msgType, int ack, int subType, string payload)
 {
     stringstream data;
 
@@ -328,7 +357,7 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
         cWarningDom("mysensors") << "Payload size exceeds 25 bytes, truncating!";
         payload = payload.substr(0, 25);
     }
-    data << node_id << ";" << sensor_id << ";" << msgType << ";" << subType << ";" << payload << "\n";
+    data << node_id << ";" << sensor_id << ";" << msgType << ";" << ack << ";" << subType << ";" << payload << "\n";
 
     if (param["gateway"] == "serial")
     {
@@ -375,12 +404,23 @@ void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<
     sensorsCb[key].connect(callback);
 }
 
-string MySensorsController::getValue(string nodeid, string sensorid, string key)
+string MySensorsController::getValue(string node_id, string sensor_id, string key)
 {
+    //read data from the cache
+    if (key == "payload")
+        return hashSensors[node_id].sensor_data[sensor_id];
+    else if (key == "name")
+        return hashSensors[node_id].param["name"];
+    else if (key == "version")
+        return hashSensors[node_id].param["version"];
+    else if (key == "battery_level")
+        return hashSensors[node_id].param["battery_level"];
+
     return string();
 }
 
-void MySensorsController::setValue(string nodeid, string sensorid, string payload)
+void MySensorsController::setValue(string nodeid, string sensorid, int dataType, string payload)
 {
+    sendMessage(nodeid, sensorid, MySensors::SET_VARIABLE, 0, dataType, payload);
 }
 

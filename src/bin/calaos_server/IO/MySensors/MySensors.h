@@ -111,6 +111,8 @@ enum DataType
     V_DUST_LEVEL = 37,          // Dust level
     V_VOLTAGE = 38,             // Voltage level
     V_CURRENT = 39,             // Current level
+
+    V_ERROR = 0xBAD,
 };
 
 enum InternalType
@@ -131,6 +133,9 @@ enum InternalType
     I_REBOOT = 13,              // Used by OTA firmware updates. Request for node to reboot.
     I_GATEWAY_READY = 14,       // Send by gateway to controller when startup is complete.
 };
+
+string DataType2String(int dataType);
+int String2DataType(string dataType);
 
 }
 #endif
