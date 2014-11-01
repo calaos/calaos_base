@@ -18,24 +18,24 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputAnalog_H
-#define MySensorsInputAnalog_H
+#ifndef MySensorsOutputString_H
+#define MySensorsOutputString_H
 
-#include "InputAnalog.h"
+#include "OutputString.h"
 
 namespace Calaos
 {
 
-class MySensorsInputAnalog : public InputAnalog
+class MySensorsOutputString : public OutputString
 {
 protected:
-    virtual void readValue();
+    virtual void set_value_real(string val);
 
 public:
-    MySensorsInputAnalog(Params &p);
-    ~MySensorsInputAnalog();
+    MySensorsOutputString(Params &p);
+    ~MySensorsOutputString();
 };
 
 }
 
-#endif
+#endif // MySensorsOutputString_H

@@ -18,24 +18,23 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputAnalog_H
-#define MySensorsInputAnalog_H
+#ifndef S_MySensorsOutputDimmer_H
+#define S_MySensorsOutputDimmer_H
 
-#include "InputAnalog.h"
+#include "OutputLightDimmer.h"
 
 namespace Calaos
 {
 
-class MySensorsInputAnalog : public InputAnalog
+class MySensorsOutputDimmer : public OutputLightDimmer
 {
-protected:
-    virtual void readValue();
+private:
+    virtual bool set_value_real(int val);
 
 public:
-    MySensorsInputAnalog(Params &p);
-    ~MySensorsInputAnalog();
+    MySensorsOutputDimmer(Params &p);
+    ~MySensorsOutputDimmer();
 };
 
 }
-
 #endif

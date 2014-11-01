@@ -18,46 +18,48 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "MySensorsOutputLight.h"
+#include "MySensorsInputTemp.h"
 #include "MySensorsController.h"
-#include "MySensors.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputLight)
+REGISTER_INPUT(MySensorsInputTemp)
 
-MySensorsOutputLight::MySensorsOutputLight(Params &p):
-    OutputLight(p)
+MySensorsInputTemp::MySensorsInputTemp(Params &p):
+    InputTemp(p)
 {
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
-
-    cInfoDom("output") << "MySensorsOutputLight::MySensorsOutputLight()";
+    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
+    {
+        readValue();
+    });
+    cInfoDom("input") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
 
-MySensorsOutputLight::~MySensorsOutputLight()
+MySensorsInputTemp::~MySensorsInputTemp()
 {
-    cInfoDom("output") << "MySensorsOutputLight::~MySensorsOutputLight()";
+    cInfoDom("input");
 }
 
-void MySensorsOutputLight::readValue()
+void MySensorsInputTemp::readValue()
 {
-}
-
-bool MySensorsOutputLight::set_value_real(bool val)
-{
+    // Read the value
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    int dataType = MySensors::V_LIGHT;
-    if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
-        dataType = MySensors::String2DataType(get_param("data_type"));
+    string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
+    double v;
+    if (!Utils::is_of_type<double>(sv))
+        return;
+    Utils::from_string(sv, v);
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
-
-    return true;
+    if (v != value)
+    {
+        value = v;
+        emitChange();
+    }
 }
 

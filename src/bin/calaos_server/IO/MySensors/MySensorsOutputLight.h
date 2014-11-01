@@ -18,12 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-
 #ifndef MySensorsOutputLight_H
 #define MySensorsOutputLight_H
 
-#include <Calaos.h>
-#include <OutputLight.h>
+#include "OutputLight.h"
 
 namespace Calaos
 {

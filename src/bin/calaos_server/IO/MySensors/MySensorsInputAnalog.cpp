@@ -36,12 +36,12 @@ MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
     {
         readValue();
     });
-    cInfoDom("input") << "MySensorsInputAnalog::MySensorsInputAnalog()";
+    cInfoDom("input") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
 
 MySensorsInputAnalog::~MySensorsInputAnalog()
 {
-    cInfoDom("input") << "MySensorsInputAnalog::~MySensorsInputAnalog()";
+    cInfoDom("input");
 }
 
 void MySensorsInputAnalog::readValue()

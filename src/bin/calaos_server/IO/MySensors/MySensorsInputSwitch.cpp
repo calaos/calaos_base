@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,24 +18,42 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputAnalog_H
-#define MySensorsInputAnalog_H
+#include "MySensorsInputSwitch.h"
+#include "MySensorsController.h"
+#include "IOFactory.h"
 
-#include "InputAnalog.h"
+using namespace Calaos;
 
-namespace Calaos
+REGISTER_INPUT(MySensorsInputSwitch)
+
+MySensorsInputSwitch::MySensorsInputSwitch(Params &p):
+    InputSwitch(p)
 {
+    string nodeId = get_param("node_id");
+    string sensorId = get_param("sensor_id");
 
-class MySensorsInputAnalog : public InputAnalog
-{
-protected:
-    virtual void readValue();
+    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
+    {
+        hasChanged();
+    });
 
-public:
-    MySensorsInputAnalog(Params &p);
-    ~MySensorsInputAnalog();
-};
-
+    cInfoDom("input") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
 
-#endif
+MySensorsInputSwitch::~MySensorsInputSwitch()
+{
+    cDebugDom("input");
+}
+
+bool MySensorsInputSwitch::readValue()
+{
+    // Read the value
+    string nodeId = get_param("node_id");
+    string sensorId = get_param("sensor_id");
+
+    string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
+
+    return sv == "true" || sv == "1";
+}
+
+

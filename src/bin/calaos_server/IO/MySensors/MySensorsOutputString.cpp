@@ -18,46 +18,38 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "MySensorsOutputLight.h"
+#include "MySensorsOutputString.h"
 #include "MySensorsController.h"
-#include "MySensors.h"
 #include "IOFactory.h"
+#include "MySensors.h"
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputLight)
+REGISTER_OUTPUT(MySensorsOutputString)
 
-MySensorsOutputLight::MySensorsOutputLight(Params &p):
-    OutputLight(p)
+MySensorsOutputString::MySensorsOutputString(Params &p):
+    OutputString(p)
 {
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
-
-    cInfoDom("output") << "MySensorsOutputLight::MySensorsOutputLight()";
+    cInfoDom("output") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
 
-MySensorsOutputLight::~MySensorsOutputLight()
+MySensorsOutputString::~MySensorsOutputString()
 {
-    cInfoDom("output") << "MySensorsOutputLight::~MySensorsOutputLight()";
+    cInfoDom("output");
 }
 
-void MySensorsOutputLight::readValue()
-{
-}
-
-bool MySensorsOutputLight::set_value_real(bool val)
+void MySensorsOutputString::set_value_real(string val)
 {
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    int dataType = MySensors::V_LIGHT;
+    int dataType = MySensors::V_VAR1;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
-
-    return true;
+    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, val);
 }
-

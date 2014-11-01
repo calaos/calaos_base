@@ -18,24 +18,25 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputAnalog_H
-#define MySensorsInputAnalog_H
+#ifndef MySensorsOutputLightRGB_H
+#define MySensorsOutputLightRGB_H
 
-#include "InputAnalog.h"
+#include "OutputLightRGB.h"
 
 namespace Calaos
 {
 
-class MySensorsInputAnalog : public InputAnalog
+class MySensorsOutputLightRGB : public OutputLightRGB
 {
+
 protected:
-    virtual void readValue();
+    virtual void setColorReal(int r, int g, int b);
 
 public:
-    MySensorsInputAnalog(Params &p);
-    ~MySensorsInputAnalog();
+    MySensorsOutputLightRGB(Params &p);
+    ~MySensorsOutputLightRGB();
 };
 
 }
 
-#endif
+#endif // MySensorsOutputLightRGB_H
