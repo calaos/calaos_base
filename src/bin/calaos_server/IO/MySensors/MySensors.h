@@ -112,6 +112,8 @@ enum DataType
     V_VOLTAGE = 38,             // Voltage level
     V_CURRENT = 39,             // Current level
 
+    V_CALAOS = 0xCA,            //Special type for calaos, it let node query/set value directly to calaos IOs
+
     V_ERROR = 0xBAD,
 };
 

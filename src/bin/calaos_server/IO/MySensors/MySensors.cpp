@@ -65,6 +65,7 @@ string MySensors::DataType2String(int dataType)
     case V_DUST_LEVEL: return "V_DUST_LEVEL";
     case V_VOLTAGE: return "V_VOLTAGE";
     case V_CURRENT: return "V_CURRENT";
+    case V_CALAOS: return "V_CALAOS";
     }
 
     return string();
@@ -112,6 +113,7 @@ int MySensors::String2DataType(string dataType)
     else if (dataType == "V_DUST_LEVEL") return V_DUST_LEVEL;
     else if (dataType == "V_VOLTAGE") return V_VOLTAGE;
     else if (dataType == "V_CURRENT") return V_CURRENT;
+    else if (dataType == "V_CALAOS") return V_CALAOS;
 
     return V_ERROR;
 }
