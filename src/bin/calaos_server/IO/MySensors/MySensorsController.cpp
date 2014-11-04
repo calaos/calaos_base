@@ -261,7 +261,7 @@ void MySensorsController::processMessage(string msg)
             cWarningDom("mysensors") << "Gateway version and node (" << nodeid << ") version mismatch!";
         //create a node if needed
         if (!hashSensors[nodeid].sensor_data.Exists(sensorid))
-            hashSensors[nodeid].sensor_data[sensorid] = string();
+            hashSensors[nodeid].param.Add(sensorid, string());
         break;
     case MySensors::SET_VARIABLE:
         processSensorUpdate(nodeid, sensorid, subtype, payload);
@@ -327,7 +327,7 @@ void MySensorsController::processTime(string node_id, string sensor_id)
 void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key, string payload)
 {
     VAR_UNUSED(sensor_id)
-    hashSensors[node_id].param[key] = payload;
+    hashSensors[node_id].param.Add(key, payload);
 }
 
 void MySensorsController::processSensorUpdate(string node_id, string sensor_id, int subtype, string payload)
@@ -376,7 +376,7 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
     else
     {
         //cache data
-        hashSensors[node_id].sensor_data[sensor_id] = payload;
+        hashSensors[node_id].sensor_data.Add(sensor_id, payload);
 
         //notify calaos IO that value changed
         string key = node_id;
