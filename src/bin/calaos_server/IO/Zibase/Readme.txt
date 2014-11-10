@@ -35,6 +35,23 @@ Energy monitor sensor definition example:
     <calaos:input  gui_type="analog_in" host="XX.XX.XX.XX" id="input_4" name="Conso Maison" port="17100"  type="ZibaseAnalogIn" zibase_id="WSABCDEFG" unit="W" var="0" visible="true"  zibase_sensor ="energy" />
         </calaos:room>
 
+Lux monitor sensor definition example:
+</calaos:room>
+        <calaos:room name="Lux" type="divers" hits="0">
+    <calaos:input  gui_type="analog_in" host="XX.XX.XX.XX" id="input_4" name="lux" port="17100"  type="ZibaseAnalogIn" zibase_id="WSABCDEFG" unit="uv" var="0" visible="true"  zibase_sensor ="lux" />
+        </calaos:room>
+
+Rain monitor sensor definition example:
+</calaos:room>
+        <calaos:room name="Rain" type="divers" hits="0">
+    <calaos:input  gui_type="analog_in" host="XX.XX.XX.XX" id="input_4" name="rain" port="17100"  type="ZibaseAnalogIn" zibase_id="WSABCDEFG" unit="mm" var="0" visible="true"  zibase_sensor ="t_rain" />
+        </calaos:room>
+
+Wind monitor sensor definition example:
+</calaos:room>
+        <calaos:room name="Wind" type="divers" hits="0">
+    <calaos:input  gui_type="analog_in" host="XX.XX.XX.XX" id="input_4" name="wind" port="17100"  type="ZibaseAnalogIn" zibase_id="WSABCDEFG" unit="mm" var="0" visible="true"  zibase_sensor ="wind" />
+        </calaos:room>
 ---------------------------ZibaseDigitalIn: -----------------------------------------------------------------
 Mandatory fields for ZibaseDigitalIn module, are the following (to be filled in io.xml calaos conf file)
 

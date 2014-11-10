@@ -40,6 +40,12 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
         sensor_type = ZibaseInfoSensor::eTEMP;
     else if(type.compare("energy")==0)
         sensor_type = ZibaseInfoSensor::eENERGY;
+    else if(type.compare("lux")==0)
+        sensor_type = ZibaseInfoSensor::eLUX;
+    else if(type.compare("t_rain")==0)
+        sensor_type = ZibaseInfoSensor::eTOTALRAIN;
+    else if(type.compare("wind")==0)
+        sensor_type = ZibaseInfoSensor::eWIND;
 
     Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
 

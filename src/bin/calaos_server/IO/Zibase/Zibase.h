@@ -47,7 +47,7 @@ private:
 public:
     ZibaseInfoSensor() { }
 
-    enum eZibaseSensor{ eTEMP,eENERGY,eDETECT,eUNKNOWN};
+    enum eZibaseSensor{ eTEMP,eENERGY,eLUX,eTOTALRAIN,eWIND,eDETECT,eUNKNOWN};
     char id[32];
     eZibaseSensor type;
     float AnalogVal;
@@ -118,6 +118,9 @@ protected:
 
     int extract_infos(char* frame,ZibaseInfoSensor* elm);
     void extract_temp(char* frame,float *val);
+    void extract_lux(char* frame,float *val);
+    void extract_totalrain(char* frame,float *val);
+    void extract_wind(char* frame,float *val);
     void extract_energy(char* frame,float *val);
     void extract_zwave_detectOpen(char* frame,bool *val);
     int vartoId(unsigned long var, char*id);

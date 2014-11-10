@@ -495,6 +495,45 @@ void Zibase::extract_temp(char* frame,float *val)
     }
 }
 
+void Zibase::extract_lux(char* frame,float *val)
+{
+    char * c;
+    char localBuf[16];
+
+    c = strstr (frame, "Level=<uvl>");
+    if(c != NULL)
+    {
+        sscanf(c,"Level=<uvl>%[^<]",localBuf);
+        *val = atof(localBuf);
+    }
+}
+
+void Zibase::extract_totalrain(char* frame,float *val)
+{
+    char * c;
+    char localBuf[16];
+
+    c = strstr (frame, "Rain=<tra>");
+    if(c != NULL)
+    {
+        sscanf(c,"Rain=<tra>%[^<]",localBuf);
+        *val = atof(localBuf);
+    }
+}
+
+void Zibase::extract_wind(char* frame,float *val)
+{
+    char * c;
+    char localBuf[16];
+
+    c = strstr (frame, "Wind=<awi>");
+    if(c != NULL)
+    {
+        sscanf(c,"Wind=<awi>%[^<]",localBuf);
+        *val = atof(localBuf);
+    }
+}
+
 void Zibase::extract_zwave_detectOpen(char* frame,bool *val)
 {
     char * c;
@@ -532,6 +571,27 @@ int Zibase::extract_infos(char* frame,ZibaseInfoSensor* elm)
     {
         extract_temp(frame,&elm->AnalogVal);
         elm->type = ZibaseInfoSensor::eTEMP;
+    }
+
+    c = strstr (frame, "Level=<uvl>");
+    if(c != NULL)
+    {
+        extract_lux(frame,&elm->AnalogVal);
+        elm->type = ZibaseInfoSensor::eLUX;
+    }
+
+    c = strstr (frame, "Rain=<tra>");
+    if(c != NULL)
+    {
+        extract_totalrain(frame,&elm->AnalogVal);
+        elm->type = ZibaseInfoSensor::eTOTALRAIN;
+    }
+
+    c = strstr (frame, "Wind=<awi>");
+    if(c != NULL)
+    {
+        extract_wind(frame,&elm->AnalogVal);
+        elm->type = ZibaseInfoSensor::eWIND;
     }
 
     c = strstr (frame, "CMD/INTER");
