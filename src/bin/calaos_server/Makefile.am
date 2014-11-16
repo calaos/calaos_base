@@ -179,6 +179,8 @@ calaos_server_SOURCES = \
         IO/X10/X10Output.h                              \
         IO/Zibase/Zibase.cpp                            \
         IO/Zibase/Zibase.h                              \
+        IO/Zibase/ZibaseTemp.cpp                        \
+        IO/Zibase/ZibaseTemp.h                          \
         IO/Zibase/ZibaseAnalogIn.cpp                    \
         IO/Zibase/ZibaseAnalogIn.h                      \
         IO/Zibase/ZibaseDigitalIn.cpp                   \

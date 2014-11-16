@@ -18,16 +18,16 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "ZibaseAnalogIn.h"
+#include "ZibaseTemp.h"
 #include "Zibase.h"
 #include <IOFactory.h>
 
 using namespace Calaos;
 
-REGISTER_INPUT(ZibaseAnalogIn);
+REGISTER_INPUT(ZibaseTemp);
 
-ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
-    InputAnalog(p),
+ZibaseTemp::ZibaseTemp(Params &p):
+    InputTemp(p),
     port(0)
 {
     std::string type = get_param("zibase_sensor");
@@ -36,26 +36,19 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
 
-    if(type.compare("energy")==0)
-        sensor_type = ZibaseInfoSensor::eENERGY;
-    else if(type.compare("lux")==0)
-        sensor_type = ZibaseInfoSensor::eLUX;
-    else if(type.compare("t_rain")==0)
-        sensor_type = ZibaseInfoSensor::eTOTALRAIN;
-    else if(type.compare("wind")==0)
-        sensor_type = ZibaseInfoSensor::eWIND;
+    sensor_type = ZibaseInfoSensor::eTEMP;
 
-    Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));
+    Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseTemp::valueUpdated));
 
     cDebugDom("input") << get_param("id");
 }
 
-ZibaseAnalogIn::~ZibaseAnalogIn()
+ZibaseTemp::~ZibaseTemp()
 {
     cDebugDom("input");
 }
 
-void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)
+void ZibaseTemp::valueUpdated(ZibaseInfoSensor *sensor)
 {
 
     /*check that sensor id match */
@@ -71,7 +64,7 @@ void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)
 
 }
 
-void ZibaseAnalogIn::readValue()
+void ZibaseTemp::readValue()
 {
     //don't do anything here, as we can't query the zibase sensor for a value,
     //the zibase will send us new values
