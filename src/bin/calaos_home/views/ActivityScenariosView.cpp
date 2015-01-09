@@ -54,7 +54,7 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     btn = edje_object_part_external_object_get(edje, "button.list.light");
     elm_object_text_set(btn, _("Lights"));
 
-    btn = edje_object_part_external_object_get(edje, "button.list.volets");
+    btn = edje_object_part_external_object_get(edje, "button.list.shutters");
     elm_object_text_set(btn, _("Shutters"));
 
     btn = edje_object_part_external_object_get(edje, "button.list.schedule");
@@ -163,7 +163,7 @@ void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::s
         view_mode = VIEW_MODE_LIGHT;
         loadScenarioList();
     }
-    else if (source == "button.list.volet")
+    else if (source == "button.list.shutters")
     {
         view_mode = VIEW_MODE_SHUTTER;
         loadScenarioList();

@@ -155,7 +155,7 @@ string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
         else if (percent > 0 && percent < 50)
             text = _("State: <light_blue>%1% open.</light_blue>");
         else if (percent >= 50 && percent < 100)
-            text = ("State: <light_blue>%1% closed.</light_blue>");
+            text = _("State: <light_blue>%1% closed.</light_blue>");
         else if (percent == 100)
             text = _("State: <light_blue>Closed.</light_blue>");
         Utils::replace_str(text, "%1", Utils::to_string(percent));
@@ -164,11 +164,11 @@ string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
     {
         string status = io->getStatusVoletSmart();
         if (status == "stop" || status == "")
-            text = "Action: <light_blue>Stopped.</light_blue>";
+            text = _("Action: <light_blue>Stopped.</light_blue>");
         else if (status == "down")
-            text = "Action: <light_blue>Closing.</light_blue>";
+            text = _("Action: <light_blue>Closing.</light_blue>");
         else if (status == "up")
-            text = "Action: <light_blue>Opening.</light_blue>";
+            text = _("Action: <light_blue>Opening.</light_blue>");
     }
 
     return text;

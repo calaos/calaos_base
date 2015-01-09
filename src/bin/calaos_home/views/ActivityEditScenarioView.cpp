@@ -119,6 +119,10 @@ void ActivityEditScenarioView::showStep(int step)
             pageActions->addCallback("button.step.add", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::buttonStepAddPressed));
             pageActions->addCallback("button.step.delete", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::buttonStepDelPressed));
             pageActions->addCallback("button.*selected", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageActionsCyclePressed));
+
+            pageActions->setPartText("home_text", _("<small><disabled>Select and add wanted items into your scenario.<br>You will then define the actions.</disabled></small>"));
+            pageActions->setPartText("action_text", _("<small><disabled>Modify items added to the following list. The Actions define <br>what is going to happend when the scenario is executed.</disabled></small>"));
+
             updateCycling();
 
             pageName->setPartText("home_text", _("<small><disabled>Select and add wanted items into your scenario.<br>You will have then to define the actions.</disabled></small>"));

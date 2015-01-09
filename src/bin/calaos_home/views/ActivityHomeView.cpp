@@ -76,7 +76,7 @@ ActivityHomeView::ActivityHomeView(Evas *_e, Evas_Object *_parent):
     btn = edje_object_part_external_object_get(edje, "button.quit");
     elm_object_text_set(btn, _("Quit"));
 
-    btn = edje_object_part_external_object_get(edje, "button.save_room");
+    btn = edje_object_part_external_object_get(edje, "button.save");
     elm_object_text_set(btn, _("Save room state"));
 
     addCallback("home", "*", sigc::mem_fun(*this, &ActivityHomeView::EdjeCallback));

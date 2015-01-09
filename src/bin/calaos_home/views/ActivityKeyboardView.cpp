@@ -34,6 +34,12 @@ ActivityKeyboardView::ActivityKeyboardView(Evas *_e, Evas_Object *_parent):
     evas_object_show(textblock);
     elm_object_focus_set(textblock, true);
 
+    Evas_Object *btn = edje_object_part_external_object_get(edje, "button.valid");
+    elm_object_text_set(btn, _("Valider"));
+
+    btn = edje_object_part_external_object_get(edje, "button.cleartext");
+    elm_object_text_set(btn, _("Tout effacer"));
+
     addCallback("button.cleartext", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::clearTextCb));
     addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityKeyboardView::validInputCb));
 }

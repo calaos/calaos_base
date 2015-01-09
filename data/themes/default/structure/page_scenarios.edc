@@ -110,7 +110,7 @@ group
 
                 part
                 {
-                        name: "button.list.volet";
+                        name: "button.list.shutters";
                         type: EXTERNAL;
                         source: "elm/button";
                         clip_to: "content_clip";

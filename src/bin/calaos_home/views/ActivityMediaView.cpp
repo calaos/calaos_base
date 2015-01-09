@@ -33,6 +33,15 @@ ActivityMediaView::ActivityMediaView(Evas *_e, Evas_Object *_parent):
     contentView = new MainContentView(evas, parent);
     Swallow(contentView->getSmartObject(), "calaos.main.content");
 
+    Evas_Object *btn = edje_object_part_external_object_get(edje, "button.back");
+    elm_object_text_set(btn, _("Back to menu"));
+
+    btn = edje_object_part_external_object_get(edje, "button.audio.back");
+    elm_object_text_set(btn, _("Back to menu"));
+
+    btn = edje_object_part_external_object_get(edje, "button.audio.more");
+    elm_object_text_set(btn, _("Edit playlist"));
+
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityMediaView::buttonPressed));
 }
 
