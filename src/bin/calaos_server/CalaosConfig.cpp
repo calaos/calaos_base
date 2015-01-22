@@ -64,6 +64,8 @@ Config::Config()
     //read config hash table
     cache_states = eina_hash_string_superfast_new(_eina_hash_free_cb);
     loadStateCache();
+
+    saveCacheTimer = new EcoreTimer(60.0, [=]() { saveStateCache(); });
 }
 
 Config::~Config()
@@ -336,7 +338,7 @@ void Config::saveStateCache()
         ecore_file_mv(tmp.c_str(), file.c_str());
     }
 
-    cDebug() <<  "States cache written successfully.";
+    cInfo() <<  "State cache file written successfully (" << file << ")";
 }
 
 void Config::SaveValueIO(string id, string value, bool save)

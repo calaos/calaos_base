@@ -22,6 +22,7 @@
 #define S_CONFIG_H
 
 #include "Calaos.h"
+#include "EcoreTimer.h"
 #include <Room.h>
 #include <ListeRoom.h>
 #include <Input.h>
@@ -56,6 +57,7 @@ private:
     void saveStateCache();
 
     Eina_Hash *cache_states;
+    EcoreTimer *saveCacheTimer;
 
 public:
     static Config &Instance()
