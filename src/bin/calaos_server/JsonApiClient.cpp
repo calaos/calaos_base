@@ -1213,7 +1213,7 @@ void JsonApiClient::processGetCover()
             return;
         }
 
-        string cmd = "calaos_thumb " + data.svalue + " " + tempfname;
+        string cmd = "calaos_thumb \"" + data.svalue + "\" \"" + tempfname + "\"";
         if (w.empty() || h.empty())
             cmd += " " + w + "x" + h;
         exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
@@ -1241,7 +1241,7 @@ void JsonApiClient::processGetCameraPic()
     if (jsonParam.Exists("height"))
         h = jsonParam["height"];
 
-    string cmd = "calaos_thumb " + camera->get_picture() + " " + tempfname;
+    string cmd = "calaos_thumb \"" + camera->get_picture() + "\" \"" + tempfname + "\"";
     if (w.empty() || h.empty())
         cmd += " " + w + "x" + h;
     exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
