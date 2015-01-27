@@ -116,7 +116,7 @@ libcalaos_common_la_SOURCES = \
         TinyXML/xpath_syntax.h                  \
         Utils.cpp                               \
         Utils.h                                 \
-        base64.c                                \
+        base64.cpp                              \
         base64.h                                \
         http-parser/http_parser.c               \
         http-parser/http_parser.h               \

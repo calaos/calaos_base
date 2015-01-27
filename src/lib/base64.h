@@ -4,16 +4,9 @@
 #ifndef S_BASE64_H
 #define S_BASE64_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include <string>
 
-char *base64_decode(const char *p);
-const char *base64_encode(const char *decoded_str, int);
-
-#ifdef __cplusplus
-}
-#endif
+std::string base64_encode(unsigned char const* , unsigned int len);
+std::string base64_decode(std::string const& s);
 
 #endif

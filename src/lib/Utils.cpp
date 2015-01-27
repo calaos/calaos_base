@@ -116,14 +116,14 @@ std::string Utils::url_decode2(std::string str)
 std::string Utils::Base64_decode(std::string &str)
 {
     std::string ret;
-    ret = base64_decode(str.c_str());
+    ret = base64_decode(str);
 
     return ret;
 }
 
-void *Utils::Base64_decode_data(std::string &str)
+std::string Utils::Base64_decode_data(std::string &str)
 {
-    char *ret = base64_decode(str.c_str());
+    string ret = base64_decode(str);
 
     return ret;
 }
@@ -131,7 +131,7 @@ void *Utils::Base64_decode_data(std::string &str)
 std::string Utils::Base64_encode(std::string &str)
 {
     std::string ret;
-    ret = base64_encode(str.c_str(), str.length());
+    ret = base64_encode(reinterpret_cast<const unsigned char*>(str.c_str()), str.length());
 
     return ret;
 }
@@ -139,7 +139,7 @@ std::string Utils::Base64_encode(std::string &str)
 std::string Utils::Base64_encode(void *data, int size)
 {
     std::string ret;
-    ret = base64_encode((char *)data, size);
+    ret = base64_encode(reinterpret_cast<const unsigned char*>(data), size);
 
     return ret;
 }

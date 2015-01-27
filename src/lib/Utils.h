@@ -238,7 +238,7 @@ char *argvOptionParam(char **begin, char **end, const std::string &option);
 
 //!decode a BASE64 string
 std::string Base64_decode(std::string &str);
-void *Base64_decode_data(std::string &str);
+std::string Base64_decode_data(std::string &str);
 //!encode a BASE64 string
 std::string Base64_encode(std::string &str);
 std::string Base64_encode(void *data, int size);
