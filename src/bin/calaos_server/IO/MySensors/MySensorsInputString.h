@@ -32,6 +32,8 @@ class MySensorsInputString : public InputString
 protected:
     virtual void readValue();
 
+    string current;
+
 public:
     MySensorsInputString(Params &p);
     ~MySensorsInputString();

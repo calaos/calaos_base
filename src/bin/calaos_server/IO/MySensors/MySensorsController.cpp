@@ -383,6 +383,10 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
         key += ";";
         key += sensor_id;
 
+        cDebugDom("mysensors") << "Node " << node_id << "-" << sensor_id
+                               << " want to set value " << payload
+                               << " hash key = " << key;
+
         sensorsCb[key].emit();
     }
 }

@@ -25,8 +25,7 @@ using namespace Calaos;
 using namespace Utils;
 
 InputString::InputString(Params &p):
-    Input(p),
-    value("")
+    Input(p)
 {
     set_param("gui_type", "string_in");
     if (!get_params().Exists("visible")) set_param("visible", "true");
@@ -48,16 +47,13 @@ void InputString::emitChange()
     sig += get_param("id") + " ";
     sig += Utils::url_encode(string("state:") + value);
     IPC::Instance().SendEvent("events", sig);
+
+    EmitSignalInput();
 }
 
 string InputString::get_value_string()
 {
     readValue();
-    cInfoDom("input") << "Get value string : " << value;
-   
-    EmitSignalInput();
-    emitChange();
-
     return value;
 }
 

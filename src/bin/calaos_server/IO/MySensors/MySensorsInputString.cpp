@@ -34,7 +34,18 @@ MySensorsInputString::MySensorsInputString(Params &p):
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
     {
-        readValue();
+        // Read the value
+        string nId = get_param("node_id");
+        string sId = get_param("sensor_id");
+
+        string v = MySensorsController::Instance(get_params()).getValue(nId, sId);
+
+        if (v != current)
+        {
+            current = v;
+            cInfoDom("input") << "node_id: " << nodeId << " sensor_id: " << sensorId << " new value: " << value;
+            emitChange();
+        }
     });
     cInfoDom("input") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
@@ -44,18 +55,7 @@ MySensorsInputString::~MySensorsInputString()
     cInfoDom("input");
 }
 
-
 void MySensorsInputString::readValue()
 {
-    // Read the value
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
-
-    string v = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
-
-    if (v != value)
-    {
-        value = v;
-        emitChange();
-    }
+    value = current;
 }
