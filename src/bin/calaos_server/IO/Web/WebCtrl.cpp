@@ -144,7 +144,7 @@ void WebCtrl::launchDownload()
 string WebCtrl::getValueJson(string path, string filename)
 {
     string value;
-    json_t *root, *parent, *var;
+    json_t *root = nullptr, *parent = nullptr, *var = nullptr;
     json_error_t err;
 
     vector<string> tokens;
@@ -171,7 +171,7 @@ string WebCtrl::getValueJson(string path, string filename)
                     val.erase(0, 1);
                     val.pop_back();
                     // Read array index
-                    from_string(val, idx);
+                    Utils::from_string(val, idx);
                     var = json_array_get(parent, idx);
                 }
                 // Toke is a normal object name
@@ -232,27 +232,27 @@ string WebCtrl::getValueXml(string path, string filename)
         return "";
     }
 
-    xpath = path + "/text()";
+    xpath = path;
     TinyXPath::xpath_processor proc(document.RootElement(), xpath.c_str());
     value = proc.S_compute_xpath();
 
     return value;
 }
 
-/* 
+/*
  * Read plain text file and return value find in path Path is of type:
  * line/pos/separator line is the line number in the file. This
  * function read the correspondig line. If sepearator exists, the line
  * is split with separator as delimiter. The value returned is the pos
  * value in the list. In case separator doesn't exist the value
  * returned is the whole line found.
- * Example : the file contains : 
+ * Example : the file contains :
  * 10.0,10.1,10.2,10.3
  * 20.0,20.1,20.2,20.3
- * 
+ *
  * If The path is "2/4/,"
  * The value returned will be the 4th token of the second line : 20.3
- * 
+ *
  */
 string WebCtrl::getValueText(string path, string filename)
 {
@@ -272,7 +272,7 @@ string WebCtrl::getValueText(string path, string filename)
     }
 
     Utils::split(path, tokens, "/");
-    from_string(tokens[0], line_nb);
+    Utils::from_string(tokens[0], line_nb);
     for (i = 0; i < line_nb; i++)
     {
         getline(file, line);
@@ -281,7 +281,7 @@ string WebCtrl::getValueText(string path, string filename)
     if (tokens.size() == 3 && tokens[2] != "")
       {
         Utils::split(line, items, tokens[2]);
-        from_string(tokens[1], item_nb);
+        Utils::from_string(tokens[1], item_nb);
         if (item_nb <= 0)
           item_nb = 1;
         if (items.size() >= item_nb)
@@ -298,11 +298,12 @@ string WebCtrl::getValueText(string path, string filename)
 
 double WebCtrl::getValueDouble(string path)
 {
-    double val;
+    double val = 0;
     string value;
 
     value = getValue(path);
-    from_string(value, val);
+    if (Utils::is_of_type<double>(value))
+        Utils::from_string(value, val);
     return val;
 }
 
@@ -355,7 +356,7 @@ void WebCtrl::setValue(string value)
     FileDownloader *fdownloader = new FileDownloader(url, data, data_type, true);
     fdownloader->Start();
 
-    cDebug() << "Set value with param : " 
+    cDebug() << "Set value with param : "
              << url << " | "
              << param.get_param("request_type") << " | "
              << data << " | "
