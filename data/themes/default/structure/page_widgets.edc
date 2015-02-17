@@ -89,7 +89,7 @@ group
                         name: "back";
                         description
                         {
-                                state: "deafult" 0.0;
+                                state: "default" 0.0;
                                 visible: 0;
                                 color: 255 255 255 0;
                                 image { normal: "widget_back_edit.png"; border: 62 70 65 64; }
