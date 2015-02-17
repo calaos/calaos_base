@@ -69,6 +69,16 @@
 //This is for logging
 #include <EinaLog.h>
 
+#if defined(__linux__) || defined(__linux) || defined(linux)
+#include <sys/sysinfo.h>
+#elif defined(macintosh) || defined(__APPLE__) || defined(__APPLE_CC__)
+#include <time.h>
+#include <errno.h>
+#include <sys/sysctl.h>
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
+#include <time.h>
+#endif
+
 using namespace efl::eina::log;
 
 #ifdef EAPI
@@ -245,6 +255,7 @@ std::string Base64_encode(void *data, int size);
 
 string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
+unsigned int getUptime();
 
 //-----------------------------------------------------------------------------
 template<typename T>
