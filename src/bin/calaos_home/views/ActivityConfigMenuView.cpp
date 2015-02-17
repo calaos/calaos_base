@@ -22,12 +22,12 @@
 #include "config.h"
 #endif
 
-#include <sys/sysinfo.h>
 #include <unistd.h>
 
 #include "ActivityConfigMenuView.h"
 #include "GengridItemConfig.h"
 #include "tcpsocket.h"
+#include "Utils.h"
 
 ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     ActivityView(_e, _parent, "calaos/config/menu")
@@ -46,9 +46,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     setPartText("tab1.last_update", _("Na"));
     setPartText("tab1.uptime.label", _("System started since : "));
 
-    struct sysinfo info;
-    sysinfo(&info);
-    long days = info.uptime / 60 / 60 / 24;
+    long days = Utils::getUptime() / 60 / 60 / 24;
     string uptime;
     uptime = to_string(days);
     if (days == 1)
@@ -59,8 +57,20 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     setPartText("tab1.uptime", uptime.c_str());
 
     setPartText("tab1.hostname.label", _("Machine name : "));
+
+#ifdef  _POSIX_HOSTNAME_MAX
+    char hostname[_POSIX_HOSTNAME_MAX];
+    gethostname(hostname, _POSIX_HOSTNAME_MAX);
+#elif defined HOSTNAME_MAX
     char hostname[HOST_NAME_MAX];
     gethostname(hostname, HOST_NAME_MAX);
+#else
+    char hostname[128];
+    gethostname(hostname, 128);
+#endif
+
+
+
     setPartText("tab1.hostname", hostname);
 
     string local_ip = "";
