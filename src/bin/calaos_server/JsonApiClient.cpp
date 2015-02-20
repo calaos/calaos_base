@@ -292,7 +292,7 @@ void JsonApiClient::ProcessData(string request)
         //for example get username/password as a url parameter
 
         //Handle CORS here
-        if (request_headers.Exists("Origin"))
+        if (request_headers.find("Origin") != request_headers.end())
         {
             resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
             resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -300,10 +300,10 @@ void JsonApiClient::ProcessData(string request)
 
         if (request_method == HTTP_OPTIONS)
         {
-            if (request_headers.Exists("Access-Control-Request-Method"))
+            if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
                 resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 
-            if (request_headers.Exists("Access-Control-Request-Headers"))
+            if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
                 resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["Access-Control-Request-Headers"] + "}");
 
             Params headers;
