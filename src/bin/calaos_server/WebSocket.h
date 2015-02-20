@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -25,6 +25,7 @@
 #include <Ecore_Con.h>
 #include <unordered_map>
 #include "JsonApiClient.h"
+#include "WebSocketFrame.h"
 
 using namespace Calaos;
 
@@ -41,13 +42,35 @@ public:
     /* Called by JsonApiServer whenever data comes in */
     virtual void ProcessData(string data);
 
+    enum CloseCode
+    {
+        CloseCodeNormal                 = 1000,
+        CloseCodeGoingAway              = 1001,
+        CloseCodeProtocolError          = 1002,
+        CloseCodeDatatypeNotSupported   = 1003,
+        CloseCodeReserved1004           = 1004,
+        CloseCodeMissingStatusCode      = 1005,
+        CloseCodeAbnormalDisconnection  = 1006,
+        CloseCodeWrongDatatype          = 1007,
+        CloseCodePolicyViolated         = 1008,
+        CloseCodeTooMuchData            = 1009,
+        CloseCodeMissingExtension       = 1010,
+        CloseCodeBadOperation           = 1011,
+        CloseCodeTlsHandshakeFailed     = 1015
+    };
+
 private:
 
     enum { WSConnecting, WSOpened, WSClosed };
     int status = WSConnecting;
 
+    string recv_buffer;
+
+    WebSocketFrame currentFrame;
+
     bool checkHandshakeRequest();
     void processHandshake();
+    void processFrame(const string &data);
 };
 
 #endif

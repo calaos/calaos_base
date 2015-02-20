@@ -247,6 +247,8 @@ calaos_server_SOURCES = \
         JsonApiCodes.h                                  \
         WebSocket.cpp                                   \
         WebSocket.h                                     \
+        WebSocketFrame.cpp                              \
+        WebSocketFrame.h                                \
         ListeRoom.cpp                                   \
         ListeRoom.h                                     \
         ListeRule.cpp                                   \

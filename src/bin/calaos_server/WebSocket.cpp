@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -38,7 +38,8 @@ WebSocket::~WebSocket()
 
 void WebSocket::ProcessData(string data)
 {
-    JsonApiClient::ProcessData(data);
+    if (!isWebsocket)
+        JsonApiClient::ProcessData(data);
 
     //handle HTTP request now
     if (!isWebsocket)
@@ -57,6 +58,8 @@ void WebSocket::ProcessData(string data)
     //Now we handle websocket here
     if (status == WSConnecting)
         processHandshake();
+    else if (status == WSOpened)
+        processFrame(data);
 }
 
 void WebSocket::processHandshake()
@@ -72,6 +75,7 @@ void WebSocket::processHandshake()
     }
 
     status = WSOpened;
+    currentFrame.clear();
 
     cDebugDom("websocket") << "Connection switched to websocket";
 }
@@ -185,4 +189,32 @@ bool WebSocket::checkHandshakeRequest()
     sendToClient(res.str());
 
     return true;
+}
+
+void WebSocket::processFrame(const string &data)
+{
+    cDebugDom("websocket") << "Processing frame data";
+
+    recv_buffer += data;
+
+    while (currentFrame.processFrameData(recv_buffer))
+    {
+        if (currentFrame.isValid())
+        {
+            cDebugDom("websocket") << "Got a new frame: " << currentFrame.getPayload();
+            currentFrame.clear();
+        }
+        else if (currentFrame.getCloseCode() != CloseCodeNormal)
+        {
+            cDebugDom("websocket") << "Error in websocket handling: " << currentFrame.getCloseReason();
+
+            Params headers;
+            headers.Add("Connection", "close");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+            sendToClient(res);
+
+            return;
+        }
+    }
 }
