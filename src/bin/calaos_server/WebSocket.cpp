@@ -218,3 +218,4 @@ void WebSocket::processFrame(const string &data)
         }
     }
 }
+
