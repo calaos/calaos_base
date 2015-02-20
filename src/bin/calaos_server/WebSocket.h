@@ -18,42 +18,36 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef S_JsonApiServer_H
-#define S_JsonApiServer_H
+#ifndef S_WebSocketServer_H
+#define S_WebSocketServer_H
 
 #include "Calaos.h"
-#include "JsonApiClient.h"
 #include <Ecore_Con.h>
+#include <unordered_map>
+#include "JsonApiClient.h"
 
-using namespace std;
+using namespace Calaos;
 
-class JsonApiServer
+class WebSocket: public JsonApiClient
 {
-private:
-    int port;
-    Ecore_Con_Server *tcp_server;
-    Ecore_Event_Handler *event_handler_client_add;
-    Ecore_Event_Handler *event_handler_client_del;
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_client_write;
-
-    map<Ecore_Con_Client *, JsonApiClient *> connections;
-
-    JsonApiServer(int port); //port to listen
-
 public:
-    static JsonApiServer &Instance(int port = 0)
-    {
-        static JsonApiServer server(port);
+    WebSocket(Ecore_Con_Client *cl);
+    virtual ~WebSocket();
 
-        return server;
-    }
-    ~JsonApiServer();
+    sigc::signal<void, const string &> textMessageReceived;
+    sigc::signal<void, const vector<u_int8_t> &> binaryMessageReceived;
+    sigc::signal<void> websocketDisconnected;
 
-    /* Internal stuff used by ecore-con */
-    void addConnection(Ecore_Con_Client *client);
-    void delConnection(Ecore_Con_Client *client);
-    void getDataConnection(Ecore_Con_Client *client, void *data, int size);
-    void dataWritten(Ecore_Con_Client *client, int size);
+    /* Called by JsonApiServer whenever data comes in */
+    virtual void ProcessData(string data);
+
+private:
+
+    enum { WSConnecting, WSOpened, WSClosed };
+    int status = WSConnecting;
+
+    bool checkHandshakeRequest();
+    void processHandshake();
 };
+
 #endif

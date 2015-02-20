@@ -314,6 +314,9 @@ public:
     }
 };
 
+std::string str_to_lower(std::string s);
+std::string str_to_upper(std::string s);
+
 class DeletorBase
 {
 public:

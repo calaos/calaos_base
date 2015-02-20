@@ -18,14 +18,17 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <JsonApiServer.h>
+#include "JsonApiServer.h"
+#include "WebSocket.h"
 
 static Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev);
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
 static Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Client_Del *ev);
 static Eina_Bool _ecore_con_handler_data_write(void *data, int type, Ecore_Con_Event_Client_Write *ev);
 
-JsonApiServer::JsonApiServer(int p): port(p), tcp_server(NULL)
+JsonApiServer::JsonApiServer(int p):
+    port(p),
+    tcp_server(NULL)
 {
     /* Setup ecore con TCP server and callbacks */
 
@@ -144,7 +147,7 @@ void JsonApiServer::addConnection(Ecore_Con_Client *client)
             << "Got a new connection from address "
             << ecore_con_client_ip_get(client);
 
-    JsonApiClient *conn = new JsonApiClient(client);
+    JsonApiClient *conn = new WebSocket(client);
     connections[client] = conn;
 }
 

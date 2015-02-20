@@ -798,3 +798,15 @@ unsigned int Utils::getUptime()
     return 0;
 #endif
 }
+
+string Utils::str_to_lower(std::string s)
+{
+     std::transform(s.begin(), s.end(), s.begin(), Utils::to_lower());
+     return s;
+}
+
+string Utils::str_to_upper(std::string s)
+{
+     std::transform(s.begin(), s.end(), s.begin(), Utils::to_upper());
+     return s;
+}

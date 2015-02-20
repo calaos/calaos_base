@@ -17,7 +17,6 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/lib/http-parser \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
-        -I$(top_srcdir)/src/lib/sha1 \
         -I. \
         @CALAOS_COMMON_CFLAGS@
 
@@ -38,7 +37,6 @@ AM_CFLAGS = \
         -I$(top_srcdir)/src/lib/http-parser \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
-        -I$(top_srcdir)/src/lib/sha1 \
         -I. \
         @CALAOS_COMMON_CFLAGS@
 
@@ -134,8 +132,8 @@ libcalaos_common_la_SOURCES = \
         threadManager.h                         \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
-        sha1/sha1.h                             \
-        sha1/sha1.cpp
+        SHA1.h                                  \
+        SHA1.cpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

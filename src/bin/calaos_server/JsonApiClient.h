@@ -21,17 +21,17 @@
 #ifndef S_JsonApiClient_H
 #define S_JsonApiClient_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 #include <Ecore_Con.h>
-#include <ListeRoom.h>
-#include <Room.h>
-#include <AudioManager.h>
-#include <AudioPlayer.h>
-#include <CamManager.h>
-#include <IPCam.h>
-#include <InPlageHoraire.h>
+#include "ListeRoom.h"
+#include "Room.h"
+#include "AudioManager.h"
+#include "AudioPlayer.h"
+#include "CamManager.h"
+#include "IPCam.h"
+#include "InPlageHoraire.h"
 #include <jansson.h>
-#include <http_parser.h>
+#include "http_parser.h"
 #include <unordered_map>
 
 using namespace Calaos;
@@ -80,6 +80,8 @@ protected:
     //timer to close the connection after data has been written
     EcoreTimer *closeTimer = nullptr;
 
+    bool isWebsocket = false;
+
     void handleRequest();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);
@@ -115,15 +117,15 @@ protected:
 
 public:
     JsonApiClient(Ecore_Con_Client *cl);
-    ~JsonApiClient();
+    virtual ~JsonApiClient();
 
     enum { APIV1 = 0, APIV1_5, APIV2 };
 
     /* Called by JsonApiServer whenever data comes in */
-    void ProcessData(string data);
+    virtual void ProcessData(string data);
 
     /* Called by JsonApiServer whenever data has been written to client */
-    void DataWritten(int size);
+    virtual void DataWritten(int size);
 };
 
 #endif

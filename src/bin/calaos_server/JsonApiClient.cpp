@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "JsonApiClient.h"
+#include "JsonApiServer.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -27,6 +28,7 @@
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include <Ecore.h>
+#include "JsonApiCodes.h"
 
 using namespace Calaos;
 
@@ -36,38 +38,6 @@ using namespace Calaos;
     index < json_array_size(array) && (value = json_array_get(array, index)); \
     index++)
 #endif
-
-#define HTTP_400 "HTTP/1.0 400 Bad Request"
-#define HTTP_404 "HTTP/1.0 404 Not Found"
-#define HTTP_500 "HTTP/1.0 500 Internal Server Error"
-#define HTTP_200 "HTTP/1.0 200 OK"
-
-#define HTTP_400_BODY "<html><head>" \
-    "<title>400 Bad Request</title>" \
-    "</head>" \
-    "<body>" \
-    "<h1>Calaos Server - Bad Request</h1>" \
-    "<p>The server received a request it could not understand.</p>" \
-    "</body>" \
-    "</html>"
-
-#define HTTP_404_BODY "<html><head>" \
-    "<title>404 Not Found</title>" \
-    "</head>" \
-    "<body>" \
-    "<h1>Calaos Server - Page not found</h1>" \
-    "<p>Document or file requested by the client was not found.</p>" \
-    "</body>" \
-    "</html>"
-
-#define HTTP_500_BODY "<html><head>" \
-    "<title>500 Internal Server Error</title>" \
-    "</head>" \
-    "<body>" \
-    "<h1>Calaos Server - Internal Server Error</h1>" \
-    "<p>The server encountered an unexpected condition which prevented it from fulfilling the request.</p>" \
-    "</body>" \
-    "</html>"
 
 int _parser_begin(http_parser *parser)
 {
@@ -91,7 +61,7 @@ int _parser_header_field(http_parser *parser, const char *at, size_t length)
 
     if (client->has_field && client->has_value)
     {
-        client->request_headers[client->hfield] = client->hvalue;
+        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
         client->has_field = false;
         client->has_value = false;
         client->hfield.clear();
@@ -124,7 +94,7 @@ int _parser_headers_complete(http_parser *parser)
 
     if (client->has_field && client->has_value)
     {
-        client->request_headers[client->hfield] = client->hvalue;
+        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
         client->has_field = false;
         client->has_value = false;
         client->hfield.clear();
@@ -220,15 +190,7 @@ void JsonApiClient::ProcessData(string request)
 
     nparsed = http_parser_execute(parser, &parser_settings, request.c_str(), request.size());
 
-    if (parser->upgrade)
-    {
-        /* handle new protocol */
-        cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
-        CloseConnection();
-
-        return;
-    }
-    else if (nparsed != request.size())
+    if (nparsed != request.size())
     {
         /* Handle error. Usually just close the connection. */
         CloseConnection();
@@ -241,14 +203,53 @@ void JsonApiClient::ProcessData(string request)
         //Finally parsing of request is done, we can search for
         //a response for the requested path
 
-
         cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor);
         for (auto it = request_headers.begin();it!= request_headers.end();++it)
             cDebugDom("network") << it->first << ": " << it->second;
 
-        //init parser again
-        http_parser_init(parser, HTTP_REQUEST);
-        parser->data = this;
+        //Handle CORS here
+        if (request_headers.find("origin") != request_headers.end())
+        {
+            resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+            resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+        }
+
+        if (request_method == HTTP_OPTIONS)
+        {
+            if (request_headers.find("access-control-request-method") != request_headers.end())
+                resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+            if (request_headers.find("access-control-request-headers") != request_headers.end())
+                resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["access-control-request-headers"] + "}");
+
+            Params headers;
+            headers.Add("Connection", "Close");
+            headers.Add("Cache-Control", "no-cache, must-revalidate");
+            headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_200, headers, "");
+            sendToClient(res);
+
+            return;
+        }
+
+        //If client asks for websocket just return and let websocket class handle connection
+        if (Utils::str_to_lower(request_headers["connection"]) == "upgrade" &&
+            Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
+        {
+            cDebugDom("websocket") << "Upgrading connection to WebSocket";
+            isWebsocket = true;
+            return;
+        }
+
+        if (parser->upgrade)
+        {
+            /* handle new protocol */
+            cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
+            CloseConnection();
+
+            return;
+        }
 
         hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
@@ -281,7 +282,6 @@ void JsonApiClient::ProcessData(string request)
 
             return;
         }
-
 
         //get protocol version, if nothing is set default to v1
         proto_ver = APIV1;
@@ -377,15 +377,14 @@ string JsonApiClient::buildHttpResponse(string code, Params &headers, string bod
     if (!headers.Exists("Content-Length"))
         headers.Add("Content-Length", Utils::to_string(body.length()));
 
-    if (request_headers["Connection"] == "close" ||
-        request_headers["Connection"] == "Close")
+    if (Utils::str_to_lower(request_headers["connection"]) == "close")
     {
         headers.Add("Connection", "Close");
         cDebugDom("network")
                 << "Client requested Connection: Close";
     }
 
-    if (headers["Connection"] == "Close" || headers["Connection"] == "close")
+    if (Utils::str_to_lower(headers["Connection"]) == "close")
         conn_close = true;
     else
         conn_close = false;
