@@ -304,13 +304,14 @@ void JsonApiClient::ProcessData(string request)
                 resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 
             if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
-                resHeaders.Add("Access-Control-Allow-Headers", request_headers["Access-Control-Request-Headers"]);
+                resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["Access-Control-Request-Headers"] + "}");
 
-            resHeaders.Add("Connection", "Close");
-            resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
-            resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-            resHeaders.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_200, resHeaders, "");
+            Params headers;
+            headers.Add("Connection", "Close");
+            headers.Add("Cache-Control", "no-cache, must-revalidate");
+            headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_200, headers, "");
             sendToClient(res);
 
             return;
