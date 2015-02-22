@@ -22,7 +22,9 @@
 #include "MySensors.h"
 #include <termios.h>
 #include <sys/ioctl.h>
-#include <linux/serial.h>
+#if defined(__linux__) || defined(__linux) || defined(linux)
+  #include <linux/serial.h>
+#endif
 #include "ListeRoom.h"
 
 using namespace Calaos;
@@ -100,6 +102,7 @@ void MySensorsController::openSerial()
         currentTermios.c_cflag &= ~CRTSCTS;
         currentTermios.c_iflag &= ~(IXON | IXOFF | IXANY);
 
+#if defined(__linux__) || defined(__linux) || defined(linux)
         struct serial_struct currentSerialInfo;
         if ((::ioctl(serialfd, TIOCGSERIAL, &currentSerialInfo) != -1) &&
             (currentSerialInfo.flags & ASYNC_SPD_CUST))
@@ -112,6 +115,7 @@ void MySensorsController::openSerial()
                 return;
             }
         }
+#endif
         if (::cfsetispeed(&currentTermios, B115200) < 0)
         {
             serialError();
