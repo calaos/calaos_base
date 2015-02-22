@@ -21,13 +21,6 @@
 #include <PollListenner.h>
 #include <IPC.h>
 
-//For UUID generation
-#include <kashmir/uuid.h>
-#include <kashmir/devrand.h>
-
-using kashmir::uuid_t;
-using kashmir::system::DevRand;
-
 using namespace Calaos;
 
 PollObject::PollObject(string _uuid):
@@ -102,15 +95,19 @@ PollListenner::~PollListenner()
 
 string PollListenner::Register()
 {
-    DevRand devrandom;
-    stringstream out;
+    char cUuid[37];
 
-    uuid_t _uuid;
-    devrandom >> _uuid;
-    out << _uuid;
 
-    string uuid = out.str();
+    srand(time(NULL));
 
+    sprintf(cUuid, "%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
+            rand(), rand(),
+            rand(),
+            ((rand() & 0x0fff) | 0x4000),
+            rand() % 0x3fff + 0x8000,
+            rand(), rand(), rand());
+
+    string uuid(cUuid);
     pollobjects[uuid] = new PollObject(uuid);
 
     cDebugDom("poll_listener") << "uuid:" << uuid;

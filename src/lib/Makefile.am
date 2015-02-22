@@ -120,16 +120,6 @@ libcalaos_common_la_SOURCES = \
         base64.h                                \
         http-parser/http_parser.c               \
         http-parser/http_parser.h               \
-        kashmir/array.h                         \
-        kashmir/devrand.h                       \
-        kashmir/devrandom.h                     \
-        kashmir/iofwd.h                         \
-        kashmir/iostate.h                       \
-        kashmir/randomstream.h                  \
-        kashmir/unique.h                        \
-        kashmir/uuid.h                          \
-        kashmir/winrand.h                       \
-        kashmir/winrandom.h                     \
         libquickmail/quickmail.c                \
         libquickmail/quickmail.h                \
         sunset.c                                \
