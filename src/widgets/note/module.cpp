@@ -29,8 +29,8 @@ EAPI CalaosModuleApi calaos_modapi =
 {
     CALAOS_MODULE_API_VERSION,
     CMOD_WIDGET,
-    N_("Notes"),
-    N_("Let messages on the screen thanks to the numeric version of the well known yellow paper.") ,
+    _("Notes"),
+    _("Let messages on the screen thanks to the numeric version of the well known yellow paper.") ,
     "2.0",
     "Calaos",
     constructor

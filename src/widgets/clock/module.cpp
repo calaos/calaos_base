@@ -29,8 +29,8 @@ EAPI CalaosModuleApi calaos_modapi =
 {
     CALAOS_MODULE_API_VERSION,
     CMOD_WIDGET,
-    N_("Clock"),
-    N_("Numeric or Analogic clock to be placed on your main page."),
+    _("Clock"),
+    _("Numeric or Analogic clock to be placed on your main page."),
     "2.0",
     "Calaos",
     constructor
