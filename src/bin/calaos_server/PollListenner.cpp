@@ -95,19 +95,16 @@ PollListenner::~PollListenner()
 
 string PollListenner::Register()
 {
-    char cUuid[37];
-
-
     srand(time(NULL));
+    stringstream ssUuid;
+    ssUuid << std::hex << std::setfill('0') ;
+    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
 
-    sprintf(cUuid, "%04x%04x-%04x-%04x-%04x-%04x%04x%04x",
-            rand(), rand(),
-            rand(),
-            ((rand() & 0x0fff) | 0x4000),
-            rand() % 0x3fff + 0x8000,
-            rand(), rand(), rand());
-
-    string uuid(cUuid);
+    string uuid = ssUuid.str();
     pollobjects[uuid] = new PollObject(uuid);
 
     cDebugDom("poll_listener") << "uuid:" << uuid;
