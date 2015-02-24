@@ -556,39 +556,6 @@ ColorValue ColorValue::toRgb() const
     }
     else if (type == ColorHSL)
     {
-        /*
-        double h = double(color.hsl.h) / 100.;
-        double s = double(color.hsl.s) / 100.;
-        double l = double(color.hsl.l) / 100.;
-        double r = 0, g = 0, b = 0;
-
-        if (s == 0)
-        {
-            r = g = b = l; // achromatic
-        }
-        else
-        {
-
-            auto hue2rgb = [](double p, double q, double t)
-            {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1/6) return p + (q - p) * 6 * t;
-                if (t < 1/2) return q;
-                if (t < 2/3) return p + (q - p) * (2 / 3 - t) * 6;
-                return p;
-            };
-
-            double q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            double p = 2 * l - q;
-            r = hue2rgb(p, q, h + 1 / 3);
-            g = hue2rgb(p, q, h);
-            b = hue2rgb(p, q, h - 1 / 3);
-        }
-
-        c.setRgb(round(r * 255), round(g * 255), round(b * 255));
-        */
-
         unsigned int r = 0;
         unsigned int g = 0;
         unsigned int b = 0;
