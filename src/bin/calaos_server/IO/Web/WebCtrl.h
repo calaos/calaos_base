@@ -62,7 +62,6 @@ public:
     double getValueDouble(string path);
 
     void setValue(string value);
-    void setValue(int r, int g, int b);
 };
 
 }

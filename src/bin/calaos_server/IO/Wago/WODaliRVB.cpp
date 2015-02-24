@@ -74,11 +74,7 @@ void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], red);
-        red = (red * 255) / 100;
-
-        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-
-        emitChange();
+        checkReadState();
     }
 
     Calaos::StartReadRules::Instance().ioRead();
@@ -99,11 +95,7 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], green);
-        green = (green * 255) / 100;
-
-        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-
-        emitChange();
+        checkReadState();
     }
 
     Calaos::StartReadRules::Instance().ioRead();
@@ -124,14 +116,21 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result
     if (tokens.size() >= 3)
     {
         from_string(tokens[2], blue);
-        blue = (blue * 255) / 100;
-
-        value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-
-        emitChange();
+        checkReadState();
     }
 
     Calaos::StartReadRules::Instance().ioRead();
+}
+
+void WODaliRVB::checkReadState()
+{
+    if (red < 0 || green < 0 || blue < 0) return;
+
+    ColorValue c(double(red) * 255. / 100.,
+                 double(green) * 255. / 100.,
+                 double(blue) * 255. / 1000.);
+
+    stateUpdated(c, red != 0 || green != 0 || blue != 0);
 }
 
 void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
@@ -144,8 +143,16 @@ void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
     }
 }
 
-void WODaliRVB::setColorReal(int r, int g, int b)
+void WODaliRVB::setColorReal(const ColorValue &c, bool s)
 {
+    int r = 0, g = 0, b = 0;
+    if (s)
+    {
+        r = c.getRed();
+        g = c.getGreen();
+        b = c.getBlue();
+    }
+
     string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
                  " " + get_param("raddress") + " " + Utils::to_string((r * 100) / 255) +
                  " " + get_param("rfade_time");
@@ -161,3 +168,4 @@ void WODaliRVB::setColorReal(int r, int g, int b)
           " " + get_param("bfade_time");
     WagoMap::Instance(host, port).SendUDPCommand(cmd);
 }
+

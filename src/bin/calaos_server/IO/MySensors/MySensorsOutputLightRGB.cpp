@@ -50,7 +50,7 @@ MySensorsOutputLightRGB::~MySensorsOutputLightRGB()
     cInfoDom("output");
 }
 
-void MySensorsOutputLightRGB::setColorReal(int r, int g , int b)
+void MySensorsOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
     string nodeId_r = get_param("node_id_red");
     string sensorId_r = get_param("sensor_id_red");
@@ -63,7 +63,16 @@ void MySensorsOutputLightRGB::setColorReal(int r, int g , int b)
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
+    int r = 0, g = 0, b = 0;
+    if (s)
+    {
+        r = c.getRed();
+        g = c.getGreen();
+        b = c.getBlue();
+    }
+
     MySensorsController::Instance(get_params()).setValue(nodeId_r, sensorId_r, dataType, Utils::to_string(r));
     MySensorsController::Instance(get_params()).setValue(nodeId_g, sensorId_g, dataType, Utils::to_string(g));
     MySensorsController::Instance(get_params()).setValue(nodeId_b, sensorId_b, dataType, Utils::to_string(b));
 }
+

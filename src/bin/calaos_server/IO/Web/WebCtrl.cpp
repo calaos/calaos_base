@@ -364,10 +364,3 @@ void WebCtrl::setValue(string value)
 
 }
 
-void WebCtrl::setValue(int r, int g, int b)
-{
-    char tmp[16];
-    snprintf(tmp, sizeof(tmp), "%02x%02x%02x", r, g, b);
-
-    setValue(tmp);
-}

@@ -25,8 +25,6 @@ using namespace Calaos;
 
 OutputLightRGB::OutputLightRGB(Params &_p):
     Output(_p),
-    value(0),
-    old_value(100),
     timer_auto(NULL)
 {
     set_param("gui_type", "light_rgb");
@@ -54,32 +52,24 @@ bool OutputLightRGB::set_value(std::string val)
 
     if (val == "on" || val == "true")
     {
-        //switch the light on only if value == 0
-        if (value == 0)
+        //switch the light on only if it was off
+        if (!state)
         {
-            if (red == 0 && green == 0 && blue == 0)
-            {
-                red = 255; green = 255; blue = 255;
-            }
-
-            setColor();
-            value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+            setColor(color, true);
             cmd_state = "on";
+            state = true;
         }
 
         DELETE_NULL(timer_auto);
     }
     else if (val == "off" || val == "false")
     {
-        //switch the light off only if value > 0
-        if (value > 0)
+        //switch the light off only if it was on
+        if (state)
         {
-            setColorReal(0, 0, 0);
-
-            old_value = value;
-            value = 0;
-
+            setColor(ColorValue::fromRgb(0, 0, 0), false);
             cmd_state = "off";
+            state = false;
         }
 
         DELETE_NULL(timer_auto);
@@ -87,82 +77,49 @@ bool OutputLightRGB::set_value(std::string val)
     else if (val.compare(0, 8, "set off ") == 0)
     {
         val.erase(0, 4);
-        int percent;
-        from_string(val, percent);
-        red = percent >> 16;
-        green = (percent >> 8) & 0x0000FF;
-        blue = percent & 0x0000FF;
-        if (red < 0) red = 0;
-        if (red > 255) red = 255;
-        if (green < 0) green = 0;
-        if (green > 255) green = 255;
-        if (blue < 0) blue = 0;
-        if (blue > 255) blue = 255;
 
-        DELETE_NULL(timer_auto);
-
-        cmd_state = "set off " + Utils::to_string(percent);
-
-        if (value > 0)
+        ColorValue c(val);
+        if (c.isValid())
         {
-            setColor();
-        }
-        else
-        {
-            old_value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+            color = c;
+            if (state)
+                setColor(color, state);
+
+            cmd_state = "set off " + color.toString();
+
+            DELETE_NULL(timer_auto);
         }
     }
     else if (val == "toggle")
     {
-        if (value == 0)
-            set_value(true);
-        else
-            set_value(false);
+        set_value(!state);
     }
     else if (val.compare(0, 4, "set ") == 0)
     {
         val.erase(0, 4);
-        int percent;
 
-        if (val.compare(0, 1, "#") == 0)
-          {
-            val.erase(0, 1);
-            percent = std::stoul(val, nullptr, 16);
-          }
-        else if(val.compare(0, 2, "0x") == 0)
-          {
-            val.erase(0, 2);
-            percent = std::stoul(val, nullptr, 16);
-          }
-        else
-          {
-            from_string(val, percent);
-          }
+        ColorValue c(val);
+        if (c.isValid())
+        {
+            color = c;
+            state = true;
 
-        red = percent >> 16;
-        green = (percent >> 8) & 0x0000FF;
-        blue = percent & 0x0000FF;
+            setColor(color, state);
 
-        if (red < 0) red = 0;
-        if (red > 255) red = 255;
-        if (green < 0) green = 0;
-        if (green > 255) green = 255;
-        if (blue < 0) blue = 0;
-        if (blue > 255) blue = 255;
+            cmd_state = "set " + color.toString();
 
-        setColor();
-        DELETE_NULL(timer_auto);
+            DELETE_NULL(timer_auto);
+        }
     }
     else if (val.compare(0, 8, "set_red ") == 0)
     {
         val.erase(0, 8);
         int percent;
         from_string(val, percent);
-        red = percent;
-        if (red < 0) red = 0;
-        if (red > 255) red = 255;
 
-        setColor();
+        color.setRed(double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 10, "set_green ") == 0)
@@ -170,11 +127,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 10);
         int percent;
         from_string(val, percent);
-        green = percent;
-        if (green < 0) green = 0;
-        if (green > 255) green = 255;
 
-        setColor();
+        color.setGreen(double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 9, "set_blue ") == 0)
@@ -182,11 +138,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 9);
         int percent;
         from_string(val, percent);
-        blue = percent;
-        if (blue < 0) blue = 0;
-        if (blue > 255) blue = 255;
 
-        setColor();
+        color.setBlue(double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 7, "up_red ") == 0)
@@ -194,11 +149,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 7);
         int percent;
         from_string(val, percent);
-        red += percent;
-        if (red < 0) red = 0;
-        if (red > 255) red = 255;
 
-        setColor();
+        color.setRed(color.getRed() + double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 9, "down_red ") == 0)
@@ -206,11 +160,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 9);
         int percent;
         from_string(val, percent);
-        red -= percent;
-        if (red < 0) red = 0;
-        if (red > 255) red = 255;
 
-        setColor();
+        color.setRed(color.getRed() - double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 9, "up_green ") == 0)
@@ -218,11 +171,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 9);
         int percent;
         from_string(val, percent);
-        green += percent;
-        if (green < 0) green = 0;
-        if (green > 255) green = 255;
 
-        setColor();
+        color.setGreen(color.getGreen() + double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 11, "down_green ") == 0)
@@ -230,11 +182,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 11);
         int percent;
         from_string(val, percent);
-        green -= percent;
-        if (green < 0) green = 0;
-        if (green > 255) green = 255;
 
-        setColor();
+        color.setGreen(color.getGreen() - double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 8, "up_blue ") == 0)
@@ -242,11 +193,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 8);
         int percent;
         from_string(val, percent);
-        blue += percent;
-        if (blue < 0) blue = 0;
-        if (blue > 255) blue = 255;
 
-        setColor();
+        color.setBlue(color.getBlue() + double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 10, "down_blue ") == 0)
@@ -254,11 +204,10 @@ bool OutputLightRGB::set_value(std::string val)
         val.erase(0, 10);
         int percent;
         from_string(val, percent);
-        blue -= percent;
-        if (blue < 0) blue = 0;
-        if (blue > 255) blue = 255;
 
-        setColor();
+        color.setBlue(color.getBlue() - double(percent) * 255. / 100.);
+        state = true;
+        setColor(color, state);
         DELETE_NULL(timer_auto);
     }
     else if (val.compare(0, 12, "auto_change ") == 0)
@@ -270,11 +219,9 @@ bool OutputLightRGB::set_value(std::string val)
         DELETE_NULL(timer_auto);
         timer_auto = new EcoreTimer((double)timems / 1000.,
                                     (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightRGB::TimerAutoChange) );
+        //Directly start the first time
+        TimerAutoChange();
     }
-
-    EmitSignalOutput();
-
-    emitChange();
 
     return ret;
 }
@@ -287,40 +234,27 @@ void OutputLightRGB::emitChange()
     IPC::Instance().SendEvent("events", sig);
 }
 
-void OutputLightRGB::setColor()
+void OutputLightRGB::setColor(const ColorValue &c, bool s)
 {
-    int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-    cmd_state = "set " + Utils::to_string(v);
+    cmd_state = "set " + color.toString();
 
-    setColorReal(red, green, blue);
-
-    value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+    setColorReal(c, s);
 
     EmitSignalOutput();
-
     emitChange();
 }
 
 void OutputLightRGB::TimerAutoChange()
 {
     //choose a random color
-    red = rand() % 255;
-    blue = rand() % 255;
-    green = rand() % 255;
-
-    setColor();
+    setColor(ColorValue::fromRgb(rand() % 255, rand() % 255, rand() % 255), true);
 }
 
-void OutputLightRGB::stateUpdated(int r, int g, int b)
+void OutputLightRGB::stateUpdated(const ColorValue &c, bool s)
 {
-    red = r;
-    green = g;
-    blue = b;
-
-    int v = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
-    cmd_state = "set " + Utils::to_string(v);
-
-    value = ((red << 16) & 0xFF0000) + ((green << 8) & 0x00FF00) + blue;
+    color = c;
+    state = s;
+    cmd_state = "set " + get_value_string();
 
     EmitSignalOutput();
     emitChange();
@@ -330,22 +264,21 @@ bool OutputLightRGB::check_condition_value(std::string cvalue, bool equal)
 {
     if (cvalue == "on" || cvalue == "true")
     {
-        if ((equal && value > 0) ||
-            (!equal && value == 0))
+        if ((equal && state) ||
+            (!equal && !state))
             return true;
     }
     else if (cvalue == "off" || cvalue == "false")
     {
-        if ((!equal && value > 0) ||
-            (equal && value == 0))
+        if ((!equal && state) ||
+            (equal && !state))
             return true;
     }
-    else if (is_of_type<int>(cvalue))
+    else
     {
-        int v;
-        Utils::from_string(cvalue, v);
-        if ((equal && value == v) ||
-            (!equal && value != v))
+        ColorValue c(cvalue);
+        if ((equal && c == color) ||
+            (!equal && c != color))
             return true;
     }
 

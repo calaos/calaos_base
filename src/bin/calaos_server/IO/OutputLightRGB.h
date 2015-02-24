@@ -31,21 +31,21 @@ namespace Calaos
 class OutputLightRGB : public Output
 {
 protected:
-    int value;
-    int old_value;
-    int red, green, blue;
+    bool state = false;
+    bool oldstate = true;
+    ColorValue color;
 
     std::string cmd_state;
 
     EcoreTimer *timer_auto;
     void TimerAutoChange();
-    void setColor();
+    void setColor(const ColorValue &color, bool state);
     void emitChange();
 
     //call this function whenever state of light changes to update internal status
-    void stateUpdated(int r, int g, int b);
+    void stateUpdated(const ColorValue &color, bool state);
 
-    virtual void setColorReal(int r, int g, int b) = 0;
+    virtual void setColorReal(const ColorValue &color, bool state) = 0;
 
 public:
     OutputLightRGB(Params &p);
@@ -56,8 +56,8 @@ public:
     bool set_value(std::string val);
     bool set_value(bool val)
     { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-    std::string get_value_string() { return Utils::to_string(value); }
-    bool get_value_bool() { if (value == 0) return false; else return true; }
+    std::string get_value_string() { return state?"0":color.toString(); }
+    bool get_value_bool() { return state; }
 
     virtual std::string get_command_string() { return cmd_state; }
 

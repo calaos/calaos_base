@@ -33,7 +33,7 @@ class WebOutputLightRGB : public OutputLightRGB
 
 protected:
     virtual void readValue();
-    virtual void setColorReal(int r, int g, int b);
+    virtual void setColorReal(const ColorValue &color, bool state);
 
 public:
     WebOutputLightRGB(Params &p);

@@ -49,8 +49,8 @@ void WebOutputLightRGB::readValue()
 
 }
 
-
-void WebOutputLightRGB::setColorReal(int r, int g , int b)
+void WebOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
-    WebCtrl::Instance(get_params()).setValue(r, g, b);
+    WebCtrl::Instance(get_params()).setValue(c.toString());
 }
+
