@@ -222,6 +222,10 @@ calaos_server_SOURCES = \
         IO/MySensors/MySensorsOutputShutter.cpp         \
         IO/MySensors/MySensorsOutputShutterSmart.h      \
         IO/MySensors/MySensorsOutputShutterSmart.cpp    \
+        IO/LimitlessLED/Milight.h                       \
+        IO/LimitlessLED/Milight.cpp                     \
+        IO/LimitlessLED/MilightOutputRGB.h              \
+        IO/LimitlessLED/MilightOutputRGB.cpp            \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \

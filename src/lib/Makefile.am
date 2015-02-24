@@ -132,8 +132,8 @@ libcalaos_common_la_SOURCES = \
         threadManager.h                         \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
-        SHA1.h                                  \
-        SHA1.cpp
+        ColorUtils.h                            \
+        ColorUtils.cpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

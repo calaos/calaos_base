@@ -66,6 +66,8 @@
 #include <TinyXML/tinyxml.h>
 #include <sigc++/sigc++.h>
 
+#include "ColorUtils.h"
+
 //This is for logging
 #include <EinaLog.h>
 
@@ -222,6 +224,7 @@ void remove_tag(string &source, const string begin_tag, const string end_tag);
 void replace_str(string &source, const string searchstr, const string replacestr);
 void trim_right(std::string &source, const std::string &t);
 void trim_left(std::string &source, const std::string &t);
+string trim(const string &str);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };
 bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);

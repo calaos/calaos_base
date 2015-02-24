@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src data
+SUBDIRS = src data lib tests
 
 if HAVE_PO
 
@@ -11,6 +11,7 @@ endif
 MAINTAINERCLEANFILES = \
 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.bz2 \
 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.gz \
+$(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.xz \
 Makefile.in \
 aclocal.m4 \
 config.guess \

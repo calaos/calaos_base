@@ -814,18 +814,6 @@ unsigned int Utils::getUptime()
 #endif
 }
 
-string Utils::str_to_lower(std::string s)
-{
-     std::transform(s.begin(), s.end(), s.begin(), Utils::to_lower());
-     return s;
-}
-
-string Utils::str_to_upper(std::string s)
-{
-     std::transform(s.begin(), s.end(), s.begin(), Utils::to_upper());
-     return s;
-}
-
 string Utils::createRandomUuid()
 {
     srand(time(NULL));
@@ -839,4 +827,43 @@ string Utils::createRandomUuid()
     ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
 
     return ssUuid.str();
+}
+
+string Utils::str_to_lower(std::string s)
+{
+     std::transform(s.begin(), s.end(), s.begin(), Utils::to_lower());
+     return s;
+}
+
+string Utils::str_to_upper(std::string s)
+{
+     std::transform(s.begin(), s.end(), s.begin(), Utils::to_upper());
+     return s;
+}
+
+string Utils::trim(const string &str)
+{
+    if (str.size() == 0)
+        return str;
+    if (!::isspace(str[0]) && !::isspace(str[str.length() - 1]))
+        return str;
+
+    uint start = 0;
+    uint end = str.length() - 1;
+    uint len;
+
+    while (start <= end && ::isspace(str[start]))
+        start++;
+
+    if (start <= end)
+    {
+        while (end && ::isspace(str[end]))
+            end--;
+    }
+
+    len = end - start + 1;
+    if (len <= 0)
+        return string();
+
+    return string(str, start, len);
 }

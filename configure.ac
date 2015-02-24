@@ -145,9 +145,34 @@ then
      AC_DEFINE([HAVE_ECORE_X], [1], [ecore_x])
 fi
 
+# Configure pthreads.
+ACX_PTHREAD([have_pthread=yes])
+
+# Define gtest variables 
+GTEST_VERSION="1.7.0"
+if test "x$have_pthread" = "xyes"; then
+    GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=1"
+    GTEST_CXXFLAGS="$PTHREAD_CFLAGS"
+    GTEST_LDFLAGS=
+    GTEST_LIBS="$PTHREAD_LIBS"
+else
+    GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=0"
+    GTEST_CXXFLAGS=
+    GTEST_LDFLAGS=
+    GTEST_LIBS=
+fi
+AC_SUBST([GTEST_VERSION])
+AC_SUBST([GTEST_CPPFLAGS])
+AC_SUBST([GTEST_CXXFLAGS])
+AC_SUBST([GTEST_LDFLAGS])
+AC_SUBST([GTEST_LIBS])
+
 
 AC_CONFIG_FILES([
 Makefile
+lib/Makefile
+lib/gtest/Makefile
+tests/Makefile
 src/Makefile
 src/lib/Makefile
 src/bin/Makefile
