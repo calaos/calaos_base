@@ -122,6 +122,10 @@ int main (int argc, char **argv)
 
     srand(time(NULL));
 
+    //Ensure calling order of destructors
+    ListeRule::Instance();
+    ListeRoom::Instance();
+
     //init ecore system
     eina_init();
     ecore_init();
