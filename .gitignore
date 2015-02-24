@@ -84,3 +84,7 @@ calaos.includes
 po/remove-potcdate.sed
 Makefile.am.user*
 *.swp
+tests/ColorValue_test
+tests/*.log
+tests/*.trs
+test-driver
