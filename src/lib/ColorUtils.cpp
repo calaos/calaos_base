@@ -47,8 +47,10 @@ string ColorValue::toString() const
     stringstream s;
     if (!isValid()) return "#000000";
     s << "#";
-    s << std::hex << std::setfill('0') << std::setw(2) << std::uppercase;
-    s << getRed() << getGreen() << getBlue();
+    s << std::hex << std::setfill('0') << std::uppercase;
+    s << std::setw(2) << getRed() <<
+         std::setw(2) << getGreen() <<
+         std::setw(2) << getBlue();
 
     return s.str();
 }
