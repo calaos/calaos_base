@@ -42,7 +42,7 @@ public:
     /* brightness value between 1 and 19 */
     void sendBrightnessCommand(int zone, int brightness);
     /* color range between 0-255 */
-    void sendColorCommand(int zone, int color);
+    void sendColorCommand(int zone, ushort color);
 
     //convert HSL color to milight 0-255 value
     static ushort calcMilightColor(const ColorValue &color);

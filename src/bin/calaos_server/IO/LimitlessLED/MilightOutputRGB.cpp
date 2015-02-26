@@ -50,11 +50,18 @@ void MilightOutputRGB::setColorReal(const ColorValue &c, bool s)
     }
     else
     {
+        cDebugDom("milight") << "Setting color: " << c.toString();
         ushort micolor = milight->calcMilightColor(c);
+        cDebugDom("milight") << "milight color: " << micolor;
         milight->sendColorCommand(zone, micolor);
         EcoreTimer::singleShot(0.2, [=]()
         {
-            double v = (double(c.getHSLLightness()) * 18.) / 255.;
+            double luminance = 0.299 * (double)c.getRed() +
+                               0.587 * (double)c.getGreen() +
+                               0.114 * (double)c.getBlue();
+            double v = luminance * 18. / 100.;
+            cDebugDom("milight") << "HSL lightness: " << c.getHSLLightness();
+            cDebugDom("milight") << "v: " << v;
             milight->sendBrightnessCommand(zone, int(v) + 1);
         });
     }

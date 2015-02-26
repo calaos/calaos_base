@@ -21,12 +21,18 @@
 #include "Milight.h"
 #include "EcoreTimer.h"
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 using namespace Calaos;
 
 Milight::Milight(string h, int p):
     host(h),
     port(p)
 {
+    cDebugDom("milight") << "New Milight host: " << host << " port: " << port;
     udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
                                           host.c_str(),
                                           port,
@@ -50,6 +56,7 @@ void Milight::sendCommand(uint8_t code, uint8_t param)
                                               port,
                                               this);
         ecore_con_server_send(udp_sender, cmd, 3);
+        ecore_con_server_flush(udp_sender);
     }
 }
 
@@ -129,10 +136,8 @@ void Milight::sendBrightnessCommand(int zone, int brightness)
     });
 }
 
-void Milight::sendColorCommand(int zone, int color)
+void Milight::sendColorCommand(int zone, ushort color)
 {
-    if (color < 0 || color > 255)
-        return;
     sendOnCommand(zone);
 
     EcoreTimer::singleShot(0.1, [=]()
@@ -143,6 +148,7 @@ void Milight::sendColorCommand(int zone, int color)
 
 ushort Milight::calcMilightColor(const ColorValue &color)
 {
+    cDebugDom("milight") << "HSL Hue: " << color.getHSLHue();
     ushort mcolor = (256 + 176 - (int)(color.getHSLHue() / 360.0 * 255.0)) % 256;
     return mcolor + 0xFA;
 }
