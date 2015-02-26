@@ -46,11 +46,31 @@ string ColorValue::toString() const
 {
     stringstream s;
     if (!isValid()) return "#000000";
-    s << "#";
-    s << std::hex << std::setfill('0') << std::uppercase;
-    s << std::setw(2) << getRed() <<
-         std::setw(2) << getGreen() <<
-         std::setw(2) << getBlue();
+
+    if (type == ColorRGB)
+    {
+        s << "#";
+        s << std::hex << std::setfill('0') << std::uppercase;
+        s << std::setw(2) << getRed() <<
+             std::setw(2) << getGreen() <<
+             std::setw(2) << getBlue();
+    }
+    else if (type == ColorHSL)
+    {
+        s << "hsla(" << getHSLHue() <<
+             ", " << getHSLSaturation() << "%" <<
+             ", " << getHSLLightness() << "%" <<
+             ", " << double(getAlpha()) / 255. <<
+             ")";
+    }
+    else if (type == ColorHSV)
+    {
+        s << "hsva(" << getHSVHue() <<
+             ", " << getHSVSaturation() << "%" <<
+             ", " << getHSVValue() << "%" <<
+             ", " << double(getAlpha()) / 255. <<
+             ")";
+    }
 
     return s.str();
 }

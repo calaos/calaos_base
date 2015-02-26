@@ -31,6 +31,12 @@ TEST_F(ColorValueTest, ToString)
 {
     EXPECT_EQ("#000000", c0->toString());
     EXPECT_EQ("#FFAA50", c1->toString());
+
+    ColorValue hsv = ColorValue::fromHsv(30, 68, 100);
+    ColorValue hsl = ColorValue::fromHsl(30, 100, 65, 0);
+
+    EXPECT_EQ("hsva(30, 68%, 100%, 1)", hsv.toString());
+    EXPECT_EQ("hsla(30, 100%, 65%, 0)", hsl.toString());
 }
 
 TEST_F(ColorValueTest, IsColorValid)
