@@ -56,7 +56,7 @@ public:
     bool set_value(std::string val);
     bool set_value(bool val)
     { if (val) set_value(std::string("on")); else set_value(std::string("off")); return true; }
-    std::string get_value_string() { return state?"0":color.toString(); }
+    std::string get_value_string() { return !state?"0":color.toString(); }
     bool get_value_bool() { return state; }
 
     virtual std::string get_command_string() { return cmd_state; }

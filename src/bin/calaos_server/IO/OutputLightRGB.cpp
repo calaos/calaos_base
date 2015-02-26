@@ -228,9 +228,13 @@ bool OutputLightRGB::set_value(std::string val)
 
 void OutputLightRGB::emitChange()
 {
+    int v = state?((color.getRed() << 16) +
+            (color.getGreen() << 8) +
+            color.getBlue()):0;
+
     string sig = "output ";
     sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + get_value_string());
+    sig += Utils::url_encode(string("state:") + Utils::to_string(v));
     IPC::Instance().SendEvent("events", sig);
 }
 
