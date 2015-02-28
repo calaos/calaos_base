@@ -338,9 +338,15 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason)
             CloseConnection();
             DELETE_NULL(closeTimeout);
         });
-    }
 
-    status = WSClosing;
+        status = WSClosing;
+    }
+    else
+    {
+        //Client initiated closing
+        status = WSClosed;
+        CloseConnection();
+    }
 
     websocketDisconnected.emit();
 }
@@ -349,6 +355,8 @@ void WebSocket::processControlFrame()
 {
     if (currentFrame.isPingFrame())
     {
+        if (status == WSClosing) return;
+
         cDebugDom("websocket") << "Received a PING, sending PONG back";
 
         //Send back a pong frame
@@ -359,6 +367,8 @@ void WebSocket::processControlFrame()
     }
     else if (currentFrame.isPongFrame())
     {
+        if (status == WSClosing) return;
+
         double elapsed = ecore_time_get() - ping_time;
         cInfoDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
     }

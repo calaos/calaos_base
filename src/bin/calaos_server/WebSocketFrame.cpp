@@ -109,11 +109,11 @@ bool WebSocketFrame::processFrameData(string &data)
                     state = maskbit? StateReadMask:StateReadPayload;
 
                 checkValid();
-                if (closeCode != WebSocket::CloseCodeNormal)
+                /*if (closeCode != WebSocket::CloseCodeNormal)
                 {
                     finished = true;
                     state = StateReadHeader;
-                }
+                }*/
             }
             else
                 return false;
