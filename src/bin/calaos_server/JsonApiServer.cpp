@@ -147,7 +147,7 @@ void JsonApiServer::addConnection(Ecore_Con_Client *client)
             << "Got a new connection from address "
             << ecore_con_client_ip_get(client);
 
-    JsonApiClient *conn = new WebSocket(client);
+    WebSocket *conn = new WebSocket(client);
     connections[client] = conn;
 }
 
@@ -157,7 +157,7 @@ void JsonApiServer::delConnection(Ecore_Con_Client *client)
             << "Connection from adress "
             << ecore_con_client_ip_get(client) << " closed.";
 
-    map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
+    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding JsonApiClient !";
@@ -177,7 +177,7 @@ void JsonApiServer::getDataConnection(Ecore_Con_Client *client, void *data, int 
             << "Got data from client at address "
             << ecore_con_client_ip_get(client);
 
-    map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
+    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding JsonApiClient !";
@@ -195,7 +195,7 @@ void JsonApiServer::dataWritten(Ecore_Con_Client *client, int size)
             << " to client at address "
             << ecore_con_client_ip_get(client);
 
-    map<Ecore_Con_Client *, JsonApiClient *>::iterator it = connections.find(client);
+    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding JsonApiClient !";

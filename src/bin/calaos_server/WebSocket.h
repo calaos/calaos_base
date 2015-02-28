@@ -69,7 +69,7 @@ private:
 
     bool echoMode = false;
 
-    enum { WSConnecting, WSOpened, WSClosed };
+    enum { WSConnecting, WSOpened, WSClosing, WSClosed };
     int status = WSConnecting;
 
     string recv_buffer;
@@ -81,6 +81,8 @@ private:
     bool isfragmented = false;
 
     double ping_time = 0.0;
+    EcoreTimer *closeTimeout = nullptr;
+    bool closeReceived = false;
 
     void reset(); //reset state machine
 

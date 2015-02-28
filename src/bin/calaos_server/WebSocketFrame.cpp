@@ -191,6 +191,14 @@ bool WebSocketFrame::processFrameData(string &data)
                 data.erase(0, 4);
 
                 state = StateReadPayload;
+
+                //Handle 0 length payload here
+                if (payload_length == 0)
+                {
+                    cDebugDom("websocket") << "0 payload length";
+                    finished = true;
+                    state = StateReadHeader;
+                }
             }
             else
                 return false;
@@ -202,7 +210,6 @@ bool WebSocketFrame::processFrameData(string &data)
             {
                 finished = true;
                 state = StateReadHeader;
-                break;
             }
             else if (payload_length > MAX_FRAME_SIZE_IN_BYTES)
             {

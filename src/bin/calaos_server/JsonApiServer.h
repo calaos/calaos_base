@@ -22,6 +22,7 @@
 #define S_JsonApiServer_H
 
 #include "Calaos.h"
+#include "WebSocket.h"
 #include "JsonApiClient.h"
 #include <Ecore_Con.h>
 
@@ -37,7 +38,7 @@ private:
     Ecore_Event_Handler *event_handler_data_get;
     Ecore_Event_Handler *event_handler_client_write;
 
-    map<Ecore_Con_Client *, JsonApiClient *> connections;
+    map<Ecore_Con_Client *, WebSocket *> connections;
 
     JsonApiServer(int port); //port to listen
 
