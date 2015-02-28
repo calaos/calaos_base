@@ -226,6 +226,10 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputRGB.h              \
         IO/LimitlessLED/MilightOutputRGB.cpp            \
+        IO/Hue/HueCtrl.h	                        \
+        IO/Hue/HueCtrl.cpp                              \
+        IO/Hue/HueOutputLightRGB.h	                \
+        IO/Hue/HueOutputLightRGB.cpp	                \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
