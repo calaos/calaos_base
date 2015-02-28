@@ -36,6 +36,11 @@ public:
     bool isControlFrame() const { return (opcode & 0x08) == 0x08; }
     bool isDataFrame() const { return !isControlFrame(); }
     bool isContinuationFrame() const { return isDataFrame() && (opcode == OpCodeContinue); }
+    bool isTextFrame() const { return opcode == OpCodeText; }
+    bool isBinaryFrame() const { return opcode == OpCodeBinary; }
+    bool isCloseFrame() const { return opcode == OpCodeClose; }
+    bool isPingFrame() const { return opcode == OpCodePing; }
+    bool isPongFrame() const { return opcode == OpCodePong; }
     bool hasMask() const { return mask != 0; }
     uint32_t getMask() const { return mask; }
     int getRsv1() const { return rsv1; }
@@ -51,7 +56,12 @@ public:
 
     bool processFrameData(string &data);
 
-private:
+    string toString();
+
+    void parseCloseCodeReason(uint16_t &code, string &reason);
+
+    static string makeFrame(int opcode, const string &payload, bool lastframe);
+
     enum OpCode
     {
         OpCodeContinue    = 0x0,
@@ -71,6 +81,8 @@ private:
         OpCodeReservedE   = 0xE,
         OpCodeReservedF   = 0xF
     };
+
+private:
 
     enum
     {

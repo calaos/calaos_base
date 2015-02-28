@@ -27,9 +27,13 @@
 
 using namespace Calaos;
 
+const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
+const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
+
 WebSocket::WebSocket(Ecore_Con_Client *cl):
     JsonApiClient(cl)
 {
+    reset();
 }
 
 WebSocket::~WebSocket()
@@ -101,11 +105,14 @@ bool WebSocket::checkHandshakeRequest()
 
     //Check if path is our API
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-    if (req_url.getPath() != "/api/v2")
+    if (req_url.getPath() != "/api/v2" &&
+        req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();
         return false;
     }
+
+    echoMode = req_url.getPath() == "/echo";
 
     //2. Must contains non empty Host
     if (request_headers.find("host") == request_headers.end() ||
@@ -191,6 +198,14 @@ bool WebSocket::checkHandshakeRequest()
     return true;
 }
 
+void WebSocket::reset()
+{
+    currentFrame.clear();
+    isfragmented = false;
+    currentData.clear();
+    currentOpcode = 0;
+}
+
 void WebSocket::processFrame(const string &data)
 {
     cDebugDom("websocket") << "Processing frame data";
@@ -201,21 +216,221 @@ void WebSocket::processFrame(const string &data)
     {
         if (currentFrame.isValid())
         {
-            cDebugDom("websocket") << "Got a new frame: " << currentFrame.getPayload();
+            cDebugDom("websocket") << "Got a new frame: " << currentFrame.toString();
+
+            if (currentFrame.isControlFrame())
+                processControlFrame();
+            else
+            {
+                if (currentFrame.isContinuationFrame() && !isfragmented)
+                {
+                    reset();
+                    string err = "Received a continuation frame but no fragmented start frame";
+                    cWarningDom("websocket") << err;
+
+                    //Send close frame and close connection
+                    sendCloseFrame(CloseCodeProtocolError, err);
+                }
+                if (isfragmented && currentFrame.isDataFrame() && !currentFrame.isContinuationFrame())
+                {
+                    reset();
+                    string err = "When fragmented, all data frames must have continuation opcode";
+                    cWarningDom("websocket") << err;
+
+                    //Send close frame and close connection
+                    sendCloseFrame(CloseCodeProtocolError, err);
+                }
+
+                if (!currentFrame.isContinuationFrame())
+                {
+                    currentOpcode = currentFrame.getOpcode();
+                    isfragmented = !currentFrame.isFinalFrame();
+                }
+
+                if (currentData.size() + currentFrame.getPayload().size() > MAX_MESSAGE_SIZE_IN_BYTES)
+                {
+                    reset();
+                    stringstream err;
+                    err << "Message exceeds size of " << MAX_MESSAGE_SIZE_IN_BYTES << " bytes";
+                    cWarningDom("websocket") << err.str();
+
+                    //Send close frame and close connection
+                    sendCloseFrame(CloseCodeTooMuchData, err.str());
+                }
+
+                currentData.append(currentFrame.getPayload());
+
+                if (currentFrame.isFinalFrame())
+                {
+                    if (currentOpcode == WebSocketFrame::OpCodeText)
+                        textMessageReceived.emit(currentData);
+                    else
+                        binaryMessageReceived.emit(currentData);
+
+                    if (echoMode && currentOpcode == WebSocketFrame::OpCodeText)
+                        sendTextMessage(currentData);
+                    else
+                        sendBinaryMessage(currentData);
+
+                    reset();
+                }
+            }
+
             currentFrame.clear();
         }
         else if (currentFrame.getCloseCode() != CloseCodeNormal)
         {
-            cDebugDom("websocket") << "Error in websocket handling: " << currentFrame.getCloseReason();
+            cWarningDom("websocket") << "Error in websocket handling: " << currentFrame.getCloseReason();
 
-            Params headers;
-            headers.Add("Connection", "close");
-            headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-            sendToClient(res);
+            //Send close frame and close connection
+            sendCloseFrame(currentFrame.getCloseCode(), currentFrame.getCloseReason());
 
             return;
         }
     }
 }
 
+void WebSocket::sendCloseFrame(uint16_t code, const string &reason)
+{
+    string payload;
+    payload.push_back(static_cast<char>(code >> 8));
+    payload.push_back(static_cast<char>(code));
+    payload.append(reason);
+
+    string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodeClose,
+                                             payload,
+                                             true);
+
+    cDebugDom("network") << "Sending " << frame.length() << " bytes, data_size = " << data_size;
+
+    if (!client_conn || ecore_con_client_send(client_conn, frame.c_str(), frame.size()) == 0)
+        cCriticalDom("network") << "Error sending data !";
+    else
+        ecore_con_client_flush(client_conn);
+
+    CloseConnection();
+
+    websocketDisconnected.emit();
+}
+
+void WebSocket::processControlFrame()
+{
+    if (currentFrame.isPingFrame())
+    {
+        cDebugDom("websocket") << "Received a PING, sending PONG back";
+
+        //Send back a pong frame
+        string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePong,
+                                                 currentFrame.getPayload(),
+                                                 true);
+        sendToClient(frame);
+    }
+    else if (currentFrame.isPongFrame())
+    {
+        double elapsed = ecore_time_get() - ping_time;
+        cInfoDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
+    }
+    else if (currentFrame.isCloseFrame())
+    {
+        //Read close code and close reason from payload
+        uint16_t code;
+        string close_reason;
+        currentFrame.parseCloseCodeReason(code, close_reason);
+
+        cInfoDom("websocket") << "Close frame received, code:" << code << " reason: " << close_reason;
+
+        sendCloseFrame(code, close_reason);
+    }
+}
+
+void WebSocket::sendPing(const string &data)
+{
+    ping_time = ecore_time_get();
+
+    string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
+                                             data,
+                                             true);
+    sendToClient(frame);
+}
+
+void WebSocket::sendTextMessage(const string &data)
+{
+    sendFrameData(data, false);
+}
+
+void WebSocket::sendBinaryMessage(const string &data)
+{
+    sendFrameData(data, true);
+}
+
+#define WS_SEND(data) \
+    if (!client_conn || \
+        (byteswritten = ecore_con_client_send(client_conn, data.c_str(), data.size())) == 0) \
+    { \
+        cCriticalDom("network") << "Error sending data !"; \
+        CloseConnection(); \
+        return; \
+    }
+
+void WebSocket::sendFrameData(const string &data, bool isbinary)
+{
+    if (status != WSOpened)
+    {
+        cErrorDom("websocket") << "Can't send data, websocket is not connected";
+        return;
+    }
+
+    int numframes = data.size() / FRAME_SIZE_IN_BYTES;
+    if (data.size() % FRAME_SIZE_IN_BYTES || numframes == 0)
+        numframes++;
+
+    uint64_t current = 0;
+    uint64_t byteswritten = 0;
+    uint64_t bytesleft = data.size();
+
+    for (int i = 0;i < numframes;i++)
+    {
+        bool lastframe = (i == (numframes - 1));
+        bool firstframe = (i == 0);
+
+        uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
+
+        string frame;
+        int header_size;
+
+        if (sz > 0)
+        {
+            frame = WebSocketFrame::makeFrame(firstframe?
+                                                  isbinary?WebSocketFrame::OpCodeBinary:
+                                                           WebSocketFrame::OpCodeText
+                                                         :WebSocketFrame::OpCodeContinue,
+                                              data.substr(current, sz),
+                                              lastframe);
+            header_size = frame.size() - sz;
+        }
+        else
+        {
+            frame = WebSocketFrame::makeFrame(firstframe?
+                                                  isbinary?WebSocketFrame::OpCodeBinary:
+                                                           WebSocketFrame::OpCodeText
+                                                         :WebSocketFrame::OpCodeContinue,
+                                              string(),
+                                              lastframe);
+            header_size = 0;
+        }
+
+        //send frame
+        WS_SEND(frame);
+
+        byteswritten -= header_size;
+
+        current += sz;
+        bytesleft -= sz;
+    }
+
+    if (byteswritten != data.size())
+    {
+        cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << data.size();
+        CloseConnection();
+    }
+}

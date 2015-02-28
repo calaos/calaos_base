@@ -184,10 +184,6 @@ bool WebSocketFrame::processFrameData(string &data)
         {
             if (data.size() >= 4)
             {
-                std::stringstream stream;
-                stream << std::hex << uint32_t(data[0]) << "-" << uint32_t(data[1]) << "-" << uint32_t(data[2]) << "-" << uint32_t(data[3]);
-                cDebugDom("websocket") << "Reading mask: " << stream.str();
-
                 mask = (uint8_t(data[0]) << 24) |
                        (uint8_t(data[1]) << 16) |
                        (uint8_t(data[2]) << 8) |
@@ -260,4 +256,78 @@ void WebSocketFrame::processMask()
     cDebugDom("websocket") << "payload size: " << size << " mask: " << stream.str();
     while (size-- > 0)
         *p++ ^= m[i++ % 4];
+}
+
+string WebSocketFrame::toString()
+{
+    if (!isValid()) return "Invalid frame";
+
+    stringstream s;
+    s << "Final:" << (isFinalFrame()?'1':'0')
+      << " Control:" << (isControlFrame()?'1':'0')
+      << " Continue:" << (isContinuationFrame()?'1':'0')
+      << " isText:" << (getOpcode() == OpCodeText?'1':'0')
+      << " payloadSize:" << payload_length;
+    if (isTextFrame())
+        s << " " << (payload.size() > 40?payload.substr(0, 40):payload);
+
+    return s.str();
+}
+
+void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
+{
+    if (payload.size() == 1)
+    {
+        code = WebSocket::CloseCodeProtocolError;
+        reason = "Payload of CloseFrame is too small";
+    }
+    code = (uint8_t(payload[0]) << 8) | uint8_t(payload[1]);
+    reason = payload.substr(2);
+}
+
+string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _lastframe)
+{
+    string frame;
+
+    if (_payload.size() > 0x7FFFFFFFFFFFFFFFULL)
+    {
+        cErrorDom("websocket") << "frame payload too big: " << _payload.size();
+        return frame;
+    }
+
+    uint8_t b = static_cast<uint8_t>((_opcode & 0x0F) | (_lastframe ? 0x80 : 0x00));
+    frame.push_back(static_cast<char>(b));
+
+    b = 0;
+
+    if (_payload.size() <= 125)
+    {
+        b |= static_cast<uint8_t>(_payload.size());
+        frame.push_back(static_cast<char>(b));
+    }
+    else if (_payload.size() <= 0xFFFFU)
+    {
+        b |= 126;
+        frame.push_back(static_cast<char>(b));
+        frame.push_back(static_cast<char>(_payload.size() >> 8));
+        frame.push_back(static_cast<char>(_payload.size()));
+    }
+    else if (_payload.size() <= 0x7FFFFFFFFFFFFFFFULL)
+    {
+        b |= 127;
+        frame.push_back(static_cast<char>(b));
+        uint64_t s = _payload.size();
+        frame.push_back(static_cast<char>((s >> 56) & 0x7F));
+        frame.push_back(static_cast<char>(s >> 48));
+        frame.push_back(static_cast<char>(s >> 40));
+        frame.push_back(static_cast<char>(s >> 32));
+        frame.push_back(static_cast<char>(s >> 24));
+        frame.push_back(static_cast<char>(s >> 16));
+        frame.push_back(static_cast<char>(s >> 8));
+        frame.push_back(static_cast<char>(s));
+    }
+
+    frame.append(_payload);
+
+    return frame;
 }

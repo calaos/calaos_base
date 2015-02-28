@@ -36,11 +36,17 @@ public:
     virtual ~WebSocket();
 
     sigc::signal<void, const string &> textMessageReceived;
-    sigc::signal<void, const vector<u_int8_t> &> binaryMessageReceived;
+    sigc::signal<void, const string &> binaryMessageReceived;
     sigc::signal<void> websocketDisconnected;
 
     /* Called by JsonApiServer whenever data comes in */
     virtual void ProcessData(string data);
+
+    void sendPing(const string &data);
+    void sendCloseFrame(uint16_t code = CloseCodeNormal, const string &reason = string());
+
+    void sendTextMessage(const string &data);
+    void sendBinaryMessage(const string &data);
 
     enum CloseCode
     {
@@ -61,16 +67,29 @@ public:
 
 private:
 
+    bool echoMode = false;
+
     enum { WSConnecting, WSOpened, WSClosed };
     int status = WSConnecting;
 
     string recv_buffer;
 
     WebSocketFrame currentFrame;
+    string currentData;
+    int currentOpcode;
+
+    bool isfragmented = false;
+
+    double ping_time = 0.0;
+
+    void reset(); //reset state machine
 
     bool checkHandshakeRequest();
     void processHandshake();
     void processFrame(const string &data);
+    void processControlFrame();
+
+    void sendFrameData(const string &data, bool isbinary);
 };
 
 #endif
