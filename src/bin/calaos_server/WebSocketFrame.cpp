@@ -288,8 +288,10 @@ void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
         code = WebSocket::CloseCodeProtocolError;
         reason = "Payload of CloseFrame is too small";
     }
-    code = (uint8_t(payload[0]) << 8) | uint8_t(payload[1]);
-    reason = payload.substr(2);
+    if (payload.size() >= 2)
+        code = (uint8_t(payload[0]) << 8) | uint8_t(payload[1]);
+    if (payload.size() > 2)
+        reason = payload.substr(2);
 }
 
 string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _lastframe)
