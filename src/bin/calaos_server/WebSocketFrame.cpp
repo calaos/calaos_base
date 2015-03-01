@@ -49,12 +49,14 @@ void WebSocketFrame::checkValid()
         closeCode = WebSocket::CloseCodeProtocolError;
         closeReason = "RSV fields are non zero";
         isvalid = false;
+        haserror = true;
     }
     else if (isOpCodeReserved())
     {
         closeCode = WebSocket::CloseCodeProtocolError;
         closeReason = "Use of reserved opcode";
         isvalid = false;
+        haserror = true;
     }
     else if (isControlFrame())
     {
@@ -63,12 +65,14 @@ void WebSocketFrame::checkValid()
             closeCode = WebSocket::CloseCodeProtocolError;
             closeReason = "Control frame is too big";
             isvalid = false;
+            haserror = true;
         }
         else if (!isFinalFrame())
         {
             closeCode = WebSocket::CloseCodeProtocolError;
             closeReason = "Control frame cannot be fragmented";
             isvalid = false;
+            haserror = true;
         }
         else
             isvalid = true;
@@ -110,11 +114,6 @@ bool WebSocketFrame::processFrameData(string &data)
                     state = maskbit? StateReadMask:StateReadPayload;
 
                 checkValid();
-                /*if (closeCode != WebSocket::CloseCodeNormal)
-                {
-                    finished = true;
-                    state = StateReadHeader;
-                }*/
             }
             else
                 return false;

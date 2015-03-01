@@ -296,6 +296,10 @@ void WebSocket::processFrame(const string &data)
         {
             cWarningDom("websocket") << "Error in websocket handling: " << currentFrame.getCloseReason();
 
+            //handle wrong close frames errors, test 7.3.6
+            if (currentFrame.isCloseFrame())
+                closeReceived = true; //make the connection to force close and don't wait for close handshake
+
             //Send close frame and close connection
             sendCloseFrame(currentFrame.getCloseCode(), currentFrame.getCloseReason());
 
