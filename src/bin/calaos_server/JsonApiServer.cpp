@@ -206,3 +206,12 @@ void JsonApiServer::dataWritten(Ecore_Con_Client *client, int size)
     it->second->DataWritten(size);
 }
 
+void JsonApiServer::disconnectAll()
+{
+    map<Ecore_Con_Client *, WebSocket *>::iterator iter;
+    for (iter = connections.begin();iter != connections.end();iter++)
+    {
+        WebSocket *ws = (*iter).second;
+        ws->sendCloseFrame(WebSocket::CloseCodeNormal, "Shutting down", true);
+    }
+}

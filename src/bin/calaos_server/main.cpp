@@ -194,6 +194,8 @@ int main (int argc, char **argv)
 
     ecore_main_loop_begin();
 
+    JsonApiServer::Instance().disconnectAll();
+
     //Stop all wagomaps and wait for their threads to terminate correctly.
     WagoMap::stopAllWagoMaps();
 

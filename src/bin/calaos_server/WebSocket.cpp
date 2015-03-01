@@ -310,7 +310,7 @@ void WebSocket::processFrame(const string &data)
     }
 }
 
-void WebSocket::sendCloseFrame(uint16_t code, const string &reason)
+void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
 {
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
@@ -335,7 +335,7 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason)
         ecore_con_client_flush(client_conn);
 
     //start a timeout to wait for a close frame from the client
-    if (!closeReceived)
+    if (!closeReceived && !forceClose)
     {
         closeTimeout = new EcoreTimer(10.0, [=]()
         {

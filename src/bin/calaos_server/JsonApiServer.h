@@ -51,6 +51,8 @@ public:
     }
     ~JsonApiServer();
 
+    void disconnectAll();
+
     /* Internal stuff used by ecore-con */
     void addConnection(Ecore_Con_Client *client);
     void delConnection(Ecore_Con_Client *client);

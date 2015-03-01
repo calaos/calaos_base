@@ -43,7 +43,7 @@ public:
     virtual void ProcessData(string data);
 
     void sendPing(const string &data);
-    void sendCloseFrame(uint16_t code = CloseCodeNormal, const string &reason = string());
+    void sendCloseFrame(uint16_t code = CloseCodeNormal, const string &reason = string(), bool forceClose = false);
 
     void sendTextMessage(const string &data);
     void sendBinaryMessage(const string &data);
