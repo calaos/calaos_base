@@ -54,6 +54,8 @@ public:
 
     bool isValid() const { return isvalid; }
 
+    bool hasError() const { return haserror; }
+
     bool processFrameData(string &data);
 
     string toString();
@@ -109,6 +111,7 @@ private:
     string payload;
 
     bool isvalid;
+    bool haserror;
 
     void checkValid();
     void processMask();

@@ -39,6 +39,7 @@ void WebSocketFrame::clear()
     payload_length = 0;
     isvalid = false;
     maskbit = false;
+    haserror = false;
 }
 
 void WebSocketFrame::checkValid()
@@ -195,6 +196,7 @@ bool WebSocketFrame::processFrameData(string &data)
                 //Handle 0 length payload here
                 if (payload_length == 0)
                 {
+                    haserror = true;
                     cDebugDom("websocket") << "0 payload length";
                     finished = true;
                     state = StateReadHeader;

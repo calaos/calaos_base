@@ -383,6 +383,11 @@ void WebSocket::processControlFrame()
 
         DELETE_NULL(closeTimeout);
         closeReceived = true;
+        if (currentFrame.hasError()) //in case Close frame has errors, testsuite 7.3.1
+        {
+            code = CloseCodeNormal;
+            close_reason = "malformed close frame";
+        }
 
         if (status == WSOpened)
             sendCloseFrame(code, close_reason);
