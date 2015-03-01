@@ -1,0 +1,10 @@
+{
+   "options": {"failByDrop": false},
+   "outdir": "./reports",
+
+   "servers": [{"agent": "CalaosServer", "url": "ws://localhost:5454/echo", "options": {"version": 18}}],
+
+   "cases": ["1.*", "2.*", "3.*", "4.*", "5.*", "7.*", "9.*", "10.*", "12.*", "13.*"],
+   "exclude-cases": [],
+   "exclude-agent-cases": {}
+}
