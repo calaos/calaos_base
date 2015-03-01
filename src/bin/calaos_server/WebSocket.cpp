@@ -312,6 +312,8 @@ void WebSocket::processFrame(const string &data)
 
 void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
 {
+    if (!isWebsocket) return;
+
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
 
@@ -413,6 +415,8 @@ void WebSocket::processControlFrame()
 
 void WebSocket::sendPing(const string &data)
 {
+    if (!isWebsocket) return;
+
     ping_time = ecore_time_get();
 
     string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
@@ -423,11 +427,13 @@ void WebSocket::sendPing(const string &data)
 
 void WebSocket::sendTextMessage(const string &data)
 {
+    if (!isWebsocket) return;
     sendFrameData(data, false);
 }
 
 void WebSocket::sendBinaryMessage(const string &data)
 {
+    if (!isWebsocket) return;
     sendFrameData(data, true);
 }
 
