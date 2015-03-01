@@ -393,6 +393,12 @@ void WebSocket::processControlFrame()
             close_reason = "malformed close frame";
         }
 
+        if (!checkCloseStatusCode(code))
+        {
+            code = CloseCodeProtocolError;
+            close_reason = "Wrong close status code";
+        }
+
         if (status == WSOpened)
             sendCloseFrame(code, close_reason);
         else
@@ -493,4 +499,28 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
         CloseConnection();
         status = WSClosed;
     }
+}
+
+bool WebSocket::checkCloseStatusCode(uint16_t code)
+{
+    //range 0-999 is not used
+    if (code < CloseCodeNormal)
+        return false;
+
+    //range 1000-2999 reserved for valid websocket codes
+    if (code <= 2999)
+    {
+        if (code == CloseCodeReserved1004 ||
+            code == CloseCodeMissingStatusCode ||
+            code == CloseCodeAbnormalDisconnection ||
+            code > CloseCodeBadOperation)
+            return false;
+
+        //CloseCodeTlsHandshakeFailed should never be used and is an error
+    }
+
+    //range 3000-3999 reserved for libraries, framwork ...
+    //range 4000-4999 reserved for private use
+
+    return true;
 }

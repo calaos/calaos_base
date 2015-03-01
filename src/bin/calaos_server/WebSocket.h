@@ -91,6 +91,8 @@ private:
     void processFrame(const string &data);
     void processControlFrame();
 
+    bool checkCloseStatusCode(uint16_t code);
+
     void sendFrameData(const string &data, bool isbinary);
 };
 
