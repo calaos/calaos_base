@@ -267,6 +267,8 @@ void WebSocket::processFrame(const string &data)
 
                 if (currentFrame.isFinalFrame())
                 {
+                    cDebugDom("websocket") << "Received " << (currentOpcode == WebSocketFrame::OpCodeText?"text":"binary") << " message of size " << currentData.size();
+
                     if (currentOpcode == WebSocketFrame::OpCodeText)
                         textMessageReceived.emit(currentData);
                     else
@@ -448,6 +450,8 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
     uint64_t bytesleft = data.size();
     int header_size = 0;
 
+    cDebugDom("websocket") << "Sending " << numframes << " frames";
+
     for (int i = 0;i < numframes;i++)
     {
         bool lastframe = (i == (numframes - 1));
@@ -479,15 +483,20 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
         }
 
         //send frame
-        data_size += data.size();
+        data_size += frame.size();
+        uint n;
         if (!client_conn ||
-            (byteswritten = ecore_con_client_send(client_conn, frame.c_str(), frame.size())) == 0)
+            (n = ecore_con_client_send(client_conn, frame.c_str(), frame.size())) == 0)
         {
             cCriticalDom("network") << "Error sending data !";
             CloseConnection();
             status = WSClosed;
             return;
         }
+        if (n != frame.size())
+            cWarningDom("websocket") << "All data not sent! framesize: " << frame.size() << " sent: " << n;
+        byteswritten += n;
+        cDebugDom("websocket") << "Data written: " << n << " byteswritten: " << byteswritten;
 
         current += sz;
         bytesleft -= sz;

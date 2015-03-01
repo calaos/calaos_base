@@ -37,6 +37,7 @@ void WebSocketFrame::clear()
     rsv1 = rsv2 = rsv3 = 0;
     opcode = OpCodeClose;
     payload_length = 0;
+    payload.clear();
     isvalid = false;
     maskbit = false;
     haserror = false;
