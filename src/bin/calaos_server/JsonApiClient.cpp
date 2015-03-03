@@ -184,7 +184,7 @@ JsonApiClient::~JsonApiClient()
     cDebugDom("network") << this;
 }
 
-void JsonApiClient::ProcessData(string request)
+int JsonApiClient::processHeaders(const string &request)
 {
     size_t nparsed;
 
@@ -195,131 +195,129 @@ void JsonApiClient::ProcessData(string request)
         /* Handle error. Usually just close the connection. */
         CloseConnection();
 
-        return;
+        return HTTP_PROCESS_DONE;
     }
 
-    if (parse_done)
+    if (!parse_done)
+        return HTTP_PROCESS_MOREDATA;
+
+    //Finally parsing of request is done, we can search for
+    //a response for the requested path
+
+    cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor) << " " << parse_url;
+    for (auto it = request_headers.begin();it!= request_headers.end();++it)
+        cDebugDom("network") << it->first << ": " << it->second;
+
+    //Handle CORS here
+    if (request_headers.find("origin") != request_headers.end())
     {
-        //Finally parsing of request is done, we can search for
-        //a response for the requested path
-
-        cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor);
-        for (auto it = request_headers.begin();it!= request_headers.end();++it)
-            cDebugDom("network") << it->first << ": " << it->second;
-
-        //Handle CORS here
-        if (request_headers.find("origin") != request_headers.end())
-        {
-            resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
-            resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-        }
-
-        if (request_method == HTTP_OPTIONS)
-        {
-            if (request_headers.find("access-control-request-method") != request_headers.end())
-                resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-            if (request_headers.find("access-control-request-headers") != request_headers.end())
-                resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["access-control-request-headers"] + "}");
-
-            Params headers;
-            headers.Add("Connection", "Close");
-            headers.Add("Cache-Control", "no-cache, must-revalidate");
-            headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-            headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_200, headers, "");
-            sendToClient(res);
-
-            return;
-        }
-
-        //If client asks for websocket just return and let websocket class handle connection
-        if (Utils::str_to_lower(request_headers["connection"]) == "upgrade" &&
-            Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
-        {
-            cDebugDom("websocket") << "Upgrading connection to WebSocket";
-            isWebsocket = true;
-            return;
-        }
-
-        if (parser->upgrade)
-        {
-            /* handle new protocol */
-            cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
-            CloseConnection();
-
-            return;
-        }
-
-        hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-
-        if (req_url.getPath() == "/" ||
-            req_url.getPath() == "/index.html" ||
-            req_url.getPath() == "/debug.html")
-        {
-            Params headers;
-            headers.Add("Connection", "Close");
-            headers.Add("Content-Type", "text/html");
-            string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
-            cDebug() << "send file " << fileName << "to Client";
-            string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
-            sendToClient(res);
-
-            return;
-        }
-
-        if (req_url.getPath() != "/api" &&
-            req_url.getPath() != "/api.php" &&
-            req_url.getPath() != "/api/v1" /*&&
-                        req_url.getPath() != "/api/v1.5" &&
-                        req_url.getPath() != "/api/v2"*/)
-        {
-            Params headers;
-            headers.Add("Connection", "close");
-            headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-            sendToClient(res);
-
-            return;
-        }
-
-        //get protocol version, if nothing is set default to v1
-        proto_ver = APIV1;
-        if (req_url.getPath() == "/api/v1.5") proto_ver = APIV1_5;
-        if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
-
-        //TODO: get url parameters here?
-        //for example get username/password as a url parameter
-
-        //Handle CORS here
-        if (request_headers.find("Origin") != request_headers.end())
-        {
-            resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
-            resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-        }
-
-        if (request_method == HTTP_OPTIONS)
-        {
-            if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
-                resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-            if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
-                resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["Access-Control-Request-Headers"] + "}");
-
-            Params headers;
-            headers.Add("Connection", "Close");
-            headers.Add("Cache-Control", "no-cache, must-revalidate");
-            headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-            headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_200, headers, "");
-            sendToClient(res);
-
-            return;
-        }
-
-        //handle request now
-        handleRequest();
+        resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     }
+
+    if (request_method == HTTP_OPTIONS)
+    {
+        if (request_headers.find("access-control-request-method") != request_headers.end())
+            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+        if (request_headers.find("access-control-request-headers") != request_headers.end())
+            resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["access-control-request-headers"] + "}");
+
+        Params headers;
+        headers.Add("Connection", "Close");
+        headers.Add("Cache-Control", "no-cache, must-revalidate");
+        headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+        headers.Add("Content-Type", "text/html");
+        string res = buildHttpResponse(HTTP_200, headers, "");
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    //If client asks for websocket just return and let websocket class handle connection
+    if (Utils::str_to_lower(request_headers["connection"]) == "upgrade" &&
+        Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
+    {
+        cDebugDom("websocket") << "Upgrading connection to WebSocket";
+        isWebsocket = true;
+        return HTTP_PROCESS_WEBSOCKET;
+    }
+
+    if (parser->upgrade)
+    {
+        /* handle new protocol */
+        cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
+        CloseConnection();
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
+
+    if (req_url.getPath() == "/" ||
+        req_url.getPath() == "/index.html" ||
+        req_url.getPath() == "/debug.html")
+    {
+        Params headers;
+        headers.Add("Connection", "Close");
+        headers.Add("Content-Type", "text/html");
+        string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
+        cDebug() << "send file " << fileName << "to Client";
+        string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    if (req_url.getPath() != "/api" &&
+        req_url.getPath() != "/api.php" &&
+        req_url.getPath() != "/api/v1" /*&&
+        req_url.getPath() != "/api/v1.5" &&
+        req_url.getPath() != "/api/v2"*/)
+    {
+        Params headers;
+        headers.Add("Connection", "close");
+        headers.Add("Content-Type", "text/html");
+        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    //get protocol version, if nothing is set default to v1
+    proto_ver = APIV1;
+    if (req_url.getPath() == "/api/v1.5") proto_ver = APIV1_5;
+    if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
+
+    //TODO: get url parameters here?
+    //for example get username/password as a url parameter
+
+    //Handle CORS here
+    if (request_headers.find("Origin") != request_headers.end())
+    {
+        resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
+        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    }
+
+    if (request_method == HTTP_OPTIONS)
+    {
+        if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
+            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+
+        if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
+            resHeaders.Add("Access-Control-Allow-Headers", request_headers["Access-Control-Request-Headers"]);
+
+        resHeaders.Add("Connection", "Close");
+        resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
+        resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+        resHeaders.Add("Content-Type", "text/html");
+        string res = buildHttpResponse(HTTP_200, resHeaders, "");
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    return HTTP_PROCESS_HTTP;
 }
 
 void JsonApiClient::DataWritten(int size)
@@ -422,7 +420,7 @@ void JsonApiClient::sendToClient(string res)
     }
 }
 
-void JsonApiClient::handleRequest()
+void JsonApiClient::handleJsonRequest()
 {
     jsonParam.clear();
 

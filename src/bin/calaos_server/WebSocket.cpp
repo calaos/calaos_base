@@ -46,29 +46,37 @@ void WebSocket::ProcessData(string data)
 {
     cDebugDom("websocket") << "Process new data " << data.size();
 
+    int http_status = HTTP_PROCESS_WEBSOCKET;
     if (!isWebsocket)
-        JsonApiClient::ProcessData(data);
+        http_status = processHeaders(data);
 
-    //handle HTTP request now
-    if (!isWebsocket)
+    switch (http_status)
+    {
+    case HTTP_PROCESS_HTTP:
     {
         if (parse_done)
         {
             //init parser again
             http_parser_init(parser, HTTP_REQUEST);
             parser->data = this;
+
+            handleJsonRequest();
         }
-
-        handleRequest();
-        return;
+        break;
     }
-
-    //Now we handle websocket here
-    if (status == WSConnecting)
-        processHandshake();
-    else if (status == WSOpened ||
-             status == WSClosing) //Waiting for the closing handshake
+    case HTTP_PROCESS_WEBSOCKET:
+    {
+        //Now we handle websocket here
+        if (status == WSConnecting)
+            processHandshake();
+        else if (status == WSOpened ||
+            status == WSClosing) //Waiting for the closing handshake
         processFrame(data);
+    }
+    case HTTP_PROCESS_MOREDATA:
+    case HTTP_PROCESS_DONE:
+    default: break;
+    }
 }
 
 void WebSocket::processHandshake()

@@ -82,7 +82,16 @@ protected:
 
     bool isWebsocket = false;
 
-    void handleRequest();
+    enum
+    {
+        HTTP_PROCESS_MOREDATA = 0,  //need more data for headers
+        HTTP_PROCESS_HTTP,          //normal http request that should be processed
+        HTTP_PROCESS_WEBSOCKET,     //websocket request
+        HTTP_PROCESS_DONE,          //request already processed (for HTTP OPTIONS, or debug.html)
+    };
+    int processHeaders(const string &request);
+
+    void handleJsonRequest();
     void sendToClient(string res);
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
@@ -120,9 +129,6 @@ public:
     virtual ~JsonApiClient();
 
     enum { APIV1 = 0, APIV1_5, APIV2 };
-
-    /* Called by JsonApiServer whenever data comes in */
-    virtual void ProcessData(string data);
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);
