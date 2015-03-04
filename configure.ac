@@ -148,30 +148,30 @@ fi
 # Configure pthreads.
 ACX_PTHREAD([have_pthread=yes])
 
-# Define gtest variables 
-GTEST_VERSION="1.7.0"
-if test "x$have_pthread" = "xyes"; then
-    GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=1"
-    GTEST_CXXFLAGS="$PTHREAD_CFLAGS"
-    GTEST_LDFLAGS=
-    GTEST_LIBS="$PTHREAD_LIBS"
+#check for gtest
+AC_LANG_PUSH([C++])
+AC_CHECK_HEADERS([gtest/gtest.h], [have_gtest="yes"])
+AM_CONDITIONAL([HAVE_GTEST], [test "x${have_gtest}" = "xyes"])
+AC_LANG_POP([C++])
+if test "x${have_gtest}" == "xyes"
+then
+     GTEST_INFO="make check"
 else
-    GTEST_CPPFLAGS="-DGTEST_HAS_PTHREAD=0"
-    GTEST_CXXFLAGS=
-    GTEST_LDFLAGS=
-    GTEST_LIBS=
+     GTEST_INFO="install gtest to run this test"
 fi
-AC_SUBST([GTEST_VERSION])
-AC_SUBST([GTEST_CPPFLAGS])
-AC_SUBST([GTEST_CXXFLAGS])
-AC_SUBST([GTEST_LDFLAGS])
-AC_SUBST([GTEST_LIBS])
 
+#check for autobahn test suite
+AC_CHECK_PROG(HAVE_AUTOBAHN, wstest2, yes)
+AM_CONDITIONAL([HAVE_AUTOBAHN], [test "x${HAVE_AUTOBAHN}" = "xyes"])
+if test "x${HAVE_AUTOBAHN}" == "xyes"
+then
+     WS_INFO="make check"
+else
+     WS_INFO="install autobahn testsuite to run this test"
+fi
 
 AC_CONFIG_FILES([
 Makefile
-lib/Makefile
-lib/gtest/Makefile
 tests/Makefile
 src/Makefile
 src/lib/Makefile
@@ -207,19 +207,23 @@ echo
 echo
 echo "Configuration Options Summary:"
 echo
-echo "Compilation............: make (or gmake)"
-echo "  CPPFLAGS.............: $CPPFLAGS"
-echo "  CFLAGS...............: $CFLAGS"
-echo "  LDFLAGS..............: $LDFLAGS"
+echo "Compilation............................: make (or gmake)"
+echo "  CPPFLAGS.............................: $CPPFLAGS"
+echo "  CFLAGS...............................: $CFLAGS"
+echo "  LDFLAGS..............................: $LDFLAGS"
 echo
-echo "Installation...........: make install (as root if needed, with 'su' or 'sudo')"
-echo "  prefix...............: $prefix"
+echo "Test Suite:"
+echo "  gtest library........................: $GTEST_INFO"
+echo "  Autobahn Websocket test suite........: $WS_INFO"
 echo
-echo " Build Calaos Server...: yes"
-echo " Build Calaos Home.....: $have_calaos_home_dep"
-echo " Build theme.......... : $build_theme"
+echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"
+echo "  prefix...............................: $prefix"
 echo
-echo " One Wire support......: ${have_owcapi}"
-echo " EWebkit support.......: ${have_ewebkit}"
-echo " Ecore_X support.......: ${have_ecore_x}"
+echo " Build Calaos Server...................: yes"
+echo " Build Calaos Home.....................: $have_calaos_home_dep"
+echo " Build theme...........................: $build_theme"
+echo
+echo " One Wire support......................: ${have_owcapi}"
+echo " EWebkit support.......................: ${have_ewebkit}"
+echo " Ecore_X support.......................: ${have_ecore_x}"
 echo

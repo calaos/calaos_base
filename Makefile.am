@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src data lib tests
+SUBDIRS = src data tests
 
 if HAVE_PO
 

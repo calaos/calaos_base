@@ -1,5 +1,5 @@
 #include "ColorUtils.h"
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 class ColorValueTest: public ::testing::Test
 {

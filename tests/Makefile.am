@@ -1,6 +1,10 @@
-AM_CPPFLAGS = -isystem $(top_srcdir)/lib/gtest/include \
+#no test by default
+TESTS =
+check_PROGRAMS =
+
+if HAVE_GTEST
+AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
-              $(GTEST_CPPFLAGS) \
               -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
               -DLIBMBUS                                             \
               -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
@@ -31,18 +35,16 @@ AM_CPPFLAGS = -isystem $(top_srcdir)/lib/gtest/include \
               -I$(top_srcdir)/src/lib/libquickmail                  \
               -I$(top_srcdir)/src/lib/uri_parser                    \
               @CALAOS_COMMON_CFLAGS@
-AM_CXXFLAGS = $(GTEST_CXXFLAGS)
-AM_LDFLAGS = $(GTEST_LDFLAGS) $(GTEST_LIBS) \
-	     $(top_srcdir)/lib/gtest/lib/libgtest_main.la \
-	     $(top_srcdir)/lib/gtest/lib/libgtest.la
-
-# TESTS -- Programs run automatically by "make check"
-# check_PROGRAMS -- Programs built by "make check" but not necessarily run
-TESTS = 
-check_PROGRAMS = 
+AM_LDFLAGS = -lgtest -lgtest_main
 
 TESTS += ColorValue_test
 check_PROGRAMS += ColorValue_test
 ColorValue_test_SOURCES = ColorValue_test.cpp
 ColorValue_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la
+
+endif
+
+if HAVE_AUTOBAHN
+TESTS += websocket/run_testsuite.sh
+endif
