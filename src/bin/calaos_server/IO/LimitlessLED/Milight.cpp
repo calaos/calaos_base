@@ -41,7 +41,7 @@ Milight::Milight(string h, int p):
 
 Milight::~Milight()
 {
-    DELETE_NULL_FUNC(ecore_con_server_del, udp_sender);
+    ecore_con_server_del(udp_sender);
 }
 
 void Milight::sendCommand(uint8_t code, uint8_t param)

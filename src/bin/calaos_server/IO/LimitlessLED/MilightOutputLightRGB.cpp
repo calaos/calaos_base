@@ -39,7 +39,7 @@ MilightOutputLightRGB::MilightOutputLightRGB(Params &p):
 
 MilightOutputLightRGB::~MilightOutputLightRGB()
 {
-    DELETE_NULL(milight);
+    delete milight;
 }
 
 void MilightOutputLightRGB::setColorReal(const ColorValue &c, bool s)
