@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MilightOutputRGB_H
-#define MilightOutputRGB_H
+#ifndef MilightOutputLightRGB_H
+#define MilightOutputLightRGB_H
 
 #include "OutputLightRGB.h"
 #include "Milight.h"
@@ -27,7 +27,7 @@
 namespace Calaos
 {
 
-class MilightOutputRGB : public OutputLightRGB
+class MilightOutputLightRGB : public OutputLightRGB
 {
 private:
     int port = DEFAULT_MILIGHT_PORT;
@@ -40,10 +40,10 @@ protected:
     virtual void setColorReal(const ColorValue &c, bool s);
 
 public:
-    MilightOutputRGB(Params &p);
-    ~MilightOutputRGB();
+    MilightOutputLightRGB(Params &p);
+    ~MilightOutputLightRGB();
 };
 
 }
 
-#endif // MilightOutputRGB_H
+#endif // MilightOutputLightRGB_H

@@ -112,6 +112,40 @@ calaos_server_SOURCES = \
         IO/InputTimer.h                                 \
         IO/IntValue.cpp                                 \
         IO/IntValue.h                                   \
+        IO/LimitlessLED/Milight.h                       \
+        IO/LimitlessLED/Milight.cpp                     \
+        IO/LimitlessLED/MilightOutputLightRGB.h         \
+        IO/LimitlessLED/MilightOutputLightRGB.cpp       \
+        IO/MySensors/MySensors.h	                \
+        IO/MySensors/MySensors.cpp                      \
+        IO/MySensors/MySensorsController.cpp            \
+        IO/MySensors/MySensorsController.h              \
+        IO/MySensors/MySensorsInputAnalog.h             \
+        IO/MySensors/MySensorsInputAnalog.cpp           \
+        IO/MySensors/MySensorsOutputLight.h             \
+        IO/MySensors/MySensorsOutputLight.cpp           \
+        IO/MySensors/MySensorsInputString.h             \
+        IO/MySensors/MySensorsInputString.cpp           \
+        IO/MySensors/MySensorsOutputString.h            \
+        IO/MySensors/MySensorsOutputString.cpp          \
+        IO/MySensors/MySensorsInputSwitch.h             \
+        IO/MySensors/MySensorsInputSwitch.cpp           \
+        IO/MySensors/MySensorsInputSwitchLongPress.h    \
+        IO/MySensors/MySensorsInputSwitchLongPress.cpp  \
+        IO/MySensors/MySensorsInputSwitchTriple.h       \
+        IO/MySensors/MySensorsInputSwitchTriple.cpp     \
+        IO/MySensors/MySensorsInputTemp.h               \
+        IO/MySensors/MySensorsInputTemp.cpp             \
+        IO/MySensors/MySensorsOutputAnalog.h            \
+        IO/MySensors/MySensorsOutputAnalog.cpp          \
+        IO/MySensors/MySensorsOutputDimmer.h            \
+        IO/MySensors/MySensorsOutputDimmer.cpp          \
+        IO/MySensors/MySensorsOutputLightRGB.h          \
+        IO/MySensors/MySensorsOutputLightRGB.cpp        \
+        IO/MySensors/MySensorsOutputShutter.h           \
+        IO/MySensors/MySensorsOutputShutter.cpp         \
+        IO/MySensors/MySensorsOutputShutterSmart.h      \
+        IO/MySensors/MySensorsOutputShutterSmart.cpp    \
         IO/OneWire/OWCtrl.cpp                           \
         IO/OneWire/OWCtrl.h                             \
         IO/OneWire/OWTemp.cpp                           \
@@ -192,40 +226,6 @@ calaos_server_SOURCES = \
         IO/Zibase/ZibaseDigitalIn.h                     \
         IO/Zibase/ZibaseDigitalOut.cpp                  \
         IO/Zibase/ZibaseDigitalOut.h                    \
-        IO/MySensors/MySensors.h	                    \
-        IO/MySensors/MySensors.cpp                      \
-        IO/MySensors/MySensorsController.cpp            \
-        IO/MySensors/MySensorsController.h              \
-        IO/MySensors/MySensorsInputAnalog.h             \
-        IO/MySensors/MySensorsInputAnalog.cpp           \
-        IO/MySensors/MySensorsOutputLight.h             \
-        IO/MySensors/MySensorsOutputLight.cpp           \
-        IO/MySensors/MySensorsInputString.h             \
-        IO/MySensors/MySensorsInputString.cpp           \
-        IO/MySensors/MySensorsOutputString.h            \
-        IO/MySensors/MySensorsOutputString.cpp          \
-        IO/MySensors/MySensorsInputSwitch.h             \
-        IO/MySensors/MySensorsInputSwitch.cpp           \
-        IO/MySensors/MySensorsInputSwitchLongPress.h    \
-        IO/MySensors/MySensorsInputSwitchLongPress.cpp  \
-        IO/MySensors/MySensorsInputSwitchTriple.h       \
-        IO/MySensors/MySensorsInputSwitchTriple.cpp     \
-        IO/MySensors/MySensorsInputTemp.h               \
-        IO/MySensors/MySensorsInputTemp.cpp             \
-        IO/MySensors/MySensorsOutputAnalog.h            \
-        IO/MySensors/MySensorsOutputAnalog.cpp          \
-        IO/MySensors/MySensorsOutputDimmer.h            \
-        IO/MySensors/MySensorsOutputDimmer.cpp          \
-        IO/MySensors/MySensorsOutputLightRGB.h          \
-        IO/MySensors/MySensorsOutputLightRGB.cpp        \
-        IO/MySensors/MySensorsOutputShutter.h           \
-        IO/MySensors/MySensorsOutputShutter.cpp         \
-        IO/MySensors/MySensorsOutputShutterSmart.h      \
-        IO/MySensors/MySensorsOutputShutterSmart.cpp    \
-        IO/LimitlessLED/Milight.h                       \
-        IO/LimitlessLED/Milight.cpp                     \
-        IO/LimitlessLED/MilightOutputRGB.h              \
-        IO/LimitlessLED/MilightOutputRGB.cpp            \
         IO/Hue/HueCtrl.h	                        \
         IO/Hue/HueCtrl.cpp                              \
         IO/Hue/HueOutputLightRGB.h	                \

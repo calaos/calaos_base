@@ -18,14 +18,14 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "MilightOutputRGB.h"
+#include "MilightOutputLightRGB.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MilightOutputRGB)
+REGISTER_OUTPUT(MilightOutputLightRGB)
 
-MilightOutputRGB::MilightOutputRGB(Params &p):
+MilightOutputLightRGB::MilightOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
     host = get_param("host");
@@ -37,12 +37,12 @@ MilightOutputRGB::MilightOutputRGB(Params &p):
     milight = new Milight(host, port);
 }
 
-MilightOutputRGB::~MilightOutputRGB()
+MilightOutputLightRGB::~MilightOutputLightRGB()
 {
     DELETE_NULL(milight);
 }
 
-void MilightOutputRGB::setColorReal(const ColorValue &c, bool s)
+void MilightOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
     if (!s)
     {
