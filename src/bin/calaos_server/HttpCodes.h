@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef S_JsonApiCodes_H
-#define S_JsonApiCodes_H
+#ifndef S_HttpCodes_H
+#define S_HttpCodes_H
 
 #define HTTP_400 "HTTP/1.0 400 Bad Request"
 #define HTTP_404 "HTTP/1.0 404 Not Found"

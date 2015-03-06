@@ -35,13 +35,9 @@
 #include <EcoreTimer.h>
 #include <NTPClock.h>
 #include <WagoMap.h>
-#include <JsonApiServer.h>
+#include <HttpServer.h>
 #include <Zibase.h>
 #include <Prefix.h>
-
-#ifdef HAVE_BREAKPAD
-#include "client/linux/handler/exception_handler.h"
-#endif
 
 using namespace Calaos;
 
@@ -68,23 +64,6 @@ static void echoUsage(char **argv)
     cout << endl;
 }
 
-#ifdef HAVE_BREAKPAD
-static bool dumpCallback(const char* dump_path,
-                         const char* minidump_id,
-                         void* context,
-                         bool succeeded)
-{
-    string cmd = "/sbin/crash_report.sh calaosd ";
-    cmd += minidump_id;
-
-    //Gather system informations and compress it.
-    int unused = system(cmd.c_str());
-    (void)unused;
-
-    return succeeded;
-}
-#endif
-
 int main (int argc, char **argv)
 {
     InitEinaLog("server");
@@ -92,10 +71,6 @@ int main (int argc, char **argv)
     cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
 
     Prefix::Instance(argc, argv);
-
-#ifdef HAVE_BREAKPAD
-    google_breakpad::ExceptionHandler eh("/mnt/ext3/backtraces", NULL, dumpCallback, NULL, true);
-#endif
 
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
@@ -163,7 +138,7 @@ int main (int argc, char **argv)
     string tmp =  Utils::get_config_option("port_api");
     if (!tmp.empty())
         from_string(tmp, port);
-    JsonApiServer::Instance(port);
+    HttpServer::Instance(port);
 
     NTPClock::Instance();
 
@@ -194,7 +169,7 @@ int main (int argc, char **argv)
 
     ecore_main_loop_begin();
 
-    JsonApiServer::Instance().disconnectAll();
+    HttpServer::Instance().disconnectAll();
 
     //Stop all wagomaps and wait for their threads to terminate correctly.
     WagoMap::stopAllWagoMaps();

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,151 +18,38 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "JsonApiClient.h"
-#include "JsonApiServer.h"
+#include "JsonApiV2.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
 #include "TCPConnection.h"
-#include "hef_uri_syntax.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"
-#include <Ecore.h>
-#include "JsonApiCodes.h"
-
-using namespace Calaos;
-
-#ifndef json_array_foreach
-#define json_array_foreach(array, index, value) \
-    for(index = 0; \
-    index < json_array_size(array) && (value = json_array_get(array, index)); \
-    index++)
-#endif
-
-int _parser_begin(http_parser *parser)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    //reset status flags to parse another request on the same connection
-    client->parse_done = false;
-    client->has_field = false;
-    client->has_value = false;
-    client->hfield.clear();
-    client->hvalue.clear();
-    client->bodymessage.clear();
-    client->parse_url.clear();
-
-    return 0;
-}
-
-int _parser_header_field(http_parser *parser, const char *at, size_t length)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    if (client->has_field && client->has_value)
-    {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
-    }
-
-    if (!client->has_field)
-        client->has_field = true;
-
-    client->hfield.append(at, length);
-
-    return 0;
-}
-
-int _parser_header_value(http_parser *parser, const char *at, size_t length)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    if (!client->has_value)
-        client->has_value = true;
-
-    client->hvalue.append(at, length);
-
-    return 0;
-}
-
-int _parser_headers_complete(http_parser *parser)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    if (client->has_field && client->has_value)
-    {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
-    }
-
-    return 0;
-}
-
-int _parser_url(http_parser *parser, const char *at, size_t length)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    client->parse_url.append(at, length);
-
-    return 0;
-}
-
-int _parser_message_complete(http_parser *parser)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    client->parse_done = true;
-    client->request_method = parser->method;
-
-    return 0;
-}
-
-int _parser_body_complete(http_parser* parser, const char *at, size_t length)
-{
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(parser->data);
-
-    client->bodymessage.append(at, length);
-
-    return 0;
-}
+#include "AudioManager.h"
+#include "AudioPlayer.h"
+#include "CamManager.h"
+#include "IPCam.h"
+#include "InPlageHoraire.h"
+#include "HttpCodes.h"
+#include "EcoreTimer.h"
+#include "HttpClient.h"
 
 Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
 {
-    JsonApiClient *client = reinterpret_cast<JsonApiClient *>(data);
+    JsonApiV2 *api = reinterpret_cast<JsonApiV2 *>(data);
     Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
 
-    if (ev->exe != client->exe_thumb)
+    if (ev->exe != api->exe_thumb)
         return ECORE_CALLBACK_PASS_ON;
 
-    client->exeFinished(ev->exe, ev->exit_code);
+    api->exeFinished(ev->exe, ev->exit_code);
 
     return ECORE_CALLBACK_CANCEL;
 }
 
-JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
-    client_conn(cl)
+JsonApiV2::JsonApiV2(HttpClient *client):
+    JsonApi(client)
 {
-    //set up callbacks for the parser
-    parser_settings.on_message_begin = _parser_begin;
-    parser_settings.on_url = _parser_url;
-    parser_settings.on_header_field = _parser_header_field;
-    parser_settings.on_header_value = _parser_header_value;
-    parser_settings.on_headers_complete = _parser_headers_complete;
-    parser_settings.on_body = _parser_body_complete;
-    parser_settings.on_message_complete = _parser_message_complete;
-
-    parser = (http_parser *)calloc(1, sizeof(http_parser));
-    http_parser_init(parser, HTTP_REQUEST);
-    parser->data = this;
-
-    cDebugDom("network") << this;
-
     exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
 
     int cpt = rand();
@@ -174,259 +61,19 @@ JsonApiClient::JsonApiClient(Ecore_Con_Client *cl):
     while (ecore_file_exists(tempfname.c_str()));
 }
 
-JsonApiClient::~JsonApiClient()
+JsonApiV2::~JsonApiV2()
 {
     ecore_event_handler_del(exe_handler);
-    free(parser);
-    CloseConnection();
     ecore_file_unlink(tempfname.c_str());
-
-    cDebugDom("network") << this;
 }
 
-int JsonApiClient::processHeaders(const string &request)
-{
-    size_t nparsed;
-
-    nparsed = http_parser_execute(parser, &parser_settings, request.c_str(), request.size());
-
-    if (nparsed != request.size())
-    {
-        /* Handle error. Usually just close the connection. */
-        CloseConnection();
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    if (!parse_done)
-        return HTTP_PROCESS_MOREDATA;
-
-    //Finally parsing of request is done, we can search for
-    //a response for the requested path
-
-    cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor) << " " << parse_url;
-    for (auto it = request_headers.begin();it!= request_headers.end();++it)
-        cDebugDom("network") << it->first << ": " << it->second;
-
-    //Handle CORS here
-    if (request_headers.find("origin") != request_headers.end())
-    {
-        resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
-        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    }
-
-    if (request_method == HTTP_OPTIONS)
-    {
-        if (request_headers.find("access-control-request-method") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-        if (request_headers.find("access-control-request-headers") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Headers", "{" + request_headers["access-control-request-headers"] + "}");
-
-        Params headers;
-        headers.Add("Connection", "Close");
-        headers.Add("Cache-Control", "no-cache, must-revalidate");
-        headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-        headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, headers, "");
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    //If client asks for websocket just return and let websocket class handle connection
-    if (Utils::str_to_lower(request_headers["connection"]) == "upgrade" &&
-        Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
-    {
-        cDebugDom("websocket") << "Upgrading connection to WebSocket";
-        isWebsocket = true;
-        return HTTP_PROCESS_WEBSOCKET;
-    }
-
-    if (parser->upgrade)
-    {
-        /* handle new protocol */
-        cDebugDom("network") << "Protocol Upgrade not supported, closing connection.";
-        CloseConnection();
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-
-    if (req_url.getPath() == "/" ||
-        req_url.getPath() == "/index.html" ||
-        req_url.getPath() == "/debug.html")
-    {
-        Params headers;
-        headers.Add("Connection", "Close");
-        headers.Add("Content-Type", "text/html");
-        string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
-        cDebug() << "send file " << fileName << "to Client";
-        string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    if (req_url.getPath() != "/api" &&
-        req_url.getPath() != "/api.php" &&
-        req_url.getPath() != "/api/v1" /*&&
-        req_url.getPath() != "/api/v1.5" &&
-        req_url.getPath() != "/api/v2"*/)
-    {
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    //get protocol version, if nothing is set default to v1
-    proto_ver = APIV1;
-    if (req_url.getPath() == "/api/v1.5") proto_ver = APIV1_5;
-    if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
-
-    //TODO: get url parameters here?
-    //for example get username/password as a url parameter
-
-    //Handle CORS here
-    if (request_headers.find("Origin") != request_headers.end())
-    {
-        resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
-        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    }
-
-    if (request_method == HTTP_OPTIONS)
-    {
-        if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-        if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Headers", request_headers["Access-Control-Request-Headers"]);
-
-        resHeaders.Add("Connection", "Close");
-        resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
-        resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-        resHeaders.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, resHeaders, "");
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
-
-    return HTTP_PROCESS_HTTP;
-}
-
-void JsonApiClient::DataWritten(int size)
-{
-    data_size -= size;
-
-    cDebugDom("network") << size << " bytes has been written, " << data_size << " bytes remaining";
-
-    if (data_size <= 0 && need_restart)
-    {
-        cDebugDom("network")
-                << "All config files written, restarting calaos_server";
-        ecore_app_restart();
-    }
-
-    if (conn_close && data_size <= 0)
-    {
-        cDebugDom("network")
-                << "All data sent, close connection";
-        //force all remaining data to be written before closing
-        ecore_con_client_flush(client_conn);
-
-        //Close connection in 500ms if not closed by client. This forces the closing and
-        //has to be done because lighttpd mod_proxy keeps connection open regardless of the Connection: close header
-        if (!closeTimer)
-            closeTimer = new EcoreTimer(0.5, sigc::mem_fun(this, &JsonApiClient::CloseConnection));
-        else
-            closeTimer->Reset(0.5);
-    }
-}
-
-void JsonApiClient::CloseConnection()
-{
-    DELETE_NULL(closeTimer);
-
-    cDebugDom("network") << "Closing connection";
-    DELETE_NULL_FUNC(ecore_con_client_del, client_conn);
-}
-
-string JsonApiClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
-{
-    ifstream file(fileName);
-    string body((std::istreambuf_iterator<char>(file)),
-                    std::istreambuf_iterator<char>());
-
-    return buildHttpResponse(code, headers, body);
-}
-
-string JsonApiClient::buildHttpResponse(string code, Params &headers, string body)
-{
-    stringstream res;
-
-    //HTTP code
-    res << code << "\r\n";
-
-    if (!headers.Exists("Content-Length"))
-        headers.Add("Content-Length", Utils::to_string(body.length()));
-
-    if (Utils::str_to_lower(request_headers["connection"]) == "close")
-    {
-        headers.Add("Connection", "Close");
-        cDebugDom("network")
-                << "Client requested Connection: Close";
-    }
-
-    if (Utils::str_to_lower(headers["Connection"]) == "close")
-        conn_close = true;
-    else
-        conn_close = false;
-
-    //headers
-    for (int i = 0;i < headers.size();i++)
-    {
-        string key, value;
-        headers.get_item(i, key, value);
-        res << key << ": " << value << "\r\n";
-    }
-
-    res << "\r\n";
-
-    //body
-    res << body;
-
-    return res.str();
-}
-
-void JsonApiClient::sendToClient(string res)
-{
-    data_size += res.length();
-
-    cDebugDom("network") << res;
-    cDebugDom("network") << "Sending " << res.length() << " bytes, data_size = " << data_size;
-
-    if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
-    {
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
-
-        CloseConnection();
-    }
-}
-
-void JsonApiClient::handleJsonRequest()
+void JsonApiV2::processApi(const string &data)
 {
     jsonParam.clear();
 
     //parse the json data
     json_error_t jerr;
-    json_t *jroot = json_loads(bodymessage.c_str(), 0, &jerr);
+    json_t *jroot = json_loads(data.c_str(), 0, &jerr);
 
     if (!jroot || !json_is_object(jroot))
     {
@@ -435,32 +82,23 @@ void JsonApiClient::handleJsonRequest()
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendToClient(res);
-        CloseConnection();
+        string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+
+        sendData.emit(res);
+        closeConnection.emit(0, string());
 
         return;
     }
 
-    cDebug() << json_dumps(jroot, JSON_INDENT(4));
-
-    const char *key;
-    json_t *value;
+    char *d = json_dumps(jroot, JSON_INDENT(4));
+    if (d)
+    {
+        cDebugDom("network") << d;
+        free(d);
+    }
 
     //decode the json root object into jsonParam
-    json_object_foreach(jroot, key, value)
-    {
-        string svalue;
-
-        if (json_is_string(value))
-            svalue = json_string_value(value);
-        else if (json_is_boolean(value))
-            svalue = json_is_true(value)?"true":"false";
-        else if (json_is_number(value))
-            svalue = Utils::to_string(json_number_value(value));
-
-        jsonParam.Add(key, svalue);
-    }
+    decodeJsonObject(jroot, jsonParam);
 
     //check for if username/password matches
     string user = Utils::get_config_option("calaos_user");
@@ -480,9 +118,9 @@ void JsonApiClient::handleJsonRequest()
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendToClient(res);
-        CloseConnection();
+        string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+        sendData.emit(res);
+        closeConnection.emit(0, string());
 
         return;
     }
@@ -509,7 +147,7 @@ void JsonApiClient::handleJsonRequest()
 }
 
 template<typename T>
-json_t *JsonApiClient::buildJsonRoomIO(Room *room)
+json_t *JsonApiV2::buildJsonRoomIO(Room *room)
 {
     json_t *jdata = json_array();
 
@@ -559,7 +197,7 @@ json_t *JsonApiClient::buildJsonRoomIO(Room *room)
     return jdata;
 }
 
-json_t *JsonApiClient::buildJsonHome()
+json_t *JsonApiV2::buildJsonHome()
 {
     json_t *jdata = json_array();
 
@@ -583,7 +221,7 @@ json_t *JsonApiClient::buildJsonHome()
     return jdata;
 }
 
-json_t *JsonApiClient::buildJsonCameras()
+json_t *JsonApiV2::buildJsonCameras()
 {
     json_t *jdata = json_array();
 
@@ -619,7 +257,7 @@ json_t *JsonApiClient::buildJsonCameras()
     return jdata;
 }
 
-json_t *JsonApiClient::buildJsonAudio()
+json_t *JsonApiV2::buildJsonAudio()
 {
     json_t *jdata = json_array();
 
@@ -650,36 +288,39 @@ json_t *JsonApiClient::buildJsonAudio()
     return jdata;
 }
 
-void JsonApiClient::sendJson(json_t *json)
+void JsonApiV2::sendJson(json_t *json)
 {
     char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)
     {
+        json_decref(json);
         cDebugDom("network") << "json_dumps failed!";
 
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_500, headers, HTTP_500_BODY);
-        sendToClient(res);
-        CloseConnection();
+        string res = httpClient->buildHttpResponse(HTTP_500, headers, HTTP_500_BODY);
+        sendData.emit(res);
+        closeConnection.emit(0, string());
 
         return;
     }
     json_decref(json);
 
     string data(d);
+    free(d);
 
-    resHeaders.Add("Connection", "Close");
-    resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
-    resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-    resHeaders.Add("Content-Type", "application/json");
-    resHeaders.Add("Content-Length", Utils::to_string(data.size()));
-    string res = buildHttpResponse(HTTP_200, resHeaders, data);
-    sendToClient(res);
+    Params headers;
+    headers.Add("Connection", "Close");
+    headers.Add("Cache-Control", "no-cache, must-revalidate");
+    headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+    headers.Add("Content-Type", "application/json");
+    headers.Add("Content-Length", Utils::to_string(data.size()));
+    string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
+    sendData.emit(res);
 }
 
-void JsonApiClient::processGetHome()
+void JsonApiV2::processGetHome()
 {
     json_t *jret = nullptr;
 
@@ -691,7 +332,7 @@ void JsonApiClient::processGetHome()
     sendJson(jret);
 }
 
-void JsonApiClient::processGetState(json_t *jroot)
+void JsonApiV2::processGetState(json_t *jroot)
 {
     json_incref(jroot);
     json_t *jinputs = json_object();
@@ -873,7 +514,7 @@ void JsonApiClient::processGetState(json_t *jroot)
     }
 }
 
-void JsonApiClient::processSetState()
+void JsonApiV2::processSetState()
 {
     bool success = true;
 
@@ -1045,7 +686,7 @@ void JsonApiClient::processSetState()
     sendJson(jret);
 }
 
-void JsonApiClient::processGetPlaylist()
+void JsonApiV2::processGetPlaylist()
 {
     int pid;
     Utils::from_string(jsonParam["player_id"], pid);
@@ -1086,7 +727,7 @@ void JsonApiClient::processGetPlaylist()
     });
 }
 
-void JsonApiClient::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count)
+void JsonApiV2::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count)
 {
     player->get_playlist_item(it_current, [=](AudioPlayerData data)
     {
@@ -1120,7 +761,7 @@ void JsonApiClient::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, js
     });
 }
 
-void JsonApiClient::processPolling()
+void JsonApiV2::processPolling()
 {
     json_t *jret = json_object();
 
@@ -1176,7 +817,7 @@ void JsonApiClient::processPolling()
     sendJson(jret);
 }
 
-void JsonApiClient::processGetCover()
+void JsonApiV2::processGetCover()
 {
     int pid;
     Utils::from_string(jsonParam["player_id"], pid);
@@ -1216,7 +857,7 @@ void JsonApiClient::processGetCover()
     });
 }
 
-void JsonApiClient::processGetCameraPic()
+void JsonApiV2::processGetCameraPic()
 {
     int pid;
     Utils::from_string(jsonParam["camera_id"], pid);
@@ -1243,7 +884,7 @@ void JsonApiClient::processGetCameraPic()
     exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
 }
 
-void JsonApiClient::exeFinished(Ecore_Exe *exe, int exit_code)
+void JsonApiV2::exeFinished(Ecore_Exe *exe, int exit_code)
 {
     if (exit_code != 0)
     {
@@ -1264,7 +905,7 @@ void JsonApiClient::exeFinished(Ecore_Exe *exe, int exit_code)
     sendJson(jret);
 }
 
-void JsonApiClient::processConfig(json_t *jroot)
+void JsonApiV2::processConfig(json_t *jroot)
 {
     json_t *jret = json_object();
 
@@ -1338,7 +979,7 @@ void JsonApiClient::processConfig(json_t *jroot)
         json_object_set_new(jret, "success", json_string(ret?"true":"false"));
 
         if (ret)
-            need_restart = true;
+            httpClient->setNeedRestart(true);
     }
     else
     {

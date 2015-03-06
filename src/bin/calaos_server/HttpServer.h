@@ -18,17 +18,17 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef S_JsonApiServer_H
-#define S_JsonApiServer_H
+#ifndef S_HttpServer_H
+#define S_HttpServer_H
 
 #include "Calaos.h"
 #include "WebSocket.h"
-#include "JsonApiClient.h"
+#include "HttpClient.h"
 #include <Ecore_Con.h>
 
 using namespace std;
 
-class JsonApiServer
+class HttpServer
 {
 private:
     int port;
@@ -40,16 +40,16 @@ private:
 
     map<Ecore_Con_Client *, WebSocket *> connections;
 
-    JsonApiServer(int port); //port to listen
+    HttpServer(int port); //port to listen
 
 public:
-    static JsonApiServer &Instance(int port = 0)
+    static HttpServer &Instance(int port = 0)
     {
-        static JsonApiServer server(port);
+        static HttpServer server(port);
 
         return server;
     }
-    ~JsonApiServer();
+    ~HttpServer();
 
     void disconnectAll();
 

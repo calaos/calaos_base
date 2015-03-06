@@ -24,12 +24,12 @@
 #include "Calaos.h"
 #include <Ecore_Con.h>
 #include <unordered_map>
-#include "JsonApiClient.h"
+#include "HttpClient.h"
 #include "WebSocketFrame.h"
 
 using namespace Calaos;
 
-class WebSocket: public JsonApiClient
+class WebSocket: public HttpClient
 {
 public:
     WebSocket(Ecore_Con_Client *cl);

@@ -21,7 +21,7 @@
 #include "WebSocket.h"
 #include "CalaosConfig.h"
 #include <Ecore.h>
-#include "JsonApiCodes.h"
+#include "HttpCodes.h"
 #include "SHA1.h"
 #include "hef_uri_syntax.h"
 
@@ -31,7 +31,7 @@ const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
 const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
 
 WebSocket::WebSocket(Ecore_Con_Client *cl):
-    JsonApiClient(cl)
+    HttpClient(cl)
 {
     reset();
 }
@@ -118,7 +118,7 @@ bool WebSocket::checkHandshakeRequest()
 
     //Check if path is our API
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-    if (req_url.getPath() != "/api/v2" &&
+    if (req_url.getPath() != "/api/v3" &&
         req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();
@@ -126,6 +126,29 @@ bool WebSocket::checkHandshakeRequest()
     }
 
     echoMode = req_url.getPath() == "/echo";
+
+    proto_ver = APINONE;
+    if (req_url.getPath() == "/api/v3") proto_ver = APIV3;
+
+    if (!jsonApi)
+    {
+        if (proto_ver == APIV3)
+            jsonApi = new JsonApiV3(this);
+        else
+        {
+            cWarningDom("network") << "API version not implemented";
+            return false;
+        }
+
+        jsonApi->sendData.connect([=](const string &data)
+        {
+            sendTextMessage(data);
+        });
+        jsonApi->closeConnection.connect([=](int c, const string &r)
+        {
+            sendCloseFrame(static_cast<uint16_t>(c), r);
+        });
+    }
 
     //2. Must contains non empty Host
     if (request_headers.find("host") == request_headers.end() ||
@@ -281,6 +304,9 @@ void WebSocket::processFrame(const string &data)
                         textMessageReceived.emit(currentData);
                     else
                         binaryMessageReceived.emit(currentData);
+
+                    if (!echoMode && proto_ver == APIV3 && jsonApi)
+                        jsonApi->processApi(currentData);
 
                     if (echoMode && currentOpcode == WebSocketFrame::OpCodeText)
                         sendTextMessage(currentData);

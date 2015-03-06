@@ -71,6 +71,11 @@ calaos_server_SOURCES = \
         CalaosConfig.h                                  \
         DataLogger.cpp                                  \
         DataLogger.h                                    \
+        HttpClient.cpp                                  \
+        HttpClient.h                                    \
+        HttpCodes.h                                     \
+        HttpServer.cpp                                  \
+        HttpServer.h                                    \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
         IO/Gpio/GpioInputSwitch.cpp                     \
@@ -240,15 +245,12 @@ calaos_server_SOURCES = \
         IPCam/StandardMjpeg.h                           \
         Input.cpp                                       \
         Input.h                                         \
-        JsonApiClient.cpp                               \
-        JsonApiClient.h                                 \
-        JsonApiServer.cpp                               \
-        JsonApiServer.h                                 \
-        JsonApiCodes.h                                  \
-        WebSocket.cpp                                   \
-        WebSocket.h                                     \
-        WebSocketFrame.cpp                              \
-        WebSocketFrame.h                                \
+        JsonApi.cpp                                     \
+        JsonApi.h                                       \
+        JsonApiV2.h                                     \
+        JsonApiV2.cpp                                   \
+        JsonApiV3.h                                     \
+        JsonApiV3.cpp                                   \
         ListeRoom.cpp                                   \
         ListeRoom.h                                     \
         ListeRule.cpp                                   \
@@ -299,6 +301,10 @@ calaos_server_SOURCES = \
         TCPServer.h                                     \
         UDPServer.cpp                                   \
         UDPServer.h                                     \
+        WebSocket.cpp                                   \
+        WebSocket.h                                     \
+        WebSocketFrame.cpp                              \
+        WebSocketFrame.h                                \
         main.cpp
 
 calaos_server_LDADD =                                   \

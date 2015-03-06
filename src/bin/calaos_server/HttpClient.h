@@ -18,33 +18,24 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef S_JsonApiClient_H
-#define S_JsonApiClient_H
+#ifndef S_HttpClient_H
+#define S_HttpClient_H
 
 #include "Calaos.h"
 #include <Ecore_Con.h>
-#include "ListeRoom.h"
-#include "Room.h"
-#include "AudioManager.h"
-#include "AudioPlayer.h"
-#include "CamManager.h"
-#include "IPCam.h"
-#include "InPlageHoraire.h"
-#include <jansson.h>
 #include "http_parser.h"
 #include <unordered_map>
+#include "JsonApiV2.h"
+#include "JsonApiV3.h"
+#include "EcoreTimer.h"
 
 using namespace Calaos;
 
-class JsonApiClient: public sigc::trackable
+class HttpClient: public sigc::trackable
 {
 protected:
 
     Ecore_Con_Client *client_conn;
-    Ecore_Event_Handler *exe_handler;
-
-    Ecore_Exe *exe_thumb;
-    string tempfname;
 
     http_parser_settings parser_settings;
     http_parser *parser;
@@ -52,10 +43,6 @@ protected:
     bool parse_done = false;
     unsigned char request_method;
     unordered_map<string, string> request_headers;
-
-    Params jsonParam;
-
-    int player_count;
 
     int proto_ver;
 
@@ -82,6 +69,8 @@ protected:
 
     bool isWebsocket = false;
 
+    JsonApi *jsonApi = nullptr;
+
     enum
     {
         HTTP_PROCESS_MOREDATA = 0,  //need more data for headers
@@ -92,28 +81,8 @@ protected:
     int processHeaders(const string &request);
 
     void handleJsonRequest();
+
     void sendToClient(string res);
-    string buildHttpResponse(string code, Params &headers, string body);
-    string buildHttpResponseFromFile(string code, Params &headers, string fileName);
-    void sendJson(json_t *json);
-
-    //processing functions
-    void processGetHome();
-    void processGetState(json_t *jroot);
-    void processSetState();
-    void processGetPlaylist();
-    void processPolling();
-    void processGetCover();
-    void processGetCameraPic();
-    void processConfig(json_t *jroot);
-
-    json_t *buildJsonHome();
-    json_t *buildJsonCameras();
-    json_t *buildJsonAudio();
-    template<typename T> json_t *buildJsonRoomIO(Room *room);
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
-
-    void exeFinished(Ecore_Exe *exe, int exit_code);
 
     friend int _parser_begin(http_parser *parser);
     friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
@@ -122,16 +91,20 @@ protected:
     friend int _parser_message_complete(http_parser *parser);
     friend int _parser_url(http_parser *parser, const char *at, size_t length);
     friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
-    friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
 
 public:
-    JsonApiClient(Ecore_Con_Client *cl);
-    virtual ~JsonApiClient();
+    HttpClient(Ecore_Con_Client *cl);
+    virtual ~HttpClient();
 
-    enum { APIV1 = 0, APIV1_5, APIV2 };
+    enum { APINONE = 0, APIV1, APIV1_5, APIV2, APIV3 };
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);
+
+    string buildHttpResponse(string code, Params &headers, string body);
+    string buildHttpResponseFromFile(string code, Params &headers, string fileName);
+
+    void setNeedRestart(bool e) { need_restart = e; }
 };
 
 #endif
