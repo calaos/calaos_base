@@ -44,14 +44,29 @@
     <div class="container">
         <div>
         <form name="commandform">
-            <h1>Calaos API Debug Tool</h1>
-            <h2>URL:</h2>
-            <input name="commandurl" type="text" size="60" value="/api.php">
-            <div id="buttons">
-                <button type="button" onclick="getHTML('POST')">POST</button>
+            <h1>Calaos API v2 Debug Tool</h1>
+            <div class="form-group">
+                <label for="urlinput">Url</label>
+                <input type="text" class="form-control" id="urlinput" placeholder="Enter Calaos API URL" value="/api.php">
             </div>
-            <h2>Message Body:</h2>
-            <textarea name="messagebody" rows="10" cols="100"></textarea>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="email" class="form-control" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="passwd">Password</label>
+                <input type="text" class="form-control" id="passwd" placeholder="Password">
+            </div>
+
+            <div class="form-group">
+                <label for="message">Request (JSON)</label>
+                <select class="form-control" id="api_list"></select>
+                <textarea class="form-control" name="messagebody" rows="10" cols="100" id="message"></textarea>
+            </div>
+
+            <button class="btn btn-primary" type="button" onclick="getHTML('POST')">Send request</button>
+
             <h2>Command Response:</h2>
             <pre><code class="json" id="answer"></code></pre>
         </form>
