@@ -23,6 +23,7 @@
 
 #define HTTP_400 "HTTP/1.0 400 Bad Request"
 #define HTTP_404 "HTTP/1.0 404 Not Found"
+#define HTTP_301 "HTTP/1.1 301 Moved Permanently"
 #define HTTP_500 "HTTP/1.0 500 Internal Server Error"
 #define HTTP_200 "HTTP/1.0 200 OK"
 #define HTTP_WS_HANDSHAKE "HTTP/1.1 101 Switching Protocols"

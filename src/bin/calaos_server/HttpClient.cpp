@@ -226,14 +226,104 @@ int HttpClient::processHeaders(const string &request)
 
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
-    if (req_url.getPath() == "/" ||
-        req_url.getPath() == "/index.html" ||
-        req_url.getPath() == "/debug.html")
+    if (req_url.getPath() == "/debug" ||
+        req_url.getPath() == "/debug/")
     {
         Params headers;
-        headers.Add("Connection", "Close");
+        headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string fileName = Prefix::Instance().dataDirectoryGet() + "/debug.html";
+        headers.Add("Location", "debug/index.html");
+        string res = buildHttpResponse(HTTP_301, headers, string());
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    if (Utils::strStartsWith(req_url.getPath(), "/debug/", Utils::CaseInsensitive))
+    {
+        cDebugDom("network") << "Sending debug pages";
+
+        string path = req_url.getPath();
+        path.erase(0, 7);
+
+        string wwwroot = Utils::get_config_option("debug_wwwroot");
+        if (!ecore_file_is_dir(wwwroot.c_str()))
+            wwwroot = Prefix::Instance().dataDirectoryGet() + "/debug";
+
+        cDebugDom("network") << "Using www root: " << wwwroot;
+
+        string fileName = wwwroot +
+                          (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
+
+        if (!ecore_file_exists(fileName.c_str()))
+        {
+            cDebugDom("network") << "fileName not found: " << fileName;
+
+            Params headers;
+            headers.Add("Connection", "close");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+            sendToClient(res);
+
+            return HTTP_PROCESS_DONE;
+        }
+
+        string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
+
+        Params headers;
+        headers.Add("Connection", "Close");
+        headers.Add("Content-Type", getMimeType(filext));
+        cDebug() << "send file " << fileName << "to Client";
+        string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    if (req_url.getPath() == "/" ||
+        req_url.getPath() == "/app" ||
+        req_url.getPath() == "/app/")
+    {
+        Params headers;
+        headers.Add("Connection", "close");
+        headers.Add("Content-Type", "text/html");
+        headers.Add("Location", "app/index.html");
+        string res = buildHttpResponse(HTTP_301, headers, string());
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    if (Utils::strStartsWith(req_url.getPath(), "/app/", Utils::CaseInsensitive))
+    {
+        cDebugDom("network") << "Sending webapp pages";
+
+        string path = req_url.getPath();
+        path.erase(0, 7);
+
+        string wwwroot = Utils::get_config_option("wwwroot");
+        if (!ecore_file_is_dir(wwwroot.c_str()))
+            wwwroot = Prefix::Instance().dataDirectoryGet() + "/app";
+
+        string fileName = wwwroot +
+                          (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
+
+        if (!ecore_file_exists(fileName.c_str()))
+        {
+            Params headers;
+            headers.Add("Connection", "close");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+            sendToClient(res);
+
+            return HTTP_PROCESS_DONE;
+        }
+
+        string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
+
+        Params headers;
+        headers.Add("Connection", "Close");
+        headers.Add("Content-Type", getMimeType(filext));
         cDebug() << "send file " << fileName << "to Client";
         string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
         sendToClient(res);
@@ -243,14 +333,12 @@ int HttpClient::processHeaders(const string &request)
 
     if (req_url.getPath() != "/api" &&
         req_url.getPath() != "/api.php" &&
-        req_url.getPath() != "/api/v1" /*&&
-        req_url.getPath() != "/api/v1.5" &&
-        req_url.getPath() != "/api/v2"*/)
+        req_url.getPath() != "/api/v2")
     {
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+        string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -258,7 +346,7 @@ int HttpClient::processHeaders(const string &request)
 
     //get protocol version, if nothing is set default to v1
     proto_ver = APIV1;
-    if (req_url.getPath() == "/api/v1.5") proto_ver = APIV1_5;
+    if (req_url.getPath() == "/api.php") proto_ver = APIV2;
     if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
 
     //TODO: get url parameters here?
@@ -387,7 +475,6 @@ void HttpClient::sendToClient(string res)
 {
     data_size += res.length();
 
-    cDebugDom("network") << res;
     cDebugDom("network") << "Sending " << res.length() << " bytes, data_size = " << data_size;
 
     if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
@@ -427,4 +514,38 @@ void HttpClient::handleJsonRequest()
     }
 
     jsonApi->processApi(bodymessage);
+}
+
+string HttpClient::getMimeType(const string &file_ext)
+{
+    if (file_ext == "js")
+        return "application/javascript";
+    else if (file_ext == "css")
+        return "text/css";
+    else if (file_ext == "jpg" || file_ext == "jpeg")
+        return "image/jpeg";
+    else if (file_ext == "png")
+        return "image/png";
+    else if (file_ext == "gif")
+        return "image/gif";
+    else if (file_ext == "tiff")
+        return "image/tiff";
+    else if (file_ext == "svg")
+        return "image/svg+xml";
+    else if (file_ext == "pdf")
+        return "application/pdf";
+    else if (file_ext == "html" || file_ext == "htm")
+        return "text/html";
+    else if (file_ext == "xml")
+        return "application/xml";
+    else if (file_ext == "json")
+        return "application/json";
+    else if (file_ext == "ttf")
+        return "application/octet-stream";
+    else if (file_ext == "woff")
+        return "application/font-woff";
+    else if (file_ext == "eot")
+        return "application/vnd.ms-fontobject";
+
+    return "text/plain";
 }

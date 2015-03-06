@@ -84,6 +84,8 @@ protected:
 
     void sendToClient(string res);
 
+    string getMimeType(const string &file_ext);
+
     friend int _parser_begin(http_parser *parser);
     friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
     friend int _parser_header_value(http_parser *parser, const char *at, size_t length);
