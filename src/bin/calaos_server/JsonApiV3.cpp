@@ -58,7 +58,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
         json_decref(jroot);
 
         //close connection
-        closeConnection(WebSocket::CloseCodeNormal, "json_dumps failed!");
+        closeConnection.emit(WebSocket::CloseCodeNormal, "json_dumps failed!");
 
         return;
     }

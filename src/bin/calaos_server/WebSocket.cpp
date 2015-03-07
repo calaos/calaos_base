@@ -308,10 +308,13 @@ void WebSocket::processFrame(const string &data)
                     if (!echoMode && proto_ver == APIV3 && jsonApi)
                         jsonApi->processApi(currentData);
 
-                    if (echoMode && currentOpcode == WebSocketFrame::OpCodeText)
-                        sendTextMessage(currentData);
-                    else
-                        sendBinaryMessage(currentData);
+                    if (echoMode)
+                    {
+                        if (currentOpcode == WebSocketFrame::OpCodeText)
+                            sendTextMessage(currentData);
+                        else
+                            sendBinaryMessage(currentData);
+                    }
 
                     if (currentData.size() == 0)
                     {
