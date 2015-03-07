@@ -96,7 +96,8 @@ module.exports = function (grunt) {
           src: [
             '.tmp',
             '<%= config.dist %>/*',
-            '!<%= config.dist %>/.git*'
+            '!<%= config.dist %>/.git*',
+            '!<%= config.dist %>/Makefile*'
           ]
         }]
       },
@@ -141,19 +142,19 @@ module.exports = function (grunt) {
     },
 
     // Renames files for browser caching purposes
-    rev: {
-      dist: {
-        files: {
-          src: [
-            '<%= config.dist %>/scripts/{,*/}*.js',
-            '<%= config.dist %>/styles/{,*/}*.css',
-            '<%= config.dist %>/images/{,*/}*.*',
-            '<%= config.dist %>/styles/fonts/{,*/}*.*',
-            '<%= config.dist %>/*.{ico,png}'
-          ]
-        }
-      }
-    },
+//     rev: {
+//       dist: {
+//         files: {
+//           src: [
+//             '<%= config.dist %>/scripts/{,*/}*.js',
+//             '<%= config.dist %>/styles/{,*/}*.css',
+//             '<%= config.dist %>/images/{,*/}*.*',
+//             '<%= config.dist %>/styles/fonts/{,*/}*.*',
+//             '<%= config.dist %>/*.{ico,png}'
+//           ]
+//         }
+//       }
+//     },
 
     // Reads HTML for usemin blocks to enable smart builds that automatically
     // concat, minify and revision files. Creates configurations in memory so
@@ -236,15 +237,18 @@ module.exports = function (grunt) {
     //     }
     //   }
     // },
-    // uglify: {
-    //   dist: {
-    //     files: {
-    //       '<%= config.dist %>/scripts/scripts.js': [
-    //         '<%= config.dist %>/scripts/scripts.js'
-    //       ]
-    //     }
-    //   }
-    // },
+    uglify: {
+      dist: {
+        files: {
+          '<%= config.dist %>/scripts/main_v2.js': [
+            '<%= config.app %>/scripts/main_v2.js'
+          ],
+          '<%= config.dist %>/scripts/main_v3.js': [
+            '<%= config.app %>/scripts/main_v3.js'
+          ]
+        }
+      }
+    },
     // concat: {
     //   dist: {}
     // },
@@ -263,9 +267,6 @@ module.exports = function (grunt) {
             '{,*/}*.html',
             'styles/fonts/{,*/}*.*'
           ]
-        }, {
-          src: 'node_modules/apache-server-configs/dist/.htaccess',
-          dest: '<%= config.dist %>/.htaccess'
         }, {
           expand: true,
           dot: true,
@@ -330,7 +331,7 @@ module.exports = function (grunt) {
     'cssmin',
     'uglify',
     'copy:dist',
-    'rev',
+//    'rev',
     'usemin',
     'htmlmin'
   ]);

@@ -8,6 +8,7 @@
     <!-- build:css(.) styles/vendor.css -->
     <!-- bower:css -->
     <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="bower_components/highlightjs/styles/tomorrow.css" />
     <!-- endbower -->
     <!-- endbuild -->
     <!-- build:css(.tmp) styles/main.css -->
@@ -41,13 +42,58 @@
     </nav>
 
     <div class="container">
-        <h1>test</h1>
+        <div>
+        <form name="commandform">
+            <h1>Calaos Websocket API v3 Debug Tool</h1>
+            <div class="form-group">
+                <label for="urlinput">Url</label>
+                <input type="text" class="form-control" id="urlinput" placeholder="Enter Calaos websocket API URL" value="ws://127.0.0.1:5454/api/v3">
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="email" class="form-control" id="username" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="passwd">Password</label>
+                <input type="text" class="form-control" id="passwd" placeholder="Password">
+            </div>
+
+            <div class="form-group">
+                <label for="message">Request (JSON)</label>
+                <select class="form-control" id="api_list"></select>
+                <textarea class="form-control" name="messagebody" rows="10" cols="100" id="message"></textarea>
+            </div>
+
+            <span id="status_con" class="label label-danger">Disconnected</span>
+            <button class="btn btn-default" type="button" id="btconnect">Connect</button>
+            <button class="btn btn-default" type="button" id="btdisconnect">Disconnect</button>
+            <button class="btn btn-primary" type="button" id="btsend">Send message</button>
+
+        </form>
+        <div class="row">
+            <div class="col-md-4">
+                <h4>Log <span class="badge">0</span>
+                    <button class="btn btn-default" type="button" id="btclear">Clear</button>
+                </h4>
+                <div class="log">
+                </div>
+            </div>
+            <div class="col-md-8 logdetail">
+                <h4>Detail</h4>
+                <pre>
+                    <code class="json" id="answer"></code>
+                </pre>
+            </div>
+        </div>
+        </div>
     </div>
 
 
     <!-- build:js(.) scripts/vendor.js -->
     <!-- bower:js -->
     <script src="bower_components/jquery/dist/jquery.js"></script>
+    <script src="bower_components/highlightjs/highlight.pack.js"></script>
     <!-- endbower -->
     <!-- endbuild -->
 
@@ -66,8 +112,7 @@
         <script src="bower_components/bootstrap/js/tab.js"></script>
         <!-- endbuild -->
 
-        <!-- build:js({app,.tmp}) scripts/main.js -->
-        <script src="scripts/main.js"></script>
-        <!-- endbuild -->
+        <script src="scripts/main_v3.js"></script>
+
 </body>
 </html>

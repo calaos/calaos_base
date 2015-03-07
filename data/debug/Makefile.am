@@ -1,4 +1,3 @@
-SUBDIRS = themes debug
+SUBDIRS = dist
 
 MAINTAINERCLEANFILES = Makefile.in
-

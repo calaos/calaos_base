@@ -158,6 +158,8 @@ src/widgets/Makefile
 src/widgets/clock/Makefile
 src/widgets/note/Makefile
 data/Makefile
+data/debug/Makefile
+data/debug/dist/Makefile
 data/themes/Makefile
 data/themes/default/Makefile
 data/themes/widgets/Makefile
