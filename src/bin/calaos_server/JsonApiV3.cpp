@@ -101,7 +101,7 @@ void JsonApiV3::processApi(const string &data)
 
     //Format: { msg: "type", msg_id: id, data: {} }
 
-    if (!loggedin)
+    if (jsonRoot["msg"] == "login")
     {
         //check for if username/password matches
         string user = Utils::get_config_option("calaos_user");
@@ -115,10 +115,14 @@ void JsonApiV3::processApi(const string &data)
         }
 
         //Not logged in, need to wait for a correct login
-        if (jsonRoot["msg"] == "login" &&
-            (user != jsonData["cn_user"] || pass != jsonData["cn_pass"]))
+        if (user != jsonData["cn_user"] || pass != jsonData["cn_pass"])
         {
             cDebugDom("network") << "Login failed!";
+
+            json_t *jret = json_object();
+            json_object_set_new(jret, "success", json_string("false"));
+
+            sendJson("login", jret, jsonRoot["msg_id"]);
 
             //Close the connection on login failure
             closeConnection.emit(WebSocket::CloseCodeNormal, "login failed!");
@@ -133,7 +137,7 @@ void JsonApiV3::processApi(const string &data)
             loggedin = true;
         }
     }
-    else
+    else if (loggedin) //only process other api if loggedin
     {
 //        //check action now
 //        if (jsonParam["action"] == "get_home")
