@@ -207,76 +207,9 @@ void JsonApiV2::processSetState()
 
 void JsonApiV2::processGetPlaylist()
 {
-    int pid;
-    Utils::from_string(jsonParam["player_id"], pid);
-    if (pid < 0 || pid >= AudioManager::Instance().get_size())
+    decodeGetPlaylist(jsonParam, [=](json_t *jret)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
         sendJson(jret);
-        return;
-    }
-
-    AudioPlayer *player = AudioManager::Instance().get_player(pid);
-
-    json_t *jplayer = json_object();
-
-    player->get_playlist_current([=](AudioPlayerData data)
-    {
-        json_object_set_new(jplayer,
-                            "current_track",
-                            json_string(Utils::to_string(data.ivalue).c_str()));
-
-        player->get_playlist_size([=](AudioPlayerData data1)
-        {
-            json_object_set_new(jplayer,
-                                "count",
-                                json_string(Utils::to_string(data1.ivalue).c_str()));
-
-            int it_count = data1.ivalue;
-            if (it_count <= 0)
-            {
-                json_object_set_new(jplayer, "items", json_array());
-                sendJson(jplayer);
-            }
-            else
-                getNextPlaylistItem(player, jplayer, json_array(), 0, it_count);
-
-        });
-    });
-}
-
-void JsonApiV2::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count)
-{
-    player->get_playlist_item(it_current, [=](AudioPlayerData data)
-    {
-        json_t *jtrack = json_object();
-        Params &infos = data.params;
-        for (int i = 0;i < infos.size();i++)
-        {
-            string inf_key, inf_value;
-            infos.get_item(i, inf_key, inf_value);
-
-            json_object_set_new(jtrack,
-                                inf_key.c_str(),
-                                json_string(inf_value.c_str()));
-        }
-
-        json_array_append_new(jplaylist, jtrack);
-
-        int idx = it_current + 1;
-        if (idx >= it_count)
-        {
-            //all track are queried, send back data
-            json_object_set_new(jplayer,
-                                "items",
-                                jplaylist);
-            sendJson(jplayer);
-        }
-        else
-        {
-            getNextPlaylistItem(player, jplayer, jplaylist, idx, it_count);
-        }
     });
 }
 

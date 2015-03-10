@@ -9,6 +9,7 @@ var apiList = [
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "value": "true" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "audio", "player_id": "0", "value": "volume 75" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" } }',
+    '{ "msg": "get_playlist", "msg_id": "1234", "data": { "player_id": "0" } }',
 ];
 
 function popuplateApiList() {

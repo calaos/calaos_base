@@ -548,3 +548,77 @@ bool JsonApi::decodeSetState(Params &jParam)
 
     return success;
 }
+
+void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda)
+{
+    int pid;
+    Utils::from_string(jParam["player_id"], pid);
+    if (pid < 0 || pid >= AudioManager::Instance().get_size())
+    {
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string("false"));
+        result_lambda(jret);
+        return;
+    }
+
+    AudioPlayer *player = AudioManager::Instance().get_player(pid);
+
+    json_t *jplayer = json_object();
+
+    player->get_playlist_current([=](AudioPlayerData data)
+    {
+        json_object_set_new(jplayer,
+                            "current_track",
+                            json_string(Utils::to_string(data.ivalue).c_str()));
+
+        player->get_playlist_size([=](AudioPlayerData data1)
+        {
+            json_object_set_new(jplayer,
+                                "count",
+                                json_string(Utils::to_string(data1.ivalue).c_str()));
+
+            int it_count = data1.ivalue;
+            if (it_count <= 0)
+            {
+                json_object_set_new(jplayer, "items", json_array());
+                result_lambda(jplayer);
+            }
+            else
+                getNextPlaylistItem(player, jplayer, json_array(), 0, it_count, result_lambda);
+        });
+    });
+}
+
+void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda)
+{
+    player->get_playlist_item(it_current, [=](AudioPlayerData data)
+    {
+        json_t *jtrack = json_object();
+        Params &infos = data.params;
+        for (int i = 0;i < infos.size();i++)
+        {
+            string inf_key, inf_value;
+            infos.get_item(i, inf_key, inf_value);
+
+            json_object_set_new(jtrack,
+                                inf_key.c_str(),
+                                json_string(inf_value.c_str()));
+        }
+
+        json_array_append_new(jplaylist, jtrack);
+
+        int idx = it_current + 1;
+        if (idx >= it_count)
+        {
+            //all track are queried, send back data
+            json_object_set_new(jplayer,
+                                "items",
+                                jplaylist);
+            result_lambda(jplayer);
+        }
+        else
+        {
+            getNextPlaylistItem(player, jplayer, jplaylist, idx, it_count, result_lambda);
+        }
+    });
+}

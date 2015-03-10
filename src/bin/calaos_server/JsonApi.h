@@ -59,7 +59,9 @@ protected:
     //network queries
     void buildJsonState(json_t *jroot, std::function<void(json_t *)>result_lambda);
 
-    bool decodeSetState(Params &jsonParam);
+    bool decodeSetState(Params &jParam);
+    void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
+    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H

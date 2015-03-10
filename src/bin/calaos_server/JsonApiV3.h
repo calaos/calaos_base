@@ -40,6 +40,7 @@ private:
     void processGetHome(const Params &jsonReq, const string &client_id = string());
     void processGetState(json_t *jdata, const string &client_id = string());
     void processSetState(Params &jsonReq, const string &client_id = string());
+    void processGetPlaylist(Params &jsonReq, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H
