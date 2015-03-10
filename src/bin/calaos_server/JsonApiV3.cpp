@@ -72,8 +72,8 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
 
 void JsonApiV3::processApi(const string &data)
 {
-    jsonRoot.clear();
-    jsonData.clear();
+    Params jsonRoot;
+    Params jsonData;
 
     //parse the json data
     json_error_t jerr;
@@ -139,6 +139,9 @@ void JsonApiV3::processApi(const string &data)
     }
     else if (loggedin) //only process other api if loggedin
     {
+        if (jsonRoot["msg"] == "get_home")
+            processGetHome(jsonData, jsonRoot["msg_id"]);
+
 //        //check action now
 //        if (jsonParam["action"] == "get_home")
 //            processGetHome();
@@ -161,4 +164,16 @@ void JsonApiV3::processApi(const string &data)
 
     json_decref(jroot);
     json_decref(jdata);
+}
+
+void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
+{
+    json_t *jret = nullptr;
+
+    jret = json_pack("{s:o, s:o, s:o}",
+                     "home", buildJsonHome(),
+                     "cameras", buildJsonCameras(),
+                     "audio", buildJsonAudio());
+
+    sendJson("get_home", jret, client_id);
 }

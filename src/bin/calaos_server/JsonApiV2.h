@@ -58,10 +58,6 @@ private:
     void processGetCameraPic();
     void processConfig(json_t *jroot);
 
-    json_t *buildJsonHome();
-    json_t *buildJsonCameras();
-    json_t *buildJsonAudio();
-    template<typename T> json_t *buildJsonRoomIO(Room *room);
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 
     void exeFinished(Ecore_Exe *exe, int exit_code);

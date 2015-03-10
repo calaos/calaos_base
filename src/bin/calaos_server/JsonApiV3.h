@@ -34,10 +34,10 @@ public:
 private:
 
     bool loggedin = false;
-    Params jsonRoot;
-    Params jsonData;
 
     void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
+
+    void processGetHome(const Params &jsonReq, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H

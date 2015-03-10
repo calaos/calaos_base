@@ -23,6 +23,10 @@
 
 #include "Calaos.h"
 #include <jansson.h>
+#include "Room.h"
+#include "AudioPlayer.h"
+
+using namespace Calaos;
 
 class HttpClient;
 
@@ -41,6 +45,11 @@ protected:
 
     HttpClient *httpClient;
     void decodeJsonObject(json_t *jroot, Params &params);
+
+    json_t *buildJsonHome();
+    json_t *buildJsonCameras();
+    json_t *buildJsonAudio();
+    template<typename T> json_t *buildJsonRoomIO(Room *room);
 };
 
 #endif // JSONAPI_H
