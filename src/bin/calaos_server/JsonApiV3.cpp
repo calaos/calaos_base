@@ -54,7 +54,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
     char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)
     {
-        cErrorDom("network") << "json_dumps failed!";
+        cErrorDom("network") << "json_dumps failed! msg_type: " << msg_type << " data:" << data;
         json_decref(jroot);
 
         //close connection
@@ -148,10 +148,6 @@ void JsonApiV3::processApi(const string &data)
         else if (jsonRoot["msg"] == "get_playlist")
             processGetPlaylist(jsonData, jsonRoot["msg_id"]);
 
-//        else if (jsonParam["action"] == "get_playlist")
-//            processGetPlaylist();
-//        else if (jsonParam["action"] == "poll_listen")
-//            processPolling();
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
 //        else if (jsonParam["action"] == "get_camera_pic")
