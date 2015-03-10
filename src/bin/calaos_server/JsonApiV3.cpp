@@ -143,6 +143,8 @@ void JsonApiV3::processApi(const string &data)
             processGetHome(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_state")
             processGetState(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "set_state")
+            processSetState(jsonData, jsonRoot["msg_id"]);
 
 //        //check action now
 //        if (jsonParam["action"] == "get_home")
@@ -185,4 +187,16 @@ void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
     {
         sendJson("get_state", jret, client_id);
     });
+}
+
+void JsonApiV3::processSetState(Params &jsonReq, const string &client_id)
+{
+    bool res = decodeSetState(jsonReq);
+
+    if (!client_id.empty())
+    {
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string(res?"true":"false"));
+        sendJson("set_state", jret, client_id);
+    }
 }

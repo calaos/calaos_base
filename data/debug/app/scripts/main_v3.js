@@ -4,7 +4,11 @@ var apiList = [
     '{ "msg": "" }',
     '{ "msg": "login", "msg_id": "1234", "data": { "cn_user": "USERNAME", "cn_pass": "PASSWORD" } }',
     '{ "msg": "get_home", "msg_id": "1234" }',
-    '{ "msg": "get_state", "msg_id": "1234", "inputs": ["input_0"], "outputs": ["output_0", "output_1"], "audio_players": ["0"] }',
+    '{ "msg": "get_state", "msg_id": "1234", "data": { "inputs": ["input_0"], "outputs": ["output_0", "output_1"], "audio_players": ["0"] } }',
+    '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "output", "id": "output_0", "value": "true" } }',
+    '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "value": "true" } }',
+    '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "audio", "player_id": "0", "value": "volume 75" } }',
+    '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" } }',
 ];
 
 function popuplateApiList() {

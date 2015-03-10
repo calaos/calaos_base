@@ -58,6 +58,8 @@ protected:
     //result is given with a call to a lambda because we may need to wait for
     //network queries
     void buildJsonState(json_t *jroot, std::function<void(json_t *)>result_lambda);
+
+    bool decodeSetState(Params &jsonParam);
 };
 
 #endif // JSONAPI_H

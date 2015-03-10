@@ -378,3 +378,173 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
         result_lambda(jret);
     }
 }
+
+bool JsonApi::decodeSetState(Params &jParam)
+{
+    bool success = true;
+
+    if (jParam["type"] == "input")
+    {
+        Input *input = ListeRoom::Instance().get_input(jParam["id"]);
+        if (!input)
+            success = false;
+        else
+        {
+            if (input->get_type() == TBOOL)
+                input->force_input_bool(jParam["value"] == "true");
+            else if (input->get_type() == TINT)
+            {
+                double dv;
+                Utils::from_string(jParam["value"], dv);
+                input->force_input_double(dv);
+            }
+            else if (input->get_type() == TSTRING)
+                input->force_input_string(jParam["value"]);
+        }
+    }
+    else if (jParam["type"] == "output")
+    {
+        Output *output = ListeRoom::Instance().get_output(jParam["id"]);
+        if (!output)
+            success = false;
+        else
+        {
+            success = false;
+
+            if (output->get_type() == TBOOL)
+            {
+                if (jParam["value"] == "true") success = output->set_value(true);
+                else if (jParam["value"] == "false") success = output->set_value(false);
+                else success = output->set_value(jParam["value"]);
+            }
+            else if (output->get_type() == TINT)
+            {
+                double dv;
+                Utils::from_string(jParam["value"], dv);
+                success = output->set_value(dv);
+            }
+            else if (output->get_type() == TSTRING)
+                success = output->set_value(jParam["value"]);
+        }
+    }
+    else if (jParam["type"] == "audio")
+    {
+        int pid;
+        Utils::from_string(jParam["player_id"], pid);
+        if (pid < 0 || pid >= AudioManager::Instance().get_size())
+            success = false;
+        else
+        {
+            AudioPlayer *player = AudioManager::Instance().get_player(pid);
+
+            Params cmd;
+            cmd.Parse(jParam["value"]);
+
+            if (cmd["0"] == "play") player->Play();
+            else if (cmd["0"] == "pause") player->Pause();
+            else if (cmd["0"] == "stop") player->Stop();
+            else if (cmd["0"] == "next") player->Next();
+            else if (cmd["0"] == "previous") player->Previous();
+            else if (cmd["0"] == "off") player->Power(false);
+            else if (cmd["0"] == "on") player->Power(true);
+            else if (cmd["0"] == "volume")
+            {
+                int vol = 0;
+                Utils::from_string(cmd["1"], vol);
+                player->set_volume(vol);
+            }
+            else if (cmd["0"] == "time")
+            {
+                int _t = 0;
+                Utils::from_string(cmd["1"], _t);
+                player->set_current_time(_t);
+            }
+            else if (cmd["0"] == "playlist")
+            {
+                if (cmd["1"] == "clear") player->playlist_clear();
+                else if (cmd["1"] == "save") player->playlist_save(cmd["2"]);
+                else if (cmd["1"] == "add") player->playlist_add_items(cmd["2"]);
+                else if (cmd["1"] == "play") player->playlist_play_items(cmd["2"]);
+                else if (Utils::is_of_type<int>(cmd["1"]))
+                {
+                    int item = 0;
+                    Utils::from_string(cmd["1"], item);
+
+                    if (cmd["2"] == "moveup") player->playlist_moveup(item);
+                    else if (cmd["2"] == "movedown") player->playlist_movedown(item);
+                    else if (cmd["2"] == "delete") player->playlist_delete(item);
+                    else if (cmd["2"] == "play") player->playlist_play(item);
+                }
+            }
+            else if (cmd["0"] == "random")
+            {
+                vector<string> tk;
+                split(cmd["1"], tk, ":", 2);
+                if (tk.size() == 2 && tk[0] == "random_id")
+                    player->get_database()->setRandomsType(tk[1]);
+            }
+            else if (cmd["0"] == "options")
+            {
+                if (cmd["1"] == "sync" && cmd["2"] == "off")
+                    player->Synchronize("", false);
+                else if (cmd["1"] == "sync")
+                {
+                    vector<string> tk;
+                    split(cmd["2"], tk, ":", 2);
+                    if (tk.size() == 2 && tk[0] == "id")
+                        player->Synchronize(tk[1], true);
+                }
+            }
+            else if (cmd["0"] == "database")
+            {
+                if (cmd["1"] == "playlist" && cmd["2"] == "delete")
+                {
+                    vector<string> tk;
+                    split(cmd["3"], tk, ":", 2);
+                    if (tk.size() == 2 && tk[0] == "playlist_id")
+                        player->playlist_delete(tk[1]);
+                }
+            }
+        }
+    }
+    else if (jParam["type"] == "camera")
+    {
+        int pid;
+        Utils::from_string(jParam["camera_id"], pid);
+        if (pid < 0 || pid >= CamManager::Instance().get_size())
+            success = false;
+        else
+        {
+            IPCam *camera = CamManager::Instance().get_camera(pid);
+            if (camera)
+            {
+                if (jParam["camera_action"] == "move")
+                {
+                    int action = -1;
+
+                    if (jParam["value"] == "left") action = 1;
+                    if (jParam["value"] == "right") action = 1;
+                    if (jParam["value"] == "up") action = 1;
+                    if (jParam["value"] == "down") action = 1;
+                    if (jParam["value"] == "home") action = 1;
+                    if (jParam["value"] == "zoomin") action = 1;
+                    if (jParam["value"] == "zoomout") action = 1;
+
+                    if (action == 1)
+                        camera->activateCapabilities("ptz", "move", jParam["camera_action"]);
+
+                    //move to a preset position
+                    if (Utils::is_of_type<int>(jParam["camera_action"]))
+                        camera->activateCapabilities("position", "recall", jParam["camera_action"]);
+                }
+                else if (jParam["camera_action"] == "save")
+                {
+                    if (Utils::is_of_type<int>(jParam["value"]))
+                        camera->activateCapabilities("position", "save", jParam["value"]);
+                }
+            }
+        }
+    }
+
+    return success;
+}
