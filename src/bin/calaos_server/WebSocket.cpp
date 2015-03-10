@@ -168,7 +168,7 @@ bool WebSocket::checkHandshakeRequest()
 
     //4. connection header must contains upgrade
     if (request_headers.find("connection") == request_headers.end() ||
-        Utils::str_to_lower(request_headers["connection"]) != "upgrade")
+        !Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive))
     {
         cWarningDom("websocket") << "wrong connection field";
         return false;

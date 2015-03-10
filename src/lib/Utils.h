@@ -224,6 +224,7 @@ void trim_right(std::string &source, const std::string &t);
 void trim_left(std::string &source, const std::string &t);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };
+bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 bool strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 
 //Return a value rounded to 2 decimal after the dot

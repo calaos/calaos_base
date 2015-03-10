@@ -300,6 +300,21 @@ double Utils::roundValue(double value)
     return v / 100.0;
 }
 
+bool Utils::strContains(const string &str, const string &needle, CaseSensitivity cs)
+{
+    if (needle.empty())
+        return true;
+
+    if (needle.length() > str.length())
+        return false;
+
+    if (cs == Utils::CaseSensitive)
+        return str.find(needle) != std::string::npos;
+
+    string s = str;
+    return str_to_lower(s).find(str_to_lower(needle)) != std::string::npos;
+}
+
 bool Utils::strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs)
 {
     if (needle.empty())

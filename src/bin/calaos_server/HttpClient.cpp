@@ -207,7 +207,7 @@ int HttpClient::processHeaders(const string &request)
     }
 
     //If client asks for websocket just return and let websocket class handle connection
-    if (Utils::str_to_lower(request_headers["connection"]) == "upgrade" &&
+    if (Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
         Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
     {
         cDebugDom("websocket") << "Upgrading connection to WebSocket";
