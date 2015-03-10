@@ -23,6 +23,7 @@
 
 #include "Calaos.h"
 #include <jansson.h>
+#include "Jansson_Addition.h"
 #include "Room.h"
 #include "AudioPlayer.h"
 
@@ -44,12 +45,19 @@ public:
 protected:
 
     HttpClient *httpClient;
+
+    map<string, int> playerCounts;
+
     void decodeJsonObject(json_t *jroot, Params &params);
 
     json_t *buildJsonHome();
     json_t *buildJsonCameras();
     json_t *buildJsonAudio();
     template<typename T> json_t *buildJsonRoomIO(Room *room);
+
+    //result is given with a call to a lambda because we may need to wait for
+    //network queries
+    void buildJsonState(json_t *jroot, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H

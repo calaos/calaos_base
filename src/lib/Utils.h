@@ -245,6 +245,8 @@ bool get_config_options(Params &options);
 void Watchdog(std::string fname);
 string getHardwareID();
 
+string createRandomUuid();
+
 //Parse command line options
 bool argvOptionCheck(char **begin, char **end, const std::string &option);
 char *argvOptionParam(char **begin, char **end, const std::string &option);

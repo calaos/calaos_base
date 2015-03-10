@@ -42,8 +42,6 @@ private:
     Ecore_Exe *exe_thumb;
     string tempfname;
 
-    int player_count;
-
     Params jsonParam;
 
     void sendJson(json_t *json);

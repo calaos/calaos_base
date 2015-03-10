@@ -141,6 +141,8 @@ void JsonApiV3::processApi(const string &data)
     {
         if (jsonRoot["msg"] == "get_home")
             processGetHome(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_state")
+            processGetState(jdata, jsonRoot["msg_id"]);
 
 //        //check action now
 //        if (jsonParam["action"] == "get_home")
@@ -161,7 +163,6 @@ void JsonApiV3::processApi(const string &data)
 //            processConfig(jroot);
     }
 
-
     json_decref(jroot);
     json_decref(jdata);
 }
@@ -176,4 +177,12 @@ void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
                      "audio", buildJsonAudio());
 
     sendJson("get_home", jret, client_id);
+}
+
+void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
+{
+    buildJsonState(jdata, [=](json_t *jret)
+    {
+        sendJson("get_state", jret, client_id);
+    });
 }

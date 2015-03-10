@@ -4,13 +4,16 @@ var apiList = [
     '{ "msg": "" }',
     '{ "msg": "login", "msg_id": "1234", "data": { "cn_user": "USERNAME", "cn_pass": "PASSWORD" } }',
     '{ "msg": "get_home", "msg_id": "1234" }',
+    '{ "msg": "get_state", "msg_id": "1234", "inputs": ["input_0"], "outputs": ["output_0", "output_1"], "audio_players": ["0"] }',
 ];
 
 function popuplateApiList() {
     var i = 0;
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
-    $('#api_list').append($('<option />').val(i++).html('login'));
-    $('#api_list').append($('<option />').val(i++).html('get_home'));
+    for (var c = 1;c < apiList.length;c++) {
+        var s = JSON.parse(apiList[c]).msg;
+        $('#api_list').append($('<option />').val(i++).html(s));
+    }
 
     $('#api_list').change(function() {
         var j = $('#api_list option:selected').val();

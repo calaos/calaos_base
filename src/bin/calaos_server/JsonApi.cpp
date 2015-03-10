@@ -193,3 +193,188 @@ json_t *JsonApi::buildJsonAudio()
 
     return jdata;
 }
+
+void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result_lambda)
+{
+    json_incref(jroot);
+    json_t *jinputs = json_object();
+    json_t *joutputs = json_object();
+    json_t *jaudio = json_array();
+
+    json_t *jin = json_object_get(jroot, "inputs");
+    if (jin && json_is_array(jin))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jin, idx, value)
+        {
+            string svalue;
+
+            if (!json_is_string(value)) continue;
+
+            svalue = json_string_value(value);
+            Input *input = ListeRoom::Instance().get_input(svalue);
+            if (input)
+            {
+                if (input->get_type() == TBOOL)
+                    json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_bool()?"true":"false"));
+                else if (input->get_type() == TINT)
+                    json_object_set_new(jinputs, svalue.c_str(), json_string(Utils::to_string(input->get_value_double()).c_str()));
+                else if (input->get_type() == TSTRING)
+                    json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_string().c_str()));
+            }
+        }
+    }
+
+    json_t *jout = json_object_get(jroot, "outputs");
+    if (jout && json_is_array(jout))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jout, idx, value)
+        {
+            string svalue;
+
+            if (!json_is_string(value)) continue;
+
+            svalue = json_string_value(value);
+            Output *output = ListeRoom::Instance().get_output(svalue);
+            if (output)
+            {
+                if (output->get_type() == TBOOL)
+                    json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_bool()?"true":"false"));
+                else if (output->get_type() == TINT)
+                    json_object_set_new(joutputs, svalue.c_str(), json_string(Utils::to_string(output->get_value_double()).c_str()));
+                else if (output->get_type() == TSTRING)
+                    json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_string().c_str()));
+            }
+        }
+    }
+
+    string uuid = Utils::createRandomUuid();
+    playerCounts[uuid] = 0;
+
+    json_t *jpl = json_object_get(jroot, "audio_players");
+    if (jpl && json_is_array(jpl))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jpl, idx, value)
+        {
+            string svalue;
+
+            if (!json_is_string(value)) continue;
+            svalue = json_string_value(value);
+
+            int pid;
+            Utils::from_string(svalue, pid);
+            if (pid < 0 || pid >= AudioManager::Instance().get_size())
+                continue;
+
+            playerCounts[uuid] = playerCounts[uuid] + 1;
+
+            json_t *jplayer = json_object();
+            json_object_set_new(jplayer, "player_id", json_string(Utils::to_string(pid).c_str()));
+
+            AudioPlayer *player = AudioManager::Instance().get_player(pid);
+            player->get_playlist_current([=](AudioPlayerData data1)
+            {
+                json_object_set_new(jplayer,
+                                    "playlist_current_track",
+                                    json_string(Utils::to_string(data1.ivalue).c_str()));
+
+                player->get_volume([=](AudioPlayerData data2)
+                {
+                    json_object_set_new(jplayer,
+                                        "volume",
+                                        json_string(Utils::to_string(data2.ivalue).c_str()));
+
+                    player->get_playlist_size([=](AudioPlayerData data3)
+                    {
+                        json_object_set_new(jplayer,
+                                            "playlist_size",
+                                            json_string(Utils::to_string(data3.ivalue).c_str()));
+
+                        player->get_current_time([=](AudioPlayerData data4)
+                        {
+                            json_object_set_new(jplayer,
+                                                "time_elapsed",
+                                                json_string(Utils::to_string(data4.dvalue).c_str()));
+
+                            player->get_status([=](AudioPlayerData data5)
+                            {
+                                string status;
+                                switch (data5.ivalue)
+                                {
+                                case AudioPlay: status = "playing"; break;
+                                case AudioPause: status = "pause"; break;
+                                case AudioStop: status = "stop"; break;
+                                default:
+                                case AudioError: status = "error"; break;
+                                case AudioSongChange: status = "song_change"; break;
+                                }
+
+                                json_object_set_new(jplayer,
+                                                    "status",
+                                                    json_string(status.c_str()));
+
+                                json_t *jtrack = json_object();
+                                player->get_songinfo([=](AudioPlayerData data6)
+                                {
+                                    Params &infos = data6.params;
+                                    for (int i = 0;i < infos.size();i++)
+                                    {
+                                        string inf_key, inf_value;
+                                        infos.get_item(i, inf_key, inf_value);
+
+                                        json_object_set_new(jtrack,
+                                                            inf_key.c_str(),
+                                                            json_string(inf_value.c_str()));
+                                    }
+
+                                    json_object_set_new(jplayer,
+                                                        "current_track",
+                                                        jtrack);
+
+                                    //Add player to array, and send data back if all players requests are done.
+                                    json_array_append_new(jaudio, jplayer);
+                                    playerCounts[uuid] = playerCounts[uuid] - 1;
+
+                                    if (playerCounts[uuid] <= 0)
+                                    {
+                                        playerCounts.erase(uuid);
+                                        json_decref(jroot);
+                                        json_t *jret = json_object();
+                                        jret = json_pack("{s:o, s:o, s:o}",
+                                                         "inputs", jinputs,
+                                                         "outputs", joutputs,
+                                                         "audio_players", jaudio);
+
+                                        result_lambda(jret);
+                                    }
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        }
+    }
+
+    //only send data if there is not audio players
+    if (playerCounts[uuid] == 0)
+    {
+        playerCounts.erase(uuid);
+        json_decref(jroot);
+        json_t *jret = json_object();
+        jret = json_pack("{s:o, s:o, s:o}",
+                         "inputs", jinputs,
+                         "outputs", joutputs,
+                         "audio_players", jaudio);
+
+        result_lambda(jret);
+    }
+}

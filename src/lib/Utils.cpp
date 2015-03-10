@@ -825,3 +825,18 @@ string Utils::str_to_upper(std::string s)
      std::transform(s.begin(), s.end(), s.begin(), Utils::to_upper());
      return s;
 }
+
+string Utils::createRandomUuid()
+{
+    srand(time(NULL));
+    stringstream ssUuid;
+
+    ssUuid << std::hex << std::setfill('0') ;
+    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
+    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
+
+    return ssUuid.str();
+}
