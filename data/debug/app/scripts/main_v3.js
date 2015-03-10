@@ -106,7 +106,8 @@ $(document).ready(function() {
 
         var m = $('#message').val();
 
-        if (ws.hasOwnProperty('readyState') && ws.readyState == ws.OPEN) {
+        if ('readyState' in ws &&
+             ws.readyState == ws.OPEN) {
             ws.send(m);
         }
         else {
