@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include <UrlDownloader.h>
 
-static Eina_Bool _complete_cb(void *data, int type, void *event)
+Eina_Bool _complete_cb(void *data, int type, void *event)
 {
     Ecore_Con_Event_Url_Complete *ev = reinterpret_cast<Ecore_Con_Event_Url_Complete *>(event);
     UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
@@ -33,7 +33,7 @@ static Eina_Bool _complete_cb(void *data, int type, void *event)
     return ECORE_CALLBACK_RENEW;
 }
 
-static Eina_Bool _data_cb(void *data, int type, void *event)
+Eina_Bool _data_cb(void *data, int type, void *event)
 {
     Ecore_Con_Event_Url_Data *ev = reinterpret_cast<Ecore_Con_Event_Url_Data *>(event);
     UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
@@ -48,7 +48,7 @@ static Eina_Bool _data_cb(void *data, int type, void *event)
     return ECORE_CALLBACK_RENEW;
 }
 
-static Eina_Bool _progress_cb(void *data, int type, void *event)
+Eina_Bool _progress_cb(void *data, int type, void *event)
 {
     Ecore_Con_Event_Url_Progress *ev = reinterpret_cast<Ecore_Con_Event_Url_Progress *>(event);
     UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
@@ -71,11 +71,14 @@ UrlDownloader::UrlDownloader(string url) :
 
 UrlDownloader::~UrlDownloader()
 {
-    m_connectionComplete.disconnect();
 
     if (m_downloadedData)
         eina_binbuf_free(m_downloadedData);
 
+    if (m_file)
+        fclose(m_file);
+
+    ecore_con_url_free(m_urlCon);
     ecore_event_handler_del(m_completeHandler);
     ecore_event_handler_del(m_dataHandler);
     ecore_event_handler_del(m_progressHandler);
@@ -204,8 +207,7 @@ bool UrlDownloader::httpGet(string destination,
            sigc::slot<void, int> slot)
 {
     destinationSet(destination);
-    m_connectionComplete.disconnect();
-    m_connectionComplete = m_signalComplete.connect(slot);
+    m_signalComplete.connect(slot);
     m_requestType = HTTP_GET;
     return start();
 }
@@ -213,16 +215,14 @@ bool UrlDownloader::httpGet(string destination,
 /* Simple file download, and return data received and status */
 bool UrlDownloader::httpGet(sigc::slot<void, Eina_Binbuf*, int> slot)
 {
-    m_connectionCompleteData.disconnect();
-    m_connectionCompleteData = m_signalCompleteData.connect(slot);
+    m_signalCompleteData.connect(slot);
     m_requestType = HTTP_GET;
     return start();
 }
 
 bool UrlDownloader::httpPost(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
 {
-    m_connectionCompleteData.disconnect();
-    m_connectionCompleteData = m_signalCompleteData.connect(slot);
+    m_signalCompleteData.connect(slot);
     m_requestType = HTTP_POST;
     bodyDataSet(bodyData);
     return start();
@@ -230,8 +230,7 @@ bool UrlDownloader::httpPost(string bodyData, sigc::slot<void, Eina_Binbuf*, int
 
 bool UrlDownloader::httpGet(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
 {
-    m_connectionCompleteData.disconnect();
-    m_connectionCompleteData = m_signalCompleteData.connect(slot);
+    m_signalCompleteData.connect(slot);
     m_requestType = HTTP_GET;
     bodyDataSet(bodyData);
     return start();
@@ -239,8 +238,7 @@ bool UrlDownloader::httpGet(string bodyData, sigc::slot<void, Eina_Binbuf*, int>
 
 bool UrlDownloader::httpPut(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
 {
-    m_connectionCompleteData.disconnect();
-    m_connectionCompleteData = m_signalCompleteData.connect(slot);
+    m_signalCompleteData.connect(slot);
     m_requestType = HTTP_PUT;
     bodyDataSet(bodyData);
     return start();

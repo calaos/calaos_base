@@ -24,14 +24,11 @@
 #include <stdint.h>
 
 #include <Utils.h>
-#include <sigc++/sigc++.h>
 #include <Ecore.h>
 #include <Ecore_Con.h>
 
-using namespace Utils;
-
 //File Downloader thread
-class UrlDownloader
+class UrlDownloader: public sigc::trackable
 {
 
 private:
@@ -51,17 +48,6 @@ private:
     // Ecore Con handle
     Ecore_Con_Url *m_urlCon = nullptr;
 
-    // Signals/Slots
-    sigc::signal<void, int> m_signalComplete;
-    sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
-    sigc::signal<void, double, double> m_signalProgress;
-    sigc::signal<void, int, unsigned char*> m_signalData;
-
-    sigc::connection m_connectionComplete;
-    sigc::connection m_connectionCompleteData;
-    sigc::connection m_connectionProgress;
-    sigc::connection m_connectionData;
-
     // File pointer to pass to ecore when a destination is given
     FILE *m_file = nullptr;
     // fd of the file when a fd is given
@@ -78,6 +64,15 @@ private:
     //Common function for starting download of url
     bool start();
 
+private:
+    friend Eina_Bool _progress_cb(void *data, int type, void *event);
+    friend Eina_Bool _complete_cb(void *data, int type, void *event);
+    friend Eina_Bool _data_cb(void *data, int type, void *event);
+
+    void progressCb(double now, double total);
+    void completeCb(int status);
+    void dataCb(unsigned char *data, int size);
+
 public:
     // BinBuf pointer containing data downloaded
     Eina_Binbuf *m_downloadedData = NULL;
@@ -92,27 +87,6 @@ public:
     void authSet(string user, string password) {m_user = user; m_password = password; m_auth = true;}
     void authUnSet() {m_auth = false;}
     void fdSet(int fd) {m_fd = fd;}
-
-    // Setter for slots
-    void completeCbSet(sigc::slot<void, int> slot) {
-        m_connectionComplete.disconnect();
-        m_connectionComplete = m_signalComplete.connect(slot);
-    }
-
-    void completeDataCbSet(sigc::slot<void, Eina_Binbuf*, int> slot) {
-        m_connectionCompleteData.disconnect();
-        m_connectionCompleteData = m_signalCompleteData.connect(slot);
-    }
-
-    void progressCbSet(sigc::slot<void, double, double> slot) {
-       m_connectionProgress.disconnect();
-       m_connectionProgress = m_signalProgress.connect(slot);
-    }
-
-   void dataCbSet(sigc::slot<void, int, unsigned char*> slot) {
-        m_connectionData.disconnect();
-        m_connectionData = m_signalData.connect(slot);
-    }
 
    // HTTP Post
    bool httpPost();
@@ -134,12 +108,13 @@ public:
    bool httpGet(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot);
    bool httpPut(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot);
 
-   void completeCb(int status);
-   void dataCb(unsigned char *data, int size);
-   void progressCb(double now, double total);
-
    ~UrlDownloader();
 
+   // Signals/Slots
+   sigc::signal<void, int> m_signalComplete;
+   sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
+   sigc::signal<void, double, double> m_signalProgress;
+   sigc::signal<void, int, unsigned char*> m_signalData;
 };
 
 #endif
