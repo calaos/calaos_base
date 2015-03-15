@@ -109,6 +109,8 @@ Output *IOFactory::CreateOutput(TiXmlElement *node)
     readParams(node, p);
 
     Output *out = CreateOutput(p["type"], p);
+    if (!out)
+        return nullptr;
     out->LoadFromXml(node);
 
     return out;
