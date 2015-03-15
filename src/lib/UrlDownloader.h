@@ -64,7 +64,8 @@ private:
     //Common function for starting download of url
     bool start();
 
-private:
+    bool m_autodelete;
+
     friend Eina_Bool _progress_cb(void *data, int type, void *event);
     friend Eina_Bool _complete_cb(void *data, int type, void *event);
     friend Eina_Bool _data_cb(void *data, int type, void *event);
@@ -77,8 +78,10 @@ public:
     // BinBuf pointer containing data downloaded
     Eina_Binbuf *m_downloadedData = NULL;
 
+    Ecore_Idler *m_idler;
+
     // Constructor
-    UrlDownloader(string url);
+    UrlDownloader(string url, bool autodelete = false);
 
     // Setter for private members
     void bodyDataSet(string bodyData) {m_bodyData = bodyData;}
@@ -88,25 +91,11 @@ public:
     void authUnSet() {m_auth = false;}
     void fdSet(int fd) {m_fd = fd;}
 
-   // HTTP Post
-   bool httpPost();
 
-   // HTTP Get
-   bool httpGet();
-
-   // HTTP Put
-   bool httpPut();
-
-   // HTTP Delete
-   bool httpDelete();
-
-   bool httpGet(string destination,
-                 sigc::slot<void, int> slot);
-   bool httpGet(sigc::slot<void, Eina_Binbuf*, int> slot);
-
-   bool httpPost(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot);
-   bool httpGet(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot);
-   bool httpPut(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot);
+   bool httpDelete(string destination = "", string bodyData = "");
+   bool httpGet(string destination = "", string bodyData = "");
+   bool httpPost(string destination = "", string bodyData = "");
+   bool httpPut(string destination = "", string bodyData = "");
 
    ~UrlDownloader();
 
@@ -115,6 +104,8 @@ public:
    sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
    sigc::signal<void, double, double> m_signalProgress;
    sigc::signal<void, int, unsigned char*> m_signalData;
+
+   void Destroy();
 };
 
 #endif

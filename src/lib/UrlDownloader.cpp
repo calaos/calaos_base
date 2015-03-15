@@ -60,8 +60,10 @@ Eina_Bool _progress_cb(void *data, int type, void *event)
 
     return ECORE_CALLBACK_RENEW;
 }
-UrlDownloader::UrlDownloader(string url) :
-    m_url(url)
+
+UrlDownloader::UrlDownloader(string url, bool autodelete) :
+    m_url(url),
+    m_autodelete(autodelete)
 {
     ecore_con_url_init();
     m_completeHandler = ecore_event_handler_add(ECORE_CON_EVENT_URL_COMPLETE, _complete_cb, this);
@@ -115,6 +117,7 @@ bool UrlDownloader::start()
     default:
         cErrorDom("urlutils") << "Request type error, you should not be there !";
         if (m_file) fclose(m_file);
+        m_file = NULL;
         return false;
     }
 
@@ -162,6 +165,7 @@ bool UrlDownloader::start()
         ecore_con_url_free(m_urlCon);
         m_urlCon = NULL;
         if (m_file) fclose(m_file);
+        m_file = NULL;
         return false;
     }
 
@@ -171,79 +175,52 @@ bool UrlDownloader::start()
         ecore_con_url_free(m_urlCon);
         m_urlCon = NULL;
         if (m_file) fclose(m_file);
+        m_file = NULL;
         return false;
     }
 
     return true;
 }
 
-bool UrlDownloader::httpPost()
+bool UrlDownloader::httpPost(string destination, string bodyData)
 {
+    if (!destination.empty())
+        destinationSet(destination);
+    if (!bodyData.empty())
+        bodyDataSet(bodyData);
     m_requestType = HTTP_POST;
     return start();
 }
 
-bool UrlDownloader::httpGet()
+bool UrlDownloader::httpGet(string destination, string bodyData)
 {
-     m_requestType = HTTP_GET;
+    if (!destination.empty())
+        destinationSet(destination);
+    if (!bodyData.empty())
+        bodyDataSet(bodyData);
+    m_requestType = HTTP_GET;
     return start();
 }
 
-bool UrlDownloader::httpPut()
+bool UrlDownloader::httpPut(string destination, string bodyData)
 {
+    if (!destination.empty())
+        destinationSet(destination);
+    if (!bodyData.empty())
+        bodyDataSet(bodyData);
     m_requestType = HTTP_PUT;
     return start();
 }
 
-bool UrlDownloader::httpDelete()
+bool UrlDownloader::httpDelete(string destination, string bodyData)
 {
+    if (!destination.empty())
+        destinationSet(destination);
+    if (!bodyData.empty())
+        bodyDataSet(bodyData);
     m_requestType = HTTP_DELETE;
     return start();
 }
-
-
-/* Simple file download and return status*/
-bool UrlDownloader::httpGet(string destination,
-           sigc::slot<void, int> slot)
-{
-    destinationSet(destination);
-    m_signalComplete.connect(slot);
-    m_requestType = HTTP_GET;
-    return start();
-}
-
-/* Simple file download, and return data received and status */
-bool UrlDownloader::httpGet(sigc::slot<void, Eina_Binbuf*, int> slot)
-{
-    m_signalCompleteData.connect(slot);
-    m_requestType = HTTP_GET;
-    return start();
-}
-
-bool UrlDownloader::httpPost(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
-{
-    m_signalCompleteData.connect(slot);
-    m_requestType = HTTP_POST;
-    bodyDataSet(bodyData);
-    return start();
-}
-
-bool UrlDownloader::httpGet(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
-{
-    m_signalCompleteData.connect(slot);
-    m_requestType = HTTP_GET;
-    bodyDataSet(bodyData);
-    return start();
-}
-
-bool UrlDownloader::httpPut(string bodyData, sigc::slot<void, Eina_Binbuf*, int> slot)
-{
-    m_signalCompleteData.connect(slot);
-    m_requestType = HTTP_PUT;
-    bodyDataSet(bodyData);
-    return start();
-}
-
 
 void UrlDownloader::completeCb(int status)
 {
@@ -253,10 +230,12 @@ void UrlDownloader::completeCb(int status)
     if (m_downloadedData)
         m_signalCompleteData.emit(m_downloadedData, status);
 
-    if (m_file)
-        fclose(m_file);
-
+    if (m_file) fclose(m_file);
+    m_file = NULL;
     m_signalComplete.emit(status);
+
+    if (m_autodelete)
+        Destroy();
 }
 
 void UrlDownloader::dataCb(unsigned char *data, int size)
@@ -267,4 +246,21 @@ void UrlDownloader::dataCb(unsigned char *data, int size)
 void UrlDownloader::progressCb(double now, double tot)
 {
     m_signalProgress.emit(now, tot);
+}
+
+static Eina_Bool _delete_downloader_idler_cb(void *data)
+{
+    UrlDownloader *ud = reinterpret_cast<UrlDownloader *>(data);
+    if (!ud) return ECORE_CALLBACK_CANCEL;
+
+    delete ud;
+
+    //delete the ecore_idler
+    return ECORE_CALLBACK_CANCEL;
+}
+
+void UrlDownloader::Destroy()
+{
+    if (!m_idler)
+        m_idler = ecore_idler_add(_delete_downloader_idler_cb, this);
 }
