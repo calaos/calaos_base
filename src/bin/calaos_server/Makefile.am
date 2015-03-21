@@ -31,7 +31,8 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
         @CALAOS_COMMON_CFLAGS@                                \
-        @CALAOS_SERVER_CFLAGS@
+        @CALAOS_SERVER_CFLAGS@ 				      \
+	@LIBUSB_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -77,6 +78,9 @@ calaos_server_SOURCES = \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
         IO/Gpio/GpioCtrl.cpp                            \
+        IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
+        IO/Blinkstick/BlinkstickOutputLightRGB.h        \
+	IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
         IO/Gpio/GpioInputSwitch.cpp                     \
         IO/Gpio/GpioInputSwitch.h                       \
@@ -349,4 +353,7 @@ calaos_server_SOURCES = \
 
 calaos_server_LDADD =                                   \
         @CALAOS_SERVER_LIBS@                            \
+	@LIBUSB_LIBS@					\
         $(top_builddir)/src/lib/libcalaos_common.la
+
+calaos_server_LDFLAGS = -rdynamic

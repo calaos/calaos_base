@@ -145,6 +145,15 @@ then
      AC_DEFINE([HAVE_ECORE_X], [1], [ecore_x])
 fi
 
+have_libusb="no"
+PKG_CHECK_MODULES([LIBUSB], [libusb-1.0], [have_libusb="yes"], [have_libusb="no"])
+AM_CONDITIONAL([HAVE_LIBUSB], [test "x${have_libusb}" = "xyes"])
+if test "x${have_libusb}" == "xyes"
+then 
+     AC_DEFINE([HAVE_LIBUSB], [1], [libusb])
+fi
+
+
 # Configure pthreads.
 ACX_PTHREAD([have_pthread=yes])
 
@@ -226,4 +235,6 @@ echo
 echo " One Wire support......................: ${have_owcapi}"
 echo " EWebkit support.......................: ${have_ewebkit}"
 echo " Ecore_X support.......................: ${have_ecore_x}"
+echo " Libusb support........................: ${have_libusb}"
+
 echo
