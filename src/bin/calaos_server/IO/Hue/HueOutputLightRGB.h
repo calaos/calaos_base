@@ -23,7 +23,6 @@
 
 #include "EcoreTimer.h"
 #include "OutputLightRGB.h"
-#include "HueCtrl.h"
 
 namespace Calaos
 {
