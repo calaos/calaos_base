@@ -73,25 +73,28 @@ BlinkstickOutputLightRGB::~BlinkstickOutputLightRGB()
 
 void BlinkstickOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
-    unsigned char msg[4];
+    unsigned char msg[6];
 
     memset(msg, 0, sizeof(msg));
-    msg[0] = 0x01;
+    msg[0] = 0x05;
+    msg[1] = 0x00;
+
     if (s)
     {
 
-        msg[1] = (c.getRed());
-        msg[2] = (c.getGreen());
-        msg[3] = (c.getBlue());
+        msg[3] = (c.getRed());
+        msg[4] = (c.getGreen());
+        msg[5] = (c.getBlue());
     }
 
     int ret;
     for (int i = 0; i < m_nbLeds; i++)
     {
+        msg[2] = i;
         char retry = 5;
         do
         {
-            ret = libusb_control_transfer(m_device_handle, 0x20, 0x9, 0x1, 0x0000, msg, sizeof(msg), 2);
+            ret = libusb_control_transfer(m_device_handle, 0x20, 0x9, 0x5, 0x0000, msg, sizeof(msg), 2);
             if (ret >= 0)
             {
                 cDebugDom("blinkstick") << "Control Transfer OK";
