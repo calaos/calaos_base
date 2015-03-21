@@ -32,7 +32,7 @@ class HueOutputLightRGB : public OutputLightRGB
 private:
     string m_host;
     string m_api;
-    string m_id;
+    string m_idHue;
     EcoreTimer *m_timer;
 
     void setOff();

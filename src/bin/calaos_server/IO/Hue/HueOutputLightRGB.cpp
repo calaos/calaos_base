@@ -33,10 +33,10 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
 {
     m_host = get_param("host");
     m_api = get_param("api");
-    m_id = get_param("id");
+    m_idHue = get_param("id_hue");
 
     m_timer = new EcoreTimer(2.0,[=](){
-        string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_id;
+        string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
         {
@@ -105,7 +105,7 @@ void HueOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 
 void HueOutputLightRGB::setOff()
 {
-    string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_id + "/state";
+    string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
     dl->bodyDataSet("{\"on\":false}");
     dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
@@ -119,7 +119,7 @@ void HueOutputLightRGB::setOff()
 
 void HueOutputLightRGB::setColor(const ColorValue &c)
 {
-    string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_id + "/state";
+    string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
     string color = "{\"on\":true,"
                    "\"sat\":"  + Utils::to_string((int)(c.getHSVSaturation() * 255.0 / 100.0)) +
