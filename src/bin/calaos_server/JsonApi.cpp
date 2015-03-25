@@ -417,12 +417,6 @@ bool JsonApi::decodeSetState(Params &jParam)
                 else if (jParam["value"] == "false") success = output->set_value(false);
                 else success = output->set_value(jParam["value"]);
             }
-            else if (output->get_type() == TINT)
-            {
-                double dv;
-                Utils::from_string(jParam["value"], dv);
-                success = output->set_value(dv);
-            }
             else if (output->get_type() == TSTRING)
                 success = output->set_value(jParam["value"]);
         }
