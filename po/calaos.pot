@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: calaos v2.0-rc2-0-g0b11cea\n"
+"Project-Id-Version: calaos v2.99-72-gfaaa53b\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2015-01-09 13:48+0100\n"
+"POT-Creation-Date: 2015-03-25 12:05+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -49,29 +49,29 @@ msgstr ""
 msgid "Reboot machine"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:58
 msgid ""
 "Usage:\n"
 "\t"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:62
+#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:58
 msgid " [options]"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:63
+#: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:59
 msgid "\tOptions:\n"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:64
+#: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:60
 msgid "\t-h, --help\tDisplay this help.\n"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:65
+#: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:61
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:66
+#: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:62
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr ""
 
@@ -85,7 +85,7 @@ msgid ""
 "options for touchscreen usage.\n"
 msgstr ""
 
-#: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:67
+#: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:63
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr ""
 
@@ -830,37 +830,37 @@ msgstr ""
 msgid "System started since : "
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:53
 msgid " day"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:57
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
 msgid " days"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:61
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:59
 msgid "Machine name : "
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:86
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:96
 msgid "Network address :"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:89
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:99
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
 msgid "Web Site : "
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:91
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:101
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
 msgid "Email : "
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:110
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:120
 msgid "Date and clock"
 msgstr ""
 
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:128
+#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:138
 msgid "Screen saver"
 msgstr ""
 
