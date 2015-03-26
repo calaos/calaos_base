@@ -88,8 +88,6 @@ int main (int argc, char **argv)
         exit(0);
     }
 
-
-
     char *confdir = argvOptionParam(argv, argv + argc, "--config");
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 

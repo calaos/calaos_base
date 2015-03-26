@@ -79,7 +79,9 @@ calaos_server_SOURCES = \
         HttpServer.h                                    \
         IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
         IO/Blinkstick/BlinkstickOutputLightRGB.h        \
-	IO/Gpio/GpioCtrl.cpp                            \
+        IO/ExternProc.cpp                               \
+        IO/ExternProc.h                                 \
+        IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
         IO/Gpio/GpioInputSwitch.cpp                     \
         IO/Gpio/GpioInputSwitch.h                       \
