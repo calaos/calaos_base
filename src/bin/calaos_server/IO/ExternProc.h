@@ -24,6 +24,8 @@
 #include "Calaos.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
+#include <jansson.h>
+#include "Jansson_Addition.h"
 
 /*
  * Small framing for messages

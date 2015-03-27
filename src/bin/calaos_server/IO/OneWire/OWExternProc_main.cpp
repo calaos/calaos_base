@@ -136,12 +136,39 @@ int main(int argc, char **argv)
 
     calaosClient->messageReceived.connect([=](const string &msg)
     {
-
+        //actually we don't need to do anything here for OW IO.
+        //calaos_server will not send us any data
+        //for debug print
+        cout << "Message received: " << msg << endl;
     });
 
     calaosClient->readTimeout.connect([=]()
     {
+        //read all devices and send a json with all data
+        list<string> l = scanDevices();
+        json_t *jdata = json_array();
+        for (const string &dev: l)
+        {
+            json_t *jdev = json_object();
+            json_object_set_new(jdev, "id", json_string(dev.c_str()));
+            json_object_set_new(jdev, "value", json_string(getValue(dev, "temperature").c_str()));
+            json_object_set_new(jdev, "device_type", json_string(getValue(dev, "type").c_str()));
+            json_array_append_new(jdata, jdev);
+        }
 
+        char *d = json_dumps(jdata, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
+        if (!d)
+        {
+            cError() << "json_dumps failed!";
+            json_decref(jdata);
+            return;
+        }
+
+        json_decref(jdata);
+        string res(d);
+        free(d);
+
+        calaosClient->sendMessage(res);
     });
 
     calaosClient->run();
