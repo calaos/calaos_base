@@ -107,15 +107,30 @@ private:
 class ExternProcClient
 {
 public:
-    ExternProcClient(int argc, char **argv);
+    ExternProcClient(int &argc, char **&argv);
     ~ExternProcClient();
 
     bool connectSocket();
+
+    void sendMessage(const string &data);
+    sigc::signal<void, const string &> messageReceived;
+
+    //for external mainloop
+    int getSocketFd() { return sockfd; }
+    void processSocketRecv(); //call if something needs to be read from socket
+
+    //minimal mainloop
+    sigc::signal<void> readTimeout; //emited after read timeout, usefull for periodical work
+    void run(int timeoutms = 5000);
 
 private:
     string sockpath;
     string name;
     int sockfd;
+
+    string recv_buffer;
+
+    ExternProcMessage currentFrame;
 };
 
 #endif // EXTERNPROC_H

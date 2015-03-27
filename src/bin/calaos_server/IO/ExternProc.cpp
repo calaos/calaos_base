@@ -23,6 +23,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define READBUFSIZE 65536
+
 Eina_Bool ExternProcServer_con_add(void *data, int type, void *event)
 {
     VAR_UNUSED(type);
@@ -287,12 +289,24 @@ string ExternProcMessage::getRawData()
     return frame;
 }
 
-ExternProcClient::ExternProcClient(int argc, char **argv)
+ExternProcClient::ExternProcClient(int &argc, char **&argv)
 {
     char *_sock = argvOptionParam(argv, argv + argc, "--socket");
     char *_name = argvOptionParam(argv, argv + argc, "--namespace");
-    if (_sock) sockpath = _sock;
-    if (_name) name = _name; else name = "extern_process";
+    if (_sock)
+    {
+        sockpath = _sock;
+        argc -= 2;
+        argv += 2;
+    }
+    if (_name)
+    {
+        name = _name;
+        argc -= 2;
+        argv += 2;
+    }
+    else
+        name = "extern_process";
 
     InitEinaLog(name.c_str());
 }
@@ -330,4 +344,68 @@ bool ExternProcClient::connectSocket()
     }
 
     return true;
+}
+
+void ExternProcClient::processSocketRecv()
+{
+    char buff[READBUFSIZE];
+    ssize_t len;
+
+    len = recv(sockfd, buff, READBUFSIZE, 0);
+    if (len < 0)
+    {
+        cError() << "Error reading socket: " << strerror(errno);
+        return;
+    }
+
+    cDebugDom("process") << "Processing frame data " << len;
+    recv_buffer.append(buff, buff + len);
+
+    while (currentFrame.processFrameData(recv_buffer))
+    {
+        if (currentFrame.isValid())
+        {
+            cDebugDom("process") << "Got a new frame";
+
+            messageReceived.emit(currentFrame.getPayload());
+
+            currentFrame.clear();
+        }
+    }
+}
+
+void ExternProcClient::run(int timeoutms)
+{
+    while (true)
+    {
+        fd_set events;
+        struct timeval tv;
+
+        FD_ZERO(&events);
+
+        tv.tv_sec = timeoutms / 1000;
+        tv.tv_usec = (timeoutms - tv.tv_sec * 1000) * 1000;
+
+        FD_SET(sockfd, &events);
+
+        if (!select(sockfd + 1, &events, NULL, NULL, &tv))
+        {
+            cDebug() << "read timeout";
+            readTimeout.emit();
+        }
+
+        if (FD_ISSET(sockfd, &events))
+            processSocketRecv();
+    }
+}
+
+void ExternProcClient::sendMessage(const string &data)
+{
+    ExternProcMessage msg(data);
+    string frame = msg.getRawData();
+    ssize_t len;
+
+    len = send(sockfd, frame.c_str(), frame.size(), 0);
+    if (len < 0)
+        cError() << "Error writing to socket: " << strerror(errno);
 }
