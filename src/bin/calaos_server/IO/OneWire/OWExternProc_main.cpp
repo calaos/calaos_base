@@ -101,7 +101,10 @@ int main(int argc, char **argv)
         calaosClient.reset(new ExternProcClient(argc, argv));
 
         if (!calaosClient->connectSocket())
+        {
             cError() << "process cannot connect to calaos_server";
+            return 1;
+        }
     }
 
     string owargs;

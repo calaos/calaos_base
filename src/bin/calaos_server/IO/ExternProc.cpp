@@ -346,16 +346,16 @@ bool ExternProcClient::connectSocket()
     return true;
 }
 
-void ExternProcClient::processSocketRecv()
+bool ExternProcClient::processSocketRecv()
 {
     char buff[READBUFSIZE];
     ssize_t len;
 
     len = recv(sockfd, buff, READBUFSIZE, 0);
-    if (len < 0)
+    if (len <= 0)
     {
         cError() << "Error reading socket: " << strerror(errno);
-        return;
+        return false;
     }
 
     cDebugDom("process") << "Processing frame data " << len;
@@ -372,11 +372,14 @@ void ExternProcClient::processSocketRecv()
             currentFrame.clear();
         }
     }
+
+    return true;
 }
 
 void ExternProcClient::run(int timeoutms)
 {
-    while (true)
+    bool quitloop = false;
+    while (!quitloop)
     {
         fd_set events;
         struct timeval tv;
@@ -395,7 +398,10 @@ void ExternProcClient::run(int timeoutms)
         }
 
         if (FD_ISSET(sockfd, &events))
-            processSocketRecv();
+        {
+            if (!processSocketRecv())
+                quitloop = true;
+        }
     }
 }
 

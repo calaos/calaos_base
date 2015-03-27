@@ -117,7 +117,7 @@ public:
 
     //for external mainloop
     int getSocketFd() { return sockfd; }
-    void processSocketRecv(); //call if something needs to be read from socket
+    bool processSocketRecv(); //call if something needs to be read from socket
 
     //minimal mainloop
     sigc::signal<void> readTimeout; //emited after read timeout, usefull for periodical work
