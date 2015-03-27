@@ -18,62 +18,83 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OWCtrl.h>
+#include "OWCtrl.h"
+#include "Prefix.h"
 
-#ifdef HAVE_OWCAPI_H
-#include <owcapi.h>
-#endif
-
-
-using namespace Calaos;
-
-Owctrl::Owctrl(string args)
+OwCtrl::OwCtrl(const string &args)
 {
-#ifdef HAVE_OWCAPI_H
-    if (OW_init(args.c_str()) != 0)
+    process = new ExternProcServer("1wire");
+
+    exe = Prefix::Instance().binDirectoryGet() + "/calaos_1wire";
+
+    process->messageReceived.connect(sigc::mem_fun(*this, &OwCtrl::processNewMessage));
+
+    process->processExited.connect([=]()
     {
-	cErrorDom("input") << "Unable to initialize OW library : " << strerror(errno);
-    }
-    else
-    {
-	cInfoDom("input") << "OW Library initialization ok";
-    }
-#endif
+        //restart process when stopped
+        cWarningDom("process") << "process exited, restarting...";
+        process->startProcess(exe, "1wire", args);
+    });
+
+    process->startProcess(exe, "1wire", args);
 }
 
-
-Owctrl::~Owctrl()
+OwCtrl::~OwCtrl()
 {
-#ifdef HAVE_OWCAPI_H
-    cInfoDom("input") << "OW Library uninitialization";
-    OW_finish();
-#endif
+    delete process;
 }
 
-bool Owctrl::getValue(string path, string &value)
+string OwCtrl::getValue(string owid)
 {
-#ifdef HAVE_OWCAPI_H
-    char *res;
-    size_t len;
-
-    if (OW_get(path.c_str(), &res, &len) >= 0)
-    {
-	value = res;
-        free(res);
-	return true;
-    }
-    else
-    {
-	return false;
-    }
-#else
-    cInfoDom("input") << "One Wire support not enabled !";
-#endif
-    return false;
+    return mapValues[owid];
 }
 
-Owctrl &Owctrl::Instance(string args)
+string OwCtrl::getType(string owid)
 {
-    static Owctrl inst(args);
-    return inst;
+    return mapTypes[owid];
+}
+
+shared_ptr<OwCtrl> OwCtrl::Instance(const string &args)
+{
+    static map<string, shared_ptr<OwCtrl>> mapInst;
+    auto it = mapInst.find(args);
+    if (it != mapInst.end())
+        return it->second;
+
+    shared_ptr<OwCtrl> inst(new OwCtrl(args));
+    mapInst[args] = std::move(inst);
+    return mapInst[args];
+}
+
+void OwCtrl::processNewMessage(const string &msg)
+{
+    json_error_t jerr;
+    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+
+    if (!jroot || !json_is_array(jroot))
+    {
+        cWarningDom("1wire") << "Error parsing json from sub process: " << jerr.text;
+        if (jroot)
+            json_decref(jroot);
+        return;
+    }
+
+    int idx;
+    json_t *value;
+
+    json_array_foreach(jroot, idx, value)
+    {
+        Params p;
+        jansson_decode_object(value, p);
+
+        if (p.Exists("id"))
+        {
+            if (p.Exists("value"))
+                mapValues[p["id"]] = p["value"];
+            if (p.Exists("type"))
+                mapValues[p["id"]] = p["type"];
+        }
+    }
+
+    valueChanged.emit();
 }

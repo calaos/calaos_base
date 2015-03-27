@@ -31,77 +31,29 @@ using namespace Calaos;
 
 REGISTER_INPUT(OWTemp)
 
-void *_ow_thread_callback(void *data)
-{
-    OWData *odata = reinterpret_cast<OWData *>(data);
-    odata->owTemp->readValue_cb(odata->ret, odata->result);
-    delete odata;
-
-    return NULL;
-}
-
 OWTemp::OWTemp(Params &p):
-    InputTemp(p),
-    start(true)
+    InputTemp(p)
 {
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
 
-    Owctrl::Instance(ow_args);
-    cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
-
-    Calaos::StartReadRules::Instance().addIO();
-    EcoreTimer::singleShot(0.1, [=] {
+    OwCtrl::Instance(ow_args)->valueChanged.connect([=]()
+    {
         readValue();
     });
-}
 
-OWTemp::~OWTemp()
-{
-    cInfoDom("input");
+    cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 }
 
 void OWTemp::readValue()
 {
-    string ow_req = ow_id + "/temperature";
-
-    /* Read value in a thread */
-    std::thread([=]()
-    {
-        cDebugDom("input") << "Read OW value in thread(" << std::this_thread::get_id() << ")";
-        string res;
-        bool ret = Owctrl::Instance(ow_args).getValue(ow_req, res);
-
-        OWData *data = new OWData;
-        data->owTemp = this;
-        data->ret = ret;
-        data->result = res;
-        ecore_main_loop_thread_safe_call_sync(_ow_thread_callback, data);
-    }).detach();
-}
-
-void OWTemp::readValue_cb(bool ret, string res)
-{
     double val;
-
-    if (ret)
+    Utils::from_string(OwCtrl::Instance(ow_args)->getValue(ow_id), val);
+    val = Utils::roundValue(val);
+    if (val != value)
     {
-        if (start)
-        {
-            Calaos::StartReadRules::Instance().ioRead();
-            start = false;
-        }
-        from_string(res, val);
-        val = roundValue(val);
-        if (val != value)
-        {
-            value = val;
-            emitChange();
-            cInfoDom("input") << ow_id << ": Ok value :  " << val;
-        }
-    }
-    else
-    {
-        cErrorDom("input") << "Cannot read One Wire Temperature Sensor (" << ow_id << ") : " << strerror(errno);
+        value = val;
+        emitChange();
+        cDebugDom("input") << ow_id << ": value: " << val;
     }
 }

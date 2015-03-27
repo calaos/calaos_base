@@ -21,23 +21,29 @@
 #ifndef S_OWCTRL_H
 #define S_OWCTRL_H
 
-#include <Utils.h>
+#include "Calaos.h"
+#include "ExternProc.h"
 
-
-namespace Calaos
-{
-
-class Owctrl
+class OwCtrl: public sigc::trackable
 {
 private:    
+    OwCtrl(const string &args);
 
-    Owctrl(string args);
+    ExternProcServer *process;
+    std::unordered_map<string, string> mapValues;
+    std::unordered_map<string, string> mapTypes;
+    string exe;
+
+    void processNewMessage(const string &msg);
 
 public:
-    static Owctrl &Instance(string args); //Singleton
-    bool getValue(string path, string &value);
-    ~Owctrl();
+    static shared_ptr<OwCtrl> Instance(const string &args);
+    ~OwCtrl();
+
+    string getValue(string owid);
+    string getType(string owid);
+
+    sigc::signal<void> valueChanged;
 };
 
-}
 #endif

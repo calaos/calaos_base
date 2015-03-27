@@ -48,8 +48,6 @@ protected:
 
     map<string, int> playerCounts;
 
-    void decodeJsonObject(json_t *jroot, Params &params);
-
     json_t *buildJsonHome();
     json_t *buildJsonCameras();
     json_t *buildJsonAudio();

@@ -21,6 +21,7 @@
 #ifndef JANSSON_ADDITION_H
 #define JANSSON_ADDITION_H
 
+#include "Calaos.h"
 #include <iostream>
 #include <jansson.h>
 
@@ -110,6 +111,26 @@ inline double jansson_double_get(const json_t *json, const std::string &str, con
     json_decref(jdata);
 
     return ret;
+}
+
+inline void jansson_decode_object(json_t *jroot, Params &params)
+{
+    const char *key;
+    json_t *value;
+
+    json_object_foreach(jroot, key, value)
+    {
+        string svalue;
+
+        if (json_is_string(value))
+            svalue = json_string_value(value);
+        else if (json_is_boolean(value))
+            svalue = json_is_true(value)?"true":"false";
+        else if (json_is_number(value))
+            svalue = Utils::to_string(json_number_value(value));
+
+        params.Add(key, svalue);
+    }
 }
 
 #endif // JANSSON_ADDITION_H

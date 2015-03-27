@@ -87,6 +87,9 @@ void JsonApiV2::processApi(const string &data)
         sendData.emit(res);
         closeConnection.emit(0, string());
 
+        if (jroot)
+            json_decref(jroot);
+
         return;
     }
 
@@ -98,7 +101,7 @@ void JsonApiV2::processApi(const string &data)
     }
 
     //decode the json root object into jsonParam
-    decodeJsonObject(jroot, jsonParam);
+    jansson_decode_object(jroot, jsonParam);
 
     //check for if username/password matches
     string user = Utils::get_config_option("calaos_user");

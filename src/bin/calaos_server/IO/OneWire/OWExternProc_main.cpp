@@ -142,7 +142,7 @@ int main(int argc, char **argv)
         cout << "Message received: " << msg << endl;
     });
 
-    calaosClient->readTimeout.connect([=]()
+    auto sendValues = [=]()
     {
         //read all devices and send a json with all data
         list<string> l = scanDevices();
@@ -169,8 +169,10 @@ int main(int argc, char **argv)
         free(d);
 
         calaosClient->sendMessage(res);
-    });
+    };
 
+    calaosClient->readTimeout.connect(sendValues);
+    sendValues(); //first time send
     calaosClient->run();
 
 #ifdef HAVE_OWCAPI_H

@@ -32,26 +32,6 @@ JsonApi::~JsonApi()
 {
 }
 
-void JsonApi::decodeJsonObject(json_t *jroot, Params &params)
-{
-    const char *key;
-    json_t *value;
-
-    json_object_foreach(jroot, key, value)
-    {
-        string svalue;
-
-        if (json_is_string(value))
-            svalue = json_string_value(value);
-        else if (json_is_boolean(value))
-            svalue = json_is_true(value)?"true":"false";
-        else if (json_is_number(value))
-            svalue = Utils::to_string(json_number_value(value));
-
-        params.Add(key, svalue);
-    }
-}
-
 template<typename T>
 json_t *JsonApi::buildJsonRoomIO(Room *room)
 {

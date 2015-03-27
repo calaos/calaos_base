@@ -93,11 +93,11 @@ void JsonApiV3::processApi(const string &data)
     }
 
     //decode the json root object into jsonParam
-    decodeJsonObject(jroot, jsonRoot);
+    jansson_decode_object(jroot, jsonRoot);
 
     json_t *jdata = json_object_get(jroot, "data");
     if (jdata)
-        decodeJsonObject(jdata, jsonData);
+        jansson_decode_object(jdata, jsonData);
 
     //Format: { msg: "type", msg_id: id, data: {} }
 
