@@ -1,3 +1,23 @@
+/******************************************************************************
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **
+ **  This file is part of Calaos.
+ **
+ **  Calaos is free software; you can redistribute it and/or modify
+ **  it under the terms of the GNU General Public License as published by
+ **  the Free Software Foundation; either version 3 of the License, or
+ **  (at your option) any later version.
+ **
+ **  Calaos is distributed in the hope that it will be useful,
+ **  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ **  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ **  GNU General Public License for more details.
+ **
+ **  You should have received a copy of the GNU General Public License
+ **  along with Foobar; if not, write to the Free Software
+ **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ **
+ ******************************************************************************/
 #ifndef EXTERNPROC_H
 #define EXTERNPROC_H
 
@@ -61,7 +81,7 @@ public:
 
     sigc::signal<void, const string &> messageReceived;
 
-    void startProcess(const string &process);
+    void startProcess(const string &process, const string &name);
 
     sigc::signal<void> processExited;
 
@@ -71,7 +91,7 @@ private:
     string sockpath;
     string recv_buffer;
     ExternProcMessage currentFrame;
-    Ecore_Exe *process_exe;
+    Ecore_Exe *process_exe = nullptr;
 
     list<Ecore_Con_Client *> clientList;
 
@@ -82,6 +102,20 @@ private:
     friend Eina_Bool ExternProcServer_con_data(void *data, int type, void *event);
     friend Eina_Bool ExternProcServer_con_error(void *data, int type, void *event);
     friend Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event);
+};
+
+class ExternProcClient
+{
+public:
+    ExternProcClient(int argc, char **argv);
+    ~ExternProcClient();
+
+    bool connectSocket();
+
+private:
+    string sockpath;
+    string name;
+    int sockfd;
 };
 
 #endif // EXTERNPROC_H

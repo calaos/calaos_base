@@ -1,4 +1,27 @@
+/******************************************************************************
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **
+ **  This file is part of Calaos.
+ **
+ **  Calaos is free software; you can redistribute it and/or modify
+ **  it under the terms of the GNU General Public License as published by
+ **  the Free Software Foundation; either version 3 of the License, or
+ **  (at your option) any later version.
+ **
+ **  Calaos is distributed in the hope that it will be useful,
+ **  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ **  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ **  GNU General Public License for more details.
+ **
+ **  You should have received a copy of the GNU General Public License
+ **  along with Foobar; if not, write to the Free Software
+ **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ **
+ ******************************************************************************/
 #include "ExternProc.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 Eina_Bool ExternProcServer_con_add(void *data, int type, void *event)
 {
@@ -112,6 +135,8 @@ ExternProcServer::~ExternProcServer()
     ecore_event_handler_del(hDel);
     ecore_event_handler_del(hError);
     ecore_event_handler_del(hProcDel);
+    ecore_exe_terminate(process_exe);
+    ecore_exe_free(process_exe);
 }
 
 void ExternProcServer::sendMessage(const string &data)
@@ -144,11 +169,13 @@ void ExternProcServer::processData(const string &data)
     }
 }
 
-void ExternProcServer::startProcess(const string &process)
+void ExternProcServer::startProcess(const string &process, const string &name)
 {
     string cmd = process;
-    cmd += " " + sockpath;
+    cmd += " --socket " + sockpath + " --namespace " + name;
 
+    if (process_exe)
+        ecore_exe_free(process_exe);
     process_exe = ecore_exe_run(cmd.c_str(), this);
 }
 
@@ -258,4 +285,49 @@ string ExternProcMessage::getRawData()
     frame.append(payload);
 
     return frame;
+}
+
+ExternProcClient::ExternProcClient(int argc, char **argv)
+{
+    char *_sock = argvOptionParam(argv, argv + argc, "--socket");
+    char *_name = argvOptionParam(argv, argv + argc, "--namespace");
+    if (_sock) sockpath = _sock;
+    if (_name) name = _name; else name = "extern_process";
+
+    InitEinaLog(name.c_str());
+}
+
+ExternProcClient::~ExternProcClient()
+{
+    if (sockfd >= 0) close(sockfd);
+}
+
+bool ExternProcClient::connectSocket()
+{
+    if (!ecore_file_exists(sockpath.c_str()))
+    {
+        cError() << "Socket path " << sockpath << " not found";
+        return false;
+    }
+
+    struct sockaddr_un remote;
+    if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+    {
+        perror("socket");
+        return false;
+    }
+
+    cDebug() << "Trying to connect to calaos_server...";
+
+    remote.sun_family = AF_UNIX;
+    strcpy(remote.sun_path, sockpath.c_str());
+    int len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+    if (connect(sockfd, (struct sockaddr *)&remote, len) == -1)
+    {
+        perror("connect");
+        cError() << "Connect failed";
+        return false;
+    }
+
+    return true;
 }

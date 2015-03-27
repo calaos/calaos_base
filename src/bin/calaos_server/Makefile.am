@@ -324,3 +324,13 @@ calaos_server_LDADD =                                   \
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic
+
+bin_PROGRAMS += calaos_1wire
+calaos_1wire_SOURCES = \
+	IO/ExternProc.cpp				\
+	IO/ExternProc.h  				\
+	IO/OneWire/OWExternProc_main.cpp
+
+calaos_1wire_LDADD = \
+	@CALAOS_SERVER_LIBS@ \
+	$(top_builddir)/src/lib/libcalaos_common.la
