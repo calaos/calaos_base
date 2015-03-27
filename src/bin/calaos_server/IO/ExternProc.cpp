@@ -219,10 +219,10 @@ bool ExternProcMessage::processFrameData(string &data)
                 opcode = uint8_t(data[0]);
                 //read length
                 payload_length =
-                        (uint8_t(data[0]) << 24) |
-                        (uint8_t(data[1]) << 16) |
-                        (uint8_t(data[2]) << 8) |
-                        uint8_t(data[3]);
+                        (uint8_t(data[1]) << 24) |
+                        (uint8_t(data[2]) << 16) |
+                        (uint8_t(data[3]) << 8) |
+                        uint8_t(data[4]);
 
                 data.erase(0, 5);
 
