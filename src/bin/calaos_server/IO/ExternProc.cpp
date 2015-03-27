@@ -139,6 +139,8 @@ ExternProcServer::~ExternProcServer()
     ecore_event_handler_del(hProcDel);
     ecore_exe_terminate(process_exe);
     ecore_exe_free(process_exe);
+
+    ecore_file_unlink(sockpath.c_str());
 }
 
 void ExternProcServer::sendMessage(const string &data)
@@ -171,10 +173,10 @@ void ExternProcServer::processData(const string &data)
     }
 }
 
-void ExternProcServer::startProcess(const string &process, const string &name)
+void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
     string cmd = process;
-    cmd += " --socket " + sockpath + " --namespace " + name;
+    cmd += " --socket \"" + sockpath + "|0\" --namespace \"" + name + "\" " + args;
 
     if (process_exe)
         ecore_exe_free(process_exe);

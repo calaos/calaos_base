@@ -73,7 +73,7 @@ private:
     bool isvalid;
 };
 
-class ExternProcServer: sigc::trackable
+class ExternProcServer: public sigc::trackable
 {
 public:
     ExternProcServer(string pathprefix);
@@ -83,7 +83,7 @@ public:
 
     sigc::signal<void, const string &> messageReceived;
 
-    void startProcess(const string &process, const string &name);
+    void startProcess(const string &process, const string &name, const string &args);
 
     sigc::signal<void> processExited;
 
@@ -106,7 +106,7 @@ private:
     friend Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event);
 };
 
-class ExternProcClient
+class ExternProcClient: public sigc::trackable
 {
 public:
     ExternProcClient(int &argc, char **&argv);
