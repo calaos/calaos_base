@@ -175,9 +175,11 @@ void ExternProcServer::processData(const string &data)
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
+
     string cmd = process;
     cmd += " --socket \"" + sockpath + "|0\" --namespace \"" + name + "\" " + args;
 
+    cDebugDom("process") << "Starting process: " << cmd;
     if (process_exe)
         ecore_exe_free(process_exe);
     process_exe = ecore_exe_run(cmd.c_str(), this);
@@ -369,7 +371,7 @@ bool ExternProcClient::processSocketRecv()
         {
             cDebugDom("process") << "Got a new frame";
 
-            messageReceived.emit(currentFrame.getPayload());
+            messageReceived(currentFrame.getPayload());
 
             currentFrame.clear();
         }
@@ -396,7 +398,7 @@ void ExternProcClient::run(int timeoutms)
         if (!select(sockfd + 1, &events, NULL, NULL, &tv))
         {
             cDebug() << "read timeout";
-            readTimeout.emit();
+            readTimeout();
         }
 
         if (FD_ISSET(sockfd, &events))

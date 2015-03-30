@@ -23,6 +23,7 @@
 
 OwCtrl::OwCtrl(const string &args)
 {
+    cDebugDom("1wire") << "new OWCtrl: " << args;
     process = new ExternProcServer("1wire");
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_1wire";

@@ -110,20 +110,27 @@ class ExternProcClient: public sigc::trackable
 {
 public:
     ExternProcClient(int &argc, char **&argv);
-    ~ExternProcClient();
+    virtual ~ExternProcClient();
 
     bool connectSocket();
 
     void sendMessage(const string &data);
-    sigc::signal<void, const string &> messageReceived;
+
+    //setup if called first and if false is returned,
+    //process quit
+    virtual bool setup(int &argc, char **&argv) = 0;
+    virtual int procMain() = 0; //the main function is this one
+
+protected:
+    virtual void readTimeout() = 0;
+    virtual void messageReceived(const string &msg) = 0;
+
+    //minimal mainloop
+    void run(int timeoutms = 5000);
 
     //for external mainloop
     int getSocketFd() { return sockfd; }
     bool processSocketRecv(); //call if something needs to be read from socket
-
-    //minimal mainloop
-    sigc::signal<void> readTimeout; //emited after read timeout, usefull for periodical work
-    void run(int timeoutms = 5000);
 
 private:
     string sockpath;
@@ -134,5 +141,17 @@ private:
 
     ExternProcMessage currentFrame;
 };
+
+#define EXTERN_PROC_CLIENT_CTOR(class_name) \
+class_name(int &__argc, char **&__argv): ExternProcClient(__argc, __argv) {}
+
+#define EXTERN_PROC_CLIENT_MAIN(class_name) \
+int main(int argc, char **argv) \
+{ \
+    class_name inst(argc, argv); \
+    if (inst.setup(argc, argv)) \
+        return inst.procMain(); \
+    return 1; \
+}
 
 #endif // EXTERNPROC_H

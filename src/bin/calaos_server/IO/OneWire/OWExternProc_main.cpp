@@ -20,16 +20,39 @@
  ******************************************************************************/
 #include "ExternProc.h"
 
-#ifdef HAVE_OWCAPI_H
 #include <owcapi.h>
-#endif
 
-shared_ptr<ExternProcClient> calaosClient;
+class OWProcess: public ExternProcClient
+{
+public:
 
-static string getValue(const string &path, const string &param)
+    //needs to be reimplemented
+    virtual bool setup(int &argc, char **&argv);
+    virtual int procMain();
+
+    EXTERN_PROC_CLIENT_CTOR(OWProcess)
+    virtual ~OWProcess();
+
+protected:
+
+    //OW specific functions
+    string getValue(const string &path, const string &param);
+    list<string> scanDevices();
+    void sendValues();
+
+    //needs to be reimplemented
+    virtual void readTimeout();
+    virtual void messageReceived(const string &msg);
+};
+
+OWProcess::~OWProcess()
+{
+    OW_finish();
+}
+
+string OWProcess::getValue(const string &path, const string &param)
 {
     string value;
-#ifdef HAVE_OWCAPI_H
     string p = path + "/" + param;
     char *res;
     size_t len;
@@ -40,17 +63,14 @@ static string getValue(const string &path, const string &param)
         free(res);
     }
     else
-    {
         cError() << "Error reading OW path: " << p << " " << strerror(errno);
-    }
-#endif
+
     return value;
 }
 
-static list<string> scanDevices()
+list<string> OWProcess::scanDevices()
 {
     list<string> listDevices;
-#ifdef HAVE_OWCAPI_H
     ssize_t ret;
     size_t len;
     char *dir_buffer = NULL;
@@ -58,11 +78,7 @@ static list<string> scanDevices()
     ret = OW_get("/", &dir_buffer, &len);
 
     if (ret < 0)
-    {
-        OW_finish();
-
         return listDevices;
-    }
 
     vector<string> tok;
     Utils::split(string(dir_buffer), tok, ",");
@@ -79,14 +95,48 @@ static list<string> scanDevices()
                 listDevices.push_back(s);
         }
     }
-#else
-    cError() << "owcapi support is not built";
-#endif
 
     return listDevices;
 }
 
-int main(int argc, char **argv)
+void OWProcess::readTimeout()
+{
+    //read all devices and send a json with all data
+    list<string> l = scanDevices();
+    json_t *jdata = json_array();
+    for (const string &dev: l)
+    {
+        json_t *jdev = json_object();
+        json_object_set_new(jdev, "id", json_string(dev.c_str()));
+        json_object_set_new(jdev, "value", json_string(getValue(dev, "temperature").c_str()));
+        json_object_set_new(jdev, "device_type", json_string(getValue(dev, "type").c_str()));
+        json_array_append_new(jdata, jdev);
+    }
+
+    char *d = json_dumps(jdata, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
+    if (!d)
+    {
+        cError() << "json_dumps failed!";
+        json_decref(jdata);
+        return;
+    }
+
+    json_decref(jdata);
+    string res(d);
+    free(d);
+
+    sendMessage(res);
+}
+
+void OWProcess::messageReceived(const string &msg)
+{
+    //actually we don't need to do anything here for OW IO.
+    //calaos_server will not send us any data
+    //for debug print
+    cout << "Message received: " << msg << endl;
+}
+
+bool OWProcess::setup(int &argc, char **&argv)
 {
     bool scan_devices = false;
     if (argvOptionCheck(argv, argv + argc, "--scan"))
@@ -98,12 +148,10 @@ int main(int argc, char **argv)
     }
     else
     {
-        calaosClient.reset(new ExternProcClient(argc, argv));
-
-        if (!calaosClient->connectSocket())
+        if (!connectSocket())
         {
             cError() << "process cannot connect to calaos_server";
-            return 1;
+            return false;
         }
     }
 
@@ -111,14 +159,13 @@ int main(int argc, char **argv)
     for (int i = 1;i < argc;i++)
         owargs += string(argv[i]) + " ";
 
-#ifdef HAVE_OWCAPI_H
+    cDebug() << "Args: " << owargs;
     if (OW_init(owargs.c_str()) != 0)
     {
         cError() << "Unable to initialize OW library : " << strerror(errno);
-        return 1;
+        return false;
     }
     cInfo() << "OW Library initialization ok";
-#endif
 
     if (scan_devices)
     {
@@ -131,53 +178,19 @@ int main(int argc, char **argv)
                  << " (" << getValue(dev, "type") << ")"
                  << " --> value: " << getValue(dev, "temperature") << endl;
         }
-        return 0;
+        return false;
     }
 
-    calaosClient->messageReceived.connect([=](const string &msg)
-    {
-        //actually we don't need to do anything here for OW IO.
-        //calaos_server will not send us any data
-        //for debug print
-        cout << "Message received: " << msg << endl;
-    });
+    return true;
+}
 
-    auto sendValues = [=]()
-    {
-        //read all devices and send a json with all data
-        list<string> l = scanDevices();
-        json_t *jdata = json_array();
-        for (const string &dev: l)
-        {
-            json_t *jdev = json_object();
-            json_object_set_new(jdev, "id", json_string(dev.c_str()));
-            json_object_set_new(jdev, "value", json_string(getValue(dev, "temperature").c_str()));
-            json_object_set_new(jdev, "device_type", json_string(getValue(dev, "type").c_str()));
-            json_array_append_new(jdata, jdev);
-        }
-
-        char *d = json_dumps(jdata, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
-        if (!d)
-        {
-            cError() << "json_dumps failed!";
-            json_decref(jdata);
-            return;
-        }
-
-        json_decref(jdata);
-        string res(d);
-        free(d);
-
-        calaosClient->sendMessage(res);
-    };
-
-    calaosClient->readTimeout.connect(sendValues);
-    sendValues(); //first time send
-    calaosClient->run();
-
-#ifdef HAVE_OWCAPI_H
-    OW_finish();
-#endif
+int OWProcess::procMain()
+{
+    //force a read+send the first time
+    readTimeout();
+    run(1000);
 
     return 0;
 }
+
+EXTERN_PROC_CLIENT_MAIN(OWProcess)

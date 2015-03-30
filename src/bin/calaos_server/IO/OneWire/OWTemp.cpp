@@ -37,10 +37,7 @@ OWTemp::OWTemp(Params &p):
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
 
-    OwCtrl::Instance(ow_args)->valueChanged.connect([=]()
-    {
-        readValue();
-    });
+    OwCtrl::Instance(ow_args);
 
     cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
 }
