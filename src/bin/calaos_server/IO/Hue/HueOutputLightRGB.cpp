@@ -23,6 +23,7 @@
 #include "HueOutputLightRGB.h"
 #include "IOFactory.h"
 #include "UrlDownloader.h"
+#include "Jansson_Addition.h"
 
 using namespace Calaos;
 
@@ -68,8 +69,8 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
             sat = json_integer_value(json_object_get(state, "sat"));
             bri = json_integer_value(json_object_get(state, "bri"));
             hue = json_integer_value(json_object_get(state, "hue"));
-            on = json_boolean_value(json_object_get(state, "on"));
-            reachable = json_boolean_value(json_object_get(state, "reachable"));
+            on = jansson_bool_get(state, "on");
+            reachable = jansson_bool_get(state, "reachable");
 
             cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << c;
 
