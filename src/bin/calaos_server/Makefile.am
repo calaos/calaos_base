@@ -1,6 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS =                                                 \
+        -DCALAOS_SERVER                                       \
         -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \

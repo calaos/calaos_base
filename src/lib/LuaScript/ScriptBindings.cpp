@@ -275,7 +275,7 @@ int Lua_Calaos::requestUrl(lua_State *L)
         {
                 string url = lua_tostring(L, 1);
 
-                #ifndef CALAOS_INSTALLER
+                #ifdef CALAOS_SERVER
                 CallUrl(url);
                 #endif
         }
@@ -284,7 +284,7 @@ int Lua_Calaos::requestUrl(lua_State *L)
                 string url = lua_tostring(L, 1);
                 string post_data = lua_tostring(L, 2);
 
-                #ifndef CALAOS_INSTALLER
+                #ifdef CALAOS_SERVER
                 CallUrl(url, post_data);
                 #endif
         }
