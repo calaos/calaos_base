@@ -39,5 +39,5 @@ module_la_LIBADD = \
 	@CALAOS_COMMON_LIBS@ \
 	$(top_builddir)/src/lib/libcalaos_common.la
 
-module_la_LDFLAGS = -module
+module_la_LDFLAGS = @CALAOS_LTMODULE_FLAGS@
 module_la_LIBTOOLFLAGS = --tag=disable-static

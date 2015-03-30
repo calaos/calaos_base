@@ -179,6 +179,9 @@ else
      WS_INFO="install autobahn testsuite to run this test"
 fi
 
+CALAOS_LTMODULE_FLAGS="-no-undefined -module -avoid-version -export-dynamic"
+AC_SUBST([CALAOS_LTMODULE_FLAGS])
+
 AC_CONFIG_FILES([
 Makefile
 tests/Makefile
