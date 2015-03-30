@@ -13,7 +13,6 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam \
         -I$(top_srcdir)/src/bin/calaos_server/Rules \
         -I$(top_srcdir)/src/lib \
-        -I$(top_srcdir)/src/lib/LuaScript \
         -I$(top_srcdir)/src/lib/http-parser \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
@@ -66,11 +65,6 @@ libcalaos_common_la_SOURCES = \
         IPC.cpp                                 \
         IPC.h                                   \
         Jansson_Addition.h                      \
-        LuaScript/Lunar.h                       \
-        LuaScript/ScriptBindings.cpp            \
-        LuaScript/ScriptBindings.h              \
-        LuaScript/ScriptManager.cpp             \
-        LuaScript/ScriptManager.h               \
         Mutex.cpp                               \
         Mutex.h                                 \
         NTPClock.cpp                            \

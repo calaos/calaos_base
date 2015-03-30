@@ -1,7 +1,6 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS =                                                 \
-        -DCALAOS_SERVER                                       \
         -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
@@ -20,6 +19,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
         -I$(top_srcdir)/src/bin/calaos_server/IO              \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
+        -I$(top_srcdir)/src/bin/calaos_server/LuaScript       \
         -I$(top_srcdir)/src/bin/calaos_server/Rules           \
         -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
         -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
@@ -267,6 +267,11 @@ calaos_server_SOURCES = \
         ListeRoom.h                                     \
         ListeRule.cpp                                   \
         ListeRule.h                                     \
+        LuaScript/Lunar.h                               \
+        LuaScript/ScriptBindings.cpp                    \
+        LuaScript/ScriptBindings.h                      \
+        LuaScript/ScriptManager.cpp                     \
+        LuaScript/ScriptManager.h                       \
         Output.cpp                                      \
         Output.h                                        \
         PollListenner.cpp                               \

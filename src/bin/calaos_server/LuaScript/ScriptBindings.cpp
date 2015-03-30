@@ -275,18 +275,14 @@ int Lua_Calaos::requestUrl(lua_State *L)
         {
                 string url = lua_tostring(L, 1);
 
-                #ifdef CALAOS_SERVER
                 CallUrl(url);
-                #endif
         }
         else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
         {
                 string url = lua_tostring(L, 1);
                 string post_data = lua_tostring(L, 2);
 
-                #ifdef CALAOS_SERVER
                 CallUrl(url, post_data);
-                #endif
         }
         else
         {
