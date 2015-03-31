@@ -101,6 +101,7 @@ Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event)
 
     cErrorDom("process") << "Process exited";
 
+    ex->process_exe = nullptr; //ecore does free the Ecore_Exe object itself
     ex->processExited.emit();
 
     return ECORE_CALLBACK_DONE;
@@ -175,13 +176,10 @@ void ExternProcServer::processData(const string &data)
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
-
     string cmd = process;
     cmd += " --socket \"" + sockpath + "|0\" --namespace \"" + name + "\" " + args;
 
     cDebugDom("process") << "Starting process: " << cmd;
-    if (process_exe)
-        ecore_exe_free(process_exe);
     process_exe = ecore_exe_run(cmd.c_str(), this);
 }
 
