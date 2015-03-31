@@ -170,7 +170,7 @@ else
 fi
 
 #check for autobahn test suite
-AC_CHECK_PROG(HAVE_AUTOBAHN, wstest2, yes)
+AC_CHECK_PROG(HAVE_AUTOBAHN, wstest, yes)
 AM_CONDITIONAL([HAVE_AUTOBAHN], [test "x${HAVE_AUTOBAHN}" = "xyes"])
 if test "x${HAVE_AUTOBAHN}" == "xyes"
 then
