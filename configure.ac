@@ -187,7 +187,7 @@ else
      WS_INFO="install autobahn testsuite to run this test"
 fi
 
-CALAOS_LTMODULE_FLAGS="-no-undefined -module -avoid-version -export-dynamic"
+CALAOS_LTMODULE_FLAGS="-shared -module -avoid-version -export-dynamic"
 AC_SUBST([CALAOS_LTMODULE_FLAGS])
 
 AC_CONFIG_FILES([
