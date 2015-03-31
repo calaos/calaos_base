@@ -113,19 +113,10 @@ void OWProcess::readTimeout()
         json_array_append_new(jdata, jdev);
     }
 
-    char *d = json_dumps(jdata, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
-    if (!d)
-    {
-        cError() << "json_dumps failed!";
-        json_decref(jdata);
-        return;
-    }
+    string res = jansson_to_string(jdata);
 
-    json_decref(jdata);
-    string res(d);
-    free(d);
-
-    sendMessage(res);
+    if (!res.empty())
+        sendMessage(res);
 }
 
 void OWProcess::messageReceived(const string &msg)

@@ -10,6 +10,7 @@ AM_CPPFLAGS =                                                 \
         -DTIXML_USE_STL                                       \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
@@ -32,8 +33,9 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
         @CALAOS_COMMON_CFLAGS@                                \
-        @CALAOS_SERVER_CFLAGS@ 				      \
-	@LIBUSB_CFLAGS@
+        @CALAOS_SERVER_CFLAGS@                                \
+        @LIBUSB_CFLAGS@                                       \
+        @LIBOLA_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -154,6 +156,12 @@ calaos_server_SOURCES = \
         IO/MySensors/MySensorsOutputShutter.cpp         \
         IO/MySensors/MySensorsOutputShutterSmart.h      \
         IO/MySensors/MySensorsOutputShutterSmart.cpp    \
+        IO/OLA/OLACtrl.cpp                              \
+        IO/OLA/OLACtrl.h                                \
+        IO/OLA/OLAOutputLightDimmer.cpp                 \
+        IO/OLA/OLAOutputLightDimmer.h                   \
+        IO/OLA/OLAOutputLightRGB.cpp                    \
+        IO/OLA/OLAOutputLightRGB.h                      \
         IO/OneWire/OWCtrl.cpp                           \
         IO/OneWire/OWCtrl.h                             \
         IO/OneWire/OWTemp.cpp                           \
@@ -326,11 +334,12 @@ calaos_server_SOURCES = \
 
 calaos_server_LDADD =                                   \
         @CALAOS_SERVER_LIBS@                            \
-	@LIBUSB_LIBS@					\
+        @LIBUSB_LIBS@                               	\
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic
 
+if HAVE_OWCAPI
 bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \
 	IO/ExternProc.cpp				\
@@ -340,3 +349,17 @@ calaos_1wire_SOURCES = \
 calaos_1wire_LDADD = \
 	@CALAOS_SERVER_LIBS@ \
 	$(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+if HAVE_LIBOLA
+bin_PROGRAMS += calaos_ola
+calaos_ola_SOURCES = \
+    IO/ExternProc.cpp				\
+    IO/ExternProc.h  				\
+    IO/OLA/OLAExternProc_main.cpp
+
+calaos_ola_LDADD = \
+    @CALAOS_SERVER_LIBS@ \
+    @LIBOLA_LIBS@ \
+    $(top_builddir)/src/lib/libcalaos_common.la
+endif

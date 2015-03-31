@@ -153,6 +153,14 @@ then
      AC_DEFINE([HAVE_LIBUSB], [1], [libusb])
 fi
 
+have_libola="no"
+PKG_CHECK_MODULES([LIBOLA], [libola], [have_libola="yes"], [have_libola="no"])
+AM_CONDITIONAL([HAVE_LIBOLA], [test "x${have_libola}" = "xyes"])
+if test "x${have_libola}" == "xyes"
+then
+     AC_DEFINE([HAVE_LIBOLA], [1], [libola])
+fi
+
 
 # Configure pthreads.
 ACX_PTHREAD([have_pthread=yes])
@@ -239,5 +247,6 @@ echo " One Wire support......................: ${have_owcapi}"
 echo " EWebkit support.......................: ${have_ewebkit}"
 echo " Ecore_X support.......................: ${have_ecore_x}"
 echo " Libusb support........................: ${have_libusb}"
+echo " Open Lightning Architecture support...: ${have_libola}"
 
 echo

@@ -133,4 +133,21 @@ inline void jansson_decode_object(json_t *jroot, Params &params)
     }
 }
 
+inline string jansson_to_string(json_t *jroot)
+{
+    char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
+    if (!d)
+    {
+        cError() << "json_dumps failed!";
+        json_decref(jroot);
+        return string();
+    }
+
+    json_decref(jroot);
+    string res(d);
+    free(d);
+
+    return res;
+}
+
 #endif // JANSSON_ADDITION_H
