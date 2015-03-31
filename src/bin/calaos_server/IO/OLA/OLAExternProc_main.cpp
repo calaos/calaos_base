@@ -73,10 +73,11 @@ void OLAProcess::messageReceived(const string &msg)
         if (p.Exists("channel") && p.Exists("value"))
         {
             unsigned int channel;
-            uint8_t val;
+            unsigned int val;
             Utils::from_string(p["channel"], channel);
             Utils::from_string(p["value"], val);
 
+            cDebugDom("ola") << "Set channel " << channel << " with value: " << val;
             buffer.SetChannel(channel, val);
         }
     }

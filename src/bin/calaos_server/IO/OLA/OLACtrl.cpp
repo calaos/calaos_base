@@ -49,13 +49,15 @@ void OLACtrl::setValue(int channel, int value)
 
     json_t *jdata = json_object();
     json_object_set_new(jdata, "channel", json_integer(channel));
-    json_object_set_new(jdata, "value", json_integer(value * 512 / 100));
+    json_object_set_new(jdata, "value", json_integer(value * 255 / 100));
     json_array_append_new(jroot, jdata);
 
     string res = jansson_to_string(jroot);
 
     if (!res.empty())
         process->sendMessage(res);
+
+    cDebugDom("ola") << "Sending value (" << value << ") " << res;
 }
 
 void OLACtrl::setColor(const ColorValue &color, int channel_red, int channel_green, int channel_blue)
@@ -64,23 +66,25 @@ void OLACtrl::setColor(const ColorValue &color, int channel_red, int channel_gre
 
     json_t *jdata = json_object();
     json_object_set_new(jdata, "channel", json_integer(channel_red));
-    json_object_set_new(jdata, "value", json_integer(color.getRed() * 512 / 255));
+    json_object_set_new(jdata, "value", json_integer(color.getRed()));
     json_array_append_new(jroot, jdata);
 
     jdata = json_object();
     json_object_set_new(jdata, "channel", json_integer(channel_green));
-    json_object_set_new(jdata, "value", json_integer(color.getGreen() * 512 / 255));
+    json_object_set_new(jdata, "value", json_integer(color.getGreen()));
     json_array_append_new(jroot, jdata);
 
     jdata = json_object();
     json_object_set_new(jdata, "channel", json_integer(channel_blue));
-    json_object_set_new(jdata, "value", json_integer(color.getBlue() * 512 / 255));
+    json_object_set_new(jdata, "value", json_integer(color.getBlue()));
     json_array_append_new(jroot, jdata);
 
     string res = jansson_to_string(jroot);
 
     if (!res.empty())
         process->sendMessage(res);
+
+    cDebugDom("ola") << "Sending: " << res;
 }
 
 shared_ptr<OLACtrl> OLACtrl::Instance(const string &universe)
