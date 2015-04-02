@@ -1,0 +1,91 @@
+/******************************************************************************
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **
+ **  This file is part of Calaos.
+ **
+ **  Calaos is free software; you can redistribute it and/or modify
+ **  it under the terms of the GNU General Public License as published by
+ **  the Free Software Foundation; either version 3 of the License, or
+ **  (at your option) any later version.
+ **
+ **  Calaos is distributed in the hope that it will be useful,
+ **  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ **  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ **  GNU General Public License for more details.
+ **
+ **  You should have received a copy of the GNU General Public License
+ **  along with Foobar; if not, write to the Free Software
+ **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ **
+ ******************************************************************************/
+#include "PingInputSwitch.h"
+#include "IOFactory.h"
+#include "EcoreTimer.h"
+
+using namespace Calaos;
+
+REGISTER_INPUT(PingInputSwitch)
+
+Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event);
+
+PingInputSwitch::PingInputSwitch(Params &p):
+    InputSwitch(p)
+{
+    hProcDel = ecore_event_handler_add(ECORE_EXE_EVENT_DEL,
+                                       PingInputSwitch_proc_del,
+                                       this);
+
+    doPing();
+}
+
+PingInputSwitch::~PingInputSwitch()
+{
+    ecore_event_handler_del(hProcDel);
+    if (ping_exe)
+    {
+        ecore_exe_kill(ping_exe);
+        ecore_exe_free(ping_exe);
+    }
+}
+
+bool PingInputSwitch::readValue()
+{
+    return lastStatus;
+}
+
+void PingInputSwitch::doPing()
+{
+    string host = get_param("host");
+
+    string cmd = "ping -c 1 " + host;
+    cDebugDom("input") << "Starting ping: " << cmd;
+
+    ping_exe = ecore_exe_run(cmd.c_str(), this);
+}
+
+Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
+    PingInputSwitch *in = reinterpret_cast<PingInputSwitch *>(data);
+
+    if (!data || !in ||
+        in->ping_exe != ev->exe)
+        return ECORE_CALLBACK_PASS_ON;
+
+    in->ping_exe = nullptr;
+
+    in->lastStatus = ev->exit_code == 0;
+
+    cDebugDom("input") << "ping state is: " << in->lastStatus;
+
+    int interval = 15000; //15s default interval
+    if (Utils::is_of_type<int>(in->get_param("interval")))
+        Utils::from_string(in->get_param("interval"), interval);
+
+    EcoreTimer::singleShot(interval / 1000.0, sigc::mem_fun(*in, &PingInputSwitch::doPing));
+
+    in->hasChanged();
+
+    return ECORE_CALLBACK_RENEW;
+}

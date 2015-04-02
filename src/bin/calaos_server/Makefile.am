@@ -12,6 +12,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
@@ -182,6 +183,8 @@ calaos_server_SOURCES = \
         IO/OutputShutterSmart.h                         \
         IO/OutputString.cpp                             \
         IO/OutputString.h                               \
+        IO/Ping/PingInputSwitch.cpp                     \
+        IO/Ping/PingInputSwitch.h                       \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
         IO/Wago/WIAnalog.cpp                            \
