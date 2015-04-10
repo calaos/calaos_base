@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,143 +18,294 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "WebSocket.h"
-#include "CalaosConfig.h"
-#include <Ecore.h>
-#include "HttpCodes.h"
-#include "SHA1.h"
+#include "WebSocketClient.h"
 #include "hef_uri_syntax.h"
+#include "SHA1.h"
 
-using namespace Calaos;
+#define WEBSOCKET_HANDSHAKE \
+    "GET %1 HTTP/1.1\r\n" \
+    "Host: %2:%3\r\n" \
+    "Upgrade: websocket\r\n" \
+    "Connection: Upgrade\r\n" \
+    "Sec-WebSocket-Key: %4\r\n" \
+    "Sec-WebSocket-Version: 13\r\n" \
+    "\r\n"
 
 const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
 const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
 
-WebSocket::WebSocket(Ecore_Con_Client *cl):
-    HttpClient(cl)
+int _parser_begin(http_parser *parser)
 {
-    reset();
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    //reset status flags to parse another request on the same connection
+    client->parse_done = false;
+    client->has_field = false;
+    client->has_value = false;
+    client->hfield.clear();
+    client->hvalue.clear();
+    client->bodymessage.clear();
+    client->parse_url.clear();
+
+    return 0;
 }
 
-WebSocket::~WebSocket()
+int _parser_header_field(http_parser *parser, const char *at, size_t length)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    if (client->has_field && client->has_value)
+    {
+        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
+        client->has_field = false;
+        client->has_value = false;
+        client->hfield.clear();
+        client->hvalue.clear();
+    }
+
+    if (!client->has_field)
+        client->has_field = true;
+
+    client->hfield.append(at, length);
+
+    return 0;
+}
+
+int _parser_header_value(http_parser *parser, const char *at, size_t length)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    if (!client->has_value)
+        client->has_value = true;
+
+    client->hvalue.append(at, length);
+
+    return 0;
+}
+
+int _parser_headers_complete(http_parser *parser)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    if (client->has_field && client->has_value)
+    {
+        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
+        client->has_field = false;
+        client->has_value = false;
+        client->hfield.clear();
+        client->hvalue.clear();
+    }
+
+    return 0;
+}
+
+int _parser_url(http_parser *parser, const char *at, size_t length)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    client->parse_url.append(at, length);
+
+    return 0;
+}
+
+int _parser_message_complete(http_parser *parser)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    client->parse_done = true;
+
+    return 0;
+}
+
+int _parser_body_complete(http_parser* parser, const char *at, size_t length)
+{
+    WebSocketClient *client = reinterpret_cast<WebSocketClient *>(parser->data);
+
+    client->bodymessage.append(at, length);
+
+    return 0;
+}
+
+Eina_Bool WebSocketClient_con_add(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    WebSocketClient *w = reinterpret_cast<WebSocketClient *>(data);
+    Ecore_Con_Event_Server_Add *ev = reinterpret_cast<Ecore_Con_Event_Server_Add *>(event);
+
+    if (!ev || !w ||
+        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        return ECORE_CALLBACK_PASS_ON;
+
+    ecore_con_server_send(w->ecoreServer, w->handshakeHeader.c_str(), w->handshakeHeader.size());
+
+    return ECORE_CALLBACK_DONE;
+}
+
+Eina_Bool WebSocketClient_con_del(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    WebSocketClient *w = reinterpret_cast<WebSocketClient *>(data);
+    Ecore_Con_Event_Server_Del *ev = reinterpret_cast<Ecore_Con_Event_Server_Del *>(event);
+
+    if (!ev || !w ||
+        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        return ECORE_CALLBACK_PASS_ON;
+
+    w->websocketDisconnected.emit();
+
+    return ECORE_CALLBACK_DONE;
+}
+
+Eina_Bool WebSocketClient_con_data(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    WebSocketClient *w = reinterpret_cast<WebSocketClient *>(data);
+    Ecore_Con_Event_Server_Data *ev = reinterpret_cast<Ecore_Con_Event_Server_Data *>(event);
+
+    if (!ev || !w ||
+        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        return ECORE_CALLBACK_PASS_ON;
+
+    string d((char *)ev->data, ev->size);
+    if (w->status == WebSocketClient::WSConnecting)
+    {
+        if (!w->gotNewDataHandshake(d))
+            w->CloseConnection();
+    }
+    else if (w->status == WebSocketClient::WSOpened ||
+             w->status == WebSocketClient::WSClosing)
+        w->gotNewData(d);
+
+
+    return ECORE_CALLBACK_DONE;
+}
+
+Eina_Bool WebSocketClient_con_error(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    WebSocketClient *w = reinterpret_cast<WebSocketClient *>(data);
+    Ecore_Con_Event_Server_Error *ev = reinterpret_cast<Ecore_Con_Event_Server_Error *>(event);
+
+    if (!ev || !w ||
+        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        return ECORE_CALLBACK_PASS_ON;
+
+    cErrorDom("websocket") << ev->error;
+
+    //ecore server is deleted, invalidate the pointer
+    w->ecoreServer = nullptr;
+    w->websocketDisconnected.emit();
+
+    return ECORE_CALLBACK_DONE;
+}
+
+Eina_Bool WebSocketClient_con_data_written(void *data, int type, void *event)
+{
+    VAR_UNUSED(type);
+    WebSocketClient *w = reinterpret_cast<WebSocketClient *>(data);
+    Ecore_Con_Event_Server_Write *ev = reinterpret_cast<Ecore_Con_Event_Server_Write *>(event);
+
+    if (!ev || !w ||
+        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        return ECORE_CALLBACK_PASS_ON;
+
+    w->data_size -= ev->size;
+    cDebugDom("websocket") << ev->size << " bytes has been written, " << w->data_size << " bytes remaining";
+
+    return ECORE_CALLBACK_DONE;
+}
+
+WebSocketClient::WebSocketClient()
+{
+    handler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, WebSocketClient_con_add, this);
+    handler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, WebSocketClient_con_del, this);
+    handler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, WebSocketClient_con_data, this);
+    handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, WebSocketClient_con_error, this);
+    handler_written = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_WRITE, WebSocketClient_con_data_written, this);
+
+    //set up callbacks for the parser
+    parser_settings.on_message_begin = _parser_begin;
+    parser_settings.on_url = _parser_url;
+    parser_settings.on_header_field = _parser_header_field;
+    parser_settings.on_header_value = _parser_header_value;
+    parser_settings.on_headers_complete = _parser_headers_complete;
+    parser_settings.on_body = _parser_body_complete;
+    parser_settings.on_message_complete = _parser_message_complete;
+
+    parser = (http_parser *)calloc(1, sizeof(http_parser));
+    http_parser_init(parser, HTTP_RESPONSE);
+    parser->data = this;
+}
+
+WebSocketClient::~WebSocketClient()
 {
     delete closeTimeout;
-    cDebugDom("websocket") << this;
+
+    ecore_event_handler_del(handler_add);
+    ecore_event_handler_del(handler_del);
+    ecore_event_handler_del(handler_data);
+    ecore_event_handler_del(handler_error);
+
+    DELETE_NULL_FUNC(ecore_con_server_del, ecoreServer);
 }
 
-void WebSocket::ProcessData(string data)
+void WebSocketClient::openConnection(string url)
 {
-    cDebugDom("websocket") << "Process new data " << data.size();
+    if (status != WSClosed)
+        return;
 
-    int http_status = HTTP_PROCESS_WEBSOCKET;
-    if (!isWebsocket)
-        http_status = processHeaders(data);
+    status = WSConnecting;
+    wsUrl = url;
 
-    switch (http_status)
-    {
-    case HTTP_PROCESS_HTTP:
-    {
-        if (parse_done)
-        {
-            //init parser again
-            http_parser_init(parser, HTTP_REQUEST);
-            parser->data = this;
+    hef::HfURISyntax req_url(url);
 
-            handleJsonRequest();
-        }
-        break;
-    }
-    case HTTP_PROCESS_WEBSOCKET:
+    ecoreServer = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, req_url.getHost().c_str(), req_url.getPort(), this);
+    ecore_con_server_data_set(ecoreServer, this);
+
+    //generate key
+    srand(time(NULL));
+    for (int i = 0;i < 4; i++)
     {
-        //Now we handle websocket here
-        if (status == WSConnecting)
-            processHandshake();
-        else if (status == WSOpened ||
-            status == WSClosing) //Waiting for the closing handshake
-        processFrame(data);
+        const u_int32_t tmp = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
+        sec_key.append(static_cast<const char *>(static_cast<const void *>(&tmp)), sizeof(u_int32_t));
     }
-    case HTTP_PROCESS_MOREDATA:
-    case HTTP_PROCESS_DONE:
-    default: break;
-    }
+
+    sec_key = Utils::Base64_encode(sec_key);
+
+    handshakeHeader = WEBSOCKET_HANDSHAKE;
+    Utils::replace_str(handshakeHeader, "%1", req_url.getPath());
+    Utils::replace_str(handshakeHeader, "%2", req_url.getHost());
+    Utils::replace_str(handshakeHeader, "%3", req_url.getPortAsString());
+    Utils::replace_str(handshakeHeader, "%4", sec_key);
 }
 
-void WebSocket::processHandshake()
+bool WebSocketClient::gotNewDataHandshake(const string &request)
 {
-    if (!checkHandshakeRequest())
+    size_t nparsed;
+
+    nparsed = http_parser_execute(parser, &parser_settings, request.c_str(), request.size());
+
+    if (nparsed != request.size())
     {
-        cWarningDom("websocket") << "Websocket Handshake is not formated correctly, aborting.";
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendToClient(res);
+        /* Handle error. Usually just close the connection. */
+        return false;
     }
 
-    status = WSOpened;
-    currentFrame.clear();
+    if (!parse_done)
+        return true; //need more data
 
-    cDebugDom("websocket") << "Connection switched to websocket";
-}
-
-bool WebSocket::checkHandshakeRequest()
-{
-    //Check client headers, if it has all required by RFC
-    //http://tools.ietf.org/html/rfc6455#section-4.2.1
-
-    //1. check HTTP 1.1 version at least
+    //Check handshake response
+    //check HTTP 1.1 version at least
     if (parser->http_major < 1 || (parser->http_major == 1 && parser->http_minor < 1))
     {
         cWarningDom("websocket") << "wrong HTTP version";
         return false;
     }
 
-    //1. Request should be GET
-    if (request_method != HTTP_GET)
+    //Status code should be 101 (Switching protocol)
+    if (parser->status_code != 101)
     {
-        cWarningDom("websocket") << "not a GET HTTP";
-        return false;
-    }
-
-    //Check if path is our API
-    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-    if (req_url.getPath() != "/api/v3" &&
-        req_url.getPath() != "/echo")
-    {
-        cWarningDom("websocket") << "wrong path: " << req_url.getPath();
-        return false;
-    }
-
-    echoMode = req_url.getPath() == "/echo";
-
-    proto_ver = APINONE;
-    if (req_url.getPath() == "/api/v3") proto_ver = APIV3;
-
-    if (!jsonApi)
-    {
-        if (proto_ver == APIV3)
-            jsonApi = new JsonApiV3(this);
-        else
-        {
-            cWarningDom("network") << "API version not implemented";
-            return false;
-        }
-
-        jsonApi->sendData.connect([=](const string &data)
-        {
-            sendTextMessage(data);
-        });
-        jsonApi->closeConnection.connect([=](int c, const string &r)
-        {
-            sendCloseFrame(static_cast<uint16_t>(c), r);
-        });
-    }
-
-    //2. Must contains non empty Host
-    if (request_headers.find("host") == request_headers.end() ||
-        request_headers["host"].empty())
-    {
-        cWarningDom("websocket") << "malformed host";
+        cWarningDom("websocket") << "Websocket upgrade failes, code: " << Utils::to_string(parser->status_code);
         return false;
     }
 
@@ -175,10 +326,10 @@ bool WebSocket::checkHandshakeRequest()
     }
 
     //5. check sec-websocket-key
-    string reqkey = Utils::Base64_decode(request_headers["sec-websocket-key"]);
+    string reqkey = Utils::Base64_decode(request_headers["sec-websocket-accept"]);
     if (reqkey.size() != 16)
     {
-        cWarningDom("websocket") << "wrong Sec-Websocket-Key";
+        cWarningDom("websocket") << "wrong Sec-Websocket-Accept";
         return false;
     }
 
@@ -188,17 +339,8 @@ bool WebSocket::checkHandshakeRequest()
         return false;
     }
 
-    //The handshake is correct, build our response
-    Params headers;
-    headers.Add("Upgrade", "websocket");
-    headers.Add("Connection", "Upgrade");
-    headers.Add("Access-Control-Allow-Credentials", "false");
-    headers.Add("Access-Control-Allow-Methods", "GET");
-    headers.Add("Access-Control-Allow-Headers", "content-type");
-    headers.Add("Access-Control-Allow-Origin", "*");
-
     //calculate key
-    string key = request_headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    string key = sec_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     CSHA1 sha1;
     sha1.Update((const unsigned char *)key.c_str(), key.length());
     sha1.Final();
@@ -208,33 +350,28 @@ bool WebSocket::checkHandshakeRequest()
     uint8_t message_digest[20];
     sha1.GetHash(message_digest);
 
+    cDebugDom("websocket") << "sec_key : " << sec_key;
     cDebugDom("websocket") << "key : " << key;
     cDebugDom("websocket") << "SHA1 : " << s;
 
     string encoded_key = Utils::Base64_encode(message_digest, 20);
     cDebugDom("websocket") << "Sec-Websocket-Accept : " << encoded_key;
-    headers.Add("Sec-Websocket-Accept", encoded_key);
 
-    //build response
-    stringstream res;
-    //HTTP code
-    res << HTTP_WS_HANDSHAKE << "\r\n";
-
-    //headers
-    for (int i = 0;i < headers.size();i++)
+    if (request_headers["sec-websocket-accept"] != encoded_key)
     {
-        string _key, _value;
-        headers.get_item(i, _key, _value);
-        res << _key << ": " << _value << "\r\n";
+        cWarningDom("websocket") << "wrong Sec-Websocket-Accept, does not match client key";
+        return false;
     }
-    res << "\r\n";
 
-    sendToClient(res.str());
+    status = WSOpened;
+    currentFrame.clear();
+
+    cInfoDom("websocket") << "websocket opened successfully to " << wsUrl;
 
     return true;
 }
 
-void WebSocket::reset()
+void WebSocketClient::reset()
 {
     currentFrame.clear();
     isfragmented = false;
@@ -242,7 +379,7 @@ void WebSocket::reset()
     currentOpcode = 0;
 }
 
-void WebSocket::processFrame(const string &data)
+void WebSocketClient::gotNewData(const string &data)
 {
     cDebugDom("websocket") << "Processing frame data " << data.size();
 
@@ -305,17 +442,6 @@ void WebSocket::processFrame(const string &data)
                     else
                         binaryMessageReceived.emit(currentData);
 
-                    if (!echoMode && proto_ver == APIV3 && jsonApi)
-                        jsonApi->processApi(currentData);
-
-                    if (echoMode)
-                    {
-                        if (currentOpcode == WebSocketFrame::OpCodeText)
-                            sendTextMessage(currentData);
-                        else
-                            sendBinaryMessage(currentData);
-                    }
-
                     if (currentData.size() == 0)
                     {
                         string err = "A frame with 0 length payload is not accepted";
@@ -347,10 +473,8 @@ void WebSocket::processFrame(const string &data)
     }
 }
 
-void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
+void WebSocketClient::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
 {
-    if (!isWebsocket) return;
-
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
 
@@ -361,17 +485,20 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     payload.push_back(static_cast<char>(code));
     payload.append(reason);
 
+    uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
+
     string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodeClose,
                                              payload,
-                                             true);
+                                             true,
+                                             maskingKey);
 
     cDebugDom("network") << "Sending " << frame.length() << " bytes, data_size = " << data_size;
 
     data_size += frame.size();
-    if (!client_conn || ecore_con_client_send(client_conn, frame.c_str(), frame.size()) == 0)
+    if (!ecoreServer || ecore_con_server_send(ecoreServer, frame.c_str(), frame.size()) == 0)
         cCriticalDom("network") << "Error sending data !";
     else
-        ecore_con_client_flush(client_conn);
+        ecore_con_server_flush(ecoreServer);
 
     //start a timeout to wait for a close frame from the client
     if (!closeReceived && !forceClose)
@@ -396,7 +523,7 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     websocketDisconnected.emit();
 }
 
-void WebSocket::processControlFrame()
+void WebSocketClient::processControlFrame()
 {
     if (currentFrame.isPingFrame())
     {
@@ -404,11 +531,14 @@ void WebSocket::processControlFrame()
 
         cDebugDom("websocket") << "Received a PING, sending PONG back";
 
+        uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
+
         //Send back a pong frame
         string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePong,
                                                  currentFrame.getPayload(),
-                                                 true);
-        sendToClient(frame);
+                                                 true,
+                                                 maskingKey);
+        sendToServer(frame);
     }
     else if (currentFrame.isPongFrame())
     {
@@ -450,31 +580,31 @@ void WebSocket::processControlFrame()
     }
 }
 
-void WebSocket::sendPing(const string &data)
+void WebSocketClient::sendPing(const string &data)
 {
-    if (!isWebsocket) return;
-
+    if (!status == WSOpened) return;
     ping_time = ecore_time_get();
+
+    uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
 
     string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
                                              data,
-                                             true);
-    sendToClient(frame);
+                                             true,
+                                             maskingKey);
+    sendToServer(frame);
 }
 
-void WebSocket::sendTextMessage(const string &data)
+void WebSocketClient::sendTextMessage(const string &data)
 {
-    if (!isWebsocket) return;
     sendFrameData(data, false);
 }
 
-void WebSocket::sendBinaryMessage(const string &data)
+void WebSocketClient::sendBinaryMessage(const string &data)
 {
-    if (!isWebsocket) return;
     sendFrameData(data, true);
 }
 
-void WebSocket::sendFrameData(const string &data, bool isbinary)
+void WebSocketClient::sendFrameData(const string &data, bool isbinary)
 {
     if (status != WSOpened)
     {
@@ -497,6 +627,8 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
 
     for (int i = 0;i < numframes;i++)
     {
+        uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
+
         bool lastframe = (i == (numframes - 1));
         bool firstframe = (i == 0);
 
@@ -511,7 +643,8 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
                                                            WebSocketFrame::OpCodeText
                                                          :WebSocketFrame::OpCodeContinue,
                                               data.substr(current, sz),
-                                              lastframe);
+                                              lastframe,
+                                              maskingKey);
             header_size += frame.size() - sz;
         }
         else
@@ -521,15 +654,16 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
                                                            WebSocketFrame::OpCodeText
                                                          :WebSocketFrame::OpCodeContinue,
                                               string(),
-                                              lastframe);
+                                              lastframe,
+                                              maskingKey);
             header_size += frame.size();
         }
 
         //send frame
         data_size += frame.size();
         uint n;
-        if (!client_conn ||
-            (n = ecore_con_client_send(client_conn, frame.c_str(), frame.size())) == 0)
+        if (!ecoreServer ||
+            (n = ecore_con_server_send(ecoreServer, frame.c_str(), frame.size())) == 0)
         {
             cCriticalDom("network") << "Error sending data !";
             CloseConnection();
@@ -553,7 +687,7 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
     }
 }
 
-bool WebSocket::checkCloseStatusCode(uint16_t code)
+bool WebSocketClient::checkCloseStatusCode(uint16_t code)
 {
     //range 0-999 is not used
     if (code < WebSocketFrame::CloseCodeNormal)
@@ -575,4 +709,25 @@ bool WebSocket::checkCloseStatusCode(uint16_t code)
     //range 4000-4999 reserved for private use
 
     return true;
+}
+
+void WebSocketClient::CloseConnection()
+{
+    cDebugDom("websocket") << "Closing connection";
+    ecore_con_server_del(ecoreServer);
+}
+
+void WebSocketClient::sendToServer(string res)
+{
+    data_size += res.length();
+
+    cDebugDom("websocket") << "Sending " << res.length() << " bytes, data_size = " << data_size;
+
+    if (!ecoreServer || ecore_con_server_send(ecoreServer, res.c_str(), res.length()) == 0)
+    {
+        cCriticalDom("websocket")
+                << "Error sending data ! Closing connection.";
+
+        CloseConnection();
+    }
 }

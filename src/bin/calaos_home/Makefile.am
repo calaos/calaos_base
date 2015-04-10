@@ -19,6 +19,7 @@ AM_CPPFLAGS = \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 -I$(top_srcdir)/src/lib/uri_parser \
+-I$(top_srcdir)/src/lib/http-parser \
 @CALAOS_COMMON_CFLAGS@ \
 @CALAOS_HOME_CFLAGS@ \
 @EWEBKIT_CFLAGS@
@@ -224,7 +225,9 @@ calaos_home_SOURCES = \
         views/Xmas.h                                            \
         views/Xmas.cpp                                          \
         views/Widget.cpp                                        \
-        views/Widget.h
+        views/Widget.h                                          \
+        WebSocketClient.h                                       \
+        WebSocketClient.cpp
 
 calaos_home_LDADD = \
         $(top_builddir)/src/lib/libcalaos_common.la \

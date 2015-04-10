@@ -60,7 +60,7 @@ public:
 
     void parseCloseCodeReason(uint16_t &code, string &reason);
 
-    static string makeFrame(int opcode, const string &payload, bool lastframe);
+    static string makeFrame(int opcode, const string &payload, bool lastframe, uint32_t maskingKey = 0);
 
     enum OpCode
     {
@@ -129,7 +129,7 @@ private:
     bool haserror;
 
     void checkValid();
-    void processMask();
+    static void processMask(char *p, uint64_t size, uint32_t maskingKey);
 };
 
 #endif

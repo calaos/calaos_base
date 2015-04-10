@@ -228,7 +228,7 @@ bool WebSocketFrame::processFrameData(string &data)
                     data.erase(0, payload_length);
 
                     if (maskbit)
-                        processMask();
+                        processMask((char *)payload.c_str(), payload.size(), mask);
 
                     finished = true;
                     state = StateReadHeader;
@@ -247,20 +247,18 @@ bool WebSocketFrame::processFrameData(string &data)
     return finished;
 }
 
-void WebSocketFrame::processMask()
+void WebSocketFrame::processMask(char *p, uint64_t size, uint32_t maskingKey)
 {
     //unmask payload
-    const uint8_t m[] = { uint8_t((mask & 0xFF000000u) >> 24),
-                          uint8_t((mask & 0x00FF0000u) >> 16),
-                          uint8_t((mask & 0x0000FF00u) >> 8),
-                          uint8_t((mask & 0x000000FFu))
+    const uint8_t m[] = { uint8_t((maskingKey & 0xFF000000u) >> 24),
+                          uint8_t((maskingKey & 0x00FF0000u) >> 16),
+                          uint8_t((maskingKey & 0x0000FF00u) >> 8),
+                          uint8_t((maskingKey & 0x000000FFu))
                         };
 
-    char *p = (char *)payload.c_str();
     int i = 0;
-    uint64_t size = payload.size();
     std::stringstream stream;
-    stream << std::hex << mask;
+    stream << std::hex << maskingKey;
     cDebugDom("websocket") << "payload size: " << size << " mask: " << stream.str();
     while (size-- > 0)
         *p++ ^= m[i++ % 4];
@@ -295,7 +293,7 @@ void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
         reason = payload.substr(2);
 }
 
-string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _lastframe)
+string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _lastframe, uint32_t maskingKey)
 {
     string frame;
 
@@ -310,6 +308,8 @@ string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _last
 
     b = 0;
 
+    if (maskingKey != 0)
+        b |= 0x80;
     if (_payload.size() <= 125)
     {
         b |= static_cast<uint8_t>(_payload.size());
@@ -337,7 +337,22 @@ string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _last
         frame.push_back(static_cast<char>(s));
     }
 
-    frame.append(_payload);
+    if (maskingKey != 0)
+    {
+        frame.push_back(static_cast<char>(maskingKey >> 24));
+        frame.push_back(static_cast<char>(maskingKey >> 16));
+        frame.push_back(static_cast<char>(maskingKey >> 8));
+        frame.push_back(static_cast<char>(maskingKey));
+    }
+
+    if (maskingKey != 0)
+    {
+        string maskedPayload = _payload;
+        processMask((char *)maskedPayload.c_str(), maskedPayload.size(), maskingKey);
+        frame.append(maskedPayload);
+    }
+    else
+        frame.append(_payload);
 
     return frame;
 }
