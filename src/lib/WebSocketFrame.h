@@ -21,9 +21,7 @@
 #ifndef S_WebSocketFrame_H
 #define S_WebSocketFrame_H
 
-#include "Calaos.h"
-
-using namespace Calaos;
+#include "Utils.h"
 
 class WebSocketFrame
 {
@@ -82,6 +80,23 @@ public:
         OpCodeReservedD   = 0xD,
         OpCodeReservedE   = 0xE,
         OpCodeReservedF   = 0xF
+    };
+
+    enum CloseCode
+    {
+        CloseCodeNormal                 = 1000,
+        CloseCodeGoingAway              = 1001,
+        CloseCodeProtocolError          = 1002,
+        CloseCodeDatatypeNotSupported   = 1003,
+        CloseCodeReserved1004           = 1004,
+        CloseCodeMissingStatusCode      = 1005,
+        CloseCodeAbnormalDisconnection  = 1006,
+        CloseCodeWrongDatatype          = 1007,
+        CloseCodePolicyViolated         = 1008,
+        CloseCodeTooMuchData            = 1009,
+        CloseCodeMissingExtension       = 1010,
+        CloseCodeBadOperation           = 1011,
+        CloseCodeTlsHandshakeFailed     = 1015
     };
 
 private:

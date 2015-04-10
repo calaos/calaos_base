@@ -69,7 +69,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
         json_decref(jroot);
 
         //close connection
-        closeConnection.emit(WebSocket::CloseCodeNormal, "json_dumps failed!");
+        closeConnection.emit(WebSocketFrame::CloseCodeNormal, "json_dumps failed!");
 
         return;
     }
@@ -136,7 +136,7 @@ void JsonApiV3::processApi(const string &data)
             sendJson("login", jret, jsonRoot["msg_id"]);
 
             //Close the connection on login failure
-            closeConnection.emit(WebSocket::CloseCodeNormal, "login failed!");
+            closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login failed!");
         }
         else
         {

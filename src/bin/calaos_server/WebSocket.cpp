@@ -265,7 +265,7 @@ void WebSocket::processFrame(const string &data)
                     cWarningDom("websocket") << err;
 
                     //Send close frame and close connection
-                    sendCloseFrame(CloseCodeProtocolError, err);
+                    sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
                 }
                 if (isfragmented && currentFrame.isDataFrame() && !currentFrame.isContinuationFrame())
                 {
@@ -274,7 +274,7 @@ void WebSocket::processFrame(const string &data)
                     cWarningDom("websocket") << err;
 
                     //Send close frame and close connection
-                    sendCloseFrame(CloseCodeProtocolError, err);
+                    sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
                 }
 
                 if (!currentFrame.isContinuationFrame())
@@ -291,7 +291,7 @@ void WebSocket::processFrame(const string &data)
                     cWarningDom("websocket") << err.str();
 
                     //Send close frame and close connection
-                    sendCloseFrame(CloseCodeTooMuchData, err.str());
+                    sendCloseFrame(WebSocketFrame::CloseCodeTooMuchData, err.str());
                 }
 
                 currentData.append(currentFrame.getPayload());
@@ -322,7 +322,7 @@ void WebSocket::processFrame(const string &data)
                         cWarningDom("websocket") << err;
 
                         //Send close frame and close connection
-                        sendCloseFrame(CloseCodeNormal, err);
+                        sendCloseFrame(WebSocketFrame::CloseCodeNormal, err);
                     }
 
                     reset();
@@ -331,7 +331,7 @@ void WebSocket::processFrame(const string &data)
 
             currentFrame.clear();
         }
-        else if (currentFrame.getCloseCode() != CloseCodeNormal)
+        else if (currentFrame.getCloseCode() != WebSocketFrame::CloseCodeNormal)
         {
             cWarningDom("websocket") << "Error in websocket handling: " << currentFrame.getCloseReason();
 
@@ -430,13 +430,13 @@ void WebSocket::processControlFrame()
         closeReceived = true;
         if (currentFrame.hasError()) //in case Close frame has errors, testsuite 7.3.1
         {
-            code = CloseCodeNormal;
+            code = WebSocketFrame::CloseCodeNormal;
             close_reason = "malformed close frame";
         }
 
         if (!checkCloseStatusCode(code))
         {
-            code = CloseCodeProtocolError;
+            code = WebSocketFrame::CloseCodeProtocolError;
             close_reason = "Wrong close status code";
         }
 
@@ -556,16 +556,16 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
 bool WebSocket::checkCloseStatusCode(uint16_t code)
 {
     //range 0-999 is not used
-    if (code < CloseCodeNormal)
+    if (code < WebSocketFrame::CloseCodeNormal)
         return false;
 
     //range 1000-2999 reserved for valid websocket codes
     if (code <= 2999)
     {
-        if (code == CloseCodeReserved1004 ||
-            code == CloseCodeMissingStatusCode ||
-            code == CloseCodeAbnormalDisconnection ||
-            code > CloseCodeBadOperation)
+        if (code == WebSocketFrame::CloseCodeReserved1004 ||
+            code == WebSocketFrame::CloseCodeMissingStatusCode ||
+            code == WebSocketFrame::CloseCodeAbnormalDisconnection ||
+            code > WebSocketFrame::CloseCodeBadOperation)
             return false;
 
         //CloseCodeTlsHandshakeFailed should never be used and is an error

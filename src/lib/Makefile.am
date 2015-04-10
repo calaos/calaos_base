@@ -114,6 +114,8 @@ libcalaos_common_la_SOURCES = \
         UrlDownloader.h                         \
         Utils.cpp                               \
         Utils.h                                 \
+        WebSocketFrame.cpp                      \
+        WebSocketFrame.h                        \
         base64.cpp                              \
         base64.h                                \
         http-parser/http_parser.c               \

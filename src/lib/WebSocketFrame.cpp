@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "WebSocketFrame.h"
-#include "WebSocket.h"
 
 const uint64_t MAX_FRAME_SIZE_IN_BYTES = INT_MAX - 1;
 
@@ -31,7 +30,7 @@ WebSocketFrame::WebSocketFrame()
 void WebSocketFrame::clear()
 {
     state = StateReadHeader;
-    closeCode = WebSocket::CloseCodeNormal;
+    closeCode = CloseCodeNormal;
     finalFrame = true;
     mask = 0;
     rsv1 = rsv2 = rsv3 = 0;
@@ -47,14 +46,14 @@ void WebSocketFrame::checkValid()
 {
     if (rsv1 || rsv2 || rsv3)
     {
-        closeCode = WebSocket::CloseCodeProtocolError;
+        closeCode = CloseCodeProtocolError;
         closeReason = "RSV fields are non zero";
         isvalid = false;
         haserror = true;
     }
     else if (isOpCodeReserved())
     {
-        closeCode = WebSocket::CloseCodeProtocolError;
+        closeCode = CloseCodeProtocolError;
         closeReason = "Use of reserved opcode";
         isvalid = false;
         haserror = true;
@@ -63,14 +62,14 @@ void WebSocketFrame::checkValid()
     {
         if (payload_length > 125)
         {
-            closeCode = WebSocket::CloseCodeProtocolError;
+            closeCode = CloseCodeProtocolError;
             closeReason = "Control frame is too big";
             isvalid = false;
             haserror = true;
         }
         else if (!isFinalFrame())
         {
-            closeCode = WebSocket::CloseCodeProtocolError;
+            closeCode = CloseCodeProtocolError;
             closeReason = "Control frame cannot be fragmented";
             isvalid = false;
             haserror = true;
@@ -129,7 +128,7 @@ bool WebSocketFrame::processFrameData(string &data)
 
                 if (payload_length < 126)
                 {
-                    closeCode = WebSocket::CloseCodeProtocolError;
+                    closeCode = CloseCodeProtocolError;
                     closeReason = "Frame smaller than 126 must be expressed as one byte";
                     isvalid = false;
                     finished = true;
@@ -160,7 +159,7 @@ bool WebSocketFrame::processFrameData(string &data)
                 uint64_t v = 1;
                 if (payload_length & (v << 63))
                 {
-                    closeCode = WebSocket::CloseCodeProtocolError;
+                    closeCode = CloseCodeProtocolError;
                     closeReason = "Highest bit of payload length is not 0";
                     isvalid = false;
                     finished = true;
@@ -168,7 +167,7 @@ bool WebSocketFrame::processFrameData(string &data)
                 }
                 else if (payload_length <= 0xFFFFu)
                 {
-                    closeCode = WebSocket::CloseCodeProtocolError;
+                    closeCode = CloseCodeProtocolError;
                     closeReason = "Frame smaller than 65536 (2^16) must be expressed as 2 bytes";
                     isvalid = false;
                     finished = true;
@@ -215,7 +214,7 @@ bool WebSocketFrame::processFrameData(string &data)
             }
             else if (payload_length > MAX_FRAME_SIZE_IN_BYTES)
             {
-                closeCode = WebSocket::CloseCodeTooMuchData;
+                closeCode = CloseCodeTooMuchData;
                 closeReason = "Maximum framesize exceeded";
                 isvalid = false;
                 finished = true;
@@ -287,7 +286,7 @@ void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
 {
     if (payload.size() == 1)
     {
-        code = WebSocket::CloseCodeProtocolError;
+        code = CloseCodeProtocolError;
         reason = "Payload of CloseFrame is too small";
     }
     if (payload.size() >= 2)

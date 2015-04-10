@@ -43,27 +43,10 @@ public:
     virtual void ProcessData(string data);
 
     void sendPing(const string &data);
-    void sendCloseFrame(uint16_t code = CloseCodeNormal, const string &reason = string(), bool forceClose = false);
+    void sendCloseFrame(uint16_t code = WebSocketFrame::CloseCodeNormal, const string &reason = string(), bool forceClose = false);
 
     void sendTextMessage(const string &data);
     void sendBinaryMessage(const string &data);
-
-    enum CloseCode
-    {
-        CloseCodeNormal                 = 1000,
-        CloseCodeGoingAway              = 1001,
-        CloseCodeProtocolError          = 1002,
-        CloseCodeDatatypeNotSupported   = 1003,
-        CloseCodeReserved1004           = 1004,
-        CloseCodeMissingStatusCode      = 1005,
-        CloseCodeAbnormalDisconnection  = 1006,
-        CloseCodeWrongDatatype          = 1007,
-        CloseCodePolicyViolated         = 1008,
-        CloseCodeTooMuchData            = 1009,
-        CloseCodeMissingExtension       = 1010,
-        CloseCodeBadOperation           = 1011,
-        CloseCodeTlsHandshakeFailed     = 1015
-    };
 
 private:
 

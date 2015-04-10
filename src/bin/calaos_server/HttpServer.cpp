@@ -212,6 +212,6 @@ void HttpServer::disconnectAll()
     for (iter = connections.begin();iter != connections.end();iter++)
     {
         WebSocket *ws = (*iter).second;
-        ws->sendCloseFrame(WebSocket::CloseCodeNormal, "Shutting down", true);
+        ws->sendCloseFrame(WebSocketFrame::CloseCodeNormal, "Shutting down", true);
     }
 }
