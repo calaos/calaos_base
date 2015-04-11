@@ -35,6 +35,7 @@ protected:
     std::string host;
     int port;
     std::string id;
+    std::string id2;
     bool val;
     void valueUpdated(ZibaseInfoSensor *sensor);
     ZibaseInfoSensor::eZibaseSensor sensor_type;

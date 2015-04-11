@@ -555,10 +555,30 @@ void Zibase::extract_zwave_detectOpen(char* frame,bool *val)
     }
 }
 
+void Zibase::extract_Chacon(char* frame,ZibaseInfoSensor* elm)
+{
+    char * c;
+printf("Extract Chacon\n");
+    /* search <sta>ON */
+    c = strstr (frame, "<sta>ON");
+    if(c != NULL)
+    {
+        elm->DigitalVal = 1;
+        elm->type = ZibaseInfoSensor::eINTER;
+    }
+    /* search <sta>OFF */
+    c = strstr (frame, "<sta>OFF");
+    if(c != NULL)
+    {
+        elm->DigitalVal = 0;
+        elm->type = ZibaseInfoSensor::eINTER;
+    }
+}
+
 int Zibase::extract_infos(char* frame,ZibaseInfoSensor* elm)
 {
     char * c;
-
+printf("Extract infos\n");
     c = strstr (frame, "Power=");
     if(c != NULL)
     {
@@ -600,6 +620,12 @@ int Zibase::extract_infos(char* frame,ZibaseInfoSensor* elm)
         extract_zwave_detectOpen(frame,&elm->DigitalVal);
         elm->type = ZibaseInfoSensor::eDETECT;
     }
+    c = strstr (frame, "Chacon");
+    if(c != NULL)
+    {
+        extract_Chacon(frame,elm);
+    }
+
     return 0;
 }
 

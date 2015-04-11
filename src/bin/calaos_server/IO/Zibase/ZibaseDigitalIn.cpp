@@ -34,8 +34,11 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
+    id2 = get_param("zibase_id2");	
     if(type.compare("detect")==0)
         sensor_type = ZibaseInfoSensor::eDETECT;
+    if(type.compare("inter")==0)
+        sensor_type = ZibaseInfoSensor::eINTER;
 
     Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseDigitalIn::valueUpdated));
 
@@ -50,7 +53,7 @@ ZibaseDigitalIn::~ZibaseDigitalIn()
 void ZibaseDigitalIn::valueUpdated(ZibaseInfoSensor *sensor)
 {
     /*check that sensor id match */
-    if((id==sensor->id) && (sensor->type == sensor_type))
+    if(((id==sensor->id)||(id2==sensor->id)) && (sensor->type == sensor_type))
     {
         val = sensor->DigitalVal;
         hasChanged();
