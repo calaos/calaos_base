@@ -58,10 +58,12 @@ Mandatory fields for ZibaseDigitalIn module, are the following (to be filled in 
 host="zibase @ip"
 name="label to be displayed by calaos home"
 zibase_id= radio id of the sensor, this is the id writen in the zibase configurator (when new sensor is added)
+zibase_id2= second id, mandatory for some inter (chacon telecommand, enocean inter, one ID for ON state, one ID for OFF state)
 
 port= local oprt to use for the udp connection (works with 17100)
 zibase_sensor= sensor type
         "detect" for door/window sensor
+        "inter" for inter sensor
 
 type=ZibaseDigitalIn (say to calaos that we use the module ZibaseDigital In for this input)
 
