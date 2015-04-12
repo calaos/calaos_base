@@ -57,6 +57,7 @@ void InputSwitch::emitChanges()
         sig += Utils::url_encode(string("state:false"));
     IPC::Instance().SendEvent("events", sig);
 
+    cInfoDom("input") << get_param("id") << ": " << value;
     EmitSignalInput();
 
 }
