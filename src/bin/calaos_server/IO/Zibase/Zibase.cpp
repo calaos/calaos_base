@@ -558,7 +558,7 @@ void Zibase::extract_zwave_detectOpen(char* frame,bool *val)
 void Zibase::extract_Chacon(char* frame,ZibaseInfoSensor* elm)
 {
     char * c;
-printf("Extract Chacon\n");
+
     /* search <sta>ON */
     c = strstr (frame, "<sta>ON");
     if(c != NULL)
@@ -568,6 +568,26 @@ printf("Extract Chacon\n");
     }
     /* search <sta>OFF */
     c = strstr (frame, "<sta>OFF");
+    if(c != NULL)
+    {
+        elm->DigitalVal = 0;
+        elm->type = ZibaseInfoSensor::eINTER;
+    }
+}
+
+void Zibase::extract_Enocean(char* frame,ZibaseInfoSensor* elm)
+{
+    char * c;
+
+    /* search <sta>ON */
+    c = strstr (frame, "ON");
+    if(c != NULL)
+    {
+        elm->DigitalVal = 1;
+        elm->type = ZibaseInfoSensor::eINTER;
+    }
+    /* search <sta>OFF */
+    c = strstr (frame, "OFF");
     if(c != NULL)
     {
         elm->DigitalVal = 0;
@@ -614,16 +634,23 @@ printf("Extract infos\n");
         elm->type = ZibaseInfoSensor::eWIND;
     }
 
-    c = strstr (frame, "CMD/INTER");
+    c = strstr (frame, "ZWAVE");
     if(c != NULL)
     {
         extract_zwave_detectOpen(frame,&elm->DigitalVal);
         elm->type = ZibaseInfoSensor::eDETECT;
     }
+    
     c = strstr (frame, "Chacon");
     if(c != NULL)
     {
         extract_Chacon(frame,elm);
+    }
+    
+    c = strstr (frame, "Decoded by EEP"); //Enocean frame
+    if(c != NULL)
+    {
+        extract_Enocean(frame,elm);
     }
 
     return 0;

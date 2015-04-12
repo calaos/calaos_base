@@ -123,7 +123,8 @@ protected:
     void extract_wind(char* frame,float *val);
     void extract_energy(char* frame,float *val);
     void extract_zwave_detectOpen(char* frame,bool *val);
-    void extract_Chacon(char* frame,ZibaseInfoSensor* elm);	
+    void extract_Chacon(char* frame,ZibaseInfoSensor* elm);
+    void extract_Enocean(char* frame,ZibaseInfoSensor* elm);
     int vartoId(unsigned long var, char*id);
     int StopTimer(void);
     int StartTimer(float timeout);
