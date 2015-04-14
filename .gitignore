@@ -77,6 +77,8 @@ src/bin/tools/calaos_config
 src/bin/tools/wago_test
 src/bin/tools/calaos_thumb
 src/bin/tools/calaos_mail
+src/bin/calaos_server/calaos_1wire
+src/bin/calaos_server/calaos_ola
 calaos.config
 calaos.creator*
 calaos.files
@@ -85,6 +87,8 @@ po/remove-potcdate.sed
 Makefile.am.user*
 *.swp
 tests/ColorValue_test
+tests/WebSocketClient_test
 tests/*.log
 tests/*.trs
 test-driver
+tests/websockets/reports/

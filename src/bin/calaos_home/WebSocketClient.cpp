@@ -46,6 +46,7 @@ int _parser_begin(http_parser *parser)
     client->hvalue.clear();
     client->bodymessage.clear();
     client->parse_url.clear();
+    client->request_headers.clear();
 
     return 0;
 }
@@ -133,10 +134,11 @@ Eina_Bool WebSocketClient_con_add(void *data, int type, void *event)
     Ecore_Con_Event_Server_Add *ev = reinterpret_cast<Ecore_Con_Event_Server_Add *>(event);
 
     if (!ev || !w ||
-        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
     ecore_con_server_send(w->ecoreServer, w->handshakeHeader.c_str(), w->handshakeHeader.size());
+    w->data_size += w->handshakeHeader.size();
 
     return ECORE_CALLBACK_DONE;
 }
@@ -148,9 +150,13 @@ Eina_Bool WebSocketClient_con_del(void *data, int type, void *event)
     Ecore_Con_Event_Server_Del *ev = reinterpret_cast<Ecore_Con_Event_Server_Del *>(event);
 
     if (!ev || !w ||
-        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
+    w->ecoreServer = nullptr; //invalidate ptr
+    w->status = WebSocketClient::WSClosed;
+    w->data_size = 0;
+    w->reset();
     w->websocketDisconnected.emit();
 
     return ECORE_CALLBACK_DONE;
@@ -163,7 +169,7 @@ Eina_Bool WebSocketClient_con_data(void *data, int type, void *event)
     Ecore_Con_Event_Server_Data *ev = reinterpret_cast<Ecore_Con_Event_Server_Data *>(event);
 
     if (!ev || !w ||
-        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
     string d((char *)ev->data, ev->size);
@@ -187,13 +193,16 @@ Eina_Bool WebSocketClient_con_error(void *data, int type, void *event)
     Ecore_Con_Event_Server_Error *ev = reinterpret_cast<Ecore_Con_Event_Server_Error *>(event);
 
     if (!ev || !w ||
-        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
     cErrorDom("websocket") << ev->error;
 
     //ecore server is deleted, invalidate the pointer
     w->ecoreServer = nullptr;
+    w->status = WebSocketClient::WSClosed;
+    w->data_size = 0;
+    w->reset();
     w->websocketDisconnected.emit();
 
     return ECORE_CALLBACK_DONE;
@@ -206,7 +215,7 @@ Eina_Bool WebSocketClient_con_data_written(void *data, int type, void *event)
     Ecore_Con_Event_Server_Write *ev = reinterpret_cast<Ecore_Con_Event_Server_Write *>(event);
 
     if (!ev || !w ||
-        w->ecoreServer != ecore_con_server_data_get(ev->server))
+        w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
     w->data_size -= ev->size;
@@ -259,8 +268,12 @@ void WebSocketClient::openConnection(string url)
 
     hef::HfURISyntax req_url(url);
 
+    cDebugDom("websocket") << "Connecting to " << req_url.getHost() << " port:" << req_url.getPort();
+
     ecoreServer = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, req_url.getHost().c_str(), req_url.getPort(), this);
     ecore_con_server_data_set(ecoreServer, this);
+
+    sec_key.clear();
 
     //generate key
     srand(time(NULL));
@@ -273,7 +286,7 @@ void WebSocketClient::openConnection(string url)
     sec_key = Utils::Base64_encode(sec_key);
 
     handshakeHeader = WEBSOCKET_HANDSHAKE;
-    Utils::replace_str(handshakeHeader, "%1", req_url.getPath());
+    Utils::replace_str(handshakeHeader, "%1", req_url.getPathAndQuery());
     Utils::replace_str(handshakeHeader, "%2", req_url.getHost());
     Utils::replace_str(handshakeHeader, "%3", req_url.getPortAsString());
     Utils::replace_str(handshakeHeader, "%4", sec_key);
@@ -285,9 +298,18 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
 
     nparsed = http_parser_execute(parser, &parser_settings, request.c_str(), request.size());
 
-    if (nparsed != request.size())
+    if (parser->upgrade)
+    {
+        if (nparsed != request.size())
+        {
+            bodymessage = request;
+            bodymessage.erase(0, nparsed);
+        }
+    }
+    else if (nparsed != request.size())
     {
         /* Handle error. Usually just close the connection. */
+        cWarningDom("websocket") << "nparsed != request.size()  " << nparsed << " !=" << request.size();
         return false;
     }
 
@@ -327,15 +349,16 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
 
     //5. check sec-websocket-key
     string reqkey = Utils::Base64_decode(request_headers["sec-websocket-accept"]);
-    if (reqkey.size() != 16)
+    if (reqkey.size() != 20)
     {
-        cWarningDom("websocket") << "wrong Sec-Websocket-Accept";
+        cWarningDom("websocket") << "wrong Sec-Websocket-Accept: " << reqkey.size();
         return false;
     }
 
-    if (request_headers["sec-websocket-version"] != "13")
+    if (request_headers["sec-websocket-version"] != "13" &&
+        request_headers["sec-websocket-version"] != "")
     {
-        cWarningDom("websocket") << "wrong Sec-Websocket-Version";
+        cWarningDom("websocket") << "wrong Sec-Websocket-Version: " << request_headers["sec-websocket-version"];
         return false;
     }
 
@@ -367,6 +390,9 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
     currentFrame.clear();
 
     cInfoDom("websocket") << "websocket opened successfully to " << wsUrl;
+
+    if (bodymessage.size() > 0)
+        gotNewData(bodymessage);
 
     return true;
 }
