@@ -31,6 +31,7 @@ void WebSocketFrame::clear()
 {
     state = StateReadHeader;
     closeCode = CloseCodeNormal;
+    closeReason.clear();
     finalFrame = true;
     mask = 0;
     rsv1 = rsv2 = rsv3 = 0;

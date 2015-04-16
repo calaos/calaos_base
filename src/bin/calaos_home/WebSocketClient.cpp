@@ -263,6 +263,13 @@ void WebSocketClient::openConnection(string url)
     if (status != WSClosed)
         return;
 
+    reset();
+    recv_buffer.clear();
+    currentData.clear();
+    currentOpcode = 0;
+    isfragmented = false;
+    data_size = 0;
+
     status = WSConnecting;
     wsUrl = url;
 
@@ -737,6 +744,7 @@ void WebSocketClient::CloseConnection()
 {
     cDebugDom("websocket") << "Closing connection";
     status = WSClosed;
+    reset();
     if (ecoreServer)
     {
         ecore_con_server_del(ecoreServer);
