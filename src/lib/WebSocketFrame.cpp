@@ -114,6 +114,16 @@ bool WebSocketFrame::processFrameData(string &data)
                     state = maskbit? StateReadMask:StateReadPayload;
 
                 checkValid();
+
+                //Handle 0 length payload here for client
+                if (!maskbit && payload_length == 0 &&
+                    isDataFrame())
+                {
+                    cDebugDom("websocket") << "0 payload length";
+                    haserror = true;
+                    finished = true;
+                    state = StateReadHeader;
+                }
             }
             else
                 return false;
@@ -207,8 +217,11 @@ bool WebSocketFrame::processFrameData(string &data)
         }
         case StateReadPayload:
         {
-            if (!payload_length)
+            //Handle 0 length payload here
+            if (payload_length == 0)
             {
+                cDebugDom("websocket") << "0 payload length";
+                haserror = true;
                 finished = true;
                 state = StateReadHeader;
             }

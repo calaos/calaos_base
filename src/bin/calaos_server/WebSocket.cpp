@@ -130,13 +130,13 @@ bool WebSocket::checkHandshakeRequest()
     proto_ver = APINONE;
     if (req_url.getPath() == "/api/v3") proto_ver = APIV3;
 
-    if (!jsonApi)
+    if (!jsonApi && !echoMode)
     {
         if (proto_ver == APIV3)
             jsonApi = new JsonApiV3(this);
         else
         {
-            cWarningDom("network") << "API version not implemented";
+            cWarningDom("websocket") << "API version not implemented";
             return false;
         }
 

@@ -389,6 +389,8 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
     status = WSOpened;
     currentFrame.clear();
 
+    websocketConnected.emit();
+
     cInfoDom("websocket") << "websocket opened successfully to " << wsUrl;
 
     if (bodymessage.size() > 0)
@@ -473,6 +475,8 @@ void WebSocketClient::gotNewData(const string &data)
                         string err = "A frame with 0 length payload is not accepted";
                         cWarningDom("websocket") << err;
 
+                        ecore_con_server_flush(ecoreServer);
+
                         //Send close frame and close connection
                         sendCloseFrame(WebSocketFrame::CloseCodeNormal, err);
                     }
@@ -532,7 +536,6 @@ void WebSocketClient::sendCloseFrame(uint16_t code, const string &reason, bool f
         closeTimeout = new EcoreTimer(10.0, [=]()
         {
             cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
-            status = WSClosed;
             CloseConnection();
             DELETE_NULL(closeTimeout);
         });
@@ -542,11 +545,9 @@ void WebSocketClient::sendCloseFrame(uint16_t code, const string &reason, bool f
     else
     {
         //Client initiated closing
-        status = WSClosed;
         CloseConnection();
     }
 
-    websocketDisconnected.emit();
 }
 
 void WebSocketClient::processControlFrame()
@@ -599,10 +600,7 @@ void WebSocketClient::processControlFrame()
         if (status == WSOpened)
             sendCloseFrame(code, close_reason);
         else
-        {
             CloseConnection();
-            status = WSClosed;
-        }
     }
 }
 
@@ -693,7 +691,6 @@ void WebSocketClient::sendFrameData(const string &data, bool isbinary)
         {
             cCriticalDom("network") << "Error sending data !";
             CloseConnection();
-            status = WSClosed;
             return;
         }
         if (n != frame.size())
@@ -709,7 +706,6 @@ void WebSocketClient::sendFrameData(const string &data, bool isbinary)
     {
         cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << (data.size() + header_size);
         CloseConnection();
-        status = WSClosed;
     }
 }
 
@@ -740,7 +736,13 @@ bool WebSocketClient::checkCloseStatusCode(uint16_t code)
 void WebSocketClient::CloseConnection()
 {
     cDebugDom("websocket") << "Closing connection";
-    ecore_con_server_del(ecoreServer);
+    status = WSClosed;
+    if (ecoreServer)
+    {
+        ecore_con_server_del(ecoreServer);
+        ecoreServer = nullptr;
+        websocketDisconnected.emit();
+    }
 }
 
 void WebSocketClient::sendToServer(string res)

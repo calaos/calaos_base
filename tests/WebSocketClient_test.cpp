@@ -15,10 +15,12 @@ void startNextTest()
     cout << "currentTest:" << currentTest <<
             " - argNumber:" << argNumber << " > argCount:" << argCount << endl;
 
-    if (((argCount > 0) && currentTest - argNumber > argCount) ||
+    if (((argCount > 0) && currentTest - argNumber > argCount - 1) ||
         ((argCount == 0) && currentTest > testCount))
     {
-        //wsclient->sendCloseFrame();
+        //do not delete in the slot
+        WebSocketClient *w = wsclient;
+        EcoreTimer::singleShot(0, [=]() { delete w; });
 
         wsclient = new WebSocketClient();
         wsclient->websocketDisconnected.connect([]()
@@ -50,7 +52,9 @@ void binMessageReceived(const string &msg)
 
 void onConnected()
 {
-    cout << "Running test " << currentTest << "/" << testCount;
+    cout << "---------------------------------------------------------"  << endl;
+    cout << "Running test " << currentTest << "/" << testCount << endl;
+    cout << "---------------------------------------------------------"  << endl;
 }
 
 void onDisconnected()
@@ -86,7 +90,9 @@ int main(int argc, char **argv)
         });
         wsclient->websocketDisconnected.connect([]()
         {
-            delete wsclient;
+            //do not delete in the slot
+            WebSocketClient *w = wsclient;
+            EcoreTimer::singleShot(0, [=]() { delete w; });
 
             wsclient = new WebSocketClient();
             wsclient->websocketConnected.connect(sigc::ptr_fun(onConnected));
