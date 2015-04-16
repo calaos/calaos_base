@@ -18,6 +18,10 @@ void startNextTest()
     if (((argCount > 0) && currentTest - argNumber > argCount - 1) ||
         ((argCount == 0) && currentTest > testCount))
     {
+        cout << "---------------------------------------------------------"  << endl;
+        cout << "Finished tests, creating reports" << endl;
+        cout << "---------------------------------------------------------"  << endl;
+
         //do not delete in the slot
         WebSocketClient *w = wsclient;
         EcoreTimer::singleShot(0, [=]() { delete w; });
