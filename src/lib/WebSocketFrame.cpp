@@ -117,10 +117,7 @@ bool WebSocketFrame::processFrameData(string &data)
                 checkValid();
 
                 //Handle 0 length payload here for client
-                if (!maskbit && payload_length == 0 &&
-                    (isDataFrame() ||
-                     isPingFrame() ||
-                     isPongFrame()))
+                if (state == StateReadPayload && payload_length == 0)
                 {
                     cDebugDom("websocket") << "0 payload length";
                     haserror = true;
