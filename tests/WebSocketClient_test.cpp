@@ -30,7 +30,7 @@ void startNextTest()
         wsclient->websocketDisconnected.connect([]()
         {
             cout << "Reports updated." << endl;
-            ecore_main_loop_quit();
+            EcoreTimer::singleShot(0, [=]() { ecore_main_loop_quit(); });
         });
         string uri = "ws://127.0.0.1:9001/updateReports?agent=CalaosWebSocketClient";
         wsclient->openConnection(uri);

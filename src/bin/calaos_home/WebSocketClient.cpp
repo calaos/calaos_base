@@ -240,6 +240,7 @@ WebSocketClient::WebSocketClient()
     parser_settings.on_headers_complete = _parser_headers_complete;
     parser_settings.on_body = _parser_body_complete;
     parser_settings.on_message_complete = _parser_message_complete;
+    parser_settings.on_status_complete = nullptr;
 
     parser = (http_parser *)calloc(1, sizeof(http_parser));
     http_parser_init(parser, HTTP_RESPONSE);
@@ -254,6 +255,7 @@ WebSocketClient::~WebSocketClient()
     ecore_event_handler_del(handler_del);
     ecore_event_handler_del(handler_data);
     ecore_event_handler_del(handler_error);
+    ecore_event_handler_del(handler_written);
 
     DELETE_NULL_FUNC(ecore_con_server_del, ecoreServer);
 }
@@ -585,7 +587,7 @@ void WebSocketClient::processControlFrame()
     else if (currentFrame.isCloseFrame())
     {
         //Read close code and close reason from payload
-        uint16_t code;
+        uint16_t code = 0;
         string close_reason;
         currentFrame.parseCloseCodeReason(code, close_reason);
 
