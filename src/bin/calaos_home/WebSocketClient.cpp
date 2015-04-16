@@ -269,6 +269,7 @@ void WebSocketClient::openConnection(string url)
     currentOpcode = 0;
     isfragmented = false;
     data_size = 0;
+    closeReceived = false;
 
     status = WSConnecting;
     wsUrl = url;
