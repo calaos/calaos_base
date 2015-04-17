@@ -122,7 +122,11 @@ calaos_server_SOURCES = \
         IO/IntValue.cpp                                 \
         IO/IntValue.h                                   \
         IO/Hue/HueOutputLightRGB.h	                \
-        IO/Hue/HueOutputLightRGB.cpp	                \ 
+        IO/Hue/HueOutputLightRGB.cpp	                \
+        IO/LAN/PingInputSwitch.cpp                      \
+        IO/LAN/PingInputSwitch.h                        \
+        IO/LAN/WOLOutputBool.cpp                        \
+        IO/LAN/WOLOutputBool.h                          \
         IO/LimitlessLED/Milight.h                       \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputLightRGB.h         \
@@ -183,8 +187,6 @@ calaos_server_SOURCES = \
         IO/OutputShutterSmart.h                         \
         IO/OutputString.cpp                             \
         IO/OutputString.h                               \
-        IO/Ping/PingInputSwitch.cpp                     \
-        IO/Ping/PingInputSwitch.h                       \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
         IO/Wago/WIAnalog.cpp                            \
