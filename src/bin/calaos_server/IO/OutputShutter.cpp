@@ -93,6 +93,23 @@ bool OutputShutter::set_value(std::string val)
         from_string(val, v);
         ImpulseDown(v);
     }
+    else if (Utils::strStartsWith(val, "set_state "))
+    {
+        val.erase(0, 10);
+
+        if (val == "up")
+        {
+            state_volet = "true";
+            cmd_state = "up";
+        }
+        else if (val == "down")
+        {
+            state_volet = "false";
+            cmd_state = "down";
+        }
+    }
+    else
+        return false;
 
     EmitSignalOutput();
 

@@ -192,6 +192,34 @@ bool OutputLightDimmer::set_value(std::string val)
             impulse_extended(tmp);
         }
     }
+    else if (Utils::strStartsWith(val, "set_state "))
+    {
+        val.erase(0, 10);
+
+        if (val == "true")
+        {
+            value = old_value;
+            cmd_state = "on";
+        }
+        else if (val == "false")
+        {
+            old_value = value;
+            value = 0;
+            cmd_state = "off";
+        }
+        else if (is_of_type<int>(val))
+        {
+            int percent;
+            Utils::from_string(val, percent);
+            if (percent < 0) percent = 0;
+            if (percent > 100) percent = 100;
+
+            cmd_state = "set " + Utils::to_string(percent);
+            value = percent;
+        }
+    }
+    else
+        return false;
 
     EmitSignalOutput();
 

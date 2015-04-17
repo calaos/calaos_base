@@ -201,6 +201,25 @@ bool OutputShutterSmart::set_value(std::string val)
         timer_calib = new EcoreTimer((double)total_time,
                                      (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate) );
     }
+    else if (Utils::strStartsWith(val, "set_state "))
+    {
+        val.erase(0, 10);
+
+        if (Utils::is_of_type<int>(val))
+        {
+            int percent;
+            Utils::from_string(val, percent);
+            if (percent < 0) percent = 0;
+            if (percent > 100) percent = 100;
+            cmd_state = "set " + Utils::to_string(percent);
+
+            double new_position = (double)percent * (double)time_up / 100.;
+            writePosition(new_position);
+            sens = VSTOP;
+        }
+    }
+    else
+        return false;
 
     EmitSignalOutput();
 

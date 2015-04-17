@@ -106,6 +106,20 @@ bool OutputLight::set_value(string val)
     {
         return set_value(false);
     }
+    else if (val == "set_state true")
+    {
+        value = true;
+        EmitSignalOutput();
+        emitChange();
+        return true;
+    }
+    else if (val == "set_state false")
+    {
+        value = false;
+        EmitSignalOutput();
+        emitChange();
+        return true;
+    }
 
     return false;
 }

@@ -222,6 +222,35 @@ bool OutputLightRGB::set_value(std::string val)
         //Directly start the first time
         TimerAutoChange();
     }
+    else if (Utils::strStartsWith(val, "set_state "))
+    {
+        val.erase(0, 10);
+
+        if (val == "true")
+        {
+            cmd_state = "on";
+            state = true;
+            EmitSignalOutput();
+            emitChange();
+        }
+        else if (val == "false")
+        {
+            cmd_state = "off";
+            state = false;
+            EmitSignalOutput();
+            emitChange();
+        }
+        else
+        {
+            ColorValue c(val);
+            if (!c.isValid())
+                return false;
+
+            color = c;
+            cmd_state = "set " + color.toString();
+            state = true;
+        }
+    }
 
     return ret;
 }
