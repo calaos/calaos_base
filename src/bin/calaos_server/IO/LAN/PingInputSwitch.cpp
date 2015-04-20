@@ -56,8 +56,11 @@ bool PingInputSwitch::readValue()
 void PingInputSwitch::doPing()
 {
     string host = get_param("host");
+    string timeoutVal = "";
+    if (Utils::is_of_type<int>(get_param("timeout")))
+        timeoutVal = "-w " + get_param("timeout");
 
-    string cmd = "ping -c 1 " + host;
+    string cmd = "ping -c 1 " + timeoutVal + " " + host;
     cDebugDom("input") << "Starting ping: " << cmd;
 
     ping_exe = ecore_exe_run(cmd.c_str(), this);
