@@ -128,7 +128,7 @@ void WOLOutputBool::doWakeOnLan()
 
     vector<uint8_t> address;
     for (int i = 0;i < 12;i += 2)
-        address.push_back(parseHex(addr[i]));
+        address.push_back((parseHex(addr[i]) << 4) | uint8_t(parseHex(addr[i + 1])));
 
     vector<uint8_t> magicPacket;
     magicPacket.reserve(6 + 6 * 16);
