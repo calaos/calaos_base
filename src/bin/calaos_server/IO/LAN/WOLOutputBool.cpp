@@ -145,7 +145,7 @@ void WOLOutputBool::doWakeOnLan()
     if (!udp_con)
         udp_con = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST,
                                            "255.255.255.255",
-                                           BCAST_UDP_PORT,
+                                           7,
                                            this);
 
     ecore_con_server_send(udp_con, magicPacket.data(), magicPacket.size());
