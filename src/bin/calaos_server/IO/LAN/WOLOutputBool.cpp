@@ -67,6 +67,11 @@ Eina_Bool WOLOutputBool_con_data_error(void *data, int type, void *event)
 WOLOutputBool::WOLOutputBool(Params &p):
     Output(p)
 {
+    //Not visible by default
+    if (!get_params().Exists("visible")) set_param("visible", "false");
+
+    set_param("gui_type", "var_bool");
+
     hwritten = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_WRITE, WOLOutputBool_con_data_written, this);
     herr = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, WOLOutputBool_con_data_error, this);
 }
