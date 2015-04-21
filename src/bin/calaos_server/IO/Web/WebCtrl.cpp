@@ -302,7 +302,7 @@ double WebCtrl::getValueDouble(string path)
     string value;
 
     value = getValue(path);
-    if (Utils::is_of_type<double>(value))
+    if (Utils::is_of_type<double>(value) && !value.empty())
         Utils::from_string(value, val);
     return val;
 }

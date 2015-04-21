@@ -44,8 +44,12 @@ OWTemp::OWTemp(Params &p):
 
 void OWTemp::readValue()
 {
+    string v = OwCtrl::Instance(ow_args)->getValue(ow_id);
+    if (v.empty() || !Utils::is_of_type<double>(v))
+        return;
+
     double val;
-    Utils::from_string(OwCtrl::Instance(ow_args)->getValue(ow_id), val);
+    Utils::from_string(v, val);
     val = Utils::roundValue(val);
     if (val != value)
     {

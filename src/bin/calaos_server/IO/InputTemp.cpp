@@ -22,6 +22,7 @@
 #include <Ecore.h>
 #include <ListeRule.h>
 #include <IPC.h>
+#include "CalaosConfig.h"
 
 using namespace Calaos;
 
@@ -57,7 +58,12 @@ InputTemp::InputTemp(Params &p):
     else
       readTime = 15.0;
 
-    cInfoDom("input") << "frequency : " << readTime << " seconds";
+    string v;
+    if (Config::Instance().ReadValueIO(get_param("id"), v) &&
+        Utils::is_of_type<double>(v))
+        Utils::from_string(v, value);
+
+    cInfoDom("input") << "frequency: " << readTime << " seconds, value from cache: " << value;
 
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
@@ -77,6 +83,8 @@ void InputTemp::hasChanged()
         timer = ecore_time_get();
 
         readValue();
+
+        Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
     }
 }
 
