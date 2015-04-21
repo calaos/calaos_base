@@ -279,7 +279,7 @@ void MySensorsController::processMessage(string msg)
         {
         case MySensors::I_LOG_MESSAGE:
         case MySensors::I_GATEWAY_READY:
-            cInfoDom("mysensors") << payload;
+            cDebugDom("mysensors") << payload;
             break;
         case MySensors::I_ID_REQUEST:
             processRequestId(nodeid, sensorid);
