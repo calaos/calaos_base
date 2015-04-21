@@ -22,6 +22,7 @@
 #include <ListeRule.h>
 #include <IPC.h>
 #include <Ecore.h>
+#include "CalaosConfig.h"
 
 using namespace Calaos;
 
@@ -34,6 +35,12 @@ InputAnalog::InputAnalog(Params &p):
     set_param("gui_type", "analog_in");
 
     readConfig();
+
+    string v;
+    if (Config::Instance().ReadValueIO(get_param("id"), v) &&
+        Utils::is_of_type<double>(v))
+        Utils::from_string(v, value);
+
     timer = ecore_time_get();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
@@ -107,6 +114,8 @@ void InputAnalog::hasChanged()
         timer = ecore_time_get();
 
         readValue();
+
+        Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
     }
 }
 

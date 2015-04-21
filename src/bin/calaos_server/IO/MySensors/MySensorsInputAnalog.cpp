@@ -52,7 +52,7 @@ void MySensorsInputAnalog::readValue()
 
     string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
     double v;
-    if (!Utils::is_of_type<double>(sv))
+    if (sv.empty() || !Utils::is_of_type<double>(sv))
         return;
     Utils::from_string(sv, v);
 
