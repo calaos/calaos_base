@@ -299,7 +299,7 @@ int HttpClient::processHeaders(const string &request)
         cDebugDom("network") << "Sending webapp pages";
 
         string path = req_url.getPath();
-        path.erase(0, 7);
+        path.erase(0, 5);
 
         string wwwroot = Utils::get_config_option("wwwroot");
         if (!ecore_file_is_dir(wwwroot.c_str()))
@@ -310,6 +310,8 @@ int HttpClient::processHeaders(const string &request)
 
         if (!ecore_file_exists(fileName.c_str()))
         {
+            cDebugDom("network") << "Filename not found: " << fileName;
+
             Params headers;
             headers.Add("Connection", "close");
             headers.Add("Content-Type", "text/html");
