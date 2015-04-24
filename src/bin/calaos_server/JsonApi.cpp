@@ -372,13 +372,7 @@ bool JsonApi::decodeSetState(Params &jParam)
         {
             if (input->get_type() == TBOOL)
                 input->force_input_bool(jParam["value"] == "true");
-            else if (input->get_type() == TINT)
-            {
-                double dv;
-                Utils::from_string(jParam["value"], dv);
-                input->force_input_double(dv);
-            }
-            else if (input->get_type() == TSTRING)
+            else
                 input->force_input_string(jParam["value"]);
         }
     }
@@ -397,7 +391,7 @@ bool JsonApi::decodeSetState(Params &jParam)
                 else if (jParam["value"] == "false") success = output->set_value(false);
                 else success = output->set_value(jParam["value"]);
             }
-            else if (output->get_type() == TSTRING)
+            else
                 success = output->set_value(jParam["value"]);
         }
     }
