@@ -259,8 +259,6 @@ void Widget::Move(int wx, int wy)
     if (wy < 0) wy = 0;
     int w, h;
     getGeometry(NULL, NULL, &w, &h);
-    if (wx + w > WIDTH) wx = WIDTH - w;
-    if (wy + h + 100 > HEIGHT) wy = HEIGHT - h - 100;
 
     posx = wx;
     posy = wy;
