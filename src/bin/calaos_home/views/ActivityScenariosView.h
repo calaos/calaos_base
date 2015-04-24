@@ -39,6 +39,8 @@ private:
 
     struct tm currDate;
 
+    sigc::connection scenarioChangeCon;
+
     void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
     void loadScenarioList();
 

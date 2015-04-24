@@ -39,6 +39,8 @@ private:
     int scheduleRangeNum = 0;
     struct tm scDate;
 
+    sigc::connection updateConn;
+
     void scenarioPlay(void *data);
     void scenarioModify(void *data);
     void scenarioDelete(void *data);

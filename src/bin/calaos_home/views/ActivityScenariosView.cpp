@@ -64,11 +64,12 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     time_t t = time(0);
     currDate = *localtime(&t);
 
-    CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *) { reloadCalendar(); });
+    scenarioChangeCon = CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *) { reloadCalendar(); });
 }
 
 ActivityScenariosView::~ActivityScenariosView()
 {
+    scenarioChangeCon.disconnect();
     DELETE_NULL_FUNC(evas_object_del, schedule_list);
     DELETE_NULL_FUNC(evas_object_del, scenario_list);
 }

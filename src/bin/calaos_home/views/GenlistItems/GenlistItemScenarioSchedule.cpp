@@ -32,7 +32,7 @@ GenlistItemScenarioSchedule::GenlistItemScenarioSchedule(Evas *_evas, Evas_Objec
     IOBaseElement(sc->ioScenario),
     scenario(sc)
 {
-    CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *s)
+    updateConn = CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *s)
     {
         if (scenario == s) updateView();
     });
@@ -40,6 +40,7 @@ GenlistItemScenarioSchedule::GenlistItemScenarioSchedule(Evas *_evas, Evas_Objec
 
 GenlistItemScenarioSchedule::~GenlistItemScenarioSchedule()
 {
+    updateConn.disconnect();
 }
 
 void GenlistItemScenarioSchedule::ioDeleted()
