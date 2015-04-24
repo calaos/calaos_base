@@ -50,7 +50,6 @@ class EAPI ApplicationController: public sigc::trackable
 private:
     Evas *evas;
     Evas_Object *layout;
-    Evas_Object *main_pager; /* This is the main elementary pager, which is holding all "pages" (home, media, camera, ...) */
 
     MainMenuView *menuView;
     MainContentView *contentView;

@@ -381,7 +381,15 @@ void ApplicationController::login_failed(string host)
 
 void ApplicationController::controllerFinished(ActivityController *controller)
 {
-    DELETE_NULL(controller);
+    if (controller == widgetsController) { DELETE_NULL(widgetsController); }
+    else if (controller == homeController) { DELETE_NULL(homeController); }
+    else if (controller == mediaController) { DELETE_NULL(mediaController); }
+    else if (controller == scenariosController) { DELETE_NULL(scenariosController); }
+    else if (controller == configController) { DELETE_NULL(configController); }
+    else if (controller == keyboardController) { DELETE_NULL(keyboardController); }
+    else if (controller == webController) { DELETE_NULL(webController); }
+    else if (controller == editScController) { DELETE_NULL(editScController); }
+    else if (controller == scheduleScController) { DELETE_NULL(scheduleScController); }
 }
 
 void ApplicationController::activityQuit()

@@ -64,7 +64,8 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
     time_t t = time(0);
     currDate = *localtime(&t);
 
-    scenarioChangeCon = CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *) { reloadCalendar(); });
+    if (CalaosModel::Instance().getScenario())
+        scenarioChangeCon = CalaosModel::Instance().getScenario()->scenario_change.connect([=](Scenario *) { reloadCalendar(); });
 }
 
 ActivityScenariosView::~ActivityScenariosView()
