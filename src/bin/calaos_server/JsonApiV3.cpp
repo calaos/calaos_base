@@ -157,7 +157,6 @@ void JsonApiV3::processApi(const string &data)
     }
 
     json_decref(jroot);
-    json_decref(jdata);
 }
 
 void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
@@ -174,6 +173,12 @@ void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
 
 void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
 {
+    if (!jdata)
+    {
+        sendJson("get_state", nullptr, client_id);
+        return;
+    }
+
     buildJsonState(jdata, [=](json_t *jret)
     {
         sendJson("get_state", jret, client_id);
