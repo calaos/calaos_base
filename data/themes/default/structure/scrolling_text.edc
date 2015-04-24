@@ -32,7 +32,7 @@ group
                                 color: 231 231 231 127;
                                 fixed: 1 0;
                                 align: 0.0 0.0;
-                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.0 0.5; }
+                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
                         }
                         description
                         {
@@ -242,7 +242,7 @@ group
                                 color: 231 231 231 127;
                                 fixed: 1 0;
                                 align: 0.0 0.0;
-                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 1.0 0.5; }
+                                text { text: "Titre de l'objet"; font: "CalaosContent"; size: 12; min: 1 1; align: 1.0 0.5; ellipsis: -1.0; }
                         }
                         description
                         {

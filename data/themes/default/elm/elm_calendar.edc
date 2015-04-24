@@ -78,7 +78,7 @@ group
                                 rel1.to: "header";
                                 rel2.to: "header";
                                 color: 156 156 156 255;
-                                text { font: "CalaosContent"; size: 14; min: 1 1; align: 0.5 0.5; }
+                                text { font: "CalaosContent"; size: 14; min: 1 1; align: 0.5 0.5; ellipsis: -1.0; }
                         }
                 }
 
@@ -237,7 +237,7 @@ group
                                 rel1.to: "ch_"#_pos".base"; \
                                 rel2.to: "ch_"#_pos".base"; \
                                 color: 231 231 231 255; \
-                                text { font: "CalaosContent"; size: 10; min: 1 1; align: 0.5 0.5; }; \
+                                text { font: "CalaosContent"; size: 10; min: 1 1; align: 0.5 0.5; ellipsis: -1.0; }; \
                         } \
                 }
 
@@ -335,7 +335,7 @@ group
                                 rel1.to: "cit_"#_num".base"; \
                                 rel2.to: "cit_"#_num".base"; \
                                 color: 80 80 80 255; \
-                                text { font: "CalaosContent"; size: 12; min: 1 1; align: 0.5 0.5; }; \
+                                text { font: "CalaosContent"; size: 12; min: 1 1; align: 0.5 0.5; ellipsis: -1.0; }; \
                         } \
                         description \
                         { \

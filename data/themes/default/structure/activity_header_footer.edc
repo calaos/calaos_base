@@ -65,7 +65,7 @@ part
                 rel1.to: "header_img";
                 rel2.to: "header_img";
                 color: 231 231 231 255;
-                text { text: "Module name"; font: "CalaosContent"; size: 20; min: 1 1; }
+                text { text: "Module name"; font: "CalaosContent"; size: 20; min: 1 1; ellipsis: -1.0; }
         }
 }
 

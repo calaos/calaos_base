@@ -107,7 +107,7 @@ group
             rel1 { relative: 0.0  0.0; offset: 10 4; to:"module_screen_time_field";}
             rel2 { relative: 0.0  0.0; offset: 400 30; to:"module_screen_time_field";}
             color: 231 231 231 200;
-            text { text: "Time before screensaver activation : "; font: "CalaosContent"; size: 12; min: 1 0; align: 0.0 0.5;}
+            text { text: "Time before screensaver activation : "; font: "CalaosContent"; size: 12; min: 1 0; align: 0.0 0.5; ellipsis: -1.0; }
          }
       }
       part {

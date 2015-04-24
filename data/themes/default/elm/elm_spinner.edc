@@ -33,7 +33,7 @@ group
                                 state: "default" 0.0;
                                 rel1 { relative: 0.0  1.0; offset:  5  5; to_y: "button.up"; }
                                 rel2 { relative: 1.0  0.0; offset: -5  -5; to_y: "button.down"; }
-                                text { text: "5<br><subtitle>Heures</subtitle>"; style: "TimerSpinnerStyle"; min: 1 1; }
+                                text { text: "5<br><subtitle>Heures</subtitle>"; style: "TimerSpinnerStyle"; min: 1 1; ellipsis: -1.0; }
                         }
                 }
 

@@ -108,7 +108,7 @@ group
                                 rel1.to: "button_label";
                                 rel2.to: "button_label";
                                 color: 255 255 255 0;
-                                text { text: "Emplacement libre"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.5 0.53; }
+                                text { text: "Emplacement libre"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.5 0.53; ellipsis: -1.0; }
                         }
                         description
                         {

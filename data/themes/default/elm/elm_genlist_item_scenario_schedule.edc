@@ -49,7 +49,7 @@ group
                                 state: "default" 0.0;
                                 rel1 { relative: 0.0 0.5; offset:  10 -14; }
                                 rel2 { relative: 0.0 0.5; offset:  10+35  13; }
-                                text { font: "CalaosContent"; text: "12:00"; size: 12; min: 1 1; align: 0.0 0.5; }
+                                text { font: "CalaosContent"; text: "12:00"; size: 12; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
                                 color: 58 180 215 255;
                         }
                 }
@@ -279,7 +279,7 @@ group
                                 rel1 { relative: 0.0 1.0; offset: 10 -22; }
                                 rel2 { relative: 1.0 1.0; offset: -5  -4; }
                                 color: 231 231 231 204;
-                                text { text: "Titre de l'element'"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; }
+                                text { text: "Titre de l'element'"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
                         }
                 }
         }

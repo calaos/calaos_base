@@ -335,7 +335,7 @@ part { \
     color: 255 255 255 0; \
     color2: 255 255 255 0; \
     fixed: 1 1; \
-    text { text: title; font: "CalaosContent"; size: 17; min: 1 1; } \
+    text { text: title; font: "CalaosContent"; size: 17; min: 1 1; ellipsis: -1.0; } \
   } \
   description { \
     state, "big" 0.0; \
@@ -377,7 +377,7 @@ part { \
     rel1.to: "room_"id; \
     rel2.to: "room_"id; \
     color: 255 255 255 0; \
-    text { text: title; font: "CalaosContent"; size: 11; min: 1 1; } \
+    text { text: title; font: "CalaosContent"; size: 11; min: 1 1; ellipsis: -1.0; } \
   } \
   description { \
     state, "small" 0.0; \
@@ -435,7 +435,7 @@ part { \
     rel2 { relative: 0.5  0.5; offset: 100  8;} \
     rel1.to: "room_"id"_row_warming"; \
     rel2.to: "room_"id"_row_warming"; \
-    text { text: "0.0 °C"; style: "RoomTempBig"; min: 1 1; } \
+    text { text: "0.0 °C"; style: "RoomTempBig"; min: 1 1; ellipsis: -1.0; } \
   } \
 } \
  \
@@ -471,7 +471,7 @@ part { \
     rel1.to: "room_"id"_row_warming_small"; \
     rel2.to: "room_"id"_row_warming_small"; \
     color: 231 231 231 255; \
-    text { text: "0.0 °C"; font: "CalaosContent"; size: 12; min: 1 1; align: 1.0 0.5; } \
+    text { text: "0.0 °C"; font: "CalaosContent"; size: 12; min: 1 1; align: 1.0 0.5; ellipsis: -1.0; } \
   } \
 } \
  \
