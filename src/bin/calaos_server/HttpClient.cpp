@@ -308,7 +308,7 @@ int HttpClient::processHeaders(const string &request)
         string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
-        if (!ecore_file_exists(fileName.c_str()))
+        if (!ecore_file_exists(fileName.c_str()) || ecore_file_is_dir(fileName.c_str()))
         {
             cDebugDom("network") << "Filename not found: " << fileName;
 
