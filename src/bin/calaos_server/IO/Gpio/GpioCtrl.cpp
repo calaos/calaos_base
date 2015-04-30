@@ -103,6 +103,7 @@ bool GpioCtrl::setVal(bool value)
     string strval;
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
     strval = Utils::to_string(value);
+    cDebugDom("input") << "Set value " << value << " to " << path;
     return writeFile(path, strval);
 }
 
