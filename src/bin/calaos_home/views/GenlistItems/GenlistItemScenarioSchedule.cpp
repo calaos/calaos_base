@@ -148,7 +148,7 @@ void GenlistItemScenarioSchedule::buttonClickMore()
 {
     if (!scenario) return;
 
-    Evas_Object *table = createPaddingTable(evas, parent, 280, 260);
+    Evas_Object *table = createPaddingTable(evas, parent, 280, 300);
 
     Evas_Object *glist = elm_genlist_add(table);
     elm_object_style_set(glist, "calaos");
@@ -196,6 +196,25 @@ void GenlistItemScenarioSchedule::buttonClickMore()
         _item->setIcon("calaos/icons/genlist/trash");
         _item->Append(glist, header);
         _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleDelete));
+
+        if (scenario->ioSchedule)
+        {
+            if (scenario->ioSchedule->params["enabled"] == "" ||
+                scenario->ioSchedule->params["enabled"] == "true")
+            {
+                _item = new GenlistItemSimple(evas, glist, _("Disable schedule"), true);
+                _item->setIcon("calaos/icons/genlist/trash");
+                _item->Append(glist, header);
+                _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleDisable));
+            }
+            else
+            {
+                _item = new GenlistItemSimple(evas, glist, _("Enable schedule"), true);
+                _item->setIcon("calaos/icons/genlist/trash");
+                _item->Append(glist, header);
+                _item->item_selected.connect(sigc::mem_fun(*this, &GenlistItemScenarioSchedule::scheduleEnable));
+            }
+        }
     }
 
     elm_table_pack(table, glist, 1, 1, 1, 1);
@@ -298,5 +317,27 @@ void GenlistItemScenarioSchedule::scenarioPlay(void *data)
     if (!scenario) return;
 
     scenario->ioScenario->sendAction("true");
+    elm_ctxpopup_dismiss(popup);
+}
+
+void GenlistItemScenarioSchedule::scheduleDisable(void *data)
+{
+    if (!scenario) return;
+
+    scenario->ioSchedule->sendUserCommand("set_param enabled false", [=](bool, vector<string>, void *)
+    {
+        //TODO, update icon?
+    });
+    elm_ctxpopup_dismiss(popup);
+}
+
+void GenlistItemScenarioSchedule::scheduleEnable(void *data)
+{
+    if (!scenario) return;
+
+    scenario->ioSchedule->sendUserCommand("set_param enabled true", [=](bool, vector<string>, void *)
+    {
+        //TODO, update icon?
+    });
     elm_ctxpopup_dismiss(popup);
 }

@@ -47,6 +47,8 @@ private:
     void scheduleAdd(void *data);
     void scheduleModify(void *data);
     void scheduleDelete(void *data);
+    void scheduleDisable(void *data);
+    void scheduleEnable(void *data);
 
     virtual void ioDeleted();
 
