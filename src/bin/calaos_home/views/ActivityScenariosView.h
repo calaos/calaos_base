@@ -31,8 +31,8 @@ using namespace Utils;
 class ActivityScenariosView: public ActivityView
 {
 private:
-    Evas_Object *calendar;
-    Evas_Object *schedule_list, *scenario_list;
+    Evas_Object *calendar = nullptr;
+    Evas_Object *schedule_list = nullptr, *scenario_list = nullptr;
 
     enum { VIEW_MODE_ALL, VIEW_MODE_LIGHT, VIEW_MODE_SHUTTER, VIEW_MODE_SCHEDULE };
     int view_mode;

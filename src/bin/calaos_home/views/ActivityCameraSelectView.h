@@ -37,7 +37,7 @@ private:
     CalaosCameraView *camera_video;
     Camera *camera;
 
-    Evas_Object *list_item;
+    Evas_Object *list_item = nullptr;
 
     Evas_Object *pager_position;
     Evas_Object *popup_position;
