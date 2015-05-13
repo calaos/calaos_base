@@ -336,6 +336,8 @@ map<string, string> IOAVReceiver::get_all_values_string()
 
 void IOAVReceiver::force_input_string(string val)
 {
+    if (!Input::isEnabled()) return;
+
     if (!receiver) return;
 
     if (val == "power off" || val == "power false")
@@ -365,6 +367,8 @@ void IOAVReceiver::force_input_string(string val)
 
 bool IOAVReceiver::set_value(string val)
 {
+    if (!Input::isEnabled()) return true;
+
     cInfoDom("output") << get_param("id") << " got action, " << val;
 
     force_input_string(val);

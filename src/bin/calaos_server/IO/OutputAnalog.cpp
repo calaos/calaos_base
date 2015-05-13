@@ -74,6 +74,8 @@ void OutputAnalog::emitChange()
 
 bool OutputAnalog::set_value(double val)
 {
+    if (!isEnabled()) return true;
+
     UWord v;
 
     readConfig();
@@ -94,6 +96,8 @@ bool OutputAnalog::set_value(double val)
 
 bool OutputAnalog::set_value(string val)
 {
+    if (!isEnabled()) return true;
+
     if (val == "inc")
     {
         double step = 1.0;

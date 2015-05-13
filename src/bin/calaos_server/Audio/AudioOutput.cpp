@@ -39,6 +39,8 @@ AudioOutput::~AudioOutput()
 
 bool AudioOutput::set_value(std::string value)
 {
+    if (!isEnabled()) return true;
+
     string val = value;
 
     cInfoDom("output") << "AudioOutput(" << get_param("id") << "): got action \"" << val << "\"";

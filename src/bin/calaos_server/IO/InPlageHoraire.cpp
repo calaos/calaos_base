@@ -59,6 +59,8 @@ void InPlageHoraire::clear()
 
 void InPlageHoraire::hasChanged()
 {
+    if (!isEnabled()) return;
+
     bool val = false;
     vector<TimeRange> *plage = NULL;
 

@@ -56,6 +56,8 @@ Scenario::~Scenario()
 
 void Scenario::force_input_bool(bool v)
 {
+    if (!Input::isEnabled()) return;
+
     value = v;
     EmitSignalInput();
 
@@ -73,6 +75,8 @@ void Scenario::force_input_bool(bool v)
 
 bool Scenario::set_value(bool val)
 {
+    if (!Input::isEnabled()) return true;
+
     force_input_bool(val);
 
     string sig = "output ";

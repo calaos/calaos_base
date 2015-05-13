@@ -34,7 +34,6 @@ private:
     AudioManager();
 
     std::string host;
-    int port;
 
     vector<AudioPlayer *> players;
 public:

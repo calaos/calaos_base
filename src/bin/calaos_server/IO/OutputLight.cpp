@@ -50,6 +50,8 @@ void OutputLight::emitChange()
 
 bool OutputLight::set_value(bool val)
 {
+    if (!isEnabled()) return true;
+
     // Setting a new value will also stop any running impulse actions
     DELETE_NULL(timer);
 
@@ -75,6 +77,8 @@ bool OutputLight::_set_value(bool val)
 
 bool OutputLight::set_value(string val)
 {
+    if (!isEnabled()) return true;
+
     if (val.compare(0, 8,"impulse ") == 0)
     {
         string tmp = val;

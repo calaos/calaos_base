@@ -48,6 +48,8 @@ InputTime::~InputTime()
 
 void InputTime::hasChanged()
 {
+    if (!isEnabled()) return;
+
     bool val = false;
 
     if (get_params().Exists("year") && get_params().Exists("month") && get_params().Exists("day"))

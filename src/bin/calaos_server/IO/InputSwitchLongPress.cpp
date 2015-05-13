@@ -40,6 +40,8 @@ InputSwitchLongPress::~InputSwitchLongPress()
 
 void InputSwitchLongPress::hasChanged()
 {
+    if (!isEnabled()) return;
+
     bool val = readValue();
 
     if (val)
@@ -86,6 +88,8 @@ void InputSwitchLongPress::emitChange()
 
 void InputSwitchLongPress::force_input_double(double v)
 {
+    if (!isEnabled()) return;
+
     value = v;
     emitChange();
 }

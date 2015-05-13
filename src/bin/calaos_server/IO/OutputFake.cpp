@@ -42,6 +42,8 @@ OutputFake::~OutputFake()
 
 bool OutputFake::set_value(bool val)
 {
+    if (!isEnabled()) return true;
+
     value = val;
 
     cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False");

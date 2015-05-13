@@ -86,6 +86,8 @@ WOLOutputBool::~WOLOutputBool()
 
 bool WOLOutputBool::set_value(bool val)
 {
+    if (!isEnabled()) return true;
+
     if (val)
         doWakeOnLan();
 

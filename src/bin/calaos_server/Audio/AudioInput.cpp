@@ -40,6 +40,8 @@ AudioInput::~AudioInput()
 
 void AudioInput::hasChanged()
 {
+    if (!isEnabled()) return;
+
     //         if (st != status)
     {
         status = st;

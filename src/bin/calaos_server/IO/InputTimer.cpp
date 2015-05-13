@@ -50,6 +50,8 @@ InputTimer::~InputTimer()
 
 bool InputTimer::set_value(string command)
 {
+    if (!Input::isEnabled()) return true;
+
     if( command == "start")
         command = "true";
 
@@ -160,6 +162,8 @@ void InputTimer::TimerDone()
     sig += get_param("id") + " ";
     sig += Utils::url_encode("state:true");
     IPC::Instance().SendEvent("events", sig);
+
+    if (!Input::isEnabled()) return;
 
     if (get_param("autorestart") == "true")
         StartTimer();

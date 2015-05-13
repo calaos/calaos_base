@@ -104,6 +104,8 @@ void OutputShutterSmart::readConfig()
 */
 bool OutputShutterSmart::set_value(std::string val)
 {
+    if (!isEnabled()) return true;
+
     cInfoDom("output") << "OutputShutterSmart(" << get_param("id") << "): got action, " << val;
 
     if (calibrate) return false;

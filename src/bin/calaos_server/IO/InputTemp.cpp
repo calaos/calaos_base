@@ -77,6 +77,8 @@ InputTemp::~InputTemp()
 
 void InputTemp::hasChanged()
 {
+    if (!isEnabled()) return;
+
     double sec = ecore_time_get() - timer;
     if (sec >= readTime)
     {
@@ -111,6 +113,8 @@ void InputTemp::emitChange()
 
 void InputTemp::force_input_double(double v)
 {
+    if (!isEnabled()) return;
+
     value = v;
     emitChange();
 }

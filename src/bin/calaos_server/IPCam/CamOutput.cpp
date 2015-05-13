@@ -40,6 +40,8 @@ CamOutput::~CamOutput()
 
 bool CamOutput::set_value(std::string val)
 {
+    if (!isEnabled()) return true;
+
     cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val;
 
     if (val == "mpeg_stream?")

@@ -41,6 +41,8 @@ InputSwitchTriple::~InputSwitchTriple()
 
 void InputSwitchTriple::hasChanged()
 {
+    if (!isEnabled()) return;
+
     bool val = false;
 
     val = readValue();
@@ -93,6 +95,8 @@ void InputSwitchTriple::emitChange()
 
 void InputSwitchTriple::force_input_double(double v)
 {
+    if (!isEnabled()) return;
+
     value = v;
     emitChange();
 }

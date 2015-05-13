@@ -57,6 +57,8 @@ void Internal::force_input_bool(bool v)
 {
     DELETE_NULL(timer);
 
+    if (!Input::isEnabled()) return;
+
     bvalue = v;
     EmitSignalInput();
 
@@ -73,6 +75,9 @@ void Internal::force_input_bool(bool v)
 
 bool Internal::set_value(bool val)
 {
+    DELETE_NULL(timer);
+    if (!Input::isEnabled()) return true;
+
     cInfoDom("output") << get_param("id") << ": got action, " << ((val)?"True":"False");
 
     force_input_bool(val);
@@ -90,6 +95,8 @@ bool Internal::set_value(bool val)
 
 void Internal::force_input_double(double v)
 {
+    if (!Input::isEnabled()) return;
+
     dvalue = v;
     EmitSignalInput();
 
@@ -103,6 +110,8 @@ void Internal::force_input_double(double v)
 
 bool Internal::set_value(double val)
 {
+    if (!Input::isEnabled()) return true;
+
     cInfoDom("output") << get_param("id") << ": got action, " << val;
 
     force_input_double(val);
@@ -117,6 +126,8 @@ bool Internal::set_value(double val)
 
 void Internal::force_input_string(string v)
 {
+    if (!Input::isEnabled()) return;
+
     svalue = v;
     EmitSignalInput();
 
@@ -130,6 +141,8 @@ void Internal::force_input_string(string v)
 
 bool Internal::set_value(string val)
 {
+    if (!Input::isEnabled()) return true;
+
     if (get_type() == TINT)
     {
         if (val == "inc")

@@ -52,6 +52,8 @@ OutputShutter::~OutputShutter()
 
 bool OutputShutter::set_value(std::string val)
 {
+    if (!isEnabled()) return true;
+
     cInfoDom("output") << "OutputShutter(" << get_param("id") << "): got action, " << val;
 
     Utils::from_string(get_param("time"), time);

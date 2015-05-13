@@ -38,6 +38,8 @@ InputSwitch::~InputSwitch()
 
 void InputSwitch::hasChanged()
 {
+    if (!isEnabled()) return;
+
     bool val = readValue();
 
     if (val != value)
@@ -59,5 +61,4 @@ void InputSwitch::emitChanges()
 
     cInfoDom("input") << get_param("id") << ": " << value;
     EmitSignalInput();
-
 }

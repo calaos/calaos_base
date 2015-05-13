@@ -46,6 +46,8 @@ OutputLightRGB::~OutputLightRGB()
 */
 bool OutputLightRGB::set_value(std::string val)
 {
+    if (!isEnabled()) return true;
+
     bool ret = true;
 
     cInfoDom("output") << "OutputLightRGB(" << get_param("id") << "): got action, " << val;

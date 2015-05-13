@@ -38,7 +38,13 @@ private:
     AutoScenario *ascenario = nullptr;
 
 public:
-    IOBase(Params &p): param(p), auto_sc_mark(false) { cInfoDom("input") << "IOBASE"; }
+    IOBase(Params &p):
+        param(p),
+        auto_sc_mark(false)
+    {
+        if (!param.Exists("enabled"))
+            param.Add("enabled", "true");
+    }
     virtual ~IOBase() { /* nothing */ }
 
     virtual DATA_TYPE get_type() = 0;
@@ -71,6 +77,8 @@ public:
 
     void setAutoScenarioPtr(AutoScenario *sc) { ascenario = sc; }
     AutoScenario *getAutoScenarioPtr() { return ascenario; }
+
+    bool isEnabled() { return param["enabled"] == "true"; }
 };
 
 }

@@ -106,6 +106,8 @@ void InputAnalog::emitChange()
 
 void InputAnalog::hasChanged()
 {
+    if (!isEnabled()) return;
+
     readConfig();
 
     double sec = ecore_time_get() - timer;
@@ -139,6 +141,8 @@ double InputAnalog::get_value_double()
 
 void InputAnalog::force_input_double(double v)
 {
+    if (!isEnabled()) return;
+
     if (wago_value_max > 0 && real_value_max > 0)
         value = v * wago_value_max / real_value_max;
     else

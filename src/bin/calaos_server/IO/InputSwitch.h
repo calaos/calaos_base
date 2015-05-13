@@ -44,6 +44,8 @@ public:
     virtual bool get_value_bool() { return value; }
     virtual void force_input_bool(bool v)
     {
+        if (!isEnabled()) return;
+
         value = v;
         emitChanges();
     }

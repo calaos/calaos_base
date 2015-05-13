@@ -55,6 +55,8 @@ void OutputString::emitChange()
 
 bool OutputString::set_value(string val)
 {
+    if (!isEnabled()) return true;
+
     readConfig();
 
     set_value_real(val);

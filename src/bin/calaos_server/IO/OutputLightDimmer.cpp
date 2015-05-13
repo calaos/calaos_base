@@ -59,6 +59,8 @@ OutputLightDimmer::~OutputLightDimmer()
 */
 bool OutputLightDimmer::set_value(std::string val)
 {
+    if (!isEnabled()) return true;
+
     bool ret = true;
 
     cInfoDom("output") << get_param("id") << ": got action, " << val;
