@@ -35,7 +35,7 @@ private:
     TimeRangeInfos range_infos;
     bool is_edit = false; //true if range is edited from an existing one
 
-    Evas_Object *schedule_list, *month_list;
+    Evas_Object *schedule_list = nullptr, *month_list = nullptr;
 
     GenlistItemSimple *item_all;
     vector<GenlistItemSimple *> items_months;
