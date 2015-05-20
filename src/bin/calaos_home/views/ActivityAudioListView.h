@@ -45,7 +45,7 @@ private:
     vector<ActivityPlayerObject> players;
     ActivityPlayerObject *player_current;
 
-    Evas_Object *gplaylist = nullptr;
+    Evas_Object *gplaylist;
 
     Evas_Object *pager_browser;
     EdjeObject *browser_root;

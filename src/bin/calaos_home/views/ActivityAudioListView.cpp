@@ -57,6 +57,12 @@ ActivityAudioListView::ActivityAudioListView(Evas *_e, Evas_Object *_parent):
     addCallback("button.browser.back", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserButtonBack));
     addCallback("button.browser.root", "pressed", sigc::mem_fun(*this, &ActivityAudioListView::browserButtonRoot));
 
+    gplaylist = elm_genlist_add(parent);
+    Swallow(gplaylist, "playlist.swallow");
+    elm_object_style_set(gplaylist, "calaos");
+    elm_genlist_homogeneous_set(gplaylist, true);
+    evas_object_show(gplaylist);
+
     pager_browser = elm_naviframe_add(parent);
     evas_object_show(pager_browser);
     Swallow(pager_browser, "browser.swallow");

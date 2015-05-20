@@ -30,6 +30,18 @@ ActivityScenariosView::ActivityScenariosView(Evas *_e, Evas_Object *_parent):
 
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityScenariosView::buttonPressed));
 
+    schedule_list = elm_genlist_add(parent);
+    Swallow(schedule_list, "scenario_schedule.list");
+    elm_object_style_set(schedule_list, "calaos");
+    elm_genlist_homogeneous_set(schedule_list, true);
+    evas_object_show(schedule_list);
+
+    scenario_list = elm_genlist_add(parent);
+    Swallow(scenario_list, "scenario.list");
+    elm_object_style_set(scenario_list, "calaos");
+    elm_genlist_homogeneous_set(scenario_list, true);
+    evas_object_show(scenario_list);
+
     Evas_Object *btn = edje_object_part_external_object_get(edje, "button.calendar.today");
     elm_object_text_set(btn, _("Today"));
 
@@ -167,13 +179,7 @@ void ActivityScenariosView::buttonPressed(void *data, Evas_Object *_edje, std::s
 
 void ActivityScenariosView::loadScenarioList()
 {
-    DELETE_NULL_FUNC(evas_object_del, scenario_list);
-    scenario_list = elm_genlist_add(parent);
-    Swallow(scenario_list, "scenario.list");
-    elm_object_style_set(scenario_list, "calaos");
-    elm_genlist_homogeneous_set(scenario_list, true);
-    evas_object_show(scenario_list);
-
+    elm_genlist_clear(scenario_list);
     GenlistItemScenarioHeader *headerLight = NULL, *headerShutter = NULL, *headerOther = NULL;
 
     if (view_mode == VIEW_MODE_ALL ||
@@ -258,12 +264,7 @@ void ActivityScenariosView::loadScenarioList()
 
 void ActivityScenariosView::reloadCalendar()
 {
-    DELETE_NULL_FUNC(evas_object_del, schedule_list);
-    schedule_list = elm_genlist_add(parent);
-    Swallow(schedule_list, "scenario_schedule.list");
-    elm_object_style_set(schedule_list, "calaos");
-    elm_genlist_homogeneous_set(schedule_list, true);
-    evas_object_show(schedule_list);
+    elm_genlist_clear(schedule_list);
 
     string weekday;
     switch (currDate.tm_wday)

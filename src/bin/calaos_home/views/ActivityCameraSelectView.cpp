@@ -30,6 +30,12 @@ ActivityCameraSelectView::ActivityCameraSelectView(Evas *_e, Evas_Object *_paren
 {
     addCallback("camera", "*", sigc::mem_fun(*this, &ActivityCameraSelectView::EdjeCallback));
 
+    list_item = elm_genlist_add(parent);
+    Swallow(list_item, "list.swallow");
+    elm_object_style_set(list_item, "calaos");
+    elm_genlist_select_mode_set(list_item, ELM_OBJECT_SELECT_MODE_ALWAYS);
+    evas_object_show(list_item);
+
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityCameraSelectView::ButtonCallback));
 }
 
@@ -105,13 +111,7 @@ void ActivityCameraSelectView::setCamera(Camera *cam)
         EmitSignal("zoom,false", "calaos");
 
     Room *room = cam->getRoom();
-
-    DELETE_NULL_FUNC(evas_object_del, list_item);
-    list_item = elm_genlist_add(parent);
-    Swallow(list_item, "list.swallow");
-    elm_object_style_set(list_item, "calaos");
-    elm_genlist_select_mode_set(list_item, ELM_OBJECT_SELECT_MODE_ALWAYS);
-    evas_object_show(list_item);
+    elm_genlist_clear(list_item);
 
     if (!room) return;
 
