@@ -34,6 +34,12 @@ ActivityScheduleScenarioView::ActivityScheduleScenarioView(Evas *_e, Evas_Object
 
     addCallback("button.*", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::buttonPressed));
 
+    schedule_list = elm_genlist_add(parent);
+    Swallow(schedule_list, "schedule.list");
+    elm_object_style_set(schedule_list, "calaos");
+    elm_genlist_homogeneous_set(schedule_list, true);
+    evas_object_show(schedule_list);
+
     month_list = elm_genlist_add(parent);
     Swallow(month_list, "month.list");
     elm_object_style_set(month_list, "calaos");
@@ -667,12 +673,7 @@ void ActivityScheduleScenarioView::unselectAllWeekDays(void *data)
 
 void ActivityScheduleScenarioView::reloadTimeRanges()
 {
-    DELETE_NULL_FUNC(evas_object_del, schedule_list);
-    schedule_list = elm_genlist_add(parent);
-    Swallow(schedule_list, "schedule.list");
-    elm_object_style_set(schedule_list, "calaos");
-    elm_genlist_homogeneous_set(schedule_list, true);
-    evas_object_show(schedule_list);
+    elm_genlist_clear(schedule_list);
 
     vector<TimeRange> trange_sorted;
     auto sortTimeRange = [&trange_sorted](const vector<TimeRange> &range, int day)
