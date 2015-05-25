@@ -413,7 +413,7 @@ void HttpClient::DataWritten(int size)
 
 void HttpClient::CloseConnection()
 {
-    delete closeTimer;
+    DELETE_NULL(closeTimer);
 
     cDebugDom("network") << "Closing connection";
     ecore_con_client_del(client_conn);
