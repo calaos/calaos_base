@@ -30,11 +30,14 @@ GpioOutputSwitch::GpioOutputSwitch(Params &p):
     OutputLight(p)
 {
     int gpio_nb;
+    bool active_low;
+
     Utils::from_string(get_param("gpio"), gpio_nb);
+    Utils::from_string(get_param("active_low"), active_low);
 
     gpioctrl = new GpioCtrl(gpio_nb);
     gpioctrl->setDirection("out");
-
+    gpioctrl->setActiveLow(active_low);
 }
 
 GpioOutputSwitch::~GpioOutputSwitch()

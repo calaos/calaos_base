@@ -22,14 +22,14 @@
 
 using namespace Calaos;
 
-GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
+GpioCtrl::GpioCtrl(int _gpionum,double _debounce_time)
 {
     fd_handler = NULL;
     debounce = false;
     debounce_time = _debounce_time;
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
-    cDebugDom("input") << "Create GpioCtrl for " <<gpionum_str;
+    cDebugDom("input") << "Create GpioCtrl for " << gpionum_str;
     exportGpio();
     fd = -1;
 }
@@ -67,7 +67,7 @@ int GpioCtrl::readFile(string path, string &value)
         cErrorDom("input") << "Unable to read file " << strerror(errno);
         return false;
     }
-    
+
     ifspath >> value;
     ifspath.close();
 
@@ -97,6 +97,14 @@ bool GpioCtrl::setEdge(string direction)
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/edge";
     return writeFile(path, direction);
 }
+
+// Set GPIO active low : "1" for active_low "0", for active_high (standard behaviour)
+bool GpioCtrl::setActiveLow(bool active_low)
+{
+    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/active_low";
+    return writeFile(path, active_low ? "1" : "0");
+}
+
 
 bool GpioCtrl::setVal(bool value)
 {
@@ -161,7 +169,7 @@ void GpioCtrl::emitChange(void)
     memset(buf, 0, 2);
     read(fd, buf, 1);
 
-   
+
     if (debounce)
     {
         cInfoDom("input") << "debouncing....";
@@ -177,14 +185,14 @@ void GpioCtrl::emitChange(void)
             event_signal.emit();
         });
     }
-    
+
 }
 
 bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 {
     string strval;
     string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
-   
+
     if (fd == -1)
     {
         fd = open(path.c_str(), O_RDONLY);

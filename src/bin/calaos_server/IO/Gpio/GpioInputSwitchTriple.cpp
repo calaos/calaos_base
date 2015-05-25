@@ -32,11 +32,14 @@ GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
     gpioctrl(NULL)
 {
     int gpio_nb;
+    bool active_low;
 
     Utils::from_string(get_param("gpio"), gpio_nb);
+    Utils::from_string(get_param("active_low"), active_low);
 
     gpioctrl = new GpioCtrl(gpio_nb);
     gpioctrl->setDirection("in");
+    gpioctrl->setActiveLow(active_low);
 
     gpioctrl->setValueChanged([=] {
             gpioctrl->getVal(val);
@@ -58,5 +61,3 @@ bool GpioInputSwitchTriple::readValue()
     cInfoDom("Input") << "Read Value : " << val;
     return val;
 }
-
-

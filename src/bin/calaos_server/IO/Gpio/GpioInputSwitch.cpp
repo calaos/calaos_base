@@ -33,12 +33,15 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
 {
     int gpio_nb;
     double debounce;
+    bool active_low = false;
 
     Utils::from_string(get_param("gpio"), gpio_nb);
     Utils::from_string(get_param("debounce"), debounce);
+    Utils::from_string(get_param("active_low"), active_low);
 
     gpioctrl = new GpioCtrl(gpio_nb, debounce);
     gpioctrl->setDirection("in");
+    gpioctrl->setActiveLow(active_low);
 
     gpioctrl->setValueChanged([=] {
             gpioctrl->getVal(val);
@@ -46,7 +49,7 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
             cInfoDom("Input") << "Input value changed, new value : " << value;
         });
 
-    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb;
+    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb << " active_low : " << active_low;
 }
 
 GpioInputSwitch::~GpioInputSwitch()
@@ -60,5 +63,3 @@ bool GpioInputSwitch::readValue()
     cInfoDom("Input") << "Read Value : " << val;
     return val;
 }
-
-

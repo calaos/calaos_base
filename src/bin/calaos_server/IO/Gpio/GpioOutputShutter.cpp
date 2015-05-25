@@ -31,15 +31,22 @@ GpioOutputShutter::GpioOutputShutter(Params &p):
     OutputShutter(p)
 {
     int up_address, down_address;
+    bool active_low_up, active_low_down;
 
     Utils::from_string(get_param("gpio_up"), up_address);
     Utils::from_string(get_param("gpio_down"), down_address);
 
+    Utils::from_string(get_param("active_low_up"), active_low_up);
+    Utils::from_string(get_param("active_low_down"), active_low_down);
+
     gpioctrl_up = new GpioCtrl(up_address);
     gpioctrl_up->setDirection("out");
+    gpioctrl_up->setActiveLow(active_low_up);
+
 
     gpioctrl_down = new GpioCtrl(down_address);
     gpioctrl_down->setDirection("out");
+    gpioctrl_down->setActiveLow(active_low_down);
 }
 
 GpioOutputShutter::~GpioOutputShutter()
@@ -57,4 +64,3 @@ void GpioOutputShutter::setOutputDown(bool enable)
 {
     gpioctrl_down->setVal(enable);
 }
-
