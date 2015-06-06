@@ -47,7 +47,7 @@ GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
             cInfoDom("Input") << "Input value changed, new value : " << val;
         });
 
-    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb;
+    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb << " active_low : " << active_low;
 }
 
 GpioInputSwitchTriple::~GpioInputSwitchTriple()

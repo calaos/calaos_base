@@ -38,6 +38,8 @@ GpioOutputSwitch::GpioOutputSwitch(Params &p):
     gpioctrl = new GpioCtrl(gpio_nb);
     gpioctrl->setDirection("out");
     gpioctrl->setActiveLow(active_low);
+
+    cInfoDom("Output") << "Create gpio output for gpio " << gpio_nb << " active_low : " << active_low;
 }
 
 GpioOutputSwitch::~GpioOutputSwitch()

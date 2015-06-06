@@ -32,8 +32,10 @@ GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
     gpioctrl(NULL)
 {
     int gpio_nb;
+    bool active_low = false;
 
     Utils::from_string(get_param("gpio"), gpio_nb);
+    Utils::from_string(get_param("active_low"), active_low);
 
     gpioctrl = new GpioCtrl(gpio_nb);
     gpioctrl->setDirection("in");
@@ -44,7 +46,7 @@ GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
             cInfoDom("Input") << "Input value changed, new value : " << val;
         });
 
-    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb;
+    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb << " active_low : " << active_low;
 }
 
 GpioInputSwitchLongPress::~GpioInputSwitchLongPress()
