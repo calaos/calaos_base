@@ -35,7 +35,8 @@ AM_CPPFLAGS =                                                 \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
         @LIBUSB_CFLAGS@                                       \
-        @LIBOLA_CFLAGS@
+        @LIBOLA_CFLAGS@                                       \
+	@LIBOPENZWAVE_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -172,7 +173,11 @@ calaos_server_SOURCES = \
         IO/OneWire/OWCtrl.h                             \
         IO/OneWire/OWTemp.cpp                           \
         IO/OneWire/OWTemp.h                             \
-        IO/OutputAnalog.cpp                             \
+        IO/OpenZwave/OpenZwaveCtrl.cpp                  \
+        IO/OpenZwave/OpenZwaveCtrl.h                    \
+	IO/OpenZwave/OpenZwaveOutputShutter.cpp 	\
+	IO/OpenZwave/OpenZwaveOutputShutter.h	 	\
+	IO/OutputAnalog.cpp                             \
         IO/OutputAnalog.h                               \
         IO/OutputFake.cpp                               \
         IO/OutputFake.h                                 \
@@ -366,5 +371,18 @@ calaos_ola_SOURCES = \
 calaos_ola_LDADD = \
     @CALAOS_SERVER_LIBS@ \
     @LIBOLA_LIBS@ \
+    $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+if HAVE_LIBOPENZWAVE
+bin_PROGRAMS += calaos_openzwave
+calaos_openzwave_SOURCES = \
+    IO/ExternProc.cpp				\
+    IO/ExternProc.h  				\
+    IO/OpenZwave/OpenZwaveExternProc_main.cpp
+
+calaos_openzwave_LDADD = \
+    @CALAOS_SERVER_LIBS@ \
+    @LIBOPENZWAVE_LIBS@ \
     $(top_builddir)/src/lib/libcalaos_common.la
 endif

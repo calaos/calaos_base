@@ -161,6 +161,13 @@ then
      AC_DEFINE([HAVE_LIBOLA], [1], [libola])
 fi
 
+have_libopenzwave="no"
+PKG_CHECK_MODULES([LIBOPENZWAVE], [libopenzwave], [have_libopenzwave="yes"], [have_libopenzwave="no"])
+AM_CONDITIONAL([HAVE_LIBOPENZWAVE], [test "x${have_libopenzwave}" = "xyes"])
+if test "x${have_libopenzwave}" == "xyes"
+then
+     AC_DEFINE([HAVE_LIBOPENZWAVE], [1], [libopenzwave])
+fi
 
 # Configure pthreads.
 ACX_PTHREAD([have_pthread=yes])
@@ -248,5 +255,6 @@ echo " EWebkit support.......................: ${have_ewebkit}"
 echo " Ecore_X support.......................: ${have_ecore_x}"
 echo " Libusb support........................: ${have_libusb}"
 echo " Open Lightning Architecture support...: ${have_libola}"
+echo " Open Zwave ...........................: ${have_libopenzwave}"
 
 echo
