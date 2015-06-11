@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ListeRoom.h>
-#include <IPC.h>
-#include <AutoScenario.h>
-#include <CalaosConfig.h>
+#include "ListeRoom.h"
+#include "AutoScenario.h"
+#include "CalaosConfig.h"
 
 using namespace Calaos;
 
@@ -563,18 +562,16 @@ Input* ListeRoom::createInput(Params param, Room *room)
         InputTimer *o = dynamic_cast<InputTimer *> (input);
         if (o) room->AddOutput(o);
 
-        string sig = "new_input id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
 
         //Also new output
-        sig = "new_output id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventOutputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
     }
     else if (param["type"] == "scenario")
     {
@@ -586,18 +583,16 @@ Input* ListeRoom::createInput(Params param, Room *room)
         Scenario *o = dynamic_cast<Scenario *> (input);
         if (o) room->AddOutput(o);
 
-        string sig = "new_input id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
 
         //Also new output
-        sig = "new_output id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventOutputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
     }
     else if (param["type"] == "InternalBool" || param["type"] == "InternalInt" || param["type"] == "InternalString")
     {
@@ -611,18 +606,16 @@ Input* ListeRoom::createInput(Params param, Room *room)
         Internal *o = dynamic_cast<Internal *> (input);
         if (o) room->AddOutput(o);
 
-        string sig = "new_input id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
 
         //Also new output
-        sig = "new_output id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventOutputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
     }
     else
     {
@@ -630,11 +623,10 @@ Input* ListeRoom::createInput(Params param, Room *room)
         input = IOFactory::Instance().CreateInput(type, param);
         if (input) room->AddInput(input);
 
-        string sig = "new_input id:";
-        sig += param["id"] + " ";
-        sig += url_encode(string("room_name:") + room->get_name()) + " ";
-        sig += url_encode(string("room_type:") + room->get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputAdded,
+                             { { "id", param["id"] },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
     }
 
     return input;
@@ -652,11 +644,10 @@ Output* ListeRoom::createOutput(Params param, Room *room)
     output = IOFactory::Instance().CreateOutput(type, param);
     if (output) room->AddOutput(output);
 
-    string sig = "new_output id:";
-    sig += param["id"] + " ";
-    sig += url_encode(string("room_name:") + room->get_name()) + " ";
-    sig += url_encode(string("room_type:") + room->get_type());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputAdded,
+                         { { "id", param["id"] },
+                           { "room_name", room->get_name() },
+                           { "room_type", room->get_type() } });
 
     return output;
 }

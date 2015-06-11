@@ -18,11 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Scenario.h>
-#include <IPC.h>
-#include <AutoScenario.h>
-#include <EcoreTimer.h>
-#include <IOFactory.h>
+#include "Scenario.h"
+#include "AutoScenario.h"
+#include "EcoreTimer.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -61,13 +60,9 @@ void Scenario::force_input_bool(bool v)
     value = v;
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += Input::get_param("id") + " ";
-    if (v)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", v?"true":"false" } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
     EcoreTimer::singleShot(0.250, [=]() { value = false; });
@@ -79,13 +74,9 @@ bool Scenario::set_value(bool val)
 
     force_input_bool(val);
 
-    string sig = "output ";
-    sig += Input::get_param("id") + " ";
-    if (val)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", val?"true":"false" } });
 
     return true;
 }

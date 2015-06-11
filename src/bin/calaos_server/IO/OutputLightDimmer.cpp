@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputLightDimmer.h>
-#include <IPC.h>
+#include "OutputLightDimmer.h"
 
 using namespace Calaos;
 
@@ -274,11 +273,10 @@ bool OutputLightDimmer::set_off_real()
 }
 
 void OutputLightDimmer::emitChange()
-{
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+{   
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 }
 
 void OutputLightDimmer::HoldPress_cb()

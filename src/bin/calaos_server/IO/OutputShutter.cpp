@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputShutter.h>
-#include <IPC.h>
+#include "OutputShutter.h"
 
 using namespace Calaos;
 
@@ -115,10 +114,9 @@ bool OutputShutter::set_value(std::string val)
 
     EmitSignalOutput();
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 
     return true;
 }
@@ -361,10 +359,9 @@ void OutputShutter::TimerEnd()
     Stop();
     cmd_state = t;
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 }
 
 void OutputShutter::TimerImpulse()

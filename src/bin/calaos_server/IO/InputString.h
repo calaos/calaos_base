@@ -21,8 +21,8 @@
 #ifndef S_InputString_H
 #define S_InputString_H
 
-#include <Calaos.h>
-#include <Input.h>
+#include "Calaos.h"
+#include "Input.h"
 
 namespace Calaos
 {

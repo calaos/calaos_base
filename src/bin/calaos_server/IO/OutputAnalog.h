@@ -21,9 +21,9 @@
 #ifndef S_OutputAnalog_H
 #define S_OutputAnalog_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <WagoMap.h>
+#include "Calaos.h"
+#include "Output.h"
+#include "WagoMap.h"
 
 namespace Calaos
 {

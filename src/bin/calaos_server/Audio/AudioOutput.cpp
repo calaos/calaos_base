@@ -18,9 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AudioOutput.h>
-#include <AudioPlayer.h>
-#include <IPC.h>
+#include "AudioOutput.h"
+#include "AudioPlayer.h"
+#include "EventManager.h"
 
 using namespace Calaos;
 
@@ -110,10 +110,9 @@ bool AudioOutput::set_value(std::string value)
         player->get_volume(sigc::mem_fun(*this, &AudioOutput::get_volume_cb), data);
     }
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += url_encode(string("state:") + value);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", value } });
 
     return true;
 }

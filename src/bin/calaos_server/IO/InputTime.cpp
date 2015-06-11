@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputTime.h>
-#include <IPC.h>
-#include <ListeRule.h>
-#include <IOFactory.h>
+#include "InputTime.h"
+#include "ListeRule.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -103,12 +102,8 @@ void InputTime::hasChanged()
         value = val;
         EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        if (val)
-            sig += Utils::url_encode("state:true");
-        else
-            sig += Utils::url_encode("state:false");
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", get_param("id") },
+                               { "state", val?"true":"false" } });
     }
 }

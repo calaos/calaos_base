@@ -18,11 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Room.h>
-#include <ListeRule.h>
-#include <ListeRoom.h>
-#include <IPC.h>
-#include <AVReceiver.h>
+#include "Room.h"
+#include "ListeRule.h"
+#include "ListeRoom.h"
+#include "AVReceiver.h"
 
 using namespace Calaos;
 
@@ -64,11 +63,10 @@ void Room::AddOutput(Output *out)
 
 void Room::RemoveInput(int pos, bool del)
 {
-    string sig = "delete_input ";
-    sig += inputs[pos]->get_param("id") + " ";
-    sig += url_encode(string("room_name:") + name) + " ";
-    sig += url_encode(string("room_type:") + type);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputDeleted,
+                         { { "id", inputs[pos]->get_param("id") },
+                           { "room_name", get_name() },
+                           { "room_type", get_type() } });
 
     vector<Input *>::iterator iter = inputs.begin();
     for (int i = 0;i < pos;iter++, i++) ;
@@ -80,11 +78,10 @@ void Room::RemoveInput(int pos, bool del)
 
 void Room::RemoveOutput(int pos, bool del)
 {
-    string sig = "delete_output ";
-    sig += outputs[pos]->get_param("id") + " ";
-    sig += url_encode(string("room_name:") + name) + " ";
-    sig += url_encode(string("room_type:") + type);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputDeleted,
+                         { { "id", outputs[pos]->get_param("id") },
+                           { "room_name", get_name() },
+                           { "room_type", get_type() } });
 
     vector<Output *>::iterator iter = outputs.begin();
     for (int i = 0;i < pos;iter++, i++) ;
@@ -101,11 +98,10 @@ void Room::RemoveInputFromRoom(Input *in)
     {
         inputs.erase(it);
 
-        string sig = "modify_room ";
-        sig += url_encode(string("input_del:") + in->get_param("id")) + " ";
-        sig += url_encode(string("room_name:") + get_name()) + " ";
-        sig += url_encode(string("room_type:") + get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventRoomChanged,
+                             { { "input_id_deleted", in->get_param("id") },
+                               { "room_name", get_name() },
+                               { "room_type", get_type() } });
     }
 }
 
@@ -116,44 +112,40 @@ void Room::RemoveOutputFromRoom(Output *out)
     {
         outputs.erase(it);
 
-        string sig = "modify_room ";
-        sig += url_encode(string("output_del:") + out->get_param("id")) + " ";
-        sig += url_encode(string("room_name:") + get_name()) + " ";
-        sig += url_encode(string("room_type:") + get_type());
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventRoomChanged,
+                             { { "output_id_deleted", out->get_param("id") },
+                               { "room_name", get_name() },
+                               { "room_type", get_type() } });
     }
 }
 
 void Room::set_name(std::string &s)
 {
-    string sig = "modify_room ";
-    sig += url_encode(string("old_room_name:") + name) + " ";
-    sig += url_encode(string("new_room_name:") + s) + " ";
-    sig += url_encode(string("room_type:") + type);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventRoomChanged,
+                         { { "old_room_name", get_name() },
+                           { "new_room_name", s },
+                           { "room_type", get_type() } });
 
     name = s;
 }
 
 void Room::set_type(std::string &s)
 {
-    string sig = "modify_room ";
-    sig += url_encode(string("old_room_type:") + type) + " ";
-    sig += url_encode(string("new_room_type:") + s) + " ";
-    sig += url_encode(string("room_name:") + name);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventRoomChanged,
+                         { { "old_room_type", get_type() },
+                           { "new_room_type", s },
+                           { "room_name", get_name() } });
 
     type = s;
 }
 
 void Room::set_hits(int h)
 {
-    string sig = "modify_room ";
-    sig += url_encode(string("old_room_hits:") + Utils::to_string(hits)) + " ";
-    sig += url_encode(string("new_room_hits:") + Utils::to_string(h)) + " ";
-    sig += url_encode(string("room_name:") + name) + " ";
-    sig += url_encode(string("room_type:") + type);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventRoomChanged,
+                         { { "old_room_hits", Utils::to_string(hits) },
+                           { "new_room_hits", Utils::to_string(h) },
+                           { "room_name", get_name() },
+                           { "room_type", get_type() } });
 
     hits = h;
 }

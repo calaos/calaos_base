@@ -21,10 +21,10 @@
 #ifndef S_INPUTTIMER_H
 #define S_INPUTTIMER_H
 
-#include <Calaos.h>
-#include <Input.h>
-#include <Output.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Input.h"
+#include "Output.h"
+#include "EcoreTimer.h"
 
 namespace Calaos
 {

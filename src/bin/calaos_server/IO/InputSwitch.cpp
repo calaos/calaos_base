@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputSwitch.h>
-#include <IPC.h>
+#include "InputSwitch.h"
 
 using namespace Calaos;
 
@@ -51,13 +50,9 @@ void InputSwitch::hasChanged()
 
 void InputSwitch::emitChanges()
 {
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    if (value)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", value?"true":"false" } });
 
     cInfoDom("input") << get_param("id") << ": " << value;
     EmitSignalInput();

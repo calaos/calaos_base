@@ -18,11 +18,12 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Squeezebox.h>
-#include <SqueezeboxDB.h>
-#include <AudioManager.h>
-#include <FileDownloader.h>
-#include <IOFactory.h>
+#include "Squeezebox.h"
+#include "SqueezeboxDB.h"
+#include "AudioManager.h"
+#include "FileDownloader.h"
+#include "IOFactory.h"
+#include "EventManager.h"
 
 // The JSON parser
 #include <jansson.h>
@@ -102,7 +103,6 @@ Squeezebox::Squeezebox(Params &p):
     AudioPlayer(p),
     enotif(NULL),
     econ(NULL),
-    econ_udp(NULL),
     ehandler_add(NULL),
     ehandler_del(NULL),
     ehandler_data(NULL),
@@ -137,8 +137,6 @@ Squeezebox::Squeezebox(Params &p):
     ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
     ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
 
-    econ_udp = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
-
     timerConnReconnect();
     timerNotificationReconnect();
 
@@ -163,7 +161,6 @@ Squeezebox::~Squeezebox()
 
     ecore_con_server_del(enotif);
     ecore_con_server_del(econ);
-    ecore_con_server_del(econ_udp);
 
     ecore_event_handler_del(ehandler_add);
     ecore_event_handler_del(ehandler_del);
@@ -366,87 +363,60 @@ void Squeezebox::processNotificationMessage(string msg)
     {
         if (p["2"] == "open" || p["2"] == "newsong") //current song changes !
         {
-            string notify = "songchanged player " + Utils::to_string(pid);
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioSongChange);
 
-            string sig = "audio ";
-            sig += get_param("pid") + " songchanged";
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioSongChanged,
+                                 { { "player_id", get_param("pid") } });
         }
         else if (p["2"] == "move")
         {
-            string notify = "playlist move " + p["3"] + " " + p["4"] + " " + Utils::to_string(pid);;
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioPlaylistChange);
 
-            string sig = "audio_playlist ";
-            sig += get_param("pid") + " playlist move " + p["3"] + " " + p["4"];
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioPlaylistMove,
+                                 { { "player_id", get_param("pid") },
+                                   { "from", p["3"] },
+                                   { "to", p["4"] } });
         }
         else if (p["2"] == "delete")
         {
-            string notify = "playlist delete " + p["3"] + " " + Utils::to_string(pid);;
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioPlaylistChange);
 
-            string sig = "audio_playlist ";
-            sig += get_param("pid") + " playlist delete " + p["3"];
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioPlaylistDelete,
+                                 { { "player_id", get_param("pid") },
+                                   { "pos", p["3"] } });
         }
         else if (p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play" || p["2"] == "load")
         {
-            string notify = "playlist reload " + Utils::to_string(pid);;
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioPlaylistChange);
 
-            string sig = "audio_playlist ";
-            sig += get_param("pid") + " playlist reload";
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioPlaylistReload,
+                                 { { "player_id", get_param("pid") } });
         }
         else if (p["2"] == "addtracks" || p["2"] == "add")
         {
-            string notify = "playlist tracksadded " + Utils::to_string(pid);;
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioPlaylistChange);
 
-            string sig = "audio_playlist ";
-            sig += get_param("pid") + " playlist tracksadded";
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioPlaylistAdd,
+                                 { { "player_id", get_param("pid") } });
         }
         else if (p["2"] == "clear")
         {
-            string notify = "playlist cleared " + Utils::to_string(pid);;
-
-            ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
             //notify the player's input
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioPlaylistChange);
 
-            string sig = "audio_playlist ";
-            sig += get_param("pid") + " playlist cleared";
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioPlaylistCleared,
+                                 { { "player_id", get_param("pid") } });
         }
         else if (p["2"] == "pause")
         {
@@ -460,15 +430,15 @@ void Squeezebox::processNotificationMessage(string msg)
                     ain->set_status(AudioPause);
             }
 
-            string sig = "audio_status ";
-            sig += get_param("pid") + " ";
-
+            string state;
             if (p["3"] == "" || p["3"] == "0")
-                sig += "play";
+                state = "play";
             else
-                sig += "pause";
+                state = "pause";
 
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioStatusChanged,
+                                 { { "player_id", get_param("pid") },
+                                   { "state", state } });
         }
         else if (p["2"] == "stop")
         {
@@ -476,26 +446,22 @@ void Squeezebox::processNotificationMessage(string msg)
             AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
             if (ain) ain->set_status(AudioStop);
 
-            string sig = "audio_status ";
-            sig += get_param("pid") + " stop";
-            IPC::Instance().SendEvent("events", sig);
+            EventManager::create(CalaosEvent::EventAudioStatusChanged,
+                                 { { "player_id", get_param("pid") },
+                                   { "state", "stop" } });
         }
     }
 
     //volume change
     if (p["1"] == "mixer" && p["2"] == "volume")
     {
-        string notify = "volumechanged " + Utils::to_string(pid) + " " + p["3"];
-
-        ecore_con_server_send(econ_udp, notify.c_str(), notify.size());
-
         //notify the player's input
         AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
         if (ain) ain->set_status(AudioVolumeChange);
 
-        string sig = "audio_volume ";
-        sig += get_param("pid") + " change " + p["3"];
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventAudioVolumeChanged,
+                             { { "player_id", get_param("pid") },
+                               { "volume", p["3"] } });
     }
 }
 

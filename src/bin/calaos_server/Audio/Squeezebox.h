@@ -21,11 +21,11 @@
 #ifndef S_SQUEEZEBOX_H
 #define S_SQUEEZEBOX_H
 
-#include <Calaos.h>
-#include <AudioPlayer.h>
-#include <EcoreTimer.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
+#include "Calaos.h"
+#include "AudioPlayer.h"
+#include "EcoreTimer.h"
+#include "Ecore.h"
+#include "Ecore_Con.h"
 
 namespace Calaos
 {
@@ -63,7 +63,6 @@ class Squeezebox: public AudioPlayer, public sigc::trackable
 protected:
     Ecore_Con_Server *enotif;
     Ecore_Con_Server *econ;
-    Ecore_Con_Server *econ_udp;
 
     Ecore_Event_Handler *ehandler_add;
     Ecore_Event_Handler *ehandler_del;

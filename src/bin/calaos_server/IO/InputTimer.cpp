@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputTimer.h>
-#include <ListeRule.h>
-#include <IPC.h>
-#include <IOFactory.h>
+#include "InputTimer.h"
+#include "ListeRule.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -112,11 +111,9 @@ bool InputTimer::set_value(string command)
 
     if(command == "true" || command == "false")
     {
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += Utils::url_encode("state:");
-        sig += Utils::url_encode(value);
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", get_param("id") },
+                               { "state", value } });
     }
 
     return true;
@@ -158,10 +155,9 @@ void InputTimer::TimerDone()
 
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode("state:true");
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", "true" } });
 
     if (!Input::isEnabled()) return;
 

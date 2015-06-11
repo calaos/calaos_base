@@ -21,8 +21,8 @@
 #ifndef InputAnalog_H
 #define InputAnalog_H
 
-#include <Calaos.h>
-#include <Input.h>
+#include "Calaos.h"
+#include "Input.h"
 
 namespace Calaos
 {

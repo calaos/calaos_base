@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <IntValue.h>
-#include <IPC.h>
-#include <CalaosConfig.h>
-#include <IOFactory.h>
+#include "IntValue.h"
+#include "CalaosConfig.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -64,13 +63,9 @@ void Internal::force_input_bool(bool v)
 
     Save();
 
-    string sig = "input ";
-    sig += Input::get_param("id") + " ";
-    if (v)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", v?"true":"false" } });
 }
 
 bool Internal::set_value(bool val)
@@ -82,13 +77,9 @@ bool Internal::set_value(bool val)
 
     force_input_bool(val);
 
-    string sig = "output ";
-    sig += Input::get_param("id") + " ";
-    if (val)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", val?"true":"false" } });
 
     return true;
 }
@@ -102,10 +93,9 @@ void Internal::force_input_double(double v)
 
     Save();
 
-    string sig = "input ";
-    sig += Input::get_param("id") + " ";
-    sig += url_encode("state:" + Utils::to_string(dvalue));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", Utils::to_string(dvalue) } });
 }
 
 bool Internal::set_value(double val)
@@ -116,10 +106,9 @@ bool Internal::set_value(double val)
 
     force_input_double(val);
 
-    string sig = "output ";
-    sig += Input::get_param("id") + " ";
-    sig += url_encode("state:" + Utils::to_string(dvalue));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", Utils::to_string(dvalue) } });
 
     return true;
 }
@@ -133,10 +122,9 @@ void Internal::force_input_string(string v)
 
     Save();
 
-    string sig = "input ";
-    sig += Input::get_param("id") + " ";
-    sig += url_encode(string("state:") + Utils::to_string(svalue));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", Input::get_param("id") },
+                           { "state", svalue } });
 }
 
 bool Internal::set_value(string val)
@@ -201,10 +189,9 @@ bool Internal::set_value(string val)
 
         force_input_string(val);
 
-        string sig = "output ";
-        sig += Input::get_param("id") + " ";
-        sig += url_encode(string("state:") + Utils::to_string(svalue));
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventOutputChanged,
+                             { { "id", Input::get_param("id") },
+                               { "state", svalue } });
     }
     else if (get_type() == TBOOL)
     {

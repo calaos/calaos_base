@@ -24,7 +24,7 @@
 #include "Output.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
-#include <EcoreTimer.h>
+#include "EcoreTimer.h"
 
 using namespace Calaos;
 

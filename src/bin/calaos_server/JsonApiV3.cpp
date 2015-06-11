@@ -36,10 +36,18 @@
 JsonApiV3::JsonApiV3(HttpClient *client):
     JsonApi(client)
 {
+    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiV3::handleEvents));
 }
 
 JsonApiV3::~JsonApiV3()
 {
+}
+
+void JsonApiV3::handleEvents(const CalaosEvent &event)
+{
+    cDebugDom("network") << "Handling event: " << event.toString();
+
+    sendJson("event", event.toJson());
 }
 
 void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &client_id)
@@ -49,7 +57,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
     if (client_id != "")
         json_object_set_new(jroot, "msg_id", json_string(client_id.c_str()));
     if (data)
-        json_object_set(jroot, "data", data);
+        json_object_set_new(jroot, "data", data);
 
     char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)

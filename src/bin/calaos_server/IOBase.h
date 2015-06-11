@@ -21,7 +21,8 @@
 #ifndef S_IOBASE_H
 #define S_IOBASE_H
 
-#include <Calaos.h>
+#include "Calaos.h"
+#include "EventManager.h"
 
 namespace Calaos
 {

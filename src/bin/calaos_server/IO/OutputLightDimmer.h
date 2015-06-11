@@ -21,9 +21,9 @@
 #ifndef S_OutputLightDimmer_H
 #define S_OutputLightDimmer_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Output.h"
+#include "EcoreTimer.h"
 
 namespace Calaos
 {

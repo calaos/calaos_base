@@ -21,9 +21,9 @@
 #ifndef INPUTSWITCHLONG_H
 #define INPUTSWITCHLONG_H
 
-#include <Calaos.h>
-#include <Input.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Input.h"
+#include "EcoreTimer.h"
 
 namespace Calaos
 {

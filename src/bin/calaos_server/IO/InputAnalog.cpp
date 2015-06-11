@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputAnalog.h>
-#include <ListeRule.h>
-#include <IPC.h>
-#include <Ecore.h>
+#include "InputAnalog.h"
+#include "ListeRule.h"
+#include "Ecore.h"
 #include "CalaosConfig.h"
 
 using namespace Calaos;
@@ -96,10 +95,9 @@ void InputAnalog::emitChange()
 {
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", Utils::to_string(get_value_double()) } });
 
     cInfoDom("input") << get_param("id") << ": " << get_value_double();
 }

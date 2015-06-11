@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputLightRGB.h>
-#include <IPC.h>
+#include "OutputLightRGB.h"
 
 using namespace Calaos;
 
@@ -263,10 +262,10 @@ void OutputLightRGB::emitChange()
             (color.getGreen() << 8) +
             color.getBlue()):0;
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(v));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", state?color.toString():"0" },
+                           { "state_int", Utils::to_string(v) } });
 }
 
 void OutputLightRGB::setColor(const ColorValue &c, bool s)

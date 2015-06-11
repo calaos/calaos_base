@@ -21,9 +21,9 @@
 #ifndef S_Scenario_H
 #define S_Scenario_H
 
-#include <Calaos.h>
-#include <Input.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "Input.h"
+#include "Output.h"
 
 namespace Calaos
 {

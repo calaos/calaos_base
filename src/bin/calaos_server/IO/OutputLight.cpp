@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputLight.h>
-#include <IPC.h>
+#include "OutputLight.h"
 
 using namespace Calaos;
 
@@ -38,14 +37,10 @@ OutputLight::~OutputLight()
 }
 
 void OutputLight::emitChange()
-{
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    if (value)
-        sig += Utils::url_encode("state:true");
-    else
-        sig += Utils::url_encode("state:false");
-    IPC::Instance().SendEvent("events", sig);
+{   
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", value?"true":"false" } });
 }
 
 bool OutputLight::set_value(bool val)

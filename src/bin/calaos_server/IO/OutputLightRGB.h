@@ -21,8 +21,8 @@
 #ifndef S_OutputLightRGB_H
 #define S_OutputLightRGB_H
 
-#include <Calaos.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "Output.h"
 #include "EcoreTimer.h"
 
 namespace Calaos

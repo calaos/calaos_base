@@ -21,10 +21,10 @@
 #ifndef S_OutputShutterSmart_H
 #define S_OutputShutterSmart_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Ecore.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Output.h"
+#include "Ecore.h"
+#include "EcoreTimer.h"
 
 namespace Calaos
 {

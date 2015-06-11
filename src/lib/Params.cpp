@@ -28,10 +28,10 @@ void Params::Add(string key, string value)
     params[key] = value;
 }
 
-bool Params::Exists(string key)
+bool Params::Exists(string key) const
 {
-    map<string, string>::iterator fter = params.find(key);
-    if (fter != params.end())
+    map<string, string>::const_iterator fter = params.find(key);
+    if (fter != params.cend())
         return true;
     return false;
 }
@@ -46,21 +46,21 @@ string Params::get_param(string key)
 string Params::get_param_const(const string key) const
 {
     map<string, string>::const_iterator fter = params.find(key);
-    if (fter != params.end())
+    if (fter != params.cend())
         return fter->second;
 
     return "";
 }
 
-string Params::operator[] (string key)
+string Params::operator[] (string key) const
 {
-    return get_param(key);
+    return get_param_const(key);
 }
 
-void Params::get_item(int i, string &key, string &value)
+void Params::get_item(int i, string &key, string &value) const
 {
-    map<string, string>::iterator iter;
-    for (iter = params.begin();iter != params.end();iter++,i--)
+    map<string, string>::const_iterator iter;
+    for (iter = params.cbegin();iter != params.cend();iter++,i--)
     {
         if (i == 0)
         {
@@ -114,13 +114,13 @@ void Params::Parse(string str)
     }
 }
 
-string Params::toString()
+string Params::toString() const
 {
     string ret, key, value;
 
-    map<string, string>::iterator iter;
+    map<string, string>::const_iterator iter;
     ret = "Params::toString():\n";
-    for (iter = params.begin();iter != params.end();iter++)
+    for (iter = params.cbegin();iter != params.cend();iter++)
     {
         key = (*iter).first;
         value = (*iter).second;

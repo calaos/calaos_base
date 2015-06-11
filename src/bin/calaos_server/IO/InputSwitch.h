@@ -21,8 +21,8 @@
 #ifndef INPUTSWITCH_H
 #define INPUTSWITCH_H
 
-#include <Calaos.h>
-#include <Input.h>
+#include "Calaos.h"
+#include "Input.h"
 
 namespace Calaos
 {

@@ -29,9 +29,7 @@ PollObject::PollObject(string _uuid):
 {
     timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
 
-    //Attach the callback to IPC
-    sig_events.connect( sigc::mem_fun(*this, &PollObject::HandleEventsFromSignals) );
-    IPC::Instance().AddHandler("events", "*", sig_events);
+    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &PollObject::handleEvents));
 
     cDebugDom("poll_listener") << "New object for " << uuid;
 }
@@ -49,19 +47,9 @@ PollObject::~PollObject()
     cDebugDom("poll_listener") << "Cleaning object " << uuid;
 }
 
-void PollObject::HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data)
+void PollObject::handleEvents(const CalaosEvent &ev)
 {
-    vector<string> tokens;
-    split(emission, tokens, " ");
-
-    if (tokens.size() < 3)
-        return;
-
-    string id = tokens[0] + ":" + tokens[1];
-
-    cDebugDom("poll_listener") << "Handling signal: " << id << " -> " << url_decode(tokens[2]);
-
-    events.Add(id, url_decode(tokens[2]));
+    events.push_back(ev);
 }
 
 Eina_Bool _timeout_poll_idler_cb(void *data)
@@ -135,7 +123,7 @@ bool PollListenner::Unregister(string uuid)
     return true;
 }
 
-bool PollListenner::GetEvents(string uuid, Params &events)
+bool PollListenner::GetEvents(string uuid, list<CalaosEvent> &events)
 {
     if (pollobjects.find(uuid) == pollobjects.end())
     {
@@ -146,8 +134,7 @@ bool PollListenner::GetEvents(string uuid, Params &events)
     PollObject *o = pollobjects[uuid];
 
     events = o->getEvents();
-
-    o->getEvents().clear();
+    o->clearEvents();
     o->ResetTimer();
 
     return true;

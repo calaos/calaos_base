@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "WOLOutputBool.h"
 #include "IOFactory.h"
-#include "IPC.h"
 
 using namespace Calaos;
 
@@ -159,9 +158,9 @@ void WOLOutputBool::doWakeOnLan()
     data_size += magicPacket.size();
 
     EmitSignalOutput();
-    string sig = "output ";
-    sig += get_param("id") + " " + Utils::url_encode("state:true");
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", "true" } });
 
     if (timerState)
         timerState->Reset();
@@ -172,9 +171,9 @@ void WOLOutputBool::doWakeOnLan()
 void WOLOutputBool::timerTimeout()
 {
     EmitSignalOutput();
-    string sig = "output ";
-    sig += get_param("id") + " " + Utils::url_encode("state:false");
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", "false" } });
 
     DELETE_NULL(timerState);
 }

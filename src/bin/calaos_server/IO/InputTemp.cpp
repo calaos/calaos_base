@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputTemp.h>
+#include "InputTemp.h"
 #include <Ecore.h>
-#include <ListeRule.h>
-#include <IPC.h>
+#include "ListeRule.h"
 #include "CalaosConfig.h"
 
 using namespace Calaos;
@@ -105,10 +104,9 @@ void InputTemp::emitChange()
 
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(get_value_double()));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", Utils::to_string(get_value_double()) } });
 }
 
 void InputTemp::force_input_double(double v)

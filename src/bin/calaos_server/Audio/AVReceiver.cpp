@@ -18,10 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AVReceiver.h>
-#include <IPC.h>
-#include <AVRManager.h>
-#include <IOFactory.h>
+#include "AVReceiver.h"
+#include "AVRManager.h"
+#include "IOFactory.h"
+#include "EventManager.h"
 
 using namespace Calaos;
 
@@ -290,15 +290,13 @@ void IOAVReceiver::statusChanged(string param, string value)
 {
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += Input::get_param("id") + " ";
-    sig += url_encode(param + ":" + Utils::to_string(value));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", Input::get_param("id") },
+                           { param, value } });
 
-    sig = "output ";
-    sig += Input::get_param("id") + " ";
-    sig += url_encode(param + ":" + Utils::to_string(value));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", Input::get_param("id") },
+                           { param, value } });
 }
 
 string IOAVReceiver::get_value_string()

@@ -130,7 +130,8 @@ void TCPConnection::BaseCommand(Params &request, ProcessDone_cb callback)
         {
             Params events;
 
-            bool res = PollListenner::Instance().GetEvents(request["2"], events);
+            //TODO: tcp protocol will be removed
+            bool res = false;//PollListenner::Instance().GetEvents(request["2"], events);
 
             result.Add("2", "");
 

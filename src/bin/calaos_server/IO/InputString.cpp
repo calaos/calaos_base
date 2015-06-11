@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputString.h>
-#include <IPC.h>
+#include "InputString.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -42,11 +41,10 @@ InputString::~InputString()
 }
 
 void InputString::emitChange()
-{
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + value);
-    IPC::Instance().SendEvent("events", sig);
+{   
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", value } });
 
     EmitSignalInput();
 }

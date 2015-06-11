@@ -234,7 +234,7 @@ void JsonApiV2::processPolling()
     else if (jsonParam["type"] == "get")
     {
         string uuid = jsonParam["uuid"];
-        Params events;
+        list<CalaosEvent> events;
 
         bool res = PollListenner::Instance().GetEvents(uuid, events);
         if (!res)
@@ -243,24 +243,9 @@ void JsonApiV2::processPolling()
         {
             json_t *jev = json_array();
 
-            for (int i = 0;i < events.size();i++)
+            for (auto i = events.cbegin();i != events.cend();i++)
             {
-                string key, value;
-                events.get_item(i, key, value);
-
-                string ev = key + ":" + url_encode(value);
-                vector<string> spl;
-                Utils::split(ev, spl, ":");
-
-                ev.clear();
-                for (uint j = 0;j < spl.size();j++)
-                {
-                    ev += spl[j];
-                    if (j < spl.size() - 1)
-                        ev += " ";
-                }
-
-                json_array_append_new(jev, json_string(ev.c_str()));
+                json_array_append_new(jev, i->toJson());
             }
 
             json_object_set_new(jret, "success", json_string("true"));

@@ -21,9 +21,9 @@
 #ifndef OUTPUTLIGHT_H
 #define OUTPUTLIGHT_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Output.h"
+#include "EcoreTimer.h"
 
 namespace Calaos {
 

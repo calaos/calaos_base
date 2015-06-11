@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputString.h>
-#include <IPC.h>
+#include "OutputString.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -46,11 +45,10 @@ void OutputString::readConfig()
 }
 
 void OutputString::emitChange()
-{
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + value);
-    IPC::Instance().SendEvent("events", sig);
+{   
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", value } });
 }
 
 bool OutputString::set_value(string val)

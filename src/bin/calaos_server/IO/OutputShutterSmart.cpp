@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputShutterSmart.h>
+#include "OutputShutterSmart.h"
 #include "CalaosConfig.h"
-#include <IPC.h>
 
 using namespace Calaos;
 
@@ -225,10 +224,9 @@ bool OutputShutterSmart::set_value(std::string val)
 
     EmitSignalOutput();
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += string("state:") + url_encode(get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 
     return true;
 }
@@ -524,10 +522,9 @@ void OutputShutterSmart::TimerUpdate()
         writePosition(_t);
     }
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += string("state:") + url_encode(get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 }
 
 void OutputShutterSmart::TimerEnd()
@@ -541,10 +538,9 @@ void OutputShutterSmart::TimerEnd()
     Stop();
     cmd_state = t;
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += string("state:") + url_encode(get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 }
 
 void OutputShutterSmart::TimerImpulse()
@@ -574,10 +570,9 @@ void OutputShutterSmart::TimerCalibrate()
 
     calibrate = false;
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += string("state:") + url_encode(get_value_string());
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } });
 }
 
 double OutputShutterSmart::readPosition()

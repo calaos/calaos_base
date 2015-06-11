@@ -18,9 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AudioInput.h>
-#include <AudioPlayer.h>
-#include <IPC.h>
+#include "AudioInput.h"
+#include "AudioPlayer.h"
+#include "EventManager.h"
 
 using namespace Calaos;
 
@@ -59,10 +59,9 @@ void AudioInput::hasChanged()
 
         EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        sig += url_encode(string("state:") + answer);
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", get_param("id") },
+                               { "state", answer } });
     }
 }
 

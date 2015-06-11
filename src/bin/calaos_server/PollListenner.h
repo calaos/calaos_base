@@ -21,8 +21,9 @@
 #ifndef PollListenner_H
 #define PollListenner_H
 
-#include <Calaos.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "EcoreTimer.h"
+#include "EventManager.h"
 
 #define TIMEOUT_POLLLISTENNER   300.0
 
@@ -38,20 +39,21 @@ private:
     EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
 
     //IPC callback to handle all events from the system
-    void HandleEventsFromSignals(string source, string emission, void *mydata, void *sender_data);
+    void handleEvents(const CalaosEvent &ev);
 
     //Timeout callback
     void Timeout_cb();
 
-    Params events;
+    list<CalaosEvent> events;
 
 public:
     PollObject(string uuid);
     ~PollObject();
 
-    Params &getEvents() { return events; }
+    list<CalaosEvent> &getEvents() { return events; }
     string getUUID() { return uuid; }
     void ResetTimer() { timeout->Reset(); }
+    void clearEvents() { events.clear(); }
 };
 
 class PollListenner
@@ -80,7 +82,7 @@ public:
     bool Unregister(string uuid);
 
     // Get events for the registered uuid, return false if error
-    bool GetEvents(string uuid, Params &events);
+    bool GetEvents(string uuid, list<CalaosEvent> &events);
 };
 
 }

@@ -21,8 +21,8 @@
 #ifndef S_OUTPUT_H
 #define S_OUTPUT_H
 
-#include <Calaos.h>
-#include <IOBase.h>
+#include "Calaos.h"
+#include "IOBase.h"
 
 namespace Calaos
 {

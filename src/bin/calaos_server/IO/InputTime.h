@@ -21,7 +21,7 @@
 #ifndef S_INPUTTIME_H
 #define S_INPUTTIME_H
 
-#include <Input.h>
+#include "Input.h"
 #include <time.h>
 
 namespace Calaos

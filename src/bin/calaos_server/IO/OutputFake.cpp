@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputFake.h>
-#include <IPC.h>
-#include <IOFactory.h>
+#include "OutputFake.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -48,13 +47,9 @@ bool OutputFake::set_value(bool val)
 
     cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False");
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    if (val)
-        sig += Utils::url_encode(string("state:true"));
-    else
-        sig += Utils::url_encode(string("state:false"));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", val?"true":"false" } });
 
     EmitSignalOutput();
 

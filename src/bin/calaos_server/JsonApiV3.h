@@ -22,6 +22,7 @@
 #define JSONAPIV3_H
 
 #include "JsonApi.h"
+#include "EventManager.h"
 
 class JsonApiV3: public JsonApi
 {
@@ -32,6 +33,10 @@ public:
     virtual void processApi(const string &data);
 
 private:
+
+    sigc::signal<void, string, string, void*, void*> sig_events;
+
+    void handleEvents(const CalaosEvent &event);
 
     bool loggedin = false;
 

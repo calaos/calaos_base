@@ -18,10 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InPlageHoraire.h>
-#include <ListeRule.h>
-#include <IPC.h>
-#include <IOFactory.h>
+#include "InPlageHoraire.h"
+#include "ListeRule.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -105,13 +104,9 @@ void InPlageHoraire::hasChanged()
 
         EmitSignalInput();
 
-        string sig = "input ";
-        sig += get_param("id") + " ";
-        if (val)
-            sig += Utils::url_encode("state:true");
-        else
-            sig += Utils::url_encode("state:false");
-        IPC::Instance().SendEvent("events", sig);
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", get_param("id") },
+                               { "state", val?"true":"false" } });
     }
 }
 

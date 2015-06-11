@@ -21,23 +21,22 @@
 #ifndef S_ListeRoom_H
 #define S_ListeRoom_H
 
-#include <Calaos.h>
-#include <Room.h>
-#include <ListeRule.h>
-#include <IPCam.h>
-#include <CamInput.h>
-#include <CamManager.h>
-#include <CamOutput.h>
-#include <AudioInput.h>
-#include <AudioOutput.h>
-#include <AudioPlayer.h>
-#include <AudioManager.h>
-#include <IntValue.h>
-#include <InPlageHoraire.h>
-#include <InputTimer.h>
-#include <Scenario.h>
-#include <IOFactory.h>
-#include <Eina.h>
+#include "Calaos.h"
+#include "Room.h"
+#include "ListeRule.h"
+#include "IPCam.h"
+#include "CamInput.h"
+#include "CamManager.h"
+#include "CamOutput.h"
+#include "AudioInput.h"
+#include "AudioOutput.h"
+#include "AudioPlayer.h"
+#include "AudioManager.h"
+#include "IntValue.h"
+#include "InPlageHoraire.h"
+#include "InputTimer.h"
+#include "Scenario.h"
+#include "IOFactory.h"
 
 namespace Calaos
 {

@@ -21,9 +21,9 @@
 #ifndef S_ROOM_H
 #define S_ROOM_H
 
-#include <Calaos.h>
-#include <Input.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "Input.h"
+#include "Output.h"
 #include <type_traits>
 
 using namespace std;

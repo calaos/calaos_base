@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <CamOutput.h>
-#include <IPCam.h>
-#include <IPC.h>
+#include "CamOutput.h"
+#include "IPCam.h"
 
 using namespace Calaos;
 
@@ -72,10 +71,9 @@ bool CamOutput::set_value(std::string val)
         cam->activateCapabilities("position", "recall", val);
     }
 
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += url_encode(string("state:") + val);
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", val } });
 
     return true;
 }

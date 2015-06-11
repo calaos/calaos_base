@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <InputSwitchLongPress.h>
-#include <IPC.h>
+#include "InputSwitchLongPress.h"
 
 using namespace Calaos;
 
@@ -75,10 +74,9 @@ void InputSwitchLongPress::emitChange()
 {
     EmitSignalInput();
 
-    string sig = "input ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-    IPC::Instance().SendEvent("events", sig);
+    EventManager::create(CalaosEvent::EventInputChanged,
+                         { { "id", get_param("id") },
+                           { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
     EcoreTimer::singleShot(0.250, [=] {

@@ -76,6 +76,8 @@ calaos_server_SOURCES = \
         CalaosConfig.h                                  \
         DataLogger.cpp                                  \
         DataLogger.h                                    \
+	EventManager.cpp                                \
+	EventManager.h                                  \
         HttpClient.cpp                                  \
         HttpClient.h                                    \
         HttpCodes.h                                     \

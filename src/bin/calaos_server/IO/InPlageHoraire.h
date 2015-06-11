@@ -21,9 +21,9 @@
 #ifndef S_InPlageHoraire_H
 #define S_InPlageHoraire_H
 
-#include <Input.h>
+#include "Input.h"
 #include <time.h>
-#include <TimeRange.h>
+#include "TimeRange.h"
 
 namespace Calaos
 {

@@ -18,8 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <OutputAnalog.h>
-#include <IPC.h>
+#include "OutputAnalog.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -65,11 +64,10 @@ double OutputAnalog::get_value_double()
 }
 
 void OutputAnalog::emitChange()
-{
-    string sig = "output ";
-    sig += get_param("id") + " ";
-    sig += Utils::url_encode(string("state:") + Utils::to_string(value));
-    IPC::Instance().SendEvent("events", sig);
+{   
+    EventManager::create(CalaosEvent::EventOutputChanged,
+                         { { "id", get_param("id") },
+                           { "state", Utils::to_string(value) } });
 }
 
 bool OutputAnalog::set_value(double val)

@@ -18,26 +18,23 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Calaos.h>
-#include <Room.h>
-#include <ListeRoom.h>
-#include <Input.h>
-#include <Output.h>
-#include <Params.h>
-#include <IOFactory.h>
-#include <CalaosConfig.h>
-#include <ListeRule.h>
-#include <TCPServer.h>
-#include <UDPServer.h>
-#include <AudioManager.h>
-#include <CamServer.h>
 #include <Ecore.h>
 #include <EcoreTimer.h>
-#include <NTPClock.h>
-#include <WagoMap.h>
-#include <HttpServer.h>
-#include <Zibase.h>
-#include <Prefix.h>
+#include "Calaos.h"
+#include "Room.h"
+#include "ListeRoom.h"
+#include "IOFactory.h"
+#include "CalaosConfig.h"
+#include "ListeRule.h"
+#include "TCPServer.h"
+#include "UDPServer.h"
+#include "AudioManager.h"
+#include "CamServer.h"
+#include "NTPClock.h"
+#include "WagoMap.h"
+#include "HttpServer.h"
+#include "Zibase.h"
+#include "Prefix.h"
 
 using namespace Calaos;
 
