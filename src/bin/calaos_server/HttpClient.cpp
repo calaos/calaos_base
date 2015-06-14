@@ -150,6 +150,7 @@ HttpClient::HttpClient(Ecore_Con_Client *cl):
 
 HttpClient::~HttpClient()
 {
+    delete jsonApi;
     free(parser);
     CloseConnection();
 
