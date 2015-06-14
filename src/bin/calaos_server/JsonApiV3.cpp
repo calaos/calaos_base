@@ -45,6 +45,9 @@ JsonApiV3::~JsonApiV3()
 
 void JsonApiV3::handleEvents(const CalaosEvent &event)
 {
+    if (!loggedin)
+        return;
+
     cDebugDom("network") << "Handling event: " << event.toString();
 
     sendJson("event", event.toJson());
