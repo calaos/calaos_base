@@ -56,6 +56,10 @@ bool OutputLightRGB::set_value(std::string val)
         //switch the light on only if it was off
         if (!state)
         {
+            if (color.getRed() == 0 &&
+                color.getGreen() == 0 &&
+                color.getBlue() == 0)
+                color = ColorValue::fromRgb(255, 255, 255);
             setColor(color, true);
             cmd_state = "on";
             state = true;
@@ -270,7 +274,10 @@ void OutputLightRGB::emitChange()
 
 void OutputLightRGB::setColor(const ColorValue &c, bool s)
 {
+    cInfo() << "New color: " << c.toString() << " state: " << s;
+
     cmd_state = "set " + color.toString();
+    state = s;
 
     setColorReal(c, s);
 
