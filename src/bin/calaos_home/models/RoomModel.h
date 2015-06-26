@@ -234,7 +234,7 @@ private:
 
     void notifyRoomAdd(const string &msgtype, const Params &evdata);
     void notifyRoomDel(const string &msgtype, const Params &evdata);
-    void notifyRoomChange(string notif); //monitor hits change and sort rooms again if change happens
+    void notifyRoomChange(Room *room); //monitor hits change and sort rooms again if change happens
 
     /* Caches */
     friend class Room;

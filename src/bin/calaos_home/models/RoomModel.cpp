@@ -504,26 +504,14 @@ void IOBase::checkCacheChange()
 
 void Room::notifyChange(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok;
-    split(msgtype, tok);
-    Params p;
+    VAR_UNUSED(msgtype);
 
-    for (unsigned int i = 0;i < tok.size();i++)
-    {
-        vector<string> t;
-        split(url_decode(tok[i]), t, ":", 2);
-
-        for_each(t.begin(), t.end(), UrlDecode());
-
-        p.Add(t[0], t[1]);
-    }
-
-    if (p.Exists("input_del") &&
-        p["room_name"] == name &&
-        p["room_type"] == type)
+    if (evdata.Exists("input_id_deleted") &&
+        evdata["room_name"] == name &&
+        evdata["room_type"] == type)
     {
         //an input is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheInputs().find(p["input_del"]);
+        map<string, IOBase *>::const_iterator it = model->getCacheInputs().find(evdata["input_id_deleted"]);
         if (it != model->getCacheInputs().end())
         {
             IOBase *io = it->second;
@@ -534,12 +522,12 @@ void Room::notifyChange(const string &msgtype, const Params &evdata)
         }
     }
 
-    if (p.Exists("output_del") &&
-        p["room_name"] == name &&
-        p["room_type"] == type)
+    if (evdata.Exists("output_id_deleted") &&
+        evdata["room_name"] == name &&
+        evdata["room_type"] == type)
     {
         //an output is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheOutputs().find(p["output_del"]);
+        map<string, IOBase *>::const_iterator it = model->getCacheOutputs().find(evdata["output_id_deleted"]);
         if (it != model->getCacheOutputs().end())
         {
             IOBase *io = it->second;
@@ -550,85 +538,34 @@ void Room::notifyChange(const string &msgtype, const Params &evdata)
         }
     }
 
-    if (p.Exists("input_add") &&
-        p["room_name"] == name &&
-        p["room_type"] == type)
+    if (evdata["old_room_name"] == name &&
+        evdata["room_type"] == type)
     {
-        //an input is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheInputs().find(p["input_add"]);
-        if (it != model->getCacheInputs().end())
-        {
-            IOBase *io = it->second;
-            io->room = this;
-            ios.push_back(io);
-            ios.sort(IOHitsCompare);
-            updateVisibleIO();
-        }
-    }
-
-    if (p.Exists("output_add") &&
-        p["room_name"] == name &&
-        p["room_type"] == type)
-    {
-        //an output is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheOutputs().find(p["output_add"]);
-        if (it != model->getCacheOutputs().end())
-        {
-            IOBase *io = it->second;
-            io->room = this;
-            ios.push_back(it->second);
-            ios.sort(IOHitsCompare);
-            updateVisibleIO();
-        }
-    }
-
-    if (p["old_room_name"] == name && p["room_type"] == type)
-    {
-        name = p["new_room_name"];
+        name = evdata["new_room_name"];
         room_changed.emit();
     }
-    else if (p["old_room_type"] == type && p["room_name"] == name)
+    else if (evdata["old_room_type"] == type &&
+             evdata["room_name"] == name)
     {
-        type = p["new_room_type"];
+        type = evdata["new_room_type"];
         room_changed.emit();
     }
-    else if (p["room_type"] == type && p["room_name"] == name)
+    else if (evdata["room_type"] == type &&
+             evdata["room_name"] == name &&
+             evdata["old_room_hits"] == Utils::to_string(hits))
     {
-        from_string(p["new_room_hits"], hits);
+        from_string(evdata["new_room_hits"], hits);
 
         room_changed.emit();
+
+        model->notifyRoomChange(this);
     }
 }
 
-void RoomModel::notifyRoomChange(string notif)
+void RoomModel::notifyRoomChange(Room *room)
 {
-    vector<string> tok;
-    split(notif, tok);
-    Params p;
-
-    for (unsigned int i = 0;i < tok.size();i++)
-    {
-        vector<string> t;
-        split(tok[i], t, ":", 2);
-
-        for_each(t.begin(), t.end(), UrlDecode());
-
-        p.Add(t[0], t[1]);
-    }
-
-    list<Room *>::iterator it, itr;
-    for (it = rooms.begin(); it != rooms.end();it++)
-    {
-        Room *room = *it;
-
-        if (p["room_type"] == room->type && p["room_name"] == room->name)
-        {
-            from_string(p["new_room_hits"], room->hits);
-
-            rooms.sort(RoomHitsCompare);
-            updateRoomType();
-        }
-    }
+    rooms.sort(RoomHitsCompare);
+    updateRoomType();
 }
 
 void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
