@@ -373,7 +373,7 @@ void IOBase::notifyChange(const string &msgtype, const Params &evdata)
     split(msgtype, tok);
 
     if (io_type == IO_INPUT && params["gui_type"] == "time_range" &&
-        tok[0] == "input_range_change")
+        msgtype == "timerange_changed")
     {
         //Reload InPlageHoraire
         loadPlage();
@@ -382,33 +382,44 @@ void IOBase::notifyChange(const string &msgtype, const Params &evdata)
         return;
     }
 
-    if ((io_type == IO_INPUT && tok[0] != "input") ||
-        (io_type == IO_OUTPUT && tok[0] != "output"))
+    if (io_type == IO_INPUT && msgtype == "input_prop_deleted")
+    {
+        cCritical() << "TODO, input_prop_deleted not implemented yet";
         return;
+    }
 
-    if (tok.size() < 3) return;
+    if (io_type == IO_OUTPUT && msgtype == "output_prop_deleted")
+    {
+        cCritical() << "TODO, output_prop_deleted not implemented yet";
+        return;
+    }
 
-    for_each(tok.begin(), tok.end(), UrlDecode());
-    vector<string> p;
-    split(tok[2], p, ":", 2);
+    if ((io_type == IO_INPUT && msgtype != "input_changed") ||
+        (io_type == IO_OUTPUT && msgtype != "output_changed"))
+        return;
 
     if (params["gui_type"] == "scenario")
     {
-        if (params["ioBoolState"] == tok[1] && p[0] == "state")
+        if (params["ioBoolState"] == evdata["id"] && evdata.Exists("state"))
         {
-            params.Add("state", p[1]);
+            params.Add("state", evdata["state"]);
             io_changed.emit();
 
             return;
         }
     }
 
-    if (tok[1] == params["id"])
+    if (evdata["id"] == params["id"])
     {
-        params.Add(p[0], p[1]);
+        for (int i = 0;i < evdata.size();i++)
+        {
+            string key, val;
+            evdata.get_item(i, key, val);
+            params.Add(key, val);
+        }
         io_changed.emit();
 
-        if (p[0] == "visible")
+        if (evdata.Exists("visible"))
             room->updateVisibleIO(); //update visibility
 
         checkCacheChange();
