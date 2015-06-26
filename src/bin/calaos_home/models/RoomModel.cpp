@@ -703,34 +703,23 @@ void Room::loadNewIOFromNotif(const Params &ioparam, int io_type)
 
 void Room::notifyIODel(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok, split_room_name, split_room_type;
-    split(msgtype, tok);
-
-    if (tok.size() < 4) return;
-
-    split(url_decode(tok[2]), split_room_name, ":", 2);
-    split(url_decode(tok[3]), split_room_type, ":", 2);
-
-    if (split_room_name.size() < 2 ||
-        split_room_type.size() < 2)
-        return;
-
-    if (name != split_room_name[1] || type != split_room_type[1])
-        return;
+    if (evdata["room_name"] != name ||
+        evdata["room_type"] != type)
+        return; //not for us
 
     list<IOBase *>::iterator it;
     for (it = ios.begin(); it != ios.end();it++)
     {
         IOBase *io = (*it);
 
-        if (io->params["id"] == tok[1])
+        if (io->params["id"] == evdata["id"])
         {
             //Remove from cache
-            if (tok[0] == "delete_input" && io->io_type == IOBase::IO_INPUT)
+            if (msgtype == "input_deleted" && io->io_type == IOBase::IO_INPUT)
             {
                 model->cacheInputs.erase(model->cacheInputs.find(io->params["id"]));
             }
-            else if (tok[0] == "delete_output" && io->io_type == IOBase::IO_OUTPUT)
+            else if (msgtype == "output_deleted" && io->io_type == IOBase::IO_OUTPUT)
             {
                 model->cacheOutputs.erase(model->cacheOutputs.find(io->params["id"]));
                 if (io->params["gui_type"] == "scenario")
