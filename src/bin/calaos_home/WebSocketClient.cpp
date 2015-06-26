@@ -247,6 +247,8 @@ WebSocketClient::WebSocketClient()
     parser = (http_parser *)calloc(1, sizeof(http_parser));
     http_parser_init(parser, HTTP_RESPONSE);
     parser->data = this;
+
+    cDebugDom("websocket") << "new WebSocketClient: " << this;
 }
 
 WebSocketClient::~WebSocketClient()
@@ -260,6 +262,8 @@ WebSocketClient::~WebSocketClient()
     ecore_event_handler_del(handler_written);
 
     DELETE_NULL_FUNC(ecore_con_server_del, ecoreServer);
+
+    cDebugDom("websocket") << "deleted WebSocketClient: " << this;
 }
 
 void WebSocketClient::openConnection(string url)

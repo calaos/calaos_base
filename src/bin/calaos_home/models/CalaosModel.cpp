@@ -49,7 +49,10 @@ void CalaosModel::discover_found(string address)
 {
     server_address = address;
 
-    DELETE_NULL(discover);
+    EcoreTimer::singleShot(0.0, [=]()
+    {
+        DELETE_NULL(discover);
+    });
 
     cInfoDom("network") << "CalaosModel: found server: " << server_address;
 
@@ -81,7 +84,10 @@ void CalaosModel::discover_error_login(string address)
     /* this has to be redispatched to the gui and ask user for username/password */
     server_address = address;
 
-    DELETE_NULL(discover);
+    EcoreTimer::singleShot(0.0, [=]()
+    {
+        DELETE_NULL(discover);
+    });
 
     cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
 
@@ -104,8 +110,12 @@ void CalaosModel::lost_connection()
     DELETE_NULL(camera_model);
     DELETE_NULL(audio_model);
 
-    DELETE_NULL(discover);
-    DELETE_NULL(connection);
+    EcoreTimer::singleShot(0.0, [=]()
+    {
+        DELETE_NULL(discover);
+        DELETE_NULL(connection);
+    });
+
     discover = new CalaosDiscover();
     discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
     discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));

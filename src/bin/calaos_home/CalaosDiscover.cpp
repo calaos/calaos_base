@@ -108,7 +108,10 @@ void CalaosDiscover::loginSuccess()
 {
     cDebugDom("network") << "Login to host " << address << " successfully";
 
-    DELETE_NULL(connection);
+    EcoreTimer::singleShot(0.0, [=]()
+    {
+        DELETE_NULL(connection);
+    });
 
     server_found.emit(address);
 }
