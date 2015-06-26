@@ -262,7 +262,7 @@ void CalaosConnection::sendCommand(const string &msg, const Params &param,
 
     CalaosCmd *cmd = new CalaosCmd(callback, data, this, clientid);
     commands[clientid] = cmd;
-    sendJson(msg, param.toJson());
+    sendJson(msg, param.toJson(), clientid);
 }
 
 void CalaosConnection::sendCommand(const string &msg, json_t *jdata,
@@ -275,5 +275,5 @@ void CalaosConnection::sendCommand(const string &msg, json_t *jdata,
 
     CalaosCmd *cmd = new CalaosCmd(callback, data, this, clientid);
     commands[clientid] = cmd;
-    sendJson(msg, jdata);
+    sendJson(msg, jdata, clientid);
 }
