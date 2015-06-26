@@ -92,7 +92,7 @@ void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
         DELETE_NULL(timer);
         EcoreTimer::singleShot(0.0, sigc::mem_fun(*this, &CalaosDiscover::delayDel));
 
-        connection = new CalaosConnection(address, true);
+        connection = new CalaosConnection(address);
         connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosDiscover::loginSuccess));
         connection->error_login.connect(sigc::mem_fun(*this, &CalaosDiscover::loginFailed));
     }

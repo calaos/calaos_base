@@ -32,10 +32,7 @@ class Camera: public sigc::trackable
 {
 private:
     CalaosConnection *connection;
-
     Room *room;
-
-    void sendAction_cb(bool success, vector<string> result, void *data);
 
 public:
     Camera(CalaosConnection *c):
@@ -43,7 +40,7 @@ public:
         room(NULL)
     {}
 
-    void camera_get_cb(bool success, vector<string> result, void *data);
+    void load(json_t *data);
 
     Params params;
 
@@ -59,8 +56,6 @@ public:
     void ZoomOut();
     void Recall(int position);
     void Save(int position);
-
-    sigc::signal<void, Camera *> load_done;
 };
 
 class CameraModel: public sigc::trackable
@@ -68,16 +63,11 @@ class CameraModel: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    int load_count;
-    void load_camera_done(Camera *camera);
-
-    void camera_count_cb(bool success, vector<string> result, void *data);
-
 public:
     CameraModel(CalaosConnection *connection);
     ~CameraModel();
 
-    void load();
+    void load(json_t *data);
 
     list<Camera *> cameras;
 

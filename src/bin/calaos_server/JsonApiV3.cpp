@@ -62,23 +62,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
     if (data)
         json_object_set_new(jroot, "data", data);
 
-    char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
-    if (!d)
-    {
-        cErrorDom("network") << "json_dumps failed! msg_type: " << msg_type << " data:" << data;
-        json_decref(jroot);
-
-        //close connection
-        closeConnection.emit(WebSocketFrame::CloseCodeNormal, "json_dumps failed!");
-
-        return;
-    }
-
-    json_decref(jroot);
-    string res(d);
-    free(d);
-
-    sendData.emit(res);
+    sendData.emit(jansson_to_string(jroot));
 }
 
 void JsonApiV3::processApi(const string &data)

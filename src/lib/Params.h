@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <map>
+#include <jansson.h>
 
 using namespace std;
 
@@ -61,6 +62,7 @@ public:
     void Parse(string str);
 
     string toString() const;
+    json_t *toJson() const;
 
     void clear() { params.clear(); }
 };

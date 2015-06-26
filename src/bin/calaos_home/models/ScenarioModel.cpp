@@ -24,9 +24,9 @@
 ScenarioModel::ScenarioModel(CalaosConnection *con):
     connection(con)
 {
-    connection->getListener()->notify_scenario_add.connect(
+    connection->notify_scenario_add.connect(
                 sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAdd));
-    connection->getListener()->notify_scenario_change.connect(
+    connection->notify_scenario_change.connect(
                 sigc::mem_fun(*this, &ScenarioModel::notifyScenarioChange));
 }
 
@@ -35,13 +35,14 @@ ScenarioModel::~ScenarioModel()
     for_each(scenarios.begin(), scenarios.end(), Delete());
 }
 
-void ScenarioModel::load()
+void ScenarioModel::load(json_t *data)
 {
-    connection->SendCommand("scenario list", sigc::mem_fun(*this, &ScenarioModel::scenario_list_cb));
+    cCritical() << "TODO: load autoscenarios";
+    load_done.emit();
 }
 
 void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *data)
-{
+{/*
     if (!success) return;
 
     if (result.size() == 2)
@@ -76,20 +77,7 @@ void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *
             sc->scenario_get_cb(_success, _result, _data);
             sc->load_done.emit(sc);
         });
-    }
-}
-
-void ScenarioModel::load_scenario_done(Scenario *sc)
-{
-    load_count--;
-
-    cDebug() << "[SCENARIO load done] load_count:" << load_count;
-
-    if (load_count <= 0)
-    {
-        load_done.emit();
-        cDebug() << "[SCENARIO LOAD DONE sending signal]";
-    }
+    }*/
 }
 
 void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
@@ -285,6 +273,7 @@ string ScenarioData::modifyRequest(IOBase *io)
 
 void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
 {
+    /*
     string cmd = "scenario add_schedule " + ioScenario->params["id"];
     connection->SendCommand(cmd, [=](bool success, vector<string> result, void *user_data)
     {
@@ -340,13 +329,16 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
             callback(ioSchedule);
         });
     });
+    */
 }
 
 void Scenario::deleteSchedule()
 {
+    /*
     string cmd = "scenario del_schedule " + ioScenario->params["id"];
     connection->SendCommand(cmd);
     ioSchedule = nullptr;
+    */
 }
 
 void Scenario::setSchedules(TimeRangeInfos &tr)
@@ -376,7 +368,7 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     addRange(tr.range_saturday, 5);
     addRange(tr.range_sunday, 6);
 
-    connection->SendCommand(cmd);
+    //connection->SendCommand(cmd);
 
     //Send months
     stringstream ssmonth;
@@ -384,45 +376,53 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
+    /*
     cmd = "input " + ioSchedule->params["id"] + " plage months set " + str;
     connection->SendCommand(cmd);
+    */
 }
 
 void ScenarioModel::createScenario(ScenarioData &data)
 {
+    /*
     string cmd = data.createRequest();
     connection->SendCommand(cmd);
+    */
 }
 
 void ScenarioModel::modifyScenario(Scenario *sc)
 {
+    /*
     if (!sc || !sc->ioScenario) return;
 
     string cmd = sc->scenario_data.modifyRequest(sc->ioScenario);
     connection->SendCommand(cmd);
+    */
 }
 
 void ScenarioModel::deleteScenario(Scenario *sc)
 {
+    /*
     if (!sc || !sc->ioScenario) return;
 
     string cmd = "scenario delete " + sc->ioScenario->params["id"];
     connection->SendCommand(cmd);
+    */
 }
 
-void ScenarioModel::notifyScenarioAdd(string notif)
+void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdata)
 {
     cDebugDom("scenario") << "New scenario notif, start timer to load scenario data...";
 
     //We need to delay the load of the scenario because we have to wait for RoomModel to load the scenario id first
-    EcoreTimer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), notif));
+    EcoreTimer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), msgtype, evdata));
 }
 
-void ScenarioModel::notifyScenarioAddDelayed(string notif)
+void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params &evdata)
 {
     cDebugDom("scenario") << "New scenario, load data";
     vector<string> tok, split_id;
-    split(notif, tok);
+    split(msgtype, tok);
 
     if (tok.size() < 2) return;
 
@@ -448,12 +448,14 @@ void ScenarioModel::notifyScenarioAddDelayed(string notif)
 
     sc->load_done.connect(sigc::mem_fun(*this, &ScenarioModel::load_new_scenario_done));
 
+    /*
     string cmd = "scenario get " + split_id[1];
     connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
     {
         sc->scenario_get_cb(_success, _result, _data);
         sc->load_done.emit(sc);
     });
+    */
 }
 
 void ScenarioModel::load_new_scenario_done(Scenario *sc)
@@ -485,10 +487,10 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
     scenarios.erase(it);
 }
 
-void ScenarioModel::notifyScenarioChange(string notif)
+void ScenarioModel::notifyScenarioChange(const string &msgtype, const Params &evdata)
 {
     vector<string> tok, split_id;
-    split(notif, tok);
+    split(msgtype, tok);
 
     if (tok.size() < 2) return;
 
@@ -507,6 +509,7 @@ void ScenarioModel::notifyScenarioChange(string notif)
         {
             cDebugDom("scenario") << "Reload scenario " << split_id[1];
             string cmd = "scenario get " + split_id[1];
+            /*
             connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
             {
                 //clear scenario data before reloading them again
@@ -517,6 +520,7 @@ void ScenarioModel::notifyScenarioChange(string notif)
                 sc->scenario_get_cb(_success, _result, _data);
                 scenario_change.emit(sc);
             });
+            */
 
             break;
         }

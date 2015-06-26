@@ -102,7 +102,7 @@ private:
     Room *room;
 
     void sendAction_cb(bool success, vector<string> result, void *data);
-    void notifyChange(string notif);
+    void notifyChange(const string &msgtype, const Params &evdata);
 
     void checkCacheChange();
 
@@ -115,7 +115,7 @@ public:
         room(r),
         io_type(iotype)
     {
-        connection->getListener()->notify_io_change.connect(
+        connection->notify_io_change.connect(
                     sigc::mem_fun(*this, &IOBase::notifyChange));
     }
     ~IOBase()
@@ -127,8 +127,6 @@ public:
 
     enum { IO_INPUT, IO_OUTPUT };
     int io_type;
-
-    void new_io_cb(bool success, vector<string> result, void *data);
 
     void sendAction(string command);
     void sendUserCommand(string command, CommandDone_cb callback, void *data = NULL);
@@ -155,7 +153,6 @@ public:
     map<int, string> amplifier_inputs;
 
     //signals
-    sigc::signal<void, IOBase *> load_done;
     sigc::signal<void> io_changed;
     sigc::signal<void> io_deleted;
 };
@@ -169,11 +166,9 @@ private:
     CalaosConnection* connection;
     RoomModel *model;
 
-    int io_loaded;
-
-    void notifyChange(string notif);
-    void notifyIOAdd(string notif);
-    void notifyIODel(string notif);
+    void notifyChange(const string &msgtype, const Params &evdata);
+    void notifyIOAdd(const string &msgtype, const Params &evdata);
+    void notifyIODel(const string &msgtype, const Params &evdata);
 
     void updateVisibleIO();
 
@@ -182,11 +177,11 @@ public:
         connection(con),
         model(_model)
     {
-        connection->getListener()->notify_io_delete.connect(
+        connection->notify_io_delete.connect(
                     sigc::mem_fun(*this, &Room::notifyIODel));
-        connection->getListener()->notify_io_new.connect(
+        connection->notify_io_new.connect(
                     sigc::mem_fun(*this, &Room::notifyIOAdd));
-        connection->getListener()->notify_room_change.connect(
+        connection->notify_room_change.connect(
                     sigc::mem_fun(*this, &Room::notifyChange));
     }
     ~Room()
@@ -194,6 +189,8 @@ public:
         room_deleted.emit();
         for_each(ios.begin(), ios.end(), Delete());
     }
+
+    void load(json_t *data);
 
     string name;
     string type;
@@ -203,16 +200,14 @@ public:
     list<IOBase *> visible_ios; //Contains only visible IO for a GUI
     list<IOBase *> scenario_ios; //Contains all IO controlable in a scenario
 
-    void new_room_cb(bool success, vector<string> result, void *data);
     void load_io_done(IOBase *io);
     void load_io_notif_done(IOBase *io);
 
-    void loadNewIO(string id, int io_type);
+    void loadNewIO(json_t *data, int io_type);
     void loadNewIOFromNotif(string id, int io_type);
 
     IOBase *getChauffage();
 
-    sigc::signal<void, Room *> load_done;
     sigc::signal<void, IOBase *> io_deleted;
     sigc::signal<void, IOBase *> io_added;
     sigc::signal<void> room_changed;
@@ -231,18 +226,14 @@ class RoomModel: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    int room_loaded;
-
-    void home_get_cb(bool success, vector<string> result, void *data);
-
-    void load_room_done(Room *room);
+    void home_get_cb(json_t *result, void *data);
 
     void updateRoomType();
 
     void updateChauffageIO(); //update association of chauffage IO
 
-    void notifyRoomAdd(string notif);
-    void notifyRoomDel(string notif);
+    void notifyRoomAdd(const string &msgtype, const Params &evdata);
+    void notifyRoomDel(const string &msgtype, const Params &evdata);
     void notifyRoomChange(string notif); //monitor hits change and sort rooms again if change happens
 
     /* Caches */
@@ -260,6 +251,8 @@ private:
 
     list<IOBase *> chauffageList;
 
+    json_t *jsonHome = nullptr;
+
 public:
     RoomModel(CalaosConnection *connection);
     ~RoomModel();
@@ -268,6 +261,7 @@ public:
     list<Room *> rooms_type; //Only types sorted by hits
 
     void load();
+    json_t *getJsonHome() { return jsonHome; }
 
     const list<IOBase *> &getCacheScenarios() { return cacheScenarios; }
     const list<IOBase *> &getCacheScenariosPref() { return cacheScenariosPref; }

@@ -27,50 +27,37 @@
 #include <Ecore_Con.h>
 #include <EcoreTimer.h>
 
-#include "CalaosListener.h"
+#include "Jansson_Addition.h"
+#include "WebSocketClient.h"
 
 using namespace Utils;
 
 #define TIMEOUT_CONNECT         60.0
 #define TIMEOUT_SEND            60.0
 
-typedef sigc::slot<void, bool, vector<string>, void * > CommandDone_cb;
-typedef sigc::signal<void, bool, vector<string>, void * > CommandDone_sig;
+typedef std::function<void(json_t *, void *)> CommandDone_cb;
+
+class CalaosConnection;
 
 class CalaosCmd
 {
 public:
-    CalaosCmd():
-        inProgress(false),
-        noCallback(false)
-    {}
-    CalaosCmd(string c, CommandDone_cb cb):
-        command(c),
-        callback(cb),
-        user_data(NULL),
-        inProgress(false),
-        noCallback(false)
-    {}
+    CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const string &id);
+    CalaosCmd(const CalaosCmd &other) = delete;
+    ~CalaosCmd() { delete timeout; }
 
-    string command;
-    CommandDone_cb callback;
-    void *user_data;
+    CommandDone_cb callback = [](json_t*, void*){ /* no callback */ };
+    void *user_data = nullptr;
+    string msgid;
 
-    bool inProgress;
-    bool noCallback;
+private:
+    EcoreTimer *timeout = nullptr;
+    CalaosConnection *parent;
 };
 
 class CalaosConnection: public sigc::trackable
 {
-public:
-    //Ecore Internal use only
-    void addConnection(Ecore_Con_Server *server);
-    void delConnection(Ecore_Con_Server *server);
-    void dataGet(Ecore_Con_Server *server, void *data, int size);
-
 private:
-    Ecore_Con_Server *econ;
-
     enum { CALAOS_CON_NONE, CALAOS_CON_LOGIN, CALAOS_CON_OK };
 
     int con_state;
@@ -79,32 +66,56 @@ private:
 
     EcoreTimer *timeout;
 
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_add;
-    Ecore_Event_Handler *event_handler_del;
+    unordered_map<string, CalaosCmd *> commands;
 
-    queue<CalaosCmd> commands;
+    WebSocketClient *wsocket;
 
-    bool sendInProgress;
+    friend class CalaosCmd;
+    void timeoutConnect();
+    void timeoutSend(CalaosCmd *cmd);
 
-    CalaosListener *listener;
-
-    void sendAndDequeue();
-    void TimeoutTick();
+    void onConnected();
+    void onDisconnected();
+    void onMessageReceived(const string &msg);
 
 public:
-    CalaosConnection(string host, bool no_listenner = false);
+    CalaosConnection(string host);
     ~CalaosConnection();
 
-    void SendCommand(string cmd, CommandDone_cb callback, void *data = NULL);
-    void SendCommand(string cmd);
-
-    CalaosListener *getListener() { return listener; }
+    void sendJson(const string &msg_type, json_t *jdata, const string &client_id = string());
+    void sendCommand(const string &msg, const Params &param);
+    void sendCommand(const string &msg, const Params &param,
+                     CommandDone_cb callback,
+                     void *data = nullptr);
+    void sendCommand(const string &msg, json_t *jdata,
+                     CommandDone_cb callback,
+                     void *data = nullptr);
 
     sigc::signal<void> error_login;
     sigc::signal<void> timeout_connect;
     sigc::signal<void> lost_connection;
     sigc::signal<void> connection_ok;
+
+    //const string &msg_type, json_t *data, const string &client_id
+    sigc::signal<void, const string &, json_t *, const string &> messageReceived;
+
+    /* Events signals */
+
+    //RoomModel signals
+    sigc::signal<void, const string &, const Params &> notify_io_change;
+    sigc::signal<void, const string &, const Params &> notify_io_new;
+    sigc::signal<void, const string &, const Params &> notify_io_delete;
+    sigc::signal<void, const string &, const Params &> notify_room_change;
+    sigc::signal<void, const string &, const Params &> notify_room_new;
+    sigc::signal<void, const string &, const Params &> notify_room_delete;
+
+    //AudioModel signals
+    sigc::signal<void, const string &, const Params &> notify_audio_change;
+
+    //ScenarioModel signals
+    sigc::signal<void, const string &, const Params &> notify_scenario_add;
+    sigc::signal<void, const string &, const Params &> notify_scenario_del;
+    sigc::signal<void, const string &, const Params &> notify_scenario_change;
 };
 
 #endif // CALAOSCONNECTION_H

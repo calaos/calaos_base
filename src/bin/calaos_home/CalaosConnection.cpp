@@ -20,97 +20,47 @@
  ******************************************************************************/
 #include "CalaosConnection.h"
 
-static Eina_Bool _ecore_con_handler_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
+CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const string &id):
+    callback(cb),
+    user_data(d),
+    msgid(id),
+    parent(p)
 {
-    CalaosConnection *o = reinterpret_cast<CalaosConnection *>(data);
-
-    if (ev && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->addConnection(ev->server);
-    else
-        cCriticalDom("network.connection")
-                << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
+    timeout = new EcoreTimer(TIMEOUT_SEND, [=]()
+    {
+        DELETE_NULL(timeout);
+        parent->timeoutSend(this);
+    });
 }
 
-static Eina_Bool _ecore_con_handler_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
-{
-    CalaosConnection *o = reinterpret_cast<CalaosConnection *>(data);
-
-    if (ev && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->delConnection(ev->server);
-    else
-        cCriticalDom("network.connection")
-                << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev)
-{
-    CalaosConnection *o = reinterpret_cast<CalaosConnection *>(data);
-
-    if (ev && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->dataGet(ev->server, ev->data, ev->size);
-    else
-        cCriticalDom("network.connection") << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-CalaosConnection::CalaosConnection(string h, bool no_listenner):
-    econ(NULL),
+CalaosConnection::CalaosConnection(string h):
     con_state(CALAOS_CON_NONE),
     host(h),
-    timeout(NULL),
-    sendInProgress(false),
-    listener(NULL)
+    timeout(NULL)
 {
-    event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
-    event_handler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_ecore_con_handler_add, this);
-    event_handler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_ecore_con_handler_del, this);
+    wsocket = new WebSocketClient();
+    wsocket->websocketConnected.connect(sigc::mem_fun(*this, &CalaosConnection::onConnected));
+    wsocket->websocketDisconnected.connect(sigc::mem_fun(*this, &CalaosConnection::onDisconnected));
+    wsocket->textMessageReceived.connect(sigc::mem_fun(*this, &CalaosConnection::onMessageReceived));
+    wsocket->openConnection("ws://" + host + ":5454/api/v3");
 
-    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP,
-                                    host.c_str(),
-                                    TCP_LISTEN_PORT,
-                                    this);
-    ecore_con_server_data_set(econ, this);
-
-    timeout = new EcoreTimer(TIMEOUT_CONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::TimeoutTick));
-
-    if (!no_listenner)
-        listener = new CalaosListener(host);
+    timeout = new EcoreTimer(TIMEOUT_CONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::timeoutConnect));
 }
 
 CalaosConnection::~CalaosConnection()
 {
-    DELETE_NULL_FUNC(ecore_event_handler_del, event_handler_data_get);
-    DELETE_NULL_FUNC(ecore_event_handler_del, event_handler_add);
-    DELETE_NULL_FUNC(ecore_event_handler_del, event_handler_del);
+    for (auto it: commands)
+        delete it.second;
 
-    DELETE_NULL(listener);
-    DELETE_NULL(timeout);
-    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    delete timeout;
+    delete wsocket;
 }
 
-void CalaosConnection::addConnection(Ecore_Con_Server *server)
+void CalaosConnection::onConnected()
 {
-    if (server != econ) return;
-
     if (con_state == CALAOS_CON_NONE)
     {
         con_state = CALAOS_CON_LOGIN;
-
-        string cmd = "login ";
 
         //Get username/password
         string username = Utils::get_config_option("calaos_user");
@@ -123,20 +73,17 @@ void CalaosConnection::addConnection(Ecore_Con_Server *server)
             password = Utils::get_config_option("cn_pass");
         }
 
-        cmd += Utils::url_encode(username) + " ";
-        cmd += Utils::url_encode(password);
-        cmd += "\r\n";
+        json_t *jlogin = json_pack("{s:s, s:s}",
+                                   "cn_user", username.c_str(),
+                                   "cn_pass", password.c_str());
+        sendJson("login", jlogin);
 
         cDebugDom("network.connection") << "trying to log in.";
-
-        ecore_con_server_send(econ, cmd.c_str(), cmd.length());
     }
 }
 
-void CalaosConnection::delConnection(Ecore_Con_Server *server)
+void CalaosConnection::onDisconnected()
 {
-    if (server != econ) return;
-
     if (con_state == CALAOS_CON_LOGIN)
     {
         error_login.emit();
@@ -151,49 +98,132 @@ void CalaosConnection::delConnection(Ecore_Con_Server *server)
     cCriticalDom("network.connection") << "Connection closed !";
 }
 
-void CalaosConnection::dataGet(Ecore_Con_Server *server, void *data, int size)
+void CalaosConnection::sendJson(const string &msg_type, json_t *jdata, const string &client_id)
 {
-    if (server != econ) return;
+    json_t *jroot = json_object();
+    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
+    if (client_id != "")
+        json_object_set_new(jroot, "msg_id", json_string(client_id.c_str()));
+    if (jdata)
+        json_object_set_new(jroot, "data", jdata);
 
-    string msg((char *)data, size);
+    wsocket->sendTextMessage(jansson_to_string(jroot));
+}
 
-    if (con_state == CALAOS_CON_LOGIN)
+void CalaosConnection::onMessageReceived(const string &data)
+{
+    Params jsonRoot;
+    Params jsonData;
+
+    //parse the json data
+    json_error_t jerr;
+    json_t *jroot = json_loads(data.c_str(), 0, &jerr);
+
+    if (!jroot || !json_is_object(jroot))
     {
+        cDebugDom("network") << "Error loading json : " << jerr.text;
+        return;
+    }
+
+    char *d = json_dumps(jroot, JSON_INDENT(4));
+    if (d)
+    {
+        cDebugDom("network") << d;
+        free(d);
+    }
+
+    //decode the json root object into jsonParam
+    jansson_decode_object(jroot, jsonRoot);
+
+    json_t *jdata = json_object_get(jroot, "data");
+    if (jdata)
+        jansson_decode_object(jdata, jsonData);
+
+    //Format: { msg: "type", msg_id: id, data: {} }
+
+    if (jsonRoot["msg"] == "login" &&
+        jsonData["success"] == "true" &&
+        con_state == CALAOS_CON_LOGIN)
+    {
+        DELETE_NULL(timeout);
         con_state = CALAOS_CON_OK;
 
         cDebugDom("network.connection") << "Successfully logged in.";
 
         connection_ok.emit();
+        return;
     }
-    else if (con_state == CALAOS_CON_OK)
+
+    //a message id was sent, get the corresponding
+    //query and call the callback
+    if (!jsonRoot["msg_id"].empty())
     {
-        DELETE_NULL(timeout)
+        if (commands.find(jsonRoot["msg_id"]) == commands.end())
+        {
+            cErrorDom("network") << "msg_id " << jsonRoot["msg_id"] << " not found in commands.";
+        }
+        else
+        {
+            CalaosCmd *cmd = commands[jsonRoot["msg_id"]];
+            cmd->callback(jdata, cmd->user_data);
+            commands.erase(jsonRoot["msg_id"]);
+            delete cmd;
+        }
+    }
 
-                //Clean string
-                while( (msg[msg.length() - 1] == '\n' || msg[msg.length() - 1] == '\r')
-                && !msg.empty() )
-                msg.erase(msg.length() - 1, 1);
+    if (jsonRoot["msg"] == "event")
+    {
+        Params eventData;
+        jansson_decode_object(json_object_get(jdata, "data"), eventData);
+        string ev = jsonData["type_str"];
 
-        cDebugDom("network.connection") << "Received: " << msg;
+        if (ev == "input_added" ||
+            ev == "output_added")
+            notify_io_new.emit(ev, eventData);
 
-        //Here we split command result.
-        vector<string> v;
-        split(msg, v);
+        else if (ev == "input_deleted" ||
+                 ev == "output_deleted")
+            notify_io_delete.emit(ev, eventData);
 
-        for_each(v.begin(), v.end(), UrlDecode());
+        else if (ev == "input_changed" ||
+                 ev == "output_changed" ||
+                 ev == "input_prop_deleted" ||
+                 ev == "output_prop_deleted" ||
+                 ev == "timerange_changed")
+            notify_io_change.emit(ev, eventData);
 
-        CalaosCmd &cmd = commands.front();
-        CommandDone_sig sig;
-        sig.connect(cmd.callback);
-        sig.emit(true, v, cmd.user_data);
+        else if (ev == "room_added")
+            notify_room_new.emit(ev, eventData);
 
-        commands.pop();
+        else if (ev == "room_deleted")
+            notify_room_delete.emit(ev, eventData);
 
-        sendAndDequeue();
+        else if (ev == "room_changed" ||
+                 ev == "room_prop_deleted")
+            notify_room_change.emit(ev, eventData);
+
+        else if (ev == "scenario_deleted")
+            notify_scenario_del.emit(ev, eventData);
+
+        else if (ev == "scenario_added")
+            notify_scenario_add.emit(ev, eventData);
+
+        else if (ev == "scenario_changed")
+            notify_scenario_change.emit(ev, eventData);
+
+        else if (ev == "audio_song_changed" ||
+                 ev == "playlist_tracks_added" ||
+                 ev == "playlist_tracks_deleted" ||
+                 ev == "playlist_tracks_moved" ||
+                 ev == "playlist_reload" ||
+                 ev == "playlist_cleared" ||
+                 ev == "audio_status_changed" ||
+                 ev == "audio_volume_changed")
+            notify_audio_change.emit(ev, eventData);
     }
 }
 
-void CalaosConnection::TimeoutTick()
+void CalaosConnection::timeoutConnect()
 {
     if (con_state == CALAOS_CON_NONE)
     {
@@ -202,66 +232,48 @@ void CalaosConnection::TimeoutTick()
         cCriticalDom("network.connection") << "Timeout connecting to " << host;
     }
 
+    DELETE_NULL(timeout);
+}
+
+void CalaosConnection::timeoutSend(CalaosCmd *cmd)
+{
     if (con_state == CALAOS_CON_OK)
     {
-        cCriticalDom("network.connection") << "Timeout waiting answer...";
+        cCriticalDom("network.connection") << "Timeout waiting for answer... give up.";
 
-        vector<string> v;
-        CalaosCmd &cmd = commands.front();
-        CommandDone_sig sig;
-        sig.connect(cmd.callback);
-        sig.emit(false, v, cmd.user_data);
-
-        commands.pop();
-
-        sendAndDequeue();
-    }
-
-    if (timeout)
-    {
-        delete timeout;
-        timeout = NULL;
+        cmd->callback(nullptr, cmd->user_data);
+        commands.erase(cmd->msgid);
+        delete cmd;
     }
 }
 
-void CalaosConnection::SendCommand(string scmd, CommandDone_cb callback, void *data)
+void CalaosConnection::sendCommand(const string &msg, const Params &param)
 {
-    CalaosCmd cmd;
-
-    cmd.command = scmd;
-    cmd.callback = callback;
-    cmd.user_data = data;
-
-    commands.push(cmd);
-
-    sendAndDequeue();
+    sendJson(msg, param.toJson());
 }
 
-void CalaosConnection::SendCommand(string scmd)
+void CalaosConnection::sendCommand(const string &msg, const Params &param,
+                                   CommandDone_cb callback,
+                                   void *data)
 {
-    CalaosCmd cmd;
+    string clientid = Utils::to_string(rand() & 0xffff);
+    while (commands.find(clientid) != commands.end())
+        clientid = Utils::to_string(rand() & 0xffff);
 
-    cmd.command = scmd;
-    cmd.noCallback = true;
-
-    commands.push(cmd);
-
-    sendAndDequeue();
+    CalaosCmd *cmd = new CalaosCmd(callback, data, this, clientid);
+    commands[clientid] = cmd;
+    sendJson(msg, param.toJson());
 }
 
-void CalaosConnection::sendAndDequeue()
+void CalaosConnection::sendCommand(const string &msg, json_t *jdata,
+                                   CommandDone_cb callback,
+                                   void *data)
 {
-    if (commands.empty() || commands.front().inProgress)
-        return;
+    string clientid = Utils::to_string(rand() & 0xffff);
+    while (commands.find(clientid) != commands.end())
+        clientid = Utils::to_string(rand() & 0xffff);
 
-    CalaosCmd &cmd = commands.front();
-    cmd.inProgress = true;
-
-    if (!timeout)
-        timeout = new EcoreTimer(TIMEOUT_SEND, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::TimeoutTick));
-
-    cDebugDom("network.connection") << "Sending command: " << cmd.command;
-
-    cmd.command += "\n\r";
-    ecore_con_server_send(econ, cmd.command.c_str(), cmd.command.length());
+    CalaosCmd *cmd = new CalaosCmd(callback, data, this, clientid);
+    commands[clientid] = cmd;
+    sendJson(msg, jdata);
 }

@@ -35,8 +35,6 @@ calaos_home_SOURCES = \
         CalaosConnection.h                                      \
         CalaosDiscover.cpp                                      \
         CalaosDiscover.h                                        \
-        CalaosListener.cpp                                      \
-        CalaosListener.h                                        \
         CommonUtils.cpp                                         \
         CommonUtils.h                                           \
         EdjeObject.cpp                                          \

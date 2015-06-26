@@ -324,10 +324,11 @@ void GenlistItemScenarioSchedule::scheduleDisable(void *data)
 {
     if (!scenario) return;
 
-    scenario->ioSchedule->sendUserCommand("set_param enabled false", [=](bool, vector<string>, void *)
-    {
-        //TODO, update icon?
-    });
+    cCritical() << "TODO";
+//    scenario->ioSchedule->sendUserCommand("set_param enabled false", [=](bool, vector<string>, void *)
+//    {
+//        //TODO, update icon?
+//    });
     elm_ctxpopup_dismiss(popup);
 }
 
@@ -335,9 +336,10 @@ void GenlistItemScenarioSchedule::scheduleEnable(void *data)
 {
     if (!scenario) return;
 
-    scenario->ioSchedule->sendUserCommand("set_param enabled true", [=](bool, vector<string>, void *)
-    {
-        //TODO, update icon?
-    });
+    cCritical() << "TODO";
+//    scenario->ioSchedule->sendUserCommand("set_param enabled true", [=](bool, vector<string>, void *)
+//    {
+//        //TODO, update icon?
+//    });
     elm_ctxpopup_dismiss(popup);
 }

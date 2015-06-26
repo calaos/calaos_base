@@ -135,28 +135,13 @@ string CalaosEvent::typeToString(int type)
 
 json_t *CalaosEvent::toJson() const
 {
-    json_t *ret, *jevdata = nullptr;
-
-    if (evParams.size() > 0)
-    {
-        jevdata = json_object();
-
-        for (int i = 0;i < evParams.size();i++)
-        {
-            string key, val;
-            evParams.get_item(i, key, val);
-
-            json_object_set_new(jevdata,
-                                key.c_str(),
-                                json_string(val.c_str()));
-        }
-    }
+    json_t *ret;
 
     ret = json_pack("{s:s, s:s, s:s, s:o}",
                     "event_raw", toString().c_str(),
                     "type", Utils::to_string(getType()).c_str(),
                     "type_str", typeToString(getType()).c_str(),
-                    "data", jevdata);
+                    "data", evParams.toJson());
 
     return ret;
 }

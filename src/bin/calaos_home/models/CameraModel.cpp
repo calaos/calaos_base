@@ -31,78 +31,33 @@ CameraModel::~CameraModel()
     for_each(cameras.begin(), cameras.end(), Delete());
 }
 
-void CameraModel::load()
+void CameraModel::load(json_t *data)
 {
-    connection->SendCommand("camera ?", sigc::mem_fun(*this, &CameraModel::camera_count_cb));
-}
+    if (!data || !json_is_object(data)) return;
 
-void CameraModel::camera_count_cb(bool success, vector<string> result, void *data)
-{
-    if (!success) return;
-
-    if (result.size() < 2) return;
-
-    if (is_of_type<int>(result[1]))
+    json_t *jcam = json_object_get(data, "cameras");
+    if (!json_is_array(jcam))
     {
-        int count;
-        from_string(result[1], count);
-
-        load_count = 0;
-
-        if (count == 0)
-        {
-            //No camera found
-            load_done.emit();
-        }
-
-        for (int i = 0;i < count;i++)
-        {
-            Camera *cam = new Camera(connection);
-            cameras.push_back(cam);
-
-            cam->params.Add("num", Utils::to_string(cameras.size() - 1));
-
-            load_count++;
-            cam->load_done.connect(sigc::mem_fun(*this, &CameraModel::load_camera_done));
-
-            string cmd = "camera get " + Utils::to_string(i);
-            connection->SendCommand(cmd, sigc::mem_fun(*cam, &Camera::camera_get_cb));
-        }
-    }
-    else
-    {
-        //Load of camera failed because of a wrong reply
         load_done.emit();
+        return;
     }
+
+    int idx;
+    json_t *value;
+
+    json_array_foreach(jcam, idx, value)
+    {
+        Camera *cam = new Camera(connection);
+        cam->load(value);
+        cameras.push_back(cam);
+    }
+
+    load_done.emit();
 }
 
-void CameraModel::load_camera_done(Camera *camera)
+void Camera::load(json_t *data)
 {
-    load_count--;
-
-    cDebug() << "[CAMERA load done]";
-
-    if (load_count <= 0)
-    {
-
-        cDebug() << "[CAMERA LOAD DONE sending signal]";
-        load_done.emit();
-    }
-}
-
-void Camera::camera_get_cb(bool success, vector<string> result, void *data)
-{
-    for (uint b = 2;b < result.size();b++)
-    {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        params.Add(tmp[0], tmp[1]);
-    }
-
-    load_done.emit(this);
+    jansson_decode_object(data, params);
 }
 
 Room *Camera::getRoom()
@@ -117,61 +72,83 @@ Room *Camera::getRoom()
     return output->getRoom();
 }
 
-void Camera::sendAction_cb(bool success, vector<string> result, void *data)
-{
-    //do nothing...
-}
-
 void Camera::MoveCenter()
 {
-    string cmd = "camera move " + params["num"] + " home";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "home" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveUp()
 {
-    string cmd = "camera move " + params["num"] + " up";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "up" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveDown()
 {
-    string cmd = "camera move " + params["num"] + " down";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "down" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveLeft()
 {
-    string cmd = "camera move " + params["num"] + " left";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "left" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveRight()
 {
-    string cmd = "camera move " + params["num"] + " right";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "right" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::ZoomIn()
 {
-    string cmd = "camera move " + params["num"] + " zoomin";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "zoomin" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::ZoomOut()
 {
-    string cmd = "camera move " + params["num"] + " zoomout";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", "zoomout" }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::Recall(int position)
 {
-    string cmd = "camera move " + params["num"] + " " + Utils::to_string(position);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "move" },
+                { "value", Utils::to_string(position) }};
+    connection->sendCommand("set_state", p);
 }
 
 void Camera::Save(int position)
 {
-    string cmd = "camera save " + params["num"] + " " + Utils::to_string(position);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &Camera::sendAction_cb));
+    Params p = {{ "type", "camera" },
+                { "camera_id", params["id"] },
+                { "camera_action", "save" },
+                { "value", Utils::to_string(position) }};
+    connection->sendCommand("set_state", p);
 }

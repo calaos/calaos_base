@@ -38,123 +38,116 @@ bool RoomHitsCompare(const Room *lhs, const Room *rhs)
 RoomModel::RoomModel(CalaosConnection *con):
     connection(con)
 {
-    connection->getListener()->notify_room_delete.connect(
+    connection->notify_room_delete.connect(
                 sigc::mem_fun(*this, &RoomModel::notifyRoomDel));
-    connection->getListener()->notify_room_new.connect(
+    connection->notify_room_new.connect(
                 sigc::mem_fun(*this, &RoomModel::notifyRoomAdd));
 }
 
 RoomModel::~RoomModel()
 {
+    json_decref(jsonHome);
     for_each(rooms.begin(), rooms.end(), Delete());
 }
 
 void RoomModel::load()
 {
-    room_loaded = 0;
-    connection->SendCommand("home ?", sigc::mem_fun(*this, &RoomModel::home_get_cb));
+    connection->sendCommand("get_home", Params(), sigc::mem_fun(*this, &RoomModel::home_get_cb));
 }
 
-void RoomModel::home_get_cb(bool success, vector<string> result, void *data)
+void RoomModel::home_get_cb(json_t *result, void *data)
 {
-    if (!success) return;
+    if (!result || !json_is_object(result)) return;
 
-    for (uint i = 1;i < result.size();i++)
+    json_t *jhome = json_object_get(result, "home");
+    if (!json_is_array(jhome))
+        return;
+
+    jsonHome = result;
+
+    int idx;
+    json_t *value;
+
+    json_array_foreach(jhome, idx, value)
     {
-        vector<string> tmp;
-        split(result[i], tmp, ":", 2);
-        int nb;
-        if (tmp.size() < 2) continue;
-        if (tmp[1].empty()) continue;
-        from_string(tmp[1], nb);
-
-        for(int j = 0;j < nb;j++)
-        {
-            Room *room = new Room(connection, this);
-            room->type = tmp[0];
-
-            rooms.push_back(room);
-
-            room_loaded++;
-            room->load_done.connect(sigc::mem_fun(*this, &RoomModel::load_room_done));
-
-            string cmd = "room " + room->type + " get " + Utils::to_string(j);
-            connection->SendCommand(cmd, sigc::mem_fun(*room, &Room::new_room_cb));
-        }
+        Room *room = new Room(connection, this);
+        room->load(value);
+        rooms.push_back(room);
     }
-
-    if (room_loaded <= 0)
-        load_done.emit();
-}
-
-void RoomModel::load_room_done(Room *room)
-{
-    room_loaded--;
 
     cDebug() << "[ROOM load done]";
 
-    if (room_loaded <= 0)
-    {
-        rooms.sort(RoomHitsCompare);
-        cacheScenarios.sort(IOHitsCompare);
-        cacheScenariosPref = cacheScenarios;
-        cacheScenariosPref.sort(IOScenarioCompare);
+    rooms.sort(RoomHitsCompare);
+    cacheScenarios.sort(IOHitsCompare);
+    cacheScenariosPref = cacheScenarios;
+    cacheScenariosPref.sort(IOScenarioCompare);
 
-        updateRoomType();
+    updateRoomType();
 
-        cDebug() << "[ROOM LOAD DONE sending signal]";
+    cDebug() << "[ROOM LOAD DONE sending signal]";
 
-        load_done.emit();
-    }
+    load_done.emit();
 }
 
-void Room::new_room_cb(bool success, vector<string> result, void *data)
+void Room::load(json_t *data)
 {
-    if (!success) return;
+    name = jansson_string_get(data, "name", "<unkown room name>");
+    type = jansson_string_get(data, "type", "<unkown type name>");
+    string h = jansson_string_get(data, "hits", "0");
+    Utils::from_string(h, hits);
 
-    io_loaded = 0;
-    for (uint b = 2;b < result.size();b++)
+    json_t *items = json_object_get(data, "items");
+    if (!json_is_object(items))
+        return;
+
+    //load inputs
+    json_t *inputs = json_object_get(items, "inputs");
+    if (json_is_array(inputs))
     {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-        if (tmp[0] == "input")
-            loadNewIO(tmp[1], IOBase::IO_INPUT);
-        else if (tmp[0] == "output")
-            loadNewIO(tmp[1], IOBase::IO_OUTPUT);
-        else if(tmp[0] == "name")
-            name = tmp[1];
-        else if(tmp[0] == "hits")
-            Utils::from_string(tmp[1], hits);
+        int idx;
+        json_t *value;
+
+        json_array_foreach(inputs, idx, value)
+        {
+            loadNewIO(value, IOBase::IO_INPUT);
+        }
     }
 
-    if (io_loaded <= 0)
-        load_done.emit(this);
+    //load outputs
+    json_t *outputs = json_object_get(items, "outputs");
+    if (json_is_array(outputs))
+    {
+        int idx;
+        json_t *value;
+
+        json_array_foreach(outputs, idx, value)
+        {
+            loadNewIO(value, IOBase::IO_OUTPUT);
+        }
+    }
+
+    ios.sort(IOHitsCompare);
+
+    updateVisibleIO();
 }
 
-void Room::loadNewIO(string id, int io_type)
+void Room::loadNewIO(json_t *data, int io_type)
 {
+    if (jansson_string_get(data, "id") == "" ||
+        jansson_string_get(data, "type") == "" ||
+        jansson_string_get(data, "gui_type") == "")
+        return; //don't load wrong IO
+
     IOBase *io = new IOBase(connection, this, io_type);
     ios.push_back(io);
 
-    io->params.Add("id", id);
+    jansson_decode_object(data, io->params);
 
-    string cmd;
-    if (io_type == IOBase::IO_INPUT)
-        cmd = "input ";
-    else
-        cmd = "output ";
-    cmd += id + " get";
-
-    io->load_done.connect(sigc::mem_fun(*this, &Room::load_io_done));
-    io_loaded++;
-
-    connection->SendCommand(cmd, sigc::mem_fun(*io, &IOBase::new_io_cb));
+    load_io_done(io);
 }
 
 void Room::load_io_done(IOBase *io)
 {
-    io_loaded--;
-
     //Put everything in cache so we can use it easily later
     if (io->io_type == IOBase::IO_INPUT)
         model->cacheInputs[io->params["id"]] = io;
@@ -215,6 +208,9 @@ void Room::load_io_done(IOBase *io)
 
     if (_type == "avreceiver")
     {
+        cCritical() << "TODO: avreceiver";
+        /*
+         * TODO:
         io->sendUserCommand("states?", [=](bool success, vector<string> result, void *data)
         {
             if (!success) return;
@@ -242,15 +238,7 @@ void Room::load_io_done(IOBase *io)
                 io->amplifier_inputs[num] = tok[1];
             }
         });
-    }
-
-    if (io_loaded <= 0)
-    {
-        ios.sort(IOHitsCompare);
-
-        updateVisibleIO();
-
-        load_done.emit(this);
+        */
     }
 }
 
@@ -338,23 +326,6 @@ IOBase *Room::getChauffage()
     return NULL;
 }
 
-void IOBase::new_io_cb(bool success, vector<string> result, void *data)
-{
-    if (!success) return;
-
-    for (uint b = 1;b < result.size();b++)
-    {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        params.Add(tmp[0], tmp[1]);
-    }
-
-    load_done.emit(this);
-}
-
 void RoomModel::updateRoomType()
 {
     rooms_type.clear();
@@ -382,41 +353,24 @@ void RoomModel::updateRoomType()
 
 void IOBase::sendAction(string command)
 {
-    string cmd;
-
-    if (io_type == IO_INPUT)
-        cmd = "input ";
-    else
-        cmd = "output ";
-
-    cmd += params["id"] + " set " + url_encode(command);
-
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::sendAction_cb));
+    Params p = {{ "type", io_type == IO_INPUT?"input":"output" },
+                { "id", params["id"] },
+                { "value", command }};
+    connection->sendCommand("set_state", p);
 }
 
 void IOBase::sendUserCommand(string command, CommandDone_cb callback, void *data)
-{
-    string cmd;
-
-    if (io_type == IO_INPUT)
-        cmd = "input ";
-    else
-        cmd = "output ";
-
-    cmd += params["id"] + " " + command;
-
-    connection->SendCommand(cmd, callback, data);
+{   
+    Params p = {{ "type", io_type == IO_INPUT?"input":"output" },
+                { "id", params["id"] },
+                { "value", command }};
+    connection->sendCommand("set_state", p, callback, data);
 }
 
-void IOBase::sendAction_cb(bool success, vector<string> result, void *data)
-{
-    //do nothing...
-}
-
-void IOBase::notifyChange(string notif)
+void IOBase::notifyChange(const string &msgtype, const Params &evdata)
 {
     vector<string> tok;
-    split(notif, tok);
+    split(msgtype, tok);
 
     if (io_type == IO_INPUT && params["gui_type"] == "time_range" &&
         tok[0] == "input_range_change")
@@ -537,10 +491,10 @@ void IOBase::checkCacheChange()
     }
 }
 
-void Room::notifyChange(string notif)
+void Room::notifyChange(const string &msgtype, const Params &evdata)
 {
     vector<string> tok;
-    split(notif, tok);
+    split(msgtype, tok);
     Params p;
 
     for (unsigned int i = 0;i < tok.size();i++)
@@ -666,10 +620,10 @@ void RoomModel::notifyRoomChange(string notif)
     }
 }
 
-void Room::notifyIOAdd(string notif)
+void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
 {
     vector<string> tok, split_id, split_room_name, split_room_type;
-    split(notif, tok);
+    split(msgtype, tok);
 
     if (tok.size() < 4) return;
 
@@ -693,6 +647,7 @@ void Room::notifyIOAdd(string notif)
 
 void Room::loadNewIOFromNotif(string id, int io_type)
 {
+    /*
     IOBase *io = new IOBase(connection, this, io_type);
     ios.push_back(io);
 
@@ -708,6 +663,7 @@ void Room::loadNewIOFromNotif(string id, int io_type)
     io->load_done.connect(sigc::mem_fun(*this, &Room::load_io_notif_done));
 
     connection->SendCommand(cmd, sigc::mem_fun(*io, &IOBase::new_io_cb));
+    */
 }
 
 void Room::load_io_notif_done(IOBase *io)
@@ -774,10 +730,10 @@ void Room::load_io_notif_done(IOBase *io)
     io_added.emit(io);
 }
 
-void Room::notifyIODel(string notif)
+void Room::notifyIODel(const string &msgtype, const Params &evdata)
 {
     vector<string> tok, split_room_name, split_room_type;
-    split(notif, tok);
+    split(msgtype, tok);
 
     if (tok.size() < 4) return;
 
@@ -858,10 +814,10 @@ void Room::notifyIODel(string notif)
     }
 }
 
-void RoomModel::notifyRoomAdd(string notif)
+void RoomModel::notifyRoomAdd(const string &msgtype, const Params &evdata)
 {
     vector<string> tok;
-    split(notif, tok);
+    split(msgtype, tok);
     Params p;
 
     for (unsigned int i = 0;i < tok.size();i++)
@@ -886,10 +842,10 @@ void RoomModel::notifyRoomAdd(string notif)
     room_added.emit(room);
 }
 
-void RoomModel::notifyRoomDel(string notif)
+void RoomModel::notifyRoomDel(const string &msgtype, const Params &evdata)
 {
     vector<string> tok;
-    split(notif, tok);
+    split(msgtype, tok);
     Params p;
 
     for (unsigned int i = 0;i < tok.size();i++)
@@ -1583,7 +1539,8 @@ void IOBase::loadPlage()
     }
 
     string cmd = "input " + params["id"] + " plage get";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlage_cb));
+    cCritical() << "TODO";
+    //connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlage_cb));
 }
 
 void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
@@ -1641,7 +1598,8 @@ void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
 
     //Load months info
     string cmd = "input " + params["id"] + " plage months get";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlageMonths_cb));
+    cCritical() << "TODO";
+    //connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlageMonths_cb));
 }
 
 void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)

@@ -153,22 +153,21 @@ class ScenarioModel: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    int load_count;
     void load_scenario_done(Scenario *sc);
     void load_new_scenario_done(Scenario *sc);
 
     void scenario_list_cb(bool success, vector<string> result, void *data);
 
-    void notifyScenarioAdd(string notif);
-    void notifyScenarioAddDelayed(string notif);
+    void notifyScenarioAdd(const string &msgtype, const Params &evdata);
+    void notifyScenarioAddDelayed(const string &msgtype, const Params &evdata);
     void notifyScenarioDel(Scenario *sc);
-    void notifyScenarioChange(string notif);
+    void notifyScenarioChange(const string &msgtype, const Params &evdata);
 
 public:
     ScenarioModel(CalaosConnection *connection);
     ~ScenarioModel();
 
-    void load();
+    void load(json_t *data);
     void createScenario(ScenarioData &data);
     void modifyScenario(Scenario *sc);
     void deleteScenario(Scenario *sc);

@@ -130,3 +130,18 @@ string Params::toString() const
 
     return ret;
 }
+
+json_t *Params::toJson() const
+{
+    json_t *ret = json_object();
+
+    auto it = params.begin();
+    for (;it != params.end();it++)
+    {
+        json_object_set_new(ret,
+                            (*it).first.c_str(),
+                            json_string((*it).second.c_str()));
+    }
+
+    return ret;
+}

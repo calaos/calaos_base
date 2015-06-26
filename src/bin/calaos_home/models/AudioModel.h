@@ -67,7 +67,7 @@ private:
 
     void timerChangeTick();
 
-    void notifyChange(string notif);
+    void notifyChange(const string &msgtype, const Params &evdata);
 
     void audio_volume_get_cb(bool success, vector<string> result, void *data);
     void audio_status_get_cb(bool success, vector<string> result, void *data);
@@ -91,11 +91,11 @@ public:
         timer_change(NULL),
         time_inprocess(false)
     {
-        connection->getListener()->notify_audio_change.connect(
+        connection->notify_audio_change.connect(
                     sigc::mem_fun(*this, &AudioPlayer::notifyChange));
     }
 
-    void audio_get_cb(bool success, vector<string> result, void *data);
+    void load(json_t *data);
 
     Params params;
 
@@ -195,16 +195,11 @@ class AudioModel: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    int load_count;
-    void load_audio_done(AudioPlayer *audio);
-
-    void audio_count_cb(bool success, vector<string> result, void *data);
-
 public:
     AudioModel(CalaosConnection *connection);
     ~AudioModel();
 
-    void load();
+    void load(json_t *data);
 
     AudioPlayer *getForId(string id);
 

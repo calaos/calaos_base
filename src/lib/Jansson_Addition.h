@@ -21,9 +21,10 @@
 #ifndef JANSSON_ADDITION_H
 #define JANSSON_ADDITION_H
 
-#include "Calaos.h"
-#include <iostream>
 #include <jansson.h>
+#include "Params.h"
+
+using namespace Utils;
 
 inline bool jansson_bool_get(const json_t *json, const std::string &str, const bool default_value = false)
 {
@@ -34,15 +35,9 @@ inline bool jansson_bool_get(const json_t *json, const std::string &str, const b
     if (!jdata) return default_value;
 
     if (!json_is_boolean(jdata))
-    {
-        json_decref(jdata);
-
         return default_value;
-    }
 
     ret = json_is_true(jdata)?true:false;
-
-    json_decref(jdata);
 
     return ret;
 }
@@ -56,15 +51,9 @@ inline std::string jansson_string_get(const json_t *json, const std::string &str
     if (!jdata) return default_value;
 
     if (!json_is_string(jdata))
-    {
-        json_decref(jdata);
-
         return default_value;
-    }
 
     ret = json_string_value(jdata);
-
-    json_decref(jdata);
 
     return ret;
 }
@@ -78,15 +67,9 @@ inline int jansson_int_get(const json_t *json, const std::string &str, const int
     if (!jdata) return default_value;
 
     if (!json_is_integer(jdata))
-    {
-        json_decref(jdata);
-
         return default_value;
-    }
 
     ret = json_integer_value(jdata);
-
-    json_decref(jdata);
 
     return ret;
 }
@@ -100,15 +83,9 @@ inline double jansson_double_get(const json_t *json, const std::string &str, con
     if (!jdata) return default_value;
 
     if (!json_is_real(jdata))
-    {
-        json_decref(jdata);
-
         return default_value;
-    }
 
     ret = json_real_value(jdata);
-
-    json_decref(jdata);
 
     return ret;
 }

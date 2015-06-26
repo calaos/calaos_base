@@ -25,7 +25,7 @@
 #include "Utils.h"
 #include "WebSocketFrame.h"
 #include "EcoreTimer.h"
-#include "http_parser.h"
+#include "http-parser/http_parser.h"
 
 class WebSocketClient: public sigc::trackable
 {

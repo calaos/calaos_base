@@ -49,9 +49,9 @@ void CalaosModel::discover_found(string address)
 {
     server_address = address;
 
-    DELETE_NULL(discover)
+    DELETE_NULL(discover);
 
-            cInfoDom("network") << "CalaosModel: found server: " << server_address;
+    cInfoDom("network") << "CalaosModel: found server: " << server_address;
 
     connection = new CalaosConnection(server_address);
     connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosModel::connection_ok));
@@ -81,9 +81,9 @@ void CalaosModel::discover_error_login(string address)
     /* this has to be redispatched to the gui and ask user for username/password */
     server_address = address;
 
-    DELETE_NULL(discover)
+    DELETE_NULL(discover);
 
-            cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
+    cErrorDom("network") << "CalaosModel: Failed to login to server: " << server_address;
 
     login_failed.emit(server_address);
 }
@@ -100,11 +100,11 @@ void CalaosModel::lost_connection()
 {
     cErrorDom("network") << "CalaosModel: Lost Connection !";
 
-    DELETE_NULL(room_model)
-            DELETE_NULL(camera_model)
-            DELETE_NULL(audio_model)
+    DELETE_NULL(room_model);
+    DELETE_NULL(camera_model);
+    DELETE_NULL(audio_model);
 
-            DELETE_NULL(discover);
+    DELETE_NULL(discover);
     DELETE_NULL(connection);
     discover = new CalaosDiscover();
     discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
@@ -129,12 +129,10 @@ void CalaosModel::load_done()
 
 void CalaosModel::load_home_done()
 {
-    camera_model->load();
-    load_count++;
-    audio_model->load();
-    load_count++;
-    scenario_model->load();
-    load_count++;
+    load_count += 3;
+    camera_model->load(room_model->getJsonHome());
+    audio_model->load(room_model->getJsonHome());
+    scenario_model->load(room_model->getJsonHome());
 }
 
 string CalaosModel::toString()
