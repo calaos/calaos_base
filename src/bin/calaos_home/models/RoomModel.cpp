@@ -558,11 +558,11 @@ void Room::notifyChange(const string &msgtype, const Params &evdata)
 
         room_changed.emit();
 
-        model->notifyRoomChange(this);
+        model->notifyRoomChange();
     }
 }
 
-void RoomModel::notifyRoomChange(Room *room)
+void RoomModel::notifyRoomChange()
 {
     rooms.sort(RoomHitsCompare);
     updateRoomType();
