@@ -803,26 +803,14 @@ void RoomModel::notifyRoomAdd(const string &msgtype, const Params &evdata)
 
 void RoomModel::notifyRoomDel(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok;
-    split(msgtype, tok);
-    Params p;
+    VAR_UNUSED(msgtype);
 
-    for (unsigned int i = 0;i < tok.size();i++)
-    {
-        vector<string> t;
-        split(tok[i], t, ":", 2);
-
-        for_each(t.begin(), t.end(), UrlDecode());
-
-        p.Add(t[0], t[1]);
-    }
-
-    list<Room *>::iterator it, itr;
-    for (it = rooms.begin(); it != rooms.end();it++)
+    for (auto it = rooms.begin(); it != rooms.end();it++)
     {
         Room *room = *it;
 
-        if (p["type"] == room->type && p["name"] == room->name)
+        if (evdata["type"] == room->type &&
+            evdata["name"] == room->name)
         {
             room_deleted.emit(room);
             rooms.erase(it);
