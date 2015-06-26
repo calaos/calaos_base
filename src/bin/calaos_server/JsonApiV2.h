@@ -55,6 +55,7 @@ private:
     void processGetCover();
     void processGetCameraPic();
     void processConfig(json_t *jroot);
+    void processGetIO(json_t *jroot);
 
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 

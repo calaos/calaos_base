@@ -145,6 +145,8 @@ void JsonApiV2::processApi(const string &data)
         processGetCameraPic();
     else if (jsonParam["action"] == "config")
         processConfig(jroot);
+    else if (jsonParam["action"] == "get_io")
+        processGetIO(jroot);
 
     json_decref(jroot);
 }
@@ -199,6 +201,11 @@ void JsonApiV2::processGetState(json_t *jroot)
     {
         sendJson(jret);
     });
+}
+
+void JsonApiV2::processGetIO(json_t *jroot)
+{
+    sendJson(buildJsonGetIO(jroot));
 }
 
 void JsonApiV2::processSetState()

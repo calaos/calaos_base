@@ -28,6 +28,7 @@ var apiList = [
     '{ }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_home" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_state", "inputs": ["input_0"], "outputs": ["output_0", "output_1"], "audio_players": ["0"] }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_io", "inputs": ["input_0"], "outputs": ["output_0", "output_1"] }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "output", "id": "output_0", "value": "true" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "input", "id": "input_0", "value": "true" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "audio", "player_id": "0", "value": "volume 75" }',
@@ -45,6 +46,7 @@ $(document).ready(function() {
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
     $('#api_list').append($('<option />').val(i++).html('get_home'));
     $('#api_list').append($('<option />').val(i++).html('get_state'));
+    $('#api_list').append($('<option />').val(i++).html('get_io'));
     $('#api_list').append($('<option />').val(i++).html('set_state output'));
     $('#api_list').append($('<option />').val(i++).html('set_state input'));
     $('#api_list').append($('<option />').val(i++).html('set_state audio'));

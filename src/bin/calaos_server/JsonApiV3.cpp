@@ -142,6 +142,8 @@ void JsonApiV3::processApi(const string &data)
             processSetState(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_playlist")
             processGetPlaylist(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_io")
+            processGetIO(jdata, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -178,6 +180,17 @@ void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
     {
         sendJson("get_state", jret, client_id);
     });
+}
+
+void JsonApiV3::processGetIO(json_t *jdata, const string &client_id)
+{
+    if (!jdata)
+    {
+        sendJson("get_io", nullptr, client_id);
+        return;
+    }
+
+    sendJson("get_io", buildJsonGetIO(jdata), client_id);
 }
 
 void JsonApiV3::processSetState(Params &jsonReq, const string &client_id)

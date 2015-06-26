@@ -33,51 +33,57 @@ JsonApi::~JsonApi()
 }
 
 template<typename T>
+void JsonApi::buildJsonIO(T *io, json_t *jio)
+{
+    vector<string> params =
+    { "id", "name", "type", "hits", "var_type", "visible",
+      "chauffage_id", "rw", "unit", "gui_type", "state",
+      "auto_scenario", "step" };
+
+    for (string &param: params)
+    {
+        string value;
+
+        if (param == "state")
+        {
+            if (io->get_type() == TINT)
+                value = Utils::to_string(io->get_value_double());
+            else if (io->get_type() == TBOOL)
+                value = io->get_value_bool()?"true":"false";
+            else if (io->get_type() == TSTRING)
+                value = io->get_value_string();
+        }
+        else if (param == "var_type")
+        {
+            if (io->get_type() == TINT) value = "float";
+            else if (io->get_type() == TBOOL) value = "bool";
+            else if (io->get_type() == TSTRING) value = "string";
+        }
+        else
+        {
+            if (!io->get_params().Exists(param))
+                continue;
+            value = io->get_param(param);
+        }
+
+        json_object_set_new(jio, param.c_str(),
+                            json_string(value.c_str()));
+    }
+}
+
+template<typename T>
 json_t *JsonApi::buildJsonRoomIO(Room *room)
 {
     json_t *jdata = json_array();
 
     for (int i = 0;i < room->get_size<T *>();i++)
     {
-        json_t *jinput = json_object();
+        json_t *jio = json_object();
         T *io = room->get_io<T *>(i);
 
-        vector<string> params =
-        { "id", "name", "type", "hits", "var_type", "visible",
-          "chauffage_id", "rw", "unit", "gui_type", "state",
-          "auto_scenario", "step" };
+        buildJsonIO(io, jio);
 
-        for (string &param: params)
-        {
-            string value;
-
-            if (param == "state")
-            {
-                if (io->get_type() == TINT)
-                    value = Utils::to_string(io->get_value_double());
-                else if (io->get_type() == TBOOL)
-                    value = io->get_value_bool()?"true":"false";
-                else if (io->get_type() == TSTRING)
-                    value = io->get_value_string();
-            }
-            else if (param == "var_type")
-            {
-                if (io->get_type() == TINT) value = "float";
-                else if (io->get_type() == TBOOL) value = "bool";
-                else if (io->get_type() == TSTRING) value = "string";
-            }
-            else
-            {
-                if (!io->get_params().Exists(param))
-                    continue;
-                value = io->get_param(param);
-            }
-
-            json_object_set_new(jinput, param.c_str(),
-                                json_string(value.c_str()));
-        }
-
-        json_array_append_new(jdata, jinput);
+        json_array_append_new(jdata, jio);
     }
 
     return jdata;
@@ -357,6 +363,68 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
 
         result_lambda(jret);
     }
+}
+
+json_t *JsonApi::buildJsonGetIO(json_t *jroot)
+{
+    json_incref(jroot);
+    json_t *jinputs = json_object();
+    json_t *joutputs = json_object();
+
+    json_t *jin = json_object_get(jroot, "inputs");
+    if (jin && json_is_array(jin))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jin, idx, value)
+        {
+            string svalue;
+
+            if (!json_is_string(value)) continue;
+
+            svalue = json_string_value(value);
+            Input *input = ListeRoom::Instance().get_input(svalue);
+            if (input)
+            {
+                json_t *jio = json_object();
+                buildJsonIO(input, jio);
+
+                json_object_set_new(jinputs, svalue.c_str(), jio);
+            }
+        }
+    }
+
+    json_t *jout = json_object_get(jroot, "outputs");
+    if (jout && json_is_array(jout))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jout, idx, value)
+        {
+            string svalue;
+
+            if (!json_is_string(value)) continue;
+
+            svalue = json_string_value(value);
+            Output *output = ListeRoom::Instance().get_output(svalue);
+            if (output)
+            {
+                json_t *jio = json_object();
+                buildJsonIO(output, jio);
+
+                json_object_set_new(joutputs, svalue.c_str(), jio);
+            }
+        }
+    }
+
+    json_t *jret = json_object();
+    jret = json_pack("{s:o, s:o}",
+                     "inputs", jinputs,
+                     "outputs", joutputs);
+
+    return jret;
 }
 
 bool JsonApi::decodeSetState(Params &jParam)
