@@ -57,7 +57,7 @@ void AudioModel::load(json_t *data)
         return;
     }
 
-    int idx;
+    size_t idx;
     json_t *value;
 
     json_array_foreach(jaudio, idx, value)

@@ -204,7 +204,7 @@ public:
     void load_io_notif_done(IOBase *io);
 
     void loadNewIO(json_t *data, int io_type);
-    void loadNewIOFromNotif(string id, int io_type);
+    void loadNewIOFromNotif(const Params &ioparam, int io_type);
 
     IOBase *getChauffage();
 

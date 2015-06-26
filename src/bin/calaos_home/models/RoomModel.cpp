@@ -65,7 +65,7 @@ void RoomModel::home_get_cb(json_t *result, void *data)
 
     jsonHome = result;
 
-    int idx;
+    size_t idx;
     json_t *value;
 
     json_array_foreach(jhome, idx, value)
@@ -104,7 +104,7 @@ void Room::load(json_t *data)
     json_t *inputs = json_object_get(items, "inputs");
     if (json_is_array(inputs))
     {
-        int idx;
+        size_t idx;
         json_t *value;
 
         json_array_foreach(inputs, idx, value)
@@ -117,7 +117,7 @@ void Room::load(json_t *data)
     json_t *outputs = json_object_get(items, "outputs");
     if (json_is_array(outputs))
     {
-        int idx;
+        size_t idx;
         json_t *value;
 
         json_array_foreach(outputs, idx, value)
@@ -622,105 +622,76 @@ void RoomModel::notifyRoomChange(string notif)
 
 void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok, split_id, split_room_name, split_room_type;
-    split(msgtype, tok);
+    json_t *jreq = nullptr;
 
-    if (tok.size() < 4) return;
+    if (evdata["room_name"] != name ||
+        evdata["room_type"] != type)
+        return; //not for us
 
-    split(url_decode(tok[1]), split_id, ":", 2);
-    split(url_decode(tok[2]), split_room_name, ":", 2);
-    split(url_decode(tok[3]), split_room_type, ":", 2);
+    if (msgtype == "input_added")
+    {
+        json_t *jarr = json_array();
+        json_array_append(jarr, json_string(evdata["id"].c_str()));
+        jreq = json_pack("{s:o}", "inputs", jarr);
 
-    if (split_id.size() < 2 ||
-        split_room_name.size() < 2 ||
-        split_room_type.size() < 2)
-        return;
+        connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)
+        {
+            json_t *jin = json_object_get(jres, "inputs");
+            if (jin && json_is_object(jin))
+            {
+                json_t *jio = json_object_get(jin, evdata["id"].c_str());
+                if (jio && json_is_object(jio))
+                {
+                    Params pio;
+                    jansson_decode_object(jio, pio);
+                    loadNewIOFromNotif(pio, IOBase::IO_INPUT);
+                }
+            }
+        });
+    }
+    else if (msgtype == "output_added")
+    {
+        json_t *jarr = json_array();
+        json_array_append(jarr, json_string(evdata["id"].c_str()));
+        jreq = json_pack("{s:o}", "outputs", jarr);
 
-    if (name != split_room_name[1] || type != split_room_type[1])
-        return;
-
-    if (tok[0] == "new_input")
-        loadNewIOFromNotif(split_id[1], IOBase::IO_INPUT);
-    else if (tok[0] == "new_output")
-        loadNewIOFromNotif(split_id[1], IOBase::IO_OUTPUT);
+        connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)
+        {
+            json_t *jin = json_object_get(jres, "outputs");
+            if (jin && json_is_object(jin))
+            {
+                json_t *jio = json_object_get(jin, evdata["id"].c_str());
+                if (jio && json_is_object(jio))
+                {
+                    Params pio;
+                    jansson_decode_object(jio, pio);
+                    loadNewIOFromNotif(pio, IOBase::IO_OUTPUT);
+                }
+            }
+        });
+    }
 }
 
-void Room::loadNewIOFromNotif(string id, int io_type)
+void Room::loadNewIOFromNotif(const Params &ioparam, int io_type)
 {
-    /*
+    if (ioparam["id"] == "" ||
+        ioparam["type"] == "" ||
+        ioparam["gui_type"] == "")
+        return; //don't load wrong IO
+
     IOBase *io = new IOBase(connection, this, io_type);
     ios.push_back(io);
 
-    io->params.Add("id", id);
+    io->params = ioparam;
 
-    string cmd;
-    if (io_type == IOBase::IO_INPUT)
-        cmd = "input ";
-    else
-        cmd = "output ";
-    cmd += id + " get";
-
-    io->load_done.connect(sigc::mem_fun(*this, &Room::load_io_notif_done));
-
-    connection->SendCommand(cmd, sigc::mem_fun(*io, &IOBase::new_io_cb));
-    */
-}
-
-void Room::load_io_notif_done(IOBase *io)
-{
-    //Put everything in cache so we can use it easily later
-    if (io->io_type == IOBase::IO_INPUT)
-        model->cacheInputs[io->params["id"]] = io;
-    else
-        model->cacheOutputs[io->params["id"]] = io;
-
-    if (io->params["chauffage_id"] != "")
-        model->chauffageList.push_back(io);
+    load_io_done(io);
 
     string _type = io->params["gui_type"];
     if (_type == "scenario" && io->io_type == IOBase::IO_OUTPUT)
     {
-        model->cacheScenarios.push_back(io);
         //Sort cached scenarios again
         model->cacheScenariosPref = model->cacheScenarios;
         model->cacheScenariosPref.sort(IOScenarioCompare);
-    }
-
-    if (_type == "light" ||
-        _type == "light_dimmer" ||
-        _type == "light_rgb")
-    {
-        int value;
-        from_string(io->params["state"], value);
-
-        if (io->params["state"] == "true" || value > 0)
-        {
-            RoomIO roomIO;
-            roomIO.io = io;
-            roomIO.room = this;
-
-            model->cacheLightsOn[io] = roomIO;
-        }
-    }
-
-    if (_type == "shutter" ||
-        _type == "shutter_smart")
-    {
-        int value = 100;
-
-        vector<string> tokens;
-        split(io->params["state"], tokens);
-        if (tokens.size() > 1)
-            from_string(tokens[1], value);
-
-        if (io->params["state"] == "false" || value < 100 || io->params["state"] == "down")
-        {
-            RoomIO roomIO;
-            roomIO.io = io;
-            roomIO.room = this;
-
-            model->cacheShuttersUp[io] = roomIO;
-        }
     }
 
     ios.sort(IOHitsCompare);
