@@ -418,12 +418,15 @@ void GenlistItemScenarioAction::actionColor(void *data, IOActionList ac)
     t += _("Choose color") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
-    page->setDragValue("slider.red:slider", action_temp.red / 100.0, 0.0);
-    page->setDragValue("slider.green:slider", action_temp.green / 100.0, 0.0);
-    page->setDragValue("slider.blue:slider", action_temp.blue / 100.0, 0.0);
+    page->setDragValue("slider.red:slider", action_temp.colorval.getRed() / 255.0, 0.0);
+    page->setDragValue("slider.green:slider", action_temp.colorval.getGreen() / 255.0, 0.0);
+    page->setDragValue("slider.blue:slider", action_temp.colorval.getBlue() / 255.0, 0.0);
 
     color_preview = evas_object_rectangle_add(evas);
-    evas_object_color_set(color_preview, action_temp.red, action_temp.green, action_temp.blue, 255);
+    evas_object_color_set(color_preview,
+                          action_temp.colorval.getRed(),
+                          action_temp.colorval.getGreen(),
+                          action_temp.colorval.getBlue(), 255);
     evas_object_show(color_preview);
     page->Swallow(color_preview, "color.preview", true);
 
@@ -437,9 +440,12 @@ void GenlistItemScenarioAction::sliderRedSignalCallback(void *data, Evas_Object 
         double x;
         page->getDragValue("slider.red:slider", &x, NULL);
 
-        action_temp.red = (int)(x * 100.0);
+        action_temp.colorval.setRed((int)(100. * x * 255.0 / 100.0));
 
-        evas_object_color_set(color_preview, action_temp.red, action_temp.green, action_temp.blue, 255);
+        evas_object_color_set(color_preview,
+                              action_temp.colorval.getRed(),
+                              action_temp.colorval.getGreen(),
+                              action_temp.colorval.getBlue(), 255);
     }
 }
 
@@ -450,9 +456,12 @@ void GenlistItemScenarioAction::sliderGreenSignalCallback(void *data, Evas_Objec
         double x;
         page->getDragValue("slider.green:slider", &x, NULL);
 
-        action_temp.green = (int)(x * 100.0);
+        action_temp.colorval.setGreen((int)(100. * x * 255.0 / 100.0));
 
-        evas_object_color_set(color_preview, action_temp.red, action_temp.green, action_temp.blue, 255);
+        evas_object_color_set(color_preview,
+                              action_temp.colorval.getRed(),
+                              action_temp.colorval.getGreen(),
+                              action_temp.colorval.getBlue(), 255);
     }
 }
 
@@ -463,8 +472,11 @@ void GenlistItemScenarioAction::sliderBlueSignalCallback(void *data, Evas_Object
         double x;
         page->getDragValue("slider.blue:slider", &x, NULL);
 
-        action_temp.blue = (int)(x * 100.0);
+        action_temp.colorval.setBlue((int)(100. * x * 255.0 / 100.0));
 
-        evas_object_color_set(color_preview, action_temp.red, action_temp.green, action_temp.blue, 255);
+        evas_object_color_set(color_preview,
+                              action_temp.colorval.getRed(),
+                              action_temp.colorval.getGreen(),
+                              action_temp.colorval.getBlue(), 255);
     }
 }

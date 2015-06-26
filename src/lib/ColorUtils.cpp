@@ -26,6 +26,9 @@ using namespace Calaos;
 #define OUT_OF_RANGE(val, min, max) \
     ((val < min) || (val > max))
 
+#define CLAMP_VALUE(val, min, max) \
+    val = val < min?min:val > max?max:val
+
 ColorValue::ColorValue():
     alpha(0)
 {
@@ -231,7 +234,7 @@ void ColorValue::setAlpha(int a)
     if (OUT_OF_RANGE(a, 0, 255))
     {
         cWarning() << "alpha out of range";
-        return;
+        CLAMP_VALUE(a, 0, 255);
     }
     alpha = a;
 }
@@ -265,7 +268,7 @@ void ColorValue::setRed(int red)
     if (OUT_OF_RANGE(red, 0, 255))
     {
         cWarning() << "red color out of range";
-        return;
+        CLAMP_VALUE(red, 0, 255);
     }
 
     if (type == ColorRGB)
@@ -279,7 +282,7 @@ void ColorValue::setGreen(int green)
     if (OUT_OF_RANGE(green, 0, 255))
     {
         cWarning() << "green color out of range";
-        return;
+        CLAMP_VALUE(green, 0, 255);
     }
 
     if (type == ColorRGB)
@@ -293,7 +296,7 @@ void ColorValue::setBlue(int blue)
     if (OUT_OF_RANGE(blue, 0, 255))
     {
         cWarning() << "blue color out of range";
-        return;
+        CLAMP_VALUE(blue, 0, 255);
     }
 
     if (type == ColorRGB)
@@ -349,7 +352,7 @@ void ColorValue::setHSVHue(int h)
     if (OUT_OF_RANGE(h, 0, 359))
     {
         cWarning() << "hue color out of range";
-        return;
+        CLAMP_VALUE(h, 0, 359);
     }
 
     if (type == ColorHSV)
@@ -363,7 +366,7 @@ void ColorValue::setHSVSaturation(int s)
     if (OUT_OF_RANGE(s, 0, 100))
     {
         cWarning() << "saturation color out of range";
-        return;
+        CLAMP_VALUE(s, 0, 100);
     }
 
     if (type == ColorHSV)
@@ -377,7 +380,7 @@ void ColorValue::setHSVValue(int v)
     if (OUT_OF_RANGE(v, 0, 100))
     {
         cWarning() << "HSV value color out of range";
-        return;
+        CLAMP_VALUE(v, 0, 100);
     }
 
     if (type == ColorHSV)
@@ -394,7 +397,10 @@ void ColorValue::setHsv(int h, int s, int v, int a)
         OUT_OF_RANGE(a, 0, 255))
     {
         cWarning() << "hsv values out of range";
-        return;
+        CLAMP_VALUE(h, 0, 359);
+        CLAMP_VALUE(s, 0, 100);
+        CLAMP_VALUE(v, 0, 100);
+        CLAMP_VALUE(a, 0, 255);
     }
 
     setAlpha(a);
@@ -433,7 +439,7 @@ void ColorValue::setHSLHue(int h)
     if (OUT_OF_RANGE(h, 0, 359))
     {
         cWarning() << "hue color out of range";
-        return;
+        CLAMP_VALUE(h, 0, 359);
     }
 
     if (type == ColorHSL)
@@ -447,7 +453,7 @@ void ColorValue::setHSLSaturation(int s)
     if (OUT_OF_RANGE(s, 0, 100))
     {
         cWarning() << "saturation color out of range";
-        return;
+        CLAMP_VALUE(s, 0, 100);
     }
 
     if (type == ColorHSL)
@@ -461,7 +467,7 @@ void ColorValue::setHSLLightness(int l)
     if (OUT_OF_RANGE(l, 0, 100))
     {
         cWarning() << "lightness color out of range";
-        return;
+        CLAMP_VALUE(l, 0, 100);
     }
 
     if (type == ColorHSL)
@@ -478,7 +484,10 @@ void ColorValue::setHsl(int h, int s, int l, int a)
         OUT_OF_RANGE(a, 0, 255))
     {
         cWarning() << "hsl values out of range";
-        return;
+        CLAMP_VALUE(h, 0, 359);
+        CLAMP_VALUE(s, 0, 100);
+        CLAMP_VALUE(l, 0, 100);
+        CLAMP_VALUE(a, 0, 255);
     }
 
     setAlpha(a);

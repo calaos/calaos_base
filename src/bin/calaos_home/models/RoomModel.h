@@ -38,13 +38,13 @@ class IOActionList
 {
 public:
     IOActionList(string a, string t, string t2, int ty): //title_computed must be computed with value first
-        action(a), title(t), title_computed(t2), dvalue(0.0), red(0), green(0), blue(0), type(ty)
+        action(a), title(t), title_computed(t2), dvalue(0.0), type(ty)
     {}
     IOActionList(string a, string t, int ty): //same title and title_computed
-        action(a), title(t), title_computed(t), dvalue(0.0), red(0), green(0), blue(0), type(ty)
+        action(a), title(t), title_computed(t), dvalue(0.0), type(ty)
     {}
     IOActionList():
-        dvalue(0.0), red(0), green(0), blue(0), type(ACTION_NONE)
+        dvalue(0.0), type(ACTION_NONE)
     {}
 
     string action;
@@ -55,7 +55,7 @@ public:
     string svalue;
 
     //for color type
-    int red, green, blue;
+    ColorValue colorval;
 
     enum { ACTION_NONE = 0, ACTION_SIMPLE, ACTION_SLIDER, ACTION_COLOR, ACTION_TEXT, ACTION_NUMBER, ACTION_TIME_MS };
     int type;
@@ -64,7 +64,7 @@ public:
     string getComputedTitle(IOBase *io);
 
     void copyValueFrom(IOActionList &ac)
-    { dvalue = ac.dvalue; svalue = ac.svalue; red = ac.red; green = ac.green; blue = ac.blue; }
+    { dvalue = ac.dvalue; svalue = ac.svalue; colorval = ac.colorval; }
 };
 
 class TimeRangeInfos
@@ -133,8 +133,6 @@ public:
     Room *getRoom() { return room; }
 
     //Some utility functions
-    void getRGBValueFromState(int &r, int &g, int &b);
-    int computeStateFromRGBValue(int r, int g, int b);
     double getDaliValueFromState();
     int getPercentVoletSmart();
     string getStatusVoletSmart();

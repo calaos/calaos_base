@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "IOWODaliRVBHomeView.h"
 #include <ApplicationMain.h>
+#include "ColorUtils.h"
 
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, On)
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, Off)
@@ -134,9 +135,9 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_red->LoadEdje("calaos/slider/horizontal/red");
         slider_red->Show();
 
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
-        slider_red->setDragValue("slider", r / 100.0, 0.0);
+        ColorValue c(io->params["state"]);
+        if (c.isValid())
+            slider_red->setDragValue("slider", c.getRed() / 255.0, 0.0);
 
         o = slider_red->getEvasObject();
     }
@@ -149,9 +150,9 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_green->LoadEdje("calaos/slider/horizontal/green");
         slider_green->Show();
 
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
-        slider_green->setDragValue("slider", g / 100.0, 0.0);
+        ColorValue c(io->params["state"]);
+        if (c.isValid())
+            slider_green->setDragValue("slider", c.getGreen() / 255.0, 0.0);
 
         o = slider_green->getEvasObject();
     }
@@ -164,20 +165,23 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_blue->LoadEdje("calaos/slider/horizontal/blue");
         slider_blue->Show();
 
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
-        slider_blue->setDragValue("slider", b / 100.0, 0.0);
+        ColorValue c(io->params["state"]);
+        if (c.isValid())
+            slider_blue->setDragValue("slider", c.getBlue() / 255.0, 0.0);
 
         o = slider_blue->getEvasObject();
     }
     else if (part == "color.preview")
     {
-        int r, g, b, a = 255;
-        io->getRGBValueFromState(r, g, b);
-        if (r == 0 && g == 0 && b == 0) a = 100;
+        int a = 255;
+
+        ColorValue c(io->params["state"]);
+
+        if (c.getRed() == 0 && c.getGreen() == 0 && c.getBlue() == 0)
+            a = 100;
 
         color_preview = evas_object_rectangle_add(evas);
-        evas_object_color_set(color_preview, r, g, b, a);
+        evas_object_color_set(color_preview, c.getRed(), c.getGreen(), c.getBlue(), a);
         evas_object_show(color_preview);
 
         o = color_preview;
@@ -200,24 +204,21 @@ string IOWODaliRVBHomeView::getLabelItem(Evas_Object *obj, string part)
     }
     else if (part == "text.value.red")
     {
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
+        ColorValue c(io->params["state"]);
 
-        text = Utils::to_string(r) + "%";
+        text = Utils::to_string(int(c.getRed() * 100.0 / 255.0)) + "%";
     }
     else if (part == "text.value.green")
     {
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
+        ColorValue c(io->params["state"]);
 
-        text = Utils::to_string(g) + "%";
+        text = Utils::to_string(int(c.getGreen() * 100.0 / 255.0)) + "%";
     }
     else if (part == "text.value.blue")
     {
-        int r, g, b;
-        io->getRGBValueFromState(r, g, b);
+        ColorValue c(io->params["state"]);
 
-        text = Utils::to_string(b) + "%";
+        text = Utils::to_string(int(c.getBlue() * 100.0 / 255.0)) + "%";
     }
 
     return text;
@@ -243,10 +244,9 @@ void IOWODaliRVBHomeView::initView()
     if (!io || !item)
         return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
+    ColorValue c(io->params["state"]);
 
-    if (r > 0 || g > 0 || b > 0)
+    if (c.getRed() > 0 || c.getGreen() > 0 || c.getBlue() > 0)
     {
         itemEmitSignal("text,active,yellow", "calaos");
         itemEmitSignal("on,normal", "calaos");
@@ -269,14 +269,13 @@ void IOWODaliRVBHomeView::updateView()
     elm_genlist_item_fields_update(item, "text.value.blue", ELM_GENLIST_ITEM_FIELD_TEXT);
     elm_genlist_item_fields_update(item, "color.preview", ELM_GENLIST_ITEM_FIELD_CONTENT);
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
+    ColorValue c(io->params["state"]);
 
-    slider_red->setDragValue("slider", r / 100.0, 0.0);
-    slider_green->setDragValue("slider", g / 100.0, 0.0);
-    slider_blue->setDragValue("slider", b / 100.0, 0.0);
+    slider_red->setDragValue("slider", c.getRed() / 255.0, 0.0);
+    slider_green->setDragValue("slider", c.getGreen() / 255.0, 0.0);
+    slider_blue->setDragValue("slider", c.getBlue() / 255.0, 0.0);
 
-    if (r > 0 || g > 0 || b > 0)
+    if (c.getRed() > 0 || c.getGreen() > 0 || c.getBlue() > 0)
     {
         itemEmitSignal("text,active,yellow", "calaos");
         itemEmitSignal("on,anim", "calaos");
@@ -303,17 +302,15 @@ void IOWODaliRVBHomeView::sliderSignalCallback(void *data, Evas_Object *edje_obj
     else if (emission == "slider,changed")
     {
         double x;
-        int r, g, b;
         slider->getDragValue("slider", &x, NULL);
 
-        io->getRGBValueFromState(r, g, b);
+        ColorValue c(io->params["state"]);
 
-        if (slider == slider_red) r = x * 100;
-        if (slider == slider_green) g = x * 100;
-        if (slider == slider_blue) b = x * 100;
+        if (slider == slider_red) c.setRed(x * 100.0 * 255.0 / 100.0);
+        if (slider == slider_green) c.setGreen(x * 100.0 * 255.0 / 100.0);
+        if (slider == slider_blue) c.setBlue(x * 100.0 * 255.0 / 100.0);
 
-        string action = "set ";
-        action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+        string action = "set " + c.toString();
 
         if (io) io->sendAction(action);
 
@@ -340,14 +337,9 @@ void IOWODaliRVBHomeView::buttonClickRedMore()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    r += 5;
-    if (r > 100) r = 100;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setRed(c.getRed() + 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -356,14 +348,9 @@ void IOWODaliRVBHomeView::buttonClickRedLess()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    r -= 5;
-    if (r < 0) r = 0;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setRed(c.getRed() - 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -372,14 +359,9 @@ void IOWODaliRVBHomeView::buttonClickGreenMore()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    g += 5;
-    if (g > 100) g = 100;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setGreen(c.getGreen() + 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -388,14 +370,9 @@ void IOWODaliRVBHomeView::buttonClickGreenLess()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    g -= 5;
-    if (g < 0) g = 0;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setGreen(c.getGreen() - 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -404,14 +381,9 @@ void IOWODaliRVBHomeView::buttonClickBlueMore()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    b += 5;
-    if (b > 100) b = 100;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setBlue(c.getBlue() + 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -420,14 +392,9 @@ void IOWODaliRVBHomeView::buttonClickBlueLess()
 {
     if (!io) return;
 
-    int r, g, b;
-    io->getRGBValueFromState(r, g, b);
-
-    b -= 5;
-    if (b < 0) b = 0;
-
-    string action = "set ";
-    action += Utils::to_string(io->computeStateFromRGBValue(r, g, b));
+    ColorValue c(io->params["state"]);
+    c.setBlue(c.getBlue() - 5);
+    string action = "set " + c.toString();
 
     io->sendAction(action);
 }

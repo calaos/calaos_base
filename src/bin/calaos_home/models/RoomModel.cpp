@@ -897,30 +897,6 @@ string IOBase::getIconForIO()
     return "";
 }
 
-void IOBase::getRGBValueFromState(int &r, int &g, int &b)
-{
-    int val = 0;
-    string state = params["state"];
-
-    if (Utils::is_of_type<int>(state))
-    {
-        from_string(state, val);
-    }
-
-    r = ((val >> 16) * 100) / 255;
-    g = (((val >> 8) & 0x0000FF) * 100) / 255;
-    b = ((val & 0x0000FF) * 100) / 255;
-}
-
-int IOBase::computeStateFromRGBValue(int r, int g, int b)
-{
-    int val = (((int)(r * 255 / 100)) << 16) +
-              (((int)(g * 255 / 100)) << 8) +
-              ((int)(b * 255 / 100));
-
-    return val;
-}
-
 double IOBase::getDaliValueFromState()
 {
     double val = 0.0;
@@ -1141,7 +1117,7 @@ IOActionList IOBase::getActionFromState()
         else
             ac = IOActionList("set %1", _("Choose color"), _("Set color"), IOActionList::ACTION_COLOR);
 
-        getRGBValueFromState(ac.red, ac.green, ac.blue);
+        ac.colorval = ColorValue(params["state"]);
     }
     else if (params["gui_type"] == "shutter")
     {
@@ -1407,7 +1383,7 @@ string IOActionList::getComputedAction(IOBase *io)
         Utils::replace_str(ac, "%1", Utils::to_string(svalue));
 
     if (type == ACTION_COLOR)
-        Utils::replace_str(ac, "%1", Utils::to_string(io->computeStateFromRGBValue(red, green, blue)));
+        Utils::replace_str(ac, "%1", colorval.toString());
 
     return ac;
 }
