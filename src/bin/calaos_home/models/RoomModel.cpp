@@ -787,24 +787,12 @@ void Room::notifyIODel(const string &msgtype, const Params &evdata)
 
 void RoomModel::notifyRoomAdd(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok;
-    split(msgtype, tok);
-    Params p;
-
-    for (unsigned int i = 0;i < tok.size();i++)
-    {
-        vector<string> t;
-        split(tok[i], t, ":", 2);
-
-        for_each(t.begin(), t.end(), UrlDecode());
-
-        p.Add(t[0], t[1]);
-    }
+    VAR_UNUSED(msgtype);
 
     Room *room = new Room(connection, this);
-    room->type = p["type"];
-    room->name = p["name"];
-    room->hits = 0;
+    room->type = evdata["type"];
+    room->name = evdata["name"];
+    Utils::from_string(evdata["hits"], room->hits);
 
     rooms.push_back(room);
     rooms.sort(RoomHitsCompare);
