@@ -172,6 +172,8 @@ Eina_Bool WebSocketClient_con_data(void *data, int type, void *event)
         w->ecoreServer != ev->server)
         return ECORE_CALLBACK_PASS_ON;
 
+    cDebugDom("websocket") << "w->ecoreServer: " << w->ecoreServer;
+
     string d((char *)ev->data, ev->size);
     if (w->status == WebSocketClient::WSConnecting)
     {
@@ -616,7 +618,7 @@ void WebSocketClient::processControlFrame()
 
 void WebSocketClient::sendPing(const string &data)
 {
-    if (!status == WSOpened) return;
+    if (status != WSOpened) return;
     ping_time = ecore_time_get();
 
     uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
