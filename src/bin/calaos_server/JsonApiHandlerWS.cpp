@@ -18,7 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "JsonApiV3.h"
+#include "JsonApiHandlerWS.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -33,17 +33,17 @@
 #include "HttpCodes.h"
 #include "WebSocket.h"
 
-JsonApiV3::JsonApiV3(HttpClient *client):
+JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
-    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiV3::handleEvents));
+    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleEvents));
 }
 
-JsonApiV3::~JsonApiV3()
+JsonApiHandlerWS::~JsonApiHandlerWS()
 {
 }
 
-void JsonApiV3::handleEvents(const CalaosEvent &event)
+void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
 {
     if (!loggedin)
         return;
@@ -53,7 +53,7 @@ void JsonApiV3::handleEvents(const CalaosEvent &event)
     sendJson("event", event.toJson());
 }
 
-void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &client_id)
+void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const string &client_id)
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
@@ -65,7 +65,7 @@ void JsonApiV3::sendJson(const string &msg_type, json_t *data, const string &cli
     sendData.emit(jansson_to_string(jroot));
 }
 
-void JsonApiV3::processApi(const string &data)
+void JsonApiHandlerWS::processApi(const string &data)
 {
     Params jsonRoot;
     Params jsonData;
@@ -156,7 +156,7 @@ void JsonApiV3::processApi(const string &data)
     json_decref(jroot);
 }
 
-void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &client_id)
 {
     json_t *jret = nullptr;
 
@@ -168,7 +168,7 @@ void JsonApiV3::processGetHome(const Params &jsonReq, const string &client_id)
     sendJson("get_home", jret, client_id);
 }
 
-void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
 {
     if (!jdata)
     {
@@ -182,7 +182,7 @@ void JsonApiV3::processGetState(json_t *jdata, const string &client_id)
     });
 }
 
-void JsonApiV3::processGetIO(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)
 {
     if (!jdata)
     {
@@ -193,7 +193,7 @@ void JsonApiV3::processGetIO(json_t *jdata, const string &client_id)
     sendJson("get_io", buildJsonGetIO(jdata), client_id);
 }
 
-void JsonApiV3::processSetState(Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
 {
     bool res = decodeSetState(jsonReq);
 
@@ -205,7 +205,7 @@ void JsonApiV3::processSetState(Params &jsonReq, const string &client_id)
     }
 }
 
-void JsonApiV3::processGetPlaylist(Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_id)
 {
     decodeGetPlaylist(jsonReq, [=](json_t *jret)
     {

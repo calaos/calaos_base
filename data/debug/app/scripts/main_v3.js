@@ -105,7 +105,7 @@ $(document).ready(function() {
 
     popuplateApiList();
 
-    $('#urlinput').val('ws://' + window.location.host + '/api/v3');
+    $('#urlinput').val('ws://' + window.location.host + '/api');
 
     $('#btdisconnect').on('click', function () {
         ws.close();

@@ -118,7 +118,7 @@ bool WebSocket::checkHandshakeRequest()
 
     //Check if path is our API
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
-    if (req_url.getPath() != "/api/v3" &&
+    if (req_url.getPath() != "/api" &&
         req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();
@@ -128,12 +128,12 @@ bool WebSocket::checkHandshakeRequest()
     echoMode = req_url.getPath() == "/echo";
 
     proto_ver = APINONE;
-    if (req_url.getPath() == "/api/v3") proto_ver = APIV3;
+    if (req_url.getPath() == "/api") proto_ver = API_WEBSOCKET;
 
     if (!jsonApi && !echoMode)
     {
-        if (proto_ver == APIV3)
-            jsonApi = new JsonApiV3(this);
+        if (proto_ver == API_WEBSOCKET)
+            jsonApi = new JsonApiHandlerWS(this);
         else
         {
             cWarningDom("websocket") << "API version not implemented";
@@ -305,7 +305,7 @@ void WebSocket::processFrame(const string &data)
                     else
                         binaryMessageReceived.emit(currentData);
 
-                    if (!echoMode && proto_ver == APIV3 && jsonApi)
+                    if (!echoMode && proto_ver == API_WEBSOCKET && jsonApi)
                         jsonApi->processApi(currentData);
 
                     if (echoMode)

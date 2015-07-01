@@ -274,10 +274,10 @@ calaos_server_SOURCES = \
         Input.h                                         \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
-        JsonApiV2.h                                     \
-        JsonApiV2.cpp                                   \
-        JsonApiV3.h                                     \
-        JsonApiV3.cpp                                   \
+        JsonApiHandlerHttp.h                            \
+        JsonApiHandlerHttp.cpp                          \
+        JsonApiHandlerWS.h                              \
+        JsonApiHandlerWS.cpp                            \
         ListeRoom.cpp                                   \
         ListeRoom.h                                     \
         ListeRule.cpp                                   \

@@ -25,8 +25,8 @@
 #include <Ecore_Con.h>
 #include "http_parser.h"
 #include <unordered_map>
-#include "JsonApiV2.h"
-#include "JsonApiV3.h"
+#include "JsonApiHandlerHttp.h"
+#include "JsonApiHandlerWS.h"
 #include "EcoreTimer.h"
 
 using namespace Calaos;
@@ -98,7 +98,7 @@ public:
     HttpClient(Ecore_Con_Client *cl);
     virtual ~HttpClient();
 
-    enum { APINONE = 0, APIV1, APIV1_5, APIV2, APIV3 };
+    enum { APINONE = 0, API_HTTP, API_WEBSOCKET };
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);

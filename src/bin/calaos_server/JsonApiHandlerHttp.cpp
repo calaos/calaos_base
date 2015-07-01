@@ -18,7 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "JsonApiV2.h"
+#include "JsonApiHandlerHttp.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -36,7 +36,7 @@
 
 Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
 {
-    JsonApiV2 *api = reinterpret_cast<JsonApiV2 *>(data);
+    JsonApiHandlerHttp *api = reinterpret_cast<JsonApiHandlerHttp *>(data);
     Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
 
     if (ev->exe != api->exe_thumb)
@@ -47,7 +47,7 @@ Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
     return ECORE_CALLBACK_CANCEL;
 }
 
-JsonApiV2::JsonApiV2(HttpClient *client):
+JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
     exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
@@ -61,13 +61,13 @@ JsonApiV2::JsonApiV2(HttpClient *client):
     while (ecore_file_exists(tempfname.c_str()));
 }
 
-JsonApiV2::~JsonApiV2()
+JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
     ecore_event_handler_del(exe_handler);
     ecore_file_unlink(tempfname.c_str());
 }
 
-void JsonApiV2::processApi(const string &data)
+void JsonApiHandlerHttp::processApi(const string &data)
 {
     jsonParam.clear();
 
@@ -151,7 +151,7 @@ void JsonApiV2::processApi(const string &data)
     json_decref(jroot);
 }
 
-void JsonApiV2::sendJson(json_t *json)
+void JsonApiHandlerHttp::sendJson(json_t *json)
 {
     char *d = json_dumps(json, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)
@@ -183,7 +183,7 @@ void JsonApiV2::sendJson(json_t *json)
     sendData.emit(res);
 }
 
-void JsonApiV2::processGetHome()
+void JsonApiHandlerHttp::processGetHome()
 {
     json_t *jret = nullptr;
 
@@ -195,7 +195,7 @@ void JsonApiV2::processGetHome()
     sendJson(jret);
 }
 
-void JsonApiV2::processGetState(json_t *jroot)
+void JsonApiHandlerHttp::processGetState(json_t *jroot)
 {
     buildJsonState(jroot, [=](json_t *jret)
     {
@@ -203,19 +203,19 @@ void JsonApiV2::processGetState(json_t *jroot)
     });
 }
 
-void JsonApiV2::processGetIO(json_t *jroot)
+void JsonApiHandlerHttp::processGetIO(json_t *jroot)
 {
     sendJson(buildJsonGetIO(jroot));
 }
 
-void JsonApiV2::processSetState()
+void JsonApiHandlerHttp::processSetState()
 {
     json_t *jret = json_object();
     json_object_set_new(jret, "success", json_string(decodeSetState(jsonParam)?"true":"false"));
     sendJson(jret);
 }
 
-void JsonApiV2::processGetPlaylist()
+void JsonApiHandlerHttp::processGetPlaylist()
 {
     decodeGetPlaylist(jsonParam, [=](json_t *jret)
     {
@@ -223,7 +223,7 @@ void JsonApiV2::processGetPlaylist()
     });
 }
 
-void JsonApiV2::processPolling()
+void JsonApiHandlerHttp::processPolling()
 {
     json_t *jret = json_object();
 
@@ -264,7 +264,7 @@ void JsonApiV2::processPolling()
     sendJson(jret);
 }
 
-void JsonApiV2::processGetCover()
+void JsonApiHandlerHttp::processGetCover()
 {
     int pid;
     Utils::from_string(jsonParam["player_id"], pid);
@@ -304,7 +304,7 @@ void JsonApiV2::processGetCover()
     });
 }
 
-void JsonApiV2::processGetCameraPic()
+void JsonApiHandlerHttp::processGetCameraPic()
 {
     int pid;
     Utils::from_string(jsonParam["camera_id"], pid);
@@ -331,7 +331,7 @@ void JsonApiV2::processGetCameraPic()
     exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
 }
 
-void JsonApiV2::exeFinished(Ecore_Exe *exe, int exit_code)
+void JsonApiHandlerHttp::exeFinished(Ecore_Exe *exe, int exit_code)
 {
     if (exit_code != 0)
     {
@@ -352,7 +352,7 @@ void JsonApiV2::exeFinished(Ecore_Exe *exe, int exit_code)
     sendJson(jret);
 }
 
-void JsonApiV2::processConfig(json_t *jroot)
+void JsonApiHandlerHttp::processConfig(json_t *jroot)
 {
     json_t *jret = json_object();
 

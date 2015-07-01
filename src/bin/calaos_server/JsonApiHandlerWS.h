@@ -18,49 +18,35 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef JSONAPIV2_H
-#define JSONAPIV2_H
+#ifndef JSONAPIV3_H
+#define JSONAPIV3_H
 
 #include "JsonApi.h"
-#include <Ecore.h>
-#include "Room.h"
-#include "AudioPlayer.h"
+#include "EventManager.h"
 
-using namespace Calaos;
-
-class JsonApiV2: public JsonApi
+class JsonApiHandlerWS: public JsonApi
 {
 public:
-    JsonApiV2(HttpClient *client);
-    virtual ~JsonApiV2();
+    JsonApiHandlerWS(HttpClient *client);
+    virtual ~JsonApiHandlerWS();
 
     virtual void processApi(const string &data);
 
 private:
 
-    Ecore_Event_Handler *exe_handler;
-    Ecore_Exe *exe_thumb;
-    string tempfname;
+    sigc::signal<void, string, string, void*, void*> sig_events;
 
-    Params jsonParam;
+    void handleEvents(const CalaosEvent &event);
 
-    void sendJson(json_t *json);
+    bool loggedin = false;
 
-    //processing functions
-    void processGetHome();
-    void processGetState(json_t *jroot);
-    void processSetState();
-    void processGetPlaylist();
-    void processPolling();
-    void processGetCover();
-    void processGetCameraPic();
-    void processConfig(json_t *jroot);
-    void processGetIO(json_t *jroot);
+    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
 
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
-
-    void exeFinished(Ecore_Exe *exe, int exit_code);
-    friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
+    void processGetHome(const Params &jsonReq, const string &client_id = string());
+    void processGetState(json_t *jdata, const string &client_id = string());
+    void processSetState(Params &jsonReq, const string &client_id = string());
+    void processGetPlaylist(Params &jsonReq, const string &client_id = string());
+    void processGetIO(json_t *jdata, const string &client_id = string());
 };
 
-#endif // JSONAPIV2_H
+#endif // JSONAPIV3_H

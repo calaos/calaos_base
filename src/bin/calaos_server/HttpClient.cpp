@@ -348,10 +348,10 @@ int HttpClient::processHeaders(const string &request)
         return HTTP_PROCESS_DONE;
     }
 
-    //get protocol version, if nothing is set default to v1
-    proto_ver = APIV1;
-    if (req_url.getPath() == "/api.php") proto_ver = APIV2;
-    if (req_url.getPath() == "/api/v2") proto_ver = APIV2;
+    proto_ver = APINONE;
+    if (req_url.getPath() == "/api.php" ||
+        req_url.getPath() == "/api")
+        proto_ver = API_HTTP;
 
     //TODO: get url parameters here?
     //for example get username/password as a url parameter
@@ -494,11 +494,8 @@ void HttpClient::handleJsonRequest()
 {
     if (!jsonApi)
     {
-        if (proto_ver == APIV2)
-            jsonApi = new JsonApiV2(this);
-// V3 is only websocket for now
-//        else if (proto_ver == APIV3)
-//            jsonApi = new JsonApiV3(this);
+        if (proto_ver == API_HTTP)
+            jsonApi = new JsonApiHandlerHttp(this);
         else
         {
             cWarningDom("network") << "API version not implemented";

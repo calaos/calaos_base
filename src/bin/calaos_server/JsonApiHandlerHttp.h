@@ -18,35 +18,49 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef JSONAPIV3_H
-#define JSONAPIV3_H
+#ifndef JSONAPIV2_H
+#define JSONAPIV2_H
 
 #include "JsonApi.h"
-#include "EventManager.h"
+#include <Ecore.h>
+#include "Room.h"
+#include "AudioPlayer.h"
 
-class JsonApiV3: public JsonApi
+using namespace Calaos;
+
+class JsonApiHandlerHttp: public JsonApi
 {
 public:
-    JsonApiV3(HttpClient *client);
-    virtual ~JsonApiV3();
+    JsonApiHandlerHttp(HttpClient *client);
+    virtual ~JsonApiHandlerHttp();
 
     virtual void processApi(const string &data);
 
 private:
 
-    sigc::signal<void, string, string, void*, void*> sig_events;
+    Ecore_Event_Handler *exe_handler;
+    Ecore_Exe *exe_thumb;
+    string tempfname;
 
-    void handleEvents(const CalaosEvent &event);
+    Params jsonParam;
 
-    bool loggedin = false;
+    void sendJson(json_t *json);
 
-    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
+    //processing functions
+    void processGetHome();
+    void processGetState(json_t *jroot);
+    void processSetState();
+    void processGetPlaylist();
+    void processPolling();
+    void processGetCover();
+    void processGetCameraPic();
+    void processConfig(json_t *jroot);
+    void processGetIO(json_t *jroot);
 
-    void processGetHome(const Params &jsonReq, const string &client_id = string());
-    void processGetState(json_t *jdata, const string &client_id = string());
-    void processSetState(Params &jsonReq, const string &client_id = string());
-    void processGetPlaylist(Params &jsonReq, const string &client_id = string());
-    void processGetIO(json_t *jdata, const string &client_id = string());
+    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
+
+    void exeFinished(Ecore_Exe *exe, int exit_code);
+    friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
 };
 
-#endif // JSONAPIV3_H
+#endif // JSONAPIV2_H
