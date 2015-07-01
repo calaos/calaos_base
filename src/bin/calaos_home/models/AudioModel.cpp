@@ -70,31 +70,6 @@ void AudioModel::load(json_t *data)
     load_done.emit();
 }
 
-void AudioPlayer::load(json_t *data)
-{
-    jansson_decode_object(data, params);
-
-    cCritical() << "TODO: load player detailed infos";
-
-/*
-    //Query some more infos
-    cmd = "audio " + params["id"] + " volume?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_volume_get_cb));
-
-    cmd = "audio " + params["id"] + " status?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_status_get_cb));
-
-    cmd = "audio " + params["id"] + " songinfo?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_songinfo_get_cb));
-
-    cmd = "audio " + params["id"] + " playlist size?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_cb));
-
-    cmd = "audio " + params["id"] + " database stats?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
-*/
-}
-
 AudioPlayer *AudioModel::getForId(string id)
 {
     if (id == "")
@@ -109,88 +84,68 @@ AudioPlayer *AudioModel::getForId(string id)
 
     return nullptr;
 }
-/*
-void AudioPlayer::audio_get_cb(bool success, vector<string> result, void *data)
+
+void AudioPlayer::load(json_t *data)
 {
-    for (uint b = 2;b < result.size();b++)
-    {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
+    jansson_decode_object(data, params);
 
-        if (tmp.size() < 2) continue;
+    json_t *jstat = json_object();
+    json_t *jaudiolist = json_array();
+    json_array_append_new(jaudiolist, json_string(params["id"].c_str()));
+    json_object_set_new(jstat, "audio_players", jaudiolist);
 
-        params.Add(tmp[0], tmp[1]);
-    }
+    connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
 
-    string cmd;
-
-    //Query some more infos
-    cmd = "audio " + params["id"] + " volume?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_volume_get_cb));
-
-    cmd = "audio " + params["id"] + " status?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_status_get_cb));
-
-    cmd = "audio " + params["id"] + " songinfo?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_songinfo_get_cb));
-
-    cmd = "audio " + params["id"] + " playlist size?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_cb));
-
+/*
+ *  Query db stats is missing from get_state
+ *
     cmd = "audio " + params["id"] + " database stats?";
     connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
-
-    load_done.emit(this);
-}
-
-void AudioPlayer::audio_volume_get_cb(bool success, vector<string> result, void *data)
-{
-    if (result.size() != 3) return;
-
-    vector<string> tmp;
-    Utils::split(result[2], tmp, ":", 2);
-
-    from_string(tmp[1], volume);
-    player_volume_changed.emit();
-}
-
-void AudioPlayer::audio_status_get_cb(bool success, vector<string> result, void *data)
-{
-    if (result.size() != 3) return;
-
-    vector<string> tmp;
-    Utils::split(result[2], tmp, ":", 2);
-
-    if (tmp[1] == "playing") tmp[1] = "play";
-    params.Add("status", tmp[1]);
-    player_status_changed.emit();
-}
-
-void AudioPlayer::audio_songinfo_get_cb(bool success, vector<string> result, void *data)
-{
-    if (result.size() < 3) return;
-
-    for (uint i = 2;i < result.size();i++)
-    {
-        vector<string> tmp;
-        Utils::split(result[i], tmp, ":", 2);
-
-        if (tmp.size() != 2) continue;
-
-        if (tmp[0] == "duration")
-        {
-            from_string(tmp[1], duration);
-            current_song_info.Add(tmp[0], Utils::time2string_digit((long)duration));
-        }
-        else
-        {
-            current_song_info.Add(tmp[0], tmp[1]);
-        }
-    }
-
-    player_track_changed.emit();
-}
 */
+}
+
+void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
+{
+    VAR_UNUSED(data);
+
+    json_t *jplayers = json_object_get(jdata, "audio_players");
+
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(jplayers, idx, value)
+    {
+        string id = jansson_string_get(value, "player_id");
+        if (id != params["id"]) continue;
+
+        //volume
+        string vol = jansson_string_get(value, "volume");
+        from_string(vol, volume);
+        player_volume_changed.emit();
+
+        //status
+        string st = jansson_string_get(value, "status");
+        if (st == "playing") st = "play";
+        params.Add("status", st);
+        player_status_changed.emit();
+
+        json_t *track = json_object_get(value, "current_track");
+        if (track && json_is_object(track))
+        {
+            jansson_decode_object(track, current_song_info);
+            string dur = jansson_string_get(track, "duration");
+            from_string(dur, duration);
+            current_song_info.Add("duration", Utils::time2string_digit((long)duration));
+            player_track_changed.emit();
+        }
+
+        //playlist size
+        string pls = jansson_string_get(value, "playlist_size");
+        from_string(pls, playlist_size);
+        player_playlist_changed.emit();
+    }
+}
+
 void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
 {
     /*
@@ -426,14 +381,6 @@ void AudioPlayer::setTime(double time)
                 { "player_id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
-}
-
-void AudioPlayer::audio_playlist_size_get_cb(bool success, vector<string> result, void *data)
-{
-    if (result.size() != 4) return;
-
-    from_string(result[3], playlist_size);
-    player_playlist_changed.emit();
 }
 
 void AudioPlayer::audio_playlist_size_get_added_cb(bool success, vector<string> result, void *data)

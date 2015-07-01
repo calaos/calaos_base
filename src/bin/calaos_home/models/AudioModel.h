@@ -69,11 +69,9 @@ private:
 
     void notifyChange(const string &msgtype, const Params &evdata);
 
-    void audio_volume_get_cb(bool success, vector<string> result, void *data);
-    void audio_status_get_cb(bool success, vector<string> result, void *data);
-    void audio_songinfo_get_cb(bool success, vector<string> result, void *data);
+    void audio_state_get_cb(json_t *jdata, void *data);
+
     void audio_time_get_cb(bool success, vector<string> result, void *data);
-    void audio_playlist_size_get_cb(bool success, vector<string> result, void *data);
     void audio_playlist_size_get_added_cb(bool success, vector<string> result, void *data);
     void playlist_item_get_cb(bool success, vector<string> result, void *data);
     void cover_cb(bool success, vector<string> result, void *data);
