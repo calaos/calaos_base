@@ -45,6 +45,7 @@ private:
     Params jsonParam;
 
     void sendJson(json_t *json);
+    void sendJson(const Params &p);
 
     //processing functions
     void processGetHome();
@@ -56,6 +57,9 @@ private:
     void processGetCameraPic();
     void processConfig(json_t *jroot);
     void processGetIO(json_t *jroot);
+
+    void processAudio(json_t *jroot);
+    void processAudioGetDbStats(json_t *jroot);
 
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 

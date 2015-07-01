@@ -658,3 +658,33 @@ void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *
         }
     });
 }
+
+void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string id = jansson_string_get(jdata, "player_id");
+    if (id == "")
+    {
+        Params p = {{"error", "empty player id" }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    int pid;
+    Utils::from_string(id, pid);
+    if (pid < 0 || pid >= AudioManager::Instance().get_size())
+    {
+        Params p = {{"error", "unkown player_id" }};
+        result_lambda(p.toJson());
+        return;
+    }
+    else
+    {
+        AudioPlayer *player = AudioManager::Instance().get_player(pid);
+
+        player->get_database()->getStats([=](AudioPlayerData adata)
+        {
+            adata.params.Add("audio_action", "get_database_stats");
+            result_lambda(adata.params.toJson());
+        });
+    }
+}

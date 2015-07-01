@@ -147,6 +147,8 @@ void JsonApiHandlerHttp::processApi(const string &data)
         processConfig(jroot);
     else if (jsonParam["action"] == "get_io")
         processGetIO(jroot);
+    else if (jsonParam["action"] == "audio")
+        processAudio(jroot);
 
     json_decref(jroot);
 }
@@ -181,6 +183,11 @@ void JsonApiHandlerHttp::sendJson(json_t *json)
     headers.Add("Content-Length", Utils::to_string(data.size()));
     string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
     sendData.emit(res);
+}
+
+void JsonApiHandlerHttp::sendJson(const Params &p)
+{
+    sendJson(p.toJson());
 }
 
 void JsonApiHandlerHttp::processGetHome()
@@ -434,4 +441,21 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
     }
 
     sendJson(jret);
+}
+
+void JsonApiHandlerHttp::processAudio(json_t *jdata)
+{
+    string msg = jansson_string_get(jdata, "audio_action");
+    if (msg == "get_database_stats")
+        processAudioGetDbStats(jdata);
+    else
+        sendJson({{"error", "unkown audio_action" }});
+}
+
+void JsonApiHandlerHttp::processAudioGetDbStats(json_t *jdata)
+{
+    audioGetDbStats(jdata, [=](json_t *jret)
+    {
+        sendJson(jret);
+    });
 }

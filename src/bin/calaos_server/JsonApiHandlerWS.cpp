@@ -65,6 +65,11 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const stri
     sendData.emit(jansson_to_string(jroot));
 }
 
+void JsonApiHandlerWS::sendJson(const string &msg_type, const Params &p, const string &client_id)
+{
+    sendJson(msg_type, p.toJson(), client_id);
+}
+
 void JsonApiHandlerWS::processApi(const string &data)
 {
     Params jsonRoot;
@@ -144,6 +149,8 @@ void JsonApiHandlerWS::processApi(const string &data)
             processGetPlaylist(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_io")
             processGetIO(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "audio")
+            processAudio(jdata, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -210,5 +217,22 @@ void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_
     decodeGetPlaylist(jsonReq, [=](json_t *jret)
     {
         sendJson("get_playlist", jret, client_id);
+    });
+}
+
+void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
+{
+    string msg = jansson_string_get(jdata, "audio_action");
+    if (msg == "get_database_stats")
+        processAudioGetDbStats(jdata, client_id);
+    else
+        sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
+}
+
+void JsonApiHandlerWS::processAudioGetDbStats(json_t *jdata, const string &client_id)
+{
+    audioGetDbStats(jdata, [=](json_t *jret)
+    {
+        sendJson("audio", jret, client_id);
     });
 }

@@ -11,6 +11,7 @@ var apiList = [
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" } }',
     '{ "msg": "get_playlist", "msg_id": "1234", "data": { "player_id": "0" } }',
     '{ "msg": "get_io", "msg_id": "1234", "data": { "inputs": ["input_0"], "outputs": ["output_0", "output_1"] } }',
+    '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_database_stats", "player_id": "0" } }',
 ];
 
 function popuplateApiList() {
