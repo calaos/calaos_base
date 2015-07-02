@@ -95,7 +95,9 @@ void AudioPlayer::load(json_t *data)
     json_object_set_new(jstat, "audio_players", jaudiolist);
 
     connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
-
+    Params p = {{ "audio_action", "get_database_stats"},
+                { "player_id", params["id"] }};
+    connection->sendCommand("audio", p, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 /*
  *  Query db stats is missing from get_state
  *
@@ -325,14 +327,14 @@ string AudioPlayer::getStatus()
 void AudioPlayer::registerChange()
 {
     changeReg++;
-/*
+
     //Reload database stats in case of changes
-    string cmd = "audio " + params["id"] + " database stats?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
+    connection->sendCommand("audio", {{"audio_action", "get_database_stats"},
+                                      {"player_id", params["id"].c_str()}},
+                            sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 
     if (!timer_change)
         timer_change = new EcoreTimer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &AudioPlayer::timerChangeTick));
-*/
 }
 
 void AudioPlayer::unregisterChange()
@@ -397,19 +399,9 @@ void AudioPlayer::audio_playlist_size_get_added_cb(bool success, vector<string> 
         player_playlist_tracks_added.emit(nb_added);
 }
 
-void AudioPlayer::audio_db_stats_get_cb(bool success, vector<string> result, void *data)
+void AudioPlayer::audio_db_stats_get_cb(json_t *jdata, void *data)
 {
-    if (result.size() < 4) return;
-
-    for (uint b = 3;b < result.size();b++)
-    {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        db_stats.Add(tmp[0], tmp[1]);
-    }
+    jansson_decode_object(jdata, db_stats);
 }
 
 void AudioPlayer::playItem(int item)
