@@ -42,9 +42,6 @@ private:
 
     void *data;
 
-    EcoreTimer *singleShotTimer;
-    sigc::slot<void> singleShotSlot;
-
 public:
     EcoreTimer(double time, sigc::slot<void, void *> slot, void *data);
     EcoreTimer(double time, sigc::slot<void> slot);
