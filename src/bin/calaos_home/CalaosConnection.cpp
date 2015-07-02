@@ -42,7 +42,7 @@ CalaosConnection::CalaosConnection(string h):
     wsocket->websocketConnected.connect(sigc::mem_fun(*this, &CalaosConnection::onConnected));
     wsocket->websocketDisconnected.connect(sigc::mem_fun(*this, &CalaosConnection::onDisconnected));
     wsocket->textMessageReceived.connect(sigc::mem_fun(*this, &CalaosConnection::onMessageReceived));
-    wsocket->openConnection("ws://" + host + ":5454/api/v3");
+    wsocket->openConnection("ws://" + host + ":5454/api");
 
     timeout = new EcoreTimer(TIMEOUT_CONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::timeoutConnect));
 }
