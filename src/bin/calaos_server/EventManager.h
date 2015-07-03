@@ -107,7 +107,7 @@ private:
 
     void appendEvent(const CalaosEvent &ev);
     queue<CalaosEvent> eventsQueue;
-    Ecore_Idler_Enterer *idler = nullptr;
+    Ecore_Idle_Enterer *idler = nullptr;
 
     friend Eina_Bool EventManager_event_idler(void *data);
 };
