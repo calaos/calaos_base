@@ -743,3 +743,32 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
         result_lambda(p.toJson());
     });
 }
+
+void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    string it = jansson_string_get(jdata, "item");
+    if (it.empty() || !Utils::is_of_type<int>(it))
+    {
+        Params p = {{"error", "wrong item" }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    int item;
+    Utils::from_string(it, item);
+
+    player->get_playlist_item(item, [=](AudioPlayerData data)
+    {
+        result_lambda(data.params.toJson());
+    });
+}

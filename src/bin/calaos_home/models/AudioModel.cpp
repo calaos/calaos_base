@@ -399,38 +399,15 @@ void AudioPlayer::playItem(int item)
 
 void AudioPlayer::getPlaylistItem(int item, PlayerInfo_cb callback)
 {
-    /*
-    PlayerInfoData *data = new PlayerInfoData();
-    data->callback = callback;
-    string cmd = "audio " + params["id"] + " playlist " + Utils::to_string(item) + " getitem?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::playlist_item_get_cb), data);
-    */
-}
-
-void AudioPlayer::playlist_item_get_cb(bool success, vector<string> result, void *data)
-{
-    PlayerInfoData *user_data = reinterpret_cast<PlayerInfoData *>(data);
-    if (!user_data) return; //Probably leaking here !
-
-    if (result.size() < 4) return;
-
-    Params infos;
-
-    for (uint b = 4;b < result.size();b++)
+    connection->sendCommand("audio", {{"audio_action", "get_playlist_item"},
+                                      {"player_id", params["id"].c_str()},
+                                      {"item", Utils::to_string(item)}},
+                            [=](json_t *jdata, void*)
     {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        infos.Add(tmp[0], tmp[1]);
-    }
-
-    PlayerInfo_signal sig;
-    sig.connect(user_data->callback);
-    sig.emit(infos);
-
-    delete user_data;
+        Params infos;
+        jansson_decode_object(jdata, infos);
+        callback(infos);
+    });
 }
 
 void AudioPlayer::removePlaylistItem(int item)

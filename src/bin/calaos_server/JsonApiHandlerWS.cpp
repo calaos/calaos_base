@@ -228,13 +228,18 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
         {
             sendJson("audio", jret, client_id);
         });
-    if (msg == "get_playlist_size")
+    else if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdata, [=](json_t *jret)
         {
             sendJson("audio", jret, client_id);
         });
-    if (msg == "get_time")
+    else if (msg == "get_time")
         audioGetTime(jdata, [=](json_t *jret)
+        {
+            sendJson("audio", jret, client_id);
+        });
+    else if (msg == "get_playlist_item")
+        audioGetPlaylistItem(jdata, [=](json_t *jret)
         {
             sendJson("audio", jret, client_id);
         });

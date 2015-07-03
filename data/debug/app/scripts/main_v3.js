@@ -14,6 +14,7 @@ var apiList = [
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_database_stats", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_size", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_time", "player_id": "0" } }',
+    '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_item", "item": "0", "player_id": "0" } }',
 ];
 
 function popuplateApiList() {
