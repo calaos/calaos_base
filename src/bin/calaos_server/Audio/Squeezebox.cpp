@@ -389,7 +389,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
             EventManager::create(CalaosEvent::EventAudioPlaylistDelete,
                                  { { "player_id", get_param("pid") },
-                                   { "pos", p["3"] } });
+                                   { "position", p["3"] } });
         }
         else if (p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play" || p["2"] == "load")
         {
@@ -461,7 +461,7 @@ void Squeezebox::processNotificationMessage(string msg)
 
         EventManager::create(CalaosEvent::EventAudioVolumeChanged,
                              { { "player_id", get_param("pid") },
-                               { "volume", p["3"] } });
+                               { "volume", Utils::url_decode(p["3"]) } });
     }
 }
 

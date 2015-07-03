@@ -98,12 +98,6 @@ void AudioPlayer::load(json_t *data)
     Params p = {{ "audio_action", "get_database_stats"},
                 { "player_id", params["id"] }};
     connection->sendCommand("audio", p, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
-/*
- *  Query db stats is missing from get_state
- *
-    cmd = "audio " + params["id"] + " database stats?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
-*/
 }
 
 void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
@@ -150,79 +144,34 @@ void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
 
 void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
 {
-    /*
-    vector<string> notif;
-    split(msg, notif, " ");
+    if (evdata["player_id"] != params["id"]) return;
 
-    if (notif.size() < 3) return;
-    if (notif[1] != params["id"]) return;
-
-    if (notif[0] == "audio")
+    if (msgtype == "audio_song_changed")
     {
-        if (notif[2] == "songchanged")
-        {
-            string cmd = "audio " + params["id"] + " status?";
-            connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_status_get_cb));
+        //Query status again
+        json_t *jstat = json_object();
+        json_t *jaudiolist = json_array();
+        json_array_append_new(jaudiolist, json_string(params["id"].c_str()));
+        json_object_set_new(jstat, "audio_players", jaudiolist);
 
-            cmd = "audio " + params["id"] + " songinfo?";
-            connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_songinfo_get_cb));
-        }
+        connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
     }
-    else if (notif[0] == "audio_playlist")
+    else if (msgtype == "audio_status_changed")
     {
-        if (notif[2] != "playlist") return;
-
-        if (notif[3] == "cleared")
-        {
-            playlist_size = 0;
-            player_playlist_changed.emit();
-        }
-        else if (notif[3] == "tracksadded")
-        {
-            string cmd = "audio " + params["id"] + " playlist size?";
-            connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_added_cb));
-        }
-        else if (notif[3] == "reload")
-        {
-            string cmd = "audio " + params["id"] + " playlist size?";
-            connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_cb));
-        }
-        else if (notif[3] == "delete")
-        {
-            playlist_size--;
-            if (playlist_size < 0) playlist_size = 0;
-
-            int del;
-            from_string(notif[4], del);
-
-            player_playlist_tracks_deleted.emit(del);
-        }
-        else if (notif[3] == "move")
-        {
-            int from, to;
-            from_string(notif[4], from);
-            from_string(notif[5], to);
-
-            player_playlist_tracks_moved.emit(from, to);
-        }
-    }
-    else if (notif[0] == "audio_status")
-    {
-        if (notif[2] == "play" || notif[2] == "playing")
+        if (evdata["state"] == "play" || evdata["state"] == "playing")
             params.Add("status", "play");
-        else if (notif[2] == "pause")
+        else if (evdata["state"] == "pause")
             params.Add("status", "pause");
-        else if (notif[2] == "stop")
+        else if (evdata["state"] == "stop")
             params.Add("status", "stop");
         else
             return;
 
         player_status_changed.emit();
     }
-    else if (notif[0] == "audio_volume")
+    else if (msgtype == "audio_volume_changed")
     {
-        if (notif[2] != "change") return;
-        string v = Utils::url_decode(notif[3]);
+        string v = evdata["volume"];
 
         if (v[0] == '+')
         {
@@ -247,7 +196,39 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
 
         player_volume_changed.emit();
     }
-    */
+    else if (msgtype == "playlist_tracks_added")
+    {
+        //string cmd = "audio " + params["id"] + " playlist size?";
+        //connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_added_cb));
+    }
+    else if (msgtype == "playlist_tracks_deleted")
+    {
+        playlist_size--;
+        if (playlist_size < 0) playlist_size = 0;
+
+        int del;
+        from_string(evdata["position"], del);
+
+        player_playlist_tracks_deleted.emit(del);
+    }
+    else if (msgtype == "playlist_tracks_moved")
+    {
+        int from, to;
+        from_string(evdata["from"], from);
+        from_string(evdata["to"], to);
+
+        player_playlist_tracks_moved.emit(from, to);
+    }
+    else if (msgtype == "playlist_reload")
+    {
+        //string cmd = "audio " + params["id"] + " playlist size?";
+        //connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_cb));
+    }
+    else if (msgtype == "playlist_cleared")
+    {
+        playlist_size = 0;
+        player_playlist_changed.emit();
+    }
 }
 
 void AudioPlayer::setVolume(int _volume)
