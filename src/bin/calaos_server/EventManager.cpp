@@ -27,7 +27,7 @@ EventManager::EventManager()
 
 EventManager::~EventManager()
 {
-    ecore_idler_del(idler);
+    ecore_idle_enterer_del(idler);
     //clear queue
     eventsQueue = queue<CalaosEvent>();
 }
