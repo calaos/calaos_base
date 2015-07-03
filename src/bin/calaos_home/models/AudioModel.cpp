@@ -357,25 +357,19 @@ void AudioPlayer::unregisterChange()
 void AudioPlayer::timerChangeTick()
 {
     if (time_inprocess) return;
-/*
-    string cmd = "audio " + params["id"] + " time?";
-    time_inprocess = true;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_time_get_cb));
-*/
-}
 
-void AudioPlayer::audio_time_get_cb(bool success, vector<string> result, void *data)
-{
-    time_inprocess = false;
+    connection->sendCommand("audio", {{"audio_action", "get_time"},
+                                      {"player_id", params["id"].c_str()}},
+                            [=](json_t *jdata, void*)
+    {
+        time_inprocess = false;
 
-    if (result.size() != 3) return;
-
-    vector<string> tmp;
-    Utils::split(result[2], tmp, ":", 2);
-
-    from_string(tmp[1], elapsed_time);
-    params.Add("time", Utils::time2string_digit((long)elapsed_time));
-    player_time_changed.emit();
+        string s = jansson_string_get(jdata, "time_elapsed");
+        if (s.empty()) return;
+        from_string(s, elapsed_time);
+        params.Add("time", Utils::time2string_digit((long)elapsed_time));
+        player_time_changed.emit();
+    });
 }
 
 void AudioPlayer::setTime(double time)

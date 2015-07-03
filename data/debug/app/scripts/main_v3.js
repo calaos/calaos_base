@@ -13,6 +13,7 @@ var apiList = [
     '{ "msg": "get_io", "msg_id": "1234", "data": { "inputs": ["input_0"], "outputs": ["output_0", "output_1"] } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_database_stats", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_size", "player_id": "0" } }',
+    '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_time", "player_id": "0" } }',
 ];
 
 function popuplateApiList() {
@@ -20,6 +21,11 @@ function popuplateApiList() {
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
     for (var c = 1;c < apiList.length;c++) {
         var s = JSON.parse(apiList[c]).msg;
+        if (s == "set_state")
+            s = s + " " + JSON.parse(apiList[c]).data["type"];
+        if (s == "audio")
+            s = s + " " + JSON.parse(apiList[c]).data["audio_action"];
+
         $('#api_list').append($('<option />').val(i++).html(s));
     }
 

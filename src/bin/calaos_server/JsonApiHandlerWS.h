@@ -50,8 +50,6 @@ private:
     void processGetIO(json_t *jdata, const string &client_id = string());
 
     void processAudio(json_t *jdata, const string &client_id = string());
-    void processAudioGetDbStats(json_t *jdata, const string &client_id = string());
-    void processAudioGetPlaylistSize(json_t *jdata, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H

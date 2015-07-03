@@ -447,25 +447,20 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
 {
     string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_database_stats")
-        processAudioGetDbStats(jdata);
+        audioGetDbStats(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
     else if (msg == "get_playlist_size")
-        processAudioGetPlaylistSize(jdata);
+        audioGetPlaylistSize(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_time")
+        audioGetTime(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
     else
         sendJson({{"error", "unkown audio_action" }});
-}
-
-void JsonApiHandlerHttp::processAudioGetDbStats(json_t *jdata)
-{
-    audioGetDbStats(jdata, [=](json_t *jret)
-    {
-        sendJson(jret);
-    });
-}
-
-void JsonApiHandlerHttp::processAudioGetPlaylistSize(json_t *jdata)
-{
-    audioGetPlaylistSize(jdata, [=](json_t *jret)
-    {
-        sendJson(jret);
-    });
 }

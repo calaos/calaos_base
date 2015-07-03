@@ -723,3 +723,23 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
         result_lambda(p.toJson());
     });
 }
+
+void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    player->get_current_time([=](AudioPlayerData adata)
+    {
+        adata.params.Add("audio_action", "get_time");
+        Params p = {{"time_elapsed", Utils::to_string(adata.dvalue)}};
+        result_lambda(p.toJson());
+    });
+}
