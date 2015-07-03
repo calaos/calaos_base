@@ -659,32 +659,67 @@ void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *
     });
 }
 
-void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
+AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
 {
+    AudioPlayer *player = nullptr;
+    err.clear();
+
     string id = jansson_string_get(jdata, "player_id");
     if (id == "")
     {
-        Params p = {{"error", "empty player id" }};
-        result_lambda(p.toJson());
-        return;
+        err = "empty player id";
+        return player;
     }
 
     int pid;
     Utils::from_string(id, pid);
     if (pid < 0 || pid >= AudioManager::Instance().get_size())
     {
-        Params p = {{"error", "unkown player_id" }};
-        result_lambda(p.toJson());
-        return;
+        err = "unkown player_id";
     }
     else
     {
-        AudioPlayer *player = AudioManager::Instance().get_player(pid);
-
-        player->get_database()->getStats([=](AudioPlayerData adata)
-        {
-            adata.params.Add("audio_action", "get_database_stats");
-            result_lambda(adata.params.toJson());
-        });
+        player = AudioManager::Instance().get_player(pid);
     }
+
+    return player;
+}
+
+void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    player->get_database()->getStats([=](AudioPlayerData adata)
+    {
+        adata.params.Add("audio_action", "get_database_stats");
+        result_lambda(adata.params.toJson());
+    });
+}
+
+void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    player->get_playlist_size([=](AudioPlayerData adata)
+    {
+        adata.params.Add("audio_action", "get_playlist_size");
+        Params p = {{"playlist_size", Utils::to_string(adata.ivalue)}};
+        result_lambda(p.toJson());
+    });
 }

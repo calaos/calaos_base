@@ -198,8 +198,22 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
     }
     else if (msgtype == "playlist_tracks_added")
     {
-        //string cmd = "audio " + params["id"] + " playlist size?";
-        //connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_added_cb));
+        Params p = {{ "audio_action", "get_playlist_size"},
+                    { "player_id", params["id"] }};
+        connection->sendCommand("audio", p, [=](json_t *jdata, void *)
+        {
+            string sz = jansson_string_get(jdata, "playlist_size");
+            if (sz.empty()) return;
+
+            int nb_added = playlist_size;
+            from_string(sz, playlist_size);
+            nb_added = playlist_size - nb_added;
+
+            if (nb_added < 0)
+                player_playlist_changed.emit();
+            else
+                player_playlist_tracks_added.emit(nb_added);
+        });
     }
     else if (msgtype == "playlist_tracks_deleted")
     {
@@ -221,8 +235,16 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
     }
     else if (msgtype == "playlist_reload")
     {
-        //string cmd = "audio " + params["id"] + " playlist size?";
-        //connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::audio_playlist_size_get_cb));
+        Params p = {{ "audio_action", "get_playlist_size"},
+                    { "player_id", params["id"] }};
+        connection->sendCommand("audio", p, [=](json_t *jdata, void *)
+        {
+            //playlist size
+            string sz = jansson_string_get(jdata, "playlist_size");
+            if (sz.empty()) return;
+            from_string(sz, playlist_size);
+            player_playlist_changed.emit();
+        });
     }
     else if (msgtype == "playlist_cleared")
     {
@@ -364,20 +386,6 @@ void AudioPlayer::setTime(double time)
                 { "player_id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
-}
-
-void AudioPlayer::audio_playlist_size_get_added_cb(bool success, vector<string> result, void *data)
-{
-    if (result.size() != 4) return;
-
-    int nb_added = playlist_size;
-    from_string(result[3], playlist_size);
-    nb_added = playlist_size - nb_added;
-
-    if (nb_added < 0)
-        player_playlist_changed.emit();
-    else
-        player_playlist_tracks_added.emit(nb_added);
 }
 
 void AudioPlayer::audio_db_stats_get_cb(json_t *jdata, void *data)

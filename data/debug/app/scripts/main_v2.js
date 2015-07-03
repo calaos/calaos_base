@@ -40,6 +40,7 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "config", "type": "get" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "config", "type": "put", "config_files": { "io.xml": "<xml ...... >", "rules.xml": "<xml ...... >" } }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_database_stats", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_playlist_size", "player_id": "0" }',
 ];
 
 $(document).ready(function() {
@@ -59,6 +60,7 @@ $(document).ready(function() {
     $('#api_list').append($('<option />').val(i++).html('config get'));
     $('#api_list').append($('<option />').val(i++).html('config put'));
     $('#api_list').append($('<option />').val(i++).html('audio get_database_stats'));
+    $('#api_list').append($('<option />').val(i++).html('audio get_playlist_size'));
 
     $('#api_list').change(function() {
         var j = $('#api_list option:selected').val();

@@ -60,6 +60,7 @@ private:
 
     void processAudio(json_t *jroot);
     void processAudioGetDbStats(json_t *jdata);
+    void processAudioGetPlaylistSize(json_t *jdata);
 
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 

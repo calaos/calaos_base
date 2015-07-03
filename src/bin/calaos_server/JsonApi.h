@@ -65,7 +65,9 @@ protected:
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
 
+    AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H

@@ -225,6 +225,8 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
     string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_database_stats")
         processAudioGetDbStats(jdata, client_id);
+    if (msg == "get_playlist_size")
+        processAudioGetPlaylistSize(jdata, client_id);
     else
         sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
 }
@@ -232,6 +234,14 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
 void JsonApiHandlerWS::processAudioGetDbStats(json_t *jdata, const string &client_id)
 {
     audioGetDbStats(jdata, [=](json_t *jret)
+    {
+        sendJson("audio", jret, client_id);
+    });
+}
+
+void JsonApiHandlerWS::processAudioGetPlaylistSize(json_t *jdata, const string &client_id)
+{
+    audioGetPlaylistSize(jdata, [=](json_t *jret)
     {
         sendJson("audio", jret, client_id);
     });
