@@ -151,6 +151,8 @@ void JsonApiHandlerWS::processApi(const string &data)
             processGetIO(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio")
             processAudio(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "audio_db")
+            processAudioDb(jdata, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -223,12 +225,7 @@ void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_
 void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
 {
     string msg = jansson_string_get(jdata, "audio_action");
-    if (msg == "get_database_stats")
-        audioGetDbStats(jdata, [=](json_t *jret)
-        {
-            sendJson("audio", jret, client_id);
-        });
-    else if (msg == "get_playlist_size")
+    if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdata, [=](json_t *jret)
         {
             sendJson("audio", jret, client_id);
@@ -245,4 +242,21 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
         });
     else
         sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
+}
+
+void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
+{
+    string msg = jansson_string_get(jdata, "audio_action");
+    if (msg == "get_album_item")
+        audioDbGetAlbumItem(jdata, [=](json_t *jret)
+        {
+            sendJson("audio_db", jret, client_id);
+        });
+    else if (msg == "get_stats")
+        audioGetDbStats(jdata, [=](json_t *jret)
+        {
+            sendJson("audio_db", jret, client_id);
+        });
+    else
+        sendJson("audio_db", {{"error", "unkown audio_action" }} , client_id);
 }

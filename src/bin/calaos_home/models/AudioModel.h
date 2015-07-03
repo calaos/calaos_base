@@ -74,7 +74,7 @@ private:
     void cover_cb(bool success, vector<string> result, void *data);
     void audio_db_stats_get_cb(json_t *jdata, void *data);
 
-    void db_default_item_get_cb(bool success, vector<string> result, void *data);
+    void db_default_item_get_cb(json_t *jdata, void *data);
     void db_default_item_list_get_cb(bool success, vector<string> result, void *data);
 
     void db_album_track_count_get_cb(bool success, vector<string> result, void *data);

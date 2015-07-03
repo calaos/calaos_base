@@ -70,6 +70,8 @@ protected:
     void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
+
+    void audioDbGetAlbumItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H

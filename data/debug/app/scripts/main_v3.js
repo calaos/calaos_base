@@ -11,10 +11,11 @@ var apiList = [
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" } }',
     '{ "msg": "get_playlist", "msg_id": "1234", "data": { "player_id": "0" } }',
     '{ "msg": "get_io", "msg_id": "1234", "data": { "inputs": ["input_0"], "outputs": ["output_0", "output_1"] } }',
-    '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_database_stats", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_stats", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_size", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_time", "player_id": "0" } }',
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_item", "item": "0", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_album_item", "from": "0", "count": "1", "player_id": "0" } }',
 ];
 
 function popuplateApiList() {
@@ -24,7 +25,7 @@ function popuplateApiList() {
         var s = JSON.parse(apiList[c]).msg;
         if (s == "set_state")
             s = s + " " + JSON.parse(apiList[c]).data["type"];
-        if (s == "audio")
+        if (s == "audio" || s == "audio_db")
             s = s + " " + JSON.parse(apiList[c]).data["audio_action"];
 
         $('#api_list').append($('<option />').val(i++).html(s));

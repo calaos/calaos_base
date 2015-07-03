@@ -95,9 +95,9 @@ void AudioPlayer::load(json_t *data)
     json_object_set_new(jstat, "audio_players", jaudiolist);
 
     connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
-    Params p = {{ "audio_action", "get_database_stats"},
+    Params p = {{ "audio_action", "get_stats"},
                 { "player_id", params["id"] }};
-    connection->sendCommand("audio", p, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
+    connection->sendCommand("audio_db", p, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 }
 
 void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
@@ -332,7 +332,7 @@ void AudioPlayer::registerChange()
     changeReg++;
 
     //Reload database stats in case of changes
-    connection->sendCommand("audio", {{"audio_action", "get_database_stats"},
+    connection->sendCommand("audio_db", {{"audio_action", "get_stats"},
                                       {"player_id", params["id"].c_str()}},
                             sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 
@@ -466,12 +466,17 @@ Params &AudioPlayer::getDBStats()
 }
 
 void AudioPlayer::getDBAlbumItem(int item, PlayerInfo_cb callback)
-{/*
+{
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database albums " + Utils::to_string(item) + " 1";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_album_item"},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBAlbumArtistItem(int item, int artist_id, PlayerInfo_cb callback)
@@ -504,28 +509,20 @@ void AudioPlayer::getDBArtistGenreItem(int item, int genre_id, PlayerInfo_cb cal
     */
 }
 
-void AudioPlayer::db_default_item_get_cb(bool success, vector<string> result, void *data)
+void AudioPlayer::db_default_item_get_cb(json_t *jdata, void *data)
 {
     PlayerInfoData *user_data = reinterpret_cast<PlayerInfoData *>(data);
     if (!user_data) return; //Probably leaking here !
 
-    if (result.size() < 4) return;
+    size_t idx;
+    json_t *value;
 
-    Params infos;
-
-    for (uint b = 4;b < result.size();b++)
+    json_array_foreach(json_object_get(jdata, "items"), idx, value)
     {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        infos.Add(tmp[0], tmp[1]);
+        Params infos;
+        jansson_decode_object(value, infos);
+        user_data->callback(infos);
     }
-
-    PlayerInfo_signal sig;
-    sig.connect(user_data->callback);
-    sig.emit(infos);
 
     delete user_data;
 }

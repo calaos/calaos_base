@@ -39,10 +39,11 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "poll_listen", "type": "get", "uuid": "XXX" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "config", "type": "get" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "config", "type": "put", "config_files": { "io.xml": "<xml ...... >", "rules.xml": "<xml ...... >" } }',
-    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_database_stats", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_stats", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_playlist_size", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_time", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_playlist_item", "item": "0", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_album_item", "from": "0", "count": "1", "player_id": "0" }',
 ];
 
 $(document).ready(function() {
@@ -65,6 +66,7 @@ $(document).ready(function() {
     $('#api_list').append($('<option />').val(i++).html('audio get_playlist_size'));
     $('#api_list').append($('<option />').val(i++).html('audio get_time'));
     $('#api_list').append($('<option />').val(i++).html('audio get_playlist_item'));
+    $('#api_list').append($('<option />').val(i++).html('audio_db get_album_item'));
 
     $('#api_list').change(function() {
         var j = $('#api_list option:selected').val();

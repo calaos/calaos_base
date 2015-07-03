@@ -59,6 +59,7 @@ private:
     void processGetIO(json_t *jroot);
 
     void processAudio(json_t *jroot);
+    void processAudioDb(json_t *jroot);
 
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 
