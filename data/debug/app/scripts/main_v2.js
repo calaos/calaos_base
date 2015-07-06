@@ -44,29 +44,23 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_time", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_playlist_item", "item": "0", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_album_item", "from": "0", "count": "1", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_artist_album", "from": "0", "count": "1", "artist_id": "0", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_year_albums", "from": "0", "count": "1", "year": "2000", "player_id": "0" }',
 ];
 
 $(document).ready(function() {
     var i = 0;
+
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
-    $('#api_list').append($('<option />').val(i++).html('get_home'));
-    $('#api_list').append($('<option />').val(i++).html('get_state'));
-    $('#api_list').append($('<option />').val(i++).html('get_io'));
-    $('#api_list').append($('<option />').val(i++).html('set_state output'));
-    $('#api_list').append($('<option />').val(i++).html('set_state input'));
-    $('#api_list').append($('<option />').val(i++).html('set_state audio'));
-    $('#api_list').append($('<option />').val(i++).html('set_state camera'));
-    $('#api_list').append($('<option />').val(i++).html('get_playlist'));
-    $('#api_list').append($('<option />').val(i++).html('poll_listen register'));
-    $('#api_list').append($('<option />').val(i++).html('poll_listen unregister'));
-    $('#api_list').append($('<option />').val(i++).html('poll_listen get'));
-    $('#api_list').append($('<option />').val(i++).html('config get'));
-    $('#api_list').append($('<option />').val(i++).html('config put'));
-    $('#api_list').append($('<option />').val(i++).html('audio get_database_stats'));
-    $('#api_list').append($('<option />').val(i++).html('audio get_playlist_size'));
-    $('#api_list').append($('<option />').val(i++).html('audio get_time'));
-    $('#api_list').append($('<option />').val(i++).html('audio get_playlist_item'));
-    $('#api_list').append($('<option />').val(i++).html('audio_db get_album_item'));
+    for (var c = 1;c < apiList.length;c++) {
+        var s = JSON.parse(apiList[c]).action;
+        if (s == "set_state" || s == "poll_listen" || s == "config")
+	    s = s + " " + JSON.parse(apiList[c]).type;
+	if (s == "audio" || s == "audio_db")
+	    s = s + " " + JSON.parse(apiList[c]).audio_action;
+
+        $('#api_list').append($('<option />').val(i++).html(s));
+    }
 
     $('#api_list').change(function() {
         var j = $('#api_list option:selected').val();
