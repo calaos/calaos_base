@@ -579,32 +579,47 @@ void AudioPlayer::getDBAlbumTrackCount(int album_item, PlayerInfo_cb callback)
 
 void AudioPlayer::getDBArtistAlbumCount(int artist_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database artist_albums 0 1 artist_id:" + Utils::to_string(artist_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_artist_album"},
+                {"artist_id", Utils::to_string(artist_id)},
+                {"from", "0"},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBYearAlbumCount(int year_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database year_albums 0 1 year:" + Utils::to_string(year_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_year_albums"},
+                {"year", Utils::to_string(year_id)},
+                {"from", "0"},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBGenreArtistCount(int genre_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database genre_artists 0 1 genre_id:" + Utils::to_string(genre_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_genre_artists"},
+                {"genre", Utils::to_string(genre_id)},
+                {"from", "0"},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBPlaylistTrackCount(int playlist_id, PlayerInfo_cb callback)
