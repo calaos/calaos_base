@@ -47,6 +47,7 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_artist_album", "from": "0", "count": "1", "artist_id": "0", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_year_albums", "from": "0", "count": "1", "year": "2000", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_genre_artists", "from": "0", "count": "1", "genre": "0", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_album_titles", "from": "0", "count": "1", "album_id": "0", "player_id": "0" }',
 ];
 
 $(document).ready(function() {

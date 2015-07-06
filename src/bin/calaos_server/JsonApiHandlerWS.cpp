@@ -272,6 +272,11 @@ void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
         {
             sendJson("audio_db", jret, client_id);
         });
+    else if (msg == "get_album_titles")
+        audioDbGetAlbumTitles(jdata, [=](json_t *jret)
+        {
+            sendJson("audio_db", jret, client_id);
+        });
     else
         sendJson("audio_db", {{"error", "unkown audio_action" }} , client_id);
 }

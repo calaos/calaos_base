@@ -542,51 +542,39 @@ void AudioPlayer::db_default_item_get_cb(json_t *jdata, void *data)
     delete user_data;
 }
 
-void AudioPlayer::db_default_item_list_get_cb(bool success, vector<string> result, void *data)
+void AudioPlayer::db_default_item_list_get_cb(json_t *jdata, void *data)
 {
     PlayerInfoData *user_data = reinterpret_cast<PlayerInfoData *>(data);
     if (!user_data) return; //Probably leaking here !
 
-    if (result.size() < 4) return;
-
+    size_t idx;
+    json_t *value;
     list<Params> infos;
-    Params item;
-    int cpt = 0;
 
-    for (uint b = 4;b < result.size();b++)
+    json_array_foreach(json_object_get(jdata, "items"), idx, value)
     {
-        string tmp = result[b];
-        vector<string> tk;
-        split(tmp, tk, ":", 2);
-        if (tk.size() != 2) continue;
-
-        if (tk[0] == "id")
-        {
-            if (cpt > 0) infos.push_back(item);
-            item.clear();
-            cpt++;
-        }
-
-        item.Add(tk[0], url_decode2(tk[1]));
+        Params item;
+        jansson_decode_object(value, item);
+        infos.push_back(item);
     }
 
-    if (item.size() > 0) infos.push_back(item);
-
-    PlayerInfoList_signal sig;
-    sig.connect(user_data->callback_list);
-    sig.emit(infos);
-
+    user_data->callback_list(infos);
     delete user_data;
 }
 
 void AudioPlayer::getDBAlbumTrackCount(int album_item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database album_titles 0 1 album_id:" + Utils::to_string(album_item);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_album_titles"},
+                {"album_id", Utils::to_string(album_item)},
+                {"from", "0"},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBArtistAlbumCount(int artist_id, PlayerInfo_cb callback)
@@ -639,32 +627,22 @@ void AudioPlayer::playlistDelete(string id)
     connection->sendCommand("set_state", p);
 }
 
-void AudioPlayer::db_album_track_count_get_cb(bool success, vector<string> result, void *data)
+void AudioPlayer::db_album_track_count_get_cb(json_t *jdata, void *data)
 {
     PlayerInfoData *user_data = reinterpret_cast<PlayerInfoData *>(data);
     if (!user_data) return; //Probably leaking here !
 
-    if (result.size() < 5) return;
+    size_t idx;
+    json_t *value;
+    string count = jansson_string_get(jdata, "count");
 
-    Params infos;
-
-    for (uint b = 4;b < result.size();b++)
+    json_array_foreach(json_object_get(jdata, "items"), idx, value)
     {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        if (tmp[0] == "count")
-        {
-            infos.Add(tmp[0], tmp[1]);
-            break;
-        }
+        Params infos;
+        jansson_decode_object(value, infos);
+        infos.Add("count", count);
+        user_data->callback(infos);
     }
-
-    PlayerInfo_signal sig;
-    sig.connect(user_data->callback);
-    sig.emit(infos);
 
     delete user_data;
 }

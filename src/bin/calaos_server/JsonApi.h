@@ -76,6 +76,7 @@ protected:
     void audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H
