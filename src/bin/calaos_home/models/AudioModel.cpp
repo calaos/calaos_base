@@ -838,12 +838,16 @@ void AudioPlayer::playItem(int type, string id)
 
 void AudioPlayer::getDBArtistItem(int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database artists " + Utils::to_string(item) + " 1";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_artists"},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBYearItem(int item, PlayerInfo_cb callback)

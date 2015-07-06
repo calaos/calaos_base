@@ -73,6 +73,7 @@ protected:
 
     json_t *processDbResult(const AudioPlayerData &data);
     void audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
