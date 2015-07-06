@@ -471,7 +471,7 @@ void AudioPlayer::getDBAlbumItem(int item, PlayerInfo_cb callback)
     data->callback = callback;
 
     Params p = {{"player_id", params["id"]},
-                {"audio_action", "get_album_item"},
+                {"audio_action", "get_albums"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
     connection->sendCommand("audio_db", p,
@@ -624,12 +624,17 @@ void AudioPlayer::getDBGenreArtistCount(int genre_id, PlayerInfo_cb callback)
 
 void AudioPlayer::getDBPlaylistTrackCount(int playlist_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database playlist_titles 0 1 playlist_id:" + Utils::to_string(playlist_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_playlist_titles"},
+                {"playlist_id", Utils::to_string(playlist_id)},
+                {"from", "0"},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_album_track_count_get_cb),
+                            data);
 }
 
 void AudioPlayer::playlistDelete(string id)
@@ -664,22 +669,32 @@ void AudioPlayer::db_album_track_count_get_cb(json_t *jdata, void *data)
 
 void AudioPlayer::getDBAlbumTrackItem(int album_id, int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database album_titles " + Utils::to_string(item) + " 1 album_id:" + Utils::to_string(album_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_album_titles"},
+                {"album_id", Utils::to_string(album_id)},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBPlaylistTrackItem(int playlist_id, int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database playlist_titles " + Utils::to_string(item) + " 1 playlist_id:" + Utils::to_string(playlist_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_playlist_titles"},
+                {"playlist_id", Utils::to_string(playlist_id)},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int size)

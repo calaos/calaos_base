@@ -72,11 +72,12 @@ protected:
     void audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
 
     json_t *processDbResult(const AudioPlayerData &data);
-    void audioDbGetAlbumItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    void audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
 };
 
 #endif // JSONAPI_H

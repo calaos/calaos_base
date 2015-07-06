@@ -470,8 +470,8 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
 void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
 {
     string msg = jansson_string_get(jdata, "audio_action");
-    if (msg == "get_album_item")
-        audioDbGetAlbumItem(jdata, [=](json_t *jret)
+    if (msg == "get_albums")
+        audioDbGetAlbums(jdata, [=](json_t *jret)
         {
             sendJson(jret);
         });
@@ -497,6 +497,11 @@ void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
         });
     else if (msg == "get_album_titles")
         audioDbGetAlbumTitles(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_playlist_titles")
+        audioDbGetPlaylistTitles(jdata, [=](json_t *jret)
         {
             sendJson(jret);
         });
