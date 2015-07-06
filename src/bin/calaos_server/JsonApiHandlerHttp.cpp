@@ -480,6 +480,11 @@ void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
         {
             sendJson(jret);
         });
+    else if (msg == "get_artist_album")
+        audioDbGetAlbumArtistItem(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
     else
         sendJson({{"error", "unkown audio_action" }});
 }

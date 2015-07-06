@@ -773,6 +773,30 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     });
 }
 
+json_t *JsonApi::processDbResult(const AudioPlayerData &data)
+{
+    json_t *ret = json_object();
+    json_t *aret = json_array();
+    string scount;
+
+    const vector<Params> &vp = data.vparams;
+    for (const Params &p: vp)
+    {
+        if (p.Exists("count"))
+            scount = p["count"];
+        json_array_append(aret, p.toJson());
+    }
+
+    if (scount == "0")
+        json_array_clear(aret);
+
+    if (!scount.empty())
+        json_object_set_new(ret, "total_count", json_string(scount.c_str()));
+    json_object_set_new(ret, "items", aret);
+
+    return ret;
+}
+
 void JsonApi::audioDbGetAlbumItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
     string err;
@@ -801,25 +825,39 @@ void JsonApi::audioDbGetAlbumItem(json_t *jdata, std::function<void(json_t *)>re
 
     player->get_database()->getAlbums([=](AudioPlayerData data)
     {
-        json_t *ret = json_object();
-        json_t *aret = json_array();
-        string scount;
-
-        vector<Params> &vp = data.vparams;
-        for (const Params &p: vp)
-        {
-            if (p.Exists("count"))
-                scount = p["count"];
-            json_array_append(aret, p.toJson());
-        }
-
-        if (scount == "0")
-            json_array_clear(aret);
-
-        if (!scount.empty())
-            json_object_set_new(ret, "total_count", json_string(scount.c_str()));
-        json_object_set_new(ret, "items", aret);
-
-        result_lambda(ret);
+        result_lambda(processDbResult(data));
     }, from, count);
+}
+
+void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    string itfrom = jansson_string_get(jdata, "from");
+    string itcount = jansson_string_get(jdata, "count");
+    string artist_id = jansson_string_get(jdata, "artist_id");
+    if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
+        itcount.empty() || !Utils::is_of_type<int>(itcount))
+    {
+        Params p = {{"error", "wrong from/count" }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    int from, count;
+    Utils::from_string(itfrom, from);
+    Utils::from_string(itcount, count);
+
+    player->get_database()->getArtistsAlbums([=](AudioPlayerData data)
+    {
+        result_lambda(processDbResult(data));
+    }, from, count, artist_id);
 }
