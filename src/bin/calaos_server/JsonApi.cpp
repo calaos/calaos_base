@@ -894,3 +894,36 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
         result_lambda(processDbResult(data));
     }, from, count, year);
 }
+
+void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    string itfrom = jansson_string_get(jdata, "from");
+    string itcount = jansson_string_get(jdata, "count");
+    string genre = jansson_string_get(jdata, "genre");
+    if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
+        itcount.empty() || !Utils::is_of_type<int>(itcount))
+    {
+        Params p = {{"error", "wrong from/count" }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    int from, count;
+    Utils::from_string(itfrom, from);
+    Utils::from_string(itcount, count);
+
+    player->get_database()->getGenresArtists([=](AudioPlayerData data)
+    {
+        result_lambda(processDbResult(data));
+    }, from, count, genre);
+}

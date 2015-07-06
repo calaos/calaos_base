@@ -511,12 +511,17 @@ void AudioPlayer::getDBAlbumYearItem(int item, int year_id, PlayerInfo_cb callba
 
 void AudioPlayer::getDBArtistGenreItem(int item, int genre_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database genre_artists " + Utils::to_string(item) + " 1 genre_id:" + Utils::to_string(genre_id);
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_genre_artists"},
+                {"genre", Utils::to_string(genre_id)},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::db_default_item_get_cb(json_t *jdata, void *data)
