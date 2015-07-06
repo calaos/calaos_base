@@ -696,6 +696,8 @@ void ActivityAudioListView::radioSelected(void *data, string rid, string subitem
     if (subitem_id == "")
         radio_id = rid;
 
+    cDebug() << "selected radio: " << rid << " item:" << subitem_id;
+
     player_current->getPlayer()->getDBRadio(rid, subitem_id, sigc::mem_fun(*this, &ActivityAudioListView::itemRadioLoaded));
 }
 
