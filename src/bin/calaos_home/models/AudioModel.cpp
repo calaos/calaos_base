@@ -852,95 +852,132 @@ void AudioPlayer::getDBArtistItem(int item, PlayerInfo_cb callback)
 
 void AudioPlayer::getDBYearItem(int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database years " + Utils::to_string(item) + " 1";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_years"},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBGenreItem(int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database genres " + Utils::to_string(item) + " 1";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_genres"},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBPlaylistItem(int item, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database playlists " + Utils::to_string(item) + " 1";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_playlists"},
+                {"from", Utils::to_string(item)},
+                {"count", "1"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBFolder(string folder_id, PlayerInfoList_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
-    string cmd = "audio " + params["id"] + " database music_folder 0 999999";
-    if (folder_id != "") cmd += " folder_id:" + folder_id;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_music_folder"},
+                {"folder_id", folder_id},
+                {"from", "0"},
+                {"count", "999999"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBSearch(string search, PlayerInfoList_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
-    string cmd = "audio " + params["id"] + " database search 0 999999";
-    cmd += " search_terms:" + search;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_search"},
+                {"search", search},
+                {"from", "0"},
+                {"count", "999999"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBTrackInfos(string track_id, PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " database track_infos track_id:" + track_id;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_track_infos"},
+                {"track_id", track_id}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBAllRadio(PlayerInfoList_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
-    string cmd = "audio " + params["id"] + " database radios 0 999999";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_radios"},
+                {"from", "0"},
+                {"count", "999999"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBRadio(string radio_id, string subitem_id, PlayerInfoList_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
-    string cmd = "audio " + params["id"] + " database radio_items 0 999999 radio_id:" + radio_id;
-    if (subitem_id != "") cmd += " item_id:" + subitem_id;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_radio_items"},
+                {"radio_id", radio_id},
+                {"item_id", subitem_id},
+                {"from", "0"},
+                {"count", "999999"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb),
+                            data);
 }
 
 void AudioPlayer::getDBRadioSearch(string radio_id, string subitem_id, string search, PlayerInfoList_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
-    string cmd = "audio " + params["id"] + " database radio_items 0 999999 radio_id:" + radio_id;
-    cmd += " item_id:" + subitem_id;
-    cmd += " search:" + search;
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_radio_items"},
+                {"radio_id", radio_id},
+                {"item_id", subitem_id},
+                {"search", search},
+                {"from", "0"},
+                {"count", "999999"}};
+    connection->sendCommand("audio_db", p,
+                            sigc::mem_fun(*this, &AudioPlayer::db_default_item_list_get_cb),
+                            data);
 }

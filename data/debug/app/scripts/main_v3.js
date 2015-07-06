@@ -17,11 +17,19 @@ var apiList = [
     '{ "msg": "audio", "msg_id": "1234", "data": { "audio_action": "get_playlist_item", "item": "0", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_albums", "from": "0", "count": "1", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_artists", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_years", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_genres", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_playlists", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_music_folder", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_search", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_radios", "from": "0", "count": "1", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_radio_items", "from": "0", "count": "1", "radio_id": "0", "item_id": "1", "search": "", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_artist_album", "from": "0", "count": "1", "artist_id": "0", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_year_albums", "from": "0", "count": "1", "year": "0", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_genre_artists", "from": "0", "count": "1", "genre": "0", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_album_titles", "from": "0", "count": "1", "album_id": "0", "player_id": "0" } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_playlist_titles", "from": "0", "count": "1", "playlist_id": "0", "player_id": "0" } }',
+    '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_track_infos", "from": "0", "count": "1", "track_id": "0", "player_id": "0" } }',
 ];
 
 function popuplateApiList() {

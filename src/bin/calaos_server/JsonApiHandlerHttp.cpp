@@ -510,6 +510,46 @@ void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
         {
             sendJson(jret);
         });
+    else if (msg == "get_years")
+        audioDbGetYears(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_genres")
+        audioDbGetGenres(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_playlists")
+        audioDbGetPlaylists(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_music_folder")
+        audioDbGetMusicFolder(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_search")
+        audioDbGetSearch(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_radios")
+        audioDbGetRadios(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_track_infos")
+        audioDbGetTrackInfos(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
+    else if (msg == "get_radio_items")
+        audioDbGetRadioItems(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
     else
         sendJson({{"error", "unkown audio_action" }});
 }
