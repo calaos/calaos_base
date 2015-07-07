@@ -773,6 +773,25 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     });
 }
 
+void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda)
+{
+    string err;
+    AudioPlayer *player = getAudioPlayer(jdata, err);
+
+    if (!err.empty())
+    {
+        Params p = {{"error", err }};
+        result_lambda(p.toJson());
+        return;
+    }
+
+    player->get_album_cover([=](AudioPlayerData data)
+    {
+        Params p = {{ "cover", data.svalue }};
+        result_lambda(p.toJson());
+    });
+}
+
 json_t *JsonApi::processDbResult(const AudioPlayerData &data)
 {
     json_t *ret = json_object();

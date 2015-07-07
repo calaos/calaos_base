@@ -463,6 +463,11 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
         {
             sendJson(jret);
         });
+    else if (msg == "get_cover_url")
+        audioGetCoverInfo(jdata, [=](json_t *jret)
+        {
+            sendJson(jret);
+        });
     else
         sendJson({{"error", "unkown audio_action" }});
 }

@@ -240,6 +240,11 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
         {
             sendJson("audio", jret, client_id);
         });
+    else if (msg == "get_cover_url")
+        audioGetCoverInfo(jdata, [=](json_t *jret)
+        {
+            sendJson("audio", jret, client_id);
+        });
     else
         sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
 }

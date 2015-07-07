@@ -71,7 +71,7 @@ private:
 
     void audio_state_get_cb(json_t *jdata, void *data);
 
-    void cover_cb(bool success, vector<string> result, void *data);
+    void cover_cb(json_t *jdata, void *data);
     void audio_db_stats_get_cb(json_t *jdata, void *data);
 
     void db_default_item_get_cb(json_t *jdata, void *data);

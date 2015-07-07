@@ -422,32 +422,24 @@ void AudioPlayer::removePlaylistItem(int item)
 
 void AudioPlayer::getCurrentCover(PlayerInfo_cb callback)
 {
-    /*
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
-    string cmd = "audio " + params["id"] + " cover?";
-    connection->SendCommand(cmd, sigc::mem_fun(*this, &AudioPlayer::cover_cb), data);
-    */
+
+    Params p = {{"player_id", params["id"]},
+                {"audio_action", "get_cover_url"}};
+    connection->sendCommand("audio", p,
+                            sigc::mem_fun(*this, &AudioPlayer::cover_cb),
+                            data);
 }
 
-void AudioPlayer::cover_cb(bool success, vector<string> result, void *data)
+void AudioPlayer::cover_cb(json_t *jdata, void *data)
 {
     PlayerInfoData *user_data = reinterpret_cast<PlayerInfoData *>(data);
     if (!user_data) return; //Probably leaking here !
 
-    if (result.size() < 3) return;
-
     Params infos;
-
-    vector<string> tmp;
-    Utils::split(result[2], tmp, ":", 2);
-    if (tmp.size() < 2) return;
-
-    infos.Add("cover", tmp[1]);
-
-    PlayerInfo_signal sig;
-    sig.connect(user_data->callback);
-    sig.emit(infos);
+    jansson_decode_object(jdata, infos);
+    user_data->callback(infos);
 
     delete user_data;
 }
