@@ -133,6 +133,16 @@ void JsonApiHandlerHttp::processApi(const string &data)
         processGetHome();
     else if (jsonParam["action"] == "get_state")
         processGetState(jroot);
+    else if (jsonParam["action"] == "get_states")
+        processGetStates();
+    else if (jsonParam["action"] == "query")
+        processQuery();
+    else if (jsonParam["action"] == "get_param")
+        processGetParam();
+    else if (jsonParam["action"] == "set_param")
+        processSetParam();
+    else if (jsonParam["action"] == "del_param")
+        processDelParam();
     else if (jsonParam["action"] == "set_state")
         processSetState();
     else if (jsonParam["action"] == "get_playlist")
@@ -210,6 +220,37 @@ void JsonApiHandlerHttp::processGetState(json_t *jroot)
     {
         sendJson(jret);
     });
+}
+
+void JsonApiHandlerHttp::processGetStates()
+{
+    buildJsonStates(jsonParam, [=](json_t *jret)
+    {
+        sendJson(jret);
+    });
+}
+
+void JsonApiHandlerHttp::processQuery()
+{
+    buildQuery(jsonParam, [=](json_t *jret)
+    {
+        sendJson(jret);
+    });
+}
+
+void JsonApiHandlerHttp::processGetParam()
+{
+    sendJson(buildJsonGetParam(jsonParam));
+}
+
+void JsonApiHandlerHttp::processSetParam()
+{
+    sendJson(buildJsonSetParam(jsonParam));
+}
+
+void JsonApiHandlerHttp::processDelParam()
+{
+    sendJson(buildJsonDelParam(jsonParam));
 }
 
 void JsonApiHandlerHttp::processGetIO(json_t *jroot)

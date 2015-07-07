@@ -324,11 +324,14 @@ void GenlistItemScenarioSchedule::scheduleDisable(void *data)
 {
     if (!scenario) return;
 
-    cCritical() << "TODO";
-//    scenario->ioSchedule->sendUserCommand("set_param enabled false", [=](bool, vector<string>, void *)
-//    {
-//        //TODO, update icon?
-//    });
+    Params p = {{ "type", "input" },
+                { "id", scenario->ioSchedule->params["id"] },
+                { "param", "enabled"},
+                { "value", "false"}};
+    scenario->ioSchedule->sendUserCommand("set_param", p, [=](json_t *, void *)
+    {
+        //TODO, update icon?
+    });
     elm_ctxpopup_dismiss(popup);
 }
 
@@ -336,10 +339,13 @@ void GenlistItemScenarioSchedule::scheduleEnable(void *data)
 {
     if (!scenario) return;
 
-    cCritical() << "TODO";
-//    scenario->ioSchedule->sendUserCommand("set_param enabled true", [=](bool, vector<string>, void *)
-//    {
-//        //TODO, update icon?
-//    });
+    Params p = {{ "type", "input" },
+                { "id", scenario->ioSchedule->params["id"] },
+                { "param", "enabled"},
+                { "value", "true"}};
+    scenario->ioSchedule->sendUserCommand("set_param", p, [=](json_t *, void *)
+    {
+        //TODO, update icon?
+    });
     elm_ctxpopup_dismiss(popup);
 }

@@ -208,37 +208,38 @@ void Room::load_io_done(IOBase *io)
 
     if (_type == "avreceiver")
     {
-        cCritical() << "TODO: avreceiver";
-        /*
-         * TODO:
-        io->sendUserCommand("states?", [=](bool success, vector<string> result, void *data)
+        Params p = {{ io->io_type == IOBase::IO_INPUT?"input_id":"output_id",
+                      io->params["id"] }};
+        connection->sendCommand("get_states", p, [=](json_t *jdata, void *)
         {
-            if (!success) return;
-
-            for (unsigned int i = 2;i < result.size();i++)
-            {
-                vector<string> tok;
-                split(result[i], tok, ":", 2);
-
-                io->params.Add(tok[0], tok[1]);
-            }
+            jansson_decode_object(jdata, io->params);
         });
-        io->sendUserCommand("query input_sources ?", [=](bool success, vector<string> result, void *data)
-        {
-            if (!success) return;
 
+        p = {{ io->io_type == IOBase::IO_INPUT?"input_id":"output_id",
+               io->params["id"]},
+             { "param", "input_sources" }};
+        connection->sendCommand("query", p, [=](json_t *jdata, void *)
+        {
             io->amplifier_inputs.clear();
-            for (unsigned int i = 4;i < result.size();i++)
-            {
-                vector<string> tok;
-                int num;
-                split(result[i], tok, ":", 2);
-                from_string(tok[0], num);
+            const char *key;
+            json_t *value;
 
-                io->amplifier_inputs[num] = tok[1];
+            json_object_foreach(jdata, key, value)
+            {
+                string svalue;
+
+                if (json_is_string(value))
+                    svalue = json_string_value(value);
+                else if (json_is_boolean(value))
+                    svalue = json_is_true(value)?"true":"false";
+                else if (json_is_number(value))
+                    svalue = Utils::to_string(json_number_value(value));
+
+                int k;
+                Utils::from_string(key, k);
+                io->amplifier_inputs[k] = svalue;
             }
         });
-        */
     }
 }
 
@@ -359,12 +360,9 @@ void IOBase::sendAction(string command)
     connection->sendCommand("set_state", p);
 }
 
-void IOBase::sendUserCommand(string command, CommandDone_cb callback, void *data)
+void IOBase::sendUserCommand(const string &cmd, const Params &p, CommandDone_cb callback)
 {   
-    Params p = {{ "type", io_type == IO_INPUT?"input":"output" },
-                { "id", params["id"] },
-                { "value", command }};
-    connection->sendCommand("set_state", p, callback, data);
+    connection->sendCommand(cmd, p, callback);
 }
 
 void IOBase::notifyChange(const string &msgtype, const Params &evdata)

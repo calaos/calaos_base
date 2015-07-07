@@ -143,6 +143,16 @@ void JsonApiHandlerWS::processApi(const string &data)
             processGetHome(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_state")
             processGetState(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_states")
+            processGetStates(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "query")
+            processQuery(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_param")
+            processGetParam(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "set_param")
+            processSetParam(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "del_param")
+            processDelParam(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_state")
             processSetState(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_playlist")
@@ -189,6 +199,37 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
     {
         sendJson("get_state", jret, client_id);
     });
+}
+
+void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const string &client_id)
+{
+    buildJsonStates(jsonReq, [=](json_t *jret)
+    {
+        sendJson("get_states", jret, client_id);
+    });
+}
+
+void JsonApiHandlerWS::processQuery(const Params &jsonReq, const string &client_id)
+{
+    buildQuery(jsonReq, [=](json_t *jret)
+    {
+        sendJson("query", jret, client_id);
+    });
+}
+
+void JsonApiHandlerWS::processGetParam(const Params &jsonReq, const string &client_id)
+{
+    sendJson("get_param", buildJsonGetParam(jsonReq), client_id);
+}
+
+void JsonApiHandlerWS::processSetParam(const Params &jsonReq, const string &client_id)
+{
+    sendJson("set_param", buildJsonSetParam(jsonReq), client_id);
+}
+
+void JsonApiHandlerWS::processDelParam(const Params &jsonReq, const string &client_id)
+{
+    sendJson("del_param", buildJsonDelParam(jsonReq), client_id);
 }
 
 void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)

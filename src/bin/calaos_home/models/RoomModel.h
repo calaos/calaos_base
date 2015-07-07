@@ -129,7 +129,7 @@ public:
     int io_type;
 
     void sendAction(string command);
-    void sendUserCommand(string command, CommandDone_cb callback, void *data = NULL);
+    void sendUserCommand(const string &cmd, const Params &p, CommandDone_cb callback);
     Room *getRoom() { return room; }
 
     //Some utility functions

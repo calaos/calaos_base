@@ -365,6 +365,388 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
     }
 }
 
+void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *)> result_lambda)
+{
+    Params res;
+
+    if (jParam.Exists("input_id"))
+    {
+        Input *o = ListeRoom::Instance().get_input(jParam["input_id"]);
+        if (!o)
+        {
+            Params p = {{ "error", "wrong id" }};
+            result_lambda(p.toJson());
+            return;
+        }
+
+        switch (o->get_type())
+        {
+        case TINT:
+        {
+            for (auto it: o->get_all_values_double())
+                res.Add(it.first, Utils::to_string(it.second));
+            break;
+        }
+        case TBOOL:
+        {
+            for (auto it: o->get_all_values_bool())
+                res.Add(it.first, (it.second)?"true":"false");
+            break;
+        }
+        case TSTRING:
+        {
+            for (auto it: o->get_all_values_string())
+                res.Add(it.first, it.second);
+            break;
+        }
+        default: break;
+        }
+    }
+    else if (jParam.Exists("output_id"))
+    {
+        Output *o = ListeRoom::Instance().get_output(jParam["output_id"]);
+        if (!o)
+        {
+            Params p = {{ "error", "wrong id" }};
+            result_lambda(p.toJson());
+            return;
+        }
+
+        switch (o->get_type())
+        {
+        case TINT:
+        {
+            for (auto it: o->get_all_values_double())
+                res.Add(it.first, Utils::to_string(it.second));
+            break;
+        }
+        case TBOOL:
+        {
+            for (auto it: o->get_all_values_bool())
+                res.Add(it.first, (it.second)?"true":"false");
+            break;
+        }
+        case TSTRING:
+        {
+            for (auto it: o->get_all_values_string())
+                res.Add(it.first, it.second);
+            break;
+        }
+        default: break;
+        }
+    }
+
+    result_lambda(res.toJson());
+}
+
+void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> result_lambda)
+{
+    Params res;
+
+    if (jParam.Exists("input_id"))
+    {
+        Input *o = ListeRoom::Instance().get_input(jParam["input_id"]);
+        if (!o)
+        {
+            Params p = {{ "error", "wrong id" }};
+            result_lambda(p.toJson());
+            return;
+        }
+
+        map<string, string> m = o->query_param(jParam["param"]);
+        for (auto it: m)
+            res.Add(it.first, it.second);
+    }
+    else if (jParam.Exists("output_id"))
+    {
+        Output *o = ListeRoom::Instance().get_output(jParam["output_id"]);
+        if (!o)
+        {
+            Params p = {{ "error", "wrong id" }};
+            result_lambda(p.toJson());
+            return;
+        }
+
+        map<string, string> m = o->query_param(jParam["param"]);
+        for (auto it: m)
+            res.Add(it.first, it.second);
+    }
+
+    result_lambda(res.toJson());
+}
+
+json_t *JsonApi::buildJsonGetParam(const Params &jParam)
+{
+    bool success = true;
+    Params ret;
+
+    if (jParam["type"] == "input")
+    {
+        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+            ret.Add(jParam["param"], o->get_param(jParam["param"]));
+    }
+    else if (jParam["type"] == "output")
+    {
+        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+            ret.Add(jParam["param"], o->get_param(jParam["param"]));
+    }
+
+    if (!success)
+        ret = {{ "error", "wrong io/param" }};
+
+    return ret.toJson();
+}
+
+json_t *JsonApi::buildJsonSetParam(const Params &jParam)
+{
+    bool success = true;
+    Params ret;
+
+    if (jParam["type"] == "input")
+    {
+        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+        {
+            if (jParam["param"].empty() || jParam["value"].empty())
+                success = false;
+            else
+            {
+                o->set_param(jParam["param"], jParam["value"]);
+
+                EventManager::create(CalaosEvent::EventInputChanged,
+                                     { { "id", o->get_param("id") },
+                                       { jParam["param"], jParam["value"] } });
+
+                //send event for output too
+
+                if (dynamic_cast<Internal *> (o) ||
+                    dynamic_cast<Scenario *> (o) ||
+                    dynamic_cast<InputTimer *> (o))
+                {
+                    EventManager::create(CalaosEvent::EventOutputChanged,
+                                         { { "id", o->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+
+                CamInput *icam = dynamic_cast<CamInput *>(o);
+                if (icam)
+                {
+                    IPCam *cam = icam->get_cam();
+                    cam->set_param(jParam["param"], jParam["value"]);
+                    cam->get_output()->set_param(jParam["param"], jParam["value"]);
+
+                    EventManager::create(CalaosEvent::EventOutputChanged,
+                                         { { "id", cam->get_output()->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+
+                AudioInput *iaudio = dynamic_cast<AudioInput *>(o);
+                if (iaudio)
+                {
+                    AudioPlayer *audio = iaudio->get_player();
+                    audio->set_param(jParam["param"], jParam["value"]);
+                    audio->get_output()->set_param(jParam["param"], jParam["value"]);
+
+                    EventManager::create(CalaosEvent::EventOutputChanged,
+                                         { { "id", audio->get_output()->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+            }
+        }
+    }
+    else if (jParam["type"] == "output")
+    {
+        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+        {
+            if (jParam["param"].empty() || jParam["value"].empty())
+                success = false;
+            else
+                {
+                o->set_param(jParam["param"], jParam["value"]);
+
+                EventManager::create(CalaosEvent::EventOutputChanged,
+                                     { { "id", o->get_param("id") },
+                                       { jParam["param"], jParam["value"] } });
+
+                //send event for output too
+
+                if (dynamic_cast<Internal *> (o) ||
+                    dynamic_cast<Scenario *> (o) ||
+                    dynamic_cast<InputTimer *> (o))
+                {
+                    EventManager::create(CalaosEvent::EventInputChanged,
+                                         { { "id", o->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+
+                CamOutput *icam = dynamic_cast<CamOutput *>(o);
+                if (icam)
+                {
+                    IPCam *cam = icam->get_cam();
+                    cam->set_param(jParam["param"], jParam["value"]);
+                    cam->get_input()->set_param(jParam["param"], jParam["value"]);
+
+                    EventManager::create(CalaosEvent::EventInputChanged,
+                                         { { "id", cam->get_input()->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+
+                AudioOutput *iaudio = dynamic_cast<AudioOutput *>(o);
+                if (iaudio)
+                {
+                    AudioPlayer *audio = iaudio->get_player();
+                    audio->set_param(jParam["param"], jParam["value"]);
+                    audio->get_input()->set_param(jParam["param"], jParam["value"]);
+
+                    EventManager::create(CalaosEvent::EventInputChanged,
+                                         { { "id", audio->get_input()->get_param("id") },
+                                           { jParam["param"], jParam["value"] } });
+                }
+            }
+        }
+    }
+
+    if (!success)
+        ret = {{ "error", "wrong io/param" }};
+    else
+        ret = {{ "success", "true" }};
+
+    return ret.toJson();
+}
+
+json_t *JsonApi::buildJsonDelParam(const Params &jParam)
+{
+    bool success = true;
+    Params ret;
+
+    if (jParam["type"] == "input")
+    {
+        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+        {
+            if (jParam["param"].empty())
+                success = false;
+            else
+            {
+                o->get_params().Delete(jParam["param"]);
+
+                EventManager::create(CalaosEvent::EventInputPropertyDelete,
+                                     { { "id", o->get_param("id") },
+                                       { "param", jParam["param"] } });
+
+                //send event for output too
+
+                if (dynamic_cast<Internal *> (o) ||
+                    dynamic_cast<Scenario *> (o) ||
+                    dynamic_cast<InputTimer *> (o))
+                {
+                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
+                                         { { "id", o->get_param("id") },
+                                           { "param", jParam["param"] } });
+                }
+
+                CamInput *icam = dynamic_cast<CamInput *>(o);
+                if (icam)
+                {
+                    IPCam *cam = icam->get_cam();
+                    cam->get_params().Delete(jParam["param"]);
+                    cam->get_output()->get_params().Delete(jParam["param"]);
+
+                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
+                                         { { "id", cam->get_output()->get_param("id") },
+                                           { "param", jParam["param"] } });
+                }
+
+                AudioInput *iaudio = dynamic_cast<AudioInput *>(o);
+                if (iaudio)
+                {
+                    AudioPlayer *audio = iaudio->get_player();
+                    audio->get_params().Delete(jParam["param"]);
+                    audio->get_output()->get_params().Delete(jParam["param"]);
+
+                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
+                                         { { "id", audio->get_output()->get_param("id") },
+                                           { "param", jParam["param"] } });
+                }
+            }
+        }
+    }
+    else if (jParam["type"] == "output")
+    {
+        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
+        if (!o)
+            success = false;
+        else
+        {
+            if (jParam["param"].empty())
+                success = false;
+            else
+            {
+                o->get_params().Delete(jParam["param"]);
+
+                EventManager::create(CalaosEvent::EventOutputPropertyDelete,
+                { { "id", o->get_param("id") },
+                  { "param", jParam["param"] } });
+
+                //send event for output too
+
+                if (dynamic_cast<Internal *> (o) ||
+                    dynamic_cast<Scenario *> (o) ||
+                    dynamic_cast<InputTimer *> (o))
+                {
+                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
+                    { { "id", o->get_param("id") },
+                      { "param", jParam["param"] } });
+                }
+
+                CamOutput *icam = dynamic_cast<CamOutput *>(o);
+                if (icam)
+                {
+                    IPCam *cam = icam->get_cam();
+                    cam->get_params().Delete(jParam["param"]);
+                    cam->get_input()->get_params().Delete(jParam["param"]);
+
+                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
+                    { { "id", cam->get_input()->get_param("id") },
+                      { "param", jParam["param"] } });
+                }
+
+                AudioOutput *iaudio = dynamic_cast<AudioOutput *>(o);
+                if (iaudio)
+                {
+                    AudioPlayer *audio = iaudio->get_player();
+                    audio->get_params().Delete(jParam["param"]);
+                    audio->get_input()->get_params().Delete(jParam["param"]);
+
+                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
+                    { { "id", audio->get_input()->get_param("id") },
+                      { "param", jParam["param"] } });
+                }
+            }
+        }
+    }
+
+    if (!success)
+        ret = {{ "error", "wrong io/param" }};
+    else
+        ret = {{ "success", "true" }};
+
+    return ret.toJson();
+}
+
 json_t *JsonApi::buildJsonGetIO(json_t *jroot)
 {
     json_incref(jroot);

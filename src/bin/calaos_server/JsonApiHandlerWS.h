@@ -45,6 +45,11 @@ private:
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
     void processGetState(json_t *jdata, const string &client_id = string());
+    void processGetStates(const Params &jsonReq, const string &client_id = string());
+    void processQuery(const Params &jsonReq, const string &client_id = string());
+    void processGetParam(const Params &jsonReq, const string &client_id = string());
+    void processSetParam(const Params &jsonReq, const string &client_id = string());
+    void processDelParam(const Params &jsonReq, const string &client_id = string());
     void processSetState(Params &jsonReq, const string &client_id = string());
     void processGetPlaylist(Params &jsonReq, const string &client_id = string());
     void processGetIO(json_t *jdata, const string &client_id = string());

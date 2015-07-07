@@ -58,6 +58,12 @@ protected:
     //result is given with a call to a lambda because we may need to wait for
     //network queries
     void buildJsonState(json_t *jroot, std::function<void(json_t *)>result_lambda);
+    void buildJsonStates(const Params &jParam, std::function<void(json_t *)>result_lambda);
+    void buildQuery(const Params &jParam, std::function<void(json_t *)>result_lambda);
+
+    json_t *buildJsonGetParam(const Params &jParam);
+    json_t *buildJsonSetParam(const Params &jParam);
+    json_t *buildJsonDelParam(const Params &jParam);
 
     json_t *buildJsonGetIO(json_t *jroot);
 

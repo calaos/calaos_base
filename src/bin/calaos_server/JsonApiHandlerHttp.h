@@ -50,6 +50,11 @@ private:
     //processing functions
     void processGetHome();
     void processGetState(json_t *jroot);
+    void processGetStates();
+    void processQuery();
+    void processGetParam();
+    void processSetParam();
+    void processDelParam();
     void processSetState();
     void processGetPlaylist();
     void processPolling();
