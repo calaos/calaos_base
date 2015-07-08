@@ -62,6 +62,8 @@ private:
     void processGetCameraPic();
     void processConfig(json_t *jroot);
     void processGetIO(json_t *jroot);
+    void processGetTimerange();
+    void processSetTimerange(json_t *jroot);
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);

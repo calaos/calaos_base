@@ -163,6 +163,10 @@ void JsonApiHandlerWS::processApi(const string &data)
             processAudio(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio_db")
             processAudioDb(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_timerange")
+            processGetTimerange(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "set_timerange")
+            processSetTimerange(jdata, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -375,4 +379,14 @@ void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
         });
     else
         sendJson("audio_db", {{"error", "unkown audio_action" }} , client_id);
+}
+
+void JsonApiHandlerWS::processGetTimerange(const Params &jsonReq, const string &client_id)
+{
+    sendJson("get_timerange", buildJsonGetTimerange(jsonReq), client_id);
+}
+
+void JsonApiHandlerWS::processSetTimerange(json_t *jdata, const string &client_id)
+{
+    sendJson("set_timerange", buildJsonSetTimerange(jdata), client_id);
 }

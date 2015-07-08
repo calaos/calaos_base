@@ -10,6 +10,8 @@ var apiList = [
     '{ "msg": "get_param", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "param": "name" } }',
     '{ "msg": "set_param", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "param": "name", "value": "New name" } }',
     '{ "msg": "del_param", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "param": "param_to_delete" } }',
+    '{ "msg": "get_timerange", "msg_id": "1234", "data": { "id": "input_0" } }',
+    '{ "msg": "set_timerange", "msg_id": "1234", "data": { "id": "input_0", "months": "000000000000", "ranges": [ { "day": "1", "start_hour": "12", "start_min": "0", "start_sec": "0", "start_type": "0", "start_offset": "1", "end_hour": "13", "end_min": "30", "end_sec": "0", "end_type": "0", "end_offset": "1" } ] } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "output", "id": "output_0", "value": "true" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "value": "true" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "audio", "player_id": "0", "value": "volume 75" } }',

@@ -22,6 +22,8 @@
 #include "HttpClient.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
+#include "AutoScenario.h"
+#include "CalaosConfig.h"
 
 JsonApi::JsonApi(HttpClient *client):
     httpClient(client)
@@ -1675,4 +1677,109 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     {
         result_lambda(data.params.toJson());
     }, trackid);
+}
+
+json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
+{
+    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(jParam["id"]));
+    if (!o)
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    json_t *ret = json_object();
+    json_t *jarr = json_array();
+
+    for (int day = 0;day < 7;day++)
+    {
+        vector<TimeRange> h;
+        if (day == 0) h = o->getLundi();
+        if (day == 1) h = o->getMardi();
+        if (day == 2) h = o->getMercredi();
+        if (day == 3) h = o->getJeudi();
+        if (day == 4) h = o->getVendredi();
+        if (day == 5) h = o->getSamedi();
+        if (day == 6) h = o->getDimanche();
+        for (uint i = 0;i < h.size();i++)
+            json_array_append(jarr, h[i].toParams(day).toJson());
+    }
+
+    json_object_set(ret, "ranges", jarr);
+
+    stringstream ssmonth;
+    ssmonth << o->months;
+    string str = ssmonth.str();
+    std::reverse(str.begin(), str.end());
+    json_object_set_new(ret, "months", json_string(str.c_str()));
+
+    return ret;
+}
+
+json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(id));
+    if (!o)
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    o->clear();
+
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(json_object_get(jdata, "ranges"), idx, value)
+    {
+        Params p;
+        jansson_decode_object(value, p);
+
+        TimeRange tr(p);
+
+        cout << "Adding timerange: " << p.toString() << endl;
+
+        if (p["day"] == "1") o->AddLundi(tr);
+        if (p["day"] == "2") o->AddMardi(tr);
+        if (p["day"] == "3") o->AddMercredi(tr);
+        if (p["day"] == "4") o->AddJeudi(tr);
+        if (p["day"] == "5") o->AddVendredi(tr);
+        if (p["day"] == "6") o->AddSamedi(tr);
+        if (p["day"] == "7") o->AddDimanche(tr);
+    }
+
+    //set months
+    string m = jansson_string_get(jdata, "months");
+    if (!m.empty())
+    {
+        //reverse to have a left to right months representation
+        std::reverse(m.begin(), m.end());
+
+        try
+        {
+            bitset<12> mset(m);
+            o->months = mset;
+        }
+        catch(...)
+        {
+            cErrorDom("network") << "wrong parameters for months: " << m;
+        }
+    }
+
+    EventManager::create(CalaosEvent::EventTimeRangeChanged,
+                         { { "id", o->get_param("id") } });
+
+    if (o->getAutoScenarioPtr())
+    {
+        EventManager::create(CalaosEvent::EventScenarioChanged,
+                             { { "id", o->getAutoScenarioPtr()->getIOScenario()->get_param("id") } });
+    }
+
+    //Resave config
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
 }

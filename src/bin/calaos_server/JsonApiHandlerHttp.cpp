@@ -161,6 +161,10 @@ void JsonApiHandlerHttp::processApi(const string &data)
         processAudio(jroot);
     else if (jsonParam["action"] == "audio_db")
         processAudioDb(jroot);
+    else if (jsonParam["action"] == "get_timerange")
+        processGetTimerange();
+    else if (jsonParam["action"] == "set_timerange")
+        processSetTimerange(jroot);
 
     json_decref(jroot);
 }
@@ -598,4 +602,14 @@ void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
         });
     else
         sendJson({{"error", "unkown audio_action" }});
+}
+
+void JsonApiHandlerHttp::processGetTimerange()
+{
+    sendJson(buildJsonGetTimerange(jsonParam));
+}
+
+void JsonApiHandlerHttp::processSetTimerange(json_t *jroot)
+{
+    sendJson(buildJsonSetTimerange(jroot));
 }

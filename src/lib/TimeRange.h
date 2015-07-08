@@ -61,6 +61,7 @@ public:
 
     TimeRange();
     TimeRange(string proto);
+    TimeRange(const Params &p);
 
     long getStartTimeSec(int year, int month, int day);
     long getEndTimeSec(int year, int month, int day);
@@ -72,6 +73,7 @@ public:
     bool isSameStartEnd();
 
     string toProtoCommand(int day) const;
+    Params toParams(int day) const;
     string toString();
 
     //flag to ease the loading in UI

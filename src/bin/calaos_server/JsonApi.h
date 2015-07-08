@@ -65,6 +65,9 @@ protected:
     json_t *buildJsonSetParam(const Params &jParam);
     json_t *buildJsonDelParam(const Params &jParam);
 
+    json_t *buildJsonGetTimerange(const Params &jParam);
+    json_t *buildJsonSetTimerange(json_t *jdata);
+
     json_t *buildJsonGetIO(json_t *jroot);
 
     bool decodeSetState(Params &jParam);

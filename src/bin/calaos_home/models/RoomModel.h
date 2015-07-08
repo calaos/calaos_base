@@ -106,8 +106,7 @@ private:
 
     void checkCacheChange();
 
-    void loadPlage_cb(bool success, vector<string> result, void *data);
-    void loadPlageMonths_cb(bool success, vector<string> result, void *data);
+    void loadPlage_cb(json_t *jdata, void *data);
 
 public:
     IOBase(CalaosConnection* con, Room *r, int iotype):

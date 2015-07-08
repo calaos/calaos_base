@@ -53,6 +53,25 @@ TimeRange::TimeRange(string proto):
     if (end_offset >= 0) end_offset = 1;
 }
 
+TimeRange::TimeRange(const Params &p)
+{
+    shour = p["start_hour"];
+    smin = p["start_min"];
+    ssec = p["start_sec"];
+    from_string(p["start_type"], start_type);
+    from_string(p["start_offset"], start_offset);
+    if (start_offset < 0) start_offset = -1;
+    if (start_offset >= 0) start_offset = 1;
+
+    ehour = p["end_hour"];
+    emin = p["end_min"];
+    esec = p["end_sec"];
+    from_string(p["end_type"], end_type);
+    from_string(p["end_offset"], end_offset);
+    if (end_offset < 0) end_offset = -1;
+    if (end_offset >= 0) end_offset = 1;
+}
+
 bool TimeRange::operator==(const TimeRange &other) const
 {
     return (start_type == other.start_type &&
@@ -325,6 +344,26 @@ string TimeRange::toProtoCommand(int day) const
     s += ":" + Utils::to_string(end_offset); //1 or -1
 
     return s;
+}
+
+Params TimeRange::toParams(int day) const
+{
+    Params p;
+
+    p.Add("day", Utils::to_string(day + 1));
+    p.Add("start_hour", shour);
+    p.Add("start_min", smin);
+    p.Add("start_sec", ssec);
+    p.Add("start_type", Utils::to_string(start_type));
+    p.Add("start_offset", Utils::to_string(start_offset));
+
+    p.Add("end_hour", ehour);
+    p.Add("end_min", emin);
+    p.Add("end_sec", esec);
+    p.Add("end_type", Utils::to_string(end_type));
+    p.Add("end_offset", Utils::to_string(end_offset));
+
+    return p;
 }
 
 string TimeRange::toString()

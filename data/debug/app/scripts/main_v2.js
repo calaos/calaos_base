@@ -33,6 +33,8 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_param", "type": "input", "id": "input_0", "param": "name" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_param", "type": "input", "id": "input_0", "param": "name", "value": "New name" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "del_param", "type": "input", "id": "input_0", "param": "param_to_delete" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_timerange", "id": "input_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_timerange", "id": "input_0", "months": "000000000000", "ranges": [ { "day": "1", "start_hour": "12", "start_min": "0", "start_sec": "0", "start_type": "0", "start_offset": "1", "end_hour": "13", "end_min": "30", "end_sec": "0", "end_type": "0", "end_offset": "1" } ] }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_io", "inputs": ["input_0"], "outputs": ["output_0", "output_1"] }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "output", "id": "output_0", "value": "true" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "input", "id": "input_0", "value": "true" }',

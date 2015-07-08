@@ -1396,15 +1396,12 @@ void IOBase::loadPlage()
         return;
     }
 
-    string cmd = "input " + params["id"] + " plage get";
-    cCritical() << "TODO";
-    //connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlage_cb));
+    connection->sendCommand("get_timerange", {{ "id", params["id"] }},
+                            sigc::mem_fun(*this, &IOBase::loadPlage_cb));
 }
 
-void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
+void IOBase::loadPlage_cb(json_t *jdata, void *data)
 {
-    if (!success) return;
-
     range_infos.range_monday.clear();
     range_infos.range_tuesday.clear();
     range_infos.range_wednesday.clear();
@@ -1413,67 +1410,27 @@ void IOBase::loadPlage_cb(bool success, vector<string> result, void *data)
     range_infos.range_saturday.clear();
     range_infos.range_sunday.clear();
 
-    for (uint i = 3;i < result.size();i++)
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(json_object_get(jdata, "ranges"), idx, value)
     {
-        vector<string> splitter;
-        split(result[i], splitter, ":", 11);
+        Params p;
+        jansson_decode_object(value, p);
 
-        TimeRange tr;
+        TimeRange tr(p);
 
-        tr.shour = splitter[1];
-        tr.smin = splitter[2];
-        tr.ssec = splitter[3];
-        from_string(splitter[4], tr.start_type);
-        from_string(splitter[5], tr.start_offset);
-        if (tr.start_offset < 0) tr.start_offset = -1;
-        if (tr.start_offset >= 0) tr.start_offset = 1;
-
-        tr.ehour = splitter[6];
-        tr.emin = splitter[7];
-        tr.esec = splitter[8];
-        from_string(splitter[9], tr.end_type);
-        from_string(splitter[10], tr.end_offset);
-        if (tr.end_offset < 0) tr.end_offset = -1;
-        if (tr.end_offset >= 0) tr.end_offset = 1;
-
-        int day;
-        from_string(splitter[0], day);
-        switch(day)
-        {
-        case 1: range_infos.range_monday.push_back(tr); break;
-        case 2: range_infos.range_tuesday.push_back(tr); break;
-        case 3: range_infos.range_wednesday.push_back(tr); break;
-        case 4: range_infos.range_thursday.push_back(tr); break;
-        case 5: range_infos.range_friday.push_back(tr); break;
-        case 6: range_infos.range_saturday.push_back(tr); break;
-        case 7: range_infos.range_sunday.push_back(tr); break;
-        default:
-            cErrorDom("network") << params["id"]
-                                 << " unknown range day. Debug infos: " << result[i];
-            break;
-        }
+        if (p["day"] == "1") range_infos.range_monday.push_back(tr);
+        if (p["day"] == "2") range_infos.range_tuesday.push_back(tr);
+        if (p["day"] == "3") range_infos.range_wednesday.push_back(tr);
+        if (p["day"] == "4") range_infos.range_thursday.push_back(tr);
+        if (p["day"] == "5") range_infos.range_friday.push_back(tr);
+        if (p["day"] == "6") range_infos.range_saturday.push_back(tr);
+        if (p["day"] == "7") range_infos.range_sunday.push_back(tr);
     }
 
-    //Load months info
-    string cmd = "input " + params["id"] + " plage months get";
-    cCritical() << "TODO";
-    //connection->SendCommand(cmd, sigc::mem_fun(*this, &IOBase::loadPlageMonths_cb));
-}
+    string m = jansson_string_get(jdata, "months");
 
-void IOBase::loadPlageMonths_cb(bool success, vector<string> result, void *data)
-{
-    if (!success) return;
-
-    if (result.size() < 5)
-    {
-        cErrorDom("network") << params["id"]
-                             << "error reading months!";
-        io_changed.emit(); //io has changed
-
-        return;
-    }
-
-    string m = result[4];
     //reverse to have a left to right months representation
     std::reverse(m.begin(), m.end());
 
