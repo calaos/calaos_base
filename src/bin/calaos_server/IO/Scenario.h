@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "Input.h"
 #include "Output.h"
+#include "Jansson_Addition.h"
 
 namespace Calaos
 {
@@ -58,6 +59,8 @@ public:
     { return Input::get_params(); }
 
     AutoScenario *getAutoScenario() { return auto_scenario; }
+
+    json_t *toJson();
 };
 
 }

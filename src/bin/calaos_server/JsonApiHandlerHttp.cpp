@@ -165,6 +165,8 @@ void JsonApiHandlerHttp::processApi(const string &data)
         processGetTimerange();
     else if (jsonParam["action"] == "set_timerange")
         processSetTimerange(jroot);
+    else if (jsonParam["action"] == "autoscenario")
+        processAutoscenario(jroot);
 
     json_decref(jroot);
 }
@@ -612,4 +614,23 @@ void JsonApiHandlerHttp::processGetTimerange()
 void JsonApiHandlerHttp::processSetTimerange(json_t *jroot)
 {
     sendJson(buildJsonSetTimerange(jroot));
+}
+
+void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
+{
+    string msg = jansson_string_get(jroot, "type");
+    if (msg == "list")
+        sendJson(buildAutoscenarioList(jroot));
+    else if (msg == "get")
+        sendJson(buildAutoscenarioGet(jroot));
+    else if (msg == "create")
+        sendJson(buildAutoscenarioCreate(jroot));
+    else if (msg == "delete")
+        sendJson(buildAutoscenarioDelete(jroot));
+    else if (msg == "modify")
+        sendJson(buildAutoscenarioModify(jroot));
+    else if (msg == "add_schedule")
+        sendJson(buildAutoscenarioAddSchedule(jroot));
+    else if (msg == "del_schedule")
+        sendJson(buildAutoscenarioDelSchedule(jroot));
 }

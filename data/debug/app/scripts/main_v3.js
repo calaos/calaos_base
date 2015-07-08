@@ -16,6 +16,13 @@ var apiList = [
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "input", "id": "input_0", "value": "true" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "audio", "player_id": "0", "value": "volume 75" } }',
     '{ "msg": "set_state", "msg_id": "1234", "data": { "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "list" } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "get", "id": "input_0" } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "create", "name": "New scenario", "visible": "true", "room_name": "Room", "room_type": "bedroom", "cycle": "true", "steps": [ { "step_pause": "61000", "step_type": "standard", "actions": [ { "id": "output_0", "action": "true"}, { "id": "output_1", "action": "set 50" } ] }, { "step_type": "end", "actions": [ { "id": "output_0", "action": "false" } ] } ] } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "delete", "id": "input_0" } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "modify", "id": "input_0", "name": "scenario modified", "visible": "true", "room_name": "Room", "room_type": "bedroom", "cycle": "true", "steps": [ { "step_pause": "61000", "step_type": "standard", "actions": [ { "id": "output_0", "action": "true"}, { "id": "output_1", "action": "set 50" } ] }, { "step_type": "end", "actions": [ { "id": "output_0", "action": "false" } ] } ] } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "add_schedule", "id": "input_0" } }',
+    '{ "msg": "autoscenario", "msg_id": "1234", "data": { "type": "del_schedule", "id": "input_0" } }',
     '{ "msg": "get_playlist", "msg_id": "1234", "data": { "player_id": "0" } }',
     '{ "msg": "get_io", "msg_id": "1234", "data": { "inputs": ["input_0"], "outputs": ["output_0", "output_1"] } }',
     '{ "msg": "audio_db", "msg_id": "1234", "data": { "audio_action": "get_stats", "player_id": "0" } }',
@@ -45,7 +52,7 @@ function popuplateApiList() {
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
     for (var c = 1;c < apiList.length;c++) {
         var s = JSON.parse(apiList[c]).msg;
-        if (s == "set_state")
+        if (s == "set_state" || s == "autoscenario")
             s = s + " " + JSON.parse(apiList[c]).data["type"];
         if (s == "audio" || s == "audio_db")
             s = s + " " + JSON.parse(apiList[c]).data["audio_action"];

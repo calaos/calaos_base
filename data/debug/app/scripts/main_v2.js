@@ -40,6 +40,13 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "input", "id": "input_0", "value": "true" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "audio", "player_id": "0", "value": "volume 75" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "set_state", "type": "camera", "camera_id": "0", "camera_action": "move", "value": "left" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "list" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "get", "id": "input_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "create", "name": "New scenario", "visible": "true", "room_name": "Room", "room_type": "bedroom", "cycle": "true", "steps": [ { "step_pause": "61000", "step_type": "standard", "actions": [ { "id": "output_0", "action": "true"}, { "id": "output_1", "action": "set 50" } ] }, { "step_type": "end", "actions": [ { "id": "output_0", "action": "false" } ] } ] }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "delete", "id": "input_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "modify", "id": "input_0", "name": "scenario modified", "visible": "true", "room_name": "Room", "room_type": "bedroom", "cycle": "true", "steps": [ { "step_pause": "61000", "step_type": "standard", "actions": [ { "id": "output_0", "action": "true"}, { "id": "output_1", "action": "set 50" } ] }, { "step_type": "end", "actions": [ { "id": "output_0", "action": "false" } ] } ] }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "add_schedule", "id": "input_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "autoscenario", "type": "del_schedule", "id": "input_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_playlist", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "poll_listen", "type": "register" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "poll_listen", "type": "unregister", "uuid": "XXX" }',
@@ -74,7 +81,7 @@ $(document).ready(function() {
     $('#api_list').append($('<option />').val(i++).html('Custom request'));
     for (var c = 1;c < apiList.length;c++) {
         var s = JSON.parse(apiList[c]).action;
-        if (s == "set_state" || s == "poll_listen" || s == "config")
+        if (s == "set_state" || s == "poll_listen" || s == "config" || s == "autoscenario")
 	    s = s + " " + JSON.parse(apiList[c]).type;
 	if (s == "audio" || s == "audio_db")
 	    s = s + " " + JSON.parse(apiList[c]).audio_action;

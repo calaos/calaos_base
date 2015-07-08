@@ -80,3 +80,64 @@ bool Scenario::set_value(bool val)
 
     return true;
 }
+
+json_t *Scenario::toJson()
+{
+    json_t *jret = json_object();
+
+    if (!auto_scenario)
+        return jret;
+
+    json_object_set_new(jret, "cycle", json_string(auto_scenario->isCycling()?"true":"false"));
+    json_object_set_new(jret, "enabled", json_string(auto_scenario->isDisabled()?"false":"true"));
+    json_object_set_new(jret, "schedule", json_string(auto_scenario->isScheduled()?
+                                                          auto_scenario->getIOPlage()->get_param("id").c_str():
+                                                          "false"));
+    json_object_set_new(jret, "category", json_string(auto_scenario->getCategory().c_str()));
+    json_object_set_new(jret, "steps_count", json_string(Utils::to_string(auto_scenario->getRuleSteps().size()).c_str()));
+
+    json_t *jsteps = json_array();
+
+    for (uint i = 0;i < auto_scenario->getRuleSteps().size();i++)
+    {
+        json_t *jstep = json_object();
+        json_object_set_new(jstep, "step_pause", json_string(Utils::to_string(auto_scenario->getStepPause(i)).c_str()));
+        json_object_set_new(jstep, "step_type", json_string("standard"));
+
+        json_t *jacts = json_array();
+        for (int j = 0;j < auto_scenario->getStepActionCount(i);j++)
+        {
+            ScenarioAction sa = auto_scenario->getStepAction(i, j);
+            json_t *jact = json_object();
+            json_object_set(jact, "id", json_string(sa.io->get_param("id").c_str()));
+            json_object_set(jact, "action", json_string(sa.action.c_str()));
+            json_array_append(jacts, jact);
+
+        }
+        json_object_set(jstep, "actions", jacts);
+
+        json_array_append(jsteps, jstep);
+    }
+
+    //add end step
+    {
+        json_t *jstep = json_object();
+        json_object_set_new(jstep, "step_type", json_string("end"));
+
+        json_t *jacts = json_array();
+        for (int j = 0;j < auto_scenario->getEndStepActionCount();j++)
+        {
+            ScenarioAction sa = auto_scenario->getEndStepAction(j);
+            json_t *jact = json_object();
+            json_object_set(jact, "id", json_string(sa.io->get_param("id").c_str()));
+            json_object_set(jact, "action", json_string(sa.action.c_str()));
+            json_array_append(jacts, jact);
+        }
+        json_object_set(jstep, "actions", jacts);
+        json_array_append(jsteps, jstep);
+    }
+
+    json_object_set(jret, "steps", jsteps);
+
+    return jret;
+}

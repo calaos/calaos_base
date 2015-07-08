@@ -167,6 +167,8 @@ void JsonApiHandlerWS::processApi(const string &data)
             processGetTimerange(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_timerange")
             processSetTimerange(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "autoscenario")
+            processAutoscenario(jdata, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -389,4 +391,23 @@ void JsonApiHandlerWS::processGetTimerange(const Params &jsonReq, const string &
 void JsonApiHandlerWS::processSetTimerange(json_t *jdata, const string &client_id)
 {
     sendJson("set_timerange", buildJsonSetTimerange(jdata), client_id);
+}
+
+void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const string &client_id)
+{
+    string msg = jansson_string_get(jdata, "type");
+    if (msg == "list")
+        sendJson("autoscenario", buildAutoscenarioList(jdata), client_id);
+    else if (msg == "get")
+        sendJson("autoscenario", buildAutoscenarioGet(jdata), client_id);
+    else if (msg == "create")
+        sendJson("autoscenario", buildAutoscenarioCreate(jdata), client_id);
+    else if (msg == "delete")
+        sendJson("autoscenario", buildAutoscenarioDelete(jdata), client_id);
+    else if (msg == "modify")
+        sendJson("autoscenario", buildAutoscenarioModify(jdata), client_id);
+    else if (msg == "add_schedule")
+        sendJson("autoscenario", buildAutoscenarioAddSchedule(jdata), client_id);
+    else if (msg == "del_schedule")
+        sendJson("autoscenario", buildAutoscenarioDelSchedule(jdata), client_id);
 }

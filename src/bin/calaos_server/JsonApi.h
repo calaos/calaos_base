@@ -68,6 +68,14 @@ protected:
     json_t *buildJsonGetTimerange(const Params &jParam);
     json_t *buildJsonSetTimerange(json_t *jdata);
 
+    json_t *buildAutoscenarioList(json_t *jdata);
+    json_t *buildAutoscenarioGet(json_t *jdata);
+    json_t *buildAutoscenarioCreate(json_t *jdata);
+    json_t *buildAutoscenarioDelete(json_t *jdata);
+    json_t *buildAutoscenarioModify(json_t *jdata);
+    json_t *buildAutoscenarioAddSchedule(json_t *jdata);
+    json_t *buildAutoscenarioDelSchedule(json_t *jdata);
+
     json_t *buildJsonGetIO(json_t *jroot);
 
     bool decodeSetState(Params &jParam);

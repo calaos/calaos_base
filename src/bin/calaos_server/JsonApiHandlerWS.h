@@ -58,6 +58,8 @@ private:
 
     void processAudio(json_t *jdata, const string &client_id = string());
     void processAudioDb(json_t *jdata, const string &client_id = string());
+
+    void processAutoscenario(json_t *jdata, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H

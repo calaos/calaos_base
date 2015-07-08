@@ -1783,3 +1783,305 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     Params p = {{ "success", "true" }};
     return p.toJson();
 }
+
+json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
+{
+    VAR_UNUSED(jdata);
+    json_t *jret = json_object();
+    json_t *jarr = json_array();
+
+    for (auto it: ListeRoom::Instance().getAutoScenarios())
+    {
+        json_array_append(jarr, it->toJson());
+    }
+
+    json_object_set(jret, "scenarios", jarr);
+    return jret;
+}
+
+json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    return sc->toJson();
+}
+
+json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
+{
+    Params params;
+    params.Add("auto_scenario", Calaos::get_new_scenario_id());
+    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
+    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
+    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
+    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+
+    Room *room = ListeRoom::Instance().searchRoomByNameAndType(
+               jansson_string_get(jdata, "room_name"),
+               jansson_string_get(jdata, "room_type"));
+    if (!room)
+    {
+        cWarningDom("network") << "Wrong room: " << jansson_string_get(jdata, "room_name")
+                               << " - " << jansson_string_get(jdata, "room_type");
+        room = ListeRoom::Instance().get_room(0);
+    }
+
+    //create scenario object
+    params.Add("type", "scenario");
+    Input *in = ListeRoom::Instance().createInput(params, room);
+    Scenario *scenario = dynamic_cast<Scenario *>(in);
+    scenario->getAutoScenario()->checkScenarioRules();
+
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    {
+        int index_act;
+
+        if (jansson_string_get(value, "step_type") == "standard")
+        {
+            double pause;
+            from_string(jansson_string_get(value, "step_pause"), pause);
+            scenario->getAutoScenario()->addStep(pause);
+            index_act = idx;
+        }
+        else
+        {
+            index_act = AutoScenario::END_STEP;
+        }
+
+        size_t idx_act;
+        json_t *value_act;
+
+        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
+        {
+
+            string id_out = jansson_string_get(value_act, "id");
+            Output *out = ListeRoom::Instance().get_output(id_out);
+            if (out)
+                scenario->getAutoScenario()->addStepAction(index_act, out,
+                                                           jansson_string_get(value_act, "action"));
+        }
+    }
+
+    EventManager::create(CalaosEvent::EventScenarioAdded,
+                         { { "id", scenario->get_param("id") } });
+
+    //Resave config, auto scenarios have probably created/deleted ios and rules
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "id", scenario->get_param("id") }};
+    return p.toJson();
+}
+json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    sc->getAutoScenario()->deleteAll();
+
+    //delete the scenario IO
+    ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(sc));
+
+    EventManager::create(CalaosEvent::EventScenarioDeleted,
+                         { { "id", id } });
+
+    //Resave config
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
+}
+
+json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    if (!scenario || !scenario->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    scenario->getAutoScenario()->deleteRules();
+
+    Params params;
+    params.Add("auto_scenario", Calaos::get_new_scenario_id());
+    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
+    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
+    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
+    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+
+    Room *room = ListeRoom::Instance().searchRoomByNameAndType(
+               jansson_string_get(jdata, "room_name"),
+               jansson_string_get(jdata, "room_type"));
+
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    {
+        int index_act;
+
+        if (jansson_string_get(value, "step_type") == "standard")
+        {
+            double pause;
+            from_string(jansson_string_get(value, "step_pause"), pause);
+            scenario->getAutoScenario()->addStep(pause);
+            index_act = idx;
+        }
+        else
+        {
+            index_act = AutoScenario::END_STEP;
+        }
+
+        size_t idx_act;
+        json_t *value_act;
+
+        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
+        {
+
+            string id_out = jansson_string_get(value_act, "id");
+            Output *out = ListeRoom::Instance().get_output(id_out);
+            if (out)
+                scenario->getAutoScenario()->addStepAction(index_act, out,
+                                                           jansson_string_get(value_act, "action"));
+        }
+    }
+
+    //Check for changes
+    if (params["name"] != scenario->get_param("name"))
+    {
+        scenario->set_param("name", params["name"]);
+
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", scenario->get_param("id") },
+                               { "name", params["name"] }});
+
+        EventManager::create(CalaosEvent::EventOutputChanged,
+                             { { "id", scenario->get_param("id") },
+                               { "name", params["name"] }});
+    }
+
+    if (params["visible"] != scenario->get_param("visible"))
+    {
+        scenario->set_param("visible", params["visible"]);
+
+        EventManager::create(CalaosEvent::EventInputChanged,
+                             { { "id", scenario->get_param("id") },
+                               { "visible", params["visible"] }});
+
+        EventManager::create(CalaosEvent::EventOutputChanged,
+                             { { "id", scenario->get_param("id") },
+                               { "visible", params["visible"] }});
+    }
+
+    Room *old_room = ListeRoom::Instance().getRoomByInput(scenario);
+    if (room != old_room)
+    {
+        if (room)
+        {
+            old_room->RemoveInputFromRoom(dynamic_cast<Input *>(scenario));
+            old_room->RemoveOutputFromRoom(dynamic_cast<Output *>(scenario));
+            room->AddInput(dynamic_cast<Input *>(scenario));
+            room->AddOutput(dynamic_cast<Output *>(scenario));
+
+            EventManager::create(CalaosEvent::EventRoomChanged,
+                                 { { "input_id_added", scenario->get_param("id") },
+                                   { "room_name", room->get_name() },
+                                   { "room_type", room->get_type() }});
+
+            EventManager::create(CalaosEvent::EventRoomChanged,
+                                 { { "output_id_added", scenario->get_param("id") },
+                                   { "room_name", room->get_name() },
+                                   { "room_type", room->get_type() }});
+        }
+    }
+
+    if (params["cycle"] != scenario->get_param("cycle"))
+    {
+        if (params["cycle"] == "true")
+            scenario->getAutoScenario()->setCycling(true);
+        else
+            scenario->getAutoScenario()->setCycling(false);
+    }
+
+    if (params["disabled"] != scenario->get_param("disabled"))
+    {
+        if (params["disabled"] == "true")
+            scenario->getAutoScenario()->setDisabled(true);
+        else
+            scenario->getAutoScenario()->setDisabled(false);
+    }
+
+    scenario->getAutoScenario()->checkScenarioRules();
+
+    EventManager::create(CalaosEvent::EventScenarioChanged,
+                         { { "id", scenario->get_param("id") } });
+
+    //Resave config
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
+}
+
+json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    sc->getAutoScenario()->addSchedule();
+
+    EventManager::create(CalaosEvent::EventScenarioChanged,
+                         { { "id", sc->get_param("id") } });
+
+    //Resave config
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "id", sc->getAutoScenario()->getIOPlage()->get_param("id") }};
+    return p.toJson();
+}
+
+json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    sc->getAutoScenario()->deleteSchedule();
+
+    EventManager::create(CalaosEvent::EventScenarioChanged,
+                         { { "id", sc->get_param("id") } });
+
+    //Resave config
+    Config::Instance().SaveConfigIO();
+    Config::Instance().SaveConfigRule();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
+}
