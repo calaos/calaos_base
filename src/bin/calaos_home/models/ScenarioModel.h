@@ -89,8 +89,8 @@ public:
 
     bool empty;
 
-    string createRequest();
-    string modifyRequest(IOBase *io);
+    json_t *createRequest();
+    json_t *modifyRequest(IOBase *io);
 
     string toString()
     {
@@ -116,7 +116,7 @@ public:
         connection(c)
     {}
 
-    void scenario_get_cb(bool success, vector<string> result, void *data);
+    void load(json_t *jdata);
 
     IOBase *ioScenario = nullptr;
     IOBase *ioSchedule = nullptr;
@@ -153,10 +153,7 @@ class ScenarioModel: public sigc::trackable
 private:
     CalaosConnection *connection;
 
-    void load_scenario_done(Scenario *sc);
-    void load_new_scenario_done(Scenario *sc);
-
-    void scenario_list_cb(bool success, vector<string> result, void *data);
+    void scenario_list_cb(json_t *jdata, void *data);
 
     void notifyScenarioAdd(const string &msgtype, const Params &evdata);
     void notifyScenarioAddDelayed(const string &msgtype, const Params &evdata);

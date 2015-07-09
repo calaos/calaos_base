@@ -37,50 +37,38 @@ ScenarioModel::~ScenarioModel()
 
 void ScenarioModel::load(json_t *data)
 {
-    cCritical() << "TODO: load autoscenarios";
-    load_done.emit();
+    connection->sendCommand("autoscenario", {{ "type", "list" }}, sigc::mem_fun(*this, &ScenarioModel::scenario_list_cb));
 }
 
-void ScenarioModel::scenario_list_cb(bool success, vector<string> result, void *data)
-{/*
-    if (!success) return;
+void ScenarioModel::scenario_list_cb(json_t *jdata, void *data)
+{
+    size_t idx;
+    json_t *value;
 
-    if (result.size() == 2)
-        load_done.emit(); //no scenarios found
-
-    if (result.size() < 3) return;
-
-    load_count = 0;
-    for (uint i = 2;i < result.size();i++)
+    json_array_foreach(json_object_get(jdata, "scenarios"), idx, value)
     {
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(result[i]);
+        string id = jansson_string_get(value, "id");
+        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(id);
 
         if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
         {
-            cErrorDom("scenario") << "Unknown Input \'" << result[i] << "\' !";
+            cErrorDom("scenario") << "Unknown Input \'" << id << "\' !";
             continue;
         }
 
         Scenario *sc = new Scenario(connection);
         sc->ioScenario = it->second;
         sc->scenario_data.empty = false;
-        sc->scenario_data.params.Add("id", result[i]);
+        sc->scenario_data.params.Add("id", id);
         sc->ioScenario->io_deleted.connect(sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioDel), sc));
+        sc->load(value);
         scenarios.push_back(sc);
+    }
 
-        load_count++;
-        sc->load_done.connect(sigc::mem_fun(*this, &ScenarioModel::load_scenario_done));
-
-        string cmd = "scenario get " + result[i];
-        connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
-        {
-            sc->scenario_get_cb(_success, _result, _data);
-            sc->load_done.emit(sc);
-        });
-    }*/
+    load_done.emit();
 }
 
-void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
+void Scenario::load(json_t *jdata)
 {
     scenario_data.name = ioScenario->params["name"];
     if (ioScenario->params["visible"] == "true")
@@ -89,68 +77,66 @@ void Scenario::scenario_get_cb(bool success, vector<string> result, void *data)
         scenario_data.room = ioScenario->getRoom();
     }
 
-    int step = -1;
-    for (uint b = 3;b < result.size();b++)
+    jansson_decode_object(jdata, scenario_data.params);
+
+    if (scenario_data.params["schedule"] != "false")
     {
-        vector<string> tmp;
-        Utils::split(result[b], tmp, ":", 2);
-
-        if (tmp.size() < 2) continue;
-
-        if (tmp[0] == "step")
+        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(scenario_data.params["schedule"]);
+        if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
         {
-            step++;
+            ioSchedule = (*it).second;
+            ioSchedule->io_deleted.connect([=]()
+            {
+                ioSchedule = nullptr;
+            });
+        }
+    }
 
+    size_t idx;
+    json_t *value;
+
+    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    {
+        int index_act;
+
+        if (jansson_string_get(value, "step_type") == "standard")
+        {
             ScenarioStep sstep;
-            from_string(tmp[1], sstep.pause);
+            from_string(jansson_string_get(value, "step_pause"), sstep.pause);
             scenario_data.steps.push_back(sstep);
 
-            continue;
-        }
-
-        if (tmp[0] == "step_end")
-        {
-            step = ScenarioData::END_STEP;
-
-            continue;
-        }
-
-        if (step == -1)
-        {
-            scenario_data.params.Add(tmp[0], tmp[1]);
-
-            if (tmp[0] == "schedule" && tmp[1] != "false")
-            {
-                map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(tmp[1]);
-                if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
-                {
-                    ioSchedule = (*it).second;
-                    ioSchedule->io_deleted.connect([=]()
-                    {
-                        ioSchedule = nullptr;
-                    });
-                }
-            }
+            index_act = idx;
         }
         else
         {
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(tmp[0]);
+            index_act = ScenarioData::END_STEP;
+        }
+
+        size_t idx_act;
+        json_t *value_act;
+
+        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
+        {
+            string id_out = jansson_string_get(value_act, "id");
+            string act = jansson_string_get(value_act, "action");
+
+            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(id_out);
             if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
             {
-                cErrorDom("scenario") << "Unknown action id \'" << tmp[0] << "\' with action \'" << tmp[1] << "\' !";
+                cErrorDom("scenario") << "Unknown action id \'" << id_out << "\' with action \'" << act << "\' !";
                 continue;
             }
             IOBase *io = (*it).second;
 
-            IOActionList ac = io->getActionListFromAction(tmp[1]);
+            IOActionList ac = io->getActionListFromAction(act);
             ScenarioAction sa;
             sa.io = io;
             sa.action = ac.getComputedAction(io);
 
-            if (step == ScenarioData::END_STEP)
+            if (index_act == ScenarioData::END_STEP)
                 scenario_data.step_end.actions.push_back(sa);
             else
-                scenario_data.steps[step].actions.push_back(sa);
+                scenario_data.steps[index_act].actions.push_back(sa);
         }
     }
 }
@@ -173,146 +159,166 @@ string Scenario::getFirstCategory()
     return "other";
 }
 
-string ScenarioData::createRequest()
+json_t *ScenarioData::createRequest()
 {
-    //request:
-    // scenario create name:bla visible:true room_name:bla room_type:bla cycle:true step:61000 output_0:actionbla output_1:actionbla step_end output_0:actionbla
+    json_t *jret = json_object();
 
-    string req = "scenario create name:" + url_encode(name) + " ";
-
-    if (visible && room)
+    json_object_set_new(jret, "type", json_string("create"));
+    json_object_set_new(jret, "name", json_string(name.c_str()));
+    json_object_set_new(jret, "visible", json_string(visible?"true":"false"));
+    if (visible)
     {
-        req += "visible:true room_name:" + url_encode(room->name) + " ";
-        req += "room_type:" + url_encode(room->type) + " ";
+        json_object_set_new(jret, "room_name", json_string(room->name.c_str()));
+        json_object_set_new(jret, "room_type", json_string(room->type.c_str()));
     }
-    else
-    {
-        req += "visible:false ";
-    }
+    json_object_set_new(jret, "cycle", json_string(params["cycle"].c_str()));
 
-    if (params["cycle"] == "true")
-        req += "cycle:true ";
-    else
-        req += "cycle:false ";
+    json_t *jsteps = json_array();
 
-    //Add each steps
     for (uint i = 0;i < steps.size();i++)
     {
+        json_t *jstep = json_object();
         ScenarioStep &step = steps[i];
 
-        req += "step:" + Utils::to_string(step.pause) + " ";
+        json_object_set_new(jstep, "step_pause", json_string(Utils::to_string(step.pause).c_str()));
+        json_object_set_new(jstep, "step_type", json_string("standard"));
 
+        json_t *jacts = json_array();
         for (uint j = 0;j < step.actions.size();j++)
         {
             ScenarioAction &sa = step.actions[j];
 
-            req += url_encode(sa.io->params["id"]) + ":" + url_encode(sa.action) + " ";
+            json_t *jact = json_object();
+            json_object_set_new(jact, "id", json_string(sa.io->params["id"].c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
         }
+
+        json_object_set_new(jstep, "actions", jacts);
+
+        json_array_append_new(jsteps, jstep);
     }
 
-    //End step
-    req += "step_end ";
-    for (uint j = 0;j < step_end.actions.size();j++)
+    if (!step_end.actions.empty())
     {
-        ScenarioAction &sa = step_end.actions[j];
+        json_t *jstep = json_object();
+        json_object_set_new(jstep, "step_type", json_string("end"));
 
-        req += url_encode(sa.io->params["id"]) + ":" + url_encode(sa.action) + " ";
+        json_t *jacts = json_array();
+        for (uint j = 0;j < step_end.actions.size();j++)
+        {
+            ScenarioAction &sa = step_end.actions[j];
+            json_t *jact = json_object();
+            json_object_set_new(jact, "id", json_string(sa.io->params["id"].c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
+        }
+        json_object_set_new(jstep, "actions", jacts);
+        json_array_append_new(jsteps, jstep);
     }
 
-    return req;
+    json_object_set_new(jret, "steps", jsteps);
+
+    return jret;
 }
 
-string ScenarioData::modifyRequest(IOBase *io)
+json_t *ScenarioData::modifyRequest(IOBase *io)
 {
-    //request:
-    // scenario modify input_123 name:bla visible:true room_name:bla room_type:bla cycle:true step:61000 output_0:actionbla output_1:actionbla step_end output_0:actionbla
+    json_t *jret = json_object();
 
-    string req = "scenario modify " + io->params["id"] + " name:" + url_encode(name) + " ";
-
-    if (visible && room)
+    json_object_set_new(jret, "type", json_string("modify"));
+    json_object_set_new(jret, "id", json_string(io->params["id"].c_str()));
+    json_object_set_new(jret, "name", json_string(name.c_str()));
+    json_object_set_new(jret, "visible", json_string(visible?"true":"false"));
+    if (visible)
     {
-        req += "visible:true room_name:" + url_encode(room->name) + " ";
-        req += "room_type:" + url_encode(room->type) + " ";
+        json_object_set_new(jret, "room_name", json_string(room->name.c_str()));
+        json_object_set_new(jret, "room_type", json_string(room->type.c_str()));
     }
-    else
-    {
-        req += "visible:false ";
-    }
+    json_object_set_new(jret, "cycle", json_string(params["cycle"].c_str()));
 
-    if (params["cycle"] == "true")
-        req += "cycle:true ";
-    else
-        req += "cycle:false ";
+    json_t *jsteps = json_array();
 
-    //Add each steps
     for (uint i = 0;i < steps.size();i++)
     {
+        json_t *jstep = json_object();
         ScenarioStep &step = steps[i];
 
-        req += "step:" + Utils::to_string(step.pause) + " ";
+        json_object_set_new(jstep, "step_pause", json_string(Utils::to_string(step.pause).c_str()));
+        json_object_set_new(jstep, "step_type", json_string("standard"));
 
+        json_t *jacts = json_array();
         for (uint j = 0;j < step.actions.size();j++)
         {
             ScenarioAction &sa = step.actions[j];
 
-            req += url_encode(sa.io->params["id"]) + ":" + url_encode(sa.action) + " ";
+            json_t *jact = json_object();
+            json_object_set_new(jact, "id", json_string(sa.io->params["id"].c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
         }
+
+        json_object_set_new(jstep, "actions", jacts);
+
+        json_array_append_new(jsteps, jstep);
     }
 
-    //End step
-    req += "step_end ";
-    for (uint j = 0;j < step_end.actions.size();j++)
+    if (!step_end.actions.empty())
     {
-        ScenarioAction &sa = step_end.actions[j];
+        json_t *jstep = json_object();
+        json_object_set_new(jstep, "step_type", json_string("end"));
 
-        req += url_encode(sa.io->params["id"]) + ":" + url_encode(sa.action) + " ";
+        json_t *jacts = json_array();
+        for (uint j = 0;j < step_end.actions.size();j++)
+        {
+            ScenarioAction &sa = step_end.actions[j];
+            json_t *jact = json_object();
+            json_object_set_new(jact, "id", json_string(sa.io->params["id"].c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
+        }
+        json_object_set_new(jstep, "actions", jacts);
+        json_array_append_new(jsteps, jstep);
     }
 
-    return req;
+    json_object_set_new(jret, "steps", jsteps);
+
+    return jret;
 }
 
 void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
 {
-    /*
-    string cmd = "scenario add_schedule " + ioScenario->params["id"];
-    connection->SendCommand(cmd, [=](bool success, vector<string> result, void *user_data)
+    connection->sendCommand("autoscenario", {{ "type", "add_schedule" },
+                                             { "id", ioScenario->params["id"] }},
+                            [=](json_t *jdata, void *)
     {
-        if (!success || result.size() != 3)
+        string sched_id = jansson_string_get(jdata, "id");
+
+        if (sched_id.empty())
         {
             callback(nullptr);
             return;
         }
 
-        //result should be:
-        //scenario scenario_id_0 schedule_id:timerange_0
-
-        if (result[1] != ioScenario->params["id"] ||
-            !Utils::strStartsWith(result[2], "schedule_id:"))
-        {
-            callback(nullptr);
-            return;
-        }
-
-        string id = result[2].substr(string("schedule_id:").length());
         double start_time = ecore_time_get();
 
         //We need to delay a bit because we have to wait for RoomModel to load the io id first
         timer = new EcoreTimer(0.05, [=]()
         {
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(id);
+            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(sched_id);
 
             if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
             {
                 if (ecore_time_get() - start_time >= 5.0)
                 {
-                    cErrorDom("scenario") << "I was not able to find input \'" << id << "\' for 5s! This is bad... Giving up.";
+                    cErrorDom("scenario") << "I was not able to find input \'" << sched_id << "\' for 5s! This is bad... Giving up.";
                     delete timer;
 
                     callback(nullptr);
                 }
                 else
                 {
-                    cDebugDom("scenario") << "Still waiting for input \'" << id << "\'....";
+                    cDebugDom("scenario") << "Still waiting for input \'" << sched_id << "\'....";
                 }
 
                 return;
@@ -329,16 +335,12 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
             callback(ioSchedule);
         });
     });
-    */
 }
 
 void Scenario::deleteSchedule()
 {
-    /*
-    string cmd = "scenario del_schedule " + ioScenario->params["id"];
-    connection->SendCommand(cmd);
+    connection->sendCommand("autoscenario", {{ "type", "del_schedule" }, { "id", ioScenario->params["id"] }});
     ioSchedule = nullptr;
-    */
 }
 
 void Scenario::setSchedules(TimeRangeInfos &tr)
@@ -352,12 +354,23 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     cDebugDom("scenario") << "Saving Scenario schedule: ";
     cout << tr.toString();
 
-    string cmd = "input " + ioSchedule->params["id"] + " plage set";
+    json_t *jret = json_object();
 
-    auto addRange = [=,&cmd](const vector<TimeRange> &ranges, int day)
+    json_object_set_new(jret, "id", json_string(ioSchedule->params["id"].c_str()));
+
+    //Send months
+    stringstream ssmonth;
+    ssmonth << tr.range_months;
+    string str = ssmonth.str();
+    std::reverse(str.begin(), str.end());
+
+    json_object_set_new(jret, "months", json_string(str.c_str()));
+    json_t *jranges = json_array();
+
+    auto addRange = [=](const vector<TimeRange> &ranges, int day)
     {
         for (const TimeRange &t: ranges)
-            cmd += " " + t.toProtoCommand(day);
+            json_array_append_new(jranges, t.toParams(day).toJson());
     };
 
     addRange(tr.range_monday, 0);
@@ -368,46 +381,27 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     addRange(tr.range_saturday, 5);
     addRange(tr.range_sunday, 6);
 
-    //connection->SendCommand(cmd);
+    json_object_set_new(jret, "ranges", jranges);
 
-    //Send months
-    stringstream ssmonth;
-    ssmonth << tr.range_months;
-    string str = ssmonth.str();
-    std::reverse(str.begin(), str.end());
-
-    /*
-    cmd = "input " + ioSchedule->params["id"] + " plage months set " + str;
-    connection->SendCommand(cmd);
-    */
+    connection->sendJson("set_timerange", jret);
 }
 
 void ScenarioModel::createScenario(ScenarioData &data)
 {
-    /*
-    string cmd = data.createRequest();
-    connection->SendCommand(cmd);
-    */
+    connection->sendJson("autoscenario", data.createRequest());
 }
 
 void ScenarioModel::modifyScenario(Scenario *sc)
 {
-    /*
     if (!sc || !sc->ioScenario) return;
-
-    string cmd = sc->scenario_data.modifyRequest(sc->ioScenario);
-    connection->SendCommand(cmd);
-    */
+    connection->sendJson("autoscenario", sc->scenario_data.modifyRequest(sc->ioScenario));
 }
 
 void ScenarioModel::deleteScenario(Scenario *sc)
 {
-    /*
     if (!sc || !sc->ioScenario) return;
 
-    string cmd = "scenario delete " + sc->ioScenario->params["id"];
-    connection->SendCommand(cmd);
-    */
+    connection->sendCommand("autoscenario", {{ "type", "delete" }, { "id", sc->ioScenario->params["id"] }});
 }
 
 void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdata)
@@ -420,22 +414,14 @@ void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdat
 
 void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params &evdata)
 {
+    VAR_UNUSED(msgtype);
     cDebugDom("scenario") << "New scenario, load data";
-    vector<string> tok, split_id;
-    split(msgtype, tok);
 
-    if (tok.size() < 2) return;
-
-    split(tok[1], split_id, ":", 2);
-
-    if (split_id.size() < 2)
-        return;
-
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(split_id[1]);
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(evdata["id"]);
 
     if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
     {
-        cErrorDom("scenario") << "Unknown Input \'" << split_id[1] << "\' !";
+        cErrorDom("scenario") << "Unknown Input \'" << evdata["id"] << "\' !";
         return;
     }
 
@@ -443,25 +429,18 @@ void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params
     sc->ioScenario = it->second;
     sc->scenario_data.empty = false;
     sc->ioScenario->io_deleted.connect(sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioDel), sc));
-    sc->scenario_data.params.Add("id", split_id[1]);
+    sc->scenario_data.params.Add("id", evdata["id"]);
     scenarios.push_back(sc);
 
-    sc->load_done.connect(sigc::mem_fun(*this, &ScenarioModel::load_new_scenario_done));
-
-    /*
-    string cmd = "scenario get " + split_id[1];
-    connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
+    connection->sendCommand("autoscenario", {{ "type", "get" },
+                                             { "id", evdata["id"] }},
+                            [=](json_t *jdata, void *)
     {
-        sc->scenario_get_cb(_success, _result, _data);
-        sc->load_done.emit(sc);
-    });
-    */
-}
+        sc->load(jdata);
 
-void ScenarioModel::load_new_scenario_done(Scenario *sc)
-{
-    cDebugDom("scenario") << "New scenario, load done, emit signal";
-    scenario_new.emit(sc);
+        cDebugDom("scenario") << "New scenario, load done, emit signal";
+        scenario_new.emit(sc);
+    });
 }
 
 void ScenarioModel::notifyScenarioDel(Scenario *sc)
@@ -489,38 +468,30 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
 
 void ScenarioModel::notifyScenarioChange(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok, split_id;
-    split(msgtype, tok);
-
-    if (tok.size() < 2) return;
-
-    split(tok[1], split_id, ":", 2);
-
-    if (split_id.size() < 2)
-        return;
-
-    cDebug() << "scenario id: " << split_id[1] << " changed, broadcasting signal";
+    VAR_UNUSED(msgtype);
+    cDebug() << "scenario id: " << evdata["id"] << " changed, broadcasting signal";
 
     list<Scenario *>::iterator it = scenarios.begin();
     for (;it != scenarios.end();it++)
     {
         Scenario *sc = *it;
-        if (sc->ioScenario && sc->ioScenario->params["id"] == split_id[1])
+        if (sc->ioScenario && sc->ioScenario->params["id"] == evdata["id"])
         {
-            cDebugDom("scenario") << "Reload scenario " << split_id[1];
-            string cmd = "scenario get " + split_id[1];
-            /*
-            connection->SendCommand(cmd, [=](bool _success, vector<string> _result, void *_data)
+            cDebugDom("scenario") << "Reload scenario " << evdata["id"];
+
+            connection->sendCommand("autoscenario", {{ "type", "get" },
+                                                     { "id", evdata["id"] }},
+                                    [=](json_t *jdata, void *)
             {
                 //clear scenario data before reloading them again
                 sc->scenario_data = ScenarioData();
-                sc->scenario_data.params.Add("id", split_id[1]);
+                sc->scenario_data.params.Add("id", evdata["id"]);
                 sc->ioSchedule = nullptr;
 
-                sc->scenario_get_cb(_success, _result, _data);
+                sc->load(jdata);
+
                 scenario_change.emit(sc);
             });
-            */
 
             break;
         }

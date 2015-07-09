@@ -88,6 +88,7 @@ json_t *Scenario::toJson()
     if (!auto_scenario)
         return jret;
 
+    json_object_set_new(jret, "id", json_string(get_param("id").c_str()));
     json_object_set_new(jret, "cycle", json_string(auto_scenario->isCycling()?"true":"false"));
     json_object_set_new(jret, "enabled", json_string(auto_scenario->isDisabled()?"false":"true"));
     json_object_set_new(jret, "schedule", json_string(auto_scenario->isScheduled()?
@@ -109,14 +110,14 @@ json_t *Scenario::toJson()
         {
             ScenarioAction sa = auto_scenario->getStepAction(i, j);
             json_t *jact = json_object();
-            json_object_set(jact, "id", json_string(sa.io->get_param("id").c_str()));
-            json_object_set(jact, "action", json_string(sa.action.c_str()));
-            json_array_append(jacts, jact);
+            json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
 
         }
-        json_object_set(jstep, "actions", jacts);
+        json_object_set_new(jstep, "actions", jacts);
 
-        json_array_append(jsteps, jstep);
+        json_array_append_new(jsteps, jstep);
     }
 
     //add end step
@@ -129,15 +130,15 @@ json_t *Scenario::toJson()
         {
             ScenarioAction sa = auto_scenario->getEndStepAction(j);
             json_t *jact = json_object();
-            json_object_set(jact, "id", json_string(sa.io->get_param("id").c_str()));
-            json_object_set(jact, "action", json_string(sa.action.c_str()));
-            json_array_append(jacts, jact);
+            json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
+            json_object_set_new(jact, "action", json_string(sa.action.c_str()));
+            json_array_append_new(jacts, jact);
         }
-        json_object_set(jstep, "actions", jacts);
-        json_array_append(jsteps, jstep);
+        json_object_set_new(jstep, "actions", jacts);
+        json_array_append_new(jsteps, jstep);
     }
 
-    json_object_set(jret, "steps", jsteps);
+    json_object_set_new(jret, "steps", jsteps);
 
     return jret;
 }

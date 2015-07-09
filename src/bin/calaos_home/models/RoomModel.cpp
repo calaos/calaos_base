@@ -577,7 +577,7 @@ void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
     if (msgtype == "input_added")
     {
         json_t *jarr = json_array();
-        json_array_append(jarr, json_string(evdata["id"].c_str()));
+        json_array_append_new(jarr, json_string(evdata["id"].c_str()));
         jreq = json_pack("{s:o}", "inputs", jarr);
 
         connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)
@@ -598,7 +598,7 @@ void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
     else if (msgtype == "output_added")
     {
         json_t *jarr = json_array();
-        json_array_append(jarr, json_string(evdata["id"].c_str()));
+        json_array_append_new(jarr, json_string(evdata["id"].c_str()));
         jreq = json_pack("{s:o}", "outputs", jarr);
 
         connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)

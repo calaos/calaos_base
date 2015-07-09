@@ -1187,7 +1187,7 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
     {
         if (p.Exists("count"))
             scount = p["count"];
-        json_array_append(aret, p.toJson());
+        json_array_append_new(aret, p.toJson());
     }
 
     if (scount == "0")
@@ -1702,10 +1702,10 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
         if (day == 5) h = o->getSamedi();
         if (day == 6) h = o->getDimanche();
         for (uint i = 0;i < h.size();i++)
-            json_array_append(jarr, h[i].toParams(day).toJson());
+            json_array_append_new(jarr, h[i].toParams(day).toJson());
     }
 
-    json_object_set(ret, "ranges", jarr);
+    json_object_set_new(ret, "ranges", jarr);
 
     stringstream ssmonth;
     ssmonth << o->months;
@@ -1792,10 +1792,10 @@ json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
 
     for (auto it: ListeRoom::Instance().getAutoScenarios())
     {
-        json_array_append(jarr, it->toJson());
+        json_array_append_new(jarr, it->toJson());
     }
 
-    json_object_set(jret, "scenarios", jarr);
+    json_object_set_new(jret, "scenarios", jarr);
     return jret;
 }
 
