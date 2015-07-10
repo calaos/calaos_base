@@ -114,11 +114,11 @@ void CalaosModel::lost_connection()
     {
         DELETE_NULL(discover);
         DELETE_NULL(connection);
-    });
 
-    discover = new CalaosDiscover();
-    discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
-    discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
+        discover = new CalaosDiscover();
+        discover->server_found.connect(sigc::mem_fun(*this, &CalaosModel::discover_found));
+        discover->login_error.connect(sigc::mem_fun(*this, &CalaosModel::discover_error_login));
+    });
 
     loaded = false;
 }
