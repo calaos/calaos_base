@@ -70,6 +70,7 @@ private:
     string getRuleConditionValue(Rule *rule, Input *input, string oper);
     string getRuleActionValue(Rule *rule, Output *output);
     list<Output*> getRuleRealActions(Rule *rule);
+    void createRuleStepEnd();
 
 public:
     AutoScenario(Input *input);

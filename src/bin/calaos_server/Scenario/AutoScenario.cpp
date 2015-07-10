@@ -132,9 +132,14 @@ void AutoScenario::deleteRules()
         ListeRule::Instance().Remove(ruleStepEnd);
     ruleStepEnd = NULL;
 
+    //recreate empty step rule
+    createRuleStepEnd();
+
     for (uint i = 0;i < ruleSteps.size();i++)
         ListeRule::Instance().Remove(ruleSteps[i]);
     ruleSteps.clear();
+
+
 }
 
 Input *AutoScenario::createInput(string type, string id)
@@ -467,19 +472,7 @@ void AutoScenario::checkScenarioRules()
         addRuleAction(ruleStop, ioTimer, "start");
     }
 
-    if (!ruleStepEnd)
-    {
-        ruleStepEnd = new Rule("AutoScenario", scenario_id + "_step_end");
-        ruleStepEnd->set_param("auto_scenario", scenario_id);
-        ruleStepEnd->set_param("auto_scenario_type", "step_end");
-        ruleStepEnd->setAutoScenario(true);
-        ListeRule::Instance().Add(ruleStepEnd);
-
-        addRuleCondition(ruleStepEnd, ioIsActive, "==", "true");
-        addRuleCondition(ruleStepEnd, ioStep, "==", "-1");
-        addRuleCondition(ruleStepEnd, ioTimer, "==", "true");
-        addRuleAction(ruleStepEnd, ioIsActive, "false");
-    }
+    createRuleStepEnd();
 
     if (ioPlage && !rulePlageStart)
     {
@@ -572,6 +565,7 @@ void AutoScenario::setStepPause(int s, double pause)
 
 void AutoScenario::addStepAction(int s, Output *out, string action)
 {
+    cDebugDom("scenario") << "s == " << s << " ruleSteps.size() == " << ruleSteps.size();
     if ((s >= (int)ruleSteps.size() || s < 0) && s != END_STEP) return;
 
     Rule *step;
@@ -616,6 +610,9 @@ ScenarioAction AutoScenario::getStepAction(int s, int action)
         if (act->get_size() != 1) continue;
         if (act->get_output(0) == ioStep) continue;
         if (act->get_output(0) == ioTimer) continue;
+        if (act->get_output(0) == ioIsActive) continue;
+        if (act->get_output(0) == ioScenario) continue;
+        if (act->get_output(0) == ioScheduleEnabled) continue;
 
         if (cpt == action)
         {
@@ -647,6 +644,9 @@ ScenarioAction AutoScenario::getEndStepAction(int action)
         if (act->get_size() != 1) continue;
         if (act->get_output(0) == ioStep) continue;
         if (act->get_output(0) == ioTimer) continue;
+        if (act->get_output(0) == ioIsActive) continue;
+        if (act->get_output(0) == ioScenario) continue;
+        if (act->get_output(0) == ioScheduleEnabled) continue;
 
         if (cpt == action)
         {
@@ -739,4 +739,21 @@ void AutoScenario::deleteSchedule()
     ioPlage = nullptr;
 
     checkScenarioRules();
+}
+
+void AutoScenario::createRuleStepEnd()
+{
+    if (!ruleStepEnd)
+    {
+        ruleStepEnd = new Rule("AutoScenario", scenario_id + "_step_end");
+        ruleStepEnd->set_param("auto_scenario", scenario_id);
+        ruleStepEnd->set_param("auto_scenario_type", "step_end");
+        ruleStepEnd->setAutoScenario(true);
+        ListeRule::Instance().Add(ruleStepEnd);
+
+        addRuleCondition(ruleStepEnd, ioIsActive, "==", "true");
+        addRuleCondition(ruleStepEnd, ioStep, "==", "-1");
+        addRuleCondition(ruleStepEnd, ioTimer, "==", "true");
+        addRuleAction(ruleStepEnd, ioIsActive, "false");
+    }
 }

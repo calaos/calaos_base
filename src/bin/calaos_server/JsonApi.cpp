@@ -1956,6 +1956,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
 
             string id_out = jansson_string_get(value_act, "id");
             Output *out = ListeRoom::Instance().get_output(id_out);
+            cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jansson_string_get(value_act, "action");
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
                                                            jansson_string_get(value_act, "action"));
