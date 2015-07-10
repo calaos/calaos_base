@@ -111,22 +111,6 @@ string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, string pa
         }
     }
 
-    auto setDay = [=](string day, int active)
-    {
-        if (active == 1)
-            itemEmitSignal(day + ",active", "calaos");
-        else
-            itemEmitSignal(day + ",inactive", "calaos");
-    };
-
-    setDay("monday", range.dayOfWeek[0]);
-    setDay("tuesday", range.dayOfWeek[1]);
-    setDay("wednesday", range.dayOfWeek[2]);
-    setDay("thursday", range.dayOfWeek[3]);
-    setDay("friday", range.dayOfWeek[4]);
-    setDay("saturday", range.dayOfWeek[5]);
-    setDay("sunday", range.dayOfWeek[6]);
-
     return text;
 }
 
@@ -174,6 +158,22 @@ Evas_Object *GenlistItemScenarioScheduleTime::getPartItem(Evas_Object *obj, stri
         o = elm_icon_add(parent);
         elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/element/simple/play");
     }
+
+    auto setDay = [=](string day, int active)
+    {
+        if (active == 1)
+            itemEmitSignal(day + ",active", "calaos");
+        else
+            itemEmitSignal(day + ",inactive", "calaos");
+    };
+
+    setDay("monday", range.dayOfWeek[0]);
+    setDay("tuesday", range.dayOfWeek[1]);
+    setDay("wednesday", range.dayOfWeek[2]);
+    setDay("thursday", range.dayOfWeek[3]);
+    setDay("friday", range.dayOfWeek[4]);
+    setDay("saturday", range.dayOfWeek[5]);
+    setDay("sunday", range.dayOfWeek[6]);
 
     return o;
 }
