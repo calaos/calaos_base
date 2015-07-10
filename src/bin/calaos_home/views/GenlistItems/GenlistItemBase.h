@@ -87,6 +87,7 @@ public:
 
     //Used by C callback
     void emitSelectedSignal();
+    virtual void itemRealized();
 };
 
 #endif // GENLISTITEMBASE_H
