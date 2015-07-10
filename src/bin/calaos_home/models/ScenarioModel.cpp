@@ -85,10 +85,10 @@ void Scenario::load(json_t *jdata)
         if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
         {
             ioSchedule = (*it).second;
-            ioSchedule->io_deleted.connect([=]()
-            {
-                ioSchedule = nullptr;
-            });
+//            ioSchedule->io_deleted.connect([=]()
+//            {
+//                ioSchedule = nullptr;
+//            });
         }
     }
 
