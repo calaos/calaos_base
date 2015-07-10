@@ -461,9 +461,9 @@ void ActivityEditScenarioView::actionDelete(GenlistItemScenarioAction *item, voi
     if ((rprev && rnext) || //previous and next item are room header, so there is no more item in this room
         (rprev && !next))
     {
-        rprev->RemoveItem();
         //delete room cache
         room_table.erase(rprev->getRoom());
+        rprev->RemoveItem();
     }
     if (aprev && rnext) //previous is an action and next is a room, change cache to the previous item
     {
