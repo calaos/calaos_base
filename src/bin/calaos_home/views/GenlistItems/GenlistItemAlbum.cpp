@@ -145,6 +145,7 @@ void GenlistItemAlbum::albumItemGet_cb(Params &infos)
     player->getDBAlbumCoverItem(infos, sigc::mem_fun(*this, &GenlistItemAlbum::albumItemCoverGet_cb));
 
     elm_genlist_item_update(item);
+    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_ALL);
 }
 
 void GenlistItemAlbum::albumItemCoverGet_cb(Params &res)
@@ -158,4 +159,5 @@ void GenlistItemAlbum::albumItemCoverGet_cb(Params &res)
     cover_fname = res["filename"];
     cover_downloaded = true;
     elm_genlist_item_update(item);
+    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_ALL);
 }

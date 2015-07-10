@@ -226,6 +226,7 @@ void GenlistItemPlaylist::playlistItemGet_cb(Params &infos)
         label = "?????";
 
     elm_genlist_item_update(item);
+    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_ALL);
 }
 
 void GenlistItemPlaylist::playlistItemDelete_cb(void *data)

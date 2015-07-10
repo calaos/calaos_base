@@ -73,7 +73,7 @@ void GenlistItemBase::itemRealized()
 {
     cDebugDom("genlist") << "item is realized, force update its content";
     elm_genlist_item_update(item);
-    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_CONTENT);
+    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_ALL);
 }
 
 void GenlistItemBase::Append(Evas_Object *_genlist, GenlistItemBase *gparent)

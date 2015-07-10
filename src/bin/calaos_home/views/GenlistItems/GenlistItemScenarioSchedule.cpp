@@ -106,11 +106,6 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
             text = Utils::to_string(scenario->scenario_data.steps[0].actions.size()) + " " + _("actions") + ".";
     }
 
-    if (scenario->scenario_data.params["schedule"] != "false")
-        itemEmitSignal("schedule,true", "calaos");
-    else
-        itemEmitSignal("schedule,false", "calaos");
-
     return text;
 }
 
@@ -140,6 +135,11 @@ Evas_Object *GenlistItemScenarioSchedule::getPartItem(Evas_Object *obj, string p
         evas_object_smart_callback_add(o, "clicked", _item_button_More, this);
         evas_object_event_callback_add(o, EVAS_CALLBACK_MOUSE_UP, _button_mouse_up_cb, NULL);
     }
+
+    if (scenario->scenario_data.params["schedule"] != "false")
+        itemEmitSignal("schedule,true", "calaos");
+    else
+        itemEmitSignal("schedule,false", "calaos");
 
     return o;
 }
