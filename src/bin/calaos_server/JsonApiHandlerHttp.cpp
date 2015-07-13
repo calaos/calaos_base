@@ -67,7 +67,7 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
     ecore_file_unlink(tempfname.c_str());
 }
 
-void JsonApiHandlerHttp::processApi(const string &data)
+void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 {
     jsonParam.clear();
 
@@ -77,31 +77,29 @@ void JsonApiHandlerHttp::processApi(const string &data)
 
     if (!jroot || !json_is_object(jroot))
     {
-        cDebugDom("network") << "Error loading json : " << jerr.text;
+        cDebugDom("network") << "Error loading json : " << jerr.text << ". No JSON, trying with GET parameters.";
 
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-
-        sendData.emit(res);
-        closeConnection.emit(0, string());
+        jsonParam = paramsGET;
 
         if (jroot)
+        {
             json_decref(jroot);
-
-        return;
+            jroot = nullptr;
+        }
     }
-
-    char *d = json_dumps(jroot, JSON_INDENT(4));
-    if (d)
+    else
     {
-        cDebugDom("network") << d;
-        free(d);
+        char *d = json_dumps(jroot, JSON_INDENT(4));
+        if (d)
+        {
+            cDebugDom("network") << d;
+            free(d);
+        }
+
+        //decode the json root object into jsonParam
+        jansson_decode_object(jroot, jsonParam);
     }
 
-    //decode the json root object into jsonParam
-    jansson_decode_object(jroot, jsonParam);
 
     //check for if username/password matches
     string user = Utils::get_config_option("calaos_user");
@@ -124,6 +122,12 @@ void JsonApiHandlerHttp::processApi(const string &data)
         string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
         sendData.emit(res);
         closeConnection.emit(0, string());
+
+        if (jroot)
+        {
+            json_decref(jroot);
+            jroot = nullptr;
+        }
 
         return;
     }
@@ -153,22 +157,42 @@ void JsonApiHandlerHttp::processApi(const string &data)
         processGetCover();
     else if (jsonParam["action"] == "get_camera_pic")
         processGetCameraPic();
-    else if (jsonParam["action"] == "config")
-        processConfig(jroot);
-    else if (jsonParam["action"] == "get_io")
-        processGetIO(jroot);
-    else if (jsonParam["action"] == "audio")
-        processAudio(jroot);
-    else if (jsonParam["action"] == "audio_db")
-        processAudioDb(jroot);
     else if (jsonParam["action"] == "get_timerange")
         processGetTimerange();
-    else if (jsonParam["action"] == "set_timerange")
-        processSetTimerange(jroot);
-    else if (jsonParam["action"] == "autoscenario")
-        processAutoscenario(jroot);
 
-    json_decref(jroot);
+    else
+    {
+        if (!jroot)
+        {
+            Params headers;
+            headers.Add("Connection", "close");
+            headers.Add("Content-Type", "text/html");
+            string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+            sendData.emit(res);
+            closeConnection.emit(0, string());
+
+            if (jroot)
+                json_decref(jroot);
+
+            return;
+        }
+
+        if (jsonParam["action"] == "config")
+            processConfig(jroot);
+        else if (jsonParam["action"] == "get_io")
+            processGetIO(jroot);
+        else if (jsonParam["action"] == "audio")
+            processAudio(jroot);
+        else if (jsonParam["action"] == "audio_db")
+            processAudioDb(jroot);
+        else if (jsonParam["action"] == "set_timerange")
+            processSetTimerange(jroot);
+        else if (jsonParam["action"] == "autoscenario")
+            processAutoscenario(jroot);
+    }
+
+    if (jroot)
+        json_decref(jroot);
 }
 
 void JsonApiHandlerHttp::sendJson(json_t *json)

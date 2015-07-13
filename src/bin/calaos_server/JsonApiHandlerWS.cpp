@@ -70,8 +70,10 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, const Params &p, const s
     sendJson(msg_type, p.toJson(), client_id);
 }
 
-void JsonApiHandlerWS::processApi(const string &data)
+void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 {
+    VAR_UNUSED(paramsGET); //not used for websocket
+
     Params jsonRoot;
     Params jsonData;
 

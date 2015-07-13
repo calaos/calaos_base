@@ -228,6 +228,18 @@ int HttpClient::processHeaders(const string &request)
 
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
+    //decode GET parameters
+    paramsGET.clear();
+    vector<string> pars;
+    Utils::split(req_url.getQuery(), pars, "&");
+
+    for (const string s: pars)
+    {
+        vector<string> p;
+        Utils::split(s, p, "=", 2);
+        paramsGET.Add(p[0], p[1]);
+    }
+
     if (req_url.getPath() == "/debug" ||
         req_url.getPath() == "/debug/")
     {
@@ -514,7 +526,7 @@ void HttpClient::handleJsonRequest()
         });
     }
 
-    jsonApi->processApi(bodymessage);
+    jsonApi->processApi(bodymessage, paramsGET);
 }
 
 string HttpClient::getMimeType(const string &file_ext)

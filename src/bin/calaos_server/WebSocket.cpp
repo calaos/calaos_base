@@ -306,7 +306,7 @@ void WebSocket::processFrame(const string &data)
                         binaryMessageReceived.emit(currentData);
 
                     if (!echoMode && proto_ver == API_WEBSOCKET && jsonApi)
-                        jsonApi->processApi(currentData);
+                        jsonApi->processApi(currentData, Params());
 
                     if (echoMode)
                     {

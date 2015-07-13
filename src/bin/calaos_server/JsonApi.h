@@ -37,7 +37,7 @@ public:
     JsonApi(HttpClient *client);
     virtual ~JsonApi();
 
-    virtual void processApi(const string &data) = 0;
+    virtual void processApi(const string &data, const Params &paramsGET) = 0;
 
     sigc::signal<void, const string &> sendData;
     sigc::signal<void, int, const string &> closeConnection;

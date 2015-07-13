@@ -34,7 +34,7 @@ public:
     JsonApiHandlerHttp(HttpClient *client);
     virtual ~JsonApiHandlerHttp();
 
-    virtual void processApi(const string &data);
+    virtual void processApi(const string &data, const Params &paramsGET);
 
 private:
 

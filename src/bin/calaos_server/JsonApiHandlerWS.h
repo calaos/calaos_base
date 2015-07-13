@@ -30,7 +30,7 @@ public:
     JsonApiHandlerWS(HttpClient *client);
     virtual ~JsonApiHandlerWS();
 
-    virtual void processApi(const string &data);
+    virtual void processApi(const string &data, const Params &paramsGET);
 
 private:
 

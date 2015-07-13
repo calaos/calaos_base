@@ -71,6 +71,8 @@ protected:
 
     JsonApi *jsonApi = nullptr;
 
+    Params paramsGET;
+
     enum
     {
         HTTP_PROCESS_MOREDATA = 0,  //need more data for headers
