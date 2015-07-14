@@ -22,7 +22,6 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
-#include "TCPConnection.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include "AudioManager.h"

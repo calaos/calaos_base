@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "HttpClient.h"
 #include "HttpServer.h"
-#include "TCPConnection.h"
 #include "hef_uri_syntax.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"

@@ -24,7 +24,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/LuaScript       \
         -I$(top_srcdir)/src/bin/calaos_server/Rules           \
         -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
-        -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
         -I$(top_srcdir)/src/bin/calaos_server                 \
         -I$(top_srcdir)/src/lib                               \
         -I$(top_srcdir)/src/lib/LuaScript                     \
@@ -252,16 +251,12 @@ calaos_server_SOURCES = \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
-        IPCam/CamConnection.cpp                         \
-        IPCam/CamConnection.h                           \
         IPCam/CamInput.cpp                              \
         IPCam/CamInput.h                                \
         IPCam/CamManager.cpp                            \
         IPCam/CamManager.h                              \
         IPCam/CamOutput.cpp                             \
         IPCam/CamOutput.h                               \
-        IPCam/CamServer.cpp                             \
-        IPCam/CamServer.h                               \
         IPCam/Gadspot.cpp                               \
         IPCam/Gadspot.h                                 \
         IPCam/IPCam.cpp                                 \
@@ -319,18 +314,6 @@ calaos_server_SOURCES = \
         Rules/RulesFactory.h                            \
         Scenario/AutoScenario.cpp                       \
         Scenario/AutoScenario.h                         \
-        TCPConnection.cpp                               \
-        TCPConnection.h                                 \
-        TCPProcessor/AudioCommand.cpp                   \
-        TCPProcessor/BaseCommand.cpp                    \
-        TCPProcessor/CameraCommand.cpp                  \
-        TCPProcessor/HomeCommand.cpp                    \
-        TCPProcessor/IOCommand.cpp                      \
-        TCPProcessor/ListenCommand.cpp                  \
-        TCPProcessor/RulesCommand.cpp                   \
-        TCPProcessor/ScenarioCommand.cpp                \
-        TCPServer.cpp                                   \
-        TCPServer.h                                     \
         UDPServer.cpp                                   \
         UDPServer.h                                     \
         WebSocket.cpp                                   \

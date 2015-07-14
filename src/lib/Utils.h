@@ -164,7 +164,6 @@ typedef unsigned int uint;
 #define YELLOW "\x1b[33;06m"
 
 #define WAGO_LISTEN_PORT        4646
-#define TCP_LISTEN_PORT         4456
 #define BCAST_UDP_PORT          4545
 #define JSONAPI_PORT            5454
 

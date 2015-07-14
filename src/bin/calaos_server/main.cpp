@@ -26,10 +26,8 @@
 #include "IOFactory.h"
 #include "CalaosConfig.h"
 #include "ListeRule.h"
-#include "TCPServer.h"
 #include "UDPServer.h"
 #include "AudioManager.h"
-#include "CamServer.h"
 #include "NTPClock.h"
 #include "WagoMap.h"
 #include "HttpServer.h"
@@ -41,7 +39,6 @@ using namespace Calaos;
 // Globals
 static UDPServer *udpserver = NULL;
 static UDPServer *wserver = NULL;
-static CamServer *camserver = NULL;
 static EcoreTimer *watchdogLoop = NULL;
 
 static void echoVersion(char **argv)
@@ -125,9 +122,6 @@ int main (int argc, char **argv)
         udpserver = new UDPServer(BCAST_UDP_PORT);
     }
 
-    //Start main TCP server for network commands
-    TCPServer::Instance(TCP_LISTEN_PORT);
-
     //Start Json API server
     unsigned short port = JSONAPI_PORT;
     string tmp =  Utils::get_config_option("port_api");
@@ -136,10 +130,6 @@ int main (int argc, char **argv)
     HttpServer::Instance(port);
 
     NTPClock::Instance();
-
-    //Start IPCam relay
-    camserver = new CamServer(5050);
-    camserver->Start();
 
     if (enable_udp)
     {
