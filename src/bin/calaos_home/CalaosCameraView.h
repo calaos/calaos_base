@@ -44,7 +44,7 @@ public:
     CalaosCameraView(Evas *evas);
     virtual ~CalaosCameraView();
 
-    void setCameraUrl(string url);
+    void setCameraUrl(const string &url);
 
     void play();
     void stop();

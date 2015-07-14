@@ -131,7 +131,7 @@ void CalaosCameraView::SmartClipUnset()
     evas_object_clip_unset(clip);
 }
 
-void CalaosCameraView::setCameraUrl(string url)
+void CalaosCameraView::setCameraUrl(const string &url)
 {
     cameraUrl = url;
 }

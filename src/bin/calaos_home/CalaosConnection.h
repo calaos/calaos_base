@@ -78,6 +78,8 @@ private:
     void onDisconnected();
     void onMessageReceived(const string &msg);
 
+    static string calaosServerIp;
+
 public:
     CalaosConnection(string host);
     ~CalaosConnection();
@@ -116,6 +118,9 @@ public:
     sigc::signal<void, const string &, const Params &> notify_scenario_add;
     sigc::signal<void, const string &, const Params &> notify_scenario_del;
     sigc::signal<void, const string &, const Params &> notify_scenario_change;
+
+    static void getCredentials(string &user, string &pass);
+    static string getCalaosServerIp() { return calaosServerIp; }
 };
 
 #endif // CALAOSCONNECTION_H

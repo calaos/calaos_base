@@ -20,6 +20,8 @@
  ******************************************************************************/
 #include "CalaosConnection.h"
 
+string CalaosConnection::calaosServerIp = string();
+
 CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const string &id):
     callback(cb),
     user_data(d),
@@ -38,6 +40,8 @@ CalaosConnection::CalaosConnection(string h):
     host(h),
     timeout(NULL)
 {
+    calaosServerIp = host.c_str(); //do a deep copy or it will fail later
+
     wsocket = new WebSocketClient();
     wsocket->websocketConnected.connect(sigc::mem_fun(*this, &CalaosConnection::onConnected));
     wsocket->websocketDisconnected.connect(sigc::mem_fun(*this, &CalaosConnection::onDisconnected));
@@ -56,6 +60,20 @@ CalaosConnection::~CalaosConnection()
     delete wsocket;
 }
 
+void CalaosConnection::getCredentials(string &username, string &password)
+{
+    //Get username/password
+    username = Utils::get_config_option("calaos_user");
+    password = Utils::get_config_option("calaos_password");
+
+    if (Utils::get_config_option("cn_user") != "" &&
+        Utils::get_config_option("cn_pass") != "")
+    {
+        username = Utils::get_config_option("cn_user");
+        password = Utils::get_config_option("cn_pass");
+    }
+}
+
 void CalaosConnection::onConnected()
 {
     if (con_state == CALAOS_CON_NONE)
@@ -63,15 +81,9 @@ void CalaosConnection::onConnected()
         con_state = CALAOS_CON_LOGIN;
 
         //Get username/password
-        string username = Utils::get_config_option("calaos_user");
-        string password = Utils::get_config_option("calaos_password");
-
-        if (Utils::get_config_option("cn_user") != "" &&
-            Utils::get_config_option("cn_pass") != "")
-        {
-            username = Utils::get_config_option("cn_user");
-            password = Utils::get_config_option("cn_pass");
-        }
+        string username;
+        string password;
+        getCredentials(username, password);
 
         json_t *jlogin = json_pack("{s:s, s:s}",
                                    "cn_user", username.c_str(),

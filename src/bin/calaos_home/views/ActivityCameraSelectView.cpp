@@ -90,10 +90,19 @@ void ActivityCameraSelectView::setCamera(Camera *cam)
     camera_video = new CalaosCameraView(evas);
 
     Swallow(camera_video->getSmartObject(), "camera.swallow");
-    if (camera->params["mjpeg_url"] != "")
-        camera_video->setCameraUrl(camera->params["mjpeg_url"]);
-    else
-        camera_video->setCameraUrl(camera->params["jpeg_url"]);
+
+    string u, p;
+    CalaosConnection::getCredentials(u, p);
+
+    string url = "http://";
+    url += CalaosConnection::getCalaosServerIp() + ":5454/api";
+    url += "?cn_user=" + u;
+    url += "&cn_pass=" + p;
+    url += "&action=camera";
+    url += "&type=get_video";
+    url += "&id=" + camera->params["id"];
+
+    camera_video->setCameraUrl(url);
     camera_video->play();
     evas_object_show(camera_video->getSmartObject());
 
