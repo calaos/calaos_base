@@ -4,10 +4,30 @@ function getHTML(command) {
     if (window.XMLHttpRequest) {
         var http = new XMLHttpRequest();
         http.open(command, $('#urlinput').val(), true);
+
+        var s = JSON.parse(document.commandform.messagebody.value).action;
+        if (s == "camera")
+            http.responseType = 'blob';
+
         http.onreadystatechange = function() {
             if(http.readyState === 4) {
                 if(http.status === 200) {
-                    $('#answer').html(JSON.stringify(JSON.parse(http.responseText), null, '    '));
+                    if (http.getResponseHeader('Content-Type') == "image/jpeg") {
+
+                        $('#answer').html('<img id="campic" />');
+
+                        var img = document.getElementById('campic');
+
+                        var blob = http.response; //new Blob([http.response], { type: 'image/jpeg' });
+
+                        img.src = window.URL.createObjectURL(blob);
+                        img.onload = function() {
+                            window.URL.revokeObjectURL(img.src);
+                        }
+                    }
+                    else {
+                        $('#answer').html(JSON.stringify(JSON.parse(http.responseText), null, '    '));
+                    }
                 }
                 else {
                     $('#answer').html('Error ' + http.status);
@@ -73,6 +93,7 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_album_titles", "from": "0", "count": "1", "album_id": "0", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_playlist_titles", "from": "0", "count": "1", "playlist_id": "0", "player_id": "0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_track_infos", "from": "0", "count": "1", "track_id": "0", "player_id": "0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "camera", "type": "get_picture", "id": "0" }',
 ];
 
 $(document).ready(function() {

@@ -41,8 +41,8 @@ public:
     ~Gadspot();
 
     //Standard IPCam functions.
-    std::string get_mjpeg_stream(); //return the mpeg url stream
-    std::string get_picture(); //return the url for a single frame
+    std::string getVideoUrl(); //return the mpeg url stream
+    std::string getPictureUrl(); //return the url for a single frame
 };
 
 }

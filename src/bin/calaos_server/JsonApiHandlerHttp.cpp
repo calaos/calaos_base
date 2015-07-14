@@ -407,7 +407,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
     if (jsonParam.Exists("height"))
         h = jsonParam["height"];
 
-    string cmd = "calaos_thumb \"" + camera->get_picture() + "\" \"" + tempfname + "\"";
+    string cmd = "calaos_thumb \"" + camera->getPictureUrl() + "\" \"" + tempfname + "\"";
     if (w.empty() || h.empty())
         cmd += " " + w + "x" + h;
     exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
@@ -691,8 +691,8 @@ void JsonApiHandlerHttp::processCamera()
 
     if (jsonParam["type"] == "get_picture")
     {
-        cameraDl = new UrlDownloader(camera->get_picture_real(), true);
-        cameraDl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
+        cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
+        cameraDl->m_signalCompleteData.connect([=](Eina_Binbuf *downloadedData, int status)
         {
             if (status == 200)
             {
@@ -707,6 +707,8 @@ void JsonApiHandlerHttp::processCamera()
             }
             else
             {
+                cErrorDom("network") << "Failed to get image for camera at url: " << camera->getPictureUrl() << " failed with code: " << status;
+
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
@@ -721,7 +723,47 @@ void JsonApiHandlerHttp::processCamera()
     }
     else if (jsonParam["type"] == "get_video")
     {
+        if (camera->getVideoUrl().empty())
+        {
+            //Empty mjpeg url, build the stream with single pictures
 
+        }
+        else
+        {
+            //send mjpeg stream
+
+            cameraDl = new UrlDownloader(camera->getVideoUrl(), true);
+            cameraDl->m_signalData.connect([=](int size, unsigned char *data)
+            {
+                if (!camHeaderSent)
+                {
+                    stringstream sres;
+                    //HTTP code
+                    sres << HTTP_200 << "\r\n";
+
+                    Params h = cameraDl->getResponseHeaders();
+                    for (int i = 0;i < h.size();i++)
+                    {
+                        string key, value;
+                        h.get_item(i, key, value);
+                        sres << key << ": " << value << "\r\n";
+                    }
+
+                    sres << "\r\n";
+                    sendData.emit(sres.str());
+
+                    camHeaderSent = true;
+                }
+
+                sendData.emit(string((char *)data, size));
+            });
+
+            cameraDl->m_signalComplete.connect([=](int)
+            {
+                closeConnection.emit(0, string());
+                cameraDl = nullptr;
+            });
+            cameraDl->httpGet();
+        }
     }
-
 }

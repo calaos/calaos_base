@@ -43,17 +43,13 @@ bool CamOutput::set_value(std::string val)
 
     cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val;
 
-    if (val == "mpeg_stream?")
+    if (val == "mjpeg_stream?")
     {
-        answer = cam->get_mpeg_stream();
-    }
-    else if (val == "mjpeg_stream?")
-    {
-        answer = cam->get_mjpeg_stream();
+        answer = cam->getVideoUrl();
     }
     else if (val == "single_frame?")
     {
-        answer = cam->get_picture();
+        answer = cam->getPictureUrl();
     }
     else if (val.compare(0, 5, "move ") == 0)
     {

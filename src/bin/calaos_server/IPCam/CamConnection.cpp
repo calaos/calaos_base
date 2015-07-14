@@ -86,7 +86,7 @@ void CamConnection::ProcessRequest(string &request)
     }
 
     IPCam *camera = CamManager::Instance().get_camera(camid);
-    string url = camera->get_picture_real();
+    string url = camera->getPictureUrl();
 
     stringstream headers;
 

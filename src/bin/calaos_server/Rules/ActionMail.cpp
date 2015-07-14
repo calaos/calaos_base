@@ -48,13 +48,13 @@ bool ActionMail::Execute()
 
         if (in)
         {
-            CamInput *cin = reinterpret_cast<CamInput *>(in);
-            if (cin) camera = cin->get_cam();
+            CamInput *camin = reinterpret_cast<CamInput *>(in);
+            if (camin) camera = camin->get_cam();
         }
         if (out)
         {
-            CamOutput *cout = reinterpret_cast<CamOutput *>(out);
-            if (cout) camera = cout->get_cam();
+            CamOutput *camout = reinterpret_cast<CamOutput *>(out);
+            if (camout) camera = camout->get_cam();
         }
     }
 
@@ -77,8 +77,8 @@ bool ActionMail::Execute()
         while (ecore_file_exists(tmpFile.c_str()));
 
         // Autodestroy file downloader
-        cDebug() << "DL URL: " << camera->get_picture();
-        FileDownloader* downloader = new FileDownloader(camera->get_picture(), tmpFile, true);
+        cDebug() << "DL URL: " << camera->getPictureUrl();
+        FileDownloader* downloader = new FileDownloader(camera->getPictureUrl(), tmpFile, true);
         downloader->addCallback([=](string signal, void *sender_data)
         {
             if (signal == "done")

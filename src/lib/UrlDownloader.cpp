@@ -264,3 +264,24 @@ void UrlDownloader::Destroy()
     if (!m_idler)
         m_idler = ecore_idler_add(_delete_downloader_idler_cb, this);
 }
+
+Params UrlDownloader::getResponseHeaders()
+{
+    Params headers;
+
+    void *d;
+    char *str;
+    Eina_List *l;
+    Eina_List *h = (Eina_List *)ecore_con_url_response_headers_get(m_urlCon);
+    EINA_LIST_FOREACH(h, l, d)
+    {
+        str = (char *)d;
+        vector<string> t;
+        Utils::split(str, t, ":", 2);
+        if (Utils::trim(t[0]) != "" &&
+            !Utils::strStartsWith(Utils::trim(t[0]), "HTTP/"))
+            headers.Add(Utils::trim(t[0]), Utils::trim(t[1]));
+    }
+
+    return headers;
+}

@@ -91,21 +91,22 @@ public:
     void authUnSet() {m_auth = false;}
     void fdSet(int fd) {m_fd = fd;}
 
+    Params getResponseHeaders();
 
-   bool httpDelete(string destination = "", string bodyData = "");
-   bool httpGet(string destination = "", string bodyData = "");
-   bool httpPost(string destination = "", string bodyData = "");
-   bool httpPut(string destination = "", string bodyData = "");
+    bool httpDelete(string destination = "", string bodyData = "");
+    bool httpGet(string destination = "", string bodyData = "");
+    bool httpPost(string destination = "", string bodyData = "");
+    bool httpPut(string destination = "", string bodyData = "");
 
-   ~UrlDownloader();
+    ~UrlDownloader();
 
-   // Signals/Slots
-   sigc::signal<void, int> m_signalComplete;
-   sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
-   sigc::signal<void, double, double> m_signalProgress;
-   sigc::signal<void, int, unsigned char*> m_signalData;
+    // Signals/Slots
+    sigc::signal<void, int> m_signalComplete;
+    sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
+    sigc::signal<void, double, double> m_signalProgress;
+    sigc::signal<void, int, unsigned char*> m_signalData;
 
-   void Destroy();
+    void Destroy();
 };
 
 #endif

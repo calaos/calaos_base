@@ -34,7 +34,7 @@ Gadspot::~Gadspot()
 {
 }
 
-std::string Gadspot::get_mjpeg_stream()
+std::string Gadspot::getVideoUrl()
 {
     std::string url;
     url = "http://" + param["host"] + ":" + param["port"];
@@ -43,7 +43,7 @@ std::string Gadspot::get_mjpeg_stream()
     return url;
 }
 
-std::string Gadspot::get_picture()
+std::string Gadspot::getPictureUrl()
 {
     std::string url;
     url = "http://" + param["host"] + ":" + param["port"];

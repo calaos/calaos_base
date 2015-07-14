@@ -42,9 +42,8 @@ public:
     ~Axis();
 
     //Standard IPCam functions.
-    std::string get_mpeg_stream(); //return the mpeg4 url stream (if any)
-    std::string get_mjpeg_stream(); //return the mpeg url stream
-    std::string get_picture(); //return the url for a single frame
+    std::string getVideoUrl(); //return the mpeg url stream
+    std::string getPictureUrl(); //return the url for a single frame
 
     virtual void activateCapabilities(std::string capability, std::string cmd, std::string value);
 };

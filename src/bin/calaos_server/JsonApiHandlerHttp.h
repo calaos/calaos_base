@@ -46,6 +46,7 @@ private:
     Params jsonParam;
 
     UrlDownloader *cameraDl = nullptr;
+    bool camHeaderSent = false;
 
     void sendJson(json_t *json);
     void sendJson(const Params &p);

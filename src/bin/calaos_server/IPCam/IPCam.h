@@ -46,13 +46,8 @@ public:
     virtual ~IPCam();
 
     //Standard IPCam functions.
-    virtual std::string get_cam_url() { return "http://" + param["host"] + ":" + param["port"]; } //return the url of the cam webpage
-    virtual std::string get_mpeg_stream() { return ""; } //return the mpeg url stream
-    virtual std::string get_mjpeg_stream() { return ""; } //return the mjpeg url stream
-    virtual std::string get_picture() { return ""; } //return the url for a single frame
-
-    //this is used for internal purpose (The CamServer relay)
-    virtual std::string get_picture_real() { return get_picture(); } //return the real url for a single frame
+    virtual std::string getVideoUrl() { return ""; } //return the mjpeg url stream
+    virtual std::string getPictureUrl() { return ""; } //return the url for a single frame
 
     //Capabilities
     /*************************************************

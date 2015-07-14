@@ -69,16 +69,7 @@ Planet::~Planet()
 {
 }
 
-std::string Planet::get_mpeg_stream()
-{
-    std::string url;
-
-    //model ICA-300, ICA-500, ICA-210* does not support mpgeg stream
-
-    return url;
-}
-
-std::string Planet::get_mjpeg_stream()
+std::string Planet::getVideoUrl()
 {
     std::string url, user;
 
@@ -92,24 +83,13 @@ std::string Planet::get_mjpeg_stream()
     }
     else if (param["model"] == "ICA-210" || param["model"] == "ICA-210W")
     {
-        //Get id
-        int id = -1;
-        for (int i = 0;i < CamManager::Instance().get_size();i++)
-        {
-            if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
-                id = i;
-        }
-
-        //get local ip
-        string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
-
-        url = "http://" + local_ip + ":5050/GetCamera.cgi?id=" + Utils::to_string(id);
+        //Nothing
     }
 
     return url;
 }
 
-std::string Planet::get_picture_real()
+std::string Planet::getPictureUrl()
 {
     std::string url, user;
 
@@ -126,31 +106,6 @@ std::string Planet::get_picture_real()
         url = "http://" + user + param["host"] + ":" + param["port"];
         url += "/goform/video2";
     }
-
-    return url;
-}
-
-std::string Planet::get_picture()
-{
-    std::string url;
-
-    if (param["model"] == "ICA-210" || param["model"] == "ICA-210W")
-    {
-        //Get id
-        int id = -1;
-        for (int i = 0;i < CamManager::Instance().get_size();i++)
-        {
-            if (CamManager::Instance().get_camera(i)->get_param("id") == param["id"])
-                id = i;
-        }
-
-        //get local ip
-        string local_ip = TCPSocket::GetLocalIPFor(param["host"]);
-
-        url = "http://" + local_ip + ":5050/GetPicture.cgi?id=" + Utils::to_string(id);
-    }
-    else
-        url = get_picture_real();
 
     return url;
 }

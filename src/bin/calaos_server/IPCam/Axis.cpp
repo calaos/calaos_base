@@ -53,27 +53,7 @@ Axis::~Axis()
 {
 }
 
-std::string Axis::get_mpeg_stream()
-{
-    string user;
-
-    if (param["model"] != "") camera = param["model"];
-
-    if (param.Exists("username"))
-        user = param["username"] + ":" + param["password"] + "@";
-
-    std::string url;
-    url = "rtsp://" + user + param["host"];
-    url += "/mpeg4/media.amp";
-    url += "?compression=" + quality;
-    url += "&camera=" + camera;
-    if (!resolution.empty())
-        url += "&resolution=" + resolution;
-
-    return url;
-}
-
-std::string Axis::get_mjpeg_stream()
+std::string Axis::getVideoUrl()
 {
     string user;
 
@@ -93,7 +73,7 @@ std::string Axis::get_mjpeg_stream()
     return url;
 }
 
-std::string Axis::get_picture()
+std::string Axis::getPictureUrl()
 {
     string user;
 

@@ -71,24 +71,14 @@ void TCPConnection::CameraCommand(Params &request, ProcessDone_cb callback)
                     result.Add("2", string("id:") + camera->get_param("id"));
                     result.Add("3", string("name:") + camera->get_param("name"));
                     cpt = 4;
-                    if (camera->get_cam_url() != "")
+                    if (camera->getVideoUrl() != "")
                     {
-                        result.Add(Utils::to_string(cpt), string("url:") + camera->get_cam_url());
+                        result.Add(Utils::to_string(cpt), string("mjpeg_url:") + camera->getVideoUrl());
                         cpt++;
                     }
-                    if (camera->get_mjpeg_stream() != "")
+                    if (camera->getPictureUrl() != "")
                     {
-                        result.Add(Utils::to_string(cpt), string("mjpeg_url:") + camera->get_mjpeg_stream());
-                        cpt++;
-                    }
-                    if (camera->get_mpeg_stream() != "")
-                    {
-                        result.Add(Utils::to_string(cpt), string("mpeg_url:") + camera->get_mpeg_stream());
-                        cpt++;
-                    }
-                    if (camera->get_picture() != "")
-                    {
-                        result.Add(Utils::to_string(cpt), string("jpeg_url:") + camera->get_picture());
+                        result.Add(Utils::to_string(cpt), string("jpeg_url:") + camera->getPictureUrl());
                         cpt++;
                     }
 
