@@ -63,6 +63,7 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
+    delete cameraDl;
     ecore_event_handler_del(exe_handler);
     ecore_file_unlink(tempfname.c_str());
 }
@@ -159,7 +160,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processGetCameraPic();
     else if (jsonParam["action"] == "get_timerange")
         processGetTimerange();
-
+    else if (jsonParam["action"] == "camera")
+        processCamera();
     else
     {
         if (!jroot)
@@ -657,4 +659,69 @@ void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
         sendJson(buildAutoscenarioAddSchedule(jroot));
     else if (msg == "del_schedule")
         sendJson(buildAutoscenarioDelSchedule(jroot));
+}
+
+void JsonApiHandlerHttp::processCamera()
+{
+    //Get camera object
+    IPCam *camera = nullptr;
+    CamInput *ci = dynamic_cast<CamInput *>(ListeRoom::Instance().get_input(jsonParam["id"]));
+    if (ci)
+        camera = ci->get_cam();
+    else
+    {
+        CamOutput *co = dynamic_cast<CamOutput *>(ListeRoom::Instance().get_output(jsonParam["id"]));
+        if (co)
+            camera = co->get_cam();
+        else if (Utils::is_of_type<int>(jsonParam["id"]))
+        {
+            int id;
+            Utils::from_string(jsonParam["id"], id);
+
+            if (id < CamManager::Instance().get_size() && id >= 0)
+                camera = CamManager::Instance().get_camera(id);
+        }
+    }
+
+    if (!camera)
+    {
+        sendJson({{"error", "unkown camera id" }});
+        return;
+    }
+
+    if (jsonParam["type"] == "get_picture")
+    {
+        cameraDl = new UrlDownloader(camera->get_picture_real(), true);
+        cameraDl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
+        {
+            if (status == 200)
+            {
+                string bodypic((const char *)eina_binbuf_string_get(downloadedData),
+                               eina_binbuf_length_get(downloadedData));
+
+                Params headers;
+                headers.Add("Connection", "close");
+                headers.Add("Content-Type", "image/jpeg");
+                string res = httpClient->buildHttpResponse(HTTP_200, headers, bodypic);
+                sendData.emit(res);
+            }
+            else
+            {
+                Params headers;
+                headers.Add("Connection", "close");
+                headers.Add("Content-Type", "image/jpeg");
+                string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers,
+                                                                   Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
+                sendData.emit(res);
+            }
+
+            cameraDl = nullptr;
+        });
+        cameraDl->httpGet();
+    }
+    else if (jsonParam["type"] == "get_video")
+    {
+
+    }
+
 }

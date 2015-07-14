@@ -25,6 +25,7 @@
 #include <Ecore.h>
 #include "Room.h"
 #include "AudioPlayer.h"
+#include "UrlDownloader.h"
 
 using namespace Calaos;
 
@@ -43,6 +44,8 @@ private:
     string tempfname;
 
     Params jsonParam;
+
+    UrlDownloader *cameraDl = nullptr;
 
     void sendJson(json_t *json);
     void sendJson(const Params &p);
@@ -65,6 +68,7 @@ private:
     void processGetTimerange();
     void processSetTimerange(json_t *jroot);
     void processAutoscenario(json_t *jroot);
+    void processCamera();
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);
