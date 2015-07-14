@@ -26,6 +26,7 @@
 #include "Room.h"
 #include "AudioPlayer.h"
 #include "UrlDownloader.h"
+#include "IPCam.h"
 
 using namespace Calaos;
 
@@ -78,6 +79,8 @@ private:
 
     void exeFinished(Ecore_Exe *exe, int exit_code);
     friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
+
+    void downloadCameraPicture(IPCam *camera);
 };
 
 #endif // JSONAPIV2_H

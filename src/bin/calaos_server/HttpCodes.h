@@ -55,4 +55,17 @@
     "</body>" \
     "</html>"
 
+#define HTTP_CAMERA_STREAM "HTTP/1.0 200 OK\r\n" \
+    "Server: Calaos/1.0\r\n" \
+    "Connection: close\r\n" \
+    "Content-Type: multipart/x-mixed-replace;boundary=CalaosBoundary\r\n" \
+    "Pragma: no-cache\r\n" \
+    "Cache-Control: no-cache\r\n" \
+    "Expires: 01 Jan 1970 00:00:00 GMT\r\n" \
+
+#define HTTP_CAMERA_STREAM_BOUNDARY "\r\n" \
+    "--CalaosBoundary\r\n" \
+    "Content-Type: image/jpeg\r\n" \
+    "\r\n"
+
 #endif

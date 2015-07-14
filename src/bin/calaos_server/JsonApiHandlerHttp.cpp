@@ -28,7 +28,6 @@
 #include "AudioManager.h"
 #include "AudioPlayer.h"
 #include "CamManager.h"
-#include "IPCam.h"
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "EcoreTimer.h"
@@ -727,6 +726,13 @@ void JsonApiHandlerHttp::processCamera()
         {
             //Empty mjpeg url, build the stream with single pictures
 
+            if (!camHeaderSent)
+            {
+                sendData.emit(HTTP_CAMERA_STREAM);
+                camHeaderSent = true;
+            }
+
+            downloadCameraPicture(camera);
         }
         else
         {
@@ -766,4 +772,36 @@ void JsonApiHandlerHttp::processCamera()
             cameraDl->httpGet();
         }
     }
+}
+
+void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
+{
+    cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
+    cameraDl->m_signalCompleteData.connect([=](Eina_Binbuf *downloadedData, int status)
+    {
+        sendData.emit(HTTP_CAMERA_STREAM_BOUNDARY);
+        if (status == 200)
+        {
+            string bodypic((const char *)eina_binbuf_string_get(downloadedData),
+                           eina_binbuf_length_get(downloadedData));
+            sendData.emit(bodypic);
+        }
+        else
+        {
+            cErrorDom("network") << "Failed to get image for camera at url: " << camera->getPictureUrl() << " failed with code: " << status;
+
+            ifstream file(Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
+            string bodypic((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+            sendData.emit(bodypic);
+        }
+
+        cameraDl = nullptr;
+
+        EcoreTimer::singleShot(0, [=]()
+        {
+            downloadCameraPicture(camera);
+        });
+    });
+    cameraDl->httpGet();
 }
