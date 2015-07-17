@@ -77,6 +77,8 @@ private:
     bool checkCloseStatusCode(uint16_t code);
 
     void sendFrameData(const string &data, bool isbinary);
+
+    EcoreTimer *timerPing = nullptr;
 };
 
 #endif

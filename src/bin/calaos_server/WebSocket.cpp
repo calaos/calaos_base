@@ -34,6 +34,12 @@ WebSocket::WebSocket(Ecore_Con_Client *cl):
     HttpClient(cl)
 {
     reset();
+
+    websocketDisconnected.connect([=]()
+    {
+        delete timerPing;
+        timerPing = nullptr;
+    });
 }
 
 WebSocket::~WebSocket()
@@ -90,6 +96,15 @@ void WebSocket::processHandshake()
         string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
         sendToClient(res);
     }
+
+    //send a ping at regular interval to keep connection open.
+    //most web browsers are closing the websocket connection after some time
+    //this prevents that from happening. Wee need to rely on a constant connection
+    //for events to work correctly.
+    timerPing = new EcoreTimer(15.0, [=]()
+    {
+        sendPing("calaos_server ping");
+    });
 
     status = WSOpened;
     currentFrame.clear();
@@ -453,6 +468,8 @@ void WebSocket::processControlFrame()
 void WebSocket::sendPing(const string &data)
 {
     if (!isWebsocket) return;
+
+    cDebugDom("websocket") << "Sending websocket PING";
 
     ping_time = ecore_time_get();
 
