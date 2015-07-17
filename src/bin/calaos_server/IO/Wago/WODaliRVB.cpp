@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <WODaliRVB.h>
-#include <IPC.h>
 #include <WagoMap.h>
 #include <IOFactory.h>
 

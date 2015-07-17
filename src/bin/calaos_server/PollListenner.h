@@ -38,7 +38,7 @@ private:
     string uuid;
     EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
 
-    //IPC callback to handle all events from the system
+    //callback to handle all events from the system
     void handleEvents(const CalaosEvent &ev);
 
     //Timeout callback

@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <PollListenner.h>
-#include <IPC.h>
 
 using namespace Calaos;
 
@@ -41,8 +40,6 @@ PollObject::~PollObject()
         delete timeout;
         timeout = NULL;
     }
-
-    IPC::Instance().DeleteHandler(sig_events);
 
     cDebugDom("poll_listener") << "Cleaning object " << uuid;
 }

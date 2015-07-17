@@ -22,9 +22,6 @@
 #define S_WAGOMAP_H
 
 #include <Calaos.h>
-#include <CThread.h>
-#include <Mutex.h>
-#include <mbus.h>
 #include <EcoreTimer.h>
 #include <Ecore_Con.h>
 #include "ExternProc.h"

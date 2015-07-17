@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include <CamInput.h>
 #include <IPCam.h>
-#include <IPC.h>
 
 using namespace Calaos;
 
