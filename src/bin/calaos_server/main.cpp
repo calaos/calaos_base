@@ -101,15 +101,6 @@ int main (int argc, char **argv)
 
     ecore_app_args_set(argc, (const char **)argv);
 
-    //Changes the default folder for config files
-    char *buf = new char[PATH_MAX];
-    char *unused = getcwd(buf, PATH_MAX);
-    (void)unused;
-    string current_path = buf;
-    delete[] buf;
-    int unused2 = chdir(ETC_DIR);
-    (void)unused2;
-
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
 
