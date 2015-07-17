@@ -45,6 +45,7 @@ WebSocket::WebSocket(Ecore_Con_Client *cl):
 WebSocket::~WebSocket()
 {
     delete closeTimeout;
+    delete timerPing;
     cDebugDom("websocket") << this;
 }
 
