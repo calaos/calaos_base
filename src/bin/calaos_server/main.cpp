@@ -90,6 +90,7 @@ int main (int argc, char **argv)
     srand(time(NULL));
 
     //Ensure calling order of destructors
+    EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
 
