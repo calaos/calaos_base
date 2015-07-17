@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include <WagoMap.h>
 #include <WagoCtrl.h>
-#include <IPC.h>
 #include <tcpsocket.h>
+#include "Prefix.h"
 
 using namespace Utils;
 using namespace Calaos;
@@ -33,9 +33,6 @@ WagoMapManager WagoMap::wagomaps;
 WagoMap::WagoMap(std::string h, int p):
     host(h),
     port(p),
-    quit_thread(false),
-    mutex_queue(false),
-    mutex_lock(false),
     udp_timer(NULL),
     udp_timeout_timer(NULL),
     econ(NULL)
@@ -44,9 +41,6 @@ WagoMap::WagoMap(std::string h, int p):
     output_bits.resize(MBUS_MAX_BITS, false);
     input_words.resize(MBUS_MAX_WORDS, 0);
     output_words.resize(MBUS_MAX_WORDS, 0);
-
-    sigIPC.connect(sigc::mem_fun(*this, &WagoMap::IPCCallbacks));
-    IPC::Instance().AddHandler("WagoMap", "*", sigIPC, NULL);
 
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
 
@@ -59,25 +53,36 @@ WagoMap::WagoMap(std::string h, int p):
     heartbeat_timer = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
     mbus_heartbeat_timer = new EcoreTimer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
 
-    Start();
+    process = new ExternProcServer("wago");
+
+    exe = Prefix::Instance().binDirectoryGet() + "/calaos_wago";
+
+    string args = host;
+    args += " " + Utils::to_string(port);
+
+    process->messageReceived.connect(sigc::mem_fun(*this, &WagoMap::processNewMessage));
+
+    process->processExited.connect([=]()
+    {
+        //restart process when stopped
+        cWarningDom("process") << "process exited, restarting...";
+        process->startProcess(exe, "wago", args);
+    });
+
+    process->startProcess(exe, "wago", args);
 
     cInfoDom("wago") << host << "," << port;
 }
 
 WagoMap::~WagoMap()
 {
-    quit_thread = true;
-    mutex_lock.condition_wake();
+    delete process;
 
     ecore_event_handler_del(event_handler_data_get);
     ecore_con_server_del(econ);
 
     delete heartbeat_timer;
     delete mbus_heartbeat_timer;
-
-    End();
-
-    cInfoDom("wago");
 }
 
 WagoMap &WagoMap::Instance(std::string h, int p)
@@ -115,344 +120,239 @@ void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int co
         cErrorDom("wago") << "failed to read !";
 }
 
-void WagoMap::IPCCallbacks(string source, string emission, void *listener_data, void *sender_data)
+void WagoMap::processNewMessage(const string &msg)
 {
-    if (source != "WagoMap") return;
+    json_error_t jerr;
+    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
-    WagoMapCmd *cmd = reinterpret_cast<WagoMapCmd *>(sender_data);
-    if (!cmd) return;
-
-    if (emission == "mbus,read,bits")
+    if (!jroot || !json_is_object(jroot))
     {
-        MultiBits_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiBits_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_bits);
-    }
-    else if (emission == "mbus,read,outbits")
-    {
-        MultiBits_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiBits_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_bits);
-    }
-    else if (emission == "mbus,write,bit")
-    {
-        SingleBit_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->singleBit_cb);
-        sig.emit(cmd->status, cmd->address, cmd->value_bit);
-    }
-    else if (emission == "mbus,write,bits")
-    {
-        MultiBits_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiBits_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_bits);
-    }
-    if (emission == "mbus,read,words")
-    {
-        MultiWords_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiWords_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_words);
-    }
-    else if (emission == "mbus,read,outwords")
-    {
-        MultiWords_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiWords_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_words);
-    }
-    else if (emission == "mbus,write,word")
-    {
-        SingleBit_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->singleBit_cb);
-        sig.emit(cmd->status, cmd->address, cmd->value_bit);
-    }
-    else if (emission == "mbus,write,words")
-    {
-        MultiWords_signal sig;
-        if (cmd->mapSignals)
-            sig.connect(cmd->mapSignals->multiWords_cb);
-        sig.emit(cmd->status, cmd->address, cmd->count, cmd->values_words);
+        cWarningDom("1wire") << "Error parsing json from sub process: " << jerr.text;
+        if (jroot)
+            json_decref(jroot);
+        return;
     }
 
-    cmd->deleteSignals();
+    Params jsonData;
+    jansson_decode_object(jroot, jsonData);
+
+    if (mbus_commands.find(jsonData["id"]) == mbus_commands.end())
+        return;
+
+    WagoMapCmd cmd = mbus_commands[jsonData["id"]];
+    mbus_commands.erase(jsonData["id"]);
+
+    UWord address = 0;
+    int count = 0;
+    vector<bool> values_bits;
+    vector<UWord> values_words;
+    bool status = jsonData["status"] == "true";
+
+    Utils::from_string(jsonData["address"], address);
+    Utils::from_string(jsonData["count"], count);
+
+    if (cmd.command == MBUS_READ_BITS ||
+        cmd.command == MBUS_READ_OUTBITS)
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(json_object_get(jroot, "values"), idx, value)
+        {
+            string v = json_string_value(value);
+            values_bits.push_back(v == "true");
+        }
+
+        if (cmd.mapSignals)
+            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+    }
+    else if (cmd.command == MBUS_WRITE_BIT)
+    {
+        if (cmd.mapSignals)
+            cmd.mapSignals->singleBit_cb(status, address, false);
+    }
+    else if (cmd.command == MBUS_WRITE_BITS)
+    {
+        if (cmd.mapSignals)
+            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+    }
+    else if (cmd.command == MBUS_READ_WORDS ||
+             cmd.command == MBUS_READ_OUTWORDS)
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(json_object_get(jroot, "values"), idx, value)
+        {
+            string v = json_string_value(value);
+            UWord vv;
+            Utils::from_string(v, vv);
+            values_words.push_back(vv);
+        }
+
+        if (cmd.mapSignals)
+            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+    }
+    else if (cmd.command == MBUS_WRITE_WORD)
+    {
+        if (cmd.mapSignals)
+            cmd.mapSignals->singleWord_cb(status, address, 0);
+    }
+    else if (cmd.command == MBUS_WRITE_WORDS)
+    {
+        if (cmd.mapSignals)
+            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+    }
+
+    cmd.deleteSignals();
 }
 
 void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
 {
-    WagoMapCmd cmd(MBUS_READ_BITS, address);
+    WagoMapCmd cmd(MBUS_READ_BITS);
     cmd.createSignals();
-
-    cmd.count = nb;
     cmd.mapSignals->multiBits_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "read_bits" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
 {
-    WagoMapCmd cmd(MBUS_READ_OUTBITS, address);
+    WagoMapCmd cmd(MBUS_READ_OUTBITS);
     cmd.createSignals();
-
-    cmd.count = nb;
     cmd.mapSignals->multiBits_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "read_output_bits" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
 {
-    WagoMapCmd cmd(MBUS_WRITE_BIT, address);
+    WagoMapCmd cmd(MBUS_WRITE_BIT);
     cmd.createSignals();
-
-    cmd.value_bit = val;
     cmd.mapSignals->singleBit_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "write_bit" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "value", val?"true":"false" } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback)
 {
-    WagoMapCmd cmd(MBUS_WRITE_BITS, address);
+    WagoMapCmd cmd(MBUS_WRITE_BITS);
     cmd.createSignals();
-
-    cmd.values_bits = values;
-    cmd.count = nb;
     cmd.mapSignals->multiBits_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "write_bits" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
+
+    json_t *jret = p.toJson();
+    json_t *jarr = json_array();
+    for (uint i = 0;i < values.size();i++)
+        json_array_append_new(jarr, json_string(values[i]?"true":"false"));
+    json_object_set_new(jret, "values", jarr);
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
 {
-    WagoMapCmd cmd(MBUS_READ_WORDS, address);
+    WagoMapCmd cmd(MBUS_READ_WORDS);
     cmd.createSignals();
-
-    cmd.count = nb;
     cmd.mapSignals->multiWords_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "read_words" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
 {
-    WagoMapCmd cmd(MBUS_READ_OUTWORDS, address);
+    WagoMapCmd cmd(MBUS_READ_OUTWORDS);
     cmd.createSignals();
-
-    cmd.count = nb;
     cmd.mapSignals->multiWords_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "read_output_words" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback)
 {
-    WagoMapCmd cmd(MBUS_WRITE_WORD, address);
+    WagoMapCmd cmd(MBUS_WRITE_WORD);
     cmd.createSignals();
-
-    cmd.value_word = val;
     cmd.mapSignals->singleWord_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
+    Params p = {{ "action", "write_word" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "value", Utils::to_string(val) } };
+
+    process->sendMessage(jansson_to_string(p.toJson()));
+
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback)
 {
-    WagoMapCmd cmd(MBUS_WRITE_WORDS, address);
+    WagoMapCmd cmd(MBUS_WRITE_WORDS);
     cmd.createSignals();
-
-    cmd.values_words = values;
-    cmd.count = nb;
     cmd.mapSignals->multiWords_cb = callback;
+    cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    queueAndSendCommand(cmd);
-}
+    Params p = {{ "action", "write_words" },
+                { "id", cmd.wago_cmd_id },
+                { "address", Utils::to_string(address) },
+                { "count", Utils::to_string(nb) } };
 
-void WagoMap::queueAndSendCommand(WagoMapCmd cmd)
-{
-    mutex_queue.lock();
-    mbus_commands.push(cmd);
-    mutex_queue.unlock();
+    json_t *jret = p.toJson();
+    json_t *jarr = json_array();
+    for (uint i = 0;i < values.size();i++)
+        json_array_append_new(jarr, json_string(Utils::to_string(values[i]).c_str()));
+    json_object_set_new(jret, "values", jarr);
 
-    mutex_lock.condition_wake();
-}
+    process->sendMessage(jansson_to_string(p.toJson()));
 
-void WagoMap::ThreadProc()
-{
-    WagoCtrl wago(host, port);
-
-    while (true)
-    {
-        mutex_queue.lock();
-        int queue_count = mbus_commands.size();
-        mutex_queue.unlock();
-
-        if (queue_count <= 0)
-            mutex_lock.condition_wait();
-
-        if (quit_thread)
-            break;
-
-        if (!wago.is_connected())
-        {
-            cDebugDom("wago") << "Connecting to " << host;
-            wago.Connect();
-        }
-
-        mutex_queue.lock();
-        if (mbus_commands.size() <= 0)
-        {
-            mutex_queue.unlock();
-            continue;
-        }
-        WagoMapCmd cmd = mbus_commands.front();
-        mbus_commands.pop();
-        mutex_queue.unlock();
-
-        switch(cmd.command)
-        {
-        case MBUS_READ_BITS:
-        {
-            cmd.status = true;
-            if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.read_bits(cmd.address, cmd.count, cmd.values_bits))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,read,bits", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_READ_OUTBITS:
-        {
-            cmd.status = true;
-            if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.read_bits(cmd.address + 0x200, cmd.count, cmd.values_bits))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,read,outbits", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_WRITE_BIT:
-        {
-            cmd.status = true;
-            if (!wago.write_single_bit(cmd.address, cmd.value_bit))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.write_single_bit(cmd.address, cmd.value_bit))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,write,bit", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_WRITE_BITS:
-        {
-            cmd.status = true;
-            if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.write_multiple_bits(cmd.address, cmd.count, cmd.values_bits))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,write,bits", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_READ_WORDS:
-        {
-            cmd.status = true;
-            if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.read_words(cmd.address, cmd.count, cmd.values_words))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,read,words", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_READ_OUTWORDS:
-        {
-            cmd.status = true;
-            if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.read_words(cmd.address + 0x200, cmd.count, cmd.values_words))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,read,outwords", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_WRITE_WORD:
-        {
-            cmd.status = true;
-            if (!wago.write_single_word(cmd.address, cmd.value_word))
-            {
-                cDebugDom("wago") << "MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.write_single_word(cmd.address, cmd.value_word))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "WagoMap: MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,write,word", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        case MBUS_WRITE_WORDS:
-        {
-            cmd.status = true;
-            if (!wago.write_multiple_words(cmd.address, cmd.count, cmd.values_words))
-            {
-                cDebugDom("wago") << "WagoMap: MBUS, reconnecting to " << host;
-                wago.Connect();
-                if (!wago.write_multiple_words(cmd.address, cmd.count, cmd.values_words))
-                {
-                    cmd.status = false;
-                    cDebugDom("wago") << "MBUS, failed to send request";
-                }
-            }
-
-            IPC::Instance().SendEvent("WagoMap", "mbus,write,words", IPCData(new WagoMapCmd(cmd), new DeletorT<WagoMapCmd *>), true);
-        }
-            break;
-        }
-    }
+    mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev)
@@ -487,7 +387,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
     if (udp_commands.empty())
         restart_timer = true;
 
-    WagoMapCmd cmd(CALAOS_UDP_SEND, 0);
+    WagoMapCmd cmd(CALAOS_UDP_SEND);
     cmd.createSignals();
 
     cmd.udp_command = command;
@@ -511,7 +411,7 @@ void WagoMap::SendUDPCommand(string command)
     if (udp_commands.empty())
         restart_timer = true;
 
-    WagoMapCmd cmd(CALAOS_UDP_SEND, 0);
+    WagoMapCmd cmd(CALAOS_UDP_SEND);
 
     cmd.no_callback = true;
     cmd.udp_command = command;
@@ -601,7 +501,4 @@ void WagoMap::WagoHeartBeatTick()
     {
         cDebugDom("wago") << "No interface found corresponding to network : " << get_host();
     }
-
-
 }
-

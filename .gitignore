@@ -79,6 +79,7 @@ src/bin/tools/calaos_thumb
 src/bin/tools/calaos_mail
 src/bin/calaos_server/calaos_1wire
 src/bin/calaos_server/calaos_ola
+src/bin/calaos_server/calaos_wago
 calaos.config
 calaos.creator*
 calaos.files

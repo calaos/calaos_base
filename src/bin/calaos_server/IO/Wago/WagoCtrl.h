@@ -24,9 +24,6 @@
 #include <Utils.h>
 #include <mbus.h>
 
-namespace Calaos
-{
-
 class WagoCtrl
 {
 protected:
@@ -62,5 +59,4 @@ public:
     int get_port() { return port; }
 };
 
-}
 #endif

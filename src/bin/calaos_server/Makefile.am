@@ -327,6 +327,23 @@ calaos_server_LDADD =                                   \
 
 calaos_server_LDFLAGS = -rdynamic
 
+bin_PROGRAMS += calaos_wago
+calaos_wago_SOURCES = \
+	IO/ExternProc.cpp                               \
+	IO/ExternProc.h                                 \
+	IO/Wago/WagoCtrl.cpp				\
+	IO/Wago/libmbus/mbus.c				\
+	IO/Wago/libmbus/mbus.h				\
+	IO/Wago/libmbus/mbus_cmd.c			\
+	IO/Wago/libmbus/mbus_conf.h			\
+	IO/Wago/libmbus/mbus_rqst.c			\
+	IO/Wago/libmbus/mbus_sock.c			\
+	IO/Wago/WagoExternProc_main.cpp
+
+calaos_wago_LDADD = \
+	@CALAOS_SERVER_LIBS@ \
+	$(top_builddir)/src/lib/libcalaos_common.la
+
 if HAVE_OWCAPI
 bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \

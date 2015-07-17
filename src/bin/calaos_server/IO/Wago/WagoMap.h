@@ -27,21 +27,15 @@
 #include <mbus.h>
 #include <EcoreTimer.h>
 #include <Ecore_Con.h>
+#include "ExternProc.h"
 
 namespace Calaos
 {
 
 typedef sigc::slot<void, bool, UWord, int, vector<bool> &> MultiBits_cb;
-typedef sigc::signal<void, bool, UWord, int, vector<bool> &> MultiBits_signal;
-
 typedef sigc::slot<void, bool, UWord, bool> SingleBit_cb;
-typedef sigc::signal<void, bool, UWord, bool> SingleBit_signal;
-
 typedef sigc::slot<void, bool, UWord, int, vector<UWord> &> MultiWords_cb;
-typedef sigc::signal<void, bool, UWord, int, vector<UWord> &> MultiWords_signal;
-
 typedef sigc::slot<void, bool, UWord, UWord> SingleWord_cb;
-typedef sigc::signal<void, bool, UWord, UWord> SingleWord_signal;
 
 typedef sigc::slot<void, bool, string, string> WagoUdp_cb;
 typedef sigc::signal<void, bool, string, string> WagoUdp_signal;
@@ -70,32 +64,23 @@ public:
 class WagoMapCmd
 {
 public:
-    WagoMapCmd(int _command, UWord _address):
+    WagoMapCmd(int _command = MBUS_NONE):
         command(_command),
-        address(_address),
         no_callback(false),
         inProgress(false),
         mapSignals(NULL)
     { }
 
-    int command;
+    int command = MBUS_NONE;
 
-    bool status;
-
-    UWord address;
-    int count;
-
-    bool value_bit;
-    vector<bool> values_bits;
-    UWord value_word;
-    vector<UWord> values_words;
+    string wago_cmd_id;
 
     bool no_callback;
     string udp_command;
     string udp_result;
     bool inProgress;
 
-    WagoMapSignals *mapSignals;
+    WagoMapSignals *mapSignals = nullptr;
 
     void createSignals() { if (!mapSignals) mapSignals = new WagoMapSignals(); }
     void deleteSignals() { DELETE_NULL(mapSignals); }
@@ -114,14 +99,15 @@ public:
     vector<WagoMap *> maps;
 };
 
-class WagoMap: public CThread
+class WagoMap: public sigc::trackable
 {
 
 protected:
     std::string host;
     int port;
 
-    bool quit_thread;
+    ExternProcServer *process;
+    string exe;
 
     vector<bool> input_bits;
     vector<bool> output_bits;
@@ -133,10 +119,7 @@ protected:
 
     static WagoMapManager wagomaps;
 
-    queue<WagoMapCmd> mbus_commands;
-    Mutex mutex_queue;
-    Mutex mutex_lock;
-    sigc::signal<void, string, string, void *, void *> sigIPC;
+    unordered_map<string, WagoMapCmd> mbus_commands;
 
     /* Heartbeat timer that do a modbus query to avoid TCP disconnection with the Wago */
     EcoreTimer *mbus_heartbeat_timer;
@@ -147,7 +130,7 @@ protected:
     Ecore_Con_Server *econ;
     Ecore_Event_Handler *event_handler_data_get;
 
-    void queueAndSendCommand(WagoMapCmd cmd);
+    void processNewMessage(const string &msg);
 
     /* Timer callback for udp commands */
     void UDPCommand_cb();
@@ -162,8 +145,6 @@ protected:
 
 public:
     ~WagoMap();
-
-    void IPCCallbacks(string source, string emission, void *listener_data, void *sender_data);
 
     //Singleton
     static WagoMap &Instance(std::string host, int port);
@@ -191,8 +172,6 @@ public:
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);
-
-    virtual void ThreadProc();
 };
 
 }

@@ -20,10 +20,11 @@
  ******************************************************************************/
 #include <WagoCtrl.h>
 
-using namespace Calaos;
 using namespace Utils;
 
-WagoCtrl::WagoCtrl(std::string h, int p): host(h), port(p)
+WagoCtrl::WagoCtrl(std::string h, int p):
+    host(h),
+    port(p)
 {
     mbus = mbus_init(NULL);
     if (host == "") host = "127.0.0.1";
