@@ -46,6 +46,8 @@ private:
 
     list<CalaosEvent> events;
 
+    sigc::connection evcon;
+
 public:
     PollObject(string uuid);
     ~PollObject();

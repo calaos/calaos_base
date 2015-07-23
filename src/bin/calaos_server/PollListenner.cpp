@@ -28,13 +28,15 @@ PollObject::PollObject(string _uuid):
 {
     timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
 
-    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &PollObject::handleEvents));
+    evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &PollObject::handleEvents));
 
     cDebugDom("poll_listener") << "New object for " << uuid;
 }
 
 PollObject::~PollObject()
 {
+    evcon.disconnect();
+
     if (timeout)
     {
         delete timeout;
