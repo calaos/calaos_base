@@ -344,7 +344,6 @@ calaos_wago_LDADD = \
 	@CALAOS_SERVER_LIBS@ \
 	$(top_builddir)/src/lib/libcalaos_common.la
 
-if HAVE_OWCAPI
 bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \
 	IO/ExternProc.cpp				\
@@ -354,7 +353,6 @@ calaos_1wire_SOURCES = \
 calaos_1wire_LDADD = \
 	@CALAOS_SERVER_LIBS@ \
 	$(top_builddir)/src/lib/libcalaos_common.la
-endif
 
 if HAVE_LIBOLA
 bin_PROGRAMS += calaos_ola

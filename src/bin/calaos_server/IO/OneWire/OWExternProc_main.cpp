@@ -18,9 +18,15 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "ExternProc.h"
 
-#include <owcapi.h>
+#if HAVE_LIBOWCAPI
+# include <owcapi.h>
+#endif
 
 class OWProcess: public ExternProcClient
 {
@@ -43,16 +49,67 @@ protected:
     //needs to be reimplemented
     virtual void readTimeout();
     virtual void messageReceived(const string &msg);
+
+private:
+    bool use_w1;
 };
 
 OWProcess::~OWProcess()
 {
+#if HAVE_LIBOWCAPI
     OW_finish();
+#endif
 }
 
 string OWProcess::getValue(const string &path, const string &param)
 {
     string value;
+
+    if (use_w1)
+    {
+        ifstream f;
+        string fvalue = "/sys/bus/w1/devices/" + path + "/w1_slave";
+
+        f.open(fvalue);
+        if (!f.is_open())
+            return "";
+
+        // File read looks like that :
+        // b3 01 4b 46 7f ff 0d 10 9a : crc=9a YES
+        // b3 01 4b 46 7f ff 0d 10 9a t=27187
+
+        string line;
+        while(f.eof())
+        {
+            getline(f, line);
+            if (!line.empty())
+            {
+                // CRC is OK
+                if (line.find("YES") != string::npos)
+                {
+                    // get next line and search for t=
+                    size_t pos;
+                    getline(f, line);
+                    if (!line.empty())
+                    {
+                        pos = line.find("t=");
+                        if (pos != string::npos)
+                        {
+                            pos += 2;
+                            line.erase(0, pos);
+                            f.close();
+                            return line;
+                        }
+                    }
+                }
+            }
+        }
+        f.close();
+        return "";
+    }
+
+#if HAVE_LIBOWCAPI
+
     string p = path + "/" + param;
     char *res;
     size_t len;
@@ -66,11 +123,39 @@ string OWProcess::getValue(const string &path, const string &param)
         cError() << "Error reading OW path: " << p << " " << strerror(errno);
 
     return value;
+#else
+    return "";
+#endif
+
+
+
 }
 
 list<string> OWProcess::scanDevices()
 {
+
     list<string> listDevices;
+
+    if (use_w1)
+    {
+        ifstream f;
+        string fslaves = "/sys/bus/w1/w1_bus_master1/w1_master_slaves";
+
+        f.open(fslaves);
+        if (!f.is_open())
+            return listDevices;
+        string line;
+        while(f.eof())
+        {
+            getline(f, line);
+            if (!line.empty())
+                listDevices.push_back(line);
+        }
+        f.close();
+        return listDevices;
+    }
+
+#if HAVE_LIBOWCAPI
     ssize_t ret;
     size_t len;
     char *dir_buffer = NULL;
@@ -97,6 +182,9 @@ list<string> OWProcess::scanDevices()
     }
 
     return listDevices;
+#else
+    return listDevices;
+#endif
 }
 
 void OWProcess::readTimeout()
@@ -130,6 +218,30 @@ void OWProcess::messageReceived(const string &msg)
 bool OWProcess::setup(int &argc, char **&argv)
 {
     bool scan_devices = false;
+
+    use_w1 = false;
+
+    if (argvOptionCheck(argv, argv + argc, "--use-w1"))
+    {
+        cDebug() << "Use w1";
+        use_w1 = true;
+        argc--; argv++;
+    }
+
+    if (argvOptionCheck(argv, argv + argc, "--help") ||
+        argvOptionCheck(argv, argv + argc, "-h"))
+    {
+        cout << "This tool is for calaos internal use only. However it may be usefull " <<
+                "for debugging purpose. It's designed to scan One Wire devices and print " <<
+                "detected devices and their temperatures on screen" << endl;
+        cout << "    Usage : " << argv[0] << " [--use-w1] [--scan] [owfs_args]" << endl;
+        cout << "         --use-w1    : Force the use of w1 kernel module for one wire detection." << endl;
+        cout << "         --scan      : scan hardware and detect OneWire devices." << endl;
+        cout << "         --owfs_args : List of arguments used by OWFS during init." << endl;
+        return false;
+    }
+
+
     if (argvOptionCheck(argv, argv + argc, "--scan"))
     {
         //this option is for direct use only and only scans all devices
@@ -151,12 +263,22 @@ bool OWProcess::setup(int &argc, char **&argv)
         owargs += string(argv[i]) + " ";
 
     cDebug() << "Args: " << owargs;
-    if (OW_init(owargs.c_str()) != 0)
+
+#if HAVE_LIBOWCAPI
+    if (OW_init(owargs.c_str()) != 0 && !use_w1 )
     {
         cError() << "Unable to initialize OW library : " << strerror(errno);
         return false;
     }
-    cInfo() << "OW Library initialization ok";
+    if (!use_w1)
+        cInfo() << "OW Library initialization ok";
+#else
+    if (!use_w1)
+    {
+        cWarning() <<"One wire support with owfs is not build";
+        return false;
+    }
+#endif
 
     if (scan_devices)
     {

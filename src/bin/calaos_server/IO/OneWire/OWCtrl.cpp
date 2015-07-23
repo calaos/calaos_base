@@ -40,6 +40,8 @@ OwCtrl::OwCtrl(const string &args)
     process->startProcess(exe, "1wire", args);
 }
 
+
+
 OwCtrl::~OwCtrl()
 {
     delete process;
