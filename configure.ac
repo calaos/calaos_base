@@ -50,7 +50,7 @@ PKG_PROG_PKG_CONFIG
 
 ### Checks for libraries
 
-efl_ver="1.7.0"
+efl_ver="1.14.0"
 
 requirements_calaos_common="eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
