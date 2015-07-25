@@ -139,7 +139,7 @@ list<string> OWProcess::scanDevices()
     if (use_w1)
     {
         ifstream f;
-        string fslaves = "/sys/bus/w1/w1_bus_master1/w1_master_slaves";
+        string fslaves = "/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves";
 
         f.open(fslaves);
         if (!f.is_open())
