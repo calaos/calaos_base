@@ -22,7 +22,15 @@
 
 using namespace Calaos;
 
-IODoc::IODoc() {}
+IODoc::IODoc()
+{
+
+}
+
+void IODoc::friendlyNameSet(string friendlyName)
+{
+    m_name = friendlyName;
+}
 
 void IODoc::descriptionSet(string description)
 {
@@ -103,16 +111,22 @@ string IODoc::genDocJson()
 
 string IODoc::genDocMd()
 {
-    string doc = "##Description\n" + m_description;
+    string doc = "#" + m_name + "\n";
+    doc += m_description + "\n";
+    doc += "##Parameters of " + m_name + "\n";
+
+    doc += "Name | Type | Mandatory | Description\n";
+    doc += "---- | ---- | --------- | -----------\n";
+
     for (const auto &param : m_parameters)
     {
-        for (int i = 0; i < param.size(); i++)
-        {
-            string key, value;
-            param.get_item(i, key, value);
-            doc += "\n**" + key + "**: " + value;
-            doc += "\n";
-        }
+        doc += param["name"] + " | ";
+        doc += param["type"] + " | ";
+        if (param["mandatory"] == "true")
+            doc += "yes | ";
+        else
+            doc += "no | ";
+        doc += param["description"] + "\n";
     }
 
     return doc;

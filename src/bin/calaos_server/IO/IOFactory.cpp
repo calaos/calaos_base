@@ -180,10 +180,14 @@ void IOFactory::genDoc(string path)
 
     for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
     {
-        std::cout << " " << it->first << " : ";//<< ":" << it->second;
+        std::cout << "#" << it->first << endl;//<< ":" << it->second;
         Input *in = IOFactory::Instance().CreateInput(it->first, p);
         cout << in->genDocMd();
         cout << endl;
+//        cout << endl;
+//        cout << in->genDocJson();
+//        cout << endl;
+
     }
 
 }

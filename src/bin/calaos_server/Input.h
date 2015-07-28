@@ -54,7 +54,7 @@ public:
     string genDocMd() const
     {
         if (ioDoc)
-            return ioDoc->genDocJson();
+            return ioDoc->genDocMd();
         else
             return "";
     }

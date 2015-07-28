@@ -35,7 +35,7 @@ OWTemp::OWTemp(Params &p):
     InputTemp(p)
 {
     // Define IO documentation for OWTemp
-
+    ioDoc->friendlyNameSet("OWTemp");
     ioDoc->descriptionSet("Temperature measurement with DS18B20 Onewire Sensor");
     ioDoc->linkAdd("Calaos Wiki", "http://calaos.fr/wiki/OneWire");
     ioDoc->paramAdd("ow_id", "Unique ID of sensor on OneWire bus.", "string", true);

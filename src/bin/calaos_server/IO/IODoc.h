@@ -27,7 +27,7 @@
 class IODoc {
 public:
     IODoc();
-
+    void friendlyNameSet(string friendlyName);
     void descriptionSet(string description);
     void linkAdd(string description, string link);
     void paramAdd(string name, string description, string type, bool mandatory);
@@ -39,7 +39,7 @@ public:
 
 
 private:
-
+    string m_name;
     string m_description;
     vector<Params> m_links;
     vector<Params> m_parameters;
