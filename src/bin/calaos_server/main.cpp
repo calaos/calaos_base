@@ -33,7 +33,6 @@
 #include "HttpServer.h"
 #include "Zibase.h"
 #include "Prefix.h"
-#include "GenDoc.h"
 
 using namespace Calaos;
 
