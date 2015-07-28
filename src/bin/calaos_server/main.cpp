@@ -102,7 +102,7 @@ int main (int argc, char **argv)
     char *gendocDir = argvOptionParam(argv, argv + argc, "--gendoc");
     if (gendocDir)
     {
-        genDoc(gendocDir);
+        IOFactory::Instance().genDoc(gendocDir);
         exit(0);
     }
 

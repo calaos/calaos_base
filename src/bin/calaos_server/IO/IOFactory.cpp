@@ -173,3 +173,17 @@ IPCam *IOFactory::CreateIPCamera(TiXmlElement *node)
 
     return cam;
 }
+
+void IOFactory::genDoc(string path)
+{
+    Params p;
+
+    for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
+    {
+        std::cout << " " << it->first << " : ";//<< ":" << it->second;
+        Input *in = IOFactory::Instance().CreateInput(it->first, p);
+        cout << in->genDocMd();
+        cout << endl;
+    }
+
+}

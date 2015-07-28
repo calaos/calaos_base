@@ -64,10 +64,9 @@ private:
     unordered_map<string, function<Output *(Params &)>> outputFunctionRegistry;
     unordered_map<string, function<AudioPlayer *(Params &)>> audioFunctionRegistry;
     unordered_map<string, function<IPCam *(Params &)>> camFunctionRegistry;
-
-public:
     unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
 
+public:
 
     void readParams(TiXmlElement *node, Params &p);
 
@@ -102,6 +101,8 @@ public:
     {
         camFunctionRegistry[type] = classFunc;
     }
+
+    void genDoc(string path);
 
     static IOFactory &Instance()
     {

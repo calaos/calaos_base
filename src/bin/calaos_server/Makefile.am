@@ -250,7 +250,6 @@ calaos_server_SOURCES = \
         IO/Zibase/ZibaseDigitalIn.h                     \
         IO/Zibase/ZibaseDigitalOut.cpp                  \
         IO/Zibase/ZibaseDigitalOut.h                    \
-        IO/gendoc.cpp                                   \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \

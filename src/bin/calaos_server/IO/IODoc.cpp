@@ -103,5 +103,17 @@ string IODoc::genDocJson()
 
 string IODoc::genDocMd()
 {
-    return "";
+    string doc = "##Description\n" + m_description;
+    for (const auto &param : m_parameters)
+    {
+        for (int i = 0; i < param.size(); i++)
+        {
+            string key, value;
+            param.get_item(i, key, value);
+            doc += "\n**" + key + "**: " + value;
+            doc += "\n";
+        }
+    }
+
+    return doc;
 }
