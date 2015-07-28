@@ -33,6 +33,7 @@
 #include "HttpServer.h"
 #include "Zibase.h"
 #include "Prefix.h"
+#include "GenDoc.h"
 
 using namespace Calaos;
 
@@ -54,6 +55,7 @@ static void echoUsage(char **argv)
     cout << _("\t-h, --help\tDisplay this help.\n");
     cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
     cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
+    cout << _("\t--gendoc <path>\tGenerate Io documentation in <path>\n");
     cout << _("\t-v, --version\tDisplay current version and exit.\n");
     cout << endl;
 }
@@ -61,6 +63,21 @@ static void echoUsage(char **argv)
 int main (int argc, char **argv)
 {
     InitEinaLog("server");
+    //init ecore system
+    eina_init();
+    ecore_init();
+    ecore_con_init();
+
+    vector<Params> params;
+    Params p;
+    p.Add("test", "valeur");
+    params.push_back(p);
+
+    for (auto p2 : params)
+    {
+        cout << p2.size() << endl;
+    }
+
 
     cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
 
@@ -82,6 +99,13 @@ int main (int argc, char **argv)
         exit(0);
     }
 
+    char *gendocDir = argvOptionParam(argv, argv + argc, "--gendoc");
+    if (gendocDir)
+    {
+        genDoc(gendocDir);
+        exit(0);
+    }
+
     char *confdir = argvOptionParam(argv, argv + argc, "--config");
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
@@ -93,11 +117,6 @@ int main (int argc, char **argv)
     EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
-
-    //init ecore system
-    eina_init();
-    ecore_init();
-    ecore_con_init();
 
     ecore_app_args_set(argc, (const char **)argv);
 

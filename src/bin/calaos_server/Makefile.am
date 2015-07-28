@@ -84,7 +84,7 @@ calaos_server_SOURCES = \
         HttpServer.h                                    \
         IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
         IO/Blinkstick/BlinkstickOutputLightRGB.h        \
-        IO/ExternProc.cpp                               \
+	IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
@@ -100,6 +100,8 @@ calaos_server_SOURCES = \
         IO/Gpio/GpioOutputShutterSmart.h                \
         IO/Gpio/GpioOutputSwitch.cpp                    \
         IO/Gpio/GpioOutputSwitch.h                      \
+        IO/IODoc.cpp					\
+        IO/IODoc.h 					\
         IO/IOFactory.cpp                                \
         IO/IOFactory.h                                  \
         IO/InPlageHoraire.cpp                           \
@@ -248,6 +250,7 @@ calaos_server_SOURCES = \
         IO/Zibase/ZibaseDigitalIn.h                     \
         IO/Zibase/ZibaseDigitalOut.cpp                  \
         IO/Zibase/ZibaseDigitalOut.h                    \
+        IO/gendoc.cpp                                   \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \

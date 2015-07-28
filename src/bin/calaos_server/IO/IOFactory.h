@@ -61,12 +61,14 @@ class IOFactory
 private:
     IOFactory() {}
 
-    unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
     unordered_map<string, function<Output *(Params &)>> outputFunctionRegistry;
     unordered_map<string, function<AudioPlayer *(Params &)>> audioFunctionRegistry;
     unordered_map<string, function<IPCam *(Params &)>> camFunctionRegistry;
 
 public:
+    unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
+
+
     void readParams(TiXmlElement *node, Params &p);
 
     Input *CreateInput(string type, Params &params);
