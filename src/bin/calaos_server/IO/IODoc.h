@@ -33,8 +33,7 @@ public:
     void paramAdd(string name, string description, string type, bool mandatory);
     void conditionAdd(string name, string description, string type);
     void actionAdd(string name, string description);
-    json_t *toJson();
-    string genDocJson();
+    json_t *genDocJson();
     string genDocMd();
 
 

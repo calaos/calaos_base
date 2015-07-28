@@ -71,7 +71,7 @@ void IODoc::actionAdd(string name, string description)
     m_actions.push_back(p);
 }
 
-json_t *IODoc::toJson()
+json_t *IODoc::genDocJson()
 {
     json_t *ret = json_object();
 
@@ -98,14 +98,6 @@ json_t *IODoc::toJson()
     }
     json_object_set_new(ret, "actions", array);
 
-    return ret;
-}
-
-string IODoc::genDocJson()
-{
-    string ret = "";
-    json_t *j =  toJson();
-    ret = json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
     return ret;
 }
 

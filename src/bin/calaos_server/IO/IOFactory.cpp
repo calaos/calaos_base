@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <IOFactory.h>
+#include <Ecore_File.h>
 
 using namespace Calaos;
 
@@ -177,17 +178,40 @@ IPCam *IOFactory::CreateIPCamera(TiXmlElement *node)
 void IOFactory::genDoc(string path)
 {
     Params p;
+    string docPath = path + "/" + PACKAGE_STRING;
 
+    if (!ecore_file_exists(docPath.c_str()))
+    {
+        cDebug() << "Creating Documentation path " << path;
+
+        if (!ecore_file_mkpath(docPath.c_str()))
+        {
+            cError() << "Unable to create path " << path;
+            return;
+        }
+
+    }
+
+    string filePath = docPath + "/inputs.md";
+    ofstream ofs(filePath, ofstream::out);
     for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
     {
         std::cout << "#" << it->first << endl;//<< ":" << it->second;
         Input *in = IOFactory::Instance().CreateInput(it->first, p);
-        cout << in->genDocMd();
-        cout << endl;
-//        cout << endl;
-//        cout << in->genDocJson();
-//        cout << endl;
+        ofs << in->genDocMd();
+    }
+    ofs.close();
+
+    filePath = docPath + "/inputs.json";
+    ofs.open(filePath, ofstream::out);
+    json_t *j = json_object();
+    for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
+    {
+        Input *in = IOFactory::Instance().CreateInput(it->first, p);
+        json_object_set_new(j, it->first.c_str(), in->genDocJson());
 
     }
+    ofs << json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
 
+    ofs.close();
 }

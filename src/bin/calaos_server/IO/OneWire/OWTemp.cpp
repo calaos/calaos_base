@@ -39,7 +39,7 @@ OWTemp::OWTemp(Params &p):
     ioDoc->descriptionSet("Temperature measurement with DS18B20 Onewire Sensor");
     ioDoc->linkAdd("Calaos Wiki", "http://calaos.fr/wiki/OneWire");
     ioDoc->paramAdd("ow_id", "Unique ID of sensor on OneWire bus.", "string", true);
-    ioDoc->paramAdd("ow_args", "Additional paramter use during owfs init.\n"
+    ioDoc->paramAdd("ow_args", "Additional paramter use during owfs init."
                                "For example you can use -u to use the USB owfs drivers",
                     "string", true);
 

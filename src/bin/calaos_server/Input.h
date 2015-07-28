@@ -58,12 +58,12 @@ public:
         else
             return "";
     }
-    string genDocJson() const
+    json_t *genDocJson() const
     {
         if (ioDoc)
             return ioDoc->genDocJson();
         else
-            return "";
+            return nullptr;
     }
 };
 
