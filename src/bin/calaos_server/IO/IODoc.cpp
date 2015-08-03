@@ -103,22 +103,82 @@ json_t *IODoc::genDocJson()
 
 string IODoc::genDocMd()
 {
-    string doc = "#" + m_name + "\n";
-    doc += m_description + "\n";
-    doc += "##Parameters of " + m_name + "\n";
+    string doc ="";
 
-    doc += "Name | Type | Mandatory | Description\n";
-    doc += "---- | ---- | --------- | -----------\n";
-
-    for (const auto &param : m_parameters)
+    if (m_name.empty())
     {
-        doc += param["name"] + " | ";
-        doc += param["type"] + " | ";
-        if (param["mandatory"] == "true")
-            doc += "yes | ";
-        else
-            doc += "no | ";
-        doc += param["description"] + "\n";
+        doc += "#UNDOCUMENTED IO\n";
+        doc += "SPANK SPANK SPANK : naughty programmer ! You did not add documentation for this IO, that's BAD :'(\n";
+        doc += "Document IO in your code or you will burn in hell!\n\n";
+    }
+    else
+    {
+        doc += "\n#" + m_name + "\n";
+    }
+
+    doc += m_description + "\n";
+
+    if (m_parameters.size())
+    {
+
+        doc += "\n##Parameters of " + m_name + "\n";
+
+        doc += "Name | Type | Mandatory | Description\n";
+        doc += "---- | ---- | --------- | -----------\n";
+
+        for (const auto &param : m_parameters)
+        {
+            doc += param["name"] + " | ";
+            doc += param["type"] + " | ";
+            if (param["mandatory"] == "true")
+                doc += "yes | ";
+            else
+                doc += "no | ";
+            doc += param["description"] + "\n";
+        }
+        doc += "\n";
+    }
+
+    if (m_conditions.size())
+    {
+        doc += "##Conditions of " + m_name + "\n";
+
+        doc += "Name | Description\n";
+        doc += "---- | -----------\n";
+
+        for (const auto &param : m_conditions)
+        {
+            doc += param["name"] + " | ";
+            doc += param["description"] + " \n ";
+        }
+        doc += "\n";
+    }
+
+    if (m_actions.size())
+    {
+        doc += "##Actions of " + m_name + "\n";
+        doc += "Name | Description\n";
+        doc += "---- | -----------\n";
+
+        for (const auto &param : m_actions)
+        {
+            doc += param["name"] + " | ";
+            doc += param["description"] + " \n ";
+        }
+        doc += "\n";
+    }
+
+    if (m_links.size())
+    {
+        doc += "##More Infos\n";
+
+
+        for (const auto &param : m_links)
+        {
+            doc += param["description"] + " : ";
+            doc += param["link"] + " \n ";
+        }
+        doc += "\n";
     }
 
     return doc;

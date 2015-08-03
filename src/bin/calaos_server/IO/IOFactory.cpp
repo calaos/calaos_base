@@ -175,9 +175,73 @@ IPCam *IOFactory::CreateIPCamera(TiXmlElement *node)
     return cam;
 }
 
-void IOFactory::genDoc(string path)
+void IOFactory::genDocOutput(string docPath, string type)
 {
     Params p;
+
+    json_t *j = json_object();
+
+    string mdPath = docPath + "/"+ type + "s.md";
+    string jsonPath = docPath + "/" + type + "s.json";
+
+    ofstream mdFile(mdPath, ofstream::out);
+    ofstream jsonFile(jsonPath, ofstream::out);
+
+    if (type == "input")
+    {
+        auto list = inputFunctionRegistry;
+        for ( auto it = list.begin(); it != list.end(); ++it )
+        {
+            auto io =  CreateInput(it->first, p);
+            json_object_set_new(j, it->first.c_str(), io->genDocJson());
+            mdFile << io->genDocMd();
+        }
+    }
+    else if (type == "output")
+    {
+        auto list = outputFunctionRegistry;
+        for ( auto it = list.begin(); it != list.end(); ++it )
+        {
+            auto io =  CreateOutput(it->first, p);
+            json_object_set_new(j, it->first.c_str(), io->genDocJson());
+            mdFile << io->genDocMd();
+        }
+    }
+    else if (type == "audio")
+    {
+        auto list = audioFunctionRegistry;
+        for ( auto it = list.begin(); it != list.end(); ++it )
+        {
+            auto input =  CreateAudio(it->first, p)->get_input();
+            json_object_set_new(j, it->first.c_str(), input->genDocJson());
+            auto output =  CreateAudio(it->first, p)->get_output();
+            json_object_set_new(j, it->first.c_str(), output->genDocJson());
+            mdFile << input->genDocMd();
+            mdFile << output->genDocMd();
+        }
+    }
+    else if (type == "cam")
+    {
+        auto list = camFunctionRegistry;
+        for ( auto it = list.begin(); it != list.end(); ++it )
+        {
+            auto input =  CreateIPCamera(it->first, p)->get_input();
+            json_object_set_new(j, it->first.c_str(), input->genDocJson());
+            auto output =  CreateIPCamera(it->first, p)->get_output();
+            json_object_set_new(j, it->first.c_str(), output->genDocJson());
+            mdFile << input->genDocMd();
+            mdFile << output->genDocMd();
+        }
+    }
+
+    jsonFile << json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
+    jsonFile.close();
+    mdFile.close();
+}
+
+void IOFactory::genDoc(string path)
+{
+
     string docPath = path + "/" + PACKAGE_STRING;
 
     if (!ecore_file_exists(docPath.c_str()))
@@ -192,26 +256,9 @@ void IOFactory::genDoc(string path)
 
     }
 
-    string filePath = docPath + "/inputs.md";
-    ofstream ofs(filePath, ofstream::out);
-    for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
-    {
-        std::cout << "#" << it->first << endl;//<< ":" << it->second;
-        Input *in = IOFactory::Instance().CreateInput(it->first, p);
-        ofs << in->genDocMd();
-    }
-    ofs.close();
-
-    filePath = docPath + "/inputs.json";
-    ofs.open(filePath, ofstream::out);
-    json_t *j = json_object();
-    for ( auto it = inputFunctionRegistry.begin(); it != inputFunctionRegistry.end(); ++it )
-    {
-        Input *in = IOFactory::Instance().CreateInput(it->first, p);
-        json_object_set_new(j, it->first.c_str(), in->genDocJson());
-
-    }
-    ofs << json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
-
-    ofs.close();
+    genDocOutput(docPath, "input");
+    genDocOutput(docPath, "output");
+    genDocOutput(docPath, "audio");
+    genDocOutput(docPath, "cam");
 }
+

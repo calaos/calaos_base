@@ -103,6 +103,7 @@ public:
     }
 
     void genDoc(string path);
+    void genDocOutput(string docPath, string type);
 
     static IOFactory &Instance()
     {
