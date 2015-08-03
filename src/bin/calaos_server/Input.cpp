@@ -29,9 +29,6 @@ using namespace Calaos;
 Input::Input(Params &p):
     IOBase(p)
 {
-    ioDoc = new IODoc();
-    ioDoc->paramAdd("id", "Unique id indentifying the Input in calaos-server", "string", true);
-
     iter_input = signal_input.connect(sigc::mem_fun(&ListeRule::Instance(), &ListeRule::ExecuteRuleSignal));
 
     ListeRoom::Instance().addInputHash(this);

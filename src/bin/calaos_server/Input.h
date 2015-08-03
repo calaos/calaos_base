@@ -23,7 +23,6 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "IODoc.h"
 
 namespace Calaos
 {
@@ -34,7 +33,6 @@ protected:
     typedef sigc::signal<void, std::string> type_signal_input;
     type_signal_input signal_input;
     type_signal_input::iterator iter_input;
-    IODoc *ioDoc;
 
 public:
     Input(Params &p);
@@ -51,20 +49,6 @@ public:
     { return false; }
     virtual bool SaveToXml(TiXmlElement *node);
 
-    string genDocMd() const
-    {
-        if (ioDoc)
-            return ioDoc->genDocMd();
-        else
-            return "";
-    }
-    json_t *genDocJson() const
-    {
-        if (ioDoc)
-            return ioDoc->genDocJson();
-        else
-            return nullptr;
-    }
 };
 
 }
