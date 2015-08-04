@@ -188,6 +188,7 @@ void IOFactory::genDocOutput(string docPath, string type)
         map<string, function<Input *(Params &)>> list(inputFunctionRegistry.begin(), inputFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
+            p.Add("type", origNameMap[it->first]);
             auto io =  CreateInput(it->first, p);
             IODoc *doc = io->getDoc();
             if (doc && !doc->isAlias(it->first.c_str()))
@@ -202,6 +203,7 @@ void IOFactory::genDocOutput(string docPath, string type)
         map<string, function<Output *(Params &)>> list(outputFunctionRegistry.begin(), outputFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
+            p.Add("type", origNameMap[it->first]);
             auto io =  CreateOutput(it->first, p);
             IODoc *doc = io->getDoc();
             if (doc && !doc->isAlias(it->first.c_str()))
@@ -216,6 +218,7 @@ void IOFactory::genDocOutput(string docPath, string type)
         map<string, function<AudioPlayer *(Params &)>> list(audioFunctionRegistry.begin(), audioFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
+            p.Add("type", origNameMap[it->first]);
             auto audio = CreateAudio(it->first, p);
             auto input = audio->get_input();
             auto output =  audio->get_output();
@@ -240,6 +243,7 @@ void IOFactory::genDocOutput(string docPath, string type)
         map<string, function<IPCam *(Params &)>> list(camFunctionRegistry.begin(), camFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
+            p.Add("type", origNameMap[it->first]);
             auto cam = CreateIPCamera(it->first, p);
             auto input = cam->get_input();
             auto output = cam->get_output();

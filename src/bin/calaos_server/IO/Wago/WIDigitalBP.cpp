@@ -33,6 +33,8 @@ WIDigitalBP::WIDigitalBP(Params &p):
     port(502),
     initial(true)
 {
+
+
     host = get_param("host");
     Utils::from_string(get_param("var"), address);
     if (get_params().Exists("port"))

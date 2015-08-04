@@ -26,8 +26,13 @@ InputSwitch::InputSwitch(Params &p):
     Input(p),
     value(false)
 {
-    if (!get_params().Exists("visible")) set_param("visible", "false");
+    ioDoc->descriptionSet(_("Basic switch with press/release states."));
+    ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+    ioDoc->conditionAdd("true", _("Event triggered when switch is pressed"));
+    ioDoc->conditionAdd("false", _("Event triggered when switch is released"));
+    ioDoc->conditionAdd("changed", _("Event on any change of state"));
 
+    set_param("visible", "false");
     set_param("gui_type", "switch");
 }
 

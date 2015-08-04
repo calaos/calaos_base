@@ -28,8 +28,14 @@ InputSwitchTriple::InputSwitchTriple(Params &p):
     value(0.0),
     timer(NULL)
 {
-    if (!get_params().Exists("visible")) set_param("visible", "false");
+    ioDoc->descriptionSet(_("Triple click switch. This switch can start 3 kind of actions. User has 500ms to do a multiple click."));
+    ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+    ioDoc->conditionAdd("1", _("Event triggered when switch is single clicked"));
+    ioDoc->conditionAdd("2", _("Event triggered when switch is double clicked"));
+    ioDoc->conditionAdd("3", _("Event triggered when switch is triple clicked"));
+    ioDoc->conditionAdd("changed", _("Event on any change of state"));
 
+    set_param("visible", "false");
     set_param("gui_type", "switch3");
 }
 

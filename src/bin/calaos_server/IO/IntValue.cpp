@@ -37,6 +37,45 @@ Internal::Internal(Params &p):
 {
     cInfoDom("output") << get_param("id") << ": Ok";
 
+    // Define IO documentation
+    Input::ioDoc->friendlyNameSet(p["type"]);
+    if (p["type"] == "InternalInt")
+    {
+        Input::ioDoc->descriptionSet(_("Internal number object. This object is useful for doing internal programing in rules, like counters, of displaying values."));
+        Input::ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false);
+        Input::ioDoc->conditionAdd("0", _("Event on a specific number value"));
+        Input::ioDoc->actionAdd("0", _("Set a specific number value"));
+        Input::ioDoc->actionAdd("inc", _("Increment value with configured step"));
+        Input::ioDoc->actionAdd("dec", _("Decrement value with configured step"));
+        Input::ioDoc->actionAdd("inc 1", _("Increment value by value"));
+        Input::ioDoc->actionAdd("dec 1", _("Decrement value by value"));
+    }
+    else if (p["type"] == "InternalBool")
+    {
+        Input::ioDoc->descriptionSet(_("Internal boolean object. This object is useful for doing internal programing in rules, like keeping boolean states, or displaying boolean values"));
+        Input::ioDoc->conditionAdd("true", _("Event when value is true"));
+        Input::ioDoc->conditionAdd("false", _("Event when value is false"));
+        Input::ioDoc->actionAdd("true", _("Set a value to true"));
+        Input::ioDoc->actionAdd("false", _("Set a value to false"));
+        Input::ioDoc->actionAdd("toggle", _("Invert boolean value"));
+        Input::ioDoc->actionAdd("impulse 200", _("Do an impulse on boolean value. Set to true for X ms then reset to false"));
+        Input::ioDoc->actionAdd("impulse 500 200 500 200", _("Do an impulse on boolean value with a pattern.<br>"
+                                                             "Ex: 500 200 500 200 means: TRUE for 500ms, FALSE for 200ms, TRUE for 500ms, FALSE for 200ms<br>"
+                                                             "Ex: 500 loop 200 300 means: TRUE for 500ms, then loop the next steps for infinite, FALSE for 200ms, TRUE for 300ms<br>"
+                                                             "Ex: 100 100 200 old means: blinks and then set to the old start state (before impulse starts)"));
+    }
+    else if (p["type"] == "InternalString")
+    {
+        Input::ioDoc->descriptionSet(_("Internal string object. This object is useful for doing internal programing in rules or displaying text values on user interfaces."));
+        Input::ioDoc->conditionAdd("value", _("Event on a specific string value"));
+        Input::ioDoc->actionAdd("value", _("Set a specific string value"));
+    }
+
+    Input::ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false);
+    Input::ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false);
+
+    Input::ioDoc->conditionAdd("changed", _("Event on any changes of value"));
+
     if (!Input::get_params().Exists("visible")) Input::set_param("visible", "false");
     if (!Input::get_params().Exists("rw")) Input::set_param("rw", "false");
     if (!Input::get_params().Exists("save")) Input::set_param("save", "false");
@@ -64,8 +103,8 @@ void Internal::force_input_bool(bool v)
     Save();
 
     EventManager::create(CalaosEvent::EventInputChanged,
-                         { { "id", Input::get_param("id") },
-                           { "state", v?"true":"false" } });
+    { { "id", Input::get_param("id") },
+      { "state", v?"true":"false" } });
 }
 
 bool Internal::set_value(bool val)
@@ -78,8 +117,8 @@ bool Internal::set_value(bool val)
     force_input_bool(val);
 
     EventManager::create(CalaosEvent::EventOutputChanged,
-                         { { "id", Input::get_param("id") },
-                           { "state", val?"true":"false" } });
+    { { "id", Input::get_param("id") },
+      { "state", val?"true":"false" } });
 
     return true;
 }
@@ -94,8 +133,8 @@ void Internal::force_input_double(double v)
     Save();
 
     EventManager::create(CalaosEvent::EventInputChanged,
-                         { { "id", Input::get_param("id") },
-                           { "state", Utils::to_string(dvalue) } });
+    { { "id", Input::get_param("id") },
+      { "state", Utils::to_string(dvalue) } });
 }
 
 bool Internal::set_value(double val)
@@ -107,8 +146,8 @@ bool Internal::set_value(double val)
     force_input_double(val);
 
     EventManager::create(CalaosEvent::EventOutputChanged,
-                         { { "id", Input::get_param("id") },
-                           { "state", Utils::to_string(dvalue) } });
+    { { "id", Input::get_param("id") },
+      { "state", Utils::to_string(dvalue) } });
 
     return true;
 }
@@ -123,8 +162,8 @@ void Internal::force_input_string(string v)
     Save();
 
     EventManager::create(CalaosEvent::EventInputChanged,
-                         { { "id", Input::get_param("id") },
-                           { "state", svalue } });
+    { { "id", Input::get_param("id") },
+      { "state", svalue } });
 }
 
 bool Internal::set_value(string val)
@@ -190,8 +229,8 @@ bool Internal::set_value(string val)
         force_input_string(val);
 
         EventManager::create(CalaosEvent::EventOutputChanged,
-                             { { "id", Input::get_param("id") },
-                               { "state", svalue } });
+        { { "id", Input::get_param("id") },
+          { "state", svalue } });
     }
     else if (get_type() == TBOOL)
     {

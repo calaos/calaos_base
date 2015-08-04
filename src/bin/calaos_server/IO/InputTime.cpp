@@ -32,6 +32,23 @@ InputTime::InputTime(Params &p):
     with_date(false),
     value(false)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("InputTime");
+    ioDoc->descriptionSet(_("Basic time input. An event is triggered when the current time equals the configured time. A specific date can also be set."));
+    ioDoc->paramAdd("visible", _("A time object can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+
+    ioDoc->paramAdd("hour", _("Hour for this time input"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("min", _("Minutes for this time input"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("sec", _("Seconds for this time input"), IODoc::TYPE_INT, true);
+
+    ioDoc->paramAdd("year", _("Year for this time input"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("month", _("Month for this time input"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("day", _("Day for this time input"), IODoc::TYPE_INT, false);
+
+    ioDoc->conditionAdd("true", _("Event triggered when current time equals"));
+    ioDoc->conditionAdd("false", _("Event triggered when current time is not equal"));
+    ioDoc->conditionAdd("changed", _("Event on any change of time"));
+
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
     set_param("visible", "false");

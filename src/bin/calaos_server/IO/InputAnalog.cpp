@@ -31,6 +31,21 @@ InputAnalog::InputAnalog(Params &p):
     wago_value_max(0.0),
     value(0.0)
 {
+    ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
+                 IODoc::TYPE_FLOAT, false);
+    ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
+                 IODoc::TYPE_FLOAT, false);
+
+    ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
+                 IODoc::TYPE_FLOAT, false);
+    ioDoc->paramAdd("frequency", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
+                 IODoc::TYPE_FLOAT, false);
+    ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
+                 IODoc::TYPE_FLOAT, false);
+
+    ioDoc->conditionAdd("value", _("Event on a specific value"));
+    ioDoc->conditionAdd("changed", _("Event on any changes of value"));
+
     set_param("gui_type", "analog_in");
 
     readConfig();

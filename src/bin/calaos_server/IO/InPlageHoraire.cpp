@@ -31,6 +31,16 @@ InPlageHoraire::InPlageHoraire(Params &p):
     Input(p),
     value(false)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("TimeRange");
+    ioDoc->aliasAdd("InPlageHoraire");
+    ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months."));
+    ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+
+    ioDoc->conditionAdd("true", _("Event triggered when entering the range"));
+    ioDoc->conditionAdd("false", _("Event triggered when exiting the range"));
+    ioDoc->conditionAdd("changed", _("Event on any change of range"));
+
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
     cDebugDom("input") << get_param("id") << ": Ok";
 

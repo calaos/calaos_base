@@ -33,6 +33,25 @@ InputTimer::InputTimer(Params &p):
     value("true"),
     start(false)
 {
+    // Define IO documentation
+    Input::ioDoc->friendlyNameSet("InputTimer");
+    Input::ioDoc->descriptionSet(_("Timer object. trigger an event after the configured time has expired."));
+    Input::ioDoc->paramAdd("visible", _("A timer object can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+
+    Input::ioDoc->paramAdd("hour", _("Hour for the timer interval"), IODoc::TYPE_INT, true);
+    Input::ioDoc->paramAdd("min", _("Minutes for the timer interval"), IODoc::TYPE_INT, true);
+    Input::ioDoc->paramAdd("sec", _("Seconds for the timer interval"), IODoc::TYPE_INT, true);
+    Input::ioDoc->paramAdd("msec", _("Miliseconds for the timer interval"), IODoc::TYPE_INT, true);
+    Input::ioDoc->paramAdd("autostart", _("Auto start the timer when calaos starts"), IODoc::TYPE_BOOL, true);
+    Input::ioDoc->paramAdd("autorestart", _("Auto restart the timer when time expires"), IODoc::TYPE_BOOL, true);
+
+    Input::ioDoc->conditionAdd("true", _("Event triggered when timer expires"));
+    Input::ioDoc->conditionAdd("false", _("Event triggered when timer starts"));
+    Input::ioDoc->conditionAdd("change", _("Event triggered on any change"));
+    Input::ioDoc->actionAdd("start", _("Start the timer"));
+    Input::ioDoc->actionAdd("stop", _("Stop the timer"));
+    Input::ioDoc->actionAdd("00:00:00:200", _("Reset the configured time to a value. Format is h:m:s:ms"));
+
     set_param("visible", "false");
     set_param("gui_type", "timer");
 
