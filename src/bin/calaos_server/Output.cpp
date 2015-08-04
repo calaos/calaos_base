@@ -27,8 +27,6 @@ using namespace Calaos;
 Output::Output(Params &p):
     IOBase(p)
 {
-    ioDoc = new IODoc();
-
     iter_output = signal_output.connect(sigc::mem_fun(&ListeRule::Instance(), &ListeRule::ExecuteRuleSignal));
 
     ListeRoom::Instance().addOutputHash(this);

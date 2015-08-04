@@ -25,25 +25,21 @@ using namespace Calaos;
 
 Registrar::Registrar(string type, function<Input *(Params &)> classFunc)
 {
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
 Registrar::Registrar(string type, function<Output *(Params &)> classFunc)
 {
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
 Registrar::Registrar(string type, function<AudioPlayer *(Params &)> classFunc)
 {
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
 Registrar::Registrar(string type, function<IPCam *(Params &)> classFunc)
 {
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
@@ -193,8 +189,12 @@ void IOFactory::genDocOutput(string docPath, string type)
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto io =  CreateInput(it->first, p);
-            json_object_set_new(j, it->first.c_str(), io->genDocJson());
-            mdFile << io->genDocMd();
+            IODoc *doc = io->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
         }
     }
     else if (type == "output")
@@ -203,8 +203,12 @@ void IOFactory::genDocOutput(string docPath, string type)
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto io =  CreateOutput(it->first, p);
-            json_object_set_new(j, it->first.c_str(), io->genDocJson());
-            mdFile << io->genDocMd();
+            IODoc *doc = io->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
         }
     }
     else if (type == "audio")
@@ -212,12 +216,23 @@ void IOFactory::genDocOutput(string docPath, string type)
         auto list = audioFunctionRegistry;
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
-            auto input =  CreateAudio(it->first, p)->get_input();
-            json_object_set_new(j, it->first.c_str(), input->genDocJson());
-            auto output =  CreateAudio(it->first, p)->get_output();
-            json_object_set_new(j, it->first.c_str(), output->genDocJson());
-            mdFile << input->genDocMd();
-            mdFile << output->genDocMd();
+            auto audio = CreateAudio(it->first, p);
+            auto input = audio->get_input();
+            auto output =  audio->get_output();
+
+            IODoc *doc = input->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
+
+            doc = output->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
         }
     }
     else if (type == "cam")
@@ -225,12 +240,23 @@ void IOFactory::genDocOutput(string docPath, string type)
         auto list = camFunctionRegistry;
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
-            auto input =  CreateIPCamera(it->first, p)->get_input();
-            json_object_set_new(j, it->first.c_str(), input->genDocJson());
-            auto output =  CreateIPCamera(it->first, p)->get_output();
-            json_object_set_new(j, it->first.c_str(), output->genDocJson());
-            mdFile << input->genDocMd();
-            mdFile << output->genDocMd();
+            auto cam = CreateIPCamera(it->first, p);
+            auto input = cam->get_input();
+            auto output = cam->get_output();
+
+            IODoc *doc = input->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
+
+            doc = output->getDoc();
+            if (doc && !doc->isAlias(it->first.c_str()))
+            {
+                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+                mdFile << doc->genDocMd(origNameMap[it->first]);
+            }
         }
     }
 

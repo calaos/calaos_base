@@ -38,14 +38,12 @@ OWTemp::OWTemp(Params &p):
     ioDoc->friendlyNameSet("OWTemp");
     ioDoc->descriptionSet("Temperature measurement with DS18B20 Onewire Sensor");
     ioDoc->linkAdd("Calaos Wiki", "http://calaos.fr/wiki/OneWire");
-    ioDoc->paramAdd("ow_id", "Unique ID of sensor on OneWire bus.", "string", true);
+    ioDoc->paramAdd("ow_id", "Unique ID of sensor on OneWire bus.", IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("ow_args", "Additional parameter used for owfs initialization."
                                "For example you can use -u to use the USB owfs drivers",
-                    "string", true);
+                    IODoc::TYPE_STRING, true);
 
-    ioDoc->paramAdd("use_w1", "Force the use of w1 kernel driver instead of OneWire driver", "bool", false);
-    ioDoc->actionAdd("value", "Event on a temperature value in °C");
-    ioDoc->actionAdd("changed", "Event on any changes of temperature value");
+    ioDoc->paramAdd("use_w1", "Force the use of w1 kernel driver instead of OneWire driver", IODoc::TYPE_BOOL, false);
 
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");

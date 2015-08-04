@@ -33,6 +33,17 @@ WITemp::WITemp(Params &p):
     requestInProgress(false),
     start(true)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WITemp");
+    ioDoc->aliasAdd("WagoInputTemp");
+    ioDoc->descriptionSet("Temperature measurement with Wago temperature module (like 750-460)");
+    ioDoc->linkAdd("Calaos Wiki", "http://calaos.fr/wiki/fr/750-460");
+    ioDoc->paramAdd("host", "Wago PLC IP address on the network", IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", "Wago ethernet port, default to 502",
+                    IODoc::TYPE_INT, false);
+
+    ioDoc->paramAdd("var", "PLC address of the input sensor", IODoc::TYPE_INT, true);
+
     host = get_param("host");
 
     Utils::from_string(get_param("var"), address);

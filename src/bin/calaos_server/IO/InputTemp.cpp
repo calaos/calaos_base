@@ -31,16 +31,20 @@ InputTemp::InputTemp(Params &p):
     timer(0.0)
 {
     ioDoc->paramAdd("coeff_a", "use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0.",
-                 "float", false);
+                 IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("coeff_b", "use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0",
-                 "float", false);
+                 IODoc::TYPE_FLOAT, false);
 
     ioDoc->paramAdd("offset", "same as coeff_b, can be used alone. Default value is 0.0",
-                 "float", false);
+                 IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("frequency", "Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter",
-                 "float", false);
+                 IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", "Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s",
-                 "float", false);
+                 IODoc::TYPE_FLOAT, false);
+
+    ioDoc->conditionAdd("value", "Event on a temperature value in °C");
+    ioDoc->conditionAdd("changed", "Event on any changes of temperature value");
+
     set_param("gui_type", "temp");
 
     coeff_a = 1.0;

@@ -24,26 +24,47 @@
 #include "Calaos.h"
 #include <Params.h>
 
-class IODoc {
+class IODoc
+{
 public:
     IODoc();
-    void friendlyNameSet(string friendlyName);
-    void descriptionSet(string description);
-    void linkAdd(string description, string link);
-    void paramAdd(string name, string description, string type, bool mandatory);
-    void conditionAdd(string name, string description, string type);
-    void actionAdd(string name, string description);
-    json_t *genDocJson();
-    string genDocMd();
 
+    typedef enum
+    {
+        TYPE_UNKOWN,
+        TYPE_STRING,
+        TYPE_BOOL,
+        TYPE_INT,
+        TYPE_FLOAT,
+        TYPE_LIST,
+    } ParamType;
+
+    void friendlyNameSet(const string &friendlyName);
+    void descriptionSet(const string &description);
+    void linkAdd(const string &description, const string &link);
+    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory);
+    void conditionAdd(const string &name, const string &description);
+    void actionAdd(const string &name, const string &description);
+    void aliasAdd(string alias);
+
+    bool isAlias(string alias);
+
+    json_t *genDocJson();
+    string genDocMd(const string iotype);
 
 private:
     string m_name;
     string m_description;
+
+    vector<string> m_aliases;
+
     vector<Params> m_links;
     vector<Params> m_parameters;
     vector<Params> m_conditions;
     vector<Params> m_actions;
+
+    string typeToString(ParamType t);
+    ParamType typeFromString(const string &t);
 };
 
 

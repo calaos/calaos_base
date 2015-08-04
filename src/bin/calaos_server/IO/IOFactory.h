@@ -66,6 +66,8 @@ private:
     unordered_map<string, function<IPCam *(Params &)>> camFunctionRegistry;
     unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
 
+    unordered_map<string, string> origNameMap;
+
 public:
 
     void readParams(TiXmlElement *node, Params &p);
@@ -84,21 +86,33 @@ public:
 
     void RegisterClass(string type, function<Input *(Params &)> classFunc)
     {
+        string orig = type;
+        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+        origNameMap[type] = orig;
         inputFunctionRegistry[type] = classFunc;
     }
 
     void RegisterClass(string type, function<Output *(Params &)> classFunc)
     {
+        string orig = type;
+        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+        origNameMap[type] = orig;
         outputFunctionRegistry[type] = classFunc;
     }
 
     void RegisterClass(string type, function<AudioPlayer *(Params &)> classFunc)
     {
+        string orig = type;
+        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+        origNameMap[type] = orig;
         audioFunctionRegistry[type] = classFunc;
     }
 
     void RegisterClass(string type, function<IPCam *(Params &)> classFunc)
     {
+        string orig = type;
+        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+        origNameMap[type] = orig;
         camFunctionRegistry[type] = classFunc;
     }
 

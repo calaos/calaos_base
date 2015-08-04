@@ -40,7 +40,7 @@ private:
     AutoScenario *ascenario = nullptr;
 
 protected:
-    IODoc *ioDoc;
+    IODoc *ioDoc = nullptr;
 
 public:
     IOBase(Params &p):
@@ -48,10 +48,11 @@ public:
         auto_sc_mark(false)
     {
         ioDoc = new IODoc();
-        ioDoc->paramAdd("id", "Unique ID indentifying the Input/Output in calaos-server", "string", true);
+        ioDoc->paramAdd("id", "Unique ID indentifying the Input/Output in calaos-server", IODoc::TYPE_STRING, true);
+        ioDoc->paramAdd("enabled", "Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration.", IODoc::TYPE_BOOL, false);
+
         if (!param.Exists("enabled"))
             param.Add("enabled", "true");
-        ioDoc->paramAdd("enabled", "Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration.", "bool", false);
     }
     virtual ~IOBase() { /* nothing */ }
 
@@ -88,21 +89,7 @@ public:
 
     bool isEnabled() { return param["enabled"] == "true"; }
 
-    string genDocMd() const
-    {
-        if (ioDoc)
-            return ioDoc->genDocMd();
-        else
-            return "";
-    }
-    json_t *genDocJson() const
-    {
-        if (ioDoc)
-            return ioDoc->genDocJson();
-        else
-            return nullptr;
-    }
-
+    IODoc *getDoc() const {return ioDoc; }
 };
 
 }
