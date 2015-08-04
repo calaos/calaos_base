@@ -185,7 +185,7 @@ void IOFactory::genDocOutput(string docPath, string type)
 
     if (type == "input")
     {
-        auto list = inputFunctionRegistry;
+        map<string, function<Input *(Params &)>> list(inputFunctionRegistry.begin(), inputFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto io =  CreateInput(it->first, p);
@@ -199,7 +199,7 @@ void IOFactory::genDocOutput(string docPath, string type)
     }
     else if (type == "output")
     {
-        auto list = outputFunctionRegistry;
+        map<string, function<Output *(Params &)>> list(outputFunctionRegistry.begin(), outputFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto io =  CreateOutput(it->first, p);
@@ -213,7 +213,7 @@ void IOFactory::genDocOutput(string docPath, string type)
     }
     else if (type == "audio")
     {
-        auto list = audioFunctionRegistry;
+        map<string, function<AudioPlayer *(Params &)>> list(audioFunctionRegistry.begin(), audioFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto audio = CreateAudio(it->first, p);
@@ -237,7 +237,7 @@ void IOFactory::genDocOutput(string docPath, string type)
     }
     else if (type == "cam")
     {
-        auto list = camFunctionRegistry;
+        map<string, function<IPCam *(Params &)>> list(camFunctionRegistry.begin(), camFunctionRegistry.end());
         for ( auto it = list.begin(); it != list.end(); ++it )
         {
             auto cam = CreateIPCamera(it->first, p);
