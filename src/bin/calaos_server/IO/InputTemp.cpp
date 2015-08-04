@@ -30,16 +30,16 @@ InputTemp::InputTemp(Params &p):
     value(0.0),
     timer(0.0)
 {
-    ioDoc->paramAdd("coeff_a", "use in conjonction of coeff_b to apply equation on the form value_displayed = coeff_a * raw_value + coeff_b. Default value is 1.0.",
+    ioDoc->paramAdd("coeff_a", "use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0.",
                  "float", false);
-    ioDoc->paramAdd("coeff_b", "use in conjonction of coeff_a to apply equation on the form value_displayed = coeff_a * raw_value + coeff_b. Default value is 0.0",
+    ioDoc->paramAdd("coeff_b", "use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0",
                  "float", false);
 
     ioDoc->paramAdd("offset", "same as coeff_b, can be used alone. Default value is 0.0",
                  "float", false);
-    ioDoc->paramAdd("frequency", "Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read interval paramter",
+    ioDoc->paramAdd("frequency", "Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter",
                  "float", false);
-    ioDoc->paramAdd("parameter", "Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s",
+    ioDoc->paramAdd("interval", "Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s",
                  "float", false);
     set_param("gui_type", "temp");
 

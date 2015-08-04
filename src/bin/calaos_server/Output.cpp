@@ -28,7 +28,6 @@ Output::Output(Params &p):
     IOBase(p)
 {
     ioDoc = new IODoc();
-    ioDoc->paramAdd("id", "Unique id indentifying the Output in calaos-server", "string", true);
 
     iter_output = signal_output.connect(sigc::mem_fun(&ListeRule::Instance(), &ListeRule::ExecuteRuleSignal));
 

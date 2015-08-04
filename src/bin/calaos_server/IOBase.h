@@ -48,7 +48,7 @@ public:
         auto_sc_mark(false)
     {
         ioDoc = new IODoc();
-        ioDoc->paramAdd("id", "Unique id indentifying the Input/Output in calaos-server", "string", true);
+        ioDoc->paramAdd("id", "Unique ID indentifying the Input/Output in calaos-server", "string", true);
         if (!param.Exists("enabled"))
             param.Add("enabled", "true");
         ioDoc->paramAdd("enabled", "Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration.", "bool", false);
