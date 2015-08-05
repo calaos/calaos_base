@@ -29,6 +29,37 @@ AudioOutput::AudioOutput(Params &p, AudioPlayer *_player):
     player(_player),
     answer("")
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("AudioInput");
+    ioDoc->descriptionSet(_("Audio input associated to an AudioPlayer"));
+    ioDoc->paramAdd("host", _("Logitech media server IP address"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("id", _("Unique ID of squeezebox in LMS"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port_cli", _("CLI port of LMS, default to 9090"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("port_web", _("Web interface port of LMS, default to 9000."), IODoc::TYPE_INT, false);
+
+    ioDoc->conditionAdd("onplay", _("Event when play is started"));
+    ioDoc->conditionAdd("onpause", _("Event when pausing player"));
+    ioDoc->conditionAdd("onstop", _("Event when stopping player"));
+    ioDoc->conditionAdd("onsongchange", _("Event when a new song is being played"));
+    ioDoc->conditionAdd("onplaylistchange", _("Event when a change in the current playlist happens"));
+    ioDoc->conditionAdd("onvolumechange", _("Event when a change of volume happens"));
+
+    ioDoc->actionAdd("play", _("Start playing"));
+    ioDoc->actionAdd("pause", _("Pause player"));
+    ioDoc->actionAdd("stop", _("Stop player"));
+    ioDoc->actionAdd("next", _("Play next song in playlist"));
+    ioDoc->actionAdd("previous", _("Play previous song in playlist"));
+    ioDoc->actionAdd("power on", _("Switch player on"));
+    ioDoc->actionAdd("power off", _("Switch player off"));
+    ioDoc->actionAdd("sleep 10", _("Start sleep mode with X seconds"));
+    ioDoc->actionAdd("sync <playerid>", _("Sync this player with an other"));
+    ioDoc->actionAdd("unsync <playerid>", _("Stop sync of this player with an other"));
+    ioDoc->actionAdd("play <argument>", _("Clear playlist and play argument. <argument> can be any of album_id:XX artist_id:XX playlist_id:XX, ..."));
+    ioDoc->actionAdd("add <argument>", _("Add tracks to playlist. <argument> can be any of album_id:XX artist_id:XX playlist_id:XX, ..."));
+    ioDoc->actionAdd("volume set 50", _("Set current volume"));
+    ioDoc->actionAdd("volume up 1", _("Increase volume by a value"));
+    ioDoc->actionAdd("volume down 1", _("Decrease volume by a value"));
+
     get_params().Add("gui_type", "audio_output");
     get_params().Add("visible", "false");
 }

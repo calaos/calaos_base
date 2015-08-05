@@ -267,6 +267,20 @@ IOAVReceiver::IOAVReceiver(Params &p):
     Output(p),
     zone(1)
 {
+    // Define IO documentation
+    Output::ioDoc->friendlyNameSet("AVReceiver");
+    Output::ioDoc->descriptionSet(_("AVReceiver object to control network amplifier"));
+    Output::ioDoc->paramAdd("host", _("IP address of the device"), IODoc::TYPE_STRING, true);
+    Output::ioDoc->paramAdd("port", _("Port to use for connection"), IODoc::TYPE_INT, false);
+    Output::ioDoc->paramAdd("zone", _("Zone of the amplifier (if supported)"), IODoc::TYPE_INT, false);
+    Output::ioDoc->paramAdd("model", _("AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"), IODoc::TYPE_STRING, true);
+
+    Output::ioDoc->actionAdd("power on", _("Switch receiver on"));
+    Output::ioDoc->actionAdd("power off", _("Switch receiver off"));
+    Output::ioDoc->actionAdd("volume 50", _("Set current volume"));
+    Output::ioDoc->actionAdd("source X", _("Change current input source"));
+    Output::ioDoc->actionAdd("custom XXXXXX", _("Send a custom command to receiver (if you know the protocol)"));
+
     Input::get_params().Add("gui_type", "avreceiver");
     Input::get_params().Add("visible", "false");
     if (Input::get_params().Exists("zone"))
