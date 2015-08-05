@@ -31,6 +31,18 @@ WOVoletSmart::WOVoletSmart(Params &p):
     OutputShutterSmart(p),
     port(502)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WOVoletSmart");
+    ioDoc->aliasAdd("WagoOutputShutterSmart");
+    ioDoc->descriptionSet(_("Smart shutter using wago digital output modules (like 750-1504, ...)"));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-1504"));
+    ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("var_up", _("Digital output address on the PLC for opening the shutter"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("var_down", _("Digital output address on the PLC for closing the shutter"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("wago_841", _("Should be false if PLC is 750-842, true otherwise"), IODoc::TYPE_BOOL, true);
+    ioDoc->paramAdd("knx", _("Set to true if output is a KNX device (only for 750-849 with KNX/TP1 module)"), IODoc::TYPE_BOOL, false);
+
     readConfig();
     WagoMap::Instance(host, port);
 

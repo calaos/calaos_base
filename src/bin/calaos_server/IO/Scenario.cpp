@@ -33,6 +33,15 @@ Scenario::Scenario(Params &p):
     value(false),
     auto_scenario(NULL)
 {
+    Input::ioDoc->friendlyNameSet("Scenario");
+    Input::ioDoc->descriptionSet(_("A scenario variable. Use this like a virtual button to start a scenario (list of actions)"));
+    Input::ioDoc->actionAdd("true", _("Start the scenario"));
+    Input::ioDoc->actionAdd("false", _("Stop the scenario (only for special looping scenarios)"));
+    Input::ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
+    Input::ioDoc->actionAdd("changed", _("Event triggered on any change"));
+
+    Input::ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false);
+
     cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 
     set_param("gui_type", "scenario");

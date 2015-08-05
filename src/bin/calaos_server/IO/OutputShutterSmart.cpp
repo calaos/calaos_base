@@ -39,6 +39,27 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     timer_calib(NULL),
     calibrate(false)
 {
+    ioDoc->descriptionBaseSet(_("Smart shutter. This shutter calculates the position of the shutter based on the time it takes to open and close. It then allows to set directly the shutter at a specified position."));
+    ioDoc->paramAdd("time_up", _("Time in sec for shutter to be fully open. The more accurate, the better it will work"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("time_down", _("Time in sec for shutter to fully closed. The more accurate, the better it will work"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("impulse_time", _("Impulse time for shutter that needs impulse instead of holding up/down relays. If set to 0 impulse shutter is disabled. Time is in ms. Default to 0"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("stop_both", _("If in impulse mode, some shutters needs to activate both up dans down relays when stopping the shutter"), IODoc::TYPE_BOOL, false);
+    ioDoc->conditionAdd("changed", _("Event on any change of shutter state"));
+    ioDoc->conditionAdd("true", _("Event when shutter is open"));
+    ioDoc->conditionAdd("false", _("Event when shutter is closed"));
+    ioDoc->actionAdd("up", _("Open the shutter"));
+    ioDoc->actionAdd("down", _("Close the shutter"));
+    ioDoc->actionAdd("stop", _("Stop the shutter"));
+    ioDoc->actionAdd("toggle", _("Invert shutter state"));
+    ioDoc->actionAdd("impulse up 200", _("Open shutter for X ms"));
+    ioDoc->actionAdd("impulse down 200", _("Close shutter for X ms"));
+    ioDoc->actionAdd("set 50", _("Set shutter at position X in percent"));
+    ioDoc->actionAdd("up 5", _("Open the shutter by X percent"));
+    ioDoc->actionAdd("down 5", _("Close the shutter by X percent"));
+    ioDoc->actionAdd("calibrate", _("Start calibration on shutter. This opens fully the shutter and resets all internal position values. Use this if shutter sync is lost."));
+    ioDoc->actionAdd("set_state true", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+    ioDoc->actionAdd("set_state false", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+
     set_param("gui_type", "shutter_smart");
 
     readConfig();

@@ -41,6 +41,7 @@ public:
 
     void friendlyNameSet(const string &friendlyName);
     void descriptionSet(const string &description);
+    void descriptionBaseSet(const string &description);
     void linkAdd(const string &description, const string &link);
     void paramAdd(const string &name, const string &description, ParamType type, bool mandatory);
     void conditionAdd(const string &name, const string &description);
@@ -54,6 +55,7 @@ public:
 
 private:
     string m_name;
+    string m_description_base;
     string m_description;
 
     vector<string> m_aliases;

@@ -31,6 +31,8 @@ InputAnalog::InputAnalog(Params &p):
     wago_value_max(0.0),
     value(0.0)
 {
+    ioDoc->descriptionBaseSet(_("An analog input can be used to read analog values to display them and use them in rules."));
+
     ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
@@ -44,7 +46,7 @@ InputAnalog::InputAnalog(Params &p):
                  IODoc::TYPE_FLOAT, false);
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
-    ioDoc->conditionAdd("changed", _("Event on any changes of value"));
+    ioDoc->conditionAdd("changed", _("Event on any change of value"));
 
     set_param("gui_type", "analog_in");
 

@@ -29,6 +29,10 @@ OutputFake::OutputFake(Params &p):
     Output(p),
     value(false)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("OutputFake");
+    ioDoc->descriptionSet(_("Fake test output. Do nothing. Do not use."));
+
     cInfoDom("output") << "OutputFake::OutputFake(" << get_param("id") << "): Ok";
 
     set_param("visible", "false");

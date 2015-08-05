@@ -32,6 +32,22 @@ OutputShutter::OutputShutter(Params &p):
     timer_down(NULL),
     state_volet("true")
 {
+    ioDoc->descriptionBaseSet(_("Simple shutter. This shutter supports open/close states, as well as impulse shutters."));
+    ioDoc->paramAdd("time", _("Time in sec for shutter to open or close"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("impulse_time", _("Impulse time for shutter that needs impulse instead of holding up/down relays. If set to 0 impulse shutter is disabled. Time is in ms. Default to 0"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("stop_both", _("If in impulse mode, some shutters needs to activate both up dans down relays when stopping the shutter"), IODoc::TYPE_BOOL, false);
+    ioDoc->conditionAdd("changed", _("Event on any change of shutter state"));
+    ioDoc->conditionAdd("true", _("Event when shutter is open"));
+    ioDoc->conditionAdd("false", _("Event when shutter is closed"));
+    ioDoc->actionAdd("up", _("Open the shutter"));
+    ioDoc->actionAdd("down", _("Close the shutter"));
+    ioDoc->actionAdd("stop", _("Stop the shutter"));
+    ioDoc->actionAdd("toggle", _("Invert shutter state"));
+    ioDoc->actionAdd("impulse up 200", _("Open shutter for X ms"));
+    ioDoc->actionAdd("impulse down 200", _("Close shutter for X ms"));
+    ioDoc->actionAdd("set_state true", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+    ioDoc->actionAdd("set_state false", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+
     set_param("gui_type", "shutter");
 
     if (!get_params().Exists("visible")) set_param("visible", "true");

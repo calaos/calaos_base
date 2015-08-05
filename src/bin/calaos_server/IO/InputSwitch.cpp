@@ -26,7 +26,7 @@ InputSwitch::InputSwitch(Params &p):
     Input(p),
     value(false)
 {
-    ioDoc->descriptionSet(_("Basic switch with press/release states."));
+    ioDoc->descriptionBaseSet(_("Basic switch with press/release states."));
     ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false);
     ioDoc->conditionAdd("true", _("Event triggered when switch is pressed"));
     ioDoc->conditionAdd("false", _("Event triggered when switch is released"));

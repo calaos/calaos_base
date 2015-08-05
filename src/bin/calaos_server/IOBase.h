@@ -48,10 +48,11 @@ public:
         auto_sc_mark(false)
     {
         ioDoc = new IODoc();
-        ioDoc->paramAdd("id", "Unique ID indentifying the Input/Output in calaos-server", IODoc::TYPE_STRING, true);
-        ioDoc->paramAdd("visible", "Display the Input/Output on all user interfaces if set. Default to true", IODoc::TYPE_BOOL, false);
-        ioDoc->paramAdd("enabled", "Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration.", IODoc::TYPE_BOOL, false);
-        ioDoc->paramAdd("gui_type", "Internal graphical type for all calaos objects. Set automatically, read-only parameter.", IODoc::TYPE_STRING, false);
+        ioDoc->paramAdd("id", _("Unique ID indentifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true);
+        ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true);
+        ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false);
+        ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false);
+        ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false);
 
         if (!param.Exists("enabled"))
             param.Add("enabled", "true");

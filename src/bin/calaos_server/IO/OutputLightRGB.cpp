@@ -26,6 +26,27 @@ OutputLightRGB::OutputLightRGB(Params &_p):
     Output(_p),
     timer_auto(NULL)
 {
+    ioDoc->descriptionBaseSet(_("RGB light. Choose a color to be set for this light."));
+    ioDoc->conditionAdd("changed", _("Event on any change of value"));
+    ioDoc->conditionAdd("value", _("Event when light is at this value"));
+    ioDoc->actionAdd("true", _("Switch the light on"));
+    ioDoc->actionAdd("false", _("Switch the light off"));
+    ioDoc->actionAdd("toggle", _("Invert the light state (ON/OFF)"));
+    ioDoc->actionAdd("set_state true", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+    ioDoc->actionAdd("set_state false", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+    ioDoc->actionAdd("set_state #AA1294", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+
+    ioDoc->actionAdd("set #AA1294", _("Set color. Color can be represented by using HTML notation: #AABBCC, rgb(50, 10, 30), hsl(11, 22, 33)"));
+    ioDoc->actionAdd("set_red 50", _("Set red channel to X percent"));
+    ioDoc->actionAdd("set_green 50", _("Set green channel to X percent"));
+    ioDoc->actionAdd("set_blue 50", _("Set blue channel to X percent"));
+    ioDoc->actionAdd("up_red 5", _("Increase intensity by X percent of red channel"));
+    ioDoc->actionAdd("up_green 5", _("Increase intensity by X percent of green channel"));
+    ioDoc->actionAdd("up_blue 5", _("Increase intensity by X percent of blue channel"));
+    ioDoc->actionAdd("down_red 5", _("Decrease intensity by X percent of red channel"));
+    ioDoc->actionAdd("down_green 5", _("Decrease intensity by X percent of green channel"));
+    ioDoc->actionAdd("down_blue 5", _("Decrease intensity by X percent of blue channel"));
+
     set_param("gui_type", "light_rgb");
     if (!get_params().Exists("visible")) set_param("visible", "true");
 

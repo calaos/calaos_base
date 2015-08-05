@@ -33,7 +33,15 @@ WIDigitalBP::WIDigitalBP(Params &p):
     port(502),
     initial(true)
 {
-
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WIDigitalBP");
+    ioDoc->aliasAdd("WIDigital");
+    ioDoc->aliasAdd("WagoInputSwitch");
+    ioDoc->descriptionSet(_("Switch with digital input Wago modules (like 750-1405, ...)"));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-1045"));
+    ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("var", _("Address of the digital input"), IODoc::TYPE_INT, true);
 
     host = get_param("host");
     Utils::from_string(get_param("var"), address);

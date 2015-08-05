@@ -32,6 +32,17 @@ WODigital::WODigital(Params &p):
     port(502),
     start(true)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WODigital");
+    ioDoc->aliasAdd("WagoOutputLight");
+    ioDoc->descriptionSet(_("Simple light or relay control using wago digital output modules (like 750-1504, ...)"));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-1504"));
+    ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("var", _("Digital output address on the PLC"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("wago_841", _("Should be false if PLC is 750-842, true otherwise"), IODoc::TYPE_BOOL, true);
+    ioDoc->paramAdd("knx", _("Set to true if output is a KNX device (only for 750-849 with KNX/TP1 module)"), IODoc::TYPE_BOOL, false);
+
     host = get_param("host");
 
     from_string(get_param("var"), address);

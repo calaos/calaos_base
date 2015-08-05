@@ -27,7 +27,7 @@ InputSwitchLongPress::InputSwitchLongPress(Params &p):
     value(0.0),
     timer(NULL)
 {
-    ioDoc->descriptionSet(_("Long press switch. This switch supports single press and long press. User has 500ms to perform the long press."));
+    ioDoc->descriptionBaseSet(_("Long press switch. This switch supports single press and long press. User has 500ms to perform the long press."));
     ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false);
     ioDoc->conditionAdd("1", _("Event triggered when switch is pressed quickly"));
     ioDoc->conditionAdd("2", _("Event triggered when switch is pressed at least for 500ms (long press)"));

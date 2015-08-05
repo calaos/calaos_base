@@ -30,6 +30,28 @@ OutputLightDimmer::OutputLightDimmer(Params &_p):
     press_sens(false),
     stop_after_press(false)
 {
+    ioDoc->descriptionBaseSet(_("Light with dimming control. Light intensity can be changed for this light."));
+    ioDoc->conditionAdd("changed", _("Event on any change of value"));
+    ioDoc->conditionAdd("value", _("Event when light is at this value"));
+    ioDoc->actionAdd("true", _("Switch the light on"));
+    ioDoc->actionAdd("false", _("Switch the light off"));
+    ioDoc->actionAdd("toggle", _("Invert the light state"));
+    ioDoc->actionAdd("impulse 200", _("Do an impulse on light state. Set to true for X ms then reset to false"));
+    ioDoc->actionAdd("impulse 500 200 500 200", _("Do an impulse on light state with a pattern.<br>"
+                                                  "Ex: 500 200 500 200 means: TRUE for 500ms, FALSE for 200ms, TRUE for 500ms, FALSE for 200ms<br>"
+                                                  "Ex: 500 loop 200 300 means: TRUE for 500ms, then loop the next steps for infinite, FALSE for 200ms, TRUE for 300ms<br>"
+                                                  "Ex: 100 100 200 old means: blinks and then set to the old start state (before impulse starts)"));
+    ioDoc->actionAdd("set_state true", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+    ioDoc->actionAdd("set_state false", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+    ioDoc->actionAdd("set_state 50", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+
+    ioDoc->actionAdd("set off 50", _("Set light value without switching on. This will be the light intensity for the next ON"));
+    ioDoc->actionAdd("set 50", _("Set light intensity and swith on if light is off"));
+    ioDoc->actionAdd("up 5", _("Increase intensity by X percent"));
+    ioDoc->actionAdd("down 5", _("Decrease intensity by X percent"));
+    ioDoc->actionAdd("hold press", _("Dynamically change light intensity when holding a switch (press action)"));
+    ioDoc->actionAdd("hold stop", _("Dynamically change light intensity when holding a switch (stop action)"));
+
     set_param("gui_type", "light_dimmer");
 
     if (!get_params().Exists("visible")) set_param("visible", "true");

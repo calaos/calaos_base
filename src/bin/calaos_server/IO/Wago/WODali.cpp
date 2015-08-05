@@ -31,6 +31,20 @@ WODali::WODali(Params &_p):
     OutputLightDimmer(_p),
     port(502)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WODali");
+    ioDoc->aliasAdd("WagoOutputDimmer");
+    ioDoc->descriptionSet(_("Light using DALI or DMX. For DALI you need a 750-641 wago module. For DMX, a DMX4ALL-LAN device connected to the Wago PLC."));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-641"));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/dmx-lan"));
+    ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("line", _("DALI bus line, usually 1"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("address", _("Device address. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("group", _("Set to 1 if address is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("fade_time", _("DALI fade time. value is between 1-10"), IODoc::TYPE_INT, false);
+
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
@@ -38,6 +52,8 @@ WODali::WODali(Params &_p):
     WagoMap::Instance(host, port);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("line")) set_param("line", "1");
+    if (!get_params().Exists("fade_time")) set_param("fade_time", "1");
 
     string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));

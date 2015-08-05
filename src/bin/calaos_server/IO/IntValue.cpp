@@ -74,7 +74,7 @@ Internal::Internal(Params &p):
     Input::ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false);
     Input::ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false);
 
-    Input::ioDoc->conditionAdd("changed", _("Event on any changes of value"));
+    Input::ioDoc->conditionAdd("changed", _("Event on any change of value"));
 
     if (!Input::get_params().Exists("visible")) Input::set_param("visible", "false");
     if (!Input::get_params().Exists("rw")) Input::set_param("rw", "false");

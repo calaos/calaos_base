@@ -26,6 +26,21 @@ OutputLight::OutputLight(Params &p):
     Output(p),
     value(false)
 {
+    ioDoc->descriptionBaseSet(_("Basic light. This light have only 2 states, ON or OFF. Can also be used to control simple relays output"));
+    ioDoc->conditionAdd("changed", _("Event on any change of value"));
+    ioDoc->conditionAdd("true", _("Event when light is on"));
+    ioDoc->conditionAdd("false", _("Event when light is off"));
+    ioDoc->actionAdd("true", _("Switch the light on"));
+    ioDoc->actionAdd("false", _("Switch the light off"));
+    ioDoc->actionAdd("toggle", _("Invert light state"));
+    ioDoc->actionAdd("impulse 200", _("Do an impulse on light state. Set to true for X ms then reset to false"));
+    ioDoc->actionAdd("impulse 500 200 500 200", _("Do an impulse on light state with a pattern.<br>"
+                                                  "Ex: 500 200 500 200 means: TRUE for 500ms, FALSE for 200ms, TRUE for 500ms, FALSE for 200ms<br>"
+                                                  "Ex: 500 loop 200 300 means: TRUE for 500ms, then loop the next steps for infinite, FALSE for 200ms, TRUE for 300ms<br>"
+                                                  "Ex: 100 100 200 old means: blinks and then set to the old start state (before impulse starts)"));
+    ioDoc->actionAdd("set_state true", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+    ioDoc->actionAdd("set_state false", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
+
     if (!get_params().Exists("visible")) set_param("visible", "true");
 
     set_param("gui_type", "light");

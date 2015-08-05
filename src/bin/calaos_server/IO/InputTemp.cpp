@@ -30,6 +30,7 @@ InputTemp::InputTemp(Params &p):
     value(0.0),
     timer(0.0)
 {
+    ioDoc->descriptionBaseSet(_("Temperature sensor input. Use for displaying temperature and to control heating devices with rules based on temperature value"));
     ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
@@ -43,7 +44,7 @@ InputTemp::InputTemp(Params &p):
                  IODoc::TYPE_FLOAT, false);
 
     ioDoc->conditionAdd("value", _("Event on a temperature value in °C"));
-    ioDoc->conditionAdd("changed", _("Event on any changes of temperature value"));
+    ioDoc->conditionAdd("changed", _("Event on any change of temperature value"));
 
     set_param("gui_type", "temp");
 

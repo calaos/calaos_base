@@ -31,6 +31,33 @@ WODaliRVB::WODaliRVB(Params &_p):
     OutputLightRGB(_p),
     port(502)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WODaliRVB");
+    ioDoc->aliasAdd("WagoOutputDimmerRGB");
+    ioDoc->descriptionSet(_("RGB Light using DALI or DMX. To work you need 3 DALI/DMX channels. For DALI you need a 750-641 wago module. For DMX, a DMX4ALL-LAN device connected to the Wago PLC."));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-641"));
+    ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/dmx-lan"));
+    ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+
+    ioDoc->paramAdd("rline", _("DALI bus line for red channel, usually 1"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("raddress", _("Device address for red channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("rgroup", _("Set to 1 if address for red channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("rfade_time", _("DALI fade time for red channel. value is between 1-10"), IODoc::TYPE_INT, false);
+
+    ioDoc->paramAdd("gline", _("DALI bus line for green channel, usually 1"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("gaddress", _("Device address for green channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("ggroup", _("Set to 1 if address for green channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("gfade_time", _("DALI fade time for green channel. value is between 1-10"), IODoc::TYPE_INT, false);
+
+    ioDoc->paramAdd("bline", _("DALI bus line for blue channel, usually 1"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("baddress", _("Device address for blue channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("bgroup", _("Set to 1 if address for blue channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("bfade_time", _("DALI fade time for blue channel. value is between 1-10"), IODoc::TYPE_INT, false);
+
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);

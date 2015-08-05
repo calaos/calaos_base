@@ -36,6 +36,11 @@ void IODoc::descriptionSet(const string &description)
     m_description = description;
 }
 
+void IODoc::descriptionBaseSet(const string &description)
+{
+    m_description_base = description;
+}
+
 void IODoc::linkAdd(const string &description, const string &link)
 {
     Params p;
@@ -90,7 +95,14 @@ json_t *IODoc::genDocJson()
 {
     json_t *ret = json_object();
 
-    json_object_set_new(ret, "description", json_string(m_description.c_str()));
+    string desc;
+    if (!m_description.empty())
+        desc += m_description;
+    if (!m_description_base.empty())
+        desc += " " + m_description_base;
+
+    json_object_set_new(ret, "description",
+                        json_string(desc.c_str()));
 
     json_t *aliases = json_array();
     for (const auto &alias : m_aliases)
@@ -150,7 +162,10 @@ string IODoc::genDocMd(const string iotype)
             doc += "\n";
     }
 
-    doc += m_description + "\n";
+    if (!m_description.empty())
+        doc += m_description + "\n";
+    if (!m_description_base.empty())
+        doc += "\n\n" + m_description_base + "\n";
 
     if (m_parameters.size())
     {
