@@ -29,6 +29,13 @@ REGISTER_INPUT(MySensorsInputTemp)
 MySensorsInputTemp::MySensorsInputTemp(Params &p):
     InputTemp(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MySensorsInputTemp");
+    ioDoc->descriptionSet(_("Temperature sensor with MySensors node"));
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 

@@ -30,6 +30,14 @@ REGISTER_OUTPUT(MySensorsOutputString)
 MySensorsOutputString::MySensorsOutputString(Params &p):
     OutputString(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MySensorsOutputString");
+    ioDoc->descriptionSet(_("String output with MySensors node"));
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("data_type", _("Data type sent to the node. Default: V_VAR1, see MySensors.cpp for more values."), IODoc::TYPE_STRING, false);
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 

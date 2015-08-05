@@ -30,6 +30,18 @@ REGISTER_OUTPUT(MySensorsOutputLightRGB)
 MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MySensorsOutputLightRGB");
+    ioDoc->descriptionSet(_("RGB Light dimmer with MySensors node"));
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    ioDoc->paramAdd("node_id_red", _("Node ID for red channel, as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id_red", _("Sensor ID for red channel, as set in your node"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("node_id_green", _("Node ID for green channel, as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id_green", _("Sensor ID green red channel, as set in your node"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("node_id_blue", _("Node ID for blue channel, as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id_blue", _("Sensor ID blue red channel, as set in your node"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("data_type", _("Data type sent to the node. Default: V_DIMMER, see MySensors.cpp for more values."), IODoc::TYPE_STRING, false);
+
     string nodeId_r = get_param("node_id_red");
     string sensorId_r = get_param("sensor_id_red");
     string nodeId_g = get_param("node_id_green");

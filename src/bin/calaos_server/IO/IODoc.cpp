@@ -224,8 +224,8 @@ string IODoc::genDocMd(const string iotype)
 
         for (const auto &param : m_links)
         {
-            doc += param["description"] + " : ";
-            doc += param["link"] + " \n ";
+            doc += "* " + param["description"] + ": ";
+            doc += param["link"] + "\n";
         }
         doc += "\n";
     }

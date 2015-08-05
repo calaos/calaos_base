@@ -66,6 +66,13 @@ Eina_Bool WOLOutputBool_con_data_error(void *data, int type, void *event)
 WOLOutputBool::WOLOutputBool(Params &p):
     Output(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("WOLOutputBool");
+    ioDoc->descriptionSet(_("Wake On Lan output object. Send wake-on-lan packet to a device on the network."));
+    ioDoc->paramAdd("address", _("Ethernet MAC address of the host to wake up"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false);
+    ioDoc->actionAdd("true", _("Send wake on lan packet to the configured device"));
+
     //Not visible by default
     if (!get_params().Exists("visible")) set_param("visible", "false");
 

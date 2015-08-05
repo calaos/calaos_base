@@ -28,9 +28,19 @@ REGISTER_OUTPUT(MilightOutputLightRGB)
 MilightOutputLightRGB::MilightOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MilightOutputLightRGB");
+    ioDoc->descriptionSet(_("RGB light support for Limitless/Milight RGB bulbs."));
+    ioDoc->linkAdd("LimitlessLED", _("http://www.limitlessled.com"));
+    ioDoc->paramAdd("host", _("Milight wifi gateway IP address"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Gateway port, default to 8899"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("zone", _("Zone to control. Each gateway supports 4 zones."), IODoc::TYPE_INT, true);
+
     host = get_param("host");
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
+    else
+        port = DEFAULT_MILIGHT_PORT;
     if (get_params().Exists("zone"))
         Utils::from_string(get_param("zone"), zone);
 

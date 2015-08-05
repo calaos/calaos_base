@@ -29,6 +29,13 @@ REGISTER_INPUT(MySensorsInputSwitchTriple)
 MySensorsInputSwitchTriple::MySensorsInputSwitchTriple(Params &p):
     InputSwitchTriple(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MySensorsInputSwitchTriple");
+    ioDoc->descriptionSet(_("Input triple click switch with MySensors node"));
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 

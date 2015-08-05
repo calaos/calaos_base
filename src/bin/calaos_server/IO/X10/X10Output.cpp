@@ -29,6 +29,11 @@ REGISTER_OUTPUT(X10Output)
 X10Output::X10Output(Params &p):
     OutputLightDimmer(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("X10Output");
+    ioDoc->descriptionSet(_("Light dimmer using X10 and heyu."));
+    ioDoc->paramAdd("code", _("House code of the X10 light device"), IODoc::TYPE_STRING, true);
+
     housecode = get_param("code");
     state_value = X10Command("onstate");
     int _val;

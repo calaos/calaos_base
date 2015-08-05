@@ -27,6 +27,13 @@ REGISTER_OUTPUT(OLAOutputLightDimmer)
 OLAOutputLightDimmer::OLAOutputLightDimmer(Params &p):
     OutputLightDimmer(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("OLAOutputLightDimmer");
+    ioDoc->descriptionSet(_("DMX Light dimmer using OLA (Open Lighting Architecture)"));
+    ioDoc->linkAdd("OLA", _("http://www.openlighting.org"));
+    ioDoc->paramAdd("universe", _("OLA universe to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("channel", _("DMX channel to control"), IODoc::TYPE_INT, true);
+
     OLACtrl::Instance(get_param("universe"));
 
     cDebugDom("output") << get_param("id") << ": Ok";

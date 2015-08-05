@@ -29,6 +29,13 @@ REGISTER_INPUT(MySensorsInputSwitch)
 MySensorsInputSwitch::MySensorsInputSwitch(Params &p):
     InputSwitch(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("MySensorsInputSwitch");
+    ioDoc->descriptionSet(_("Input switch with MySensors node"));
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 

@@ -27,6 +27,15 @@ REGISTER_OUTPUT(OLAOutputLightRGB)
 OLAOutputLightRGB::OLAOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("OLAOutputLightRGB");
+    ioDoc->descriptionSet(_("RGB Light dimmer using 3 DMX channels with OLA (Open Lighting Architecture)"));
+    ioDoc->linkAdd("OLA", _("http://www.openlighting.org"));
+    ioDoc->paramAdd("universe", _("OLA universe to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("channel_red", _("DMX channel for red to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("channel_green", _("DMX channel for green to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAdd("channel_blue", _("DMX channel for blue to control"), IODoc::TYPE_INT, true);
+
     OLACtrl::Instance(get_param("universe"));
 
     cDebugDom("output") << get_param("id") << ": Ok";
