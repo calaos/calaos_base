@@ -35,7 +35,8 @@ AM_CPPFLAGS =                                                 \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
         @LIBUSB_CFLAGS@                                       \
-        @LIBOLA_CFLAGS@
+        @LIBOLA_CFLAGS@                                       \
+        @LIBKNX_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -352,4 +353,19 @@ calaos_ola_LDADD = \
     @CALAOS_SERVER_LIBS@ \
     @LIBOLA_LIBS@ \
     $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+if HAVE_LIBKNX
+bin_PROGRAMS += calaos_knx
+calaos_knx_SOURCES = \
+	IO/ExternProc.cpp			    \
+	IO/ExternProc.h  			    \
+	IO/KNX/KNXExternProc_main.h     \
+	IO/KNX/KNXExternProc_main.cpp   \
+	IO/KNX/KNXExternProc_cli.cpp
+
+calaos_knx_LDADD = \
+	@CALAOS_SERVER_LIBS@ \
+	@LIBKNX_LIBS@ \
+	$(top_builddir)/src/lib/libcalaos_common.la
 endif

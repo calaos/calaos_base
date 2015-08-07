@@ -80,6 +80,7 @@ src/bin/tools/calaos_mail
 src/bin/calaos_server/calaos_1wire
 src/bin/calaos_server/calaos_ola
 src/bin/calaos_server/calaos_wago
+src/bin/calaos_server/calaos_knx
 calaos.config
 calaos.creator*
 calaos.files
