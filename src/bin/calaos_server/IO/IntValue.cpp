@@ -42,7 +42,7 @@ Internal::Internal(Params &p):
     if (p["type"] == "InternalInt")
     {
         Input::ioDoc->descriptionSet(_("Internal number object. This object is useful for doing internal programing in rules, like counters, of displaying values."));
-        Input::ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false);
+        Input::ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
         Input::ioDoc->conditionAdd("0", _("Event on a specific number value"));
         Input::ioDoc->actionAdd("0", _("Set a specific number value"));
         Input::ioDoc->actionAdd("inc", _("Increment value with configured step"));
@@ -71,8 +71,8 @@ Internal::Internal(Params &p):
         Input::ioDoc->actionAdd("value", _("Set a specific string value"));
     }
 
-    Input::ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false);
-    Input::ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false);
+    Input::ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false, "false");
+    Input::ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false, "false");
 
     Input::ioDoc->conditionAdd("changed", _("Event on any change of value"));
 

@@ -33,8 +33,8 @@ MilightOutputLightRGB::MilightOutputLightRGB(Params &p):
     ioDoc->descriptionSet(_("RGB light support for Limitless/Milight RGB bulbs."));
     ioDoc->linkAdd("LimitlessLED", _("http://www.limitlessled.com"));
     ioDoc->paramAdd("host", _("Milight wifi gateway IP address"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("port", _("Gateway port, default to 8899"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("zone", _("Zone to control. Each gateway supports 4 zones."), IODoc::TYPE_INT, true);
+    ioDoc->paramAddInt("port", _("Gateway port, default to 8899"), 0, 65535, false);
+    ioDoc->paramAddInt("zone", _("Zone to control. Each gateway supports 4 zones."), 0, 4, true);
 
     host = get_param("host");
     if (get_params().Exists("port"))

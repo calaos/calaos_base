@@ -38,12 +38,12 @@ WODali::WODali(Params &_p):
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-641"));
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/dmx-lan"));
     ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("line", _("DALI bus line, usually 1"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("address", _("Device address. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("group", _("Set to 1 if address is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("fade_time", _("DALI fade time. value is between 1-10"), IODoc::TYPE_INT, false);
+    ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"), 0, 65535, false, 502);
+    ioDoc->paramAdd("line", _("DALI bus line, usually 1"), IODoc::TYPE_INT, false, "1");
+    ioDoc->paramAddInt("address", _("Device address. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+    ioDoc->paramAddInt("group", _("Set to 1 if address is a DALI group address, set to 0 otherwise."), 0, 1, false);
+    ioDoc->paramAddInt("fade_time", _("DALI fade time. value is between 1-10"), 1, 10, false);
 
     host = get_param("host");
     if (get_params().Exists("port"))

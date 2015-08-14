@@ -271,8 +271,8 @@ IOAVReceiver::IOAVReceiver(Params &p):
     Output::ioDoc->friendlyNameSet("AVReceiver");
     Output::ioDoc->descriptionSet(_("AVReceiver object to control network amplifier"));
     Output::ioDoc->paramAdd("host", _("IP address of the device"), IODoc::TYPE_STRING, true);
-    Output::ioDoc->paramAdd("port", _("Port to use for connection"), IODoc::TYPE_INT, false);
-    Output::ioDoc->paramAdd("zone", _("Zone of the amplifier (if supported)"), IODoc::TYPE_INT, false);
+    Output::ioDoc->paramAddInt("port", _("Port to use for connection"), 0, 65535, false);
+    Output::ioDoc->paramAddInt("zone", _("Zone of the amplifier (if supported)"), 0, 10, false);
     Output::ioDoc->paramAdd("model", _("AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"), IODoc::TYPE_STRING, true);
 
     Output::ioDoc->actionAdd("power on", _("Switch receiver on"));

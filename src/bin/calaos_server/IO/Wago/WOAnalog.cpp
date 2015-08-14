@@ -38,8 +38,8 @@ WOAnalog::WOAnalog(Params &p):
     ioDoc->descriptionSet(_("Analog output with Wago module (like 0-10V, 4-20mA, ...)"));
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/sortie_analog"));
     ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("var", _("PLC address of the output"), IODoc::TYPE_INT, true);
+    ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"), 0, 65535, false, 502);
+    ioDoc->paramAddInt("var", _("PLC address of the output"), 0, 65535, true);
 
     host = get_param("host");
     Utils::from_string(get_param("var"), address);

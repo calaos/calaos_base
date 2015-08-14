@@ -40,7 +40,7 @@ Scenario::Scenario(Params &p):
     Input::ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
     Input::ioDoc->actionAdd("changed", _("Event triggered on any change"));
 
-    Input::ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false);
+    Input::ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
 
     cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 

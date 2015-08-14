@@ -31,10 +31,10 @@ OLAOutputLightRGB::OLAOutputLightRGB(Params &p):
     ioDoc->friendlyNameSet("OLAOutputLightRGB");
     ioDoc->descriptionSet(_("RGB Light dimmer using 3 DMX channels with OLA (Open Lighting Architecture)"));
     ioDoc->linkAdd("OLA", _("http://www.openlighting.org"));
-    ioDoc->paramAdd("universe", _("OLA universe to control"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("channel_red", _("DMX channel for red to control"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("channel_green", _("DMX channel for green to control"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("channel_blue", _("DMX channel for blue to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAddInt("universe", _("OLA universe to control"), 0, 9999, true);
+    ioDoc->paramAddInt("channel_red", _("DMX channel for red to control"), 0, 9999, true);
+    ioDoc->paramAddInt("channel_green", _("DMX channel for green to control"), 0, 512, true);
+    ioDoc->paramAddInt("channel_blue", _("DMX channel for blue to control"), 0, 512, true);
 
     OLACtrl::Instance(get_param("universe"));
 

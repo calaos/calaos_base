@@ -31,8 +31,8 @@ OLAOutputLightDimmer::OLAOutputLightDimmer(Params &p):
     ioDoc->friendlyNameSet("OLAOutputLightDimmer");
     ioDoc->descriptionSet(_("DMX Light dimmer using OLA (Open Lighting Architecture)"));
     ioDoc->linkAdd("OLA", _("http://www.openlighting.org"));
-    ioDoc->paramAdd("universe", _("OLA universe to control"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("channel", _("DMX channel to control"), IODoc::TYPE_INT, true);
+    ioDoc->paramAddInt("universe", _("OLA universe to control"), 0, 9999, true);
+    ioDoc->paramAddInt("channel", _("DMX channel to control"), 0, 512, true);
 
     OLACtrl::Instance(get_param("universe"));
 

@@ -39,10 +39,10 @@ WIAnalog::WIAnalog(Params &p):
     ioDoc->descriptionSet(_("Analog measurement with Wago module (like 0-10V, 4-20mA, ...)"));
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/entree_analog"));
     ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"),
-                    IODoc::TYPE_INT, false);
+    ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"),
+                    0, 65535, false, 502);
 
-    ioDoc->paramAdd("var", _("PLC address of the input sensor"), IODoc::TYPE_INT, true);
+    ioDoc->paramAddInt("var", _("PLC address of the input sensor"), 0, 65535, true);
 
     host = get_param("host");
     if (get_params().Exists("port"))

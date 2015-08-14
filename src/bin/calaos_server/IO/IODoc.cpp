@@ -49,13 +49,44 @@ void IODoc::linkAdd(const string &description, const string &link)
     m_links.push_back(p);
 }
 
-void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory)
+void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly)
 {
     Params param;
     param.Add("name", name);
     param.Add("description", description);
     param.Add("type", typeToString(type));
     param.Add("mandatory", mandatory ? "true" : "false");
+    if (!defaultval.empty())
+        param.Add("default", defaultval);
+    param.Add("readonly", readonly ? "true" : "false");
+    m_parameters.push_back(param);
+}
+
+void IODoc::paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval, bool readonly)
+{
+    Params param;
+    param.Add("name", name);
+    param.Add("description", description);
+    param.Add("type", typeToString(TYPE_INT));
+    param.Add("mandatory", mandatory ? "true" : "false");
+    param.Add("default", Utils::to_string(defval));
+    param.Add("min", Utils::to_string(min));
+    param.Add("max", Utils::to_string(max));
+    param.Add("readonly", readonly ? "true" : "false");
+    m_parameters.push_back(param);
+}
+
+void IODoc::paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval, bool readonly)
+{
+    Params param;
+    param.Add("name", name);
+    param.Add("description", description);
+    param.Add("type", typeToString(TYPE_FLOAT));
+    param.Add("mandatory", mandatory ? "true" : "false");
+    param.Add("default", Utils::to_string(defval));
+    param.Add("min", Utils::to_string(min));
+    param.Add("max", Utils::to_string(max));
+    param.Add("readonly", readonly ? "true" : "false");
     m_parameters.push_back(param);
 }
 

@@ -40,9 +40,9 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     calibrate(false)
 {
     ioDoc->descriptionBaseSet(_("Smart shutter. This shutter calculates the position of the shutter based on the time it takes to open and close. It then allows to set directly the shutter at a specified position."));
-    ioDoc->paramAdd("time_up", _("Time in sec for shutter to be fully open. The more accurate, the better it will work"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("time_down", _("Time in sec for shutter to fully closed. The more accurate, the better it will work"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("impulse_time", _("Impulse time for shutter that needs impulse instead of holding up/down relays. If set to 0 impulse shutter is disabled. Time is in ms. Default to 0"), IODoc::TYPE_INT, false);
+    ioDoc->paramAddInt("time_up", _("Time in sec for shutter to be fully open. The more accurate, the better it will work"), 0, 9999, true, 60);
+    ioDoc->paramAddInt("time_down", _("Time in sec for shutter to fully closed. The more accurate, the better it will work"), 0, 9999, true, 60);
+    ioDoc->paramAddInt("impulse_time", _("Impulse time for shutter that needs impulse instead of holding up/down relays. If set to 0 impulse shutter is disabled. Time is in ms. Default to 0"), 0, 999999, false, 0);
     ioDoc->paramAdd("stop_both", _("If in impulse mode, some shutters needs to activate both up dans down relays when stopping the shutter"), IODoc::TYPE_BOOL, false);
     ioDoc->conditionAdd("changed", _("Event on any change of shutter state"));
     ioDoc->conditionAdd("true", _("Event when shutter is open"));

@@ -36,12 +36,12 @@ InputTimer::InputTimer(Params &p):
     // Define IO documentation
     Input::ioDoc->friendlyNameSet("InputTimer");
     Input::ioDoc->descriptionSet(_("Timer object. trigger an event after the configured time has expired."));
-    Input::ioDoc->paramAdd("visible", _("A timer object can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+    Input::ioDoc->paramAdd("visible", _("A timer object can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
-    Input::ioDoc->paramAdd("hour", _("Hour for the timer interval"), IODoc::TYPE_INT, true);
-    Input::ioDoc->paramAdd("min", _("Minutes for the timer interval"), IODoc::TYPE_INT, true);
-    Input::ioDoc->paramAdd("sec", _("Seconds for the timer interval"), IODoc::TYPE_INT, true);
-    Input::ioDoc->paramAdd("msec", _("Miliseconds for the timer interval"), IODoc::TYPE_INT, true);
+    Input::ioDoc->paramAddInt("hour", _("Hour for the timer interval"), 0, 23, true);
+    Input::ioDoc->paramAddInt("min", _("Minutes for the timer interval"), 0, 59, true);
+    Input::ioDoc->paramAddInt("sec", _("Seconds for the timer interval"), 0, 59, true);
+    Input::ioDoc->paramAddInt("msec", _("Miliseconds for the timer interval"), 0, 999, true);
     Input::ioDoc->paramAdd("autostart", _("Auto start the timer when calaos starts"), IODoc::TYPE_BOOL, true);
     Input::ioDoc->paramAdd("autorestart", _("Auto restart the timer when time expires"), IODoc::TYPE_BOOL, true);
 

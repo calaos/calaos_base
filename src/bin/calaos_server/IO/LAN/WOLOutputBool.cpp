@@ -70,7 +70,7 @@ WOLOutputBool::WOLOutputBool(Params &p):
     ioDoc->friendlyNameSet("WOLOutputBool");
     ioDoc->descriptionSet(_("Wake On Lan output object. Send wake-on-lan packet to a device on the network."));
     ioDoc->paramAdd("address", _("Ethernet MAC address of the host to wake up"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false, "15000");
     ioDoc->actionAdd("true", _("Send wake on lan packet to the configured device"));
 
     //Not visible by default

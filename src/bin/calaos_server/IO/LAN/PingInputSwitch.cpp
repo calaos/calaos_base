@@ -36,7 +36,7 @@ PingInputSwitch::PingInputSwitch(Params &p):
     ioDoc->descriptionSet(_("A switch input based on the result of a ping command. Useful to detect presence of a host on the network."));
     ioDoc->paramAdd("host", _("IP address or host where to send the ping"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("timeout", _("Timeout of the ping request in ms"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false, "15000");
     ioDoc->conditionAdd("true", _("The host is online and respond to the ping"));
     ioDoc->conditionAdd("false", _("The host is offline and/or does not respond to the ping"));
 
@@ -67,7 +67,7 @@ void PingInputSwitch::doPing()
     string host = get_param("host");
     string timeoutVal = "";
     if (Utils::is_of_type<int>(get_param("timeout")))
-        timeoutVal = "-w " + get_param("timeout");
+        timeoutVal = "-W " + get_param("timeout");
 
     string cmd = "ping -c 1 " + timeoutVal + " " + host;
     cDebugDom("input") << "Starting ping: " << cmd;

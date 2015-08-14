@@ -43,7 +43,9 @@ public:
     void descriptionSet(const string &description);
     void descriptionBaseSet(const string &description);
     void linkAdd(const string &description, const string &link);
-    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory);
+    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval = string(), bool readonly = false);
+    void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
+    void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
     void conditionAdd(const string &name, const string &description);
     void actionAdd(const string &name, const string &description);
     void aliasAdd(string alias);

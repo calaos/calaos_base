@@ -30,6 +30,8 @@ REGISTER_OUTPUT(MySensorsOutputDimmer)
 MySensorsOutputDimmer::MySensorsOutputDimmer(Params &_p):
     OutputLightDimmer(_p)
 {
+
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 

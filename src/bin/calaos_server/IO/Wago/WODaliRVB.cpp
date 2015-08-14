@@ -38,25 +38,25 @@ WODaliRVB::WODaliRVB(Params &_p):
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/750-641"));
     ioDoc->linkAdd("Calaos Wiki", _("http://calaos.fr/wiki/fr/dmx-lan"));
     ioDoc->paramAdd("host", _("Wago PLC IP address on the network"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("port", _("Wago ethernet port, default to 502"), IODoc::TYPE_INT, false);
+    ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"), 0, 65535, false, 502);
 
-    ioDoc->paramAdd("rline", _("DALI bus line for red channel, usually 1"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("raddress", _("Device address for red channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("rgroup", _("Set to 1 if address for red channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("rfade_time", _("DALI fade time for red channel. value is between 1-10"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("rline", _("DALI bus line for red channel, usually 1"), IODoc::TYPE_INT, false, "1");
+    ioDoc->paramAddInt("raddress", _("Device address for red channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+    ioDoc->paramAddInt("rgroup", _("Set to 1 if address for red channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
+    ioDoc->paramAddInt("rfade_time", _("DALI fade time for red channel. value is between 1-10"), 1, 10, false);
 
-    ioDoc->paramAdd("gline", _("DALI bus line for green channel, usually 1"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("gaddress", _("Device address for green channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("ggroup", _("Set to 1 if address for green channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("gfade_time", _("DALI fade time for green channel. value is between 1-10"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("gline", _("DALI bus line for green channel, usually 1"), IODoc::TYPE_INT, false, "1");
+    ioDoc->paramAddInt("gaddress", _("Device address for green channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+    ioDoc->paramAddInt("ggroup", _("Set to 1 if address for green channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
+    ioDoc->paramAddInt("gfade_time", _("DALI fade time for green channel. value is between 1-10"), 1, 10, false);
 
-    ioDoc->paramAdd("bline", _("DALI bus line for blue channel, usually 1"), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("baddress", _("Device address for blue channel. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), IODoc::TYPE_INT, true);
-    ioDoc->paramAdd("bgroup", _("Set to 1 if address for blue channel is a DALI group address, set to 0 otherwise."), IODoc::TYPE_INT, false);
-    ioDoc->paramAdd("bfade_time", _("DALI fade time for blue channel. value is between 1-10"), IODoc::TYPE_INT, false);
+    ioDoc->paramAdd("bline", _("DALI bus line for blue channel, usually 1"), IODoc::TYPE_INT, false, "1");
+    ioDoc->paramAddInt("baddress", _("Device address for blue channel. For DALI address is between 1-64. "
+                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+    ioDoc->paramAddInt("bgroup", _("Set to 1 if address for blue channel is a DALI group address, set to 0 otherwise."), 0, 1, false);
+    ioDoc->paramAddInt("bfade_time", _("DALI fade time for blue channel. value is between 1-10"), 1, 10, false);
 
     host = get_param("host");
     if (get_params().Exists("port"))

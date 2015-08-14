@@ -35,7 +35,7 @@ InPlageHoraire::InPlageHoraire(Params &p):
     ioDoc->friendlyNameSet("TimeRange");
     ioDoc->aliasAdd("InPlageHoraire");
     ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months."));
-    ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+    ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
     ioDoc->conditionAdd("true", _("Event triggered when entering the range"));
     ioDoc->conditionAdd("false", _("Event triggered when exiting the range"));
