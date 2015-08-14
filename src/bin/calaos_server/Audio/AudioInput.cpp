@@ -35,8 +35,8 @@ AudioInput::AudioInput(Params &p, AudioPlayer *_player):
     ioDoc->descriptionSet(_("Audio input associated to an AudioPlayer"));
     ioDoc->paramAdd("host", _("Logitech media server IP address"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("id", _("Unique ID of squeezebox in LMS"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAddInt("port_cli", _("CLI port of LMS, default to 9090"), 0, 65535, false);
-    ioDoc->paramAddInt("port_web", _("Web interface port of LMS, default to 9000."), 0, 65535, false);
+    ioDoc->paramAddInt("port_cli", _("CLI port of LMS, default to 9090"), 0, 65535, false, 9090);
+    ioDoc->paramAddInt("port_web", _("Web interface port of LMS, default to 9000."), 0, 65535, false, 9000);
 
     ioDoc->conditionAdd("onplay", _("Event when play is started"));
     ioDoc->conditionAdd("onpause", _("Event when pausing player"));
