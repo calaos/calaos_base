@@ -64,8 +64,8 @@ Room *Camera::getRoom()
 {
     if (room) return room;
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(params["oid"]);
-    if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["oid"]);
+    if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         return NULL;
 
     IOBase *output = (*it).second;
@@ -74,81 +74,63 @@ Room *Camera::getRoom()
 
 void Camera::MoveCenter()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "home" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move home" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveUp()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "up" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move up" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveDown()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "down" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move down" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveLeft()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "left" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move left" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::MoveRight()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "right" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move right" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::ZoomIn()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "zoomin" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move zoomin" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::ZoomOut()
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", "zoomout" }};
+    Params p = {{ "id", params["id"] },
+                { "value", "move zoomout" }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::Recall(int position)
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "move" },
-                { "value", Utils::to_string(position) }};
+    Params p = {{ "id", params["id"] },
+                { "value", string("recall ") + Utils::to_string(position) }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::Save(int position)
 {
-    Params p = {{ "type", "camera" },
-                { "camera_id", params["id"] },
-                { "camera_action", "save" },
-                { "value", Utils::to_string(position) }};
+    Params p = {{ "id", params["id"] },
+                { "value", string("save ") + Utils::to_string(position) }};
     connection->sendCommand("set_state", p);
 }

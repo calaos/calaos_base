@@ -48,9 +48,9 @@ void ScenarioModel::scenario_list_cb(json_t *jdata, void *data)
     json_array_foreach(json_object_get(jdata, "scenarios"), idx, value)
     {
         string id = jansson_string_get(value, "id");
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(id);
+        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id);
 
-        if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
+        if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         {
             cErrorDom("scenario") << "Unknown Input \'" << id << "\' !";
             continue;
@@ -81,8 +81,8 @@ void Scenario::load(json_t *jdata)
 
     if (scenario_data.params["schedule"] != "false")
     {
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(scenario_data.params["schedule"]);
-        if (it != CalaosModel::Instance().getHome()->getCacheInputs().end())
+        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(scenario_data.params["schedule"]);
+        if (it != CalaosModel::Instance().getHome()->getCacheIO().end())
         {
             ioSchedule = (*it).second;
 //            ioSchedule->io_deleted.connect([=]()
@@ -120,8 +120,8 @@ void Scenario::load(json_t *jdata)
             string id_out = jansson_string_get(value_act, "id");
             string act = jansson_string_get(value_act, "action");
 
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(id_out);
-            if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
+            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id_out);
+            if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
             {
                 cErrorDom("scenario") << "Unknown action id \'" << id_out << "\' with action \'" << act << "\' !";
                 continue;
@@ -305,9 +305,9 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
         //We need to delay a bit because we have to wait for RoomModel to load the io id first
         timer = new EcoreTimer(0.05, [=]()
         {
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(sched_id);
+            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(sched_id);
 
-            if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
+            if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
             {
                 if (ecore_time_get() - start_time >= 5.0)
                 {
@@ -417,9 +417,9 @@ void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params
     VAR_UNUSED(msgtype);
     cDebugDom("scenario") << "New scenario, load data";
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheInputs().find(evdata["id"]);
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(evdata["id"]);
 
-    if (it == CalaosModel::Instance().getHome()->getCacheInputs().end())
+    if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
     {
         cErrorDom("scenario") << "Unknown Input \'" << evdata["id"] << "\' !";
         return;

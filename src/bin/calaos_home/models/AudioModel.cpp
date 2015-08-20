@@ -77,8 +77,7 @@ AudioPlayer *AudioModel::getForId(string id)
 
     for (AudioPlayer *pl: players)
     {
-        if (pl->params["input_id"] == id ||
-            pl->params["output_id"] == id)
+        if (pl->params["id"] == id)
             return pl;
     }
 
@@ -92,11 +91,11 @@ void AudioPlayer::load(json_t *data)
     json_t *jstat = json_object();
     json_t *jaudiolist = json_array();
     json_array_append_new(jaudiolist, json_string(params["id"].c_str()));
-    json_object_set_new(jstat, "audio_players", jaudiolist);
+    json_object_set_new(jstat, "items", jaudiolist);
 
     connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
     Params p = {{ "audio_action", "get_stats"},
-                { "player_id", params["id"] }};
+                { "id", params["id"] }};
     connection->sendCommand("audio_db", p, sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 }
 
@@ -152,7 +151,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
         json_t *jstat = json_object();
         json_t *jaudiolist = json_array();
         json_array_append_new(jaudiolist, json_string(params["id"].c_str()));
-        json_object_set_new(jstat, "audio_players", jaudiolist);
+        json_object_set_new(jstat, "items", jaudiolist);
 
         connection->sendCommand("get_state", jstat, sigc::mem_fun(*this, &AudioPlayer::audio_state_get_cb));
     }
@@ -199,7 +198,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
     else if (msgtype == "playlist_tracks_added")
     {
         Params p = {{ "audio_action", "get_playlist_size"},
-                    { "player_id", params["id"] }};
+                    { "id", params["id"] }};
         connection->sendCommand("audio", p, [=](json_t *jdata, void *)
         {
             string sz = jansson_string_get(jdata, "playlist_size");
@@ -236,7 +235,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
     else if (msgtype == "playlist_reload")
     {
         Params p = {{ "audio_action", "get_playlist_size"},
-                    { "player_id", params["id"] }};
+                    { "id", params["id"] }};
         connection->sendCommand("audio", p, [=](json_t *jdata, void *)
         {
             //playlist size
@@ -260,64 +259,56 @@ void AudioPlayer::setVolume(int _volume)
 
     string s = "volume " + Utils::to_string(_volume);
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", s }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::play()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "play" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::pause()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "pause" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::stop()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "stop" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::next()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "next" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::previous()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "previous" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::on()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "on" }};
     connection->sendCommand("set_state", p);
 }
 
 void AudioPlayer::off()
 {
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", "off" }};
     connection->sendCommand("set_state", p);
 }
@@ -333,7 +324,7 @@ void AudioPlayer::registerChange()
 
     //Reload database stats in case of changes
     connection->sendCommand("audio_db", {{"audio_action", "get_stats"},
-                                      {"player_id", params["id"].c_str()}},
+                                      {"id", params["id"].c_str()}},
                             sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 
     if (!timer_change)
@@ -359,7 +350,7 @@ void AudioPlayer::timerChangeTick()
     if (time_inprocess) return;
 
     connection->sendCommand("audio", {{"audio_action", "get_time"},
-                                      {"player_id", params["id"].c_str()}},
+                                      {"id", params["id"].c_str()}},
                             [=](json_t *jdata, void*)
     {
         time_inprocess = false;
@@ -376,8 +367,7 @@ void AudioPlayer::setTime(double time)
 {
     string cmd = "time " + Utils::to_string(time);
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -391,8 +381,7 @@ void AudioPlayer::playItem(int item)
 {
     string cmd = "playlist " + Utils::to_string(item) + " play";
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -400,7 +389,7 @@ void AudioPlayer::playItem(int item)
 void AudioPlayer::getPlaylistItem(int item, PlayerInfo_cb callback)
 {
     connection->sendCommand("audio", {{"audio_action", "get_playlist_item"},
-                                      {"player_id", params["id"].c_str()},
+                                      {"id", params["id"].c_str()},
                                       {"item", Utils::to_string(item)}},
                             [=](json_t *jdata, void*)
     {
@@ -414,8 +403,7 @@ void AudioPlayer::removePlaylistItem(int item)
 {
     string cmd = "playlist " + Utils::to_string(item) + " delete";
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -425,7 +413,7 @@ void AudioPlayer::getCurrentCover(PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_cover_url"}};
     connection->sendCommand("audio", p,
                             sigc::mem_fun(*this, &AudioPlayer::cover_cb),
@@ -462,7 +450,7 @@ void AudioPlayer::getDBAlbumItem(int item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_albums"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
@@ -476,7 +464,7 @@ void AudioPlayer::getDBAlbumArtistItem(int item, int artist_id, PlayerInfo_cb ca
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_artist_album"},
                 {"artist_id", Utils::to_string(artist_id)},
                 {"from", Utils::to_string(item)},
@@ -491,7 +479,7 @@ void AudioPlayer::getDBAlbumYearItem(int item, int year_id, PlayerInfo_cb callba
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_year_albums"},
                 {"year", Utils::to_string(year_id)},
                 {"from", Utils::to_string(item)},
@@ -506,7 +494,7 @@ void AudioPlayer::getDBArtistGenreItem(int item, int genre_id, PlayerInfo_cb cal
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_genre_artists"},
                 {"genre", Utils::to_string(genre_id)},
                 {"from", Utils::to_string(item)},
@@ -559,7 +547,7 @@ void AudioPlayer::getDBAlbumTrackCount(int album_item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_album_titles"},
                 {"album_id", Utils::to_string(album_item)},
                 {"from", "0"},
@@ -574,7 +562,7 @@ void AudioPlayer::getDBArtistAlbumCount(int artist_id, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_artist_album"},
                 {"artist_id", Utils::to_string(artist_id)},
                 {"from", "0"},
@@ -589,7 +577,7 @@ void AudioPlayer::getDBYearAlbumCount(int year_id, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_year_albums"},
                 {"year", Utils::to_string(year_id)},
                 {"from", "0"},
@@ -604,7 +592,7 @@ void AudioPlayer::getDBGenreArtistCount(int genre_id, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_genre_artists"},
                 {"genre", Utils::to_string(genre_id)},
                 {"from", "0"},
@@ -619,7 +607,7 @@ void AudioPlayer::getDBPlaylistTrackCount(int playlist_id, PlayerInfo_cb callbac
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_playlist_titles"},
                 {"playlist_id", Utils::to_string(playlist_id)},
                 {"from", "0"},
@@ -633,8 +621,7 @@ void AudioPlayer::playlistDelete(string id)
 {
     string cmd = "database playlist delete playlist_id:" + Utils::to_string(id);
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -664,7 +651,7 @@ void AudioPlayer::getDBAlbumTrackItem(int album_id, int item, PlayerInfo_cb call
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_album_titles"},
                 {"album_id", Utils::to_string(album_id)},
                 {"from", Utils::to_string(item)},
@@ -679,7 +666,7 @@ void AudioPlayer::getDBPlaylistTrackItem(int playlist_id, int item, PlayerInfo_c
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_playlist_titles"},
                 {"playlist_id", Utils::to_string(playlist_id)},
                 {"from", Utils::to_string(item)},
@@ -755,8 +742,8 @@ IOBase *AudioPlayer::getAmplifier()
 {
     if (!params.Exists("amp_id")) return NULL;
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheOutputs().find(params["amp_id"]);
-    if (it == CalaosModel::Instance().getHome()->getCacheOutputs().end())
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["amp_id"]);
+    if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         return NULL;
 
     return (*it).second;
@@ -808,8 +795,7 @@ void AudioPlayer::addItem(int type, string id)
     else
         cmd += itemTypeToString(type) + ":" + id;
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -822,8 +808,7 @@ void AudioPlayer::playItem(int type, string id)
     else
         cmd += itemTypeToString(type) + ":" + id;
 
-    Params p = {{ "type", "audio" },
-                { "player_id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", cmd }};
     connection->sendCommand("set_state", p);
 }
@@ -833,7 +818,7 @@ void AudioPlayer::getDBArtistItem(int item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_artists"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
@@ -847,7 +832,7 @@ void AudioPlayer::getDBYearItem(int item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_years"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
@@ -861,7 +846,7 @@ void AudioPlayer::getDBGenreItem(int item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_genres"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
@@ -875,7 +860,7 @@ void AudioPlayer::getDBPlaylistItem(int item, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_playlists"},
                 {"from", Utils::to_string(item)},
                 {"count", "1"}};
@@ -889,7 +874,7 @@ void AudioPlayer::getDBFolder(string folder_id, PlayerInfoList_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_music_folder"},
                 {"folder_id", folder_id},
                 {"from", "0"},
@@ -904,7 +889,7 @@ void AudioPlayer::getDBSearch(string search, PlayerInfoList_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_search"},
                 {"search", search},
                 {"from", "0"},
@@ -919,7 +904,7 @@ void AudioPlayer::getDBTrackInfos(string track_id, PlayerInfo_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_track_infos"},
                 {"track_id", track_id}};
     connection->sendCommand("audio_db", p,
@@ -932,7 +917,7 @@ void AudioPlayer::getDBAllRadio(PlayerInfoList_cb callback)
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_radios"},
                 {"from", "0"},
                 {"count", "999999"}};
@@ -946,7 +931,7 @@ void AudioPlayer::getDBRadio(string radio_id, string subitem_id, PlayerInfoList_
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_radio_items"},
                 {"radio_id", radio_id},
                 {"item_id", subitem_id},
@@ -962,7 +947,7 @@ void AudioPlayer::getDBRadioSearch(string radio_id, string subitem_id, string se
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
 
-    Params p = {{"player_id", params["id"]},
+    Params p = {{"id", params["id"]},
                 {"audio_action", "get_radio_items"},
                 {"radio_id", radio_id},
                 {"item_id", subitem_id},

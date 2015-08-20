@@ -447,14 +447,15 @@ void ActivityHomeView::addStatusPage()
     pageStatus->setAutoDelete(true);
     
     Evas_Object *edj = pageStatus->getEvasObject();
-    Evas_Object *btn = edje_object_part_external_object_get(edj, "button.lights_off");
-    elm_object_text_set(btn, _("Switch lights off"));
+    Evas_Object *btn;
+    //btn = edje_object_part_external_object_get(edj, "button.lights_off");
+    //elm_object_text_set(btn, _("Switch lights off"));
 
     btn = edje_object_part_external_object_get(edj, "button.lights_info");
     elm_object_text_set(btn, _("More infos"));
 
-    btn = edje_object_part_external_object_get(edj, "button.shutters_down");
-    elm_object_text_set(btn, _("Close all shutters"));
+    //btn = edje_object_part_external_object_get(edj, "button.shutters_down");
+    //elm_object_text_set(btn, _("Close all shutters"));
 
     btn = edje_object_part_external_object_get(edj, "button.shutters_info");
     elm_object_text_set(btn, _("More infos"));

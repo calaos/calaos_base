@@ -189,18 +189,14 @@ void CalaosConnection::onMessageReceived(const string &data)
         jansson_decode_object(json_object_get(jdata, "data"), eventData);
         string ev = jsonData["type_str"];
 
-        if (ev == "input_added" ||
-            ev == "output_added")
+        if (ev == "io_added")
             notify_io_new.emit(ev, eventData);
 
-        else if (ev == "input_deleted" ||
-                 ev == "output_deleted")
+        else if (ev == "io_deleted")
             notify_io_delete.emit(ev, eventData);
 
-        else if (ev == "input_changed" ||
-                 ev == "output_changed" ||
-                 ev == "input_prop_deleted" ||
-                 ev == "output_prop_deleted" ||
+        else if (ev == "io_changed" ||
+                 ev == "io_prop_deleted" ||
                  ev == "timerange_changed")
             notify_io_change.emit(ev, eventData);
 

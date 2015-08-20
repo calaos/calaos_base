@@ -109,10 +109,9 @@ private:
     void loadPlage_cb(json_t *jdata, void *data);
 
 public:
-    IOBase(CalaosConnection* con, Room *r, int iotype):
+    IOBase(CalaosConnection* con, Room *r):
         connection(con),
-        room(r),
-        io_type(iotype)
+        room(r)
     {
         connection->notify_io_change.connect(
                     sigc::mem_fun(*this, &IOBase::notifyChange));
@@ -123,9 +122,6 @@ public:
     }
 
     Params params;
-
-    enum { IO_INPUT, IO_OUTPUT };
-    int io_type;
 
     void sendAction(string command);
     void sendUserCommand(const string &cmd, const Params &p, CommandDone_cb callback);
@@ -200,8 +196,8 @@ public:
     void load_io_done(IOBase *io);
     void load_io_notif_done(IOBase *io);
 
-    void loadNewIO(json_t *data, int io_type);
-    void loadNewIOFromNotif(const Params &ioparam, int io_type);
+    void loadNewIO(json_t *data);
+    void loadNewIOFromNotif(const Params &ioparam);
 
     IOBase *getChauffage();
 
@@ -243,8 +239,7 @@ private:
     RoomIOCache cacheLightsOn;
     RoomIOCache cacheShuttersUp;
 
-    map<string, IOBase *> cacheInputs;
-    map<string, IOBase *> cacheOutputs;
+    map<string, IOBase *> cacheIOs;
 
     list<IOBase *> chauffageList;
 
@@ -264,8 +259,7 @@ public:
     const list<IOBase *> &getCacheScenariosPref() { return cacheScenariosPref; }
     const RoomIOCache &getCacheLightsOn() { return cacheLightsOn; }
     const RoomIOCache &getCacheShuttersUp() { return cacheShuttersUp; }
-    const map<string, IOBase *> &getCacheInputs() { return cacheInputs; }
-    const map<string, IOBase *> &getCacheOutputs() { return cacheOutputs; }
+    const map<string, IOBase *> &getCacheIO() { return cacheIOs; }
 
     map<Room *, list<IOBase *> > getLightsOnForRooms();
     map<Room *, list<IOBase *> > getShuttersUpForRooms();

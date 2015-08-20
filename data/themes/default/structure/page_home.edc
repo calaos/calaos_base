@@ -1185,7 +1185,7 @@ group
                                 text { text: "Text"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5; }
                         }
                 }
-
+/*
                 alias: "button.lights_off" "button_lights_off:button.labeled.lights_off";
                 part
                 {
@@ -1203,7 +1203,7 @@ group
                                 rel2.to_y: "light.text";
                         }
                 }
-
+*/
                 alias: "button.lights_info" "button_lights_info:button.position.info";
                 part
                 {
@@ -1247,7 +1247,7 @@ group
                                 text { text: "Text"; font: "CalaosContent"; size: 13; min: 0 0; align: 0.0 0.5; }
                         }
                 }
-
+/*
                 alias: "button.shutters_down" "button_shutters_down:button.labeled.shutters_down";
                 part
                 {
@@ -1265,7 +1265,7 @@ group
                                 rel2.to_y: "shutter.text";
                         }
                 }
-
+*/
                 alias: "button.shutters_info" "button_shutters_info:button.position.info";
                 part
                 {

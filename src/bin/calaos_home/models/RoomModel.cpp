@@ -97,32 +97,14 @@ void Room::load(json_t *data)
     Utils::from_string(h, hits);
 
     json_t *items = json_object_get(data, "items");
-    if (!json_is_object(items))
-        return;
-
-    //load inputs
-    json_t *inputs = json_object_get(items, "inputs");
-    if (json_is_array(inputs))
+    if (json_is_array(items))
     {
         size_t idx;
         json_t *value;
 
-        json_array_foreach(inputs, idx, value)
+        json_array_foreach(items, idx, value)
         {
-            loadNewIO(value, IOBase::IO_INPUT);
-        }
-    }
-
-    //load outputs
-    json_t *outputs = json_object_get(items, "outputs");
-    if (json_is_array(outputs))
-    {
-        size_t idx;
-        json_t *value;
-
-        json_array_foreach(outputs, idx, value)
-        {
-            loadNewIO(value, IOBase::IO_OUTPUT);
+            loadNewIO(value);
         }
     }
 
@@ -131,14 +113,14 @@ void Room::load(json_t *data)
     updateVisibleIO();
 }
 
-void Room::loadNewIO(json_t *data, int io_type)
+void Room::loadNewIO(json_t *data)
 {
     if (jansson_string_get(data, "id") == "" ||
         jansson_string_get(data, "type") == "" ||
         jansson_string_get(data, "gui_type") == "")
         return; //don't load wrong IO
 
-    IOBase *io = new IOBase(connection, this, io_type);
+    IOBase *io = new IOBase(connection, this);
     ios.push_back(io);
 
     jansson_decode_object(data, io->params);
@@ -149,20 +131,15 @@ void Room::loadNewIO(json_t *data, int io_type)
 void Room::load_io_done(IOBase *io)
 {
     //Put everything in cache so we can use it easily later
-    if (io->io_type == IOBase::IO_INPUT)
-        model->cacheInputs[io->params["id"]] = io;
-    else
-        model->cacheOutputs[io->params["id"]] = io;
+    model->cacheIOs[io->params["id"]] = io;
 
     if (io->params["chauffage_id"] != "")
         model->chauffageList.push_back(io);
 
     string _type = io->params["gui_type"];
 
-    if (_type == "scenario" && io->io_type == IOBase::IO_OUTPUT)
-    {
+    if (_type == "scenario")
         model->cacheScenarios.push_back(io);
-    }
 
     if (_type == "light" ||
         _type == "light_dimmer" ||
@@ -208,15 +185,13 @@ void Room::load_io_done(IOBase *io)
 
     if (_type == "avreceiver")
     {
-        Params p = {{ io->io_type == IOBase::IO_INPUT?"input_id":"output_id",
-                      io->params["id"] }};
+        Params p = {{ "id", io->params["id"] }};
         connection->sendCommand("get_states", p, [=](json_t *jdata, void *)
         {
             jansson_decode_object(jdata, io->params);
         });
 
-        p = {{ io->io_type == IOBase::IO_INPUT?"input_id":"output_id",
-               io->params["id"]},
+        p = {{ "id", io->params["id"]},
              { "param", "input_sources" }};
         connection->sendCommand("query", p, [=](json_t *jdata, void *)
         {
@@ -258,11 +233,11 @@ void Room::updateVisibleIO()
             continue;
 
         if (io->params["gui_type"] == "light" ||
-            (io->params["gui_type"] == "var_bool" && io->io_type == IOBase::IO_OUTPUT) ||
-            (io->params["gui_type"] == "var_int" && io->io_type == IOBase::IO_OUTPUT) ||
-            (io->params["gui_type"] == "var_string" && io->io_type == IOBase::IO_OUTPUT) ||
+            io->params["gui_type"] == "var_bool" ||
+            io->params["gui_type"] == "var_int" ||
+            io->params["gui_type"] == "var_string" ||
             io->params["gui_type"] == "temp" ||
-            (io->params["gui_type"] == "scenario" && io->io_type == IOBase::IO_OUTPUT) ||
+            io->params["gui_type"] == "scenario" ||
             io->params["gui_type"] == "analog_in" ||
             io->params["gui_type"] == "light_dimmer" ||
             io->params["gui_type"] == "light_rgb" ||
@@ -277,8 +252,8 @@ void Room::updateVisibleIO()
             scenario_ios.push_back(io);
         }
 
-        if (io->params["gui_type"] == "camera_output" ||
-            io->params["gui_type"] == "audio_output" ||
+        if (io->params["gui_type"] == "camera" ||
+            io->params["gui_type"] == "audio" ||
             io->params["gui_type"] == "avreceiver")
         {
             scenario_ios.push_back(io);
@@ -354,8 +329,7 @@ void RoomModel::updateRoomType()
 
 void IOBase::sendAction(string command)
 {
-    Params p = {{ "type", io_type == IO_INPUT?"input":"output" },
-                { "id", params["id"] },
+    Params p = {{ "id", params["id"] },
                 { "value", command }};
     connection->sendCommand("set_state", p);
 }
@@ -370,7 +344,7 @@ void IOBase::notifyChange(const string &msgtype, const Params &evdata)
     vector<string> tok;
     split(msgtype, tok);
 
-    if (io_type == IO_INPUT && params["gui_type"] == "time_range" &&
+    if (params["gui_type"] == "time_range" &&
         msgtype == "timerange_changed")
     {
         //Reload InPlageHoraire
@@ -380,21 +354,17 @@ void IOBase::notifyChange(const string &msgtype, const Params &evdata)
         return;
     }
 
-    if (io_type == IO_INPUT && msgtype == "input_prop_deleted")
+    if (msgtype == "io_prop_deleted")
     {
         cCritical() << "TODO, input_prop_deleted not implemented yet";
         return;
     }
 
-    if (io_type == IO_OUTPUT && msgtype == "output_prop_deleted")
+    if (msgtype == "io_prop_deleted")
     {
         cCritical() << "TODO, output_prop_deleted not implemented yet";
         return;
     }
-
-    if ((io_type == IO_INPUT && msgtype != "input_changed") ||
-        (io_type == IO_OUTPUT && msgtype != "output_changed"))
-        return;
 
     if (params["gui_type"] == "scenario")
     {
@@ -504,29 +474,13 @@ void Room::notifyChange(const string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
 
-    if (evdata.Exists("input_id_deleted") &&
+    if (evdata.Exists("io_id_deleted") &&
         evdata["room_name"] == name &&
         evdata["room_type"] == type)
     {
         //an input is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheInputs().find(evdata["input_id_deleted"]);
-        if (it != model->getCacheInputs().end())
-        {
-            IOBase *io = it->second;
-            io->room = NULL;
-            ios.erase(find(ios.begin(), ios.end(), io));
-            ios.sort(IOHitsCompare);
-            updateVisibleIO();
-        }
-    }
-
-    if (evdata.Exists("output_id_deleted") &&
-        evdata["room_name"] == name &&
-        evdata["room_type"] == type)
-    {
-        //an output is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheOutputs().find(evdata["output_id_deleted"]);
-        if (it != model->getCacheOutputs().end())
+        map<string, IOBase *>::const_iterator it = model->getCacheIO().find(evdata["io_id_deleted"]);
+        if (it != model->getCacheIO().end())
         {
             IOBase *io = it->second;
             io->room = NULL;
@@ -574,11 +528,11 @@ void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
         evdata["room_type"] != type)
         return; //not for us
 
-    if (msgtype == "input_added")
+    if (msgtype == "io_added")
     {
         json_t *jarr = json_array();
         json_array_append_new(jarr, json_string(evdata["id"].c_str()));
-        jreq = json_pack("{s:o}", "inputs", jarr);
+        jreq = json_pack("{s:o}", "items", jarr);
 
         connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)
         {
@@ -590,42 +544,21 @@ void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
                 {
                     Params pio;
                     jansson_decode_object(jio, pio);
-                    loadNewIOFromNotif(pio, IOBase::IO_INPUT);
-                }
-            }
-        });
-    }
-    else if (msgtype == "output_added")
-    {
-        json_t *jarr = json_array();
-        json_array_append_new(jarr, json_string(evdata["id"].c_str()));
-        jreq = json_pack("{s:o}", "outputs", jarr);
-
-        connection->sendCommand("get_io", jreq, [=](json_t *jres, void *)
-        {
-            json_t *jin = json_object_get(jres, "outputs");
-            if (jin && json_is_object(jin))
-            {
-                json_t *jio = json_object_get(jin, evdata["id"].c_str());
-                if (jio && json_is_object(jio))
-                {
-                    Params pio;
-                    jansson_decode_object(jio, pio);
-                    loadNewIOFromNotif(pio, IOBase::IO_OUTPUT);
+                    loadNewIOFromNotif(pio);
                 }
             }
         });
     }
 }
 
-void Room::loadNewIOFromNotif(const Params &ioparam, int io_type)
+void Room::loadNewIOFromNotif(const Params &ioparam)
 {
     if (ioparam["id"] == "" ||
         ioparam["type"] == "" ||
         ioparam["gui_type"] == "")
         return; //don't load wrong IO
 
-    IOBase *io = new IOBase(connection, this, io_type);
+    IOBase *io = new IOBase(connection, this);
     ios.push_back(io);
 
     io->params = ioparam;
@@ -633,7 +566,7 @@ void Room::loadNewIOFromNotif(const Params &ioparam, int io_type)
     load_io_done(io);
 
     string _type = io->params["gui_type"];
-    if (_type == "scenario" && io->io_type == IOBase::IO_OUTPUT)
+    if (_type == "scenario")
     {
         //Sort cached scenarios again
         model->cacheScenariosPref = model->cacheScenarios;
@@ -661,13 +594,9 @@ void Room::notifyIODel(const string &msgtype, const Params &evdata)
         if (io->params["id"] == evdata["id"])
         {
             //Remove from cache
-            if (msgtype == "input_deleted" && io->io_type == IOBase::IO_INPUT)
+            if (msgtype == "io_deleted")
             {
-                model->cacheInputs.erase(model->cacheInputs.find(io->params["id"]));
-            }
-            else if (msgtype == "output_deleted" && io->io_type == IOBase::IO_OUTPUT)
-            {
-                model->cacheOutputs.erase(model->cacheOutputs.find(io->params["id"]));
+                model->cacheIOs.erase(model->cacheIOs.find(io->params["id"]));
                 if (io->params["gui_type"] == "scenario")
                 {
                     model->cacheScenarios.erase(find(model->cacheScenarios.begin(), model->cacheScenarios.end(), io));
@@ -885,9 +814,9 @@ string IOBase::getIconForIO()
         return "calaos/icons/element/simple/analog";
     else if (params["gui_type"] == "temp")
         return "calaos/icons/element/simple/temp";
-    else if (params["gui_type"] == "camera_output")
+    else if (params["gui_type"] == "camera")
         return "calaos/icons/element/simple/camera";
-    else if (params["gui_type"] == "audio_output")
+    else if (params["gui_type"] == "audio")
         return "calaos/icons/element/simple/music";
     else if (params["gui_type"] == "avreceiver")
         return "calaos/icons/element/simple/music";
@@ -1034,7 +963,7 @@ vector<IOActionList> IOBase::getActionList()
         v.push_back(IOActionList("impulse loop %1 %1 %1 %1", _("Blink state"), IOActionList::ACTION_TIME_MS));
         v.push_back(IOActionList("impulse %1", _("Activate for X seconds"), _("Activate for %1"), IOActionList::ACTION_TIME_MS));
     }
-    else if (params["gui_type"] == "camera_output")
+    else if (params["gui_type"] == "camera")
     {
         v.push_back(IOActionList("recall %1", _("Move camera to a saved position"), _("Move camera to position %1"), IOActionList::ACTION_NUMBER));
         v.push_back(IOActionList("save %1", _("Save position"), _("Save to position %1"), IOActionList::ACTION_NUMBER));
@@ -1044,7 +973,7 @@ vector<IOActionList> IOBase::getActionList()
         v.push_back(IOActionList("move right", _("Move right"), IOActionList::ACTION_SIMPLE));
         v.push_back(IOActionList("move home", _("Move to default"), IOActionList::ACTION_SIMPLE));
     }
-    else if (params["gui_type"] == "audio_output")
+    else if (params["gui_type"] == "audio")
     {
         v.push_back(IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE));
         v.push_back(IOActionList("pause", _("Pause"), IOActionList::ACTION_SIMPLE));
@@ -1148,12 +1077,12 @@ IOActionList IOBase::getActionFromState()
     {
         ac = IOActionList("true", _("Activate"), IOActionList::ACTION_SIMPLE);
     }
-    else if (params["gui_type"] == "camera_output")
+    else if (params["gui_type"] == "camera")
     {
         ac = IOActionList("recall %1", _("Move camera to a saved position"), _("Move camera to position %1"), IOActionList::ACTION_NUMBER);
         ac.dvalue = 0.0;
     }
-    else if (params["gui_type"] == "audio_output")
+    else if (params["gui_type"] == "audio")
     {
         ac = IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE);
     }
@@ -1272,7 +1201,7 @@ IOActionList IOBase::getActionListFromAction(string action)
         else if (tokens[0] == "impulse" && tokens[1] == "loop") ac = IOActionList("impulse loop %1 %1 %1 %1", _("Blink state"), IOActionList::ACTION_TIME_MS);
         else if (tokens[0] == "impulse") ac = IOActionList("impulse %1", "Activer pendant X secondes", _("Activate for %1"), IOActionList::ACTION_TIME_MS);
     }
-    else if (params["gui_type"] == "camera_output")
+    else if (params["gui_type"] == "camera")
     {
         if (tokens[0] == "recall")
         {
@@ -1289,7 +1218,7 @@ IOActionList IOBase::getActionListFromAction(string action)
             else if (tokens[1] == "home") ac = IOActionList("move home", _("Move to default"), IOActionList::ACTION_SIMPLE);
         }
     }
-    else if (params["gui_type"] == "audio_output")
+    else if (params["gui_type"] == "audio")
     {
         if (tokens[0] == "play") ac = IOActionList("play", _("Play"), IOActionList::ACTION_SIMPLE);
         else if (tokens[0] == "pause") ac = IOActionList("pause", _("Plause"), IOActionList::ACTION_SIMPLE);
