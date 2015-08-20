@@ -215,11 +215,6 @@ void ListeRule::RemoveRule(IOBase *obj)
                     rule_to_del = rule;
             }
         }
-        if (rule_to_del)
-        {
-            Remove(rule_to_del);
-            i--;
-        }
 
         for (int j = 0;j < rule->get_size_actions();j++)
         {
@@ -231,6 +226,7 @@ void ListeRule::RemoveRule(IOBase *obj)
                     rule_to_del = rule;
             }
         }
+
         if (rule_to_del)
         {
             Remove(rule_to_del);
