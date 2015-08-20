@@ -37,10 +37,11 @@ ListeRoom::ListeRoom()
 
 ListeRoom::~ListeRoom()
 {
-    for (uint i = 0;i < rooms.size();i++)
-        delete rooms[i];
-
-    rooms.clear();
+    while (rooms.size() > 0)
+    {
+        delete rooms[0];
+        rooms.erase(rooms.begin());
+    }
 }
 
 void ListeRoom::addIOHash(IOBase *io)
