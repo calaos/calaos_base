@@ -331,6 +331,27 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
             IOBase *in = ListeRoom::Instance().get_io(id);
+
+            if (!in)
+            {
+                //for compatibility with old AudioPlayer and Camera, update ids if needed
+                list<IOBase *> l = ListeRoom::Instance().getAudioList();
+                for (IOBase *io: l)
+                {
+                    if (io->get_param("iid") == id ||
+                        io->get_param("oid") == id)
+                        in = io;
+                }
+
+                l = ListeRoom::Instance().getCameraList();
+                for (IOBase *io: l)
+                {
+                    if (io->get_param("iid") == id ||
+                        io->get_param("oid") == id)
+                        in = io;
+                }
+            }
+
             if (in)
             {
                 Add(in);

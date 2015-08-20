@@ -192,6 +192,27 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
             }
 
             IOBase *out = ListeRoom::Instance().get_io(id);
+
+            if (!out)
+            {
+                //for compatibility with old AudioPlayer and Camera, update ids if needed
+                list<IOBase *> l = ListeRoom::Instance().getAudioList();
+                for (IOBase *io: l)
+                {
+                    if (io->get_param("iid") == id ||
+                        io->get_param("oid") == id)
+                        out = io;
+                }
+
+                l = ListeRoom::Instance().getCameraList();
+                for (IOBase *io: l)
+                {
+                    if (io->get_param("iid") == id ||
+                        io->get_param("oid") == id)
+                        out = io;
+                }
+            }
+
             if (out && out->isOutput())
             {
                 Add(out);
