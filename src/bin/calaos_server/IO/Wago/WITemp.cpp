@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WITemp)
-REGISTER_INPUT_USERTYPE(WagoInputTemp, WITemp)
+REGISTER_IO(WITemp)
+REGISTER_IO_USERTYPE(WagoInputTemp, WITemp)
 
 WITemp::WITemp(Params &p):
     InputTemp(p),

@@ -18,20 +18,19 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Gadspot.h>
-#include <IOFactory.h>
+#include "Gadspot.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_CAMERA(Gadspot)
+REGISTER_IO(Gadspot)
 
-Gadspot::Gadspot(Params &p): IPCam(p)
+Gadspot::Gadspot(Params &p):
+    IPCam(p)
 {
+    //TODO: add ioDoc
+
     caps.Add("resolution", "640x480");
-}
-
-Gadspot::~Gadspot()
-{
 }
 
 std::string Gadspot::getVideoUrl()

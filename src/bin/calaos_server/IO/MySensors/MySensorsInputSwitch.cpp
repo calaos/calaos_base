@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(MySensorsInputSwitch)
+REGISTER_IO(MySensorsInputSwitch)
 
 MySensorsInputSwitch::MySensorsInputSwitch(Params &p):
     InputSwitch(p)

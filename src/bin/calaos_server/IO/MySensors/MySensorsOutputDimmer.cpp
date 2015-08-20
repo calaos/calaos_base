@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputDimmer)
+REGISTER_IO(MySensorsOutputDimmer)
 
 MySensorsOutputDimmer::MySensorsOutputDimmer(Params &_p):
     OutputLightDimmer(_p)

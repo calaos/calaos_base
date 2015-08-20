@@ -20,12 +20,11 @@
  ******************************************************************************/
 #include "Squeezebox.h"
 #include "SqueezeboxDB.h"
-#include "AudioManager.h"
 #include "FileDownloader.h"
 #include "IOFactory.h"
 #include "EventManager.h"
+#include "ListeRoom.h"
 
-// The JSON parser
 #include <jansson.h>
 
 #define SQ_TIMEOUT      40.0
@@ -33,8 +32,8 @@
 
 using namespace Calaos;
 
-REGISTER_AUDIO_USERTYPE(slim, Squeezebox)
-REGISTER_AUDIO(Squeezebox)
+REGISTER_IO_USERTYPE(slim, Squeezebox)
+REGISTER_IO(Squeezebox)
 
 static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
 {
@@ -111,6 +110,23 @@ Squeezebox::Squeezebox(Params &p):
     timer_timeout(NULL),
     isConnected(false)
 {
+    ioDoc->friendlyNameSet("Squeezebox");
+    ioDoc->aliasAdd("slim");
+    ioDoc->descriptionSet(_("Squeezebox audio player allows control of a Squeezebox from Calaos"));
+
+    ioDoc->paramAdd("host", _("Logitech media server IP address"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("id", _("Unique ID of squeezebox in LMS"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port_cli", _("CLI port of LMS, default to 9090"), 0, 65535, false, 9090);
+    ioDoc->paramAddInt("port_web", _("Web interface port of LMS, default to 9000."), 0, 65535, false, 9000);
+
+    ioDoc->actionAdd("power on", _("Switch player on"));
+    ioDoc->actionAdd("power off", _("Switch player off"));
+    ioDoc->actionAdd("sleep 10", _("Start sleep mode with X seconds"));
+    ioDoc->actionAdd("sync <playerid>", _("Sync this player with an other"));
+    ioDoc->actionAdd("unsync <playerid>", _("Stop sync of this player with an other"));
+    ioDoc->actionAdd("play <argument>", _("Clear playlist and play argument. <argument> can be any of album_id:XX artist_id:XX playlist_id:XX, ..."));
+    ioDoc->actionAdd("add <argument>", _("Add tracks to playlist. <argument> can be any of album_id:XX artist_id:XX playlist_id:XX, ..."));
+
     host = param["host"];
     if (param.Exists("port_cli"))
     {
@@ -364,8 +380,7 @@ void Squeezebox::processNotificationMessage(string msg)
         if (p["2"] == "open" || p["2"] == "newsong") //current song changes !
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioSongChange);
+            set_status(AudioSongChange);
 
             EventManager::create(CalaosEvent::EventAudioSongChanged,
                                  { { "player_id", get_param("pid") } });
@@ -373,8 +388,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "move")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioPlaylistChange);
+            set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistMove,
                                  { { "player_id", get_param("pid") },
@@ -384,8 +398,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "delete")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioPlaylistChange);
+            set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistDelete,
                                  { { "player_id", get_param("pid") },
@@ -394,8 +407,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play" || p["2"] == "load")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioPlaylistChange);
+            set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistReload,
                                  { { "player_id", get_param("pid") } });
@@ -403,8 +415,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "addtracks" || p["2"] == "add")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioPlaylistChange);
+            set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistAdd,
                                  { { "player_id", get_param("pid") } });
@@ -412,8 +423,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "clear")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioPlaylistChange);
+            set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistCleared,
                                  { { "player_id", get_param("pid") } });
@@ -421,14 +431,10 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "pause")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain)
-            {
-                if (p["3"] == "" || p["3"] == "0")
-                    ain->set_status(AudioPlay);
-                else
-                    ain->set_status(AudioPause);
-            }
+            if (p["3"] == "" || p["3"] == "0")
+                set_status(AudioPlay);
+            else
+                set_status(AudioPause);
 
             string state;
             if (p["3"] == "" || p["3"] == "0")
@@ -443,8 +449,7 @@ void Squeezebox::processNotificationMessage(string msg)
         else if (p["2"] == "stop")
         {
             //notify the player's input
-            AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-            if (ain) ain->set_status(AudioStop);
+            set_status(AudioStop);
 
             EventManager::create(CalaosEvent::EventAudioStatusChanged,
                                  { { "player_id", get_param("pid") },
@@ -456,8 +461,7 @@ void Squeezebox::processNotificationMessage(string msg)
     if (p["1"] == "mixer" && p["2"] == "volume")
     {
         //notify the player's input
-        AudioInput *ain = dynamic_cast<AudioInput *>(ainput);
-        if (ain) ain->set_status(AudioVolumeChange);
+        set_status(AudioVolumeChange);
 
         EventManager::create(CalaosEvent::EventAudioVolumeChanged,
                              { { "player_id", get_param("pid") },
@@ -1250,14 +1254,15 @@ void Squeezebox::get_sync_status_cb(bool status, string request, string result, 
 
         if (tmp == "-") break;
 
-        for (int i = 0;i < AudioManager::Instance().get_size();i++)
+        list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+        for (IOBase *io: audiolist)
         {
-            AudioPlayer *ap = AudioManager::Instance().get_player(i);
+            AudioPlayer *ap = dynamic_cast<AudioPlayer *>(io);
             if (ap->get_param("id") == tmp)
             {
                 Params res;
 
-                //player found in calaosd, add it
+                //player found in calaos_server, add it
                 res.Add("id", ap->get_param("id"));
                 res.Add("name", ap->get_param("name"));
 
@@ -1730,12 +1735,14 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
             {
                 string pid = url_decode2(tk[1]);
 
-                for (int j = 0;j < AudioManager::Instance().get_size();j++)
+                list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+                for (IOBase *io: audiolist)
                 {
-                    AudioPlayer *ap = AudioManager::Instance().get_player(j);
-                    if (ap->get_param("id") == pid && pid != id)
+                    AudioPlayer *ap = dynamic_cast<AudioPlayer *>(io);
+                    if (ap && ap->get_param("id") == pid && pid != id &&
+                        (ap->get_param("type") == "slim" || ap->get_param("type") == "Squeezebox"))
                     {
-                        //player found in calaosd, add it
+                        //player found in calaos_server, add it
                         item.Add("id", pid);
                         item.Add("name", ap->get_param("name"));
                         result.push_back(item);

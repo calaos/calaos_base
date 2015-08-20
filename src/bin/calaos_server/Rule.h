@@ -21,10 +21,10 @@
 #ifndef S_RULE_H
 #define S_RULE_H
 
-#include <Calaos.h>
-#include <Condition.h>
-#include <Action.h>
-#include <EcoreTimer.h>
+#include "Calaos.h"
+#include "Condition.h"
+#include "Action.h"
+#include "EcoreTimer.h"
 
 using namespace std;
 

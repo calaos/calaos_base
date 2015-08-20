@@ -22,14 +22,13 @@
 #define S_INPUTTIMER_H
 
 #include "Calaos.h"
-#include "Input.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class InputTimer : public Input, public Output
+class InputTimer : public IOBase
 {
 protected:
     int hour, minute, second, ms;
@@ -54,13 +53,6 @@ public:
     virtual bool set_value(string val);
 
     virtual void hasChanged();
-
-    virtual void set_param(std::string opt, std::string val)
-    { Input::set_param(opt, val); }
-    virtual std::string get_param(std::string opt)
-    { return Input::get_param(opt); }
-    virtual Params &get_params()
-    { return Input::get_params(); }
 };
 
 }

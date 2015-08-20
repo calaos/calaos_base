@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(GpioInputSwitchLongPress)
+REGISTER_IO(GpioInputSwitchLongPress)
 
 GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
     InputSwitchLongPress(p),

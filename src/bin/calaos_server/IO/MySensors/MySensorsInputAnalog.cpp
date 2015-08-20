@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(MySensorsInputAnalog)
+REGISTER_IO(MySensorsInputAnalog)
 
 MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
     InputAnalog(p)

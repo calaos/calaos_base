@@ -21,8 +21,8 @@
 #ifndef AVRYAMAHA_H
 #define AVRYAMAHA_H
 
-#include <Calaos.h>
-#include <AVReceiver.h>
+#include "Calaos.h"
+#include "AVReceiver.h"
 
 namespace Calaos
 {

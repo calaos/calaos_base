@@ -18,29 +18,53 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <IPCam.h>
+#include "IPCam.h"
 
 using namespace Calaos;
 
-IPCam::IPCam(Params &p): param(p)
+IPCam::IPCam(Params &p):
+    IOBase(p, IOBase::IO_INOUT)
 {
-    if (!param.Exists("port")) param.Add("port", "80");
+    //TODO add IODoc
 
-    Params pio = param;
+    if (!param_exists("port"))
+        set_param("port", "80");
 
-    pio.Add("id", param["oid"]);
-    pio.Add("type", "CamOutput");
-    aoutput = new CamOutput(pio, this);
-
-    pio.Add("id", param["iid"]);
-    pio.Add("type", "CamInput");
-    ainput = new CamInput(pio, this);
+    set_param("gui_type", "camera");
+    set_param("visible", "false");
 }
 
 IPCam::~IPCam()
 {
-    delete aoutput;
-    delete ainput;
+}
+
+bool IPCam::set_value(std::string val)
+{
+    if (!isEnabled()) return true;
+
+    cInfoDom("output") << "CamOutput(" << get_param("id") << "): got action, " << val;
+
+    if (val.compare(0, 5, "move ") == 0)
+    {
+        val.erase(0, 5);
+        activateCapabilities("ptz", "move", val);
+    }
+    else if (val.compare(0, 5, "save ") == 0)
+    {
+        val.erase(0, 5);
+        activateCapabilities("position", "save", val);
+    }
+    else if (val.compare(0, 7, "recall ") == 0)
+    {
+        val.erase(0, 7);
+        activateCapabilities("position", "recall", val);
+    }
+
+    EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
+                           { "state", val } });
+
+    return true;
 }
 
 bool IPCam::SaveToXml(TiXmlElement *node)

@@ -21,8 +21,8 @@
 #ifndef AVROnkyo_H
 #define AVROnkyo_H
 
-#include <Calaos.h>
-#include <AVReceiver.h>
+#include "Calaos.h"
+#include "AVReceiver.h"
 
 namespace Calaos
 {

@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(MySensorsInputString)
+REGISTER_IO(MySensorsInputString)
 
 MySensorsInputString::MySensorsInputString(Params &p):
     InputString(p)

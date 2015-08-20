@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WIDigitalTriple)
-REGISTER_INPUT_USERTYPE(WagoInputSwitchTriple, WIDigitalTriple)
+REGISTER_IO(WIDigitalTriple)
+REGISTER_IO_USERTYPE(WagoInputSwitchTriple, WIDigitalTriple)
 
 WIDigitalTriple::WIDigitalTriple(Params &p):
     InputSwitchTriple(p),

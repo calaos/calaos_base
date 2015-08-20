@@ -22,8 +22,7 @@
 #define S_ROOM_H
 
 #include "Calaos.h"
-#include "Input.h"
-#include "Output.h"
+#include "IOBase.h"
 #include <type_traits>
 
 using namespace std;
@@ -38,8 +37,7 @@ protected:
     string type;
     int hits;
 
-    vector<Input *> inputs;
-    vector<Output *> outputs;
+    vector<IOBase *> ios;
 
 public:
     Room(string _name, string _type, int _hits = 0);
@@ -55,39 +53,14 @@ public:
 
     void set_hits(int h);
 
-    void AddInput(Input *p);
-    void RemoveInput(int i, bool del = true);
-    void AddOutput(Output *p);
-    void RemoveOutput(int i, bool del = true);
+    void AddIO(IOBase *p);
+    void RemoveIO(int i, bool del = true);
 
-    void RemoveInputFromRoom(Input *in);
-    void RemoveOutputFromRoom(Output *out);
+    void RemoveIOFromRoom(IOBase *io);
 
-    Input *get_input(int i) { return inputs[i]; }
-    Output *get_output(int i) { return outputs[i]; }
+    IOBase *get_io(int i) { return ios[i]; }
 
-    int get_size_in() { return inputs.size(); }
-    int get_size_out() { return outputs.size(); }
-
-    //Some templated functions to avoid lots of copy/paste
-    //when looping over inputs/outputs the same way
-    //Ex of use:
-    //   room->get_size<Input>()
-    template<typename T,
-             typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
-    int get_size() { return inputs.size(); }
-
-    template<typename T,
-             typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
-    int get_size() { return outputs.size(); }
-
-    template<typename T,
-             typename std::enable_if<std::is_same<T, Input*>::value>::type* = nullptr>
-    T get_io(int i) { return inputs[i]; }
-
-    template<typename T,
-             typename std::enable_if<std::is_same<T, Output*>::value>::type* = nullptr>
-    T get_io(int i) { return outputs[i]; }
+    int get_size() { return ios.size(); }
 
     bool LoadFromXml(TiXmlElement *node);
     bool SaveToXml(TiXmlElement *node);

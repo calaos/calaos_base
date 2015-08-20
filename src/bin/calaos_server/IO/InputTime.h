@@ -21,13 +21,13 @@
 #ifndef S_INPUTTIME_H
 #define S_INPUTTIME_H
 
-#include "Input.h"
+#include "IOBase.h"
 #include <time.h>
 
 namespace Calaos
 {
 
-class InputTime : public Input
+class InputTime : public IOBase
 {
 protected:
     bool with_date; //operation redondante

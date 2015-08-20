@@ -50,7 +50,7 @@ void IODoc::linkAdd(const string &description, const string &link)
 }
 
 void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly)
-{
+{   
     Params param;
     param.Add("name", name);
     param.Add("description", description);
@@ -59,7 +59,7 @@ void IODoc::paramAdd(const string &name, const string &description, ParamType ty
     if (!defaultval.empty())
         param.Add("default", defaultval);
     param.Add("readonly", readonly ? "true" : "false");
-    m_parameters.push_back(param);
+    m_parameters[name] = param;
 }
 
 void IODoc::paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval, bool readonly)
@@ -73,7 +73,7 @@ void IODoc::paramAddInt(const string &name, const string &description, int min, 
     param.Add("min", Utils::to_string(min));
     param.Add("max", Utils::to_string(max));
     param.Add("readonly", readonly ? "true" : "false");
-    m_parameters.push_back(param);
+    m_parameters[name] = param;
 }
 
 void IODoc::paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval, bool readonly)
@@ -87,7 +87,7 @@ void IODoc::paramAddFloat(const string &name, const string &description, bool ma
     param.Add("min", Utils::to_string(min));
     param.Add("max", Utils::to_string(max));
     param.Add("readonly", readonly ? "true" : "false");
-    m_parameters.push_back(param);
+    m_parameters[name] = param;
 }
 
 void IODoc::conditionAdd(const string &name, const string &description)
@@ -95,7 +95,7 @@ void IODoc::conditionAdd(const string &name, const string &description)
     Params p;
     p.Add("name", name);
     p.Add("description", description);
-    m_conditions.push_back(p);
+    m_conditions[name] = p;
 }
 
 void IODoc::actionAdd(const string &name, const string &description)
@@ -103,7 +103,7 @@ void IODoc::actionAdd(const string &name, const string &description)
     Params p;
     p.Add("name", name);
     p.Add("description", description);
-    m_actions.push_back(p);
+    m_actions[name] = p;
 }
 
 void IODoc::aliasAdd(string alias)
@@ -143,23 +143,23 @@ json_t *IODoc::genDocJson()
     json_object_set_new(ret, "alias", aliases);
 
     json_t *array = json_array();
-    for (const auto &param : m_parameters)
+    for (const auto &it : m_parameters)
     {
-        json_array_append_new(array, param.toJson());
+        json_array_append_new(array, it.second.toJson());
     }
     json_object_set_new(ret, "parameters", array);
 
     array = json_array();
-    for (const auto &param : m_conditions)
+    for (const auto &it : m_conditions)
     {
-        json_array_append_new(array, param.toJson());
+        json_array_append_new(array, it.second.toJson());
     }
     json_object_set_new(ret, "conditions", array);
 
     array = json_array();
-    for (const auto &param : m_actions)
+    for (const auto &it : m_actions)
     {
-        json_array_append_new(array, param.toJson());
+        json_array_append_new(array, it.second.toJson());
     }
     json_object_set_new(ret, "actions", array);
 
@@ -206,15 +206,15 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Type | Mandatory | Description\n";
         doc += "---- | ---- | --------- | -----------\n";
 
-        for (const auto &param : m_parameters)
+        for (const auto &it : m_parameters)
         {
-            doc += param["name"] + " | ";
-            doc += param["type"] + " | ";
-            if (param["mandatory"] == "true")
+            doc += it.second["name"] + " | ";
+            doc += it.second["type"] + " | ";
+            if (it.second["mandatory"] == "true")
                 doc += "yes | ";
             else
                 doc += "no | ";
-            doc += param["description"] + "\n";
+            doc += it.second["description"] + "\n";
         }
         doc += "\n";
     }
@@ -226,10 +226,10 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
 
-        for (const auto &param : m_conditions)
+        for (const auto &it : m_conditions)
         {
-            doc += param["name"] + " | ";
-            doc += param["description"] + " \n ";
+            doc += it.second["name"] + " | ";
+            doc += it.second["description"] + " \n ";
         }
         doc += "\n";
     }
@@ -240,10 +240,10 @@ string IODoc::genDocMd(const string iotype)
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
 
-        for (const auto &param : m_actions)
+        for (const auto &it : m_actions)
         {
-            doc += param["name"] + " | ";
-            doc += param["description"] + " \n ";
+            doc += it.second["name"] + " | ";
+            doc += it.second["description"] + " \n ";
         }
         doc += "\n";
     }

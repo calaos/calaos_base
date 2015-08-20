@@ -56,12 +56,6 @@ calaos_server_SOURCES = \
         Audio/AVReceiver.h                              \
         Audio/AudioDB.cpp                               \
         Audio/AudioDB.h                                 \
-        Audio/AudioInput.cpp                            \
-        Audio/AudioInput.h                              \
-        Audio/AudioManager.cpp                          \
-        Audio/AudioManager.h                            \
-        Audio/AudioOutput.cpp                           \
-        Audio/AudioOutput.h                             \
         Audio/AudioPlayer.cpp                           \
         Audio/AudioPlayer.h                             \
         Audio/AudioPlayerData.h                         \
@@ -250,15 +244,10 @@ calaos_server_SOURCES = \
         IO/Zibase/ZibaseDigitalIn.h                     \
         IO/Zibase/ZibaseDigitalOut.cpp                  \
         IO/Zibase/ZibaseDigitalOut.h                    \
+        IOBase.cpp                                      \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
-        IPCam/CamInput.cpp                              \
-        IPCam/CamInput.h                                \
-        IPCam/CamManager.cpp                            \
-        IPCam/CamManager.h                              \
-        IPCam/CamOutput.cpp                             \
-        IPCam/CamOutput.h                               \
         IPCam/Gadspot.cpp                               \
         IPCam/Gadspot.h                                 \
         IPCam/IPCam.cpp                                 \
@@ -267,8 +256,6 @@ calaos_server_SOURCES = \
         IPCam/Planet.h                                  \
         IPCam/StandardMjpeg.cpp                         \
         IPCam/StandardMjpeg.h                           \
-        Input.cpp                                       \
-        Input.h                                         \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
         JsonApiHandlerHttp.h                            \
@@ -284,8 +271,6 @@ calaos_server_SOURCES = \
         LuaScript/ScriptBindings.h                      \
         LuaScript/ScriptManager.cpp                     \
         LuaScript/ScriptManager.h                       \
-        Output.cpp                                      \
-        Output.h                                        \
         PollListenner.cpp                               \
         PollListenner.h                                 \
         Room.cpp                                        \

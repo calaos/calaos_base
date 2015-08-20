@@ -21,28 +21,28 @@
 #ifndef S_InPlageHoraire_H
 #define S_InPlageHoraire_H
 
-#include "Input.h"
+#include "IOBase.h"
 #include <time.h>
 #include "TimeRange.h"
 
 namespace Calaos
 {
 
-class InPlageHoraire : public Input
+class InPlageHoraire : public IOBase
 {
 protected:
     bool value;
 
-    vector<TimeRange> plg_lundi;
-    vector<TimeRange> plg_mardi;
-    vector<TimeRange> plg_mercredi;
-    vector<TimeRange> plg_jeudi;
-    vector<TimeRange> plg_vendredi;
-    vector<TimeRange> plg_samedi;
-    vector<TimeRange> plg_dimanche;
+    vector<TimeRange> plg_monday;
+    vector<TimeRange> plg_tuesday;
+    vector<TimeRange> plg_wednesday;
+    vector<TimeRange> plg_thursday;
+    vector<TimeRange> plg_friday;
+    vector<TimeRange> plg_saturday;
+    vector<TimeRange> plg_sunday;
 
-    void LoadPlage(TiXmlElement *node, vector<TimeRange> &plage);
-    void SavePlage(TiXmlElement *node, string day, vector<TimeRange> &plage);
+    void LoadRange(TiXmlElement *node, vector<TimeRange> &plage);
+    void SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage);
 
 public:
     InPlageHoraire(Params &p);
@@ -55,29 +55,29 @@ public:
     enum { JANUARY = 0, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
     bitset<12> months;
 
-    void AddLundi(TimeRange &horaire) { plg_lundi.push_back(horaire); }
-    void AddMardi(TimeRange &horaire) { plg_mardi.push_back(horaire); }
-    void AddMercredi(TimeRange &horaire) { plg_mercredi.push_back(horaire); }
-    void AddJeudi(TimeRange &horaire) { plg_jeudi.push_back(horaire); }
-    void AddVendredi(TimeRange &horaire) { plg_vendredi.push_back(horaire); }
-    void AddSamedi(TimeRange &horaire) { plg_samedi.push_back(horaire); }
-    void AddDimanche(TimeRange &horaire) { plg_dimanche.push_back(horaire); }
+    void AddMonday(TimeRange &horaire) { plg_monday.push_back(horaire); }
+    void AddTuesday(TimeRange &horaire) { plg_tuesday.push_back(horaire); }
+    void AddWednesday(TimeRange &horaire) { plg_wednesday.push_back(horaire); }
+    void AddThursday(TimeRange &horaire) { plg_thursday.push_back(horaire); }
+    void AddFriday(TimeRange &horaire) { plg_friday.push_back(horaire); }
+    void AddSaturday(TimeRange &horaire) { plg_saturday.push_back(horaire); }
+    void AddSunday(TimeRange &horaire) { plg_sunday.push_back(horaire); }
 
-    vector<TimeRange> &getLundi() { return plg_lundi; }
-    vector<TimeRange> &getMardi() { return plg_mardi; }
-    vector<TimeRange> &getMercredi() { return plg_mercredi; }
-    vector<TimeRange> &getJeudi() { return plg_jeudi; }
-    vector<TimeRange> &getVendredi() { return plg_vendredi; }
-    vector<TimeRange> &getSamedi() { return plg_samedi; }
-    vector<TimeRange> &getDimanche() { return plg_dimanche; }
+    vector<TimeRange> &getMonday() { return plg_monday; }
+    vector<TimeRange> &getTuesday() { return plg_tuesday; }
+    vector<TimeRange> &getWednesday() { return plg_wednesday; }
+    vector<TimeRange> &getThursday() { return plg_thursday; }
+    vector<TimeRange> &getFriday() { return plg_friday; }
+    vector<TimeRange> &getSaturday() { return plg_saturday; }
+    vector<TimeRange> &getSunday() { return plg_sunday; }
 
-    void setLundi(vector<TimeRange> &h) { plg_lundi = h; }
-    void setMardi(vector<TimeRange> &h) { plg_mardi = h; }
-    void setMercredi(vector<TimeRange> &h) { plg_mercredi = h; }
-    void setJeudi(vector<TimeRange> &h) { plg_jeudi = h; }
-    void setVendredi(vector<TimeRange> &h) { plg_vendredi = h; }
-    void setSamedi(vector<TimeRange> &h) { plg_samedi = h; }
-    void setDimanche(vector<TimeRange> &h) { plg_dimanche = h; }
+    void setMonday(vector<TimeRange> &h) { plg_monday = h; }
+    void setTuesday(vector<TimeRange> &h) { plg_tuesday = h; }
+    void setWednesday(vector<TimeRange> &h) { plg_wednesday = h; }
+    void setThursday(vector<TimeRange> &h) { plg_thursday = h; }
+    void setFriday(vector<TimeRange> &h) { plg_friday = h; }
+    void setSaturday(vector<TimeRange> &h) { plg_saturday = h; }
+    void setSunday(vector<TimeRange> &h) { plg_sunday = h; }
 
     void clear();
 

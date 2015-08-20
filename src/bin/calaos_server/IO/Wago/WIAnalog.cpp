@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WIAnalog)
-REGISTER_INPUT_USERTYPE(WagoInputAnalog, WIAnalog)
+REGISTER_IO(WIAnalog)
+REGISTER_IO_USERTYPE(WagoInputAnalog, WIAnalog)
 
 WIAnalog::WIAnalog(Params &p):
     InputAnalog(p),

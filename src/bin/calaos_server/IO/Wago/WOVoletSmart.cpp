@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WOVoletSmart)
-REGISTER_OUTPUT_USERTYPE(WagoOutputShutterSmart, WOVoletSmart)
+REGISTER_IO(WOVoletSmart)
+REGISTER_IO_USERTYPE(WagoOutputShutterSmart, WOVoletSmart)
 
 WOVoletSmart::WOVoletSmart(Params &p):
     OutputShutterSmart(p),

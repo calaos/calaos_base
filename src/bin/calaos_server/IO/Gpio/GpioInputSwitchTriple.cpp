@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(GpioInputSwitchTriple)
+REGISTER_IO(GpioInputSwitchTriple)
 
 GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
     InputSwitchTriple(p),

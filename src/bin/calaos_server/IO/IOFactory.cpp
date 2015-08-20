@@ -23,22 +23,7 @@
 
 using namespace Calaos;
 
-Registrar::Registrar(string type, function<Input *(Params &)> classFunc)
-{
-    IOFactory::Instance().RegisterClass(type, classFunc);
-}
-
-Registrar::Registrar(string type, function<Output *(Params &)> classFunc)
-{
-    IOFactory::Instance().RegisterClass(type, classFunc);
-}
-
-Registrar::Registrar(string type, function<AudioPlayer *(Params &)> classFunc)
-{
-    IOFactory::Instance().RegisterClass(type, classFunc);
-}
-
-Registrar::Registrar(string type, function<IPCam *(Params &)> classFunc)
+Registrar::Registrar(string type, function<IOBase *(Params &)> classFunc)
 {
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
@@ -53,14 +38,14 @@ void IOFactory::readParams(TiXmlElement *node, Params &p)
     }
 }
 
-Input *IOFactory::CreateInput(std::string type, Params &params)
+IOBase *IOFactory::CreateIO(std::string type, Params &params)
 {
-    Input *obj = nullptr;
+    IOBase *obj = nullptr;
 
     std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
 
-    auto it = inputFunctionRegistry.find(type);
-    if (it != inputFunctionRegistry.end())
+    auto it = ioFunctionRegistry.find(type);
+    if (it != ioFunctionRegistry.end())
         obj = it->second(params);
 
     if (obj)
@@ -71,196 +56,40 @@ Input *IOFactory::CreateInput(std::string type, Params &params)
     return obj;
 }
 
-Input *IOFactory::CreateInput(TiXmlElement *node)
+IOBase *IOFactory::CreateIO(TiXmlElement *node)
 {
     Params p;
     readParams(node, p);
 
-    Input *in = CreateInput(p["type"], p);
-    in->LoadFromXml(node);
+    IOBase *io = CreateIO(p["type"], p);
+    io->LoadFromXml(node);
 
-    return in;
+    return io;
 }
 
-Output *IOFactory::CreateOutput(std::string type, Params &params)
-{
-    Output *obj = nullptr;
-
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-
-    auto it = outputFunctionRegistry.find(type);
-    if (it != outputFunctionRegistry.end())
-        obj = it->second(params);
-
-    if (obj)
-        cInfo() << type << ": Ok";
-    else
-        cWarning() << type << ": Unknown Output type !";
-
-    return obj;
-}
-
-Output *IOFactory::CreateOutput(TiXmlElement *node)
-{
-    Params p;
-    readParams(node, p);
-
-    Output *out = CreateOutput(p["type"], p);
-    if (!out)
-        return nullptr;
-    out->LoadFromXml(node);
-
-    return out;
-}
-
-AudioPlayer *IOFactory::CreateAudio (std::string type, Params &params)
-{
-    AudioPlayer *obj = nullptr;
-
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-
-    auto it = audioFunctionRegistry.find(type);
-    if (it != audioFunctionRegistry.end())
-        obj = it->second(params);
-
-    if (obj)
-        cInfo() << type << ": Ok";
-    else
-        cWarning() << type << ": Unknown Input type !";
-
-    return obj;
-}
-
-AudioPlayer *IOFactory::CreateAudio(TiXmlElement *node)
-{
-    Params p;
-    readParams(node, p);
-
-    AudioPlayer *pl = CreateAudio(p["type"], p);
-    pl->LoadFromXml(node);
-
-    return pl;
-}
-
-IPCam *IOFactory::CreateIPCamera (std::string type, Params &params)
-{
-    IPCam *obj = nullptr;
-
-    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-
-    auto it = camFunctionRegistry.find(type);
-    if (it != camFunctionRegistry.end())
-        obj = it->second(params);
-
-    if (obj)
-        cInfo() << type << ": Ok";
-    else
-        cWarning() << type << ": Unknown Input type !";
-
-    return obj;
-}
-
-IPCam *IOFactory::CreateIPCamera(TiXmlElement *node)
-{
-    Params p;
-    readParams(node, p);
-
-    IPCam *cam = CreateIPCamera(p["type"], p);
-    cam->LoadFromXml(node);
-
-    return cam;
-}
-
-void IOFactory::genDocOutput(string docPath, string type)
+void IOFactory::genDocIO(string docPath)
 {
     Params p;
 
     json_t *j = json_object();
 
-    string mdPath = docPath + "/"+ type + "s.md";
-    string jsonPath = docPath + "/" + type + "s.json";
+    string mdPath = docPath + "/io_doc.md";
+    string jsonPath = docPath + "/io_doc.json";
 
     ofstream mdFile(mdPath, ofstream::out);
     ofstream jsonFile(jsonPath, ofstream::out);
 
-    if (type == "input")
+    map<string, function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
+    for ( auto it = list.begin(); it != list.end(); ++it )
     {
-        map<string, function<Input *(Params &)>> list(inputFunctionRegistry.begin(), inputFunctionRegistry.end());
-        for ( auto it = list.begin(); it != list.end(); ++it )
+        p.Add("type", origNameMap[it->first]);
+        p.Add("id", "doc");
+        auto io =  CreateIO(it->first, p);
+        IODoc *doc = io->getDoc();
+        if (doc && !doc->isAlias(it->first.c_str()))
         {
-            p.Add("type", origNameMap[it->first]);
-            auto io =  CreateInput(it->first, p);
-            IODoc *doc = io->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
-        }
-    }
-    else if (type == "output")
-    {
-        map<string, function<Output *(Params &)>> list(outputFunctionRegistry.begin(), outputFunctionRegistry.end());
-        for ( auto it = list.begin(); it != list.end(); ++it )
-        {
-            p.Add("type", origNameMap[it->first]);
-            auto io =  CreateOutput(it->first, p);
-            IODoc *doc = io->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
-        }
-    }
-    else if (type == "audio")
-    {
-        map<string, function<AudioPlayer *(Params &)>> list(audioFunctionRegistry.begin(), audioFunctionRegistry.end());
-        for ( auto it = list.begin(); it != list.end(); ++it )
-        {
-            p.Add("type", origNameMap[it->first]);
-            auto audio = CreateAudio(it->first, p);
-            auto input = audio->get_input();
-            auto output =  audio->get_output();
-
-            IODoc *doc = input->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
-
-            doc = output->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
-        }
-    }
-    else if (type == "cam")
-    {
-        map<string, function<IPCam *(Params &)>> list(camFunctionRegistry.begin(), camFunctionRegistry.end());
-        for ( auto it = list.begin(); it != list.end(); ++it )
-        {
-            p.Add("type", origNameMap[it->first]);
-            auto cam = CreateIPCamera(it->first, p);
-            auto input = cam->get_input();
-            auto output = cam->get_output();
-
-            IODoc *doc = input->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
-
-            doc = output->getDoc();
-            if (doc && !doc->isAlias(it->first.c_str()))
-            {
-                json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-                mdFile << doc->genDocMd(origNameMap[it->first]);
-            }
+            json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
+            mdFile << doc->genDocMd(origNameMap[it->first]);
         }
     }
 
@@ -271,7 +100,6 @@ void IOFactory::genDocOutput(string docPath, string type)
 
 void IOFactory::genDoc(string path)
 {
-
     string docPath = path + "/" + PACKAGE_STRING;
 
     if (!ecore_file_exists(docPath.c_str()))
@@ -286,9 +114,6 @@ void IOFactory::genDoc(string path)
 
     }
 
-    genDocOutput(docPath, "input");
-    genDocOutput(docPath, "output");
-    genDocOutput(docPath, "audio");
-    genDocOutput(docPath, "cam");
+    genDocIO(docPath);
 }
 

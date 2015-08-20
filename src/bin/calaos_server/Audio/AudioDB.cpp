@@ -18,12 +18,13 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AudioDB.h>
+#include "AudioDB.h"
 
 using namespace std;
 using namespace Calaos;
 
-AudioDB::AudioDB(Params &p): param(p)
+AudioDB::AudioDB(Params &p):
+    param(p)
 {
 }
 

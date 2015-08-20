@@ -22,14 +22,13 @@
 #include "config.h"
 #endif
 
-#include <OWCtrl.h>
-#include <OWTemp.h>
-#include <IOFactory.h>
-#include <thread>
+#include "OWCtrl.h"
+#include "OWTemp.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_INPUT(OWTemp)
+REGISTER_IO(OWTemp)
 
 OWTemp::OWTemp(Params &p):
     InputTemp(p)

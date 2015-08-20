@@ -21,7 +21,7 @@
 #ifndef S_ACTION_H
 #define S_ACTION_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 
 using namespace std;
 

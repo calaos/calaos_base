@@ -29,13 +29,13 @@ static bool _sortCompStepRule(Rule *r1, Rule* r2)
     return (t1 < t2);
 }
 
-AutoScenario::AutoScenario(Input *input):
+AutoScenario::AutoScenario(IOBase *input):
     ioScenario(dynamic_cast<Scenario *>(input)),
     ioIsActive(NULL),
     ioScheduleEnabled(NULL),
     ioStep(NULL),
     ioTimer(NULL),
-    ioPlage(NULL),
+    ioTimeRange(NULL),
     roomContainer(NULL),
     ruleStart(NULL),
     ruleStop(NULL),
@@ -107,20 +107,20 @@ void AutoScenario::deleteAll()
 
     //delete IOs
     if (ioIsActive)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioIsActive));
+        ListeRoom::Instance().deleteIO(ioIsActive);
     ioIsActive = NULL;
     if (ioScheduleEnabled)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioScheduleEnabled));
+        ListeRoom::Instance().deleteIO(ioScheduleEnabled);
     ioScheduleEnabled = NULL;
     if (ioStep)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioStep));
+        ListeRoom::Instance().deleteIO(ioStep);
     ioStep = NULL;
     if (ioTimer)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioTimer));
+        ListeRoom::Instance().deleteIO(ioTimer);
     ioTimer = NULL;
-    if (ioPlage)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioPlage));
-    ioPlage = NULL;
+    if (ioTimeRange)
+        ListeRoom::Instance().deleteIO(ioTimeRange);
+    ioTimeRange = NULL;
 }
 
 void AutoScenario::deleteRules()
@@ -138,13 +138,11 @@ void AutoScenario::deleteRules()
     for (uint i = 0;i < ruleSteps.size();i++)
         ListeRule::Instance().Remove(ruleSteps[i]);
     ruleSteps.clear();
-
-
 }
 
-Input *AutoScenario::createInput(string type, string id)
+IOBase *AutoScenario::createInput(string type, string id)
 {
-    Input *in = ListeRoom::Instance().get_input(id);
+    IOBase *in = ListeRoom::Instance().get_io(id);
     if (!in)
     {
         Params params;
@@ -156,7 +154,7 @@ Input *AutoScenario::createInput(string type, string id)
         params.Add("id", id);
         params.Add("auto_scenario", scenario_id);
 
-        in = ListeRoom::Instance().createInput(params, roomContainer);
+        in = ListeRoom::Instance().createIO(params, roomContainer);
     }
 
     in->setAutoScenario(true);
@@ -164,7 +162,7 @@ Input *AutoScenario::createInput(string type, string id)
     return in;
 }
 
-bool AutoScenario::checkCondition(Rule *rule, Input *input, string oper, string value)
+bool AutoScenario::checkCondition(Rule *rule, IOBase *input, string oper, string value)
 {
     bool ret = false;
     for (int i = 0;i < rule->get_size_conds() && !ret;i++)
@@ -182,7 +180,7 @@ bool AutoScenario::checkCondition(Rule *rule, Input *input, string oper, string 
     return ret;
 }
 
-bool AutoScenario::checkAction(Rule *rule, Output *output, string value)
+bool AutoScenario::checkAction(Rule *rule, IOBase *output, string value)
 {
     bool ret = false;
     for (int i = 0;i < rule->get_size_actions() && !ret;i++)
@@ -199,7 +197,7 @@ bool AutoScenario::checkAction(Rule *rule, Output *output, string value)
     return ret;
 }
 
-void AutoScenario::addRuleCondition(Rule *rule, Input *input, string oper, string value)
+void AutoScenario::addRuleCondition(Rule *rule, IOBase *input, string oper, string value)
 {
     ConditionStd *cond = new ConditionStd();
     rule->AddCondition(cond);
@@ -209,7 +207,7 @@ void AutoScenario::addRuleCondition(Rule *rule, Input *input, string oper, strin
     cond->get_params().Add(input->get_param("id"), value);
 }
 
-void AutoScenario::addRuleAction(Rule *rule, Output *output, string value)
+void AutoScenario::addRuleAction(Rule *rule, IOBase *output, string value)
 {
     ActionStd *act = new ActionStd();
     rule->AddAction(act);
@@ -218,7 +216,7 @@ void AutoScenario::addRuleAction(Rule *rule, Output *output, string value)
     act->get_params().Add(output->get_param("id"), value);
 }
 
-void AutoScenario::setRuleCondition(Rule *rule, Input *input, string oper, string value)
+void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, string oper, string value)
 {
     for (int i = 0;i < rule->get_size_conds();i++)
     {
@@ -233,7 +231,7 @@ void AutoScenario::setRuleCondition(Rule *rule, Input *input, string oper, strin
     }
 }
 
-void AutoScenario::setRuleAction(Rule *rule, Output *output, string value)
+void AutoScenario::setRuleAction(Rule *rule, IOBase *output, string value)
 {
     for (int i = 0;i < rule->get_size_actions();i++)
     {
@@ -247,7 +245,7 @@ void AutoScenario::setRuleAction(Rule *rule, Output *output, string value)
     }
 }
 
-string AutoScenario::getRuleConditionValue(Rule *rule, Input *input, string oper)
+string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, string oper)
 {
     string ret;
 
@@ -267,7 +265,7 @@ string AutoScenario::getRuleConditionValue(Rule *rule, Input *input, string oper
     return ret;
 }
 
-string AutoScenario::getRuleActionValue(Rule *rule, Output *output)
+string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
 {
     string ret;
 
@@ -300,9 +298,9 @@ void AutoScenario::checkScenarioRules()
     ioScheduleEnabled = NULL;
     ioStep = NULL;
     ioTimer = NULL;
-    ioPlage = NULL;
+    ioTimeRange = NULL;
 
-    roomContainer = ListeRoom::Instance().getRoomByInput(ioScenario);
+    roomContainer = ListeRoom::Instance().getRoomByIO(ioScenario);
 
     if (!ioIsActive)
         ioIsActive = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_active"));
@@ -312,10 +310,10 @@ void AutoScenario::checkScenarioRules()
         ioTimer = dynamic_cast<InputTimer *>(createInput("InputTimer", scenario_id + "_timer"));
 
     //Get the PlageHoraire input if the scenario is scheduled
-    ioPlage = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(scenario_id + "_schedule"));
-    if (ioPlage)
+    ioTimeRange = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(scenario_id + "_schedule"));
+    if (ioTimeRange)
     {
-        ioPlage->setAutoScenarioPtr(this);
+        ioTimeRange->setAutoScenarioPtr(this);
 
         if (!ioScheduleEnabled)
             ioScheduleEnabled = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
@@ -328,11 +326,11 @@ void AutoScenario::checkScenarioRules()
         //ioScheduleEnabled is not needed if the scenario has no schedule, so
         //delete it if it exists
         //It will automatically delete all rules using this input
-        ioScheduleEnabled = dynamic_cast<Internal *>(ListeRoom::Instance().get_input(scenario_id + "_is_schedule_enabled"));
+        ioScheduleEnabled = dynamic_cast<Internal *>(ListeRoom::Instance().get_io(scenario_id + "_is_schedule_enabled"));
         if (ioScheduleEnabled)
         {
-            ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioScheduleEnabled));
-            ioScheduleEnabled = NULL;
+            ListeRoom::Instance().deleteIO(ioScheduleEnabled);
+            ioScheduleEnabled = nullptr;
         }
     }
 
@@ -394,22 +392,22 @@ void AutoScenario::checkScenarioRules()
             ruleSteps.push_back(rule);
             rule->setAutoScenario(true);
         }
-        else if (ioPlage && rule->get_param("auto_scenario_type") == "time_start")
+        else if (ioTimeRange && rule->get_param("auto_scenario_type") == "time_start")
         {
             if (!checkCondition(rule, ioIsActive, "==", "false")) continue;
             if (!checkCondition(rule, ioScheduleEnabled, "==", "true")) continue;
-            if (!checkCondition(rule, ioPlage, "==", "true")) continue;
+            if (!checkCondition(rule, ioTimeRange, "==", "true")) continue;
 
             if (!checkAction(rule, ioScenario, "true")) continue;
 
             rulePlageStart = rule;
             rule->setAutoScenario(true);
         }
-        else if (ioPlage && cycle && rule->get_param("auto_scenario_type") == "time_stop")
+        else if (ioTimeRange && cycle && rule->get_param("auto_scenario_type") == "time_stop")
         {
             if (!checkCondition(rule, ioIsActive, "==", "true")) continue;
             if (!checkCondition(rule, ioScheduleEnabled, "==", "true")) continue;
-            if (!checkCondition(rule, ioPlage, "==", "false")) continue;
+            if (!checkCondition(rule, ioTimeRange, "==", "false")) continue;
 
             if (!checkAction(rule, ioTimer, "0")) continue;
             if (!checkAction(rule, ioTimer, "start")) continue;
@@ -424,7 +422,7 @@ void AutoScenario::checkScenarioRules()
                              ", scenario_id: " << scenario_id <<
                              ", " << srules.size() << " rules checked";
     cDebugDom("scenario") << "Found " << ruleSteps.size() << " steps, " <<
-                             ((ioPlage)?"has schedule, ":"has no schedule, ") <<
+                             ((ioTimeRange)?"has schedule, ":"has no schedule, ") <<
                              ((disabled)?"schedule is disabled ":"schedule is enabled ") <<
                              ((cycle)?"cycling":"");
     cDebugDom("scenario") << "Found rules (" <<
@@ -474,7 +472,7 @@ void AutoScenario::checkScenarioRules()
 
     createRuleStepEnd();
 
-    if (ioPlage && !rulePlageStart)
+    if (ioTimeRange && !rulePlageStart)
     {
         rulePlageStart = new Rule("AutoScenario", scenario_id + "_time_start");
         rulePlageStart->set_param("auto_scenario", scenario_id);
@@ -484,11 +482,11 @@ void AutoScenario::checkScenarioRules()
 
         addRuleCondition(rulePlageStart, ioIsActive, "==", "false");
         addRuleCondition(rulePlageStart, ioScheduleEnabled, "==", "true");
-        addRuleCondition(rulePlageStart, ioPlage, "==", "true");
+        addRuleCondition(rulePlageStart, ioTimeRange, "==", "true");
         addRuleAction(rulePlageStart, ioScenario, "true");
     }
 
-    if (ioPlage && cycle && !rulePlageStop)
+    if (ioTimeRange && cycle && !rulePlageStop)
     {
         rulePlageStop = new Rule("AutoScenario", scenario_id + "_time_stop");
         rulePlageStop->set_param("auto_scenario", scenario_id);
@@ -498,14 +496,14 @@ void AutoScenario::checkScenarioRules()
 
         addRuleCondition(rulePlageStop, ioIsActive, "==", "true");
         addRuleCondition(rulePlageStop, ioScheduleEnabled, "==", "true");
-        addRuleCondition(rulePlageStop, ioPlage, "==", "false");
+        addRuleCondition(rulePlageStop, ioTimeRange, "==", "false");
         addRuleAction(rulePlageStop, ioStep, "-1");
         addRuleAction(rulePlageStop, ioTimer, "0");
         addRuleAction(rulePlageStop, ioTimer, "start");
     }
 
     //Check steps rules, if they are correctly chained and if the last one is calling the final endStep
-    ::sort(ruleSteps.begin(), ruleSteps.end(), _sortCompStepRule);
+    std::sort(ruleSteps.begin(), ruleSteps.end(), _sortCompStepRule);
 
     for (uint i = 0;i < ruleSteps.size();i++)
     {
@@ -563,7 +561,7 @@ void AutoScenario::setStepPause(int s, double pause)
     setRuleAction(step, ioTimer, Utils::to_string(pause));
 }
 
-void AutoScenario::addStepAction(int s, Output *out, string action)
+void AutoScenario::addStepAction(int s, IOBase *out, string action)
 {
     cDebugDom("scenario") << "s == " << s << " ruleSteps.size() == " << ruleSteps.size();
     if ((s >= (int)ruleSteps.size() || s < 0) && s != END_STEP) return;
@@ -684,16 +682,14 @@ string AutoScenario::getCategory()
         {
             ScenarioAction sa = getStepAction(i, j);
 
-            if ((sa.io->get_param("type") == "WODigital" && sa.io->get_param("gtype") == "light") ||
-                sa.io->get_param("type") == "WODali" ||
-                sa.io->get_param("type") == "WODaliRVB" ||
-                sa.io->get_param("type") == "WONeon" ||
-                sa.io->get_param("type") == "X10Output")
+            if (sa.io->get_param("gui_type") == "light" ||
+                sa.io->get_param("gui_type") == "light_dimmer" ||
+                sa.io->get_param("gui_type") == "light_rgb")
             {
                 catLight.count++;
             }
-            else if (sa.io->get_param("type") == "WOVolet" ||
-                     sa.io->get_param("type") == "WOVoletSmart")
+            else if (sa.io->get_param("type") == "shutter" ||
+                     sa.io->get_param("type") == "shutter_smart")
             {
                 catShutter.count++;
             }
@@ -725,18 +721,18 @@ string AutoScenario::getCategory()
 
 void AutoScenario::addSchedule()
 {
-    if (ioPlage) return;
+    if (ioTimeRange) return;
 
-    ioPlage = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
+    ioTimeRange = dynamic_cast<InPlageHoraire *>(createInput("InPlageHoraire", scenario_id + "_schedule"));
 
     checkScenarioRules();
 }
 
 void AutoScenario::deleteSchedule()
 {
-    if (ioPlage)
-        ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(ioPlage));
-    ioPlage = nullptr;
+    if (ioTimeRange)
+        ListeRoom::Instance().deleteIO(ioTimeRange);
+    ioTimeRange = nullptr;
 
     checkScenarioRules();
 }

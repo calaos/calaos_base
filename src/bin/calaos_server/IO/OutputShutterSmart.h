@@ -22,14 +22,14 @@
 #define S_OutputShutterSmart_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "Ecore.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class OutputShutterSmart : public Output
+class OutputShutterSmart : public IOBase
 {
 protected:
     int total_time, time_up, time_down;

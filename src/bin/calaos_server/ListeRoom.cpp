@@ -33,12 +33,6 @@ ListeRoom &ListeRoom::Instance()
 
 ListeRoom::ListeRoom()
 {
-    eina_init();
-
-    input_table = eina_hash_string_superfast_new(NULL);
-    output_table = eina_hash_string_superfast_new(NULL);
-
-    cDebugDom("rooms");
 }
 
 ListeRoom::~ListeRoom()
@@ -47,77 +41,38 @@ ListeRoom::~ListeRoom()
         delete rooms[i];
 
     rooms.clear();
-
-    eina_hash_free(input_table);
-    eina_hash_free(output_table);
-
-    eina_shutdown();
-
-    cDebugDom("room");
 }
 
-void ListeRoom::addInputHash(Input *input)
+void ListeRoom::addIOHash(IOBase *io)
 {
-    if (!input) return;
+    if (!io) return;
 
-    string id = input->get_param("id");
-    if (input->get_param("gui_type") == "camera_input" ||
-        input->get_param("gui_type") == "audio_input")
-    {
-        id = input->get_param("iid");
-    }
+    io_table[io->get_param("id")] = io;
 
-    cDebugDom("room") << id;
-
-    eina_hash_add(input_table, id.c_str(), input);
+    if (io->get_param("gui_type") == "camera")
+        cameraCache.push_back(io);
+    else if (io->get_param("gui_type") == "audio_player")
+        audioCache.push_back(io);
 }
 
-void ListeRoom::delInputHash(Input *input)
+void ListeRoom::delIOHash(IOBase *io)
 {
-    if (!input) return;
+    if (!io) return;
 
-    string id = input->get_param("id");
-    if (input->get_param("gui_type") == "camera_input" ||
-        input->get_param("gui_type") == "audio_input")
+    io_table.erase(io->get_param("id"));
+
+    if (io->get_param("gui_type") == "camera")
     {
-        id = input->get_param("iid");
+        auto it = find(cameraCache.begin(), cameraCache.end(), io);
+        if (it != cameraCache.end())
+            cameraCache.erase(it);
     }
-
-    cDebugDom("room") << id;
-
-    eina_hash_del(input_table, id.c_str(), NULL);
-}
-
-void ListeRoom::addOutputHash(Output *output)
-{
-    if (!output) return;
-
-    string id = output->get_param("id");
-    if (output->get_param("gui_type") == "camera_output" ||
-        output->get_param("gui_type") == "audio_output")
+    else if (io->get_param("gui_type") == "audio_player")
     {
-        id = output->get_param("oid");
+        auto it = find(audioCache.begin(), audioCache.end(), io);
+        if (it != audioCache.end())
+            audioCache.erase(it);
     }
-
-    cDebugDom("room") << id;
-
-    eina_hash_add(output_table, id.c_str(), output);
-}
-
-void ListeRoom::delOutputHash(Output *output)
-{
-    if (!output) return;
-
-    string id = output->get_param("id");
-    if (output->get_param("gui_type") == "camera_output" ||
-        output->get_param("gui_type") == "audio_output")
-    {
-        id = output->get_param("oid");
-    }
-
-    cDebugDom("room") << id;
-
-    eina_hash_del(output_table, id.c_str(), NULL);
 }
 
 void ListeRoom::Add(Room *p)
@@ -147,73 +102,44 @@ Room *ListeRoom::get_room(int i)
     return rooms[i];
 }
 
-Input *ListeRoom::get_input(std::string in)
-{
-    Input *i = reinterpret_cast<Input *>(eina_hash_find(input_table, in.c_str()));
+IOBase *ListeRoom::get_io(std::string id)
+{    
+    if (io_table.find(id) != io_table.end())
+        return io_table[id];
 
-    return i;
+    return nullptr;
 }
 
-Output *ListeRoom::get_output(std::string out)
-{
-    Output *o = reinterpret_cast<Output *>(eina_hash_find(output_table, out.c_str()));
-
-    return o;
-}
-
-Input *ListeRoom::get_input(int i)
+IOBase *ListeRoom::get_io(int i)
 {
     int cpt = 0;
 
     for (uint j = 0;j < rooms.size();j++)
     {
-        for (int m = 0;m < rooms[j]->get_size_in();m++)
+        for (int m = 0;m < rooms[j]->get_size();m++)
         {
-            Input *in = rooms[j]->get_input(m);
+            IOBase *io = rooms[j]->get_io(m);
             if (cpt == i)
-            {
-                return in;
-            }
+                return io;
 
             cpt++;
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
-Output *ListeRoom::get_output(int i)
-{
-    int cpt = 0;
-
-    for (uint j = 0;j < rooms.size();j++)
-    {
-        for (int m = 0;m < rooms[j]->get_size_out();m++)
-        {
-            Output *out = rooms[j]->get_output(m);
-            if (cpt == i)
-            {
-                return out;
-            }
-
-            cpt++;
-        }
-    }
-
-    return NULL;
-}
-
-bool ListeRoom::delete_input(Input *input, bool del)
+bool ListeRoom::delete_io(IOBase *io, bool del)
 {
     bool done = false;
     for (uint j = 0;!done && j < rooms.size();j++)
     {
-        for (int m = 0;!done && m < get_room(j)->get_size_in();m++)
+        for (int m = 0;!done && m < get_room(j)->get_size();m++)
         {
-            Input *in = get_room(j)->get_input(m);
-            if (in == input)
+            IOBase *delio = get_room(j)->get_io(m);
+            if (delio == io)
             {
-                get_room(j)->RemoveInput(m, del);
+                get_room(j)->RemoveIO(m, del);
                 done = true;
             }
         }
@@ -222,55 +148,31 @@ bool ListeRoom::delete_input(Input *input, bool del)
     return done;
 }
 
-bool ListeRoom::delete_output(Output *output, bool del)
+int ListeRoom::get_io_count()
 {
-    bool done = false;
-    for (uint j = 0;!done && j < rooms.size();j++)
-    {
-        for (int m = 0;!done && m < get_room(j)->get_size_out();m++)
-        {
-            Output *out = get_room(j)->get_output(m);
-            if (out == output)
-            {
-                get_room(j)->RemoveOutput(m, del);
-                done = true;
-            }
-        }
-    }
-
-    return done;
+    return io_table.size();
 }
 
-int ListeRoom::get_nb_input()
-{
-    return eina_hash_population(input_table);
-}
-
-int ListeRoom::get_nb_output()
-{
-    return eina_hash_population(output_table);
-}
-
-Input *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
+IOBase *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
 {
     for (uint j = 0;j < rooms.size();j++)
     {
-        for (int m = 0;m < rooms[j]->get_size_in();m++)
+        for (int m = 0;m < rooms[j]->get_size();m++)
         {
-            Input *in = rooms[j]->get_input(m);
-            if (in->get_param("chauffage_id") == chauff_id)
+            IOBase *io = rooms[j]->get_io(m);
+            if (io->get_param("chauffage_id") == chauff_id)
             {
                 switch (type)
                 {
-                case PLAGE_HORAIRE: if (in->get_param("gui_type") == "time_range") return in; break;
-                case CONSIGNE: if (in->get_param("gui_type") == "var_int") return in; break;
-                case ACTIVE: if (in->get_param("gui_type") == "var_bool") return in; break;
+                case PLAGE_HORAIRE: if (io->get_param("gui_type") == "time_range") return io; break;
+                case CONSIGNE: if (io->get_param("gui_type") == "var_int") return io; break;
+                case ACTIVE: if (io->get_param("gui_type") == "var_bool") return io; break;
                 }
             }
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 void ListeRoom::addScenarioCache(Scenario *sc)
@@ -330,15 +232,15 @@ Room * ListeRoom::searchRoomByNameAndType(string name, string type)
     return r;
 }
 
-Room *ListeRoom::getRoomByInput(Input *o)
+Room *ListeRoom::getRoomByIO(IOBase *o)
 {
     Room *r = NULL;
 
     for (uint j = 0;j < rooms.size() && !r;j++)
     {
-        for (int m = 0;m < rooms[j]->get_size_in() && !r;m++)
+        for (int m = 0;m < rooms[j]->get_size() && !r;m++)
         {
-            if (rooms[j]->get_input(m) == o)
+            if (rooms[j]->get_io(m) == o)
                 r = rooms[j];
         }
     }
@@ -346,308 +248,40 @@ Room *ListeRoom::getRoomByInput(Input *o)
     return r;
 }
 
-Room *ListeRoom::getRoomByOutput(Output *o)
-{
-    Room *r = NULL;
-
-    for (uint j = 0;j < rooms.size() && !r;j++)
-    {
-        for (int m = 0;m < rooms[j]->get_size_out() && !r;m++)
-        {
-            if (rooms[j]->get_output(m) == o)
-                r = rooms[j];
-        }
-    }
-
-    return r;
-}
-
-bool ListeRoom::deleteIO(Input *input, bool modify)
+bool ListeRoom::deleteIO(IOBase *io, bool modify)
 {
     //first delete all rules using "input"
     if (!modify) //only deletes if modify is not set
-        ListeRule::Instance().RemoveRule(input);
+        ListeRule::Instance().RemoveRule(io);
 
-    bool done = false;
-    if (input->get_param("gui_type") == "camera_input"
-        || input->get_param("gui_type") == "audio_input"
-        || input->get_param("gui_type") == "camera_output"
-        || input->get_param("gui_type") == "audio_output")
-    {
-        CamInput *icam = dynamic_cast<CamInput *>(input);
-        if (icam)
-        {
-            IPCam *cam = icam->get_cam();
-            delete_input(cam->get_input(), false);
-            if (!modify) //only deletes if modify is not set
-                ListeRule::Instance().RemoveRule(cam->get_output());
-            delete_output(cam->get_output(), false);
-            CamManager::Instance().Delete(cam);
-            done = true;
-        }
-        AudioInput *iaudio = dynamic_cast<AudioInput *>(input);
-        if (iaudio)
-        {
-            AudioPlayer *audio = iaudio->get_player();
-            delete_input(audio->get_input(), false);
-            if (!modify) //only deletes if modify is not set
-                ListeRule::Instance().RemoveRule(audio->get_output());
-            delete_output(audio->get_output(), false);
-            AudioManager::Instance().Delete(audio);
-            done = true;
-        }
-    }
-    else
-    {
-        //Remove input from polling list
-        if (input->get_param("gui_type") == "time"
-            || input->get_param("gui_type") == "temp"
-            || input->get_param("gui_type") == "analog_in"
-            || input->get_param("gui_type") == "time_range"
-            || input->get_param("gui_type") == "timer")
-            ListeRule::Instance().Remove(input);
+    //Remove input from polling list
+    if (io->get_param("gui_type") == "time"
+        || io->get_param("gui_type") == "temp"
+        || io->get_param("gui_type") == "analog_in"
+        || io->get_param("gui_type") == "time_range"
+        || io->get_param("gui_type") == "timer")
+        ListeRule::Instance().Remove(io);
 
-        if (input->get_param("gui_type") == "timer")
-        {
-            //also delete the output
-            InputTimer *tm = dynamic_cast<InputTimer *> (input);
-            Output *o = dynamic_cast<Output *> (tm);
-            if (!modify) //only deletes if modify is not set
-                ListeRule::Instance().RemoveRule(o);
-            if (o) ListeRoom::Instance().delete_output(o, false);
-        }
-
-        if (input->get_param("gui_type") == "scenario")
-        {
-            //also delete the output
-            Scenario *sc = dynamic_cast<Scenario *> (input);
-            if (sc)
-            {
-                Output *o = dynamic_cast<Output *> (sc);
-                if (!modify) //only deletes if modify is not set
-                    ListeRule::Instance().RemoveRule(o);
-                if (o)
-                    ListeRoom::Instance().delete_output(o, false);
-            }
-        }
-
-        if (input->get_param("gui_type") == "var_bool" ||
-            input->get_param("gui_type") == "var_int" ||
-            input->get_param("gui_type") == "var_string")
-        {
-            //also delete the output
-            Internal *internal = dynamic_cast<Internal *> (input);
-
-            if (internal)
-            {
-                Output *o = dynamic_cast<Output *> (internal);
-                if (!modify) //only deletes if modify is not set
-                    ListeRule::Instance().RemoveRule(o);
-                if (o)
-                    ListeRoom::Instance().delete_output(o, false);
-            }
-        }
-
-        done = ListeRoom::Instance().delete_input(input);
-    }
-
-    return done;
+    return ListeRoom::Instance().delete_io(io);
 }
 
-
-bool ListeRoom::deleteIO(Output *output, bool modify)
+IOBase* ListeRoom::createIO(Params param, Room *room)
 {
-    //first delete all rules using "output"
-    if (!modify) //only deletes if modify is not set
-        ListeRule::Instance().RemoveRule(output);
-
-    bool done = false;
-    if (output->get_param("gui_type") == "camera_input"
-        || output->get_param("gui_type") == "audio_input"
-        || output->get_param("gui_type") == "camera_output"
-        || output->get_param("gui_type") == "audio_output")
-    {
-        CamOutput *icam = dynamic_cast<CamOutput *>(output);
-        if (icam)
-        {
-            IPCam *cam = icam->get_cam();
-            ListeRule::Instance().RemoveRule(cam->get_input());
-            ListeRoom::Instance().delete_input(cam->get_input(), false);
-            ListeRoom::Instance().delete_output(cam->get_output(), false);
-            CamManager::Instance().Delete(cam);
-            done = true;
-        }
-        AudioOutput *iaudio = dynamic_cast<AudioOutput *>(output);
-        if (iaudio)
-        {
-            AudioPlayer *audio = iaudio->get_player();
-            ListeRule::Instance().RemoveRule(audio->get_input());
-            ListeRoom::Instance().delete_input(audio->get_input(), false);
-            ListeRoom::Instance().delete_output(audio->get_output(), false);
-            AudioManager::Instance().Delete(audio);
-            done = true;
-        }
-    }
-    else if (output->get_param("type") != "OutTouchscreen") //TODO: rewrite output touchscreen
-    {
-        if (output->get_param("gui_type") == "timer")
-        {
-            //also delete the input
-            InputTimer *tm = dynamic_cast<InputTimer *> (output);
-            Input *in = dynamic_cast<Input *> (tm);
-            ListeRule::Instance().RemoveRule(in);
-            ListeRule::Instance().Remove(in);
-            if (in) ListeRoom::Instance().delete_input(in, false);
-        }
-
-        if (output->get_param("gui_type") == "scenario")
-        {
-            //also delete the input
-            Scenario *sc = dynamic_cast<Scenario *> (output);
-            if (sc)
-            {
-                Input *o = dynamic_cast<Input *> (sc);
-                ListeRule::Instance().RemoveRule(o);
-                if (o) ListeRoom::Instance().delete_input(o, false);
-            }
-        }
-
-        if (output->get_param("gui_type") == "var_bool" ||
-            output->get_param("gui_type") == "var_int" ||
-            output->get_param("gui_type") == "var_string")
-        {
-            //also delete the input
-            Internal *internal = dynamic_cast<Internal *> (output);
-            if (internal)
-            {
-                Input *o = dynamic_cast<Input *> (internal);
-                if (o)
-                {
-                    ListeRule::Instance().RemoveRule(o);
-                    ListeRoom::Instance().delete_input(o, false);
-                }
-            }
-        }
-
-        done = ListeRoom::Instance().delete_output(output);
-    }
-
-    return done;
-}
-
-Input* ListeRoom::createInput(Params param, Room *room)
-{
-    Input *input = nullptr;
+    IOBase *io = nullptr;
 
     if (!param.Exists("name")) param.Add("<No Name>", "Input");
     if (!param.Exists("type")) return nullptr;
-    if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("input_"));
-
-   if (param["type"] == "InputTimeDate")
-    {
-        if (!param.Exists("year")) param.Add("year", "0");
-        if (!param.Exists("month")) param.Add("month", "0");
-        if (!param.Exists("day")) param.Add("day", "0");
-        param.Add("type", "InputTime");
-    }
-
-    if (param["type"] == "InputTimer")
-    {
-        if (!param.Exists("msec")) param.Add("msec", "0");
-        std::string type = param["type"];
-        input = IOFactory::Instance().CreateInput(type, param);
-        if (input) room->AddInput(input);
-
-        //also add the it as an output
-        InputTimer *o = dynamic_cast<InputTimer *> (input);
-        if (o) room->AddOutput(o);
-
-        EventManager::create(CalaosEvent::EventInputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-
-        //Also new output
-        EventManager::create(CalaosEvent::EventOutputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-    }
-    else if (param["type"] == "scenario")
-    {
-        std::string type = param["type"];
-        input = IOFactory::Instance().CreateInput(type, param);
-        if (input) room->AddInput(input);
-
-        //also add it as an output
-        Scenario *o = dynamic_cast<Scenario *> (input);
-        if (o) room->AddOutput(o);
-
-        EventManager::create(CalaosEvent::EventInputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-
-        //Also new output
-        EventManager::create(CalaosEvent::EventOutputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-    }
-    else if (param["type"] == "InternalBool" || param["type"] == "InternalInt" || param["type"] == "InternalString")
-    {
-        if (!param.Exists("name")) param.Add("name", "Value");
-
-        std::string type = param["type"];
-        input = IOFactory::Instance().CreateInput(type, param);
-        if (input) room->AddInput(input);
-
-        //also add it as an output
-        Internal *o = dynamic_cast<Internal *> (input);
-        if (o) room->AddOutput(o);
-
-        EventManager::create(CalaosEvent::EventInputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-
-        //Also new output
-        EventManager::create(CalaosEvent::EventOutputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-    }
-    else
-    {
-        std::string type = param["type"];
-        input = IOFactory::Instance().CreateInput(type, param);
-        if (input) room->AddInput(input);
-
-        EventManager::create(CalaosEvent::EventInputAdded,
-                             { { "id", param["id"] },
-                               { "room_name", room->get_name() },
-                               { "room_type", room->get_type() } });
-    }
-
-    return input;
-}
-
-Output* ListeRoom::createOutput(Params param, Room *room)
-{
-    Output *output = NULL;
-
-    if (!param.Exists("name")) param.Add("<No Name>", "Output");
-    if (!param.Exists("type")) return nullptr;
-    if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("output_"));
+    if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("io_"));
 
     std::string type = param["type"];
-    output = IOFactory::Instance().CreateOutput(type, param);
-    if (output) room->AddOutput(output);
+    io = IOFactory::Instance().CreateIO(type, param);
+    if (io)
+        room->AddIO(io);
 
-    EventManager::create(CalaosEvent::EventOutputAdded,
+    EventManager::create(CalaosEvent::EventIOAdded,
                          { { "id", param["id"] },
                            { "room_name", room->get_name() },
                            { "room_type", room->get_type() } });
 
-    return output;
+    return io;
 }

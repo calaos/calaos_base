@@ -26,7 +26,7 @@
 using namespace Calaos;
 
 InputAnalog::InputAnalog(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     real_value_max(0.0),
     wago_value_max(0.0),
     value(0.0)
@@ -110,9 +110,9 @@ void InputAnalog::readConfig()
 
 void InputAnalog::emitChange()
 {
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(get_value_double()) } });
 

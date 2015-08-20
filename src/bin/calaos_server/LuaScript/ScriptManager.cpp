@@ -18,7 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ScriptManager.h>
+#include "ScriptManager.h"
 #include <setjmp.h>
 
 using namespace Calaos;
@@ -38,125 +38,125 @@ ScriptManager::~ScriptManager()
 
 bool ScriptManager::ExecuteScript(string script)
 {
-        bool ret = true;
-        errorScript = true;
+    bool ret = true;
+    errorScript = true;
 
-        const luaL_Reg *l;
-        lua_State *L = lua_open();
+    const luaL_Reg *l;
+    lua_State *L = lua_open();
 
-        /* Load libraries */
-        for (l = lua_libs; l->func; l++)
+    /* Load libraries */
+    for (l = lua_libs; l->func; l++)
+    {
+        lua_pushcfunction(L, l->func);
+        lua_pushstring(L, l->name);
+        lua_call(L, 1, 0);
+    }
+
+    /* disable some calls from base lib */
+    lua_pushnil(L);
+    lua_setglobal(L, "loadfile");
+    lua_pushnil(L);
+    lua_setglobal(L, "loadstring");
+    lua_pushnil(L);
+    lua_setglobal(L, "dofile");
+    lua_pushnil(L);
+    lua_setglobal(L, "dostring");
+    lua_pushnil(L);
+    lua_setglobal(L, "load");
+    lua_pushnil(L);
+    lua_setglobal(L, "print"); /* we provide another version */
+
+    /* register new functions */
+    lua_register(L, "print", Lua_print);
+
+    //Disable some function from os lib
+    lua_getglobal(L, "os");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "execute");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "rename");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "remove");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "exit");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "getenv");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "setlocale");
+    lua_pushnil(L);
+    lua_setfield(L, -2, "tmpname");
+    lua_pop(L, 1);
+
+    Lunar<Lua_Calaos>::Register(L);
+
+    Lua_Calaos lc;
+
+    Lunar<Lua_Calaos>::push(L, &lc);
+    lua_setglobal(L, "calaos");
+
+    //Set a hook to kill script in case of a wrong use (infinite loop, ...)
+    lua_sethook(L, Lua_DebugHook, LUA_MASKLINE | LUA_MASKCOUNT, 1);
+
+    start_time = ecore_time_get();
+
+    int err = luaL_loadbuffer(L, script.c_str(), script.length(), "CalaosScript");
+    if (err)
+    {
+        ret = false;
+        if (err == LUA_ERRSYNTAX)
         {
-                lua_pushcfunction(L, l->func);
-                lua_pushstring(L, l->name);
-                lua_call(L, 1, 0);
+            string msg = lua_tostring(L, -1);
+            cErrorDom("script.lua") << "Syntax Error: " << msg;
+            errorMsg = "Syntax Error:\n" + msg;
+        }
+        else if (err == LUA_ERRMEM)
+        {
+            string msg = lua_tostring(L, -1);
+            cErrorDom("script.lua") << "LUA memory allocation error: " << msg;
+            errorMsg = "Fatal Error:\nLUA memory allocation error:\n" + msg;
+        }
+    }
+    else
+    {
+        if (setjmp(panic_jmp) == 1)
+        {
+            ret = false;
+            cErrorDom("script.lua") << "Script panic !"                                       ;
+            errorMsg = "Fatal Error:\nScript panic !";
         }
 
-        /* disable some calls from base lib */
-        lua_pushnil(L);
-        lua_setglobal(L, "loadfile");
-        lua_pushnil(L);
-        lua_setglobal(L, "loadstring");
-        lua_pushnil(L);
-        lua_setglobal(L, "dofile");
-        lua_pushnil(L);
-        lua_setglobal(L, "dostring");
-        lua_pushnil(L);
-        lua_setglobal(L, "load");
-        lua_pushnil(L);
-        lua_setglobal(L, "print"); /* we provide another version */
-
-        /* register new functions */
-        lua_register(L, "print", Lua_print);
-
-        //Disable some function from os lib
-        lua_getglobal(L, "os");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "execute");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "rename");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "remove");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "exit");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "getenv");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "setlocale");
-        lua_pushnil(L);
-        lua_setfield(L, -2, "tmpname");
-        lua_pop(L, 1);
-
-        Lunar<Lua_Calaos>::Register(L);
-
-        Lua_Calaos lc;
-
-        Lunar<Lua_Calaos>::push(L, &lc);
-        lua_setglobal(L, "calaos");
-
-        //Set a hook to kill script in case of a wrong use (infinite loop, ...)
-        lua_sethook(L, Lua_DebugHook, LUA_MASKLINE | LUA_MASKCOUNT, 1);
-
-        start_time = ecore_time_get();
-
-        int err = luaL_loadbuffer(L, script.c_str(), script.length(), "CalaosScript");
-        if (err)
+        if ((err = lua_pcall(L, 0, 1, 0)))
         {
-                ret = false;
-                if (err == LUA_ERRSYNTAX)
-                {
-                        string msg = lua_tostring(L, -1);
-                        cErrorDom("script.lua") << "Syntax Error: " << msg;
-                        errorMsg = "Syntax Error:\n" + msg;
-                }
-                else if (err == LUA_ERRMEM)
-                {
-                        string msg = lua_tostring(L, -1);
-                        cErrorDom("script.lua") << "LUA memory allocation error: " << msg;
-                        errorMsg = "Fatal Error:\nLUA memory allocation error:\n" + msg;
-                }
+            ret = false;
+
+            string errcode;
+            if (err == LUA_ERRRUN) errcode = "Runtime error";
+            else if (err == LUA_ERRSYNTAX) errcode = "Syntax error";
+            else if (err == LUA_ERRMEM) errcode = "Memory allocation error";
+            else if (err == LUA_ERRERR) errcode = "Error";
+            else errcode = "Unknown error";
+
+            string msg = lua_tostring(L, -1);
+            cErrorDom("script.lua") << errcode << " : " << msg;
+            errorMsg = "Error " + errcode + " :\n\t" + msg;
         }
         else
         {
-                if (setjmp(panic_jmp) == 1)
-                {
-                        ret = false;
-                        cErrorDom("script.lua") << "Script panic !"                                       ;
-                        errorMsg = "Fatal Error:\nScript panic !";
-                }
-
-                if ((err = lua_pcall(L, 0, 1, 0)))
-                {
-                        ret = false;
-
-                        string errcode;
-                        if (err == LUA_ERRRUN) errcode = "Runtime error";
-                        else if (err == LUA_ERRSYNTAX) errcode = "Syntax error";
-                        else if (err == LUA_ERRMEM) errcode = "Memory allocation error";
-                        else if (err == LUA_ERRERR) errcode = "Error";
-                        else errcode = "Unknown error";
-
-                        string msg = lua_tostring(L, -1);
-                        cErrorDom("script.lua") << errcode << " : " << msg;
-                        errorMsg = "Error " + errcode + " :\n\t" + msg;
-                }
-                else
-                {
-                        if (!lua_isboolean(L, -1))
-                        {
-                                ret = false;
-                                cErrorDom("script.lua") << "Script must return either \"true\" or \"false\"";
-                                errorMsg = "Error:\nScript must return either \"true\" or \"false\"";
-                        }
-                        else
-                        {
-                                errorScript = false;
-                                ret = lua_toboolean(L, -1);
-                        }
-                }
+            if (!lua_isboolean(L, -1))
+            {
+                ret = false;
+                cErrorDom("script.lua") << "Script must return either \"true\" or \"false\"";
+                errorMsg = "Error:\nScript must return either \"true\" or \"false\"";
+            }
+            else
+            {
+                errorScript = false;
+                ret = lua_toboolean(L, -1);
+            }
         }
+    }
 
-        lua_close(L);
+    lua_close(L);
 
-        return ret;
+    return ret;
 }

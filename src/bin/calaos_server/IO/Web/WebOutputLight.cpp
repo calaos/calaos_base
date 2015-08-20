@@ -29,7 +29,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WebOutputLight)
+REGISTER_IO(WebOutputLight)
 
 WebOutputLight::WebOutputLight(Params &p):
     OutputLight(p)

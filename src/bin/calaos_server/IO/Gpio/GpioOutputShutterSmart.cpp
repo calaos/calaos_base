@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(GpioOutputShutterSmart)
+REGISTER_IO(GpioOutputShutterSmart)
 
 GpioOutputShutterSmart::GpioOutputShutterSmart(Params &p):
     OutputShutterSmart(p)

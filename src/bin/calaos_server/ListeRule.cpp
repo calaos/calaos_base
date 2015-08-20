@@ -106,22 +106,22 @@ Eina_Bool _execute_rule_signal_idler_cb(void *data)
     return ECORE_CALLBACK_CANCEL;
 }
 
-void ListeRule::ExecuteRuleSignal(std::string io_id)
+void ListeRule::ExecuteRuleSignal(std::string id)
 {
     if (!mutex.try_lock())
     {
         //We can't execute rules for now. Do it later.
         Rule_idler_cb *cb = new Rule_idler_cb;
 
-        cb->input = io_id;
+        cb->input = id;
         cb->idler = ecore_idler_add(_execute_rule_signal_idler_cb, cb);
 
-        cDebugDom("rule") << "Mutex locked, execute rule later for input " << io_id;
+        cDebugDom("rule") << "Mutex locked, execute rule later for input " << id;
 
         return;
     }
 
-    cDebugDom("rule") << "Received signal for id " << io_id;
+    cDebugDom("rule") << "Received signal for id " << id;
 
     unordered_map<Rule *, bool> execRules;
 
@@ -134,7 +134,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             bool exec = false;
             for (int k = 0;cond && k < cond->get_size();k++)
             {
-                if (cond->get_input(k)->get_param("id") == io_id)
+                if (cond->get_input(k)->get_param("id") == id)
                 {
                     if (cond->useForTrigger() &&
                         rule->CheckConditions())
@@ -148,12 +148,12 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             }
             if (!exec && cond)
             {
-                vector<Input *> list;
+                vector<IOBase *> list;
                 cond->getVarIds(list);
 
                 for (uint k = 0;k < list.size();k++)
                 {
-                    if (list[k]->get_param("id") == io_id)
+                    if (list[k]->get_param("id") == id)
                     {
                         if (cond->useForTrigger() &&
                             rule->CheckConditions())
@@ -169,7 +169,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             ConditionScript *scond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
             for (int k = 0;scond && k < scond->get_size();k++)
             {
-                if (scond->get_input(k)->get_param("id") == io_id &&
+                if (scond->get_input(k)->get_param("id") == id &&
                     rule->CheckConditions())
                 {
                     if (execRules.find(rule) == execRules.end())
@@ -178,7 +178,7 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));
-            if (ocond && ocond->getOutput()->get_param("id") == io_id &&
+            if (ocond && ocond->getOutput()->get_param("id") == id &&
                 ocond->useForTrigger() &&
                 rule->CheckConditions())
             {
@@ -197,21 +197,21 @@ void ListeRule::ExecuteRuleSignal(std::string io_id)
     mutex.unlock();
 }
 
-void ListeRule::RemoveRule(Input *obj)
+void ListeRule::RemoveRule(IOBase *obj)
 {
     //delete all rules using "output"
     for (uint i = 0;i < rules.size();i++)
     {
         Rule *rule = get_rule(i);
-        Rule *rule_to_del = NULL;
+        Rule *rule_to_del = nullptr;
         for (int j = 0;j < rule->get_size_conds();j++)
         {
             ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(j));
             if (!cond) continue;
             for (int k = 0;k < cond->get_size();k++)
             {
-                if (obj->get_param("id")
-                    == cond->get_input(k)->get_param("id"))
+                if (obj->get_param("id") ==
+                    cond->get_input(k)->get_param("id"))
                     rule_to_del = rule;
             }
         }
@@ -220,16 +220,7 @@ void ListeRule::RemoveRule(Input *obj)
             Remove(rule_to_del);
             i--;
         }
-    }
-}
 
-void ListeRule::RemoveRule(Output *obj)
-{
-    //delete all rules using "output"
-    for (uint i = 0;i < rules.size();i++)
-    {
-        Rule *rule = get_rule(i);
-        Rule *rule_to_del = NULL;
         for (int j = 0;j < rule->get_size_actions();j++)
         {
             ActionStd *action = dynamic_cast<ActionStd *>(rule->get_action(j));
@@ -248,7 +239,7 @@ void ListeRule::RemoveRule(Output *obj)
     }
 }
 
-void ListeRule::updateAllRulesToInput(Input *oldio, Input *newio)
+void ListeRule::updateAllRulesToInput(IOBase *oldio, IOBase *newio)
 {
     for (uint i = 0;i < rules.size();i++)
     {
@@ -266,7 +257,7 @@ void ListeRule::updateAllRulesToInput(Input *oldio, Input *newio)
     }
 }
 
-void ListeRule::updateAllRulesToOutput(Output *oldio, Output *newio)
+void ListeRule::updateAllRulesToOutput(IOBase *oldio, IOBase *newio)
 {
     for (uint i = 0;i < rules.size();i++)
     {

@@ -22,12 +22,12 @@
 #define INPUTSWITCH_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class InputSwitch : public Input
+class InputSwitch : public IOBase
 {
 protected:
     bool value;

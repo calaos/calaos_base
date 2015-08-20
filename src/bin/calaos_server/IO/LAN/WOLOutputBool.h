@@ -21,14 +21,14 @@
 #ifndef WOLOutputBool_H
 #define WOLOutputBool_H
 
-#include "Output.h"
+#include "IOBase.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
 #include "EcoreTimer.h"
 
 using namespace Calaos;
 
-class WOLOutputBool: public Output
+class WOLOutputBool: public IOBase
 {
 protected:
     bool value = false;

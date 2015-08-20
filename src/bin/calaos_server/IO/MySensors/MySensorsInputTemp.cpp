@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(MySensorsInputTemp)
+REGISTER_IO(MySensorsInputTemp)
 
 MySensorsInputTemp::MySensorsInputTemp(Params &p):
     InputTemp(p)

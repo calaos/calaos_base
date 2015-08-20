@@ -18,17 +18,19 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <StandardMjpeg.h>
-#include <CamManager.h>
-#include <IOFactory.h>
+#include "StandardMjpeg.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_CAMERA(StandardMjpeg)
-REGISTER_CAMERA_USERTYPE(standard_mjpeg, StandardMjpeg)
+REGISTER_IO(StandardMjpeg)
+REGISTER_IO_USERTYPE(standard_mjpeg, StandardMjpeg)
 
-StandardMjpeg::StandardMjpeg(Params &p): IPCam(p)
+StandardMjpeg::StandardMjpeg(Params &p):
+    IPCam(p)
 {
+    //TODO: add iodoc
+
     //Nothing
     for (int i = 0;i < p.size();i++)
     {
@@ -69,9 +71,4 @@ std::string StandardMjpeg::getVideoUrl()
         url = param["url_mjpeg"];
 
     return url;
-}
-
-void StandardMjpeg::activateCapabilities(std::string cap, std::string cmd, std::string value)
-{
-    //Nothing
 }

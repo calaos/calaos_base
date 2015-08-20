@@ -21,13 +21,7 @@
 #ifndef S_STDMJPEG_H
 #define S_STDMJPEG_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Input.h>
-#include <CamInput.h>
-#include <CamOutput.h>
-#include <tcpsocket.h>
-#include <IPCam.h>
+#include "IPCam.h"
 
 namespace Calaos
 {
@@ -38,13 +32,12 @@ protected:
 
 public:
     StandardMjpeg(Params &p);
-    ~StandardMjpeg();
+
+    virtual ~StandardMjpeg();
 
     //Standard IPCam functions.
     virtual std::string getVideoUrl(); //return the mjpeg url stream
     virtual std::string getPictureUrl(); //return the real url for a single frame
-
-    virtual void activateCapabilities(std::string cap, std::string cmd, std::string value);
 };
 
 }

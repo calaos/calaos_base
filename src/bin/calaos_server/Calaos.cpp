@@ -46,10 +46,9 @@ std::string Calaos::get_new_id(std::string prefix)
     bool found = false;
     while (!found)
     {
-        Input *in = ListeRoom::Instance().get_input(prefix + Utils::to_string(cpt));
-        Output *out = ListeRoom::Instance().get_output(prefix + Utils::to_string(cpt));
+        IOBase *io = ListeRoom::Instance().get_io(prefix + Utils::to_string(cpt));
 
-        if (!in && !out)
+        if (!io)
             found = true;
         else
             cpt++;

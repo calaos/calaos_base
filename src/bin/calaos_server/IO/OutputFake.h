@@ -22,12 +22,12 @@
 #define S_OUTPUTFAKE_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class OutputFake : public Output
+class OutputFake : public IOBase
 {
 private:
     bool value;

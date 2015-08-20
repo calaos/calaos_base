@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(ZibaseAnalogIn);
+REGISTER_IO(ZibaseAnalogIn);
 
 ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
     InputAnalog(p),

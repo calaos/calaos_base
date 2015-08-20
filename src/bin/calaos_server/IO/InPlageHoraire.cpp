@@ -24,11 +24,11 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(InPlageHoraire)
-REGISTER_INPUT_USERTYPE(TimeRange, InPlageHoraire)
+REGISTER_IO(InPlageHoraire)
+REGISTER_IO_USERTYPE(TimeRange, InPlageHoraire)
 
 InPlageHoraire::InPlageHoraire(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     value(false)
 {
     // Define IO documentation
@@ -57,13 +57,13 @@ InPlageHoraire::~InPlageHoraire()
 
 void InPlageHoraire::clear()
 {
-    plg_lundi.clear();
-    plg_mardi.clear();
-    plg_mercredi.clear();
-    plg_jeudi.clear();
-    plg_vendredi.clear();
-    plg_samedi.clear();
-    plg_dimanche.clear();
+    plg_monday.clear();
+    plg_tuesday.clear();
+    plg_wednesday.clear();
+    plg_thursday.clear();
+    plg_friday.clear();
+    plg_saturday.clear();
+    plg_sunday.clear();
 }
 
 void InPlageHoraire::hasChanged()
@@ -80,13 +80,13 @@ void InPlageHoraire::hasChanged()
 
     switch (ctime->tm_wday)
     {
-    case TimeRange::MONDAY: plage = &plg_lundi; break;
-    case TimeRange::TUESDAY: plage = &plg_mardi; break;
-    case TimeRange::WEDNESDAY: plage = &plg_mercredi; break;
-    case TimeRange::THURSDAY: plage = &plg_jeudi; break;
-    case TimeRange::FRIDAY: plage = &plg_vendredi; break;
-    case TimeRange::SATURDAY: plage = &plg_samedi; break;
-    case TimeRange::SUNDAY: plage = &plg_dimanche; break;
+    case TimeRange::MONDAY: plage = &plg_monday; break;
+    case TimeRange::TUESDAY: plage = &plg_tuesday; break;
+    case TimeRange::WEDNESDAY: plage = &plg_wednesday; break;
+    case TimeRange::THURSDAY: plage = &plg_thursday; break;
+    case TimeRange::FRIDAY: plage = &plg_friday; break;
+    case TimeRange::SATURDAY: plage = &plg_saturday; break;
+    case TimeRange::SUNDAY: plage = &plg_sunday; break;
     default: break;
     }
 
@@ -112,15 +112,15 @@ void InPlageHoraire::hasChanged()
         value = val;
         cInfoDom("input") << get_param("id") << ": Changed to " << (value?"true":"false");
 
-        EmitSignalInput();
+        EmitSignalIO();
 
-        EventManager::create(CalaosEvent::EventInputChanged,
+        EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", get_param("id") },
                                { "state", val?"true":"false" } });
     }
 }
 
-void InPlageHoraire::LoadPlage(TiXmlElement *node, vector<TimeRange> &plage)
+void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
 {
     TiXmlHandle docHandle(node);
     TiXmlElement *cnode = docHandle.FirstChildElement().ToElement();
@@ -280,25 +280,25 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
     for(; node; node = node->NextSiblingElement())
     {
         if (node->ValueStr() == "calaos:lundi")
-            LoadPlage(node, plg_lundi);
+            LoadRange(node, plg_monday);
         else if (node->ValueStr() == "calaos:mardi")
-            LoadPlage(node, plg_mardi);
+            LoadRange(node, plg_tuesday);
         else if (node->ValueStr() == "calaos:mercredi")
-            LoadPlage(node, plg_mercredi);
+            LoadRange(node, plg_wednesday);
         else if (node->ValueStr() == "calaos:jeudi")
-            LoadPlage(node, plg_jeudi);
+            LoadRange(node, plg_thursday);
         else if (node->ValueStr() == "calaos:vendredi")
-            LoadPlage(node, plg_vendredi);
+            LoadRange(node, plg_friday);
         else if (node->ValueStr() == "calaos:samedi")
-            LoadPlage(node, plg_samedi);
+            LoadRange(node, plg_saturday);
         else if (node->ValueStr() == "calaos:dimanche")
-            LoadPlage(node, plg_dimanche);
+            LoadRange(node, plg_sunday);
     }
 
     return true;
 }
 
-void InPlageHoraire::SavePlage(TiXmlElement *node, string day, vector<TimeRange> &plage)
+void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage)
 {
     if (plage.size() <= 0) return; //don't create node if empty
 
@@ -374,13 +374,13 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
 
     cnode->SetAttribute("months", str);
 
-    SavePlage(cnode, "lundi", plg_lundi);
-    SavePlage(cnode, "mardi", plg_mardi);
-    SavePlage(cnode, "mercredi", plg_mercredi);
-    SavePlage(cnode, "jeudi", plg_jeudi);
-    SavePlage(cnode, "vendredi", plg_vendredi);
-    SavePlage(cnode, "samedi", plg_samedi);
-    SavePlage(cnode, "dimanche", plg_dimanche);
+    SaveRange(cnode, "lundi", plg_monday);
+    SaveRange(cnode, "mardi", plg_tuesday);
+    SaveRange(cnode, "mercredi", plg_wednesday);
+    SaveRange(cnode, "jeudi", plg_thursday);
+    SaveRange(cnode, "vendredi", plg_friday);
+    SaveRange(cnode, "samedi", plg_saturday);
+    SaveRange(cnode, "dimanche", plg_sunday);
 
     return true;
 }

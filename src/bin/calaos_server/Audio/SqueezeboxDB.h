@@ -21,9 +21,9 @@
 #ifndef S_SQDB_H
 #define S_SQDB_H
 
-#include <Calaos.h>
-#include <AudioPlayer.h>
-#include <AudioDB.h>
+#include "Calaos.h"
+#include "AudioPlayer.h"
+#include "AudioDB.h"
 
 namespace Calaos
 {

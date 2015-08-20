@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputAnalog)
+REGISTER_IO(MySensorsOutputAnalog)
 
 MySensorsOutputAnalog::MySensorsOutputAnalog(Params &p):
     OutputAnalog(p)

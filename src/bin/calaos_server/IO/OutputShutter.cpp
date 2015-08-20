@@ -23,7 +23,7 @@
 using namespace Calaos;
 
 OutputShutter::OutputShutter(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     sens(VSTOP),
     old_sens(VUP),
     timer_end(NULL),
@@ -128,9 +128,9 @@ bool OutputShutter::set_value(std::string val)
     else
         return false;
 
-    EmitSignalOutput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 
@@ -375,7 +375,7 @@ void OutputShutter::TimerEnd()
     Stop();
     cmd_state = t;
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 }

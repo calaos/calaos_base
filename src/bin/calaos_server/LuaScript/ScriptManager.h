@@ -21,11 +21,9 @@
 #ifndef SCRIPTMANAGER_H
 #define SCRIPTMANAGER_H
 
-#include <Utils.h>
-
-#include <Ecore.h>
-
-#include <ScriptBindings.h>
+#include "Utils.h"
+#include "Ecore.h"
+#include "ScriptBindings.h"
 
 namespace Calaos
 {

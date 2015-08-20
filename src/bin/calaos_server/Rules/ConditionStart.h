@@ -21,8 +21,8 @@
 #ifndef S_CONDITIONSTART_H
 #define S_CONDITIONSTART_H
 
-#include <Calaos.h>
-#include <Condition.h>
+#include "Calaos.h"
+#include "Condition.h"
 
 using namespace std;
 

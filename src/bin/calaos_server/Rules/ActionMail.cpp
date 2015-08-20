@@ -18,15 +18,16 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ActionMail.h>
-#include <ListeRoom.h>
-#include <IPCam.h>
-#include <FileDownloader.h>
-#include <Prefix.h>
+#include "ActionMail.h"
+#include "ListeRoom.h"
+#include "IPCam.h"
+#include "FileDownloader.h"
+#include "Prefix.h"
 
 using namespace Calaos;
 
-ActionMail::ActionMail(): Action(ACTION_MAIL)
+ActionMail::ActionMail():
+    Action(ACTION_MAIL)
 {
     cDebugDom("rule.action.mail") <<  "New Mail action";
 }
@@ -41,22 +42,7 @@ bool ActionMail::Execute()
     IPCam *camera = NULL;
 
     if (mail_attachment != "")
-    {
-        Input *in = ListeRoom::Instance().get_input(mail_attachment);
-        Output *out = NULL;
-        if (!in) out = ListeRoom::Instance().get_output(mail_attachment);
-
-        if (in)
-        {
-            CamInput *camin = reinterpret_cast<CamInput *>(in);
-            if (camin) camera = camin->get_cam();
-        }
-        if (out)
-        {
-            CamOutput *camout = reinterpret_cast<CamOutput *>(out);
-            if (camout) camera = camout->get_cam();
-        }
-    }
+        camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(mail_attachment));
 
     if (camera)
     {

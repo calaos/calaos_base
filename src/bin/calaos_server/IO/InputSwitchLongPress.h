@@ -22,13 +22,13 @@
 #define INPUTSWITCHLONG_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class InputSwitchLongPress : public Input
+class InputSwitchLongPress : public IOBase
 {
 protected:
     double value;

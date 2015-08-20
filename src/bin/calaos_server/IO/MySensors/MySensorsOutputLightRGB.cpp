@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputLightRGB)
+REGISTER_IO(MySensorsOutputLightRGB)
 
 MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     OutputLightRGB(p)

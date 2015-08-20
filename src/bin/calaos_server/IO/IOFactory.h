@@ -22,8 +22,7 @@
 #define S_IOFactory_H
 
 #include <Calaos.h>
-#include <Input.h>
-#include <Output.h>
+#include <IOBase.h>
 #include <AudioPlayer.h>
 #include <IPCam.h>
 
@@ -33,91 +32,42 @@ namespace Calaos
 class Registrar
 {
 public:
-    Registrar(string type, function<Input *(Params &)> classFunc);
-    Registrar(string type, function<Output *(Params &)> classFunc);
-    Registrar(string type, function<AudioPlayer *(Params &)> classFunc);
-    Registrar(string type, function<IPCam *(Params &)> classFunc);
+    Registrar(string type, function<IOBase *(Params &)> classFunc);
 };
 
 #define REGISTER_FACTORY(NAME, TYPE, RETURNCLASS) \
-static Registrar NAME##_reg_(#NAME, \
+static Registrar NAME##_reg_##RETURNCLASS(#NAME, \
     function<RETURNCLASS *(Params &)>( \
         [](Params &_p) -> RETURNCLASS * { return new TYPE(_p); } ));
 
-#define REGISTER_INPUT_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, Input)
-#define REGISTER_INPUT(TYPE) REGISTER_INPUT_USERTYPE(TYPE, TYPE)
-
-#define REGISTER_OUTPUT_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, Output)
-#define REGISTER_OUTPUT(TYPE) REGISTER_OUTPUT_USERTYPE(TYPE, TYPE)
-
-#define REGISTER_AUDIO_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, AudioPlayer)
-#define REGISTER_AUDIO(TYPE) REGISTER_AUDIO_USERTYPE(TYPE, TYPE)
-
-#define REGISTER_CAMERA_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, IPCam)
-#define REGISTER_CAMERA(TYPE) REGISTER_CAMERA_USERTYPE(TYPE, TYPE)
+#define REGISTER_IO_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, IOBase)
+#define REGISTER_IO(TYPE) REGISTER_IO_USERTYPE(TYPE, TYPE)
 
 class IOFactory
 {
 private:
     IOFactory() {}
 
-    unordered_map<string, function<Output *(Params &)>> outputFunctionRegistry;
-    unordered_map<string, function<AudioPlayer *(Params &)>> audioFunctionRegistry;
-    unordered_map<string, function<IPCam *(Params &)>> camFunctionRegistry;
-    unordered_map<string, function<Input *(Params &)>> inputFunctionRegistry;
-
+    unordered_map<string, function<IOBase *(Params &)>> ioFunctionRegistry;
     unordered_map<string, string> origNameMap;
 
 public:
 
     void readParams(TiXmlElement *node, Params &p);
 
-    Input *CreateInput(string type, Params &params);
-    Input *CreateInput(TiXmlElement *node);
+    IOBase *CreateIO(string type, Params &params);
+    IOBase *CreateIO(TiXmlElement *node);
 
-    Output *CreateOutput(string type, Params &params);
-    Output *CreateOutput(TiXmlElement *node);
-
-    AudioPlayer *CreateAudio(string type, Params &params);
-    AudioPlayer *CreateAudio(TiXmlElement *node);
-
-    IPCam *CreateIPCamera(string type, Params &params);
-    IPCam *CreateIPCamera(TiXmlElement *node);
-
-    void RegisterClass(string type, function<Input *(Params &)> classFunc)
+    void RegisterClass(string type, function<IOBase *(Params &)> classFunc)
     {
         string orig = type;
         std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
         origNameMap[type] = orig;
-        inputFunctionRegistry[type] = classFunc;
-    }
-
-    void RegisterClass(string type, function<Output *(Params &)> classFunc)
-    {
-        string orig = type;
-        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-        origNameMap[type] = orig;
-        outputFunctionRegistry[type] = classFunc;
-    }
-
-    void RegisterClass(string type, function<AudioPlayer *(Params &)> classFunc)
-    {
-        string orig = type;
-        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-        origNameMap[type] = orig;
-        audioFunctionRegistry[type] = classFunc;
-    }
-
-    void RegisterClass(string type, function<IPCam *(Params &)> classFunc)
-    {
-        string orig = type;
-        std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
-        origNameMap[type] = orig;
-        camFunctionRegistry[type] = classFunc;
+        ioFunctionRegistry[type] = classFunc;
     }
 
     void genDoc(string path);
-    void genDocOutput(string docPath, string type);
+    void genDocIO(string docPath);
 
     static IOFactory &Instance()
     {

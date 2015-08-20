@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(ZibaseTemp);
+REGISTER_IO(ZibaseTemp);
 
 ZibaseTemp::ZibaseTemp(Params &p):
     InputTemp(p),

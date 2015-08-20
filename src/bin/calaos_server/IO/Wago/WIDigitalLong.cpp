@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WIDigitalLong)
-REGISTER_INPUT_USERTYPE(WagoInputSwitchLongPress, WIDigitalLong)
+REGISTER_IO(WIDigitalLong)
+REGISTER_IO_USERTYPE(WagoInputSwitchLongPress, WIDigitalLong)
 
 WIDigitalLong::WIDigitalLong(Params &p):
     InputSwitchLongPress(p),

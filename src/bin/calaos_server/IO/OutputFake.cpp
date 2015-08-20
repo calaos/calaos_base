@@ -23,10 +23,10 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(OutputFake)
+REGISTER_IO(OutputFake)
 
 OutputFake::OutputFake(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     value(false)
 {
     // Define IO documentation
@@ -51,11 +51,11 @@ bool OutputFake::set_value(bool val)
 
     cInfoDom("output") << "OutputFake(" << get_param("id") << "): got action, " << ((value)?"True":"False");
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", val?"true":"false" } });
 
-    EmitSignalOutput();
+    EmitSignalIO();
 
     return true;
 }

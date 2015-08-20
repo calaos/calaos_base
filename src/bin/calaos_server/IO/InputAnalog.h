@@ -22,12 +22,12 @@
 #define InputAnalog_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class InputAnalog : public Input
+class InputAnalog : public IOBase
 {
 protected:
     double real_value_max;

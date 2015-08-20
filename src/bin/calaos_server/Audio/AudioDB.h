@@ -21,8 +21,8 @@
 #ifndef S_AUDIODB_H
 #define S_AUDIODB_H
 
-#include <Calaos.h>
-#include <AudioPlayerData.h>
+#include "Calaos.h"
+#include "AudioPlayerData.h"
 
 namespace Calaos
 {

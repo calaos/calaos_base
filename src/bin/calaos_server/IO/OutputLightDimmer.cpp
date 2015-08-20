@@ -22,8 +22,8 @@
 
 using namespace Calaos;
 
-OutputLightDimmer::OutputLightDimmer(Params &_p):
-    Output(_p),
+OutputLightDimmer::OutputLightDimmer(Params &p):
+    IOBase(p, IOBase::IO_OUTPUT),
     value(0),
     old_value(100),
     press_detected(false),
@@ -244,7 +244,7 @@ bool OutputLightDimmer::set_value(std::string val)
     else
         return false;
 
-    EmitSignalOutput();
+    EmitSignalIO();
 
     emitChange();
 
@@ -296,7 +296,7 @@ bool OutputLightDimmer::set_off_real()
 
 void OutputLightDimmer::emitChange()
 {   
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 }

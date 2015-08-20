@@ -21,9 +21,9 @@
 #ifndef S_CONDITIONSCRIPT_H
 #define S_CONDITIONSCRIPT_H
 
-#include <Calaos.h>
-#include <Condition.h>
-#include <ScriptManager.h>
+#include "Calaos.h"
+#include "Condition.h"
+#include "ScriptManager.h"
 
 using namespace std;
 
@@ -37,7 +37,7 @@ private:
 
     //These are declared inputs that will trigger the rule execution
     //Most generaly, inputs are those used in the script
-    vector<Input *> in_event;
+    vector<IOBase *> in_event;
 
 public:
     ConditionScript();
@@ -48,7 +48,7 @@ public:
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
 
-    Input *get_input(int i) { return in_event[i]; }
+    IOBase *get_input(int i) { return in_event[i]; }
     int get_size() { return in_event.size(); }
 };
 

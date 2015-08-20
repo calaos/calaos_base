@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "OLACtrl.h"
 
-REGISTER_OUTPUT(OLAOutputLightRGB)
+REGISTER_IO(OLAOutputLightRGB)
 
 OLAOutputLightRGB::OLAOutputLightRGB(Params &p):
     OutputLightRGB(p)

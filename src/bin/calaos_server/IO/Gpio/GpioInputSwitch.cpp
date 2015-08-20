@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(GpioInputSwitch)
+REGISTER_IO(GpioInputSwitch)
 
 GpioInputSwitch::GpioInputSwitch(Params &p):
     InputSwitch(p),

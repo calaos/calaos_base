@@ -30,7 +30,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WebInputAnalog)
+REGISTER_IO(WebInputAnalog)
 
 WebInputAnalog::WebInputAnalog(Params &p):
     InputAnalog(p)

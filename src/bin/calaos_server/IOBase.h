@@ -32,32 +32,30 @@ class AutoScenario;
 
 class IOBase
 {
-private:
+protected:
     //we store all params here
     Params param;
 
+    IODoc *ioDoc = nullptr;
+
+private:
     bool auto_sc_mark;
     AutoScenario *ascenario = nullptr;
 
-protected:
-    IODoc *ioDoc = nullptr;
+    int io_type = IO_UNKNOWN;
 
 public:
-    IOBase(Params &p):
-        param(p),
-        auto_sc_mark(false)
-    {
-        ioDoc = new IODoc();
-        ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true);
-        ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true);
-        ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true");
-        ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true");
-        ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false, string(), true);
 
-        if (!param.Exists("enabled"))
-            param.Add("enabled", "true");
-    }
-    virtual ~IOBase() { /* nothing */ }
+    enum
+    {
+        IO_UNKNOWN = 0,
+        IO_INPUT,
+        IO_OUTPUT,
+        IO_INOUT,
+    };
+
+    IOBase(Params &p, int iotype);
+    virtual ~IOBase();
 
     virtual DATA_TYPE get_type() = 0;
 
@@ -72,17 +70,13 @@ public:
 
     virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
 
-    virtual void set_param(std::string opt, std::string val)
-    { param.Add(opt, val); }
-    virtual std::string get_param(std::string opt)
-    { return param[opt]; }
-    virtual Params &get_params()
-    { return param; }
+    virtual void set_param(std::string opt, std::string val) { param.Add(opt, val); }
+    virtual std::string get_param(std::string opt) { return param[opt]; }
+    virtual Params &get_params() { return param; }
+    virtual bool param_exists(std::string opt) { return param.Exists(opt); }
 
-    virtual bool LoadFromXml(TiXmlElement *node)
-    { return false; }
-    virtual bool SaveToXml(TiXmlElement *node)
-    { return false; }
+    virtual bool LoadFromXml(TiXmlElement *node);
+    virtual bool SaveToXml(TiXmlElement *node);
 
     bool isAutoScenario() { return auto_sc_mark; }
     void setAutoScenario(bool m) { auto_sc_mark = m; }
@@ -93,6 +87,32 @@ public:
     bool isEnabled() { return param["enabled"] == "true"; }
 
     IODoc *getDoc() const {return ioDoc; }
+
+    bool isInput() { return io_type == IO_INPUT || io_type == IO_INOUT; }
+    bool isOutput() { return io_type == IO_OUTPUT || io_type == IO_INOUT; }
+    bool isInOut() { return io_type == IO_INOUT; }
+
+    virtual void EmitSignalIO();
+
+    //Input specific functions
+    virtual void force_input_bool(bool val);
+    virtual void force_input_double(double val);
+    virtual void force_input_string(std::string val);
+
+    virtual void hasChanged() { }
+
+    //Output specific functions
+    virtual bool set_value(bool val) { return false; }
+    virtual bool set_value(double val)  { return false; }
+    virtual bool set_value(std::string val)  { return false; }
+
+    //used to retreive the last state command of the TSTRING output
+    virtual std::string get_command_string() { return ""; }
+
+    //used to get a better condition value in ConditionOutput rules
+    //like if shutter is open or is light on
+    //Note: this is only used for TSTRING outputs
+    virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
 };
 
 }

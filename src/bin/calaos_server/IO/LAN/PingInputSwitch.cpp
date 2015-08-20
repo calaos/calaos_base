@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(PingInputSwitch)
+REGISTER_IO(PingInputSwitch)
 
 Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event);
 

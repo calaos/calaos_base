@@ -23,7 +23,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WOLOutputBool)
+REGISTER_IO(WOLOutputBool)
 
 Eina_Bool WOLOutputBool_con_data_written(void *data, int type, void *event)
 {
@@ -64,7 +64,7 @@ Eina_Bool WOLOutputBool_con_data_error(void *data, int type, void *event)
 }
 
 WOLOutputBool::WOLOutputBool(Params &p):
-    Output(p)
+    IOBase(p, IOBase::IO_OUTPUT)
 {
     // Define IO documentation
     ioDoc->friendlyNameSet("WOLOutputBool");
@@ -164,8 +164,8 @@ void WOLOutputBool::doWakeOnLan()
     ecore_con_server_send(udp_con, magicPacket.data(), magicPacket.size());
     data_size += magicPacket.size();
 
-    EmitSignalOutput();
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EmitSignalIO();
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", "true" } });
 
@@ -177,8 +177,8 @@ void WOLOutputBool::doWakeOnLan()
 
 void WOLOutputBool::timerTimeout()
 {
-    EmitSignalOutput();
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EmitSignalIO();
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", "false" } });
 

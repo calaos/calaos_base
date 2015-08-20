@@ -27,7 +27,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(BlinkstickOutputLightRGB)
+REGISTER_IO(BlinkstickOutputLightRGB)
 
 BlinkstickOutputLightRGB::BlinkstickOutputLightRGB(Params &p):
     OutputLightRGB(p)

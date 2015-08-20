@@ -23,23 +23,11 @@
 
 #include "Calaos.h"
 #include "EcoreTimer.h"
-#include <Room.h>
-#include <ListeRoom.h>
-#include <Input.h>
-#include <Output.h>
-#include <IOFactory.h>
-#include <Condition.h>
-#include <Rule.h>
-#include <ListeRule.h>
-#include <Action.h>
-#include <AudioPlayer.h>
-#include <AudioManager.h>
-#include <IntValue.h>
-#include <IPCam.h>
-#include <CamManager.h>
-#include <Scenario.h>
-#include <Calaos.h>
-#include <RulesFactory.h>
+#include "Room.h"
+#include "ListeRoom.h"
+#include "IOFactory.h"
+#include "ListeRule.h"
+#include "RulesFactory.h"
 
 namespace Calaos
 {

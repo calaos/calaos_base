@@ -22,12 +22,12 @@
 #define OUTPUTLIGHT_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos {
 
-class OutputLight : public Output
+class OutputLight : public IOBase
 {
 private:
     EcoreTimer *timer = nullptr;

@@ -21,19 +21,19 @@
 #ifndef S_RulesFactory_H
 #define S_RulesFactory_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 
-#include <Action.h>
-#include <ActionStd.h>
-#include <ActionMail.h>
-#include <ActionScript.h>
-#include <ActionTouchscreen.h>
+#include "Action.h"
+#include "ActionStd.h"
+#include "ActionMail.h"
+#include "ActionScript.h"
+#include "ActionTouchscreen.h"
 
-#include <Condition.h>
-#include <ConditionStd.h>
-#include <ConditionOutput.h>
-#include <ConditionStart.h>
-#include <ConditionScript.h>
+#include "Condition.h"
+#include "ConditionStd.h"
+#include "ConditionOutput.h"
+#include "ConditionStart.h"
+#include "ConditionScript.h"
 
 namespace Calaos
 {

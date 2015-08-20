@@ -23,7 +23,7 @@
 using namespace Calaos;
 
 OutputLight::OutputLight(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     value(false)
 {
     ioDoc->descriptionBaseSet(_("Basic light. This light have only 2 states, ON or OFF. Can also be used to control simple relays output"));
@@ -53,7 +53,7 @@ OutputLight::~OutputLight()
 
 void OutputLight::emitChange()
 {   
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value?"true":"false" } });
 }
@@ -76,7 +76,7 @@ bool OutputLight::_set_value(bool val)
     {
         value = val;
 
-        EmitSignalOutput();
+        EmitSignalIO();
 
         emitChange();
         return true;
@@ -123,14 +123,14 @@ bool OutputLight::set_value(string val)
     else if (val == "set_state true")
     {
         value = true;
-        EmitSignalOutput();
+        EmitSignalIO();
         emitChange();
         return true;
     }
     else if (val == "set_state false")
     {
         value = false;
-        EmitSignalOutput();
+        EmitSignalIO();
         emitChange();
         return true;
     }

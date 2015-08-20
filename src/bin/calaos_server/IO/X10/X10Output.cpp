@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(X10Output)
+REGISTER_IO(X10Output)
 
 X10Output::X10Output(Params &p):
     OutputLightDimmer(p)

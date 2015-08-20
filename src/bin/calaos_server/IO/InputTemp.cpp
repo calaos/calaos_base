@@ -26,7 +26,7 @@
 using namespace Calaos;
 
 InputTemp::InputTemp(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     value(0.0),
     timer(0.0)
 {
@@ -118,9 +118,9 @@ void InputTemp::emitChange()
 {
     cInfoDom("input") << get_param("id") << ": " << get_value_double() << " °C";
 
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(get_value_double()) } });
 }

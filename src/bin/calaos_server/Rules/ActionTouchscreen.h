@@ -21,8 +21,8 @@
 #ifndef S_ACTIONTOUCHSCREEN_H
 #define S_ACTIONTOUCHSCREEN_H
 
-#include <Calaos.h>
-#include <Action.h>
+#include "Calaos.h"
+#include "Action.h"
 #include <Ecore_Con.h>
 
 namespace Calaos

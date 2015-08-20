@@ -24,9 +24,9 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WIDigitalBP)
-REGISTER_INPUT_USERTYPE(WIDigital, WIDigitalBP)
-REGISTER_INPUT_USERTYPE(WagoInputSwitch, WIDigitalBP)
+REGISTER_IO(WIDigitalBP)
+REGISTER_IO_USERTYPE(WIDigital, WIDigitalBP)
+REGISTER_IO_USERTYPE(WagoInputSwitch, WIDigitalBP)
 
 WIDigitalBP::WIDigitalBP(Params &p):
     InputSwitch(p),

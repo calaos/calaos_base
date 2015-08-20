@@ -22,14 +22,13 @@
 #define S_IntValue_H
 
 #include "Calaos.h"
-#include "Input.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class Internal : public Input, public Output
+class Internal : public IOBase
 {
 protected:
     bool bvalue;
@@ -53,9 +52,9 @@ public:
 
     virtual DATA_TYPE get_type()
     {
-        if (Input::get_param("type") == "InternalBool") return TBOOL;
-        if (Input::get_param("type") == "InternalInt") return TINT;
-        if (Input::get_param("type") == "InternalString") return TSTRING;
+        if (get_param("type") == "InternalBool") return TBOOL;
+        if (get_param("type") == "InternalInt") return TINT;
+        if (get_param("type") == "InternalString") return TSTRING;
         return TUNKNOWN;
     }
 
@@ -73,16 +72,6 @@ public:
     virtual bool set_value(double val);
     virtual bool set_value(string val);
 
-    //Use common params for input and output
-    virtual void set_param(std::string opt, std::string val)
-    { Input::set_param(opt, val); }
-    virtual std::string get_param(std::string opt)
-    { return Input::get_param(opt); }
-    virtual Params &get_params()
-    { return Input::get_params(); }
-
-    virtual bool LoadFromXml(TiXmlElement *node)
-    { return false; }
     virtual bool SaveToXml(TiXmlElement *node);
 };
 

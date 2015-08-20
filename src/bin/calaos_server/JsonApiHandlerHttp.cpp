@@ -24,9 +24,7 @@
 #include "PollListenner.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"
-#include "AudioManager.h"
 #include "AudioPlayer.h"
-#include "CamManager.h"
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "EcoreTimer.h"
@@ -346,18 +344,15 @@ void JsonApiHandlerHttp::processPolling()
 
 void JsonApiHandlerHttp::processGetCover()
 {
-    int pid;
-    Utils::from_string(jsonParam["player_id"], pid);
-    if (pid < 0 || pid >= AudioManager::Instance().get_size())
+    AudioPlayer *player = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(jsonParam["id"]));
+    if (!player)
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("player_id not set"));
+        json_object_set_new(jret, "error_str", json_string("id not set"));
         sendJson(jret);
         return;
     }
-
-    AudioPlayer *player = AudioManager::Instance().get_player(pid);
 
     string w, h;
     if (jsonParam.Exists("width"))
@@ -386,18 +381,15 @@ void JsonApiHandlerHttp::processGetCover()
 
 void JsonApiHandlerHttp::processGetCameraPic()
 {
-    int pid;
-    Utils::from_string(jsonParam["camera_id"], pid);
-    if (pid < 0 || pid >= CamManager::Instance().get_size())
+    IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(jsonParam["id"]));
+    if (!camera)
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
-        json_object_set_new(jret, "error_str", json_string("camera_id not set"));
+        json_object_set_new(jret, "error_str", json_string("id not set"));
         sendJson(jret);
         return;
     }
-
-    IPCam *camera = CamManager::Instance().get_camera(pid);
 
     string w, h;
     if (jsonParam.Exists("width"))
@@ -662,25 +654,7 @@ void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
 void JsonApiHandlerHttp::processCamera()
 {
     //Get camera object
-    IPCam *camera = nullptr;
-    CamInput *ci = dynamic_cast<CamInput *>(ListeRoom::Instance().get_input(jsonParam["id"]));
-    if (ci)
-        camera = ci->get_cam();
-    else
-    {
-        CamOutput *co = dynamic_cast<CamOutput *>(ListeRoom::Instance().get_output(jsonParam["id"]));
-        if (co)
-            camera = co->get_cam();
-        else if (Utils::is_of_type<int>(jsonParam["id"]))
-        {
-            int id;
-            Utils::from_string(jsonParam["id"], id);
-
-            if (id < CamManager::Instance().get_size() && id >= 0)
-                camera = CamManager::Instance().get_camera(id);
-        }
-    }
-
+    IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(jsonParam["id"]));
     if (!camera)
     {
         sendJson({{"error", "unkown camera id" }});

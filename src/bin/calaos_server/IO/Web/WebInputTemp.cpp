@@ -30,7 +30,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WebInputTemp)
+REGISTER_IO(WebInputTemp)
 
 WebInputTemp::WebInputTemp(Params &p):
     InputTemp(p)

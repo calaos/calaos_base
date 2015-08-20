@@ -370,6 +370,15 @@ int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
 
     if(prot->nb_burst <= 5)
         action |= (prot->nb_burst<<24);
+
+    if (val)
+        action |= ACTION_ON;
+    else
+        action |= ACTION_OFF;
+
+    /*
+     * Is this correct? I don't think so...
+     *
     switch (val)
     {
     case ZibaseInfoProtocol::eON:
@@ -382,6 +391,7 @@ int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
         ret = -1;
         break;
     }
+    */
 
     action |= PROTOCOL(prot->protocol);
 

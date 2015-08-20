@@ -22,12 +22,12 @@
 #define S_OutputString_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class OutputString : public Output
+class OutputString : public IOBase
 {
 protected:
     string value;

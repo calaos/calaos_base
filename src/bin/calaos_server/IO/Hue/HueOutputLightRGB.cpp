@@ -27,7 +27,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(HueOutputLightRGB)
+REGISTER_IO(HueOutputLightRGB)
 
 HueOutputLightRGB::HueOutputLightRGB(Params &p):
     OutputLightRGB(p)

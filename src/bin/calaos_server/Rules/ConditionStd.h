@@ -21,9 +21,9 @@
 #ifndef S_CONDITIONSTD_H
 #define S_CONDITIONSTD_H
 
-#include <Calaos.h>
-#include <Condition.h>
-#include <Input.h>
+#include "Calaos.h"
+#include "Condition.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
@@ -31,7 +31,7 @@ namespace Calaos
 class ConditionStd: public Condition
 {
 protected:
-    std::vector<Input *> inputs;
+    std::vector<IOBase *> inputs;
     Params params;
     Params ops;
     //this is used to do the condition test
@@ -49,14 +49,14 @@ public:
 
     virtual bool Evaluate();
 
-    void Add(Input *p);
+    void Add(IOBase *p);
     void Remove(int i);
-    void Assign(int i, Input *obj);
+    void Assign(int i, IOBase *obj);
 
-    void getVarIds(vector<Input *> &list);
+    void getVarIds(vector<IOBase *> &list);
     bool useForTrigger() { return trigger; }
 
-    Input *get_input(int i) { return inputs[i]; }
+    IOBase *get_input(int i) { return inputs[i]; }
     Params &get_params() { return params; }
     Params &get_operator() { return ops; }
     Params &get_params_var() { return params_var; }

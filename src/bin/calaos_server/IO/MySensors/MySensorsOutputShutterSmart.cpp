@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MySensorsOutputShutterSmart)
+REGISTER_IO(MySensorsOutputShutterSmart)
 
 MySensorsOutputShutterSmart::MySensorsOutputShutterSmart(Params &p):
     OutputShutterSmart(p)

@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(GpioOutputSwitch)
+REGISTER_IO(GpioOutputSwitch)
 
 GpioOutputSwitch::GpioOutputSwitch(Params &p):
     OutputLight(p)

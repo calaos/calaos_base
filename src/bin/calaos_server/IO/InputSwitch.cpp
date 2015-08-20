@@ -23,7 +23,7 @@
 using namespace Calaos;
 
 InputSwitch::InputSwitch(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     value(false)
 {
     ioDoc->descriptionBaseSet(_("Basic switch with press/release states."));
@@ -55,10 +55,10 @@ void InputSwitch::hasChanged()
 
 void InputSwitch::emitChanges()
 {
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value?"true":"false" } });
 
     cInfoDom("input") << get_param("id") << ": " << value;
-    EmitSignalInput();
+    EmitSignalIO();
 }

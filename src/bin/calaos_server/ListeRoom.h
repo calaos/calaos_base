@@ -24,19 +24,8 @@
 #include "Calaos.h"
 #include "Room.h"
 #include "ListeRule.h"
-#include "IPCam.h"
-#include "CamInput.h"
-#include "CamManager.h"
-#include "CamOutput.h"
-#include "AudioInput.h"
-#include "AudioOutput.h"
-#include "AudioPlayer.h"
-#include "AudioManager.h"
-#include "IntValue.h"
-#include "InPlageHoraire.h"
-#include "InputTimer.h"
-#include "Scenario.h"
 #include "IOFactory.h"
+#include "Scenario.h"
 
 namespace Calaos
 {
@@ -47,8 +36,10 @@ class ListeRoom
 {
 protected:
     std::vector<Room *> rooms;
-    Eina_Hash *input_table;
-    Eina_Hash *output_table;
+    unordered_map<string, IOBase *> io_table;
+
+    list<IOBase *> cameraCache;
+    list<IOBase *> audioCache;
 
     list<Scenario *> auto_scenario_cache;
 
@@ -65,20 +56,18 @@ public:
     Room *get_room(int i);
     Room *operator[] (int i) const;
 
-    Input *get_input(std::string i);
-    Output *get_output(std::string i);
+    IOBase *get_io(std::string id);
+    IOBase *get_io(int i);
+    bool delete_io(IOBase *io, bool del = true);
 
-    Input *get_input(int i);
-    Output *get_output(int i);
-    bool delete_input(Input *in, bool del = true);
-    bool delete_output(Output *out, bool del = true);
-
-    int get_nb_input();
-    int get_nb_output();
+    int get_io_count(); //total IO count for all rooms
 
     int size() { return rooms.size(); }
 
-    Input *get_chauffage_var(std::string &chauff_id, ChauffType type);
+    IOBase *get_chauffage_var(std::string &chauff_id, ChauffType type);
+
+    list<IOBase *> getCameraList() { return cameraCache; }
+    list<IOBase *> getAudioList() { return audioCache; }
 
     //Auto scenarios
 
@@ -89,19 +78,14 @@ public:
 
     Room * searchRoomByNameAndType(string name,string type);
 
-    Room *getRoomByInput(Input *o);
-    Room *getRoomByOutput(Output *o);
+    Room *getRoomByIO(IOBase *o);
 
-    bool deleteIO(Input *input, bool modify = false);
-    bool deleteIO(Output *output, bool modify = false);
+    bool deleteIO(IOBase *io, bool modify = false);
 
-    Input* createInput(Params param, Room *room);
-    Output* createOutput(Params param, Room *room);
+    IOBase* createIO(Params param, Room *room);
 
-    void addInputHash(Input *input);
-    void delInputHash(Input *input);
-    void addOutputHash(Output *output);
-    void delOutputHash(Output *output);
+    void addIOHash(IOBase *io);
+    void delIOHash(IOBase *io);
 };
 
 }

@@ -25,7 +25,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT_USERTYPE(AVReceiver, IOAVReceiver)
+REGISTER_IO_USERTYPE(AVReceiver, IOAVReceiver)
 
 #define AVR_TIMEOUT      40.0
 #define AVR_RECONNECT    10.0
@@ -263,28 +263,27 @@ int AVReceiver::getInputSource(int zone)
 }
 
 IOAVReceiver::IOAVReceiver(Params &p):
-    Input(p),
-    Output(p),
+    IOBase(p, IOBase::IO_INOUT),
     zone(1)
 {
     // Define IO documentation
-    Output::ioDoc->friendlyNameSet("AVReceiver");
-    Output::ioDoc->descriptionSet(_("AVReceiver object to control network amplifier"));
-    Output::ioDoc->paramAdd("host", _("IP address of the device"), IODoc::TYPE_STRING, true);
-    Output::ioDoc->paramAddInt("port", _("Port to use for connection"), 0, 65535, false);
-    Output::ioDoc->paramAddInt("zone", _("Zone of the amplifier (if supported)"), 0, 10, false);
-    Output::ioDoc->paramAdd("model", _("AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"), IODoc::TYPE_STRING, true);
+    ioDoc->friendlyNameSet("AVReceiver");
+    ioDoc->descriptionSet(_("AVReceiver object to control network amplifier"));
+    ioDoc->paramAdd("host", _("IP address of the device"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port", _("Port to use for connection"), 0, 65535, false);
+    ioDoc->paramAddInt("zone", _("Zone of the amplifier (if supported)"), 0, 10, false);
+    ioDoc->paramAdd("model", _("AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"), IODoc::TYPE_STRING, true);
 
-    Output::ioDoc->actionAdd("power on", _("Switch receiver on"));
-    Output::ioDoc->actionAdd("power off", _("Switch receiver off"));
-    Output::ioDoc->actionAdd("volume 50", _("Set current volume"));
-    Output::ioDoc->actionAdd("source X", _("Change current input source"));
-    Output::ioDoc->actionAdd("custom XXXXXX", _("Send a custom command to receiver (if you know the protocol)"));
+    ioDoc->actionAdd("power on", _("Switch receiver on"));
+    ioDoc->actionAdd("power off", _("Switch receiver off"));
+    ioDoc->actionAdd("volume 50", _("Set current volume"));
+    ioDoc->actionAdd("source X", _("Change current input source"));
+    ioDoc->actionAdd("custom XXXXXX", _("Send a custom command to receiver (if you know the protocol)"));
 
-    Input::get_params().Add("gui_type", "avreceiver");
-    Input::get_params().Add("visible", "false");
-    if (Input::get_params().Exists("zone"))
-        from_string(Input::get_param("zone"), zone);
+    get_params().Add("gui_type", "avreceiver");
+    get_params().Add("visible", "false");
+    if (get_params().Exists("zone"))
+        from_string(get_param("zone"), zone);
     receiver = AVRManager::Instance().Create(p);
 
     if (zone == 1 && receiver)
@@ -302,14 +301,10 @@ IOAVReceiver::~IOAVReceiver()
 
 void IOAVReceiver::statusChanged(string param, string value)
 {
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
-                         { { "id", Input::get_param("id") },
-                           { param, value } });
-
-    EventManager::create(CalaosEvent::EventOutputChanged,
-                         { { "id", Input::get_param("id") },
+    EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
                            { param, value } });
 }
 
@@ -348,7 +343,7 @@ map<string, string> IOAVReceiver::get_all_values_string()
 
 void IOAVReceiver::force_input_string(string val)
 {
-    if (!Input::isEnabled()) return;
+    if (!isEnabled()) return;
 
     if (!receiver) return;
 
@@ -379,7 +374,7 @@ void IOAVReceiver::force_input_string(string val)
 
 bool IOAVReceiver::set_value(string val)
 {
-    if (!Input::isEnabled()) return true;
+    if (!isEnabled()) return true;
 
     cInfoDom("output") << get_param("id") << " got action, " << val;
 
@@ -396,7 +391,7 @@ bool IOAVReceiver::SaveToXml(TiXmlElement *node)
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
-        Input::get_params().get_item(i, key, value);
+        get_params().get_item(i, key, value);
         cnode->SetAttribute(key, value);
     }
 

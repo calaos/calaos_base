@@ -21,24 +21,14 @@
 #ifndef S_IPCam_H
 #define S_IPCam_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Input.h>
-#include <CamInput.h>
-#include <CamOutput.h>
-#include <tcpsocket.h>
-#include <Params.h>
-#include <vector>
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class IPCam
+class IPCam: public IOBase
 {
 protected:
-    Params param;
-    Output *aoutput;
-    Input *ainput;
     Params caps;
 
 public:
@@ -51,32 +41,28 @@ public:
 
     //Capabilities
     /*************************************************
-                 List of capabilities:
-                  * ptz : bool
-                  * position : int (number of memory position. if 0, position is not available)
-                  * resolution : string (list of resolution, space separated)
-                  * led : bool (to activate leds)
-                  * buzzer : bool (to activate buzzer)
-                  * privacy: bool (to activate privacy mode)
-                  * quality: int (range for quality level)
-                  * brightness: int (range)
-                  * contrast: int (range)
-                  * color: int (range)
-                  * saturation: int (range)
-                  * sharpness: int (range)
-                  * hue: int (range)
-                **************************************************/
+     * List of capabilities:
+     * ptz : bool
+     * position : int (number of memory position. if 0, position is not available)
+     * resolution : string (list of resolution, space separated)
+     * led : bool (to activate leds)
+     * buzzer : bool (to activate buzzer)
+     * privacy: bool (to activate privacy mode)
+     * quality: int (range for quality level)
+     * brightness: int (range)
+     * contrast: int (range)
+     * color: int (range)
+     * saturation: int (range)
+     * sharpness: int (range)
+     * hue: int (range)
+     **************************************************/
     virtual Params getCapabilities() { return caps; }
     virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
 
-    std::string get_param(std::string opt) { return param[opt]; }
-    void set_param(std::string opt, std::string val) { param.Add(opt, val); }
-    Params &get_params() { return param; }
-    Output *get_output() { return aoutput; }
-    Input *get_input() { return ainput; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
 
-    virtual bool LoadFromXml(TiXmlElement *node)
-    { return false; }
+    virtual bool set_value(std::string val);
+
     virtual bool SaveToXml(TiXmlElement *node);
 };
 

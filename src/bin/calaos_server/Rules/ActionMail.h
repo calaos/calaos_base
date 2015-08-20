@@ -21,8 +21,8 @@
 #ifndef S_ACTIONMAIL_H
 #define S_ACTIONMAIL_H
 
-#include <Calaos.h>
-#include <Action.h>
+#include "Calaos.h"
+#include "Action.h"
 
 namespace Calaos
 {

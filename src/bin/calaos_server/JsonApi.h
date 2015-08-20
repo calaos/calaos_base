@@ -52,8 +52,8 @@ protected:
     json_t *buildJsonCameras();
     json_t *buildJsonAudio();
 
-    template<typename T> void buildJsonIO(T *io, json_t *jio);
-    template<typename T> json_t *buildJsonRoomIO(Room *room);
+    void buildJsonIO(IOBase *io, json_t *jio);
+    json_t *buildJsonRoomIO(Room *room);
 
     //result is given with a call to a lambda because we may need to wait for
     //network queries

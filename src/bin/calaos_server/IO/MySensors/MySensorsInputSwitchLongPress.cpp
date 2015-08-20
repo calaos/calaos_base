@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(MySensorsInputSwitchLongPress)
+REGISTER_IO(MySensorsInputSwitchLongPress)
 
 MySensorsInputSwitchLongPress::MySensorsInputSwitchLongPress(Params &p):
     InputSwitchLongPress(p)

@@ -24,7 +24,7 @@ using namespace Calaos;
 using namespace Utils;
 
 InputString::InputString(Params &p):
-    Input(p)
+    IOBase(p, IOBase::IO_INPUT)
 {
     set_param("gui_type", "string_in");
     if (!get_params().Exists("visible")) set_param("visible", "true");
@@ -42,11 +42,11 @@ InputString::~InputString()
 
 void InputString::emitChange()
 {   
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value } });
 
-    EmitSignalInput();
+    EmitSignalIO();
 }
 
 string InputString::get_value_string()

@@ -340,41 +340,38 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
     {
         //the node wants to set a new value to a calaos IO
         //payload format is <calaos_id>:<value>
-        //remember that payoad size cannot exceed 24 bytes.
+        //remember that payload size cannot exceed 24 bytes.
         //ex: output_45:toggle
         vector<string> tokens;
         Utils::split(payload, tokens, ":", 2);
-        Output *out = ListeRoom::Instance().get_output(tokens[0]);
-        if (out)
+        IOBase *io = ListeRoom::Instance().get_io(tokens[0]);
+        if (io)
         {
-            out->set_value(tokens[1]);
-        }
-        else
-        {
-            Input *in = ListeRoom::Instance().get_input(tokens[0]);
-            if (in)
+            if (io->isInput())
             {
-                if (in->get_type() == TBOOL)
-                    in->force_input_bool(tokens[1] == "true" || tokens[1] == "1");
-                else if (in->get_type() == TINT)
+                if (io->get_type() == TBOOL)
+                    io->force_input_bool(tokens[1] == "true" || tokens[1] == "1");
+                else if (io->get_type() == TINT)
                 {
                     if (Utils::is_of_type<double>(tokens[1]))
                     {
                         double v;
                         Utils::from_string(tokens[1], v);
-                        in->force_input_double(v);
+                        io->force_input_double(v);
                     }
                 }
-                else if (in->get_type() == TSTRING)
-                    in->force_input_string(tokens[1]);
+                else if (io->get_type() == TSTRING)
+                    io->force_input_string(tokens[1]);
             }
             else
-            {
-                cWarningDom("mysensors") << "Node " << node_id << "-" << sensor_id
-                                         << " want to set value " << payload
-                                         << " but IO is not found.";
-                return;
-            }
+                io->set_value(tokens[1]);
+        }
+        else
+        {
+            cWarningDom("mysensors") << "Node " << node_id << "-" << sensor_id
+                                     << " want to set value " << payload
+                                     << " but IO is not found.";
+            return;
         }
     }
     else
@@ -402,29 +399,19 @@ void MySensorsController::processSensorRequest(string node_id, string sensor_id,
         //the node requested an IO value from calaos
         //the payload is the calaos IO id
         string s;
-        Input *in = ListeRoom::Instance().get_input(payload);
-        if (in)
+        IOBase *io = ListeRoom::Instance().get_io(payload);
+        if (io)
         {
-            if (in->get_type() == TBOOL) s = Utils::to_string(in->get_value_bool());
-            else if (in->get_type() == TINT) s = Utils::to_string(in->get_value_double());
-            else if (in->get_type() == TSTRING) s = in->get_value_string();
+            if (io->get_type() == TBOOL) s = Utils::to_string(io->get_value_bool());
+            else if (io->get_type() == TINT) s = Utils::to_string(io->get_value_double());
+            else if (io->get_type() == TSTRING) s = io->get_value_string();
         }
         else
         {
-            Output *out = ListeRoom::Instance().get_output(payload);
-            if (out)
-            {
-                if (out->get_type() == TBOOL) s = Utils::to_string(out->get_value_bool());
-                else if (out->get_type() == TINT) s = Utils::to_string(out->get_value_double());
-                else if (out->get_type() == TSTRING) s = out->get_value_string();
-            }
-            else
-            {
-                cWarningDom("mysensors") << "Node " << node_id << "-" << sensor_id
-                                         << " is requesting value from IO " << payload
-                                         << " but IO is not found.";
-                return;
-            }
+            cWarningDom("mysensors") << "Node " << node_id << "-" << sensor_id
+                                     << " is requesting value from IO " << payload
+                                     << " but IO is not found.";
+            return;
         }
         sendMessage(node_id, sensor_id, MySensors::SET_VARIABLE, false, subtype, s);
     }

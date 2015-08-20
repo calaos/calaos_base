@@ -22,8 +22,8 @@
 
 using namespace Calaos;
 
-OutputLightRGB::OutputLightRGB(Params &_p):
-    Output(_p),
+OutputLightRGB::OutputLightRGB(Params &p):
+    IOBase(p, IOBase::IO_OUTPUT),
     timer_auto(NULL)
 {
     ioDoc->descriptionBaseSet(_("RGB light. Choose a color to be set for this light."));
@@ -256,14 +256,14 @@ bool OutputLightRGB::set_value(std::string val)
         {
             cmd_state = "on";
             state = true;
-            EmitSignalOutput();
+            EmitSignalIO();
             emitChange();
         }
         else if (val == "false")
         {
             cmd_state = "off";
             state = false;
-            EmitSignalOutput();
+            EmitSignalIO();
             emitChange();
         }
         else
@@ -287,7 +287,7 @@ void OutputLightRGB::emitChange()
             (color.getGreen() << 8) +
             color.getBlue()):0;
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", state?color.toString():"0" },
                            { "state_int", Utils::to_string(v) } });
@@ -302,7 +302,7 @@ void OutputLightRGB::setColor(const ColorValue &c, bool s)
 
     setColorReal(c, s);
 
-    EmitSignalOutput();
+    EmitSignalIO();
     emitChange();
 }
 
@@ -318,7 +318,7 @@ void OutputLightRGB::stateUpdated(const ColorValue &c, bool s)
     state = s;
     cmd_state = "set " + get_value_string();
 
-    EmitSignalOutput();
+    EmitSignalIO();
     emitChange();
 }
 

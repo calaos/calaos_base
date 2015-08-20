@@ -24,33 +24,32 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(InputTimer)
+REGISTER_IO(InputTimer)
 
 InputTimer::InputTimer(Params &p):
-    Input(p),
-    Output(p),
+    IOBase(p, IOBase::IO_INOUT),
     timer(NULL),
     value("true"),
     start(false)
 {
     // Define IO documentation
-    Input::ioDoc->friendlyNameSet("InputTimer");
-    Input::ioDoc->descriptionSet(_("Timer object. trigger an event after the configured time has expired."));
-    Input::ioDoc->paramAdd("visible", _("A timer object can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
+    ioDoc->friendlyNameSet("InputTimer");
+    ioDoc->descriptionSet(_("Timer object. trigger an event after the configured time has expired."));
+    ioDoc->paramAdd("visible", _("A timer object can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
-    Input::ioDoc->paramAddInt("hour", _("Hour for the timer interval"), 0, 23, true);
-    Input::ioDoc->paramAddInt("min", _("Minutes for the timer interval"), 0, 59, true);
-    Input::ioDoc->paramAddInt("sec", _("Seconds for the timer interval"), 0, 59, true);
-    Input::ioDoc->paramAddInt("msec", _("Miliseconds for the timer interval"), 0, 999, true);
-    Input::ioDoc->paramAdd("autostart", _("Auto start the timer when calaos starts"), IODoc::TYPE_BOOL, true);
-    Input::ioDoc->paramAdd("autorestart", _("Auto restart the timer when time expires"), IODoc::TYPE_BOOL, true);
+    ioDoc->paramAddInt("hour", _("Hour for the timer interval"), 0, 23, true);
+    ioDoc->paramAddInt("min", _("Minutes for the timer interval"), 0, 59, true);
+    ioDoc->paramAddInt("sec", _("Seconds for the timer interval"), 0, 59, true);
+    ioDoc->paramAddInt("msec", _("Miliseconds for the timer interval"), 0, 999, true);
+    ioDoc->paramAdd("autostart", _("Auto start the timer when calaos starts"), IODoc::TYPE_BOOL, true);
+    ioDoc->paramAdd("autorestart", _("Auto restart the timer when time expires"), IODoc::TYPE_BOOL, true);
 
-    Input::ioDoc->conditionAdd("true", _("Event triggered when timer expires"));
-    Input::ioDoc->conditionAdd("false", _("Event triggered when timer starts"));
-    Input::ioDoc->conditionAdd("change", _("Event triggered on any change"));
-    Input::ioDoc->actionAdd("start", _("Start the timer"));
-    Input::ioDoc->actionAdd("stop", _("Stop the timer"));
-    Input::ioDoc->actionAdd("00:00:00:200", _("Reset the configured time to a value. Format is h:m:s:ms"));
+    ioDoc->conditionAdd("true", _("Event triggered when timer expires"));
+    ioDoc->conditionAdd("false", _("Event triggered when timer starts"));
+    ioDoc->conditionAdd("change", _("Event triggered on any change"));
+    ioDoc->actionAdd("start", _("Start the timer"));
+    ioDoc->actionAdd("stop", _("Stop the timer"));
+    ioDoc->actionAdd("00:00:00:200", _("Reset the configured time to a value. Format is h:m:s:ms"));
 
     set_param("visible", "false");
     set_param("gui_type", "timer");
@@ -68,7 +67,7 @@ InputTimer::~InputTimer()
 
 bool InputTimer::set_value(string command)
 {
-    if (!Input::isEnabled()) return true;
+    if (!isEnabled()) return true;
 
     if( command == "start")
         command = "true";
@@ -130,7 +129,7 @@ bool InputTimer::set_value(string command)
 
     if(command == "true" || command == "false")
     {
-        EventManager::create(CalaosEvent::EventInputChanged,
+        EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", get_param("id") },
                                { "state", value } });
     }
@@ -172,13 +171,13 @@ void InputTimer::TimerDone()
     timer = NULL;
     value = "true";
 
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", "true" } });
 
-    if (!Input::isEnabled()) return;
+    if (!isEnabled()) return;
 
     if (get_param("autorestart") == "true")
         StartTimer();

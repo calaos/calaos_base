@@ -22,13 +22,13 @@
 #define S_OutputAnalog_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "WagoMap.h"
 
 namespace Calaos
 {
 
-class OutputAnalog : public Output
+class OutputAnalog : public IOBase
 {
 protected:
     double value;

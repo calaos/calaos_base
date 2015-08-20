@@ -83,9 +83,9 @@ void EcoreTimer::Tick()
 
 void EcoreTimer::singleShot(double time, sigc::slot<void> slot)
 {
-    EcoreTimer *timer = new EcoreTimer(time, [=](void *data)
+    EcoreTimer *timer = new EcoreTimer(time, [=](void *_data)
     {
-        EcoreTimer *t = reinterpret_cast<EcoreTimer *>(data);
+        EcoreTimer *t = reinterpret_cast<EcoreTimer *>(_data);
         if (t)
         {
             slot();

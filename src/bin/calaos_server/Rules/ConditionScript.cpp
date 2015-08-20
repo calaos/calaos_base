@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ConditionScript.h>
-#include <ListeRoom.h>
+#include "ConditionScript.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -63,7 +63,7 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
                  sc_node->Attribute("id"))
         {
             string id = sc_node->Attribute("id");
-            Input *in = ListeRoom::Instance().get_input(id);
+            IOBase *in = ListeRoom::Instance().get_io(id);
             if (in) in_event.push_back(in);
         }
     }

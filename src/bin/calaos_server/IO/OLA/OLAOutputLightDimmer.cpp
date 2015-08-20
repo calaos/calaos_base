@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "OLACtrl.h"
 
-REGISTER_OUTPUT(OLAOutputLightDimmer)
+REGISTER_IO(OLAOutputLightDimmer)
 
 OLAOutputLightDimmer::OLAOutputLightDimmer(Params &p):
     OutputLightDimmer(p)

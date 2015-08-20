@@ -24,7 +24,7 @@
 using namespace Calaos;
 
 OutputShutterSmart::OutputShutterSmart(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     total_time(0),
     time_up(0),
     time_down(0),
@@ -243,9 +243,9 @@ bool OutputShutterSmart::set_value(std::string val)
     else
         return false;
 
-    EmitSignalOutput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 
@@ -543,7 +543,7 @@ void OutputShutterSmart::TimerUpdate()
         writePosition(_t);
     }
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 }
@@ -559,7 +559,7 @@ void OutputShutterSmart::TimerEnd()
     Stop();
     cmd_state = t;
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 }
@@ -591,7 +591,7 @@ void OutputShutterSmart::TimerCalibrate()
 
     calibrate = false;
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
 }

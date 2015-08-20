@@ -25,8 +25,8 @@
 using namespace Calaos;
 using namespace Utils;
 
-REGISTER_OUTPUT(WOAnalog)
-REGISTER_OUTPUT_USERTYPE(WagoOutputAnalog, WOAnalog)
+REGISTER_IO(WOAnalog)
+REGISTER_IO_USERTYPE(WagoOutputAnalog, WOAnalog)
 
 WOAnalog::WOAnalog(Params &p):
     OutputAnalog(p),

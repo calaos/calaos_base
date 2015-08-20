@@ -21,9 +21,9 @@
 #ifndef S_CONDITIONOUTPUT_H
 #define S_CONDITIONOUTPUT_H
 
-#include <Calaos.h>
-#include <Condition.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "Condition.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
@@ -31,7 +31,7 @@ namespace Calaos
 class ConditionOutput: public Condition
 {
 protected:
-    Output *output;
+    IOBase *output;
     string params;
     string ops;
     //this is used to do the condition test
@@ -43,7 +43,7 @@ protected:
     bool eval(bool val1, std::string oper, bool val2);
     bool eval(double val1, std::string oper, double val2);
     bool eval(std::string val1, std::string oper, std::string val2);
-    bool eval(Output *out, std::string oper, std::string val);
+    bool eval(IOBase *out, std::string oper, std::string val);
 
 public:
     ConditionOutput();
@@ -51,8 +51,8 @@ public:
 
     virtual bool Evaluate();
 
-    void setOutput(Output *p) { output = p; }
-    Output *getOutput() { return output; }
+    void setOutput(IOBase *p) { output = p; }
+    IOBase *getOutput() { return output; }
 
     bool useForTrigger() { return trigger; }
 

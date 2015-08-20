@@ -21,8 +21,8 @@
 #ifndef AVRMarantz_H
 #define AVRMarantz_H
 
-#include <Calaos.h>
-#include <AVReceiver.h>
+#include "Calaos.h"
+#include "AVReceiver.h"
 
 namespace Calaos
 {

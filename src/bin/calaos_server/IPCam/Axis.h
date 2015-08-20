@@ -21,13 +21,7 @@
 #ifndef S_AXIS_H
 #define S_AXIS_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Input.h>
-#include <CamInput.h>
-#include <CamOutput.h>
-#include <tcpsocket.h>
-#include <IPCam.h>
+#include "IPCam.h"
 
 namespace Calaos
 {
@@ -39,7 +33,6 @@ protected:
 
 public:
     Axis(Params &p);
-    ~Axis();
 
     //Standard IPCam functions.
     std::string getVideoUrl(); //return the mpeg url stream

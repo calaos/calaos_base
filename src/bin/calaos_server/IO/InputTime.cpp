@@ -25,10 +25,10 @@
 using namespace Calaos;
 using namespace Utils;
 
-REGISTER_INPUT(InputTime)
+REGISTER_IO(InputTime)
 
 InputTime::InputTime(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     with_date(false),
     value(false)
 {
@@ -117,9 +117,9 @@ void InputTime::hasChanged()
     if (val != value)
     {
         value = val;
-        EmitSignalInput();
+        EmitSignalIO();
 
-        EventManager::create(CalaosEvent::EventInputChanged,
+        EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", get_param("id") },
                                { "state", val?"true":"false" } });
     }

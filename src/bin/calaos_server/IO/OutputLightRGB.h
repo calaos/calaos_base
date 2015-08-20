@@ -22,13 +22,13 @@
 #define S_OutputLightRGB_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class OutputLightRGB : public Output
+class OutputLightRGB : public IOBase
 {
 protected:
     bool state = false;

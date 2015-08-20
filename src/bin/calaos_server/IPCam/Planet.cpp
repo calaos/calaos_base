@@ -18,18 +18,23 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Planet.h>
-#include <CamManager.h>
-#include <tcpsocket.h>
-#include <IOFactory.h>
+#include "Planet.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_CAMERA(Planet)
+REGISTER_IO(Planet)
 
-Planet::Planet(Params &p): IPCam(p), saturation("127"), sharpness("127"),
-    contrast("127"), hue("127"), brightness("127")
+Planet::Planet(Params &p):
+    IPCam(p),
+    saturation("127"),
+    sharpness("127"),
+    contrast("127"),
+    hue("127"),
+    brightness("127")
 {
+    //TODO: add iodoc
+
     //Set up capabilities
     if (param["model"] == "ICA-300" || param["model"] == "ICA-302" ||
         param["model"] == "ICA-500")
@@ -63,10 +68,6 @@ Planet::Planet(Params &p): IPCam(p), saturation("127"), sharpness("127"),
         caps.Add("contrast", "127");
         caps.Add("sharpness", "11");
     }
-}
-
-Planet::~Planet()
-{
 }
 
 std::string Planet::getVideoUrl()

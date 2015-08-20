@@ -22,8 +22,7 @@
 #define S_Scenario_H
 
 #include "Calaos.h"
-#include "Input.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "Jansson_Addition.h"
 
 namespace Calaos
@@ -31,7 +30,7 @@ namespace Calaos
 
 class AutoScenario;
 
-class Scenario : public Input, public Output
+class Scenario : public IOBase
 {
 protected:
     bool value;
@@ -50,13 +49,6 @@ public:
 
     //Output
     virtual bool set_value(bool val);
-
-    virtual void set_param(std::string opt, std::string val)
-    { Input::set_param(opt, val); }
-    virtual std::string get_param(std::string opt)
-    { return Input::get_param(opt); }
-    virtual Params &get_params()
-    { return Input::get_params(); }
 
     AutoScenario *getAutoScenario() { return auto_scenario; }
 

@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WODali)
-REGISTER_OUTPUT_USERTYPE(WagoOutputDimmer, WODali)
+REGISTER_IO(WODali)
+REGISTER_IO_USERTYPE(WagoOutputDimmer, WODali)
 
 WODali::WODali(Params &_p):
     OutputLightDimmer(_p),

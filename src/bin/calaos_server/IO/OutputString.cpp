@@ -24,7 +24,7 @@ using namespace Calaos;
 using namespace Utils;
 
 OutputString::OutputString(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     value("")
 {
     set_param("gui_type", "string_out");
@@ -46,7 +46,7 @@ void OutputString::readConfig()
 
 void OutputString::emitChange()
 {   
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value } });
 }
@@ -60,7 +60,7 @@ bool OutputString::set_value(string val)
     set_value_real(val);
    
     value = val;
-    EmitSignalOutput();
+    EmitSignalIO();
     emitChange();
 
     return true;

@@ -22,14 +22,14 @@
 #define S_OutputShutter_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "Ecore.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class OutputShutter : public Output
+class OutputShutter : public IOBase
 {
 protected:
     int time;

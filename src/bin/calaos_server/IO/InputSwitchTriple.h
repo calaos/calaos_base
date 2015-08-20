@@ -22,13 +22,13 @@
 #define INPUTSWITCHTRIPLE_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class InputSwitchTriple : public Input
+class InputSwitchTriple : public IOBase
 {
 protected:
     int count;

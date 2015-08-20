@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WODigital)
-REGISTER_OUTPUT_USERTYPE(WagoOutputLight, WODigital)
+REGISTER_IO(WODigital)
+REGISTER_IO_USERTYPE(WagoOutputLight, WODigital)
 
 WODigital::WODigital(Params &p):
     OutputLight(p),

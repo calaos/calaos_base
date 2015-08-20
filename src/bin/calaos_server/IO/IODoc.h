@@ -63,9 +63,9 @@ private:
     vector<string> m_aliases;
 
     vector<Params> m_links;
-    vector<Params> m_parameters;
-    vector<Params> m_conditions;
-    vector<Params> m_actions;
+    unordered_map<string, Params> m_parameters;
+    unordered_map<string, Params> m_conditions;
+    unordered_map<string, Params> m_actions;
 
     string typeToString(ParamType t);
     ParamType typeFromString(const string &t);

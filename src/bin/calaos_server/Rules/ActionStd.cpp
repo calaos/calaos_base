@@ -18,11 +18,11 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ActionStd.h>
-#include <ListeRoom.h>
-#include <ListeRule.h>
-#include <WODigital.h>
-#include <ActionTouchscreen.h>
+#include "ActionStd.h"
+#include "ListeRoom.h"
+#include "ListeRule.h"
+#include "WODigital.h"
+#include "ActionTouchscreen.h"
 
 using namespace Calaos;
 
@@ -31,8 +31,16 @@ ActionStd::~ActionStd()
     cDebugDom("rule.action.standard");
 }
 
-void ActionStd::Add(Output *out)
+void ActionStd::Add(IOBase *out)
 {
+    if (!out->isOutput())
+    {
+        cWarningDom("rule.action.standard") << "Unable to add IO "
+                                            << out->get_param("id")
+                                            << " to action list. IO is not an output";
+        return;
+    }
+
     outputs.push_back(out);
 
     cDebugDom("rule.action.standard") <<  "Output(" << out->get_param("id") << ") added";
@@ -56,7 +64,7 @@ bool ActionStd::Execute()
             if (params_var[outputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[outputs[i]->get_param("id")];
-                Output *out = ListeRoom::Instance().get_output(var_id);
+                IOBase *out = ListeRoom::Instance().get_io(var_id);
                 if (out && out->get_type() == TBOOL)
                 {
                     bval = out->get_value_bool();
@@ -87,7 +95,7 @@ bool ActionStd::Execute()
             if (params_var[outputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[outputs[i]->get_param("id")];
-                Output *out = ListeRoom::Instance().get_output(var_id);
+                IOBase *out = ListeRoom::Instance().get_io(var_id);
                 if (out && out->get_type() == TINT)
                 {
                     dval = out->get_value_double();
@@ -115,7 +123,7 @@ bool ActionStd::Execute()
             if (params_var[outputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[outputs[i]->get_param("id")];
-                Output *out = ListeRoom::Instance().get_output(var_id);
+                IOBase *out = ListeRoom::Instance().get_io(var_id);
                 if (out && out->get_type() == TSTRING)
                 {
                     sval = out->get_command_string();
@@ -149,14 +157,14 @@ bool ActionStd::Execute()
 
 void ActionStd::Remove(int pos)
 {
-    vector<Output *>::iterator iter = outputs.begin();
+    auto iter = outputs.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     outputs.erase(iter);
 
     cDebugDom("rule.action.standard") <<  "Ok";
 }
 
-void ActionStd::Assign(int i, Output *obj)
+void ActionStd::Assign(int i, IOBase *obj)
 {
     outputs[i] = obj;
 }
@@ -183,8 +191,8 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
                 rule->AddAction(dynamic_cast<Action *>(action));
             }
 
-            Output *out = ListeRoom::Instance().get_output(id);
-            if (out)
+            IOBase *out = ListeRoom::Instance().get_io(id);
+            if (out && out->isOutput())
             {
                 Add(out);
                 params.Add(id, val);
@@ -209,7 +217,7 @@ bool ActionStd::SaveToXml(TiXmlElement *node)
 
     for (uint i = 0;i < outputs.size();i++)
     {
-        Output *out = outputs[i];
+        IOBase *out = outputs[i];
 
         TiXmlElement *cnode = new TiXmlElement("calaos:output");
 

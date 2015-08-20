@@ -21,12 +21,11 @@
 #ifndef AVRECEIVER_H
 #define AVRECEIVER_H
 
-#include <Calaos.h>
-#include <EcoreTimer.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
-#include <Input.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "EcoreTimer.h"
+#include "Ecore.h"
+#include "Ecore_Con.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
@@ -134,7 +133,7 @@ public:
 };
 
 //Input/Output for A/V Receiver devices
-class IOAVReceiver: public Input, public Output, public sigc::trackable
+class IOAVReceiver: public IOBase, public sigc::trackable
 {
 private:
     AVReceiver *receiver;
@@ -149,13 +148,6 @@ public:
     /* Input/Output functions */
     virtual DATA_TYPE get_type() { return TSTRING; }
 
-    virtual void set_param(std::string opt, std::string val)
-    { Input::set_param(opt, val); }
-    virtual std::string get_param(std::string opt)
-    { return Input::get_param(opt); }
-    virtual Params &get_params()
-    { return Input::get_params(); }
-
     virtual map<string, string> query_param(string key);
 
     //Input
@@ -166,8 +158,6 @@ public:
     //Output
     virtual bool set_value(string val);
 
-    virtual bool LoadFromXml(TiXmlElement *node)
-    { return false; }
     virtual bool SaveToXml(TiXmlElement *node);
 };
 

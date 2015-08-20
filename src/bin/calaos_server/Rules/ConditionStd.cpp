@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ConditionStd.h>
-#include <ListeRoom.h>
+#include "ConditionStd.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -34,21 +34,21 @@ ConditionStd::~ConditionStd()
     cDebugDom("rule.condition.standard");
 }
 
-void ConditionStd::Add(Input *in)
+void ConditionStd::Add(IOBase *in)
 {
     inputs.push_back(in);
 
     cDebugDom("rule.condition.standard") <<  "Input(" << in->get_param("id") << ") added";
 }
 
-void ConditionStd::getVarIds(vector<Input *> &list)
+void ConditionStd::getVarIds(vector<IOBase *> &list)
 {
     for (uint i = 0;i < inputs.size();i++)
     {
         std::string var_id = params_var[inputs[i]->get_param("id")];
         if (var_id.empty()) continue;
 
-        Input *in = ListeRoom::Instance().get_input(var_id);
+        IOBase *in = ListeRoom::Instance().get_io(var_id);
 
         if (in)
         {
@@ -74,7 +74,7 @@ bool ConditionStd::Evaluate()
             if (params_var[inputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[inputs[i]->get_param("id")];
-                Input *in = ListeRoom::Instance().get_input(var_id);
+                IOBase *in = ListeRoom::Instance().get_io(var_id);
                 if (in && in->get_type() == TBOOL)
                 {
                     bval = in->get_value_bool();
@@ -112,7 +112,7 @@ bool ConditionStd::Evaluate()
             if (params_var[inputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[inputs[i]->get_param("id")];
-                Input *in = ListeRoom::Instance().get_input(var_id);
+                IOBase *in = ListeRoom::Instance().get_io(var_id);
                 if (in && in->get_type() == TINT)
                 {
                     dval = in->get_value_double();
@@ -151,7 +151,7 @@ bool ConditionStd::Evaluate()
             if (params_var[inputs[i]->get_param("id")] != "")
             {
                 std::string var_id = params_var[inputs[i]->get_param("id")];
-                Input *in = ListeRoom::Instance().get_input(var_id);
+                IOBase *in = ListeRoom::Instance().get_io(var_id);
                 if (in && in->get_type() == TSTRING)
                 {
                     sval = in->get_value_string();
@@ -188,14 +188,14 @@ bool ConditionStd::Evaluate()
 
 void ConditionStd::Remove(int pos)
 {
-    vector<Input *>::iterator iter = inputs.begin();
+    auto iter = inputs.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     inputs.erase(iter);
 
     cDebugDom("rule.condition.standard");
 }
 
-void ConditionStd::Assign(int i, Input *obj)
+void ConditionStd::Assign(int i, IOBase *obj)
 {
     inputs[i] = obj;
 }
@@ -330,7 +330,7 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            Input *in = ListeRoom::Instance().get_input(id);
+            IOBase *in = ListeRoom::Instance().get_io(id);
             if (in)
             {
                 Add(in);
@@ -359,7 +359,7 @@ bool ConditionStd::SaveToXml(TiXmlElement *node)
 
     for (uint i = 0;i < inputs.size();i++)
     {
-        Input *in = inputs[i];
+        IOBase *in = inputs[i];
 
         TiXmlElement *cnode = new TiXmlElement("calaos:input");
 

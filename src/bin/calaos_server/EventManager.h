@@ -38,15 +38,10 @@ public:
     {
         EventUnkown = 0,
 
-        EventInputAdded,
-        EventInputDeleted,
-        EventInputChanged,
-        EventInputPropertyDelete,
-
-        EventOutputAdded,
-        EventOutputDeleted,
-        EventOutputChanged,
-        EventOutputPropertyDelete,
+        EventIOAdded,
+        EventIODeleted,
+        EventIOChanged,
+        EventIOPropertyDelete,
 
         EventRoomAdded,
         EventRoomDeleted,

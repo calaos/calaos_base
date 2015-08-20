@@ -29,7 +29,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WebOutputLightRGB)
+REGISTER_IO(WebOutputLightRGB)
 
 WebOutputLightRGB::WebOutputLightRGB(Params &p):
     OutputLightRGB(p)

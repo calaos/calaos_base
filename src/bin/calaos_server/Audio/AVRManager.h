@@ -22,9 +22,9 @@
 #ifndef AVRMANAGER_H
 #define AVRMANAGER_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <AVReceiver.h>
+#include "Calaos.h"
+#include "IOBase.h"
+#include "AVReceiver.h"
 
 namespace Calaos
 {

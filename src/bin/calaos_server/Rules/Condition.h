@@ -21,7 +21,7 @@
 #ifndef S_CONDITION_H
 #define S_CONDITION_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 
 using namespace std;
 

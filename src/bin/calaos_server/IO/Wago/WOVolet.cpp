@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WOVolet)
-REGISTER_OUTPUT_USERTYPE(WagoOutputShutter, WOVolet)
+REGISTER_IO(WOVolet)
+REGISTER_IO_USERTYPE(WagoOutputShutter, WOVolet)
 
 WOVolet::WOVolet(Params &p):
     OutputShutter(p),

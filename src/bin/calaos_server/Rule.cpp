@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Rule.h>
-#include <Rules/RulesFactory.h>
+#include "Rule.h"
+#include "Rules/RulesFactory.h"
 
 using namespace Calaos;
 

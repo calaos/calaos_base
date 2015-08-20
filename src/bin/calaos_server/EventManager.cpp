@@ -94,15 +94,10 @@ string CalaosEvent::typeToString(int type)
 {
     switch (type)
     {
-    case EventInputAdded: return "input_added";
-    case EventInputDeleted: return "input_deleted";
-    case EventInputChanged: return "input_changed";
-    case EventInputPropertyDelete: return "input_prop_deleted";
-
-    case EventOutputAdded: return "output_added";
-    case EventOutputDeleted: return "output_deleted";
-    case EventOutputChanged: return "output_changed";
-    case EventOutputPropertyDelete: return "output_prop_deleted";
+    case EventIOAdded: return "io_added";
+    case EventIODeleted: return "io_deleted";
+    case EventIOChanged: return "io_changed";
+    case EventIOPropertyDelete: return "io_prop_deleted";
 
     case EventRoomAdded: return "room_added";
     case EventRoomDeleted: return "room_deleted";

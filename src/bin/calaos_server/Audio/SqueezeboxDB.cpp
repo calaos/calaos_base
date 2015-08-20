@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <SqueezeboxDB.h>
-#include <Squeezebox.h>
+#include "SqueezeboxDB.h"
+#include "Squeezebox.h"
 
 using namespace Calaos;
 

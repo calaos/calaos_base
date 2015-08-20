@@ -23,13 +23,13 @@
 using namespace Calaos;
 
 InputSwitchTriple::InputSwitchTriple(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     count(0),
     value(0.0),
     timer(NULL)
 {
     ioDoc->descriptionBaseSet(_("Triple click switch. This switch can start 3 kind of actions. User has 500ms to do a multiple click."));
-    ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false);
+    ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
     ioDoc->conditionAdd("1", _("Event triggered when switch is single clicked"));
     ioDoc->conditionAdd("2", _("Event triggered when switch is double clicked"));
     ioDoc->conditionAdd("3", _("Event triggered when switch is triple clicked"));
@@ -87,9 +87,9 @@ void InputSwitchTriple::resetInput()
 
 void InputSwitchTriple::emitChange()
 {
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(value) } });
 

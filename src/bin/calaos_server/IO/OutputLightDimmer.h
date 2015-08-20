@@ -22,13 +22,13 @@
 #define S_OutputLightDimmer_H
 
 #include "Calaos.h"
-#include "Output.h"
+#include "IOBase.h"
 #include "EcoreTimer.h"
 
 namespace Calaos
 {
 
-class OutputLightDimmer : public Output
+class OutputLightDimmer : public IOBase
 {
 protected:
     int value;

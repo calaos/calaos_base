@@ -25,34 +25,33 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(Scenario)
+REGISTER_IO(Scenario)
 
 Scenario::Scenario(Params &p):
-    Input(p),
-    Output(p),
+    IOBase(p, IOBase::IO_INOUT),
     value(false),
     auto_scenario(NULL)
 {
-    Input::ioDoc->friendlyNameSet("Scenario");
-    Input::ioDoc->descriptionSet(_("A scenario variable. Use this like a virtual button to start a scenario (list of actions)"));
-    Input::ioDoc->actionAdd("true", _("Start the scenario"));
-    Input::ioDoc->actionAdd("false", _("Stop the scenario (only for special looping scenarios)"));
-    Input::ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
-    Input::ioDoc->actionAdd("changed", _("Event triggered on any change"));
+    ioDoc->friendlyNameSet("Scenario");
+    ioDoc->descriptionSet(_("A scenario variable. Use this like a virtual button to start a scenario (list of actions)"));
+    ioDoc->actionAdd("true", _("Start the scenario"));
+    ioDoc->actionAdd("false", _("Stop the scenario (only for special looping scenarios)"));
+    ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
+    ioDoc->actionAdd("changed", _("Event triggered on any change"));
 
-    Input::ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
+    ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
 
     cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 
     set_param("gui_type", "scenario");
 
-    if (Input::get_param("auto_scenario") != "")
+    if (get_param("auto_scenario") != "")
     {
         auto_scenario = new AutoScenario(this);
-        Input::setAutoScenario(true);
+        setAutoScenario(true);
     }
 
-    if (!Input::get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("visible")) set_param("visible", "true");
 }
 
 Scenario::~Scenario()
@@ -64,13 +63,13 @@ Scenario::~Scenario()
 
 void Scenario::force_input_bool(bool v)
 {
-    if (!Input::isEnabled()) return;
+    if (!isEnabled()) return;
 
     value = v;
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
-                         { { "id", Input::get_param("id") },
+    EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
                            { "state", v?"true":"false" } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
@@ -79,12 +78,12 @@ void Scenario::force_input_bool(bool v)
 
 bool Scenario::set_value(bool val)
 {
-    if (!Input::isEnabled()) return true;
+    if (!isEnabled()) return true;
 
     force_input_bool(val);
 
-    EventManager::create(CalaosEvent::EventOutputChanged,
-                         { { "id", Input::get_param("id") },
+    EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
                            { "state", val?"true":"false" } });
 
     return true;
@@ -101,7 +100,7 @@ json_t *Scenario::toJson()
     json_object_set_new(jret, "cycle", json_string(auto_scenario->isCycling()?"true":"false"));
     json_object_set_new(jret, "enabled", json_string(auto_scenario->isDisabled()?"false":"true"));
     json_object_set_new(jret, "schedule", json_string(auto_scenario->isScheduled()?
-                                                          auto_scenario->getIOPlage()->get_param("id").c_str():
+                                                          auto_scenario->getIOTimeRange()->get_param("id").c_str():
                                                           "false"));
     json_object_set_new(jret, "category", json_string(auto_scenario->getCategory().c_str()));
     json_object_set_new(jret, "steps_count", json_string(Utils::to_string(auto_scenario->getRuleSteps().size()).c_str()));

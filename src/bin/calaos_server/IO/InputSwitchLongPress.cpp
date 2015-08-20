@@ -23,7 +23,7 @@
 using namespace Calaos;
 
 InputSwitchLongPress::InputSwitchLongPress(Params &p):
-    Input(p),
+    IOBase(p, IOBase::IO_INPUT),
     value(0.0),
     timer(NULL)
 {
@@ -77,16 +77,17 @@ void InputSwitchLongPress::longPress_timer()
 
 void InputSwitchLongPress::emitChange()
 {
-    EmitSignalInput();
+    EmitSignalIO();
 
-    EventManager::create(CalaosEvent::EventInputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    EcoreTimer::singleShot(0.250, [=] {
+    EcoreTimer::singleShot(0.250, [=]()
+    {
         value = 0;
-      });
+    });
 }
 
 void InputSwitchLongPress::force_input_double(double v)

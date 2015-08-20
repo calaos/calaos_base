@@ -34,13 +34,12 @@ JsonApi::~JsonApi()
 {
 }
 
-template<typename T>
-void JsonApi::buildJsonIO(T *io, json_t *jio)
+void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
 {
     vector<string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
-      "auto_scenario", "step" };
+      "auto_scenario", "step", "io_type" };
 
     for (string &param: params)
     {
@@ -73,15 +72,14 @@ void JsonApi::buildJsonIO(T *io, json_t *jio)
     }
 }
 
-template<typename T>
 json_t *JsonApi::buildJsonRoomIO(Room *room)
 {
     json_t *jdata = json_array();
 
-    for (int i = 0;i < room->get_size<T *>();i++)
+    for (int i = 0;i < room->get_size();i++)
     {
         json_t *jio = json_object();
-        T *io = room->get_io<T *>(i);
+        IOBase *io = room->get_io(i);
 
         buildJsonIO(io, jio);
 
@@ -100,9 +98,7 @@ json_t *JsonApi::buildJsonHome()
         Room *room = ListeRoom::Instance().get_room(iroom);
         json_t *jroom = json_object();
 
-        json_t *jitems = json_pack("{s:o, s:o}",
-                                   "inputs", buildJsonRoomIO<Input>(room),
-                                   "outputs", buildJsonRoomIO<Output>(room));
+        json_t *jitems = buildJsonRoomIO(room);
 
         json_object_set_new(jroom, "type", json_string(room->get_type().c_str()));
         json_object_set_new(jroom, "name", json_string(room->get_name().c_str()));
@@ -119,31 +115,29 @@ json_t *JsonApi::buildJsonCameras()
 {
     json_t *jdata = json_array();
 
+    list<IOBase *> camlist = ListeRoom::Instance().getCameraList();
+
     int cpt = 0;
-    for (int i = 0;i < ListeRoom::Instance().get_nb_input();i++)
+    for (IOBase *io: camlist)
     {
-        Input *in = ListeRoom::Instance().get_input(i);
-        CamInput *ipcam = dynamic_cast<CamInput *>(in);
-        if (ipcam)
-        {
-            IPCam *camera = ipcam->get_cam();
+        IPCam *camera = dynamic_cast<IPCam *>(io);
+        if (!camera) continue;
 
-            json_t *jcam = json_object();
-            json_object_set_new(jcam, "id", json_string(Utils::to_string(cpt).c_str()));
-            json_object_set_new(jcam, "input_id", json_string(camera->get_param("iid").c_str()));
-            json_object_set_new(jcam, "output_id", json_string(camera->get_param("oid").c_str()));
-            json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
-            json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
-            Params caps = camera->getCapabilities();
-            if (caps["ptz"] == "true")
-                json_object_set_new(jcam, "ptz", json_string("true"));
-            else
-                json_object_set_new(jcam, "ptz", json_string("false"));
+        json_t *jcam = json_object();
+        json_object_set_new(jcam, "id", json_string(Utils::to_string(cpt).c_str()));
+        json_object_set_new(jcam, "input_id", json_string(camera->get_param("iid").c_str()));
+        json_object_set_new(jcam, "output_id", json_string(camera->get_param("oid").c_str()));
+        json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
+        json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
+        Params caps = camera->getCapabilities();
+        if (caps["ptz"] == "true")
+            json_object_set_new(jcam, "ptz", json_string("true"));
+        else
+            json_object_set_new(jcam, "ptz", json_string("false"));
 
-            cpt++;
+        cpt++;
 
-            json_array_append_new(jdata, jcam);
-        }
+        json_array_append_new(jdata, jcam);
     }
 
     return jdata;
@@ -153,12 +147,16 @@ json_t *JsonApi::buildJsonAudio()
 {
     json_t *jdata = json_array();
 
-    for (int i = 0;i < AudioManager::Instance().get_size();i++)
+    list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+
+    int cpt = 0;
+    for (IOBase *io: audiolist)
     {
-        AudioPlayer *player = AudioManager::Instance().get_player(i);
+        AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
+        if (!player) continue;
 
         json_t *jaudio = json_object();
-        json_object_set_new(jaudio, "id", json_string(Utils::to_string(i).c_str()));
+        json_object_set_new(jaudio, "id", json_string(Utils::to_string(cpt).c_str()));
         json_object_set_new(jaudio, "input_id", json_string(player->get_param("iid").c_str()));
         json_object_set_new(jaudio, "output_id", json_string(player->get_param("oid").c_str()));
         json_object_set_new(jaudio, "name", json_string(player->get_param("name").c_str()));
@@ -183,11 +181,10 @@ json_t *JsonApi::buildJsonAudio()
 void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result_lambda)
 {
     json_incref(jroot);
-    json_t *jinputs = json_object();
-    json_t *joutputs = json_object();
-    json_t *jaudio = json_array();
+    json_t *jio = json_object();
+    list<AudioPlayer *> audioplayers;
 
-    json_t *jin = json_object_get(jroot, "inputs");
+    json_t *jin = json_object_get(jroot, "items");
     if (jin && json_is_array(jin))
     {
         uint idx;
@@ -200,41 +197,22 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
             if (!json_is_string(value)) continue;
 
             svalue = json_string_value(value);
-            Input *input = ListeRoom::Instance().get_input(svalue);
-            if (input)
+            IOBase *io = ListeRoom::Instance().get_io(svalue);
+            if (!io) continue;
+
+            if (io->get_param("gui_type") != "audio_player")
             {
-                if (input->get_type() == TBOOL)
-                    json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_bool()?"true":"false"));
-                else if (input->get_type() == TINT)
-                    json_object_set_new(jinputs, svalue.c_str(), json_string(Utils::to_string(input->get_value_double()).c_str()));
-                else if (input->get_type() == TSTRING)
-                    json_object_set_new(jinputs, svalue.c_str(), json_string(input->get_value_string().c_str()));
+                if (io->get_type() == TBOOL)
+                    json_object_set_new(jio, svalue.c_str(), json_string(io->get_value_bool()?"true":"false"));
+                else if (io->get_type() == TINT)
+                    json_object_set_new(jio, svalue.c_str(), json_string(Utils::to_string(io->get_value_double()).c_str()));
+                else if (io->get_type() == TSTRING)
+                    json_object_set_new(jio, svalue.c_str(), json_string(io->get_value_string().c_str()));
             }
-        }
-    }
-
-    json_t *jout = json_object_get(jroot, "outputs");
-    if (jout && json_is_array(jout))
-    {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(jout, idx, value)
-        {
-            string svalue;
-
-            if (!json_is_string(value)) continue;
-
-            svalue = json_string_value(value);
-            Output *output = ListeRoom::Instance().get_output(svalue);
-            if (output)
+            else
             {
-                if (output->get_type() == TBOOL)
-                    json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_bool()?"true":"false"));
-                else if (output->get_type() == TINT)
-                    json_object_set_new(joutputs, svalue.c_str(), json_string(Utils::to_string(output->get_value_double()).c_str()));
-                else if (output->get_type() == TSTRING)
-                    json_object_set_new(joutputs, svalue.c_str(), json_string(output->get_value_string().c_str()));
+                AudioPlayer *p = dynamic_cast<AudioPlayer *>(io);
+                if (p) audioplayers.push_back(p);
             }
         }
     }
@@ -242,112 +220,86 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
     string uuid = Utils::createRandomUuid();
     playerCounts[uuid] = 0;
 
-    json_t *jpl = json_object_get(jroot, "audio_players");
-    if (jpl && json_is_array(jpl))
+    for (AudioPlayer *player: audioplayers)
     {
-        uint idx;
-        json_t *value;
+        playerCounts[uuid] = playerCounts[uuid] + 1;
 
-        json_array_foreach(jpl, idx, value)
+        json_t *jplayer = json_object();
+        player->get_playlist_current([=](AudioPlayerData data1)
         {
-            string svalue;
+            json_object_set_new(jplayer,
+                                "playlist_current_track",
+                                json_string(Utils::to_string(data1.ivalue).c_str()));
 
-            if (!json_is_string(value)) continue;
-            svalue = json_string_value(value);
-
-            int pid;
-            Utils::from_string(svalue, pid);
-            if (pid < 0 || pid >= AudioManager::Instance().get_size())
-                continue;
-
-            playerCounts[uuid] = playerCounts[uuid] + 1;
-
-            json_t *jplayer = json_object();
-            json_object_set_new(jplayer, "player_id", json_string(Utils::to_string(pid).c_str()));
-
-            AudioPlayer *player = AudioManager::Instance().get_player(pid);
-            player->get_playlist_current([=](AudioPlayerData data1)
+            player->get_volume([=](AudioPlayerData data2)
             {
                 json_object_set_new(jplayer,
-                                    "playlist_current_track",
-                                    json_string(Utils::to_string(data1.ivalue).c_str()));
+                                    "volume",
+                                    json_string(Utils::to_string(data2.ivalue).c_str()));
 
-                player->get_volume([=](AudioPlayerData data2)
+                player->get_playlist_size([=](AudioPlayerData data3)
                 {
                     json_object_set_new(jplayer,
-                                        "volume",
-                                        json_string(Utils::to_string(data2.ivalue).c_str()));
+                                        "playlist_size",
+                                        json_string(Utils::to_string(data3.ivalue).c_str()));
 
-                    player->get_playlist_size([=](AudioPlayerData data3)
+                    player->get_current_time([=](AudioPlayerData data4)
                     {
                         json_object_set_new(jplayer,
-                                            "playlist_size",
-                                            json_string(Utils::to_string(data3.ivalue).c_str()));
+                                            "time_elapsed",
+                                            json_string(Utils::to_string(data4.dvalue).c_str()));
 
-                        player->get_current_time([=](AudioPlayerData data4)
+                        player->get_status([=](AudioPlayerData data5)
                         {
-                            json_object_set_new(jplayer,
-                                                "time_elapsed",
-                                                json_string(Utils::to_string(data4.dvalue).c_str()));
-
-                            player->get_status([=](AudioPlayerData data5)
+                            string status;
+                            switch (data5.ivalue)
                             {
-                                string status;
-                                switch (data5.ivalue)
+                            case AudioPlay: status = "playing"; break;
+                            case AudioPause: status = "pause"; break;
+                            case AudioStop: status = "stop"; break;
+                            default:
+                            case AudioError: status = "error"; break;
+                            case AudioSongChange: status = "song_change"; break;
+                            }
+
+                            json_object_set_new(jplayer,
+                                                "status",
+                                                json_string(status.c_str()));
+
+                            json_t *jtrack = json_object();
+                            player->get_songinfo([=](AudioPlayerData data6)
+                            {
+                                Params &infos = data6.params;
+                                for (int i = 0;i < infos.size();i++)
                                 {
-                                case AudioPlay: status = "playing"; break;
-                                case AudioPause: status = "pause"; break;
-                                case AudioStop: status = "stop"; break;
-                                default:
-                                case AudioError: status = "error"; break;
-                                case AudioSongChange: status = "song_change"; break;
+                                    string inf_key, inf_value;
+                                    infos.get_item(i, inf_key, inf_value);
+
+                                    json_object_set_new(jtrack,
+                                                        inf_key.c_str(),
+                                                        json_string(inf_value.c_str()));
                                 }
 
                                 json_object_set_new(jplayer,
-                                                    "status",
-                                                    json_string(status.c_str()));
+                                                    "current_track",
+                                                    jtrack);
 
-                                json_t *jtrack = json_object();
-                                player->get_songinfo([=](AudioPlayerData data6)
+                                //Add player to array, and send data back if all players requests are done.
+                                json_array_append_new(jio, jplayer);
+                                playerCounts[uuid] = playerCounts[uuid] - 1;
+
+                                if (playerCounts[uuid] <= 0)
                                 {
-                                    Params &infos = data6.params;
-                                    for (int i = 0;i < infos.size();i++)
-                                    {
-                                        string inf_key, inf_value;
-                                        infos.get_item(i, inf_key, inf_value);
-
-                                        json_object_set_new(jtrack,
-                                                            inf_key.c_str(),
-                                                            json_string(inf_value.c_str()));
-                                    }
-
-                                    json_object_set_new(jplayer,
-                                                        "current_track",
-                                                        jtrack);
-
-                                    //Add player to array, and send data back if all players requests are done.
-                                    json_array_append_new(jaudio, jplayer);
-                                    playerCounts[uuid] = playerCounts[uuid] - 1;
-
-                                    if (playerCounts[uuid] <= 0)
-                                    {
-                                        playerCounts.erase(uuid);
-                                        json_decref(jroot);
-                                        json_t *jret = json_object();
-                                        jret = json_pack("{s:o, s:o, s:o}",
-                                                         "inputs", jinputs,
-                                                         "outputs", joutputs,
-                                                         "audio_players", jaudio);
-
-                                        result_lambda(jret);
-                                    }
-                                });
+                                    playerCounts.erase(uuid);
+                                    json_decref(jroot);
+                                    result_lambda(jio);
+                                }
                             });
                         });
                     });
                 });
             });
-        }
+        });
     }
 
     //only send data if there is not audio players
@@ -355,13 +307,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
     {
         playerCounts.erase(uuid);
         json_decref(jroot);
-        json_t *jret = json_object();
-        jret = json_pack("{s:o, s:o, s:o}",
-                         "inputs", jinputs,
-                         "outputs", joutputs,
-                         "audio_players", jaudio);
-
-        result_lambda(jret);
+        result_lambda(jio);
     }
 }
 
@@ -369,42 +315,9 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
 {
     Params res;
 
-    if (jParam.Exists("input_id"))
+    if (jParam.Exists("id"))
     {
-        Input *o = ListeRoom::Instance().get_input(jParam["input_id"]);
-        if (!o)
-        {
-            Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toJson());
-            return;
-        }
-
-        switch (o->get_type())
-        {
-        case TINT:
-        {
-            for (auto it: o->get_all_values_double())
-                res.Add(it.first, Utils::to_string(it.second));
-            break;
-        }
-        case TBOOL:
-        {
-            for (auto it: o->get_all_values_bool())
-                res.Add(it.first, (it.second)?"true":"false");
-            break;
-        }
-        case TSTRING:
-        {
-            for (auto it: o->get_all_values_string())
-                res.Add(it.first, it.second);
-            break;
-        }
-        default: break;
-        }
-    }
-    else if (jParam.Exists("output_id"))
-    {
-        Output *o = ListeRoom::Instance().get_output(jParam["output_id"]);
+        IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
@@ -443,23 +356,9 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
 {
     Params res;
 
-    if (jParam.Exists("input_id"))
+    if (jParam.Exists("id"))
     {
-        Input *o = ListeRoom::Instance().get_input(jParam["input_id"]);
-        if (!o)
-        {
-            Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toJson());
-            return;
-        }
-
-        map<string, string> m = o->query_param(jParam["param"]);
-        for (auto it: m)
-            res.Add(it.first, it.second);
-    }
-    else if (jParam.Exists("output_id"))
-    {
-        Output *o = ListeRoom::Instance().get_output(jParam["output_id"]);
+        IOBase *o = ListeRoom::Instance().get_io(jParam["input_id"]);
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
@@ -480,22 +379,11 @@ json_t *JsonApi::buildJsonGetParam(const Params &jParam)
     bool success = true;
     Params ret;
 
-    if (jParam["type"] == "input")
-    {
-        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
-        if (!o)
-            success = false;
-        else
-            ret.Add(jParam["param"], o->get_param(jParam["param"]));
-    }
-    else if (jParam["type"] == "output")
-    {
-        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
-        if (!o)
-            success = false;
-        else
-            ret.Add(jParam["param"], o->get_param(jParam["param"]));
-    }
+    IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
+    if (!o)
+        success = false;
+    else
+        ret.Add(jParam["param"], o->get_param(jParam["param"]));
 
     if (!success)
         ret = {{ "error", "wrong io/param" }};
@@ -508,112 +396,20 @@ json_t *JsonApi::buildJsonSetParam(const Params &jParam)
     bool success = true;
     Params ret;
 
-    if (jParam["type"] == "input")
+    IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
+    if (!o)
+        success = false;
+    else
     {
-        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
-        if (!o)
+        if (jParam["param"].empty() || jParam["value"].empty())
             success = false;
         else
         {
-            if (jParam["param"].empty() || jParam["value"].empty())
-                success = false;
-            else
-            {
-                o->set_param(jParam["param"], jParam["value"]);
+            o->set_param(jParam["param"], jParam["value"]);
 
-                EventManager::create(CalaosEvent::EventInputChanged,
-                                     { { "id", o->get_param("id") },
-                                       { jParam["param"], jParam["value"] } });
-
-                //send event for output too
-
-                if (dynamic_cast<Internal *> (o) ||
-                    dynamic_cast<Scenario *> (o) ||
-                    dynamic_cast<InputTimer *> (o))
-                {
-                    EventManager::create(CalaosEvent::EventOutputChanged,
-                                         { { "id", o->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-
-                CamInput *icam = dynamic_cast<CamInput *>(o);
-                if (icam)
-                {
-                    IPCam *cam = icam->get_cam();
-                    cam->set_param(jParam["param"], jParam["value"]);
-                    cam->get_output()->set_param(jParam["param"], jParam["value"]);
-
-                    EventManager::create(CalaosEvent::EventOutputChanged,
-                                         { { "id", cam->get_output()->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-
-                AudioInput *iaudio = dynamic_cast<AudioInput *>(o);
-                if (iaudio)
-                {
-                    AudioPlayer *audio = iaudio->get_player();
-                    audio->set_param(jParam["param"], jParam["value"]);
-                    audio->get_output()->set_param(jParam["param"], jParam["value"]);
-
-                    EventManager::create(CalaosEvent::EventOutputChanged,
-                                         { { "id", audio->get_output()->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-            }
-        }
-    }
-    else if (jParam["type"] == "output")
-    {
-        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
-        if (!o)
-            success = false;
-        else
-        {
-            if (jParam["param"].empty() || jParam["value"].empty())
-                success = false;
-            else
-                {
-                o->set_param(jParam["param"], jParam["value"]);
-
-                EventManager::create(CalaosEvent::EventOutputChanged,
-                                     { { "id", o->get_param("id") },
-                                       { jParam["param"], jParam["value"] } });
-
-                //send event for output too
-
-                if (dynamic_cast<Internal *> (o) ||
-                    dynamic_cast<Scenario *> (o) ||
-                    dynamic_cast<InputTimer *> (o))
-                {
-                    EventManager::create(CalaosEvent::EventInputChanged,
-                                         { { "id", o->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-
-                CamOutput *icam = dynamic_cast<CamOutput *>(o);
-                if (icam)
-                {
-                    IPCam *cam = icam->get_cam();
-                    cam->set_param(jParam["param"], jParam["value"]);
-                    cam->get_input()->set_param(jParam["param"], jParam["value"]);
-
-                    EventManager::create(CalaosEvent::EventInputChanged,
-                                         { { "id", cam->get_input()->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-
-                AudioOutput *iaudio = dynamic_cast<AudioOutput *>(o);
-                if (iaudio)
-                {
-                    AudioPlayer *audio = iaudio->get_player();
-                    audio->set_param(jParam["param"], jParam["value"]);
-                    audio->get_input()->set_param(jParam["param"], jParam["value"]);
-
-                    EventManager::create(CalaosEvent::EventInputChanged,
-                                         { { "id", audio->get_input()->get_param("id") },
-                                           { jParam["param"], jParam["value"] } });
-                }
-            }
+            EventManager::create(CalaosEvent::EventIOChanged,
+            { { "id", o->get_param("id") },
+              { jParam["param"], jParam["value"] } });
         }
     }
 
@@ -630,112 +426,20 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     bool success = true;
     Params ret;
 
-    if (jParam["type"] == "input")
+    IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
+    if (!o)
+        success = false;
+    else
     {
-        Input *o = ListeRoom::Instance().get_input(jParam["id"]);
-        if (!o)
+        if (jParam["param"].empty())
             success = false;
         else
         {
-            if (jParam["param"].empty())
-                success = false;
-            else
-            {
-                o->get_params().Delete(jParam["param"]);
+            o->get_params().Delete(jParam["param"]);
 
-                EventManager::create(CalaosEvent::EventInputPropertyDelete,
-                                     { { "id", o->get_param("id") },
-                                       { "param", jParam["param"] } });
-
-                //send event for output too
-
-                if (dynamic_cast<Internal *> (o) ||
-                    dynamic_cast<Scenario *> (o) ||
-                    dynamic_cast<InputTimer *> (o))
-                {
-                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
-                                         { { "id", o->get_param("id") },
-                                           { "param", jParam["param"] } });
-                }
-
-                CamInput *icam = dynamic_cast<CamInput *>(o);
-                if (icam)
-                {
-                    IPCam *cam = icam->get_cam();
-                    cam->get_params().Delete(jParam["param"]);
-                    cam->get_output()->get_params().Delete(jParam["param"]);
-
-                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
-                                         { { "id", cam->get_output()->get_param("id") },
-                                           { "param", jParam["param"] } });
-                }
-
-                AudioInput *iaudio = dynamic_cast<AudioInput *>(o);
-                if (iaudio)
-                {
-                    AudioPlayer *audio = iaudio->get_player();
-                    audio->get_params().Delete(jParam["param"]);
-                    audio->get_output()->get_params().Delete(jParam["param"]);
-
-                    EventManager::create(CalaosEvent::EventOutputPropertyDelete,
-                                         { { "id", audio->get_output()->get_param("id") },
-                                           { "param", jParam["param"] } });
-                }
-            }
-        }
-    }
-    else if (jParam["type"] == "output")
-    {
-        Output *o = ListeRoom::Instance().get_output(jParam["id"]);
-        if (!o)
-            success = false;
-        else
-        {
-            if (jParam["param"].empty())
-                success = false;
-            else
-            {
-                o->get_params().Delete(jParam["param"]);
-
-                EventManager::create(CalaosEvent::EventOutputPropertyDelete,
-                { { "id", o->get_param("id") },
-                  { "param", jParam["param"] } });
-
-                //send event for output too
-
-                if (dynamic_cast<Internal *> (o) ||
-                    dynamic_cast<Scenario *> (o) ||
-                    dynamic_cast<InputTimer *> (o))
-                {
-                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
-                    { { "id", o->get_param("id") },
-                      { "param", jParam["param"] } });
-                }
-
-                CamOutput *icam = dynamic_cast<CamOutput *>(o);
-                if (icam)
-                {
-                    IPCam *cam = icam->get_cam();
-                    cam->get_params().Delete(jParam["param"]);
-                    cam->get_input()->get_params().Delete(jParam["param"]);
-
-                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
-                    { { "id", cam->get_input()->get_param("id") },
-                      { "param", jParam["param"] } });
-                }
-
-                AudioOutput *iaudio = dynamic_cast<AudioOutput *>(o);
-                if (iaudio)
-                {
-                    AudioPlayer *audio = iaudio->get_player();
-                    audio->get_params().Delete(jParam["param"]);
-                    audio->get_input()->get_params().Delete(jParam["param"]);
-
-                    EventManager::create(CalaosEvent::EventInputPropertyDelete,
-                    { { "id", audio->get_input()->get_param("id") },
-                      { "param", jParam["param"] } });
-                }
-            }
+            EventManager::create(CalaosEvent::EventIOPropertyDelete,
+            { { "id", o->get_param("id") },
+              { "param", jParam["param"] } });
         }
     }
 
@@ -749,11 +453,9 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
 
 json_t *JsonApi::buildJsonGetIO(json_t *jroot)
 {
-    json_incref(jroot);
-    json_t *jinputs = json_object();
-    json_t *joutputs = json_object();
+    json_t *jret = json_object();
 
-    json_t *jin = json_object_get(jroot, "inputs");
+    json_t *jin = json_object_get(jroot, "items");
     if (jin && json_is_array(jin))
     {
         uint idx;
@@ -766,45 +468,16 @@ json_t *JsonApi::buildJsonGetIO(json_t *jroot)
             if (!json_is_string(value)) continue;
 
             svalue = json_string_value(value);
-            Input *input = ListeRoom::Instance().get_input(svalue);
-            if (input)
+            IOBase *io = ListeRoom::Instance().get_io(svalue);
+            if (io)
             {
                 json_t *jio = json_object();
-                buildJsonIO(input, jio);
+                buildJsonIO(io, jio);
 
-                json_object_set_new(jinputs, svalue.c_str(), jio);
+                json_object_set_new(jret, svalue.c_str(), jio);
             }
         }
     }
-
-    json_t *jout = json_object_get(jroot, "outputs");
-    if (jout && json_is_array(jout))
-    {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(jout, idx, value)
-        {
-            string svalue;
-
-            if (!json_is_string(value)) continue;
-
-            svalue = json_string_value(value);
-            Output *output = ListeRoom::Instance().get_output(svalue);
-            if (output)
-            {
-                json_t *jio = json_object();
-                buildJsonIO(output, jio);
-
-                json_object_set_new(joutputs, svalue.c_str(), jio);
-            }
-        }
-    }
-
-    json_t *jret = json_object();
-    jret = json_pack("{s:o, s:o}",
-                     "inputs", jinputs,
-                     "outputs", joutputs);
 
     return jret;
 }
@@ -813,154 +486,30 @@ bool JsonApi::decodeSetState(Params &jParam)
 {
     bool success = true;
 
-    if (jParam["type"] == "input")
+    IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
+    if (!io)
+        success = false;
+    else
     {
-        Input *input = ListeRoom::Instance().get_input(jParam["id"]);
-        if (!input)
-            success = false;
-        else
+        if (io->isInput())
         {
-            if (input->get_type() == TBOOL)
-                input->force_input_bool(jParam["value"] == "true");
+            if (io->get_type() == TBOOL)
+                io->force_input_bool(jParam["value"] == "true");
             else
-                input->force_input_string(jParam["value"]);
+                io->force_input_string(jParam["value"]);
         }
-    }
-    else if (jParam["type"] == "output")
-    {
-        Output *output = ListeRoom::Instance().get_output(jParam["id"]);
-        if (!output)
-            success = false;
         else
         {
             success = false;
 
-            if (output->get_type() == TBOOL)
+            if (io->get_type() == TBOOL)
             {
-                if (jParam["value"] == "true") success = output->set_value(true);
-                else if (jParam["value"] == "false") success = output->set_value(false);
-                else success = output->set_value(jParam["value"]);
+                if (jParam["value"] == "true") success = io->set_value(true);
+                else if (jParam["value"] == "false") success = io->set_value(false);
+                else success = io->set_value(jParam["value"]);
             }
             else
-                success = output->set_value(jParam["value"]);
-        }
-    }
-    else if (jParam["type"] == "audio")
-    {
-        int pid;
-        Utils::from_string(jParam["player_id"], pid);
-        if (pid < 0 || pid >= AudioManager::Instance().get_size())
-            success = false;
-        else
-        {
-            AudioPlayer *player = AudioManager::Instance().get_player(pid);
-
-            Params cmd;
-            cmd.Parse(jParam["value"]);
-
-            if (cmd["0"] == "play") player->Play();
-            else if (cmd["0"] == "pause") player->Pause();
-            else if (cmd["0"] == "stop") player->Stop();
-            else if (cmd["0"] == "next") player->Next();
-            else if (cmd["0"] == "previous") player->Previous();
-            else if (cmd["0"] == "off") player->Power(false);
-            else if (cmd["0"] == "on") player->Power(true);
-            else if (cmd["0"] == "volume")
-            {
-                int vol = 0;
-                Utils::from_string(cmd["1"], vol);
-                player->set_volume(vol);
-            }
-            else if (cmd["0"] == "time")
-            {
-                int _t = 0;
-                Utils::from_string(cmd["1"], _t);
-                player->set_current_time(_t);
-            }
-            else if (cmd["0"] == "playlist")
-            {
-                if (cmd["1"] == "clear") player->playlist_clear();
-                else if (cmd["1"] == "save") player->playlist_save(cmd["2"]);
-                else if (cmd["1"] == "add") player->playlist_add_items(cmd["2"]);
-                else if (cmd["1"] == "play") player->playlist_play_items(cmd["2"]);
-                else if (Utils::is_of_type<int>(cmd["1"]))
-                {
-                    int item = 0;
-                    Utils::from_string(cmd["1"], item);
-
-                    if (cmd["2"] == "moveup") player->playlist_moveup(item);
-                    else if (cmd["2"] == "movedown") player->playlist_movedown(item);
-                    else if (cmd["2"] == "delete") player->playlist_delete(item);
-                    else if (cmd["2"] == "play") player->playlist_play(item);
-                }
-            }
-            else if (cmd["0"] == "random")
-            {
-                vector<string> tk;
-                split(cmd["1"], tk, ":", 2);
-                if (tk.size() == 2 && tk[0] == "random_id")
-                    player->get_database()->setRandomsType(tk[1]);
-            }
-            else if (cmd["0"] == "options")
-            {
-                if (cmd["1"] == "sync" && cmd["2"] == "off")
-                    player->Synchronize("", false);
-                else if (cmd["1"] == "sync")
-                {
-                    vector<string> tk;
-                    split(cmd["2"], tk, ":", 2);
-                    if (tk.size() == 2 && tk[0] == "id")
-                        player->Synchronize(tk[1], true);
-                }
-            }
-            else if (cmd["0"] == "database")
-            {
-                if (cmd["1"] == "playlist" && cmd["2"] == "delete")
-                {
-                    vector<string> tk;
-                    split(cmd["3"], tk, ":", 2);
-                    if (tk.size() == 2 && tk[0] == "playlist_id")
-                        player->playlist_delete(tk[1]);
-                }
-            }
-        }
-    }
-    else if (jParam["type"] == "camera")
-    {
-        int pid;
-        Utils::from_string(jParam["camera_id"], pid);
-        if (pid < 0 || pid >= CamManager::Instance().get_size())
-            success = false;
-        else
-        {
-            IPCam *camera = CamManager::Instance().get_camera(pid);
-            if (camera)
-            {
-                if (jParam["camera_action"] == "move")
-                {
-                    int action = -1;
-
-                    if (jParam["value"] == "left") action = 1;
-                    if (jParam["value"] == "right") action = 1;
-                    if (jParam["value"] == "up") action = 1;
-                    if (jParam["value"] == "down") action = 1;
-                    if (jParam["value"] == "home") action = 1;
-                    if (jParam["value"] == "zoomin") action = 1;
-                    if (jParam["value"] == "zoomout") action = 1;
-
-                    if (action == 1)
-                        camera->activateCapabilities("ptz", "move", jParam["camera_action"]);
-
-                    //move to a preset position
-                    if (Utils::is_of_type<int>(jParam["camera_action"]))
-                        camera->activateCapabilities("position", "recall", jParam["camera_action"]);
-                }
-                else if (jParam["camera_action"] == "save")
-                {
-                    if (Utils::is_of_type<int>(jParam["value"]))
-                        camera->activateCapabilities("position", "save", jParam["value"]);
-                }
-            }
+                success = io->set_value(jParam["value"]);
         }
     }
 
@@ -969,17 +518,16 @@ bool JsonApi::decodeSetState(Params &jParam)
 
 void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda)
 {
-    int pid;
-    Utils::from_string(jParam["player_id"], pid);
-    if (pid < 0 || pid >= AudioManager::Instance().get_size())
+    IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
+    AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
+
+    if (!player)
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
         result_lambda(jret);
         return;
     }
-
-    AudioPlayer *player = AudioManager::Instance().get_player(pid);
 
     json_t *jplayer = json_object();
 
@@ -1046,23 +594,18 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
     AudioPlayer *player = nullptr;
     err.clear();
 
-    string id = jansson_string_get(jdata, "player_id");
+    string id = jansson_string_get(jdata, "id");
     if (id == "")
     {
         err = "empty player id";
         return player;
     }
 
-    int pid;
-    Utils::from_string(id, pid);
-    if (pid < 0 || pid >= AudioManager::Instance().get_size())
-    {
+    IOBase *io = ListeRoom::Instance().get_io(id);
+    player = dynamic_cast<AudioPlayer *>(io);
+
+    if (!player)
         err = "unkown player_id";
-    }
-    else
-    {
-        player = AudioManager::Instance().get_player(pid);
-    }
 
     return player;
 }
@@ -1679,7 +1222,7 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
 
 json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
 {
-    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(jParam["id"]));
+    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(jParam["id"]));
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
@@ -1692,13 +1235,13 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
     for (int day = 0;day < 7;day++)
     {
         vector<TimeRange> h;
-        if (day == 0) h = o->getLundi();
-        if (day == 1) h = o->getMardi();
-        if (day == 2) h = o->getMercredi();
-        if (day == 3) h = o->getJeudi();
-        if (day == 4) h = o->getVendredi();
-        if (day == 5) h = o->getSamedi();
-        if (day == 6) h = o->getDimanche();
+        if (day == 0) h = o->getMonday();
+        if (day == 1) h = o->getTuesday();
+        if (day == 2) h = o->getWednesday();
+        if (day == 3) h = o->getThursday();
+        if (day == 4) h = o->getFriday();
+        if (day == 5) h = o->getSaturday();
+        if (day == 6) h = o->getSunday();
         for (uint i = 0;i < h.size();i++)
             json_array_append_new(jarr, h[i].toParams(day).toJson());
     }
@@ -1717,7 +1260,7 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
 json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_input(id));
+    InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(id));
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
@@ -1738,13 +1281,13 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 
         cout << "Adding timerange: " << p.toString() << endl;
 
-        if (p["day"] == "1") o->AddLundi(tr);
-        if (p["day"] == "2") o->AddMardi(tr);
-        if (p["day"] == "3") o->AddMercredi(tr);
-        if (p["day"] == "4") o->AddJeudi(tr);
-        if (p["day"] == "5") o->AddVendredi(tr);
-        if (p["day"] == "6") o->AddSamedi(tr);
-        if (p["day"] == "7") o->AddDimanche(tr);
+        if (p["day"] == "1") o->AddMonday(tr);
+        if (p["day"] == "2") o->AddTuesday(tr);
+        if (p["day"] == "3") o->AddWednesday(tr);
+        if (p["day"] == "4") o->AddThursday(tr);
+        if (p["day"] == "5") o->AddFriday(tr);
+        if (p["day"] == "6") o->AddSaturday(tr);
+        if (p["day"] == "7") o->AddSunday(tr);
     }
 
     //set months
@@ -1800,7 +1343,7 @@ json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
 json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
@@ -1820,8 +1363,8 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
     params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
 
     Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-               jansson_string_get(jdata, "room_name"),
-               jansson_string_get(jdata, "room_type"));
+                     jansson_string_get(jdata, "room_name"),
+                     jansson_string_get(jdata, "room_type"));
     if (!room)
     {
         cWarningDom("network") << "Wrong room: " << jansson_string_get(jdata, "room_name")
@@ -1831,7 +1374,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
 
     //create scenario object
     params.Add("type", "scenario");
-    Input *in = ListeRoom::Instance().createInput(params, room);
+    IOBase *in = ListeRoom::Instance().createIO(params, room);
     Scenario *scenario = dynamic_cast<Scenario *>(in);
     scenario->getAutoScenario()->checkScenarioRules();
 
@@ -1861,7 +1404,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
         {
 
             string id_out = jansson_string_get(value_act, "id");
-            Output *out = ListeRoom::Instance().get_output(id_out);
+            IOBase *out = ListeRoom::Instance().get_io(id_out);
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
                                                            jansson_string_get(value_act, "action"));
@@ -1878,10 +1421,11 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
     Params p = {{ "id", scenario->get_param("id") }};
     return p.toJson();
 }
+
 json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
@@ -1891,7 +1435,7 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
     sc->getAutoScenario()->deleteAll();
 
     //delete the scenario IO
-    ListeRoom::Instance().deleteIO(dynamic_cast<Input *>(sc));
+    ListeRoom::Instance().deleteIO(sc);
 
     EventManager::create(CalaosEvent::EventScenarioDeleted,
                          { { "id", id } });
@@ -1907,7 +1451,7 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
 json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!scenario || !scenario->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
@@ -1924,8 +1468,8 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
 
     Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-               jansson_string_get(jdata, "room_name"),
-               jansson_string_get(jdata, "room_type"));
+                     jansson_string_get(jdata, "room_name"),
+                     jansson_string_get(jdata, "room_type"));
 
     size_t idx;
     json_t *value;
@@ -1953,7 +1497,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
         {
 
             string id_out = jansson_string_get(value_act, "id");
-            Output *out = ListeRoom::Instance().get_output(id_out);
+            IOBase *out = ListeRoom::Instance().get_io(id_out);
             cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jansson_string_get(value_act, "action");
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
@@ -1966,11 +1510,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     {
         scenario->set_param("name", params["name"]);
 
-        EventManager::create(CalaosEvent::EventInputChanged,
-                             { { "id", scenario->get_param("id") },
-                               { "name", params["name"] }});
-
-        EventManager::create(CalaosEvent::EventOutputChanged,
+        EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", scenario->get_param("id") },
                                { "name", params["name"] }});
     }
@@ -1979,32 +1519,21 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     {
         scenario->set_param("visible", params["visible"]);
 
-        EventManager::create(CalaosEvent::EventInputChanged,
-                             { { "id", scenario->get_param("id") },
-                               { "visible", params["visible"] }});
-
-        EventManager::create(CalaosEvent::EventOutputChanged,
+        EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", scenario->get_param("id") },
                                { "visible", params["visible"] }});
     }
 
-    Room *old_room = ListeRoom::Instance().getRoomByInput(scenario);
+    Room *old_room = ListeRoom::Instance().getRoomByIO(scenario);
     if (room != old_room)
     {
         if (room)
         {
-            old_room->RemoveInputFromRoom(dynamic_cast<Input *>(scenario));
-            old_room->RemoveOutputFromRoom(dynamic_cast<Output *>(scenario));
-            room->AddInput(dynamic_cast<Input *>(scenario));
-            room->AddOutput(dynamic_cast<Output *>(scenario));
+            old_room->RemoveIOFromRoom(scenario);
+            room->AddIO(scenario);
 
             EventManager::create(CalaosEvent::EventRoomChanged,
-                                 { { "input_id_added", scenario->get_param("id") },
-                                   { "room_name", room->get_name() },
-                                   { "room_type", room->get_type() }});
-
-            EventManager::create(CalaosEvent::EventRoomChanged,
-                                 { { "output_id_added", scenario->get_param("id") },
+                                 { { "io_id_added", scenario->get_param("id") },
                                    { "room_name", room->get_name() },
                                    { "room_type", room->get_type() }});
         }
@@ -2042,7 +1571,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
 json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
@@ -2058,14 +1587,14 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
 
-    Params p = {{ "id", sc->getAutoScenario()->getIOPlage()->get_param("id") }};
+    Params p = {{ "id", sc->getAutoScenario()->getIOTimeRange()->get_param("id") }};
     return p.toJson();
 }
 
 json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
 {
     string id = jansson_string_get(jdata, "id");
-    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_input(id));
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};

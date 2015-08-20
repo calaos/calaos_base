@@ -21,49 +21,43 @@
 #ifndef SCRIPTBINDINGS_H
 #define SCRIPTBINDINGS_H
 
-#include <Utils.h>
-#include <lua.hpp>
-#include <Lunar.h>
-#include <IOBase.h>
-
-#ifndef CALAOS_INSTALLER
-#include <Output.h>
-#include <Input.h>
+#include "Calaos.h"
+#include "lua.hpp"
+#include "Lunar.h"
+#include "IOBase.h"
 #include <Ecore.h>
-#include <Calaos.h>
-#endif
 
 namespace Calaos
 {
 
-        int Lua_print(lua_State *L);
-        void Lua_DebugHook(lua_State *L, lua_Debug *ar);
+int Lua_print(lua_State *L);
+void Lua_DebugHook(lua_State *L, lua_Debug *ar);
 
-        //This is for debugging purpose only
-        void Lua_stackDump(lua_State *L);
+//This is for debugging purpose only
+void Lua_stackDump(lua_State *L);
 
-        class Lua_Calaos
-        {
-                private:
-                        friend class Lunar<Lua_Calaos>;
-                        static const char className[];
-                        static Lunar<Lua_Calaos>::RegType methods[];
+class Lua_Calaos
+{
+private:
+    friend class Lunar<Lua_Calaos>;
+    static const char className[];
+    static Lunar<Lua_Calaos>::RegType methods[];
 
-                public:
-                        Lua_Calaos();
-                        Lua_Calaos(lua_State *L);
-                        ~Lua_Calaos();
+public:
+    Lua_Calaos();
+    Lua_Calaos(lua_State *L);
+    ~Lua_Calaos();
 
-                        /* Output set/get */
-                        int getOutputValue(lua_State *L);
-                        int setOutputValue(lua_State *L);
+    /* Output set/get */
+    int getOutputValue(lua_State *L);
+    int setOutputValue(lua_State *L);
 
-                        /* Input get */
-                        int getInputValue(lua_State *L);
+    /* Input get */
+    int getInputValue(lua_State *L);
 
-                        /* Urel request */
-                        int requestUrl(lua_State *L);
-        };
+    /* Urel request */
+    int requestUrl(lua_State *L);
+};
 }
 
 #endif

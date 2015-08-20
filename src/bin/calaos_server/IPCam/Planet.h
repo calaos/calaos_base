@@ -21,13 +21,7 @@
 #ifndef S_PLANET_H
 #define S_PLANET_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Input.h>
-#include <CamInput.h>
-#include <CamOutput.h>
-#include <tcpsocket.h>
-#include <IPCam.h>
+#include "IPCam.h"
 
 namespace Calaos
 {
@@ -41,7 +35,6 @@ protected:
 
 public:
     Planet(Params &p);
-    ~Planet();
 
     //Standard IPCam functions.
     virtual std::string getVideoUrl(); //return the mpeg url stream

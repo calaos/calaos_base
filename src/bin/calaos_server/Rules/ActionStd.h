@@ -21,9 +21,9 @@
 #ifndef S_ACTIONSTD_H
 #define S_ACTIONSTD_H
 
-#include <Calaos.h>
-#include <Action.h>
-#include <Output.h>
+#include "Calaos.h"
+#include "Action.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
@@ -31,7 +31,7 @@ namespace Calaos
 class ActionStd: public Action
 {
 protected:
-    std::vector<Output *> outputs;
+    std::vector<IOBase *> outputs;
     Params params;
 
     //this is used to do the action
@@ -43,12 +43,12 @@ public:
     { cDebugDom("rule.action.standard") <<  "New standard action"; }
     ~ActionStd();
 
-    void Add(Output *p);
+    void Add(IOBase *p);
     bool Execute();
     void Remove(int i);
-    void Assign(int i, Output *obj);
+    void Assign(int i, IOBase *obj);
 
-    Output *get_output(int i) { return outputs[i]; }
+    IOBase *get_output(int i) { return outputs[i]; }
     Params &get_params() { return params; }
     void set_param(Params &p) { params = p; }
     Params &get_params_var() { return params_var; }

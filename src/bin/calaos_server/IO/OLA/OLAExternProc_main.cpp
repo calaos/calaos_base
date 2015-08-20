@@ -62,7 +62,7 @@ void OLAProcess::messageReceived(const string &msg)
         return;
     }
 
-    int idx;
+    size_t idx;
     json_t *value;
 
     json_array_foreach(jroot, idx, value)

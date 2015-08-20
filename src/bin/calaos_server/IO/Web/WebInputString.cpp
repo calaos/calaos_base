@@ -29,7 +29,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(WebInputString)
+REGISTER_IO(WebInputString)
 
 WebInputString::WebInputString(Params &p):
     InputString(p)

@@ -18,12 +18,12 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AVRManager.h>
-#include <AVRPioneer.h>
-#include <AVRDenon.h>
-#include <AVROnkyo.h>
-#include <AVRMarantz.h>
-#include <AVRYamaha.h>
+#include "AVRManager.h"
+#include "AVRPioneer.h"
+#include "AVRDenon.h"
+#include "AVROnkyo.h"
+#include "AVRMarantz.h"
+#include "AVRYamaha.h"
 
 using namespace Calaos;
 

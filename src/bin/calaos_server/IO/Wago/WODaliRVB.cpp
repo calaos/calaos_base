@@ -24,8 +24,8 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WODaliRVB)
-REGISTER_OUTPUT_USERTYPE(WagoOutputDimmerRGB, WODaliRVB)
+REGISTER_IO(WODaliRVB)
+REGISTER_IO_USERTYPE(WagoOutputDimmerRGB, WODaliRVB)
 
 WODaliRVB::WODaliRVB(Params &_p):
     OutputLightRGB(_p),

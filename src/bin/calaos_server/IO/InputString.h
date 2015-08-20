@@ -22,12 +22,12 @@
 #define S_InputString_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class InputString : public Input
+class InputString : public IOBase
 {
 protected:
     string value;

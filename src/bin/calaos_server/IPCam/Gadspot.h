@@ -21,13 +21,7 @@
 #ifndef S_Gadspot_H
 #define S_Gadspot_H
 
-#include <Calaos.h>
-#include <Output.h>
-#include <Input.h>
-#include <CamInput.h>
-#include <CamOutput.h>
-#include <tcpsocket.h>
-#include <IPCam.h>
+#include "IPCam.h"
 
 namespace Calaos
 {
@@ -38,7 +32,6 @@ protected:
 
 public:
     Gadspot(Params &p);
-    ~Gadspot();
 
     //Standard IPCam functions.
     std::string getVideoUrl(); //return the mpeg url stream

@@ -22,12 +22,12 @@
 #define S_InputTemp_H
 
 #include "Calaos.h"
-#include "Input.h"
+#include "IOBase.h"
 
 namespace Calaos
 {
 
-class InputTemp : public Input
+class InputTemp : public IOBase
 {
 protected:
     int address;

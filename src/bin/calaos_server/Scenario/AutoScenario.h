@@ -21,13 +21,17 @@
 #ifndef  AUTOSCENARIO_H
 #define  AUTOSCENARIO_H
 
-#include <Calaos.h>
-#include <ListeRoom.h>
-#include <ListeRule.h>
-#include <IOFactory.h>
-#include <ConditionStd.h>
-#include <ActionStd.h>
-#include <Room.h>
+#include "Calaos.h"
+#include "ListeRoom.h"
+#include "ListeRule.h"
+#include "IOFactory.h"
+#include "ConditionStd.h"
+#include "ActionStd.h"
+#include "Room.h"
+#include "Scenario.h"
+#include "IntValue.h"
+#include "InputTimer.h"
+#include "InPlageHoraire.h"
 
 namespace Calaos
 {
@@ -35,7 +39,7 @@ namespace Calaos
 class ScenarioAction
 {
 public:
-    Output *io;
+    IOBase *io;
     string action;
 };
 
@@ -52,7 +56,7 @@ private:
     Internal *ioScheduleEnabled;
     Internal *ioStep;
     InputTimer *ioTimer;
-    InPlageHoraire *ioPlage;
+    InPlageHoraire *ioTimeRange;
 
     Room *roomContainer;
 
@@ -60,20 +64,20 @@ private:
     Rule *rulePlageStart, *rulePlageStop;
     vector<Rule *> ruleSteps;
 
-    Input *createInput(string type, string id);
-    bool checkCondition(Rule *rule, Input *input, string oper, string value);
-    bool checkAction(Rule *rule, Output *output, string value);
-    void addRuleCondition(Rule *rule, Input *input, string oper, string value);
-    void addRuleAction(Rule *rule, Output *output, string value);
-    void setRuleCondition(Rule *rule, Input *input, string oper, string value);
-    void setRuleAction(Rule *rule, Output *output, string value);
-    string getRuleConditionValue(Rule *rule, Input *input, string oper);
-    string getRuleActionValue(Rule *rule, Output *output);
-    list<Output*> getRuleRealActions(Rule *rule);
+    IOBase *createInput(string type, string id);
+    bool checkCondition(Rule *rule, IOBase *input, string oper, string value);
+    bool checkAction(Rule *rule, IOBase *output, string value);
+    void addRuleCondition(Rule *rule, IOBase *input, string oper, string value);
+    void addRuleAction(Rule *rule, IOBase *output, string value);
+    void setRuleCondition(Rule *rule, IOBase *input, string oper, string value);
+    void setRuleAction(Rule *rule, IOBase *output, string value);
+    string getRuleConditionValue(Rule *rule, IOBase *input, string oper);
+    string getRuleActionValue(Rule *rule, IOBase *output);
+    list<IOBase *> getRuleRealActions(Rule *rule);
     void createRuleStepEnd();
 
 public:
-    AutoScenario(Input *input);
+    AutoScenario(IOBase *input);
     ~AutoScenario();
 
     static const int END_STEP = 0xFEDC1234;
@@ -85,7 +89,7 @@ public:
     string getScenarioId() { return scenario_id; }
     bool isCycling() { return cycle; }
     bool isDisabled() { return disabled; }
-    bool isScheduled() { return ioPlage?true:false; }
+    bool isScheduled() { return ioTimeRange?true:false; }
     void setCycling(bool c); //should call checkScenarioRules() to commit changes
     void setDisabled(bool d); //should call checkScenarioRules() to commit changes
 
@@ -98,7 +102,7 @@ public:
     Internal *getIOScheduleEnabled() { return ioScheduleEnabled; }
     Internal *getIOStep() { return ioStep; }
     InputTimer *getIOTimer() { return ioTimer; }
-    InPlageHoraire *getIOPlage() { return ioPlage; }
+    InPlageHoraire *getIOTimeRange() { return ioTimeRange; }
 
     Room *getRoomContainer() { return roomContainer; }
 
@@ -111,7 +115,7 @@ public:
 
     void addStep(double pause);
     void setStepPause(int step, double pause);
-    void addStepAction(int step, Output *out, string action);
+    void addStepAction(int step, IOBase *out, string action);
     double getStepPause(int step);
     int getStepActionCount(int step);
     ScenarioAction getStepAction(int step, int action);

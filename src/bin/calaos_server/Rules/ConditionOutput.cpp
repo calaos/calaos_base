@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <ConditionOutput.h>
-#include <ListeRoom.h>
+#include "ConditionOutput.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -48,7 +48,7 @@ bool ConditionOutput::Evaluate()
     case TBOOL:
         if (params_var != "")
         {
-            Output *out = ListeRoom::Instance().get_output(params_var);
+            IOBase *out = ListeRoom::Instance().get_io(params_var);
             if (out && out->get_type() == TBOOL)
             {
                 bval = out->get_value_bool();
@@ -84,7 +84,7 @@ bool ConditionOutput::Evaluate()
     case TINT:
         if (params_var != "")
         {
-            Output *out = ListeRoom::Instance().get_output(params_var);
+            IOBase *out = ListeRoom::Instance().get_io(params_var);
             if (out && out->get_type() == TINT)
             {
                 dval = out->get_value_double();
@@ -121,7 +121,7 @@ bool ConditionOutput::Evaluate()
     case TSTRING:
         if (params_var != "")
         {
-            Output *out = ListeRoom::Instance().get_output(params_var);
+            IOBase *out = ListeRoom::Instance().get_io(params_var);
             if (out && out->get_type() == TSTRING)
             {
                 sval = out->get_value_string();
@@ -262,7 +262,7 @@ bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
     return false;
 }
 
-bool ConditionOutput::eval(Output *out, string oper, string val)
+bool ConditionOutput::eval(IOBase *out, string oper, string val)
 {
     if (oper != "!=" && oper != "==")
     {
@@ -271,8 +271,6 @@ bool ConditionOutput::eval(Output *out, string oper, string val)
     }
 
     return out->check_condition_value(val, oper == "==");
-
-    return false;
 }
 
 bool ConditionOutput::LoadFromXml(TiXmlElement *node)
@@ -300,7 +298,7 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            Output *out = ListeRoom::Instance().get_output(id);
+            IOBase *out = ListeRoom::Instance().get_io(id);
             if (out)
             {
                 setOutput(out);

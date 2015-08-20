@@ -30,7 +30,5 @@ switch          - a classic on/off switch
 switch3         - a switch with multiple click detection
 switch_long     - a switch with 2 actions, normal press and long press
 avreceiver      - a A/V Receiver input/output
-audio_input     - an audio input
-audio_output    - an audio_output
-camera_input    - a cemara input
-camera_output   - a camera output
+audio_player    - an audio player
+camera          - a cemara

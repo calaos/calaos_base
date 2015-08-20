@@ -18,15 +18,20 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Axis.h>
-#include <IOFactory.h>
+#include "Axis.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
-REGISTER_CAMERA(Axis)
+REGISTER_IO(Axis)
 
-Axis::Axis(Params &p): IPCam(p), quality("30"), camera("1")
+Axis::Axis(Params &p):
+    IPCam(p),
+    quality("30"),
+    camera("1")
 {
+    //TODO: add ioDoc!
+
     caps.Add("resolution", "176x144 320x240 640x480");
     caps.Add("quality", "100");
     if (param["model"] != "") camera = param["model"];
@@ -47,10 +52,6 @@ Axis::Axis(Params &p): IPCam(p), quality("30"), camera("1")
     {
         resolution = param["resolution"];
     }
-}
-
-Axis::~Axis()
-{
 }
 
 std::string Axis::getVideoUrl()

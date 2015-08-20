@@ -24,7 +24,7 @@ using namespace Calaos;
 using namespace Utils;
 
 OutputAnalog::OutputAnalog(Params &p):
-    Output(p),
+    IOBase(p, IOBase::IO_OUTPUT),
     value(-1),
     real_value_max(0.0),
     wago_value_max(0.0)
@@ -90,7 +90,7 @@ double OutputAnalog::get_value_double()
 
 void OutputAnalog::emitChange()
 {   
-    EventManager::create(CalaosEvent::EventOutputChanged,
+    EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(value) } });
 }
@@ -111,7 +111,7 @@ bool OutputAnalog::set_value(double val)
     set_value_real(v);
 
     value = val;
-    EmitSignalOutput();
+    EmitSignalIO();
     emitChange();
 
     return true;

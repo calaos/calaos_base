@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_INPUT(ZibaseDigitalIn)
+REGISTER_IO(ZibaseDigitalIn)
 
 ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
     InputSwitch(p),

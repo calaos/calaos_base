@@ -29,7 +29,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(WebOutputString)
+REGISTER_IO(WebOutputString)
 
 WebOutputString::WebOutputString(Params &p):
     OutputString(p)

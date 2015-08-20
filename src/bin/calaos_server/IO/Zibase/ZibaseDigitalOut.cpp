@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(ZibaseDigitalOut)
+REGISTER_IO(ZibaseDigitalOut)
 
 ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
     OutputLight(p),

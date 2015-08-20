@@ -21,17 +21,17 @@
 #ifndef S_LISTERULE_H
 #define S_LISTERULE_H
 
-#include <Calaos.h>
-#include <Rule.h>
-#include <ConditionStd.h>
-#include <ConditionOutput.h>
-#include <ConditionStart.h>
-#include <ConditionScript.h>
-#include <ActionStd.h>
-#include <ListeRoom.h>
-#include <Room.h>
+#include "Calaos.h"
+#include "Rule.h"
+#include "ConditionStd.h"
+#include "ConditionOutput.h"
+#include "ConditionStart.h"
+#include "ConditionScript.h"
+#include "ActionStd.h"
+#include "ListeRoom.h"
+#include "Room.h"
 #include <Ecore.h>
-#include <Mutex.h>
+#include "Mutex.h"
 
 using namespace std;
 
@@ -50,7 +50,7 @@ protected:
     std::vector<Rule *> rules;
 
     //these input's events are detected in the RunEventLoop() function
-    std::vector<Input *> in_event;
+    std::vector<IOBase *> in_event;
 
     //Rules for autoscenario
     list<Rule *> rules_scenarios;
@@ -73,18 +73,17 @@ public:
     void Remove(Rule *obj)
     { rules.erase(std::remove(rules.begin(), rules.end(), obj), rules.end());
         rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj), rules_scenarios.end()); delete obj; }
-    void RemoveRule(Input *obj); //remove all rules containing obj
-    void RemoveRule(Output *obj); //remove all rules containing obj
+    void RemoveRule(IOBase *obj); //remove all rules containing obj
 
-    void updateAllRulesToInput(Input *oldio, Input *newio);
-    void updateAllRulesToOutput(Output *oldio, Output *newio);
+    void updateAllRulesToInput(IOBase *oldio, IOBase *newio);
+    void updateAllRulesToOutput(IOBase *oldio, IOBase *newio);
 
     Rule *get_rule(int i);
     Rule *operator[] (int i) const;
 
-    void Add(Input *in) { in_event.push_back(in); }
-    void Remove(Input *in)
-    { in_event.erase(std::remove(in_event.begin(), in_event.end(), in), in_event.end()); }
+    void Add(IOBase *io) { in_event.push_back(io); }
+    void Remove(IOBase *io)
+    { in_event.erase(std::remove(in_event.begin(), in_event.end(), io), in_event.end()); }
     //Run a loop to detect event from inputs when time or temperature changes
     void RunEventLoop();
     void StopLoop();
@@ -93,7 +92,7 @@ public:
 
     //Execute all rules where the input 'input_id' is used
     //The function is called only when a signal is emited from inputs
-    virtual void ExecuteRuleSignal(std::string input_id);
+    virtual void ExecuteRuleSignal(std::string id);
 
     /* This executes all rules at program startup. All rules with ConditionStart
                  * will be evaluated and executed (only once)

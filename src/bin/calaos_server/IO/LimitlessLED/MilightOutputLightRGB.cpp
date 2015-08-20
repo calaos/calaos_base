@@ -23,7 +23,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(MilightOutputLightRGB)
+REGISTER_IO(MilightOutputLightRGB)
 
 MilightOutputLightRGB::MilightOutputLightRGB(Params &p):
     OutputLightRGB(p)

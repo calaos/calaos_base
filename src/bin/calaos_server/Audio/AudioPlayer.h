@@ -21,25 +21,23 @@
 #ifndef S_AUDIOPLAYER_H
 #define S_AUDIOPLAYER_H
 
-#include <Calaos.h>
-#include <AudioPlayerData.h>
-#include <Output.h>
-#include <Input.h>
-#include <AudioDB.h>
-#include <AudioInput.h>
-#include <AudioOutput.h>
+#include "Calaos.h"
+#include "AudioPlayerData.h"
+#include "IOBase.h"
+#include "AudioDB.h"
 
 namespace Calaos
 {
 
-class AudioPlayer
+class AudioPlayer: public IOBase
 {
 protected:
-    Params param;
-    Output *aoutput;
-    Input *ainput;
-
     AudioDB *database;
+    int astatus;
+
+    virtual void set_status(int st);
+
+    void get_volume_cb(AudioPlayerData data);
 
 public:
     AudioPlayer(Params &p);
@@ -104,16 +102,13 @@ public:
 
     virtual Params getDatabaseCapabilities() { Params p; return p; }
 
-    string get_param(string opt) { return param[opt]; }
-    void set_param(string opt, string val) { param.Add(opt, val); }
-    Params &get_params() { return param; }
-    Output *get_output() { return aoutput; }
-    Input *get_input() { return ainput; }
-
     AudioDB *get_database() { return database; }
 
-    virtual bool LoadFromXml(TiXmlElement *node)
-    { return false; }
+    virtual DATA_TYPE get_type() { return TSTRING; }
+    virtual void hasChanged();
+
+    virtual bool set_value(std::string val);
+
     virtual bool SaveToXml(TiXmlElement *node);
 };
 

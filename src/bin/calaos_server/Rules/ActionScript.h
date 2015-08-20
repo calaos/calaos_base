@@ -21,9 +21,9 @@
 #ifndef S_ACTIONSCRIPT_H
 #define S_ACTIONSCRIPT_H
 
-#include <Calaos.h>
-#include <Action.h>
-#include <ScriptManager.h>
+#include "Calaos.h"
+#include "Action.h"
+#include "ScriptManager.h"
 
 namespace Calaos
 {
