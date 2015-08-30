@@ -97,6 +97,11 @@ string OWProcess::getValue(const string &path, const string &param)
                         {
                             pos += 2;
                             line.erase(0, pos);
+                            // Divide by 1000 to get value in °C (result of read is in m°C)
+                            double t;
+                            from_string(line, t);
+                            t /= 1000.0;
+                            line = to_string(t);
                             f.close();
                             return line;
                         }
