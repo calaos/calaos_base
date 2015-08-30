@@ -67,6 +67,10 @@ string OWProcess::getValue(const string &path, const string &param)
 
     if (use_w1)
     {
+
+        if (param == "type")
+            return "temperature";
+
         ifstream f;
         string fvalue = "/sys/bus/w1/devices/" + path + "/w1_slave";
 
@@ -104,6 +108,7 @@ string OWProcess::getValue(const string &path, const string &param)
                             line = to_string(t);
                             f.close();
                             return line;
+
                         }
                     }
                 }
@@ -270,7 +275,7 @@ bool OWProcess::setup(int &argc, char **&argv)
     cDebug() << "Args: " << owargs;
 
 #if HAVE_LIBOWCAPI
-    if (OW_init(owargs.c_str()) != 0 && !use_w1 )
+    if (!use_w1 && OW_init(owargs.c_str()) != 0)
     {
         cError() << "Unable to initialize OW library : " << strerror(errno);
         return false;
