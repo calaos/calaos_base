@@ -79,7 +79,7 @@ string OWProcess::getValue(const string &path, const string &param)
         // b3 01 4b 46 7f ff 0d 10 9a t=27187
 
         string line;
-        while(f.eof())
+        while(!f.eof())
         {
             getline(f, line);
             if (!line.empty())
@@ -145,7 +145,7 @@ list<string> OWProcess::scanDevices()
         if (!f.is_open())
             return listDevices;
         string line;
-        while(f.eof())
+        while(!f.eof())
         {
             getline(f, line);
             if (!line.empty())
