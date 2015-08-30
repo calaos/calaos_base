@@ -48,6 +48,14 @@ OWTemp::OWTemp(Params &p):
     ow_id = get_param("ow_id");
     ow_args = get_param("ow_args");
 
+    // Prepend --use-w1 to owfs args if existing in conf
+    string args;
+    if (get_param("use_w1") == "true")
+      args += "--use-w1 ";
+    args += ow_args;
+
+    ow_args = args;
+
     OwCtrl::Instance(ow_args);
 
     cDebugDom("input") << get_param("id") << ": OW_ID : " << ow_id;
