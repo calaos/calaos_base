@@ -142,8 +142,6 @@ void KNXProcess::doWrite(int argc, char **argv)
 
     if (Utils::strContains(sgroup_addr, "/"))
         knx_addr = enmx_getaddress(sgroup_addr.c_str());
-    else
-        knx_addr = knx_addr & 0xffff;
 
     unsigned char *p_val = nullptr;
     int val_int;
@@ -166,6 +164,7 @@ void KNXProcess::doWrite(int argc, char **argv)
     if (enmx_value2eis(eis, (void *)p_val, data) != 0)
     {
         cError() << "Error in value conversion";
+        free(data);
         return;
     }
 
@@ -173,8 +172,11 @@ void KNXProcess::doWrite(int argc, char **argv)
     if (enmx_write(eibobj->sock, knx_addr, len, data) != 0)
     {
         cError() << "Unable to send command: " << enmx_errormessage(eibobj->sock);
+        free(data);
         return;
     }
+
+    free(data);
 }
 
 void KNXProcess::doMonitorBus(int argc, char **argv)
@@ -292,4 +294,31 @@ string KNXValue::toString()
     }
 
     return string();
+}
+
+json_t *KNXValue::toJson() const
+{
+    Params p = {{"type", Utils::to_string(type) },
+                {"eis", Utils::to_string(eis)},
+                {"value_int", Utils::to_string(value_int)},
+                {"value_float", Utils::to_string(value_float)},
+                {"value_char", Utils::to_string(value_char)},
+                {"value_string", value_string}};
+    return p.toJson();
+}
+
+KNXValue KNXValue::fromJson(json_t *jval)
+{
+    Params p;
+    jansson_decode_object(jval, p);
+
+    KNXValue v;
+    Utils::from_string(p["type"], v.type);
+    Utils::from_string(p["eis"], v.eis);
+    Utils::from_string(p["value_int"], v.value_int);
+    Utils::from_string(p["value_float"], v.value_float);
+    Utils::from_string(p["value_char"], v.value_char);
+    v.value_string = p["value_string"];
+
+    return v;
 }

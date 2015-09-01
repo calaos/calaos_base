@@ -22,6 +22,7 @@
 #define KNXEXTERNPROC_MAIN_H
 
 #include "ExternProc.h"
+#include "Jansson_Addition.h"
 
 extern "C" {
 #include <eibnetmux/enmx_lib.h>
@@ -103,6 +104,9 @@ public:
 
     string toString();
     bool setValue(int eis, void *data, int datalen, bool cemiframe = false);
+
+    json_t *toJson() const;
+    static KNXValue fromJson(json_t *jval);
 };
 
 class KNXProcess: public ExternProcClient
@@ -118,6 +122,8 @@ public:
     virtual bool setup(int &argc, char **&argv);
     virtual int procMain();
 
+    virtual bool handleFdSet(int fd);
+
     EXTERN_PROC_CLIENT_CTOR(KNXProcess)
 
 protected:
@@ -126,10 +132,16 @@ protected:
     virtual void readTimeout();
     virtual void messageReceived(const string &msg);
 
+    void connectEibNetMux();
+    void writeKnxValue(const string &group_addr, const KNXValue &value);
+
     string knxPhysicalAddr(uint16_t addr);
     string knxGroupAddr(uint16_t addr);
 
     string eibserver;
+    ENMX_HANDLE eibsock = -1;
+
+    bool isConnected() { return eibsock < 0; }
 };
 
 #endif // KNXEXTERNPROC_MAIN_H

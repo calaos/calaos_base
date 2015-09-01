@@ -125,8 +125,17 @@ protected:
     virtual void readTimeout() = 0;
     virtual void messageReceived(const string &msg) = 0;
 
+    //implement this when adding a file descriptor to the main loop
+    //when something happens on this fd, this function is called.
+    //return false to stop main loop, true otherwise
+    virtual bool handleFdSet(int fd) { return true; }
+
     //minimal mainloop
     void run(int timeoutms = 5000);
+
+    //append FD to be monitored by main loop
+    void appendFd(int fd);
+    void removeFd(int fd);
 
     //for external mainloop
     int getSocketFd() { return sockfd; }
@@ -140,6 +149,8 @@ private:
     string recv_buffer;
 
     ExternProcMessage currentFrame;
+
+    list<int> userFds;
 };
 
 #define EXTERN_PROC_CLIENT_CTOR(class_name) \

@@ -121,6 +121,10 @@ calaos_server_SOURCES = \
         IO/IntValue.h                                   \
         IO/Hue/HueOutputLightRGB.h	                \
         IO/Hue/HueOutputLightRGB.cpp	                \
+        IO/KNX/KNXCtrl.h                                \
+        IO/KNX/KNXCtrl.cpp                              \
+        IO/KNX/KNXInputSwitch.h                         \
+        IO/KNX/KNXInputSwitch.cpp                       \
         IO/LAN/PingInputSwitch.cpp                      \
         IO/LAN/PingInputSwitch.h                        \
         IO/LAN/WOLOutputBool.cpp                        \

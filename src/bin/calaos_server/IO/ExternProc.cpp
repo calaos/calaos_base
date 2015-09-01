@@ -393,6 +393,11 @@ void ExternProcClient::run(int timeoutms)
 
         FD_SET(sockfd, &events);
 
+        for (int fd: userFds)
+        {
+            FD_SET(fd, &events);
+        }
+
         if (!select(sockfd + 1, &events, NULL, NULL, &tv))
             readTimeout();
 
@@ -400,6 +405,21 @@ void ExternProcClient::run(int timeoutms)
         {
             if (!processSocketRecv())
                 quitloop = true;
+        }
+
+        if (!quitloop)
+        {
+            for (int fd: userFds)
+            {
+                if (FD_ISSET(fd, &events))
+                {
+                    if (!handleFdSet(fd))
+                    {
+                        quitloop = true;
+                        break;
+                    }
+                }
+            }
         }
     }
 }
@@ -413,4 +433,17 @@ void ExternProcClient::sendMessage(const string &data)
     len = send(sockfd, frame.c_str(), frame.size(), 0);
     if (len < 0)
         cError() << "Error writing to socket: " << strerror(errno);
+}
+
+void ExternProcClient::appendFd(int fd)
+{
+    userFds.push_back(fd);
+}
+
+void ExternProcClient::removeFd(int fd)
+{
+    userFds.remove_if([=](const int &val)
+    {
+        return val == fd;
+    });
 }

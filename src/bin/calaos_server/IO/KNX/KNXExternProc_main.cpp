@@ -22,6 +22,7 @@
 
 void KNXProcess::readTimeout()
 {
+    connectEibNetMux(); //try reconnecting to eibnetmux
 }
 
 void KNXProcess::messageReceived(const string &msg)
@@ -37,24 +38,19 @@ void KNXProcess::messageReceived(const string &msg)
         return;
     }
 
-    int idx;
-    json_t *value;
+    Params jsonData;
+    jansson_decode_object(jroot, jsonData);
 
-//    json_array_foreach(jroot, idx, value)
-//    {
-//        Params p;
-//        jansson_decode_object(value, p);
+    if (jsonData["type"] == "write")
+    {
+        KNXValue v = KNXValue::fromJson(json_object_get(jroot, "value"));
 
-//        if (p.Exists("channel") && p.Exists("value"))
-//        {
-//            unsigned int channel;
-//            unsigned int val;
-//            Utils::from_string(p["channel"], channel);
-//            Utils::from_string(p["value"], val);
-
-//            cDebugDom("knx") << "Set channel " << channel << " with value: " << val;
-//        }
-//    }
+        writeKnxValue(jsonData["group_addr"], v);
+    }
+    else if (jsonData["type"] == "read")
+    {
+        cInfo() << "TODO: read not implemented yet.";
+    }
 }
 
 bool KNXProcess::setup(int &argc, char **&argv)
@@ -111,6 +107,15 @@ bool KNXProcess::setup(int &argc, char **&argv)
         return false;
     }
 
+    int enmx_version;
+    if ((enmx_version = enmx_init()) != ENMX_VERSION_API)
+    {
+        cError() << "Incompatible eibnetmux API version (" << enmx_version << ", expected " << ENMX_VERSION_API << ")";
+        throw std::runtime_error("Incompatible eibnetmux API version");
+    }
+
+    cDebug() << "EIBNetMux host: " << eibserver;
+
     return true;
 }
 
@@ -140,9 +145,131 @@ string KNXProcess::knxGroupAddr(uint16_t addr)
 
 int KNXProcess::procMain()
 {
+    connectEibNetMux();
+
     run(1000);
 
     return 0;
+}
+
+void KNXProcess::connectEibNetMux()
+{
+    if (isConnected())
+        return;
+
+    if (eibserver.empty())
+        eibsock = enmx_open(nullptr, (char *)"calaos");
+    else
+        eibsock = enmx_open((char *)eibserver.c_str(), (char *)"calaos");
+    if (eibsock < 0)
+    {
+        cError() << "Connect to eibnetmux failed: " << enmx_errormessage(eibsock);
+        return;
+    }
+
+    //add enmx socket to the main loop
+    appendFd(eibsock);
+}
+
+bool KNXProcess::handleFdSet(int fd)
+{
+    if (fd != eibsock)
+        return true; //not our fd
+
+    unsigned char *data = (unsigned char *)malloc(10);
+    uint16_t datalen = 10;
+    uint16_t value_size;
+    data = enmx_monitor(eibsock, 0xffff, data, &datalen, &value_size);
+    if (!data)
+    {
+        cError() << "EIB Read error.";
+
+        switch (enmx_geterror(eibsock))
+        {
+        case ENMX_E_COMMUNICATION:
+        case ENMX_E_NO_CONNECTION:
+        case ENMX_E_WRONG_USAGE:
+        case ENMX_E_NO_MEMORY:
+            cError() << "Error on write: " << enmx_errormessage(eibsock);
+            enmx_close(eibsock);
+            removeFd(eibsock);
+            eibsock = -1;
+            break;
+        case ENMX_E_INTERNAL:
+            cError() << "Bad status returned";
+            break;
+        case ENMX_E_SERVER_ABORTED:
+            cError() << "Server aborted: " << enmx_errormessage(eibsock);
+            enmx_close(eibsock);
+            removeFd(eibsock);
+            eibsock = -1;
+            break;
+        case ENMX_E_TIMEOUT:
+            cDebug() << "Timeout monitor.";
+            break;
+        }
+
+        return true;
+    }
+
+    CEMIFRAME *cemiframe = (CEMIFRAME *)data;
+
+    string addr = (cemiframe->ntwrk & EIB_DAF_GROUP)? knxGroupAddr(cemiframe->daddr):knxPhysicalAddr(cemiframe->daddr);
+    cDebug() << "Received: " << knxPhysicalAddr(cemiframe->saddr) << "  " << addr;
+
+    if (cemiframe->apci & (A_WRITE_VALUE_REQ | A_RESPONSE_VALUE_REQ))
+    {
+        KNXValue v;
+        if (v.setValue(0, cemiframe, cemiframe->length, true))
+            cDebug() << "Value : " << v.toString();
+
+        Params p = {{"type", "monitor"},
+                    {"group_addr", addr}};
+        json_t *j = p.toJson();
+        json_object_set_new(j, "value", v.toJson());
+
+        string res = jansson_to_string(j);
+        if (!res.empty())
+            sendMessage(res);
+    }
+
+    return true;
+}
+
+void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
+{
+    unsigned char *p_val = nullptr;
+    uint32_t val_int32;
+    uint16_t knx_addr = enmx_getaddress(group_addr.c_str());
+
+    switch (value.eis)
+    {
+    default: p_val = (unsigned char *)&value.value_int; break;
+    case 11: val_int32 = value.value_int; p_val = (unsigned char *)&val_int32; break;
+    case 5:
+    case 9: p_val = (unsigned char *)&value.value_float; break;
+    case 13: p_val = (unsigned char *)&value.value_char; break;
+    case 15: p_val = (unsigned char *)value.value_string.c_str(); break;
+    case 12: break;
+    }
+
+    unsigned char *data = (unsigned char *)malloc(enmx_EISsizeKNX[value.eis]);
+    if (enmx_value2eis(value.eis, (void *)p_val, data) != 0)
+    {
+        free(data);
+        cError() << "Error in value conversion";
+        return;
+    }
+
+    int len = (value.eis != 15)? enmx_EISsizeKNX[value.eis] : value.value_string.length();
+    if (enmx_write(eibsock, knx_addr, len, data) != 0)
+    {
+        cError() << "Unable to send command: " << enmx_errormessage(eibsock);
+        free(data);
+        return;
+    }
+
+    free(data);
 }
 
 EXTERN_PROC_CLIENT_MAIN(KNXProcess)

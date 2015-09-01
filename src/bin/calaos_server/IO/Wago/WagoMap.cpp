@@ -127,7 +127,7 @@ void WagoMap::processNewMessage(const string &msg)
 
     if (!jroot || !json_is_object(jroot))
     {
-        cWarningDom("1wire") << "Error parsing json from sub process: " << jerr.text;
+        cWarningDom("wago") << "Error parsing json from sub process: " << jerr.text;
         if (jroot)
             json_decref(jroot);
         return;
