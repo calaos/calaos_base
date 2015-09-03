@@ -34,7 +34,7 @@ private:
 
 public:
     MySensorsOutputShutterSmart(Params &p);
-    ~MySensorsOutputShutterSmart();
+    virtual ~MySensorsOutputShutterSmart();
 };
 
 }

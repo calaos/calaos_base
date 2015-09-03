@@ -34,7 +34,7 @@ protected:
 
 public:
     MySensorsOutputLightRGB(Params &p);
-    ~MySensorsOutputLightRGB();
+    virtual ~MySensorsOutputLightRGB();
 };
 
 }

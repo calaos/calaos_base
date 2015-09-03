@@ -33,7 +33,7 @@ private:
 
 public:
     MySensorsOutputDimmer(Params &p);
-    ~MySensorsOutputDimmer();
+    virtual ~MySensorsOutputDimmer();
 };
 
 }

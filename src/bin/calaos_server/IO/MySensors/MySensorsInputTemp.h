@@ -34,7 +34,7 @@ protected:
 
 public:
     MySensorsInputTemp(Params &p);
-    ~MySensorsInputTemp();
+    virtual ~MySensorsInputTemp();
 };
 
 }

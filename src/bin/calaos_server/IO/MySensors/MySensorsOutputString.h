@@ -33,7 +33,7 @@ protected:
 
 public:
     MySensorsOutputString(Params &p);
-    ~MySensorsOutputString();
+    virtual ~MySensorsOutputString();
 };
 
 }

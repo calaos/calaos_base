@@ -36,7 +36,7 @@ protected:
 
 public:
     MySensorsInputString(Params &p);
-    ~MySensorsInputString();
+    virtual ~MySensorsInputString();
 };
 
 }
