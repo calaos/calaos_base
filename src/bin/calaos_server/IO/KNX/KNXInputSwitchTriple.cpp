@@ -18,20 +18,20 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "KNXInputSwitch.h"
+#include "KNXInputSwitchTriple.h"
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
 using namespace Calaos;
 
-REGISTER_IO(KNXInputSwitch)
+REGISTER_IO(KNXInputSwitchTriple)
 
-KNXInputSwitch::KNXInputSwitch(Params &p):
-    InputSwitch(p)
+KNXInputSwitchTriple::KNXInputSwitchTriple(Params &p):
+    InputSwitchTriple(p)
 {
     // Define IO documentation
-    ioDoc->friendlyNameSet("KNXInputSwitch");
-    ioDoc->descriptionSet(_("Input switch with KNX and eibnetmux"));
+    ioDoc->friendlyNameSet("KNXInputSwitchTriple");
+    ioDoc->descriptionSet(_("Input switch triple with KNX and eibnetmux"));
     ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
@@ -48,11 +48,11 @@ KNXInputSwitch::KNXInputSwitch(Params &p):
     cInfoDom("input") << "knx_group: " << knx_group;
 }
 
-KNXInputSwitch::~KNXInputSwitch()
+KNXInputSwitchTriple::~KNXInputSwitchTriple()
 {
 }
 
-bool KNXInputSwitch::readValue()
+bool KNXInputSwitchTriple::readValue()
 {
     string knx_group = get_param("knx_group");
 

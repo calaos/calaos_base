@@ -24,7 +24,7 @@
 
 using namespace Calaos;
 
-REGISTER_OUTPUT(KNXOutputLight)
+REGISTER_IO(KNXOutputLight)
 
 KNXOutputLight::KNXOutputLight(Params &p):
     OutputLight(p)

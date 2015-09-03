@@ -59,6 +59,8 @@ public:
         EIS_String = 15, //14 characters of 7bits max
     };
 
+    void setEis(int e) { eis = e; }
+
     json_t *toJson() const;
     string toString() const;
     bool toBool() const;

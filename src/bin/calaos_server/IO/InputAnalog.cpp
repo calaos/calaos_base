@@ -116,6 +116,8 @@ void InputAnalog::emitChange()
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(get_value_double()) } });
 
+    Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
+
     cInfoDom("input") << get_param("id") << ": " << get_value_double();
 }
 
@@ -131,8 +133,6 @@ void InputAnalog::hasChanged()
         timer = ecore_time_get();
 
         readValue();
-
-        Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
     }
 }
 

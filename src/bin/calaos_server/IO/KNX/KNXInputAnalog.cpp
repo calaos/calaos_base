@@ -18,45 +18,53 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "KNXInputSwitch.h"
+#include "KNXInputAnalog.h"
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
 using namespace Calaos;
 
-REGISTER_IO(KNXInputSwitch)
+REGISTER_IO(KNXInputAnalog)
 
-KNXInputSwitch::KNXInputSwitch(Params &p):
-    InputSwitch(p)
+KNXInputAnalog::KNXInputAnalog(Params &p):
+    InputAnalog(p)
 {
     // Define IO documentation
-    ioDoc->friendlyNameSet("KNXInputSwitch");
-    ioDoc->descriptionSet(_("Input switch with KNX and eibnetmux"));
+    ioDoc->friendlyNameSet("KNXInputAnalog");
+    ioDoc->descriptionSet(_("Input analog with KNX and eibnetmux"));
     ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("eis", _("KNX EIS (Data type)"), 0, 15, false, KNXValue::EIS_Value_Int);
 
     string knx_group = get_param("knx_group");
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
+    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, );
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
     {
         if (group_addr != get_param("knx_group")) return;
-        hasChanged();
+        readValue();
     });
 
     cInfoDom("input") << "knx_group: " << knx_group;
 }
 
-KNXInputSwitch::~KNXInputSwitch()
+KNXInputAnalog::~KNXInputAnalog()
 {
 }
 
-bool KNXInputSwitch::readValue()
+void KNXInputAnalog::readValue()
 {
     string knx_group = get_param("knx_group");
+    int eis;
+    Utils::from_string(get_param("eis"), eis);
 
     KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knx_group);
+    val.setEis(eis);
 
-    return val.toBool();
+    if (value != val.toInt())
+    {
+        value = val.toInt();
+        emitChange();
+    }
 }
