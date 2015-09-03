@@ -71,7 +71,7 @@ public:
     static KNXValue fromJson(json_t *jval);
     static KNXValue fromString(const string &val, int eis = 0);
     static KNXValue fromBool(bool val, int eis = 0);
-    static KNXValue fromFloat(float &val, int eis = 0);
+    static KNXValue fromFloat(float val, int eis = 0);
     static KNXValue fromInt(int val, int eis = 0);
     static KNXValue fromChar(char val, int eis = 0);
 

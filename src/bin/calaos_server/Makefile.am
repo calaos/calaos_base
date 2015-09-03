@@ -133,6 +133,8 @@ calaos_server_SOURCES = \
         IO/KNX/KNXInputSwitchTriple.cpp                 \
         IO/KNX/KNXInputTemp.h                           \
         IO/KNX/KNXInputTemp.cpp                         \
+        IO/KNX/KNXOutputAnalog.h                        \
+        IO/KNX/KNXOutputAnalog.cpp                      \
         IO/KNX/KNXOutputLight.h                         \
         IO/KNX/KNXOutputLight.cpp                       \
         IO/LAN/PingInputSwitch.cpp                      \

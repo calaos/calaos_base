@@ -250,9 +250,21 @@ bool KNXValue::setValue(int _eis, void *data, int datalen, bool cemiframe)
         cError() << "Unable to convert data for eis " << eis;
         eis = -1;
         return false;
-    case enmx_KNXinteger: value_int = *p_int; break;
-    case enmx_KNXfloat: value_float = *p_real; break;
-    case enmx_KNXchar: value_char = *value; break;
+    case enmx_KNXinteger:
+        value_int = *p_int;
+        value_float = value_int;
+        value_char = value_int;
+        break;
+    case enmx_KNXfloat:
+        value_float = *p_real;
+        value_int = value_float;
+        value_char = value_float;
+        break;
+    case enmx_KNXchar:
+        value_char = *value;
+        value_int = value_char;
+        value_float = value_char;
+        break;
     case enmx_KNXstring: value_string = string((const char *)value, datalen); break;
     }
 

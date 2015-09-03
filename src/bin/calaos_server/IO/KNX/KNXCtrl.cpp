@@ -192,6 +192,8 @@ KNXValue KNXValue::fromBool(bool val, int eis)
     v.type = KNXInteger;
     v.eis = eis;
     v.value_int = val?1:0;
+    v.value_float = v.value_int;
+    v.value_char = v.value_int;
     return v;
 }
 
@@ -201,15 +203,19 @@ KNXValue KNXValue::fromChar(char val, int eis)
     v.type = KNXChar;
     v.eis = eis;
     v.value_char = val;
+    v.value_float = val;
+    v.value_int = val;
     return v;
 }
 
-KNXValue KNXValue::fromFloat(float &val, int eis)
+KNXValue KNXValue::fromFloat(float val, int eis)
 {
     KNXValue v;
     v.type = KNXFloat;
     v.eis = eis;
     v.value_float = val;
+    v.value_int = val;
+    v.value_char = val;
     return v;
 }
 
@@ -219,6 +225,8 @@ KNXValue KNXValue::fromInt(int val, int eis)
     v.type = KNXInteger;
     v.eis = eis;
     v.value_int = val;
+    v.value_float = val;
+    v.value_char = val;
     return v;
 }
 
