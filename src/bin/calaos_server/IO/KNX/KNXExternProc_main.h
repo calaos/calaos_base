@@ -26,7 +26,24 @@
 
 extern "C" {
 #include <eibnetmux/enmx_lib.h>
+#include <eibnetmux/socketserver.h>
 }
+
+//From enmx_lib.private.h
+typedef struct _connInfo {
+    int                     socket;         //!< unix socket client is connected on
+    int                     errorcode;      //!< error code of last command
+    int                     state;          //!< state of connection (see eConnectionState)
+    char                    *hostname;      //!< hostname of client
+    char                    *name;          //!< client identifier
+    struct _connInfo        *next;          //!< link to next connection in linked list
+    int                     mode;           //!< ENMX_MODE_STANDARD or ENMX_MODE_PTH
+    int                     L7connection;   //!< >0 if layer 7 connection has been established with remote device
+    int                     L7sequence_id;  //!< sequence id for layer 7 data requests/responses
+    int                     (*send)( ENMX_HANDLE handle, unsigned char *buf, uint16_t length );                 //!< pointer to send function (standard or PTH)
+    int                     (*recv)( ENMX_HANDLE handle, unsigned char *buf, uint16_t length, int timeout );    //!< pointer to receive function (standard or PTH)
+    void                    (*wait)( int usec );    //!< pointer to wait function (standard or PTH)
+} sConnectionInfo;
 
 /*
  * EIB request frame
@@ -122,11 +139,11 @@ public:
     virtual bool setup(int &argc, char **&argv);
     virtual int procMain();
 
-    virtual bool handleFdSet(int fd);
-
     EXTERN_PROC_CLIENT_CTOR(KNXProcess)
 
 protected:
+
+    bool monitorWait();
 
     //needs to be reimplemented
     virtual void readTimeout();
@@ -141,7 +158,9 @@ protected:
     string eibserver;
     ENMX_HANDLE eibsock = -1;
 
-    bool isConnected() { return eibsock < 0; }
+    bool monitorMode = false;
+
+    bool isConnected() { return eibsock > 0; }
 };
 
 #endif // KNXEXTERNPROC_MAIN_H

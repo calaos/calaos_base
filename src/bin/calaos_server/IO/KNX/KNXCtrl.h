@@ -89,7 +89,7 @@ private:
     KNXCtrl(const string host);
 
     ExternProcServer *process;
-    string exe;
+    ExternProcServer *processMonitor;
 
     unordered_map<string, KNXValue> knxCache;
 

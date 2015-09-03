@@ -49,6 +49,13 @@ private:
 protected:
     bool value;
 
+    //By default when calaos set state for an output,
+    //it automatically update and emit an event.
+    //If changing this bool, calaos will not send the
+    //event, but the underlying class has to handle that
+    //(real event from hw)
+    bool useRealState = false;
+
     void emitChange();
 
     virtual bool set_value_real(bool val) = 0;

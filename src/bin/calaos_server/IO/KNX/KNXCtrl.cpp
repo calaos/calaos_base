@@ -25,10 +25,13 @@ KNXCtrl::KNXCtrl(const string host)
 {
     cDebugDom("knx") << "new KNXCtrl: " << host;
     process = new ExternProcServer("knx");
+    processMonitor = new ExternProcServer("knx_monitor");
 
-    exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
+    //Command process
+    string exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
 
-    process->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
+    //There should not be any message from command process
+    //process->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
 
     process->processExited.connect([=]()
     {
@@ -37,7 +40,21 @@ KNXCtrl::KNXCtrl(const string host)
         process->startProcess(exe, "knx", string("--server ") + host);
     });
 
-    process->startProcess(exe, "knx", host);
+    process->startProcess(exe, "knx", string("--server ") + host);
+
+    //Monitor process
+    exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
+
+    process->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
+
+    process->processExited.connect([=]()
+    {
+        //restart process when stopped
+        cWarningDom("process") << "monitor process exited, restarting...";
+        process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
+    });
+
+    process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
 }
 
 KNXCtrl::~KNXCtrl()
@@ -126,7 +143,7 @@ bool KNXValue::toBool() const
     switch (type)
     {
     case KNXError: cError() << "No data"; break;
-    case KNXInteger: return value_int == 0;
+    case KNXInteger: return value_int != 0;
     default: cError() << "Value is not integer"; break;
     }
 
@@ -219,9 +236,9 @@ void KNXCtrl::processNewMessage(const string &msg)
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
-    if (!jroot || !json_is_array(jroot))
+    if (!jroot || !json_is_object(jroot))
     {
-        cWarningDom("1wire") << "Error parsing json from sub process: " << jerr.text;
+        cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
         if (jroot)
             json_decref(jroot);
         return;
@@ -236,6 +253,11 @@ void KNXCtrl::processNewMessage(const string &msg)
 
         knxCache[group_addr] = val;
         valueChanged.emit(group_addr, val);
+    }
+    else if (mtype == "disconnected")
+    {
+        cDebugDom("knx") << "Disconnected from eibnetmux, restarting command process...";
+        process->terminate();
     }
 }
 

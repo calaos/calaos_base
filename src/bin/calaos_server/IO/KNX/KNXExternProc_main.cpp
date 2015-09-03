@@ -23,6 +23,9 @@
 void KNXProcess::readTimeout()
 {
     connectEibNetMux(); //try reconnecting to eibnetmux
+
+    if (monitorMode && isConnected())
+        while (monitorWait()) ;
 }
 
 void KNXProcess::messageReceived(const string &msg)
@@ -30,7 +33,7 @@ void KNXProcess::messageReceived(const string &msg)
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
-    if (!jroot || !json_is_array(jroot))
+    if (!jroot || !json_is_object(jroot))
     {
         cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text;
         if (jroot)
@@ -101,6 +104,9 @@ bool KNXProcess::setup(int &argc, char **&argv)
         return false;
     }
 
+    if (argvOptionCheck(argv, argv + argc, "--internal-monitor-bus"))
+        monitorMode = true;
+
     if (!connectSocket())
     {
         cError() << "process cannot connect to calaos_server";
@@ -147,7 +153,7 @@ int KNXProcess::procMain()
 {
     connectEibNetMux();
 
-    run(1000);
+    run(500);
 
     return 0;
 }
@@ -156,6 +162,8 @@ void KNXProcess::connectEibNetMux()
 {
     if (isConnected())
         return;
+
+    cDebug() << "Trying to connect to eibnetmux " << eibserver;
 
     if (eibserver.empty())
         eibsock = enmx_open(nullptr, (char *)"calaos");
@@ -167,14 +175,12 @@ void KNXProcess::connectEibNetMux()
         return;
     }
 
-    //add enmx socket to the main loop
-    appendFd(eibsock);
+    cDebug() << "Connected.";
 }
 
-bool KNXProcess::handleFdSet(int fd)
+bool KNXProcess::monitorWait()
 {
-    if (fd != eibsock)
-        return true; //not our fd
+    cDebug() << "Waiting monitor data...";
 
     unsigned char *data = (unsigned char *)malloc(10);
     uint16_t datalen = 10;
@@ -209,7 +215,16 @@ bool KNXProcess::handleFdSet(int fd)
             break;
         }
 
-        return true;
+        if (!isConnected())
+        {
+            Params p = {{"type", "disconnected"}};
+
+            string res = jansson_to_string(p.toJson());
+            if (!res.empty())
+                sendMessage(res);
+        }
+
+        return isConnected();
     }
 
     CEMIFRAME *cemiframe = (CEMIFRAME *)data;
@@ -223,7 +238,7 @@ bool KNXProcess::handleFdSet(int fd)
         if (v.setValue(0, cemiframe, cemiframe->length, true))
             cDebug() << "Value : " << v.toString();
 
-        Params p = {{"type", "monitor"},
+        Params p = {{"type", "event"},
                     {"group_addr", addr}};
         json_t *j = p.toJson();
         json_object_set_new(j, "value", v.toJson());
@@ -238,6 +253,8 @@ bool KNXProcess::handleFdSet(int fd)
 
 void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
 {
+    cDebug() << "Writing KNX value to " << group_addr;
+
     unsigned char *p_val = nullptr;
     uint32_t val_int32;
     uint16_t knx_addr = enmx_getaddress(group_addr.c_str());
