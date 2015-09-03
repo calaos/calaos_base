@@ -141,6 +141,10 @@ calaos_server_SOURCES = \
         IO/KNX/KNXOutputLightDimmer.cpp                 \
         IO/KNX/KNXOutputLightRGB.h                      \
         IO/KNX/KNXOutputLightRGB.cpp                    \
+        IO/KNX/KNXOutputShutter.h                       \
+        IO/KNX/KNXOutputShutter.cpp                     \
+        IO/KNX/KNXOutputShutterSmart.h                  \
+        IO/KNX/KNXOutputShutterSmart.cpp                \
         IO/LAN/PingInputSwitch.cpp                      \
         IO/LAN/PingInputSwitch.h                        \
         IO/LAN/WOLOutputBool.cpp                        \

@@ -39,8 +39,6 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
     ioDoc->paramAdd("knx_group_green", _("Green channel KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("knx_group_blue", _("Blue channel KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
-
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)
@@ -52,8 +50,6 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
 //        EmitSignalIO();
 //        emitChange();
     });
-
-    cInfoDom("input") << "knx_group: " << knx_group;
 }
 
 KNXOutputLightRGB::~KNXOutputLightRGB()
