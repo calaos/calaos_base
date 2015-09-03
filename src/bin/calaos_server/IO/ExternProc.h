@@ -84,6 +84,7 @@ public:
     sigc::signal<void, const string &> messageReceived;
 
     void startProcess(const string &process, const string &name, const string &args);
+    void terminate();
 
     sigc::signal<void> processExited;
 

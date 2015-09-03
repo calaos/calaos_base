@@ -144,6 +144,11 @@ ExternProcServer::~ExternProcServer()
     ecore_file_unlink(sockpath.c_str());
 }
 
+void ExternProcServer::terminate()
+{
+    ecore_exe_terminate(process_exe);
+}
+
 void ExternProcServer::sendMessage(const string &data)
 {
     for (Ecore_Con_Client *client : clientList)
