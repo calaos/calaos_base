@@ -18,22 +18,22 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "KNXOutputLight.h"
+#include "KNXOutputLightDimmer.h"
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
 using namespace Calaos;
 
-REGISTER_IO(KNXOutputLight)
+REGISTER_IO(KNXOutputLightDimmer)
 
-KNXOutputLight::KNXOutputLight(Params &p):
-    OutputLight(p)
+KNXOutputLightDimmer::KNXOutputLightDimmer(Params &p):
+    OutputLightDimmer(p)
 {
     useRealState = true;
 
     // Define IO documentation
-    ioDoc->friendlyNameSet("KNXOutputLight");
-    ioDoc->descriptionSet(_("Light output with KNX and eibnetmux"));
+    ioDoc->friendlyNameSet("KNXOutputLightDimmer");
+    ioDoc->descriptionSet(_("Light dimmer with KNX and eibnetmux"));
     ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
@@ -41,25 +41,26 @@ KNXOutputLight::KNXOutputLight(Params &p):
 
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
 
-    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &val)
+    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)
     {
         if (group_addr != get_param("knx_group")) return;
-        if (val.toBool())
-            set_value(string("set_state true"));
-        else
-            set_value(string("set_state false"));
+        KNXValue val = v;
+        val.setEis(KNXValue::EIS_Dim_UpDown);
+        value = val.toInt();
+        EmitSignalIO();
+        emitChange();
     });
 
     cInfoDom("input") << "knx_group: " << knx_group;
 }
 
-KNXOutputLight::~KNXOutputLight()
+KNXOutputLightDimmer::~KNXOutputLightDimmer()
 {
 }
 
-bool KNXOutputLight::set_value_real(bool val)
+bool KNXOutputLightDimmer::set_value_real(int val)
 {
-    KNXValue kval = KNXValue::fromInt(val?1:0, 1);
+    KNXValue kval = KNXValue::fromInt(val?1:0, KNXValue::EIS_Dim_UpDown);
 
     string knx_group = get_param("knx_group");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);

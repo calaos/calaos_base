@@ -244,9 +244,11 @@ bool OutputLightDimmer::set_value(std::string val)
     else
         return false;
 
-    EmitSignalIO();
-
-    emitChange();
+    if (!useRealState)
+    {
+        EmitSignalIO();
+        emitChange();
+    }
 
     return ret;
 }

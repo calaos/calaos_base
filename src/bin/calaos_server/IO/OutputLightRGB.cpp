@@ -302,8 +302,11 @@ void OutputLightRGB::setColor(const ColorValue &c, bool s)
 
     setColorReal(c, s);
 
-    EmitSignalIO();
-    emitChange();
+    if (!useRealState)
+    {
+        EmitSignalIO();
+        emitChange();
+    }
 }
 
 void OutputLightRGB::TimerAutoChange()

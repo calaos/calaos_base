@@ -45,6 +45,13 @@ protected:
     bool press_sens;
     bool stop_after_press;
 
+    //By default when calaos set state for an output,
+    //it automatically update and emit an event.
+    //If changing this bool, calaos will not send the
+    //event, but the underlying class has to handle that
+    //(real event from hw)
+    bool useRealState = false;
+
     void TimerImpulse();
     void TimerImpulseExtended();
 
