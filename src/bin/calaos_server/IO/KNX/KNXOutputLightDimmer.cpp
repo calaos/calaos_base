@@ -60,7 +60,7 @@ KNXOutputLightDimmer::~KNXOutputLightDimmer()
 
 bool KNXOutputLightDimmer::set_value_real(int val)
 {
-    KNXValue kval = KNXValue::fromInt(val?1:0, KNXValue::EIS_Dim_UpDown);
+    KNXValue kval = KNXValue::fromInt(val, KNXValue::EIS_Dim_UpDown);
 
     string knx_group = get_param("knx_group");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);
