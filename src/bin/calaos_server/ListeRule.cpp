@@ -108,7 +108,7 @@ Eina_Bool _execute_rule_signal_idler_cb(void *data)
 
 void ListeRule::ExecuteRuleSignal(std::string id)
 {
-    if (!mutex.try_lock())
+    if (execInProgress)
     {
         //We can't execute rules for now. Do it later.
         Rule_idler_cb *cb = new Rule_idler_cb;
@@ -120,6 +120,8 @@ void ListeRule::ExecuteRuleSignal(std::string id)
 
         return;
     }
+
+    execInProgress = true;
 
     cDebugDom("rule") << "Received signal for id " << id;
 
@@ -194,7 +196,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
         it.first->ExecuteActions();
     }
 
-    mutex.unlock();
+    execInProgress = false;
 }
 
 void ListeRule::RemoveRule(IOBase *obj)

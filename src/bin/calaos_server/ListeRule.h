@@ -31,7 +31,6 @@
 #include "ListeRoom.h"
 #include "Room.h"
 #include <Ecore.h>
-#include "Mutex.h"
 
 using namespace std;
 
@@ -55,12 +54,12 @@ protected:
     //Rules for autoscenario
     list<Rule *> rules_scenarios;
 
-    bool loop;
+    bool loop = false;
 
-    Mutex mutex;
+    bool execInProgress = false;
 
-    ListeRule(): loop(false), mutex(false)
-      { cDebugDom("rule"); }
+    ListeRule()
+    { }
 
 public:
     //singleton
