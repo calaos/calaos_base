@@ -37,7 +37,7 @@ private:
 
     //These are declared inputs that will trigger the rule execution
     //Most generaly, inputs are those used in the script
-    vector<IOBase *> in_event;
+    unordered_map<IOBase *, IOBase *> in_event;
 
 public:
     ConditionScript();
@@ -48,8 +48,7 @@ public:
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
 
-    IOBase *get_input(int i) { return in_event[i]; }
-    int get_size() { return in_event.size(); }
+    bool containsTriggerIO(IOBase *io);
 };
 
 }

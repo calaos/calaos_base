@@ -168,15 +168,12 @@ void ListeRule::ExecuteRuleSignal(std::string id)
                 }
             }
 
-            ConditionScript *scond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
-            for (int k = 0;scond && k < scond->get_size();k++)
+            ConditionScript *script_cond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
+            if (script_cond &&
+                script_cond->containsTriggerIO(ListeRoom::Instance().get_io(id)) &&
+                rule->CheckConditions())
             {
-                if (scond->get_input(k)->get_param("id") == id &&
-                    rule->CheckConditions())
-                {
-                    if (execRules.find(rule) == execRules.end())
-                        execRules[rule] = true;
-                }
+                execRules[rule] = true;
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));

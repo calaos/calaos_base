@@ -39,6 +39,12 @@ bool ConditionScript::Evaluate()
     return ScriptManager::Instance().ExecuteScript(script);
 }
 
+bool ConditionScript::containsTriggerIO(IOBase *io)
+{
+    auto it = in_event.find(io);
+    return it != in_event.end();
+}
+
 bool ConditionScript::LoadFromXml(TiXmlElement *node)
 {
     TiXmlElement *sc_node = node->FirstChildElement();
@@ -64,7 +70,8 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
         {
             string id = sc_node->Attribute("id");
             IOBase *in = ListeRoom::Instance().get_io(id);
-            if (in) in_event.push_back(in);
+            if (in)
+                in_event[in] = in;
         }
     }
 
@@ -77,10 +84,11 @@ bool ConditionScript::SaveToXml(TiXmlElement *node)
     cond_node->SetAttribute("type", "script");
     node->LinkEndChild(cond_node);
 
-    for (uint i = 0;i < in_event.size();i++)
+    for (auto it: in_event)
     {
+        IOBase *io = it.first;
         TiXmlElement *in_node = new TiXmlElement("calaos:input");
-        in_node->SetAttribute("id", in_event[i]->get_param("id"));
+        in_node->SetAttribute("id", io->get_param("id"));
         cond_node->LinkEndChild(in_node);
     }
 
