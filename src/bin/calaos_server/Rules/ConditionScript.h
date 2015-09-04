@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "Condition.h"
 #include "ScriptManager.h"
+#include "IOBase.h"
 
 using namespace std;
 
@@ -44,11 +45,13 @@ public:
     virtual ~ConditionScript();
 
     virtual bool Evaluate();
+    void EvaluateAsync(std::function<void(bool eval)> cb);
 
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
 
     bool containsTriggerIO(IOBase *io);
+
 };
 
 }

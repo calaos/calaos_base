@@ -339,6 +339,20 @@ calaos_server_LDADD =                                   \
 
 calaos_server_LDFLAGS = -rdynamic
 
+bin_PROGRAMS += calaos_script
+calaos_script_SOURCES = \
+	LuaScript/ScriptExtern_main.cpp \
+	LuaScript/ScriptManager.h \
+	LuaScript/ScriptManager.cpp \
+	LuaScript/ScriptBindings.h \
+	LuaScript/ScriptBindings.cpp \
+	IO/ExternProc.cpp \
+	IO/ExternProc.h
+
+ calaos_script_LDADD = \
+ 	@CALAOS_SERVER_LIBS@ \
+ 	$(top_builddir)/src/lib/libcalaos_common.la
+
 bin_PROGRAMS += calaos_wago
 calaos_wago_SOURCES = \
 	IO/ExternProc.cpp                               \

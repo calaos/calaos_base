@@ -20,6 +20,8 @@
  ******************************************************************************/
 #include "ScriptManager.h"
 #include <setjmp.h>
+#include "Prefix.h"
+#include "EcoreTimer.h"
 
 using namespace Calaos;
 
@@ -36,7 +38,7 @@ ScriptManager::~ScriptManager()
     cDebugDom("script.lua");
 }
 
-bool ScriptManager::ExecuteScript(string script)
+bool ScriptManager::ExecuteScript(const string &script)
 {
     bool ret = true;
     errorScript = true;
@@ -159,4 +161,60 @@ bool ScriptManager::ExecuteScript(string script)
     lua_close(L);
 
     return ret;
+}
+
+ExternProcServer *ScriptManager::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
+{
+    ExternProcServer *process = new ExternProcServer("lua");
+
+    process->messageReceived.connect([=](const string &msg)
+    {
+        json_error_t jerr;
+        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+
+        if (!jroot || !json_is_object(jroot))
+        {
+            cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
+            if (jroot)
+                json_decref(jroot);
+            return;
+        }
+
+        string mtype = jansson_string_get(jroot, "type");
+
+        if (mtype == "finished")
+        {
+            cInfoDom("lua") << "LUA script finished.";
+            string ret = jansson_string_get(jroot, "return_val", "false");
+            cb(ret == "true"); //process finished, call callback, process will be deleted later
+        }
+    });
+
+    process->processExited.connect([=]()
+    {
+        cInfoDom("lua") << "LUA process terminated.";
+        EcoreTimer::singleShot(0, [=]() { delete process; });
+    });
+
+    //when process is connected, send the script to be executed
+    process->processConnected.connect([=]()
+    {
+        Params p = {{ "type", "execute" },
+                    { "script", script } };
+
+        json_t *jroot = p.toJson();
+        json_object_set_new(jroot, "context", json_string("TODO"));
+
+        //TODO: send the full calaos context here. (using JsonApi) to the process
+        //after connect process to calaos events, and send him event so the process
+        //can update its local cache of IO states.
+
+        string m = jansson_to_string(jroot);
+        process->sendMessage(m);
+    });
+
+    string exe = Prefix::Instance().binDirectoryGet() + "/calaos_script";
+    process->startProcess(exe, "lua", string());
+
+    return process;
 }

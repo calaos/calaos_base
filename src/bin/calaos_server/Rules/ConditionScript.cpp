@@ -36,7 +36,16 @@ ConditionScript::~ConditionScript()
 
 bool ConditionScript::Evaluate()
 {
-    return ScriptManager::Instance().ExecuteScript(script);
+    cError() << "Scripts needs to be evaluated using EvaluateAsync() !";
+    return false;
+}
+
+void ConditionScript::EvaluateAsync(std::function<void(bool eval)> cb)
+{
+    ScriptManager::Instance().ExecuteScriptDetached(script, [=](bool ret)
+    {
+        cb(ret);
+    });
 }
 
 bool ConditionScript::containsTriggerIO(IOBase *io)

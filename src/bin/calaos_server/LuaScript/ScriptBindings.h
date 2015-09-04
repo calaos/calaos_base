@@ -21,10 +21,9 @@
 #ifndef SCRIPTBINDINGS_H
 #define SCRIPTBINDINGS_H
 
-#include "Calaos.h"
+#include "Utils.h"
 #include "lua.hpp"
 #include "Lunar.h"
-#include "IOBase.h"
 #include <Ecore.h>
 
 namespace Calaos

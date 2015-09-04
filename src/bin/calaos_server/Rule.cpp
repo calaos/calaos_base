@@ -83,6 +83,61 @@ bool Rule::CheckConditions()
     return ret;
 }
 
+void Rule::CheckConditionsAsync(std::function<void (bool check)> cb)
+{
+    //this works only for scripts because they need
+    //to be executed in separate process
+
+    //first step is to get all non-async conditions and evaluate them
+    //if one is failing, stops immediatly.
+    //then we can start all scripts in parallel
+
+    list<ConditionScript *> cond_scripts;
+
+    for (Condition *condition: conds)
+    {
+        ConditionScript *script_cond = dynamic_cast<ConditionScript *>(condition);
+
+        if (script_cond)
+            cond_scripts.push_back(script_cond);
+        else
+        {
+            if (!condition->Evaluate())
+            {
+                cb(false);
+                return; //short path, return immediatly because on of the standard condition fails
+            }
+        }
+    }
+
+    //At this point all normal condition are evaluated and valid,
+    //start all condition script
+    typedef struct //_EvalResult
+    {
+        bool result = true;
+        int remaining = 0;
+    } EvalResult;
+
+    EvalResult *res = new EvalResult;
+    res->remaining = cond_scripts.size();
+
+    for (ConditionScript *cond: cond_scripts)
+    {
+        cond->EvaluateAsync([=](bool eval)
+        {
+            if (!eval)
+                res->result = false;
+            res->remaining--;
+            if (res->remaining <= 0)
+            {
+                bool r = res->result;
+                delete res;
+                cb(r);
+            }
+        });
+    }
+}
+
 bool Rule::ExecuteActions()
 {
     bool ret = true;

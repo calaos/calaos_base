@@ -19,8 +19,8 @@
  **
  ******************************************************************************/
 #include "ScriptBindings.h"
-#include "ListeRoom.h"
 #include "ScriptManager.h"
+#include "FileDownloader.h"
 
 using namespace Calaos;
 
@@ -145,30 +145,30 @@ int Lua_Calaos::getInputValue(lua_State *L)
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-        string o = lua_tostring(L, 1);
-        IOBase *input = ListeRoom::Instance().get_io(o);
+//        string o = lua_tostring(L, 1);
+//        IOBase *input = ListeRoom::Instance().get_io(o);
 
-        if (!input)
-        {
-            string err = "getInputValue(): invalid input";
-            lua_pushstring(L, err.c_str());
-            lua_error(L);
-        }
-        else
-        {
-            switch (input->get_type())
-            {
-            case TINT: lua_pushnumber(L, input->get_value_double()); break;
-            case TBOOL: lua_pushboolean(L, input->get_value_bool()); break;
-            case TSTRING: lua_pushstring(L, input->get_value_string().c_str()); break;
-            default:
-            {
-                string err = "getInputValue(): invalid input";
-                lua_pushstring(L, err.c_str());
-                lua_error(L);
-            }
-            }
-        }
+//        if (!input)
+//        {
+//            string err = "getInputValue(): invalid input";
+//            lua_pushstring(L, err.c_str());
+//            lua_error(L);
+//        }
+//        else
+//        {
+//            switch (input->get_type())
+//            {
+//            case TINT: lua_pushnumber(L, input->get_value_double()); break;
+//            case TBOOL: lua_pushboolean(L, input->get_value_bool()); break;
+//            case TSTRING: lua_pushstring(L, input->get_value_string().c_str()); break;
+//            default:
+//            {
+//                string err = "getInputValue(): invalid input";
+//                lua_pushstring(L, err.c_str());
+//                lua_error(L);
+//            }
+//            }
+//        }
     }
     else
     {
@@ -186,30 +186,30 @@ int Lua_Calaos::getOutputValue(lua_State *L)
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-        string o = lua_tostring(L, 1);
-        IOBase *output = ListeRoom::Instance().get_io(o);
+//        string o = lua_tostring(L, 1);
+//        IOBase *output = ListeRoom::Instance().get_io(o);
 
-        if (!output)
-        {
-            string err = "getOutputValue(): invalid output";
-            lua_pushstring(L, err.c_str());
-            lua_error(L);
-        }
-        else
-        {
-            switch (output->get_type())
-            {
-            case TINT: lua_pushnumber(L, output->get_value_double()); break;
-            case TBOOL: lua_pushboolean(L, output->get_value_bool()); break;
-            case TSTRING: lua_pushstring(L, output->get_value_string().c_str()); break;
-            default:
-            {
-                string err = "getOutputValue(): invalid input";
-                lua_pushstring(L, err.c_str());
-                lua_error(L);
-            }
-            }
-        }
+//        if (!output)
+//        {
+//            string err = "getOutputValue(): invalid output";
+//            lua_pushstring(L, err.c_str());
+//            lua_error(L);
+//        }
+//        else
+//        {
+//            switch (output->get_type())
+//            {
+//            case TINT: lua_pushnumber(L, output->get_value_double()); break;
+//            case TBOOL: lua_pushboolean(L, output->get_value_bool()); break;
+//            case TSTRING: lua_pushstring(L, output->get_value_string().c_str()); break;
+//            default:
+//            {
+//                string err = "getOutputValue(): invalid input";
+//                lua_pushstring(L, err.c_str());
+//                lua_error(L);
+//            }
+//            }
+//        }
     }
     else
     {
@@ -227,30 +227,30 @@ int Lua_Calaos::setOutputValue(lua_State *L)
 
     if (nb == 2 && lua_isstring(L, 1))
     {
-        string o = lua_tostring(L, 1);
-        IOBase *output = ListeRoom::Instance().get_io(o);
+//        string o = lua_tostring(L, 1);
+//        IOBase *output = ListeRoom::Instance().get_io(o);
 
-        if (!output)
-        {
-            string err = "getOutputValue(): invalid output";
-            lua_pushstring(L, err.c_str());
-            lua_error(L);
-        }
-        else
-        {
-            if (lua_isnumber(L, 2))
-                output->set_value(lua_tonumber(L, 2));
-            else if (lua_isboolean(L, 2))
-                output->set_value((bool)lua_toboolean(L, 2));
-            else if (lua_isstring(L, 2))
-                output->set_value(Utils::to_string(lua_tostring(L, 2)));
-            else
-            {
-                string err = "setOutputValue(): wrong value";
-                lua_pushstring(L, err.c_str());
-                lua_error(L);
-            }
-        }
+//        if (!output)
+//        {
+//            string err = "getOutputValue(): invalid output";
+//            lua_pushstring(L, err.c_str());
+//            lua_error(L);
+//        }
+//        else
+//        {
+//            if (lua_isnumber(L, 2))
+//                output->set_value(lua_tonumber(L, 2));
+//            else if (lua_isboolean(L, 2))
+//                output->set_value((bool)lua_toboolean(L, 2));
+//            else if (lua_isstring(L, 2))
+//                output->set_value(Utils::to_string(lua_tostring(L, 2)));
+//            else
+//            {
+//                string err = "setOutputValue(): wrong value";
+//                lua_pushstring(L, err.c_str());
+//                lua_error(L);
+//            }
+//        }
     }
     else
     {
@@ -270,14 +270,16 @@ int Lua_Calaos::requestUrl(lua_State *L)
     {
         string url = lua_tostring(L, 1);
 
-        CallUrl(url);
+        FileDownloader *downloader = new FileDownloader(url, string(), "text/plain", true);
+        downloader->Start();
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
         string url = lua_tostring(L, 1);
         string post_data = lua_tostring(L, 2);
 
-        CallUrl(url, post_data);
+        FileDownloader *downloader = new FileDownloader(url, post_data, "text/plain", true);
+        downloader->Start();
     }
     else
     {

@@ -81,12 +81,12 @@ public:
 
     void sendMessage(const string &data);
 
-    sigc::signal<void, const string &> messageReceived;
-
-    void startProcess(const string &process, const string &name, const string &args);
+    void startProcess(const string &process, const string &name, const string &args = string());
     void terminate();
 
+    sigc::signal<void, const string &> messageReceived;
     sigc::signal<void> processExited;
+    sigc::signal<void> processConnected;
 
 private:
     Ecore_Con_Server *ipcServer;

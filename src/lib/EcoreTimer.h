@@ -48,6 +48,7 @@ public:
     ~EcoreTimer();
 
     static void singleShot(double time, sigc::slot<void> slot);
+    static void idler(sigc::slot<void> slot);
 
     void Reset();
     void Reset(double time);

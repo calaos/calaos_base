@@ -94,4 +94,3 @@ void EcoreTimer::singleShot(double time, sigc::slot<void> slot)
     }, nullptr);
     timer->data = timer;
 }
-

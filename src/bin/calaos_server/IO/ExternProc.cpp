@@ -36,6 +36,7 @@ Eina_Bool ExternProcServer_con_add(void *data, int type, void *event)
         return ECORE_CALLBACK_PASS_ON;
 
     ex->clientList.push_back(ev->client);
+    ex->processConnected.emit();
 
     return ECORE_CALLBACK_DONE;
 }

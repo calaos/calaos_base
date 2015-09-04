@@ -24,6 +24,7 @@
 #include "Utils.h"
 #include "Ecore.h"
 #include "ScriptBindings.h"
+#include "ExternProc.h"
 
 namespace Calaos
 {
@@ -35,47 +36,49 @@ namespace Calaos
 
 static const luaL_Reg lua_libs[] =
 {
-        { "", luaopen_base },
-        // { LUA_LOADLIBNAME, luaopen_package },
-        { LUA_TABLIBNAME, luaopen_table },
-        // { LUA_IOLIBNAME, luaopen_io },
-        { LUA_OSLIBNAME, luaopen_os },
-        { LUA_STRLIBNAME, luaopen_string },
-        { LUA_MATHLIBNAME, luaopen_math },
-        // { LUA_DBLIBNAME, luaopen_debug },
+    { "", luaopen_base },
+    // { LUA_LOADLIBNAME, luaopen_package },
+    { LUA_TABLIBNAME, luaopen_table },
+    // { LUA_IOLIBNAME, luaopen_io },
+    { LUA_OSLIBNAME, luaopen_os },
+    { LUA_STRLIBNAME, luaopen_string },
+    { LUA_MATHLIBNAME, luaopen_math },
+    // { LUA_DBLIBNAME, luaopen_debug },
 
-        { NULL, NULL }
+    { NULL, NULL }
 };
 
 class ScriptManager
 {
-        private:
-                ScriptManager();
+private:
+    ScriptManager();
 
-                bool errorScript;
-                string errorMsg;
+    bool errorScript;
+    string errorMsg;
 
-        public:
-                static ScriptManager &Instance()
-                {
-                        static ScriptManager sm;
-                        return sm;
-                }
+public:
+    static ScriptManager &Instance()
+    {
+        static ScriptManager sm;
+        return sm;
+    }
 
-                ~ScriptManager();
+    ~ScriptManager();
 
-                /** Execute script and return true or false depending on
+    /** Execute script and return true or false depending on
                   * the return value of the script
                   */
-                bool ExecuteScript(string script);
+    bool ExecuteScript(const string &script);
 
-                /** Retrieve the last error message
+    ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb);
+
+    /** Retrieve the last error message
                   */
-                string getErrorMsg() { return errorMsg; }
+    string getErrorMsg() { return errorMsg; }
 
-                bool hasError() { return errorScript; }
+    bool hasError() { return errorScript; }
 
-                static double start_time;
+    static double start_time;
 };
 
 }

@@ -127,9 +127,8 @@ void ListeRule::ExecuteRuleSignal(std::string id)
 
     unordered_map<Rule *, bool> execRules;
 
-    for (uint i = 0;i < rules.size();i++)
+    for (Rule *rule: rules)
     {
-        Rule *rule = rules[i];
         for (int j = 0;j < rule->get_size_conds();j++)
         {
             ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(j));
@@ -170,10 +169,16 @@ void ListeRule::ExecuteRuleSignal(std::string id)
 
             ConditionScript *script_cond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
             if (script_cond &&
-                script_cond->containsTriggerIO(ListeRoom::Instance().get_io(id)) &&
-                rule->CheckConditions())
+                script_cond->containsTriggerIO(ListeRoom::Instance().get_io(id)))
             {
-                execRules[rule] = true;
+                rule->CheckConditionsAsync([=](bool check)
+                {
+                    if (!check) return;
+                    //lock execution and execute rule
+                    execInProgress = true;
+                    rule->ExecuteActions();
+                    execInProgress = false;
+                });
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));
