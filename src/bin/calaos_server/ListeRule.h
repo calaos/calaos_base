@@ -37,12 +37,6 @@ using namespace std;
 namespace Calaos
 {
 
-typedef struct _rule_idler_cb
-{
-    string input;
-    Ecore_Idler *idler;
-} Rule_idler_cb;
-
 class ListeRule: public sigc::trackable
 {
 protected:

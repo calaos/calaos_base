@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -21,7 +21,7 @@
 #ifndef CALAOS_ECORE_TIMER_h
 #define CALAOS_ECORE_TIMER_h
 
-#include <Utils.h>
+#include "Utils.h"
 #include <sigc++/sigc++.h>
 #include <Ecore.h>
 
@@ -48,7 +48,6 @@ public:
     ~EcoreTimer();
 
     static void singleShot(double time, sigc::slot<void> slot);
-    static void idler(sigc::slot<void> slot);
 
     void Reset();
     void Reset(double time);
@@ -57,6 +56,37 @@ public:
     void Tick();
 
     double getTime() { return time; }
+};
+
+class EcoreIdler
+{
+private:
+    Ecore_Idler *eidler = nullptr;
+    Ecore_Idle_Enterer *eidle_enterer = nullptr;
+    Ecore_Idle_Exiter *eidle_exiter = nullptr;
+
+    int idleType;
+
+    void createIdler(int type);
+    friend Eina_Bool EcoreIdler_idler_cb(void *data);
+
+public:
+    EcoreIdler(int idle_type, sigc::slot<void> slot);
+    EcoreIdler(int idle_type);
+    ~EcoreIdler();
+
+    static void singleIdler(sigc::slot<void> slot);
+    static void singleIdleEnterer(sigc::slot<void> slot);
+    static void singleIdleExiter(sigc::slot<void> slot);
+
+    sigc::signal<void> idlerCallback;
+
+    enum
+    {
+        Idler,
+        IdleEnterer,
+        IdleExiter,
+    };
 };
 
 #endif

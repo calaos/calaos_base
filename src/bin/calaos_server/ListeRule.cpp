@@ -93,31 +93,17 @@ void ListeRule::StopLoop()
     loop = false;
 }
 
-Eina_Bool _execute_rule_signal_idler_cb(void *data)
-{
-    Rule_idler_cb *cb = reinterpret_cast<Rule_idler_cb *>(data);
-    if (!cb) return ECORE_CALLBACK_CANCEL;
-
-    ListeRule::Instance().ExecuteRuleSignal(cb->input);
-
-    delete cb;
-
-    //delete the ecore_idler
-    return ECORE_CALLBACK_CANCEL;
-}
-
 void ListeRule::ExecuteRuleSignal(std::string id)
 {
     if (execInProgress)
     {
         //We can't execute rules for now. Do it later.
-        Rule_idler_cb *cb = new Rule_idler_cb;
-
-        cb->input = id;
-        cb->idler = ecore_idler_add(_execute_rule_signal_idler_cb, cb);
+        EcoreIdler::singleIdler([=]()
+        {
+            ListeRule::Instance().ExecuteRuleSignal(id);
+        });
 
         cDebugDom("rule") << "Mutex locked, execute rule later for input " << id;
-
         return;
     }
 

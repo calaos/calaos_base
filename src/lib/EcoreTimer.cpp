@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,7 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <EcoreTimer.h>
+#include "EcoreTimer.h"
 
 static Eina_Bool _calaos_timer_event(void *data)
 {
@@ -93,4 +93,79 @@ void EcoreTimer::singleShot(double time, sigc::slot<void> slot)
         }
     }, nullptr);
     timer->data = timer;
+}
+
+EcoreIdler::EcoreIdler(int idle_type, sigc::slot<void> slot)
+{
+    idlerCallback.connect(slot);
+    createIdler(idle_type);
+}
+
+EcoreIdler::EcoreIdler(int idle_type)
+{
+    createIdler(idle_type);
+}
+
+EcoreIdler::~EcoreIdler()
+{
+    switch (idleType)
+    {
+    case Idler: if (eidler) ecore_idler_del(eidler); break;
+    case IdleEnterer: if (eidle_enterer) ecore_idle_enterer_del(eidle_enterer); break;
+    case IdleExiter: if (eidle_exiter) ecore_idle_exiter_del(eidle_exiter); break;
+    break;
+    }
+}
+
+Eina_Bool EcoreIdler_idler_cb(void *data)
+{
+    EcoreIdler *o = reinterpret_cast<EcoreIdler *>(data);
+    if (o)
+    {
+        o->idlerCallback.emit();
+    }
+
+    return ECORE_CALLBACK_RENEW;
+}
+
+void EcoreIdler::createIdler(int type)
+{
+    idleType = type;
+    switch (idleType)
+    {
+    case Idler: eidler = ecore_idler_add(EcoreIdler_idler_cb, this); break;
+    case IdleEnterer: eidle_enterer = ecore_idle_enterer_add(EcoreIdler_idler_cb, this); break;
+    case IdleExiter: eidle_exiter = ecore_idle_exiter_add(EcoreIdler_idler_cb, this); break;
+    break;
+    }
+}
+
+void EcoreIdler::singleIdler(sigc::slot<void> slot)
+{
+    EcoreIdler *o = new EcoreIdler(Idler);
+    o->idlerCallback.connect([=]()
+    {
+        slot();
+        delete o;
+    });
+}
+
+void EcoreIdler::singleIdleEnterer(sigc::slot<void> slot)
+{
+    EcoreIdler *o = new EcoreIdler(IdleEnterer);
+    o->idlerCallback.connect([=]()
+    {
+        slot();
+        delete o;
+    });
+}
+
+void EcoreIdler::singleIdleExiter(sigc::slot<void> slot)
+{
+    EcoreIdler *o = new EcoreIdler(IdleExiter);
+    o->idlerCallback.connect([=]()
+    {
+        slot();
+        delete o;
+    });
 }
