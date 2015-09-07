@@ -34,7 +34,12 @@ ActionScript::~ActionScript()
 
 bool ActionScript::Execute()
 {
-    return ScriptManager::Instance().ExecuteScript(script);
+    ScriptManager::Instance().ExecuteScriptDetached(script, [=](bool ret)
+    {
+        cInfoDom("rule.action.script") << "Script finished with " << (ret?"true":"false");
+    });
+
+    return true;
 }
 
 bool ActionScript::LoadFromXml(TiXmlElement *pnode)

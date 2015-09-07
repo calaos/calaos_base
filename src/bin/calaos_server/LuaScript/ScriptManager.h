@@ -29,25 +29,6 @@
 namespace Calaos
 {
 
-//The maximum number of second a script can take to do his duty
-//After that, it will be stopped.
-#define SCRIPT_MAX_EXEC_TIME    2.0
-
-
-static const luaL_Reg lua_libs[] =
-{
-    { "", luaopen_base },
-    // { LUA_LOADLIBNAME, luaopen_package },
-    { LUA_TABLIBNAME, luaopen_table },
-    // { LUA_IOLIBNAME, luaopen_io },
-    { LUA_OSLIBNAME, luaopen_os },
-    { LUA_STRLIBNAME, luaopen_string },
-    { LUA_MATHLIBNAME, luaopen_math },
-    // { LUA_DBLIBNAME, luaopen_debug },
-
-    { NULL, NULL }
-};
-
 class ScriptManager
 {
 private:
@@ -65,15 +46,17 @@ public:
 
     ~ScriptManager();
 
-    /** Execute script and return true or false depending on
-                  * the return value of the script
-                  */
+    /* Execute script and return true or false depending on
+     * the return value of the script
+     */
     bool ExecuteScript(const string &script);
 
+    /* Execute the script in a detached process (calaos_script)
+     * Communication is done with ExternProc
+     */
     ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb);
 
-    /** Retrieve the last error message
-                  */
+    /** Retrieve the last error message */
     string getErrorMsg() { return errorMsg; }
 
     bool hasError() { return errorScript; }

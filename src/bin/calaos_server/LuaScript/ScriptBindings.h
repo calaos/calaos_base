@@ -25,9 +25,34 @@
 #include "lua.hpp"
 #include "Lunar.h"
 #include <Ecore.h>
+#include "ExternProc.h"
 
 namespace Calaos
 {
+
+//strip down version of IOBase for LUA extern proc
+class LuaIOBase
+{
+public:
+    LuaIOBase(ExternProcClient *e):
+        extClient(e)
+    {}
+
+    Params params;
+
+    bool get_value_bool();
+    double get_value_double();
+    string get_value_string();
+
+    void set_value(bool val);
+    void set_value(double val);
+    void set_value(std::string val);
+
+private:
+    ExternProcClient *extClient;
+
+    void sendJson(const string &msg_type, const Params &param);
+};
 
 int Lua_print(lua_State *L);
 void Lua_DebugHook(lua_State *L, lua_Debug *ar);
@@ -42,17 +67,16 @@ private:
     static const char className[];
     static Lunar<Lua_Calaos>::RegType methods[];
 
+    unordered_map<string, LuaIOBase *> ioMap;
+
 public:
     Lua_Calaos();
     Lua_Calaos(lua_State *L);
     ~Lua_Calaos();
 
-    /* Output set/get */
-    int getOutputValue(lua_State *L);
-    int setOutputValue(lua_State *L);
-
-    /* Input get */
-    int getInputValue(lua_State *L);
+    /* IO set/get */
+    int getIOValue(lua_State *L);
+    int setIOValue(lua_State *L);
 
     /* Urel request */
     int requestUrl(lua_State *L);

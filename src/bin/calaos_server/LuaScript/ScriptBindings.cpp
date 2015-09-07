@@ -88,30 +88,27 @@ int Calaos::Lua_print(lua_State *L)
 
 void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
 {
-    double time;
-
-#ifndef CALAOS_INSTALLER
-    time = ecore_time_get();
-#else
-    QTime t = QTime::currentTime();
-    time = (double)t.second() + (((double) t.msec()) / 1000);
-#endif
-
-    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
-    {
-        string err = "Aborting script, takes too much time to execute (";
-        err += Utils::to_string(time - ScriptManager::start_time) + " sec.)";
-
-        lua_pushstring(L, err.c_str());
-        lua_error(L);
-    }
+//    double time;
+//
+//    time = ecore_time_get();
+//
+//    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
+//    {
+//        string err = "Aborting script, takes too much time to execute (";
+//        err += Utils::to_string(time - ScriptManager::start_time) + " sec.)";
+//
+//        lua_pushstring(L, err.c_str());
+//        lua_error(L);
+//    }
 }
 
 Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
 {
-    { "getOutputValue", &Lua_Calaos::getOutputValue },
-    { "setOutputValue", &Lua_Calaos::setOutputValue },
-    { "getInputValue", &Lua_Calaos::getInputValue },
+    { "getOutputValue", &Lua_Calaos::getIOValue },
+    { "setOutputValue", &Lua_Calaos::setIOValue },
+    { "getInputValue", &Lua_Calaos::getIOValue },
+    { "getIOValue", &Lua_Calaos::getIOValue },
+    { "setIOValue", &Lua_Calaos::setIOValue },
     { "requestUrl", &Lua_Calaos::requestUrl },
     { 0, 0 }
 };
@@ -139,40 +136,39 @@ Lua_Calaos::~Lua_Calaos()
 #endif
 }
 
-int Lua_Calaos::getInputValue(lua_State *L)
+int Lua_Calaos::getIOValue(lua_State *L)
 {
     int nb = lua_gettop(L);
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-//        string o = lua_tostring(L, 1);
-//        IOBase *input = ListeRoom::Instance().get_io(o);
-
-//        if (!input)
-//        {
-//            string err = "getInputValue(): invalid input";
-//            lua_pushstring(L, err.c_str());
-//            lua_error(L);
-//        }
-//        else
-//        {
-//            switch (input->get_type())
-//            {
-//            case TINT: lua_pushnumber(L, input->get_value_double()); break;
-//            case TBOOL: lua_pushboolean(L, input->get_value_bool()); break;
-//            case TSTRING: lua_pushstring(L, input->get_value_string().c_str()); break;
-//            default:
-//            {
-//                string err = "getInputValue(): invalid input";
-//                lua_pushstring(L, err.c_str());
-//                lua_error(L);
-//            }
-//            }
-//        }
+        string o = lua_tostring(L, 1);
+        if (ioMap.find(o) == ioMap.end())
+        {
+            string err = "getIOValue(): invalid IO id";
+            lua_pushstring(L, err.c_str());
+            lua_error(L);
+        }
+        else
+        {
+            LuaIOBase *io = ioMap[o];
+            if (io->params["io_type"] == "float")
+                lua_pushnumber(L, io->get_value_double());
+            else if (io->params["io_type"] == "bool")
+                lua_pushboolean(L, io->get_value_bool());
+            else if (io->params["io_type"] == "string")
+                lua_pushstring(L, io->get_value_string().c_str());
+            else
+            {
+                string err = "getIOValue(): invalid IO id";
+                lua_pushstring(L, err.c_str());
+                lua_error(L);
+            }
+        }
     }
     else
     {
-        string err = "getInputValue(): invalid argument. Requires an Input ID.";
+        string err = "getIOValue(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -180,81 +176,39 @@ int Lua_Calaos::getInputValue(lua_State *L)
     return 1;
 }
 
-int Lua_Calaos::getOutputValue(lua_State *L)
-{
-    int nb = lua_gettop(L);
-
-    if (nb == 1 && lua_isstring(L, 1))
-    {
-//        string o = lua_tostring(L, 1);
-//        IOBase *output = ListeRoom::Instance().get_io(o);
-
-//        if (!output)
-//        {
-//            string err = "getOutputValue(): invalid output";
-//            lua_pushstring(L, err.c_str());
-//            lua_error(L);
-//        }
-//        else
-//        {
-//            switch (output->get_type())
-//            {
-//            case TINT: lua_pushnumber(L, output->get_value_double()); break;
-//            case TBOOL: lua_pushboolean(L, output->get_value_bool()); break;
-//            case TSTRING: lua_pushstring(L, output->get_value_string().c_str()); break;
-//            default:
-//            {
-//                string err = "getOutputValue(): invalid input";
-//                lua_pushstring(L, err.c_str());
-//                lua_error(L);
-//            }
-//            }
-//        }
-    }
-    else
-    {
-        string err = "getOutputValue(): invalid argument. Requires an Output ID.";
-        lua_pushstring(L, err.c_str());
-        lua_error(L);
-    }
-
-    return 1;
-}
-
-int Lua_Calaos::setOutputValue(lua_State *L)
+int Lua_Calaos::setIOValue(lua_State *L)
 {
     int nb = lua_gettop(L);
 
     if (nb == 2 && lua_isstring(L, 1))
     {
-//        string o = lua_tostring(L, 1);
-//        IOBase *output = ListeRoom::Instance().get_io(o);
-
-//        if (!output)
-//        {
-//            string err = "getOutputValue(): invalid output";
-//            lua_pushstring(L, err.c_str());
-//            lua_error(L);
-//        }
-//        else
-//        {
-//            if (lua_isnumber(L, 2))
-//                output->set_value(lua_tonumber(L, 2));
-//            else if (lua_isboolean(L, 2))
-//                output->set_value((bool)lua_toboolean(L, 2));
-//            else if (lua_isstring(L, 2))
-//                output->set_value(Utils::to_string(lua_tostring(L, 2)));
-//            else
-//            {
-//                string err = "setOutputValue(): wrong value";
-//                lua_pushstring(L, err.c_str());
-//                lua_error(L);
-//            }
-//        }
+        string o = lua_tostring(L, 1);
+        if (ioMap.find(o) == ioMap.end())
+        {
+            string err = "setIOValue(): invalid IO id";
+            lua_pushstring(L, err.c_str());
+            lua_error(L);
+        }
+        else
+        {
+            LuaIOBase *io = ioMap[o];
+            if (lua_isnumber(L, 2))
+                io->set_value((double)lua_tonumber(L, 2));
+            else if (lua_isboolean(L, 2))
+                io->set_value((bool)lua_toboolean(L, 2));
+            else if (lua_isstring(L, 2))
+                io->set_value(Utils::to_string(lua_tostring(L, 2)));
+            else
+            {
+                string err = "setIOValue(): invalid IO id";
+                lua_pushstring(L, err.c_str());
+                lua_error(L);
+            }
+        }
     }
     else
     {
-        string err = "getOutputValue(): invalid argument. Requires an Output ID.";
+        string err = "setIOValue(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -291,3 +245,52 @@ int Lua_Calaos::requestUrl(lua_State *L)
     return 0;
 }
 
+bool LuaIOBase::get_value_bool()
+{
+    return params["state"] == "true";
+}
+
+double LuaIOBase::get_value_double()
+{
+    double v = 0.0;
+    if (Utils::is_of_type<double>(params["state"]))
+        Utils::from_string(params["state"], v);
+    return v;
+}
+
+string LuaIOBase::get_value_string()
+{
+    return params["state"];
+}
+
+void LuaIOBase::set_value(bool val)
+{
+    Params p = {{ "id", params["id"] },
+                { "value", val?"true":"false" }};
+
+    sendJson("set_state", p);
+}
+
+void LuaIOBase::set_value(double val)
+{
+    Params p = {{ "id", params["id"] },
+                { "value", Utils::to_string(val) }};
+
+    sendJson("set_state", p);
+}
+
+void LuaIOBase::set_value(std::string val)
+{
+    Params p = {{ "id", params["id"] },
+                { "value", val }};
+
+    sendJson("set_state", p);
+}
+
+void LuaIOBase::sendJson(const string &msg_type, const Params &param)
+{
+    json_t *jroot = json_object();
+    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
+    json_object_set_new(jroot, "data", param.toJson());
+    extClient->sendMessage(jansson_to_string(jroot));
+}
