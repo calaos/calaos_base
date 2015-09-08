@@ -34,6 +34,8 @@ public:
 
 private:
 
+    sigc::connection evcon;
+
     sigc::signal<void, string, string, void*, void*> sig_events;
 
     void handleEvents(const CalaosEvent &event);

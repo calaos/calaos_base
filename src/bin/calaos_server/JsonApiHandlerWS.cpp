@@ -33,11 +33,12 @@
 JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
-    EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleEvents));
+    evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleEvents));
 }
 
 JsonApiHandlerWS::~JsonApiHandlerWS()
 {
+    evcon.disconnect();
 }
 
 void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
