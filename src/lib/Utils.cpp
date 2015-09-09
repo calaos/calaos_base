@@ -816,7 +816,9 @@ unsigned int Utils::getUptime()
 
 string Utils::createRandomUuid()
 {
-    srand(time(NULL));
+    struct timeval t1;
+    gettimeofday(&t1, NULL);
+    srand(t1.tv_usec * t1.tv_sec); //use a more accurate seed for srand.
     stringstream ssUuid;
 
     ssUuid << std::hex << std::setfill('0') ;
