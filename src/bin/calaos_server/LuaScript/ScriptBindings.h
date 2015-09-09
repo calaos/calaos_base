@@ -37,21 +37,24 @@ public:
     LuaIOBase(ExternProcClient *e):
         extClient(e)
     {}
+    LuaIOBase():
+        extClient(nullptr)
+    {}
 
     Params params;
 
-    bool get_value_bool();
-    double get_value_double();
-    string get_value_string();
+    bool get_value_bool() const;
+    double get_value_double() const ;
+    string get_value_string() const;
 
-    void set_value(bool val);
-    void set_value(double val);
-    void set_value(std::string val);
+    void set_value(bool val) const;
+    void set_value(double val) const;
+    void set_value(std::string val) const;
 
 private:
     ExternProcClient *extClient;
 
-    void sendJson(const string &msg_type, const Params &param);
+    void sendJson(const string &msg_type, const Params &param) const;
 };
 
 int Lua_print(lua_State *L);
@@ -67,12 +70,11 @@ private:
     static const char className[];
     static Lunar<Lua_Calaos>::RegType methods[];
 
-    unordered_map<string, LuaIOBase *> ioMap;
-
 public:
     Lua_Calaos();
     Lua_Calaos(lua_State *L);
-    ~Lua_Calaos();
+
+    unordered_map<string, LuaIOBase> ioMap;
 
     /* IO set/get */
     int getIOValue(lua_State *L);

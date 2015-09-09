@@ -341,9 +341,6 @@ void IOBase::sendUserCommand(const string &cmd, const Params &p, CommandDone_cb 
 
 void IOBase::notifyChange(const string &msgtype, const Params &evdata)
 {
-    vector<string> tok;
-    split(msgtype, tok);
-
     if (params["gui_type"] == "time_range" &&
         msgtype == "timerange_changed")
     {

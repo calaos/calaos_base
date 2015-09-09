@@ -18,49 +18,23 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef SCRIPTMANAGER_H
-#define SCRIPTMANAGER_H
+#ifndef SCRIPTEXEC_H
+#define SCRIPTEXEC_H
 
 #include "Utils.h"
-#include "Ecore.h"
-#include "ScriptBindings.h"
+#include "ExternProc.h"
 
-namespace Calaos
+class ScriptExec
 {
-
-class ScriptManager
-{
-private:
-    ScriptManager();
-
-    bool errorScript;
-    string errorMsg;
-
 public:
-    static ScriptManager &Instance()
-    {
-        static ScriptManager sm;
-        return sm;
-    }
 
-    /* Execute script and return true or false depending on
-     * the return value of the script
+    /* Execute the script in a detached process (calaos_script)
+     * Communication is done with ExternProc
      */
-    bool ExecuteScript(const string &script);
+    static ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb);
 
-    /** Retrieve the last error message */
-    string getErrorMsg() { return errorMsg; }
-
-    bool hasError() { return errorScript; }
-
-    static double start_time;
-
-    void LuaDebugHook(lua_State *L, lua_Debug *ar);
-
-    sigc::signal<void> debugHook;
-
-    Lua_Calaos luaCalaos;
+private:
+    ScriptExec() {}
 };
 
-}
-#endif
+#endif // SCRIPTEXEC_H

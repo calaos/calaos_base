@@ -30,6 +30,10 @@ JsonApi::JsonApi(HttpClient *client):
 {
 }
 
+JsonApi::JsonApi()
+{
+}
+
 JsonApi::~JsonApi()
 {
 }
@@ -106,6 +110,27 @@ json_t *JsonApi::buildJsonHome()
         json_object_set_new(jroom, "items", jitems);
 
         json_array_append_new(jdata, jroom);
+    }
+
+    return jdata;
+}
+
+json_t *JsonApi::buildFlatIOList()
+{
+    json_t *jdata = json_array();
+
+    for (int iroom = 0;iroom < ListeRoom::Instance().size();iroom++)
+    {
+        Room *room = ListeRoom::Instance().get_room(iroom);
+        for (int i = 0;i < room->get_size();i++)
+        {
+            json_t *jio = json_object();
+            IOBase *io = room->get_io(i);
+
+            buildJsonIO(io, jio);
+
+            json_array_append_new(jdata, jio);
+        }
     }
 
     return jdata;

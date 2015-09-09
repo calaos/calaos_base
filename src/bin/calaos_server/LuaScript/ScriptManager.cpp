@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,8 +20,6 @@
  ******************************************************************************/
 #include "ScriptManager.h"
 #include <setjmp.h>
-#include "Prefix.h"
-#include "EcoreTimer.h"
 
 using namespace Calaos;
 
@@ -29,11 +27,6 @@ double ScriptManager::start_time = 0.0;
 static jmp_buf panic_jmp;
 
 ScriptManager::ScriptManager()
-{
-    cDebugDom("script.lua");
-}
-
-ScriptManager::~ScriptManager()
 {
     cDebugDom("script.lua");
 }
@@ -55,8 +48,7 @@ bool ScriptManager::ExecuteScript(const string &script)
     lua_register(L, "print", Lua_print);
 
     Lunar<Lua_Calaos>::Register(L);
-    Lua_Calaos lc;
-    Lunar<Lua_Calaos>::push(L, &lc);
+    Lunar<Lua_Calaos>::push(L, &luaCalaos);
     lua_setglobal(L, "calaos");
 
     //Call setlocale to change for C locale (and avoid problems with double value<>string conversion)
@@ -129,58 +121,7 @@ bool ScriptManager::ExecuteScript(const string &script)
     return ret;
 }
 
-ExternProcServer *ScriptManager::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
+void ScriptManager::LuaDebugHook(lua_State *L, lua_Debug *ar)
 {
-    ExternProcServer *process = new ExternProcServer("lua");
-
-    process->messageReceived.connect([=](const string &msg)
-    {
-        json_error_t jerr;
-        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-        if (!jroot || !json_is_object(jroot))
-        {
-            cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
-            if (jroot)
-                json_decref(jroot);
-            return;
-        }
-
-        string mtype = jansson_string_get(jroot, "type");
-
-        if (mtype == "finished")
-        {
-            cInfoDom("lua") << "LUA script finished.";
-            string ret = jansson_string_get(jroot, "return_val", "false");
-            cb(ret == "true"); //process finished, call callback, process will be deleted later
-        }
-    });
-
-    process->processExited.connect([=]()
-    {
-        cInfoDom("lua") << "LUA process terminated.";
-        EcoreIdler::singleIdler([=]() { delete process; });
-    });
-
-    //when process is connected, send the script to be executed
-    process->processConnected.connect([=]()
-    {
-        Params p = {{ "type", "execute" },
-                    { "script", script } };
-
-        json_t *jroot = p.toJson();
-        json_object_set_new(jroot, "context", json_string("TODO"));
-
-        //TODO: send the full calaos context here. (using JsonApi) to the process
-        //after connect process to calaos events, and send him event so the process
-        //can update its local cache of IO states.
-
-        string m = jansson_to_string(jroot);
-        process->sendMessage(m);
-    });
-
-    string exe = Prefix::Instance().binDirectoryGet() + "/calaos_script";
-    process->startProcess(exe, "lua", string());
-
-    return process;
+    debugHook.emit();
 }

@@ -35,22 +35,22 @@ class JsonApi: public sigc::trackable
 {
 public:
     JsonApi(HttpClient *client);
+    JsonApi();
     virtual ~JsonApi();
 
-    virtual void processApi(const string &data, const Params &paramsGET) = 0;
+    virtual void processApi(const string &data, const Params &paramsGET) { VAR_UNUSED(data); VAR_UNUSED(paramsGET); }
 
     sigc::signal<void, const string &> sendData;
     sigc::signal<void, int, const string &> closeConnection;
 
-protected:
 
-    HttpClient *httpClient;
 
-    map<string, int> playerCounts;
+    /* API calls helpers */
 
     json_t *buildJsonHome();
     json_t *buildJsonCameras();
     json_t *buildJsonAudio();
+    json_t *buildFlatIOList();
 
     void buildJsonIO(IOBase *io, json_t *jio);
     json_t *buildJsonRoomIO(Room *room);
@@ -107,6 +107,13 @@ protected:
     void audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda);
 
     void audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda);
+
+
+protected:
+
+    HttpClient *httpClient = nullptr;
+
+    map<string, int> playerCounts;
 };
 
 #endif // JSONAPI_H

@@ -100,7 +100,7 @@ Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event)
         ex->process_exe != ev->exe)
         return ECORE_CALLBACK_PASS_ON;
 
-    cErrorDom("process") << "Process exited";
+    cInfoDom("process") << "Process exited";
 
     ex->process_exe = nullptr; //ecore does free the Ecore_Exe object itself
     ex->processExited.emit();
@@ -112,6 +112,7 @@ ExternProcServer::ExternProcServer(string pathprefix)
 {
     int pid = getpid();
     sockpath = "/tmp/calaos_proc_";
+    sockpath += Utils::createRandomUuid() + "_";
     sockpath += pathprefix + "_" + Utils::to_string(pid);
 
     ipcServer = ecore_con_server_add(ECORE_CON_LOCAL_SYSTEM, sockpath.c_str(), 0, this);
@@ -130,6 +131,8 @@ ExternProcServer::ExternProcServer(string pathprefix)
     hProcDel = ecore_event_handler_add(ECORE_EXE_EVENT_DEL,
                                        ExternProcServer_proc_del,
                                        this);
+
+    cDebugDom("process") << "New ExternProcServer listening to " << sockpath;
 }
 
 ExternProcServer::~ExternProcServer()

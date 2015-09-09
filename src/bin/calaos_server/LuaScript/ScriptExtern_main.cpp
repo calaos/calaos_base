@@ -47,13 +47,13 @@ void ScriptProcess::messageReceived(const string &msg)
 
     if (!jroot || !json_is_object(jroot))
     {
-        cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
+        cWarningDom("lua") << "Error parsing json from sub process: " << jerr.text << " Raw message: " << msg;
         if (jroot)
             json_decref(jroot);
         return;
     }
 
-    string mtype = jansson_string_get(jroot, "type");
+    string mtype = jansson_string_get(jroot, "msg");
 
     if (mtype == "execute")
     {
@@ -61,9 +61,81 @@ void ScriptProcess::messageReceived(const string &msg)
         string script = jansson_string_get(jroot, "script");
 
         json_t *jctx = json_object_get(jroot, "context");
-        //TODO: handle calaos context here
+        size_t idx;
+        json_t *value;
 
-        //ScriptManager::Instance().ExecuteScript(script);
+        json_array_foreach(jctx, idx, value)
+        {
+            LuaIOBase io(this);
+            jansson_decode_object(value, io.params);
+            ScriptManager::Instance().luaCalaos.ioMap[io.params["id"]] = io;
+        }
+
+        //This gets executed on every line call
+        ScriptManager::Instance().debugHook.connect([=]()
+        {
+            fd_set events;
+            struct timeval tv{0,0};
+            FD_ZERO(&events);
+            FD_SET(getSocketFd(), &events);
+            if (select(getSocketFd() + 1, &events, NULL, NULL, &tv) > 0)
+            {
+                if (FD_ISSET(getSocketFd(), &events))
+                {
+                    if (!processSocketRecv())
+                        cErrorDom("lua") << "Failed to process ExternProc socket";
+                }
+            }
+        });
+
+        //Execute the script, this call will block
+        bool ret = ScriptManager::Instance().ExecuteScript(script);
+
+        Params pret = {{ "msg", "finished" },
+                       { "return_val", ret?"true":"false" }};
+        sendMessage(jansson_to_string(pret.toJson()));
+
+        ::exit(0);
+    }
+    else if (mtype == "event")
+    {
+        json_t *jev = json_object_get(jroot, "data");
+        json_t *jdata = nullptr;
+        if (jev)
+            jdata = json_object_get(jev, "data");
+        Params ev;
+        jansson_decode_object(jev, ev);
+
+        string t = jansson_string_get(jev, "type_str");
+
+        if (ScriptManager::Instance().luaCalaos.ioMap.find(ev["id"]) !=
+            ScriptManager::Instance().luaCalaos.ioMap.end())
+        {
+            if (t == "io_deleted")
+            {
+                ScriptManager::Instance().luaCalaos.ioMap.erase(ev["id"]);
+            }
+            else if (t == "io_changed")
+            {
+                for (int i = 0;ev.size();i++)
+                {
+                    string key, val;
+                    ev.get_item(i, key, val);
+                    ScriptManager::Instance().luaCalaos.ioMap[ev["id"]].params.Add(key, val);
+                }
+            }
+            else if (t == "io_prop_deleted")
+            {
+                //TODO
+            }
+        }
+
+        if (t == "io_added")
+        {
+            LuaIOBase io(this);
+            io.params = ev;
+            ScriptManager::Instance().luaCalaos.ioMap[ev["id"]] = io;
+        }
     }
 }
 

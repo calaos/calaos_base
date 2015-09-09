@@ -42,7 +42,7 @@ bool ConditionScript::Evaluate()
 
 void ConditionScript::EvaluateAsync(std::function<void(bool eval)> cb)
 {
-    ScriptManager::Instance().ExecuteScriptDetached(script, [=](bool ret)
+    ScriptExec::ExecuteScriptDetached(script, [=](bool ret)
     {
         cInfoDom("rule.condition.script") << "Script finished with " << (ret?"true":"false");
         cb(ret);

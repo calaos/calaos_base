@@ -88,6 +88,7 @@ int Calaos::Lua_print(lua_State *L)
 
 void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
 {
+    ScriptManager::Instance().LuaDebugHook(L, ar);
 //    double time;
 //
 //    time = ecore_time_get();
@@ -117,9 +118,6 @@ const char Lua_Calaos::className[] = "Calaos";
 
 Lua_Calaos::Lua_Calaos()
 {
-#ifndef CALAOS_INSTALLER
-    cDebugDom("script.lua") << "Lua_Calaos::Lua_Calaos(): Ok ";
-#endif
 }
 
 Lua_Calaos::Lua_Calaos(lua_State *L)
@@ -127,13 +125,6 @@ Lua_Calaos::Lua_Calaos(lua_State *L)
     string err = "Calaos(): Don't create a new object, juste use the existing one \"calaos:...\"";
     lua_pushstring(L, err.c_str());
     lua_error(L);
-}
-
-Lua_Calaos::~Lua_Calaos()
-{
-#ifndef CALAOS_INSTALLER
-    cDebugDom("script.lua") << "Lua_Calaos::~Lua_Calaos(): Ok ";
-#endif
 }
 
 int Lua_Calaos::getIOValue(lua_State *L)
@@ -151,13 +142,13 @@ int Lua_Calaos::getIOValue(lua_State *L)
         }
         else
         {
-            LuaIOBase *io = ioMap[o];
-            if (io->params["io_type"] == "float")
-                lua_pushnumber(L, io->get_value_double());
-            else if (io->params["io_type"] == "bool")
-                lua_pushboolean(L, io->get_value_bool());
-            else if (io->params["io_type"] == "string")
-                lua_pushstring(L, io->get_value_string().c_str());
+            auto io = ioMap[o];
+            if (io.params["io_type"] == "float")
+                lua_pushnumber(L, io.get_value_double());
+            else if (io.params["io_type"] == "bool")
+                lua_pushboolean(L, io.get_value_bool());
+            else if (io.params["io_type"] == "string")
+                lua_pushstring(L, io.get_value_string().c_str());
             else
             {
                 string err = "getIOValue(): invalid IO id";
@@ -191,13 +182,13 @@ int Lua_Calaos::setIOValue(lua_State *L)
         }
         else
         {
-            LuaIOBase *io = ioMap[o];
+            auto io = ioMap[o];
             if (lua_isnumber(L, 2))
-                io->set_value((double)lua_tonumber(L, 2));
+                io.set_value((double)lua_tonumber(L, 2));
             else if (lua_isboolean(L, 2))
-                io->set_value((bool)lua_toboolean(L, 2));
+                io.set_value((bool)lua_toboolean(L, 2));
             else if (lua_isstring(L, 2))
-                io->set_value(Utils::to_string(lua_tostring(L, 2)));
+                io.set_value(Utils::to_string(lua_tostring(L, 2)));
             else
             {
                 string err = "setIOValue(): invalid IO id";
@@ -245,12 +236,12 @@ int Lua_Calaos::requestUrl(lua_State *L)
     return 0;
 }
 
-bool LuaIOBase::get_value_bool()
+bool LuaIOBase::get_value_bool() const
 {
     return params["state"] == "true";
 }
 
-double LuaIOBase::get_value_double()
+double LuaIOBase::get_value_double() const
 {
     double v = 0.0;
     if (Utils::is_of_type<double>(params["state"]))
@@ -258,12 +249,12 @@ double LuaIOBase::get_value_double()
     return v;
 }
 
-string LuaIOBase::get_value_string()
+string LuaIOBase::get_value_string() const
 {
     return params["state"];
 }
 
-void LuaIOBase::set_value(bool val)
+void LuaIOBase::set_value(bool val) const
 {
     Params p = {{ "id", params["id"] },
                 { "value", val?"true":"false" }};
@@ -271,7 +262,7 @@ void LuaIOBase::set_value(bool val)
     sendJson("set_state", p);
 }
 
-void LuaIOBase::set_value(double val)
+void LuaIOBase::set_value(double val) const
 {
     Params p = {{ "id", params["id"] },
                 { "value", Utils::to_string(val) }};
@@ -279,7 +270,7 @@ void LuaIOBase::set_value(double val)
     sendJson("set_state", p);
 }
 
-void LuaIOBase::set_value(std::string val)
+void LuaIOBase::set_value(std::string val) const
 {
     Params p = {{ "id", params["id"] },
                 { "value", val }};
@@ -287,7 +278,7 @@ void LuaIOBase::set_value(std::string val)
     sendJson("set_state", p);
 }
 
-void LuaIOBase::sendJson(const string &msg_type, const Params &param)
+void LuaIOBase::sendJson(const string &msg_type, const Params &param) const
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));

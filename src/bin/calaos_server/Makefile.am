@@ -292,10 +292,8 @@ calaos_server_SOURCES = \
         ListeRule.cpp                                   \
         ListeRule.h                                     \
         LuaScript/Lunar.h                               \
-        LuaScript/ScriptBindings.cpp                    \
-        LuaScript/ScriptBindings.h                      \
-        LuaScript/ScriptManager.cpp                     \
-        LuaScript/ScriptManager.h                       \
+        LuaScript/ScriptExec.h                          \
+        LuaScript/ScriptExec.cpp                        \
         PollListenner.cpp                               \
         PollListenner.h                                 \
         Room.cpp                                        \

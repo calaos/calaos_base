@@ -34,7 +34,7 @@ ActionScript::~ActionScript()
 
 bool ActionScript::Execute()
 {
-    ScriptManager::Instance().ExecuteScriptDetached(script, [=](bool ret)
+    ScriptExec::ExecuteScriptDetached(script, [=](bool ret)
     {
         cInfoDom("rule.action.script") << "Script finished with " << (ret?"true":"false");
     });
