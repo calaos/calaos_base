@@ -139,25 +139,19 @@ int Lua_Calaos::getIOValue(lua_State *L)
         string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "getIOValue(): invalid IO id";
+            string err = "getIOValue(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
         else
         {
             auto io = ioMap[o];
-            if (io.params["io_type"] == "float")
+            if (io.params["var_type"] == "float")
                 lua_pushnumber(L, io.get_value_double());
-            else if (io.params["io_type"] == "bool")
+            else if (io.params["var_type"] == "bool")
                 lua_pushboolean(L, io.get_value_bool());
-            else if (io.params["io_type"] == "string")
-                lua_pushstring(L, io.get_value_string().c_str());
             else
-            {
-                string err = "getIOValue(): invalid IO id";
-                lua_pushstring(L, err.c_str());
-                lua_error(L);
-            }
+                lua_pushstring(L, io.get_value_string().c_str());
         }
     }
     else
@@ -179,7 +173,7 @@ int Lua_Calaos::setIOValue(lua_State *L)
         string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "setIOValue(): invalid IO id";
+            string err = "setIOValue(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -219,7 +213,7 @@ int Lua_Calaos::getIOParam(lua_State *L)
         string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "getIOParam(): invalid IO id";
+            string err = "getIOParam(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -260,7 +254,7 @@ int Lua_Calaos::setIOParam(lua_State *L)
         string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "setIOParam(): invalid IO id";
+            string err = "setIOParam(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -306,7 +300,7 @@ int Lua_Calaos::waitForIO(lua_State *L)
         string id = lua_tostring(L, 1);
         if (ioMap.find(id) == ioMap.end())
         {
-            string err = "waitForIO(): invalid IO id";
+            string err = "waitForIO(): invalid IO id: " + id;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
