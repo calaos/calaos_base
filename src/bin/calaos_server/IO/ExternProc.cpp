@@ -407,8 +407,12 @@ void ExternProcClient::run(int timeoutms)
             FD_SET(fd, &events);
         }
 
-        if (!select(sockfd + 1, &events, NULL, NULL, &tv))
+        int ret = select(sockfd + 1, &events, NULL, NULL, &tv);
+
+        if (ret == 0)
             readTimeout();
+        else if (ret < 0)
+            break;
 
         if (FD_ISSET(sockfd, &events))
         {

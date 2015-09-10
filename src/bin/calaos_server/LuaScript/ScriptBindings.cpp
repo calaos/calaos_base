@@ -110,6 +110,9 @@ Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
     { "getInputValue", &Lua_Calaos::getIOValue },
     { "getIOValue", &Lua_Calaos::getIOValue },
     { "setIOValue", &Lua_Calaos::setIOValue },
+    { "getIOParam", &Lua_Calaos::getIOParam },
+    { "setIOParam", &Lua_Calaos::setIOParam },
+    { "waitForIO", &Lua_Calaos::waitForIO },
     { "requestUrl", &Lua_Calaos::requestUrl },
     { 0, 0 }
 };
@@ -207,6 +210,130 @@ int Lua_Calaos::setIOValue(lua_State *L)
     return 0;
 }
 
+int Lua_Calaos::getIOParam(lua_State *L)
+{
+    int nb = lua_gettop(L);
+
+    if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
+    {
+        string o = lua_tostring(L, 1);
+        if (ioMap.find(o) == ioMap.end())
+        {
+            string err = "getIOParam(): invalid IO id";
+            lua_pushstring(L, err.c_str());
+            lua_error(L);
+        }
+        else
+        {
+            string key = Utils::to_string(lua_tostring(L, 2));
+            auto io = ioMap[o];
+
+            if (Utils::is_of_type<double>(io.params[key]))
+            {
+                double v;
+                Utils::from_string(io.params[key], v);
+                lua_pushnumber(L, v);
+            }
+            else if (io.params[key] == "true" ||
+                     io.params[key] == "false")
+                lua_pushboolean(L, io.params[key] == "true");
+            else
+                lua_pushstring(L, io.params[key].c_str());
+        }
+    }
+    else
+    {
+        string err = "getIOParam(): invalid argument. Requires an IO id.";
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
+    return 1;
+}
+
+int Lua_Calaos::setIOParam(lua_State *L)
+{
+    int nb = lua_gettop(L);
+
+    if (nb == 3 && lua_isstring(L, 1) && lua_isstring(L, 2))
+    {
+        string o = lua_tostring(L, 1);
+        if (ioMap.find(o) == ioMap.end())
+        {
+            string err = "setIOParam(): invalid IO id";
+            lua_pushstring(L, err.c_str());
+            lua_error(L);
+        }
+        else
+        {
+            string key = Utils::to_string(lua_tostring(L, 2));
+            string value;
+
+            auto io = ioMap[o];
+
+            if (lua_isnumber(L, 3))
+                value = Utils::to_string(lua_tonumber(L, 3));
+            else if (lua_isboolean(L, 3))
+                value = lua_toboolean(L, 3)?"true":"false";
+            else if (lua_isstring(L, 3))
+                value = Utils::to_string(lua_tostring(L, 3));
+            else
+            {
+                string err = "setIOParam(): wrong value";
+                lua_pushstring(L, err.c_str());
+                lua_error(L);
+            }
+
+            io.set_param(key, value);
+        }
+    }
+    else
+    {
+        string err = "setIOParam(): invalid argument. Requires an IO id.";
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
+    return 1;
+}
+
+int Lua_Calaos::waitForIO(lua_State *L)
+{
+    int nb = lua_gettop(L);
+
+    if (nb == 1 && lua_isstring(L, 1))
+    {
+        string id = lua_tostring(L, 1);
+        if (ioMap.find(id) == ioMap.end())
+        {
+            string err = "waitForIO(): invalid IO id";
+            lua_pushstring(L, err.c_str());
+            lua_error(L);
+        }
+        else
+        {
+            //loop until io has reveived a change event
+            //it doesnt actually loop, but the process is doing a blocking select
+            while (!waitForIOChanged.emit(id) && !abort) ;
+
+            if (abort)
+            {
+                string err = "waitForIO(): Abort script.";
+                lua_pushstring(L, err.c_str());
+                lua_error(L);
+            }
+        }
+    }
+    else
+    {
+        string err = "waitForIO(): invalid argument. Requires an IO id.";
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
+    return 1;
+}
+
 int Lua_Calaos::requestUrl(lua_State *L)
 {
     int nb = lua_gettop(L);
@@ -276,6 +403,15 @@ void LuaIOBase::set_value(std::string val) const
                 { "value", val }};
 
     sendJson("set_state", p);
+}
+
+void LuaIOBase::set_param(const string &key, const string &val)
+{
+    Params p = {{ "id", params["id"] },
+                { "param", key },
+                { "value", val }};
+
+    sendJson("set_param", p);
 }
 
 void LuaIOBase::sendJson(const string &msg_type, const Params &param) const

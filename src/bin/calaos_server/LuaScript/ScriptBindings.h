@@ -51,6 +51,8 @@ public:
     void set_value(double val) const;
     void set_value(std::string val) const;
 
+    void set_param(const string &key, const string &val);
+
 private:
     ExternProcClient *extClient;
 
@@ -63,7 +65,7 @@ void Lua_DebugHook(lua_State *L, lua_Debug *ar);
 //This is for debugging purpose only
 void Lua_stackDump(lua_State *L);
 
-class Lua_Calaos
+class Lua_Calaos: sigc::trackable
 {
 private:
     friend class Lunar<Lua_Calaos>;
@@ -75,12 +77,20 @@ public:
     Lua_Calaos(lua_State *L);
 
     unordered_map<string, LuaIOBase> ioMap;
+    bool abort = false;
+
+    sigc::signal<bool, const string &> waitForIOChanged;
 
     /* IO set/get */
     int getIOValue(lua_State *L);
     int setIOValue(lua_State *L);
 
-    /* Urel request */
+    int getIOParam(lua_State *L);
+    int setIOParam(lua_State *L);
+
+    int waitForIO(lua_State *L);
+
+    /* Url request */
     int requestUrl(lua_State *L);
 };
 }

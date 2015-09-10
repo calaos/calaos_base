@@ -123,5 +123,12 @@ bool ScriptManager::ExecuteScript(const string &script)
 
 void ScriptManager::LuaDebugHook(lua_State *L, lua_Debug *ar)
 {
+    if (abort)
+    {
+        string err = "waitForIO(): Abort script.";
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
     debugHook.emit();
 }

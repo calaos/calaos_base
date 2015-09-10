@@ -35,6 +35,8 @@ public:
 
 protected:
 
+    map<string, string> waitIds;
+
     //needs to be reimplemented
     virtual void readTimeout() {}
     virtual void messageReceived(const string &msg);
@@ -78,14 +80,50 @@ void ScriptProcess::messageReceived(const string &msg)
             struct timeval tv{0,0};
             FD_ZERO(&events);
             FD_SET(getSocketFd(), &events);
-            if (select(getSocketFd() + 1, &events, NULL, NULL, &tv) > 0)
+            int ret = select(getSocketFd() + 1, &events, NULL, NULL, &tv);
+            if (ret > 0)
             {
                 if (FD_ISSET(getSocketFd(), &events))
                 {
                     if (!processSocketRecv())
+                    {
                         cErrorDom("lua") << "Failed to process ExternProc socket";
+                        ScriptManager::Instance().abortScript();
+                    }
                 }
             }
+            else if (ret < 0)
+                ScriptManager::Instance().abortScript();
+        });
+
+        ScriptManager::Instance().luaCalaos.waitForIOChanged.connect([=](const string &id) -> bool
+        {
+            waitIds.clear();
+
+            //start a mainloop around select now, the script is paused
+            fd_set events;
+            FD_ZERO(&events);
+            FD_SET(getSocketFd(), &events);
+            int ret = select(getSocketFd() + 1, &events, NULL, NULL, NULL);
+            if (ret > 0)
+            {
+                if (FD_ISSET(getSocketFd(), &events))
+                {
+                    if (!processSocketRecv())
+                    {
+                        cErrorDom("lua") << "Failed to process ExternProc socket";
+                        ScriptManager::Instance().abortScript();
+                    }
+                }
+            }
+            else if (ret < 0)
+                ScriptManager::Instance().abortScript();
+
+            cDebug() << "waitIds.size: " << waitIds.size();
+            cDebug() << "waitIds.find(" << id << "): " << (waitIds.find(id) != waitIds.end()?"true":"false");
+
+            //return true if IO has been changed, false otherwise
+            return waitIds.find(id) != waitIds.end();
         });
 
         //Execute the script, this call will block
@@ -104,9 +142,13 @@ void ScriptProcess::messageReceived(const string &msg)
         if (jev)
             jdata = json_object_get(jev, "data");
         Params ev;
-        jansson_decode_object(jev, ev);
+        jansson_decode_object(jdata, ev);
 
         string t = jansson_string_get(jev, "type_str");
+
+        //this IO has been changed by an event
+        //if script is waiting on that IO, the script will be resumed
+        waitIds[ev["id"]] = ev["id"];
 
         if (ScriptManager::Instance().luaCalaos.ioMap.find(ev["id"]) !=
             ScriptManager::Instance().luaCalaos.ioMap.end())
@@ -117,7 +159,7 @@ void ScriptProcess::messageReceived(const string &msg)
             }
             else if (t == "io_changed")
             {
-                for (int i = 0;ev.size();i++)
+                for (int i = 0;i < ev.size();i++)
                 {
                     string key, val;
                     ev.get_item(i, key, val);

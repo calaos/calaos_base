@@ -35,6 +35,7 @@ private:
 
     bool errorScript;
     string errorMsg;
+    bool abort = false;
 
 public:
     static ScriptManager &Instance()
@@ -60,6 +61,8 @@ public:
     sigc::signal<void> debugHook;
 
     Lua_Calaos luaCalaos;
+
+    void abortScript() { abort = true; luaCalaos.abort = true; }
 };
 
 }
