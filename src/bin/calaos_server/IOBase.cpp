@@ -31,7 +31,7 @@ IOBase::IOBase(Params &p, int iotype):
     io_type(iotype)
 {
     ioDoc = new IODoc();
-    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true, string(), true);
     ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true");
     ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true");
