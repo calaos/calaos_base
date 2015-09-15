@@ -34,6 +34,9 @@ MySensorsController::MySensorsController(const Params &p):
 {
     hashSensors["0"] = MySensorsNode(); //Gateway
 
+    if (!param.Exists("gateway")) param.Add("gateway", "serial");
+    if (!param.Exists("port")) param.Add("port", "/dev/ttyUSB0");
+
     if (param["gateway"] == "serial")
         openSerial();
     else if (param["gateway"] == "tcp")

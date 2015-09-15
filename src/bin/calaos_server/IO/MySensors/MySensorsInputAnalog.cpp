@@ -36,6 +36,14 @@ MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
     ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
 
+    Params gwlist = {{ "serial", _("Serial") },
+                     { "ethernet", _("Ethernet") }};
+    ioDoc->paramAddList("gateway", _("Gateway type used, ethernet or serial are supported"), true, gwlist, "serial");
+    ioDoc->paramAdd("port",
+                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using ethernet gateway port is TCP port of the gateway."),
+                    IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
+    ioDoc->paramAdd("host", _("IP address of the ethernet gateway if relevant"), IODoc::TYPE_STRING, true);
+
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
