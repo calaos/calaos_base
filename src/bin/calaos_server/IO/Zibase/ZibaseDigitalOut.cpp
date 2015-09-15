@@ -30,11 +30,32 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
     OutputLight(p),
     port(0)
 {
-    std::string type = get_param("zibase_sensor");
+    // Define IO documentation
+    ioDoc->friendlyNameSet("ZibaseDigitalOut");
+    ioDoc->descriptionSet(_("Zibase digital output. This object controls Zibase devices"));
+    ioDoc->paramAdd("host", _("Zibase IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port", _("Zibase ethernet port, default to 17100"), 0, 65535, false, 17100);
+    ioDoc->paramAdd("zibase_id", _("Zibase device ID (ABC)"), IODoc::TYPE_STRING, true);
+
+    Params devList = {{ "0", _("DEFAULT_PROTOCOL") },
+                      { "1", _("VISONIC433") },
+                      { "2", _("VISONIC868") },
+                      { "3", _("CHACON") },
+                      { "4", _("DOMIA") },
+                      { "5", _("RFX10") },
+                      { "6", _("ZWAVE") },
+                      { "7", _("RFSTS10") },
+                      { "8", _("XDD433alrm") },
+                      { "9", _("XDD868alrmn") },
+                      { "10", _("XDD868shutter") },
+                      { "11", _("XDD868pilot") },
+                      { "12", _("XDD868boiler") }};
+    ioDoc->paramAddList("protocol", "Protocol to use", true, devList, "0");
+    ioDoc->paramAddInt("nbburst", _("Number of burst to send to the device"), 0, 65535, false, 1);
+
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
-
 
     Utils::from_string(get_param("protocol"), protocol);
     Utils::from_string(get_param("nbburst"), nbburst);

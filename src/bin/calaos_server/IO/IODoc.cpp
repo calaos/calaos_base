@@ -90,6 +90,19 @@ void IODoc::paramAddFloat(const string &name, const string &description, bool ma
     m_parameters[name] = param;
 }
 
+void IODoc::paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey, bool readonly)
+{
+    Params param;
+    param.Add("name", name);
+    param.Add("description", description);
+    param.Add("type", typeToString(TYPE_LIST));
+    param.Add("mandatory", mandatory ? "true" : "false");
+    param.Add("default", defkey);
+    param.Add("readonly", readonly ? "true" : "false");
+    m_parameters[name] = param;
+    param_list_value[name] = keyvalues;
+}
+
 void IODoc::conditionAdd(const string &name, const string &description)
 {
     Params p;
@@ -145,7 +158,10 @@ json_t *IODoc::genDocJson()
     json_t *array = json_array();
     for (const auto &it : m_parameters)
     {
-        json_array_append_new(array, it.second.toJson());
+        json_t *jparam = it.second.toJson();
+        if (typeFromString(it.second["type"]) == TYPE_LIST)
+            json_object_set(jparam, "list_value", param_list_value[it.second["name"]].toJson());
+        json_array_append_new(array, jparam);
     }
     json_object_set_new(ret, "parameters", array);
 

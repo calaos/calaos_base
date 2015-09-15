@@ -46,6 +46,7 @@ public:
     void paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval = string(), bool readonly = false);
     void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
     void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
+    void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false);
     void conditionAdd(const string &name, const string &description);
     void actionAdd(const string &name, const string &description);
     void aliasAdd(string alias);
@@ -61,11 +62,16 @@ private:
     string m_description;
 
     vector<string> m_aliases;
-
     vector<Params> m_links;
-    unordered_map<string, Params> m_parameters;
-    unordered_map<string, Params> m_conditions;
-    unordered_map<string, Params> m_actions;
+
+    typedef unordered_map<string, Params> ParamMap;
+
+    ParamMap m_parameters;
+    ParamMap m_conditions;
+    ParamMap m_actions;
+
+    //for parameter of type list. This contains a map of all key/values for the list of possible parameter values
+    ParamMap param_list_value;
 
     string typeToString(ParamType t);
     ParamType typeFromString(const string &t);

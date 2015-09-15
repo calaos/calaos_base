@@ -24,25 +24,38 @@
 
 using namespace Calaos;
 
-REGISTER_IO(ZibaseAnalogIn);
+REGISTER_IO(ZibaseAnalogIn)
 
 ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
     InputAnalog(p),
     port(0)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("ZibaseAnalogIn");
+    ioDoc->descriptionSet(_("Zibase analog input. This object can read value from devices like Energy monitor sensors, Lux sensors, ..."));
+    ioDoc->paramAdd("host", _("Zibase IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port", _("Zibase ethernet port, default to 17100"), 0, 65535, false, 17100);
+    ioDoc->paramAdd("zibase_id", _("Zibase device ID (ABC)"), IODoc::TYPE_STRING, true);
+
+    Params devList = {{ "energy", _("Energy monitor sensor") },
+                      { "lux", _("Lux sensor") },
+                      { "t_rain", _("Total rain sensor") },
+                      { "wind", _("Wind sensor") }};
+    ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "energy");
+
     std::string type = get_param("zibase_sensor");
 
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
 
-    if(type.compare("energy")==0)
+    if (type == "energy")
         sensor_type = ZibaseInfoSensor::eENERGY;
-    else if(type.compare("lux")==0)
+    else if (type == "lux")
         sensor_type = ZibaseInfoSensor::eLUX;
-    else if(type.compare("t_rain")==0)
+    else if (type == "t_rain")
         sensor_type = ZibaseInfoSensor::eTOTALRAIN;
-    else if(type.compare("wind")==0)
+    else if (type == "wind")
         sensor_type = ZibaseInfoSensor::eWIND;
 
     Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseAnalogIn::valueUpdated));

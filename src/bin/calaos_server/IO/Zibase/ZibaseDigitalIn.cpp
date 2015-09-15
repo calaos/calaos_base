@@ -30,14 +30,27 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
     InputSwitch(p),
     port(0)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("ZibaseDigitalIn");
+    ioDoc->descriptionSet(_("Zibase digital input. This object acts as a switch"));
+    ioDoc->paramAdd("host", _("Zibase IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port", _("Zibase ethernet port, default to 17100"), 0, 65535, false, 17100);
+    ioDoc->paramAdd("zibase_id", _("First Zibase device ID (ABC)"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("zibase_id2", _("Second Zibase device ID (ABC)"), IODoc::TYPE_STRING, true);
+
+    Params devList = {{ "detect", _("Door/Window sensor") },
+                      { "inter", _("Switch/Remote control") }};
+    ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "detect");
+
     std::string type = get_param("zibase_sensor");
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
     id2 = get_param("zibase_id2");	
-    if(type.compare("detect")==0)
+
+    if(type == "detect")
         sensor_type = ZibaseInfoSensor::eDETECT;
-    if(type.compare("inter")==0)
+    if (type == "inter")
         sensor_type = ZibaseInfoSensor::eINTER;
 
     Zibase::Instance(host, port).sig_newframe.connect(sigc::mem_fun(*this, &ZibaseDigitalIn::valueUpdated));

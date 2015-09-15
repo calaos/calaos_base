@@ -24,13 +24,21 @@
 
 using namespace Calaos;
 
-REGISTER_IO(ZibaseTemp);
+REGISTER_IO(ZibaseTemp)
 
 ZibaseTemp::ZibaseTemp(Params &p):
     InputTemp(p),
     port(0)
 {
-    std::string type = get_param("zibase_sensor");
+    // Define IO documentation
+    ioDoc->friendlyNameSet("ZibaseTemp");
+    ioDoc->descriptionSet(_("Zibase temperature sensor"));
+    ioDoc->paramAdd("host", _("Zibase IP address on the network"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("port", _("Zibase ethernet port, default to 17100"), 0, 65535, false, 17100);
+    ioDoc->paramAdd("zibase_id", _("Zibase device ID (ABC)"), IODoc::TYPE_STRING, true);
+
+    Params devList = {{ "temp", _("Temperature sensor") }};
+    ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "temp");
 
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
