@@ -29,6 +29,14 @@ REGISTER_IO(GpioOutputSwitch)
 GpioOutputSwitch::GpioOutputSwitch(Params &p):
     OutputLight(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("GpioOutputSwitch");
+    ioDoc->descriptionSet(_("Light with a GPIO"));
+    ioDoc->paramAddInt("gpio", _("GPIO ID on your hardware"), 0, 65535, true);
+    ioDoc->paramAdd("active_low", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
+
+    if (!param_exists("active_low")) set_param("active_low", "false");
+
     int gpio_nb;
     bool active_low;
 

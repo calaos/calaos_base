@@ -22,7 +22,7 @@
 
 using namespace Calaos;
 
-GpioCtrl::GpioCtrl(int _gpionum,double _debounce_time)
+GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 {
     fd_handler = NULL;
     debounce = false;

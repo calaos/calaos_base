@@ -30,6 +30,18 @@ REGISTER_IO(GpioOutputShutterSmart)
 GpioOutputShutterSmart::GpioOutputShutterSmart(Params &p):
     OutputShutterSmart(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("GpioOutputShutterSmart");
+    ioDoc->descriptionSet(_("Shutter with 2 GPIOs"));
+    ioDoc->paramAddInt("gpio_up", _("GPIO ID for opening on your hardware"), 0, 65535, true);
+    ioDoc->paramAddInt("gpio_down", _("GPIO ID for closing on your hardware"), 0, 65535, true);
+    ioDoc->paramAdd("active_low_up", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("active_low_down", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
+
+    if (!param_exists("active_low_up")) set_param("active_low_up", "false");
+    if (!param_exists("active_low_down")) set_param("active_low_down", "false");
+
+
     int gpio_up_nb, gpio_down_nb;
     bool active_low_up, active_low_down;
 

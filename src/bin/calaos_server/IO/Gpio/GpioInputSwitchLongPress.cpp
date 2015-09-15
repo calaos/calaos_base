@@ -31,8 +31,16 @@ GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
     InputSwitchLongPress(p),
     gpioctrl(NULL)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("GpioInputSwitchLongPress");
+    ioDoc->descriptionSet(_("Input switch with a GPIO"));
+    ioDoc->paramAddInt("gpio", _("GPIO ID on your hardware"), 0, 65535, true);
+    ioDoc->paramAdd("active_low", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
+
     int gpio_nb;
     bool active_low = false;
+
+    if (!param_exists("active_low")) set_param("active_low", "false");
 
     Utils::from_string(get_param("gpio"), gpio_nb);
     Utils::from_string(get_param("active_low"), active_low);
