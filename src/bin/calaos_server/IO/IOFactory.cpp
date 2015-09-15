@@ -100,13 +100,11 @@ void IOFactory::genDocIO(string docPath)
 
 void IOFactory::genDoc(string path)
 {
-    string docPath = path + "/" + PACKAGE_STRING;
-
-    if (!ecore_file_exists(docPath.c_str()))
+    if (!ecore_file_exists(path.c_str()))
     {
         cDebug() << "Creating Documentation path " << path;
 
-        if (!ecore_file_mkpath(docPath.c_str()))
+        if (!ecore_file_mkpath(path.c_str()))
         {
             cError() << "Unable to create path " << path;
             return;
@@ -114,6 +112,6 @@ void IOFactory::genDoc(string path)
 
     }
 
-    genDocIO(docPath);
+    genDocIO(path);
 }
 
