@@ -40,6 +40,8 @@ PingInputSwitch::PingInputSwitch(Params &p):
     ioDoc->conditionAdd("true", _("The host is online and respond to the ping"));
     ioDoc->conditionAdd("false", _("The host is offline and/or does not respond to the ping"));
 
+    if (!param_exists("interval")) set_param("interval", "15000");
+
     hProcDel = ecore_event_handler_add(ECORE_EXE_EVENT_DEL,
                                        PingInputSwitch_proc_del,
                                        this);

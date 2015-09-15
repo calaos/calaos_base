@@ -43,6 +43,9 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
                       { "wind", _("Wind sensor") }};
     ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "energy");
 
+    if (!param_exists("zibase_sensor")) set_param("zibase_sensor", "energy");
+    if (!param_exists("port")) set_param("port", "17100");
+
     std::string type = get_param("zibase_sensor");
 
     host = get_param("host");

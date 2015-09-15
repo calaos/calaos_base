@@ -40,6 +40,8 @@ ZibaseTemp::ZibaseTemp(Params &p):
     Params devList = {{ "temp", _("Temperature sensor") }};
     ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "temp");
 
+    if (!param_exists("port")) set_param("port", "17100");
+
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");

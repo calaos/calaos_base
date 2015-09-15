@@ -73,6 +73,8 @@ WOLOutputBool::WOLOutputBool(Params &p):
     ioDoc->paramAdd("interval", _("Interval between pings in ms. Default to 15 sec"), IODoc::TYPE_INT, false, "15000");
     ioDoc->actionAdd("true", _("Send wake on lan packet to the configured device"));
 
+    if (!param_exists("interval")) set_param("interval", "15000");
+
     //Not visible by default
     if (!get_params().Exists("visible")) set_param("visible", "false");
 

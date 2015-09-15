@@ -42,6 +42,9 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
                       { "inter", _("Switch/Remote control") }};
     ioDoc->paramAddList("zibase_sensor", "Type of sensor", true, devList, "detect");
 
+    if (!param_exists("zibase_sensor")) set_param("zibase_sensor", "detect");
+    if (!param_exists("port")) set_param("port", "17100");
+
     std::string type = get_param("zibase_sensor");
     host = get_param("host");
     Utils::from_string(get_param("port"), port);

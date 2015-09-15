@@ -53,6 +53,10 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
     ioDoc->paramAddList("protocol", "Protocol to use", true, devList, "0");
     ioDoc->paramAddInt("nbburst", _("Number of burst to send to the device"), 0, 65535, false, 1);
 
+    if (!param_exists("zibase_sensor")) set_param("protocol", "0");
+    if (!param_exists("port")) set_param("port", "17100");
+    if (!param_exists("nbburst")) set_param("nbburst", "1");
+
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
