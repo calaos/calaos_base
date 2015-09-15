@@ -32,6 +32,14 @@ REGISTER_IO(BlinkstickOutputLightRGB)
 BlinkstickOutputLightRGB::BlinkstickOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
+    // Define IO documentation
+    ioDoc->friendlyNameSet("BlinkstickOutputLightRGB");
+    ioDoc->descriptionSet(_("RGB Light dimmer using a Blinkstick"));
+    ioDoc->linkAdd("OLA", _("http://www.blinkstick.com"));
+    ioDoc->paramAdd("serial", _("Blinkstick serial to control"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAddInt("nb_leds", _("Number of LEDs to control with the blinkstick"), 0, 9999, true, 1);
+
+    if (!param_exists("nb_leds")) set_param("nb_leds", "1");
     m_serial = get_param("serial");
     Utils::from_string(get_param("nb_leds"), m_nbLeds);
 
@@ -63,12 +71,12 @@ BlinkstickOutputLightRGB::BlinkstickOutputLightRGB(Params &p):
             }
         }
     }
-    
-
 }
 
 BlinkstickOutputLightRGB::~BlinkstickOutputLightRGB()
 {
+    if (m_device_handle)
+        libusb_close(m_device_handle);
 }
 
 void BlinkstickOutputLightRGB::setColorReal(const ColorValue &c, bool s)
@@ -81,7 +89,6 @@ void BlinkstickOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 
     if (s)
     {
-
         msg[3] = (c.getRed());
         msg[4] = (c.getGreen());
         msg[5] = (c.getBlue());

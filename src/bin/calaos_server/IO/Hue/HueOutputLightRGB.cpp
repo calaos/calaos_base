@@ -32,6 +32,13 @@ REGISTER_IO(HueOutputLightRGB)
 HueOutputLightRGB::HueOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
+    ioDoc->friendlyNameSet("HueOutputLightRGB");
+    ioDoc->descriptionSet(_("RGB Light dimmer using a Philips Hue"));
+    ioDoc->linkAdd("Meet Hue", _("http://www.meethue.com"));
+    ioDoc->paramAdd("host", _("Hue bridge IP address"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("api", _("TODO"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("id_hue", _("TODO"), IODoc::TYPE_STRING, true);
+
     m_host = get_param("host");
     m_api = get_param("api");
     m_idHue = get_param("id_hue");

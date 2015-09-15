@@ -36,7 +36,7 @@ private:
     int m_nbLeds;
     bool blinkstickSerialGet(libusb_device *device, unsigned char *serial, libusb_device_handle **handle);
 
-    struct libusb_device_handle *m_device_handle;
+    struct libusb_device_handle *m_device_handle = nullptr;
 protected:
     virtual void setColorReal(const ColorValue &c, bool s);
 
