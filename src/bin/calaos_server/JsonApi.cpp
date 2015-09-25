@@ -149,9 +149,7 @@ json_t *JsonApi::buildJsonCameras()
         if (!camera) continue;
 
         json_t *jcam = json_object();
-        json_object_set_new(jcam, "id", json_string(Utils::to_string(cpt).c_str()));
-        json_object_set_new(jcam, "input_id", json_string(camera->get_param("iid").c_str()));
-        json_object_set_new(jcam, "output_id", json_string(camera->get_param("oid").c_str()));
+        json_object_set_new(jcam, "id", json_string(camera->get_param("id").c_str()));
         json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
         json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
         Params caps = camera->getCapabilities();
