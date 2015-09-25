@@ -127,7 +127,7 @@ string IOWODaliHomeView::getLabelItem(Evas_Object *obj, string part)
 
 void IOWODaliHomeView::sliderObjectDeleted()
 {
-    slider = NULL;
+    slider = nullptr;
 }
 
 void IOWODaliHomeView::initView()
@@ -159,7 +159,9 @@ void IOWODaliHomeView::updateView()
 
     elm_genlist_item_fields_update(item, "text", ELM_GENLIST_ITEM_FIELD_TEXT);
     elm_genlist_item_fields_update(item, "text.value", ELM_GENLIST_ITEM_FIELD_TEXT);
-    slider->setDragValue("slider", value / 100.0, 0.0);
+
+    if (slider)
+        slider->setDragValue("slider", value / 100.0, 0.0);
 
     if (value > 0.0)
     {

@@ -131,7 +131,7 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_red = new EdjeObject(ApplicationMain::getTheme(), evas);
         slider_red->setAutoDelete(true);
         slider_red->object_deleted.connect(sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderRedObjectDeleted));
-        slider_red->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallback), slider_red);
+        slider_red->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallbackRed), slider_red);
         slider_red->LoadEdje("calaos/slider/horizontal/red");
         slider_red->Show();
 
@@ -146,7 +146,7 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_green = new EdjeObject(ApplicationMain::getTheme(), evas);
         slider_green->setAutoDelete(true);
         slider_green->object_deleted.connect(sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderRedObjectDeleted));
-        slider_green->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallback), slider_green);
+        slider_green->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallbackGreen), slider_green);
         slider_green->LoadEdje("calaos/slider/horizontal/green");
         slider_green->Show();
 
@@ -161,7 +161,7 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
         slider_blue = new EdjeObject(ApplicationMain::getTheme(), evas);
         slider_blue->setAutoDelete(true);
         slider_blue->object_deleted.connect(sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderRedObjectDeleted));
-        slider_blue->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallback), slider_blue);
+        slider_blue->addCallback("object", "*", sigc::mem_fun(*this, &IOWODaliRVBHomeView::sliderSignalCallbackBlue), slider_blue);
         slider_blue->LoadEdje("calaos/slider/horizontal/blue");
         slider_blue->Show();
 
@@ -226,17 +226,17 @@ string IOWODaliRVBHomeView::getLabelItem(Evas_Object *obj, string part)
 
 void IOWODaliRVBHomeView::sliderRedObjectDeleted()
 {
-    slider_red = NULL;
+    slider_red = nullptr;
 }
 
 void IOWODaliRVBHomeView::sliderGreenObjectDeleted()
 {
-    slider_green = NULL;
+    slider_green = nullptr;
 }
 
 void IOWODaliRVBHomeView::sliderBlueObjectDeleted()
 {
-    slider_blue = NULL;
+    slider_blue = nullptr;
 }
 
 void IOWODaliRVBHomeView::initView()
@@ -271,9 +271,12 @@ void IOWODaliRVBHomeView::updateView()
 
     ColorValue c(io->params["state"]);
 
-    slider_red->setDragValue("slider", c.getRed() / 255.0, 0.0);
-    slider_green->setDragValue("slider", c.getGreen() / 255.0, 0.0);
-    slider_blue->setDragValue("slider", c.getBlue() / 255.0, 0.0);
+    if (slider_red)
+        slider_red->setDragValue("slider", c.getRed() / 255.0, 0.0);
+    if (slider_green)
+        slider_green->setDragValue("slider", c.getGreen() / 255.0, 0.0);
+    if (slider_blue)
+        slider_blue->setDragValue("slider", c.getBlue() / 255.0, 0.0);
 
     if (c.getRed() > 0 || c.getGreen() > 0 || c.getBlue() > 0)
     {
@@ -287,7 +290,7 @@ void IOWODaliRVBHomeView::updateView()
     }
 }
 
-void IOWODaliRVBHomeView::sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void IOWODaliRVBHomeView::sliderSignalCallbackRed(void *data, Evas_Object *edje_object, string emission, string source)
 {
     EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
     if (!slider) return;
@@ -306,9 +309,67 @@ void IOWODaliRVBHomeView::sliderSignalCallback(void *data, Evas_Object *edje_obj
 
         ColorValue c(io->params["state"]);
 
-        if (slider == slider_red) c.setRed(x * 100.0 * 255.0 / 100.0);
-        if (slider == slider_green) c.setGreen(x * 100.0 * 255.0 / 100.0);
-        if (slider == slider_blue) c.setBlue(x * 100.0 * 255.0 / 100.0);
+        c.setRed(x * 100.0 * 255.0 / 100.0);
+
+        string action = "set " + c.toString();
+
+        if (io) io->sendAction(action);
+
+        elm_object_scroll_freeze_pop(genlist);
+    }
+
+}
+
+void IOWODaliRVBHomeView::sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, string emission, string source)
+{
+    EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
+    if (!slider) return;
+
+    if (emission == "slider,start")
+    {
+        elm_object_scroll_freeze_push(genlist);
+    }
+    else if (emission == "slider,move")
+    {
+    }
+    else if (emission == "slider,changed")
+    {
+        double x;
+        slider->getDragValue("slider", &x, NULL);
+
+        ColorValue c(io->params["state"]);
+
+        c.setGreen(x * 100.0 * 255.0 / 100.0);
+
+        string action = "set " + c.toString();
+
+        if (io) io->sendAction(action);
+
+        elm_object_scroll_freeze_pop(genlist);
+    }
+
+}
+
+void IOWODaliRVBHomeView::sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, string emission, string source)
+{
+    EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
+    if (!slider) return;
+
+    if (emission == "slider,start")
+    {
+        elm_object_scroll_freeze_push(genlist);
+    }
+    else if (emission == "slider,move")
+    {
+    }
+    else if (emission == "slider,changed")
+    {
+        double x;
+        slider->getDragValue("slider", &x, NULL);
+
+        ColorValue c(io->params["state"]);
+
+        c.setBlue(x * 100.0 * 255.0 / 100.0);
 
         string action = "set " + c.toString();
 

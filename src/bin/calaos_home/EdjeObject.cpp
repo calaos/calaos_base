@@ -203,6 +203,9 @@ void EdjeObject::_evasObjectDeleted()
 {
     for_each(callbacks.begin(), callbacks.end(), Delete());
 
+    //Remove del callback here, because we NULL the edje pointer after that
+    evas_object_event_callback_del_full(edje, EVAS_CALLBACK_DEL, _edje_del, this);
+
     edje = NULL;
 
     objectDeleted();

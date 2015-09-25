@@ -36,11 +36,15 @@ private:
     EdjeObject *slider_blue;
     Evas_Object *color_preview;
 
+    sigc::connection redcon;
+
     void sliderRedObjectDeleted();
     void sliderGreenObjectDeleted();
     void sliderBlueObjectDeleted();
 
-    void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallbackRed(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, string emission, string source);
 
 public:
     IOWODaliRVBHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
