@@ -153,7 +153,6 @@ public:
     //Input
     virtual string get_value_string();
     virtual map<string, string> get_all_values_string();
-    virtual void force_input_string(string v);
 
     //Output
     virtual bool set_value(string val);

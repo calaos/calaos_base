@@ -125,10 +125,12 @@ void InputTemp::emitChange()
                            { "state", Utils::to_string(get_value_double()) } });
 }
 
-void InputTemp::force_input_double(double v)
+bool InputTemp::set_value(double v)
 {
-    if (!isEnabled()) return;
+    if (!isEnabled()) return false;
 
     value = v;
     emitChange();
+
+    return true;
 }

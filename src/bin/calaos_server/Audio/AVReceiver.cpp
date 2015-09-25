@@ -299,13 +299,13 @@ IOAVReceiver::~IOAVReceiver()
     AVRManager::Instance().Delete(receiver);
 }
 
-void IOAVReceiver::statusChanged(string param, string value)
+void IOAVReceiver::statusChanged(string _param, string value)
 {
     EmitSignalIO();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { param, value } });
+                           { _param, value } });
 }
 
 string IOAVReceiver::get_value_string()
@@ -341,11 +341,11 @@ map<string, string> IOAVReceiver::get_all_values_string()
     return m;
 }
 
-void IOAVReceiver::force_input_string(string val)
+bool IOAVReceiver::set_value(string val)
 {
-    if (!isEnabled()) return;
+    if (!isEnabled() || !receiver) return false;
 
-    if (!receiver) return;
+    cInfoDom("output") << get_param("id") << " got action, " << val;
 
     if (val == "power off" || val == "power false")
         receiver->Power(false, zone);
@@ -370,15 +370,6 @@ void IOAVReceiver::force_input_string(string val)
         val.erase(0, 7);
         receiver->sendCustomCommand(val);
     }
-}
-
-bool IOAVReceiver::set_value(string val)
-{
-    if (!isEnabled()) return true;
-
-    cInfoDom("output") << get_param("id") << " got action, " << val;
-
-    force_input_string(val);
 
     return true;
 }

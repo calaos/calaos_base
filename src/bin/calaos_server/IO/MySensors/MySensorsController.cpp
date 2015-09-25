@@ -353,18 +353,18 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
             if (io->isInput())
             {
                 if (io->get_type() == TBOOL)
-                    io->force_input_bool(tokens[1] == "true" || tokens[1] == "1");
+                    io->set_value(tokens[1] == "true" || tokens[1] == "1");
                 else if (io->get_type() == TINT)
                 {
                     if (Utils::is_of_type<double>(tokens[1]))
                     {
                         double v;
                         Utils::from_string(tokens[1], v);
-                        io->force_input_double(v);
+                        io->set_value(v);
                     }
                 }
                 else if (io->get_type() == TSTRING)
-                    io->force_input_string(tokens[1]);
+                    io->set_value(tokens[1]);
             }
             else
                 io->set_value(tokens[1]);

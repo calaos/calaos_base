@@ -97,11 +97,13 @@ void InputSwitchTriple::emitChange()
     EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
 }
 
-void InputSwitchTriple::force_input_double(double v)
+bool InputSwitchTriple::set_value(double v)
 {
-    if (!isEnabled()) return;
+    if (!isEnabled()) return false;
 
     value = v;
     emitChange();
+
+    return true;
 }
 

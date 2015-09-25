@@ -516,26 +516,16 @@ bool JsonApi::decodeSetState(Params &jParam)
         success = false;
     else
     {
-        if (io->isInput())
+        success = false;
+
+        if (io->get_type() == TBOOL)
         {
-            if (io->get_type() == TBOOL)
-                io->force_input_bool(jParam["value"] == "true");
-            else
-                io->force_input_string(jParam["value"]);
+            if (jParam["value"] == "true") success = io->set_value(true);
+            else if (jParam["value"] == "false") success = io->set_value(false);
+            else success = io->set_value(jParam["value"]);
         }
         else
-        {
-            success = false;
-
-            if (io->get_type() == TBOOL)
-            {
-                if (jParam["value"] == "true") success = io->set_value(true);
-                else if (jParam["value"] == "false") success = io->set_value(false);
-                else success = io->set_value(jParam["value"]);
-            }
-            else
-                success = io->set_value(jParam["value"]);
-        }
+            success = io->set_value(jParam["value"]);
     }
 
     return success;

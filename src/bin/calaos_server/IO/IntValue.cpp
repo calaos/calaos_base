@@ -90,22 +90,6 @@ Internal::~Internal()
     cInfoDom("output");
 }
 
-void Internal::force_input_bool(bool v)
-{
-    DELETE_NULL(timer);
-
-    if (!isEnabled()) return;
-
-    bvalue = v;
-    EmitSignalIO();
-
-    Save();
-
-    EventManager::create(CalaosEvent::EventIOChanged,
-                         { { "id", get_param("id") },
-                           { "state", v?"true":"false" } });
-}
-
 bool Internal::set_value(bool val)
 {
     DELETE_NULL(timer);
@@ -113,23 +97,16 @@ bool Internal::set_value(bool val)
 
     cInfoDom("output") << get_param("id") << ": got action, " << ((val)?"True":"False");
 
-    force_input_bool(val);
-
-    return true;
-}
-
-void Internal::force_input_double(double v)
-{
-    if (!isEnabled()) return;
-
-    dvalue = v;
+    bvalue = val;
     EmitSignalIO();
 
     Save();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", Utils::to_string(dvalue) } });
+                           { "state", bvalue?"true":"false" } });
+
+    return true;
 }
 
 bool Internal::set_value(double val)
@@ -138,23 +115,16 @@ bool Internal::set_value(double val)
 
     cInfoDom("output") << get_param("id") << ": got action, " << val;
 
-    force_input_double(val);
-
-    return true;
-}
-
-void Internal::force_input_string(string v)
-{
-    if (!isEnabled()) return;
-
-    svalue = v;
+    dvalue = val;
     EmitSignalIO();
 
     Save();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", svalue } });
+                           { "state", Utils::to_string(dvalue) } });
+
+    return true;
 }
 
 bool Internal::set_value(string val)
@@ -217,7 +187,14 @@ bool Internal::set_value(string val)
     {
         cInfoDom("output") << get_param("id") << ": got action, " << val;
 
-        force_input_string(val);
+        svalue = val;
+        EmitSignalIO();
+
+        Save();
+
+        EventManager::create(CalaosEvent::EventIOChanged,
+                             { { "id", get_param("id") },
+                               { "state", svalue } });
     }
     else if (get_type() == TBOOL)
     {

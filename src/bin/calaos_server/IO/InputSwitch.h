@@ -42,12 +42,14 @@ public:
 
     virtual DATA_TYPE get_type() { return TBOOL; }
     virtual bool get_value_bool() { return value; }
-    virtual void force_input_bool(bool v)
+    virtual bool set_value(bool v)
     {
-        if (!isEnabled()) return;
+        if (!isEnabled()) return false;
 
         value = v;
         emitChanges();
+
+        return true;
     }
 
     virtual void hasChanged();

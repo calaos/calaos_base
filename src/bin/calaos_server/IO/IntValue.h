@@ -58,16 +58,10 @@ public:
         return TUNKNOWN;
     }
 
-    //Input
     virtual bool get_value_bool() { return bvalue; }
     virtual double get_value_double() { return dvalue; }
     virtual string get_value_string() { return svalue; }
 
-    virtual void force_input_bool(bool v);
-    virtual void force_input_double(double v);
-    virtual void force_input_string(string v);
-
-    //Output
     virtual bool set_value(bool val);
     virtual bool set_value(double val);
     virtual bool set_value(string val);

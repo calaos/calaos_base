@@ -94,11 +94,6 @@ public:
 
     virtual void EmitSignalIO();
 
-    //Input specific functions
-    virtual void force_input_bool(bool val);
-    virtual void force_input_double(double val);
-    virtual void force_input_string(std::string val);
-
     virtual void hasChanged() { }
 
     //Output specific functions

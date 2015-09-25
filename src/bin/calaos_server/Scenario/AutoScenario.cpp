@@ -318,7 +318,7 @@ void AutoScenario::checkScenarioRules()
         if (!ioScheduleEnabled)
             ioScheduleEnabled = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
 
-        ioScheduleEnabled->force_input_bool(!disabled); // scenario scheduling is enabled by default
+        ioScheduleEnabled->set_value(!disabled); // scenario scheduling is enabled by default
         ioScheduleEnabled->set_param("save", "true"); //Save the value on disk
     }
     else

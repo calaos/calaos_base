@@ -154,9 +154,9 @@ double InputAnalog::get_value_double()
     }
 }
 
-void InputAnalog::force_input_double(double v)
+bool InputAnalog::set_value(double v)
 {
-    if (!isEnabled()) return;
+    if (!isEnabled()) return false;
 
     if (wago_value_max > 0 && real_value_max > 0)
         value = v * wago_value_max / real_value_max;
@@ -164,4 +164,6 @@ void InputAnalog::force_input_double(double v)
         value = v * coeff_a + coeff_b;
 
     emitChange();
+
+    return true;
 }

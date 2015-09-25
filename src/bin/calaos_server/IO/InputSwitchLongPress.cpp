@@ -90,10 +90,12 @@ void InputSwitchLongPress::emitChange()
     });
 }
 
-void InputSwitchLongPress::force_input_double(double v)
+bool InputSwitchLongPress::set_value(double v)
 {
-    if (!isEnabled()) return;
+    if (!isEnabled()) return false;
 
     value = v;
     emitChange();
+
+    return true;
 }

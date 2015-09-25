@@ -43,11 +43,7 @@ public:
 
     virtual DATA_TYPE get_type() { return TBOOL; }
 
-    //Input
     virtual bool get_value_bool() { return value; }
-    virtual void force_input_bool(bool v);
-
-    //Output
     virtual bool set_value(bool val);
 
     AutoScenario *getAutoScenario() { return auto_scenario; }

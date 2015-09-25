@@ -82,21 +82,3 @@ bool IOBase::SaveToXml(TiXmlElement *node)
 
     return true;
 }
-
-void IOBase::force_input_bool(bool val)
-{
-    if (isOutput())
-        set_value(val);
-}
-
-void IOBase::force_input_double(double val)
-{
-    if (isOutput())
-        set_value(val);
-}
-
-void IOBase::force_input_string(std::string val)
-{
-    if (isOutput())
-        set_value(val);
-}

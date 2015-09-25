@@ -61,30 +61,19 @@ Scenario::~Scenario()
     cInfoDom("output") << "Scenario::~Scenario(): Ok";
 }
 
-void Scenario::force_input_bool(bool v)
-{
-    if (!isEnabled()) return;
-
-    value = v;
-    EmitSignalIO();
-
-    EventManager::create(CalaosEvent::EventIOChanged,
-                         { { "id", get_param("id") },
-                           { "state", v?"true":"false" } });
-
-    //reset input value to 0 after 250ms (simulate button press/release)
-    EcoreTimer::singleShot(0.250, [=]() { value = false; });
-}
-
 bool Scenario::set_value(bool val)
 {
     if (!isEnabled()) return true;
 
-    force_input_bool(val);
+    value = val;
+    EmitSignalIO();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", val?"true":"false" } });
+
+    //reset input value to 0 after 250ms (simulate button press/release)
+    EcoreTimer::singleShot(0.250, [=]() { value = false; });
 
     return true;
 }
