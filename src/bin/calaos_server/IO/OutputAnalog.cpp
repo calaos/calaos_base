@@ -25,7 +25,7 @@ using namespace Utils;
 
 OutputAnalog::OutputAnalog(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
-    value(-1),
+    value(0),
     real_value_max(0.0),
     wago_value_max(0.0)
 {
