@@ -77,8 +77,6 @@ calaos_server_SOURCES = \
         HttpCodes.h                                     \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
-        IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
-        IO/Blinkstick/BlinkstickOutputLightRGB.h        \
 	IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
@@ -330,6 +328,12 @@ calaos_server_SOURCES = \
         WebSocket.h                                     \
         main.cpp
 
+if HAVE_LIBUSB
+calaos_server_SOURCES += \
+	IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
+        IO/Blinkstick/BlinkstickOutputLightRGB.h
+endif
+
 calaos_server_LDADD =                                   \
         @CALAOS_SERVER_LIBS@                            \
         @LIBUSB_LIBS@                               	\
@@ -348,8 +352,8 @@ calaos_script_SOURCES = \
 	IO/ExternProc.h
 
  calaos_script_LDADD = \
- 	@CALAOS_SERVER_LIBS@ \
- 	$(top_builddir)/src/lib/libcalaos_common.la
+	@CALAOS_SERVER_LIBS@ \
+	$(top_builddir)/src/lib/libcalaos_common.la
 
 bin_PROGRAMS += calaos_wago
 calaos_wago_SOURCES = \
