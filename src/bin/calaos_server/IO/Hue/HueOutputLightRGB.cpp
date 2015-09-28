@@ -36,8 +36,8 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     ioDoc->descriptionSet(_("RGB Light dimmer using a Philips Hue"));
     ioDoc->linkAdd("Meet Hue", _("http://www.meethue.com"));
     ioDoc->paramAdd("host", _("Hue bridge IP address"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("api", _("TODO"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("id_hue", _("TODO"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("api", _("API key return by Hue bridge when assciation has been made. Use Hue Wizard in calaos_installer to get this value automatically."), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("id_hue", _("Unique ID describing the Hue Light. This value is returned by the Hue Wizard."), IODoc::TYPE_STRING, true);
 
     m_host = get_param("host");
     m_api = get_param("api");

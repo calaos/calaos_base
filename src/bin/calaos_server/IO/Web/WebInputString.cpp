@@ -34,6 +34,32 @@ REGISTER_IO(WebInputString)
 WebInputString::WebInputString(Params &p):
     InputString(p)
 {
+    ioDoc->friendlyNameSet("WebInputString");
+    ioDoc->descriptionSet(_("String input providing from a web document"));
+    ioDoc->paramAdd("url", _("URL where to download the document from.\n"
+                             "If URL begins with file:// the data is read from the local file"),
+                    IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("file_type",_("File type of the document. Values can be xml, json or text."),
+                    IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("path",_("The path where to found the value. This value can take multiple values "
+                             "depending on the file type. If file_type is JSON, the json file "
+                             "downloaded will be read, and the informations will be extracted from "
+                             "the path. for example weather[0]/description, try to read the "
+                             "description value of the 1 element of the array of the weather object.\n"
+                             "If file_type is XML, the path is an xpath expression; Look here for "
+                             "syntax : http://www.w3schools.com/xsl/xpath_syntax.asp "
+                             "If file_type is TEXT, the downloaded file is returned as "
+                             "plain text file, and path must be in the form line/pos/separator "
+                             "Line is read, and is split using separator as delimiters "
+                             "The value returned is the value at pos in the split list. "
+                             "If the separator is not found, the whole line is returned. "
+                             "Example the file contains \n"
+                             "10.0,10.1,10.2,10.3\n"
+                             "20.0,20.1,20.2,20.3\n"
+                             "If the path is 2/4/, the value returne wil be 20.3\n"),
+                             IODoc::TYPE_STRING, true);
+
+
     cInfoDom("input") << "WebInputString::WebInputString()";
     Calaos::StartReadRules::Instance().addIO();
 
