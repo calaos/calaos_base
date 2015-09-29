@@ -289,7 +289,7 @@ void OutputLightRGB::emitChange()
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", state?color.toString():"0" },
+                           { "state", state?color.toRgb().toString():"0" },
                            { "state_int", Utils::to_string(v) } });
 }
 
