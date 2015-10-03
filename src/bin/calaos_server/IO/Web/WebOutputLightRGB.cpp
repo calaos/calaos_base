@@ -60,6 +60,12 @@ WebOutputLightRGB::WebOutputLightRGB(Params &p):
                                    "removed. The default value for this parameter is false."),
                     IODoc::TYPE_BOOL, false);
 
+    if (get_param("raw_value") == "true")
+        raw_value = true;
+    else
+        raw_value = false;
+        
+    
     cInfoDom("output") << "WebOutputLightRGB::WebOutputLightRGB()";
 }
 
@@ -78,7 +84,7 @@ void WebOutputLightRGB::readValue()
 void WebOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
     string cStr = c.toString();
-    if (raw_format && cStr[0] == '#')
+    if (raw_value && cStr[0] == '#')
             cStr.erase(0, 1);
 
     WebCtrl::Instance(get_params()).setValue(cStr);

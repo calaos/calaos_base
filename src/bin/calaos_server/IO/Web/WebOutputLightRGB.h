@@ -30,6 +30,8 @@ namespace Calaos
 
 class WebOutputLightRGB : public OutputLightRGB
 {
+private:
+    bool raw_value;
 
 protected:
     virtual void readValue();
