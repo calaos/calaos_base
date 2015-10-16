@@ -25,6 +25,8 @@
 #include "Utils.h"
 #include "EdjeObject.h"
 #include "Calendar.h"
+#include <Ecore_File.h>
+#include "ApplicationMain.h"
 
 class ModuleClock: public CalaosModuleBase
 {
