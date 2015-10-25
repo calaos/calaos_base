@@ -8,6 +8,7 @@ AM_CPPFLAGS =                                                 \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DTIXML_USE_STL                                       \
+        -DLUA_USE_DLOPEN                                      \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
