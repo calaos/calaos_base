@@ -144,7 +144,7 @@ ExternProcServer::~ExternProcServer()
     ecore_event_handler_del(hProcDel);
     ecore_exe_terminate(process_exe);
     ecore_exe_free(process_exe);
-
+    ecore_con_server_del(ipcServer);
     ecore_file_unlink(sockpath.c_str());
 }
 
