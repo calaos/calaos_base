@@ -83,9 +83,9 @@ public:
 
     Params params;
     vector<Params> vparams;
-    int ivalue, ivalue2;
+    int ivalue = 0, ivalue2 = 0;
     string svalue;
-    double dvalue;
+    double dvalue = 0.0;
 
     void set_chain_data(AudioPlayerData *data)
     {
@@ -101,7 +101,7 @@ public:
     }
 
     AudioRequest_cb callback;
-    void *user_data; //user data
+    void *user_data = nullptr; //user data
 };
 
 }

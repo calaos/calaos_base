@@ -45,7 +45,7 @@ AudioPlayer::AudioPlayer(Params &p):
 
     ioDoc->paramAdd("visible", _("Audio players are not displayed in rooms"), IODoc::TYPE_BOOL, true, "false", true);
 
-    get_params().Add("gui_type", "audio_input");
+    get_params().Add("gui_type", "audio_player");
     get_params().Add("visible", "false");
 }
 

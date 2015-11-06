@@ -172,16 +172,13 @@ json_t *JsonApi::buildJsonAudio()
 
     list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
 
-    int cpt = 0;
     for (IOBase *io: audiolist)
     {
         AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
         if (!player) continue;
 
         json_t *jaudio = json_object();
-        json_object_set_new(jaudio, "id", json_string(Utils::to_string(cpt).c_str()));
-        json_object_set_new(jaudio, "input_id", json_string(player->get_param("iid").c_str()));
-        json_object_set_new(jaudio, "output_id", json_string(player->get_param("oid").c_str()));
+        json_object_set_new(jaudio, "id", json_string(player->get_param("id").c_str()));
         json_object_set_new(jaudio, "name", json_string(player->get_param("name").c_str()));
         json_object_set_new(jaudio, "type", json_string(player->get_param("type").c_str()));
 
@@ -308,7 +305,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
                                                     jtrack);
 
                                 //Add player to array, and send data back if all players requests are done.
-                                json_array_append_new(jio, jplayer);
+                                json_object_set(jio, player->get_param("id").c_str(), jplayer);
                                 playerCounts[uuid] = playerCounts[uuid] - 1;
 
                                 if (playerCounts[uuid] <= 0)
