@@ -51,8 +51,8 @@ bool ActionStd::Execute()
     std::string tmp;
     bool ret = true;
     std::string sval;
-    bool bval;
-    double dval;
+    bool bval = false;
+    double dval = 0;
 
     for (uint i = 0;i < outputs.size();i++)
     {

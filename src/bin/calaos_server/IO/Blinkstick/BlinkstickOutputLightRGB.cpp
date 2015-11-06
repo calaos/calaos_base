@@ -60,8 +60,8 @@ BlinkstickOutputLightRGB::BlinkstickOutputLightRGB(Params &p):
             {
                 cInfoDom("blinkstick") << "Found blinkstrick with serial " << serial;
                 m_device_handle = handle;
-                unsigned char mode[1];
-                mode[0] = 0; // Mode WS2812
+                //unsigned char mode[1];
+                //mode[0] = 0; // Mode WS2812
                 //libusb_control_transfer(m_device_handle, 0x20, 0x9, 0x2, 0x0004, mode, sizeof(mode), 2);
                 break;
             }

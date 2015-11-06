@@ -63,8 +63,8 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
                 return;
             }
 
-            json_t * state = json_object_get(root, "state");
-            if (!state || !json_is_object(state))
+            json_t *tstate = json_object_get(root, "state");
+            if (!tstate || !json_is_object(tstate))
             {
                 cErrorDom("hue") << "Protocol changed ? date received : " << eina_binbuf_string_get(downloadedData);
                 return;
@@ -73,11 +73,11 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
             int sat, bri, hue;
             bool on, reachable;
 
-            sat = json_integer_value(json_object_get(state, "sat"));
-            bri = json_integer_value(json_object_get(state, "bri"));
-            hue = json_integer_value(json_object_get(state, "hue"));
-            on = jansson_bool_get(state, "on");
-            reachable = jansson_bool_get(state, "reachable");
+            sat = json_integer_value(json_object_get(tstate, "sat"));
+            bri = json_integer_value(json_object_get(tstate, "bri"));
+            hue = json_integer_value(json_object_get(tstate, "hue"));
+            on = jansson_bool_get(tstate, "on");
+            reachable = jansson_bool_get(tstate, "reachable");
 
             cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << c;
 
@@ -129,13 +129,14 @@ void HueOutputLightRGB::setColor(const ColorValue &c)
 {
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
-    string color = "{\"on\":true,"
+    string ccolor = "{\"on\":true,"
                    "\"sat\":"  + Utils::to_string((int)(c.getHSVSaturation() * 255.0 / 100.0)) +
                    ",\"bri\":" + Utils::to_string((int)(c.getHSLLightness() * 255.0 / 100.0)) +
                    ",\"hue\":" + Utils::to_string((int)(c.getHSLHue() * 65535.0 / 360.0)) + "}";
-    dl->bodyDataSet(color);
+    dl->bodyDataSet(ccolor);
     dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
     {
+        VAR_UNUSED(status);
         cDebugDom("hue") << "datareceived: " << eina_binbuf_string_get(downloadedData);
     });
 
