@@ -64,12 +64,19 @@ WagoMap::WagoMap(std::string h, int p):
 
     process->processExited.connect([=]()
     {
+        onWagoDisconnected.emit();
+
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
         process->startProcess(exe, "wago", args);
     });
 
     process->startProcess(exe, "wago", args);
+
+    process->processConnected.connect([=]()
+    {
+        onWagoConnected.emit();
+    });
 
     cInfoDom("wago") << host << "," << port;
 }

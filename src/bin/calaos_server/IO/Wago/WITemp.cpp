@@ -30,7 +30,6 @@ REGISTER_IO_USERTYPE(WagoInputTemp, WITemp)
 WITemp::WITemp(Params &p):
     InputTemp(p),
     port(502),
-    requestInProgress(false),
     start(true)
 {
     // Define IO documentation
@@ -48,10 +47,10 @@ WITemp::WITemp(Params &p):
     if (get_params().Exists("port"))
         Utils::from_string(get_param("port"), port);
 
-    WagoMap::Instance(host, port);
-
-    requestInProgress = true;
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
+    {
+        readValue();
+    });
 
     Calaos::StartReadRules::Instance().addIO();
 
@@ -65,8 +64,6 @@ WITemp::~WITemp()
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
-    requestInProgress = false;
-
     if (!status)
     {
         cErrorDom("input") << get_param("id") << ": Failed to read value";
@@ -99,9 +96,5 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
 void WITemp::readValue()
 {
-    if (!requestInProgress)
-    {
-        requestInProgress = true;
-        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
-    }
+    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 }

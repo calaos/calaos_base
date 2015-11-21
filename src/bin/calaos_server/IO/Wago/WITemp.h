@@ -35,7 +35,6 @@ protected:
     std::string host;
     int port;
 
-    bool requestInProgress;
     bool start;
 
     void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);

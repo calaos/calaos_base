@@ -35,7 +35,6 @@ protected:
     std::string host;
     int port;
 
-    bool requestInProgress;
     bool start;
 
     virtual void readValue();

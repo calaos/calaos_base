@@ -169,6 +169,9 @@ public:
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);
+
+    sigc::signal<void> onWagoConnected;
+    sigc::signal<void> onWagoDisconnected;
 };
 
 }

@@ -48,7 +48,10 @@ WOAnalog::WOAnalog(Params &p):
 
     WagoMap::Instance(host, port);
 
-    WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
+    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
+    {
+        WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
+    });
 
     Calaos::StartReadRules::Instance().addIO();
 

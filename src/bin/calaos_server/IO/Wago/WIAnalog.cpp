@@ -30,7 +30,6 @@ REGISTER_IO_USERTYPE(WagoInputAnalog, WIAnalog)
 WIAnalog::WIAnalog(Params &p):
     InputAnalog(p),
     port(502),
-    requestInProgress(false),
     start(true)
 {
     // Define IO documentation
@@ -52,8 +51,10 @@ WIAnalog::WIAnalog(Params &p):
 
     Utils::from_string(get_param("var"), address);
 
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
-    requestInProgress = true;
+    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
+    {
+        readValue();
+    });
 
     Calaos::StartReadRules::Instance().addIO();
 
@@ -67,8 +68,6 @@ WIAnalog::~WIAnalog()
 
 void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
 {
-    requestInProgress = false;
-
     if (!status)
     {
         cErrorDom("input") << get_param("id") << ": Failed to read value";
@@ -109,9 +108,5 @@ void WIAnalog::readValue()
 
     Utils::from_string(get_param("var"), address);
 
-    if (!requestInProgress)
-    {
-        requestInProgress = true;
-        WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
-    }
+    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
 }
