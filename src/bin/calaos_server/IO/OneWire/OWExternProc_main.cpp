@@ -244,10 +244,10 @@ bool OWProcess::setup(int &argc, char **&argv)
         cout << "This tool is for calaos internal use only. However it may be useful " <<
                 "for debugging purpose. It's designed to scan One Wire devices and print " <<
                 "detected devices and their temperatures on screen" << endl << endl;
-        cout << "    Usage : " << argv[0] << " [--use-w1] [--scan] [owfs_args]" << endl;
+        cout << "    Usage : " << argv[0] << " [--use-w1] [--scan] <owfs_args>" << endl;
         cout << "         --use-w1    : Force the use of w1 kernel module for one wire detection." << endl;
         cout << "         --scan      : scan hardware and detect OneWire devices." << endl;
-        cout << "         --owfs_args : List of arguments used by OWFS during init." << endl;
+        cout << "         <owfs_args> : List of arguments used by OWFS during init (e.g. -u for usb devices)." << endl;
         return false;
     }
 
