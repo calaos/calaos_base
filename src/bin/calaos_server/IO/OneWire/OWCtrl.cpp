@@ -99,5 +99,7 @@ void OwCtrl::processNewMessage(const string &msg)
         }
     }
 
+    json_decref(jroot);
+
     valueChanged.emit();
 }

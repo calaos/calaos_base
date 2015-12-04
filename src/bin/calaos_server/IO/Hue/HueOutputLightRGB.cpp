@@ -87,6 +87,8 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
                                                  (int)(bri * 100.0 / 255.0)), on);
             else
                 stateUpdated(ColorValue(0,0,0), reachable);
+
+            json_decref(root);
         });
 
         dl->httpGet();

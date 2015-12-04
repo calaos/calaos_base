@@ -99,6 +99,8 @@ int main (int argc, char **argv)
 
     system("sync");
 
+    Utils::FreeEinaLogs();
+
     return 0;
 }
 

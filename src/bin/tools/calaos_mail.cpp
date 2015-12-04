@@ -128,5 +128,7 @@ int main (int argc, char **argv)
             ecore_file_unlink(attach.c_str());
     }
 
+    Utils::FreeEinaLogs();
+
     return 0;
 }

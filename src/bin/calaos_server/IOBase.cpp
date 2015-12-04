@@ -49,6 +49,7 @@ IOBase::IOBase(Params &p, int iotype):
 IOBase::~IOBase()
 {
     ListeRoom::Instance().delIOHash(this);
+    delete ioDoc;
 }
 
 void IOBase::EmitSignalIO()

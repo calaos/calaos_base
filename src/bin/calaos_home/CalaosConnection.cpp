@@ -229,6 +229,8 @@ void CalaosConnection::onMessageReceived(const string &data)
                  ev == "audio_volume_changed")
             notify_audio_change.emit(ev, eventData);
     }
+
+    json_decref(jroot);
 }
 
 void CalaosConnection::timeoutConnect()

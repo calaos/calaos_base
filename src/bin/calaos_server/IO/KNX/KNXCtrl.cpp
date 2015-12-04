@@ -267,6 +267,8 @@ void KNXCtrl::processNewMessage(const string &msg)
         cDebugDom("knx") << "Disconnected from eibnetmux, restarting command process...";
         process->terminate();
     }
+
+    json_decref(jroot);
 }
 
 KNXValue KNXCtrl::getValue(const string &group_addr)

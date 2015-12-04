@@ -51,6 +51,7 @@ TimeZone::TimeZone()
                     timeZone.push_back(TimeZoneElt(tz.c_str(), "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
                 }
             }
+            eina_iterator_free(it2);
         }
         else
         {

@@ -179,6 +179,8 @@ void ScriptProcess::messageReceived(const string &msg)
             ScriptManager::Instance().luaCalaos.ioMap[ev["id"]] = io;
         }
     }
+
+    json_decref(jroot);
 }
 
 bool ScriptProcess::setup(int &argc, char **&argv)

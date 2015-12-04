@@ -181,5 +181,7 @@ int main (int argc, char **argv)
     delete wserver;
     delete udpserver;
 
+    Utils::FreeEinaLogs();
+
     return 0;
 }

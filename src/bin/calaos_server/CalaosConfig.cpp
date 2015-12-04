@@ -303,6 +303,9 @@ void Config::loadStateCache()
     }
     eina_iterator_free(it);
 
+    eina_hash_free_cb_set(cache->states, _eina_hash_free_cb);
+    eina_hash_free(cache->states);
+    free(cache);
     eet_close(ef);
 
     cInfo() <<  "States cache read successfully.";

@@ -100,6 +100,7 @@ int main(int argc, char **argv)
     {
         cCritical() <<  "An unknown exception occured !";
     }
+    Utils::FreeEinaLogs();
 
     return 0;
 }

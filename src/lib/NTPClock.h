@@ -43,11 +43,6 @@
 class NTPClock
 {
 private:
-    /**
-                 * if true, the apps will stop once the ntp is done
-                 * on the domotic server, the apps will be restart by a daemon
-                 */
-    bool restart;
 
     /**
                  * signal called by the signal 'applyDate'

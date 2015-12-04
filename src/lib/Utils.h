@@ -206,6 +206,7 @@ int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream
 namespace Utils
 {
 void InitEinaLog(const char *default_domain);
+void FreeEinaLogs();
 EinaLog *einaLogger(const char *domain = nullptr);
 
 bool file_copy(std::string source, std::string dest);

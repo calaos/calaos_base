@@ -169,9 +169,6 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
             sendData.emit(res);
             closeConnection.emit(0, string());
 
-            if (jroot)
-                json_decref(jroot);
-
             return;
         }
 

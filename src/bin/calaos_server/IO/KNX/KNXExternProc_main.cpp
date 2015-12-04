@@ -54,6 +54,7 @@ void KNXProcess::messageReceived(const string &msg)
     {
         cInfo() << "TODO: read not implemented yet.";
     }
+    json_decref(jroot);
 }
 
 bool KNXProcess::setup(int &argc, char **&argv)

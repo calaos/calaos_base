@@ -69,6 +69,8 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             if (!jsonApi->buildJsonSetParam(p))
                 cWarningDom("lua") << "Failed to decode set_param from Lua Script!";
         }
+
+        json_decref(jroot);
     });
 
     process->processExited.connect([=]()

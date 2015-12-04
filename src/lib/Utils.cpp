@@ -389,10 +389,16 @@ int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream
     return nmemb;
 }
 
+static bool einaLogShuttingDown = false;
 static string default_domain;
 static std::unordered_map<std::string, EinaLog *> logger_hash;
+static EinaLog defaultCoutLogger(true);
+
 EinaLog *Utils::einaLogger(const char *domain)
 {
+    if (einaLogShuttingDown)
+        return &defaultCoutLogger;
+
     string d = default_domain;
     
     if (domain)
@@ -420,6 +426,10 @@ EinaLog *Utils::einaLogger(const char *domain)
 
 void Utils::InitEinaLog(const char *d)
 {
+    //We are actually shutting down everything, do not allocate memory
+    if (einaLogShuttingDown)
+        return;
+
     //try to get env variable EINA_LOG_LEVELS_GLOB
     //and if not defined set it to print INF messages by default
     if (!getenv("EINA_LOG_LEVELS_GLOB"))
@@ -428,6 +438,19 @@ void Utils::InitEinaLog(const char *d)
     eina_init();
     default_domain = d;
     logger_hash[default_domain] = new EinaLog(default_domain);
+}
+
+void Utils::FreeEinaLogs()
+{
+    for (auto &kv: logger_hash)
+    {
+        delete kv.second;
+    }
+    logger_hash.clear();
+
+    eina_shutdown();
+
+    einaLogShuttingDown = true;
 }
 
 static string _configBase;

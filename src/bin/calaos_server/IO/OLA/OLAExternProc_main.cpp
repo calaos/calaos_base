@@ -81,6 +81,7 @@ void OLAProcess::messageReceived(const string &msg)
             buffer.SetChannel(channel, val);
         }
     }
+    json_decref(jroot);
 
     client.SendDmx(universe, buffer);
 }

@@ -72,13 +72,20 @@ public:
 
     ~LogStream()
     {
-        eina_log_print(logData->domain,
-                       logData->level,
-                       logData->file.c_str(),
-                       logData->function.c_str(),
-                       logData->line,
-                       "%s",
-                       logData->stream.str().c_str());
+        if (logData->domain == -1 &&
+            logData->level == EINA_LOG_LEVEL_UNKNOWN)
+            std::cout << logData->file << ":" << logData->line << " "
+                      << logData->function << ": "
+                      << logData->stream.str()
+                      << std::endl;
+        else
+            eina_log_print(logData->domain,
+                           logData->level,
+                           logData->file.c_str(),
+                           logData->function.c_str(),
+                           logData->line,
+                           "%s",
+                           logData->stream.str().c_str());
 
         delete logData;
     }
@@ -89,6 +96,7 @@ class EinaLog
 private:
     int domain;
     string domainName;
+    bool coutOutput = false;
 
 public:
     EinaLog(string dname="EinaLog"):
@@ -102,30 +110,43 @@ public:
             if(domain<0) domain = EINA_LOG_DOMAIN_GLOBAL;
         }
     }
+    EinaLog(bool cout_out):
+        domain(-1),
+        coutOutput(cout_out)
+    { }
     ~EinaLog()
     {
-        if(domain != EINA_LOG_DOMAIN_GLOBAL)
-            eina_log_domain_unregister(domain);
+        if (!coutOutput)
+        {
+            if(domain != EINA_LOG_DOMAIN_GLOBAL)
+                eina_log_domain_unregister(domain);
+            eina_shutdown();
+        }
     }
 
     LogStream EinaDebug(string file, string function, int line) const
     {
+        if (coutOutput) return LogStream(-1, file, function, line, EINA_LOG_LEVEL_UNKNOWN);
         return LogStream(domain, file, function, line, EINA_LOG_LEVEL_DBG);
     }
     LogStream EinaInfo(string file, string function, int line) const
     {
+        if (coutOutput) return LogStream(-1, file, function, line, EINA_LOG_LEVEL_UNKNOWN);
         return LogStream(domain, file, function, line, EINA_LOG_LEVEL_INFO);
     }
     LogStream EinaCritical(string file, string function, int line) const
     {
+        if (coutOutput) return LogStream(-1, file, function, line, EINA_LOG_LEVEL_UNKNOWN);
         return LogStream(domain, file, function, line, EINA_LOG_LEVEL_CRITICAL);
     }
     LogStream EinaError(string file, string function, int line) const
     {
+        if (coutOutput) return LogStream(-1, file, function, line, EINA_LOG_LEVEL_UNKNOWN);
         return LogStream(domain, file, function, line, EINA_LOG_LEVEL_ERR);
     }
     LogStream EinaWarning(string file, string function, int line) const
     {
+        if (coutOutput) return LogStream(-1, file, function, line, EINA_LOG_LEVEL_UNKNOWN);
         return LogStream(domain, file, function, line, EINA_LOG_LEVEL_WARN);
     }
 };

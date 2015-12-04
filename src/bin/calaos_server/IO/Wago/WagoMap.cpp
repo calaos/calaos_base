@@ -212,6 +212,8 @@ void WagoMap::processNewMessage(const string &msg)
     }
 
     cmd.deleteSignals();
+
+    json_decref(jroot);
 }
 
 void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)

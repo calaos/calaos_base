@@ -333,6 +333,7 @@ ExternProcClient::ExternProcClient(int &argc, char **&argv)
 ExternProcClient::~ExternProcClient()
 {
     if (sockfd >= 0) close(sockfd);
+    Utils::FreeEinaLogs();
 }
 
 bool ExternProcClient::connectSocket()

@@ -82,6 +82,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
     if (!jroot || !json_is_object(jroot))
     {
         cDebugDom("network") << "Error loading json : " << jerr.text;
+        if (jroot) json_decref(jroot);
         return;
     }
 

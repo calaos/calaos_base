@@ -282,6 +282,8 @@ void WagoProcess::messageReceived(const string &msg)
         res = jansson_to_string(jret);
     }
 
+    json_decref(jroot);
+
     if (!res.empty())
         sendMessage(res);
 }
