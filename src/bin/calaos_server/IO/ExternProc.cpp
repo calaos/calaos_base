@@ -116,6 +116,10 @@ ExternProcServer::ExternProcServer(string pathprefix)
     sockpath += pathprefix + "_" + Utils::to_string(pid);
 
     ipcServer = ecore_con_server_add(ECORE_CON_LOCAL_SYSTEM, sockpath.c_str(), 0, this);
+
+    //ecore adds |0 to the socket filename... reflects that to the filename so we can delete and use the correct file
+    sockpath += "|0";
+
     hAdd = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_ADD,
                                    ExternProcServer_con_add,
                                    this);
@@ -137,6 +141,8 @@ ExternProcServer::ExternProcServer(string pathprefix)
 
 ExternProcServer::~ExternProcServer()
 {
+    cDebugDom("process") << "~ExternProcServer()";
+
     ecore_event_handler_del(hAdd);
     ecore_event_handler_del(hData);
     ecore_event_handler_del(hDel);
@@ -145,6 +151,8 @@ ExternProcServer::~ExternProcServer()
     ecore_exe_terminate(process_exe);
     ecore_exe_free(process_exe);
     ecore_con_server_del(ipcServer);
+
+    cDebugDom("process") << "Deleting socket file: " << sockpath;
     ecore_file_unlink(sockpath.c_str());
 }
 
@@ -186,7 +194,7 @@ void ExternProcServer::processData(const string &data)
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
     string cmd = process;
-    cmd += " --socket \"" + sockpath + "|0\" --namespace \"" + name + "\" " + args;
+    cmd += " --socket \"" + sockpath + "\" --namespace \"" + name + "\" " + args;
 
     cDebugDom("process") << "Starting process: " << cmd;
     process_exe = ecore_exe_run(cmd.c_str(), this);
