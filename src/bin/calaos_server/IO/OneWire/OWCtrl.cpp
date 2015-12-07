@@ -71,35 +71,29 @@ shared_ptr<OwCtrl> OwCtrl::Instance(const string &args)
 
 void OwCtrl::processNewMessage(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-
-    if (!jroot || !json_is_array(jroot))
+    Json jroot;
+    try
     {
-        cWarningDom("1wire") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        jroot = Json::parse(msg);
+        if (!jroot.is_array())
+            throw (invalid_argument("Json is not an array"));
+    }
+    catch (const std::exception &e)
+    {
+        cWarningDom("1wire") << "Error parsing json from sub process: " << e.what();
         return;
     }
 
-    size_t idx;
-    json_t *value;
-
-    json_array_foreach(jroot, idx, value)
+    for (auto it: jroot)
     {
-        Params p;
-        jansson_decode_object(value, p);
-
-        if (p.Exists("id"))
+        if (it.find("id") != it.end())
         {
-            if (p.Exists("value"))
-                mapValues[p["id"]] = p["value"];
-            if (p.Exists("type"))
-                mapValues[p["id"]] = p["type"];
+            if (it.find("value") != it.end())
+                mapValues[it["id"].get<string>()] = it["value"].get<string>();
+            if (it.find("type") != it.end())
+                mapTypes[it["id"].get<string>()] = it["type"].get<string>();
         }
     }
-
-    json_decref(jroot);
 
     valueChanged.emit();
 }

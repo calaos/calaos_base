@@ -132,7 +132,8 @@ libcalaos_common_la_SOURCES = \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
         ColorUtils.h                            \
-        ColorUtils.cpp
+        ColorUtils.cpp						    \
+        json.hpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

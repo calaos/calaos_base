@@ -201,20 +201,17 @@ void OWProcess::readTimeout()
 {
     //read all devices and send a json with all data
     list<string> l = scanDevices();
-    json_t *jdata = json_array();
+
+    Json jdata;
     for (const string &dev: l)
     {
-        json_t *jdev = json_object();
-        json_object_set_new(jdev, "id", json_string(dev.c_str()));
-        json_object_set_new(jdev, "value", json_string(getValue(dev, "temperature").c_str()));
-        json_object_set_new(jdev, "device_type", json_string(getValue(dev, "type").c_str()));
-        json_array_append_new(jdata, jdev);
+        jdata.push_back({ { "id" , dev },
+                          { "value", getValue(dev, "temperature") },
+                          { "device_type", getValue(dev, "type") }
+                        });
     }
 
-    string res = jansson_to_string(jdata);
-
-    if (!res.empty())
-        sendMessage(res);
+    sendMessage(jdata.dump());
 }
 
 void OWProcess::messageReceived(const string &msg)

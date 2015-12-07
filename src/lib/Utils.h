@@ -73,6 +73,9 @@
 //This is for logging
 #include <EinaLog.h>
 
+#include "json.hpp"
+using Json = nlohmann::json;
+
 #if defined(__linux__) || defined(__linux) || defined(linux)
 #include <sys/sysinfo.h>
 #elif defined(macintosh) || defined(__APPLE__) || defined(__APPLE_CC__)
