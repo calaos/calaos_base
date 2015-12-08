@@ -78,8 +78,6 @@ public:
     // BinBuf pointer containing data downloaded
     Eina_Binbuf *m_downloadedData = NULL;
 
-    Ecore_Idler *m_idler;
-
     // Constructor
     UrlDownloader(string url, bool autodelete = false);
 

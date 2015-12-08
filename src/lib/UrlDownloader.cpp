@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include <UrlDownloader.h>
+#include <EcoreTimer.h>
 
 Eina_Bool _complete_cb(void *data, int type, void *event)
 {
@@ -248,21 +249,11 @@ void UrlDownloader::progressCb(double now, double tot)
     m_signalProgress.emit(now, tot);
 }
 
-static Eina_Bool _delete_downloader_idler_cb(void *data)
-{
-    UrlDownloader *ud = reinterpret_cast<UrlDownloader *>(data);
-    if (!ud) return ECORE_CALLBACK_CANCEL;
-
-    delete ud;
-
-    //delete the ecore_idler
-    return ECORE_CALLBACK_CANCEL;
-}
-
 void UrlDownloader::Destroy()
 {
-    if (!m_idler)
-        m_idler = ecore_idler_add(_delete_downloader_idler_cb, this);
+    cErrorDom() << "Launch idler for destroy " << m_url;
+
+    EcoreIdler::singleIdler([=]() { delete this; });
 }
 
 Params UrlDownloader::getResponseHeaders()
