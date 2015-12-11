@@ -76,7 +76,7 @@ void OwCtrl::processNewMessage(const string &msg)
     {
         jroot = Json::parse(msg);
         if (!jroot.is_array())
-            throw (invalid_argument("Json is not an array"));
+            throw (invalid_argument(string("Json is not an array: ") + msg));
     }
     catch (const std::exception &e)
     {
