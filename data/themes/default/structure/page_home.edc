@@ -702,7 +702,7 @@ group
                         }
                 }
 
-                alias: "button.save" "button_save:button.save_room";
+/*                alias: "button.save" "button_save:button.save_room";
                 part
                 {
                         name: "button_save";
@@ -718,7 +718,7 @@ group
                                 rel2.to: "module_footer_background";
                         }
                 }
-
+*/
                 #include "activity_loading.edc"
         }
 
