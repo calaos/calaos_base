@@ -121,7 +121,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
         elm_config_scroll_thumbscroll_friction_set(1.0);
         elm_config_scroll_thumbscroll_border_friction_set(0.5);
         elm_config_scroll_thumbscroll_sensitivity_friction_set(0.25);
-        elm_config_item_select_on_focus_disabled_set(true);
+        //elm_config_item_select_on_focus_disabled_set(true);
     }
 
     evas_object_event_callback_add(window, EVAS_CALLBACK_RESIZE, _window_resize_cb, this);
