@@ -26,6 +26,10 @@ DownloadManager::DownloadManager(int _nbDownloadsMax, int _nbTry):
 {
 }
 
+DownloadManager::~DownloadManager()
+{
+    clear();
+}
 
 void DownloadManager::add(string source, string destination,
                           sigc::slot<void, string, string, void*> sig,

@@ -83,6 +83,7 @@ public:
                  * @param _nbTry the number of try before abandon
                  */
     DownloadManager(int _nbDownloadsMax = 3, int _nbTry = 3);
+    ~DownloadManager();
 
     /**
                  * Add a file to download
