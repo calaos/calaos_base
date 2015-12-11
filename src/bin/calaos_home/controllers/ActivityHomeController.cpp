@@ -245,6 +245,7 @@ void ActivityHomeController::clickRoom(int selected_room)
 void ActivityHomeController::lights_changed(int count)
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
+    if (!homeView) return;
     string t;
 
     if (count <= 0)
@@ -260,6 +261,7 @@ void ActivityHomeController::lights_changed(int count)
 void ActivityHomeController::shutter_changed(int count)
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
+    if (!homeView) return;
     string t;
 
     if (count <= 0)
