@@ -32,6 +32,7 @@
 #include "HttpServer.h"
 #include "Zibase.h"
 #include "Prefix.h"
+#include "Audio/AVRManager.h"
 
 using namespace Calaos;
 
@@ -112,6 +113,7 @@ int main (int argc, char **argv)
     srand(time(NULL));
 
     //Ensure calling order of destructors
+    AVRManager::Instance();
     EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
