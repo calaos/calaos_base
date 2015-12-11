@@ -35,7 +35,7 @@ group
                                 rel1 { relative: 0.0 0.0; offset: 10 0; }
                                 rel2 { relative: 1.0 0.0; offset: -5 35; }
                                 color: 231 231 231 204;
-                                text { text: "Titre l'ampli"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "Titre l'ampli"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; }
                         }
                 }
 
@@ -90,7 +90,7 @@ group
                                 rel1 { relative: 0.0 0.0; offset:  10 287; }
                                 rel2 { relative: 0.0 0.0; offset: 198 315; }
                                 color: 231 231 231 204;
-                                text { text: "Volume"; font: "CalaosContent"; size: 14; min: 1 1; align: 1.0 0.5; ellipsis: -1.0; }
+                                text { text: "Volume"; font: "CalaosContent"; size: 14; min: 1 1; align: 1.0 0.5; }
                         }
                 }
 
@@ -105,7 +105,7 @@ group
 //                                 rel1 { relative: 0.0 0.0; offset:  10 322; }
 //                                 rel2 { relative: 0.0 0.0; offset: 198 350; }
 //                                 color: 58 180 215 255;
-//                                 text { text: "-0.00 dB"; font: "CalaosContent"; size: 14; min: 1 1; align: 1.0 0.5; ellipsis: -1.0; }
+//                                 text { text: "-0.00 dB"; font: "CalaosContent"; size: 14; min: 1 1; align: 1.0 0.5; }
 //                         }
 //                 }
 
@@ -150,7 +150,7 @@ group
                                 rel1.to: "display_border_2";
                                 rel2.to: "display_border_2";
                                 color: 58 180 215 255;
-                                text { text: "AZERTYUIOPQSDF"; font: "RepetitionScrolling"; size: 20; min: 1 1; align: 0.5 0.5; ellipsis: -1.0; }
+                                text { text: "AZERTYUIOPQSDF"; font: "RepetitionScrolling"; size: 20; min: 1 1; align: 0.5 0.5; }
                         }
                 }
 
@@ -180,7 +180,7 @@ group
                                 rel1 { relative: 0.0 1.0; offset:  8 10; to: "display_border_1"; }
                                 rel2 { relative: 1.0 1.0; offset: -1 30; to: "display_border_1"; }
                                 color: 231 231 231 204;
-                                text { text: "Power:"; font: "CalaosContent"; size: 14; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "Power:"; font: "CalaosContent"; size: 14; min: 1 1; align: 0.0 0.5; }
                         }
                 }
 

@@ -71,7 +71,6 @@ group
                                 inherit: "default" 0.0;
                                 visible: 1;
                                 text.min: 1 1;
-                                text.ellipsis: -1.0;
                         }
                         description
                         {

@@ -744,7 +744,7 @@ group
                                 rel1 { relative: 1.0 0.5; offset:  8 -14; }
                                 rel2 { relative: 0.0 0.5; offset:  8+20 13; }
                                 align: 0.0 0.5;
-                                text { text: "Titre de l'element:"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "Titre de l'element:"; font: "CalaosContent"; size: 12; min: 1 1; align: 0.0 0.5; }
                                 color: 58 180 215 255;
                         }
                 }

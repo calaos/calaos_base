@@ -67,7 +67,7 @@ group
                                 rel1 { relative: 0.0 1.0; offset: 10 -22; }
                                 rel2 { relative: 1.0 1.0; offset: -5  -4; }
                                 color: 231 231 231 204;
-                                text { text: "Titre la pièce"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "Titre la pièce"; font: "CalaosContent"; size: 15; min: 1 1; align: 0.0 0.5; }
                         }
                 }
         }
@@ -100,7 +100,7 @@ group
                                 rel1 { relative: 0.0 0.0; offset: 60   0; }
                                 rel2 { relative: 1.0 1.0; offset: -5  -1; }
                                 color: 231 231 231 174;
-                                text { text: "Titre la pièce"; font: "CalaosContentBold"; size: 15; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "Titre la pièce"; font: "CalaosContentBold"; size: 15; min: 1 1; align: 0.0 0.5; }
                         }
                 }
 
