@@ -68,7 +68,7 @@ void OWTemp::readValue()
 
     double val;
     Utils::from_string(v, val);
-    val = Utils::roundValue(val);
+    val = Utils::roundValue(val, precision);
     if (val != value)
     {
         value = val;

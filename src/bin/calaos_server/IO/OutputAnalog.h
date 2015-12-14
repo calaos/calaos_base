@@ -36,6 +36,7 @@ protected:
     double wago_value_max;
     double coeff_a;
     double coeff_b;
+    int precision;
 
     void readConfig();
 

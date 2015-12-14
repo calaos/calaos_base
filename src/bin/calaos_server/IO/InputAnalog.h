@@ -39,6 +39,7 @@ protected:
     double timer;
     double offset;
     double frequency;
+    int precision;
 
     void readConfig();
 

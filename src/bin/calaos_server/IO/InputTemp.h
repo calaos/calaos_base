@@ -41,6 +41,7 @@ protected:
     double offset;
     double coeff_a;
     double coeff_b;
+    int precision;
 
     void emitChange();
     virtual void readValue() = 0;

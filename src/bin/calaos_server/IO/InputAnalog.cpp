@@ -29,7 +29,8 @@ InputAnalog::InputAnalog(Params &p):
     IOBase(p, IOBase::IO_INPUT),
     real_value_max(0.0),
     wago_value_max(0.0),
-    value(0.0)
+    value(0.0),
+    precision(2)
 {
     ioDoc->descriptionBaseSet(_("An analog input can be used to read analog values to display them and use them in rules."));
 
@@ -44,6 +45,8 @@ InputAnalog::InputAnalog(Params &p):
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
                  IODoc::TYPE_FLOAT, false);
+    ioDoc->paramAdd("precision", _("Precision of the returned calue. The value represents the number of decimal after the dot. The value is rounded like this : value = 19.275 => returned value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision = 0"),
+                 IODoc::TYPE_INT, false);
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
@@ -106,6 +109,12 @@ void InputAnalog::readConfig()
     }
     else
       frequency = 15.0;
+
+    if (!get_params().Exists("precision"))
+        precision = 2;
+    else
+        Utils::from_string(get_param("precision"), precision);
+
 }
 
 void InputAnalog::emitChange()
@@ -138,19 +147,20 @@ void InputAnalog::hasChanged()
 
 double InputAnalog::get_value_double()
 {
+    double v;
     readConfig();
 
     if (wago_value_max > 0 && real_value_max > 0)
     {
         cDebugDom("input") << get_param("id") << ": "
                            << value << " * " << real_value_max << " / " << wago_value_max;
-        return Utils::roundValue(value * real_value_max / wago_value_max);
+        return Utils::roundValue(value * real_value_max / wago_value_max, precision);
     }
     else
     {
         cDebugDom("input") << get_param("id") << ": "
                            << coeff_a << " * " << value << " + " << coeff_b;
-        return Utils::roundValue(value * coeff_a + coeff_b);
+        return Utils::roundValue(value * coeff_a + coeff_b, precision);
     }
 }
 

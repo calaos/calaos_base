@@ -28,7 +28,8 @@ using namespace Calaos;
 InputTemp::InputTemp(Params &p):
     IOBase(p, IOBase::IO_INPUT),
     value(0.0),
-    timer(0.0)
+    timer(0.0),
+    precision(2)
 {
     ioDoc->descriptionBaseSet(_("Temperature sensor input. Use for displaying temperature and to control heating devices with rules based on temperature value"));
     ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
@@ -42,6 +43,8 @@ InputTemp::InputTemp(Params &p):
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
                  IODoc::TYPE_FLOAT, false);
+    ioDoc->paramAdd("precision", _("Precision of the returned calue. The value represents the number of decimal after the dot. The value is rounded like this : value = 19.275 => returned value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision = 0"),
+                 IODoc::TYPE_INT, false);
 
     ioDoc->conditionAdd("value", _("Event on a temperature value in °C"));
     ioDoc->conditionAdd("changed", _("Event on any change of temperature value"));
@@ -72,6 +75,11 @@ InputTemp::InputTemp(Params &p):
     }
     else
       readTime = 15.0;
+
+    if (get_params().Exists("precision"))
+        Utils::from_string(get_param("precision"), precision);
+    else
+        precision = 2;
 
     string v;
     if (Config::Instance().ReadValueIO(get_param("id"), v) &&
@@ -107,11 +115,7 @@ void InputTemp::hasChanged()
 
 double InputTemp::get_value_double()
 {
-    double v;
-
-    v = coeff_a * value + coeff_b;
-
-    return v;
+    return Utils::roundValue(coeff_a * value + coeff_b, precision);
 }
 
 void InputTemp::emitChange()

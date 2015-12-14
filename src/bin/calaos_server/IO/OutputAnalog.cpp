@@ -74,6 +74,10 @@ void OutputAnalog::readConfig()
     if (get_params().Exists("coeff_a")) Utils::from_string(get_param("coeff_a"), coeff_a);
     if (get_params().Exists("coeff_b")) Utils::from_string(get_param("coeff_b"), coeff_b);
 
+    if (get_params().Exists("precision"))
+        Utils::from_string(get_param("precision"), precision);
+    else
+        precision = 2;
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
 }
@@ -83,9 +87,9 @@ double OutputAnalog::get_value_double()
     readConfig();
  
     if (wago_value_max > 0 && real_value_max > 0)
-        return Utils::roundValue(value * real_value_max / wago_value_max);
+        return Utils::roundValue(value * real_value_max / wago_value_max, precision);
     else
-        return Utils::roundValue(value * coeff_a + coeff_b);
+        return Utils::roundValue(value * coeff_a + coeff_b, precision);
 }
 
 void OutputAnalog::emitChange()
