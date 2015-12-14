@@ -147,7 +147,6 @@ void InputAnalog::hasChanged()
 
 double InputAnalog::get_value_double()
 {
-    double v;
     readConfig();
 
     if (wago_value_max > 0 && real_value_max > 0)
