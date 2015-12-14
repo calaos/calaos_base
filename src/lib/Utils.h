@@ -235,8 +235,8 @@ enum CaseSensitivity { CaseInsensitive, CaseSensitive };
 bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 bool strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 
-//Return a value rounded to 2 decimal after the dot
-double roundValue(double value);
+// Return a value rounded to precision decimal after the dot
+double roundValue(double value, int precision);
 
 //Parse a result string into an array of Params.
 void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);

@@ -289,15 +289,15 @@ void Utils::trim_left(std::string &source, const std::string &t)
     source.erase(0, source.find_first_not_of(t));
 }
 
-double Utils::roundValue(double value)
+double Utils::roundValue(double value, int precision)
 {
-    value *= 100.0;
-    int v = (int)value;
+    if (value == 0.)
+        return value;
 
-    if ((value - v) > 0.5)
-        return (v + 1) / 100.0;
+    int ex = floor(log10(abs(value))) - precision + 1;
+    double div = pow(10, ex);
 
-    return v / 100.0;
+    return floor(value / div + 0.5) * div;
 }
 
 bool Utils::strContains(const string &str, const string &needle, CaseSensitivity cs)
