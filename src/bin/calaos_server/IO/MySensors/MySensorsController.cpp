@@ -29,6 +29,50 @@
 
 using namespace Calaos;
 
+static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
+{
+    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
+
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
+
+    if (o)
+        o->addConnection(ev->server);
+    else
+        cCriticalDom("mysensors") << "failed to get object !";
+    return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
+{
+    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
+
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
+
+    if (o)
+        o->delConnection(ev->server);
+    else
+        cCriticalDom("mysensors") << "failed to get object !";
+
+    return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_Data *ev)
+{
+    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
+
+    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
+        return ECORE_CALLBACK_PASS_ON;
+
+    if (o)
+        o->dataGet(ev->server, ev->data, ev->size);
+    else
+        cCriticalDom("mysensors") << "failed to get object !";
+
+    return ECORE_CALLBACK_RENEW;
+}
+
 MySensorsController::MySensorsController(const Params &p):
     param(p)
 {
@@ -47,6 +91,11 @@ MySensorsController::MySensorsController(const Params &p):
 
 MySensorsController::~MySensorsController()
 {
+    delete timer_con;
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
+    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
 }
 
 static Eina_Bool _serial_handler_cb(void *data, Ecore_Fd_Handler *handler)
@@ -219,7 +268,50 @@ Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
 
 void MySensorsController::openTCP()
 {
-    cInfoDom("mysensors") << "TCP gateway not implemented yet";
+    ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
+    ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
+    ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
+
+    timerConnReconnect();
+    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+}
+
+void MySensorsController::timerConnReconnect()
+{
+    DELETE_NULL_FUNC(ecore_con_server_del, econ);
+    int p = 5003;
+    if (param.Exists("port") && param["port"] != "0")
+        Utils::from_string(param["port"], p);
+    cDebugDom("mysensors") << "Connecting to " << param["host"] << ":" << p;
+    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, param["host"].c_str(), p, this);
+    ecore_con_server_data_set(econ, this);
+}
+
+void MySensorsController::addConnection(Ecore_Con_Server *srv)
+{
+    if (srv != econ) return;
+    DELETE_NULL(timer_con);
+    cDebugDom("mysensors") << "main connection established";
+}
+
+void MySensorsController::delConnection(Ecore_Con_Server *srv)
+{
+    if (srv != econ) return;
+
+    DELETE_NULL(timer_con);
+
+    cWarningDom("mysensors") << "Main Connection closed !";
+    cWarningDom("mysensors") << "Trying to reconnect...";
+
+    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+}
+
+void MySensorsController::dataGet(Ecore_Con_Server *srv, void *data, int size)
+{
+    if (srv != econ) return;
+    string msg((char *)data, size);
+
+    readNewData(msg);
 }
 
 void MySensorsController::readNewData(const string &data)
@@ -446,7 +538,8 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
     }
     else if (param["gateway"] == "tcp")
     {
-        //TODO
+        if (econ && ecore_con_server_connected_get(econ))
+            ecore_con_server_send(econ, data.str().c_str(), data.str().length());
     }
 }
 
