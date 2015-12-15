@@ -23,8 +23,8 @@
 
 #include "Calaos.h"
 #include "EcoreTimer.h"
-#include "Ecore.h"
-#include "Ecore_Con.h"
+#include <Ecore.h>
+#include <Ecore_Con.h>
 #include "IOBase.h"
 
 namespace Calaos

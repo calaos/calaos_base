@@ -26,6 +26,8 @@
 #include <Params.h>
 #include <unordered_map>
 #include <termios.h>
+#include <Ecore.h>
+#include <Ecore_Con.h>
 
 namespace Calaos
 {
@@ -78,6 +80,15 @@ private:
 
     string dataBuffer;
 
+    //tcp connection
+    Ecore_Event_Handler *ehandler_add;
+    Ecore_Event_Handler *ehandler_del;
+    Ecore_Event_Handler *ehandler_data;
+    Ecore_Con_Server *econ = nullptr;
+    EcoreTimer *timer_con = nullptr;
+
+    void timerConnReconnect();
+
     void openSerial();
     void closeSerial();
     void openTCP();
@@ -111,6 +122,12 @@ public:
     void registerIO(string nodeid, string sensorid, sigc::slot<void> callback);
 
     Eina_Bool _serialHandler(Ecore_Fd_Handler *handler);
+
+
+    /* This is private for C callbacks */
+    void addConnection(Ecore_Con_Server *srv);
+    void delConnection(Ecore_Con_Server *srv);
+    void dataGet(Ecore_Con_Server *srv, void *data, int size);
 };
 
 }
