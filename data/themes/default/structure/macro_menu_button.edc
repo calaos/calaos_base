@@ -161,7 +161,7 @@ part \
                 rel1.to: "menu_buttons_"id; \
                 rel2.to: "menu_buttons_"id; \
                 color: 231 231 231 255; \
-                text { text: label; font: "CalaosContent"; size: 15; min: 1 1; ellipsis: -1.0; } \
+                text { text: label; font: "CalaosContent"; size: 15; min: 1 1; } \
         } \
         description \
         { \

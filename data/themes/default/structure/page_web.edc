@@ -178,7 +178,7 @@ group
                                 rel1 { relative: 0.0 0.0; offset:  7  0; to: "page_loader_clip"; }
                                 rel2 { relative: 0.0 1.0; offset: 54 -1; to: "page_loader_clip"; }
                                 color: 255 255 255 180;
-                                text { text: "85 %"; font: "CalaosContent"; size: 14; min: 1 1; align: 0.0 0.5; ellipsis: -1.0; }
+                                text { text: "85 %"; font: "CalaosContent"; size: 14; min: 1 1; align: 0.0 0.5; }
                         }
                 }
 

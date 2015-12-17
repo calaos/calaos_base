@@ -26,7 +26,6 @@ static void _item_delete(void *data, Evas_Object *obj);
 static Eina_Bool _item_state(void *data, Evas_Object *obj, const char *part);
 static char *_item_label(void *data, Evas_Object *obj, const char *part);
 static void _item_sel_cb(void *data, Evas_Object *obj, void *event_info);
-static void _realized_cb(void *data, Evas_Object *, void *);
 
 GenlistItemBase::GenlistItemBase(Evas *_evas, Evas_Object *_parent, string _style, Elm_Genlist_Item_Type _flags, void *select_user_data):
     evas(_evas),
@@ -47,8 +46,6 @@ GenlistItemBase::GenlistItemBase(Evas *_evas, Evas_Object *_parent, string _styl
 
 GenlistItemBase::~GenlistItemBase()
 {
-    evas_object_smart_callback_del(genlist, "realized", _realized_cb);
-
     if (autodel_userdata)
     {
         (*autodel_userdata)(user_data);
@@ -58,28 +55,9 @@ GenlistItemBase::~GenlistItemBase()
     cDebug() <<  "GenlistItemBase: item deleted";
 }
 
-static void _realized_cb(void *data, Evas_Object *, void *)
-{
-    GenlistItemBase *item = reinterpret_cast<GenlistItemBase *>(data);
-    if (!item)
-    {
-        cErrorDom("home") << "GenlistItemBase : _item_part_get(): Can't cast data !";
-        return;
-    }
-    item->itemRealized();
-}
-
-void GenlistItemBase::itemRealized()
-{
-    cDebugDom("genlist") << "item is realized, force update its content";
-    elm_genlist_item_update(item);
-    elm_genlist_item_fields_update(item, "*", ELM_GENLIST_ITEM_FIELD_ALL);
-}
-
 void GenlistItemBase::Append(Evas_Object *_genlist, GenlistItemBase *gparent)
 {
     genlist = _genlist;
-    evas_object_smart_callback_add(genlist, "realized", _realized_cb, this);
     item = elm_genlist_item_append(genlist,
                                    &item_class,
                                    this,
@@ -94,7 +72,6 @@ void GenlistItemBase::Append(Evas_Object *_genlist, GenlistItemBase *gparent)
 void GenlistItemBase::Prepend(Evas_Object *_genlist, GenlistItemBase *gparent)
 {
     genlist = _genlist;
-    evas_object_smart_callback_add(genlist, "realized", _realized_cb, this);
     item = elm_genlist_item_prepend(genlist,
                                     &item_class,
                                     this,
@@ -109,7 +86,6 @@ void GenlistItemBase::Prepend(Evas_Object *_genlist, GenlistItemBase *gparent)
 void GenlistItemBase::InsertBefore(Evas_Object *_genlist, GenlistItemBase *before, GenlistItemBase *gparent)
 {
     genlist = _genlist;
-    evas_object_smart_callback_add(genlist, "realized", _realized_cb, this);
     item = elm_genlist_item_insert_before(genlist,
                                           &item_class,
                                           this,
@@ -125,7 +101,6 @@ void GenlistItemBase::InsertBefore(Evas_Object *_genlist, GenlistItemBase *befor
 void GenlistItemBase::InsertAfter(Evas_Object *_genlist, GenlistItemBase *after, GenlistItemBase *gparent)
 {
     genlist = _genlist;
-    evas_object_smart_callback_add(genlist, "realized", _realized_cb, this);
     item = elm_genlist_item_insert_after(genlist,
                                          &item_class,
                                          this,
