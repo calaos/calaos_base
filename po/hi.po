@@ -2271,14 +2271,12 @@ msgid "A switch can't be visible. Always false."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitch.cpp:31
-#, fuzzy
 msgid "Event triggered when switch is pressed"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitch.cpp:32
-#, fuzzy
 msgid "Event triggered when switch is released"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitch.cpp:33
 #: src/bin/calaos_server/IO/InputSwitchLongPress.cpp:34
@@ -2293,9 +2291,8 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitchLongPress.cpp:32
-#, fuzzy
 msgid "Event triggered when switch is pressed quickly"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitchLongPress.cpp:33
 msgid "Event triggered when switch is pressed at least for 500ms (long press)"
@@ -2308,19 +2305,16 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitchTriple.cpp:33
-#, fuzzy
 msgid "Event triggered when switch is single clicked"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitchTriple.cpp:34
-#, fuzzy
 msgid "Event triggered when switch is double clicked"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitchTriple.cpp:35
-#, fuzzy
 msgid "Event triggered when switch is triple clicked"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/InputTemp.cpp:34
 msgid ""
@@ -3204,9 +3198,8 @@ msgstr " 1 शटर खोला है"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:41
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:49
-#, fuzzy
 msgid "Event when shutter is closed"
-msgstr " मेरा नया परिदृश्य "
+msgstr ""
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:42
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:50

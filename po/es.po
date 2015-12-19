@@ -3,91 +3,101 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: calaos b8f79ac\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
 "POT-Creation-Date: 2015-12-19 14:21+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2015-03-24 16:18+0000\n"
+"Last-Translator: Nicolas <nico@calaos.fr>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Pootle 2.5.1.1\n"
+"X-POOTLE-MTIME: 1427213915.000000\n"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:252
 msgid "No lights on"
-msgstr ""
+msgstr "ninguna luz encendida"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:254
 msgid "1 light on"
-msgstr ""
+msgstr "1 luz encendida"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:256
 msgid " lights on"
-msgstr ""
+msgstr " luces encendidas"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:268
 msgid "No shutter open"
-msgstr ""
+msgstr "Ninguna persiana abierta"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:270
 msgid "1 shutter open"
-msgstr ""
+msgstr "1 persiana abierta"
 
 #: src/bin/calaos_home/controllers/ActivityHomeController.cpp:272
 msgid " shutters are open"
-msgstr ""
+msgstr "  persianas están abiertas"
 
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:282
 msgid "Restart application only"
-msgstr ""
+msgstr "Reiniciar sólo la aplicación"
 
 #: src/bin/calaos_home/controllers/ApplicationController.cpp:292
 msgid "Reboot machine"
-msgstr ""
+msgstr "Reiniciar la máquina"
 
 #: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:52
 msgid ""
 "Usage:\n"
 "\t"
 msgstr ""
+"Uso:\n"
+"\t"
 
 #: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:52
 msgid " [options]"
-msgstr ""
+msgstr " [opciones]"
 
 #: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:53
 msgid "\tOptions:\n"
-msgstr ""
+msgstr "\tOpciones:\n"
 
 #: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:54
 msgid "\t-h, --help\tDisplay this help.\n"
-msgstr ""
+msgstr "\t-h, --help\tVisualizar esta ayuda.\n"
 
 #: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:55
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
 msgstr ""
+"\t--config <path>\tFijar <path> como el directorio para los archivos de "
+"configuración.\n"
 
 #: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:56
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr ""
+"\t--cache <path>\tFijar <path> como el directorio para los archivos de "
+"caché.\n"
 
 #: src/bin/calaos_home/main.cpp:48
 msgid "\t--theme <file.edj>\tUse the given edje file instead of the default.\n"
-msgstr ""
+msgstr "\t--tema <file.edj>\tUsar este archivo como tema por defecto.\n"
 
 #: src/bin/calaos_home/main.cpp:49
 msgid ""
 "\t--set-elm-config\tForce calaos_home to set the correct elementary config "
 "options for touchscreen usage.\n"
 msgstr ""
+"\t--set-elm-config\tFuerza calaos-home a utilizar los buenos parámetros de "
+"elementary.\n"
 
 #: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:58
 msgid "\t-v, --version\tDisplay current version and exit.\n"
-msgstr ""
+msgstr "\t-v, --version\tFijar la ultima version y salir.\n"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:883
 #: src/bin/calaos_home/models/RoomModel.cpp:891
@@ -99,7 +109,7 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1115
 #: src/bin/calaos_home/models/RoomModel.cpp:1130
 msgid "Switch light on"
-msgstr ""
+msgstr "Encender la luz"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:884
 #: src/bin/calaos_home/models/RoomModel.cpp:892
@@ -111,7 +121,7 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1116
 #: src/bin/calaos_home/models/RoomModel.cpp:1131
 msgid "Switch light off"
-msgstr ""
+msgstr "Apagar la luz"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:885
 #: src/bin/calaos_home/models/RoomModel.cpp:893
@@ -120,171 +130,172 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1117
 #: src/bin/calaos_home/models/RoomModel.cpp:1132
 msgid "Toggle light state"
-msgstr ""
+msgstr "Invertir estado del luz"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:886
 #: src/bin/calaos_home/models/RoomModel.cpp:898
 #: src/bin/calaos_home/models/RoomModel.cpp:1107
 #: src/bin/calaos_home/models/RoomModel.cpp:1122
 msgid "Blink the light"
-msgstr ""
+msgstr "Parpadear la luz"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:887
 #: src/bin/calaos_home/models/RoomModel.cpp:899
 #: src/bin/calaos_home/models/RoomModel.cpp:1108
 #: src/bin/calaos_home/models/RoomModel.cpp:1123
 msgid "Switch light on for X seconds"
-msgstr ""
+msgstr "Encender la luz durante X secundas"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:887
 #: src/bin/calaos_home/models/RoomModel.cpp:899
 #: src/bin/calaos_home/models/RoomModel.cpp:1108
 #: src/bin/calaos_home/models/RoomModel.cpp:1123
 msgid "Switch light on for %1"
-msgstr ""
+msgstr "Encender la luz durant %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:894
 #: src/bin/calaos_home/models/RoomModel.cpp:1119
 msgid "Dim the light to X percent"
-msgstr ""
+msgstr "Cambiar la intensidad de la luz de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:894
 #: src/bin/calaos_home/models/RoomModel.cpp:1119
 msgid "Dim the light to %1%"
-msgstr ""
+msgstr "Cambiar la intensidad de la luz a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:895
 #: src/bin/calaos_home/models/RoomModel.cpp:1118
 msgid "Dim the light to X percent without switching on"
-msgstr ""
+msgstr "Cambiar la intensidad de la luz sin encenderla"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:895
 #: src/bin/calaos_home/models/RoomModel.cpp:1118
 msgid "Dim the light to %1% without switching on"
-msgstr ""
+msgstr "Cambiar la intensidad de la luz a %1% sin encenderla"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:896
 #: src/bin/calaos_home/models/RoomModel.cpp:1120
 msgid "Brighten light for X percent"
-msgstr ""
+msgstr "Aumentar la intensidad de la luz de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:896
 #: src/bin/calaos_home/models/RoomModel.cpp:1120
 msgid "Brighten light for %1%"
-msgstr ""
+msgstr "Aumentar la intensidad de la luz de %1%"
 
+# Ne pas tenir compte de mon précédant commentaire...
 #: src/bin/calaos_home/models/RoomModel.cpp:897
 #: src/bin/calaos_home/models/RoomModel.cpp:1121
 msgid "Dim light for X percent"
-msgstr ""
+msgstr "Reducir la intensidad de la luz de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:897
 #: src/bin/calaos_home/models/RoomModel.cpp:1121
 msgid "Dim light for %1%"
-msgstr ""
+msgstr "Reducir la intensidad de la luz de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:906
 #: src/bin/calaos_home/models/RoomModel.cpp:1042
 #: src/bin/calaos_home/models/RoomModel.cpp:1133
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:418
 msgid "Choose color"
-msgstr ""
+msgstr "Elegir color"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:906
 #: src/bin/calaos_home/models/RoomModel.cpp:1042
 #: src/bin/calaos_home/models/RoomModel.cpp:1133
 msgid "Set color"
-msgstr ""
+msgstr "Establecer el color"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:907
 #: src/bin/calaos_home/models/RoomModel.cpp:1134
 msgid "Choose red brightness"
-msgstr ""
+msgstr "Elegir viveza roja"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:907
 #: src/bin/calaos_home/models/RoomModel.cpp:1134
 msgid "Set red to %1%"
-msgstr ""
+msgstr "Establecer el rojo a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:908
 #: src/bin/calaos_home/models/RoomModel.cpp:1135
 msgid "Increase red for X percent"
-msgstr ""
+msgstr "Aumentar el rojo de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:908
 #: src/bin/calaos_home/models/RoomModel.cpp:1135
 msgid "Increase red for %1%"
-msgstr ""
+msgstr "Aumentar el rojo de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:909
 #: src/bin/calaos_home/models/RoomModel.cpp:1136
 msgid "Decrease red for X percent"
-msgstr ""
+msgstr "Disminuir el rojo de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:909
 #: src/bin/calaos_home/models/RoomModel.cpp:1136
 msgid "Decrease red for %1%"
-msgstr ""
+msgstr "Disminuir el rojo de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:910
 #: src/bin/calaos_home/models/RoomModel.cpp:1137
 msgid "Choose green brightness"
-msgstr ""
+msgstr "Elegir viveza verde"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:910
 #: src/bin/calaos_home/models/RoomModel.cpp:1137
 msgid "Set green to %1%"
-msgstr ""
+msgstr "Fijar el verde a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:911
 #: src/bin/calaos_home/models/RoomModel.cpp:1138
 msgid "Increase green for X percent"
-msgstr ""
+msgstr "Aumentar verde por valor de X por ciento"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:911
 #: src/bin/calaos_home/models/RoomModel.cpp:1138
 msgid "Increase green for %1%"
-msgstr ""
+msgstr "Aumentar el verde de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:912
 #: src/bin/calaos_home/models/RoomModel.cpp:1139
 msgid "Decrease green for X percent"
-msgstr ""
+msgstr "Disminuir el verde de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:912
 #: src/bin/calaos_home/models/RoomModel.cpp:1139
 msgid "Decrease green for %1%"
-msgstr ""
+msgstr "Disminuir el verde de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:913
 #: src/bin/calaos_home/models/RoomModel.cpp:1140
 msgid "Choose blue brightness"
-msgstr ""
+msgstr "Elegir viveza azul"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:913
 #: src/bin/calaos_home/models/RoomModel.cpp:1140
 msgid "Set blue to %1%"
-msgstr ""
+msgstr "Establecer el azul a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:914
 #: src/bin/calaos_home/models/RoomModel.cpp:1141
 msgid "Increase blue for X percent"
-msgstr ""
+msgstr "Aumentar el azul de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:914
 #: src/bin/calaos_home/models/RoomModel.cpp:1141
 msgid "Increase blue for %1%"
-msgstr ""
+msgstr "Aumentar el azul de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:915
 #: src/bin/calaos_home/models/RoomModel.cpp:1142
 msgid "Decrease blue for X percent"
-msgstr ""
+msgstr "Disminuir el azul de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:915
 #: src/bin/calaos_home/models/RoomModel.cpp:1142
 msgid "Decrease blue for %1%"
-msgstr ""
+msgstr "Disminuir el azul de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:919
 #: src/bin/calaos_home/models/RoomModel.cpp:928
@@ -293,83 +304,83 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1149
 #: src/bin/calaos_home/models/RoomModel.cpp:1161
 msgid "Open shutter"
-msgstr ""
+msgstr "Abrir el postigo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:920
 #: src/bin/calaos_home/models/RoomModel.cpp:929
 #: src/bin/calaos_home/models/RoomModel.cpp:1150
 #: src/bin/calaos_home/models/RoomModel.cpp:1162
 msgid "Close shutter"
-msgstr ""
+msgstr "Cerrar el postigo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:921
 #: src/bin/calaos_home/models/RoomModel.cpp:930
 #: src/bin/calaos_home/models/RoomModel.cpp:1151
 #: src/bin/calaos_home/models/RoomModel.cpp:1163
 msgid "Stop shutter"
-msgstr ""
+msgstr "Parar el postigo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:922
 #: src/bin/calaos_home/models/RoomModel.cpp:931
 #: src/bin/calaos_home/models/RoomModel.cpp:1152
 #: src/bin/calaos_home/models/RoomModel.cpp:1164
 msgid "Toggle shutter state"
-msgstr ""
+msgstr "Invertir el estado del postigo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:923
 #: src/bin/calaos_home/models/RoomModel.cpp:1153
 msgid "Impulse up"
-msgstr ""
+msgstr "Impulso para la subida"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:923
 #: src/bin/calaos_home/models/RoomModel.cpp:1153
 msgid "Open shutter for %1"
-msgstr ""
+msgstr "Abrir el postigo de %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:924
 #: src/bin/calaos_home/models/RoomModel.cpp:1154
 msgid "Impulse down"
-msgstr ""
+msgstr "Impulso para la bajada"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:924
 #: src/bin/calaos_home/models/RoomModel.cpp:1154
 msgid "Close shutter for %1"
-msgstr ""
+msgstr "Cerrar el postigo de %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:932
 #: src/bin/calaos_home/models/RoomModel.cpp:1165
 msgid "Set shutter to a position"
-msgstr ""
+msgstr "Fijar el postigo en una posición"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:932
 #: src/bin/calaos_home/models/RoomModel.cpp:1165
 msgid "Set shutter to %1%"
-msgstr ""
+msgstr "Fijar el postigo a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:933
 #: src/bin/calaos_home/models/RoomModel.cpp:1166
 msgid "Open shutter for X percent"
-msgstr ""
+msgstr "Abrir el postigo de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:933
 #: src/bin/calaos_home/models/RoomModel.cpp:1166
 msgid "Open shutter for %1%"
-msgstr ""
+msgstr "Abrir el postigo de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:934
 #: src/bin/calaos_home/models/RoomModel.cpp:1167
 msgid "Close shutter for X percent"
-msgstr ""
+msgstr "Cerrar el postigo de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:934
 #: src/bin/calaos_home/models/RoomModel.cpp:1167
 msgid "Close shutter for %1%"
-msgstr ""
+msgstr "Cerrar el postigo de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:935
 #: src/bin/calaos_home/models/RoomModel.cpp:1168
 msgid "Start shutter calibration"
-msgstr ""
+msgstr "Empezar la calibración del postigo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:939
 #: src/bin/calaos_home/models/RoomModel.cpp:953
@@ -377,7 +388,7 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1070
 #: src/bin/calaos_home/models/RoomModel.cpp:1190
 msgid "Set value"
-msgstr ""
+msgstr "Fijar el valor"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:939
 #: src/bin/calaos_home/models/RoomModel.cpp:953
@@ -386,318 +397,318 @@ msgstr ""
 #: src/bin/calaos_home/models/RoomModel.cpp:1175
 #: src/bin/calaos_home/models/RoomModel.cpp:1190
 msgid "Set value to %1"
-msgstr ""
+msgstr "Fijar el valor a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:943
 #: src/bin/calaos_home/models/RoomModel.cpp:1061
 #: src/bin/calaos_home/models/RoomModel.cpp:1180
 msgid "Execute scenario"
-msgstr ""
+msgstr "Ejecutar escenario"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:945
 #: src/bin/calaos_home/models/RoomModel.cpp:1181
 msgid "Stop scenario"
-msgstr ""
+msgstr "Parar escenario"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:949
 #: src/bin/calaos_home/models/RoomModel.cpp:1065
 #: src/bin/calaos_home/models/RoomModel.cpp:1185
 msgid "Set text"
-msgstr ""
+msgstr "Fijar el texto"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:949
 #: src/bin/calaos_home/models/RoomModel.cpp:1065
 #: src/bin/calaos_home/models/RoomModel.cpp:1185
 msgid "Set text to '%1'"
-msgstr ""
+msgstr "Fijar el texto a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:957
 #: src/bin/calaos_home/models/RoomModel.cpp:1075
 #: src/bin/calaos_home/models/RoomModel.cpp:1195
 msgid "Activate"
-msgstr ""
+msgstr "Activar"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:958
 #: src/bin/calaos_home/models/RoomModel.cpp:1196
 msgid "Deactivate"
-msgstr ""
+msgstr "Desactivar"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:959
 #: src/bin/calaos_home/models/RoomModel.cpp:1197
 msgid "Toggle state"
-msgstr ""
+msgstr "Cambiar el estado"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:960
 #: src/bin/calaos_home/models/RoomModel.cpp:1198
 msgid "Blink state"
-msgstr ""
+msgstr "Paradear el estado"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:961
 msgid "Activate for X seconds"
-msgstr ""
+msgstr "Activar por X secundos"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:961
 #: src/bin/calaos_home/models/RoomModel.cpp:1199
 msgid "Activate for %1"
-msgstr ""
+msgstr "Activar por %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:965
 #: src/bin/calaos_home/models/RoomModel.cpp:1079
 #: src/bin/calaos_home/models/RoomModel.cpp:1205
 msgid "Move camera to a saved position"
-msgstr ""
+msgstr "Mover la cámara en una guarda posición"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:965
 #: src/bin/calaos_home/models/RoomModel.cpp:1079
 #: src/bin/calaos_home/models/RoomModel.cpp:1205
 msgid "Move camera to position %1"
-msgstr ""
+msgstr "Mover la cámara en la posición %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:966
 #: src/bin/calaos_home/models/RoomModel.cpp:1208
 msgid "Save position"
-msgstr ""
+msgstr "Guardar la posición"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:966
 #: src/bin/calaos_home/models/RoomModel.cpp:1208
 msgid "Save to position %1"
-msgstr ""
+msgstr "Guardar en la posición %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:967
 #: src/bin/calaos_home/models/RoomModel.cpp:1211
 msgid "Move up"
-msgstr ""
+msgstr "Mover arriba"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:968
 #: src/bin/calaos_home/models/RoomModel.cpp:1212
 msgid "Move down"
-msgstr ""
+msgstr "Mover abajo"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:969
 #: src/bin/calaos_home/models/RoomModel.cpp:1213
 msgid "Move left"
-msgstr ""
+msgstr "Mover hacia la izquierda"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:970
 #: src/bin/calaos_home/models/RoomModel.cpp:1214
 msgid "Move right"
-msgstr ""
+msgstr "Mover hacia la derecha"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:971
 #: src/bin/calaos_home/models/RoomModel.cpp:1215
 msgid "Move to default"
-msgstr ""
+msgstr "Mover por defecto"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:975
 #: src/bin/calaos_home/models/RoomModel.cpp:1084
 #: src/bin/calaos_home/models/RoomModel.cpp:1220
 msgid "Play"
-msgstr ""
+msgstr "Jugar"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:976
 msgid "Pause"
-msgstr ""
+msgstr "Pausa"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:977
 #: src/bin/calaos_home/models/RoomModel.cpp:1222
 msgid "Stop playing"
-msgstr ""
+msgstr "Detener de jugar"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:978
 #: src/bin/calaos_home/models/RoomModel.cpp:1223
 msgid "Next track"
-msgstr ""
+msgstr "Pista siguiente"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:979
 #: src/bin/calaos_home/models/RoomModel.cpp:1224
 msgid "Previous track"
-msgstr ""
+msgstr "Pista previa"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:980
 #: src/bin/calaos_home/models/RoomModel.cpp:992
 #: src/bin/calaos_home/models/RoomModel.cpp:1227
 #: src/bin/calaos_home/models/RoomModel.cpp:1247
 msgid "Change volume"
-msgstr ""
+msgstr "Cambiar el volumen"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:980
 #: src/bin/calaos_home/models/RoomModel.cpp:1227
 msgid "Set volume to %1%"
-msgstr ""
+msgstr "Establecer el volumen a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:981
 #: src/bin/calaos_home/models/RoomModel.cpp:1228
 msgid "Increase volume for X percent"
-msgstr ""
+msgstr "Aumentar el volumen de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:981
 #: src/bin/calaos_home/models/RoomModel.cpp:1228
 msgid "Increase volume for %1%"
-msgstr ""
+msgstr "Aumentar el volumen de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:982
 #: src/bin/calaos_home/models/RoomModel.cpp:1229
 msgid "Decrease volume for X percent"
-msgstr ""
+msgstr "Disminuir el volumen de X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:982
 #: src/bin/calaos_home/models/RoomModel.cpp:1229
 msgid "Decrease volume for %1%"
-msgstr ""
+msgstr "Disminuir el volumen de %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:983
 #: src/bin/calaos_home/models/RoomModel.cpp:1232
 msgid "Power on music zone"
-msgstr ""
+msgstr "Dar la corriente de la zona de música"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:984
 #: src/bin/calaos_home/models/RoomModel.cpp:1233
 msgid "Power off music zone"
-msgstr ""
+msgstr "Cortar la corriente de la zona de música"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:985
 #: src/bin/calaos_home/models/RoomModel.cpp:1236
 msgid "Power off music zone in X seconds (Sleep mode)"
-msgstr ""
+msgstr "Cortar la corriente de la zona de música en X secundos (Modo sueño)"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:985
 #: src/bin/calaos_home/models/RoomModel.cpp:1236
 msgid "Power off music zone in %1% seconds (sleep mode)"
-msgstr ""
+msgstr "Cortar la corriente de la zona de música de %1% secundos (Modo sueño)"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:990
 #: src/bin/calaos_home/models/RoomModel.cpp:1088
 #: src/bin/calaos_home/models/RoomModel.cpp:1243
 msgid "Power On"
-msgstr ""
+msgstr "Dar la corriente"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:991
 #: src/bin/calaos_home/models/RoomModel.cpp:1244
 msgid "Power Off"
-msgstr ""
+msgstr "Cortar la corriente"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:992
 #: src/bin/calaos_home/models/RoomModel.cpp:1247
 msgid "Change volume to %1%"
-msgstr ""
+msgstr "Cambiar colorel volumen a %1"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:1004
 #: src/bin/calaos_home/models/RoomModel.cpp:1263
 msgid "Switch source to "
-msgstr ""
+msgstr "Cambiar de fuente a"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:1031
 msgid "Set light to X percent"
-msgstr ""
+msgstr "Fijar la luz a X porcent"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:1031
 msgid "Set light to %1%"
-msgstr ""
+msgstr "Fijar la luz a %1%"
 
 #: src/bin/calaos_home/models/RoomModel.cpp:1221
 msgid "Plause"
-msgstr ""
+msgstr "Pausa"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:52
 msgid "Back"
-msgstr ""
+msgstr "Atrás"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:55
 msgid "My Music"
-msgstr ""
+msgstr "Mi música"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
 msgid "My Albums"
-msgstr ""
+msgstr "Mis álbumes"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
 msgid "Access to your albums."
-msgstr ""
+msgstr "Acceso a vuestros álbumes"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
 msgid "Artists"
-msgstr ""
+msgstr "Artistas"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
 msgid "Display by artists."
-msgstr ""
+msgstr "Mostrar por artistas"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
 msgid "Years"
-msgstr ""
+msgstr "Años"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
 msgid "Sort songs by year."
-msgstr ""
+msgstr "Pistas clasificadas por años."
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
 msgid "Genre"
-msgstr ""
+msgstr "Género"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
 msgid "Show titles by genre."
-msgstr ""
+msgstr "Mostar los titulos por géneros."
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
 msgid "Music Directory"
-msgstr ""
+msgstr "Directorio de Música"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
 msgid "Browse your music library by directory."
-msgstr ""
+msgstr "Navegar la musica por directorio."
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
 msgid "Playlists"
-msgstr ""
+msgstr "Playlists"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
 msgid "Your saved playlists."
-msgstr ""
+msgstr "Vuestros playlists  guardadas"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
 msgid "Radios"
-msgstr ""
+msgstr "Radios"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
 msgid "Web radios web and online service."
-msgstr ""
+msgstr "Radios web y servicios en liena"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
 msgid "Search..."
-msgstr ""
+msgstr "Buscar…"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
 msgid "Search into your music library."
-msgstr ""
+msgstr "Buscar en la colección de música."
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:242
 msgid "<small><blue>Media library : </blue>"
-msgstr ""
+msgstr "<small><blue>Colección multimedia : </blue>"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:243
 msgid " albums with "
-msgstr ""
+msgstr "Álbumes con"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:244
 msgid " tracks by "
-msgstr ""
+msgstr "Pistas por"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:245
 msgid " artists.</small>"
-msgstr ""
+msgstr "artistas.</small>"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:784
 msgid "Search into radios"
-msgstr ""
+msgstr "Buscar en los radios"
 
 #: src/bin/calaos_home/views/ActivityAudioListView.cpp:798
 msgid "Search into your music library"
-msgstr ""
+msgstr "Buscar en vuestros colección de música"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:64
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:77
 msgid "No zone"
-msgstr ""
+msgstr "Ninguna zona"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:67
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:68
@@ -709,7 +720,7 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:261
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:262
 msgid "None"
-msgstr ""
+msgstr "Ninguna"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:70
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:79
@@ -720,72 +731,76 @@ msgstr ""
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:73
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:80
 msgid "Na"
-msgstr ""
+msgstr "Na"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:94
 msgid "Position :"
-msgstr ""
+msgstr "Posición : "
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:95
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:123
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:185
 msgid "Artist :"
-msgstr ""
+msgstr "Artista:"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:96
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:129
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:191
 msgid "Album :"
-msgstr ""
+msgstr "Álbum:"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:97
 msgid "Track :"
-msgstr ""
+msgstr "Pista :"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:98
 msgid "Year :"
-msgstr ""
+msgstr "Año :"
 
 #: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:99
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:143
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:205
 msgid "Duration :"
-msgstr ""
+msgstr "Duración :"
 
 #: src/bin/calaos_home/views/ActivityCameraListView.cpp:99
 msgid "No camera"
-msgstr ""
+msgstr "Ninguna cámara"
 
 #: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:220
 msgid ""
 "Save the <light_blue>actual position</light_blue><br><small>Choose a "
 "position.</small>"
 msgstr ""
+"Guardar la <light_blue>posición actual</light_blue><br><small>Elegir la "
+"posición.</small>"
 
 #: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:224
 msgid "Position %1"
-msgstr ""
+msgstr "Posición %1"
 
 #: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:254
 msgid "<center>Save to <light_blue>position #%1</light_blue></center>"
-msgstr ""
+msgstr "<center>Save to <light_blue>posición #%1</light_blue></center>"
 
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:33
 msgid "Action and positions of widgets"
-msgstr ""
+msgstr "Acciónes y posiciónes de los widgets"
 
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:34
 msgid ""
 "Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
 "and Time !</small"
 msgstr ""
+"Resume : <light_blue>configuraciónes actuales</"
+"light_blue><br><small>Configuráis Data y hora !</small"
 
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
 msgid "About"
-msgstr ""
+msgstr "Sobre"
 
 #: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
@@ -795,108 +810,119 @@ msgid ""
 "About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
 "solutions.</small>"
 msgstr ""
+"Sobre : <light_blue>Los productos de Calaos</light_blue><br><small>Las "
+"soluciónes táctiles.</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigClockView.h:41
 msgid "Configure Clock and Date"
-msgstr ""
+msgstr "Configuración de hora y data"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:36
 msgid "Resume"
-msgstr ""
+msgstr "Recapitulativos"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:37
 msgid ""
 "Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
 "your Calaos System</small"
 msgstr ""
+"Recapitulativos de:  <light_blue>Mi Casa</"
+"light_blue><br><small>Informaciónes relativos a vuestros sistema Calaos</"
+"small"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
 msgid "Our Partners"
-msgstr ""
+msgstr "Nuestros socios"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:39
 msgid ""
 "<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
 "small>"
 msgstr ""
+"Los socios de <light_blue>Calaos</light_blue><br><small>Lista no exhaustiva "
+"de los socios de Calaos</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:43
 msgid "Product Version: "
-msgstr ""
+msgstr "Versión del Producto:"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:45
 msgid "Last update: "
-msgstr ""
+msgstr "Última actualización:"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:47
 msgid "System started since : "
-msgstr ""
+msgstr "Sistemo empezada desde"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:53
 msgid " day"
-msgstr ""
+msgstr " día"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
 msgid " days"
-msgstr ""
+msgstr " días"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:59
 msgid "Machine name : "
-msgstr ""
+msgstr "Nombre de la máquina : "
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:96
 msgid "Network address :"
-msgstr ""
+msgstr "Dirección de red : "
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:99
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
 msgid "Web Site : "
-msgstr ""
+msgstr "Sitio web : "
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:101
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
 msgid "Email : "
-msgstr ""
+msgstr "Correo electrónico : "
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:120
 msgid "Date and clock"
-msgstr ""
+msgstr "Fecha y hora"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:138
 msgid "Screen saver"
-msgstr ""
+msgstr "Protector de pantalla"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.h:42
 msgid "Configuration center"
-msgstr ""
+msgstr "Centro de configuración"
 
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:29
 msgid "Change your password"
-msgstr ""
+msgstr "Cambiar su contraseña"
 
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:30
 msgid ""
 "Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
 "small>"
 msgstr ""
+"Resume : <light_blue>Contraseña</light_blue><br><small>Cambiar su "
+"contraseña !</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigPasswordView.h:41
 msgid "Configure Password"
-msgstr ""
+msgstr "Configurar contraseña"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:35
 msgid "Configure Touch Screen"
-msgstr ""
+msgstr "Configuráis vuestro pantalla táctil "
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:36
 msgid ""
 "Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
 "Touch Screen !</small>"
 msgstr ""
+"Recapitulativo : <light_blue>Pantalla táctil </"
+"light_blue><br><small>Configuráis vuestro pantalla táctil !</small>"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:40
 msgid "Configure power management settings"
-msgstr ""
+msgstr "Configurar los ajustes de la gestión de energía"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:41
 msgid ""
@@ -904,43 +930,48 @@ msgid ""
 "which the screen will be turned off. You can also ask for a password when "
 "the screen is turned on again."
 msgstr ""
+"Activar si desea que la pantalla quede en blanco automáticamente y el "
+"retardo después del que la pantalla se apagará. Puede además solicitar una "
+"contraseña cuando la pantalla vuelva a encenderse."
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
 msgid "TouchScreen"
-msgstr ""
+msgstr "Pantalla táctil"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:43
 msgid "TouchScreen configuration."
-msgstr ""
+msgstr "Configuración del pantalla táctil"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:50
 msgid "Time before screensaver activation : "
-msgstr ""
+msgstr "Tiempo hasta la activación del protector de pantalla: "
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:51
 msgid "Enable screen saver : "
-msgstr ""
+msgstr "Activar el salvapantallas"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:74
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:86
 msgid " minutes"
-msgstr ""
+msgstr " minutos"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:124
+#, fuzzy
 msgid "0 minutes"
-msgstr ""
+msgstr " minutos"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:134
+#, fuzzy
 msgid "1 minute"
-msgstr ""
+msgstr " minutos"
 
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.h:41
 msgid "Configure Screen saver settings"
-msgstr ""
+msgstr "Configurar ajustes de protector de pantalla"
 
 #: src/bin/calaos_home/views/ActivityConfigView.cpp:26
 msgid "Control Panel"
-msgstr ""
+msgstr "Centro de control"
 
 #: src/bin/calaos_home/views/ActivityConfigView.cpp:32
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:74
@@ -948,18 +979,20 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:40
 #: src/bin/calaos_home/views/ActivityWebView.cpp:120
 msgid "Back to menu"
-msgstr ""
+msgstr "Volver al menú"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:75
 msgid "My new scenario"
-msgstr ""
+msgstr "Mi nuevo escenario"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:47
 msgid ""
 "<b><huge>Informations</huge></b><br><light_blue><small>Enter the name "
 "and<br> all informations about the scenario.</small></light_blue>"
 msgstr ""
+"<b><huge>Información</huge></b><br><light_blue><small>Introduzca el nombre "
+"y<br>toda la información sobre el escenario.</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:49
 msgid ""
@@ -967,22 +1000,30 @@ msgid ""
 "name and<br> all informations about the scenario.</small></light_blue></"
 "disabled>"
 msgstr ""
+"<disabled><b><huge>Información</huge></b><br><light_blue><small>Introduzca "
+"el nombre y<br> toda la información sobre el escenario.</small></"
+"light_blue></disabled>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:51
 msgid ""
 "<b><huge>Configuration</huge></b><br><light_blue><small>Add items from "
 "your<br> rooms and configure them.</small></light_blue>"
 msgstr ""
+"<b><huge>Configuración</huge></b><br><light_blue><small>Añadir elementos de "
+"sus<br>habitaciones y configurarlos.</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:53
 msgid ""
 "<disabled><b><huge>Configuration</huge></b><br><light_blue><small>Add items "
 "from your<br> rooms and configure them.</small></light_blue></disabled>"
 msgstr ""
+"<disabled><b><huge>Configuración</huge></b><br><light_blue><small>Añadir "
+"elementos de sus<br>habitaciones y configurarlos.</small></light_blue></"
+"disabled>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:102
 msgid "Scenario name: "
-msgstr ""
+msgstr "Nombre del escenario: "
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:105
 msgid ""
@@ -990,25 +1031,38 @@ msgid ""
 "following field to enter the name of your scenario and find it <br>quickly. "
 "Also, choose the visibility of you scenario.</disabled></small>"
 msgstr ""
+"<big>Creación o modificación de un Escenario</"
+"big><br><br><small><disabled>Use el campo siguiente para introducir el "
+"nombre del escenario y localizarlo<br>rápidamente. Así mismo, elija la "
+"visibilidad para su escenario.</disabled></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:123
+#, fuzzy
 msgid ""
 "<small><disabled>Select and add wanted items into your scenario.<br>You will "
 "then define the actions.</disabled></small>"
 msgstr ""
+"<small><disabled>Seleccione y añada elementos en su escenario.<br>Después "
+"tendrá que definir las acciones.</disabled></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:124
+#, fuzzy
 msgid ""
 "<small><disabled>Modify items added to the following list. The Actions "
 "define <br>what is going to happend when the scenario is executed.</"
 "disabled></small>"
 msgstr ""
+"<small><disabled>Modificar elementos añadidos a la siguiente lista. Las "
+"acciones definen <br>qué ocurrirá cuando el escenario sea ejecutado.</"
+"disabled></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:128
 msgid ""
 "<small><disabled>Select and add wanted items into your scenario.<br>You will "
 "have then to define the actions.</disabled></small>"
 msgstr ""
+"<small><disabled>Seleccione y añada elementos en su escenario.<br>Después "
+"tendrá que definir las acciones.</disabled></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:129
 msgid ""
@@ -1016,137 +1070,143 @@ msgid ""
 "define <br>what will happen when the scenario will be executed.</disabled></"
 "small>"
 msgstr ""
+"<small><disabled>Modificar elementos añadidos a la siguiente lista. Las "
+"acciones definen <br>qué ocurrirá cuando el escenario sea ejecutado.</"
+"disabled></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:131
 msgid "Step 1"
-msgstr ""
+msgstr "Paso 1"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
 msgid "Displayed in the interface: "
-msgstr ""
+msgstr "Mostrado en la interfaz: "
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
 msgid "Displayed in"
-msgstr ""
+msgstr "Mostrado en"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
 msgid "Don't display it."
-msgstr ""
+msgstr "No mostrar esto."
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
 msgid "Infinite loop: "
-msgstr ""
+msgstr "Bucle infinito: "
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
 msgid "Enabled"
-msgstr ""
+msgstr "Activado"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
 msgid "Disabled"
-msgstr ""
+msgstr "Desactivado"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:173
 msgid "Enter the scenario name"
-msgstr ""
+msgstr "Introduzco el nombre del escenario"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:183
 msgid "Scenario name"
-msgstr ""
+msgstr "Nombre del escenario"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:197
 msgid ""
 "Display scenario<br><small><light_blue>Choose a room.</light_blue></small>"
 msgstr ""
+"Mostrar escenario<br><small><light_blue>Seleccionar una habitación.</"
+"light_blue></small>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:203
 msgid "Don't display it"
-msgstr ""
+msgstr "No mostrarlo"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:513
 msgid "Final step"
-msgstr ""
+msgstr "Último paso"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:498
 msgid "Step"
-msgstr ""
+msgstr "Paso"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
 msgid "Scenario step"
-msgstr ""
+msgstr "Paso del escenario"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
 msgid "Scenario progress"
-msgstr ""
+msgstr "Progreso del escenario"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:507
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:631
 msgid "Pause: "
-msgstr ""
+msgstr "Pausa: "
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
 msgid "Choose time"
-msgstr ""
+msgstr "Seleccionar hora"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
 msgid "Pause time before next step"
-msgstr ""
+msgstr "Detener el tiempo antes del siguiente paso"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:564
 msgid "Steps"
-msgstr ""
+msgstr "Pasos"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:578
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:488
 #, c-format
 msgid "%.0f<br><subtitle>Hours</subtitle>"
-msgstr ""
+msgstr "%.0f<br><subtitle>Horas</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:588
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:498
 #, c-format
 msgid "%.0f<br><subtitle>Min.</subtitle>"
-msgstr ""
+msgstr "%.0f<br><subtitle>Min.</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:598
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:508
 #, c-format
 msgid "%.0f<br><subtitle>Sec.</subtitle>"
-msgstr ""
+msgstr "%.0f<br><subtitle>Seg.</subtitle>"
 
+# Need context
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:608
 #, c-format
 msgid "%.0f<br><subtitle>Ms.</subtitle>"
-msgstr ""
+msgstr "%.0f<br><subtitle>Srta.</subtitle>"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:730
 msgid "Confirmation"
-msgstr ""
+msgstr "Confirmación"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
 msgid "Are you sure to delete this step?"
-msgstr ""
+msgstr "¿Está seguro de que quiere eliminar este paso?"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:660
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:739
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:277
 #: src/bin/calaos_home/views/Widget.cpp:207
 msgid "Yes, delete it"
-msgstr ""
+msgstr "Sí, borrarlo"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:664
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:281
 #: src/bin/calaos_home/views/Widget.cpp:211
 msgid "No"
-msgstr ""
+msgstr "No"
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:36
 msgid "My House"
-msgstr ""
+msgstr "Mi casa"
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:37
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbum.cpp:60
@@ -1157,27 +1217,29 @@ msgstr ""
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:64
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemYear.cpp:53
 msgid "Loading..."
-msgstr ""
+msgstr "Cargando..."
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:77
 #: src/bin/calaos_home/views/ActivityView.cpp:77
 msgid "Quit"
-msgstr ""
+msgstr "Salir"
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:80
 msgid "Save room state"
-msgstr ""
+msgstr "Guardar estado de la habitación"
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:446
 msgid ""
 "House state : <light_blue>Normal</light_blue><br><small>Informations about "
 "your house</small>"
 msgstr ""
+"Estado de la casa: <light_blue>Normal</light_blue><br><small>Información "
+"acerca de su casa</small>"
 
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:455
 #: src/bin/calaos_home/views/ActivityHomeView.cpp:461
 msgid "More infos"
-msgstr ""
+msgstr "Más información"
 
 #: src/bin/calaos_home/views/ActivityKeyboardView.cpp:38
 msgid "Valider"
@@ -1189,138 +1251,140 @@ msgstr ""
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:64
 msgid "Your Music"
-msgstr ""
+msgstr "Su música"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:65
 msgid "Access your media library"
-msgstr ""
+msgstr "Acceder a tu biblioteca de medios"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:69
 msgid "CCTV"
-msgstr ""
+msgstr "CCTV"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:70
 msgid "Drive all your cctv cameras"
-msgstr ""
+msgstr "Controlar todas sus cámaras de CCTV"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:74
 msgid "Flickr"
-msgstr ""
+msgstr "Flickr"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:75
 msgid "Browse your pictures"
-msgstr ""
+msgstr "Navegar en sus imágenes"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:79
 msgid "Internet"
-msgstr ""
+msgstr "Internet"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:80
 msgid "Go surf the web"
-msgstr ""
+msgstr "Navegar en internet"
 
+# Is this about the Eskiss packaging company?
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:84
 msgid "Eskiss"
-msgstr ""
+msgstr "Eskiss"
 
 #: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:85
 msgid "Play with physics !"
-msgstr ""
+msgstr "¡Jugar con la física!"
 
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:31
 msgid "Multimedia"
-msgstr ""
+msgstr "Multimedia"
 
 #: src/bin/calaos_home/views/ActivityMediaView.cpp:43
+#, fuzzy
 msgid "Edit playlist"
-msgstr ""
+msgstr "Playlists"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:29
 msgid "Scenario management"
-msgstr ""
+msgstr "Gestión de escenarios"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:46
 msgid "Today"
-msgstr ""
+msgstr "Hoy"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:49
 msgid "Create a new scenario"
-msgstr ""
+msgstr "Crear un nuevo escenario"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:52
 msgid "All"
-msgstr ""
+msgstr "Todos"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:55
 msgid "Lights"
-msgstr ""
+msgstr "Luces"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:58
 msgid "Shutters"
-msgstr ""
+msgstr "Persianas"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:61
 msgid "Scheduled"
-msgstr ""
+msgstr "Programado"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:188
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:197
 msgid "Lights scenarios"
-msgstr ""
+msgstr "Escenarios de luces"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:190
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:202
 msgid "Shutters scenarios"
-msgstr ""
+msgstr "Escenarios de persianas"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:192
 msgid "Other Scenarios"
-msgstr ""
+msgstr "Otros escenarios"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:272
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:587
 msgid "Sunday"
-msgstr ""
+msgstr "Domingo"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:273
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:581
 msgid "Monday"
-msgstr ""
+msgstr "Lunes"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:274
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:582
 msgid "Tuesday"
-msgstr ""
+msgstr "Martes"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:275
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:583
 msgid "Wednesday"
-msgstr ""
+msgstr "Miércoles"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:276
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:584
 msgid "Thursday"
-msgstr ""
+msgstr "Jueves"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:277
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:585
 msgid "Friday"
-msgstr ""
+msgstr "Viernes"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:278
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:586
 msgid "Saturday"
-msgstr ""
+msgstr "Sábado"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:285
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:60
 msgid "January"
-msgstr ""
+msgstr "Enero"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:286
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:64
 msgid "February"
-msgstr ""
+msgstr "Febrero"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:287
 msgid "Mars"
@@ -1329,47 +1393,47 @@ msgstr ""
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:288
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:72
 msgid "April"
-msgstr ""
+msgstr "Abril"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:289
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:76
 msgid "May"
-msgstr ""
+msgstr "Mayo"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:290
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:80
 msgid "June"
-msgstr ""
+msgstr "Junio"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:291
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:84
 msgid "July"
-msgstr ""
+msgstr "Julio"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:292
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:88
 msgid "August"
-msgstr ""
+msgstr "Agosto"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:293
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:92
 msgid "September"
-msgstr ""
+msgstr "Septiembre"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:294
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:96
 msgid "October"
-msgstr ""
+msgstr "Octubre"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:295
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:100
 msgid "November"
-msgstr ""
+msgstr "Noviembre"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:296
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:104
 msgid "December"
-msgstr ""
+msgstr "Diciembre"
 
 #: src/bin/calaos_home/views/ActivityScenariosView.cpp:300
 msgid "On <blue>%1, %2 %3, %4</blue>"
@@ -1377,103 +1441,113 @@ msgstr ""
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:33
 msgid "Scheduling"
-msgstr ""
+msgstr "Planificando"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:52
 msgid "Month of year"
-msgstr ""
+msgstr "Mes del año"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:55
 msgid "All year"
-msgstr ""
+msgstr "Todo el año"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:68
 msgid "March"
-msgstr ""
+msgstr "Marzo"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:155
 msgid "Apply"
-msgstr ""
+msgstr "Aplicar"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:158
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:119
 msgid "Add"
-msgstr ""
+msgstr "Añadir"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:160
 msgid "<big><disabled>Hours of execution</disabled></big>"
-msgstr ""
+msgstr "<big><disabled>Horas de ejecución</disabled></big>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:161
 msgid "<big><disabled>Specific schedule</disabled></big>"
-msgstr ""
+msgstr "<big><disabled>Programación específica</disabled></big>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:266
 msgid ""
 "Schedule start time<br><small><light_blue>Start time of the scenario</"
 "light_blue></small>"
 msgstr ""
+"Hora de inicio de la programación<br><small><light_blue>Hora de comienzo del "
+"escenario</light_blue></small>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:272
 msgid ""
 "Schedule stop<br><small><light_blue>End time of the scenario</light_blue></"
 "small>"
 msgstr ""
+"Detención de la programación<br><small><light_blue>Hora de finalización del "
+"escenario</light_blue></small>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:275
 msgid "Start"
-msgstr ""
+msgstr "Inicio"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:285
 msgid "Use a fixed time"
-msgstr ""
+msgstr "Usar un tiempo fijado"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:286
 msgid "Use the sunrise"
-msgstr ""
+msgstr "Usar el amanecer"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:287
 msgid "Use the sunset"
-msgstr ""
+msgstr "Usar el atardecer"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:288
 msgid "Use the midday sun"
-msgstr ""
+msgstr "Usar el mediodía"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:345
 msgid ""
 "<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
 "time</small></light_blue>"
 msgstr ""
+"<b>Tiempo de compensación</b><br><light_blue><small>Puede realizar una "
+"modificación de la hora solar</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:348
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:568
 msgid "Beginning"
-msgstr ""
+msgstr "Comienzo"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:357
 msgid "Use the exact sun time"
-msgstr ""
+msgstr "Usar la hora solar exacta"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:358
 msgid "Add time"
-msgstr ""
+msgstr "Añadir tiempo"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:359
 msgid "Substract time"
-msgstr ""
+msgstr "Quitar tiempo"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:454
 msgid ""
 "<b>Choose a schedule</b><br><light_blue><small>Start time of scenario</"
 "small></light_blue>"
 msgstr ""
+"<b>Seleccionar una programación</b><br><light_blue><small>Hora de comienzo "
+"del escenario</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:456
 msgid ""
 "<b>Choose a schedule</b><br><light_blue><small>End time of scenario</small></"
 "light_blue>"
 msgstr ""
+"<b>Seleccionar una programación</b><br><light_blue><small>Hora de "
+"finalización del escenario</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:458
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:460
@@ -1481,334 +1555,353 @@ msgid ""
 "<b>Choose a time shift</b><br><light_blue><small>Shifting offset of "
 "scenario</small></light_blue>"
 msgstr ""
+"<b>Seleccione un cambio de hora</b><br><light_blue><small>Tiempo de "
+"desplazamiento del escenario</small></light_blue>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:561
 msgid ""
 "Days of the week<br><small><light_blue>Days of the week when scenario is "
 "executed.</light_blue></small>"
 msgstr ""
+"Días de la semana<br><small><light_blue>Días de la semana en los que se "
+"ejecuta el escenario.</light_blue></small>"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:566
 msgid "End"
-msgstr ""
+msgstr "Fin"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:580
 msgid "Everyday"
-msgstr ""
+msgstr "Todos los días"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:588
 msgid "ERROR"
-msgstr ""
+msgstr "ERROR"
 
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:732
 msgid "Are you sure to delete this schedule?"
-msgstr ""
+msgstr "¿Está seguro de que quiere eliminar la programación?"
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:89
 msgid "Web browser"
-msgstr ""
+msgstr "Navegador Web"
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:123
 msgid "Reload"
-msgstr ""
+msgstr "Recargar"
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:126
 msgid "Stop"
-msgstr ""
+msgstr "Detener"
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:129
 msgid "Home page"
-msgstr ""
+msgstr "Página de inicio"
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:132
 msgid "Go to..."
-msgstr ""
+msgstr "Ir a..."
 
 #: src/bin/calaos_home/views/ActivityWebView.cpp:135
 msgid "Add to favorites"
-msgstr ""
+msgstr "Agregar a favoritos"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:50
 msgid "Unknown album"
-msgstr ""
+msgstr "Álbum desconocido"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:107
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:176
 msgid ""
 "<light_blue>Track #%1</light_blue> infos<br><small>Track details.</small>"
 msgstr ""
+"<light_blue>Pista #%1</light_blue> infos<br><small>Detalles de pista.</small>"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:115
 msgid "Loading"
-msgstr ""
+msgstr "Cargando"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:135
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:197
 msgid "Title :"
-msgstr ""
+msgstr "Título:"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:149
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:211
 msgid "Genre :"
-msgstr ""
+msgstr "Género:"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:155
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:217
 msgid "Stream type :"
-msgstr ""
+msgstr "Tipo de flujo:"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:161
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:223
 msgid "Bitrate :"
-msgstr ""
+msgstr "Bitrate:"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:171
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:233
 msgid "Size :"
-msgstr ""
+msgstr "Tamaño :"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:177
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:239
 msgid "Sampling :"
-msgstr ""
+msgstr "Muestreo: "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:183
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:245
 msgid "Tag version :"
-msgstr ""
+msgstr "Versión de etiqueta: "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:189
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:251
 msgid "Comments :"
-msgstr ""
+msgstr "Comentarios: "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:193
 msgid "Remove track"
-msgstr ""
+msgstr "Eliminar pista"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylistHeader.cpp:47
 msgid "Playlist:"
-msgstr ""
+msgstr "Lista de reproducción:"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylistHeader.cpp:99
 msgid "Remove"
-msgstr ""
+msgstr "Eliminar"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:123
 msgid ""
 "Edit element<br><small><light_blue>Choose action that will be executed</"
 "light_blue></small>"
 msgstr ""
+"Editar elemento<br><small><light_blue>Seleccionar acción que será ejecutada</"
+"light_blue></small>"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:127
 msgid "Remove action"
-msgstr ""
+msgstr "Eliminar acción"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:259
 msgid "Choose value"
-msgstr ""
+msgstr "Seleccionar valor"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:287
 msgid "Choose number"
-msgstr ""
+msgstr "Seleccionar número"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:346
 msgid "Choose duration"
-msgstr ""
+msgstr "Seleccionar duración"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:359
 msgid "Hours"
-msgstr ""
+msgstr "Horas"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:370
 msgid "Min."
-msgstr ""
+msgstr "Min."
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:381
 msgid "Sec."
-msgstr ""
+msgstr "Seg. "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:392
 msgid "Ms."
-msgstr ""
+msgstr "Srta. "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:101
 msgid "No actions."
-msgstr ""
+msgstr "Sin acción"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:103
 msgid "steps"
-msgstr ""
+msgstr "pasos"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:106
 msgid "actions"
-msgstr ""
+msgstr "acciones"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:160
 msgid ""
 "Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</"
 "light_blue></small>"
 msgstr ""
+"Parámetros del escenario<br><small><light_blue>Modificar, añadir o eliminar "
+"una programación.</light_blue></small>"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:166
 msgid "Modify scenario"
-msgstr ""
+msgstr "Modificar escenario"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:171
 msgid "Delete scenario"
-msgstr ""
+msgstr "Borrar escenario"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:176
 msgid "Run scenario now"
-msgstr ""
+msgstr "Ejecutar escenario ahora"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:183
 msgid "Add a schedule"
-msgstr ""
+msgstr "Añadir una planificación"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:190
 msgid "Schedule modification"
-msgstr ""
+msgstr "Modificar planificación"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:195
 msgid "Delete schedule"
-msgstr ""
+msgstr "Borrar planificación"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:205
+#, fuzzy
 msgid "Disable schedule"
-msgstr ""
+msgstr "Borrar planificación"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:212
+#, fuzzy
 msgid "Enable schedule"
-msgstr ""
+msgstr "Borrar planificación"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:273
 msgid ""
 "Confirmation<br><small><light_blue>Are you sure to delete this scenarios?</"
 "light_blue></small>"
 msgstr ""
+"Confirmación<br><small><light_blue>¿Está seguro de querer borrar este "
+"escenario?</light_blue></small>"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:50
 msgid "Execute at "
-msgstr ""
+msgstr "Ejecutar a las"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:52
 msgid "Start at "
-msgstr ""
+msgstr "Comenzar a las "
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:91
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:106
 msgid "Sunrise"
-msgstr ""
+msgstr "Amanecer"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:93
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:108
 msgid "Sunset"
-msgstr ""
+msgstr "Atardecer"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:95
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:110
 msgid "Noon"
-msgstr ""
+msgstr "Mediodía"
 
 #: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:101
 msgid "stop at "
-msgstr ""
+msgstr "para a las "
 
 #: src/bin/calaos_home/views/IO/IOInternalStringHomeView.cpp:101
 #: src/bin/calaos_home/views/IO/IOWOStringHomeView.cpp:101
 msgid "Change value"
-msgstr ""
+msgstr "Cambiar valor"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:154
 msgid "State: <light_blue>Open.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>Abierto.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:156
 msgid "State: <light_blue>%1% open.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>%1% abierto.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:158
+#, fuzzy
 msgid "State: <light_blue>%1% closed.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>%1% abierto.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:160
 msgid "State: <light_blue>Closed.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>Cerrado.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:167
+#, fuzzy
 msgid "Action: <light_blue>Stopped.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>Cerrado.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:169
+#, fuzzy
 msgid "Action: <light_blue>Closing.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>Cerrado.</light_blue>"
 
 #: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:171
+#, fuzzy
 msgid "Action: <light_blue>Opening.</light_blue>"
-msgstr ""
+msgstr "Estado: <light_blue>Abierto.</light_blue>"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:45
 msgid "My Home"
-msgstr ""
+msgstr "Mi Casa"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:46
 msgid "Medias"
-msgstr ""
+msgstr "Medios"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:47
 msgid "Scenarios"
-msgstr ""
+msgstr "Escenarios"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:48
 msgid "Configuration"
-msgstr ""
+msgstr "Configuración"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:100
 msgid "Add a widget."
-msgstr ""
+msgstr "Añadir un widget"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:105
 msgid "Widgets configuration."
-msgstr ""
+msgstr "Configuración de widgets"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:110
 msgid "Shut the screen off."
-msgstr ""
+msgstr "Apagar la pantalla"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:115
 msgid "Reboot the machine."
-msgstr ""
+msgstr "Reiniciar la máquina"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:122
 msgid "Touch the screen once to wake up the machine."
-msgstr ""
+msgstr "Tocar la pantalla una vez para despertar la máquina"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:125
 msgid "Auto: Off"
-msgstr ""
+msgstr "Auto: Apagado"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:131
 msgid "Auto: "
-msgstr ""
+msgstr "Auto: "
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:144
 msgid "Add widgets on the desktop."
-msgstr ""
+msgstr "Añadir widgets al escritorio"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:150
 msgid "Move and setup your widgets on the desktop."
-msgstr ""
+msgstr "Mover y configurar sus widgets en el escritorio"
 
 #: src/bin/calaos_home/views/MainMenuView.cpp:155
 msgid "Please wait during the reboot."
-msgstr ""
+msgstr "Por favor, espere durante el reinicio"
 
 #: src/bin/calaos_home/views/Widget.cpp:203
 msgid ""
 "Confirmation<br><small><light_blue>Are you sure to delete this widget?</"
 "light_blue></small>"
 msgstr ""
+"Confirmación<br><small><light_blue>¿Está seguro de querer borrar este widget?"
+"</light_blue></small>"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:30
 msgid "Event when play is started"
@@ -1835,16 +1928,19 @@ msgid "Event when a change of volume happens"
 msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:37
+#, fuzzy
 msgid "Start playing"
-msgstr ""
+msgstr "Detener de jugar"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:38
+#, fuzzy
 msgid "Pause player"
-msgstr ""
+msgstr "Pausa: "
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:39
+#, fuzzy
 msgid "Stop player"
-msgstr ""
+msgstr "Detener de jugar"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:40
 msgid "Play next song in playlist"
@@ -1860,12 +1956,14 @@ msgid "Set current volume"
 msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
+#, fuzzy
 msgid "Increase volume by a value"
-msgstr ""
+msgstr "Aumentar el volumen de %1%"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:44
+#, fuzzy
 msgid "Decrease volume by a value"
-msgstr ""
+msgstr "Disminuir el volumen de %1%"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:46
 msgid "Audio players are not displayed in rooms"
@@ -1892,12 +1990,14 @@ msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
 msgstr ""
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:277
+#, fuzzy
 msgid "Switch receiver on"
-msgstr ""
+msgstr "Cambiar de fuente a"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:278
+#, fuzzy
 msgid "Switch receiver off"
-msgstr ""
+msgstr "Apagar la luz"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:280
 msgid "Change current input source"
@@ -1928,16 +2028,19 @@ msgid "Web interface port of LMS, default to 9000."
 msgstr ""
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:122
+#, fuzzy
 msgid "Switch player on"
-msgstr ""
+msgstr "Encender la luz"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:123
+#, fuzzy
 msgid "Switch player off"
-msgstr ""
+msgstr "Apagar la luz"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:124
+#, fuzzy
 msgid "Start sleep mode with X seconds"
-msgstr ""
+msgstr "Activar por X secundos"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:125
 msgid "Sync this player with an other"
@@ -2294,12 +2397,14 @@ msgid "Event triggered on any change"
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputTimer.cpp:50
+#, fuzzy
 msgid "Start the timer"
-msgstr ""
+msgstr "Comenzar a las "
 
 #: src/bin/calaos_server/IO/InputTimer.cpp:51
+#, fuzzy
 msgid "Stop the timer"
-msgstr ""
+msgstr "Parar el postigo"
 
 #: src/bin/calaos_server/IO/InputTimer.cpp:52
 msgid "Reset the configured time to a value. Format is h:m:s:ms"
@@ -2361,12 +2466,14 @@ msgid "Event when value is false"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:57
+#, fuzzy
 msgid "Set a value to true"
-msgstr ""
+msgstr "Fijar el valor a %1%"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:58
+#, fuzzy
 msgid "Set a value to false"
-msgstr ""
+msgstr "Fijar el valor a %1%"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:59
 msgid "Invert boolean value"
@@ -2642,8 +2749,9 @@ msgstr ""
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:44
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:44
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:42
+#, fuzzy
 msgid "Ethernet"
-msgstr ""
+msgstr "Internet"
 
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:41
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:41
@@ -2882,28 +2990,33 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:31
+#, fuzzy
 msgid "Event when light is on"
-msgstr ""
+msgstr " luces encendidas"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:32
+#, fuzzy
 msgid "Event when light is off"
-msgstr ""
+msgstr "Apagar luces"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:33
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:36
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:32
+#, fuzzy
 msgid "Switch the light on"
-msgstr ""
+msgstr "Encender la luz"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:34
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:37
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:33
+#, fuzzy
 msgid "Switch the light off"
-msgstr ""
+msgstr "Apagar la luz"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:35
+#, fuzzy
 msgid "Invert light state"
-msgstr ""
+msgstr "Invertir estado del luz"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:36
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:39
@@ -2944,8 +3057,9 @@ msgid "Event when light is at this value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:38
+#, fuzzy
 msgid "Invert the light state"
-msgstr ""
+msgstr "Invertir estado del luz"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:48
 msgid ""
@@ -2958,12 +3072,14 @@ msgid "Set light intensity and swith on if light is off"
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:50
+#, fuzzy
 msgid "Increase intensity by X percent"
-msgstr ""
+msgstr "Aumentar verde por valor de X por ciento"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:51
+#, fuzzy
 msgid "Decrease intensity by X percent"
-msgstr ""
+msgstr "Disminuir el verde de X porcent"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:52
 msgid "Dynamically change light intensity when holding a switch (press action)"
@@ -2988,16 +3104,19 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:40
+#, fuzzy
 msgid "Set red channel to X percent"
-msgstr ""
+msgstr "Fijar la luz a X porcent"
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:41
+#, fuzzy
 msgid "Set green channel to X percent"
-msgstr ""
+msgstr "Fijar la luz a X porcent"
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:42
+#, fuzzy
 msgid "Set blue channel to X percent"
-msgstr ""
+msgstr "Fijar la luz a X porcent"
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:43
 msgid "Increase intensity by X percent of red channel"
@@ -3049,13 +3168,15 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:39
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:47
+#, fuzzy
 msgid "Event on any change of shutter state"
-msgstr ""
+msgstr "Invertir el estado del postigo"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:40
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:48
+#, fuzzy
 msgid "Event when shutter is open"
-msgstr ""
+msgstr "1 persiana abierta"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:41
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:49
@@ -3064,33 +3185,39 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:42
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:50
+#, fuzzy
 msgid "Open the shutter"
-msgstr ""
+msgstr "Abrir el postigo"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:43
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:51
+#, fuzzy
 msgid "Close the shutter"
-msgstr ""
+msgstr "Cerrar el postigo"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:44
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:52
+#, fuzzy
 msgid "Stop the shutter"
-msgstr ""
+msgstr "Parar el postigo"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:45
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:53
+#, fuzzy
 msgid "Invert shutter state"
-msgstr ""
+msgstr "Invertir el estado del postigo"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:46
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:54
+#, fuzzy
 msgid "Open shutter for X ms"
-msgstr ""
+msgstr "Abrir el postigo de %1"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:47
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:55
+#, fuzzy
 msgid "Close shutter for X ms"
-msgstr ""
+msgstr "Cerrar el postigo de %1"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:48
 #: src/bin/calaos_server/IO/OutputShutter.cpp:49
@@ -3121,16 +3248,19 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:56
+#, fuzzy
 msgid "Set shutter at position X in percent"
-msgstr ""
+msgstr "Fijar el postigo en una posición"
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:57
+#, fuzzy
 msgid "Open the shutter by X percent"
-msgstr ""
+msgstr "Abrir el postigo de X porcent"
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:58
+#, fuzzy
 msgid "Close the shutter by X percent"
-msgstr ""
+msgstr "Cerrar el postigo de X porcent"
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:59
 msgid ""
@@ -3145,16 +3275,18 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/Scenario.cpp:37
+#, fuzzy
 msgid "Start the scenario"
-msgstr ""
+msgstr "Introduzco el nombre del escenario"
 
 #: src/bin/calaos_server/IO/Scenario.cpp:38
 msgid "Stop the scenario (only for special looping scenarios)"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Scenario.cpp:39
+#, fuzzy
 msgid "Event triggered when scenario is started"
-msgstr ""
+msgstr "Introduzco el nombre del escenario"
 
 #: src/bin/calaos_server/IO/Scenario.cpp:42
 msgid "Internal use only for Auto Scenario. read only."
@@ -3681,8 +3813,9 @@ msgstr ""
 
 #: src/bin/calaos_server/JsonApi.cpp:1370
 #: src/bin/calaos_server/JsonApi.cpp:1475
+#, fuzzy
 msgid "New unnamed scenario"
-msgstr ""
+msgstr "Mi nuevo escenario"
 
 #: src/bin/calaos_server/main.cpp:57
 msgid "\t--gendoc <path>\tGenerate Io documentation in <path>\n"
@@ -3690,22 +3823,27 @@ msgstr ""
 
 #: src/widgets/clock/module.cpp:32
 msgid "Clock"
-msgstr ""
+msgstr "Reloj"
 
 #: src/widgets/clock/module.cpp:33
 msgid "Numeric or Analogic clock to be placed on your main page."
-msgstr ""
+msgstr "Reloj digital o analógico para poner en su pantalla principal"
 
 #: src/widgets/note/module.cpp:32
 msgid "Notes"
-msgstr ""
+msgstr "Notas"
 
 #: src/widgets/note/module.cpp:33
 msgid ""
 "Let messages on the screen thanks to the numeric version of the well known "
 "yellow paper."
 msgstr ""
+"Permitir mensajes en pantalla gracias a la version numérica de un bien "
+"conocido papel amarillo"
 
 #: src/widgets/note/module.cpp:78
 msgid "You can now write the new note to display."
-msgstr ""
+msgstr "Ahora puede escribir una nueva nota en la pantalla"
+
+#~ msgid "Close all shutters"
+#~ msgstr "Bajar todas las persianas"
