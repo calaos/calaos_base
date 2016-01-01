@@ -64,12 +64,13 @@ Room *Camera::getRoom()
 {
     if (room) return room;
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["oid"]);
+    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["id"]);
     if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         return NULL;
 
     IOBase *output = (*it).second;
-    return output->getRoom();
+    room = output->getRoom();
+    return room;
 }
 
 void Camera::MoveCenter()
