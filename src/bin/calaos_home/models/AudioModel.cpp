@@ -103,42 +103,35 @@ void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
 {
     VAR_UNUSED(data);
 
-    json_t *jplayers = json_object_get(jdata, "audio_players");
+    json_t *jplayer = json_object_get(jdata, params["id"].c_str());
 
-    size_t idx;
-    json_t *value;
+    if (!jplayer) return;
 
-    json_array_foreach(jplayers, idx, value)
+    //volume
+    string vol = jansson_string_get(jplayer, "volume");
+    from_string(vol, volume);
+    player_volume_changed.emit();
+
+    //status
+    string st = jansson_string_get(jplayer, "status");
+    if (st == "playing") st = "play";
+    params.Add("status", st);
+    player_status_changed.emit();
+
+    json_t *track = json_object_get(jplayer, "current_track");
+    if (track && json_is_object(track))
     {
-        string id = jansson_string_get(value, "player_id");
-        if (id != params["id"]) continue;
-
-        //volume
-        string vol = jansson_string_get(value, "volume");
-        from_string(vol, volume);
-        player_volume_changed.emit();
-
-        //status
-        string st = jansson_string_get(value, "status");
-        if (st == "playing") st = "play";
-        params.Add("status", st);
-        player_status_changed.emit();
-
-        json_t *track = json_object_get(value, "current_track");
-        if (track && json_is_object(track))
-        {
-            jansson_decode_object(track, current_song_info);
-            string dur = jansson_string_get(track, "duration");
-            from_string(dur, duration);
-            current_song_info.Add("duration", Utils::time2string_digit((long)duration));
-            player_track_changed.emit();
-        }
-
-        //playlist size
-        string pls = jansson_string_get(value, "playlist_size");
-        from_string(pls, playlist_size);
-        player_playlist_changed.emit();
+        jansson_decode_object(track, current_song_info);
+        string dur = jansson_string_get(track, "duration");
+        from_string(dur, duration);
+        current_song_info.Add("duration", Utils::time2string_digit((long)duration));
+        player_track_changed.emit();
     }
+
+    //playlist size
+    string pls = jansson_string_get(jplayer, "playlist_size");
+    from_string(pls, playlist_size);
+    player_playlist_changed.emit();
 }
 
 void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
