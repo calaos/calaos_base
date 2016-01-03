@@ -892,3 +892,25 @@ string Utils::trim(const string &str)
 
     return string(str, start, len);
 }
+
+string Utils::escape_quotes(const string &s)
+{
+    string after;
+    after.reserve(s.length() + 4);
+
+    for (string::size_type i = 0; i < s.length(); i++)
+    {
+        switch (s[i])
+        {
+            case '"':
+            case '\\':
+                after += '\\';
+                // Fall through.
+
+            default:
+                after += s[i];
+        }
+    }
+
+    return after;
+}

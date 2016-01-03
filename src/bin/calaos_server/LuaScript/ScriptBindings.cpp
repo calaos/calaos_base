@@ -336,16 +336,22 @@ int Lua_Calaos::requestUrl(lua_State *L)
     {
         string url = lua_tostring(L, 1);
 
-        FileDownloader *downloader = new FileDownloader(url, string(), "text/plain", true);
-        downloader->Start();
+        string code = "local http = require(\"socket.http\")\n" \
+                      "http.request(\"" + url + "\")";
+
+        luaL_loadstring(L, code.c_str());
+        lua_call(L, 0, 0);
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
         string url = lua_tostring(L, 1);
         string post_data = lua_tostring(L, 2);
 
-        FileDownloader *downloader = new FileDownloader(url, post_data, "text/plain", true);
-        downloader->Start();
+        string code = "local http = require(\"socket.http\")\n" \
+                      "http.request(\"" + url + "\", \"" + Utils::escape_quotes(post_data) + "\")";
+
+        luaL_loadstring(L, code.c_str());
+        lua_call(L, 0, 0);
     }
     else
     {

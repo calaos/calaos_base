@@ -230,6 +230,7 @@ void replace_str(string &source, const string searchstr, const string replacestr
 void trim_right(std::string &source, const std::string &t);
 void trim_left(std::string &source, const std::string &t);
 string trim(const string &str);
+string escape_quotes(const string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };
 bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
