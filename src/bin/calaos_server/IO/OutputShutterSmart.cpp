@@ -516,7 +516,7 @@ void OutputShutterSmart::Toggle()
         old_sens = VDOWN;
         Up();
     }
-    else if (sens == VSTOP)
+    else
     {
         if (old_sens == VUP)
             Down();
