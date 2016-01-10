@@ -21,6 +21,7 @@
 #ifndef EXTERNPROC_H
 #define EXTERNPROC_H
 
+#include "Utils.h"
 #include "Calaos.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
