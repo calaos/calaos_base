@@ -100,19 +100,19 @@ private:
     {
         struct
         {
-            ushort r, g, b;
+            uint16_t r, g, b;
         } rgb;
         struct
         {
-            ushort h, s, v;
+            uint16_t h, s, v;
         } hsv;
         struct
         {
-            ushort h, s, l;
+            uint16_t h, s, l;
         } hsl;
-        ushort array[3];
+        uint16_t array[3];
     } color;
-    ushort alpha;
+    uint16_t alpha;
 
 };
 
