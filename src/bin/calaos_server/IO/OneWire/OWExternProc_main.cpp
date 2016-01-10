@@ -105,7 +105,7 @@ string OWProcess::getValue(const string &path, const string &param)
                             double t;
                             from_string(line, t);
                             t /= 1000.0;
-                            line = to_string(t);
+                            line = Utils::to_string(t);
                             f.close();
                             return line;
 
