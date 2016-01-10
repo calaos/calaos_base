@@ -71,7 +71,7 @@ Class @ref nlohmann::basic_json is a good entry point for the documentation.
 #endif
 
 // workaround for Android NDK (see https://github.com/nlohmann/json/issues/136)
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__UCLIBC__)
 namespace std
 {
 template <typename T>
