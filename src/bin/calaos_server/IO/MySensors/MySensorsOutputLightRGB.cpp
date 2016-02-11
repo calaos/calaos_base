@@ -43,12 +43,12 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     ioDoc->paramAdd("data_type", _("Data type sent to the node. Default: V_DIMMER, see MySensors.cpp for more values."), IODoc::TYPE_STRING, false);
 
     Params gwlist = {{ "serial", _("Serial") },
-                     { "ethernet", _("Ethernet") }};
-    ioDoc->paramAddList("gateway", _("Gateway type used, ethernet or serial are supported"), true, gwlist, "serial");
+                     { "tcp", _("Tcp") }};
+    ioDoc->paramAddList("gateway", _("Gateway type used, tcp or serial are supported"), true, gwlist, "serial");
     ioDoc->paramAdd("port",
-                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using ethernet gateway port is TCP port of the gateway."),
+                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using tcp gateway port is TCP port of the gateway."),
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
-    ioDoc->paramAdd("host", _("IP address of the ethernet gateway if relevant"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
     string nodeId_r = get_param("node_id_red");
     string sensorId_r = get_param("sensor_id_red");
