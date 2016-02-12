@@ -66,8 +66,6 @@
 #include <TinyXML/tinyxml.h>
 #include <sigc++/sigc++.h>
 
-#include "sigc_fix_functor.h"
-
 #include "ColorUtils.h"
 
 //This is for logging
