@@ -291,13 +291,8 @@ void Utils::trim_left(std::string &source, const std::string &t)
 
 double Utils::roundValue(double value, int precision)
 {
-    if (value == 0.)
-        return value;
-
-    int ex = floor(log10(abs(value))) - precision + 1;
-    double div = pow(10, ex);
-
-    return floor(value / div + 0.5) * div;
+    double tmp = pow(10, precision);
+    return (double)round(value * tmp) / tmp;
 }
 
 bool Utils::strContains(const string &str, const string &needle, CaseSensitivity cs)
