@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(KNXOutputLightRGB)
 
@@ -41,7 +41,7 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
 
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
 
-    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)
+    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const std::string group_addr, const KNXValue &v)
     {
 //        if (group_addr != get_param("knx_group")) return;
 //        KNXValue val = v;
@@ -58,9 +58,9 @@ KNXOutputLightRGB::~KNXOutputLightRGB()
 
 void KNXOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
-    string knx_group_red = get_param("knx_group_red");
-    string knx_group_green = get_param("knx_group_green");
-    string knx_group_blue = get_param("knx_group_blue");
+    std::string knx_group_red = get_param("knx_group_red");
+    std::string knx_group_green = get_param("knx_group_green");
+    std::string knx_group_blue = get_param("knx_group_blue");
 
     int r = 0, g = 0, b = 0;
     if (s)
@@ -77,4 +77,6 @@ void KNXOutputLightRGB::setColorReal(const ColorValue &c, bool s)
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group_green, kval);
     kval = KNXValue::fromInt(b, KNXValue::EIS_Dim_UpDown);
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group_blue, kval);
+}
+
 }

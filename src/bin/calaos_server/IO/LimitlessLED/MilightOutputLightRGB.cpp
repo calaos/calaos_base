@@ -21,7 +21,7 @@
 #include "MilightOutputLightRGB.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MilightOutputLightRGB)
 
@@ -75,4 +75,6 @@ void MilightOutputLightRGB::setColorReal(const ColorValue &c, bool s)
             milight->sendBrightnessCommand(zone, int(v) + 1);
         });
     }
+}
+
 }

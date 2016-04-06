@@ -24,21 +24,20 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class IOInternalStringHomeView: public GenlistItemBase, public IOBaseElement
 {
 private:
     virtual void ioDeleted();
 
-    void changeTextCb(string text);
+    void changeTextCb(std::string text);
 
 public:
-    IOInternalStringHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    IOInternalStringHomeView(Evas *evas, Evas_Object *parent, IOBase *io, std::string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
     virtual ~IOInternalStringHomeView();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     //Called when the real IO changed
     virtual void initView();

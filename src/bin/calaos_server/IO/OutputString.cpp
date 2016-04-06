@@ -20,8 +20,7 @@
  ******************************************************************************/
 #include "OutputString.h"
 
-using namespace Calaos;
-using namespace Utils;
+namespace Calaos {
 
 OutputString::OutputString(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -51,7 +50,7 @@ void OutputString::emitChange()
                            { "state", value } });
 }
 
-bool OutputString::set_value(string val)
+bool OutputString::set_value(std::string val)
 {
     if (!isEnabled()) return true;
 
@@ -66,3 +65,5 @@ bool OutputString::set_value(string val)
     return true;
 }
 
+
+}

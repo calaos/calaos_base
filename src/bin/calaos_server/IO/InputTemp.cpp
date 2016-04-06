@@ -23,7 +23,7 @@
 #include "ListeRule.h"
 #include "CalaosConfig.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 InputTemp::InputTemp(Params &p):
     IOBase(p, IOBase::IO_INPUT),
@@ -80,7 +80,7 @@ InputTemp::InputTemp(Params &p):
     else
         precision = 2;
 
-    string v;
+    std::string v;
     if (Config::Instance().ReadValueIO(get_param("id"), v) &&
         Utils::is_of_type<double>(v))
         Utils::from_string(v, value);
@@ -136,4 +136,6 @@ bool InputTemp::set_value(double v)
     emitChange();
 
     return true;
+}
+
 }

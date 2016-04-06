@@ -31,13 +31,13 @@ DownloadManager::~DownloadManager()
     clear();
 }
 
-void DownloadManager::add(string source, string destination,
-                          sigc::slot<void, string, string, void*> sig,
-                          sigc::slot<void, string, string, double, double, void*> sig_progress,
+void DownloadManager::add(std::string source, std::string destination,
+                          sigc::slot<void, std::string, std::string, void*> sig,
+                          sigc::slot<void, std::string, std::string, double, double, void*> sig_progress,
                           void *userData)
 {
     //check if download isn't already running
-    list<DownloadManagerData *>::iterator it;
+    std::list<DownloadManagerData *>::iterator it;
     for (it = lDownloads.begin();it != lDownloads.end();it++)
     {
         if (source == (*it)->source &&
@@ -59,10 +59,10 @@ void DownloadManager::add(string source, string destination,
     downloadFirst();
 }
 
-void DownloadManager::add(string source, string destination)
+void DownloadManager::add(std::string source, std::string destination)
 {
     //check if download isn't already running
-    list<DownloadManagerData *>::iterator it;
+    std::list<DownloadManagerData *>::iterator it;
     for (it = lDownloads.begin();it != lDownloads.end();it++)
     {
         if (source == (*it)->source &&
@@ -83,10 +83,10 @@ void DownloadManager::add(string source, string destination)
 
 void DownloadManager::clear()
 {
-    for_each(l.begin(),l.end(),Delete());
+    for_each(l.begin(),l.end(),Utils::Delete());
     l.clear();
 
-    list<DownloadManagerData *>::iterator it;
+    std::list<DownloadManagerData *>::iterator it;
     for(it = lDownloads.begin();it != lDownloads.end();it++)
     {
         DownloadManagerData *data = *it;
@@ -104,10 +104,10 @@ void DownloadManager::clear()
     lDownloads.clear();
 }
 
-void DownloadManager::del(string source, string destination, void *userData)
+void DownloadManager::del(std::string source, std::string destination, void *userData)
 {
     DownloadManagerData *item = NULL;
-    list<DownloadManagerData *>::iterator it;
+    std::list<DownloadManagerData *>::iterator it;
     for(it = lDownloads.begin();it != lDownloads.end();it++)
     {
         if ((*it)->source == source &&
@@ -172,7 +172,7 @@ void DownloadManager::downloadFirst()
     if(lDownloads.size() >= (uint)nbDownloadsMax || l.size() <= 0)
         return ;
 
-    list<DownloadManagerData *>::iterator it = l.begin();
+    std::list<DownloadManagerData *>::iterator it = l.begin();
     DownloadManagerData *download = *it;
     l.erase(it);
     lDownloads.push_back(download);
@@ -188,11 +188,11 @@ void DownloadManager::downloadFirst()
 }
 
 
-void DownloadManager::IPCDownloadDone(string source, string signal,
+void DownloadManager::IPCDownloadDone(std::string source, std::string signal,
                                       void* listener_data, void* sender_data)
 {
     DownloadManagerData *data = reinterpret_cast<DownloadManagerData*>(listener_data);
-    list<DownloadManagerData *>::iterator it;
+    std::list<DownloadManagerData *>::iterator it;
 
     if((signal == "done" || signal == "failed" || signal == "aborted")
        && data->hasDeleted)

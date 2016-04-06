@@ -18,11 +18,12 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "IOGenlistRoomGroup.h"
-#include <ApplicationMain.h>
 
-IOGenlistRoomGroup::IOGenlistRoomGroup(Evas *_evas, Evas_Object *_parent, Room *_room, string style_addition):
-    GenlistItemBase(_evas, _parent, string("group_room") + style_addition, ELM_GENLIST_ITEM_GROUP),
+#include <ApplicationMain.h>
+#include "IOGenlistRoomGroup.h"
+
+IOGenlistRoomGroup::IOGenlistRoomGroup(Evas *_evas, Evas_Object *_parent, Room *_room, std::string style_addition):
+    GenlistItemBase(_evas, _parent, std::string("group_room") + style_addition, ELM_GENLIST_ITEM_GROUP),
     room(_room)
 {
 }
@@ -36,20 +37,20 @@ void IOGenlistRoomGroup::itemAdded()
     elm_genlist_item_select_mode_set(item, ELM_OBJECT_SELECT_MODE_DISPLAY_ONLY);
 }
 
-Evas_Object *IOGenlistRoomGroup::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOGenlistRoomGroup::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
     return o;
 }
 
-string IOGenlistRoomGroup::getLabelItem(Evas_Object *obj, string part)
+std::string IOGenlistRoomGroup::getLabelItem(Evas_Object *obj, std::string part)
 {
     return room->name;
 }
 
-IOGenlistRoomGroupIcon::IOGenlistRoomGroupIcon(Evas *_evas, Evas_Object *_parent, Room *_room, string style_addition):
-    GenlistItemBase(_evas, _parent, string("group_room/icon") + style_addition, ELM_GENLIST_ITEM_GROUP),
+IOGenlistRoomGroupIcon::IOGenlistRoomGroupIcon(Evas *_evas, Evas_Object *_parent, Room *_room, std::string style_addition):
+    GenlistItemBase(_evas, _parent, std::string("group_room/icon") + style_addition, ELM_GENLIST_ITEM_GROUP),
     room(_room)
 {
 }
@@ -63,14 +64,14 @@ void IOGenlistRoomGroupIcon::itemAdded()
     elm_genlist_item_select_mode_set(item, ELM_OBJECT_SELECT_MODE_DISPLAY_ONLY);
 }
 
-Evas_Object *IOGenlistRoomGroupIcon::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOGenlistRoomGroupIcon::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
     if (part == "icon")
     {
-        string type = room->type;
-        string t = type;
+        std::string type = room->type;
+        std::string t = type;
 
         if (type == "salon") t = "lounge";
         if (type == "chambre") t = "bedroom";
@@ -86,7 +87,7 @@ Evas_Object *IOGenlistRoomGroupIcon::getPartItem(Evas_Object *obj, string part)
         if (type == "couloir") t = "corridor";
 
         EdjeObject *icon = new EdjeObject(ApplicationMain::getTheme(), evas);
-        string group = "calaos/icons/room/";
+        std::string group = "calaos/icons/room/";
 
         try
         {
@@ -105,7 +106,7 @@ Evas_Object *IOGenlistRoomGroupIcon::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOGenlistRoomGroupIcon::getLabelItem(Evas_Object *obj, string part)
+std::string IOGenlistRoomGroupIcon::getLabelItem(Evas_Object *obj, std::string part)
 {
     return room->name;
 }

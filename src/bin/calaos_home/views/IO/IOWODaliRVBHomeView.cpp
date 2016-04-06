@@ -31,8 +31,8 @@ ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, GreenLess)
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, BlueMore)
 ITEM_BUTTON_CALLBACK(IOWODaliRVBHomeView, BlueLess)
 
-IOWODaliRVBHomeView::IOWODaliRVBHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("WODaliRVB_") + style_addition, _flags),
+IOWODaliRVBHomeView::IOWODaliRVBHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("WODaliRVB_") + style_addition, _flags),
     IOBaseElement(_io)
 {
 }
@@ -48,7 +48,7 @@ void IOWODaliRVBHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -192,9 +192,9 @@ Evas_Object *IOWODaliRVBHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWODaliRVBHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWODaliRVBHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 
@@ -290,7 +290,7 @@ void IOWODaliRVBHomeView::updateView()
     }
 }
 
-void IOWODaliRVBHomeView::sliderSignalCallbackRed(void *data, Evas_Object *edje_object, string emission, string source)
+void IOWODaliRVBHomeView::sliderSignalCallbackRed(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
     if (!slider) return;
@@ -311,7 +311,7 @@ void IOWODaliRVBHomeView::sliderSignalCallbackRed(void *data, Evas_Object *edje_
 
         c.setRed(x * 100.0 * 255.0 / 100.0);
 
-        string action = "set " + c.toString();
+        std::string action = "set " + c.toString();
 
         if (io) io->sendAction(action);
 
@@ -320,7 +320,7 @@ void IOWODaliRVBHomeView::sliderSignalCallbackRed(void *data, Evas_Object *edje_
 
 }
 
-void IOWODaliRVBHomeView::sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, string emission, string source)
+void IOWODaliRVBHomeView::sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
     if (!slider) return;
@@ -341,7 +341,7 @@ void IOWODaliRVBHomeView::sliderSignalCallbackGreen(void *data, Evas_Object *edj
 
         c.setGreen(x * 100.0 * 255.0 / 100.0);
 
-        string action = "set " + c.toString();
+        std::string action = "set " + c.toString();
 
         if (io) io->sendAction(action);
 
@@ -350,7 +350,7 @@ void IOWODaliRVBHomeView::sliderSignalCallbackGreen(void *data, Evas_Object *edj
 
 }
 
-void IOWODaliRVBHomeView::sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, string emission, string source)
+void IOWODaliRVBHomeView::sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     EdjeObject *slider = reinterpret_cast<EdjeObject *>(data);
     if (!slider) return;
@@ -371,7 +371,7 @@ void IOWODaliRVBHomeView::sliderSignalCallbackBlue(void *data, Evas_Object *edje
 
         c.setBlue(x * 100.0 * 255.0 / 100.0);
 
-        string action = "set " + c.toString();
+        std::string action = "set " + c.toString();
 
         if (io) io->sendAction(action);
 
@@ -400,7 +400,7 @@ void IOWODaliRVBHomeView::buttonClickRedMore()
 
     ColorValue c(io->params["state"]);
     c.setRed(c.getRed() + 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -411,7 +411,7 @@ void IOWODaliRVBHomeView::buttonClickRedLess()
 
     ColorValue c(io->params["state"]);
     c.setRed(c.getRed() - 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -422,7 +422,7 @@ void IOWODaliRVBHomeView::buttonClickGreenMore()
 
     ColorValue c(io->params["state"]);
     c.setGreen(c.getGreen() + 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -433,7 +433,7 @@ void IOWODaliRVBHomeView::buttonClickGreenLess()
 
     ColorValue c(io->params["state"]);
     c.setGreen(c.getGreen() - 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -444,7 +444,7 @@ void IOWODaliRVBHomeView::buttonClickBlueMore()
 
     ColorValue c(io->params["state"]);
     c.setBlue(c.getBlue() + 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }
@@ -455,7 +455,7 @@ void IOWODaliRVBHomeView::buttonClickBlueLess()
 
     ColorValue c(io->params["state"]);
     c.setBlue(c.getBlue() - 5);
-    string action = "set " + c.toString();
+    std::string action = "set " + c.toString();
 
     io->sendAction(action);
 }

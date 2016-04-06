@@ -33,7 +33,7 @@ class WebOutputString : public OutputString
 
 protected:
     virtual void readValue();
-    virtual void set_value_real(string val);
+    virtual void set_value_real(std::string val);
 
 public:
     WebOutputString(Params &p);

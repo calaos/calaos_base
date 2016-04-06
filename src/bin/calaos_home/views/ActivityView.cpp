@@ -56,7 +56,7 @@ ActivityView::ActivityView(Evas *_e, Evas_Object *_parent):
 {
 }
 
-ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, string _collection):
+ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, std::string _collection):
     BaseView(_e, _parent),
     box_buttons(NULL),
     button_quit(NULL)
@@ -65,7 +65,7 @@ ActivityView::ActivityView(Evas *_e, Evas_Object *_parent, string _collection):
     {
         LoadEdje(_collection);
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "ActivityView: Can't load edje";
         throw;
@@ -117,7 +117,7 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
         case ACTIVITY_VIEW_NONE: break;
         }
     }
-    catch (exception const& e)
+    catch (std::exception const& e)
     {
         cCritical() <<  "ActivityViewFactory: Can't create viewType:" << viewTypeString(viewType);
         throw;
@@ -132,7 +132,7 @@ ActivityView *ActivityViewFactory::CreateView(Evas *evas, Evas_Object *parent, i
     return view;
 }
 
-string ActivityViewFactory::viewTypeString(int viewType)
+std::string ActivityViewFactory::viewTypeString(int viewType)
 {
     switch (viewType)
     {

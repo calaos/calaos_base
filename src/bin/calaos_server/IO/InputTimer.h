@@ -34,7 +34,7 @@ protected:
     int hour, minute, second, ms;
 
     EcoreTimer *timer;
-    string value;
+    std::string value;
     bool start;
 
     void StartTimer();
@@ -47,10 +47,10 @@ public:
 
     //Input
     virtual DATA_TYPE get_type() { return TSTRING; }
-    virtual string get_value_string() { return value; }
+    virtual std::string get_value_string() { return value; }
 
     //Output
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 
     virtual void hasChanged();
 };

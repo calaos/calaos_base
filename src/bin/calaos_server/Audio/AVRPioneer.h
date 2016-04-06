@@ -32,9 +32,9 @@ class AVRPioneer: public AVReceiver
 {
 protected:
 
-    void decodeDisplayText(string &text);
+    void decodeDisplayText(std::string &text);
 
-    virtual void processMessage(string msg);
+    virtual void processMessage(std::string msg);
     virtual void connectionEstablished();
 
 public:

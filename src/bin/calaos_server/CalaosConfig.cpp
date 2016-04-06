@@ -21,7 +21,7 @@
 #include "CalaosConfig.h"
 #include <Eet.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 typedef struct _ConfigStateValue
 {
@@ -132,7 +132,7 @@ void Config::LoadConfigIO()
             room_node->Attribute("name") &&
             room_node->Attribute("type"))
         {
-            string name, type;
+            std::string name, type;
             int hits = 0;
 
             name = room_node->Attribute("name");
@@ -152,8 +152,8 @@ void Config::LoadConfigIO()
 
 void Config::SaveConfigIO()
 {
-    string file = Utils::getConfigFile(IO_CONFIG);
-    string tmp = file + "_tmp";
+    std::string file = Utils::getConfigFile(IO_CONFIG);
+    std::string tmp = file + "_tmp";
 
     cInfo() <<  "Saving " << file << "...";
 
@@ -220,7 +220,7 @@ void Config::LoadConfigRule()
             rule_node->Attribute("name") &&
             rule_node->Attribute("type"))
         {
-            string name, type;
+            std::string name, type;
 
             name = rule_node->Attribute("name");
             type = rule_node->Attribute("type");
@@ -237,8 +237,8 @@ void Config::LoadConfigRule()
 
 void Config::SaveConfigRule()
 {
-    string file = Utils::getConfigFile(RULES_CONFIG);
-    string tmp = file + "_tmp";
+    std::string file = Utils::getConfigFile(RULES_CONFIG);
+    std::string tmp = file + "_tmp";
 
     cInfo() <<  "Saving " << file << "...";
 
@@ -267,7 +267,7 @@ void Config::SaveConfigRule()
 void Config::loadStateCache()
 {
     ConfigStateCache *cache;
-    string file = Utils::getCacheFile("iostates.cache");
+    std::string file = Utils::getCacheFile("iostates.cache");
 
     Eet_File *ef = eet_open(file.c_str(), EET_FILE_MODE_READ);
     if (!ef)
@@ -297,8 +297,8 @@ void Config::loadStateCache()
     {
         Eina_Hash_Tuple *t = (Eina_Hash_Tuple *)data;
         ConfigStateValue *state = (ConfigStateValue *)t->data;
-        string skey = state->id;
-        string svalue = state->value;
+        std::string skey = state->id;
+        std::string svalue = state->value;
         SaveValueIO(skey, svalue, false);
     }
     eina_iterator_free(it);
@@ -313,8 +313,8 @@ void Config::loadStateCache()
 void Config::saveStateCache()
 {
     Eet_File *ef;
-    string file = Utils::getCacheFile("iostates.cache");
-    string tmp = file + "_tmp";
+    std::string file = Utils::getCacheFile("iostates.cache");
+    std::string tmp = file + "_tmp";
     ConfigStateCache *cache;
 
     cache = new ConfigStateCache;
@@ -343,7 +343,7 @@ void Config::saveStateCache()
     cInfo() <<  "State cache file written successfully (" << file << ")";
 }
 
-void Config::SaveValueIO(string id, string value, bool save)
+void Config::SaveValueIO(std::string id, std::string value, bool save)
 {
     if (eina_hash_find(cache_states, id.c_str()))
     {
@@ -365,7 +365,7 @@ void Config::SaveValueIO(string id, string value, bool save)
         saveStateCache();
 }
 
-bool Config::ReadValueIO(string id, string &value)
+bool Config::ReadValueIO(std::string id, std::string &value)
 {
     ConfigStateValue *v = (ConfigStateValue *)eina_hash_find(cache_states, id.c_str());
     if (!v)
@@ -374,4 +374,6 @@ bool Config::ReadValueIO(string id, string &value)
     value = v->value;
 
     return true;
+}
+
 }

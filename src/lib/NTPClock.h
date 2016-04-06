@@ -47,11 +47,11 @@ private:
     /**
                  * signal called by the signal 'applyDate'
                  */
-    sigc::signal<void, string, string, void*, void*> sig_applyCalendar;
+    sigc::signal<void, std::string, std::string, void*, void*> sig_applyCalendar;
     /** the command from the server
                  * something as "system date ntp_on"
                  */
-    vector<string> networkCmdCalendarApply;
+    std::vector<std::string> networkCmdCalendarApply;
     /**
                  * Calendar use to apply a manual date (no ntp)
                  */
@@ -91,12 +91,12 @@ public:
                  *   from the main thread instead of the udp server thread
                  *   ( we use some ecore_* methods to apply the date )
                  */
-    void applyCalendarFromServer(string source,string emission,
+    void applyCalendarFromServer(std::string source,std::string emission,
                                  void* listener_data, void* sender_data);
     /**
                  * See applyCalendarFromServer()
                  */
-    void setNetworkCmdCalendarApply(vector<string> s);
+    void setNetworkCmdCalendarApply(std::vector<std::string> s);
 
     void setRestartWhenApply(bool s);
     bool isRestartWhenApply();

@@ -22,7 +22,7 @@
 #include "ListeRule.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(InPlageHoraire)
 REGISTER_IO_USERTYPE(TimeRange, InPlageHoraire)
@@ -71,7 +71,7 @@ void InPlageHoraire::hasChanged()
     if (!isEnabled()) return;
 
     bool val = false;
-    vector<TimeRange> *plage = NULL;
+    std::vector<TimeRange> *plage = NULL;
 
     struct tm *ctime = NULL;
     tzset(); //Force reload of timezone data
@@ -120,7 +120,7 @@ void InPlageHoraire::hasChanged()
     }
 }
 
-void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
+void InPlageHoraire::LoadRange(TiXmlElement *node, std::vector<TimeRange> &plage)
 {
     TiXmlHandle docHandle(node);
     TiXmlElement *cnode = docHandle.FirstChildElement().ToElement();
@@ -129,13 +129,13 @@ void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
         TimeRange h;
         if (cnode->Attribute("start_type"))
         {
-            from_string(string(cnode->Attribute("start_type")), h.start_type);
+            from_string(std::string(cnode->Attribute("start_type")), h.start_type);
             if (h.start_type < 0 || h.start_type > 3)
                 h.start_type = TimeRange::HTYPE_NORMAL;
         }
         if (cnode->Attribute("start_offset"))
         {
-            from_string(string(cnode->Attribute("start_offset")), h.start_offset);
+            from_string(std::string(cnode->Attribute("start_offset")), h.start_offset);
             if (h.start_offset < 0) h.start_offset = -1;
             if (h.start_offset > 0) h.start_offset = 1;
         }
@@ -145,13 +145,13 @@ void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
 
         if (cnode->Attribute("end_type"))
         {
-            from_string(string(cnode->Attribute("end_type")), h.end_type);
+            from_string(std::string(cnode->Attribute("end_type")), h.end_type);
             if (h.end_type < 0 || h.end_type > 3)
                 h.end_type = TimeRange::HTYPE_NORMAL;
         }
         if (cnode->Attribute("end_offset"))
         {
-            from_string(string(cnode->Attribute("end_offset")), h.end_offset);
+            from_string(std::string(cnode->Attribute("end_offset")), h.end_offset);
             if (h.end_offset < 0) h.end_offset = -1;
             if (h.end_offset > 0) h.end_offset = 1;
         }
@@ -159,7 +159,7 @@ void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
         if (cnode->Attribute("end_min")) h.emin = cnode->Attribute("end_min");
         if (cnode->Attribute("end_sec")) h.esec = cnode->Attribute("end_sec");
 
-        stringstream sstart, sstop;
+        std::stringstream sstart, sstop;
         if (h.start_type == TimeRange::HTYPE_NORMAL)
         {
             sstart << h.shour << ":" << h.smin << ":" << h.ssec;
@@ -259,13 +259,13 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
     //try to load months
     if (pnode->Attribute("months"))
     {
-        string m = pnode->Attribute("months");
+        std::string m = pnode->Attribute("months");
         //reverse to have a left to right months representation
         std::reverse(m.begin(), m.end());
 
         try
         {
-            bitset<12> mset(m);
+            std::bitset<12> mset(m);
             months = mset;
         }
         catch(...)
@@ -298,11 +298,11 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
     return true;
 }
 
-void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage)
+void InPlageHoraire::SaveRange(TiXmlElement *node, std::string day, std::vector<TimeRange> &plage)
 {
     if (plage.size() <= 0) return; //don't create node if empty
 
-    TiXmlElement *day_node = new TiXmlElement(string("calaos:") + day);
+    TiXmlElement *day_node = new TiXmlElement(std::string("calaos:") + day);
     node->LinkEndChild(day_node);
 
     for (uint i = 0;i < plage.size();i++)
@@ -361,15 +361,15 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < get_params().size();i++)
     {
-        string key, val;
+        std::string key, val;
         get_params().get_item(i, key, val);
         cnode->SetAttribute(key, val);
     }
 
     //Save months
-    stringstream ssmonth;
+    std::stringstream ssmonth;
     ssmonth << months;
-    string str = ssmonth.str();
+    std::string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
     cnode->SetAttribute("months", str);
@@ -383,4 +383,6 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
     SaveRange(cnode, "dimanche", plg_sunday);
 
     return true;
+}
+
 }

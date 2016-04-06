@@ -66,13 +66,13 @@ class XmasWidget: public Widget
         private:
                 Ecore_Animator *animator;
                 Evas_Object *clip;
-                vector<Flake *> flakes;
+                std::vector<Flake *> flakes;
                 int clipx, clipy, clipw, cliph;
 
-                bool LoadWidget(string type, double x, double y, string _id);
+                bool LoadWidget(std::string type, double x, double y, std::string _id);
 
         public:
-                XmasWidget(string &_theme, Evas *_evas, ModuleDef &_mdef, string _id, Evas_Object *parent, ActivityWidgetsView *view);
+                XmasWidget(std::string &_theme, Evas *_evas, ModuleDef &_mdef, std::string _id, Evas_Object *parent, ActivityWidgetsView *view);
                 ~XmasWidget();
 
                 virtual void Show();
@@ -89,9 +89,9 @@ class XmasWidget: public Widget
                 //Save config & position to xml
                 virtual void Save(TiXmlElement *node);
 
-                virtual string getId() { return id; }
-                virtual string getType() { return mtype; }
-                virtual string getStringInfo();
+                virtual std::string getId() { return id; }
+                virtual std::string getType() { return mtype; }
+                virtual std::string getStringInfo();
 
                 void _Animator();
 };

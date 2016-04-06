@@ -90,7 +90,7 @@ void ActivityHomeController::clickRoomRight()
 void ActivityHomeController::updatePageView()
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
-    list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms_type.begin();
+    std::list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms_type.begin();
     int i = 0;
 
     for (int j = 0;j < page * 6;j++)
@@ -148,13 +148,13 @@ void ActivityHomeController::updateScenarios()
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
 
-    const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-    list<IOBase *> _page;
+    const std::list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
+    std::list<IOBase *> _page;
 
     //Add the status page first
     homeView->addStatusPage();
 
-    list<IOBase *>::const_iterator it = scenarios.begin();
+    std::list<IOBase *>::const_iterator it = scenarios.begin();
     for (int i = 0;it != scenarios.end();it++, i++)
     {
         IOBase *io = *it;
@@ -183,8 +183,8 @@ void ActivityHomeController::scenarioReload(Scenario *sc)
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
     if (!homeView) return;
 
-    const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-    list<IOBase *> _page;
+    const std::list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
+    std::list<IOBase *> _page;
 
     int currentpage = homeView->getCurrentPage();
 
@@ -196,7 +196,7 @@ void ActivityHomeController::scenarioReload(Scenario *sc)
         homeView->removePage(1);
     }
 
-    list<IOBase *>::const_iterator it = scenarios.begin();
+    std::list<IOBase *>::const_iterator it = scenarios.begin();
     for (int i = 0;it != scenarios.end();it++, i++)
     {
         IOBase *io = *it;
@@ -225,7 +225,7 @@ void ActivityHomeController::clickRoom(int selected_room)
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
 
-    list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms_type.begin();
+    std::list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms_type.begin();
 
     for (int j = 0;j < page * 6 + selected_room &&
          it != CalaosModel::Instance().getHome()->rooms_type.end();j++)
@@ -246,7 +246,7 @@ void ActivityHomeController::lights_changed(int count)
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
     if (!homeView) return;
-    string t;
+    std::string t;
 
     if (count <= 0)
         t = _("No lights on");
@@ -262,7 +262,7 @@ void ActivityHomeController::shutter_changed(int count)
 {
     ActivityHomeView *homeView = dynamic_cast<ActivityHomeView *>(view);
     if (!homeView) return;
-    string t;
+    std::string t;
 
     if (count <= 0)
         t = _("No shutter open");

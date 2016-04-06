@@ -29,7 +29,7 @@ public:
     WebSocketFrame();
 
     int getCloseCode() const { return closeCode; }
-    string getCloseReason() const { return closeReason; }
+    std::string getCloseReason() const { return closeReason; }
     bool isFinalFrame() const { return finalFrame; }
     bool isControlFrame() const { return (opcode & 0x08) == 0x08; }
     bool isDataFrame() const { return !isControlFrame(); }
@@ -45,7 +45,7 @@ public:
     int getRsv2() const { return rsv2; }
     int getRsv3() const { return rsv3; }
     int getOpcode() const { return opcode; }
-    string getPayload() const { return payload; }
+    std::string getPayload() const { return payload; }
     bool isOpCodeReserved() { return ((opcode > OpCodeBinary) && (opcode < OpCodeClose)) || (opcode > OpCodePong); }
 
     void clear();
@@ -54,13 +54,13 @@ public:
 
     bool hasError() const { return haserror; }
 
-    bool processFrameData(string &data);
+    bool processFrameData(std::string &data);
 
-    string toString();
+    std::string toString();
 
-    void parseCloseCodeReason(uint16_t &code, string &reason);
+    void parseCloseCodeReason(uint16_t &code, std::string &reason);
 
-    static string makeFrame(int opcode, const string &payload, bool lastframe, uint32_t maskingKey = 0);
+    static std::string makeFrame(int opcode, const std::string &payload, bool lastframe, uint32_t maskingKey = 0);
 
     enum OpCode
     {
@@ -113,7 +113,7 @@ private:
     int state;
 
     int closeCode;
-    string closeReason;
+    std::string closeReason;
     bool finalFrame;
     uint32_t mask;
     int rsv1;
@@ -123,7 +123,7 @@ private:
     bool maskbit;
 
     uint64_t payload_length;
-    string payload;
+    std::string payload;
 
     bool isvalid;
     bool haserror;

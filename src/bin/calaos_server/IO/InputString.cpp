@@ -20,8 +20,7 @@
  ******************************************************************************/
 #include "InputString.h"
 
-using namespace Calaos;
-using namespace Utils;
+namespace Calaos {
 
 InputString::InputString(Params &p):
     IOBase(p, IOBase::IO_INPUT)
@@ -49,9 +48,10 @@ void InputString::emitChange()
     EmitSignalIO();
 }
 
-string InputString::get_value_string()
+std::string InputString::get_value_string()
 {
     readValue();
     return value;
 }
 
+}

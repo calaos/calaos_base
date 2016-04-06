@@ -26,7 +26,6 @@
 #include "Action.h"
 #include "EcoreTimer.h"
 
-using namespace std;
 
 namespace Calaos
 {
@@ -34,15 +33,15 @@ namespace Calaos
 class Rule
 {
 protected:
-    vector<Condition *> conds;
-    vector<Action *> actions;
+    std::vector<Condition *> conds;
+    std::vector<Action *> actions;
 
     Params params;
 
     bool auto_sc_mark; //true if rule is used by an auto_scenario
 
 public:
-    Rule(string _type, string _name);
+    Rule(std::string _type, std::string _name);
     virtual ~Rule();
 
     void AddCondition(Condition *p);
@@ -60,11 +59,11 @@ public:
     int get_size_conds() { return conds.size(); }
     int get_size_actions() { return actions.size(); }
 
-    string get_type() { return params["type"]; }
-    string get_name() { return params["name"]; }
-    string get_param(string p) { return params[p]; }
-    void set_param(string p, string v) { params.Add(p, v); }
-    bool param_exists(string p) { return params.Exists(p); }
+    std::string get_type() { return params["type"]; }
+    std::string get_name() { return params["name"]; }
+    std::string get_param(std::string p) { return params[p]; }
+    void set_param(std::string p, std::string v) { params.Add(p, v); }
+    bool param_exists(std::string p) { return params.Exists(p); }
 
     bool isAutoScenario() { return auto_sc_mark; }
     void setAutoScenario(bool m) { auto_sc_mark = m; }

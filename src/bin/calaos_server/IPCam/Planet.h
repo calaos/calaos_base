@@ -29,9 +29,9 @@ namespace Calaos
 class Planet: public IPCam
 {
 protected:
-    string resolution, quality;
-    string saturation, sharpness, contrast, hue;
-    string brightness, color;
+    std::string resolution, quality;
+    std::string saturation, sharpness, contrast, hue;
+    std::string brightness, color;
 
 public:
     Planet(Params &p);

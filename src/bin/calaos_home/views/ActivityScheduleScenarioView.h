@@ -27,7 +27,6 @@
 #include "CalaosModel.h"
 #include "GenlistItemSimple.h"
 
-using namespace Utils;
 
 class ActivityScheduleScenarioView: public ActivityView
 {
@@ -38,8 +37,8 @@ private:
     Evas_Object *schedule_list, *month_list;
 
     GenlistItemSimple *item_all;
-    vector<GenlistItemSimple *> items_months;
-    vector<GenlistItemSimple *> items_periods;
+    std::vector<GenlistItemSimple *> items_months;
+    std::vector<GenlistItemSimple *> items_periods;
 
     Evas_Object *popup;
     Evas_Object *pager_popup;
@@ -52,7 +51,7 @@ private:
     Evas_Object *spin_end_min;
     Evas_Object *spin_end_sec;
 
-    vector<GenlistItemSimple *> week_days;
+    std::vector<GenlistItemSimple *> week_days;
 
     //store current data we are editing, also used to set default value
     TimeRange edit_range;
@@ -63,7 +62,7 @@ private:
            EDIT_WEEK};
     int editState;
 
-    stack<int> editStatesHist;
+    std::stack<int> editStatesHist;
 
     bool cycle;
 
@@ -73,19 +72,19 @@ private:
 
     void reloadTimeRanges();
 
-    void buttonValidEndClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonValidWeekClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonHeaderBackClick(string button);
+    void buttonValidEndClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonValidWeekClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonHeaderBackClick(std::string button);
 
     void unselectWeekDays(void *data);
     void unselectAllWeekDays(void *data);
-    void headerWeekButtonClick(string bt);
+    void headerWeekButtonClick(std::string bt);
 
-    void createTimeSelectTypeList(void *data, Evas_Object *edje_object, string emission, string source);
+    void createTimeSelectTypeList(void *data, Evas_Object *edje_object, std::string emission, std::string source);
     void selectTimeType(void *data);
     void showTimeSelection(void *data);
-    void showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source);
+    void showWeekSelection(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
     void deleteTimeRange(const TimeRange &range);
 

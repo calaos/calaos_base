@@ -25,28 +25,27 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemSimpleHeader: public GenlistItemBase
 {
 private:
-    string label;
+    std::string label;
 
     Params bt_labels;
 
 public:
-    GenlistItemSimpleHeader(Evas *evas, Evas_Object *parent, string label, string style_addition = "");
+    GenlistItemSimpleHeader(Evas *evas, Evas_Object *parent, std::string label, std::string style_addition = "");
     virtual ~GenlistItemSimpleHeader();
 
-    virtual string getLabelItem(Evas_Object *obj, string part);
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
 
-    void setButtonLabel(string _button, string _label) { bt_labels.Add(_button, _label); }
+    void setButtonLabel(std::string _button, std::string _label) { bt_labels.Add(_button, _label); }
 
     void buttonClickBack();
     void buttonClickValid();
 
-    sigc::signal<void, string> button_click; //special headers can have buttons
+    sigc::signal<void, std::string> button_click; //special headers can have buttons
 };
 
 #endif // GENLISTITEMSIMPLEHEADER_H

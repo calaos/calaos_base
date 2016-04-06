@@ -24,18 +24,20 @@
 #include "InputTemp.h"
 #include "EcoreTimer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class OWTemp : public InputTemp
 {
 protected:
-    string ow_id;
-    string ow_args;
+    std::string ow_id;
+    std::string ow_args;
 
     virtual void readValue();
 
 public:
     OWTemp(Params &p);
 };
+
+}
 
 #endif

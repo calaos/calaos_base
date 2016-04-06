@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include "OutputAnalog.h"
 
-using namespace Calaos;
-using namespace Utils;
+
+namespace Calaos {
 
 OutputAnalog::OutputAnalog(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -122,7 +122,7 @@ bool OutputAnalog::set_value(double val)
     return true;
 }
 
-bool OutputAnalog::set_value(string val)
+bool OutputAnalog::set_value(std::string val)
 {
     if (!isEnabled()) return true;
 
@@ -144,7 +144,7 @@ bool OutputAnalog::set_value(string val)
     }
     else if (val.compare(0, 4, "inc ") == 0)
     {
-        string t = val;
+        std::string t = val;
         t.erase(0, 4);
 
         double step = 1.0;
@@ -155,7 +155,7 @@ bool OutputAnalog::set_value(string val)
     }
     else if (val.compare(0, 4, "dec ") == 0)
     {
-        string t = val;
+        std::string t = val;
         t.erase(0, 4);
 
         double step = 1.0;
@@ -179,3 +179,5 @@ bool OutputAnalog::set_value(string val)
     return true;
 }
 
+
+}

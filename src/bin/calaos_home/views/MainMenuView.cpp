@@ -48,7 +48,7 @@ MainMenuView::MainMenuView(Evas *_e, Evas_Object *_p):
         setPartText("menu_buttons_configuration_label", _("Configuration"));
 
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "MainMenuView: Can't load edje";
         throw;
@@ -128,13 +128,13 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
             int val;
             from_string(Utils::get_config_option("dpms_standby"), val);
 
-            string _t = _("Auto: ") + Utils::time2string(val);
+            std::string _t = _("Auto: ") + Utils::time2string(val);
             edje_object_part_text_set(elm_list_item_object_get(item_sleep_screen), "object.more_infos",
                                       _t.c_str());
         }
 
         //Update number of widgets
-        string nb = Utils::to_string(ApplicationMain::Instance().getMainController()->getWidgetController()->getWidgetCount());
+        std::string nb = Utils::to_string(ApplicationMain::Instance().getMainController()->getWidgetController()->getWidgetCount());
         nb += " Widgets";
 
         edje_object_part_text_set(elm_list_item_object_get(item_config_addwidget), "object.more_infos",
@@ -162,7 +162,7 @@ void MainMenuView::EdjeCallback(void *data, Evas_Object *_edje, std::string emis
     }
 }
 
-void MainMenuView::ButtonPressedCallback(void *data, Evas_Object *_edje, string emission, string source)
+void MainMenuView::ButtonPressedCallback(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
     if (source == "button.valid")
     {
@@ -238,7 +238,7 @@ void MainMenuView::CloseLinkMenu()
     EmitSignal("menu,link,close", "calaos");
 }
 
-void MainMenuView::setVersionString(string version)
+void MainMenuView::setVersionString(std::string version)
 {
     setPartText("calaos.version", version);
 }

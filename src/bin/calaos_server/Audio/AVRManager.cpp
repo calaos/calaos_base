@@ -25,7 +25,7 @@
 #include "AVRMarantz.h"
 #include "AVRYamaha.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 AVRManager::AVRManager()
 {
@@ -93,7 +93,7 @@ void AVRManager::Delete(AVReceiver *obj)
     }
 }
 
-AVReceiver *AVRManager::getReceiver(string host)
+AVReceiver *AVRManager::getReceiver(std::string host)
 {
     for (unsigned int i = 0;i < avrs.size();i++)
     {
@@ -102,4 +102,6 @@ AVReceiver *AVRManager::getReceiver(string host)
     }
 
     return NULL;
+}
+
 }

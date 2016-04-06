@@ -26,6 +26,8 @@
 #include <Ecore_Con.h>
 #include <WagoMap.h>
 
+namespace Calaos {
+
 class UDPServer
 {
 protected:
@@ -42,7 +44,9 @@ public:
     ~UDPServer();
 
     /* Internal stuff used by ecore-con */
-    void ProcessRequest(Ecore_Con_Client *client, string request);
+    void ProcessRequest(Ecore_Con_Client *client, std::string request);
 };
+
+}
 
 #endif

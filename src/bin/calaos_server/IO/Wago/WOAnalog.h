@@ -36,7 +36,7 @@ private:
 
     virtual void set_value_real(double val);
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, UWord address, int count, std::vector<UWord> &values);
     void WagoWriteCallback(bool status, UWord address, UWord value);
 
 public:

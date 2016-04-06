@@ -27,7 +27,6 @@
 
 #include <Ecore_File.h>
 
-using namespace Utils;
 
 namespace Calaos
 {
@@ -39,7 +38,7 @@ typedef struct _BlinkInfo
     int next;
 } BlinkInfo;
 
-void CallUrl(string url, string post_data = "");
+void CallUrl(std::string url, std::string post_data = "");
 #ifndef UTILS
 std::string get_new_id(std::string prefix);
 std::string get_new_scenario_id();

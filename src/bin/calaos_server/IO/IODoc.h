@@ -24,6 +24,8 @@
 #include "Calaos.h"
 #include <Params.h>
 
+namespace Calaos {
+
 class IODoc
 {
 public:
@@ -39,32 +41,32 @@ public:
         TYPE_LIST,
     } ParamType;
 
-    void friendlyNameSet(const string &friendlyName);
-    void descriptionSet(const string &description);
-    void descriptionBaseSet(const string &description);
-    void linkAdd(const string &description, const string &link);
-    void paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval = string(), bool readonly = false);
-    void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
-    void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
-    void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false);
-    void conditionAdd(const string &name, const string &description);
-    void actionAdd(const string &name, const string &description);
-    void aliasAdd(string alias);
+    void friendlyNameSet(const std::string &friendlyName);
+    void descriptionSet(const std::string &description);
+    void descriptionBaseSet(const std::string &description);
+    void linkAdd(const std::string &description, const std::string &link);
+    void paramAdd(const std::string &name, const std::string &description, ParamType type, bool mandatory, const std::string defaultval = std::string(), bool readonly = false);
+    void paramAddInt(const std::string &name, const std::string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
+    void paramAddFloat(const std::string &name, const std::string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
+    void paramAddList(const std::string &name, const std::string &description, bool mandatory, const Params &keyvalues, const std::string &defkey = std::string(), bool readonly = false);
+    void conditionAdd(const std::string &name, const std::string &description);
+    void actionAdd(const std::string &name, const std::string &description);
+    void aliasAdd(std::string alias);
 
-    bool isAlias(string alias);
+    bool isAlias(std::string alias);
 
     json_t *genDocJson();
-    string genDocMd(const string iotype);
+    std::string genDocMd(const std::string iotype);
 
 private:
-    string m_name;
-    string m_description_base;
-    string m_description;
+    std::string m_name;
+    std::string m_description_base;
+    std::string m_description;
 
-    vector<string> m_aliases;
-    vector<Params> m_links;
+    std::vector<std::string> m_aliases;
+    std::vector<Params> m_links;
 
-    typedef unordered_map<string, Params> ParamMap;
+   typedef std::unordered_map<std::string, Params> ParamMap;
 
     ParamMap m_parameters;
     ParamMap m_conditions;
@@ -73,9 +75,10 @@ private:
     //for parameter of type list. This contains a map of all key/values for the list of possible parameter values
     ParamMap param_list_value;
 
-    string typeToString(ParamType t);
-    ParamType typeFromString(const string &t);
+    std::string typeToString(ParamType t);
+    ParamType typeFromString(const std::string &t);
 };
 
+}
 
 #endif /* S_IODOC_H */

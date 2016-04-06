@@ -25,12 +25,10 @@
 #include <map>
 #include <jansson.h>
 
-using namespace std;
-
 class Params
 {
 protected:
-    std::map<string, string> params;
+    std::map<std::string, std::string> params;
 
 public:
     Params()
@@ -39,7 +37,7 @@ public:
     /* C++11 initializer_list constructor. This allows to do:
      * Params p = { {"key", "val"}, {"key2", "val2"} };
      */
-    typedef std::pair<const string, string> param_value_type;
+    typedef std::pair<const std::string, std::string> param_value_type;
     Params(std::initializer_list<param_value_type> il)
     {
         clear();
@@ -49,19 +47,19 @@ public:
     ~Params()
     { }
 
-    void Add(string key, string value);
+    void Add(std::string key, std::string value);
     int size() const { return params.size(); }
-    bool Exists(string key) const;
-    string get_param(string key);
-    string get_param_const(const string key) const;
-    void get_item(int i, string &key, string &value) const;
+    bool Exists(std::string key) const;
+    std::string get_param(std::string key);
+    std::string get_param_const(const std::string key) const;
+    void get_item(int i, std::string &key, std::string &value) const;
     void Delete(std::string key) { params.erase(key); }
 
-    string operator[] (string key) const;
+    std::string operator[] (std::string key) const;
 
-    void Parse(string str);
+    void Parse(std::string str);
 
-    string toString() const;
+    std::string toString() const;
     json_t *toJson() const;
 
     void clear() { params.clear(); }

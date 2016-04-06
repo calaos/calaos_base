@@ -46,8 +46,8 @@ TimeZone::TimeZone()
             {
                 if (f_info2->type == EINA_FILE_REG)
                 {
-                    string tz;
-                    tz = string(ecore_file_file_get(f_info->path)) + "/" + string(f_info2->path + f_info2->name_start);
+                    std::string tz;
+                    tz = std::string(ecore_file_file_get(f_info->path)) + "/" + std::string(f_info2->path + f_info2->name_start);
                     timeZone.push_back(TimeZoneElt(tz.c_str(), "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
                 }
             }
@@ -88,7 +88,7 @@ int TimeZone::loadCurrentTimeZone()
     return -1;
 }
 
-TimeZoneElt::TimeZoneElt(string k, string c, string dstr, int d, string id)
+TimeZoneElt::TimeZoneElt(std::string k, std::string c, std::string dstr, int d, std::string id)
 {
     key = k;
     country = c;
@@ -137,7 +137,7 @@ void Calendar::initDate()
 /*
  * Retourne le jour sous forme de string (lundi, mardi ...)
  */
-const string Calendar::getDayFromDate()
+const std::string Calendar::getDayFromDate()
 {
     updateDay();
     if(dayId<0 || dayId>7)
@@ -157,7 +157,7 @@ int Calendar::getDayIdFromDate()
 /*
  * Retourne le mois sous forme de string (janvier, février ...)
  */
-const string Calendar::getMonthFromDate()
+const std::string Calendar::getMonthFromDate()
 {
     if(month<1 || month>12)
         return M[0];
@@ -338,9 +338,9 @@ void Calendar::setDay(int d)
 /*
  * Retourne l'heure sous forme de chaine de caractère (01 02 03 ... 10 ...)
  */
-string Calendar::hoursToString()
+std::string Calendar::hoursToString()
 {
-    string res = Utils::to_string(hours);
+    std::string res = Utils::to_string(hours);
     if (hours < 10)
         res = "0" + res;
     return res;
@@ -350,9 +350,9 @@ string Calendar::hoursToString()
 /*
  * Retourne les minutes sous forme de chaine de caractère (01 02 03 ... 10 ...)
  */
-string Calendar::minutesToString()
+std::string Calendar::minutesToString()
 {
-    string res = Utils::to_string(minutes);
+    std::string res = Utils::to_string(minutes);
     if (minutes < 10)
         res = "0" + res;
     return res;
@@ -362,9 +362,9 @@ string Calendar::minutesToString()
 /*
  * Retourne les secondes sous forme de chaine de caractère (01 02 03 ... 10 ...)
  */
-string Calendar::secondesToString()
+std::string Calendar::secondesToString()
 {
-    string res = Utils::to_string(secondes);
+    std::string res = Utils::to_string(secondes);
     if (secondes < 10)
         res = "0" + res;
     return res;
@@ -399,7 +399,7 @@ void Calendar::applyTimezone()
 
     ecore_file_mv(TMP_CURRENT_ZONE, CURRENT_ZONE);
 
-    string new_ltime = ZONEPATH;
+    std::string new_ltime = ZONEPATH;
     new_ltime += timeZone.timeZone[timeZone.current].key;
 
     //copy the new zone info
@@ -424,7 +424,7 @@ Eina_Bool _CalendarHandle1(void *data, int type, void *event)
 
     ecore_event_handler_del(calendar->handler);
     //ecore_exe_free(calendar->exe);
-    string cmd = "/sbin/hwclock --systohc";
+    std::string cmd = "/sbin/hwclock --systohc";
 
     calendar->handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _CalendarHandle2, calendar);
     calendar->exe = ecore_exe_run(cmd.c_str(), NULL);

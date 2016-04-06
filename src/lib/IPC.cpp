@@ -57,7 +57,7 @@ IPC::~IPC()
     close(fd_write);
 }
 
-void IPC::AddHandler(string source, string emission, sigc::signal<void, std::string, std::string, void*, void*> &signal, void *data)
+void IPC::AddHandler(std::string source, std::string emission, sigc::signal<void, std::string, std::string, void*, void*> &signal, void *data)
 {
     IPCSignal s;
     s.source = source;
@@ -70,7 +70,7 @@ void IPC::AddHandler(string source, string emission, sigc::signal<void, std::str
 
 void IPC::DeleteHandler(sigc::signal<void, std::string, std::string, void*, void*> &signal)
 {
-    list<IPCSignal>::iterator it;
+    std::list<IPCSignal>::iterator it;
 
     for(it = signals.begin();it != signals.end();it++)
     {
@@ -82,7 +82,7 @@ void IPC::DeleteHandler(sigc::signal<void, std::string, std::string, void*, void
     }
 }
 
-void IPC::SendEvent(string source, string emission, void* data)
+void IPC::SendEvent(std::string source, std::string emission, void* data)
 {
     IPCMsg msg;
     msg.source = source;
@@ -102,7 +102,7 @@ void IPC::SendEvent(string source, string emission, void* data)
     //                 mutex2.unlock();
 
     //wake up the listener
-    string s = "wake_up";
+    std::string s = "wake_up";
     if (write(fd_write, s.c_str(), s.length()) < 0)
     {
         cErrorDom("ipc") << "Error writing to pipe !";
@@ -110,7 +110,7 @@ void IPC::SendEvent(string source, string emission, void* data)
     //         }
 }
 
-void IPC::SendEvent(string source, string emission, IPCData data, bool auto_delete_data)
+void IPC::SendEvent(std::string source, std::string emission, IPCData data, bool auto_delete_data)
 {
     IPCMsg msg;
     msg.source = source;
@@ -129,7 +129,7 @@ void IPC::SendEvent(string source, string emission, IPCData data, bool auto_dele
     //                 mutex2.unlock();
 
     //wake up the listener
-    string s = "wake_up";
+    std::string s = "wake_up";
     if (write(fd_write, s.c_str(), s.length()) < 0)
     {
         cErrorDom("ipc") << "Error writing to pipe !";
@@ -155,7 +155,7 @@ void IPC::BroadcastEvent()
                            Otherwise the events.begin iterator can become invalid
                            (if there is no element in the list)
                         */
-            list<IPCMsg>::iterator itd = events.begin();
+            std::list<IPCMsg>::iterator itd = events.begin();
             if(itd == events.end())
                 break;
             IPCMsg msg = (*itd);
@@ -164,7 +164,7 @@ void IPC::BroadcastEvent()
             cDebugDom("ipc") << "(\"" <<
                                 msg.source<<"\"  ,  \""<<msg.emission<< "\" , " << Utils::to_string(msg.data) << ")";
 
-            list<IPCSignal>::iterator it;
+            std::list<IPCSignal>::iterator it;
 
             mutex.unlock();
 
@@ -172,7 +172,7 @@ void IPC::BroadcastEvent()
             //sometimes the method call by signal->emit
             //   call deleteHandler on the current handler
             mutex.lock();
-            list<IPCSignal> signalsCopy = signals;
+            std::list<IPCSignal> signalsCopy = signals;
             mutex.unlock();
             for(it=signalsCopy.begin();it!=signalsCopy.end();it++)
             {

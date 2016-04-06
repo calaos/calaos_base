@@ -36,6 +36,6 @@ void ActivityConfigMenuController::createView()
     ActivityController::createView();
 
     ActivityConfigMenuView *configMenuView = dynamic_cast<ActivityConfigMenuView *>(view);
-    configMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
+    configMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, std::string>::emit));
 }
 

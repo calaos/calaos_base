@@ -62,7 +62,7 @@ void ActivityKeyboardView::setMultiline(bool multiline)
         elm_object_style_set(textblock, "calaos");
 }
 
-void ActivityKeyboardView::setSubtitle(string subtitle)
+void ActivityKeyboardView::setSubtitle(std::string subtitle)
 {
     setPartText("module.subtitle", subtitle);
 }
@@ -75,11 +75,11 @@ void ActivityKeyboardView::clearTextCb(void *data, Evas_Object *_edje, std::stri
 
 void ActivityKeyboardView::validInputCb(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
-    string val = elm_entry_entry_get(textblock);
+    std::string val = elm_entry_entry_get(textblock);
     validPressed.emit(val);
 }
 
-void ActivityKeyboardView::setText(string t)
+void ActivityKeyboardView::setText(std::string t)
 {
     elm_entry_entry_set(textblock, t.c_str());
 }

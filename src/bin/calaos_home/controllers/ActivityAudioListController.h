@@ -27,7 +27,6 @@
 #include "ActivityAudioListView.h"
 #include "AudioModel.h"
 
-using namespace Utils;
 
 class ActivityMediaController;
 
@@ -49,14 +48,14 @@ private:
 
     void load_done();
 
-    void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void doneCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
     void playerSelectCallback(AudioPlayer *player);
 
 public:
     ActivityAudioListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);
     ~ActivityAudioListController();
 
-    virtual bool handleButtonClick(string button);
+    virtual bool handleButtonClick(std::string button);
 };
 
 #endif // ACTIVITYAUDIOLISTCONTROLLER_H

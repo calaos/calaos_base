@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WIDigitalBP)
 REGISTER_IO_USERTYPE(WIDigital, WIDigitalBP)
@@ -87,7 +87,7 @@ void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::strin
     }
 }
 
-void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
+void WIDigitalBP::WagoReadCallback(bool status, UWord addr, int count, std::vector<bool> &values)
 {
     if (!status)
     {
@@ -133,3 +133,5 @@ bool WIDigitalBP::readValue()
     return udp_value;
 }
 
+
+}

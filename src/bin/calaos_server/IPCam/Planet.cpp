@@ -21,7 +21,7 @@
 #include "Planet.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(Planet)
 
@@ -128,7 +128,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (value == "320x240") resolution = "2";
             if (value == "640x480") resolution = "3";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Resolution.cgi?ResType=" + resolution;
             Calaos::CallUrl(url);
         }
@@ -141,7 +141,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 quality = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Compress_Ratio.cgi?Ratio=" + quality;
             Calaos::CallUrl(url);
         }
@@ -154,13 +154,13 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 saturation = value;
 
-            string _size;
+            std::string _size;
             if (resolution == "0") _size = "176";
             if (resolution == "1") _size = "352";
             if (resolution == "2") _size = "320";
             if (resolution == "3") _size = "640";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Set_Camera.cgi?Saturation=" + saturation;
             url += "&Sharpness=" + sharpness;
             url += "&Contrast=" + contrast;
@@ -179,13 +179,13 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 sharpness = value;
 
-            string _size;
+            std::string _size;
             if (resolution == "0") _size = "176";
             if (resolution == "1") _size = "352";
             if (resolution == "2") _size = "320";
             if (resolution == "3") _size = "640";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Set_Camera.cgi?Saturation=" + saturation;
             url += "&Sharpness=" + sharpness;
             url += "&Contrast=" + contrast;
@@ -204,13 +204,13 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 contrast = value;
 
-            string _size;
+            std::string _size;
             if (resolution == "0") _size = "176";
             if (resolution == "1") _size = "352";
             if (resolution == "2") _size = "320";
             if (resolution == "3") _size = "640";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Set_Camera.cgi?Saturation=" + saturation;
             url += "&Sharpness=" + sharpness;
             url += "&Contrast=" + contrast;
@@ -229,13 +229,13 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 hue = value;
 
-            string _size;
+            std::string _size;
             if (resolution == "0") _size = "176";
             if (resolution == "1") _size = "352";
             if (resolution == "2") _size = "320";
             if (resolution == "3") _size = "640";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Set_Camera.cgi?Saturation=" + saturation;
             url += "&Sharpness=" + sharpness;
             url += "&Contrast=" + contrast;
@@ -254,7 +254,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q >= 0 && q < _q)
                 brightness = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Brightness.cgi?Brightness=" + brightness;
             Calaos::CallUrl(url);
         }
@@ -264,7 +264,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
     {
         if (cap == "ptz" && cmd == "move")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/MoveCamera.cgi?Dir=";
 
             if (value == "home") url += "Home";
@@ -277,14 +277,14 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
         }
         else if (cap == "position" && cmd == "recall")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/MoveCamera.cgi?Dir=Recall&CameraParam=" + value;
 
             Calaos::CallUrl(url);
         }
         else if (cap == "position" && cmd == "save")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/MoveCamera.cgi?Dir=Preset&CameraParam=" + value;
 
             Calaos::CallUrl(url);
@@ -299,7 +299,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (value == "320x240") resolution = "1";
             if (value == "640x480") resolution = "2";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/resSel?f_ResIdxSel=" + resolution;
             Calaos::CallUrl(url);
         }
@@ -309,13 +309,13 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (value == "1") quality = "2";
             if (value == "2") quality = "0";
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/qualSel?f_quality=" + quality;
             Calaos::CallUrl(url);
         }
         if (cap == "ptz" && cmd == "move")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/ptact?f_mvaction=";
 
             if (value == "home") url += "2";
@@ -328,7 +328,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
         }
         else if (cap == "position" && cmd == "recall")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/ptpreset?f_presetact=" + value;
 
             Calaos::CallUrl(url);
@@ -338,35 +338,35 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             int pos;
             Utils::from_string(value, pos);
             pos--;
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/adminptpreset?f_presetidx=" + Utils::to_string(pos);
 
             Calaos::CallUrl(url);
         }
         else if (cap == "led")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/devact?f_devno=2&f_devact=1";
 
             Calaos::CallUrl(url);
         }
         else if (cap == "buzzer")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/devact?f_devno=1&f_devact=1";
 
             Calaos::CallUrl(url);
         }
         else if (cap == "privacy" && cmd == "set" && value == "true")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/ptact?f_mvaction=1";
 
             Calaos::CallUrl(url);
         }
         else if (cap == "privacy" && cmd == "set" && value == "false")
         {
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/privacymode_unset";
 
             Calaos::CallUrl(url);
@@ -380,7 +380,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q > 0 && q <= _q)
                 brightness = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/cameraconfig?brightness=" + brightness;
             url += "&contrast=" + contrast;
             url += "&color=" + color;
@@ -398,7 +398,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q > 0 && q <= _q)
                 color = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/cameraconfig?brightness=" + brightness;
             url += "&contrast=" + contrast;
             url += "&color=" + color;
@@ -416,7 +416,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q > 0 && q <= _q)
                 contrast = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/cameraconfig?brightness=" + brightness;
             url += "&contrast=" + contrast;
             url += "&color=" + color;
@@ -434,7 +434,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (q > 0 && q <= _q)
                 sharpness = value;
 
-            string url = "http://" + user + param["host"] + ":" + param["port"];
+            std::string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/cameraconfig?brightness=" + brightness;
             url += "&contrast=" + contrast;
             url += "&color=" + color;
@@ -449,3 +449,5 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 //Move ICA-210 click on screen
 //http://10.0.0.23/goform/ptmovepos?dx=-314&dy=90&res=2
 //where dx and dy are relative to the center of the current frame
+
+}

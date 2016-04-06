@@ -43,15 +43,15 @@ class ExternProcMessage
 {
 public:
     ExternProcMessage();
-    ExternProcMessage(string data);
+    ExternProcMessage(std::string data);
 
     bool isValid() const { return isvalid; }
-    string getPayload() const { return payload; }
+    std::string getPayload() const { return payload; }
 
     void clear();
 
-    bool processFrameData(string &data);
-    string getRawData();
+    bool processFrameData(std::string &data);
+    std::string getRawData();
 
     enum TypeCode
     {
@@ -70,36 +70,36 @@ private:
 
     int opcode;
     uint32_t payload_length;
-    string payload;
+    std::string payload;
     bool isvalid;
 };
 
 class ExternProcServer: public sigc::trackable
 {
 public:
-    ExternProcServer(string pathprefix);
+    ExternProcServer(std::string pathprefix);
     ~ExternProcServer();
 
-    void sendMessage(const string &data);
+    void sendMessage(const std::string &data);
 
-    void startProcess(const string &process, const string &name, const string &args = string());
+    void startProcess(const std::string &process, const std::string &name, const std::string &args = std::string());
     void terminate();
 
-    sigc::signal<void, const string &> messageReceived;
+    sigc::signal<void, const std::string &> messageReceived;
     sigc::signal<void> processExited;
     sigc::signal<void> processConnected;
 
 private:
     Ecore_Con_Server *ipcServer;
     Ecore_Event_Handler *hAdd, *hDel, *hData, *hError, *hProcDel;
-    string sockpath;
-    string recv_buffer;
+    std::string sockpath;
+    std::string recv_buffer;
     ExternProcMessage currentFrame;
     Ecore_Exe *process_exe = nullptr;
 
-    list<Ecore_Con_Client *> clientList;
+    std::list<Ecore_Con_Client *> clientList;
 
-    void processData(const string &data);
+    void processData(const std::string &data);
 
     friend Eina_Bool ExternProcServer_con_add(void *data, int type, void *event);
     friend Eina_Bool ExternProcServer_con_del(void *data, int type, void *event);
@@ -116,7 +116,7 @@ public:
 
     bool connectSocket();
 
-    void sendMessage(const string &data);
+    void sendMessage(const std::string &data);
 
     //setup if called first and if false is returned,
     //process quit
@@ -125,7 +125,7 @@ public:
 
 protected:
     virtual void readTimeout() = 0;
-    virtual void messageReceived(const string &msg) = 0;
+    virtual void messageReceived(const std::string &msg) = 0;
 
     //implement this when adding a file descriptor to the main loop
     //when something happens on this fd, this function is called.
@@ -144,15 +144,15 @@ protected:
     bool processSocketRecv(); //call if something needs to be read from socket
 
 private:
-    string sockpath;
-    string name;
+    std::string sockpath;
+    std::string name;
     int sockfd;
 
-    string recv_buffer;
+    std::string recv_buffer;
 
     ExternProcMessage currentFrame;
 
-    list<int> userFds;
+    std::list<int> userFds;
 };
 
 #define EXTERN_PROC_CLIENT_CTOR(class_name) \

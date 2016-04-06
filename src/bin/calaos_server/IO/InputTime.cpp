@@ -22,8 +22,7 @@
 #include "ListeRule.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
-using namespace Utils;
+namespace Calaos {
 
 REGISTER_IO(InputTime)
 
@@ -123,4 +122,6 @@ void InputTime::hasChanged()
                              { { "id", get_param("id") },
                                { "state", val?"true":"false" } });
     }
+}
+
 }

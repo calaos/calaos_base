@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(KNXInputSwitchLongPress)
 
@@ -35,11 +35,11 @@ KNXInputSwitchLongPress::KNXInputSwitchLongPress(Params &p):
     ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
 
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
 
-    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
+    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const std::string group_addr, const KNXValue &)
     {
         if (group_addr != get_param("knx_group")) return;
         hasChanged();
@@ -54,9 +54,11 @@ KNXInputSwitchLongPress::~KNXInputSwitchLongPress()
 
 bool KNXInputSwitchLongPress::readValue()
 {
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
 
     KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knx_group);
 
     return val.toBool();
+}
+
 }

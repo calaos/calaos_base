@@ -22,7 +22,7 @@
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 ListeRoom &ListeRoom::Instance()
 {
@@ -85,7 +85,7 @@ void ListeRoom::Add(Room *p)
 
 void ListeRoom::Remove(int pos)
 {
-    vector<Room *>::iterator iter = rooms.begin();
+    std::vector<Room *>::iterator iter = rooms.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     delete rooms[pos];
     rooms.erase(iter);
@@ -186,7 +186,7 @@ void ListeRoom::delScenarioCache(Scenario *sc)
     auto_scenario_cache.remove(sc);
 }
 
-list<Scenario *> ListeRoom::getAutoScenarios()
+std::list<Scenario *> ListeRoom::getAutoScenarios()
 {
     cDebugDom("room") << "Found " << auto_scenario_cache.size() << " auto_scenarios.";
 
@@ -195,7 +195,7 @@ list<Scenario *> ListeRoom::getAutoScenarios()
 
 void ListeRoom::checkAutoScenario()
 {
-    list<Scenario *>::iterator it = auto_scenario_cache.begin();
+    std::list<Scenario *>::iterator it = auto_scenario_cache.begin();
 
     for (;it != auto_scenario_cache.end();it++)
     {
@@ -204,7 +204,7 @@ void ListeRoom::checkAutoScenario()
             sc->getAutoScenario()->checkScenarioRules();
     }
 
-    list<Rule *> to_remove;
+    std::list<Rule *> to_remove;
     for (int i = 0;i < ListeRule::Instance().size();i++)
     {
         Rule *rule = ListeRule::Instance().get_rule(i);
@@ -212,7 +212,7 @@ void ListeRoom::checkAutoScenario()
             to_remove.push_back(rule);
     }
 
-    list<Rule *>::iterator itr = to_remove.begin();
+    std::list<Rule *>::iterator itr = to_remove.begin();
     for (;itr != to_remove.end();itr++)
         ListeRule::Instance().Remove(*itr);
 
@@ -221,10 +221,10 @@ void ListeRoom::checkAutoScenario()
     Config::Instance().SaveConfigRule();
 }
 
-Room * ListeRoom::searchRoomByNameAndType(string name, string type)
+Room * ListeRoom::searchRoomByNameAndType(std::string name, std::string type)
 {
     Room *r = NULL;
-    vector<Room *>::iterator itRoom;
+    std::vector<Room *>::iterator itRoom;
 
     for(itRoom = rooms.begin(); itRoom != rooms.end() && !r; itRoom++)
         if( (*itRoom)->get_name() == name && (*itRoom)->get_type() == type)
@@ -285,4 +285,6 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
                            { "room_type", room->get_type() } });
 
     return io;
+}
+
 }

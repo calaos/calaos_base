@@ -28,7 +28,7 @@
 #include <jansson.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebInputTemp)
 
@@ -85,3 +85,5 @@ void WebInputTemp::readValue()
     emitChange();
 }
 
+
+}

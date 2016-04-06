@@ -24,7 +24,7 @@
 #include "InputSwitch.h"
 #include <Ecore.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 class PingInputSwitch: public InputSwitch
 {
@@ -44,4 +44,6 @@ public:
     virtual ~PingInputSwitch();
 };
 
+}
+  
 #endif // PINGINPUTSWITCH_H

@@ -36,10 +36,10 @@ EAPI CalaosModuleApi calaos_modapi =
     constructor
 };
 
-ModuleClock::ModuleClock(Evas *_e, string _id, string _path):
+ModuleClock::ModuleClock(Evas *_e, std::string _id, std::string _path):
     CalaosModuleBase(_e, _id, _path)
 {
-    string theme = module_path + "/default.edj";
+    std::string theme = module_path + "/default.edj";
     edje_clock = new EdjeObject(theme, evas);
     edje_clock->LoadEdje("widget/clock");
 }
@@ -49,20 +49,20 @@ ModuleClock::~ModuleClock()
     delete edje_clock;
 }
 
-string ModuleClock::getStringInfo()
+std::string ModuleClock::getStringInfo()
 {
     Calendar c;
 
     //hour
-    string heure = c.hoursToString() + ":" + c.minutesToString() + ":" + c.secondesToString();
+    std::string heure = c.hoursToString() + ":" + c.minutesToString() + ":" + c.secondesToString();
 
     //date
-    string date = c.getDayFromDate() + " " + Utils::to_string(c.day) + " " +
+    std::string date = c.getDayFromDate() + " " + Utils::to_string(c.day) + " " +
                   c.getMonthFromDate() + " " + Utils::to_string(c.year);
 
     //timezone
     int tid = c.timeZone.loadCurrentTimeZone();
-    string tzone;
+    std::string tzone;
     if (tid > 0)
     {
         tzone = c.timeZone.timeZone[tid].decalageStr;

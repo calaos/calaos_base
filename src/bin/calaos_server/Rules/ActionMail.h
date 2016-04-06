@@ -30,12 +30,12 @@ namespace Calaos
 class ActionMail: public Action
 {
 private:
-    string mail_sender;
-    string mail_recipients;
-    string mail_subject;
-    string mail_attachment;
-    string mail_message;
-    string mail_attachment_tfile;
+    std::string mail_sender;
+    std::string mail_recipients;
+    std::string mail_subject;
+    std::string mail_attachment;
+    std::string mail_message;
+    std::string mail_attachment_tfile;
 
     void sendMail();
 

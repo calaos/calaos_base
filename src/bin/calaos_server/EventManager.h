@@ -70,9 +70,9 @@ public:
     const Params &getParam() const { return evParams; }
 
     json_t *toJson() const;
-    string toString() const;
+    std::string toString() const;
 
-    static string typeToString(int type);
+    static std::string typeToString(int type);
 
 private:
     int evType = EventUnkown;
@@ -101,7 +101,7 @@ private:
     EventManager();
 
     void appendEvent(const CalaosEvent &ev);
-    queue<CalaosEvent> eventsQueue;
+    std::queue<CalaosEvent> eventsQueue;
     Ecore_Idle_Enterer *idler = nullptr;
 
     friend Eina_Bool EventManager_event_idler(void *data);

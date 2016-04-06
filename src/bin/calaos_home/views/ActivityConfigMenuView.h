@@ -25,7 +25,6 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityConfigMenuView: public ActivityView
 {
@@ -39,9 +38,9 @@ public:
 
     virtual void resetView();
 
-    virtual string getTitle() { return _("Configuration center"); }
+    virtual std::string getTitle() { return _("Configuration center"); }
 
-    sigc::signal<void, string> menu_item_clicked;
+    sigc::signal<void, std::string> menu_item_clicked;
 };
 
 #endif // ACTIVITYCONFIGMENUVIEW_H

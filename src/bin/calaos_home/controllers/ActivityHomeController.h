@@ -27,7 +27,6 @@
 #include "ActivityHomeView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityHomeController: public ActivityController
 {

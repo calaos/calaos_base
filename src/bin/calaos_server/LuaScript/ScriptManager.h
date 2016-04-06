@@ -34,7 +34,7 @@ private:
     ScriptManager();
 
     bool errorScript;
-    string errorMsg;
+    std::string errorMsg;
     bool abort = false;
 
 public:
@@ -47,10 +47,10 @@ public:
     /* Execute script and return true or false depending on
      * the return value of the script
      */
-    bool ExecuteScript(const string &script);
+    bool ExecuteScript(const std::string &script);
 
     /** Retrieve the last error message */
-    string getErrorMsg() { return errorMsg; }
+    std::string getErrorMsg() { return errorMsg; }
 
     bool hasError() { return errorScript; }
 

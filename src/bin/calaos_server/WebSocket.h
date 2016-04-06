@@ -27,7 +27,7 @@
 #include "HttpClient.h"
 #include "WebSocketFrame.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class WebSocket: public HttpClient
 {
@@ -35,18 +35,18 @@ public:
     WebSocket(Ecore_Con_Client *cl);
     virtual ~WebSocket();
 
-    sigc::signal<void, const string &> textMessageReceived;
-    sigc::signal<void, const string &> binaryMessageReceived;
+    sigc::signal<void, const std::string &> textMessageReceived;
+    sigc::signal<void, const std::string &> binaryMessageReceived;
     sigc::signal<void> websocketDisconnected;
 
     /* Called by JsonApiServer whenever data comes in */
-    virtual void ProcessData(string data);
+    virtual void ProcessData(std::string data);
 
-    void sendPing(const string &data);
-    void sendCloseFrame(uint16_t code = WebSocketFrame::CloseCodeNormal, const string &reason = string(), bool forceClose = false);
+    void sendPing(const std::string &data);
+    void sendCloseFrame(uint16_t code = WebSocketFrame::CloseCodeNormal, const std::string &reason = std::string(), bool forceClose = false);
 
-    void sendTextMessage(const string &data);
-    void sendBinaryMessage(const string &data);
+    void sendTextMessage(const std::string &data);
+    void sendBinaryMessage(const std::string &data);
 
 private:
 
@@ -55,10 +55,10 @@ private:
     enum { WSConnecting, WSOpened, WSClosing, WSClosed };
     int status = WSConnecting;
 
-    string recv_buffer;
+    std::string recv_buffer;
 
     WebSocketFrame currentFrame;
-    string currentData;
+    std::string currentData;
     int currentOpcode;
 
     bool isfragmented = false;
@@ -71,14 +71,16 @@ private:
 
     bool checkHandshakeRequest();
     void processHandshake();
-    void processFrame(const string &data);
+    void processFrame(const std::string &data);
     void processControlFrame();
 
     bool checkCloseStatusCode(uint16_t code);
 
-    void sendFrameData(const string &data, bool isbinary);
+    void sendFrameData(const std::string &data, bool isbinary);
 
     EcoreTimer *timerPing = nullptr;
 };
+
+}
 
 #endif

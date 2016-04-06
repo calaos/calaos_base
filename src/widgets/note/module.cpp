@@ -36,14 +36,14 @@ EAPI CalaosModuleApi calaos_modapi =
     constructor
 };
 
-ModuleNote::ModuleNote(Evas *_e, string _id, string _path):
+ModuleNote::ModuleNote(Evas *_e, std::string _id, std::string _path):
     CalaosModuleBase(_e, _id, _path)
 {
-    string theme = module_path + "/default.edj";
+    std::string theme = module_path + "/default.edj";
     edje = new EdjeObject(theme, evas);
     edje->LoadEdje("widget/note");
 
-    string path = MODULE_CONFIG_PATH;
+    std::string path = MODULE_CONFIG_PATH;
     path += "widget_note/";
     ecore_file_mkpath(path.c_str());
 
@@ -55,7 +55,7 @@ ModuleNote::ModuleNote(Evas *_e, string _id, string _path):
 
         if (file)
         {
-            stringstream buf;
+            std::stringstream buf;
             buf << file.rdbuf();
             file.close();
             text = buf.str();
@@ -72,7 +72,7 @@ ModuleNote::~ModuleNote()
     delete edje;
 }
 
-void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     cDebug() << "Show keyboard";
     ApplicationMain::Instance().ShowKeyboard(_("You can now write the new note to display."),
@@ -82,12 +82,12 @@ void ModuleNote::EdjeCallback(void *data, Evas_Object *edje_object, string emiss
                                              1);
 }
 
-void ModuleNote::KeyboardCb(string t)
+void ModuleNote::KeyboardCb(std::string t)
 {
     text = t;
     edje->setPartText("note.text", text);
 
-    string path = MODULE_CONFIG_PATH;
+    std::string path = MODULE_CONFIG_PATH;
     path += "widget_note/";
     path += id;
     std::ofstream file(path.c_str());
@@ -99,7 +99,7 @@ void ModuleNote::KeyboardCb(string t)
     }
 }
 
-string ModuleNote::getStringInfo()
+std::string ModuleNote::getStringInfo()
 {
     return text;
 }

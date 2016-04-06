@@ -30,7 +30,7 @@
 #include "ScreenSuspendView.h"
 #include "Prefix.h"
 
-string ApplicationMain::theme = "";
+std::string ApplicationMain::theme = "";
 
 static void _window_resize_cb(void *data, Evas *e, Evas_Object *obj, void *event_info)
 {
@@ -71,25 +71,25 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
 
     //Init efl core
     if (!eina_init())
-        throw (runtime_error("Unable to init Eina"));
+        throw (std::runtime_error("Unable to init Eina"));
     if (!ecore_init())
-        throw (runtime_error("Unable to init Ecore"));
+        throw (std::runtime_error("Unable to init Ecore"));
     if (!ecore_con_init())
-        throw (runtime_error("Unable to init Ecore-Con"));
+        throw (std::runtime_error("Unable to init Ecore-Con"));
     if (!ecore_con_url_init())
-        throw (runtime_error("Unable to init Ecore-Con-Url"));
+        throw (std::runtime_error("Unable to init Ecore-Con-Url"));
     if (!evas_init())
-        throw (runtime_error("Unable to init Evas"));
+        throw (std::runtime_error("Unable to init Evas"));
     if (!ecore_evas_init())
-        throw (runtime_error("Unable to init Ecore-Evas"));
+        throw (std::runtime_error("Unable to init Ecore-Evas"));
     if (!edje_init())
-        throw (runtime_error("Unable to init Edje"));
+        throw (std::runtime_error("Unable to init Edje"));
 
     edje_frametime_set(1.0 / 60.0);
     edje_scale_set(1.0);
 
     if (!elm_init(argc, argv))
-        throw (runtime_error("Unable to init Elementary"));
+        throw (std::runtime_error("Unable to init Elementary"));
 
     //Load Calaos specific ELM extensions
     elm_theme_extension_add(NULL, ApplicationMain::getTheme());
@@ -137,12 +137,12 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
     layout = elm_layout_add(window);
     if (!elm_layout_file_set(layout, ApplicationMain::getTheme(), EDJE_GROUP_MAIN_LAYOUT))
     {
-        string e = "Unable to find group \"";
+        std::string e = "Unable to find group \"";
         e += EDJE_GROUP_MAIN_LAYOUT;
         e += "\" in theme \"";
         e += ApplicationMain::getTheme();
         e += "\"";
-        throw (runtime_error(e));
+        throw (std::runtime_error(e));
     }
 
     //create the screen suspend object and put it on the canvas
@@ -163,7 +163,7 @@ ApplicationMain::ApplicationMain(int argc, char **argv)
     {
         controller = new ApplicationController(evas, layout);
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "Can't create ApplicationController";
         throw;

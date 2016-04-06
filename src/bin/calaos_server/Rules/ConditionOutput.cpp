@@ -21,8 +21,8 @@
 #include "ConditionOutput.h"
 #include "ListeRoom.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 ConditionOutput::ConditionOutput():
     Condition(COND_OUTPUT)
 {
@@ -36,7 +36,7 @@ ConditionOutput::~ConditionOutput()
 
 bool ConditionOutput::Evaluate()
 {
-    string sval, oper;
+    std::string sval, oper;
     bool bval;
     double dval;
     bool ret = false;
@@ -262,7 +262,7 @@ bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
     return false;
 }
 
-bool ConditionOutput::eval(IOBase *out, string oper, string val)
+bool ConditionOutput::eval(IOBase *out, std::string oper, std::string val)
 {
     if (oper != "!=" && oper != "==")
     {
@@ -277,9 +277,9 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
 {
     if (node->Attribute("trigger"))
     {
-        if (node->Attribute("trigger") == string("true"))
+        if (node->Attribute("trigger") == std::string("true"))
             trigger = true;
-        else if (node->Attribute("trigger") == string("false"))
+        else if (node->Attribute("trigger") == std::string("false"))
             trigger = false;
     }
 
@@ -291,7 +291,7 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
     {
         if (node->ValueStr() == "calaos:output")
         {
-            string id = "", oper = "", val = "", val_var = "";
+            std::string id = "", oper = "", val = "", val_var = "";
 
             if (node->Attribute("id")) id = node->Attribute("id");
             if (node->Attribute("oper")) oper = node->Attribute("oper");
@@ -334,4 +334,6 @@ bool ConditionOutput::SaveToXml(TiXmlElement *node)
     cond_node->LinkEndChild(cnode);
 
     return true;
+}
+
 }

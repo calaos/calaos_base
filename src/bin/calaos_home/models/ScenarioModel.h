@@ -26,7 +26,6 @@
 #include "CalaosConnection.h"
 #include "RoomModel.h"
 
-using namespace Utils;
 
 class ScenarioAction
 {
@@ -35,9 +34,9 @@ public:
     {}
 
     IOBase *io;
-    string action;
+    std::string action;
 
-    string toString()
+    std::string toString()
     {
         if (!io) return "Empty action !";
         return io->params["id"] + " : " + action;
@@ -52,12 +51,12 @@ public:
         pause(1000)
     {}
 
-    vector<ScenarioAction> actions;
+    std::vector<ScenarioAction> actions;
     long int pause; //msec
 
-    string toString()
+    std::string toString()
     {
-        string t = "\t\t[STEP] - pause:" + Utils::to_string(pause);
+        std::string t = "\t\t[STEP] - pause:" + Utils::to_string(pause);
         for (uint i = 0;i < actions.size();i++)
             t += "\n\t\t\t" + actions[i].toString();
         return t;
@@ -76,7 +75,7 @@ public:
         params.Add("enabled", "true");
     }
 
-    string name;
+    std::string name;
     Room *room;
     bool visible;
 
@@ -84,7 +83,7 @@ public:
 
     static const int END_STEP = 0xFEDC1234;
 
-    vector<ScenarioStep> steps;
+    std::vector<ScenarioStep> steps;
     ScenarioStep step_end;
 
     bool empty;
@@ -92,9 +91,9 @@ public:
     json_t *createRequest();
     json_t *modifyRequest(IOBase *io);
 
-    string toString()
+    std::string toString()
     {
-        string t = "[SCENARIO DATA] - name:" + name + " visible:" + Utils::to_string(visible) +
+        std::string t = "[SCENARIO DATA] - name:" + name + " visible:" + Utils::to_string(visible) +
                    "\n" + params.toString();
         for (uint i = 0;i < steps.size();i++)
             t += "\n\t[Step " + Utils::to_string(i) + "]\n" + steps[i].toString();
@@ -123,7 +122,7 @@ public:
 
     ScenarioData scenario_data;
 
-    string getFirstCategory();
+    std::string getFirstCategory();
 
     bool isScheduled() { if (ioSchedule) return true; return false; }
     void createSchedule(sigc::slot<void, IOBase *> callback);
@@ -155,10 +154,10 @@ private:
 
     void scenario_list_cb(json_t *jdata, void *data);
 
-    void notifyScenarioAdd(const string &msgtype, const Params &evdata);
-    void notifyScenarioAddDelayed(const string &msgtype, const Params &evdata);
+    void notifyScenarioAdd(const std::string &msgtype, const Params &evdata);
+    void notifyScenarioAddDelayed(const std::string &msgtype, const Params &evdata);
     void notifyScenarioDel(Scenario *sc);
-    void notifyScenarioChange(const string &msgtype, const Params &evdata);
+    void notifyScenarioChange(const std::string &msgtype, const Params &evdata);
 
 public:
     ScenarioModel(CalaosConnection *connection);
@@ -169,9 +168,9 @@ public:
     void modifyScenario(Scenario *sc);
     void deleteScenario(Scenario *sc);
 
-    list<Scenario *> scenarios;
+    std::list<Scenario *> scenarios;
 
-    list<ScenarioSchedule> getScenarioForDate(struct tm scDate);
+    std::list<ScenarioSchedule> getScenarioForDate(struct tm scDate);
 
     sigc::signal<void> load_done;
     sigc::signal<void, Scenario *> scenario_new;

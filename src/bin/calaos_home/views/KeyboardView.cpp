@@ -41,7 +41,7 @@ KeyboardView::KeyboardView(Evas *_e, Evas_Object *_parent):
     {
         LoadEdje("calaos/keyboard");
     }
-    catch (exception const &e)
+    catch (std::exception const &e)
     {
         cCritical() <<  "KeyboardView: Can't load edje";
         throw;
@@ -54,7 +54,7 @@ KeyboardView::~KeyboardView()
 {
 }
 
-void KeyboardView::pressKey(string k)
+void KeyboardView::pressKey(std::string k)
 {
 #ifdef HAVE_ECORE_X
     /* Code from enlightenment/Illume */
@@ -76,7 +76,7 @@ void KeyboardView::pressKey(string k)
 #endif
 }
 
-void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
 #ifdef HAVE_ECORE_X
     if (source == "keyboard" && emission == "key,key_maj")
@@ -143,7 +143,7 @@ void KeyboardView::onKeyboardCallback(void *data, Evas_Object *edje_object, stri
     {
         emission.erase(0, 4);
         if (keys_upper)
-            std::transform (emission.begin(), emission.end(), emission.begin(), to_upper());
+            std::transform (emission.begin(), emission.end(), emission.begin(), Utils::to_upper());
 
         pressKey(emission);
     }

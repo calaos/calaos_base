@@ -30,9 +30,9 @@ ThreadManager::~ThreadManager()
 {
     if(threads.size()!=0)
     {
-        string s;
+        std::string s;
 
-        vector<CThread* >::iterator iter;
+        std::vector<CThread* >::iterator iter;
         for (iter = threads.begin();iter!=threads.end();iter++)
             s+=Utils::to_string(*iter)+", ";
 
@@ -55,11 +55,11 @@ void ThreadManager::add(CThread* t)
     cInfoDom("threads") << "Add new thread : " << t;
 }
 
-void ThreadManager::deleteThread(string source, string s, void* listener_data, void* t)
+void ThreadManager::deleteThread(std::string source, std::string s, void* listener_data, void* t)
 {
     CThread* c = (CThread*) t;
 
-    vector<CThread* >::iterator iter;
+    std::vector<CThread* >::iterator iter;
     for (iter = threads.begin();iter!=threads.end();iter++)
     {
         if (*iter == t) break;

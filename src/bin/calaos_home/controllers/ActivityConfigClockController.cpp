@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "ActivityConfigClockController.h"
-
 #include "ApplicationMain.h"
+#include "ActivityConfigClockController.h"
 
 ActivityConfigClockController::ActivityConfigClockController(Evas *e, Evas_Object *p, ActivityConfigController *pc):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_CLOCK),

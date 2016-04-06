@@ -24,7 +24,6 @@
 #include "Calaos.h"
 #include "Condition.h"
 
-using namespace std;
 
 namespace Calaos
 {

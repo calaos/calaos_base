@@ -22,7 +22,7 @@
 #include <IOFactory.h>
 #include <WagoMap.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WODigital)
 REGISTER_IO_USERTYPE(WagoOutputLight, WODigital)
@@ -75,7 +75,7 @@ WODigital::~WODigital()
     cDebugDom("output");
 }
 
-void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
+void WODigital::WagoReadCallback(bool status, UWord addr, int count, std::vector<bool> &values)
 {
     if (!status)
     {
@@ -128,3 +128,5 @@ bool WODigital::set_value_real(bool val)
     return true;
 }
 
+
+}

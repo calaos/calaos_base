@@ -23,9 +23,9 @@
 #include "ListeRoom.h"
 #include "AVReceiver.h"
 
-using namespace Calaos;
+namespace Calaos {
 
-Room::Room(string _name, string _type, int _hits):
+Room::Room(std::string _name, std::string _type, int _hits):
     name(_name),
     type(_type),
     hits(_hits)
@@ -57,7 +57,7 @@ void Room::RemoveIO(int pos, bool del)
                            { "room_name", get_name() },
                            { "room_type", get_type() } });
 
-    vector<IOBase *>::iterator iter = ios.begin();
+    std::vector<IOBase *>::iterator iter = ios.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     if (del) delete ios[pos];
     ios.erase(iter);
@@ -67,7 +67,7 @@ void Room::RemoveIO(int pos, bool del)
 
 void Room::RemoveIOFromRoom(IOBase *io)
 {
-    vector<IOBase *>::iterator it = find(ios.begin(), ios.end(), io);
+    std::vector<IOBase *>::iterator it = find(ios.begin(), ios.end(), io);
     if (it != ios.end())
     {
         ios.erase(it);
@@ -146,4 +146,6 @@ bool Room::SaveToXml(TiXmlElement *node)
     }
 
     return true;
+}
+
 }

@@ -37,8 +37,8 @@ private:
     RequestType m_requestType = HTTP_POST;
 
     bool m_auth = false;
-    string m_user;
-    string m_password;
+    std::string m_user;
+    std::string m_password;
 
     // EcoreCon events handlers
     Ecore_Event_Handler *m_completeHandler;
@@ -53,13 +53,13 @@ private:
     // fd of the file when a fd is given
     int m_fd = -1;
     // Url to contact
-    string m_url = "";
+    std::string m_url = "";
     // Destination where to store the result
-    string m_destination = "";
+    std::string m_destination = "";
     // Message Body
-    string m_bodyData = "";
+    std::string m_bodyData = "";
     // Content type to be send
-    string m_postContentType = "";
+    std::string m_postContentType = "";
 
     //Common function for starting download of url
     bool start();
@@ -79,22 +79,22 @@ public:
     Eina_Binbuf *m_downloadedData = NULL;
 
     // Constructor
-    UrlDownloader(string url, bool autodelete = false);
+    UrlDownloader(std::string url, bool autodelete = false);
 
     // Setter for private members
-    void bodyDataSet(string bodyData) {m_bodyData = bodyData;}
-    void postContentTypeSet(string postContentType) {m_postContentType = postContentType;}
-    void destinationSet(string destination) {m_destination = destination;}
-    void authSet(string user, string password) {m_user = user; m_password = password; m_auth = true;}
+    void bodyDataSet(std::string bodyData) {m_bodyData = bodyData;}
+    void postContentTypeSet(std::string postContentType) {m_postContentType = postContentType;}
+    void destinationSet(std::string destination) {m_destination = destination;}
+    void authSet(std::string user, std::string password) {m_user = user; m_password = password; m_auth = true;}
     void authUnSet() {m_auth = false;}
     void fdSet(int fd) {m_fd = fd;}
 
     Params getResponseHeaders();
 
-    bool httpDelete(string destination = "", string bodyData = "");
-    bool httpGet(string destination = "", string bodyData = "");
-    bool httpPost(string destination = "", string bodyData = "");
-    bool httpPut(string destination = "", string bodyData = "");
+    bool httpDelete(std::string destination = "", std::string bodyData = "");
+    bool httpGet(std::string destination = "", std::string bodyData = "");
+    bool httpPost(std::string destination = "", std::string bodyData = "");
+    bool httpPut(std::string destination = "", std::string bodyData = "");
 
     ~UrlDownloader();
 

@@ -99,7 +99,7 @@ void ActivityEditScenarioView::showStep(int step)
             pageName->object_deleted.connect(sigc::mem_fun(*this, &ActivityEditScenarioView::pageNameDeleted));
             pageName->addCallback("button.name", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageNameEditName));
             pageName->addCallback("button.*selected", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::pageNameVisiblePressed));
-            pageName->setPartText("name.text", string(_("Scenario name: ")) + "<blue>" + scenario_data.name + "</blue>");
+            pageName->setPartText("name.text", std::string(_("Scenario name: ")) + "<blue>" + scenario_data.name + "</blue>");
             updateVisibility();
 
             pageName->setPartText("title_step.2", _("<big>Scenario creation or modification</big><br><br><small><disabled>Use the following field to enter the name of your scenario and find it <br>quickly. Also, choose the visibility of you scenario.</disabled></small>"));
@@ -141,14 +141,14 @@ void ActivityEditScenarioView::updateVisibility()
     if (scenario_data.visible)
     {
         pageName->EmitSignal("visible.select", "calaos");
-        string r = "??";
+        std::string r = "??";
         if (scenario_data.room) r = scenario_data.room->name;
-        pageName->setPartText("visible.text", string(_("Displayed in the interface: ")) + "<blue>" + _("Displayed in") + " \"" + r + "\"</blue>");
+        pageName->setPartText("visible.text", std::string(_("Displayed in the interface: ")) + "<blue>" + _("Displayed in") + " \"" + r + "\"</blue>");
     }
     else
     {
         pageName->EmitSignal("visible.unselect", "calaos");
-        pageName->setPartText("visible.text", string(_("Displayed in the interface: ")) + "<blue>" + _("Don't display it.") + "</blue>");
+        pageName->setPartText("visible.text", std::string(_("Displayed in the interface: ")) + "<blue>" + _("Don't display it.") + "</blue>");
     }
 }
 
@@ -157,12 +157,12 @@ void ActivityEditScenarioView::updateCycling()
     if (scenario_data.params["cycle"] == "true")
     {
         pageActions->EmitSignal("cycle.select", "calaos");
-        pageActions->setPartText("cycle.text", string(_("Infinite loop: ")) + "<blue>" + _("Enabled") + "</blue>");
+        pageActions->setPartText("cycle.text", std::string(_("Infinite loop: ")) + "<blue>" + _("Enabled") + "</blue>");
     }
     else
     {
         pageActions->EmitSignal("cycle.unselect", "calaos");
-        pageActions->setPartText("cycle.text", string(_("Infinite loop: ")) + "<blue>" + _("Disabled") + "</blue>");
+        pageActions->setPartText("cycle.text", std::string(_("Infinite loop: ")) + "<blue>" + _("Disabled") + "</blue>");
     }
 }
 
@@ -176,11 +176,11 @@ void ActivityEditScenarioView::pageNameEditName(void *data, Evas_Object *_edje, 
                                              scenario_data.name);
 }
 
-void ActivityEditScenarioView::pageNameEditName_cb(string text)
+void ActivityEditScenarioView::pageNameEditName_cb(std::string text)
 {
     scenario_data.name = text;
     if (pageName)
-        pageName->setPartText("name.text", string(_("Scenario name")) + ": <blue>" + scenario_data.name + "</blue>");
+        pageName->setPartText("name.text", std::string(_("Scenario name")) + ": <blue>" + scenario_data.name + "</blue>");
 }
 
 void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_edje, std::string emission, std::string source)
@@ -194,7 +194,7 @@ void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Display scenario<br><small><light_blue>Choose a room.</light_blue></small>");
+    std::string title_label = _("Display scenario<br><small><light_blue>Choose a room.</light_blue></small>");
     GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
@@ -206,7 +206,7 @@ void ActivityEditScenarioView::pageNameVisiblePressed(void *data, Evas_Object *_
         item->setSelected(true);
     item->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityEditScenarioView::itemRoomSelected), (Room *)NULL));
 
-    list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms.begin();
+    std::list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms.begin();
     for (;it != CalaosModel::Instance().getHome()->rooms.end();it++)
     {
         Room *room = *it;
@@ -279,7 +279,7 @@ void ActivityEditScenarioView::buttonPressed(void *data, Evas_Object *_edje, std
 
         current_wizstep++;
 
-        string _t = "set,step" + Utils::to_string(current_wizstep);
+        std::string _t = "set,step" + Utils::to_string(current_wizstep);
         EmitSignal(_t, "calaos");
 
         showStep(current_wizstep);
@@ -292,7 +292,7 @@ void ActivityEditScenarioView::buttonPressed(void *data, Evas_Object *_edje, std
 
         current_wizstep--;
 
-        string _t = "set,step" + Utils::to_string(current_wizstep);
+        std::string _t = "set,step" + Utils::to_string(current_wizstep);
         EmitSignal(_t, "calaos");
 
         elm_naviframe_item_pop(pager_step);
@@ -323,14 +323,14 @@ void ActivityEditScenarioView::loadPageActions()
     elm_object_style_set(actions_list, "calaos");
     evas_object_show(actions_list);
 
-    list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms.begin();
+    std::list<Room *>::iterator it = CalaosModel::Instance().getHome()->rooms.begin();
     for (;it != CalaosModel::Instance().getHome()->rooms.end();it++)
     {
         Room *r = *it;
         IOGenlistRoomGroupIcon *room = new IOGenlistRoomGroupIcon(evas, home_list, r, "");
         room->Append(home_list);
 
-        list<IOBase *>::iterator itio = r->scenario_ios.begin();
+        std::list<IOBase *>::iterator itio = r->scenario_ios.begin();
         for (;itio != r->scenario_ios.end();itio++)
         {
             IOBase *io = *itio;
@@ -348,7 +348,7 @@ void ActivityEditScenarioView::loadPageActions()
 
 void ActivityEditScenarioView::actionAddPressed(IOBase *io)
 {
-    map<Room *, GenlistItemBase *>::iterator it;
+    std::map<Room *, GenlistItemBase *>::iterator it;
     it = room_table.find(io->getRoom());
 
     ScenarioAction sa;
@@ -413,7 +413,7 @@ void ActivityEditScenarioView::loadActionsStep()
     if (edje_object_part_exists(pageActions->getEvasObject(), "button.step"))
     {
         Evas_Object *button = edje_object_part_external_object_get(pageActions->getEvasObject(), "button.step");
-        string _t = (current_step == ScenarioData::END_STEP)? _("Final step") : string(_("Step")) + " " + Utils::to_string(current_step + 1);
+        std::string _t = (current_step == ScenarioData::END_STEP)? _("Final step") : std::string(_("Step")) + " " + Utils::to_string(current_step + 1);
         elm_object_text_set(button, _t.c_str());
     }
 
@@ -486,7 +486,7 @@ void ActivityEditScenarioView::buttonStepPressed(void *data, Evas_Object *_edje,
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = string(_("Scenario step")) + "<br><small><light_blue>" + string(_("Scenario progress")) + "</light_blue></small>";
+    std::string title_label = std::string(_("Scenario step")) + "<br><small><light_blue>" + std::string(_("Scenario progress")) + "</light_blue></small>";
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
@@ -495,7 +495,7 @@ void ActivityEditScenarioView::buttonStepPressed(void *data, Evas_Object *_edje,
     {
         ScenarioStep &step = scenario_data.steps[i];
 
-        GenlistItemSimple *item = new GenlistItemSimple(evas, parent, string(_("Step")) + " " + Utils::to_string(i + 1), true, false, NULL, "check");
+        GenlistItemSimple *item = new GenlistItemSimple(evas, parent, std::string(_("Step")) + " " + Utils::to_string(i + 1), true, false, NULL, "check");
         item->Append(glist, header);
         if ((int)i == current_step)
         {
@@ -504,7 +504,7 @@ void ActivityEditScenarioView::buttonStepPressed(void *data, Evas_Object *_edje,
         }
         item->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityEditScenarioView::stepSelect), i));
 
-        string _t = _("Pause: ") + time2string(step.pause / 1000, step.pause % 1000);
+        std::string _t = _("Pause: ") + time2string(step.pause / 1000, step.pause % 1000);
         GenlistItemSimple *item_pause = new GenlistItemSimple(evas, parent, _t, true, false, NULL, "disclosure");
         item_pause->Append(glist, header);
         item_pause->item_selected.connect(sigc::bind(sigc::mem_fun(*this, &ActivityEditScenarioView::stepPauseChange), i, item_pause));
@@ -555,7 +555,7 @@ void ActivityEditScenarioView::stepPauseChange(void *data, int step, GenlistItem
     page->setAutoDelete(true);
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &ActivityEditScenarioView::buttonPauseBackClick));
     page->addCallback("button.valid", "pressed", sigc::bind(sigc::mem_fun(*this, &ActivityEditScenarioView::buttonPauseValidTimeClick), step, item));
-    string t = "<b>" + string(_("Choose time")) + "</b><br><light_blue><small>" + string(_("Pause time before next step")) + "</small></light_blue>";
+    std::string t = "<b>" + std::string(_("Choose time")) + "</b><br><light_blue><small>" + std::string(_("Pause time before next step")) + "</small></light_blue>";
     page->setPartText("text", t);
 
     if (edje_object_part_exists(page->getEvasObject(), "button.back"))
@@ -616,19 +616,19 @@ void ActivityEditScenarioView::stepPauseChange(void *data, int step, GenlistItem
     elm_naviframe_item_push(pager_step_popup, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }
 
-void ActivityEditScenarioView::buttonPauseBackClick(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityEditScenarioView::buttonPauseBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     elm_naviframe_item_pop(pager_step_popup);
 }
 
-void ActivityEditScenarioView::buttonPauseValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source, int step, GenlistItemSimple *item)
+void ActivityEditScenarioView::buttonPauseValidTimeClick(void *data, Evas_Object *edje_object, std::string emission, std::string source, int step, GenlistItemSimple *item)
 {
     scenario_data.steps[step].pause = elm_spinner_value_get(spin_hours) * 60.0 * 60.0 * 1000.0 +
                                       elm_spinner_value_get(spin_min) * 60.0 * 1000.0 +
                                       elm_spinner_value_get(spin_sec) * 1000.0 +
                                       elm_spinner_value_get(spin_ms);
 
-    string _t = _("Pause: ") + time2string(scenario_data.steps[step].pause / 1000, scenario_data.steps[step].pause % 1000);
+    std::string _t = _("Pause: ") + time2string(scenario_data.steps[step].pause / 1000, scenario_data.steps[step].pause % 1000);
     item->setLabelText(_t);
     elm_naviframe_item_pop(pager_step_popup);
 }
@@ -653,7 +653,7 @@ void ActivityEditScenarioView::buttonStepDelPressed(void *data, Evas_Object *_ed
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = string(_("Confirmation")) + "<br><small><light_blue>" + string(_("Are you sure to delete this step?")) + "</light_blue></small>";
+    std::string title_label = std::string(_("Confirmation")) + "<br><small><light_blue>" + std::string(_("Are you sure to delete this step?")) + "</light_blue></small>";
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 

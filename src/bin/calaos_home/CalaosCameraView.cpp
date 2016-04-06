@@ -21,18 +21,18 @@ Eina_Bool _url_data_cb(void *data, int type, void *event_info)
         EINA_LIST_FOREACH(headers, l, str)
         {
             if (!str) continue;
-            string s((char *)str);
+            std::string s((char *)str);
 
-            vector<string> tokens;
+            std::vector<std::string> tokens;
             Utils::replace_str(s, "\n", "");
             Utils::replace_str(s, "\r", "");
             Utils::split(s, tokens, ":", 2);
 
-            string key = tokens[0];
+            std::string key = tokens[0];
             Utils::trim_left(key, " ");
             Utils::trim_right(key, " ");
 
-            string val = tokens[1];
+            std::string val = tokens[1];
             Utils::trim_left(val, " ");
             Utils::trim_right(val, " ");
 
@@ -131,7 +131,7 @@ void CalaosCameraView::SmartClipUnset()
     evas_object_clip_unset(clip);
 }
 
-void CalaosCameraView::setCameraUrl(const string &url)
+void CalaosCameraView::setCameraUrl(const std::string &url)
 {
     cameraUrl = url;
 }
@@ -196,7 +196,7 @@ void CalaosCameraView::processData()
         }
 
         //get boundary
-        boundary = string((char *)&buffer[0], end);
+        boundary = std::string((char *)&buffer[0], end);
 
         cDebugDom("camera") << "Found boundary \"" << boundary << "\"";
 
@@ -216,7 +216,7 @@ void CalaosCameraView::processData()
 
             if (len > 15)
             {
-                string s((char *)&buffer[i], len);
+                std::string s((char *)&buffer[i], len);
                 if (Utils::strStartsWith(s, "Content-Length", Utils::CaseInsensitive))
                 {
                     Utils::from_string(s.substr(15), nextContentLength);

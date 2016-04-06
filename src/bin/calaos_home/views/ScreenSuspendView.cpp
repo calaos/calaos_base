@@ -39,7 +39,7 @@ ScreenSuspendView::ScreenSuspendView(Evas *_e, Evas_Object *p):
     {
         LoadEdje("calaos/screen_suspend");
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "ScreenSuspendView: Can't load edje";
         throw;
@@ -106,7 +106,7 @@ void ScreenSuspendView::ResizeCb()
     Move(0, 0);
 }
 
-void ScreenSuspendView::edjeCallback(void *data, Evas_Object *obj, string emission, string source)
+void ScreenSuspendView::edjeCallback(void *data, Evas_Object *obj, std::string emission, std::string source)
 {
     if (!is_during_wakeup)
         ScreenManager::instance().updateTimer();

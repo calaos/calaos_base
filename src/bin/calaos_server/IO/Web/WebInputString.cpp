@@ -27,7 +27,7 @@
 #include <WebCtrl.h>
 #include <jansson.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebInputString)
 
@@ -84,4 +84,6 @@ void WebInputString::readValue()
     value = WebCtrl::Instance(get_params()).getValue(get_param("path"));
     cInfoDom("input") << "Read string value : " << value;
     emitChange();
+}
+
 }

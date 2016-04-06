@@ -28,14 +28,14 @@
 
 void print_usage(void)
 {
-    cout << "Calaos Configuration Utility." << endl;
-    cout << "(c)2013 Calaos Team" << endl << endl;
-    cout << "Usage:\tcalaos_config <action> [params]" << endl << endl;
-    cout << "Where action can be:" << endl;
-    cout << "\tlist\t\tLists all keys:values" << endl;
-    cout << "\tset [key]\tSet the value for the specified key" << endl;
-    cout << "\tget [key]\tPrint the value for the specified key" << endl;
-    cout << "\tdel [key]\tDelete entry for the specified key" << endl;
+    std::cout << "Calaos Configuration Utility." << std::endl;
+    std::cout << "(c)2013 Calaos Team" << std::endl << std::endl;
+    std::cout << "Usage:\tcalaos_config <action> [params]" << std::endl << std::endl;
+    std::cout << "Where action can be:" << std::endl;
+    std::cout << "\tlist\t\tLists all keys:values" << std::endl;
+    std::cout << "\tset [key]\tSet the value for the specified key" << std::endl;
+    std::cout << "\tget [key]\tPrint the value for the specified key" << std::endl;
+    std::cout << "\tdel [key]\tDelete entry for the specified key" << std::endl;
 }
 
 int main (int argc, char **argv)
@@ -45,7 +45,7 @@ int main (int argc, char **argv)
         print_usage();
         return 1;
     }
-    string action = argv[1];
+    std::string action = argv[1];
 
     Utils::InitEinaLog("config");
 
@@ -53,12 +53,12 @@ int main (int argc, char **argv)
 
     if (action == "get")
     {
-        string key = argv[2];
+        std::string key = argv[2];
 
         if (key == "hwid")
-            cout << Utils::getHardwareID();
+            std::cout << Utils::getHardwareID();
         else
-            cout << Utils::get_config_option(key);
+            std::cout << Utils::get_config_option(key);
     }
     else if (action == "set")
     {
@@ -67,8 +67,8 @@ int main (int argc, char **argv)
             print_usage();
             return 1;
         }
-        string key = argv[2];
-        string value = argv[3];
+        std::string key = argv[2];
+        std::string value = argv[3];
 
         if (key == "hwid")
             cError() <<  "Can't change hwid";
@@ -79,12 +79,12 @@ int main (int argc, char **argv)
     {
         Params options;
         Utils::get_config_options(options);
-        cout << "Local configuration:" << endl;
+        std::cout << "Local configuration:" << std::endl;
         for (int i = 0;i < options.size();i++)
         {
             std::string key, value;
             options.get_item(i, key, value);
-            cout << key << ": " << value << endl;
+            std::cout << key << ": " << value << std::endl;
         }
     }
     else if (action == "del")

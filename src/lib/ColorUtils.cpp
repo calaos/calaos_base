@@ -21,7 +21,6 @@
 #include "ColorUtils.h"
 #include "Calaos.h"
 
-using namespace Calaos;
 
 #define OUT_OF_RANGE(val, min, max) \
     ((val < min) || (val > max))
@@ -40,14 +39,14 @@ ColorValue::ColorValue(int r, int g, int b)
     setRgb(r, g, b);
 }
 
-ColorValue::ColorValue(string str_color)
+ColorValue::ColorValue(std::string str_color)
 {
     setString(str_color);
 }
 
-string ColorValue::toString() const
+std::string ColorValue::toString() const
 {
-    stringstream s;
+    std::stringstream s;
     if (!isValid()) return "#000000";
 
     if (type == ColorRGB)
@@ -78,9 +77,9 @@ string ColorValue::toString() const
     return s.str();
 }
 
-void ColorValue::setString(const string &str)
+void ColorValue::setString(const std::string &str)
 {
-    string s = Utils::str_to_lower(Utils::trim(str));
+    std::string s = Utils::str_to_lower(Utils::trim(str));
 
     /* Color format supported:
      * 1234   decimal value for the color with 3 RGB components
@@ -133,7 +132,7 @@ void ColorValue::setString(const string &str)
         s.erase(s.find_last_of(')'));
         Utils::replace_str(s, " ", ""); //remove any spaces
 
-        vector<string> values;
+        std::vector<std::string> values;
         Utils::split(s, values, ",");
 
         if (values.size() == 3 ||
@@ -164,7 +163,7 @@ void ColorValue::setString(const string &str)
         Utils::replace_str(s, " ", ""); //remove any spaces
         Utils::replace_str(s, "%", ""); //remove any %
 
-        vector<string> values;
+        std::vector<std::string> values;
         Utils::split(s, values, ",");
 
         if (values.size() == 3 ||
@@ -195,7 +194,7 @@ void ColorValue::setString(const string &str)
         Utils::replace_str(s, " ", ""); //remove any spaces
         Utils::replace_str(s, "%", ""); //remove any %
 
-        vector<string> values;
+        std::vector<std::string> values;
         Utils::split(s, values, ",");
 
         if (values.size() == 3 ||

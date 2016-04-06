@@ -24,14 +24,13 @@
 #include <Utils.h>
 #include <IOView.h>
 
-using namespace Utils;
 
 class IOScenarioHomeView: public IOView
 {
 private:
-    void clickScenario(void *data, Evas_Object *edje_object, string emission, string source);
+    void clickScenario(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
-    string state;
+    std::string state;
 
     void clickFlashButton_cb();
 

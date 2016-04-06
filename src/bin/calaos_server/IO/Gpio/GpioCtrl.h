@@ -32,9 +32,9 @@ class GpioCtrl
 {
 private:
     int gpionum; // GPIO Number
-    string gpionum_str;
-    int writeFile(string path, string value);
-    int readFile(string path, string &value);
+    std::string gpionum_str;
+    int writeFile(std::string path, std::string value);
+    int readFile(std::string path, std::string &value);
     int fd;
     sigc::connection connection;
     sigc::signal<void> event_signal;
@@ -47,8 +47,8 @@ public:
     ~GpioCtrl();
     bool exportGpio();
     bool unexportGpio();
-    bool setDirection(string direction);
-    bool setEdge(string direction);
+    bool setDirection(std::string direction);
+    bool setEdge(std::string direction);
     bool setActiveLow(bool active_low);
     bool setVal(bool value);
     bool getVal(bool &value);

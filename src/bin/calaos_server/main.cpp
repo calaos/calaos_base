@@ -34,7 +34,7 @@
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 // Globals
 static UDPServer *udpserver = NULL;
@@ -43,20 +43,20 @@ static EcoreTimer *watchdogLoop = NULL;
 
 static void echoVersion(char **argv)
 {
-    cout << "Calaos Version: \n\t" PACKAGE_STRING << endl;
+    std::cout << "Calaos Version: \n\t" PACKAGE_STRING << std::endl;
 }
 
 static void echoUsage(char **argv)
 {
     echoVersion(argv);
-    cout << _("Usage:\n\t") << argv[0] << _(" [options]") << endl;
-    cout << endl << _("\tOptions:\n");
-    cout << _("\t-h, --help\tDisplay this help.\n");
-    cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
-    cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
-    cout << _("\t--gendoc <path>\tGenerate Io documentation in <path>\n");
-    cout << _("\t-v, --version\tDisplay current version and exit.\n");
-    cout << endl;
+    std::cout << _("Usage:\n\t") << argv[0] << _(" [options]") << std::endl;
+    std::cout << std::endl << _("\tOptions:\n");
+    std::cout << _("\t-h, --help\tDisplay this help.\n");
+    std::cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
+    std::cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
+    std::cout << _("\t--gendoc <path>\tGenerate Io documentation in <path>\n");
+    std::cout << _("\t-v, --version\tDisplay current version and exit.\n");
+    std::cout << std::endl;
 }
 
 int main (int argc, char **argv)
@@ -67,18 +67,18 @@ int main (int argc, char **argv)
     ecore_init();
     ecore_con_init();
 
-    vector<Params> params;
+    std::vector<Params> params;
     Params p;
     p.Add("test", "valeur");
     params.push_back(p);
 
     for (auto p2 : params)
     {
-        cout << p2.size() << endl;
+        std::cout << p2.size() << std::endl;
     }
 
 
-    cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
+    std::cout << "Calaos Server Daemon - http://www.calaos.fr" << std::endl;
 
     Prefix::Instance(argc, argv);
 
@@ -135,7 +135,7 @@ int main (int argc, char **argv)
 
     //Start Json API server
     unsigned short port = JSONAPI_PORT;
-    string tmp =  Utils::get_config_option("port_api");
+    std::string tmp =  Utils::get_config_option("port_api");
     if (!tmp.empty())
         from_string(tmp, port);
     HttpServer::Instance(port);
@@ -186,4 +186,11 @@ int main (int argc, char **argv)
     Utils::FreeEinaLogs();
 
     return 0;
+}
+
+}
+
+int main (int argc, char **argv)
+{
+  return Calaos::main(argc, argv);
 }

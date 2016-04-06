@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WIAnalog)
 REGISTER_IO_USERTYPE(WagoInputAnalog, WIAnalog)
@@ -66,7 +66,7 @@ WIAnalog::~WIAnalog()
     cDebugDom("input");
 }
 
-void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, std::vector<UWord> &values)
 {
     if (!status)
     {
@@ -109,4 +109,6 @@ void WIAnalog::readValue()
     Utils::from_string(get_param("var"), address);
 
     WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
+}
+
 }

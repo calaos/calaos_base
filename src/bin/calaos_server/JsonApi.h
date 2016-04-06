@@ -27,7 +27,7 @@
 #include "Room.h"
 #include "AudioPlayer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class HttpClient;
 
@@ -38,10 +38,10 @@ public:
     JsonApi();
     virtual ~JsonApi();
 
-    virtual void processApi(const string &data, const Params &paramsGET) { VAR_UNUSED(data); VAR_UNUSED(paramsGET); }
+    virtual void processApi(const std::string &data, const Params &paramsGET) { VAR_UNUSED(data); VAR_UNUSED(paramsGET); }
 
-    sigc::signal<void, const string &> sendData;
-    sigc::signal<void, int, const string &> closeConnection;
+    sigc::signal<void, const std::string &> sendData;
+    sigc::signal<void, int, const std::string &> closeConnection;
 
 
 
@@ -82,7 +82,7 @@ public:
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
 
-    AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
+    AudioPlayer *getAudioPlayer(json_t *jdata, std::string &err);
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda);
@@ -113,8 +113,11 @@ protected:
 
     HttpClient *httpClient = nullptr;
 
-    map<string, int> playerCounts;
+  std::map<std::string, int> playerCounts;
 };
 
+}
+
 #endif // JSONAPI_H
+
 

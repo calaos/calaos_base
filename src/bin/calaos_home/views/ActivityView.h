@@ -25,7 +25,6 @@
 
 #include "BaseView.h"
 
-using namespace Utils;
 
 class ActivityView: public BaseView
 {
@@ -38,7 +37,7 @@ protected:
 
 public:
     ActivityView(Evas *evas, Evas_Object *parent);
-    ActivityView(Evas *evas, Evas_Object *parent, string collection);
+    ActivityView(Evas *evas, Evas_Object *parent, std::string collection);
     virtual ~ActivityView();
 
     virtual void resetView() = 0;
@@ -52,7 +51,7 @@ public:
 class ActivityViewFactory
 {
 private:
-    static string viewTypeString(int viewType);
+    static std::string viewTypeString(int viewType);
 
 public:
     enum { ACTIVITY_VIEW_NONE, ACTIVITY_VIEW_HOME, ACTIVITY_VIEW_MEDIA,

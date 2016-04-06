@@ -29,7 +29,6 @@
 #include <Ecore_File.h>
 #include <curl/curl.h>
 
-using namespace std;
 
 //Usefull utility functions
 template<typename T>
@@ -62,7 +61,7 @@ typedef struct _ThumbSize
 
 struct CurlFile
 {
-    string filename;
+    std::string filename;
     FILE *stream;
 };
 
@@ -80,42 +79,42 @@ static size_t thumb_fwrite(void *buffer, size_t size, size_t nmemb, void *stream
 
 static int thumb_progress(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
 {
-    cout << "." << flush;
+    std::cout << "." << std::flush;
 
     return 0;
 }
 
-static void split(const string &str, vector<string> &tokens, const string &delimiters = " ", int max = 0);
-static bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_sizes);
+static void split(const std::string &str, std::vector<std::string> &tokens, const std::string &delimiters = " ", int max = 0);
+static bool CreateThumb_Evas(std::string &input_file, std::string &output_file, ThumbSize &thumb_sizes);
 
 int main (int argc, char **argv)
 {
     if (argc < 3)
     {
-        cout << "Calaos thumbnailer" << endl << "\tUsage:" << endl;
-        cout << "\t\t" << argv[0] << " <image_file> <out_file> <size>" << endl << endl;
-        cout << "\tWhere <image_file> is an image file supported by Evas. <image_file> can be an http link and then the file is downloaded first." << endl;
-        cout << "\tAnd <size> is of the form: 123x123" << endl;
-        cout << endl << "Thumb is saved in <out_file> in JPG format." << endl;
-        cout << endl << "If <image_file> is an url the file is first downloaded." << endl;
+        std::cout << "Calaos thumbnailer" << std::endl << "\tUsage:" << std::endl;
+        std::cout << "\t\t" << argv[0] << " <image_file> <out_file> <size>" << std::endl << std::endl;
+        std::cout << "\tWhere <image_file> is an image file supported by Evas. <image_file> can be an http link and then the file is downloaded first." << std::endl;
+        std::cout << "\tAnd <size> is of the form: 123x123" << std::endl;
+        std::cout << std::endl << "Thumb is saved in <out_file> in JPG format." << std::endl;
+        std::cout << std::endl << "If <image_file> is an url the file is first downloaded." << std::endl;
 
         return 1;
     }
 
     //parse cmd line
-    string input_file = argv[1];
-    string output_file = argv[2];
+    std::string input_file = argv[1];
+    std::string output_file = argv[2];
     bool to_del = false;
 
     ThumbSize size = { 0, 0 };
-    vector<string> token;
+    std::vector<std::string> token;
 
-    string s;
+    std::string s;
     if (argc == 4) s = argv[3];
     split(s, token, "x", 2);
     if (token.size() != 2)
     {
-        cout << "calaos_thumb: Can't parse size, using original image size" << endl;
+        std::cout << "calaos_thumb: Can't parse size, using original image size" << std::endl;
     }
     else
     {
@@ -123,13 +122,13 @@ int main (int argc, char **argv)
         from_string(token[1], size.h);
     }
 
-    cout << "calaos_thumb: Using image source: " << input_file << endl;
+    std::cout << "calaos_thumb: Using image source: " << input_file << std::endl;
 
     //Check if it's an url and download it
     if (input_file.compare(0, 7, "http://") == 0 ||
         input_file.compare(0, 8, "https://") == 0)
     {
-        cout << "calaos_thumb: Input image is an URL, starting download: ." << flush;
+        std::cout << "calaos_thumb: Input image is an URL, starting download: ." << std::flush;
 
         CURL *curl;
         CURLcode res;
@@ -161,7 +160,7 @@ int main (int argc, char **argv)
             if(CURLE_OK != res)
             {
                 /* we failed */
-                cout << " Failed: curl told us: " << res << endl;
+                std::cout << " Failed: curl told us: " << res << std::endl;
                 return 1;
             }
 
@@ -172,7 +171,7 @@ int main (int argc, char **argv)
 
             curl_global_cleanup();
 
-            cout << " Done." << endl;
+            std::cout << " Done." << std::endl;
         }
     }
 
@@ -185,11 +184,11 @@ int main (int argc, char **argv)
     if (ret)
         return 0;
 
-    cout << "calaos_thumb: Unable to do thumbnails..." << endl;
+    std::cout << "calaos_thumb: Unable to do thumbnails..." << std::endl;
     return 1;
 }
 
-bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_size)
+bool CreateThumb_Evas(std::string &input_file, std::string &output_file, ThumbSize &thumb_size)
 {
     evas_init();
     ecore_init();
@@ -214,7 +213,7 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
     Evas_Load_Error err = evas_object_image_load_error_get(image);
     if (err != EVAS_LOAD_ERROR_NONE)
     {
-        cout << "calaos_thumb: Error, can't load image: " << evas_load_error_str(err) << endl;
+        std::cout << "calaos_thumb: Error, can't load image: " << evas_load_error_str(err) << std::endl;
         return false;
     }
 
@@ -222,7 +221,7 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
     {
         //Get size from image
         evas_object_image_size_get(image, &thumb_size.w, &thumb_size.h);
-        cout << "calaos_thumb: Using detected size: " << thumb_size.w << "x" << thumb_size.h << endl;
+        std::cout << "calaos_thumb: Using detected size: " << thumb_size.w << "x" << thumb_size.h << std::endl;
         ecore_evas_resize(ee, thumb_size.w, thumb_size.h);
         evas_object_resize(im, thumb_size.w, thumb_size.h);
         evas_object_image_fill_set(im, 0, 0, thumb_size.w, thumb_size.h);
@@ -237,9 +236,9 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
 
     ecore_evas_buffer_pixels_get(ee);
     if (!evas_object_image_save(im, output_file.c_str(), NULL, "quality=85 compress=9"))
-        cout << "calaos_thumb: evas_object_image_save() failed..." << endl;
+        std::cout << "calaos_thumb: evas_object_image_save() failed..." << std::endl;
     else
-        cout << "calaos_thumb: Save image to " << output_file << endl;
+        std::cout << "calaos_thumb: Save image to " << output_file << std::endl;
 
     evas_object_del(image);
     evas_object_del(im);
@@ -251,20 +250,20 @@ bool CreateThumb_Evas(string &input_file, string &output_file, ThumbSize &thumb_
     return true;
 }
 
-void split(const string &str, vector<string> &tokens, const string &delimiters, int max /* = 0 */)
+void split(const std::string &str, std::vector<std::string> &tokens, const std::string &delimiters, int max /* = 0 */)
 {
     // Skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
+    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
     // Find first "non-delimiter".
-    string::size_type pos     = str.find_first_of(delimiters, lastPos);
+    std::string::size_type pos     = str.find_first_of(delimiters, lastPos);
 
     int counter = 0;
 
-    while (string::npos != pos || string::npos != lastPos)
+    while (std::string::npos != pos || std::string::npos != lastPos)
     {
         if (counter + 1 >= max && max > 0)
         {
-            tokens.push_back(str.substr(lastPos, string::npos));
+            tokens.push_back(str.substr(lastPos, std::string::npos));
             break;
         }
 

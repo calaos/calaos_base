@@ -21,6 +21,8 @@
 #include "KNXExternProc_main.h"
 #include <time.h>
 
+namespace Calaos {
+
 class EibNetMuxObj
 {
 public:
@@ -333,4 +335,6 @@ KNXValue KNXValue::fromJson(json_t *jval)
     v.value_string = p["value_string"];
 
     return v;
+}
+
 }

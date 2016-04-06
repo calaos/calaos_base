@@ -23,19 +23,18 @@
 
 #include <iostream>
 
-using namespace std;
 
 class ColorValue
 {
 public:
     ColorValue();
     ColorValue(int r, int g, int b);
-    ColorValue(string str_color);
+    ColorValue(std::string str_color);
 
     bool isValid() const { return type != ColorInvalid; }
 
-    string toString() const;
-    void setString(const string &str);
+    std::string toString() const;
+    void setString(const std::string &str);
 
     int getAlpha() const { return alpha; }
     void setAlpha(int a);

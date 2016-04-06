@@ -7,7 +7,6 @@
 #include <Ecore_Con.h>
 #include <Params.h>
 
-using namespace std;
 
 class CalaosCameraView: public EvasSmart
 {
@@ -15,20 +14,20 @@ private:
     Evas_Object *clip = nullptr;
     Evas_Object *camImage = nullptr;
 
-    string cameraUrl;
+    std::string cameraUrl;
 
     Ecore_Con_Url *ecurl = nullptr;
 
     Ecore_Event_Handler *handler_data = nullptr;
     Ecore_Event_Handler *handler_complete = nullptr;
 
-    vector<unsigned char> buffer;
+    std::vector<unsigned char> buffer;
     Params headers;
 
     bool formatDetected;
     bool single_frame;
     bool format_error;
-    string boundary;
+    std::string boundary;
     long int nextContentLength;
     long int nextDataStart;
     long int scanpos;
@@ -44,7 +43,7 @@ public:
     CalaosCameraView(Evas *evas);
     virtual ~CalaosCameraView();
 
-    void setCameraUrl(const string &url);
+    void setCameraUrl(const std::string &url);
 
     void play();
     void stop();

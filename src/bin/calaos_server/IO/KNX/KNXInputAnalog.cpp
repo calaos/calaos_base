@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(KNXInputAnalog)
 
@@ -36,11 +36,11 @@ KNXInputAnalog::KNXInputAnalog(Params &p):
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
     ioDoc->paramAddInt("eis", _("KNX EIS (Data type)"), 0, 15, false, KNXValue::EIS_Value_Int);
 
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
 
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, );
 
-    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
+    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const std::string group_addr, const KNXValue &)
     {
         if (group_addr != get_param("knx_group")) return;
         readValue();
@@ -55,7 +55,7 @@ KNXInputAnalog::~KNXInputAnalog()
 
 void KNXInputAnalog::readValue()
 {
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
     int eis;
     Utils::from_string(get_param("eis"), eis);
 
@@ -67,4 +67,6 @@ void KNXInputAnalog::readValue()
         value = val.toInt();
         emitChange();
     }
+}
+
 }

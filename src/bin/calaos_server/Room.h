@@ -25,7 +25,6 @@
 #include "IOBase.h"
 #include <type_traits>
 
-using namespace std;
 
 namespace Calaos
 {
@@ -33,21 +32,21 @@ namespace Calaos
 class Room
 {
 protected:
-    string name;
-    string type;
+    std::string name;
+    std::string type;
     int hits;
 
-    vector<IOBase *> ios;
+    std::vector<IOBase *> ios;
 
 public:
-    Room(string _name, string _type, int _hits = 0);
+    Room(std::string _name, std::string _type, int _hits = 0);
     ~Room();
 
-    string &get_name() { return name; }
-    string &get_type() { return type; }
+    std::string &get_name() { return name; }
+    std::string &get_type() { return type; }
 
-    void set_name(string &s);
-    void set_type(string &s);
+    void set_name(std::string &s);
+    void set_type(std::string &s);
 
     int get_hits() { return hits; }
 

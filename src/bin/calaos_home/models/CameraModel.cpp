@@ -64,7 +64,7 @@ Room *Camera::getRoom()
 {
     if (room) return room;
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["id"]);
+    std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["id"]);
     if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         return NULL;
 
@@ -125,13 +125,13 @@ void Camera::ZoomOut()
 void Camera::Recall(int position)
 {
     Params p = {{ "id", params["id"] },
-                { "value", string("recall ") + Utils::to_string(position) }};
+                { "value", std::string("recall ") + Utils::to_string(position) }};
     connection->sendCommand("set_state", p);
 }
 
 void Camera::Save(int position)
 {
     Params p = {{ "id", params["id"] },
-                { "value", string("save ") + Utils::to_string(position) }};
+                { "value", std::string("save ") + Utils::to_string(position) }};
     connection->sendCommand("set_state", p);
 }

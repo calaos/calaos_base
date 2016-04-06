@@ -23,7 +23,7 @@
 
 #include "GpioInputSwitchTriple.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(GpioInputSwitchTriple)
 
@@ -68,4 +68,6 @@ bool GpioInputSwitchTriple::readValue()
 {
     cInfoDom("Input") << "Read Value : " << val;
     return val;
+}
+
 }

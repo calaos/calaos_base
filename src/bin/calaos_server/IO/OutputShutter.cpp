@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "OutputShutter.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 OutputShutter::OutputShutter(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -371,7 +371,7 @@ void OutputShutter::TimerEnd()
         state_volet = "false";
     }
 
-    string t = cmd_state;
+    std::string t = cmd_state;
     Stop();
     cmd_state = t;
 
@@ -414,4 +414,6 @@ bool OutputShutter::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
 }

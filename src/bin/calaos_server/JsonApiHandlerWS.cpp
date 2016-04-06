@@ -30,6 +30,8 @@
 #include "HttpCodes.h"
 #include "WebSocket.h"
 
+namespace Calaos {
+
 JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
@@ -51,7 +53,7 @@ void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
     sendJson("event", event.toJson());
 }
 
-void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const string &client_id)
+void JsonApiHandlerWS::sendJson(const std::string &msg_type, json_t *data, const std::string &client_id)
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
@@ -63,12 +65,12 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const stri
     sendData.emit(jansson_to_string(jroot));
 }
 
-void JsonApiHandlerWS::sendJson(const string &msg_type, const Params &p, const string &client_id)
+void JsonApiHandlerWS::sendJson(const std::string &msg_type, const Params &p, const std::string &client_id)
 {
     sendJson(msg_type, p.toJson(), client_id);
 }
 
-void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
+void JsonApiHandlerWS::processApi(const std::string &data, const Params &paramsGET)
 {
     VAR_UNUSED(paramsGET); //not used for websocket
 
@@ -105,8 +107,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
     if (jsonRoot["msg"] == "login")
     {
         //check for if username/password matches
-        string user = Utils::get_config_option("calaos_user");
-        string pass = Utils::get_config_option("calaos_password");
+        std::string user = Utils::get_config_option("calaos_user");
+        std::string pass = Utils::get_config_option("calaos_password");
 
         if (Utils::get_config_option("cn_user") != "" &&
             Utils::get_config_option("cn_pass") != "")
@@ -182,7 +184,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
     json_decref(jroot);
 }
 
-void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const std::string &client_id)
 {
     json_t *jret = nullptr;
 
@@ -194,7 +196,7 @@ void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &clien
     sendJson("get_home", jret, client_id);
 }
 
-void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetState(json_t *jdata, const std::string &client_id)
 {
     if (!jdata)
     {
@@ -208,7 +210,7 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
     });
 }
 
-void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const std::string &client_id)
 {
     buildJsonStates(jsonReq, [=](json_t *jret)
     {
@@ -216,7 +218,7 @@ void JsonApiHandlerWS::processGetStates(const Params &jsonReq, const string &cli
     });
 }
 
-void JsonApiHandlerWS::processQuery(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processQuery(const Params &jsonReq, const std::string &client_id)
 {
     buildQuery(jsonReq, [=](json_t *jret)
     {
@@ -224,22 +226,22 @@ void JsonApiHandlerWS::processQuery(const Params &jsonReq, const string &client_
     });
 }
 
-void JsonApiHandlerWS::processGetParam(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetParam(const Params &jsonReq, const std::string &client_id)
 {
     sendJson("get_param", buildJsonGetParam(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processSetParam(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processSetParam(const Params &jsonReq, const std::string &client_id)
 {
     sendJson("set_param", buildJsonSetParam(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processDelParam(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processDelParam(const Params &jsonReq, const std::string &client_id)
 {
     sendJson("del_param", buildJsonDelParam(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processGetIO(json_t *jdata, const std::string &client_id)
 {
     if (!jdata)
     {
@@ -250,7 +252,7 @@ void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)
     sendJson("get_io", buildJsonGetIO(jdata), client_id);
 }
 
-void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processSetState(Params &jsonReq, const std::string &client_id)
 {
     bool res = decodeSetState(jsonReq);
 
@@ -262,7 +264,7 @@ void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)
     }
 }
 
-void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const std::string &client_id)
 {
     decodeGetPlaylist(jsonReq, [=](json_t *jret)
     {
@@ -270,9 +272,9 @@ void JsonApiHandlerWS::processGetPlaylist(Params &jsonReq, const string &client_
     });
 }
 
-void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processAudio(json_t *jdata, const std::string &client_id)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    std::string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdata, [=](json_t *jret)
         {
@@ -297,9 +299,9 @@ void JsonApiHandlerWS::processAudio(json_t *jdata, const string &client_id)
         sendJson("audio", {{"error", "unkown audio_action" }} , client_id);
 }
 
-void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processAudioDb(json_t *jdata, const std::string &client_id)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    std::string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_album")
         audioDbGetAlbums(jdata, [=](json_t *jret)
         {
@@ -384,19 +386,19 @@ void JsonApiHandlerWS::processAudioDb(json_t *jdata, const string &client_id)
         sendJson("audio_db", {{"error", "unkown audio_action" }} , client_id);
 }
 
-void JsonApiHandlerWS::processGetTimerange(const Params &jsonReq, const string &client_id)
+void JsonApiHandlerWS::processGetTimerange(const Params &jsonReq, const std::string &client_id)
 {
     sendJson("get_timerange", buildJsonGetTimerange(jsonReq), client_id);
 }
 
-void JsonApiHandlerWS::processSetTimerange(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processSetTimerange(json_t *jdata, const std::string &client_id)
 {
     sendJson("set_timerange", buildJsonSetTimerange(jdata), client_id);
 }
 
-void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const string &client_id)
+void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const std::string &client_id)
 {
-    string msg = jansson_string_get(jdata, "type");
+    std::string msg = jansson_string_get(jdata, "type");
     if (msg == "list")
         sendJson("autoscenario", buildAutoscenarioList(jdata), client_id);
     else if (msg == "get")
@@ -411,4 +413,6 @@ void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const string &client_i
         sendJson("autoscenario", buildAutoscenarioAddSchedule(jdata), client_id);
     else if (msg == "del_schedule")
         sendJson("autoscenario", buildAutoscenarioDelSchedule(jdata), client_id);
+}
+
 }

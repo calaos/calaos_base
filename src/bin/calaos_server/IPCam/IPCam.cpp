@@ -20,7 +20,8 @@
  ******************************************************************************/
 #include "IPCam.h"
 
-using namespace Calaos;
+
+namespace Calaos {
 
 IPCam::IPCam(Params &p):
     IOBase(p, IOBase::IO_INOUT)
@@ -74,10 +75,12 @@ bool IPCam::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < get_params().size();i++)
     {
-        string key, value;
+        std::string key, value;
         param.get_item(i, key, value);
         cnode->SetAttribute(key, value);
     }
 
     return true;
+}
+
 }

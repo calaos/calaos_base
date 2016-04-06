@@ -26,7 +26,6 @@
 #include <GenlistItemBase.h>
 #include <Modules.h>
 
-using namespace Utils;
 
 class GenlistItemWidget: public GenlistItemBase
 {
@@ -37,8 +36,8 @@ public:
     GenlistItemWidget(Evas *evas, Evas_Object *parent, ModuleDef mod, void *data = NULL);
     virtual ~GenlistItemWidget();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 };
 
 #endif // GenlistItemWidget_H

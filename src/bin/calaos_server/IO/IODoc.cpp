@@ -20,28 +20,28 @@
  ******************************************************************************/
 #include "IODoc.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 IODoc::IODoc()
 {
 }
 
-void IODoc::friendlyNameSet(const string &friendlyName)
+void IODoc::friendlyNameSet(const std::string &friendlyName)
 {
     m_name = friendlyName;
 }
 
-void IODoc::descriptionSet(const string &description)
+void IODoc::descriptionSet(const std::string &description)
 {
     m_description = description;
 }
 
-void IODoc::descriptionBaseSet(const string &description)
+void IODoc::descriptionBaseSet(const std::string &description)
 {
     m_description_base = description;
 }
 
-void IODoc::linkAdd(const string &description, const string &link)
+void IODoc::linkAdd(const std::string &description, const std::string &link)
 {
     Params p;
     p.Add("description", description);
@@ -49,7 +49,7 @@ void IODoc::linkAdd(const string &description, const string &link)
     m_links.push_back(p);
 }
 
-void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly)
+void IODoc::paramAdd(const std::string &name, const std::string &description, ParamType type, bool mandatory, const std::string defaultval, bool readonly)
 {   
     Params param;
     param.Add("name", name);
@@ -62,7 +62,7 @@ void IODoc::paramAdd(const string &name, const string &description, ParamType ty
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval, bool readonly)
+void IODoc::paramAddInt(const std::string &name, const std::string &description, int min, int max, bool mandatory, int defval, bool readonly)
 {
     Params param;
     param.Add("name", name);
@@ -76,7 +76,7 @@ void IODoc::paramAddInt(const string &name, const string &description, int min, 
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval, bool readonly)
+void IODoc::paramAddFloat(const std::string &name, const std::string &description, bool mandatory, double min, double max, double defval, bool readonly)
 {
     Params param;
     param.Add("name", name);
@@ -90,7 +90,7 @@ void IODoc::paramAddFloat(const string &name, const string &description, bool ma
     m_parameters[name] = param;
 }
 
-void IODoc::paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey, bool readonly)
+void IODoc::paramAddList(const std::string &name, const std::string &description, bool mandatory, const Params &keyvalues, const std::string &defkey, bool readonly)
 {
     Params param;
     param.Add("name", name);
@@ -103,7 +103,7 @@ void IODoc::paramAddList(const string &name, const string &description, bool man
     param_list_value[name] = keyvalues;
 }
 
-void IODoc::conditionAdd(const string &name, const string &description)
+void IODoc::conditionAdd(const std::string &name, const std::string &description)
 {
     Params p;
     p.Add("name", name);
@@ -111,7 +111,7 @@ void IODoc::conditionAdd(const string &name, const string &description)
     m_conditions[name] = p;
 }
 
-void IODoc::actionAdd(const string &name, const string &description)
+void IODoc::actionAdd(const std::string &name, const std::string &description)
 {
     Params p;
     p.Add("name", name);
@@ -119,12 +119,12 @@ void IODoc::actionAdd(const string &name, const string &description)
     m_actions[name] = p;
 }
 
-void IODoc::aliasAdd(string alias)
+void IODoc::aliasAdd(std::string alias)
 {
     m_aliases.push_back(alias);
 }
 
-bool IODoc::isAlias(string alias)
+bool IODoc::isAlias(std::string alias)
 {
     for (auto s: m_aliases)
     {
@@ -139,7 +139,7 @@ json_t *IODoc::genDocJson()
 {
     json_t *ret = json_object();
 
-    string desc;
+    std::string desc;
     if (!m_description.empty())
         desc += m_description;
     if (!m_description_base.empty())
@@ -182,10 +182,10 @@ json_t *IODoc::genDocJson()
     return ret;
 }
 
-string IODoc::genDocMd(const string iotype)
+std::string IODoc::genDocMd(const std::string iotype)
 {
-    string doc ="";
-    string name = m_name;
+    std::string doc ="";
+    std::string name = m_name;
 
     if (m_name.empty())
     {
@@ -280,7 +280,7 @@ string IODoc::genDocMd(const string iotype)
     return doc;
 }
 
-string IODoc::typeToString(ParamType t)
+std::string IODoc::typeToString(ParamType t)
 {
     switch (t)
     {
@@ -295,7 +295,7 @@ string IODoc::typeToString(ParamType t)
     return "unknown";
 }
 
-IODoc::ParamType IODoc::typeFromString(const string &t)
+IODoc::ParamType IODoc::typeFromString(const std::string &t)
 {
     if (t == "string") return TYPE_STRING;
     else if (t == "bool") return TYPE_BOOL;
@@ -304,4 +304,6 @@ IODoc::ParamType IODoc::typeFromString(const string &t)
     else if (t == "list") return TYPE_LIST;
 
     return TYPE_UNKOWN;
+}
+
 }

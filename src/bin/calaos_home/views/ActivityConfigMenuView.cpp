@@ -47,7 +47,7 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
     setPartText("tab1.uptime.label", _("System started since : "));
 
     long days = Utils::getUptime() / 60 / 60 / 24;
-    string uptime;
+    std::string uptime;
     uptime = to_string(days);
     if (days == 1)
         uptime += _(" day");
@@ -73,9 +73,9 @@ ActivityConfigMenuView::ActivityConfigMenuView(Evas *_e, Evas_Object *_parent):
 
     setPartText("tab1.hostname", hostname);
 
-    string local_ip = "";
+    std::string local_ip = "";
     // Get All interfaces
-    vector<string> intf = TCPSocket::getAllInterfaces();
+    std::vector<std::string> intf = TCPSocket::getAllInterfaces();
     if (intf.size() > 0)
     {
         for (unsigned int i = 0; i < intf.size(); i++)

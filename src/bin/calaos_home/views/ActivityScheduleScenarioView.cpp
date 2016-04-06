@@ -225,7 +225,7 @@ void ActivityScheduleScenarioView::showTimeRangePopup()
     evas_object_show(popup);
 }
 
-void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if ((editState == EDIT_START_TIME || editState == EDIT_START_TIME_OFFSET) && cycle)
     {
@@ -259,7 +259,7 @@ void ActivityScheduleScenarioView::createTimeSelectTypeList(void *data, Evas_Obj
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label;
+    std::string title_label;
     GenlistItemSimpleHeader *header = NULL;
     if (editState == EDIT_START_TYPE)
     {
@@ -342,7 +342,7 @@ void ActivityScheduleScenarioView::selectTimeType(void *data)
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
-        string title_label = _("<b>Offset time</b><br><light_blue><small>You can choose to shift the sun time</small></light_blue>");
+        std::string title_label = _("<b>Offset time</b><br><light_blue><small>You can choose to shift the sun time</small></light_blue>");
         GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation_back");
         header->Append(glist);
         header->setButtonLabel("button.back", _("Beginning"));
@@ -449,7 +449,7 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
         page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::createTimeSelectTypeList));
     else
         page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &ActivityScheduleScenarioView::showWeekSelection));
-    string t;
+    std::string t;
     if (editState == EDIT_START_TIME)
         t = _("<b>Choose a schedule</b><br><light_blue><small>Start time of scenario</small></light_blue>");
     else if (editState == EDIT_END_TIME)
@@ -519,7 +519,7 @@ void ActivityScheduleScenarioView::showTimeSelection(void *data)
     elm_naviframe_item_push(pager_popup, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }
 
-void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (cycle)
     {
@@ -558,7 +558,7 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
     elm_genlist_multi_select_set(glist, true);
     evas_object_show(glist);
 
-    string title_label = _("Days of the week<br><small><light_blue>Days of the week when scenario is executed.</light_blue></small>");
+    std::string title_label = _("Days of the week<br><small><light_blue>Days of the week when scenario is executed.</light_blue></small>");
     GenlistItemSimpleHeader *header = new GenlistItemSimpleHeader(evas, glist, title_label, "navigation");
     header->Append(glist);
 
@@ -574,7 +574,7 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
 
     for (int i = 0;i < 8;i++)
     {
-        string label;
+        std::string label;
         switch (i)
         {
         case 0: label = _("Everyday"); break;
@@ -608,7 +608,7 @@ void ActivityScheduleScenarioView::showWeekSelection(void *data, Evas_Object *ed
     elm_naviframe_item_push(pager_popup, NULL, NULL, NULL, table, "calaos");
 }
 
-void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
+void ActivityScheduleScenarioView::headerWeekButtonClick(std::string bt)
 {
     if (bt == "button.back")
     {
@@ -646,14 +646,14 @@ void ActivityScheduleScenarioView::headerWeekButtonClick(string bt)
     }
 }
 
-void ActivityScheduleScenarioView::buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityScheduleScenarioView::buttonBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     editState = editStatesHist.top();
     editStatesHist.pop();
     elm_naviframe_item_pop(pager_popup);
 }
 
-void ActivityScheduleScenarioView::buttonHeaderBackClick(string button)
+void ActivityScheduleScenarioView::buttonHeaderBackClick(std::string button)
 {
     editState = editStatesHist.top();
     editStatesHist.pop();
@@ -675,8 +675,8 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
 {
     elm_genlist_clear(schedule_list);
 
-    vector<TimeRange> trange_sorted;
-    auto sortTimeRange = [&trange_sorted](const vector<TimeRange> &range, int day)
+    std::vector<TimeRange> trange_sorted;
+    auto sortTimeRange = [&trange_sorted](const std::vector<TimeRange> &range, int day)
     {
         for (const TimeRange &t: range)
         {
@@ -727,7 +727,7 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
             evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
             evas_object_show(glist);
 
-            string title_label = _("Confirmation");
+            std::string title_label = _("Confirmation");
             title_label += "<br><small><light_blue>";
             title_label += _("Are you sure to delete this schedule?");
             title_label +=  "</light_blue></small>";
@@ -788,7 +788,7 @@ void ActivityScheduleScenarioView::reloadTimeRanges()
 
 void ActivityScheduleScenarioView::deleteTimeRange(const TimeRange &range)
 {
-    auto delRange = [=](vector<TimeRange> &vrange)
+    auto delRange = [=](std::vector<TimeRange> &vrange)
     {
         auto it = std::find(vrange.begin(), vrange.end(), range);
         if (it != vrange.end())

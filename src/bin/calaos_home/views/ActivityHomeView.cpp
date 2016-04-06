@@ -108,14 +108,14 @@ void ActivityHomeView::objectHidden()
     EmitSignal("hide,left", "calaos");
 }
 
-void ActivityHomeView::setRoom(string type, int position, IOBase *chauffage)
+void ActivityHomeView::setRoom(std::string type, int position, IOBase *chauffage)
 {
     if (rooms[position])
         delete rooms[position];
 
     EmitSignal("reset,rooms", "calaos");
 
-    string t = type;
+    std::string t = type;
 
     if (type == "salon") t = "lounge";
     if (type == "chambre") t = "bedroom";
@@ -131,14 +131,14 @@ void ActivityHomeView::setRoom(string type, int position, IOBase *chauffage)
     if (type == "couloir") t = "corridor";
 
     rooms[position] = new EdjeObject(ApplicationMain::getTheme(), evas);
-    string group = "calaos/room/";
+    std::string group = "calaos/room/";
 
     if (!rooms[position]->LoadEdje(group + t))
     {
         //room not found, load default
         if (!rooms[position]->LoadEdje("calaos/room/various"))
         {
-            throw(runtime_error("ActivityHomeView::setRoom(): Can't load edje !"));
+            throw(std::runtime_error("ActivityHomeView::setRoom(): Can't load edje !"));
         }
     }
 
@@ -164,7 +164,7 @@ void ActivityHomeView::setRoom(string type, int position, IOBase *chauffage)
         updateChauffage(position);
     }
 
-    EmitSignal(string("enable,room,") + Utils::to_string(position + 1), "calaos"); //this enable mouse click on unused rooms
+    EmitSignal(std::string("enable,room,") + Utils::to_string(position + 1), "calaos"); //this enable mouse click on unused rooms
 }
 
 void ActivityHomeView::updateChauffage(int pos)
@@ -172,7 +172,7 @@ void ActivityHomeView::updateChauffage(int pos)
     if (pos < 0 || pos >= 6 || !rooms[pos])
         return;
 
-    string t = chauffages[pos]->params["state"];
+    std::string t = chauffages[pos]->params["state"];
     rooms[pos]->setPartText("chauffage.temp.small", t + " °C");
 
     IOBase *consigne = CalaosModel::Instance().getHome()->getConsigneFromTemp(chauffages[pos]);
@@ -194,7 +194,7 @@ void ActivityHomeView::delChauffage(int pos)
 void ActivityHomeView::hideRoom(int position)
 {
     rooms[position]->EmitSignal("hide", "calaos");
-    EmitSignal(string("disable,room,") + Utils::to_string(position + 1), "calaos"); //this disable mouse click on unused rooms
+    EmitSignal(std::string("disable,room,") + Utils::to_string(position + 1), "calaos"); //this disable mouse click on unused rooms
 }
 
 void ActivityHomeView::resetRooms()
@@ -344,13 +344,13 @@ void ActivityHomeView::ButtonLightsInfoCb(void *data, Evas_Object *_edje, std::s
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    map<Room *, list<IOBase *> > lights = CalaosModel::Instance().getHome()->getLightsOnForRooms();
-    map<Room *, list<IOBase *> >::iterator it = lights.begin();
+    std::map<Room *, std::list<IOBase *> > lights = CalaosModel::Instance().getHome()->getLightsOnForRooms();
+    std::map<Room *, std::list<IOBase *> >::iterator it = lights.begin();
     for (;it != lights.end();it++)
     {
         Room *room = (*it).first;
-        list<IOBase *> &ios = (*it).second;
-        list<IOBase *>::iterator it_io;
+        std::list<IOBase *> &ios = (*it).second;
+        std::list<IOBase *>::iterator it_io;
 
         //Create group header
         GenlistItemBase *group_item = new IOGenlistRoomGroup(evas, parent, room, "");
@@ -398,13 +398,13 @@ void ActivityHomeView::ButtonShuttersInfoCb(void *data, Evas_Object *_edje, std:
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    map<Room *, list<IOBase *> > shutters = CalaosModel::Instance().getHome()->getShuttersUpForRooms();
-    map<Room *, list<IOBase *> >::iterator it = shutters.begin();
+    std::map<Room *, std::list<IOBase *> > shutters = CalaosModel::Instance().getHome()->getShuttersUpForRooms();
+    std::map<Room *, std::list<IOBase *> >::iterator it = shutters.begin();
     for (;it != shutters.end();it++)
     {
         Room *room = (*it).first;
-        list<IOBase *> &ios = (*it).second;
-        list<IOBase *>::iterator it_io;
+        std::list<IOBase *> &ios = (*it).second;
+        std::list<IOBase *>::iterator it_io;
 
         //Create group header
         GenlistItemBase *group_item = new IOGenlistRoomGroup(evas, parent, room, "");
@@ -429,12 +429,12 @@ void ActivityHomeView::ButtonShuttersInfoCb(void *data, Evas_Object *_edje, std:
     evas_object_show(popup);
 }
 
-void ActivityHomeView::setLightsOnText(string txt)
+void ActivityHomeView::setLightsOnText(std::string txt)
 {
     pageStatus->setPartText("light.text", txt);
 }
 
-void ActivityHomeView::setShuttersUpText(string txt)
+void ActivityHomeView::setShuttersUpText(std::string txt)
 {
     pageStatus->setPartText("shutter.text", txt);
 }
@@ -468,13 +468,13 @@ void ActivityHomeView::addStatusPage()
     page_view->addPage(pageStatus->getEvasObject());
 }
 
-void ActivityHomeView::addScenarioPage(list<IOBase *> &scenarios_io)
+void ActivityHomeView::addScenarioPage(std::list<IOBase *> &scenarios_io)
 {
     EdjeObject *container = new EdjeObject(theme, evas);
     container->LoadEdje("calaos/page/home/scenario");
     container->setAutoDelete(true);
 
-    list<IOBase *>::iterator it = scenarios_io.begin();
+    std::list<IOBase *>::iterator it = scenarios_io.begin();
     for (int i = 0;it != scenarios_io.end() && i < 6;it++, i++)
     {
         IOView *ioView = IOViewFactory::CreateIOView(evas, getEvasObject(), IOView::IO_SCENARIO_HOME);
@@ -482,7 +482,7 @@ void ActivityHomeView::addScenarioPage(list<IOBase *> &scenarios_io)
         ioView->Show();
         ioView->initView();
 
-        string _t = "element." + Utils::to_string(i + 1);
+        std::string _t = "element." + Utils::to_string(i + 1);
         container->Swallow(ioView, _t, true);
     }
 
@@ -538,7 +538,7 @@ void ActivityHomeView::changeCurrentRoomDetail(Room *room)
     elm_genlist_clear(list_left);
     elm_genlist_clear(list_right);
 
-    list<IOBase *>::iterator it = room->visible_ios.begin();
+    std::list<IOBase *>::iterator it = room->visible_ios.begin();
     for (int i = 0;it != room->visible_ios.end();it++, i++)
     {
         if (i % 2)
@@ -560,11 +560,11 @@ static void _del_list_data_cb(void *data, Evas_Object *obj, void *item)
 void ActivityHomeView::setCurrentRoomDetail(Room *room)
 {
     //Update top room list from current room type
-    list<Room *> list_room_type = CalaosModel::Instance().getHome()->getRoomsForType(room->type);
+    std::list<Room *> list_room_type = CalaosModel::Instance().getHome()->getRoomsForType(room->type);
 
     Elm_Object_Item *item = NULL;
 
-    list<Room *>::iterator it = list_room_type.begin();
+    std::list<Room *>::iterator it = list_room_type.begin();
     for (;it != list_room_type.end();it++)
     {
         Room *r = *it;

@@ -21,7 +21,7 @@
 #include "WOLOutputBool.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WOLOutputBool)
 
@@ -102,7 +102,7 @@ bool WOLOutputBool::set_value(bool val)
     return true;
 }
 
-bool WOLOutputBool::set_value(string val)
+bool WOLOutputBool::set_value(std::string val)
 {
     return set_value(val == "true");
 }
@@ -119,7 +119,7 @@ void WOLOutputBool::doWakeOnLan()
         return h;
     };
 
-    string addr = get_param("address");
+    std::string addr = get_param("address");
     Utils::replace_str(addr, ":", "");
     Utils::replace_str(addr, "-", "");
     Utils::replace_str(addr, ".", "");
@@ -141,11 +141,11 @@ void WOLOutputBool::doWakeOnLan()
         return;
     }
 
-    vector<uint8_t> address;
+    std::vector<uint8_t> address;
     for (int i = 0;i < 12;i += 2)
         address.push_back((parseHex(addr[i]) << 4) | uint8_t(parseHex(addr[i + 1])));
 
-    vector<uint8_t> magicPacket;
+    std::vector<uint8_t> magicPacket;
     magicPacket.reserve(6 + 6 * 16);
 
     // First 6bytes, 0xFF
@@ -185,4 +185,6 @@ void WOLOutputBool::timerTimeout()
                            { "state", "false" } });
 
     DELETE_NULL(timerState);
+}
+
 }

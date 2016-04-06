@@ -23,7 +23,7 @@
 #include "EcoreTimer.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(Scenario)
 
@@ -39,7 +39,7 @@ Scenario::Scenario(Params &p):
     ioDoc->conditionAdd("true", _("Event triggered when scenario is started"));
     ioDoc->actionAdd("changed", _("Event triggered on any change"));
 
-    ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, string(), true);
+    ioDoc->paramAdd("auto_scenario", _("Internal use only for Auto Scenario. read only."), IODoc::TYPE_STRING, false, std::string(), true);
 
     cInfoDom("output") << "Scenario::Scenario(" << get_param("id") << "): Ok";
 
@@ -138,4 +138,6 @@ json_t *Scenario::toJson()
     json_object_set_new(jret, "steps", jsteps);
 
     return jret;
+}
+
 }

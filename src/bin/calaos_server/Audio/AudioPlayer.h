@@ -50,7 +50,7 @@ public:
     virtual void Previous() { }
     virtual void Power(bool on) { }
     virtual void Sleep(int seconds) { }
-    virtual void Synchronize(string playerid, bool sync) { }
+    virtual void Synchronize(std::string playerid, bool sync) { }
     virtual void getSynchronizeList(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { } //get all players wich we can sync with
 
     virtual void get_volume(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
@@ -79,23 +79,23 @@ public:
     virtual void playlist_movedown(int item) { }
     virtual void playlist_delete(int item) { }
     virtual void playlist_play(int item) { }
-    virtual void playlist_play_artist(string item) { }
-    virtual void playlist_play_album(string item) { }
-    virtual void playlist_play_title(string item) { }
-    virtual void playlist_add_artist(string item) { }
-    virtual void playlist_add_album(string item) { }
-    virtual void playlist_add_title(string item) { }
-    virtual void playlist_add_items(string item) { }
-    virtual void playlist_play_items(string item) { }
+    virtual void playlist_play_artist(std::string item) { }
+    virtual void playlist_play_album(std::string item) { }
+    virtual void playlist_play_title(std::string item) { }
+    virtual void playlist_add_artist(std::string item) { }
+    virtual void playlist_add_album(std::string item) { }
+    virtual void playlist_add_title(std::string item) { }
+    virtual void playlist_add_items(std::string item) { }
+    virtual void playlist_play_items(std::string item) { }
     virtual void playlist_clear() { }
-    virtual void playlist_save(string name) { }
-    virtual void playlist_delete(string id) { }
+    virtual void playlist_save(std::string name) { }
+    virtual void playlist_delete(std::string id) { }
     virtual void get_playlist_current(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
     virtual void get_playlist_size(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
     virtual void get_playlist_item(int index, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
     virtual void get_playlist_basic_info(int index, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
     virtual void get_playlist_album_cover(int i, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
-    virtual void get_album_cover_id(string track_id, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
+    virtual void get_album_cover_id(std::string track_id, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()) { }
 
     virtual bool canPlaylist() { return false; }
     virtual bool canDatabase() { return false; }

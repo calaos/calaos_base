@@ -40,7 +40,7 @@ protected:
 
     void readConfig();
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, UWord address, int count, std::vector<UWord> &values);
     void WagoWriteCallback(bool status, UWord address, UWord value);
 
     void emitChange();
@@ -54,7 +54,7 @@ public:
 
     virtual bool set_value(double val);
     virtual double get_value_double();
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 };
 
 }

@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WIDigitalTriple)
 REGISTER_IO_USERTYPE(WagoInputSwitchTriple, WIDigitalTriple)
@@ -73,7 +73,7 @@ void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::s
     }
 }
 
-void WIDigitalTriple::WagoReadCallback(bool status, UWord addr, int nb, vector<bool> &values)
+void WIDigitalTriple::WagoReadCallback(bool status, UWord addr, int nb, std::vector<bool> &values)
 {
     if (!status)
     {
@@ -98,3 +98,5 @@ bool WIDigitalTriple::readValue()
     return udp_value;
 }
 
+
+}

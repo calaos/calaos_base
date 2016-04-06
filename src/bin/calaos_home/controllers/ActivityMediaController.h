@@ -29,7 +29,6 @@
 
 #include "ActivityMediaMenuController.h"
 
-using namespace Utils;
 
 class ActivityMediaController: public ActivityController
 {
@@ -38,8 +37,8 @@ private:
 
     virtual void createView();
 
-    void menuIconClick(string icon);
-    void buttonClick(string button);
+    void menuIconClick(std::string icon);
+    void buttonClick(std::string button);
 
     void controllerFinished(ActivityController *controller);
 
@@ -49,7 +48,7 @@ public:
 
     void addSubController(ActivityController *controller);
 
-    void setButtonMode(string mode);
+    void setButtonMode(std::string mode);
 };
 
 #endif // ACTIVITYMEDIACONTROLLER_H

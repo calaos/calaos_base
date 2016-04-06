@@ -21,7 +21,7 @@
 #include "StandardMjpeg.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(StandardMjpeg)
 REGISTER_IO_USERTYPE(standard_mjpeg, StandardMjpeg)
@@ -66,9 +66,11 @@ std::string StandardMjpeg::getPictureUrl()
 
 std::string StandardMjpeg::getVideoUrl()
 {
-    string url;
+    std::string url;
     if (param["url_mjpeg"] != "")
         url = param["url_mjpeg"];
 
     return url;
+}
+
 }

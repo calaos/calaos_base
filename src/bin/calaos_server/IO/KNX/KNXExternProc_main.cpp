@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "KNXExternProc_main.h"
 
+namespace Calaos {
 void KNXProcess::readTimeout()
 {
     connectEibNetMux(); //try reconnecting to eibnetmux
@@ -290,4 +291,6 @@ void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
     free(data);
 }
 
-EXTERN_PROC_CLIENT_MAIN(KNXProcess)
+}
+
+EXTERN_PROC_CLIENT_MAIN(Calaoss::KNXProcess)

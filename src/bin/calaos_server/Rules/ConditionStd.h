@@ -53,7 +53,7 @@ public:
     void Remove(int i);
     void Assign(int i, IOBase *obj);
 
-    void getVarIds(vector<IOBase *> &list);
+    void getVarIds(std::vector<IOBase *> &list);
     bool useForTrigger() { return trigger; }
 
     IOBase *get_input(int i) { return inputs[i]; }

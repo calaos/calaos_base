@@ -18,12 +18,12 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include "ApplicationMain.h"
 #include "ActivityMediaController.h"
 
 #include "ActivityCameraListController.h"
 #include "ActivityAudioListController.h"
 
-#include "ApplicationMain.h"
 
 ActivityMediaController::ActivityMediaController(Evas *e, Evas_Object *p):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_MEDIA)
@@ -50,7 +50,7 @@ void ActivityMediaController::createView()
     mediaView->addView(mainMenuController->getView());
 }
 
-void ActivityMediaController::menuIconClick(string icon)
+void ActivityMediaController::menuIconClick(std::string icon)
 {
     if (icon == "eskiss")
     {
@@ -74,7 +74,7 @@ void ActivityMediaController::menuIconClick(string icon)
     }
 }
 
-void ActivityMediaController::buttonClick(string button)
+void ActivityMediaController::buttonClick(std::string button)
 {
     ActivityMediaView *mediaView = dynamic_cast<ActivityMediaView *>(view);
 
@@ -117,7 +117,7 @@ void ActivityMediaController::controllerFinished(ActivityController *controller)
     DELETE_NULL(controller);
 }
 
-void ActivityMediaController::setButtonMode(string mode)
+void ActivityMediaController::setButtonMode(std::string mode)
 {
     ActivityMediaView *mediaView = dynamic_cast<ActivityMediaView *>(view);
     mediaView->EmitSignal(mode, "calaos");

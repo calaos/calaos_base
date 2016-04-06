@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include "ActionTouchscreen.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 ActionTouchscreen::ActionTouchscreen():
     Action(ACTION_TOUCHSCREEN),
     econ(NULL)
@@ -31,7 +31,7 @@ ActionTouchscreen::ActionTouchscreen():
     cDebugDom("rule.action.touchscreen") <<  "New Touchscreen action";
 }
 
-ActionTouchscreen::ActionTouchscreen(string _action): Action(ACTION_TOUCHSCREEN), action(_action)
+ActionTouchscreen::ActionTouchscreen(std::string _action): Action(ACTION_TOUCHSCREEN), action(_action)
 {
     econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
 
@@ -79,4 +79,6 @@ bool ActionTouchscreen::SaveToXml(TiXmlElement *node)
     node->LinkEndChild(action_node);
 
     return true;
+}
+
 }

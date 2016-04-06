@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include <WagoCtrl.h>
 
-using namespace Utils;
 
+namespace Calaos {
 WagoCtrl::WagoCtrl(std::string h, int p):
     host(h),
     port(p)
@@ -90,7 +90,7 @@ bool WagoCtrl::is_connected()
         return false;
 }
 
-bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
+  bool WagoCtrl::read_bits(Utils::UWord address, int nb, std::vector<bool> &values)
 {
     if (!is_connected()) return false;
 
@@ -116,7 +116,7 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
     }
 }
 
-bool WagoCtrl::write_single_bit(UWord address, bool val)
+bool WagoCtrl::write_single_bit(Utils::UWord address, bool val)
 {
     if (!is_connected()) return false;
 
@@ -138,9 +138,9 @@ bool WagoCtrl::write_single_bit(UWord address, bool val)
     }
 }
 
-bool WagoCtrl::read_single_output_bit(UWord address)
+bool WagoCtrl::read_single_output_bit(Utils::UWord address)
 {
-    vector<bool> v;
+    std::vector<bool> v;
 
     if (!read_bits(address + 0x200, 1, v))
         return false;
@@ -151,7 +151,7 @@ bool WagoCtrl::read_single_output_bit(UWord address)
     return false;
 }
 
-bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
+bool WagoCtrl::write_multiple_bits(Utils::UWord address, int nb, std::vector<bool> &values)
 {
     if (!is_connected()) return false;
 
@@ -177,7 +177,7 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
     }
 }
 
-bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
+bool WagoCtrl::read_words(Utils::UWord address, int nb, std::vector<Utils::UWord> &values)
 {
     if (!is_connected()) return false;
 
@@ -201,7 +201,7 @@ bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
     }
 }
 
-bool WagoCtrl::write_single_word(UWord address, UWord val)
+bool WagoCtrl::write_single_word(Utils::UWord address, Utils::UWord val)
 {
     if (!is_connected()) return false;
 
@@ -219,7 +219,7 @@ bool WagoCtrl::write_single_word(UWord address, UWord val)
     }
 }
 
-bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values)
+bool WagoCtrl::write_multiple_words(Utils::UWord address, int nb, std::vector<Utils::UWord> &values)
 {
     if (!is_connected()) return false;
 
@@ -241,4 +241,6 @@ bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values
         cInfoDom("wago") << "WagoCtrl::write_multiple_words(): Ok";
         return true;
     }
+}
+
 }

@@ -28,7 +28,7 @@
 #include <jansson.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebInputAnalog)
 
@@ -87,3 +87,5 @@ void WebInputAnalog::readValue()
 }
 
 
+
+}

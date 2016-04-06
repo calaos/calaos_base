@@ -204,7 +204,7 @@ void ActivityScenariosView::loadScenarioList()
     }
 
     //populate the scenario list
-    list<Scenario *>::iterator it = CalaosModel::Instance().getScenario()->scenarios.begin();
+    std::list<Scenario *>::iterator it = CalaosModel::Instance().getScenario()->scenarios.begin();
     for (;it != CalaosModel::Instance().getScenario()->scenarios.end();it++)
     {
         Scenario *sc = *it;
@@ -266,7 +266,7 @@ void ActivityScenariosView::reloadCalendar()
 {
     elm_genlist_clear(schedule_list);
 
-    string weekday;
+    std::string weekday;
     switch (currDate.tm_wday)
     {
     case 0: weekday = _("Sunday"); break;
@@ -279,7 +279,7 @@ void ActivityScenariosView::reloadCalendar()
     default: break;
     }
 
-    string month;
+    std::string month;
     switch (currDate.tm_mon)
     {
     case 0: month = _("January"); break;
@@ -297,14 +297,14 @@ void ActivityScenariosView::reloadCalendar()
     default: break;
     }
 
-    string label = _("On <blue>%1, %2 %3, %4</blue>");
+    std::string label = _("On <blue>%1, %2 %3, %4</blue>");
     Utils::replace_str(label, "%1", weekday);
     Utils::replace_str(label, "%2", month);
     Utils::replace_str(label, "%3", Utils::to_string(currDate.tm_mday));
     Utils::replace_str(label, "%4", Utils::to_string(currDate.tm_year + 1900));
     setPartText("schedule.date", label);
 
-    list<ScenarioSchedule> lst = CalaosModel::Instance().getScenario()->getScenarioForDate(currDate);
+    std::list<ScenarioSchedule> lst = CalaosModel::Instance().getScenario()->getScenarioForDate(currDate);
     for (auto i = lst.begin();i != lst.end();i++)
     {
         ScenarioSchedule sc = *i;

@@ -21,7 +21,7 @@
 #include "Axis.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(Axis)
 
@@ -56,7 +56,7 @@ Axis::Axis(Params &p):
 
 std::string Axis::getVideoUrl()
 {
-    string user;
+    std::string user;
 
     if (param["model"] != "") camera = param["model"];
 
@@ -76,7 +76,7 @@ std::string Axis::getVideoUrl()
 
 std::string Axis::getPictureUrl()
 {
-    string user;
+    std::string user;
 
     if (param["model"] != "") camera = param["model"];
 
@@ -99,13 +99,13 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
 {
     if (!caps.Exists(cap)) return;
 
-    string user;
+    std::string user;
     if (param.Exists("username"))
         user = param["username"] + ":" + param["password"] + "@";
 
     if (cap == "resolution" && cmd == "set")
     {
-        vector<string> res;
+        std::vector<std::string> res;
         Utils::split(caps["resolution"], res, " ");
         for (uint i = 0;i < res.size();i++)
         {
@@ -124,14 +124,14 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
     }
     else if (cap == "ptz" && cmd == "move")
     {
-        string url;
+        std::string url;
 
         if (value == "zoomin" || value == "zoomout")
         {
             url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/axis-cgi/com/ptz.cgi?";
             url += "camera=" + camera;
-            url += "&rzoom=" + string((value == "zoomout")?"-":"") + param["zoom_step"];
+            url += "&rzoom=" + std::string((value == "zoomout")?"-":"") + param["zoom_step"];
         }
         else
         {
@@ -152,7 +152,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
             return;
 
         //Parse pan/tilt values
-        vector<string> tok;
+        std::vector<std::string> tok;
         split(value, tok, ",");
         if (tok.size() != 2) return;
 
@@ -174,7 +174,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
         pan = (pan * pan_framesize) / 320.0;
         tilt = (tilt * tilt_framesize) / 240.0;
 
-        string url = "http://" + user + param["host"] + ":" + param["port"];
+        std::string url = "http://" + user + param["host"] + ":" + param["port"];
         url += "/axis-cgi/com/ptz.cgi?";
         url += "camera=" + camera;
         url += "&rpan=" + Utils::to_string(-pan) + "&rtilt=" + Utils::to_string(tilt);
@@ -183,7 +183,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
     }
     else if (cap == "position" && cmd == "recall")
     {
-        string url = "http://" + user + param["host"] + ":" + param["port"];
+        std::string url = "http://" + user + param["host"] + ":" + param["port"];
         url += "/axis-cgi/com/ptz.cgi?";
         url += "camera=" + camera;
         url += "&gotoserverpresetno=" + value;
@@ -192,11 +192,13 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
     }
     else if (cap == "position" && cmd == "save")
     {
-        string url = "http://" + user + param["host"] + ":" + param["port"];
+        std::string url = "http://" + user + param["host"] + ":" + param["port"];
         url += "/axis-cgi/com/ptz.cgi?";
         url += "camera=" + camera;
         url += "&setserverpresetno=" + value;
 
         Calaos::CallUrl(url);
     }
+}
+
 }

@@ -32,13 +32,13 @@ namespace Calaos
 class Registrar
 {
 public:
-    Registrar(string type, function<IOBase *(Params &)> classFunc);
+    Registrar(std::string type, std::function<IOBase *(Params &)> classFunc);
 };
 
 #define REGISTER_FACTORY(NAME, TYPE, RETURNCLASS) \
-static Registrar NAME##_reg_##RETURNCLASS(#NAME, \
-    function<RETURNCLASS *(Params &)>( \
-        [](Params &_p) -> RETURNCLASS * { return new TYPE(_p); } ));
+  static Calaos::Registrar NAME##_reg_##RETURNCLASS(#NAME,      \
+      std::function<RETURNCLASS *(Params &)>( \
+        [](Params &_p) -> Calaos::RETURNCLASS * { return new TYPE(_p); } ));
 
 #define REGISTER_IO_USERTYPE(NAME, TYPE) REGISTER_FACTORY(NAME, TYPE, IOBase)
 #define REGISTER_IO(TYPE) REGISTER_IO_USERTYPE(TYPE, TYPE)
@@ -48,26 +48,26 @@ class IOFactory
 private:
     IOFactory() {}
 
-    unordered_map<string, function<IOBase *(Params &)>> ioFunctionRegistry;
-    unordered_map<string, string> origNameMap;
+    std::unordered_map<std::string, std::function<IOBase *(Params &)>> ioFunctionRegistry;
+    std::unordered_map<std::string, std::string> origNameMap;
 
 public:
 
     void readParams(TiXmlElement *node, Params &p);
 
-    IOBase *CreateIO(string type, Params &params);
+    IOBase *CreateIO(std::string type, Params &params);
     IOBase *CreateIO(TiXmlElement *node);
 
-    void RegisterClass(string type, function<IOBase *(Params &)> classFunc)
+    void RegisterClass(std::string type, std::function<IOBase *(Params &)> classFunc)
     {
-        string orig = type;
+        std::string orig = type;
         std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
         origNameMap[type] = orig;
         ioFunctionRegistry[type] = classFunc;
     }
 
-    void genDoc(string path);
-    void genDocIO(string docPath);
+    void genDoc(std::string path);
+    void genDocIO(std::string docPath);
 
     static IOFactory &Instance()
     {

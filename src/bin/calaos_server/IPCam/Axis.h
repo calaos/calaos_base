@@ -29,7 +29,7 @@ namespace Calaos
 class Axis: public IPCam
 {
 protected:
-    string resolution, quality, camera;
+    std::string resolution, quality, camera;
 
 public:
     Axis(Params &p);

@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemScenarioScheduleTime: public GenlistItemBase
 {
@@ -36,8 +35,8 @@ class GenlistItemScenarioScheduleTime: public GenlistItemBase
         GenlistItemScenarioScheduleTime(Evas *evas, Evas_Object *parent, TimeRange &range, void *data = NULL);
         virtual ~GenlistItemScenarioScheduleTime();
 
-        virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-        virtual string getLabelItem(Evas_Object *obj, string part);
+        virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+        virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
         void buttonClickEdit();
         void buttonClickDelete();

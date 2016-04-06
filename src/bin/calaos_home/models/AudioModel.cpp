@@ -70,7 +70,7 @@ void AudioModel::load(json_t *data)
     load_done.emit();
 }
 
-AudioPlayer *AudioModel::getForId(string id)
+AudioPlayer *AudioModel::getForId(std::string id)
 {
     if (id == "")
         return nullptr;
@@ -108,12 +108,12 @@ void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
     if (!jplayer) return;
 
     //volume
-    string vol = jansson_string_get(jplayer, "volume");
+    std::string vol = jansson_string_get(jplayer, "volume");
     from_string(vol, volume);
     player_volume_changed.emit();
 
     //status
-    string st = jansson_string_get(jplayer, "status");
+    std::string st = jansson_string_get(jplayer, "status");
     if (st == "playing") st = "play";
     params.Add("status", st);
     player_status_changed.emit();
@@ -122,19 +122,19 @@ void AudioPlayer::audio_state_get_cb(json_t *jdata, void *data)
     if (track && json_is_object(track))
     {
         jansson_decode_object(track, current_song_info);
-        string dur = jansson_string_get(track, "duration");
+        std::string dur = jansson_string_get(track, "duration");
         from_string(dur, duration);
         current_song_info.Add("duration", Utils::time2string_digit((long)duration));
         player_track_changed.emit();
     }
 
     //playlist size
-    string pls = jansson_string_get(jplayer, "playlist_size");
+    std::string pls = jansson_string_get(jplayer, "playlist_size");
     from_string(pls, playlist_size);
     player_playlist_changed.emit();
 }
 
-void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
+void AudioPlayer::notifyChange(const std::string &msgtype, const Params &evdata)
 {
     if (evdata["player_id"] != params["id"]) return;
 
@@ -163,7 +163,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
     }
     else if (msgtype == "audio_volume_changed")
     {
-        string v = evdata["volume"];
+        std::string v = evdata["volume"];
 
         if (v[0] == '+')
         {
@@ -194,7 +194,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
                     { "id", params["id"] }};
         connection->sendCommand("audio", p, [=](json_t *jdata, void *)
         {
-            string sz = jansson_string_get(jdata, "playlist_size");
+            std::string sz = jansson_string_get(jdata, "playlist_size");
             if (sz.empty()) return;
 
             int nb_added = playlist_size;
@@ -232,7 +232,7 @@ void AudioPlayer::notifyChange(const string &msgtype, const Params &evdata)
         connection->sendCommand("audio", p, [=](json_t *jdata, void *)
         {
             //playlist size
-            string sz = jansson_string_get(jdata, "playlist_size");
+            std::string sz = jansson_string_get(jdata, "playlist_size");
             if (sz.empty()) return;
             from_string(sz, playlist_size);
             player_playlist_changed.emit();
@@ -250,7 +250,7 @@ void AudioPlayer::setVolume(int _volume)
     if (_volume < 0) _volume = 0;
     if (_volume > 100) _volume = 100;
 
-    string s = "volume " + Utils::to_string(_volume);
+    std::string s = "volume " + Utils::to_string(_volume);
 
     Params p = {{ "id", params["id"] },
                 { "value", s }};
@@ -306,7 +306,7 @@ void AudioPlayer::off()
     connection->sendCommand("set_state", p);
 }
 
-string AudioPlayer::getStatus()
+std::string AudioPlayer::getStatus()
 {
     return params["status"];
 }
@@ -348,7 +348,7 @@ void AudioPlayer::timerChangeTick()
     {
         time_inprocess = false;
 
-        string s = jansson_string_get(jdata, "time_elapsed");
+        std::string s = jansson_string_get(jdata, "time_elapsed");
         if (s.empty()) return;
         from_string(s, elapsed_time);
         params.Add("time", Utils::time2string_digit((long)elapsed_time));
@@ -358,7 +358,7 @@ void AudioPlayer::timerChangeTick()
 
 void AudioPlayer::setTime(double time)
 {
-    string cmd = "time " + Utils::to_string(time);
+    std::string cmd = "time " + Utils::to_string(time);
 
     Params p = {{ "id", params["id"] },
                 { "value", cmd }};
@@ -372,7 +372,7 @@ void AudioPlayer::audio_db_stats_get_cb(json_t *jdata, void *data)
 
 void AudioPlayer::playItem(int item)
 {
-    string cmd = "playlist " + Utils::to_string(item) + " play";
+    std::string cmd = "playlist " + Utils::to_string(item) + " play";
 
     Params p = {{ "id", params["id"] },
                 { "value", cmd }};
@@ -394,7 +394,7 @@ void AudioPlayer::getPlaylistItem(int item, PlayerInfo_cb callback)
 
 void AudioPlayer::removePlaylistItem(int item)
 {
-    string cmd = "playlist " + Utils::to_string(item) + " delete";
+    std::string cmd = "playlist " + Utils::to_string(item) + " delete";
 
     Params p = {{ "id", params["id"] },
                 { "value", cmd }};
@@ -522,7 +522,7 @@ void AudioPlayer::db_default_item_list_get_cb(json_t *jdata, void *data)
 
     size_t idx;
     json_t *value;
-    list<Params> infos;
+    std::list<Params> infos;
 
     json_array_foreach(json_object_get(jdata, "items"), idx, value)
     {
@@ -610,9 +610,9 @@ void AudioPlayer::getDBPlaylistTrackCount(int playlist_id, PlayerInfo_cb callbac
                             data);
 }
 
-void AudioPlayer::playlistDelete(string id)
+void AudioPlayer::playlistDelete(std::string id)
 {
-    string cmd = "database playlist delete playlist_id:" + Utils::to_string(id);
+    std::string cmd = "database playlist delete playlist_id:" + Utils::to_string(id);
 
     Params p = {{ "id", params["id"] },
                 { "value", cmd }};
@@ -626,7 +626,7 @@ void AudioPlayer::db_album_track_count_get_cb(json_t *jdata, void *data)
 
     size_t idx;
     json_t *value;
-    string count = jansson_string_get(jdata, "count");
+    std::string count = jansson_string_get(jdata, "count");
 
     json_array_foreach(json_object_get(jdata, "items"), idx, value)
     {
@@ -673,9 +673,9 @@ void AudioPlayer::getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int 
 {
     if (!item.Exists("cover_url")) return;
 
-    string fname = Utils::getCacheFile(".cover_cache/album_") + item["cover_id"];
+    std::string fname = Utils::getCacheFile(".cover_cache/album_") + item["cover_id"];
 
-    string cmdsize;
+    std::string cmdsize;
     switch (size)
     {
     default:
@@ -700,7 +700,7 @@ void AudioPlayer::getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int 
     data->callback = callback;
     data->item = item;
 
-    string cmd;
+    std::string cmd;
     cmd = Prefix::Instance().binDirectoryGet();
     cmd += "calaos_thumb " + item["cover_url"] + " " + fname + " " + cmdsize;
     data->thumb_exe = ecore_exe_run(cmd.c_str(), data);
@@ -735,14 +735,14 @@ IOBase *AudioPlayer::getAmplifier()
 {
     if (!params.Exists("amp_id")) return NULL;
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["amp_id"]);
+    std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(params["amp_id"]);
     if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         return NULL;
 
     return (*it).second;
 }
 
-string AudioPlayer::getAmplifierStatus(string key)
+std::string AudioPlayer::getAmplifierStatus(std::string key)
 {
     IOBase *amp = getAmplifier();
     if (!amp) return "";
@@ -750,7 +750,7 @@ string AudioPlayer::getAmplifierStatus(string key)
     return amp->params[key];
 }
 
-string AudioPlayer::itemTypeToString(int type)
+std::string AudioPlayer::itemTypeToString(int type)
 {
     switch (type)
     {
@@ -767,7 +767,7 @@ string AudioPlayer::itemTypeToString(int type)
     }
 }
 
-int AudioPlayer::itemStringToType(string type)
+int AudioPlayer::itemStringToType(std::string type)
 {
     if (type == "track_id") return DB_ITEM_TRACK;
     else if (type == "album_id") return DB_ITEM_ALBUM;
@@ -780,9 +780,9 @@ int AudioPlayer::itemStringToType(string type)
     else return DB_ITEM_NONE;
 }
 
-void AudioPlayer::addItem(int type, string id)
+void AudioPlayer::addItem(int type, std::string id)
 {
-    string cmd = "playlist add ";
+    std::string cmd = "playlist add ";
     if (type == DB_ITEM_DIRECTURL)
         cmd += id;
     else
@@ -793,9 +793,9 @@ void AudioPlayer::addItem(int type, string id)
     connection->sendCommand("set_state", p);
 }
 
-void AudioPlayer::playItem(int type, string id)
+void AudioPlayer::playItem(int type, std::string id)
 {
-    string cmd = "playlist play ";
+    std::string cmd = "playlist play ";
     if (type == DB_ITEM_DIRECTURL)
         cmd += id;
     else
@@ -862,7 +862,7 @@ void AudioPlayer::getDBPlaylistItem(int item, PlayerInfo_cb callback)
                             data);
 }
 
-void AudioPlayer::getDBFolder(string folder_id, PlayerInfoList_cb callback)
+void AudioPlayer::getDBFolder(std::string folder_id, PlayerInfoList_cb callback)
 {
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
@@ -877,7 +877,7 @@ void AudioPlayer::getDBFolder(string folder_id, PlayerInfoList_cb callback)
                             data);
 }
 
-void AudioPlayer::getDBSearch(string search, PlayerInfoList_cb callback)
+void AudioPlayer::getDBSearch(std::string search, PlayerInfoList_cb callback)
 {
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
@@ -892,7 +892,7 @@ void AudioPlayer::getDBSearch(string search, PlayerInfoList_cb callback)
                             data);
 }
 
-void AudioPlayer::getDBTrackInfos(string track_id, PlayerInfo_cb callback)
+void AudioPlayer::getDBTrackInfos(std::string track_id, PlayerInfo_cb callback)
 {
     PlayerInfoData *data = new PlayerInfoData();
     data->callback = callback;
@@ -919,7 +919,7 @@ void AudioPlayer::getDBAllRadio(PlayerInfoList_cb callback)
                             data);
 }
 
-void AudioPlayer::getDBRadio(string radio_id, string subitem_id, PlayerInfoList_cb callback)
+void AudioPlayer::getDBRadio(std::string radio_id, std::string subitem_id, PlayerInfoList_cb callback)
 {
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;
@@ -935,7 +935,7 @@ void AudioPlayer::getDBRadio(string radio_id, string subitem_id, PlayerInfoList_
                             data);
 }
 
-void AudioPlayer::getDBRadioSearch(string radio_id, string subitem_id, string search, PlayerInfoList_cb callback)
+void AudioPlayer::getDBRadioSearch(std::string radio_id, std::string subitem_id, std::string search, PlayerInfoList_cb callback)
 {
     PlayerInfoData *data = new PlayerInfoData();
     data->callback_list = callback;

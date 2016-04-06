@@ -32,7 +32,7 @@ GenlistItemWidget::~GenlistItemWidget()
 {
 }
 
-string GenlistItemWidget::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemWidget::getLabelItem(Evas_Object *obj, std::string part)
 {
     if (part == "title")
         return modinfo.mod_name;
@@ -42,7 +42,7 @@ string GenlistItemWidget::getLabelItem(Evas_Object *obj, string part)
     return "";
 }
 
-Evas_Object *GenlistItemWidget::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemWidget::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = nullptr;
 

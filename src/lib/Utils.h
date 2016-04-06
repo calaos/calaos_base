@@ -84,8 +84,6 @@ using Json = nlohmann::json;
 #include <time.h>
 #endif
 
-using namespace efl::eina::log;
-
 #ifdef EAPI
 # undef EAPI
 #endif /* ifdef EAPI */
@@ -123,7 +121,6 @@ using namespace efl::eina::log;
 #endif
 
 //-----------------------------------------------------------------------------
-using namespace std;
 
 #ifndef uint
 typedef unsigned int uint;
@@ -208,51 +205,51 @@ namespace Utils
 {
 void InitEinaLog(const char *default_domain);
 void FreeEinaLogs();
-EinaLog *einaLogger(const char *domain = nullptr);
+efl::eina::log::EinaLog *einaLogger(const char *domain = nullptr);
 
 bool file_copy(std::string source, std::string dest);
 
 bool fileExists(std::string filename);
 
-string url_encode(string str);
-string url_decode(string str);
+std::string url_encode(std::string str);
+std::string url_decode(std::string str);
 std::string url_decode2(std::string str); //decode 2 times
 int htoi(char *s);
-string time2string(long s, long ms = 0);
-string time2string_digit(long s, long ms = 0);
+std::string time2string(long s, long ms = 0);
+std::string time2string_digit(long s, long ms = 0);
 
 /* usefull string utilities */
-void split(const string &str, vector<string> &tokens, const string &delimiters = " ", int max = 0);
-void remove_tag(string &source, const string begin_tag, const string end_tag);
-void replace_str(string &source, const string searchstr, const string replacestr);
+void split(const std::string &str, std::vector<std::string> &tokens, const std::string &delimiters = " ", int max = 0);
+void remove_tag(std::string &source, const std::string begin_tag, const std::string end_tag);
+void replace_str(std::string &source, const std::string searchstr, const std::string replacestr);
 void trim_right(std::string &source, const std::string &t);
 void trim_left(std::string &source, const std::string &t);
-string trim(const string &str);
-string escape_quotes(const string &s);
+std::string trim(const std::string &str);
+std::string escape_quotes(const std::string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };
-bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
-bool strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
+bool strContains(const std::string &str, const std::string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
+bool strStartsWith(const std::string &str, const std::string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 
 // Return a value rounded to precision decimal after the dot
 double roundValue(double value, int precision);
 
 //Parse a result string into an array of Params.
-void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
+void parseParamsItemList(std::string l, std::vector<Params> &res, int start_at = 0);
 
 void initConfigOptions(char *configdir = NULL, char *cachedir = NULL, bool quiet = false);
 
-string getConfigFile(const char *configFile);
-string getCacheFile(const char *cacheFile);
+std::string getConfigFile(const char *configFile);
+std::string getCacheFile(const char *cacheFile);
 
-string get_config_option(string key);
-bool set_config_option(string key, string value);
-bool del_config_option(string key);
+std::string get_config_option(std::string key);
+bool set_config_option(std::string key, std::string value);
+bool del_config_option(std::string key);
 bool get_config_options(Params &options);
 void Watchdog(std::string fname);
-string getHardwareID();
+std::string getHardwareID();
 
-string createRandomUuid();
+std::string createRandomUuid();
 
 //Parse command line options
 bool argvOptionCheck(char **begin, char **end, const std::string &option);
@@ -265,8 +262,8 @@ std::string Base64_decode_data(std::string &str);
 std::string Base64_encode(std::string &str);
 std::string Base64_encode(void *data, int size);
 
-string getFileContent(const char *filename);
-string getFileContentBase64(const char *filename);
+std::string getFileContent(const char *filename);
+std::string getFileContentBase64(const char *filename);
 unsigned int getUptime();
 
 //-----------------------------------------------------------------------------

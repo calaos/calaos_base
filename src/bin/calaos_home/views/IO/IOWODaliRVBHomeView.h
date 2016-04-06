@@ -24,7 +24,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class IOWODaliRVBHomeView: public GenlistItemBase, public IOBaseElement
 {
@@ -42,16 +41,16 @@ private:
     void sliderGreenObjectDeleted();
     void sliderBlueObjectDeleted();
 
-    void sliderSignalCallbackRed(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallbackRed(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderSignalCallbackGreen(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderSignalCallbackBlue(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
 public:
-    IOWODaliRVBHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    IOWODaliRVBHomeView(Evas *evas, Evas_Object *parent, IOBase *io, std::string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
     virtual ~IOWODaliRVBHomeView();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     //Called when the real IO changed
     virtual void initView();

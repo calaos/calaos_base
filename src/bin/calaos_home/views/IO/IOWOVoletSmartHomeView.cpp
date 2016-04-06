@@ -18,8 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "IOWOVoletSmartHomeView.h"
+
 #include <ApplicationMain.h>
+#include "IOWOVoletSmartHomeView.h"
 
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Up)
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Down)
@@ -30,8 +31,8 @@ ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set25)
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set50)
 ITEM_BUTTON_CALLBACK(IOWOVoletSmartHomeView, Set75)
 
-IOWOVoletSmartHomeView::IOWOVoletSmartHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("WOVoletSmart_") + style_addition, _flags),
+IOWOVoletSmartHomeView::IOWOVoletSmartHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("WOVoletSmart_") + style_addition, _flags),
     IOBaseElement(_io),
     window_slider(NULL)
 {
@@ -48,7 +49,7 @@ void IOWOVoletSmartHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWOVoletSmartHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWOVoletSmartHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -136,9 +137,9 @@ Evas_Object *IOWOVoletSmartHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 
@@ -162,7 +163,7 @@ string IOWOVoletSmartHomeView::getLabelItem(Evas_Object *obj, string part)
     }
     else if (part == "shutter.action")
     {
-        string status = io->getStatusVoletSmart();
+        std::string status = io->getStatusVoletSmart();
         if (status == "stop" || status == "")
             text = _("Action: <light_blue>Stopped.</light_blue>");
         else if (status == "down")

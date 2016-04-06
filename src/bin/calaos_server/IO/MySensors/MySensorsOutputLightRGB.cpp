@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputLightRGB)
 
@@ -50,12 +50,12 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId_r = get_param("node_id_red");
-    string sensorId_r = get_param("sensor_id_red");
-    string nodeId_g = get_param("node_id_green");
-    string sensorId_g = get_param("sensor_id_green");
-    string nodeId_b = get_param("node_id_blue");
-    string sensorId_b = get_param("sensor_id_blue");
+    std::string nodeId_r = get_param("node_id_red");
+    std::string sensorId_r = get_param("sensor_id_red");
+    std::string nodeId_g = get_param("node_id_green");
+    std::string sensorId_g = get_param("sensor_id_green");
+    std::string nodeId_b = get_param("node_id_blue");
+    std::string sensorId_b = get_param("sensor_id_blue");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId_r, sensorId_r, [=]() { /*nothing*/ });
     MySensorsController::Instance(get_params()).registerIO(nodeId_g, sensorId_g, [=]() { /*nothing*/ });
@@ -72,12 +72,12 @@ MySensorsOutputLightRGB::~MySensorsOutputLightRGB()
 
 void MySensorsOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
-    string nodeId_r = get_param("node_id_red");
-    string sensorId_r = get_param("sensor_id_red");
-    string nodeId_g = get_param("node_id_green");
-    string sensorId_g = get_param("sensor_id_green");
-    string nodeId_b = get_param("node_id_blue");
-    string sensorId_b = get_param("sensor_id_blue");
+    std::string nodeId_r = get_param("node_id_red");
+    std::string sensorId_r = get_param("sensor_id_red");
+    std::string nodeId_g = get_param("node_id_green");
+    std::string sensorId_g = get_param("sensor_id_green");
+    std::string nodeId_b = get_param("node_id_blue");
+    std::string sensorId_b = get_param("sensor_id_blue");
 
     int dataType = MySensors::V_DIMMER;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -96,3 +96,5 @@ void MySensorsOutputLightRGB::setColorReal(const ColorValue &c, bool s)
     MySensorsController::Instance(get_params()).setValue(nodeId_b, sensorId_b, dataType, Utils::to_string(b));
 }
 
+
+}

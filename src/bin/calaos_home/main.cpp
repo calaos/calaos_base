@@ -29,26 +29,25 @@
 #include "Prefix.h"
 #include "ApplicationMain.h"
 
-using namespace Utils;
 
 static void echoVersion(char **argv)
 {
-    cout << "Calaos Version: \n\t" PACKAGE_STRING << endl;
+    std::cout << "Calaos Version: \n\t" PACKAGE_STRING << std::endl;
 }
 
 static void echoUsage(char **argv)
 {
-    cout << "Calaos Home - http://www.calaos.fr" << endl;
+    std::cout << "Calaos Home - http://www.calaos.fr" << std::endl;
     echoVersion(argv);
-    cout << _("Usage:\n\t") << argv[0] << _(" [options]") << endl;
-    cout << endl << _("\tOptions:\n");
-    cout << _("\t-h, --help\tDisplay this help.\n");
-    cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
-    cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
-    cout << _("\t--theme <file.edj>\tUse the given edje file instead of the default.\n");
-    cout << _("\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n");
-    cout << _("\t-v, --version\tDisplay current version and exit.\n");
-    cout << endl;
+    std::cout << _("Usage:\n\t") << argv[0] << _(" [options]") << std::endl;
+    std::cout << std::endl << _("\tOptions:\n");
+    std::cout << _("\t-h, --help\tDisplay this help.\n");
+    std::cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
+    std::cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
+    std::cout << _("\t--theme <file.edj>\tUse the given edje file instead of the default.\n");
+    std::cout << _("\t--set-elm-config\tForce calaos_home to set the correct elementary config options for touchscreen usage.\n");
+    std::cout << _("\t-v, --version\tDisplay current version and exit.\n");
+    std::cout << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -92,7 +91,7 @@ int main(int argc, char **argv)
     {
         ApplicationMain::Instance(argc, argv).Run(); //Start main app instance
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "An exception occured: " << e.what();
     }

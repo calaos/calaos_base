@@ -174,7 +174,7 @@ Eina_Bool WebSocketClient_con_data(void *data, int type, void *event)
 
     cDebugDom("websocket") << "w->ecoreServer: " << w->ecoreServer;
 
-    string d((char *)ev->data, ev->size);
+    std::string d((char *)ev->data, ev->size);
     if (w->status == WebSocketClient::WSConnecting)
     {
         if (!w->gotNewDataHandshake(d))
@@ -266,7 +266,7 @@ WebSocketClient::~WebSocketClient()
     cDebugDom("websocket") << "deleted WebSocketClient: " << this;
 }
 
-void WebSocketClient::openConnection(string url)
+void WebSocketClient::openConnection(std::string url)
 {
     if (status != WSClosed)
         return;
@@ -308,7 +308,7 @@ void WebSocketClient::openConnection(string url)
     Utils::replace_str(handshakeHeader, "%4", sec_key);
 }
 
-bool WebSocketClient::gotNewDataHandshake(const string &request)
+bool WebSocketClient::gotNewDataHandshake(const std::string &request)
 {
     size_t nparsed;
 
@@ -364,7 +364,7 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
     }
 
     //5. check sec-websocket-key
-    string reqkey = Utils::Base64_decode(request_headers["sec-websocket-accept"]);
+    std::string reqkey = Utils::Base64_decode(request_headers["sec-websocket-accept"]);
     if (reqkey.size() != 20)
     {
         cWarningDom("websocket") << "wrong Sec-Websocket-Accept: " << reqkey.size();
@@ -379,12 +379,12 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
     }
 
     //calculate key
-    string key = sec_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    std::string key = sec_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     CSHA1 sha1;
     sha1.Update((const unsigned char *)key.c_str(), key.length());
     sha1.Final();
 
-    string s;
+    std::string s;
     sha1.ReportHashStl(s);
     uint8_t message_digest[20];
     sha1.GetHash(message_digest);
@@ -393,7 +393,7 @@ bool WebSocketClient::gotNewDataHandshake(const string &request)
     cDebugDom("websocket") << "key : " << key;
     cDebugDom("websocket") << "SHA1 : " << s;
 
-    string encoded_key = Utils::Base64_encode(message_digest, 20);
+    std::string encoded_key = Utils::Base64_encode(message_digest, 20);
     cDebugDom("websocket") << "Sec-Websocket-Accept : " << encoded_key;
 
     if (request_headers["sec-websocket-accept"] != encoded_key)
@@ -423,7 +423,7 @@ void WebSocketClient::reset()
     currentOpcode = 0;
 }
 
-void WebSocketClient::gotNewData(const string &data)
+void WebSocketClient::gotNewData(const std::string &data)
 {
     cDebugDom("websocket") << "Processing frame data " << data.size();
 
@@ -442,7 +442,7 @@ void WebSocketClient::gotNewData(const string &data)
                 if (currentFrame.isContinuationFrame() && !isfragmented)
                 {
                     reset();
-                    string err = "Received a continuation frame but no fragmented start frame";
+                    std::string err = "Received a continuation frame but no fragmented start frame";
                     cWarningDom("websocket") << err;
 
                     //Send close frame and close connection
@@ -451,7 +451,7 @@ void WebSocketClient::gotNewData(const string &data)
                 if (isfragmented && currentFrame.isDataFrame() && !currentFrame.isContinuationFrame())
                 {
                     reset();
-                    string err = "When fragmented, all data frames must have continuation opcode";
+                    std::string err = "When fragmented, all data frames must have continuation opcode";
                     cWarningDom("websocket") << err;
 
                     //Send close frame and close connection
@@ -467,7 +467,7 @@ void WebSocketClient::gotNewData(const string &data)
                 if (currentData.size() + currentFrame.getPayload().size() > MAX_MESSAGE_SIZE_IN_BYTES)
                 {
                     reset();
-                    stringstream err;
+                    std::stringstream err;
                     err << "Message exceeds size of " << MAX_MESSAGE_SIZE_IN_BYTES << " bytes";
                     cWarningDom("websocket") << err.str();
 
@@ -488,7 +488,7 @@ void WebSocketClient::gotNewData(const string &data)
 
                     if (currentData.size() == 0)
                     {
-                        string err = "A frame with 0 length payload is not accepted";
+                        std::string err = "A frame with 0 length payload is not accepted";
                         cWarningDom("websocket") << err;
 
                         ecore_con_server_flush(ecoreServer);
@@ -519,21 +519,21 @@ void WebSocketClient::gotNewData(const string &data)
     }
 }
 
-void WebSocketClient::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
+void WebSocketClient::sendCloseFrame(uint16_t code, const std::string &reason, bool forceClose)
 {
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
 
     cInfoDom("websocket") << "Initiate close: " << code << " - " << reason;
 
-    string payload;
+    std::string payload;
     payload.push_back(static_cast<char>(code >> 8));
     payload.push_back(static_cast<char>(code));
     payload.append(reason);
 
     uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
 
-    string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodeClose,
+    std::string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodeClose,
                                              payload,
                                              true,
                                              maskingKey);
@@ -577,7 +577,7 @@ void WebSocketClient::processControlFrame()
         uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
 
         //Send back a pong frame
-        string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePong,
+        std::string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePong,
                                                  currentFrame.getPayload(),
                                                  true,
                                                  maskingKey);
@@ -594,7 +594,7 @@ void WebSocketClient::processControlFrame()
     {
         //Read close code and close reason from payload
         uint16_t code = 0;
-        string close_reason;
+        std::string close_reason;
         currentFrame.parseCloseCodeReason(code, close_reason);
 
         cInfoDom("websocket") << "Close frame received, code:" << code << " reason: " << close_reason;
@@ -620,31 +620,31 @@ void WebSocketClient::processControlFrame()
     }
 }
 
-void WebSocketClient::sendPing(const string &data)
+void WebSocketClient::sendPing(const std::string &data)
 {
     if (status != WSOpened) return;
     ping_time = ecore_time_get();
 
     uint32_t maskingKey = u_int32_t((double(rand()) / RAND_MAX) * std::numeric_limits<u_int32_t>::max());
 
-    string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
+    std::string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
                                              data,
                                              true,
                                              maskingKey);
     sendToServer(frame);
 }
 
-void WebSocketClient::sendTextMessage(const string &data)
+void WebSocketClient::sendTextMessage(const std::string &data)
 {
     sendFrameData(data, false);
 }
 
-void WebSocketClient::sendBinaryMessage(const string &data)
+void WebSocketClient::sendBinaryMessage(const std::string &data)
 {
     sendFrameData(data, true);
 }
 
-void WebSocketClient::sendFrameData(const string &data, bool isbinary)
+void WebSocketClient::sendFrameData(const std::string &data, bool isbinary)
 {
     if (status != WSOpened)
     {
@@ -674,7 +674,7 @@ void WebSocketClient::sendFrameData(const string &data, bool isbinary)
 
         uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
 
-        string frame;
+        std::string frame;
 
         if (sz > 0)
         {
@@ -693,7 +693,7 @@ void WebSocketClient::sendFrameData(const string &data, bool isbinary)
                                                   isbinary?WebSocketFrame::OpCodeBinary:
                                                            WebSocketFrame::OpCodeText
                                                          :WebSocketFrame::OpCodeContinue,
-                                              string(),
+                                              std::string(),
                                               lastframe,
                                               maskingKey);
             header_size += frame.size();
@@ -762,7 +762,7 @@ void WebSocketClient::CloseConnection()
     }
 }
 
-void WebSocketClient::sendToServer(string res)
+void WebSocketClient::sendToServer(std::string res)
 {
     data_size += res.length();
 

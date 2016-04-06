@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(KNXOutputLight)
 
@@ -37,17 +37,17 @@ KNXOutputLight::KNXOutputLight(Params &p):
     ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
 
     //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
 
-    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &val)
+    KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const std::string group_addr, const KNXValue &val)
     {
         if (group_addr != get_param("knx_group")) return;
         if (val.toBool())
-            set_value(string("set_state true"));
+            set_value(std::string("set_state true"));
         else
-            set_value(string("set_state false"));
+            set_value(std::string("set_state false"));
     });
 
     cInfoDom("input") << "knx_group: " << knx_group;
@@ -61,8 +61,10 @@ bool KNXOutputLight::set_value_real(bool val)
 {
     KNXValue kval = KNXValue::fromInt(val?1:0, 1);
 
-    string knx_group = get_param("knx_group");
+    std::string knx_group = get_param("knx_group");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);
 
     return true;
+}
+
 }

@@ -27,7 +27,6 @@
 #include "ActivityWebView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityWebController: public ActivityController
 {
@@ -35,7 +34,7 @@ private:
     virtual void createView();
 
 public:
-    ActivityWebController(Evas *evas, Evas_Object *parent, string url = "");
+    ActivityWebController(Evas *evas, Evas_Object *parent, std::string url = "");
     ~ActivityWebController();
 };
 

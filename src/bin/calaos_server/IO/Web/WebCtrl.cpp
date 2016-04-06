@@ -26,9 +26,9 @@
 #include <TinyXML/xpath_processor.h>
 
 
-using namespace Calaos;
+namespace Calaos {
 
-unordered_map<string, WebCtrl> WebCtrl::hash;
+std::unordered_map<std::string, WebCtrl> WebCtrl::hash;
 
 WebCtrl::WebCtrl()
 {
@@ -55,11 +55,11 @@ WebCtrl::~WebCtrl()
 
 WebCtrl &WebCtrl::Instance(Params &p)
 {
-    string url = p.get_param("url");
+    std::string url = p.get_param("url");
 
     if (hash.find(url) == hash.end())
     {
-        string str_file_type = p.get_param("file_type");
+        std::string str_file_type = p.get_param("file_type");
         int file_type;
 
         if (str_file_type == "xml" || str_file_type == "XML")
@@ -78,7 +78,7 @@ WebCtrl &WebCtrl::Instance(Params &p)
 }
 
 
-void WebCtrl::Add(string path,
+void WebCtrl::Add(std::string path,
                   double _frequency,
                   std::function<void()> fileDownloaded_cb)
 {
@@ -105,7 +105,7 @@ void WebCtrl::Add(string path,
     launchDownload();
 }
 
-void WebCtrl::Del(string path)
+void WebCtrl::Del(std::string path)
 {
     for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
     {
@@ -116,20 +116,20 @@ void WebCtrl::Del(string path)
 
 void WebCtrl::launchDownload()
 {
-    string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
-    string u = param.get_param("url");
+    std::string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
+    std::string u = param.get_param("url");
 
     if (u.find("http://") == 0)
     {
-        dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
-            string dest =  "/tmp/calaos_" + param.get_param("id");
-            string src = dest + ".part";
+        dlManager->add(param.get_param("url"), filename, [=](std::string emission, std::string source, void* data) {
+            std::string dest =  "/tmp/calaos_" + param.get_param("id");
+            std::string src = dest + ".part";
             ecore_file_mv(src.c_str(), dest.c_str());
             for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
               {
                 fileDownloadedCallbacks[i].second();
               }
-          }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
+          }, [=](std::string url, std::string destination_file, double dl_now, double dl_total, void *data) {
           }, NULL);
     }
     else
@@ -141,14 +141,14 @@ void WebCtrl::launchDownload()
     }
 }
 
-string WebCtrl::getValueJson(string path, string filename)
+std::string WebCtrl::getValueJson(std::string path, std::string filename)
 {
-    string value;
+    std::string value;
     json_t *root = nullptr, *parent = nullptr, *var = nullptr;
     json_error_t err;
 
-    vector<string> tokens;
-    vector<string>::iterator it;
+    std::vector<std::string> tokens;
+    std::vector<std::string>::iterator it;
 
     Utils::split(path, tokens, "/");
 
@@ -161,7 +161,7 @@ string WebCtrl::getValueJson(string path, string filename)
             parent = root;
             for (it = tokens.begin();it != tokens.end();it++)
             {
-                string val = *it;
+                std::string val = *it;
                 // Test if the token is an array index
                 // if it's the case, it must be something like [x]
                 if (val[0] == '[')
@@ -219,11 +219,11 @@ string WebCtrl::getValueJson(string path, string filename)
     return value;
 }
 
-string WebCtrl::getValueXml(string path, string filename)
+std::string WebCtrl::getValueXml(std::string path, std::string filename)
 {
     TiXmlDocument document(filename);
-    string value;
-    string xpath;
+    std::string value;
+    std::string xpath;
 
     if (!document.LoadFile())
     {
@@ -254,15 +254,15 @@ string WebCtrl::getValueXml(string path, string filename)
  * The value returned will be the 4th token of the second line : 20.3
  *
  */
-string WebCtrl::getValueText(string path, string filename)
+std::string WebCtrl::getValueText(std::string path, std::string filename)
 {
-    string value;
-    vector<string> tokens;
-    vector<string> items;
+    std::string value;
+    std::vector<std::string> tokens;
+    std::vector<std::string> items;
     int line_nb;
     unsigned int item_nb;
-    ifstream file(filename);
-    string line;
+    std::ifstream file(filename);
+    std::string line;
     int i;
 
     if (!file.is_open())
@@ -296,10 +296,10 @@ string WebCtrl::getValueText(string path, string filename)
 }
 
 
-double WebCtrl::getValueDouble(string path)
+double WebCtrl::getValueDouble(std::string path)
 {
     double val = 0;
-    string value;
+    std::string value;
 
     value = getValue(path);
     if (Utils::is_of_type<double>(value) && !value.empty())
@@ -307,10 +307,10 @@ double WebCtrl::getValueDouble(string path)
     return val;
 }
 
-string WebCtrl::getValue(string path)
+std::string WebCtrl::getValue(std::string path)
 {
-    string filename;
-    string url =  param.get_param("url");
+    std::string filename;
+    std::string url =  param.get_param("url");
 
     if (url.find("http://") != 0)
     {
@@ -335,22 +335,21 @@ string WebCtrl::getValue(string path)
         return "";
 }
 
-void WebCtrl::setValue(string value)
+void WebCtrl::setValue(std::string value)
 {
-    string url =  param.get_param("url");
-    string data = param.get_param("data");
-    string data_type = param.get_param("data_type");
+    std::string url =  param.get_param("url");
+    std::string data = param.get_param("data");
+    std::string data_type = param.get_param("data_type");
 
     // Case where there is no data to send, we assume the value is in the url
     if (param.get_param("data") == "")
     {
-    string filename;
-
-        replace_str(url, "__##VALUE##__", url_encode(value));
+        std::string filename;
+        Utils::replace_str(url, "__##VALUE##__", Utils::url_encode(value));
     }
     else
     {
-        replace_str(data, "__##VALUE##__", value);
+        Utils::replace_str(data, "__##VALUE##__", value);
     }
 
     FileDownloader *fdownloader = new FileDownloader(url, data, data_type, true);
@@ -364,3 +363,5 @@ void WebCtrl::setValue(string value)
 
 }
 
+
+}

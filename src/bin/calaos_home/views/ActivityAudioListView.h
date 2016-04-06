@@ -28,7 +28,6 @@
 
 #include "ActivityAudioPlayerObject.h"
 
-using namespace Utils;
 
 #define CREATE_GENLIST_HELPER(glist) \
     Evas_Object *glist = elm_genlist_add(parent); \
@@ -42,7 +41,7 @@ using namespace Utils;
 class ActivityAudioListView: public ActivityView
 {
 private:
-    vector<ActivityPlayerObject> players;
+    std::vector<ActivityPlayerObject> players;
     ActivityPlayerObject *player_current;
 
     Evas_Object *gplaylist;
@@ -51,18 +50,18 @@ private:
     EdjeObject *browser_root;
     Elm_Object_Item *it_browser_root;
 
-    vector<EdjeObject *> browser_root_buttons;
+    std::vector<EdjeObject *> browser_root_buttons;
 
     bool in_edit_mode;
 
-    string radio_id;
+    std::string radio_id;
 
     void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
     void playerSelected(ActivityPlayerObject *obj);
 
     void createRootBrowserPage();
-    EdjeObject *createRootButton(string title, string subtitle, string total, int row, int col);
+    EdjeObject *createRootButton(std::string title, std::string subtitle, std::string total, int row, int col);
 
     void browserShowAlbums(void *data, Evas_Object *_edje, std::string emission, std::string source);
     void browserShowArtists(void *data, Evas_Object *_edje, std::string emission, std::string source);
@@ -81,11 +80,11 @@ private:
     void yearSelected(void *data);
     void genreSelected(void *data);
     void playlistSelected(void *data);
-    void folderSelected(void *data, string folder_id);
-    void radioSelected(void *data, string radio_id, string subitem_id);
-    void searchRadioSelected(void *data, string radio_id, string subitem_id);
-    void searchRadioKeyboard_cb(string text, string radio_id, string subitem_id);
-    void searchDBKeyboard_cb(string text);
+    void folderSelected(void *data, std::string folder_id);
+    void radioSelected(void *data, std::string radio_id, std::string subitem_id);
+    void searchRadioSelected(void *data, std::string radio_id, std::string subitem_id);
+    void searchRadioKeyboard_cb(std::string text, std::string radio_id, std::string subitem_id);
+    void searchDBKeyboard_cb(std::string text);
 
     void browserShowAlbumTracks(Params &infos, int album_id, Params album_infos);
     void browserShowArtistAlbum(Params &infos, Params artist_infos);
@@ -93,9 +92,9 @@ private:
     void browserShowGenreArtist(Params &infos, Params genre_infos);
     void browserShowPlaylistTracks(Params &infos, Params pl_infos);
 
-    void loadFolderList(string folder_id);
-    void itemListLoaded(list<Params> &infos);
-    void itemRadioLoaded(list<Params> &infos);
+    void loadFolderList(std::string folder_id);
+    void itemListLoaded(std::list<Params> &infos);
+    void itemRadioLoaded(std::list<Params> &infos);
 
 public:
     ActivityAudioListView(Evas *evas, Evas_Object *parent);
@@ -120,7 +119,7 @@ public:
     void unsetEditMode();
     bool isEditMode() { return in_edit_mode; } // return true if in edit mode
 
-    virtual string getTitle() { return "Musique"; }
+    virtual std::string getTitle() { return "Musique"; }
 
     sigc::signal<void> button_left_click;
     sigc::signal<void> button_right_click;

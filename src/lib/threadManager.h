@@ -25,19 +25,18 @@
 #include <CThread.h>
 #include <IPC.h>
 
-using namespace std;
 
 class ThreadManager
 {
 private:
-    vector<CThread*> threads;
-    sigc::signal<void, string, string, void*, void*> signal;
+    std::vector<CThread*> threads;
+    sigc::signal<void, std::string, std::string, void*, void*> signal;
     sigc::connection conn;
 
 public:
     static ThreadManager& Instance();
     ThreadManager();
-    void deleteThread(string source, string s, void*, void*);
+    void deleteThread(std::string source, std::string s, void*, void*);
     ~ThreadManager();
     void add(CThread *c);
 

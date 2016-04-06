@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputDimmer)
 
@@ -56,4 +56,6 @@ bool MySensorsOutputDimmer::set_value_real(int val)
     MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
 
     return true;
+}
+
 }

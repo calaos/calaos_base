@@ -23,7 +23,7 @@
 #include "MySensors.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputLight)
 
@@ -46,8 +46,8 @@ MySensorsOutputLight::MySensorsOutputLight(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
 
@@ -65,8 +65,8 @@ void MySensorsOutputLight::readValue()
 
 bool MySensorsOutputLight::set_value_real(bool val)
 {
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     int dataType = MySensors::V_LIGHT;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -77,3 +77,5 @@ bool MySensorsOutputLight::set_value_real(bool val)
     return true;
 }
 
+
+}

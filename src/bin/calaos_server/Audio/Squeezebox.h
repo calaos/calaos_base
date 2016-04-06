@@ -30,8 +30,8 @@
 namespace Calaos
 {
 
-typedef sigc::slot<void, bool, string, string, AudioPlayerData> SqueezeRequest_cb;
-typedef sigc::signal<void, bool, string, string, AudioPlayerData> SqueezeRequest_signal;
+typedef sigc::slot<void, bool, std::string, std::string, AudioPlayerData> SqueezeRequest_cb;
+typedef sigc::signal<void, bool, std::string, std::string, AudioPlayerData> SqueezeRequest_signal;
 
 class SqueezeboxCommand
 {
@@ -43,8 +43,8 @@ public:
 
     bool status;
 
-    string request;
-    string result;
+    std::string request;
+    std::string result;
 
     bool inProgress;
     bool noCallback;
@@ -72,72 +72,72 @@ protected:
     EcoreTimer *timer_con;
 
     EcoreTimer *timer_timeout;
-    queue<SqueezeboxCommand> squeeze_commands;
+    std::queue<SqueezeboxCommand> squeeze_commands;
 
-    string host, id;
+    std::string host, id;
     int port_cli, port_web;
 
     bool isConnected;
 
-    string buffer_notif, buffer_main;
+    std::string buffer_notif, buffer_main;
 
     void timerNotificationReconnect();
     void timerConnReconnect();
 
-    void processNotificationMessage(string msg);
+    void processNotificationMessage(std::string msg);
 
     void _sendRequest();
     void requestTimeout_cb();
 
-    void sendRequest(string request);
-    void sendRequest(string request, SqueezeRequest_cb callback, AudioPlayerData user_data);
+    void sendRequest(std::string request);
+    void sendRequest(std::string request, SqueezeRequest_cb callback, AudioPlayerData user_data);
 
-    void get_songinfo_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_songinfo_cb2(bool status, string request, string result, AudioPlayerData data);
+    void get_songinfo_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_songinfo_cb2(bool status, std::string request, std::string result, AudioPlayerData data);
     void get_songinfo_artist_cb(AudioPlayerData data);
     void get_songinfo_album_cb(AudioPlayerData data);
     void get_songinfo_title_cb(AudioPlayerData data);
     void get_songinfo_duration_cb(AudioPlayerData data);
     void get_songinfo_cover_cb(AudioPlayerData data);
 
-    void get_title_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_title2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_title_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_title2_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_artist_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_artist2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_artist_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_artist2_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_album_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_album_cover_json_cb(string result, void *data, void *user_data);
+    void get_album_cover_json_cb(std::string result, void *data, void *user_data);
     void get_album_cover_std(AudioPlayerData data);
-    void get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cover_std_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_album_cover_std2_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_genre_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_current_time_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_duration_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_genre_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_current_time_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_duration_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_sleep_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_status_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_sync_status_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_sleep_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_status_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_sync_status_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_playlist_current_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_size_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_current_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_playlist_size_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_playlist_item_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_item2_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_item3_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_item_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_playlist_item2_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_playlist_item3_cb(bool status, std::string request, std::string result, AudioPlayerData data);
     void get_playlist_item4_cb(AudioPlayerData data);
-    void get_playlist_item5_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_item5_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_playlist_info_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_info_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_playlist_album_cover_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_album_cover2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_album_cover_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_playlist_album_cover2_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
-    void get_album_cover_id_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_volume_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_sync_list_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cover_id_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_volume_cb(bool status, std::string request, std::string result, AudioPlayerData data);
+    void get_sync_list_cb(bool status, std::string request, std::string result, AudioPlayerData data);
 
 public:
     Squeezebox(Params &p);
@@ -150,7 +150,7 @@ public:
     virtual void Previous();
     virtual void Power(bool on);
     virtual void Sleep(int seconds);
-    virtual void Synchronize(string playerid, bool sync);
+    virtual void Synchronize(std::string playerid, bool sync);
     virtual void getSynchronizeList(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData()); //get all players wich we can sync with
 
     virtual void get_volume(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
@@ -185,23 +185,23 @@ public:
     virtual void playlist_movedown(int item);
     virtual void playlist_delete(int item);
     virtual void playlist_play(int item);
-    virtual void playlist_play_artist(string item);
-    virtual void playlist_play_album(string item);
-    virtual void playlist_play_title(string item);
-    virtual void playlist_add_artist(string item);
-    virtual void playlist_add_album(string item);
-    virtual void playlist_add_title(string item);
-    virtual void playlist_add_items(string item);
-    virtual void playlist_play_items(string item);
+    virtual void playlist_play_artist(std::string item);
+    virtual void playlist_play_album(std::string item);
+    virtual void playlist_play_title(std::string item);
+    virtual void playlist_add_artist(std::string item);
+    virtual void playlist_add_album(std::string item);
+    virtual void playlist_add_title(std::string item);
+    virtual void playlist_add_items(std::string item);
+    virtual void playlist_play_items(std::string item);
     virtual void playlist_clear();
-    virtual void playlist_save(string name);
-    virtual void playlist_delete(string id);
+    virtual void playlist_save(std::string name);
+    virtual void playlist_delete(std::string id);
     virtual void get_playlist_current(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
     virtual void get_playlist_size(AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
     virtual void get_playlist_item(int index, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
     virtual void get_playlist_basic_info(int index, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
     virtual void get_playlist_album_cover(int i, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
-    virtual void get_album_cover_id(string track_id, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
+    virtual void get_album_cover_id(std::string track_id, AudioRequest_cb callback, AudioPlayerData user_data = AudioPlayerData());
 
     virtual bool canPlaylist() { return true; }
     virtual bool canDatabase() { return true; }
@@ -224,7 +224,7 @@ public:
     void addConnection(Ecore_Con_Server *srv);
     void delConnection(Ecore_Con_Server *srv);
     void dataGet(Ecore_Con_Server *srv, void *data, int size);
-    void processMessage(bool status, string msg);
+    void processMessage(bool status, std::string msg);
 };
 
 }

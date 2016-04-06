@@ -32,10 +32,10 @@ class AVRDenon: public AVReceiver
 {
 protected:
 
-    int inputFromString(string source);
-    string inputToString(int source);
+    int inputFromString(std::string source);
+    std::string inputToString(int source);
 
-    virtual void processMessage(string msg);
+    virtual void processMessage(std::string msg);
     virtual void connectionEstablished();
 
 public:

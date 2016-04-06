@@ -33,16 +33,16 @@ class InPlageHoraire : public IOBase
 protected:
     bool value;
 
-    vector<TimeRange> plg_monday;
-    vector<TimeRange> plg_tuesday;
-    vector<TimeRange> plg_wednesday;
-    vector<TimeRange> plg_thursday;
-    vector<TimeRange> plg_friday;
-    vector<TimeRange> plg_saturday;
-    vector<TimeRange> plg_sunday;
+    std::vector<TimeRange> plg_monday;
+    std::vector<TimeRange> plg_tuesday;
+    std::vector<TimeRange> plg_wednesday;
+    std::vector<TimeRange> plg_thursday;
+    std::vector<TimeRange> plg_friday;
+    std::vector<TimeRange> plg_saturday;
+    std::vector<TimeRange> plg_sunday;
 
-    void LoadRange(TiXmlElement *node, vector<TimeRange> &plage);
-    void SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage);
+    void LoadRange(TiXmlElement *node, std::vector<TimeRange> &plage);
+    void SaveRange(TiXmlElement *node, std::string day, std::vector<TimeRange> &plage);
 
 public:
     InPlageHoraire(Params &p);
@@ -53,7 +53,7 @@ public:
 
     //Here we store months when plagehoraire is active
     enum { JANUARY = 0, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER };
-    bitset<12> months;
+    std::bitset<12> months;
 
     void AddMonday(TimeRange &horaire) { plg_monday.push_back(horaire); }
     void AddTuesday(TimeRange &horaire) { plg_tuesday.push_back(horaire); }
@@ -63,21 +63,21 @@ public:
     void AddSaturday(TimeRange &horaire) { plg_saturday.push_back(horaire); }
     void AddSunday(TimeRange &horaire) { plg_sunday.push_back(horaire); }
 
-    vector<TimeRange> &getMonday() { return plg_monday; }
-    vector<TimeRange> &getTuesday() { return plg_tuesday; }
-    vector<TimeRange> &getWednesday() { return plg_wednesday; }
-    vector<TimeRange> &getThursday() { return plg_thursday; }
-    vector<TimeRange> &getFriday() { return plg_friday; }
-    vector<TimeRange> &getSaturday() { return plg_saturday; }
-    vector<TimeRange> &getSunday() { return plg_sunday; }
+    std::vector<TimeRange> &getMonday() { return plg_monday; }
+    std::vector<TimeRange> &getTuesday() { return plg_tuesday; }
+    std::vector<TimeRange> &getWednesday() { return plg_wednesday; }
+    std::vector<TimeRange> &getThursday() { return plg_thursday; }
+    std::vector<TimeRange> &getFriday() { return plg_friday; }
+    std::vector<TimeRange> &getSaturday() { return plg_saturday; }
+    std::vector<TimeRange> &getSunday() { return plg_sunday; }
 
-    void setMonday(vector<TimeRange> &h) { plg_monday = h; }
-    void setTuesday(vector<TimeRange> &h) { plg_tuesday = h; }
-    void setWednesday(vector<TimeRange> &h) { plg_wednesday = h; }
-    void setThursday(vector<TimeRange> &h) { plg_thursday = h; }
-    void setFriday(vector<TimeRange> &h) { plg_friday = h; }
-    void setSaturday(vector<TimeRange> &h) { plg_saturday = h; }
-    void setSunday(vector<TimeRange> &h) { plg_sunday = h; }
+    void setMonday(std::vector<TimeRange> &h) { plg_monday = h; }
+    void setTuesday(std::vector<TimeRange> &h) { plg_tuesday = h; }
+    void setWednesday(std::vector<TimeRange> &h) { plg_wednesday = h; }
+    void setThursday(std::vector<TimeRange> &h) { plg_thursday = h; }
+    void setFriday(std::vector<TimeRange> &h) { plg_friday = h; }
+    void setSaturday(std::vector<TimeRange> &h) { plg_saturday = h; }
+    void setSunday(std::vector<TimeRange> &h) { plg_sunday = h; }
 
     void clear();
 

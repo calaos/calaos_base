@@ -27,7 +27,6 @@
 #include "ActivityConfigMenuView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityConfigMenuController: public ActivityController
 {
@@ -38,7 +37,7 @@ public:
     ActivityConfigMenuController(Evas *evas, Evas_Object *parent);
     ~ActivityConfigMenuController();
 
-    sigc::signal<void, string> menu_icon_click;
+    sigc::signal<void, std::string> menu_icon_click;
 };
 
 #endif // ACTIVITYCONFIGMENUCONTROLLER_H

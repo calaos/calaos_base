@@ -49,10 +49,10 @@ public:
 
     ~Prefix();
 
-    string binDirectoryGet();
-    string libDirectoryGet();
-    string dataDirectoryGet();
-    string localeDirectoryGet();
+    std::string binDirectoryGet();
+    std::string libDirectoryGet();
+    std::string dataDirectoryGet();
+    std::string localeDirectoryGet();
 
 private:
     Eina_Prefix *pfx;

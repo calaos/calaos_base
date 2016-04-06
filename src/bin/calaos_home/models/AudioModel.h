@@ -25,12 +25,11 @@
 
 #include "CalaosConnection.h"
 
-using namespace Utils;
 
 typedef sigc::slot<void, Params &> PlayerInfo_cb;
 typedef sigc::signal<void, Params &> PlayerInfo_signal;
-typedef sigc::slot<void, list<Params> &> PlayerInfoList_cb;
-typedef sigc::signal<void, list<Params> &> PlayerInfoList_signal;
+typedef sigc::slot<void, std::list<Params> &> PlayerInfoList_cb;
+typedef sigc::signal<void, std::list<Params> &> PlayerInfoList_signal;
 
 class IOBase;
 
@@ -41,7 +40,7 @@ public:
     PlayerInfoList_cb callback_list;
 
     Params item;
-    string cover_fname;
+    std::string cover_fname;
     Ecore_Exe *thumb_exe;
 };
 
@@ -62,12 +61,12 @@ private:
 
     Params db_stats;
 
-    string itemTypeToString(int type);
-    int itemStringToType(string type);
+    std::string itemTypeToString(int type);
+    int itemStringToType(std::string type);
 
     void timerChangeTick();
 
-    void notifyChange(const string &msgtype, const Params &evdata);
+    void notifyChange(const std::string &msgtype, const Params &evdata);
 
     void audio_state_get_cb(json_t *jdata, void *data);
 
@@ -100,7 +99,7 @@ public:
     double getTimeElapsed() { return elapsed_time; }
     void setTime(double t);
 
-    string getStatus();
+    std::string getStatus();
 
     int getPlaylistSize() { return playlist_size; }
 
@@ -125,20 +124,20 @@ public:
     enum { DB_ITEM_NONE = 0, DB_ITEM_TRACK, DB_ITEM_ALBUM, DB_ITEM_ARTIST,
            DB_ITEM_GENRE, DB_ITEM_YEAR, DB_ITEM_PLAYLIST, DB_ITEM_FOLDER,
            DB_ITEM_RADIO, DB_ITEM_DIRECTURL };
-    void playItem(int type, string id);
-    void addItem(int type, string id);
+    void playItem(int type, std::string id);
+    void addItem(int type, std::string id);
 
     bool hasCover();
     void getCurrentCover(PlayerInfo_cb callback);
 
     //Amplifier
     IOBase *getAmplifier();
-    string getAmplifierStatus(string key);
+    std::string getAmplifierStatus(std::string key);
 
     //Database queries
     Params &getDBStats();
 
-    void playlistDelete(string id);
+    void playlistDelete(std::string id);
 
     void getDBAlbumItem(int item, PlayerInfo_cb callback);
     void getDBArtistItem(int item, PlayerInfo_cb callback);
@@ -158,12 +157,12 @@ public:
     void getDBArtistGenreItem(int item, int genre_id, PlayerInfo_cb callback);
     void getDBPlaylistTrackItem(int playlist_id, int item, PlayerInfo_cb callback);
 
-    void getDBFolder(string folder_id, PlayerInfoList_cb callback);
-    void getDBTrackInfos(string track_id, PlayerInfo_cb callback);
+    void getDBFolder(std::string folder_id, PlayerInfoList_cb callback);
+    void getDBTrackInfos(std::string track_id, PlayerInfo_cb callback);
     void getDBAllRadio(PlayerInfoList_cb callback);
-    void getDBRadio(string radio_id, string subitem_id, PlayerInfoList_cb callback);
-    void getDBRadioSearch(string radio_id, string subitem_id, string search, PlayerInfoList_cb callback);
-    void getDBSearch(string search, PlayerInfoList_cb callback);
+    void getDBRadio(std::string radio_id, std::string subitem_id, PlayerInfoList_cb callback);
+    void getDBRadioSearch(std::string radio_id, std::string subitem_id, std::string search, PlayerInfoList_cb callback);
+    void getDBSearch(std::string search, PlayerInfoList_cb callback);
 
     enum { AUDIO_COVER_SIZE_NONE = 0, AUDIO_COVER_SIZE_SMALL, AUDIO_COVER_SIZE_MEDIUM, AUDIO_COVER_SIZE_BIG };
     void getDBAlbumCoverItem(Params &item, PlayerInfo_cb callback, int size = AUDIO_COVER_SIZE_NONE);
@@ -196,9 +195,9 @@ public:
 
     void load(json_t *data);
 
-    AudioPlayer *getForId(string id);
+    AudioPlayer *getForId(std::string id);
 
-    list<AudioPlayer *> players;
+    std::list<AudioPlayer *> players;
 
     sigc::signal<void> load_done;
 

@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "AVRMarantz.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 AVRMarantz::AVRMarantz(Params &p):
     AVReceiver(p, 23)
@@ -76,7 +76,7 @@ void AVRMarantz::connectionEstablished()
     sendRequest("MV?");
 }
 
-void AVRMarantz::processMessage(string msg)
+void AVRMarantz::processMessage(std::string msg)
 {
     cDebugDom("output") << "Recv: " << msg;
 
@@ -194,7 +194,7 @@ void AVRMarantz::Power(bool on, int zone)
         sendRequest("Z3OFF");
 }
 
-int AVRMarantz::inputFromString(string source)
+int AVRMarantz::inputFromString(std::string source)
 {
     if (source == "PHONO") return AVReceiver::AVR_INPUT_PHONO;
     if (source == "CD") return AVReceiver::AVR_INPUT_CD;
@@ -225,7 +225,7 @@ int AVRMarantz::inputFromString(string source)
     return AVReceiver::AVR_UNKNOWN;
 }
 
-string AVRMarantz::inputToString(int source)
+std::string AVRMarantz::inputToString(int source)
 {
     switch (source)
     {
@@ -264,7 +264,7 @@ void AVRMarantz::setVolume(int volume, int zone)
 {
     int v = volume * 99 / 100;
     v = 99 - v;
-    stringstream ss;
+    std::stringstream ss;
     ss.width(2);
     ss.fill('0');
 
@@ -278,14 +278,16 @@ void AVRMarantz::setVolume(int volume, int zone)
 
 void AVRMarantz::selectInputSource(int source, int zone)
 {
-    string s = inputToString(source);
+    std::string s = inputToString(source);
     if (s == "") return;
 
-    string cmd;
+    std::string cmd;
     if (zone == 1) cmd = "SI" + s;
     else if (zone == 2) cmd = "Z2" + s;
     else if (zone == 3) cmd = "Z3" + s;
     else return;
 
     sendRequest(cmd);
+}
+
 }

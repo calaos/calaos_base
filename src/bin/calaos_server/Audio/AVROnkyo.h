@@ -33,13 +33,13 @@ class AVROnkyo: public AVReceiver
 protected:
 
     //buffer to store received data
-    vector<char> brecv_buffer;
+    std::vector<char> brecv_buffer;
 
-    int inputFromString(string source);
-    string inputToString(int source);
+    int inputFromString(std::string source);
+    std::string inputToString(int source);
 
-    virtual void processMessage(vector<char> msg);
-    virtual void processMessage(string msg);
+    virtual void processMessage(std::vector<char> msg);
+    virtual void processMessage(std::string msg);
     virtual void connectionEstablished();
 
 public:
@@ -51,7 +51,7 @@ public:
     virtual void selectInputSource(int source, int zone = 1);
     virtual bool hasDisplay() { return false; }
 
-    virtual void sendCustomCommand(string command);
+    virtual void sendCustomCommand(std::string command);
 };
 
 }

@@ -293,7 +293,7 @@ int TCPSocket::Recv(void *Buffer, int nLength, bool block)
     return Bytes_Recv;
 }
 
-bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
+bool TCPSocket::Recv(std::string & Message, int timeout, int fdpipe)
 {
     char buf[4096];
     int ret;
@@ -573,9 +573,9 @@ std::string TCPSocket::GetLocalIP(std::string intf)
 }
 
 #define SYSCLASSNET     "/sys/class/net"
-vector<string> TCPSocket::getAllInterfaces()
+std::vector<std::string> TCPSocket::getAllInterfaces()
 {
-    vector<string> ret;
+    std::vector<std::string> ret;
     Eina_Iterator *it = eina_file_ls(SYSCLASSNET);
 
     const char *f_name;
@@ -591,7 +591,7 @@ vector<string> TCPSocket::getAllInterfaces()
 
 std::string TCPSocket::GetLocalIPFor(std::string ip_search)
 {
-    string ip;
+    std::string ip;
 
     //check if the string is a correct ip address
     struct sockaddr_in sa;
@@ -600,7 +600,7 @@ std::string TCPSocket::GetLocalIPFor(std::string ip_search)
     {
         cWarningDom("network") << ip_search << " is not a valid ip address";
         //Get the first interface ip address
-        vector<string> intf = TCPSocket::getAllInterfaces();
+        std::vector<std::string> intf = TCPSocket::getAllInterfaces();
         if (intf.size() > 0)
         {
             ip = TCPSocket::GetLocalIP(intf[0]);

@@ -21,7 +21,7 @@
 #include "ConditionScript.h"
 #include "ListeRoom.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 ConditionScript::ConditionScript():
     Condition(COND_SCRIPT)
@@ -64,7 +64,7 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
     {
         if (sc_node->ValueStr() == "calaos:script")
         {
-            string type = "";
+            std::string type = "";
             if (sc_node->Attribute("type"))
                 type = sc_node->Attribute("type");
             if (type == "lua")
@@ -78,7 +78,7 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
         else if (sc_node->ValueStr() == "calaos:input" &&
                  sc_node->Attribute("id"))
         {
-            string id = sc_node->Attribute("id");
+            std::string id = sc_node->Attribute("id");
             IOBase *in = ListeRoom::Instance().get_io(id);
             if (in)
                 in_event[in] = in;
@@ -111,4 +111,6 @@ bool ConditionScript::SaveToXml(TiXmlElement *node)
     sc_node->LinkEndChild(txt_node);
 
     return true;
+}
+
 }

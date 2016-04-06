@@ -22,7 +22,7 @@
 #include "ListeRule.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(InputTimer)
 
@@ -65,7 +65,7 @@ InputTimer::~InputTimer()
     cDebugDom("input");
 }
 
-bool InputTimer::set_value(string command)
+bool InputTimer::set_value(std::string command)
 {
     if (!isEnabled()) return true;
 
@@ -88,8 +88,8 @@ bool InputTimer::set_value(string command)
     else
     {
         //set the time
-        vector<string> valSplit;
-        vector<string>::reverse_iterator it;
+        std::vector<std::string> valSplit;
+        std::vector<std::string>::reverse_iterator it;
         split(command, valSplit, ":");
         int i = 0;
 
@@ -185,5 +185,7 @@ void InputTimer::TimerDone()
 
 void InputTimer::hasChanged()
 {
+
+}
 
 }

@@ -18,14 +18,15 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "IOInternalIntHomeView.h"
+
 #include <ApplicationMain.h>
+#include "IOInternalIntHomeView.h"
 
 ITEM_BUTTON_CALLBACK(IOInternalIntHomeView, More)
 ITEM_BUTTON_CALLBACK(IOInternalIntHomeView, Less)
 
-IOInternalIntHomeView::IOInternalIntHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("InternalInt_") + style_addition + ((_io->params["rw"] == "true")?"/rw":""), _flags),
+IOInternalIntHomeView::IOInternalIntHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("InternalInt_") + style_addition + ((_io->params["rw"] == "true")?"/rw":""), _flags),
     IOBaseElement(_io)
 {
 }
@@ -41,7 +42,7 @@ void IOInternalIntHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOInternalIntHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOInternalIntHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -71,9 +72,9 @@ Evas_Object *IOInternalIntHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOInternalIntHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOInternalIntHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 

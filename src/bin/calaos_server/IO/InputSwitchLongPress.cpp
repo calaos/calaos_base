@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "InputSwitchLongPress.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 InputSwitchLongPress::InputSwitchLongPress(Params &p):
     IOBase(p, IOBase::IO_INPUT),
@@ -98,4 +98,6 @@ bool InputSwitchLongPress::set_value(double v)
     emitChange();
 
     return true;
+}
+
 }

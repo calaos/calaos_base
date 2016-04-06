@@ -21,7 +21,7 @@
 #include "SqueezeboxDB.h"
 #include "Squeezebox.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 SqueezeboxDB::SqueezeboxDB(Squeezebox *squeezebox, Params &p):
     AudioDB(p),
@@ -37,7 +37,7 @@ SqueezeboxDB::~SqueezeboxDB()
 
 void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb) + " tags:lyja";
+    std::string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb) + " tags:lyja";
 
     AudioPlayerData data;
     data.callback = callback;
@@ -45,10 +45,10 @@ void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPl
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getAlbums_cb), data);
 }
-void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getAlbums_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -57,8 +57,8 @@ void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPl
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -79,7 +79,7 @@ void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPl
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -92,9 +92,9 @@ void SqueezeboxDB::getAlbums_cb(bool status, string request, string res, AudioPl
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getAlbumsTitles(AudioRequest_cb callback, int from, int nb, string album_id, AudioPlayerData user_data)
+void SqueezeboxDB::getAlbumsTitles(AudioRequest_cb callback, int from, int nb, std::string album_id, AudioPlayerData user_data)
 {
-    string cmd = "titles " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "titles " + Utils::to_string(from) + " " + Utils::to_string(nb);
     cmd += " album_id:" + album_id + " sort:tracknum tags:galdyorJilkmqtTvf";
 
     AudioPlayerData data;
@@ -103,10 +103,10 @@ void SqueezeboxDB::getAlbumsTitles(AudioRequest_cb callback, int from, int nb, s
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getAlbumsTitles_cb), data);
 }
-void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getAlbumsTitles_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -115,8 +115,8 @@ void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, A
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -139,7 +139,7 @@ void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, A
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -162,7 +162,7 @@ void SqueezeboxDB::getAlbumsTitles_cb(bool status, string request, string res, A
 
 void SqueezeboxDB::getArtists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
     AudioPlayerData data;
     data.callback = callback;
@@ -170,10 +170,10 @@ void SqueezeboxDB::getArtists(AudioRequest_cb callback, int from, int nb, AudioP
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getArtists_cb), data);
 }
-void SqueezeboxDB::getArtists_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getArtists_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -182,8 +182,8 @@ void SqueezeboxDB::getArtists_cb(bool status, string request, string res, AudioP
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -208,9 +208,9 @@ void SqueezeboxDB::getArtists_cb(bool status, string request, string res, AudioP
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getArtistsAlbums(AudioRequest_cb callback, int from, int nb, string artist_id, AudioPlayerData user_data)
+void SqueezeboxDB::getArtistsAlbums(AudioRequest_cb callback, int from, int nb, std::string artist_id, AudioPlayerData user_data)
 {
-    string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
     cmd += " artist_id:" + artist_id + " tags:lyja";
 
     AudioPlayerData data;
@@ -219,10 +219,10 @@ void SqueezeboxDB::getArtistsAlbums(AudioRequest_cb callback, int from, int nb, 
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getArtistsAlbums_cb), data);
 }
-void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getArtistsAlbums_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -231,8 +231,8 @@ void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, 
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -253,7 +253,7 @@ void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, 
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -268,7 +268,7 @@ void SqueezeboxDB::getArtistsAlbums_cb(bool status, string request, string res, 
 
 void SqueezeboxDB::getGenres(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "genres " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "genres " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
     AudioPlayerData data;
     data.callback = callback;
@@ -276,10 +276,10 @@ void SqueezeboxDB::getGenres(AudioRequest_cb callback, int from, int nb, AudioPl
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getGenres_cb), data);
 }
-void SqueezeboxDB::getGenres_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getGenres_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -288,8 +288,8 @@ void SqueezeboxDB::getGenres_cb(bool status, string request, string res, AudioPl
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -314,9 +314,9 @@ void SqueezeboxDB::getGenres_cb(bool status, string request, string res, AudioPl
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getGenresArtists(AudioRequest_cb callback, int from, int nb, string genre_id, AudioPlayerData user_data)
+void SqueezeboxDB::getGenresArtists(AudioRequest_cb callback, int from, int nb, std::string genre_id, AudioPlayerData user_data)
 {
-    string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb) + " genre_id:" + genre_id;
+    std::string cmd = "artists " + Utils::to_string(from) + " " + Utils::to_string(nb) + " genre_id:" + genre_id;
 
     AudioPlayerData data;
     data.callback = callback;
@@ -324,10 +324,10 @@ void SqueezeboxDB::getGenresArtists(AudioRequest_cb callback, int from, int nb, 
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getGenresArtists_cb), data);
 }
-void SqueezeboxDB::getGenresArtists_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getGenresArtists_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -336,8 +336,8 @@ void SqueezeboxDB::getGenresArtists_cb(bool status, string request, string res, 
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -364,7 +364,7 @@ void SqueezeboxDB::getGenresArtists_cb(bool status, string request, string res, 
 
 void SqueezeboxDB::getYears(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "years " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "years " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
     AudioPlayerData data;
     data.callback = callback;
@@ -372,10 +372,10 @@ void SqueezeboxDB::getYears(AudioRequest_cb callback, int from, int nb, AudioPla
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getYears_cb), data);
 }
-void SqueezeboxDB::getYears_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getYears_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -384,8 +384,8 @@ void SqueezeboxDB::getYears_cb(bool status, string request, string res, AudioPla
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -408,9 +408,9 @@ void SqueezeboxDB::getYears_cb(bool status, string request, string res, AudioPla
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getYearsAlbums(AudioRequest_cb callback, int from, int nb, string year, AudioPlayerData user_data)
+void SqueezeboxDB::getYearsAlbums(AudioRequest_cb callback, int from, int nb, std::string year, AudioPlayerData user_data)
 {
-    string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "albums " + Utils::to_string(from) + " " + Utils::to_string(nb);
     cmd += " year:" + year + " tags:lyja";
 
     AudioPlayerData data;
@@ -419,10 +419,10 @@ void SqueezeboxDB::getYearsAlbums(AudioRequest_cb callback, int from, int nb, st
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getYearsAlbums_cb), data);
 }
-void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getYearsAlbums_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -431,8 +431,8 @@ void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, Au
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -453,7 +453,7 @@ void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, Au
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -468,7 +468,7 @@ void SqueezeboxDB::getYearsAlbums_cb(bool status, string request, string res, Au
 
 void SqueezeboxDB::getPlaylists(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "playlists " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "playlists " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
     AudioPlayerData data;
     data.callback = callback;
@@ -476,10 +476,10 @@ void SqueezeboxDB::getPlaylists(AudioRequest_cb callback, int from, int nb, Audi
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getPlaylists_cb), data);
 }
-void SqueezeboxDB::getPlaylists_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getPlaylists_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -488,8 +488,8 @@ void SqueezeboxDB::getPlaylists_cb(bool status, string request, string res, Audi
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -514,13 +514,13 @@ void SqueezeboxDB::getPlaylists_cb(bool status, string request, string res, Audi
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, string playlist_id, AudioPlayerData user_data)
+void SqueezeboxDB::getPlaylistsTracks(AudioRequest_cb callback, int from, int nb, std::string playlist_id, AudioPlayerData user_data)
 {
     /* We need to add the current player for gettting playlist tracks
            This is a bug in the squeezebox server
            http://bugs.slimdevices.com/show_bug.cgi?id=16454
          */
-    string cmd = player->id;
+    std::string cmd = player->id;
     cmd += " playlists tracks " + Utils::to_string(from) + " " + Utils::to_string(nb);
     cmd += " playlist_id:" + playlist_id + " tags:galdyorJxuilkmqtTvf";
 
@@ -530,10 +530,10 @@ void SqueezeboxDB::getPlaylistsTracks(AudioRequest_cb callback, int from, int nb
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getPlaylistsTracks_cb), data);
 }
-void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getPlaylistsTracks_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -542,8 +542,8 @@ void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -567,7 +567,7 @@ void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -592,7 +592,7 @@ void SqueezeboxDB::getPlaylistsTracks_cb(bool status, string request, string res
 
 void SqueezeboxDB::getRadios(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    string cmd = "radios";
+    std::string cmd = "radios";
     cmd += " " + Utils::to_string(from) + " " + Utils::to_string(nb);
 
     AudioPlayerData data;
@@ -605,10 +605,10 @@ void SqueezeboxDB::getRadios(AudioRequest_cb callback, int from, int nb, AudioPl
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getRadios_cb), data);
 }
 
-void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getRadios_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -616,8 +616,8 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
     Params item;
     for (uint i = 3;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
         split(tmp, tk, ":", 2);
 
         if (tk.size() != 2) continue;
@@ -626,7 +626,7 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
         {
             if (item.Exists("icon"))
             {
-                stringstream aurl;
+                std::stringstream aurl;
                 aurl << "http://" << player->host << ":" << player->port_web << "/" << item["icon"];
                 item.Add("icon", aurl.str());
             }
@@ -645,7 +645,7 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
     {
         if (item.Exists("icon"))
         {
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/" << item["icon"];
             item.Add("icon", aurl.str());
         }
@@ -670,16 +670,16 @@ void SqueezeboxDB::getRadios_cb(bool status, string request, string res, AudioPl
     }
     else
     {
-        string cmd = data.svalue;
+        std::string cmd = data.svalue;
         cmd += " " + Utils::to_string(data.ivalue) + " " + Utils::to_string(data.dvalue);
 
         player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getRadios_cb), data);
     }
 }
 
-void SqueezeboxDB::getRadiosItems(AudioRequest_cb callback, int from, int nb, string radio, string item_id, string search, AudioPlayerData user_data)
+void SqueezeboxDB::getRadiosItems(AudioRequest_cb callback, int from, int nb, std::string radio, std::string item_id, std::string search, AudioPlayerData user_data)
 {
-    string cmd = radio + " items " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = radio + " items " + Utils::to_string(from) + " " + Utils::to_string(nb);
     if (item_id != "") cmd += " item_id:" + item_id;
     if (search != "") cmd += " search:" + search;
 
@@ -689,10 +689,10 @@ void SqueezeboxDB::getRadiosItems(AudioRequest_cb callback, int from, int nb, st
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getRadiosItems_cb), data);
 }
-void SqueezeboxDB::getRadiosItems_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getRadiosItems_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -701,8 +701,8 @@ void SqueezeboxDB::getRadiosItems_cb(bool status, string request, string res, Au
     int cpt = 0;
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -724,7 +724,7 @@ void SqueezeboxDB::getRadiosItems_cb(bool status, string request, string res, Au
         if (tk[0] == "type") item.Add("type", url_decode2(tk[1]));
         if (tk[0] == "icon") //Menu icons
         {
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << param["host"] << ":9000" << url_decode2(tk[1]);
 
             item.Add("coverart", "1");
@@ -749,7 +749,7 @@ void SqueezeboxDB::getRadiosItems_cb(bool status, string request, string res, Au
 
 void SqueezeboxDB::getRandoms(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)
 {
-    vector<Params> &result = user_data.vparams;
+    std::vector<Params> &result = user_data.vparams;
     Params p;
 
     p.Add("id", "tracks");
@@ -781,9 +781,9 @@ void SqueezeboxDB::getRandoms(AudioRequest_cb callback, int from, int nb, AudioP
     sig.emit(user_data);
 }
 
-void SqueezeboxDB::setRandomsType(string type)
+void SqueezeboxDB::setRandomsType(std::string type)
 {
-    string cmd, res;
+    std::string cmd, res;
     cmd = param["id"] + " randomplay " + Utils::to_string(type);
 
     player->sendRequest(cmd);
@@ -792,7 +792,7 @@ void SqueezeboxDB::setRandomsType(string type)
 void SqueezeboxDB::getStats(AudioRequest_cb callback, AudioPlayerData user_data)
 {
     //Get total genres
-    string cmd = "info total genres ?";
+    std::string cmd = "info total genres ?";
 
     AudioPlayerData data;
     data.callback = callback;
@@ -800,9 +800,9 @@ void SqueezeboxDB::getStats(AudioRequest_cb callback, AudioPlayerData user_data)
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_genre_cb), data);
 }
-void SqueezeboxDB::getStats_genre_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_genre_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -811,13 +811,13 @@ void SqueezeboxDB::getStats_genre_cb(bool status, string request, string res, Au
         data.get_chain_data().params.Add("genres", tokens[3]);
 
     //Get total artists
-    string cmd = "info total artists ?";
+    std::string cmd = "info total artists ?";
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_artist_cb), data);
 }
-void SqueezeboxDB::getStats_artist_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_artist_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -826,13 +826,13 @@ void SqueezeboxDB::getStats_artist_cb(bool status, string request, string res, A
         data.get_chain_data().params.Add("artists", tokens[3]);
 
     //Get total album
-    string cmd = "info total albums ?";
+    std::string cmd = "info total albums ?";
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_album_cb), data);
 }
-void SqueezeboxDB::getStats_album_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_album_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -841,13 +841,13 @@ void SqueezeboxDB::getStats_album_cb(bool status, string request, string res, Au
         data.get_chain_data().params.Add("albums", tokens[3]);
 
     //Get total tracks
-    string cmd = "info total songs ?";
+    std::string cmd = "info total songs ?";
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_song_cb), data);
 }
-void SqueezeboxDB::getStats_song_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_song_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -856,40 +856,40 @@ void SqueezeboxDB::getStats_song_cb(bool status, string request, string res, Aud
         data.get_chain_data().params.Add("tracks", tokens[3]);
 
     //Get total playlists
-    string cmd = "playlists 0 0";
+    std::string cmd = "playlists 0 0";
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_playlist_cb), data);
 }
-void SqueezeboxDB::getStats_playlist_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_playlist_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
     if (tokens.size() == 4)
     {
-        vector<string> tk;
+        std::vector<std::string> tk;
         split(tokens[3], tk, ":");
         if (tk.size() == 2)
             data.get_chain_data().params.Add("playlists", tk[1]);
     }
 
     //Get total years
-    string cmd = "years 0 0";
+    std::string cmd = "years 0 0";
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getStats_year_cb), data);
 }
-void SqueezeboxDB::getStats_year_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getStats_year_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
     if (tokens.size() == 4)
     {
-        vector<string> tk;
+        std::vector<std::string> tk;
         split(tokens[3], tk, ":");
         if (tk.size() == 2)
             data.get_chain_data().params.Add("years", tk[1]);
@@ -900,9 +900,9 @@ void SqueezeboxDB::getStats_year_cb(bool status, string request, string res, Aud
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getSearch(AudioRequest_cb callback, int from, int nb, string search, AudioPlayerData user_data)
+void SqueezeboxDB::getSearch(AudioRequest_cb callback, int from, int nb, std::string search, AudioPlayerData user_data)
 {
-    string cmd = "search " + Utils::to_string(from) + " " + Utils::to_string(nb) + " term:" + url_encode(search);
+    std::string cmd = "search " + Utils::to_string(from) + " " + Utils::to_string(nb) + " term:" + url_encode(search);
 
     AudioPlayerData data;
     data.callback = callback;
@@ -910,7 +910,7 @@ void SqueezeboxDB::getSearch(AudioRequest_cb callback, int from, int nb, string 
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getSearch_cb), data);
 }
-void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getSearch_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
     if (res != "")
     {
@@ -919,8 +919,8 @@ void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPl
         data.dvalue = 0.0;
     }
 
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(data.svalue, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -929,8 +929,8 @@ void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPl
     int cpt = (int)data.dvalue;
     for (uint i = data.ivalue;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -966,9 +966,9 @@ void SqueezeboxDB::getSearch_cb(bool status, string request, string res, AudioPl
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getMusicFolder(AudioRequest_cb callback, int from, int nb, string folder_id, AudioPlayerData user_data)
+void SqueezeboxDB::getMusicFolder(AudioRequest_cb callback, int from, int nb, std::string folder_id, AudioPlayerData user_data)
 {
-    string cmd = "musicfolder " + Utils::to_string(from) + " " + Utils::to_string(nb);
+    std::string cmd = "musicfolder " + Utils::to_string(from) + " " + Utils::to_string(nb);
     if (folder_id != "") cmd += " folder_id:" + folder_id;
 
     AudioPlayerData data;
@@ -977,7 +977,7 @@ void SqueezeboxDB::getMusicFolder(AudioRequest_cb callback, int from, int nb, st
 
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getMusicFolder_cb), data);
 }
-void SqueezeboxDB::getMusicFolder_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getMusicFolder_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
     if (res != "")
     {
@@ -986,8 +986,8 @@ void SqueezeboxDB::getMusicFolder_cb(bool status, string request, string res, Au
         data.dvalue = 0.0;
     }
 
-    vector<Params> &result = data.get_chain_data().vparams;
-    vector<string> tokens;
+    std::vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<std::string> tokens;
     split(data.svalue, tokens);
 
     for_each(tokens.begin(), tokens.end(), UrlDecode());
@@ -996,8 +996,8 @@ void SqueezeboxDB::getMusicFolder_cb(bool status, string request, string res, Au
     int cpt = (int)data.dvalue;
     for (uint i = data.ivalue;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
 
         split(tmp, tk, ":", 2);
 
@@ -1023,9 +1023,9 @@ void SqueezeboxDB::getMusicFolder_cb(bool status, string request, string res, Au
     sig.emit(data.get_chain_data());
 }
 
-void SqueezeboxDB::getTrackInfos(AudioRequest_cb callback, string track_id, AudioPlayerData user_data)
+void SqueezeboxDB::getTrackInfos(AudioRequest_cb callback, std::string track_id, AudioPlayerData user_data)
 {
-    string cmd = "songinfo 0 99999 tags:galdyorJilkmqtTvf track_id:" + track_id;
+    std::string cmd = "songinfo 0 99999 tags:galdyorJilkmqtTvf track_id:" + track_id;
 
     AudioPlayerData data;
     data.callback = callback;
@@ -1034,7 +1034,7 @@ void SqueezeboxDB::getTrackInfos(AudioRequest_cb callback, string track_id, Audi
     player->sendRequest(cmd, sigc::mem_fun(*this, &SqueezeboxDB::getTrackInfos_cb), data);
 }
 
-void SqueezeboxDB::getTrackInfos_cb(bool status, string request, string res, AudioPlayerData data)
+void SqueezeboxDB::getTrackInfos_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
     Params p;
     p.Parse(res);
@@ -1043,8 +1043,8 @@ void SqueezeboxDB::getTrackInfos_cb(bool status, string request, string res, Aud
 
     for (int i = 4;i < p.size();i++)
     {
-        string value = p[Utils::to_string(i)];
-        vector<string> tk;
+        std::string value = p[Utils::to_string(i)];
+        std::vector<std::string> tk;
         Utils::split(Utils::url_decode2(value), tk, ":", 2);
 
         if (tk.size() != 2)
@@ -1057,7 +1057,7 @@ void SqueezeboxDB::getTrackInfos_cb(bool status, string request, string res, Aud
         if (tk[0] == "artwork_track_id")
         {
             item.Add("cover_id", url_decode2(tk[1]));
-            stringstream aurl;
+            std::stringstream aurl;
             aurl << "http://" << player->host << ":" << player->port_web << "/music/" << item["cover_id"] << "/cover.jpg";
             item.Add("cover_url", aurl.str());
         }
@@ -1074,4 +1074,6 @@ void SqueezeboxDB::getTrackInfos_cb(bool status, string request, string res, Aud
     AudioRequest_signal sig;
     sig.connect(data.callback);
     sig.emit(data.get_chain_data());
+}
+
 }

@@ -26,7 +26,6 @@
 #include <GenlistItemBase.h>
 #include "ScenarioModel.h"
 
-using namespace Utils;
 
 class GenlistItemSimple;
 class GenlistItemScenarioSchedule: public GenlistItemBase, public IOBaseElement
@@ -66,8 +65,8 @@ public:
         scDate = sdate;
     }
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickMore();
 

@@ -21,8 +21,8 @@
 #include "ExternProc.h"
 #include "LuaScript/ScriptManager.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 class ScriptProcess: public ExternProcClient
 {
 public:
@@ -35,14 +35,14 @@ public:
 
 protected:
 
-    map<string, string> waitIds;
+    std::map<std::string, std::string> waitIds;
 
     //needs to be reimplemented
     virtual void readTimeout() {}
-    virtual void messageReceived(const string &msg);
+    virtual void messageReceived(const std::string &msg);
 };
 
-void ScriptProcess::messageReceived(const string &msg)
+void ScriptProcess::messageReceived(const std::string &msg)
 {
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
@@ -55,12 +55,12 @@ void ScriptProcess::messageReceived(const string &msg)
         return;
     }
 
-    string mtype = jansson_string_get(jroot, "msg");
+    std::string mtype = jansson_string_get(jroot, "msg");
 
     if (mtype == "execute")
     {
         cInfoDom("lua") << "Executing LUA script";
-        string script = jansson_string_get(jroot, "script");
+        std::string script = jansson_string_get(jroot, "script");
 
         json_t *jctx = json_object_get(jroot, "context");
         size_t idx;
@@ -96,7 +96,7 @@ void ScriptProcess::messageReceived(const string &msg)
                 ScriptManager::Instance().abortScript();
         });
 
-        ScriptManager::Instance().luaCalaos.waitForIOChanged.connect([=](const string &id) -> bool
+        ScriptManager::Instance().luaCalaos.waitForIOChanged.connect([=](const std::string &id) -> bool
         {
             waitIds.clear();
 
@@ -144,7 +144,7 @@ void ScriptProcess::messageReceived(const string &msg)
         Params ev;
         jansson_decode_object(jdata, ev);
 
-        string t = jansson_string_get(jev, "type_str");
+        std::string t = jansson_string_get(jev, "type_str");
 
         //this IO has been changed by an event
         //if script is waiting on that IO, the script will be resumed
@@ -161,7 +161,7 @@ void ScriptProcess::messageReceived(const string &msg)
             {
                 for (int i = 0;i < ev.size();i++)
                 {
-                    string key, val;
+                    std::string key, val;
                     ev.get_item(i, key, val);
                     ScriptManager::Instance().luaCalaos.ioMap[ev["id"]].params.Add(key, val);
                 }
@@ -201,4 +201,7 @@ int ScriptProcess::procMain()
     return 0;
 }
 
-EXTERN_PROC_CLIENT_MAIN(ScriptProcess)
+}
+
+EXTERN_PROC_CLIENT_MAIN(Calaos::ScriptProcess)
+

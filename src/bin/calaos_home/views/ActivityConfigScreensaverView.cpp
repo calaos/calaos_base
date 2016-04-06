@@ -55,7 +55,7 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
     slider->setAutoDelete(true);
 
     double slider_val;
-    string option_val;
+    std::string option_val;
     bool enabled = false;
 
     if (get_config_option("dpms_enable") == "true")
@@ -74,13 +74,13 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
     setPartText("module_screen_time_value", Utils::to_string((int)(slider_val)) + _(" minutes"));
 
     slider->addCallback("object", "*",
-                        [=](void *data, Evas_Object *edje_object, string emission, string source)
+                        [=](void *data, Evas_Object *edje_object, std::string emission, std::string source)
     {
         // Change value on screen when slider move
         if (emission == "slider,move")
         {
             double x;
-            string val;
+            std::string val;
 
             slider->getDragValue("slider", &x, NULL);
             val = Utils::to_string((int)(x * DPMS_STANDBY_MAX_VALUE)) +  _(" minutes");
@@ -113,7 +113,7 @@ ActivityConfigScreensaverView::ActivityConfigScreensaverView(Evas *_e, Evas_Obje
     slider->setDragValue("slider", slider_val / DPMS_STANDBY_MAX_VALUE, slider_val / DPMS_STANDBY_MAX_VALUE);
     Swallow(slider, "dpms_standby_slider.swallow", true);
 
-    addCallback("object", "*", [=](void *data, Evas_Object *edje_object, string emission, string source)
+    addCallback("object", "*", [=](void *data, Evas_Object *edje_object, std::string emission, std::string source)
     {
         if (emission == "screen,suspend,check")
         {

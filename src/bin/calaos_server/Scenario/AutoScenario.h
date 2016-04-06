@@ -40,13 +40,13 @@ class ScenarioAction
 {
 public:
     IOBase *io;
-    string action;
+    std::string action;
 };
 
 class AutoScenario
 {
 private:
-    string scenario_id;
+    std::string scenario_id;
     bool cycle;
     bool disabled;
 
@@ -62,18 +62,18 @@ private:
 
     Rule *ruleStart, *ruleStop, *ruleStepEnd;
     Rule *rulePlageStart, *rulePlageStop;
-    vector<Rule *> ruleSteps;
+    std::vector<Rule *> ruleSteps;
 
-    IOBase *createInput(string type, string id);
-    bool checkCondition(Rule *rule, IOBase *input, string oper, string value);
-    bool checkAction(Rule *rule, IOBase *output, string value);
-    void addRuleCondition(Rule *rule, IOBase *input, string oper, string value);
-    void addRuleAction(Rule *rule, IOBase *output, string value);
-    void setRuleCondition(Rule *rule, IOBase *input, string oper, string value);
-    void setRuleAction(Rule *rule, IOBase *output, string value);
-    string getRuleConditionValue(Rule *rule, IOBase *input, string oper);
-    string getRuleActionValue(Rule *rule, IOBase *output);
-    list<IOBase *> getRuleRealActions(Rule *rule);
+    IOBase *createInput(std::string type, std::string id);
+    bool checkCondition(Rule *rule, IOBase *input, std::string oper, std::string value);
+    bool checkAction(Rule *rule, IOBase *output, std::string value);
+    void addRuleCondition(Rule *rule, IOBase *input, std::string oper, std::string value);
+    void addRuleAction(Rule *rule, IOBase *output, std::string value);
+    void setRuleCondition(Rule *rule, IOBase *input, std::string oper, std::string value);
+    void setRuleAction(Rule *rule, IOBase *output, std::string value);
+    std::string getRuleConditionValue(Rule *rule, IOBase *input, std::string oper);
+    std::string getRuleActionValue(Rule *rule, IOBase *output);
+    std::list<IOBase *> getRuleRealActions(Rule *rule);
     void createRuleStepEnd();
 
 public:
@@ -86,7 +86,7 @@ public:
     void deleteAll();
     void deleteRules();
 
-    string getScenarioId() { return scenario_id; }
+    std::string getScenarioId() { return scenario_id; }
     bool isCycling() { return cycle; }
     bool isDisabled() { return disabled; }
     bool isScheduled() { return ioTimeRange?true:false; }
@@ -95,7 +95,7 @@ public:
 
     //Try to categorize the scenario, returns either "light", "shutter", "other"
     //it can be mutliple category, like "light-shutter"
-    string getCategory();
+    std::string getCategory();
 
     Scenario *getIOScenario() { return ioScenario; }
     Internal *getIOIsActive() { return ioIsActive; }
@@ -111,11 +111,11 @@ public:
     Rule *getRuleStepEnd() { return ruleStepEnd; }
     Rule *getRulePlageStart() { return rulePlageStart; }
     Rule *getRulePlageStop() { return rulePlageStop; }
-    vector<Rule *> getRuleSteps() { return ruleSteps; }
+    std::vector<Rule *> getRuleSteps() { return ruleSteps; }
 
     void addStep(double pause);
     void setStepPause(int step, double pause);
-    void addStepAction(int step, IOBase *out, string action);
+    void addStepAction(int step, IOBase *out, std::string action);
     double getStepPause(int step);
     int getStepActionCount(int step);
     ScenarioAction getStepAction(int step, int action);

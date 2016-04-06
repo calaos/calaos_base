@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "ActivityWebController.h"
 
-ActivityWebController::ActivityWebController(Evas *e, Evas_Object *p, string _url):
+ActivityWebController::ActivityWebController(Evas *e, Evas_Object *p, std::string _url):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_WEB)
 {
 }

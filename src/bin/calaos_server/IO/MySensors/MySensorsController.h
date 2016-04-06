@@ -55,7 +55,7 @@ private:
 
     MySensorsController(const Params &p);
 
-    string gatewayVersion;
+    std::string gatewayVersion;
 
     //gateway configuration
     //Can be serial with gateway="serial" or TCP with gateway="tcp"
@@ -65,9 +65,9 @@ private:
 
     //Keep values of sensors in cache
     //Key in hash is <node_id>
-    std::unordered_map<string, MySensorsNode> hashSensors;
+    std::unordered_map<std::string, MySensorsNode> hashSensors;
 
-    std::unordered_map<string, sigc::signal<void>> sensorsCb;
+    std::unordered_map<std::string, sigc::signal<void>> sensorsCb;
 
     //serial
     int serialfd = 0;
@@ -78,7 +78,7 @@ private:
 
     Ecore_Fd_Handler *serial_handler = nullptr;
 
-    string dataBuffer;
+    std::string dataBuffer;
 
     //tcp connection
     Ecore_Event_Handler *ehandler_add;
@@ -95,18 +95,18 @@ private:
     void serialError();
     void openSerialLater(double time = 2.0); //default 2s
 
-    void writeData(const string &data);
-    void readNewData(const string &data);
-    void processMessage(string msg);
-    void sendMessage(string node_id, string sensor_id, int msgType, int ack, int subType, string payload);
+    void writeData(const std::string &data);
+    void readNewData(const std::string &data);
+    void processMessage(std::string msg);
+    void sendMessage(std::string node_id, std::string sensor_id, int msgType, int ack, int subType, std::string payload);
 
     int getNextFreeId();
 
-    void processRequestId(string node_id, string sensor_id);
-    void processTime(string node_id, string sensor_id);
-    void processNodeInfos(string node_id, string sensor_id, string key, string payload);
-    void processSensorUpdate(string node_id, string sensor_id, int subtype, string payload);
-    void processSensorRequest(string node_id, string sensor_id, int subtype, string payload);
+    void processRequestId(std::string node_id, std::string sensor_id);
+    void processTime(std::string node_id, std::string sensor_id);
+    void processNodeInfos(std::string node_id, std::string sensor_id, std::string key, std::string payload);
+    void processSensorUpdate(std::string node_id, std::string sensor_id, int subtype, std::string payload);
+    void processSensorRequest(std::string node_id, std::string sensor_id, int subtype, std::string payload);
 
 public:
     static MySensorsController &Instance(const Params &p)
@@ -116,10 +116,10 @@ public:
     }
     ~MySensorsController();
 
-    string getValue(string nodeid, string sensorid, string key = "payload");
-    void setValue(string nodeid, string sensorid, int dataType, string payload);
+    std::string getValue(std::string nodeid, std::string sensorid, std::string key = "payload");
+    void setValue(std::string nodeid, std::string sensorid, int dataType, std::string payload);
 
-    void registerIO(string nodeid, string sensorid, sigc::slot<void> callback);
+    void registerIO(std::string nodeid, std::string sensorid, sigc::slot<void> callback);
 
     Eina_Bool _serialHandler(Ecore_Fd_Handler *handler);
 

@@ -58,7 +58,7 @@ ActivityWidgetsView::ActivityWidgetsView(Evas *_e, Evas_Object *_parent):
 
 ActivityWidgetsView::~ActivityWidgetsView()
 {
-    for_each(widgets.begin(), widgets.end(), Delete());
+    for_each(widgets.begin(), widgets.end(), Utils::Delete());
     widgets.clear();
 
     if (timer) delete timer;
@@ -157,7 +157,7 @@ void ActivityWidgetsView::DeleteWidget(Widget *w)
 
 void ActivityWidgetsView::DeleteAllWidgets()
 {
-    for_each(widgets.begin(), widgets.end(), Delete());
+    for_each(widgets.begin(), widgets.end(), Utils::Delete());
     widgets.clear();
     SaveWidgets();
     if (!xmas_widget) evas_object_color_set(clipper, 255, 255, 255, 0);
@@ -216,19 +216,19 @@ void ActivityWidgetsView::LoadWidgets()
                 node->Attribute("width") &&
                 node->Attribute("height"))
             {
-                string type, id;
+                std::string type, id;
 
                 type = node->Attribute("type");
                 id = node->Attribute("id");
 
                 int x, y, w, h;
-                from_string(node->Attribute("posx"), x);
-                from_string(node->Attribute("posy"), y);
-                from_string(node->Attribute("width"), w);
-                from_string(node->Attribute("height"), h);
+                Utils::from_string(node->Attribute("posx"), x);
+                Utils::from_string(node->Attribute("posy"), y);
+                Utils::from_string(node->Attribute("width"), w);
+                Utils::from_string(node->Attribute("height"), h);
 
                 ModuleDef t;
-                vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
+                std::vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
                 for (uint i = 0;i < mods.size();i++)
                 {
                     if (mods[i].mod_fname == type)
@@ -264,11 +264,11 @@ void ActivityWidgetsView::SaveWidgets()
         widgets[i]->Save(rootnode);
     }
 
-    string file = Utils::getConfigFile(WIDGET_CONFIG);
+    std::string file = Utils::getConfigFile(WIDGET_CONFIG);
     document.SaveFile(file);
 }
 
-bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h, string id)
+bool ActivityWidgetsView::AddWidget(ModuleDef &type, int x, int y, int w, int h, std::string id)
 {
     for (uint i = 0;i < widgets.size();i++)
     {

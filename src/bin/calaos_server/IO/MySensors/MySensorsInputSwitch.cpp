@@ -22,7 +22,7 @@
 #include "MySensorsController.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsInputSwitch)
 
@@ -44,8 +44,8 @@ MySensorsInputSwitch::MySensorsInputSwitch(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
     {
@@ -63,12 +63,14 @@ MySensorsInputSwitch::~MySensorsInputSwitch()
 bool MySensorsInputSwitch::readValue()
 {
     // Read the value
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
-    string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
+    std::string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
 
     return sv == "true" || sv == "1";
 }
 
 
+
+}

@@ -36,9 +36,9 @@ GenlistItemRadio::~GenlistItemRadio()
 {
 }
 
-string GenlistItemRadio::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemRadio::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (part == "text")
         text = item_infos["name"];
@@ -61,7 +61,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemRadio::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemRadio::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

@@ -62,7 +62,7 @@ Eina_Bool _progress_cb(void *data, int type, void *event)
     return ECORE_CALLBACK_RENEW;
 }
 
-UrlDownloader::UrlDownloader(string url, bool autodelete) :
+UrlDownloader::UrlDownloader(std::string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
@@ -183,7 +183,7 @@ bool UrlDownloader::start()
     return true;
 }
 
-bool UrlDownloader::httpPost(string destination, string bodyData)
+bool UrlDownloader::httpPost(std::string destination, std::string bodyData)
 {
     if (!destination.empty())
         destinationSet(destination);
@@ -193,7 +193,7 @@ bool UrlDownloader::httpPost(string destination, string bodyData)
     return start();
 }
 
-bool UrlDownloader::httpGet(string destination, string bodyData)
+bool UrlDownloader::httpGet(std::string destination, std::string bodyData)
 {
     if (!destination.empty())
         destinationSet(destination);
@@ -203,7 +203,7 @@ bool UrlDownloader::httpGet(string destination, string bodyData)
     return start();
 }
 
-bool UrlDownloader::httpPut(string destination, string bodyData)
+bool UrlDownloader::httpPut(std::string destination, std::string bodyData)
 {
     if (!destination.empty())
         destinationSet(destination);
@@ -213,7 +213,7 @@ bool UrlDownloader::httpPut(string destination, string bodyData)
     return start();
 }
 
-bool UrlDownloader::httpDelete(string destination, string bodyData)
+bool UrlDownloader::httpDelete(std::string destination, std::string bodyData)
 {
     if (!destination.empty())
         destinationSet(destination);
@@ -267,7 +267,7 @@ Params UrlDownloader::getResponseHeaders()
     EINA_LIST_FOREACH(h, l, d)
     {
         str = (char *)d;
-        vector<string> t;
+        std::vector<std::string> t;
         Utils::split(str, t, ":", 2);
         if (Utils::trim(t[0]) != "" &&
             !Utils::strStartsWith(Utils::trim(t[0]), "HTTP/"))

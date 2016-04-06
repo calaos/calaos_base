@@ -30,12 +30,12 @@ namespace Calaos
 class OutputString : public IOBase
 {
 protected:
-    string value;
+    std::string value;
 
     void readConfig();
 
     void emitChange();
-    virtual void set_value_real(string val) = 0;
+    virtual void set_value_real(std::string val) = 0;
 
 public:
     OutputString(Params &p);
@@ -43,7 +43,7 @@ public:
 
     DATA_TYPE get_type() { return TSTRING; }
 
-    bool set_value(string val);
+    bool set_value(std::string val);
 };
 
 }

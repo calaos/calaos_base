@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "OutputLightDimmer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 OutputLightDimmer::OutputLightDimmer(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -186,7 +186,7 @@ bool OutputLightDimmer::set_value(std::string val)
         //only toggle after a press and if long press is not detected
         if (!press_detected && stop_after_press)
         {
-            ret = set_value(string("toggle"));
+            ret = set_value(std::string("toggle"));
         }
 
         stop_after_press = false;
@@ -200,7 +200,7 @@ bool OutputLightDimmer::set_value(std::string val)
     }
     else if (val.compare(0, 8, "impulse ") == 0)
     {
-        string tmp = val;
+        std::string tmp = val;
         tmp.erase(0, 8);
         // classic impulse, WODigital goes false after <time> miliseconds
         if (is_of_type<int>(tmp))
@@ -334,7 +334,7 @@ void OutputLightDimmer::HoldPress_cb()
         }
     }
 
-    string cmd = "set ";
+    std::string cmd = "set ";
     cmd += Utils::to_string(v);
     set_value(cmd);
 }
@@ -359,7 +359,7 @@ void OutputLightDimmer::TimerImpulse()
     DELETE_NULL(impulseTimer);
 }
 
-void OutputLightDimmer::impulse_extended(string pattern)
+void OutputLightDimmer::impulse_extended(std::string pattern)
 {
     /* Extended impulse to do blinking.
          * It uses a pattern like this one:
@@ -376,8 +376,8 @@ void OutputLightDimmer::impulse_extended(string pattern)
                        << ": got extended impulse action, parsing blinking pattern...";
 
     //Parse the string
-    vector<string> tokens;
-    split(pattern, tokens);
+    std::vector<std::string> tokens;
+    Utils::split(pattern, tokens);
 
     bool state = true;
     int loop = -1;
@@ -491,4 +491,6 @@ bool OutputLightDimmer::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
 }

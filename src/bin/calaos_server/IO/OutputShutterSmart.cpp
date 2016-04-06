@@ -21,7 +21,7 @@
 #include "OutputShutterSmart.h"
 #include "CalaosConfig.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 OutputShutterSmart::OutputShutterSmart(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -66,7 +66,7 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
 
     cInfoDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value";
 
-    string initpos;
+    std::string initpos;
     if (!Config::Instance().ReadValueIO(get_param("id"), initpos))
         cErrorDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value failed!";
     else
@@ -555,7 +555,7 @@ void OutputShutterSmart::TimerEnd()
     else if (sens == VDOWN)
         old_sens = VDOWN;
 
-    string t = cmd_state;
+    std::string t = cmd_state;
     Stop();
     cmd_state = t;
 
@@ -658,4 +658,6 @@ bool OutputShutterSmart::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
 }

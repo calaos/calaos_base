@@ -26,7 +26,6 @@
 #include "ActivityView.h"
 #include "KeyboardView.h"
 
-using namespace Utils;
 
 class ActivityWebView: public ActivityView
 {
@@ -34,8 +33,8 @@ private:
     KeyboardView *keyboard;
     Evas_Object *web;
 
-    void buttonCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void goToCallback(string url);
+    void buttonCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void goToCallback(std::string url);
 
 public:
     ActivityWebView(Evas *evas, Evas_Object *parent);

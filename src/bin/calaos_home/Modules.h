@@ -28,7 +28,6 @@
 #include <Ecore_File.h>
 #include <CalaosModule.h>
 
-using namespace std;
 
 class ModuleDef
 {
@@ -39,14 +38,14 @@ public:
         api(NULL), inst(NULL), handle(NULL)
     {}
 
-    string mod_name; // module name as returned by module->getName()
-    string mod_author; // module name as returned by module->getName()
-    string mod_desc; // module description as returned by module->getDescription()
-    string mod_version; // module version as returned by module->getVersion()
-    string mod_icon; // module icon, this is the filename + path of an edje file containing the module icon
+    std::string mod_name; // module name as returned by module->getName()
+    std::string mod_author; // module name as returned by module->getName()
+    std::string mod_desc; // module description as returned by module->getDescription()
+    std::string mod_version; // module version as returned by module->getVersion()
+    std::string mod_icon; // module icon, this is the filename + path of an edje file containing the module icon
     // The group "icon" is loaded from the edje file. If nothing is found, it take the
     // default icon from the main theme.
-    string mod_fname; //module filename
+    std::string mod_fname; //module filename
 
     CalaosModuleApi *api;
 
@@ -62,13 +61,13 @@ private:
     ~ModuleManager();
 
     //search paths
-    vector<string> search_paths;
+    std::vector<std::string> search_paths;
 
     //all running modules are stored here
-    vector<ModuleDef> mods_inst;
+    std::vector<ModuleDef> mods_inst;
 
     //all loadable modules are listed here
-    vector<ModuleDef> modules;
+    std::vector<ModuleDef> modules;
 
 public:
     static ModuleManager &Instance()
@@ -78,16 +77,16 @@ public:
         return mmanager;
     }
 
-    void addPath(string path) { search_paths.push_back(path); }
+    void addPath(std::string path) { search_paths.push_back(path); }
 
     // Search for loadable modules in paths
     void SearchModules();
 
     // Get all available modules
-    vector<ModuleDef> getAvailableModules() { return modules; }
+    std::vector<ModuleDef> getAvailableModules() { return modules; }
 
     // Create a new instance of mod_fname
-    bool createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef &mdef, string id);
+    bool createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef &mdef, std::string id);
 
     // Delete a module instance
     void DeleteInstance(ModuleDef &mod);
@@ -96,7 +95,7 @@ public:
     CalaosModuleBase *getModuleInstance(ModuleDef &mod);
 
     // Get all instance for a specific module type
-    vector<ModuleDef> getModuleInstances(string mod_fname);
+    std::vector<ModuleDef> getModuleInstances(std::string mod_fname);
 
     //total number of modules instance
     int instanceSize() { return mods_inst.size(); }

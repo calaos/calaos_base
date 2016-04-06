@@ -20,14 +20,14 @@
  ******************************************************************************/
 #include "RulesFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 Condition *RulesFactory::CreateCondition(TiXmlElement *node)
 {
     Condition *condition = NULL;
 
     /* read type */
-    string type = "";
+    std::string type = "";
     if (node->Attribute("type"))
         type = node->Attribute("type");
 
@@ -67,7 +67,7 @@ Action *RulesFactory::CreateAction(TiXmlElement *node)
     Action *action = NULL;
 
     /* read type */
-    string type = "";
+    std::string type = "";
     if (node->Attribute("type"))
         type = node->Attribute("type");
 
@@ -99,4 +99,6 @@ Action *RulesFactory::CreateAction(TiXmlElement *node)
         return NULL;
 
     return action;
+}
+
 }

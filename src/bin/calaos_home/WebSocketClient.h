@@ -33,29 +33,29 @@ public:
     WebSocketClient();
     virtual ~WebSocketClient();
 
-    sigc::signal<void, const string &> textMessageReceived;
-    sigc::signal<void, const string &> binaryMessageReceived;
+    sigc::signal<void, const std::string &> textMessageReceived;
+    sigc::signal<void, const std::string &> binaryMessageReceived;
     sigc::signal<void> websocketDisconnected;
     sigc::signal<void> websocketConnected;
 
-    void openConnection(string url);
+    void openConnection(std::string url);
 
-    void sendPing(const string &data);
-    void sendCloseFrame(uint16_t code = WebSocketFrame::CloseCodeNormal, const string &reason = string(), bool forceClose = false);
+    void sendPing(const std::string &data);
+    void sendCloseFrame(uint16_t code = WebSocketFrame::CloseCodeNormal, const std::string &reason = std::string(), bool forceClose = false);
 
-    void sendTextMessage(const string &data);
-    void sendBinaryMessage(const string &data);
+    void sendTextMessage(const std::string &data);
+    void sendBinaryMessage(const std::string &data);
 
 private:
     enum { WSConnecting, WSOpened, WSClosing, WSClosed };
     int status = WSClosed;
 
-    string wsUrl;
+    std::string wsUrl;
 
-    string recv_buffer;
+    std::string recv_buffer;
     WebSocketFrame currentFrame;
 
-    string currentData;
+    std::string currentData;
     int currentOpcode;
 
     bool isfragmented = false;
@@ -74,15 +74,15 @@ private:
 
     bool checkCloseStatusCode(uint16_t code);
 
-    void sendFrameData(const string &data, bool isbinary);
+    void sendFrameData(const std::string &data, bool isbinary);
 
     Ecore_Con_Server *ecoreServer = nullptr;
 
-    bool gotNewDataHandshake(const string &data);
-    void gotNewData(const string &data);
+    bool gotNewDataHandshake(const std::string &data);
+    void gotNewData(const std::string &data);
 
     void CloseConnection();
-    void sendToServer(string res);
+    void sendToServer(std::string res);
 
     Ecore_Event_Handler *handler_add;
     Ecore_Event_Handler *handler_data;
@@ -96,20 +96,20 @@ private:
     friend Eina_Bool WebSocketClient_con_error(void *data, int type, void *event);
     friend Eina_Bool WebSocketClient_con_data_written(void *data, int type, void *event);
 
-    string handshakeHeader;
-    string sec_key;
+    std::string handshakeHeader;
+    std::string sec_key;
 
     http_parser_settings parser_settings;
     http_parser *parser;
 
     bool parse_done = false;
-    unordered_map<string, string> request_headers;
+    std::unordered_map<std::string, std::string> request_headers;
 
     //for parsing purposes
     bool has_field = false, has_value = false;
-    string hfield, hvalue;
-    string bodymessage;
-    string parse_url;
+    std::string hfield, hvalue;
+    std::string bodymessage;
+    std::string parse_url;
 
     friend int _parser_begin(http_parser *parser);
     friend int _parser_header_field(http_parser *parser, const char *at, size_t length);

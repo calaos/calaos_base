@@ -25,6 +25,9 @@
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
 
+
+namespace Calaos {
+
 JsonApi::JsonApi(HttpClient *client):
     httpClient(client)
 {
@@ -40,14 +43,14 @@ JsonApi::~JsonApi()
 
 void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
 {
-    vector<string> params =
+    std::vector<std::string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
       "auto_scenario", "step", "io_type" };
 
-    for (string &param: params)
+    for (std::string &param: params)
     {
-        string value;
+        std::string value;
 
         if (param == "state")
         {
@@ -140,7 +143,7 @@ json_t *JsonApi::buildJsonCameras()
 {
     json_t *jdata = json_array();
 
-    list<IOBase *> camlist = ListeRoom::Instance().getCameraList();
+    std::list<IOBase *> camlist = ListeRoom::Instance().getCameraList();
 
     int cpt = 0;
     for (IOBase *io: camlist)
@@ -170,7 +173,7 @@ json_t *JsonApi::buildJsonAudio()
 {
     json_t *jdata = json_array();
 
-    list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+    std::list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
 
     for (IOBase *io: audiolist)
     {
@@ -202,7 +205,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
 {
     json_incref(jroot);
     json_t *jio = json_object();
-    list<AudioPlayer *> audioplayers;
+    std::list<AudioPlayer *> audioplayers;
 
     json_t *jin = json_object_get(jroot, "items");
     if (jin && json_is_array(jin))
@@ -212,7 +215,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
 
         json_array_foreach(jin, idx, value)
         {
-            string svalue;
+            std::string svalue;
 
             if (!json_is_string(value)) continue;
 
@@ -237,7 +240,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
         }
     }
 
-    string uuid = Utils::createRandomUuid();
+    std::string uuid = Utils::createRandomUuid();
     playerCounts[uuid] = 0;
 
     for (AudioPlayer *player: audioplayers)
@@ -271,7 +274,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
 
                         player->get_status([=](AudioPlayerData data5)
                         {
-                            string status;
+                            std::string status;
                             switch (data5.ivalue)
                             {
                             case AudioPlay: status = "playing"; break;
@@ -292,7 +295,7 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
                                 Params &infos = data6.params;
                                 for (int i = 0;i < infos.size();i++)
                                 {
-                                    string inf_key, inf_value;
+                                    std::string inf_key, inf_value;
                                     infos.get_item(i, inf_key, inf_value);
 
                                     json_object_set_new(jtrack,
@@ -386,7 +389,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
             return;
         }
 
-        map<string, string> m = o->query_param(jParam["param"]);
+        std::map<std::string, std::string> m = o->query_param(jParam["param"]);
         for (auto it: m)
             res.Add(it.first, it.second);
     }
@@ -483,7 +486,7 @@ json_t *JsonApi::buildJsonGetIO(json_t *jroot)
 
         json_array_foreach(jin, idx, value)
         {
-            string svalue;
+            std::string svalue;
 
             if (!json_is_string(value)) continue;
 
@@ -573,7 +576,7 @@ void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *
         Params &infos = data.params;
         for (int i = 0;i < infos.size();i++)
         {
-            string inf_key, inf_value;
+            std::string inf_key, inf_value;
             infos.get_item(i, inf_key, inf_value);
 
             json_object_set_new(jtrack,
@@ -599,12 +602,12 @@ void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *
     });
 }
 
-AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
+AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, std::string &err)
 {
     AudioPlayer *player = nullptr;
     err.clear();
 
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     if (id == "")
     {
         err = "empty player id";
@@ -622,7 +625,7 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
 
 void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -641,7 +644,7 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
 
 void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -661,7 +664,7 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
 
 void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -681,7 +684,7 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
 
 void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -691,7 +694,7 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
         return;
     }
 
-    string it = jansson_string_get(jdata, "item");
+    std::string it = jansson_string_get(jdata, "item");
     if (it.empty() || !Utils::is_of_type<int>(it))
     {
         Params p = {{"error", "wrong item" }};
@@ -710,7 +713,7 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
 
 void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -731,9 +734,9 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
 {
     json_t *ret = json_object();
     json_t *aret = json_array();
-    string scount;
+    std::string scount;
 
-    const vector<Params> &vp = data.vparams;
+    const std::vector<Params> &vp = data.vparams;
     for (const Params &p: vp)
     {
         if (p.Exists("count"))
@@ -753,7 +756,7 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
 
 void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -763,8 +766,8 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -785,7 +788,7 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
 
 void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -795,9 +798,9 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string artist_id = jansson_string_get(jdata, "artist_id");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string artist_id = jansson_string_get(jdata, "artist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -818,7 +821,7 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
 
 void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -828,9 +831,9 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string year = jansson_string_get(jdata, "year");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string year = jansson_string_get(jdata, "year");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -851,7 +854,7 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
 
 void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -861,9 +864,9 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string genre = jansson_string_get(jdata, "genre");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string genre = jansson_string_get(jdata, "genre");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -884,7 +887,7 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
 
 void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -894,9 +897,9 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string album_id = jansson_string_get(jdata, "album_id");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string album_id = jansson_string_get(jdata, "album_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -917,7 +920,7 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
 
 void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -927,9 +930,9 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string pl_id = jansson_string_get(jdata, "playlist_id");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string pl_id = jansson_string_get(jdata, "playlist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -950,7 +953,7 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
 
 void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -960,8 +963,8 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -982,7 +985,7 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
 
 void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -992,8 +995,8 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1014,7 +1017,7 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
 
 void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1024,8 +1027,8 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1046,7 +1049,7 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
 
 void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1056,8 +1059,8 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1078,7 +1081,7 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
 
 void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1088,9 +1091,9 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string folder_id = jansson_string_get(jdata, "folder_id");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string folder_id = jansson_string_get(jdata, "folder_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1111,7 +1114,7 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
 
 void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1121,9 +1124,9 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string search = jansson_string_get(jdata, "search");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
+    std::string search = jansson_string_get(jdata, "search");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1144,7 +1147,7 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
 
 void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1154,8 +1157,8 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1176,7 +1179,7 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
 
 void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1186,8 +1189,8 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    std::string itfrom = jansson_string_get(jdata, "from");
+    std::string itcount = jansson_string_get(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
@@ -1200,9 +1203,9 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
-    string radio_id = jansson_string_get(jdata, "radio_id");
-    string item_id = jansson_string_get(jdata, "item_id");
-    string search = jansson_string_get(jdata, "search");
+    std::string radio_id = jansson_string_get(jdata, "radio_id");
+    std::string item_id = jansson_string_get(jdata, "item_id");
+    std::string search = jansson_string_get(jdata, "search");
 
     player->get_database()->getRadiosItems([=](AudioPlayerData data)
     {
@@ -1212,7 +1215,7 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
 
 void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
-    string err;
+    std::string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
@@ -1222,7 +1225,7 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
         return;
     }
 
-    string trackid = jansson_string_get(jdata, "track_id");
+    std::string trackid = jansson_string_get(jdata, "track_id");
 
     player->get_database()->getTrackInfos([=](AudioPlayerData data)
     {
@@ -1244,7 +1247,7 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
 
     for (int day = 0;day < 7;day++)
     {
-        vector<TimeRange> h;
+        std::vector<TimeRange> h;
         if (day == 0) h = o->getMonday();
         if (day == 1) h = o->getTuesday();
         if (day == 2) h = o->getWednesday();
@@ -1258,9 +1261,9 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
 
     json_object_set_new(ret, "ranges", jarr);
 
-    stringstream ssmonth;
+    std::stringstream ssmonth;
     ssmonth << o->months;
-    string str = ssmonth.str();
+    std::string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
     json_object_set_new(ret, "months", json_string(str.c_str()));
 
@@ -1269,7 +1272,7 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
 
 json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(id));
     if (!o)
     {
@@ -1289,7 +1292,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 
         TimeRange tr(p);
 
-        cout << "Adding timerange: " << p.toString() << endl;
+        std::cout << "Adding timerange: " << p.toString() << std::endl;
 
         if (p["day"] == "1") o->AddMonday(tr);
         if (p["day"] == "2") o->AddTuesday(tr);
@@ -1301,7 +1304,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     }
 
     //set months
-    string m = jansson_string_get(jdata, "months");
+    std::string m = jansson_string_get(jdata, "months");
     if (!m.empty())
     {
         //reverse to have a left to right months representation
@@ -1309,7 +1312,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 
         try
         {
-            bitset<12> mset(m);
+            std::bitset<12> mset(m);
             o->months = mset;
         }
         catch(...)
@@ -1352,7 +1355,7 @@ json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
 
 json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1413,7 +1416,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
         json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
         {
 
-            string id_out = jansson_string_get(value_act, "id");
+            std::string id_out = jansson_string_get(value_act, "id");
             IOBase *out = ListeRoom::Instance().get_io(id_out);
             if (out)
                 scenario->getAutoScenario()->addStepAction(index_act, out,
@@ -1434,7 +1437,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
 
 json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1460,7 +1463,7 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
 
 json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!scenario || !scenario->getAutoScenario())
     {
@@ -1506,7 +1509,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
         json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
         {
 
-            string id_out = jansson_string_get(value_act, "id");
+            std::string id_out = jansson_string_get(value_act, "id");
             IOBase *out = ListeRoom::Instance().get_io(id_out);
             cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jansson_string_get(value_act, "action");
             if (out)
@@ -1580,7 +1583,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
 
 json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1603,7 +1606,7 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
 
 json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    std::string id = jansson_string_get(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1622,4 +1625,6 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
 
     Params p = {{ "success", "true" }};
     return p.toJson();
+}
+
 }

@@ -21,11 +21,11 @@
 #ifndef APPLICATIONCONTROLLER_H
 #define APPLICATIONCONTROLLER_H
 
+#include "EdjeObject.h"
 #include <Utils.h>
 
 #include <Evas.h>
 #include <Elementary.h>
-#include "EdjeObject.h"
 
 #include "MainMenuView.h"
 #include "MainContentView.h"
@@ -43,7 +43,6 @@
 #include "ActivityEditScenarioController.h"
 #include "ActivityScheduleScenarioController.h"
 
-using namespace Utils;
 
 class EAPI ApplicationController: public sigc::trackable
 {
@@ -80,7 +79,7 @@ private:
 
     /* CalaosModel signals */
     void home_loaded();
-    void login_failed(string host);
+    void login_failed(std::string host);
 
     void activityQuit();
     void activityKeyboardQuit();
@@ -95,8 +94,8 @@ public:
     ApplicationController(Evas *evas, Evas_Object *layout);
     ~ApplicationController();
 
-    void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0);
-    void ShowWebBrowser(string url);
+    void ShowKeyboard(std::string subtitle, ActivityKeyboardCb callback, bool multiline, std::string oldtext = "", int type = 0);
+    void ShowWebBrowser(std::string url);
 
     void ShowScenarioEditor(Scenario *scenario);
     void ShowScenarioSchedule(Scenario *scenario);

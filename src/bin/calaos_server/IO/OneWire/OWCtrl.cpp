@@ -21,7 +21,8 @@
 #include "OWCtrl.h"
 #include "Prefix.h"
 
-OwCtrl::OwCtrl(const string &args)
+namespace Calaos {
+OwCtrl::OwCtrl(const std::string &args)
 {
     cDebugDom("1wire") << "new OWCtrl: " << args;
     process = new ExternProcServer("1wire");
@@ -47,36 +48,36 @@ OwCtrl::~OwCtrl()
     delete process;
 }
 
-string OwCtrl::getValue(string owid)
+std::string OwCtrl::getValue(std::string owid)
 {
     return mapValues[owid];
 }
 
-string OwCtrl::getType(string owid)
+std::string OwCtrl::getType(std::string owid)
 {
     return mapTypes[owid];
 }
 
-shared_ptr<OwCtrl> OwCtrl::Instance(const string &args)
+std::shared_ptr<OwCtrl> OwCtrl::Instance(const std::string &args)
 {
-    static map<string, shared_ptr<OwCtrl>> mapInst;
+    static std::map<std::string, std::shared_ptr<OwCtrl>> mapInst;
     auto it = mapInst.find(args);
     if (it != mapInst.end())
         return it->second;
 
-    shared_ptr<OwCtrl> inst(new OwCtrl(args));
+    std::shared_ptr<OwCtrl> inst(new OwCtrl(args));
     mapInst[args] = std::move(inst);
     return mapInst[args];
 }
 
-void OwCtrl::processNewMessage(const string &msg)
+void OwCtrl::processNewMessage(const std::string &msg)
 {
     Json jroot;
     try
     {
         jroot = Json::parse(msg);
         if (!jroot.is_array())
-            throw (invalid_argument(string("Json is not an array: ") + msg));
+           throw (std::invalid_argument(std::string("Json is not an array: ") + msg));
     }
     catch (const std::exception &e)
     {
@@ -89,11 +90,13 @@ void OwCtrl::processNewMessage(const string &msg)
         if (it.find("id") != it.end())
         {
             if (it.find("value") != it.end())
-                mapValues[it["id"].get<string>()] = it["value"].get<string>();
+                mapValues[it["id"].get<std::string>()] = it["value"].get<std::string>();
             if (it.find("type") != it.end())
-                mapTypes[it["id"].get<string>()] = it["type"].get<string>();
+                mapTypes[it["id"].get<std::string>()] = it["type"].get<std::string>();
         }
     }
 
     valueChanged.emit();
+}
+
 }

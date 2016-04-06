@@ -21,12 +21,12 @@
 #ifndef CALAOS_MODULE_H
 #define CALAOS_MODULE_H
 
+#include "ApplicationMain.h"
 #include "CalaosModule.h"
 #include "Utils.h"
 #include "EdjeObject.h"
 #include "Calendar.h"
 #include <Ecore_File.h>
-#include "ApplicationMain.h"
 
 class ModuleClock: public CalaosModuleBase
 {
@@ -35,11 +35,11 @@ private:
     Calendar *calendar;
 
 public:
-    ModuleClock(Evas *evas, string id, string module_path);
+    ModuleClock(Evas *evas, std::string id, std::string module_path);
 
     virtual ~ModuleClock();
 
-    virtual string getStringInfo();
+    virtual std::string getStringInfo();
 
     virtual void getSizeMin(int &w, int &h);
     virtual void getSizeMax(int &w, int &h);

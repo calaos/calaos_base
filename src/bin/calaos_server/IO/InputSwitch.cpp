@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "InputSwitch.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 InputSwitch::InputSwitch(Params &p):
     IOBase(p, IOBase::IO_INPUT),
@@ -61,4 +61,6 @@ void InputSwitch::emitChanges()
 
     cInfoDom("input") << get_param("id") << ": " << value;
     EmitSignalIO();
+}
+
 }

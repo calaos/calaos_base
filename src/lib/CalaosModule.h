@@ -36,11 +36,11 @@ class CalaosModuleBase
 {
 protected:
     Evas *evas;
-    string id;
-    string module_path;
+    std::string id;
+    std::string module_path;
 
 public:
-    CalaosModuleBase(Evas *_evas, string _id, string _module_path):
+    CalaosModuleBase(Evas *_evas, std::string _id, std::string _module_path):
         evas(_evas), id(_id), module_path(_module_path)
     { }
 
@@ -50,7 +50,7 @@ public:
     /* Return a string that represent the current module instance
                    It's used to display a list of active module
                 */
-    virtual string getStringInfo() { return ""; }
+    virtual std::string getStringInfo() { return ""; }
 
     virtual void getSizeMin(int &w, int &h) { }
     virtual void getSizeMax(int &w, int &h) { }

@@ -22,6 +22,7 @@
 #include "IOFactory.h"
 #include "OLACtrl.h"
 
+namespace Calaos {
 REGISTER_IO(OLAOutputLightRGB)
 
 OLAOutputLightRGB::OLAOutputLightRGB(Params &p):
@@ -58,4 +59,6 @@ void OLAOutputLightRGB::setColorReal(const ColorValue &c, bool s)
                                                            channel_red,
                                                            channel_green,
                                                            channel_blue);
+}
+
 }

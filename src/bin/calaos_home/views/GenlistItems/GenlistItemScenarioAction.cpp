@@ -49,9 +49,9 @@ ScenarioAction &GenlistItemScenarioAction::getAction()
     return scenario_data.steps[sc_step].actions[sc_action];
 }
 
-string GenlistItemScenarioAction::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemScenarioAction::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (part == "text")
     {
@@ -82,7 +82,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemScenarioAction::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemScenarioAction::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -120,7 +120,7 @@ void GenlistItemScenarioAction::buttonClickEdit()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Edit element<br><small><light_blue>Choose action that will be executed</light_blue></small>");
+    std::string title_label = _("Edit element<br><small><light_blue>Choose action that will be executed</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
@@ -162,7 +162,7 @@ void GenlistItemScenarioAction::createActionList(Evas_Object *glist, GenlistItem
     GenlistItemSimple *it = NULL;
 
     ScenarioAction &ac_current = getAction();
-    vector<IOActionList> v = ac_current.io->getActionList();
+    std::vector<IOActionList> v = ac_current.io->getActionList();
 
     for (uint i = 0;i < v.size();i++)
     {
@@ -206,12 +206,12 @@ void GenlistItemScenarioAction::actionSimple(void *data, IOActionList ac)
     elm_ctxpopup_dismiss(popup);
 }
 
-void GenlistItemScenarioAction::buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::buttonBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     elm_naviframe_item_pop(pager_action);
 }
 
-void GenlistItemScenarioAction::buttonValidClick(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::buttonValidClick(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     action = action_temp;
     if (sc_step == ScenarioData::END_STEP)
@@ -225,7 +225,7 @@ void GenlistItemScenarioAction::buttonValidClick(void *data, Evas_Object *edje_o
     elm_ctxpopup_dismiss(popup);
 }
 
-void GenlistItemScenarioAction::buttonValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::buttonValidTimeClick(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     action = action_temp;
     action.dvalue = elm_spinner_value_get(spin_hours) * 60.0 * 60.0 * 1000.0 +
@@ -255,14 +255,14 @@ void GenlistItemScenarioAction::actionSlider(void *data, IOActionList ac)
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidClick));
     page->addCallback("slider_obj:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderSignalCallback));
     page->setDragValue("slider", action_temp.dvalue / 100.0, 0.0);
-    string t = "<b>";
-    t += _("Choose value") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
+    std::string t = "<b>";
+    t += _("Choose value") + std::string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     elm_naviframe_item_push(pager_action, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }
 
-void GenlistItemScenarioAction::sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::sliderSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission == "slider,changed")
     {
@@ -283,17 +283,17 @@ void GenlistItemScenarioAction::actionNumber(void *data, IOActionList ac)
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonBackClick));
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidClick));
     page->addCallback("button.pad.*", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::numberSignalCallback));
-    string t = "<b>";
-    t += _("Choose number") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
+    std::string t = "<b>";
+    t += _("Choose number") + std::string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
     page->setPartText("value", Utils::to_string(action_temp.dvalue));
 
     elm_naviframe_item_push(pager_action, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }
 
-void GenlistItemScenarioAction::numberSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::numberSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
-    string val = page->getPartText("value");
+    std::string val = page->getPartText("value");
 
     if (source == "button.pad.0") val += "0";
     else if (source == "button.pad.1") val += "1";
@@ -307,7 +307,7 @@ void GenlistItemScenarioAction::numberSignalCallback(void *data, Evas_Object *ed
     else if (source == "button.pad.9") val += "9";
     else if (source == "button.pad.dot")
     {
-        if (val.find('.') == string::npos)
+        if (val.find('.') == std::string::npos)
             val += ".";
     }
     else if (source == "button.pad.del")
@@ -342,8 +342,8 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
     page->setAutoDelete(true);
     page->addCallback("button.back", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonBackClick));
     page->addCallback("button.valid", "pressed", sigc::mem_fun(*this, &GenlistItemScenarioAction::buttonValidTimeClick));
-    string t = "<b>";
-    t += _("Choose duration") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
+    std::string t = "<b>";
+    t += _("Choose duration") + std::string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     double sec = action_temp.dvalue / 1000.0;
@@ -352,11 +352,11 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
     sec -= hours * 3600;
     int min = (int)(sec / 60.0);
     sec -= min * 60;
-    string f;
+    std::string f;
 
     spin_hours = elm_spinner_add(parent);
     elm_object_style_set(spin_hours, "calaos/time/vertical");
-    f = string("%.0f<br><subtitle>") + _("Hours") + "</subtitle>";
+    f = std::string("%.0f<br><subtitle>") + _("Hours") + "</subtitle>";
     elm_spinner_label_format_set(spin_hours, f.c_str());
     elm_spinner_min_max_set(spin_hours, 0, 99);
     elm_spinner_step_set(spin_hours, 1);
@@ -367,7 +367,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_min = elm_spinner_add(parent);
     elm_object_style_set(spin_min, "calaos/time/vertical");
-    f = string("%.0f<br><subtitle>") + _("Min.") + "</subtitle>";
+    f = std::string("%.0f<br><subtitle>") + _("Min.") + "</subtitle>";
     elm_spinner_label_format_set(spin_min, f.c_str());
     elm_spinner_min_max_set(spin_min, 0, 59);
     elm_spinner_step_set(spin_min, 1);
@@ -378,7 +378,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_sec = elm_spinner_add(parent);
     elm_object_style_set(spin_sec, "calaos/time/vertical");
-    f = string("%.0f<br><subtitle>") + _("Sec.") + "</subtitle>";
+    f = std::string("%.0f<br><subtitle>") + _("Sec.") + "</subtitle>";
     elm_spinner_label_format_set(spin_sec, f.c_str());
     elm_spinner_min_max_set(spin_sec, 0, 59);
     elm_spinner_step_set(spin_sec, 1);
@@ -389,7 +389,7 @@ void GenlistItemScenarioAction::actionTime(void *data, IOActionList ac)
 
     spin_ms = elm_spinner_add(parent);
     elm_object_style_set(spin_ms, "calaos/time/vertical");
-    f = string("%.0f<br><subtitle>") + _("Ms.") + "</subtitle>";
+    f = std::string("%.0f<br><subtitle>") + _("Ms.") + "</subtitle>";
     elm_spinner_label_format_set(spin_ms, f.c_str());
     elm_spinner_min_max_set(spin_ms, 0, 999);
     elm_spinner_step_set(spin_ms, 1);
@@ -414,8 +414,8 @@ void GenlistItemScenarioAction::actionColor(void *data, IOActionList ac)
     page->addCallback("slider.green:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderGreenSignalCallback));
     page->addCallback("slider.blue:object", "*", sigc::mem_fun(*this, &GenlistItemScenarioAction::sliderBlueSignalCallback));
     page->setDragValue("slider", action_temp.dvalue / 100.0, 0.0);
-    string t = "<b>";
-    t += _("Choose color") + string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
+    std::string t = "<b>";
+    t += _("Choose color") + std::string("</b><br><light_blue><small>") + ac.title + "</small></light_blue>";
     page->setPartText("text", t);
 
     page->setDragValue("slider.red:slider", action_temp.colorval.getRed() / 255.0, 0.0);
@@ -433,7 +433,7 @@ void GenlistItemScenarioAction::actionColor(void *data, IOActionList ac)
     elm_naviframe_item_push(pager_action, NULL, NULL, NULL, page->getEvasObject(), "calaos");
 }
 
-void GenlistItemScenarioAction::sliderRedSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::sliderRedSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission == "slider,changed")
     {
@@ -449,7 +449,7 @@ void GenlistItemScenarioAction::sliderRedSignalCallback(void *data, Evas_Object 
     }
 }
 
-void GenlistItemScenarioAction::sliderGreenSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::sliderGreenSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission == "slider,changed")
     {
@@ -465,7 +465,7 @@ void GenlistItemScenarioAction::sliderGreenSignalCallback(void *data, Evas_Objec
     }
 }
 
-void GenlistItemScenarioAction::sliderBlueSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void GenlistItemScenarioAction::sliderBlueSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission == "slider,changed")
     {

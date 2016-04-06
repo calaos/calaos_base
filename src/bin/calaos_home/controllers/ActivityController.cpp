@@ -48,7 +48,7 @@ void ActivityController::createView()
     {
         view = ActivityViewFactory::CreateView(evas, parent, viewType);
     }
-    catch (exception const& e)
+    catch (std::exception const& e)
     {
         cCritical() <<  "Can't create view !";
         throw;

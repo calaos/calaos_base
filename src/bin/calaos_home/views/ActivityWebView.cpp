@@ -156,7 +156,7 @@ void ActivityWebView::_webLoadProgress()
 {
     setDragValue("progress.level", elm_web_load_progress_get(web), 0.0);
 
-    string t = Utils::to_string((int)(elm_web_load_progress_get(web) * 100)) + " %";
+    std::string t = Utils::to_string((int)(elm_web_load_progress_get(web) * 100)) + " %";
     setPartText("progress.text", t);
 }
 
@@ -168,7 +168,7 @@ void ActivityWebView::_webLoadFinished(Elm_Web_Frame_Load_Error *error)
     if (error && !error->is_cancellation)
     {
 #ifdef HAVE_EWEBKIT
-        string t = WEBKIT_ERROR_HTML;
+        std::string t = WEBKIT_ERROR_HTML;
         replace_str(t, "{FAILING_URL}", error->failing_url);
         replace_str(t, "{DESC}", error->description);
 
@@ -199,7 +199,7 @@ void ActivityWebView::_webInputMethodChanged(bool en)
         EmitSignal("hide,keyboard", "calaos");
 }
 
-void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (source == "button.back")
         elm_web_back(web);
@@ -222,9 +222,9 @@ void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, strin
     }
     else if (source == "button.bookmark")
     {
-        string url = elm_web_url_get(web);
+        std::string url = elm_web_url_get(web);
 
-        string _url = DEFAULT_BROWSER_URL;
+        std::string _url = DEFAULT_BROWSER_URL;
         _url += "Bookmark.php?new=" + url_encode(url);
         _url += "&title=" + url_encode(elm_web_title_get(web));
         _url += "&thumb_file=/tmp/thumb.png";
@@ -238,9 +238,9 @@ void ActivityWebView::buttonCallback(void *data, Evas_Object *edje_object, strin
     }
 }
 
-void ActivityWebView::goToCallback(string text)
+void ActivityWebView::goToCallback(std::string text)
 {
-    string url;
+    std::string url;
 
     remove_tag(text, "<", ">");
     if (text.substr(0, 7) != "http://" && text.substr(0, 8) != "https://")

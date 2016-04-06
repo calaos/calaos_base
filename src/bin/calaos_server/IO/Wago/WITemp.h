@@ -37,7 +37,7 @@ protected:
 
     bool start;
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
+    void WagoReadCallback(bool status, UWord address, int count, std::vector<UWord> &values);
 
     virtual void readValue();
 

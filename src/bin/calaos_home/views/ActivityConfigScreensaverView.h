@@ -25,7 +25,6 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityConfigScreensaverView: public ActivityView
 {
@@ -38,7 +37,7 @@ class ActivityConfigScreensaverView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return _("Configure Screen saver settings"); }
+                virtual std::string getTitle() { return _("Configure Screen saver settings"); }
 };
 
 #endif // ActivityConfigScreensaverView_H

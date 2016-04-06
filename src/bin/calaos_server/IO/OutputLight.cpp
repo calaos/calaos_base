@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "OutputLight.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 OutputLight::OutputLight(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -88,13 +88,13 @@ bool OutputLight::_set_value(bool val)
     return false;
 }
 
-bool OutputLight::set_value(string val)
+bool OutputLight::set_value(std::string val)
 {
     if (!isEnabled()) return true;
 
     if (val.compare(0, 8,"impulse ") == 0)
     {
-        string tmp = val;
+        std::string tmp = val;
         tmp.erase(0, 8);
         // classic impulse, WODigital goes false after <time> miliseconds
         if (is_of_type<int>(tmp))
@@ -160,7 +160,7 @@ void OutputLight::TimerImpulse()
     DELETE_NULL(timer);
 }
 
-void OutputLight::impulse_extended(string pattern)
+void OutputLight::impulse_extended(std::string pattern)
 {
     /* Extended impulse to do blinking.
          * It uses a pattern like this one:
@@ -176,7 +176,7 @@ void OutputLight::impulse_extended(string pattern)
     cInfoDom("output") << get_param("id") << ": got extended impulse action, parsing blinking pattern...";
 
     //Parse the string
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(pattern, tokens);
 
     bool state = true;
@@ -261,3 +261,5 @@ void OutputLight::TimerImpulseExtended()
                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputLight::TimerImpulseExtended) );
 }
 
+
+}

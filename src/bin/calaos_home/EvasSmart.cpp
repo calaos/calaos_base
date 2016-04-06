@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <EvasSmart.h>
-using namespace std;
 
 static void _smart_add(Evas_Object *o);
 static void _smart_del(Evas_Object *o);
@@ -34,7 +33,7 @@ static void _smart_calculate(Evas_Object * o);
 static void _smart_member_add(Evas_Object * o, Evas_Object *child);
 static void _smart_member_del(Evas_Object * o, Evas_Object *child);
 
-EvasSmart::EvasSmart(Evas *evas, string evas_smart_type):
+EvasSmart::EvasSmart(Evas *evas, std::string evas_smart_type):
     evas_object(NULL),
     smart_object(NULL),
     member_count(0)
@@ -45,14 +44,14 @@ EvasSmart::EvasSmart(Evas *evas, string evas_smart_type):
     evas_object_smart_data_set(evas_object, this);
 }
 
-Evas_Smart *EvasSmart::EvasSmartClassCreate(string evas_smart_type)
+Evas_Smart *EvasSmart::EvasSmartClassCreate(std::string evas_smart_type)
 {
-    static std::map<string, Evas_Smart *> SmartObjects;
-    static std::map<string, Evas_Smart_Class> SmartClasses;
+    static std::map<std::string, Evas_Smart *> SmartObjects;
+    static std::map<std::string, Evas_Smart_Class> SmartClasses;
 
     //try to find the smart class
     //if not found create a new one
-    map<string, Evas_Smart *>::iterator fter = SmartObjects.find(evas_smart_type);
+    std::map<std::string, Evas_Smart *>::iterator fter = SmartObjects.find(evas_smart_type);
     if (fter != SmartObjects.end())
         return SmartObjects[evas_smart_type];
 

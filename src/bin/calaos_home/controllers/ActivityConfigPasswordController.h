@@ -26,7 +26,6 @@
 #include "ActivityController.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityConfigPasswordController: public ActivityController
 {

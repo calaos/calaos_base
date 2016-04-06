@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WOVolet)
 REGISTER_IO_USERTYPE(WagoOutputShutter, WOVolet)
@@ -94,4 +94,6 @@ void WOVolet::WagoWriteCallback(bool status, UWord address, bool value)
         cErrorDom("output") << get_param("id") << ": Failed to write value";
         return;
     }
+}
+
 }

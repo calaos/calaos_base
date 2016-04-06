@@ -33,11 +33,11 @@ class ZibaseManager
 public:
     ~ZibaseManager()
     {
-        std::for_each(maps.begin(), maps.end(), Delete());
+        std::for_each(maps.begin(), maps.end(), Utils::Delete());
         maps.clear();
     }
 
-    vector<Zibase *> maps;
+    std::vector<Zibase *> maps;
 };
 
 class ZibaseInfoSensor
@@ -113,7 +113,7 @@ protected:
 
     void ZibaseCommand_Timeout();
 
-    queue<ZibaseQueuRequest> zibase_queue_req;
+    std::queue<ZibaseQueuRequest> zibase_queue_req;
     EcoreTimer *zibase_timer;
 
     int extract_infos(char* frame,ZibaseInfoSensor* elm);
@@ -162,7 +162,7 @@ public:
 
     //Singleton
     static Zibase &Instance(std::string host, int port);
-    static vector<Zibase *> &get_maps() { return zibasemaps.maps; }
+    static std::vector<Zibase *> &get_maps() { return zibasemaps.maps; }
     static void stopAllZibase();
 
     std::string get_host() { return host; }

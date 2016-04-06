@@ -22,7 +22,7 @@
 #include <Ecore.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(X10Output)
 
@@ -94,38 +94,38 @@ bool X10Output::set_value_real(int val)
 
 bool X10Output::X10Command(std::string cmd, int *dval)
 {
-    vector<string> argv;
+    std::vector<std::string> argv;
 
     if (cmd == "on")
     {
-        string cmd_line = "heyu on " + housecode;
+        std::string cmd_line = "heyu on " + housecode;
         ecore_exe_run(cmd_line.c_str(), NULL);
     }
     else if (cmd == "off")
     {
-        string cmd_line = "heyu off " + housecode;
+        std::string cmd_line = "heyu off " + housecode;
         ecore_exe_run(cmd_line.c_str(), NULL);
     }
     else if (cmd == "dimb")
     {
-        string cmd_line = "heyu dimb " + housecode + " " + Utils::to_string(*dval);
+        std::string cmd_line = "heyu dimb " + housecode + " " + Utils::to_string(*dval);
         ecore_exe_run(cmd_line.c_str(), NULL);
     }
     else if (cmd == "bright")
     {
-        string cmd_line = "heyu bright " + housecode + " " + Utils::to_string(*dval);
+        std::string cmd_line = "heyu bright " + housecode + " " + Utils::to_string(*dval);
         ecore_exe_run(cmd_line.c_str(), NULL);
     }
     else if (cmd == "dim")
     {
-        string cmd_line = "heyu dim " + housecode + " " + Utils::to_string(*dval);
+        std::string cmd_line = "heyu dim " + housecode + " " + Utils::to_string(*dval);
         ecore_exe_run(cmd_line.c_str(), NULL);
     }
     else if (cmd == "onstate")
     {
         //setup params for heyu
-        string _cmd = "heyu onstate " + housecode;
-        string std_out;
+        std::string _cmd = "heyu onstate " + housecode;
+        std::string std_out;
         int _ret = -1;
 
         //TO FIX: Need to fix that using ecore_exe...
@@ -134,7 +134,7 @@ bool X10Output::X10Command(std::string cmd, int *dval)
         if (_ret != 0)
         {
             //reload the heyu engine
-            string cmd_line = "heyu engine";
+            std::string cmd_line = "heyu engine";
             ecore_exe_run(cmd_line.c_str(), NULL);
 
             //then try again
@@ -150,8 +150,8 @@ bool X10Output::X10Command(std::string cmd, int *dval)
     else if (cmd == "dimstate")
     {
         //setup params for heyu
-        string _cmd = "heyu dimstate " + housecode;
-        string std_out;
+        std::string _cmd = "heyu dimstate " + housecode;
+        std::string std_out;
         int _ret = -1;
 
         //TO FIX: Need to fix that using ecore_exe...
@@ -160,7 +160,7 @@ bool X10Output::X10Command(std::string cmd, int *dval)
         if (_ret != 0)
         {
             //reload the heyu engine
-            string cmd_line = "heyu engine";
+            std::string cmd_line = "heyu engine";
             ecore_exe_run(cmd_line.c_str(), NULL);
 
             //then try again
@@ -175,3 +175,5 @@ bool X10Output::X10Command(std::string cmd, int *dval)
     return true;
 }
 
+
+}

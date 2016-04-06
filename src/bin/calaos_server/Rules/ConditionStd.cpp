@@ -21,7 +21,7 @@
 #include "ConditionStd.h"
 #include "ListeRoom.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 ConditionStd::ConditionStd():
     Condition(COND_STD)
@@ -41,7 +41,7 @@ void ConditionStd::Add(IOBase *in)
     cDebugDom("rule.condition.standard") <<  "Input(" << in->get_param("id") << ") added";
 }
 
-void ConditionStd::getVarIds(vector<IOBase *> &list)
+void ConditionStd::getVarIds(std::vector<IOBase *> &list)
 {
     for (uint i = 0;i < inputs.size();i++)
     {
@@ -311,9 +311,9 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
 {
     if (node->Attribute("trigger"))
     {
-        if (node->Attribute("trigger") == string("true"))
+        if (node->Attribute("trigger") == std::string("true"))
             trigger = true;
-        else if (node->Attribute("trigger") == string("false"))
+        else if (node->Attribute("trigger") == std::string("false"))
             trigger = false;
     }
 
@@ -323,7 +323,7 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
     {
         if (node->ValueStr() == "calaos:input")
         {
-            string id = "", oper = "", val = "", val_var = "";
+            std::string id = "", oper = "", val = "", val_var = "";
 
             if (node->Attribute("id")) id = node->Attribute("id");
             if (node->Attribute("oper")) oper = node->Attribute("oper");
@@ -335,7 +335,7 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
             if (!in)
             {
                 //for compatibility with old AudioPlayer and Camera, update ids if needed
-                list<IOBase *> l = ListeRoom::Instance().getAudioList();
+                std::list<IOBase *> l = ListeRoom::Instance().getAudioList();
                 for (IOBase *io: l)
                 {
                     if (io->get_param("iid") == id ||
@@ -394,4 +394,6 @@ bool ConditionStd::SaveToXml(TiXmlElement *node)
     }
 
     return true;
+}
+
 }

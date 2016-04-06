@@ -24,20 +24,24 @@
 #include "Calaos.h"
 #include "ExternProc.h"
 
+namespace Calaos {
 class OLACtrl: public sigc::trackable
 {
 private:
-    OLACtrl(const string &universe);
+    OLACtrl(const std::string &universe);
 
     ExternProcServer *process;
-    string exe;
+    std::string exe;
 
 public:
-    static shared_ptr<OLACtrl> Instance(const string &universe);
+    static std::shared_ptr<OLACtrl> Instance(const std::string &universe);
     ~OLACtrl();
 
     void setValue(int channel, int value); //0-100
     void setColor(const ColorValue &color, int channel_red, int channel_green, int channel_blue);
 };
 
+}
+
 #endif // OLACTRL_H
+

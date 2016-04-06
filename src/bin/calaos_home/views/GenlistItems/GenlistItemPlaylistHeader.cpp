@@ -38,9 +38,9 @@ GenlistItemPlaylistHeader::~GenlistItemPlaylistHeader()
 {
 }
 
-string GenlistItemPlaylistHeader::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemPlaylistHeader::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (part == "text")
     {
@@ -68,7 +68,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemPlaylistHeader::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemPlaylistHeader::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

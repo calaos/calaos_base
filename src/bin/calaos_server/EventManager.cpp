@@ -29,7 +29,7 @@ EventManager::~EventManager()
 {
     ecore_idle_enterer_del(idler);
     //clear queue
-    eventsQueue = queue<CalaosEvent>();
+    eventsQueue = std::queue<CalaosEvent>();
 }
 
 Eina_Bool EventManager_event_idler(void *data)
@@ -90,7 +90,7 @@ CalaosEvent::CalaosEvent()
 {
 }
 
-string CalaosEvent::typeToString(int type)
+std::string CalaosEvent::typeToString(int type)
 {
     switch (type)
     {
@@ -141,13 +141,13 @@ json_t *CalaosEvent::toJson() const
     return ret;
 }
 
-string CalaosEvent::toString() const
+std::string CalaosEvent::toString() const
 {
-    string ret = typeToString(getType());
+    std::string ret = typeToString(getType());
 
     for (int i = 0;i < evParams.size();i++)
     {
-        string key, val;
+        std::string key, val;
         evParams.get_item(i, key, val);
 
         ret += " ";

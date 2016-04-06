@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "AVRDenon.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 AVRDenon::AVRDenon(Params &p):
     AVReceiver(p, 23)
@@ -73,7 +73,7 @@ void AVRDenon::connectionEstablished()
     sendRequest("MV?");
 }
 
-void AVRDenon::processMessage(string msg)
+void AVRDenon::processMessage(std::string msg)
 {
     cDebugDom("output") << "Recv: " << msg;
 
@@ -191,7 +191,7 @@ void AVRDenon::Power(bool on, int zone)
         sendRequest("Z3OFF");
 }
 
-int AVRDenon::inputFromString(string source)
+int AVRDenon::inputFromString(std::string source)
 {
     if (source == "PHONO") return AVReceiver::AVR_INPUT_PHONO;
     if (source == "CD") return AVReceiver::AVR_INPUT_CD;
@@ -220,7 +220,7 @@ int AVRDenon::inputFromString(string source)
     return AVReceiver::AVR_UNKNOWN;
 }
 
-string AVRDenon::inputToString(int source)
+std::string AVRDenon::inputToString(int source)
 {
     switch (source)
     {
@@ -257,7 +257,7 @@ void AVRDenon::setVolume(int volume, int zone)
 {
     int v = volume * 99 / 100;
     v = 99 - v;
-    stringstream ss;
+    std::stringstream ss;
     ss.width(2);
     ss.fill('0');
 
@@ -271,14 +271,16 @@ void AVRDenon::setVolume(int volume, int zone)
 
 void AVRDenon::selectInputSource(int source, int zone)
 {
-    string s = inputToString(source);
+    std::string s = inputToString(source);
     if (s == "") return;
 
-    string cmd;
+    std::string cmd;
     if (zone == 1) cmd = "SI" + s;
     else if (zone == 2) cmd = "Z2" + s;
     else if (zone == 3) cmd = "Z3" + s;
     else return;
 
     sendRequest(cmd);
+}
+
 }

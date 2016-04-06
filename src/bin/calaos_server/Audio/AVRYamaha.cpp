@@ -21,7 +21,7 @@
 #include "AVRYamaha.h"
 #include <cmath>
 
-using namespace Calaos;
+namespace Calaos {
 
 AVRYamaha::AVRYamaha(Params &p):
     AVReceiver(p, 50000)
@@ -82,7 +82,7 @@ void AVRYamaha::connectionEstablished()
     sendRequest("@ZONE3:VOL=?");
 }
 
-void AVRYamaha::processMessage(string msg)
+void AVRYamaha::processMessage(std::string msg)
 {
     cDebugDom("output") << "Recv: " << msg;
 
@@ -218,7 +218,7 @@ void AVRYamaha::Power(bool on, int zone)
         sendRequest("@ZONE3:PWR=Standby");
 }
 
-int AVRYamaha::inputFromString(string source)
+int AVRYamaha::inputFromString(std::string source)
 {
     if (source == "TUNER") return AVReceiver::AVR_INPUT_TUNER;
     if (source == "PHONO") return AVReceiver::AVR_INPUT_PHONO;
@@ -250,7 +250,7 @@ int AVRYamaha::inputFromString(string source)
     return AVReceiver::AVR_UNKNOWN;
 }
 
-string AVRYamaha::inputToString(int source)
+std::string AVRYamaha::inputToString(int source)
 {
     switch (source)
     {
@@ -294,7 +294,7 @@ void AVRYamaha::setVolume(int volume, int zone)
     v -= 80.5;
     v = std::floor(v / 0.5) * 0.5;
 
-    stringstream ss;
+    std::stringstream ss;
     ss.width(2);
     ss.fill('0');
     ss.setf(std::ios::showpoint);
@@ -310,10 +310,10 @@ void AVRYamaha::setVolume(int volume, int zone)
 
 void AVRYamaha::selectInputSource(int source, int zone)
 {
-    string s = inputToString(source);
+    std::string s = inputToString(source);
     if (s == "") return;
 
-    string cmd;
+    std::string cmd;
     if (zone == 1) cmd = "@MAIN:INP=" + s;
     else if (zone == 2) cmd = "@ZONE2:INP=" + s;
     else if (zone == 3) cmd = "@ZONE3:INP=" + s;
@@ -322,3 +322,4 @@ void AVRYamaha::selectInputSource(int source, int zone)
     sendRequest(cmd);
 }
 
+}

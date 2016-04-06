@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "GpioCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 {
@@ -43,9 +43,9 @@ GpioCtrl::~GpioCtrl()
     cDebugDom("input") << "Delete GpioCtrl";
 }
 
-int GpioCtrl::writeFile(string path, string value)
+int GpioCtrl::writeFile(std::string path, std::string value)
 {
-    ofstream ofspath(path.c_str());
+    std::ofstream ofspath(path.c_str());
     cDebug() << "ofstream " << path;
     if (!ofspath.is_open())
     {
@@ -59,9 +59,9 @@ int GpioCtrl::writeFile(string path, string value)
     return true;
 }
 
-int GpioCtrl::readFile(string path, string &value)
+int GpioCtrl::readFile(std::string path, std::string &value)
 {
-    ifstream ifspath(path.c_str());
+    std::ifstream ifspath(path.c_str());
     if (!ifspath.is_open())
     {
         cErrorDom("input") << "Unable to read file " << strerror(errno);
@@ -85,31 +85,31 @@ bool GpioCtrl::unexportGpio()
 }
 
 // Set GPIO direction : "in" or "out"
-bool GpioCtrl::setDirection(string direction)
+bool GpioCtrl::setDirection(std::string direction)
 {
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/direction";
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/direction";
     return writeFile(path, direction);
 }
 
 // Set GPIO signal edge : "none", "rising", "falling" or "both"
-bool GpioCtrl::setEdge(string direction)
+bool GpioCtrl::setEdge(std::string direction)
 {
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/edge";
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/edge";
     return writeFile(path, direction);
 }
 
 // Set GPIO active low : "1" for active_low "0", for active_high (standard behaviour)
 bool GpioCtrl::setActiveLow(bool active_low)
 {
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/active_low";
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/active_low";
     return writeFile(path, active_low ? "1" : "0");
 }
 
 
 bool GpioCtrl::setVal(bool value)
 {
-    string strval;
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
+    std::string strval;
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
     strval = Utils::to_string(value);
     cDebugDom("input") << "Set value " << value << " to " << path;
     return writeFile(path, strval);
@@ -117,8 +117,8 @@ bool GpioCtrl::setVal(bool value)
 
 bool GpioCtrl::getVal(bool &value)
 {
-    string strval;
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
+    std::string strval;
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
 
     if (!readFile(path, strval))
     {
@@ -190,8 +190,8 @@ void GpioCtrl::emitChange(void)
 
 bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
 {
-    string strval;
-    string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
+    std::string strval;
+    std::string path = "/sys/class/gpio/gpio" + Utils::to_string(gpionum) + "/value";
 
     if (fd == -1)
     {
@@ -220,4 +220,6 @@ bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
     }
 
     return true;
+}
+
 }

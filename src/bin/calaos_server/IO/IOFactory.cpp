@@ -21,9 +21,9 @@
 #include <IOFactory.h>
 #include <Ecore_File.h>
 
-using namespace Calaos;
+namespace Calaos {
 
-Registrar::Registrar(string type, function<IOBase *(Params &)> classFunc)
+Registrar::Registrar(std::string type, std::function<IOBase *(Params &)> classFunc)
 {
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
@@ -67,19 +67,19 @@ IOBase *IOFactory::CreateIO(TiXmlElement *node)
     return io;
 }
 
-void IOFactory::genDocIO(string docPath)
+void IOFactory::genDocIO(std::string docPath)
 {
     Params p;
 
     json_t *j = json_object();
 
-    string mdPath = docPath + "/io_doc.md";
-    string jsonPath = docPath + "/io_doc.json";
+    std::string mdPath = docPath + "/io_doc.md";
+    std::string jsonPath = docPath + "/io_doc.json";
 
-    ofstream mdFile(mdPath, ofstream::out);
-    ofstream jsonFile(jsonPath, ofstream::out);
+    std::ofstream mdFile(mdPath, std::ofstream::out);
+    std::ofstream jsonFile(jsonPath, std::ofstream::out);
 
-    map<string, function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
+    std::map<std::string, std::function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
     for ( auto it = list.begin(); it != list.end(); ++it )
     {
         p.Add("type", origNameMap[it->first]);
@@ -98,7 +98,7 @@ void IOFactory::genDocIO(string docPath)
     mdFile.close();
 }
 
-void IOFactory::genDoc(string path)
+void IOFactory::genDoc(std::string path)
 {
     if (!ecore_file_exists(path.c_str()))
     {
@@ -115,3 +115,4 @@ void IOFactory::genDoc(string path)
     genDocIO(path);
 }
 
+}

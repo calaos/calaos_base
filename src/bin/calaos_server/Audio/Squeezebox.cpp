@@ -30,7 +30,7 @@
 #define SQ_TIMEOUT      40.0
 #define SQ_RECONNECT    3.0
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO_USERTYPE(slim, Squeezebox)
 REGISTER_IO(Squeezebox)
@@ -221,7 +221,7 @@ void Squeezebox::addConnection(Ecore_Con_Server *srv)
 
         //we need to subscribe to these commands to watch for status changes
         //string cmd = "subscribe playlist,mixer,pause,stop\n\r";
-        string cmd = "listen 1\n\r";
+        std::string cmd = "listen 1\n\r";
 
         cDebugDom("squeezebox") <<  "trying to subscribe to events";
 
@@ -287,12 +287,12 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
 
 void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
 {
-    string msg((char *)data, size);
+    std::string msg((char *)data, size);
 
     if (srv == enotif)
     {
-        if (msg.find('\n') == string::npos &&
-            msg.find('\r') == string::npos)
+        if (msg.find('\n') == std::string::npos &&
+            msg.find('\r') == std::string::npos)
         {
             //We have not a complete paquet yet, buffurize it.
             buffer_notif += msg;
@@ -315,7 +315,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
         replace_str(msg, "\r\n", "\n");
         replace_str(msg, "\r", "\n");
 
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         split(msg, tokens, "\n");
 
         isConnected = true;
@@ -326,8 +326,8 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
     }
     else if (srv == econ)
     {
-        if (msg.find('\n') == string::npos &&
-            msg.find('\r') == string::npos)
+        if (msg.find('\n') == std::string::npos &&
+            msg.find('\r') == std::string::npos)
         {
             //We have not a complete paquet yet, buffurize it.
             buffer_main += msg;
@@ -350,7 +350,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
         replace_str(msg, "\r\n", "\n");
         replace_str(msg, "\r", "\n");
 
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         split(msg, tokens, "\n");
 
         cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
@@ -364,7 +364,7 @@ void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
     }
 }
 
-void Squeezebox::processNotificationMessage(string msg)
+void Squeezebox::processNotificationMessage(std::string msg)
 {
     cDebugDom("squeezebox") << "Message: \"" << msg << "\"";
 
@@ -438,7 +438,7 @@ void Squeezebox::processNotificationMessage(string msg)
             else
                 set_status(AudioPause);
 
-            string state;
+            std::string state;
             if (p["3"] == "" || p["3"] == "0")
                 state = "play";
             else
@@ -471,7 +471,7 @@ void Squeezebox::processNotificationMessage(string msg)
     }
 }
 
-void Squeezebox::processMessage(bool status, string msg)
+void Squeezebox::processMessage(bool status, std::string msg)
 {
     if (status)
     {
@@ -516,7 +516,7 @@ void Squeezebox::processMessage(bool status, string msg)
     _sendRequest();
 }
 
-void Squeezebox::sendRequest(string command, SqueezeRequest_cb callback, AudioPlayerData user_data)
+void Squeezebox::sendRequest(std::string command, SqueezeRequest_cb callback, AudioPlayerData user_data)
 {
     SqueezeboxCommand cmd;
     cmd.request = command;
@@ -528,7 +528,7 @@ void Squeezebox::sendRequest(string command, SqueezeRequest_cb callback, AudioPl
     _sendRequest();
 }
 
-void Squeezebox::sendRequest(string command)
+void Squeezebox::sendRequest(std::string command)
 {
     SqueezeboxCommand cmd;
     cmd.request = command;
@@ -590,7 +590,7 @@ void Squeezebox::requestTimeout_cb()
 
 void Squeezebox::Play()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " play";
 
     sendRequest(cmd);
@@ -598,7 +598,7 @@ void Squeezebox::Play()
 
 void Squeezebox::Pause()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " pause";
 
     sendRequest(cmd);
@@ -606,7 +606,7 @@ void Squeezebox::Pause()
 
 void Squeezebox::Stop()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " stop";
 
     sendRequest(cmd);
@@ -614,7 +614,7 @@ void Squeezebox::Stop()
 
 void Squeezebox::Next()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist index +1";
 
     sendRequest(cmd);
@@ -622,7 +622,7 @@ void Squeezebox::Next()
 
 void Squeezebox::Previous()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist index -1";
 
     sendRequest(cmd);
@@ -630,7 +630,7 @@ void Squeezebox::Previous()
 
 void Squeezebox::Power(bool on)
 {
-    string cmd = id;
+    std::string cmd = id;
 
     if (on)
         cmd += " power 1";
@@ -642,15 +642,15 @@ void Squeezebox::Power(bool on)
 
 void Squeezebox::Sleep(int seconds)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " sleep " + Utils::to_string(seconds);
 
     sendRequest(cmd);
 }
 
-void Squeezebox::Synchronize(string playerid, bool sync)
+void Squeezebox::Synchronize(std::string playerid, bool sync)
 {
-    string cmd = id;
+    std::string cmd = id;
     if (sync)
         cmd += " sync " + playerid;
     else
@@ -661,7 +661,7 @@ void Squeezebox::Synchronize(string playerid, bool sync)
 
 void Squeezebox::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " path ?";
 
     AudioPlayerData data;
@@ -671,20 +671,20 @@ void Squeezebox::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_dat
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_songinfo_cb), data);
 }
 
-void Squeezebox::get_songinfo_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_songinfo_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
 
-    string path = p["2"];
+    std::string path = p["2"];
 
-    string cmd = "songinfo 0 100 tags:algjdro url:";
+    std::string cmd = "songinfo 0 100 tags:algjdro url:";
     cmd += path;
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_songinfo_cb2), data);
 }
 
-void Squeezebox::get_songinfo_cb2(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_songinfo_cb2(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -701,8 +701,8 @@ void Squeezebox::get_songinfo_cb2(bool status, string request, string result, Au
 
     for (int i = 5;i < p.size();i++)
     {
-        string value = p[Utils::to_string(i)];
-        vector<string> attr;
+        std::string value = p[Utils::to_string(i)];
+        std::vector<std::string> attr;
         Utils::split(Utils::url_decode2(value), attr, ":", 2);
 
         if (attr.size() == 2)
@@ -745,7 +745,7 @@ void Squeezebox::get_songinfo_duration_cb(AudioPlayerData data)
 
 void Squeezebox::get_title(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " remote ?";
 
     AudioPlayerData data;
@@ -754,9 +754,9 @@ void Squeezebox::get_title(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title_cb), data);
 }
-void Squeezebox::get_title_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_title_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    string cmd;
+    std::string cmd;
     Params p;
     p.Parse(result);
 
@@ -767,7 +767,7 @@ void Squeezebox::get_title_cb(bool status, string request, string result, AudioP
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title2_cb), data);
 }
-void Squeezebox::get_title2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_title2_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -782,7 +782,7 @@ void Squeezebox::get_title2_cb(bool status, string request, string result, Audio
 
 void Squeezebox::get_artist(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " remote ?";
 
     AudioPlayerData data;
@@ -791,9 +791,9 @@ void Squeezebox::get_artist(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title_cb), data);
 }
-void Squeezebox::get_artist_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_artist_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    string cmd;
+    std::string cmd;
     Params p;
     p.Parse(result);
 
@@ -804,7 +804,7 @@ void Squeezebox::get_artist_cb(bool status, string request, string result, Audio
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title2_cb), data);
 }
-void Squeezebox::get_artist2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_artist2_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -819,7 +819,7 @@ void Squeezebox::get_artist2_cb(bool status, string request, string result, Audi
 
 void Squeezebox::get_album(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " album ?";
 
     AudioPlayerData data;
@@ -828,7 +828,7 @@ void Squeezebox::get_album(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cb), data);
 }
-void Squeezebox::get_album_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -845,11 +845,11 @@ void Squeezebox::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
 {
     //Try using a JSON call to get artwork_url if any
 
-    string url = "http://";
+    std::string url = "http://";
     url += param["host"] + ":9000";
     url += "/jsonrpc.js";
 
-    string postData = "{\"id\":1,\"method\":\"slim.request\",\"params\":[\"";
+    std::string postData = "{\"id\":1,\"method\":\"slim.request\",\"params\":[\"";
     postData += id;
     postData += "\",[\"status\",\"-\",1,\"tags:gABbehldiqtyrSuoKLN\"]]}";
 
@@ -862,7 +862,7 @@ void Squeezebox::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
 
     downloader->Start();
 }
-void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_data)
+void Squeezebox::get_album_cover_json_cb(std::string result, void *data, void *user_data)
 {
     if (result == "failed" || result == "aborted")
     {
@@ -879,7 +879,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
         delete _data;
 
         Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
+        std::string res((const char *)buff->buffer, buff->bufsize);
 
         json_error_t jerr;
         json_t *json = json_loads(res.c_str(), 0, &jerr);
@@ -910,7 +910,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
                     artwork_url = json_object_get(remoteMeta, "artwork_url");
                     if (json_is_string(artwork_url))
                     {
-                        string aurl;
+                        std::string aurl;
 
                         aurl = json_string_value(artwork_url);
 
@@ -931,7 +931,7 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
                         }
                         else
                         {
-                            string s = "http://";
+                            std::string s = "http://";
                             s += host + ":9000/";
                             s += aurl;
 
@@ -965,34 +965,34 @@ void Squeezebox::get_album_cover_std(AudioPlayerData data)
 {
     cDebugDom("squeezebox") <<  "trying with standard CLI way...";
 
-    string cmd = id;
+    std::string cmd = id;
     cmd += " path ?";
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cover_std_cb), data);
 }
-void Squeezebox::get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cover_std_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    string cmd;
+    std::string cmd;
     Params p;
     p.Parse(result);
-    string path = p["2"];
+    std::string path = p["2"];
 
     cmd = "songinfo 0 100 url:";
     cmd += path;
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_album_cover_std2_cb), data);
 }
-void Squeezebox::get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_album_cover_std2_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(result, tokens);
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
-    string aid = "";
+    std::string aid = "";
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
         split(tmp, tk, ":", 2);
         if (tk.size() != 2) continue;
 
@@ -1000,7 +1000,7 @@ void Squeezebox::get_album_cover_std2_cb(bool status, string request, string res
         if (tk[0] == "id" && aid == "") aid = tk[1];
     }
 
-    stringstream aurl;
+    std::stringstream aurl;
     if (aid == "") aid = "current";
     aurl << "http://" << host << ":" << port_web << "/music/" << aid << "/cover.jpg";
     if (aid == "") aurl << "?playerid=" << id;
@@ -1012,9 +1012,9 @@ void Squeezebox::get_album_cover_std2_cb(bool status, string request, string res
     sig.emit(data.get_chain_data());
 }
 
-void Squeezebox::get_album_cover_id(string track_id, AudioRequest_cb callback, AudioPlayerData user_data)
+void Squeezebox::get_album_cover_id(std::string track_id, AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    stringstream aurl;
+    std::stringstream aurl;
     if (track_id == "") track_id = "0";
     aurl << "http://" << host << ":" << port_web << "/music/" << track_id << "/cover.jpg";
 
@@ -1030,7 +1030,7 @@ void Squeezebox::get_album_cover_id(string track_id, AudioRequest_cb callback, A
 
 void Squeezebox::get_playlist_album_cover(int item, AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist path " + Utils::to_string(item) + " ?";
 
     AudioPlayerData data;
@@ -1039,29 +1039,29 @@ void Squeezebox::get_playlist_album_cover(int item, AudioRequest_cb callback, Au
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_album_cover_cb), data);
 }
-void Squeezebox::get_playlist_album_cover_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_album_cover_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    string cmd;
+    std::string cmd;
     Params p;
     p.Parse(result);
-    string path = p["4"];
+    std::string path = p["4"];
 
     cmd = "songinfo 0 100 url:";
     cmd += path;
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_album_cover2_cb), data);
 }
-void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_album_cover2_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(result, tokens);
     for_each(tokens.begin(), tokens.end(), UrlDecode());
 
-    string aid = "";
+    std::string aid = "";
     for (uint i = 0;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
         split(tmp, tk, ":", 2);
         if (tk.size() != 2) continue;
 
@@ -1069,7 +1069,7 @@ void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, strin
         if (tk[0] == "id" && aid == "") aid = tk[1];
     }
 
-    stringstream aurl;
+    std::stringstream aurl;
     if (aid == "") aid = "0";
     aurl << "http://" << host << ":" << port_web << "/music/" << aid << "/cover.jpg";
 
@@ -1084,7 +1084,7 @@ void Squeezebox::get_playlist_album_cover2_cb(bool status, string request, strin
 
 void Squeezebox::get_genre(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " genre ?";
 
     AudioPlayerData data;
@@ -1093,7 +1093,7 @@ void Squeezebox::get_genre(AudioRequest_cb callback, AudioPlayerData user_data)
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_genre_cb), data);
 }
-void Squeezebox::get_genre_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_genre_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1107,7 +1107,7 @@ void Squeezebox::get_genre_cb(bool status, string request, string result, AudioP
 
 void Squeezebox::get_current_time(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " time ?";
 
     AudioPlayerData data;
@@ -1117,7 +1117,7 @@ void Squeezebox::get_current_time(AudioRequest_cb callback, AudioPlayerData user
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_current_time_cb), data);
 }
 
-void Squeezebox::get_current_time_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_current_time_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1134,7 +1134,7 @@ void Squeezebox::get_current_time_cb(bool status, string request, string result,
 
 void Squeezebox::set_current_time(double seconds)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " time " + Utils::to_string(seconds);
 
     sendRequest(cmd);
@@ -1142,7 +1142,7 @@ void Squeezebox::set_current_time(double seconds)
 
 void Squeezebox::get_duration(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " duration ?";
 
     AudioPlayerData data;
@@ -1153,7 +1153,7 @@ void Squeezebox::get_duration(AudioRequest_cb callback, AudioPlayerData user_dat
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_duration_cb), data);
 }
 
-void Squeezebox::get_duration_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_duration_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1170,7 +1170,7 @@ void Squeezebox::get_duration_cb(bool status, string request, string result, Aud
 
 void Squeezebox::get_sleep(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " sleep ?";
 
     AudioPlayerData data;
@@ -1180,7 +1180,7 @@ void Squeezebox::get_sleep(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sleep_cb), data);
 }
 
-void Squeezebox::get_sleep_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_sleep_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1197,7 +1197,7 @@ void Squeezebox::get_sleep_cb(bool status, string request, string result, AudioP
 
 void Squeezebox::get_status(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " mode ?";
 
     AudioPlayerData data;
@@ -1207,7 +1207,7 @@ void Squeezebox::get_status(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_status_cb), data);
 }
 
-void Squeezebox::get_status_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_status_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1230,7 +1230,7 @@ void Squeezebox::get_status_cb(bool status, string request, string result, Audio
 
 void Squeezebox::get_sync_status(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " sync ?";
 
     AudioPlayerData data;
@@ -1240,23 +1240,23 @@ void Squeezebox::get_sync_status(AudioRequest_cb callback, AudioPlayerData user_
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sync_status_cb), data);
 }
 
-void Squeezebox::get_sync_status_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_sync_status_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
 
-    vector<Params> &results = data.get_chain_data().vparams;
+    std::vector<Params> &results = data.get_chain_data().vparams;
 
-    vector<string> splitter;
+    std::vector<std::string> splitter;
     Utils::split(url_decode2(p["2"]), splitter, ",");
 
     for (uint j = 0;j < splitter.size();j++)
     {
-        string tmp = splitter[j];
+        std::string tmp = splitter[j];
 
         if (tmp == "-") break;
 
-        list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+        std::list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
         for (IOBase *io: audiolist)
         {
             AudioPlayer *ap = dynamic_cast<AudioPlayer *>(io);
@@ -1282,7 +1282,7 @@ void Squeezebox::get_sync_status_cb(bool status, string request, string result, 
 
 void Squeezebox::get_playlist_size(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist tracks ?";
 
     AudioPlayerData data;
@@ -1292,7 +1292,7 @@ void Squeezebox::get_playlist_size(AudioRequest_cb callback, AudioPlayerData use
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_size_cb), data);
 }
 
-void Squeezebox::get_playlist_size_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_size_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1309,7 +1309,7 @@ void Squeezebox::get_playlist_size_cb(bool status, string request, string result
 
 void Squeezebox::get_playlist_current(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist index ?";
 
     AudioPlayerData data;
@@ -1319,7 +1319,7 @@ void Squeezebox::get_playlist_current(AudioRequest_cb callback, AudioPlayerData 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_current_cb), data);
 }
 
-void Squeezebox::get_playlist_current_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_current_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1336,7 +1336,7 @@ void Squeezebox::get_playlist_current_cb(bool status, string request, string res
 
 void Squeezebox::get_playlist_item(int index, AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist path " + Utils::to_string(index) + " ?";
 
     AudioPlayerData data;
@@ -1348,18 +1348,18 @@ void Squeezebox::get_playlist_item(int index, AudioRequest_cb callback, AudioPla
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item_cb), data);
 }
 
-void Squeezebox::get_playlist_item_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
 
-    string path = url_decode2(p["4"]);
+    std::string path = url_decode2(p["4"]);
 
-    string cmd = "songinfo 0 100 tags:algjdro url:" + url_encode(path);
+    std::string cmd = "songinfo 0 100 tags:algjdro url:" + url_encode(path);
 
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item2_cb), data);
 }
-void Squeezebox::get_playlist_item2_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item2_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1367,7 +1367,7 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
     //It's probably a remote stream, get infos with specific commands
     if (p.size() <= 5)
     {
-        string cmd = id;
+        std::string cmd = id;
         cmd += " playlist title " + Utils::to_string(data.ivalue) + " ?";
 
         sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item3_cb), data);
@@ -1377,8 +1377,8 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
 
     for (int i = 5;i < p.size();i++)
     {
-        string value = p[Utils::to_string(i)];
-        vector<string> attr;
+        std::string value = p[Utils::to_string(i)];
+        std::vector<std::string> attr;
         split(url_decode2(value), attr, ":", 2);
 
         if (attr.size() == 2)
@@ -1389,7 +1389,7 @@ void Squeezebox::get_playlist_item2_cb(bool status, string request, string resul
     sig.connect(data.callback);
     sig.emit(data.get_chain_data());
 }
-void Squeezebox::get_playlist_item3_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item3_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1405,7 +1405,7 @@ void Squeezebox::get_playlist_item4_cb(AudioPlayerData data)
 
     if (index == data.ivalue)
     {
-        string cmd = id;
+        std::string cmd = id;
         cmd += " current_title ?";
 
         sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_item5_cb), data);
@@ -1417,7 +1417,7 @@ void Squeezebox::get_playlist_item4_cb(AudioPlayerData data)
         sig.emit(data.get_chain_data());
     }
 }
-void Squeezebox::get_playlist_item5_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_item5_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1431,7 +1431,7 @@ void Squeezebox::get_playlist_item5_cb(bool status, string request, string resul
 
 void Squeezebox::get_playlist_basic_info(int index, AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist artist " + Utils::to_string(index) + " ?";
 
     AudioPlayerData data;
@@ -1443,25 +1443,25 @@ void Squeezebox::get_playlist_basic_info(int index, AudioRequest_cb callback, Au
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
 }
 
-void Squeezebox::get_playlist_info_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_playlist_info_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
 
-    string key = url_decode2(p["2"]);
-    string val = url_decode2(p["4"]);
+    std::string key = url_decode2(p["2"]);
+    std::string val = url_decode2(p["4"]);
 
     data.get_chain_data().params.Add(key, val);
 
     if (key == "artist")
     {
-        string cmd = id;
+        std::string cmd = id;
         cmd += " playlist album " + Utils::to_string(data.ivalue) + " ?";
         sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
     }
     else if (key == "album")
     {
-        string cmd = id;
+        std::string cmd = id;
         cmd += " playlist title " + Utils::to_string(data.ivalue) + " ?";
         sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_playlist_info_cb), data);
     }
@@ -1475,7 +1475,7 @@ void Squeezebox::get_playlist_info_cb(bool status, string request, string result
 
 void Squeezebox::playlist_moveup(int item)
 {
-    stringstream cmd;
+    std::stringstream cmd;
     cmd << id << " playlist move " << item << " " << (item - 1);
 
     sendRequest(cmd.str());
@@ -1483,7 +1483,7 @@ void Squeezebox::playlist_moveup(int item)
 
 void Squeezebox::playlist_movedown(int item)
 {
-    stringstream cmd;
+    std::stringstream cmd;
     cmd << id << " playlist move " << item << " " << (item + 1);
 
     sendRequest(cmd.str());
@@ -1491,7 +1491,7 @@ void Squeezebox::playlist_movedown(int item)
 
 void Squeezebox::playlist_delete(int item)
 {
-    stringstream cmd;
+    std::stringstream cmd;
     cmd << id << " playlist delete " << item;
 
     sendRequest(cmd.str());
@@ -1499,7 +1499,7 @@ void Squeezebox::playlist_delete(int item)
 
 void Squeezebox::playlist_play(int item)
 {
-    stringstream cmd;
+    std::stringstream cmd;
     cmd << id << " playlist index " << item;
 
     sendRequest(cmd.str());
@@ -1507,86 +1507,86 @@ void Squeezebox::playlist_play(int item)
 
 void Squeezebox::playlist_clear()
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist clear";
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_save(string name)
+void Squeezebox::playlist_save(std::string name)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlist save " + Utils::url_encode(name);
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_delete(string pid)
+void Squeezebox::playlist_delete(std::string pid)
 {
-    string cmd = "playlists delete playlist_id:" + pid;
+    std::string cmd = "playlists delete playlist_id:" + pid;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_play_artist(string item)
+void Squeezebox::playlist_play_artist(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:load artist_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_play_album(string item)
+void Squeezebox::playlist_play_album(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:load album_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_play_title(string item)
+void Squeezebox::playlist_play_title(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:load track_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_add_artist(string item)
+void Squeezebox::playlist_add_artist(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:add artist_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_add_album(string item)
+void Squeezebox::playlist_add_album(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:add album_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_add_title(string item)
+void Squeezebox::playlist_add_title(std::string item)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " playlistcontrol cmd:add track_id:";
     cmd += item;
 
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_add_items(string item)
+void Squeezebox::playlist_add_items(std::string item)
 {
-    string cmd;
+    std::string cmd;
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     Utils::split(item, tokens, ":", 2);
     if (tokens.size() != 2) return;
 
@@ -1604,7 +1604,7 @@ void Squeezebox::playlist_add_items(string item)
     }
     else if (tokens[0] == "radio_id")
     {
-        vector<string> tok;
+        std::vector<std::string> tok;
         Utils::split(tokens[1], tok, ":", 2);
         if (tok.size() != 2) return;
 
@@ -1623,11 +1623,11 @@ void Squeezebox::playlist_add_items(string item)
     sendRequest(cmd);
 }
 
-void Squeezebox::playlist_play_items(string item)
+void Squeezebox::playlist_play_items(std::string item)
 {
-    string cmd;
+    std::string cmd;
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     Utils::split(item, tokens, ":", 2);
     if (tokens.size() != 2) return;
 
@@ -1646,7 +1646,7 @@ void Squeezebox::playlist_play_items(string item)
     }
     else if (tokens[0] == "radio_id")
     {
-        vector<string> tok;
+        std::vector<std::string> tok;
         Utils::split(tokens[1], tok, ":", 2);
         if (tok.size() != 2) return;
 
@@ -1667,7 +1667,7 @@ void Squeezebox::playlist_play_items(string item)
 
 void Squeezebox::get_volume(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " mixer volume ?";
 
     AudioPlayerData data;
@@ -1677,7 +1677,7 @@ void Squeezebox::get_volume(AudioRequest_cb callback, AudioPlayerData user_data)
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_volume_cb), data);
 }
 
-void Squeezebox::get_volume_cb(bool status, string request, string result, AudioPlayerData data)
+void Squeezebox::get_volume_cb(bool status, std::string request, std::string result, AudioPlayerData data)
 {
     Params p;
     p.Parse(result);
@@ -1694,7 +1694,7 @@ void Squeezebox::get_volume_cb(bool status, string request, string result, Audio
 
 void Squeezebox::set_volume(int vol)
 {
-    string cmd = id;
+    std::string cmd = id;
     cmd += " mixer volume ";
     cmd += Utils::to_string(vol);
 
@@ -1703,7 +1703,7 @@ void Squeezebox::set_volume(int vol)
 
 void Squeezebox::getSynchronizeList(AudioRequest_cb callback, AudioPlayerData user_data)
 {
-    string cmd = "players 0 20";
+    std::string cmd = "players 0 20";
 
     AudioPlayerData data;
     data.set_chain_data(new AudioPlayerData(user_data));
@@ -1712,11 +1712,11 @@ void Squeezebox::getSynchronizeList(AudioRequest_cb callback, AudioPlayerData us
     sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_sync_list_cb), data);
 }
 
-void Squeezebox::get_sync_list_cb(bool status, string request, string res, AudioPlayerData data)
+void Squeezebox::get_sync_list_cb(bool status, std::string request, std::string res, AudioPlayerData data)
 {
-    vector<Params> &result = data.get_chain_data().vparams;
+    std::vector<Params> &result = data.get_chain_data().vparams;
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(res, tokens);
 
     if (tokens.size() > 0)
@@ -1726,8 +1726,8 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
         Params item;
         for (uint i = 0;i < tokens.size();i++)
         {
-            string tmp = tokens[i];
-            vector<string> tk;
+            std::string tmp = tokens[i];
+            std::vector<std::string> tk;
 
             split(tmp, tk, ":", 2);
 
@@ -1735,9 +1735,9 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
 
             if (tk[0] == "playerid")
             {
-                string pid = url_decode2(tk[1]);
+                std::string pid = url_decode2(tk[1]);
 
-                list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
+                std::list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
                 for (IOBase *io: audiolist)
                 {
                     AudioPlayer *ap = dynamic_cast<AudioPlayer *>(io);
@@ -1759,4 +1759,6 @@ void Squeezebox::get_sync_list_cb(bool status, string request, string res, Audio
     AudioRequest_signal sig;
     sig.connect(data.callback);
     sig.emit(data.get_chain_data());
+}
+
 }

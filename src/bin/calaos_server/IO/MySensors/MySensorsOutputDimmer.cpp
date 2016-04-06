@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputDimmer)
 
@@ -46,8 +46,8 @@ MySensorsOutputDimmer::MySensorsOutputDimmer(Params &_p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id: " << nodeId << " sensor_id: " << sensorId;
@@ -60,8 +60,8 @@ MySensorsOutputDimmer::~MySensorsOutputDimmer()
 
 bool MySensorsOutputDimmer::set_value_real(int val)
 {
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     int dataType = MySensors::V_DIMMER;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -70,4 +70,6 @@ bool MySensorsOutputDimmer::set_value_real(int val)
     MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
 
     return true;
+}
+
 }

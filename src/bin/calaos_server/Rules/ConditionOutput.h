@@ -32,11 +32,11 @@ class ConditionOutput: public Condition
 {
 protected:
     IOBase *output;
-    string params;
-    string ops;
+    std::string params;
+    std::string ops;
     //this is used to do the condition test
     //based on another output
-    string params_var;
+    std::string params_var;
 
     bool trigger = true;
 
@@ -56,12 +56,12 @@ public:
 
     bool useForTrigger() { return trigger; }
 
-    string get_params() { return params; }
-    string get_operator() { return ops; }
-    string get_params_var() { return params_var; }
-    void set_param(string p) { params = p; }
-    void set_operator(string p) { ops = p; }
-    void set_param_var(string p) { params_var = p; }
+    std::string get_params() { return params; }
+    std::string get_operator() { return ops; }
+    std::string get_params_var() { return params_var; }
+    void set_param(std::string p) { params = p; }
+    void set_operator(std::string p) { ops = p; }
+    void set_param_var(std::string p) { params_var = p; }
 
     bool LoadFromXml(TiXmlElement *node);
     bool SaveToXml(TiXmlElement *node);

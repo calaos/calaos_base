@@ -35,7 +35,7 @@ private:
 
     virtual bool set_value_real(int val);
 
-    void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommand_cb(bool status, std::string command, std::string result);
 
 public:
     WODali(Params &p);

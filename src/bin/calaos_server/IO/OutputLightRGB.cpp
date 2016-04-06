@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "OutputLightRGB.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 OutputLightRGB::OutputLightRGB(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
@@ -348,4 +348,6 @@ bool OutputLightRGB::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
 }

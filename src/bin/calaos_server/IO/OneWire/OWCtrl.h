@@ -24,26 +24,30 @@
 #include "Calaos.h"
 #include "ExternProc.h"
 
+namespace Calaos {
+
 class OwCtrl: public sigc::trackable
 {
 private:    
-    OwCtrl(const string &args);
+    OwCtrl(const std::string &args);
 
     ExternProcServer *process;
-    std::unordered_map<string, string> mapValues;
-    std::unordered_map<string, string> mapTypes;
-    string exe;
+    std::unordered_map<std::string, std::string> mapValues;
+    std::unordered_map<std::string, std::string> mapTypes;
+    std::string exe;
 
-    void processNewMessage(const string &msg);
+    void processNewMessage(const std::string &msg);
 
 public:
-    static shared_ptr<OwCtrl> Instance(const string &args);
+    static std::shared_ptr<OwCtrl> Instance(const std::string &args);
     ~OwCtrl();
 
-    string getValue(string owid);
-    string getType(string owid);
+    std::string getValue(std::string owid);
+    std::string getType(std::string owid);
 
     sigc::signal<void> valueChanged;
 };
+
+}
 
 #endif

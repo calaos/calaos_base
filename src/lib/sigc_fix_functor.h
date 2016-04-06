@@ -13,7 +13,7 @@ namespace sigc
 {
 
 template <typename Functor>
-struct functor_trait<Functor, false>
+struct functor_trait<Functor, false, false>
 {
     typedef decltype (::sigc::mem_fun (std::declval<Functor&> (),
                                        &Functor::operator())) _intermediate;

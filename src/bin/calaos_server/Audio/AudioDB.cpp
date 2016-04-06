@@ -20,8 +20,7 @@
  ******************************************************************************/
 #include "AudioDB.h"
 
-using namespace std;
-using namespace Calaos;
+namespace Calaos {
 
 AudioDB::AudioDB(Params &p):
     param(p)
@@ -30,4 +29,6 @@ AudioDB::AudioDB(Params &p):
 
 AudioDB::~AudioDB()
 {
+}
+
 }

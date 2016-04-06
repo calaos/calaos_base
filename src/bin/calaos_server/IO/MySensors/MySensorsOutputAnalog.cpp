@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputAnalog)
 
@@ -46,8 +46,8 @@ MySensorsOutputAnalog::MySensorsOutputAnalog(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id: " << nodeId << " sensor_id: " << sensorId;
@@ -60,8 +60,8 @@ MySensorsOutputAnalog::~MySensorsOutputAnalog()
 
 void MySensorsOutputAnalog::set_value_real(double val)
 {
-    string nodeId = get_param("node_id_down");
-    string sensorId = get_param("sensor_id_down");
+    std::string nodeId = get_param("node_id_down");
+    std::string sensorId = get_param("sensor_id_down");
 
     int dataType = MySensors::V_DIMMER;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -70,3 +70,5 @@ void MySensorsOutputAnalog::set_value_real(double val)
     MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
 }
 
+
+}

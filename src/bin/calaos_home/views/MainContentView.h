@@ -26,7 +26,6 @@
 #include "BaseView.h"
 #include "EvasSmart.h"
 
-using namespace Utils;
 
 class ViewAnimation
 {
@@ -51,12 +50,12 @@ public:
 class MainContentView: public BaseView, public EvasSmart
 {
 private:
-    list<ViewAnimation *> views;
+    std::list<ViewAnimation *> views;
     BaseView *top_item;
 
     Evas_Object *clip;
 
-    void hideFinished(void *data, Evas_Object *edje_object, string emission, string source);
+    void hideFinished(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
 public:
     MainContentView(Evas *evas, Evas_Object *parent);

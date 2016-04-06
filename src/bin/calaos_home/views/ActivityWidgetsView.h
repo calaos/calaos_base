@@ -27,14 +27,13 @@
 #include "Widget.h"
 #include "Xmas.h"
 
-using namespace Utils;
 
 class ActivityWidgetsView: public ActivityView
 {
 private:
     Evas_Object *clipper;
 
-    vector<Widget *> widgets;
+    std::vector<Widget *> widgets;
 
     //timer to do some maintenance stuff
     //like showing/hiding xmas widget
@@ -64,7 +63,7 @@ public:
 
     void LoadWidgets();
 
-    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
+    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, std::string id = "");
     void DeleteWidget(Widget *w);
     void DeleteAllWidgets();
 

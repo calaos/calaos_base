@@ -27,7 +27,7 @@
 #include <WebCtrl.h>
 #include <jansson.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebOutputString)
 
@@ -88,8 +88,10 @@ void WebOutputString::readValue()
 }
 
 
-void WebOutputString::set_value_real(string val)
+void WebOutputString::set_value_real(std::string val)
 {
     cInfoDom("output") << "Set new string value " << val;
     WebCtrl::Instance(get_params()).setValue(val);
+}
+
 }

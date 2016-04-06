@@ -22,7 +22,7 @@
 #include "Zibase.h"
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(ZibaseTemp)
 
@@ -80,3 +80,5 @@ void ZibaseTemp::readValue()
     //the zibase will send us new values
 }
 
+
+}

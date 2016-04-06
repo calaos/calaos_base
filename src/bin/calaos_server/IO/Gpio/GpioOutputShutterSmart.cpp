@@ -23,7 +23,7 @@
 
 #include "GpioOutputShutterSmart.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(GpioOutputShutterSmart)
 
@@ -78,4 +78,6 @@ void GpioOutputShutterSmart::setOutputUp(bool enable)
 void GpioOutputShutterSmart::setOutputDown(bool enable)
 {
     gpioctrl_down->setVal(enable);
+}
+
 }

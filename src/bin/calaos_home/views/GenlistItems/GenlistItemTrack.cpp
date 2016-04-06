@@ -42,9 +42,9 @@ GenlistItemTrack::~GenlistItemTrack()
 {
 }
 
-string GenlistItemTrack::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemTrack::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!in_query)
     {
@@ -84,7 +84,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemTrack::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemTrack::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -173,12 +173,12 @@ void GenlistItemTrack::buttonClickMore()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("<light_blue>Track #%1</light_blue> infos<br><small>Track details.</small>");
+    std::string title_label = _("<light_blue>Track #%1</light_blue> infos<br><small>Track details.</small>");
     Utils::replace_str(title_label, "%1", Utils::to_string(item_id + 1));
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
-    string infolabel;
+    std::string infolabel;
     if (item_infos["artist"] != "")
     {
         infolabel = item_infos["artist"];

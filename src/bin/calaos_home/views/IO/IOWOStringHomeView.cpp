@@ -23,8 +23,8 @@
 
 ITEM_BUTTON_CALLBACK(IOWOStringHomeView, Text)
 
-IOWOStringHomeView::IOWOStringHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("InternalString_") + style_addition + "/rw", _flags),
+IOWOStringHomeView::IOWOStringHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("InternalString_") + style_addition + "/rw", _flags),
     IOBaseElement(_io)
 {
 }
@@ -40,7 +40,7 @@ void IOWOStringHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWOStringHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWOStringHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -61,9 +61,9 @@ Evas_Object *IOWOStringHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWOStringHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWOStringHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 
@@ -103,7 +103,7 @@ void IOWOStringHomeView::buttonClickText()
                                              false);
 }
 
-void IOWOStringHomeView::changeTextCb(string text)
+void IOWOStringHomeView::changeTextCb(std::string text)
 {
     if (!io) return;
 

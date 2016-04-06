@@ -24,8 +24,8 @@
 ITEM_BUTTON_CALLBACK(IOWODigitalHomeView, On)
 ITEM_BUTTON_CALLBACK(IOWODigitalHomeView, Off)
 
-IOWODigitalHomeView::IOWODigitalHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("WODigital_") + style_addition, _flags),
+IOWODigitalHomeView::IOWODigitalHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("WODigital_") + style_addition, _flags),
     IOBaseElement(_io)
 {
 }
@@ -41,7 +41,7 @@ void IOWODigitalHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWODigitalHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWODigitalHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -71,9 +71,9 @@ Evas_Object *IOWODigitalHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWODigitalHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWODigitalHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 

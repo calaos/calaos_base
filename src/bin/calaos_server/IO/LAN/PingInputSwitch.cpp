@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "EcoreTimer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(PingInputSwitch)
 
@@ -66,12 +66,12 @@ bool PingInputSwitch::readValue()
 
 void PingInputSwitch::doPing()
 {
-    string host = get_param("host");
-    string timeoutVal = "";
+    std::string host = get_param("host");
+    std::string timeoutVal = "";
     if (Utils::is_of_type<int>(get_param("timeout")))
         timeoutVal = "-W " + get_param("timeout");
 
-    string cmd = "ping -c 1 " + timeoutVal + " " + host;
+    std::string cmd = "ping -c 1 " + timeoutVal + " " + host;
     cDebugDom("input") << "Starting ping: " << cmd;
 
     ping_exe = ecore_exe_run(cmd.c_str(), this);
@@ -102,4 +102,6 @@ Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event)
     in->hasChanged();
 
     return ECORE_CALLBACK_RENEW;
+}
+
 }

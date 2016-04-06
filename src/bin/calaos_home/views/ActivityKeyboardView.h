@@ -26,7 +26,6 @@
 #include "ActivityView.h"
 #include "KeyboardView.h"
 
-using namespace Utils;
 
 class ActivityKeyboardView: public ActivityView
 {
@@ -44,11 +43,11 @@ public:
     virtual void resetView();
 
     void setMultiline(bool multiline);
-    void setSubtitle(string subtitle);
-    void setText(string t);
+    void setSubtitle(std::string subtitle);
+    void setText(std::string t);
 
     sigc::signal<void> clearText;
-    sigc::signal<void, string> validPressed;
+    sigc::signal<void, std::string> validPressed;
 };
 
 #endif // ActivityKeyboardView_H

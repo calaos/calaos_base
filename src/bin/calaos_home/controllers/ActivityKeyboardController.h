@@ -27,28 +27,27 @@
 #include "ActivityKeyboardView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
-typedef sigc::slot<void, string> ActivityKeyboardCb;
-typedef sigc::signal<void, string> ActivityKeyboardSig;
+typedef sigc::slot<void, std::string> ActivityKeyboardCb;
+typedef sigc::signal<void, std::string> ActivityKeyboardSig;
 
 class ActivityKeyboardController: public ActivityController
 {
 private:
     bool multiline;
-    string subtitle;
+    std::string subtitle;
     ActivityKeyboardCb callback;
     int type; //0 to get a UTF-8 string and 1 to keep evas textblock markup instead
 
     virtual void createView();
 
-    void validButtonPressed(string text);
+    void validButtonPressed(std::string text);
 
 public:
-    ActivityKeyboardController(Evas *evas, Evas_Object *parent, string subtitle, ActivityKeyboardCb callback, bool multiline, int type);
+    ActivityKeyboardController(Evas *evas, Evas_Object *parent, std::string subtitle, ActivityKeyboardCb callback, bool multiline, int type);
     ~ActivityKeyboardController();
 
-    void setText(string t);
+    void setText(std::string t);
 };
 
 #endif // ActivityKeyboardController_H

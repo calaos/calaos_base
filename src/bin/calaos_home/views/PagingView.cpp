@@ -51,7 +51,7 @@ PagingView::PagingView(Evas *_e, Evas_Object *_parent):
     {
         LoadEdje("calaos/paging_view");
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "PagingView: Can't load edje";
         throw;
@@ -101,7 +101,7 @@ PagingView::~PagingView()
         evas_object_del(pages[i]);
     pages.clear();
 
-    for_each(selectors.begin(), selectors.end(), Delete());
+    for_each(selectors.begin(), selectors.end(), Utils::Delete());
     selectors.clear();
 
     DELETE_NULL_FUNC(evas_object_del, box_content)
@@ -120,7 +120,7 @@ int PagingView::addPage(Evas_Object *content)
     {
         o->LoadEdje("calaos/paging_view/selector");
     }
-    catch(exception const& e)
+    catch(std::exception const& e)
     {
         cCritical() <<  "PagingView: Can't load edje calaos/paging_view/selector";
         throw;

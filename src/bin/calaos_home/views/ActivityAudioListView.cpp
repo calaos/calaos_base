@@ -122,7 +122,7 @@ void ActivityAudioListView::createRootBrowserPage()
     it_browser_root = elm_naviframe_item_push(pager_browser, NULL, NULL, NULL, browser_root->getEvasObject(), "calaos");
 }
 
-EdjeObject *ActivityAudioListView::createRootButton(string title, string subtitle, string total, int row, int col)
+EdjeObject *ActivityAudioListView::createRootButton(std::string title, std::string subtitle, std::string total, int row, int col)
 {
     EdjeObject *obj = new EdjeObject(theme, evas);
     obj->LoadEdje("calaos/audio/browser/button");
@@ -239,7 +239,7 @@ void ActivityAudioListView::setEditMode()
 
     Params &stats = player_current->getPlayer()->getDBStats();
 
-    string s = _("<small><blue>Media library : </blue>") +
+    std::string s = _("<small><blue>Media library : </blue>") +
                stats["albums"] + _(" albums with ") +
                stats["tracks"] + _(" tracks by ") +
                stats["artists"] + _(" artists.</small>");
@@ -557,7 +557,7 @@ void ActivityAudioListView::browserShowFolders(void *data, Evas_Object *_edje, s
     loadFolderList("");
 }
 
-void ActivityAudioListView::loadFolderList(string folder_id)
+void ActivityAudioListView::loadFolderList(std::string folder_id)
 {
     EmitSignal("browser,loading,start", "calaos");
 
@@ -565,9 +565,9 @@ void ActivityAudioListView::loadFolderList(string folder_id)
                                              sigc::mem_fun(*this, &ActivityAudioListView::itemListLoaded));
 }
 
-void ActivityAudioListView::itemListLoaded(list<Params> &infos)
+void ActivityAudioListView::itemListLoaded(std::list<Params> &infos)
 {
-    list<Params>::iterator it = infos.begin();
+    std::list<Params>::iterator it = infos.begin();
 
     CREATE_GENLIST_HELPER(glist);
 
@@ -605,7 +605,7 @@ void ActivityAudioListView::itemListLoaded(list<Params> &infos)
     EmitSignal("browser,loading,stop", "calaos");
 }
 
-void ActivityAudioListView::folderSelected(void *data, string folder_id)
+void ActivityAudioListView::folderSelected(void *data, std::string folder_id)
 {
     loadFolderList(folder_id);
 }
@@ -689,7 +689,7 @@ void ActivityAudioListView::browserShowRadios(void *data, Evas_Object *_edje, st
     player_current->getPlayer()->getDBAllRadio(sigc::mem_fun(*this, &ActivityAudioListView::itemRadioLoaded));
 }
 
-void ActivityAudioListView::radioSelected(void *data, string rid, string subitem_id)
+void ActivityAudioListView::radioSelected(void *data, std::string rid, std::string subitem_id)
 {
     EmitSignal("browser,loading,start", "calaos");
 
@@ -701,9 +701,9 @@ void ActivityAudioListView::radioSelected(void *data, string rid, string subitem
     player_current->getPlayer()->getDBRadio(rid, subitem_id, sigc::mem_fun(*this, &ActivityAudioListView::itemRadioLoaded));
 }
 
-void ActivityAudioListView::itemRadioLoaded(list<Params> &infos)
+void ActivityAudioListView::itemRadioLoaded(std::list<Params> &infos)
 {
-    list<Params>::iterator it = infos.begin();
+    std::list<Params>::iterator it = infos.begin();
 
     CREATE_GENLIST_HELPER(glist);
     elm_genlist_homogeneous_set(glist, false);
@@ -779,14 +779,14 @@ void ActivityAudioListView::itemRadioLoaded(list<Params> &infos)
     EmitSignal("browser,loading,stop", "calaos");
 }
 
-void ActivityAudioListView::searchRadioSelected(void *data, string radioid, string subitem_id)
+void ActivityAudioListView::searchRadioSelected(void *data, std::string radioid, std::string subitem_id)
 {
     ApplicationMain::Instance().ShowKeyboard(_("Search into radios"), sigc::bind(
                                                  sigc::mem_fun(*this, &ActivityAudioListView::searchRadioKeyboard_cb),
                                                  radioid, subitem_id), false);
 }
 
-void ActivityAudioListView::searchRadioKeyboard_cb(string text, string radioid, string subitem_id)
+void ActivityAudioListView::searchRadioKeyboard_cb(std::string text, std::string radioid, std::string subitem_id)
 {
     EmitSignal("browser,loading,start", "calaos");
 
@@ -800,7 +800,7 @@ void ActivityAudioListView::browserShowSearch(void *data, Evas_Object *_edje, st
                                              false);
 }
 
-void ActivityAudioListView::searchDBKeyboard_cb(string text)
+void ActivityAudioListView::searchDBKeyboard_cb(std::string text)
 {
     if (!player_current) return;
 

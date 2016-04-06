@@ -60,7 +60,7 @@ static void _evas_resize_move_cb(void *data, Evas *e, Evas_Object *obj, void *ev
     if (w) w->Callback(NULL, "resizing", "widget");
 }
 
-Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_Object *_parent, ActivityWidgetsView *_view):
+Widget::Widget(std::string &_theme, Evas *_evas, ModuleDef &_mtype, std::string _id, Evas_Object *_parent, ActivityWidgetsView *_view):
     EdjeObject(_theme, _evas),
     parent(_parent),
     view(_view),
@@ -84,7 +84,7 @@ Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_
 
     if (!ModuleManager::Instance().createModuleInstance(evas, _mtype, mdef, id))
     {
-        string msg = "Error, createModuleInstance(" + mtype + ") failed !";
+        std::string msg = "Error, createModuleInstance(" + mtype + ") failed !";
         throw line_exception(msg.c_str(), __LINE__);
     }
 
@@ -92,7 +92,7 @@ Widget::Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_
 
     if (!module)
     {
-        string msg = "Error, getModuleInstance(" + mtype + ") failed !";
+        std::string msg = "Error, getModuleInstance(" + mtype + ") failed !";
         throw line_exception(msg.c_str(), __LINE__);
     }
 
@@ -200,7 +200,7 @@ void Widget::Callback(Evas_Object *edj, std::string emission, std::string source
         evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
         evas_object_show(glist);
 
-        string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this widget?</light_blue></small>");
+        std::string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this widget?</light_blue></small>");
         GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
         header->Append(glist);
 
@@ -384,13 +384,13 @@ void Widget::Save(TiXmlElement *pnode)
     node->SetAttribute("height", Utils::to_string(height));
 }
 
-string Widget::getStringInfo()
+std::string Widget::getStringInfo()
 {
     CalaosModuleBase *module = ModuleManager::Instance().getModuleInstance(mdef);
 
     if (!module)
     {
-        string msg = "Error, getModuleInstance(" + mtype + ") failed !";
+        std::string msg = "Error, getModuleInstance(" + mtype + ") failed !";
         throw line_exception(msg.c_str(), __LINE__);
 
         return "Error !";

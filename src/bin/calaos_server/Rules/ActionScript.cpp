@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include "ActionScript.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 ActionScript::ActionScript(): Action(ACTION_SCRIPT)
 {
     cDebugDom("rule.action.script") <<  "New Script action";
@@ -47,7 +47,7 @@ bool ActionScript::LoadFromXml(TiXmlElement *pnode)
     TiXmlElement *sc_node = pnode->FirstChildElement("calaos:script");
     if (!sc_node) return false;
 
-    string type = "";
+    std::string type = "";
     if (sc_node->Attribute("type"))
         type = sc_node->Attribute("type");
     if (type == "lua")
@@ -76,4 +76,6 @@ bool ActionScript::SaveToXml(TiXmlElement *node)
     sc_node->LinkEndChild(txt_node);
 
     return true;
+}
+
 }

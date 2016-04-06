@@ -23,7 +23,7 @@
 
 #include "GpioInputSwitchLongPress.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(GpioInputSwitchLongPress)
 
@@ -69,4 +69,4 @@ bool GpioInputSwitchLongPress::readValue()
     return val;
 }
 
-
+}

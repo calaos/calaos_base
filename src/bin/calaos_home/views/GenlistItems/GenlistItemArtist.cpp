@@ -19,8 +19,8 @@
  **
  ******************************************************************************/
 
-#include "GenlistItemArtist.h"
 #include <ApplicationMain.h>
+#include "GenlistItemArtist.h"
 
 ITEM_BUTTON_CALLBACK(GenlistItemArtist, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemArtist, Add)
@@ -39,9 +39,9 @@ GenlistItemArtist::~GenlistItemArtist()
 {
 }
 
-string GenlistItemArtist::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemArtist::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!in_query)
     {
@@ -80,7 +80,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemArtist::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemArtist::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

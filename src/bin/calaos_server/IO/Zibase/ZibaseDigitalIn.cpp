@@ -22,7 +22,7 @@
 #include "Zibase.h"
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(ZibaseDigitalIn)
 
@@ -81,3 +81,5 @@ bool ZibaseDigitalIn::readValue()
     return val;
 }
 
+
+}

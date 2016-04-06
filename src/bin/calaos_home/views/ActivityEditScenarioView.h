@@ -27,7 +27,6 @@
 #include "GenlistItemBase.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class GenlistItemSimple;
 class GenlistItemScenarioAction;
@@ -46,7 +45,7 @@ private:
 
     ScenarioData scenario_data;
 
-    list<IOBase *> cache_ios; //show all controlable ios
+    std::list<IOBase *> cache_ios; //show all controlable ios
 
     Evas_Object *popup, *step_popup;
 
@@ -55,7 +54,7 @@ private:
     Evas_Object *spin_sec;
     Evas_Object *spin_ms;
 
-    map<Room *, GenlistItemBase *> room_table;
+    std::map<Room *, GenlistItemBase *> room_table;
 
     void buttonPressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
     void showStep(int step);
@@ -63,10 +62,10 @@ private:
     void pageActionsDeleted();
     void loadPageActions();
     void loadActionsStep();
-    string getIconForIO(IOBase *io);
+    std::string getIconForIO(IOBase *io);
 
     void pageNameEditName(void *data, Evas_Object *_edje, std::string emission, std::string source);
-    void pageNameEditName_cb(string text);
+    void pageNameEditName_cb(std::string text);
 
     void pageNameVisiblePressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
     void pageActionsCyclePressed(void *data, Evas_Object *_edje, std::string emission, std::string source);
@@ -83,8 +82,8 @@ private:
 
     void stepSelect(void *data, int step);
     void stepPauseChange(void *data, int step, GenlistItemSimple *item);
-    void buttonPauseBackClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonPauseValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source, int step, GenlistItemSimple *item);
+    void buttonPauseBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonPauseValidTimeClick(void *data, Evas_Object *edje_object, std::string emission, std::string source, int step, GenlistItemSimple *item);
 
     void deleteStepValid(void *data);
     void deleteStepCancel(void *data);

@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputShutter)
 
@@ -48,10 +48,10 @@ MySensorsOutputShutter::MySensorsOutputShutter(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeIdUp = get_param("node_id_up");
-    string sensorIdUp = get_param("sensor_id_up");
-    string nodeIdDown = get_param("node_id_up");
-    string sensorIdDown = get_param("sensor_id_up");
+    std::string nodeIdUp = get_param("node_id_up");
+    std::string sensorIdUp = get_param("sensor_id_up");
+    std::string nodeIdDown = get_param("node_id_up");
+    std::string sensorIdDown = get_param("sensor_id_up");
 
     MySensorsController::Instance(get_params()).registerIO(nodeIdUp, sensorIdUp, [=]() { /*nothing*/ });
     MySensorsController::Instance(get_params()).registerIO(nodeIdDown, sensorIdDown, [=]() { /*nothing*/ });
@@ -66,8 +66,8 @@ MySensorsOutputShutter::~MySensorsOutputShutter()
 
 void MySensorsOutputShutter::setOutputUp(bool enable)
 {
-    string nodeId = get_param("node_id_up");
-    string sensorId = get_param("sensor_id_up");
+    std::string nodeId = get_param("node_id_up");
+    std::string sensorId = get_param("sensor_id_up");
 
     int dataType = MySensors::V_LIGHT;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -78,8 +78,8 @@ void MySensorsOutputShutter::setOutputUp(bool enable)
 
 void MySensorsOutputShutter::setOutputDown(bool enable)
 {
-    string nodeId = get_param("node_id_down");
-    string sensorId = get_param("sensor_id_down");
+    std::string nodeId = get_param("node_id_down");
+    std::string sensorId = get_param("sensor_id_down");
 
     int dataType = MySensors::V_LIGHT;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
@@ -88,3 +88,5 @@ void MySensorsOutputShutter::setOutputDown(bool enable)
     MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(enable));
 }
 
+
+}

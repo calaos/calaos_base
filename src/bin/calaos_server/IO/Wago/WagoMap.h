@@ -29,13 +29,13 @@
 namespace Calaos
 {
 
-typedef sigc::slot<void, bool, UWord, int, vector<bool> &> MultiBits_cb;
+typedef sigc::slot<void, bool, UWord, int, std::vector<bool> &> MultiBits_cb;
 typedef sigc::slot<void, bool, UWord, bool> SingleBit_cb;
-typedef sigc::slot<void, bool, UWord, int, vector<UWord> &> MultiWords_cb;
+typedef sigc::slot<void, bool, UWord, int, std::vector<UWord> &> MultiWords_cb;
 typedef sigc::slot<void, bool, UWord, UWord> SingleWord_cb;
 
-typedef sigc::slot<void, bool, string, string> WagoUdp_cb;
-typedef sigc::signal<void, bool, string, string> WagoUdp_signal;
+typedef sigc::slot<void, bool, std::string, std::string> WagoUdp_cb;
+typedef sigc::signal<void, bool, std::string, std::string> WagoUdp_signal;
 
 enum { MBUS_NONE = 0, MBUS_READ_BITS, MBUS_READ_OUTBITS, MBUS_WRITE_BIT, MBUS_WRITE_BITS,
        MBUS_READ_WORDS, MBUS_READ_OUTWORDS, MBUS_WRITE_WORD, MBUS_WRITE_WORDS,
@@ -70,11 +70,11 @@ public:
 
     int command = MBUS_NONE;
 
-    string wago_cmd_id;
+    std::string wago_cmd_id;
 
     bool no_callback;
-    string udp_command;
-    string udp_result;
+    std::string udp_command;
+    std::string udp_result;
     bool inProgress;
 
     WagoMapSignals *mapSignals = nullptr;
@@ -93,7 +93,7 @@ public:
         maps.clear();
     }
 
-    vector<WagoMap *> maps;
+    std::vector<WagoMap *> maps;
 };
 
 class WagoMap: public sigc::trackable
@@ -104,30 +104,30 @@ protected:
     int port;
 
     ExternProcServer *process;
-    string exe;
+    std::string exe;
 
-    vector<bool> input_bits;
-    vector<bool> output_bits;
+    std::vector<bool> input_bits;
+    std::vector<bool> output_bits;
 
-    vector<UWord> input_words;
-    vector<UWord> output_words;
+    std::vector<UWord> input_words;
+    std::vector<UWord> output_words;
 
     WagoMap(std::string host, int port);
 
     static WagoMapManager wagomaps;
 
-    unordered_map<string, WagoMapCmd> mbus_commands;
+    std::unordered_map<std::string, WagoMapCmd> mbus_commands;
 
     /* Heartbeat timer that do a modbus query to avoid TCP disconnection with the Wago */
     EcoreTimer *mbus_heartbeat_timer;
 
-    queue<WagoMapCmd> udp_commands;
+    std::queue<WagoMapCmd> udp_commands;
     EcoreTimer *udp_timer;
     EcoreTimer *udp_timeout_timer;
     Ecore_Con_Server *econ;
     Ecore_Event_Handler *event_handler_data_get;
 
-    void processNewMessage(const string &msg);
+    void processNewMessage(const std::string &msg);
 
     /* Timer callback for udp commands */
     void UDPCommand_cb();
@@ -138,37 +138,37 @@ protected:
     void WagoHeartBeatTick();
     void WagoModbusHeartBeatTick();
 
-    void WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, std::vector<bool> &values);
 
 public:
     ~WagoMap();
 
     //Singleton
     static WagoMap &Instance(std::string host, int port);
-    static vector<WagoMap *> &get_maps() { return wagomaps.maps; }
+    static std::vector<WagoMap *> &get_maps() { return wagomaps.maps; }
     static void stopAllWagoMaps();
 
     //bits
     void read_bits(UWord address, int nb, MultiBits_cb callback);
     void read_output_bits(UWord address, int nb, MultiBits_cb callback);
     void write_single_bit(UWord address, bool val, SingleBit_cb callback);
-    void write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback);
+    void write_multiple_bits(UWord address, int nb, std::vector<bool> &values, MultiBits_cb callback);
 
     //Words
     void read_words(UWord address, int nb, MultiWords_cb callback);
     void read_output_words(UWord address, int nb, MultiWords_cb callback);
     void write_single_word(UWord address, UWord val, SingleWord_cb callback);
-    void write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback);
+    void write_multiple_words(UWord address, int nb, std::vector<UWord> &values, MultiWords_cb callback);
 
     std::string get_host() { return host; }
     int get_port() { return port; }
 
     //Send a command through the timer
-    void SendUDPCommand(string cmd, WagoUdp_cb callback);
-    void SendUDPCommand(string cmd);
+    void SendUDPCommand(std::string cmd, WagoUdp_cb callback);
+    void SendUDPCommand(std::string cmd);
 
     /* Private stuff used by C callbacks */
-    void udpRequest_cb(bool status, string res);
+    void udpRequest_cb(bool status, std::string res);
 
     sigc::signal<void> onWagoConnected;
     sigc::signal<void> onWagoDisconnected;

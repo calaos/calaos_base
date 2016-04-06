@@ -26,7 +26,7 @@
 #include "HttpClient.h"
 #include <Ecore_Con.h>
 
-using namespace std;
+namespace Calaos {
 
 class HttpServer
 {
@@ -38,7 +38,7 @@ private:
     Ecore_Event_Handler *event_handler_data_get;
     Ecore_Event_Handler *event_handler_client_write;
 
-    map<Ecore_Con_Client *, WebSocket *> connections;
+    std::map<Ecore_Con_Client *, WebSocket *> connections;
 
     HttpServer(int port); //port to listen
 
@@ -59,4 +59,7 @@ public:
     void getDataConnection(Ecore_Con_Client *client, void *data, int size);
     void dataWritten(Ecore_Con_Client *client, int size);
 };
+
+}
+
 #endif

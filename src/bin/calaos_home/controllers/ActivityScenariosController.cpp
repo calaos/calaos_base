@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "ActivityScenariosController.h"
 #include "ApplicationMain.h"
+#include "ActivityScenariosController.h"
 
 ActivityScenariosController::ActivityScenariosController(Evas *e, Evas_Object *p):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_SCENARIOS)

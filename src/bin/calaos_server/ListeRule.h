@@ -32,7 +32,6 @@
 #include "Room.h"
 #include <Ecore.h>
 
-using namespace std;
 
 namespace Calaos
 {
@@ -46,7 +45,7 @@ protected:
     std::vector<IOBase *> in_event;
 
     //Rules for autoscenario
-    list<Rule *> rules_scenarios;
+    std::list<Rule *> rules_scenarios;
 
     bool loop = false;
 
@@ -92,7 +91,7 @@ public:
                  */
     void ExecuteStartRules();
 
-    list<Rule *> getRuleAutoScenario(string auto_scenario);
+    std::list<Rule *> getRuleAutoScenario(std::string auto_scenario);
 };
 
 }

@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemRadio: public GenlistItemBase
 {
@@ -39,8 +38,8 @@ public:
     GenlistItemRadio(Evas *evas, Evas_Object *parent, AudioPlayer *player, Params item, void *data = NULL);
     virtual ~GenlistItemRadio();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickPlay();
     void buttonClickAdd();

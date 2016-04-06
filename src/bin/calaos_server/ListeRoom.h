@@ -36,12 +36,12 @@ class ListeRoom
 {
 protected:
     std::vector<Room *> rooms;
-    unordered_map<string, IOBase *> io_table;
+    std::unordered_map<std::string, IOBase *> io_table;
 
-    list<IOBase *> cameraCache;
-    list<IOBase *> audioCache;
+    std::list<IOBase *> cameraCache;
+    std::list<IOBase *> audioCache;
 
-    list<Scenario *> auto_scenario_cache;
+    std::list<Scenario *> auto_scenario_cache;
 
     ListeRoom();
 
@@ -66,17 +66,17 @@ public:
 
     IOBase *get_chauffage_var(std::string &chauff_id, ChauffType type);
 
-    list<IOBase *> getCameraList() { return cameraCache; }
-    list<IOBase *> getAudioList() { return audioCache; }
+    std::list<IOBase *> getCameraList() { return cameraCache; }
+    std::list<IOBase *> getAudioList() { return audioCache; }
 
     //Auto scenarios
 
     void addScenarioCache(Scenario *sc);
     void delScenarioCache(Scenario *sc);
-    list<Scenario *> getAutoScenarios();
+    std::list<Scenario *> getAutoScenarios();
     void checkAutoScenario();
 
-    Room * searchRoomByNameAndType(string name,string type);
+    Room * searchRoomByNameAndType(std::string name,std::string type);
 
     Room *getRoomByIO(IOBase *o);
 

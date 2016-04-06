@@ -45,7 +45,7 @@ CalaosModel::~CalaosModel()
     DELETE_NULL(connection);
 }
 
-void CalaosModel::discover_found(string address)
+void CalaosModel::discover_found(std::string address)
 {
     server_address = address;
 
@@ -79,7 +79,7 @@ void CalaosModel::discover_found(string address)
     scenario_model->load_done.connect(sigc::mem_fun(*this, &CalaosModel::load_done));
 }
 
-void CalaosModel::discover_error_login(string address)
+void CalaosModel::discover_error_login(std::string address)
 {
     /* this has to be redispatched to the gui and ask user for username/password */
     server_address = address;
@@ -145,56 +145,56 @@ void CalaosModel::load_home_done()
     scenario_model->load(room_model->getJsonHome());
 }
 
-string CalaosModel::toString()
+std::string CalaosModel::toString()
 {
-    stringstream s;
+    std::stringstream s;
 
     if (room_model)
     {
-        for (list<Room *>::iterator i = room_model->rooms.begin();i != room_model->rooms.end();i++)
+        for (std::list<Room *>::iterator i = room_model->rooms.begin();i != room_model->rooms.end();i++)
         {
             Room *room = *i;
-            s << "[" << room->type << " - " << room->name << "] - " << room->hits << endl;
+            s << "[" << room->type << " - " << room->name << "] - " << room->hits << std::endl;
 
-            for (list<IOBase *>::iterator j = room->ios.begin();j != room->ios.end();j++)
+            for (std::list<IOBase *>::iterator j = room->ios.begin();j != room->ios.end();j++)
             {
                 IOBase *io = *j;
 
-                s << "\t" << io->params["type"] << " - " << io->params["id"] << " - " << io->params["name"] << " - " << io->params["hits"] << endl;
+                s << "\t" << io->params["type"] << " - " << io->params["id"] << " - " << io->params["name"] << " - " << io->params["hits"] << std::endl;
             }
         }
     }
 
     if (camera_model)
     {
-        for (list<Camera *>::iterator i = camera_model->cameras.begin();i != camera_model->cameras.end();i++)
+        for (std::list<Camera *>::iterator i = camera_model->cameras.begin();i != camera_model->cameras.end();i++)
         {
             Camera *camera = *i;
 
-            s << "[Camera]" << endl << "\t";
-            s << camera->params["name"] << " - " << camera->params["jpeg_url"] << endl;
+            s << "[Camera]" << std::endl << "\t";
+            s << camera->params["name"] << " - " << camera->params["jpeg_url"] << std::endl;
         }
     }
 
     if (audio_model)
     {
-        for (list<AudioPlayer *>::iterator i = audio_model->players.begin();i != audio_model->players.end();i++)
+        for (std::list<AudioPlayer *>::iterator i = audio_model->players.begin();i != audio_model->players.end();i++)
         {
             AudioPlayer *audio = *i;
 
-            s << "[Audio]" << endl << "\t";
-            s << audio->params["name"] << " - " << audio->params["id"] << endl;
+            s << "[Audio]" << std::endl << "\t";
+            s << audio->params["name"] << " - " << audio->params["id"] << std::endl;
         }
     }
 
     if (scenario_model)
     {
-        for (list<Scenario *>::iterator i = scenario_model->scenarios.begin();i != scenario_model->scenarios.end();i++)
+        for (std::list<Scenario *>::iterator i = scenario_model->scenarios.begin();i != scenario_model->scenarios.end();i++)
         {
             Scenario *sc = *i;
 
-            s << "[Scenario]" << endl << "\t";
-            s << sc->ioScenario->params["name"] << " - " << sc->ioScenario->params["id"] << endl;
+            s << "[Scenario]" << std::endl << "\t";
+            s << sc->ioScenario->params["name"] << " - " << sc->ioScenario->params["id"] << std::endl;
         }
     }
 

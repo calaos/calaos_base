@@ -27,8 +27,7 @@
 #include <Utils.h>
 #include <CommonUtils.h>
 
-using namespace Utils;
-
+//
 /* Edje signal callback
    Prototype is callback(void *data, Evas_Object *edje_object, string emission, string source)
 */
@@ -40,8 +39,8 @@ typedef struct _EdjeCallbackData: public sigc::trackable
     EdjeCallBackSignal signal_cb;
     sigc::connection connection;
     void *user_data;
-    string signal;
-    string source;
+    std::string signal;
+    std::string source;
 } EdjeCallbackData;
 
 #define CHECK_EDJE_RETURN(...) \
@@ -59,30 +58,30 @@ public:
     void _evasObjectHide();
 
 protected:
-    string theme; //Edje theme filename
-    string collection; //Edje collection group
+    std::string theme; //Edje theme filename
+    std::string collection; //Edje collection group
 
     Evas *evas;
     Evas_Object *edje; //The edje object
 
-    vector<EdjeCallbackData *> callbacks;
+    std::vector<EdjeCallbackData *> callbacks;
 
     bool autodelete; //autodelete EdjeObject if Evas_Object is deleted. Be carefull with this
 
-    list<Evas_Object *> swallow_objs;
-    list<EdjeObject *> swallow_eobjs;
+    std::list<Evas_Object *> swallow_objs;
+    std::list<EdjeObject *> swallow_eobjs;
 
     virtual void objectDeleted() { }
     virtual void objectShown() { }
     virtual void objectHidden() { }
 
 public:
-    EdjeObject(string &_theme, Evas *_evas);
+    EdjeObject(std::string &_theme, Evas *_evas);
     EdjeObject(const char *_theme, Evas *_evas);
     virtual ~EdjeObject();
 
     //load the edje file
-    bool LoadEdje(string collection);
+    bool LoadEdje(std::string collection);
 
     virtual void Show() { CHECK_EDJE_RETURN() evas_object_show(edje); }
     virtual void Hide() { CHECK_EDJE_RETURN() evas_object_hide(edje); }
@@ -96,27 +95,27 @@ public:
     void setLayer(int i) { CHECK_EDJE_RETURN() evas_object_layer_set(edje, i); }
     int getLayer() { CHECK_EDJE_RETURN(0) return evas_object_layer_get(edje); }
 
-    void EmitSignal(string signal, string source) { CHECK_EDJE_RETURN() edje_object_signal_emit(edje, signal.c_str(), source.c_str()); }
+    void EmitSignal(std::string signal, std::string source) { CHECK_EDJE_RETURN() edje_object_signal_emit(edje, signal.c_str(), source.c_str()); }
 
-    void setPartText(string part, string text) { CHECK_EDJE_RETURN() edje_object_part_text_set(edje, part.c_str(), text.c_str()); }
-    string getPartText(string part);
+    void setPartText(std::string part, std::string text) { CHECK_EDJE_RETURN() edje_object_part_text_set(edje, part.c_str(), text.c_str()); }
+    std::string getPartText(std::string part);
 
-    void setDragValue(string part, double x, double y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_set(edje, part.c_str(), x, y); }
-    void getDragValue(string part, double *x, double *y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_get(edje, part.c_str(), x, y); }
+    void setDragValue(std::string part, double x, double y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_set(edje, part.c_str(), x, y); }
+    void getDragValue(std::string part, double *x, double *y) { CHECK_EDJE_RETURN() edje_object_part_drag_value_get(edje, part.c_str(), x, y); }
 
-    void Swallow(EdjeObject *obj, string part, bool delete_on_del = false);
-    void Swallow(Evas_Object *obj, string part, bool delete_on_del = false);
+    void Swallow(EdjeObject *obj, std::string part, bool delete_on_del = false);
+    void Swallow(Evas_Object *obj, std::string part, bool delete_on_del = false);
 
     Evas_Object *getEvasObject() { CHECK_EDJE_RETURN(NULL) return edje; }
 
-    void setTheme(string &_theme) { theme = _theme; }
+    void setTheme(std::string &_theme) { theme = _theme; }
 
-    string getCollection() { return collection; }
+    std::string getCollection() { return collection; }
 
     void setAutoDelete(bool autodel) { autodelete = autodel; }
     bool getAutoDelete() { return autodelete; }
 
-    sigc::connection *addCallback(string source, string signal, EdjeCallBack slot_cb, void *user_data = NULL);
+    sigc::connection *addCallback(std::string source, std::string signal, EdjeCallBack slot_cb, void *user_data = NULL);
     void delCallback(sigc::connection *connection);
 
     /* Object was deleted */
