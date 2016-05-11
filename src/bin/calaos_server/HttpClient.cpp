@@ -139,7 +139,6 @@ HttpClient::HttpClient(Ecore_Con_Client *cl):
     parser_settings.on_headers_complete = _parser_headers_complete;
     parser_settings.on_body = _parser_body_complete;
     parser_settings.on_message_complete = _parser_message_complete;
-    parser_settings.on_status_complete = nullptr;
 
     parser = (http_parser *)calloc(1, sizeof(http_parser));
     http_parser_init(parser, HTTP_REQUEST);
@@ -252,7 +251,11 @@ int HttpClient::processHeaders(const string &request)
         return HTTP_PROCESS_DONE;
     }
 
-    if (Utils::strStartsWith(req_url.getPath(), "/debug/", Utils::CaseInsensitive))
+    //Only enable debug http access if enabled explicitely in config
+    bool isDebugEnabled = Utils::get_config_option("debug_enabled") == "true";
+
+    if (Utils::strStartsWith(req_url.getPath(), "/debug/", Utils::CaseInsensitive) &&
+        isDebugEnabled)
     {
         cDebugDom("network") << "Sending debug pages";
 
