@@ -72,7 +72,8 @@ bool X10Output::set_dim_up_real(int percent)
 {
     int v = (int)(((double)(percent + 1.) * 22.) / 101.);
     v = 22 - v + 1;
-    if (v < 1) v = 1; if (v > 22) v = 22;
+    if (v < 1) v = 1;
+    if (v > 22) v = 22;
     return X10Command("bright", &v);
 }
 
@@ -80,7 +81,8 @@ bool X10Output::set_dim_down_real(int percent)
 {
     int v = (int)(((double)(percent + 1.) * 22.) / 101.);
     v = 22 - v + 1;
-    if (v < 1) v = 1; if (v > 22) v = 22;
+    if (v < 1) v = 1;
+    if (v > 22) v = 22;
     return X10Command("dim", &v);
 }
 
@@ -88,7 +90,8 @@ bool X10Output::set_value_real(int val)
 {
     int v = (int)(((double)(val + 1.) * 22.) / 101.);
     v = 22 - v + 1;
-    if (v < 1) v = 1; if (v > 22) v = 22;
+    if (v < 1) v = 1;
+    if (v > 22) v = 22;
     return X10Command("dimb", &v);
 }
 
