@@ -157,7 +157,7 @@ int main (int argc, char **argv)
     Utils::Watchdog("calaosd");
 
     //main loop
-    EcoreTimer *eventLoop = new EcoreTimer(10. / 1000., (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
+    EcoreTimer *eventLoop = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
     watchdogLoop = new EcoreTimer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
 
     //Check config once the main loop is started
