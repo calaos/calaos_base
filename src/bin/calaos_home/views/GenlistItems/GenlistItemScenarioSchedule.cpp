@@ -67,9 +67,9 @@ void GenlistItemScenarioSchedule::updateView()
     }
 }
 
-string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!scenario) return text;
 
@@ -83,7 +83,7 @@ string GenlistItemScenarioSchedule::getLabelItem(Evas_Object *obj, string part)
 
         if (scenario->isScheduled())
         {
-            vector<TimeRange> v = scenario->ioSchedule->range_infos.getRange(scheduleRange);
+            std::vector<TimeRange> v = scenario->ioSchedule->range_infos.getRange(scheduleRange);
 
             if (scheduleRangeNum >= 0 && scheduleRangeNum < (int)v.size())
             {
@@ -124,7 +124,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemScenarioSchedule::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemScenarioSchedule::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -157,7 +157,7 @@ void GenlistItemScenarioSchedule::buttonClickMore()
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</light_blue></small>");
+    std::string title_label = _("Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 
@@ -270,7 +270,7 @@ void GenlistItemScenarioSchedule::scenarioDelete(void *data)
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this scenarios?</light_blue></small>");
+    std::string title_label = _("Confirmation<br><small><light_blue>Are you sure to delete this scenarios?</light_blue></small>");
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, title_label);
     header->Append(glist);
 

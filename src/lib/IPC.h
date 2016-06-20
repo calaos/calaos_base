@@ -26,7 +26,6 @@
 #include <sigc++/sigc++.h>
 #include <Ecore.h>
 
-using namespace Utils;
 
 //maximum string length for an event name
 #define MAX_EVENT_NAME          512
@@ -35,19 +34,19 @@ class IPCData
 {
 public:
     void *data;
-    DeletorBase *destroy;   //Delete fonction that know how to free data
+    Utils::DeletorBase *destroy;   //Delete fonction that know how to free data
 
     IPCData(): data(NULL), destroy(NULL)
     { }
-    IPCData(void *d, DeletorBase *del): data(d), destroy(del)
+    IPCData(void *d, Utils::DeletorBase *del): data(d), destroy(del)
     { }
 };
 
 class IPCMsg
 {
 public:
-    string source;
-    string emission;
+    std::string source;
+    std::string emission;
     void *data;
     bool auto_delete;       //If set, data will be auto deleted after use
     IPCData del_data;
@@ -59,10 +58,10 @@ public:
 class IPCSignal
 {
 public:
-    string source;
-    string emission;
+    std::string source;
+    std::string emission;
     void *data;
-    sigc::signal<void, string, string, void*, void* > *signal;
+    sigc::signal<void, std::string, std::string, void*, void* > *signal;
 };
 
 /**
@@ -77,8 +76,8 @@ private:
     Ecore_Fd_Handler *fd_handler;
     Mutex mutex;
 
-    list<IPCMsg> events;
-    list<IPCSignal> signals;
+    std::list<IPCMsg> events;
+    std::list<IPCSignal> signals;
 
     //ctor
     IPC();
@@ -101,16 +100,16 @@ public:
                  *  - void*: the data of the listener (you)
                  *  - void*: the data of the signal sender
                  */
-    void AddHandler(string source, string emission,
-                    sigc::signal<void, string, string, void*, void*> &signal,
+    void AddHandler(std::string source, std::string emission,
+                    sigc::signal<void, std::string, std::string, void*, void*> &signal,
                     void* data = NULL);
-    void DeleteHandler(sigc::signal<void, string, string, void*, void*> &signal);
+    void DeleteHandler(sigc::signal<void, std::string, std::string, void*, void*> &signal);
 
     //used by threads.
-    void SendEvent(string source, string emission, void *data = NULL);
+    void SendEvent(std::string source, std::string emission, void *data = NULL);
 
     //auto_delete_data flag is used to delete void *data automatically after use
-    void SendEvent(string source, string emission, IPCData data, bool auto_delete_data = false);
+    void SendEvent(std::string source, std::string emission, IPCData data, bool auto_delete_data = false);
 
     //called by _calaos_ipc_event()
     void BroadcastEvent();

@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WIDigitalLong)
 REGISTER_IO_USERTYPE(WagoInputSwitchLongPress, WIDigitalLong)
@@ -73,7 +73,7 @@ void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::str
     }
 }
 
-void WIDigitalLong::WagoReadCallback(bool status, UWord addr, int nb, vector<bool> &values)
+void WIDigitalLong::WagoReadCallback(bool status, UWord addr, int nb, std::vector<bool> &values)
 {
     if (!status)
     {
@@ -98,3 +98,5 @@ bool WIDigitalLong::readValue()
     return udp_value;
 }
 
+
+}

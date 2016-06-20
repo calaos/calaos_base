@@ -26,7 +26,6 @@
 #include "CalaosConnection.h"
 #include "RoomModel.h"
 
-using namespace Utils;
 
 class Camera: public sigc::trackable
 {
@@ -69,7 +68,7 @@ public:
 
     void load(json_t *data);
 
-    list<Camera *> cameras;
+    std::list<Camera *> cameras;
 
     sigc::signal<void> load_done;
 };

@@ -27,7 +27,7 @@ static Eina_Bool _item_state(void *data, Evas_Object *obj, const char *part);
 static char *_item_label(void *data, Evas_Object *obj, const char *part);
 static void _item_sel_cb(void *data, Evas_Object *obj, void *event_info);
 
-GengridItemBase::GengridItemBase(Evas *_evas, Evas_Object *_parent, string _style, void *select_user_data):
+GengridItemBase::GengridItemBase(Evas *_evas, Evas_Object *_parent, std::string _style, void *select_user_data):
     evas(_evas),
     parent(_parent),
     gengrid(NULL),
@@ -114,22 +114,22 @@ void GengridItemBase::BringInItem(Elm_Gengrid_Item_Scrollto_Type type)
     elm_gengrid_item_bring_in(item, type);
 }
 
-Evas_Object *GengridItemBase::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GengridItemBase::getPartItem(Evas_Object *obj, std::string part)
 {
     return NULL;
 }
 
-string GengridItemBase::getLabelItem(Evas_Object *obj, string part)
+std::string GengridItemBase::getLabelItem(Evas_Object *obj, std::string part)
 {
     return "none";
 }
 
-bool GengridItemBase::getStateItem(Evas_Object *obj, string part)
+bool GengridItemBase::getStateItem(Evas_Object *obj, std::string part)
 {
     return false;
 }
 
-void GengridItemBase::itemEmitSignal(string signal, string source)
+void GengridItemBase::itemEmitSignal(std::string signal, std::string source)
 {
     if (!item) return;
 

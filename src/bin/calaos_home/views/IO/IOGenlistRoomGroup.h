@@ -24,7 +24,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class IOGenlistRoomGroup: public GenlistItemBase
 {
@@ -34,11 +33,11 @@ private:
     virtual void itemAdded();
 
 public:
-    IOGenlistRoomGroup(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
+    IOGenlistRoomGroup(Evas *evas, Evas_Object *parent, Room *room, std::string style_addition);
     virtual ~IOGenlistRoomGroup();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 };
 
 class IOGenlistRoomGroupIcon: public GenlistItemBase
@@ -49,11 +48,11 @@ private:
     virtual void itemAdded();
 
 public:
-    IOGenlistRoomGroupIcon(Evas *evas, Evas_Object *parent, Room *room, string style_addition);
+    IOGenlistRoomGroupIcon(Evas *evas, Evas_Object *parent, Room *room, std::string style_addition);
     virtual ~IOGenlistRoomGroupIcon();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     Room *getRoom() { return room; }
 };

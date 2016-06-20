@@ -60,15 +60,15 @@ public:
     virtual DATA_TYPE get_type() = 0;
 
     virtual bool get_value_bool() { return false; }
-    virtual map<string, bool> get_all_values_bool() { map<string, bool> m; return m; }
+    virtual std::map<std::string, bool> get_all_values_bool() { std::map<std::string, bool> m; return m; }
 
     virtual double get_value_double() { return 0.0; }
-    virtual map<string, double> get_all_values_double() { map<string, double> m; return m; }
+    virtual std::map<std::string, double> get_all_values_double() { std::map<std::string, double> m; return m; }
 
     virtual std::string get_value_string() { return ""; }
-    virtual map<string, string> get_all_values_string() { map<string, string> m; return m; }
+    virtual std::map<std::string, std::string> get_all_values_string() { std::map<std::string, std::string> m; return m; }
 
-    virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
+    virtual std::map<std::string, std::string> query_param(std::string key) { std::map<std::string, std::string> m; return m; }
 
     virtual void set_param(std::string opt, std::string val) { param.Add(opt, val); }
     virtual std::string get_param(std::string opt) { return param[opt]; }

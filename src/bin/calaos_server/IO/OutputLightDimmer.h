@@ -37,7 +37,7 @@ protected:
     EcoreTimer *hold_timer = nullptr;
     EcoreTimer *impulseTimer = nullptr;
 
-    vector<BlinkInfo> blinks;
+    std::vector<BlinkInfo> blinks;
     int current_blink;
 
     std::string cmd_state;
@@ -59,7 +59,7 @@ protected:
     void impulse(int time);
 
     // extended impulse using pattern
-    void impulse_extended(string pattern);
+    void impulse_extended(std::string pattern);
 
     void HoldPress_cb();
 

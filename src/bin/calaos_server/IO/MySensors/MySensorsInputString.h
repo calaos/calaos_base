@@ -32,7 +32,7 @@ class MySensorsInputString : public InputString
 protected:
     virtual void readValue();
 
-    string current;
+    std::string current;
 
 public:
     MySensorsInputString(Params &p);

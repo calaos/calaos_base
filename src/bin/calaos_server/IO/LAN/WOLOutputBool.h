@@ -26,7 +26,7 @@
 #include <Ecore_Con.h>
 #include "EcoreTimer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class WOLOutputBool: public IOBase
 {
@@ -55,7 +55,9 @@ public:
 
     virtual bool set_value(bool val);
     virtual bool get_value_bool() { return value; }
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 };
 
+}
+  
 #endif // PINGINPUTSWITCH_H

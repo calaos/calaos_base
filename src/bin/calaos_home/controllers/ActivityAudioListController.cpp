@@ -71,7 +71,7 @@ void ActivityAudioListController::updatePageView()
 {
     ActivityAudioListView *audioView = dynamic_cast<ActivityAudioListView *>(view);
 
-    list<AudioPlayer *>::iterator it = CalaosModel::Instance().getAudio()->players.begin();
+    std::list<AudioPlayer *>::iterator it = CalaosModel::Instance().getAudio()->players.begin();
     int i = 0;
 
     for (int j = 0;j < page * 3;j++)
@@ -137,7 +137,7 @@ void ActivityAudioListController::clickRight()
     parentController->setButtonMode("mode,back");
 }
 
-void ActivityAudioListController::doneCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityAudioListController::doneCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     updatePageView();
 }
@@ -149,7 +149,7 @@ void ActivityAudioListController::playerSelectCallback(AudioPlayer *player)
     parentController->setButtonMode("mode,audio_detail");
 }
 
-bool ActivityAudioListController::handleButtonClick(string button)
+bool ActivityAudioListController::handleButtonClick(std::string button)
 {
     if (button == "button.audio.back")
     {

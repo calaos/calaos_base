@@ -24,7 +24,9 @@
 #include "JsonApi.h"
 #include "EventManager.h"
 
-ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
+namespace Calaos {
+
+ExternProcServer *ScriptExec::ExecuteScriptDetached(const std::string &script, std::function<void(bool ret)> cb)
 {
     ExternProcServer *process = new ExternProcServer("lua");
     cDebug() << "Starting script. (" << process << ")";
@@ -32,7 +34,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
     JsonApi *jsonApi = new JsonApi();
     sigc::connection *evcon = new sigc::connection;
 
-    process->messageReceived.connect([=](const string &msg)
+    process->messageReceived.connect([=](const std::string &msg)
     {
         cDebug() << "Message received for process:" << process;
         json_error_t jerr;
@@ -46,13 +48,13 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             return;
         }
 
-        string mtype = jansson_string_get(jroot, "msg");
+        std::string mtype = jansson_string_get(jroot, "msg");
 
         if (mtype == "finished")
         {
             cInfoDom("lua") << "LUA script finished.";
             process->terminate();
-            string ret = jansson_string_get(jroot, "return_val", "false");
+            std::string ret = jansson_string_get(jroot, "return_val", "false");
             cb(ret == "true"); //process finished, call callback, process will be deleted later
         }
         else if (mtype == "set_state")
@@ -95,7 +97,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         //can update its local cache of IO states.
         json_object_set_new(jroot, "context", jsonApi->buildFlatIOList());
 
-        string m = jansson_to_string(jroot);
+        std::string m = jansson_to_string(jroot);
         process->sendMessage(m);
 
         //After initial context, send all events to the external process
@@ -115,8 +117,10 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         }));
     });
 
-    string exe = Prefix::Instance().binDirectoryGet() + "/calaos_script";
+    std::string exe = Prefix::Instance().binDirectoryGet() + "/calaos_script";
     process->startProcess(exe, "lua");
 
     return process;
+}
+
 }

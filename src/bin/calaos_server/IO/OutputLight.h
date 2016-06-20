@@ -32,7 +32,7 @@ class OutputLight : public IOBase
 private:
     EcoreTimer *timer = nullptr;
 
-    vector<BlinkInfo> blinks;
+    std::vector<BlinkInfo> blinks;
     int current_blink;
 
     void TimerImpulse();
@@ -44,7 +44,7 @@ private:
     void impulse(int time);
 
     // extended impulse using pattern
-    void impulse_extended(string pattern);
+    void impulse_extended(std::string pattern);
 
 protected:
     bool value;
@@ -68,7 +68,7 @@ public:
 
     virtual bool set_value(bool val);
     virtual bool get_value_bool() { return value; }
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 };
 
 }

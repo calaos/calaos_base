@@ -20,7 +20,9 @@
  ******************************************************************************/
 #include "MySensors.h"
 
-string MySensors::DataType2String(int dataType)
+namespace MySensors {
+
+std::string DataType2String(int dataType)
 {
     switch (dataType)
     {
@@ -68,10 +70,10 @@ string MySensors::DataType2String(int dataType)
     case V_CALAOS: return "V_CALAOS";
     }
 
-    return string();
+    return std::string();
 }
 
-int MySensors::String2DataType(string dataType)
+int String2DataType(std::string dataType)
 {
     if (dataType == "V_TEMP") return V_TEMP;
     else if (dataType == "V_HUM") return V_HUM;
@@ -118,3 +120,5 @@ int MySensors::String2DataType(string dataType)
     return V_ERROR;
 }
 
+
+}

@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "ActivityKeyboardController.h"
 
-ActivityKeyboardController::ActivityKeyboardController(Evas *e, Evas_Object *p, string _subtitle, ActivityKeyboardCb _cb, bool _multiline, int t):
+ActivityKeyboardController::ActivityKeyboardController(Evas *e, Evas_Object *p, std::string _subtitle, ActivityKeyboardCb _cb, bool _multiline, int t):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_KEYBOARD),
     multiline(_multiline),
     subtitle(_subtitle),
@@ -45,7 +45,7 @@ void ActivityKeyboardController::createView()
     keyboardView->validPressed.connect(sigc::mem_fun(*this, &ActivityKeyboardController::validButtonPressed));
 }
 
-void ActivityKeyboardController::validButtonPressed(string text)
+void ActivityKeyboardController::validButtonPressed(std::string text)
 {
     ActivityKeyboardSig sig;
     sig.connect(callback);
@@ -62,7 +62,7 @@ void ActivityKeyboardController::validButtonPressed(string text)
     wants_quit.emit();
 }
 
-void ActivityKeyboardController::setText(string t)
+void ActivityKeyboardController::setText(std::string t)
 {
     if (!view) return;
 

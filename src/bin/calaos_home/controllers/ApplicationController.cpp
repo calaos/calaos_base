@@ -18,8 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "ApplicationController.h"
 #include "ApplicationMain.h"
+#include "ApplicationController.h"
 #include "Modules.h"
 #include "GenlistItemWidget.h"
 #include "ScreenManager.h"
@@ -47,7 +47,7 @@ ApplicationController::ApplicationController(Evas *_e, Evas_Object *_l):
         {
             mouseCursor->LoadEdje("calaos/cursor");
         }
-        catch(exception const& e)
+        catch(std::exception const& e)
         {
             cCritical() <<  "ApplicationController: Can't load mouse cursor";
             throw;
@@ -204,7 +204,7 @@ void ApplicationController::onMenuConfigClick()
     }
 }
 
-void ApplicationController::ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext, int type)
+void ApplicationController::ShowKeyboard(std::string subtitle, ActivityKeyboardCb callback, bool multiline, std::string oldtext, int type)
 {
     if (!keyboardController)
     {
@@ -220,7 +220,7 @@ void ApplicationController::ShowKeyboard(string subtitle, ActivityKeyboardCb cal
     }
 }
 
-void ApplicationController::ShowWebBrowser(string url)
+void ApplicationController::ShowWebBrowser(std::string url)
 {
     if (!webController)
     {
@@ -332,7 +332,7 @@ void ApplicationController::onMenuAddWidgetClick()
     elm_object_style_set(popup, "calaos");
     evas_object_size_hint_min_set(popup, 300, 240);
 
-    vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
+    std::vector<ModuleDef> mods = ModuleManager::Instance().getAvailableModules();
 
     for (uint i = 0;i < mods.size();i++)
     {
@@ -341,7 +341,7 @@ void ApplicationController::onMenuAddWidgetClick()
         item->Append(glist);
         item->item_selected.connect([this,i,popup](void *)
         {
-            vector<ModuleDef> m = ModuleManager::Instance().getAvailableModules();
+            std::vector<ModuleDef> m = ModuleManager::Instance().getAvailableModules();
             widgetsController->AddWidget(m[i], 200, 200);
             elm_ctxpopup_dismiss(popup);
             menuView->CloseLinkMenu();
@@ -374,7 +374,7 @@ void ApplicationController::home_loaded()
     //cout << CalaosModel::Instance().toString() << endl;
 }
 
-void ApplicationController::login_failed(string host)
+void ApplicationController::login_failed(std::string host)
 {
     //TODO: Do something with that information
 }

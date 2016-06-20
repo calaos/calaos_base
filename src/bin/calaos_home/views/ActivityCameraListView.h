@@ -29,7 +29,6 @@
 
 #include <PagingView.h>
 
-using namespace Utils;
 
 class CalaosCameraView;
 class ActivityCameraListView;
@@ -51,9 +50,9 @@ public:
 class ActivityCameraListView: public ActivityView
 {
 private:
-    vector<ActivityCameraObject> cameras;
+    std::vector<ActivityCameraObject> cameras;
 
-    vector<IOView *> scenarios;
+    std::vector<IOView *> scenarios;
     PagingView *page_view;
 
     void EdjeCallback(void *data, Evas_Object *_edje, std::string emission, std::string source);
@@ -78,9 +77,9 @@ public:
     void ShowLoading();
     void HideLoading();
 
-    void addScenarioPage(list<IOBase *> &scenarios_io);
+    void addScenarioPage(std::list<IOBase *> &scenarios_io);
 
-    virtual string getTitle() { return "Vidéosurveillance"; }
+    virtual std::string getTitle() { return "Vidéosurveillance"; }
 
     virtual void EnableView();
     virtual void DisableView();

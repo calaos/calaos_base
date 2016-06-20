@@ -30,7 +30,6 @@
 #include "Jansson_Addition.h"
 #include "WebSocketClient.h"
 
-using namespace Utils;
 
 #define TIMEOUT_CONNECT         60.0
 #define TIMEOUT_SEND            60.0
@@ -42,13 +41,13 @@ class CalaosConnection;
 class CalaosCmd
 {
 public:
-    CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const string &id);
+    CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const std::string &id);
     CalaosCmd(const CalaosCmd &other) = delete;
     ~CalaosCmd() { delete timeout; }
 
     CommandDone_cb callback = [](json_t*, void*){ /* no callback */ };
     void *user_data = nullptr;
-    string msgid;
+    std::string msgid;
 
 private:
     EcoreTimer *timeout = nullptr;
@@ -62,11 +61,11 @@ private:
 
     int con_state;
 
-    string host;
+    std::string host;
 
     EcoreTimer *timeout;
 
-    unordered_map<string, CalaosCmd *> commands;
+    std::unordered_map<std::string, CalaosCmd *> commands;
 
     WebSocketClient *wsocket;
 
@@ -76,20 +75,20 @@ private:
 
     void onConnected();
     void onDisconnected();
-    void onMessageReceived(const string &msg);
+    void onMessageReceived(const std::string &msg);
 
-    static string calaosServerIp;
+    static std::string calaosServerIp;
 
 public:
-    CalaosConnection(string host);
+    CalaosConnection(std::string host);
     ~CalaosConnection();
 
-    void sendJson(const string &msg_type, json_t *jdata, const string &client_id = string());
-    void sendCommand(const string &msg, const Params &param);
-    void sendCommand(const string &msg, const Params &param,
+    void sendJson(const std::string &msg_type, json_t *jdata, const std::string &client_id = std::string());
+    void sendCommand(const std::string &msg, const Params &param);
+    void sendCommand(const std::string &msg, const Params &param,
                      CommandDone_cb callback,
                      void *data = nullptr);
-    void sendCommand(const string &msg, json_t *jdata,
+    void sendCommand(const std::string &msg, json_t *jdata,
                      CommandDone_cb callback,
                      void *data = nullptr);
 
@@ -99,28 +98,28 @@ public:
     sigc::signal<void> connection_ok;
 
     //const string &msg_type, json_t *data, const string &client_id
-    sigc::signal<void, const string &, json_t *, const string &> messageReceived;
+    sigc::signal<void, const std::string &, json_t *, const std::string &> messageReceived;
 
     /* Events signals */
 
     //RoomModel signals
-    sigc::signal<void, const string &, const Params &> notify_io_change;
-    sigc::signal<void, const string &, const Params &> notify_io_new;
-    sigc::signal<void, const string &, const Params &> notify_io_delete;
-    sigc::signal<void, const string &, const Params &> notify_room_change;
-    sigc::signal<void, const string &, const Params &> notify_room_new;
-    sigc::signal<void, const string &, const Params &> notify_room_delete;
+    sigc::signal<void, const std::string &, const Params &> notify_io_change;
+    sigc::signal<void, const std::string &, const Params &> notify_io_new;
+    sigc::signal<void, const std::string &, const Params &> notify_io_delete;
+    sigc::signal<void, const std::string &, const Params &> notify_room_change;
+    sigc::signal<void, const std::string &, const Params &> notify_room_new;
+    sigc::signal<void, const std::string &, const Params &> notify_room_delete;
 
     //AudioModel signals
-    sigc::signal<void, const string &, const Params &> notify_audio_change;
+    sigc::signal<void, const std::string &, const Params &> notify_audio_change;
 
     //ScenarioModel signals
-    sigc::signal<void, const string &, const Params &> notify_scenario_add;
-    sigc::signal<void, const string &, const Params &> notify_scenario_del;
-    sigc::signal<void, const string &, const Params &> notify_scenario_change;
+    sigc::signal<void, const std::string &, const Params &> notify_scenario_add;
+    sigc::signal<void, const std::string &, const Params &> notify_scenario_del;
+    sigc::signal<void, const std::string &, const Params &> notify_scenario_change;
 
-    static void getCredentials(string &user, string &pass);
-    static string getCalaosServerIp() { return calaosServerIp; }
+    static void getCredentials(std::string &user, std::string &pass);
+    static std::string getCalaosServerIp() { return calaosServerIp; }
 };
 
 #endif // CALAOSCONNECTION_H

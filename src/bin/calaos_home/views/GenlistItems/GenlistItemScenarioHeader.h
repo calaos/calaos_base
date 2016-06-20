@@ -24,20 +24,19 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemScenarioHeader: public GenlistItemBase
 {
 private:
-    string title;
+    std::string title;
 
     virtual void itemAdded();
 public:
-    GenlistItemScenarioHeader(Evas *evas, Evas_Object *parent, string title);
+    GenlistItemScenarioHeader(Evas *evas, Evas_Object *parent, std::string title);
     virtual ~GenlistItemScenarioHeader();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 };
 
 #endif // GenlistItemScenarioHeader_H

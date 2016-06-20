@@ -21,8 +21,8 @@
 #include "IOWITempHomeView.h"
 #include <ApplicationMain.h>
 
-IOWITempHomeView::IOWITempHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("WITemp_") + style_addition, _flags),
+IOWITempHomeView::IOWITempHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("WITemp_") + style_addition, _flags),
     IOBaseElement(_io)
 {
 }
@@ -38,7 +38,7 @@ void IOWITempHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWITempHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWITempHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -49,9 +49,9 @@ Evas_Object *IOWITempHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWITempHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWITempHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 

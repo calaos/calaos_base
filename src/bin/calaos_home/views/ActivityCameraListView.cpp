@@ -68,10 +68,10 @@ void ActivityCameraListView::setCamera(Camera *camera, int position)
 
     Swallow(video->getSmartObject(), "camera.swallow." + Utils::to_string(position + 1));
 
-    string u, p;
+    std::string u, p;
     CalaosConnection::getCredentials(u, p);
 
-    string url = "http://";
+    std::string url = "http://";
     url += CalaosConnection::getCalaosServerIp() + ":5454/api";
     url += "?cn_user=" + u;
     url += "&cn_pass=" + p;
@@ -147,13 +147,13 @@ void ActivityCameraListView::EdjeCallback(void *data, Evas_Object *_edje, std::s
     }
 }
 
-void ActivityCameraListView::addScenarioPage(list<IOBase *> &scenarios_io)
+void ActivityCameraListView::addScenarioPage(std::list<IOBase *> &scenarios_io)
 {
     EdjeObject *container = new EdjeObject(theme, evas);
     container->LoadEdje("calaos/page/home/scenario");
     container->setAutoDelete(true);
 
-    list<IOBase *>::iterator it = scenarios_io.begin();
+    std::list<IOBase *>::iterator it = scenarios_io.begin();
     for (int i = 0;it != scenarios_io.end() && i < 6;it++, i++)
     {
         IOView *ioView = IOViewFactory::CreateIOView(evas, getEvasObject(), IOView::IO_SCENARIO_HOME);
@@ -163,7 +163,7 @@ void ActivityCameraListView::addScenarioPage(list<IOBase *> &scenarios_io)
 
         scenarios.push_back(ioView);
 
-        string _t = "element." + Utils::to_string(i + 1);
+        std::string _t = "element." + Utils::to_string(i + 1);
         container->Swallow(ioView, _t);
     }
 

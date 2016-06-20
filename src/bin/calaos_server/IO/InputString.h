@@ -30,7 +30,7 @@ namespace Calaos
 class InputString : public IOBase
 {
 protected:
-    string value;
+    std::string value;
     double frequency;
     void readConfig();
 
@@ -43,7 +43,7 @@ public:
 
     DATA_TYPE get_type() { return TSTRING; }
 
-    string get_value_string();
+    std::string get_value_string();
 };
 
 }

@@ -20,9 +20,9 @@
  ******************************************************************************/
 #include "CalaosConnection.h"
 
-string CalaosConnection::calaosServerIp = string();
+std::string CalaosConnection::calaosServerIp = std::string();
 
-CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const string &id):
+CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const std::string &id):
     callback(cb),
     user_data(d),
     msgid(id),
@@ -35,7 +35,7 @@ CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const stri
     });
 }
 
-CalaosConnection::CalaosConnection(string h):
+CalaosConnection::CalaosConnection(std::string h):
     con_state(CALAOS_CON_NONE),
     host(h),
     timeout(NULL)
@@ -60,7 +60,7 @@ CalaosConnection::~CalaosConnection()
     delete wsocket;
 }
 
-void CalaosConnection::getCredentials(string &username, string &password)
+void CalaosConnection::getCredentials(std::string &username, std::string &password)
 {
     //Get username/password
     username = Utils::get_config_option("calaos_user");
@@ -81,8 +81,8 @@ void CalaosConnection::onConnected()
         con_state = CALAOS_CON_LOGIN;
 
         //Get username/password
-        string username;
-        string password;
+        std::string username;
+        std::string password;
         getCredentials(username, password);
 
         json_t *jlogin = json_pack("{s:s, s:s}",
@@ -110,7 +110,7 @@ void CalaosConnection::onDisconnected()
     cCriticalDom("network.connection") << "Connection closed !";
 }
 
-void CalaosConnection::sendJson(const string &msg_type, json_t *jdata, const string &client_id)
+void CalaosConnection::sendJson(const std::string &msg_type, json_t *jdata, const std::string &client_id)
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
@@ -122,7 +122,7 @@ void CalaosConnection::sendJson(const string &msg_type, json_t *jdata, const str
     wsocket->sendTextMessage(jansson_to_string(jroot));
 }
 
-void CalaosConnection::onMessageReceived(const string &data)
+void CalaosConnection::onMessageReceived(const std::string &data)
 {
     Params jsonRoot;
     Params jsonData;
@@ -187,7 +187,7 @@ void CalaosConnection::onMessageReceived(const string &data)
     {
         Params eventData;
         jansson_decode_object(json_object_get(jdata, "data"), eventData);
-        string ev = jsonData["type_str"];
+        std::string ev = jsonData["type_str"];
 
         if (ev == "io_added")
             notify_io_new.emit(ev, eventData);
@@ -257,16 +257,16 @@ void CalaosConnection::timeoutSend(CalaosCmd *cmd)
     }
 }
 
-void CalaosConnection::sendCommand(const string &msg, const Params &param)
+void CalaosConnection::sendCommand(const std::string &msg, const Params &param)
 {
     sendJson(msg, param.toJson());
 }
 
-void CalaosConnection::sendCommand(const string &msg, const Params &param,
+void CalaosConnection::sendCommand(const std::string &msg, const Params &param,
                                    CommandDone_cb callback,
                                    void *data)
 {
-    string clientid = Utils::to_string(rand() & 0xffff);
+    std::string clientid = Utils::to_string(rand() & 0xffff);
     while (commands.find(clientid) != commands.end())
         clientid = Utils::to_string(rand() & 0xffff);
 
@@ -275,11 +275,11 @@ void CalaosConnection::sendCommand(const string &msg, const Params &param,
     sendJson(msg, param.toJson(), clientid);
 }
 
-void CalaosConnection::sendCommand(const string &msg, json_t *jdata,
+void CalaosConnection::sendCommand(const std::string &msg, json_t *jdata,
                                    CommandDone_cb callback,
                                    void *data)
 {
-    string clientid = Utils::to_string(rand() & 0xffff);
+    std::string clientid = Utils::to_string(rand() & 0xffff);
     while (commands.find(clientid) != commands.end())
         clientid = Utils::to_string(rand() & 0xffff);
 

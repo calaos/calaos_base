@@ -21,7 +21,6 @@
 
 #include <Utils.h>
 
-using namespace Utils;
 
 class TimeRange
 {
@@ -56,11 +55,11 @@ public:
     int start_offset = 1; //should be 1 or -1
     int end_offset = 1; //should be 1 or -1
 
-    string shour, smin, ssec;
-    string ehour, emin, esec;
+    std::string shour, smin, ssec;
+    std::string ehour, emin, esec;
 
     TimeRange();
-    TimeRange(string proto);
+    TimeRange(std::string proto);
     TimeRange(const Params &p);
 
     long getStartTimeSec(int year, int month, int day);
@@ -72,10 +71,10 @@ public:
 
     bool isSameStartEnd();
 
-    string toProtoCommand(int day) const;
+    std::string toProtoCommand(int day) const;
     Params toParams(int day) const;
-    string toString();
+    std::string toString();
 
     //flag to ease the loading in UI
-    bitset<7> dayOfWeek;
+    std::bitset<7> dayOfWeek;
 };

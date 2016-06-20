@@ -31,13 +31,13 @@ namespace Calaos
 class ActionTouchscreen: public Action
 {
 private:
-    string action;
+    std::string action;
 
     Ecore_Con_Server *econ;
 
 public:
     ActionTouchscreen();
-    ActionTouchscreen(string action);
+    ActionTouchscreen(std::string action);
     ~ActionTouchscreen();
 
     bool Execute();

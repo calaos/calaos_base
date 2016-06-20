@@ -28,7 +28,6 @@
 #include "CalaosModel.h"
 #include "ActivityCameraSelectController.h"
 
-using namespace Utils;
 
 class ActivityMediaController;
 
@@ -50,8 +49,8 @@ private:
 
     void load_done();
 
-    void doneCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void cameraSelectCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void doneCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void cameraSelectCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
 public:
     ActivityCameraListController(Evas *evas, Evas_Object *parent, ActivityMediaController *parentController);

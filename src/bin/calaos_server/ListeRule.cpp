@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include <ListeRule.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 ListeRule &ListeRule::Instance()
 {
@@ -51,7 +51,7 @@ void ListeRule::Add(Rule *r)
 
 void ListeRule::Remove(int pos)
 {
-    vector<Rule *>::iterator iter = rules.begin();
+    std::vector<Rule *>::iterator iter = rules.begin();
     for (int i = 0;i < pos;iter++, i++) ;
 
     if (rules[pos]->param_exists("auto_scenario"))
@@ -111,7 +111,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
 
     cDebugDom("rule") << "Received signal for id " << id;
 
-    unordered_map<Rule *, bool> execRules;
+    std::unordered_map<Rule *, bool> execRules;
 
     for (Rule *rule: rules)
     {
@@ -135,7 +135,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
             }
             if (!exec && cond)
             {
-                vector<IOBase *> list;
+                std::vector<IOBase *> list;
                 cond->getVarIds(list);
 
                 for (uint k = 0;k < list.size();k++)
@@ -280,10 +280,10 @@ void ListeRule::ExecuteStartRules()
     }
 }
 
-list<Rule *> ListeRule::getRuleAutoScenario(string auto_scenario)
+std::list<Rule *> ListeRule::getRuleAutoScenario(std::string auto_scenario)
 {
-    list<Rule *> l;
-    list<Rule *>::iterator it = rules_scenarios.begin();
+    std::list<Rule *> l;
+    std::list<Rule *>::iterator it = rules_scenarios.begin();
 
     for (;it != rules_scenarios.end();it++)
     {
@@ -293,4 +293,6 @@ list<Rule *> ListeRule::getRuleAutoScenario(string auto_scenario)
     }
 
     return l;
+}
+
 }

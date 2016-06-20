@@ -21,8 +21,8 @@
 #include "ScriptManager.h"
 #include <setjmp.h>
 
-using namespace Calaos;
 
+namespace Calaos {
 double ScriptManager::start_time = 0.0;
 static jmp_buf panic_jmp;
 
@@ -31,7 +31,7 @@ ScriptManager::ScriptManager()
     cDebugDom("script.lua");
 }
 
-bool ScriptManager::ExecuteScript(const string &script)
+bool ScriptManager::ExecuteScript(const std::string &script)
 {
     bool ret = true;
     errorScript = true;
@@ -65,13 +65,13 @@ bool ScriptManager::ExecuteScript(const string &script)
         ret = false;
         if (err == LUA_ERRSYNTAX)
         {
-            string msg = lua_tostring(L, -1);
+            std::string msg = lua_tostring(L, -1);
             cErrorDom("script.lua") << "Syntax Error: " << msg;
             errorMsg = "Syntax Error:\n" + msg;
         }
         else if (err == LUA_ERRMEM)
         {
-            string msg = lua_tostring(L, -1);
+            std::string msg = lua_tostring(L, -1);
             cErrorDom("script.lua") << "LUA memory allocation error: " << msg;
             errorMsg = "Fatal Error:\nLUA memory allocation error:\n" + msg;
         }
@@ -89,14 +89,14 @@ bool ScriptManager::ExecuteScript(const string &script)
         {
             ret = false;
 
-            string errcode;
+            std::string errcode;
             if (err == LUA_ERRRUN) errcode = "Runtime error";
             else if (err == LUA_ERRSYNTAX) errcode = "Syntax error";
             else if (err == LUA_ERRMEM) errcode = "Memory allocation error";
             else if (err == LUA_ERRERR) errcode = "Error";
             else errcode = "Unknown error";
 
-            string msg = lua_tostring(L, -1);
+            std::string msg = lua_tostring(L, -1);
             cErrorDom("script.lua") << errcode << " : " << msg;
             errorMsg = "Error " + errcode + " :\n\t" + msg;
         }
@@ -125,10 +125,12 @@ void ScriptManager::LuaDebugHook(lua_State *L, lua_Debug *ar)
 {
     if (abort)
     {
-        string err = "waitForIO(): Abort script.";
+        std::string err = "waitForIO(): Abort script.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
 
     debugHook.emit();
+}
+
 }

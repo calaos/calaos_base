@@ -18,13 +18,14 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "IOGenlistScenarioHomeView.h"
+
 #include <ApplicationMain.h>
+#include "IOGenlistScenarioHomeView.h"
 
 ITEM_BUTTON_CALLBACK(IOGenlistScenarioHomeView, Go)
 
-IOGenlistScenarioHomeView::IOGenlistScenarioHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("scenario_") + style_addition, _flags),
+IOGenlistScenarioHomeView::IOGenlistScenarioHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("scenario_") + style_addition, _flags),
     IOBaseElement(_io)
 {
 }
@@ -40,7 +41,7 @@ void IOGenlistScenarioHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOGenlistScenarioHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOGenlistScenarioHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -66,9 +67,9 @@ Evas_Object *IOGenlistScenarioHomeView::getPartItem(Evas_Object *obj, string par
     return o;
 }
 
-string IOGenlistScenarioHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOGenlistScenarioHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 

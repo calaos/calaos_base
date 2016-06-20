@@ -24,44 +24,48 @@
 #include "JsonApi.h"
 #include "EventManager.h"
 
+namespace Calaos {
+
 class JsonApiHandlerWS: public JsonApi
 {
 public:
     JsonApiHandlerWS(HttpClient *client);
     virtual ~JsonApiHandlerWS();
 
-    virtual void processApi(const string &data, const Params &paramsGET);
+    virtual void processApi(const std::string &data, const Params &paramsGET);
 
 private:
 
     sigc::connection evcon;
 
-    sigc::signal<void, string, string, void*, void*> sig_events;
+    sigc::signal<void, std::string, std::string, void*, void*> sig_events;
 
     void handleEvents(const CalaosEvent &event);
 
     bool loggedin = false;
 
-    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
-    void sendJson(const string &msg_type, const Params &p, const string &client_id = string());
+    void sendJson(const std::string &msg_type, json_t *data, const std::string &client_id = std::string());
+    void sendJson(const std::string &msg_type, const Params &p, const std::string &client_id = std::string());
 
-    void processGetHome(const Params &jsonReq, const string &client_id = string());
-    void processGetState(json_t *jdata, const string &client_id = string());
-    void processGetStates(const Params &jsonReq, const string &client_id = string());
-    void processQuery(const Params &jsonReq, const string &client_id = string());
-    void processGetParam(const Params &jsonReq, const string &client_id = string());
-    void processSetParam(const Params &jsonReq, const string &client_id = string());
-    void processDelParam(const Params &jsonReq, const string &client_id = string());
-    void processSetState(Params &jsonReq, const string &client_id = string());
-    void processGetPlaylist(Params &jsonReq, const string &client_id = string());
-    void processGetIO(json_t *jdata, const string &client_id = string());
-    void processGetTimerange(const Params &jsonReq, const string &client_id = string());
-    void processSetTimerange(json_t *jdata, const string &client_id = string());
+    void processGetHome(const Params &jsonReq, const std::string &client_id = std::string());
+    void processGetState(json_t *jdata, const std::string &client_id = std::string());
+    void processGetStates(const Params &jsonReq, const std::string &client_id = std::string());
+    void processQuery(const Params &jsonReq, const std::string &client_id = std::string());
+    void processGetParam(const Params &jsonReq, const std::string &client_id = std::string());
+    void processSetParam(const Params &jsonReq, const std::string &client_id = std::string());
+    void processDelParam(const Params &jsonReq, const std::string &client_id = std::string());
+    void processSetState(Params &jsonReq, const std::string &client_id = std::string());
+    void processGetPlaylist(Params &jsonReq, const std::string &client_id = std::string());
+    void processGetIO(json_t *jdata, const std::string &client_id = std::string());
+    void processGetTimerange(const Params &jsonReq, const std::string &client_id = std::string());
+    void processSetTimerange(json_t *jdata, const std::string &client_id = std::string());
 
-    void processAudio(json_t *jdata, const string &client_id = string());
-    void processAudioDb(json_t *jdata, const string &client_id = string());
+    void processAudio(json_t *jdata, const std::string &client_id = std::string());
+    void processAudioDb(json_t *jdata, const std::string &client_id = std::string());
 
-    void processAutoscenario(json_t *jdata, const string &client_id = string());
+    void processAutoscenario(json_t *jdata, const std::string &client_id = std::string());
 };
+
+}
 
 #endif // JSONAPIV3_H

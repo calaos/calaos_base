@@ -27,7 +27,6 @@
 #include <CalaosModel.h>
 #include <ScenarioModel.h>
 
-using namespace Utils;
 
 class GenlistItemScenarioAction: public GenlistItemBase
 {
@@ -61,14 +60,14 @@ private:
     void actionTime(void *data, IOActionList ac);
     void actionColor(void *data, IOActionList ac);
 
-    void buttonBackClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonValidClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void buttonValidTimeClick(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void numberSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderRedSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderGreenSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
-    void sliderBlueSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void buttonBackClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonValidClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void buttonValidTimeClick(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void numberSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderRedSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderGreenSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
+    void sliderBlueSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
     void deleteItemSelected(void *data);
 
@@ -76,8 +75,8 @@ public:
     GenlistItemScenarioAction(Evas *evas, Evas_Object *parent, ScenarioData &scd, int step, int action, void *data = NULL);
     virtual ~GenlistItemScenarioAction();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickEdit();
 

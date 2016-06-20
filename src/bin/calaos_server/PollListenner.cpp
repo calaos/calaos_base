@@ -20,9 +20,9 @@
  ******************************************************************************/
 #include <PollListenner.h>
 
-using namespace Calaos;
+namespace Calaos {
 
-PollObject::PollObject(string _uuid):
+PollObject::PollObject(std::string _uuid):
     uuid(_uuid),
     timeout(NULL)
 {
@@ -80,10 +80,10 @@ PollListenner::~PollListenner()
 {
 }
 
-string PollListenner::Register()
+std::string PollListenner::Register()
 {
     srand(time(NULL));
-    stringstream ssUuid;
+    std::stringstream ssUuid;
     ssUuid << std::hex << std::setfill('0') ;
     ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
     ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
@@ -91,7 +91,7 @@ string PollListenner::Register()
     ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
     ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
 
-    string uuid = ssUuid.str();
+    std::string uuid = ssUuid.str();
     pollobjects[uuid] = new PollObject(uuid);
 
     cDebugDom("poll_listener") << "uuid:" << uuid;
@@ -99,7 +99,7 @@ string PollListenner::Register()
     return uuid;
 }
 
-bool PollListenner::Unregister(string uuid)
+bool PollListenner::Unregister(std::string uuid)
 {
     if (pollobjects.find(uuid) == pollobjects.end())
     {
@@ -122,7 +122,7 @@ bool PollListenner::Unregister(string uuid)
     return true;
 }
 
-bool PollListenner::GetEvents(string uuid, list<CalaosEvent> &events)
+bool PollListenner::GetEvents(std::string uuid, std::list<CalaosEvent> &events)
 {
     if (pollobjects.find(uuid) == pollobjects.end())
     {
@@ -137,4 +137,6 @@ bool PollListenner::GetEvents(string uuid, list<CalaosEvent> &events)
     o->ResetTimer();
 
     return true;
+}
+
 }

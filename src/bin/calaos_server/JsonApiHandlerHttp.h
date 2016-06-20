@@ -28,7 +28,7 @@
 #include "UrlDownloader.h"
 #include "IPCam.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class JsonApiHandlerHttp: public JsonApi
 {
@@ -36,13 +36,13 @@ public:
     JsonApiHandlerHttp(HttpClient *client);
     virtual ~JsonApiHandlerHttp();
 
-    virtual void processApi(const string &data, const Params &paramsGET);
+    virtual void processApi(const std::string &data, const Params &paramsGET);
 
 private:
 
     Ecore_Event_Handler *exe_handler;
     Ecore_Exe *exe_thumb;
-    string tempfname;
+    std::string tempfname;
 
     Params jsonParam;
 
@@ -82,5 +82,7 @@ private:
 
     void downloadCameraPicture(IPCam *camera);
 };
+
+}
 
 #endif // JSONAPIV2_H

@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "EventManager.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO_USERTYPE(AVReceiver, IOAVReceiver)
 
@@ -163,13 +163,13 @@ void AVReceiver::dataGet(Ecore_Con_Server *srv, void *data, int size)
 
     if (connection_type == AVR_CON_CHAR)
     {
-        string msg((char *)data, size);
+        std::string msg((char *)data, size);
         dataGet(msg);
     }
     else if (connection_type == AVR_CON_BYTES)
     {
         char *cdata = (char *)data;
-        vector<char> d(cdata, cdata + size);
+        std::vector<char> d(cdata, cdata + size);
 
         //We don't know how to handle these messages,
         //so we delegate the processing to the child class
@@ -178,10 +178,10 @@ void AVReceiver::dataGet(Ecore_Con_Server *srv, void *data, int size)
     }
 }
 
-void AVReceiver::dataGet(string msg)
+void AVReceiver::dataGet(std::string msg)
 {
-    if (msg.find('\n') == string::npos &&
-        msg.find('\r') == string::npos)
+    if (msg.find('\n') == std::string::npos &&
+        msg.find('\r') == std::string::npos)
     {
         //We have not a complete paquet yet, buffurize it.
         recv_buffer += msg;
@@ -202,8 +202,8 @@ void AVReceiver::dataGet(string msg)
     replace_str(msg, "\r\n", "\n");
     replace_str(msg, "\r", "\n");
 
-    vector<string> tokens;
-    split(msg, tokens, "\n");
+    std::vector<std::string> tokens;
+    Utils::split(msg, tokens, "\n");
 
     cDebugDom("output") << "Got " << tokens.size() << " messages.";
 
@@ -211,17 +211,17 @@ void AVReceiver::dataGet(string msg)
         processMessage(tokens[i]);
 }
 
-void AVReceiver::processMessage(string msg)
+void AVReceiver::processMessage(std::string msg)
 {
     cWarningDom("output") << "Should be inherited !";
 }
 
-void AVReceiver::processMessage(vector<char> msg)
+void AVReceiver::processMessage(std::vector<char> msg)
 {
     cWarningDom("output") << "Should be inherited !";
 }
 
-void AVReceiver::sendRequest(string request)
+void AVReceiver::sendRequest(std::string request)
 {
     if (!econ || !isConnected) return;
 
@@ -232,7 +232,7 @@ void AVReceiver::sendRequest(string request)
     ecore_con_server_send(econ, request.c_str(), request.length());
 }
 
-void AVReceiver::sendRequest(vector<char> request)
+void AVReceiver::sendRequest(std::vector<char> request)
 {
     if (!econ || !isConnected) return;
 
@@ -299,7 +299,7 @@ IOAVReceiver::~IOAVReceiver()
     AVRManager::Instance().Delete(receiver);
 }
 
-void IOAVReceiver::statusChanged(string _param, string value)
+void IOAVReceiver::statusChanged(std::string _param, std::string value)
 {
     EmitSignalIO();
 
@@ -308,16 +308,16 @@ void IOAVReceiver::statusChanged(string _param, string value)
                            { _param, value } });
 }
 
-string IOAVReceiver::get_value_string()
+std::string IOAVReceiver::get_value_string()
 {
     if (!receiver) return "";
 
     return Utils::to_string(receiver->getInputSource(zone));
 }
 
-map<string, string> IOAVReceiver::get_all_values_string()
+std::map<std::string, std::string> IOAVReceiver::get_all_values_string()
 {
-    map<string, string> m;
+    std::map<std::string, std::string> m;
 
     if (!receiver)
         return m;
@@ -341,7 +341,7 @@ map<string, string> IOAVReceiver::get_all_values_string()
     return m;
 }
 
-bool IOAVReceiver::set_value(string val)
+bool IOAVReceiver::set_value(std::string val)
 {
     if (!isEnabled() || !receiver) return false;
 
@@ -381,7 +381,7 @@ bool IOAVReceiver::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < get_params().size();i++)
     {
-        string key, value;
+        std::string key, value;
         get_params().get_item(i, key, value);
         cnode->SetAttribute(key, value);
     }
@@ -389,9 +389,9 @@ bool IOAVReceiver::SaveToXml(TiXmlElement *node)
     return true;
 }
 
-map<string, string> IOAVReceiver::query_param(string key)
+std::map<std::string, std::string> IOAVReceiver::query_param(std::string key)
 {
-    map<string, string> m;
+    std::map<std::string, std::string> m;
 
     if (!receiver) return m;
 
@@ -404,4 +404,6 @@ map<string, string> IOAVReceiver::query_param(string key)
     }
 
     return m;
+}
+
 }

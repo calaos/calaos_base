@@ -29,7 +29,6 @@
 #include <IOView.h>
 #include <PagingView.h>
 
-using namespace Utils;
 
 class ActivityHomeView;
 class HomeRoomClickData
@@ -45,12 +44,12 @@ protected:
     virtual void objectShown();
     virtual void objectHidden();
 
-    vector<HomeRoomClickData *> dataRoomCallbacks;
+    std::vector<HomeRoomClickData *> dataRoomCallbacks;
 
-    vector<IOBase *> chauffages;
-    vector<sigc::connection> chauff_change_con;
-    vector<sigc::connection> chauff_del_con;
-    vector<EdjeObject *> rooms;
+    std::vector<IOBase *> chauffages;
+    std::vector<sigc::connection> chauff_change_con;
+    std::vector<sigc::connection> chauff_del_con;
+    std::vector<EdjeObject *> rooms;
 
     Evas_Object *list_top;
     Evas_Object *list_left;
@@ -86,11 +85,11 @@ public:
     ActivityHomeView(Evas *evas, Evas_Object *parent);
     ~ActivityHomeView();
 
-    void setRoom(string type, int position, IOBase *chauffage);
+    void setRoom(std::string type, int position, IOBase *chauffage);
     void hideRoom(int position);
 
     void addStatusPage();
-    void addScenarioPage(list<IOBase *> &ios);
+    void addScenarioPage(std::list<IOBase *> &ios);
     void removePage(int p);
     int getPageCount();
     int getCurrentPage();
@@ -107,8 +106,8 @@ public:
 
     virtual void resetView();
 
-    void setLightsOnText(string txt);
-    void setShuttersUpText(string txt);
+    void setLightsOnText(std::string txt);
+    void setShuttersUpText(std::string txt);
 
     void clearLists();
     void setCurrentRoomDetail(Room *room);

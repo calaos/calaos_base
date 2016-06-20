@@ -87,7 +87,7 @@ void ActivityPlayerObject::resetPlayer()
     }
 }
 
-void ActivityPlayerObject::createEdjeObject(string &theme, Evas *e)
+void ActivityPlayerObject::createEdjeObject(std::string &theme, Evas *e)
 {
     EdjeObject *obj = new EdjeObject(theme, e);
     obj->LoadEdje("calaos/audio/player");
@@ -249,7 +249,7 @@ void ActivityPlayerObject::onTrackChange()
 {
     if (!player) return;
 
-    string artist, album, title, year, type, duration;
+    std::string artist, album, title, year, type, duration;
     artist = player->current_song_info["artist"];
     album = player->current_song_info["album"];
     title = player->current_song_info["title"];
@@ -306,7 +306,7 @@ void ActivityPlayerObject::coverGet_cb(Params &infos)
     downloader->Start();
 }
 
-void ActivityPlayerObject::coverDownload_cb(string status, void *data)
+void ActivityPlayerObject::coverDownload_cb(std::string status, void *data)
 {
     if (status == "failed" || status == "aborted")
     {
@@ -627,9 +627,9 @@ void ActivityPlayerObject::amplifierClick_cb(void *data, Evas_Object *_edje, std
     evas_object_size_hint_weight_set(glist, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
     evas_object_show(glist);
 
-    map<int, string> inputs;
+    std::map<int, std::string> inputs;
     if (player->getAmplifier()) inputs = player->getAmplifier()->amplifier_inputs;
-    map<int, string>::iterator it = inputs.begin();
+    std::map<int, std::string>::iterator it = inputs.begin();
 
     GenlistItemBase *header = new GenlistItemSimpleHeader(evas, glist, "Source d'entrée");
     header->Append(glist);

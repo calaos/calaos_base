@@ -22,7 +22,7 @@
 #include "Zibase.h"
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(ZibaseAnalogIn)
 
@@ -93,3 +93,5 @@ void ZibaseAnalogIn::readValue()
     //the zibase will send us new values
 }
 
+
+}

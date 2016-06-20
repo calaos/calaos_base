@@ -22,7 +22,7 @@
 #include <jansson.h>
 #include <Jansson_Addition.h>
 
-Firmwares::Firmwares(string _cn_user, string _cn_pass, string _fw_version):
+Firmwares::Firmwares(std::string _cn_user, std::string _cn_pass, std::string _fw_version):
     fdownloader(NULL),
     cn_user(_cn_user),
     cn_pass(_cn_pass),
@@ -47,7 +47,7 @@ Firmwares::~Firmwares()
     cb_con_install.disconnect();
 }
 
-void Firmwares::checkUpdate(sigc::slot<void, string> callback)
+void Firmwares::checkUpdate(sigc::slot<void, std::string> callback)
 {
     if (download_in_progress)
     {
@@ -62,7 +62,7 @@ void Firmwares::checkUpdate(sigc::slot<void, string> callback)
     cb_con_check.disconnect();
     cb_con_check = cb_signal_check.connect(callback);
 
-    string jdata = "{";
+    std::string jdata = "{";
     jdata += "\"cn_user\":\"" + cn_user + "\",";
     jdata += "\"cn_pass\":\"" + cn_pass + "\",";
     jdata += "\"action\":\"firmware\",";
@@ -77,14 +77,14 @@ void Firmwares::checkUpdate(sigc::slot<void, string> callback)
     fdownloader->Start();
 }
 
-void Firmwares::check_cb(string result, void *data)
+void Firmwares::check_cb(std::string result, void *data)
 {
     if (result == "done")
     {
         download_in_progress = false;
 
         Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
+        std::string res((const char *)buff->buffer, buff->bufsize);
 
         fdownloader = NULL;
 
@@ -116,7 +116,7 @@ void Firmwares::check_cb(string result, void *data)
 
             if (jansson_bool_get(json, "need_update"))
             {
-                string new_version = jansson_string_get(json, "new_version");
+                std::string new_version = jansson_string_get(json, "new_version");
 
                 if (new_version != "")
                 {
@@ -153,7 +153,7 @@ void Firmwares::check_cb(string result, void *data)
     }
 }
 
-void Firmwares::downloadFirmware(sigc::slot<void, string, FileProgress *> callback)
+void Firmwares::downloadFirmware(sigc::slot<void, std::string, FileProgress *> callback)
 {
     if (download_in_progress)
     {
@@ -168,7 +168,7 @@ void Firmwares::downloadFirmware(sigc::slot<void, string, FileProgress *> callba
     cb_con_download.disconnect();
     cb_con_download = cb_signal_download.connect(callback);
 
-    string jdata = "{";
+    std::string jdata = "{";
     jdata += "\"cn_user\":\"" + cn_user + "\",";
     jdata += "\"cn_pass\":\"" + cn_pass + "\",";
     jdata += "\"action\":\"firmware\",";
@@ -183,7 +183,7 @@ void Firmwares::downloadFirmware(sigc::slot<void, string, FileProgress *> callba
     fdownloader->Start();
 }
 
-void Firmwares::download_cb(string result, void *data)
+void Firmwares::download_cb(std::string result, void *data)
 {
     if (result == "failed" || result == "aborted")
     {
@@ -217,14 +217,14 @@ static Eina_Bool exe_exit(void *data, int type, void *event)
     return EINA_TRUE;
 }
 
-bool Firmwares::installFirmware(sigc::slot<void, string> callback)
+bool Firmwares::installFirmware(sigc::slot<void, std::string> callback)
 {
     exehandler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, exe_exit, this);
 
     cb_con_install.disconnect();
     cb_con_install = cb_signal_install.connect(callback);
 
-    string cmd = "/sbin/fw_update.sh";
+    std::string cmd = "/sbin/fw_update.sh";
 
     fwupdate_exe = ecore_exe_run(cmd.c_str(), NULL);
     if(!fwupdate_exe)

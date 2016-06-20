@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WITemp)
 REGISTER_IO_USERTYPE(WagoInputTemp, WITemp)
@@ -62,7 +62,7 @@ WITemp::~WITemp()
     cDebugDom("input") << get_param("id") << ": Ok";
 }
 
-void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WITemp::WagoReadCallback(bool status, UWord addr, int count, std::vector<UWord> &values)
 {
     if (!status)
     {
@@ -97,4 +97,6 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 void WITemp::readValue()
 {
     WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+}
+
 }

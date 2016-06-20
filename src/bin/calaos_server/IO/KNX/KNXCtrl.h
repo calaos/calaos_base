@@ -24,6 +24,8 @@
 #include "Calaos.h"
 #include "ExternProc.h"
 
+namespace Calaos {
+
 class KNXValue
 {
 public:
@@ -62,14 +64,14 @@ public:
     void setEis(int e) { eis = e; }
 
     json_t *toJson() const;
-    string toString() const;
+    std::string toString() const;
     bool toBool() const;
     float toFloat() const;
     int toInt() const;
     char toChar() const;
 
     static KNXValue fromJson(json_t *jval);
-    static KNXValue fromString(const string &val, int eis = 0);
+    static KNXValue fromString(const std::string &val, int eis = 0);
     static KNXValue fromBool(bool val, int eis = 0);
     static KNXValue fromFloat(float val, int eis = 0);
     static KNXValue fromInt(int val, int eis = 0);
@@ -82,32 +84,34 @@ private:
     int value_int = 0;
     float value_float = 0.0;
     unsigned char value_char = 0;
-    string value_string;
+    std::string value_string;
 };
 
 class KNXCtrl: public sigc::trackable
 {
 private:
-    KNXCtrl(const string host);
+    KNXCtrl(const std::string host);
 
     ExternProcServer *process;
     ExternProcServer *processMonitor;
 
-    unordered_map<string, KNXValue> knxCache;
+    std::unordered_map<std::string, KNXValue> knxCache;
 
-    void processNewMessage(const string &msg);
+    void processNewMessage(const std::string &msg);
 
 public:
-    static shared_ptr<KNXCtrl> Instance(const string &host);
+    static std::shared_ptr<KNXCtrl> Instance(const std::string &host);
     ~KNXCtrl();
 
-    // void valueChanged(const string &group_addr, const KNXValue &value)
-    sigc::signal<void, const string &, const KNXValue &> valueChanged;
+    // void valueChanged(const std::string &group_addr, const KNXValue &value)
+    sigc::signal<void, const std::string &, const KNXValue &> valueChanged;
 
-    KNXValue getValue(const string &group_addr);
+    KNXValue getValue(const std::string &group_addr);
 
-    void writeValue(const string &group_addr, const KNXValue &value);
-    void readValue(const string &group_addr, int eis = 0);
+    void writeValue(const std::string &group_addr, const KNXValue &value);
+    void readValue(const std::string &group_addr, int eis = 0);
 };
 
+}
+  
 #endif // KNXCTRL_H

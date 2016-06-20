@@ -24,7 +24,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class IOWODaliHomeView: public GenlistItemBase, public IOBaseElement
 {
@@ -35,14 +34,14 @@ private:
 
     void sliderObjectDeleted();
 
-    void sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void sliderSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
 public:
-    IOWODaliHomeView(Evas *evas, Evas_Object *parent, IOBase *io, string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
+    IOWODaliHomeView(Evas *evas, Evas_Object *parent, IOBase *io, std::string style_addition, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE);
     virtual ~IOWODaliHomeView();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     //Called when the real IO changed
     virtual void initView();

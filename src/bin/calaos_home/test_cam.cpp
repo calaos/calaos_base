@@ -4,7 +4,6 @@
 #include "CalaosCameraView.h"
 #include <Ecore_Con.h>
 
-using namespace std;
 
 EAPI_MAIN int elm_main(int argc, char **argv)
 {

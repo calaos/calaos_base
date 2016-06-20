@@ -19,8 +19,8 @@
  **
  ******************************************************************************/
 
-#include "GenlistItemAlbumHeader.h"
 #include <ApplicationMain.h>
+#include "GenlistItemAlbumHeader.h"
 
 ITEM_BUTTON_CALLBACK(GenlistItemAlbumHeader, Play)
 ITEM_BUTTON_CALLBACK(GenlistItemAlbumHeader, Add)
@@ -41,13 +41,13 @@ GenlistItemAlbumHeader::~GenlistItemAlbumHeader()
     DELETE_NULL(dltimer);
 }
 
-string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemAlbumHeader::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (part == "text")
     {
-        string album = _("Unknown album");
+        std::string album = _("Unknown album");
         if (album_infos.Exists("name")) album = album_infos["name"];
         text = album;
     }
@@ -98,7 +98,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemAlbumHeader::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemAlbumHeader::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

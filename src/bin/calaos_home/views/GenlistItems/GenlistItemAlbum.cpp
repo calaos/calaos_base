@@ -40,7 +40,7 @@ GenlistItemAlbum::~GenlistItemAlbum()
 {
 }
 
-string GenlistItemAlbum::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemAlbum::getLabelItem(Evas_Object *obj, std::string part)
 {
     if (!in_query)
     {
@@ -84,7 +84,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemAlbum::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemAlbum::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

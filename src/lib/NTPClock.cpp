@@ -21,7 +21,6 @@
 
 #include <NTPClock.h>
 
-using namespace std;
 
 static Eina_Bool _NTPHandle1(void *data, int type, void *event)
 {
@@ -75,7 +74,7 @@ void NTPClock::updateClock()
         handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle1, this);
         cInfo() <<  "NTPClock::updateClock() Updating clock...";
 
-        string cmd = "/usr/sbin/ntpdate calaos.fr";
+        std::string cmd = "/usr/sbin/ntpdate calaos.fr";
 
         exe = ecore_exe_run(cmd.c_str(), NULL);
     }
@@ -110,7 +109,7 @@ void NTPClock::TimerTick()
     timer = new EcoreTimer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
 }
 
-void NTPClock::applyCalendarFromServer(string source, string s,
+void NTPClock::applyCalendarFromServer(std::string source, std::string s,
                                        void *listener_data, void* sender_data)
 {
     if (networkCmdCalendarApply[2] == "ntp_on")
@@ -119,7 +118,7 @@ void NTPClock::applyCalendarFromServer(string source, string s,
         enable(true);
 
         int timeZone;
-        istringstream iss(networkCmdCalendarApply[3]);
+        std::istringstream iss(networkCmdCalendarApply[3]);
         iss >> timeZone;
 
         cApply.timeZone.current = timeZone;
@@ -134,41 +133,41 @@ void NTPClock::applyCalendarFromServer(string source, string s,
 
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[3]);
+            std::istringstream iss(networkCmdCalendarApply[3]);
             iss >> i;
             cApply.setHours(i);
         }
 
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[4]);
+            std::istringstream iss(networkCmdCalendarApply[4]);
             iss >> i;
             cApply.setMinutes(i);
         }
 
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[5]);
+            std::istringstream iss(networkCmdCalendarApply[5]);
             iss >> i;
             cApply.setSecondes(i);
         }
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[6]);
+            std::istringstream iss(networkCmdCalendarApply[6]);
             iss >> i;
             cApply.setDay(i);
         }
 
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[7]);
+            std::istringstream iss(networkCmdCalendarApply[7]);
             iss >> i;
             cApply.setMonth(i);
         }
 
         {
             int i;
-            istringstream iss(networkCmdCalendarApply[8]);
+            std::istringstream iss(networkCmdCalendarApply[8]);
             iss >> i;
             cApply.setYear(i);
         }
@@ -176,14 +175,14 @@ void NTPClock::applyCalendarFromServer(string source, string s,
     }
 }
 
-void NTPClock::setNetworkCmdCalendarApply(vector < string > s)
+void NTPClock::setNetworkCmdCalendarApply(std::vector<std::string> s)
 {
     networkCmdCalendarApply = s;
 }
 
 void NTPClock::Handle1()
 {
-    string cmd = "/sbin/hwclock --systohc";
+    std::string cmd = "/sbin/hwclock --systohc";
 
     ecore_event_handler_del(handler);
     handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle2, this);

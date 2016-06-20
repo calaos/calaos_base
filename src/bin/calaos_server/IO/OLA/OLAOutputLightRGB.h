@@ -23,7 +23,7 @@
 
 #include "OutputLightRGB.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class OLAOutputLightRGB: public OutputLightRGB
 {
@@ -33,5 +33,7 @@ private:
 public:
     OLAOutputLightRGB(Params &p);
 };
+
+}
 
 #endif // OLAOUTPUTLIGHTRGB_H

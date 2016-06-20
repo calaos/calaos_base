@@ -30,7 +30,7 @@
 namespace Calaos
 {
 
-typedef map<int ,string> AVRList;
+typedef std::map<int ,std::string> AVRList;
 
 class AVReceiver
 {
@@ -46,16 +46,16 @@ protected:
     EcoreTimer *timer_con;
 
     bool isConnected;
-    string recv_buffer;
-    string host;
+    std::string recv_buffer;
+    std::string host;
     int port;
 
     int volume_main, volume_zone2, volume_zone3;
     bool power_main, power_zone2, power_zone3;
-    string display_text;
+    std::string display_text;
     int source_main, source_zone2, source_zone3;
 
-    string command_suffix;
+    std::string command_suffix;
 
     Ecore_Event_Handler *ehandler_add;
     Ecore_Event_Handler *ehandler_del;
@@ -65,15 +65,15 @@ protected:
     int connection_type;
 
     void timerConnReconnect();
-    virtual void processMessage(string msg);
-    virtual void processMessage(vector<char> msg);
+    virtual void processMessage(std::string msg);
+    virtual void processMessage(std::vector<char> msg);
 
-    void sendRequest(string request);
-    void sendRequest(vector<char> request);
+    void sendRequest(std::string request);
+    void sendRequest(std::vector<char> request);
 
     virtual void connectionEstablished() {}
 
-    void dataGet(string data);
+    void dataGet(std::string data);
 
 public:
     AVReceiver(Params &p, int default_port, int connection_type = AVR_CON_CHAR);
@@ -118,13 +118,13 @@ public:
 
     //return true if AVR can send his display status text
     virtual bool hasDisplay() { return false; }
-    virtual string getDisplayText() { return display_text; }
+    virtual std::string getDisplayText() { return display_text; }
 
-    virtual void sendCustomCommand(string command) { sendRequest(command); }
+    virtual void sendCustomCommand(std::string command) { sendRequest(command); }
 
-    sigc::signal<void, string, string> state_changed_1; //zone 1
-    sigc::signal<void, string, string> state_changed_2; //zone 2
-    sigc::signal<void, string, string> state_changed_3; //zone 3
+    sigc::signal<void, std::string, std::string> state_changed_1; //zone 1
+    sigc::signal<void, std::string, std::string> state_changed_2; //zone 2
+    sigc::signal<void, std::string, std::string> state_changed_3; //zone 3
 
     /* This is private for C callbacks */
     void addConnection(Ecore_Con_Server *srv);
@@ -139,7 +139,7 @@ private:
     AVReceiver *receiver;
     int zone;
 
-    void statusChanged(string param, string value);
+    void statusChanged(std::string param, std::string value);
 
 public:
     IOAVReceiver(Params &p);
@@ -148,14 +148,14 @@ public:
     /* Input/Output functions */
     virtual DATA_TYPE get_type() { return TSTRING; }
 
-    virtual map<string, string> query_param(string key);
+    virtual std::map<std::string, std::string> query_param(std::string key);
 
     //Input
-    virtual string get_value_string();
-    virtual map<string, string> get_all_values_string();
+    virtual std::string get_value_string();
+    virtual std::map<std::string, std::string> get_all_values_string();
 
     //Output
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 
     virtual bool SaveToXml(TiXmlElement *node);
 };

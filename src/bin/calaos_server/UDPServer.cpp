@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include <UDPServer.h>
 
-using namespace Calaos;
 
+namespace Calaos {
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
 
 UDPServer::UDPServer(int p):
@@ -71,7 +71,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
 
     if (udpserver)
     {
-        string d((char *)ev->data, ev->size);
+        std::string d((char *)ev->data, ev->size);
 
         udpserver->ProcessRequest(ev->client, d);
     }
@@ -83,20 +83,20 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     return ECORE_CALLBACK_RENEW;
 }
 
-void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
+void UDPServer::ProcessRequest(Ecore_Con_Client *client, std::string request)
 {
     if (request == "CALAOS_DISCOVER")
     {
         cDebugDom("network") << "Got a CALAOS_DISCOVER";
 
-        string remote_ip = ecore_con_client_ip_get(client);
+        std::string remote_ip = ecore_con_client_ip_get(client);
 
         cDebugDom("network") << "Remote IP: " << remote_ip;
 
-        string ip = TCPSocket::GetLocalIPFor(remote_ip);
+        std::string ip = TCPSocket::GetLocalIPFor(remote_ip);
         if (ip != "")
         {
-            string packet = "CALAOS_IP ";
+            std::string packet = "CALAOS_IP ";
             packet += ip;
 
 
@@ -173,4 +173,6 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
         //send a signal
         Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "knx");
     }
+}
+
 }

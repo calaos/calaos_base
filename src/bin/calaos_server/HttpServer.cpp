@@ -21,6 +21,8 @@
 #include "HttpServer.h"
 #include "WebSocket.h"
 
+namespace Calaos {
+
 static Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev);
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
 static Eina_Bool _ecore_con_handler_client_del(void *data, int type, Ecore_Con_Event_Client_Del *ev);
@@ -157,7 +159,7 @@ void HttpServer::delConnection(Ecore_Con_Client *client)
             << "Connection from adress "
             << ecore_con_client_ip_get(client) << " closed.";
 
-    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
+    std::map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding HttpClient !";
@@ -171,13 +173,13 @@ void HttpServer::delConnection(Ecore_Con_Client *client)
 
 void HttpServer::getDataConnection(Ecore_Con_Client *client, void *data, int size)
 {
-    string d((char *)data, size);
+    std::string d((char *)data, size);
 
     cDebugDom("network")
             << "Got data from client at address "
             << ecore_con_client_ip_get(client);
 
-    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
+    std::map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding HttpClient !";
@@ -195,7 +197,7 @@ void HttpServer::dataWritten(Ecore_Con_Client *client, int size)
             << " to client at address "
             << ecore_con_client_ip_get(client);
 
-    map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
+    std::map<Ecore_Con_Client *, WebSocket *>::iterator it = connections.find(client);
     if (it == connections.end())
     {
         cCriticalDom("network") << "Can't find corresponding HttpClient !";
@@ -208,10 +210,12 @@ void HttpServer::dataWritten(Ecore_Con_Client *client, int size)
 
 void HttpServer::disconnectAll()
 {
-    map<Ecore_Con_Client *, WebSocket *>::iterator iter;
+    std::map<Ecore_Con_Client *, WebSocket *>::iterator iter;
     for (iter = connections.begin();iter != connections.end();iter++)
     {
         WebSocket *ws = (*iter).second;
         ws->sendCloseFrame(WebSocketFrame::CloseCodeNormal, "Shutting down", true);
     }
+}
+
 }

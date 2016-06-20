@@ -22,6 +22,7 @@
 
 #include "WagoCtrl.h"
 
+namespace Calaos {
 class WagoProcess: public ExternProcClient
 {
 public:
@@ -35,12 +36,12 @@ public:
 protected:
 
     WagoCtrl *wago = nullptr;
-    string wago_host;
+    std::string wago_host;
     int wago_port = 502;
 
     //needs to be reimplemented
     virtual void readTimeout();
-    virtual void messageReceived(const string &msg);
+    virtual void messageReceived(const std::string &msg);
 };
 
 void WagoProcess::readTimeout()
@@ -52,7 +53,7 @@ void WagoProcess::readTimeout()
     }
 }
 
-void WagoProcess::messageReceived(const string &msg)
+void WagoProcess::messageReceived(const std::string &msg)
 {
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
@@ -65,7 +66,7 @@ void WagoProcess::messageReceived(const string &msg)
         return;
     }
 
-    string res;
+    std::string res;
 
     Params jsonData;
     jansson_decode_object(jroot, jsonData);
@@ -73,15 +74,15 @@ void WagoProcess::messageReceived(const string &msg)
     if (jsonData["action"] == "read_bits" ||
         jsonData["action"] == "read_output_bits")
     {
-        UWord address;
+        Utils::UWord address;
         int count;
-        vector<bool> values_bits;
+        std::vector<bool> values_bits;
         bool status = true;
 
         Utils::from_string(jsonData["address"], address);
         Utils::from_string(jsonData["count"], count);
 
-        UWord offset = 0;
+        Utils::UWord offset = 0;
         if (jsonData["action"] == "read_output_bits")
             offset = 0x200;
 
@@ -113,7 +114,7 @@ void WagoProcess::messageReceived(const string &msg)
     }
     else if (jsonData["action"] == "write_bit")
     {
-        UWord address;
+        Utils::UWord address;
         bool value = jsonData["value"] == "true";
         bool status = true;
 
@@ -139,9 +140,9 @@ void WagoProcess::messageReceived(const string &msg)
     }
     else if (jsonData["action"] == "write_bits")
     {
-        UWord address;
+        Utils::UWord address;
         int count;
-        vector<bool> values_bits;
+        std::vector<bool> values_bits;
         bool status = true;
 
         Utils::from_string(jsonData["address"], address);
@@ -154,7 +155,7 @@ void WagoProcess::messageReceived(const string &msg)
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
-            string v = json_string_value(value);
+            std::string v = json_string_value(value);
             values_bits.push_back(v == "true");
         }
 
@@ -177,15 +178,15 @@ void WagoProcess::messageReceived(const string &msg)
     else if (jsonData["action"] == "read_words" ||
              jsonData["action"] == "read_output_words")
     {
-        UWord address;
+        Utils::UWord address;
         int count;
-        vector<UWord> values_words;
+        std::vector<Utils::UWord> values_words;
         bool status = true;
 
         Utils::from_string(jsonData["address"], address);
         Utils::from_string(jsonData["count"], count);
 
-        UWord offset = 0;
+        Utils::UWord offset = 0;
         if (jsonData["action"] == "read_output_words")
             offset = 0x200;
 
@@ -217,8 +218,8 @@ void WagoProcess::messageReceived(const string &msg)
     }
     else if (jsonData["action"] == "write_word")
     {
-        UWord address;
-        UWord value;
+        Utils::UWord address;
+        Utils::UWord value;
         bool status = true;
 
         Utils::from_string(jsonData["address"], address);
@@ -244,9 +245,9 @@ void WagoProcess::messageReceived(const string &msg)
     }
     else if (jsonData["action"] == "write_words")
     {
-        UWord address;
+        Utils::UWord address;
         int count;
-        vector<UWord> values_words;
+        std::vector<Utils::UWord> values_words;
         bool status = true;
 
         Utils::from_string(jsonData["address"], address);
@@ -259,8 +260,8 @@ void WagoProcess::messageReceived(const string &msg)
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
-            string v = json_string_value(value);
-            UWord vv;
+            std::string v = json_string_value(value);
+            Utils::UWord vv;
             Utils::from_string(v, vv);
             values_words.push_back(vv);
         }
@@ -316,4 +317,7 @@ int WagoProcess::procMain()
     return 0;
 }
 
-EXTERN_PROC_CLIENT_MAIN(WagoProcess)
+
+}
+
+EXTERN_PROC_CLIENT_MAIN(Calaos::WagoProcess)

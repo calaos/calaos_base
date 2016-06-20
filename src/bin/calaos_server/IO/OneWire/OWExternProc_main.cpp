@@ -28,6 +28,8 @@
 # include <owcapi.h>
 #endif
 
+namespace Calaos {
+
 class OWProcess: public ExternProcClient
 {
 public:
@@ -42,13 +44,13 @@ public:
 protected:
 
     //OW specific functions
-    string getValue(const string &path, const string &param);
-    list<string> scanDevices();
+    std::string getValue(const std::string &path, const std::string &param);
+    std::list<std::string> scanDevices();
     void sendValues();
 
     //needs to be reimplemented
     virtual void readTimeout();
-    virtual void messageReceived(const string &msg);
+    virtual void messageReceived(const std::string &msg);
 
 private:
     bool use_w1;
@@ -61,9 +63,9 @@ OWProcess::~OWProcess()
 #endif
 }
 
-string OWProcess::getValue(const string &path, const string &param)
+std::string OWProcess::getValue(const std::string &path, const std::string &param)
 {
-    string value;
+    std::string value;
 
     if (use_w1)
     {
@@ -71,8 +73,8 @@ string OWProcess::getValue(const string &path, const string &param)
         if (param == "type")
             return "temperature";
 
-        ifstream f;
-        string fvalue = "/sys/bus/w1/devices/" + path + "/w1_slave";
+        std::ifstream f;
+        std::string fvalue = "/sys/bus/w1/devices/" + path + "/w1_slave";
 
         f.open(fvalue);
         if (!f.is_open())
@@ -82,14 +84,14 @@ string OWProcess::getValue(const string &path, const string &param)
         // b3 01 4b 46 7f ff 0d 10 9a : crc=9a YES
         // b3 01 4b 46 7f ff 0d 10 9a t=27187
 
-        string line;
+        std::string line;
         while(!f.eof())
         {
             getline(f, line);
             if (!line.empty())
             {
                 // CRC is OK
-                if (line.find("YES") != string::npos)
+                if (line.find("YES") != std::string::npos)
                 {
                     // get next line and search for t=
                     size_t pos;
@@ -97,7 +99,7 @@ string OWProcess::getValue(const string &path, const string &param)
                     if (!line.empty())
                     {
                         pos = line.find("t=");
-                        if (pos != string::npos)
+                        if (pos != std::string::npos)
                         {
                             pos += 2;
                             line.erase(0, pos);
@@ -120,7 +122,7 @@ string OWProcess::getValue(const string &path, const string &param)
 
 #if HAVE_LIBOWCAPI
 
-    string p = path + "/" + param;
+    std::string p = path + "/" + param;
     char *res;
     size_t len;
 
@@ -141,20 +143,20 @@ string OWProcess::getValue(const string &path, const string &param)
 
 }
 
-list<string> OWProcess::scanDevices()
+std::list<std::string> OWProcess::scanDevices()
 {
 
-    list<string> listDevices;
+    std::list<std::string> listDevices;
 
     if (use_w1)
     {
-        ifstream f;
-        string fslaves = "/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves";
+        std::ifstream f;
+        std::string fslaves = "/sys/bus/w1/devices/w1_bus_master1/w1_master_slaves";
 
         f.open(fslaves);
         if (!f.is_open())
             return listDevices;
-        string line;
+        std::string line;
         while(!f.eof())
         {
             getline(f, line);
@@ -175,11 +177,11 @@ list<string> OWProcess::scanDevices()
     if (ret < 0)
         return listDevices;
 
-    vector<string> tok;
-    Utils::split(string(dir_buffer), tok, ",");
+    std::vector<std::string> tok;
+    Utils::split(std::string(dir_buffer), tok, ",");
     free(dir_buffer);
 
-    for (const string &s: tok)
+    for (const std::string &s: tok)
     {
         if ((s[0] > '0' && s[0] < '9') ||
             (s[0] > 'A' && s[0] < 'F'))
@@ -200,10 +202,10 @@ list<string> OWProcess::scanDevices()
 void OWProcess::readTimeout()
 {
     //read all devices and send a json with all data
-    list<string> l = scanDevices();
+    std::list<std::string> l = scanDevices();
 
     Json jdata;
-    for (const string &dev: l)
+    for (const std::string &dev: l)
     {
         jdata.push_back({ { "id" , dev },
                           { "value", getValue(dev, "temperature") },
@@ -214,12 +216,12 @@ void OWProcess::readTimeout()
     sendMessage(jdata.dump());
 }
 
-void OWProcess::messageReceived(const string &msg)
+void OWProcess::messageReceived(const std::string &msg)
 {
     //actually we don't need to do anything here for OW IO.
     //calaos_server will not send us any data
     //for debug print
-    cout << "Message received: " << msg << endl;
+    std::cout << "Message received: " << msg << std::endl;
 }
 
 bool OWProcess::setup(int &argc, char **&argv)
@@ -238,13 +240,13 @@ bool OWProcess::setup(int &argc, char **&argv)
     if (argvOptionCheck(argv, argv + argc, "--help") ||
         argvOptionCheck(argv, argv + argc, "-h"))
     {
-        cout << "This tool is for calaos internal use only. However it may be useful " <<
+        std::cout << "This tool is for calaos internal use only. However it may be useful " <<
                 "for debugging purpose. It's designed to scan One Wire devices and print " <<
-                "detected devices and their temperatures on screen" << endl << endl;
-        cout << "    Usage : " << argv[0] << " [--use-w1] [--scan] <owfs_args>" << endl;
-        cout << "         --use-w1    : Force the use of w1 kernel module for one wire detection." << endl;
-        cout << "         --scan      : scan hardware and detect OneWire devices." << endl;
-        cout << "         <owfs_args> : List of arguments used by OWFS during init (e.g. -u for usb devices)." << endl;
+                "detected devices and their temperatures on screen" << std::endl << std::endl;
+        std::cout << "    Usage : " << argv[0] << " [--use-w1] [--scan] <owfs_args>" << std::endl;
+        std::cout << "         --use-w1    : Force the use of w1 kernel module for one wire detection." << std::endl;
+        std::cout << "         --scan      : scan hardware and detect OneWire devices." << std::endl;
+        std::cout << "         <owfs_args> : List of arguments used by OWFS during init (e.g. -u for usb devices)." << std::endl;
         return false;
     }
 
@@ -265,9 +267,9 @@ bool OWProcess::setup(int &argc, char **&argv)
         }
     }
 
-    string owargs;
+    std::string owargs;
     for (int i = 1;i < argc;i++)
-        owargs += string(argv[i]) + " ";
+        owargs += std::string(argv[i]) + " ";
 
     cDebug() << "Args: " << owargs;
 
@@ -289,14 +291,14 @@ bool OWProcess::setup(int &argc, char **&argv)
 
     if (scan_devices)
     {
-        cout << "Scanning for 1wire devices... ";
-        list<string> l = scanDevices();
-        cout << "found " << l.size() << " devices." << endl;
-        for (const string &dev: l)
+        std::cout << "Scanning for 1wire devices... ";
+        std::list<std::string> l = scanDevices();
+        std::cout << "found " << l.size() << " devices." << std::endl;
+        for (const std::string &dev: l)
         {
-            cout << "Device: " << dev
+            std::cout << "Device: " << dev
                  << " (" << getValue(dev, "type") << ")"
-                 << " --> value: " << getValue(dev, "temperature") << endl;
+                 << " --> value: " << getValue(dev, "temperature") << std::endl;
         }
         return false;
     }
@@ -313,4 +315,7 @@ int OWProcess::procMain()
     return 0;
 }
 
-EXTERN_PROC_CLIENT_MAIN(OWProcess)
+
+}
+
+EXTERN_PROC_CLIENT_MAIN(Calaos::OWProcess)

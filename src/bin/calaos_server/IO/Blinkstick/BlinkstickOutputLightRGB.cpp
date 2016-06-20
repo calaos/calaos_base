@@ -25,7 +25,7 @@
 #define BLINKSTICK_VENDOR_ID 0x20A0
 #define BLINKSTICK_PRODUCT_ID 0x41E5
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(BlinkstickOutputLightRGB)
 
@@ -149,3 +149,5 @@ bool BlinkstickOutputLightRGB::blinkstickSerialGet(libusb_device *device, unsign
     return false;
 }
 
+
+}

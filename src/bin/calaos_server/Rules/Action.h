@@ -23,7 +23,6 @@
 
 #include "Calaos.h"
 
-using namespace std;
 
 namespace Calaos
 {

@@ -29,26 +29,26 @@ TimeRange::TimeRange():
 {
 }
 
-TimeRange::TimeRange(string proto):
+TimeRange::TimeRange(std::string proto):
     shour("0"), smin("0"), ssec("0"),
     ehour("0"), emin("0"), esec("0")
 {
-    vector<string> tokens;
-    split(proto, tokens, ":", 11);
+    std::vector<std::string> tokens;
+    Utils::split(proto, tokens, ":", 11);
 
     shour = tokens[1];
     smin = tokens[2];
     ssec = tokens[3];
-    from_string(tokens[4], start_type);
-    from_string(tokens[5], start_offset);
+    Utils::from_string(tokens[4], start_type);
+    Utils::from_string(tokens[5], start_offset);
     if (start_offset < 0) start_offset = -1;
     if (start_offset >= 0) start_offset = 1;
 
     ehour = tokens[6];
     emin = tokens[7];
     esec = tokens[8];
-    from_string(tokens[9], end_type);
-    from_string(tokens[10], end_offset);
+    Utils::from_string(tokens[9], end_type);
+    Utils::from_string(tokens[10], end_offset);
     if (end_offset < 0) end_offset = -1;
     if (end_offset >= 0) end_offset = 1;
 }
@@ -58,16 +58,16 @@ TimeRange::TimeRange(const Params &p)
     shour = p["start_hour"];
     smin = p["start_min"];
     ssec = p["start_sec"];
-    from_string(p["start_type"], start_type);
-    from_string(p["start_offset"], start_offset);
+    Utils::from_string(p["start_type"], start_type);
+    Utils::from_string(p["start_offset"], start_offset);
     if (start_offset < 0) start_offset = -1;
     if (start_offset >= 0) start_offset = 1;
 
     ehour = p["end_hour"];
     emin = p["end_min"];
     esec = p["end_sec"];
-    from_string(p["end_type"], end_type);
-    from_string(p["end_offset"], end_offset);
+    Utils::from_string(p["end_type"], end_type);
+    Utils::from_string(p["end_offset"], end_offset);
     if (end_offset < 0) end_offset = -1;
     if (end_offset >= 0) end_offset = 1;
 }
@@ -98,9 +98,9 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
     if (start_type == HTYPE_NORMAL)
     {
         int h, m, s;
-        from_string(shour, h);
-        from_string(smin, m);
-        from_string(ssec, s);
+        Utils::from_string(shour, h);
+        Utils::from_string(smin, m);
+        Utils::from_string(ssec, s);
         v = h * 3600 + m * 60 + s;
     }
     else if (start_type == HTYPE_SUNRISE ||
@@ -123,9 +123,9 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
         {
             //there is an offset
             int h, m, s;
-            from_string(shour, h);
-            from_string(smin, m);
-            from_string(ssec, s);
+            Utils::from_string(shour, h);
+            Utils::from_string(smin, m);
+            Utils::from_string(ssec, s);
             v = v + start_offset * (h * 3600 + m * 60 + s);
         }
     }
@@ -140,9 +140,9 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
     if (end_type == HTYPE_NORMAL)
     {
         int h, m, s;
-        from_string(ehour, h);
-        from_string(emin, m);
-        from_string(esec, s);
+        Utils::from_string(ehour, h);
+        Utils::from_string(emin, m);
+        Utils::from_string(esec, s);
         v = h * 3600 + m * 60 + s;
     }
     else if (end_type == HTYPE_SUNRISE ||
@@ -165,9 +165,9 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
         {
             //there is an offset
             int h, m, s;
-            from_string(ehour, h);
-            from_string(emin, m);
-            from_string(esec, s);
+            Utils::from_string(ehour, h);
+            Utils::from_string(emin, m);
+            Utils::from_string(esec, s);
             v = v + end_offset * (h * 3600 + m * 60 + s);
         }
     }
@@ -245,7 +245,7 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
     double latitude;
     Params opt;
 
-    get_config_options(opt);
+    Utils::get_config_options(opt);
     if (!opt.Exists("longitude") || !opt.Exists("latitude"))
     {
         longitude = 2.548828;
@@ -256,8 +256,8 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
     }
     else
     {
-        from_string(get_config_option("longitude"), longitude);
-        from_string(get_config_option("latitude"), latitude);
+        Utils::from_string(Utils::get_config_option("longitude"), longitude);
+        Utils::from_string(Utils::get_config_option("latitude"), latitude);
     }
 
     double rise, set;
@@ -333,9 +333,9 @@ bool TimeRange::isSameStartEnd()
     return start == end;
 }
 
-string TimeRange::toProtoCommand(int day) const
+std::string TimeRange::toProtoCommand(int day) const
 {
-    string s = Utils::to_string(day + 1) + ":";
+    std::string s = Utils::to_string(day + 1) + ":";
     s += shour + ":" + smin + ":" + ssec;
     s += ":" + Utils::to_string(start_type);
     s += ":" + Utils::to_string(start_offset); //1 or -1
@@ -366,9 +366,9 @@ Params TimeRange::toParams(int day) const
     return p;
 }
 
-string TimeRange::toString()
+std::string TimeRange::toString()
 {
-    stringstream str;
+    std::stringstream str;
 
     struct tm *ctime = NULL;
     tzset(); //Force reload of timezone data
@@ -380,7 +380,7 @@ string TimeRange::toString()
 
     if (start_type == HTYPE_NORMAL)
     {
-        str << "[Start: normal] (" << time2string_digit(start) << ") ===> ";
+        str << "[Start: normal] (" << Utils::time2string_digit(start) << ") ===> ";
     }
     else
     {
@@ -388,7 +388,7 @@ string TimeRange::toString()
         if (start_type == HTYPE_SUNSET) str << "[Start: sunset] ";
         if (start_type == HTYPE_NOON) str << "[Start: noon] ";
 
-        str << "(" << time2string_digit(start) << ") ";
+        str << "(" << Utils::time2string_digit(start) << ") ";
 
         if (shour != "0" || smin != "0" || ssec != "0")
         {
@@ -404,7 +404,7 @@ string TimeRange::toString()
 
     if (end_type == HTYPE_NORMAL)
     {
-        str << "[End: normal] (" << time2string_digit(end) << ")";
+        str << "[End: normal] (" << Utils::time2string_digit(end) << ")";
     }
     else
     {
@@ -412,7 +412,7 @@ string TimeRange::toString()
         if (end_type == HTYPE_SUNSET) str << "[End: sunset] ";
         if (end_type == HTYPE_NOON) str << "[End: noon] ";
 
-        str << "(" << time2string_digit(end) << ") ";
+        str << "(" << Utils::time2string_digit(end) << ") ";
 
         if (ehour != "0" || emin != "0" || esec != "0")
         {

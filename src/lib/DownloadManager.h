@@ -26,14 +26,14 @@
 class DownloadManagerData
 {
 public:
-    string source;
-    string destination;
-    sigc::signal<void, string, string, void*, void*> sigDownload;
+    std::string source;
+    std::string destination;
+    sigc::signal<void, std::string, std::string, void*, void*> sigDownload;
     int downloadTimes;
 
     void *userData;
-    sigc::signal<void, string, string, void*> sigUser;
-    sigc::signal<void, string, string, double, double, void*> sigProgressUpdate;
+    sigc::signal<void, std::string, std::string, void*> sigUser;
+    sigc::signal<void, std::string, std::string, double, double, void*> sigProgressUpdate;
 
     FileDownloader* downloader;
 
@@ -56,12 +56,12 @@ private:
     /**
                  * The list of files to download
                  */
-    list<DownloadManagerData *> l;
+    std::list<DownloadManagerData *> l;
 
     /**
                  * List of downloads
                  */
-    list<DownloadManagerData *> lDownloads;
+    std::list<DownloadManagerData *> lDownloads;
 
     /**
                  * The maximum of downloads at the same time
@@ -73,7 +73,7 @@ private:
     int nbTry;
 
     void downloadFirst();
-    void IPCDownloadDone(string source, string signal,
+    void IPCDownloadDone(std::string source, std::string signal,
                          void* listener_data, void* sender_data);
 
 
@@ -93,12 +93,12 @@ public:
                  * @param sig_progress, the signal called when download progress updates (url, destination_file, dl_now, dl_total, data)
                  * @param userData, user data
                  */
-    void add(string source, string destination,
-             sigc::slot<void, string, string, void*> sig,
-             sigc::slot<void, string, string, double, double, void*> sig_progress,
+    void add(std::string source, std::string destination,
+             sigc::slot<void, std::string, std::string, void*> sig,
+             sigc::slot<void, std::string, std::string, double, double, void*> sig_progress,
              void *userData);
 
-    void add(string source, string destination);
+    void add(std::string source, std::string destination);
 
 
 
@@ -108,7 +108,7 @@ public:
                  * @param destination, the local destination (/tmp...)
                  * @param userData, user data
                  */
-    void del(string source, string destination, void *userData);
+    void del(std::string source, std::string destination, void *userData);
 
     /**
                  * Clear the list

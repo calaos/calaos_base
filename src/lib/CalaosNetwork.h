@@ -27,30 +27,30 @@
 class CalaosNetwork: public sigc::trackable
 {
 private:
-    string username;
-    string password;
+    std::string username;
+    std::string password;
 
     FileDownloader *fdownloader;
 
     bool download_in_progress;
 
-    void register_cb(string result, void *data);
-    void update_ip_cb(string result, void *data);
-    void get_ip_cb(string result, void *data);
+    void register_cb(std::string result, void *data);
+    void update_ip_cb(std::string result, void *data);
+    void get_ip_cb(std::string result, void *data);
 
 public:
-    CalaosNetwork(string username = "", string password = "");
+    CalaosNetwork(std::string username = "", std::string password = "");
     ~CalaosNetwork();
 
     /**
                   * Registers the user with the machine on calaos network
                   */
-    void Register(string username, string password);
+    void Register(std::string username, std::string password);
 
     /**
                   * Update Calaos Network DNS IP
                   */
-    void updateIP(string private_ip);
+    void updateIP(std::string private_ip);
 
     /**
                   * Query Calaos Network account for private/public IP
@@ -58,9 +58,9 @@ public:
     void getIP();
 
     /* Signals */
-    sigc::signal<void, string> registered;
-    sigc::signal<void, string> ip_updated;
-    sigc::signal<void, string, string /* public_ip */, string /* private_ip */, bool /* at_home */> ip_retrieved;
+    sigc::signal<void, std::string> registered;
+    sigc::signal<void, std::string> ip_updated;
+    sigc::signal<void, std::string, std::string /* public_ip */, std::string /* private_ip */, bool /* at_home */> ip_retrieved;
 
 };
 

@@ -30,9 +30,9 @@ namespace Calaos
 class HueOutputLightRGB : public OutputLightRGB
 {
 private:
-    string m_host;
-    string m_api;
-    string m_idHue;
+    std::string m_host;
+    std::string m_api;
+    std::string m_idHue;
     EcoreTimer *m_timer;
 
     void setOff();

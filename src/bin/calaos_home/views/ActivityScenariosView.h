@@ -26,7 +26,6 @@
 #include "ActivityView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityScenariosView: public ActivityView
 {

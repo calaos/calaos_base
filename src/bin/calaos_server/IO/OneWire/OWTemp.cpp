@@ -26,8 +26,8 @@
 #include "OWTemp.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 REGISTER_IO(OWTemp)
 
 OWTemp::OWTemp(Params &p):
@@ -48,7 +48,7 @@ OWTemp::OWTemp(Params &p):
     ow_args = get_param("ow_args");
 
     // Prepend --use-w1 to owfs args if existing in conf
-    string args;
+    std::string args;
     if (get_param("use_w1") == "true")
       args += "--use-w1 ";
     args += ow_args;
@@ -62,7 +62,7 @@ OWTemp::OWTemp(Params &p):
 
 void OWTemp::readValue()
 {
-    string v = OwCtrl::Instance(ow_args)->getValue(ow_id);
+    std::string v = OwCtrl::Instance(ow_args)->getValue(ow_id);
     if (v.empty() || !Utils::is_of_type<double>(v))
         return;
 
@@ -75,4 +75,6 @@ void OWTemp::readValue()
         emitChange();
         cDebugDom("input") << ow_id << ": value: " << val;
     }
+}
+
 }

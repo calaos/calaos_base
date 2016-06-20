@@ -33,9 +33,9 @@ namespace Calaos
 class PollObject
 {
 private:
-    sigc::signal<void, string, string, void*, void*> sig_events;
+    sigc::signal<void, std::string, std::string, void*, void*> sig_events;
 
-    string uuid;
+    std::string uuid;
     EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
 
     //callback to handle all events from the system
@@ -44,16 +44,16 @@ private:
     //Timeout callback
     void Timeout_cb();
 
-    list<CalaosEvent> events;
+    std::list<CalaosEvent> events;
 
     sigc::connection evcon;
 
 public:
-    PollObject(string uuid);
+    PollObject(std::string uuid);
     ~PollObject();
 
-    list<CalaosEvent> &getEvents() { return events; }
-    string getUUID() { return uuid; }
+    std::list<CalaosEvent> &getEvents() { return events; }
+    std::string getUUID() { return uuid; }
     void ResetTimer() { timeout->Reset(); }
     void clearEvents() { events.clear(); }
 };
@@ -61,7 +61,7 @@ public:
 class PollListenner
 {
 private:
-    map<string, PollObject *> pollobjects;
+    std::map<std::string, PollObject *> pollobjects;
 
     PollListenner();
 
@@ -78,13 +78,13 @@ public:
     // Get an uuid.
     // The uuid will be automatically unregistered after some time
     // and become invalid
-    string Register();
+    std::string Register();
 
     // Unregister the uuid, return false if error
-    bool Unregister(string uuid);
+    bool Unregister(std::string uuid);
 
     // Get events for the registered uuid, return false if error
-    bool GetEvents(string uuid, list<CalaosEvent> &events);
+    bool GetEvents(std::string uuid, std::list<CalaosEvent> &events);
 };
 
 }

@@ -28,7 +28,6 @@
 #include <Ecore_Con.h>
 #include <Ecore_File.h>
 
-using namespace Utils;
 
 class FileProgress
 {
@@ -57,26 +56,26 @@ protected:
     bool auto_destroy;
     Ecore_Idler *idler;
 
-    string url;
-    string dest;
-    string tmpFile;
-    string postData;
-    string postContentType;
+    std::string url;
+    std::string dest;
+    std::string tmpFile;
+    std::string postData;
+    std::string postContentType;
 
-    sigc::signal<void, string, void *> cb_signal;
+    sigc::signal<void, std::string, void *> cb_signal;
     sigc::connection cb_connection;
 
-    sigc::signal<void, string, void *, void *> cb_signal_user;
+    sigc::signal<void, std::string, void *, void *> cb_signal_user;
     sigc::connection cb_connection_user;
     void *user_data;
 
 public:
     /* Simple file download */
-    FileDownloader(string url, string destFile, bool auto_destroy = false);
+    FileDownloader(std::string url, std::string destFile, bool auto_destroy = false);
     /* POST data with content type, and return data in a buffer */
-    FileDownloader(string url, string postData, string postContentType, bool auto_destroy = false);
+    FileDownloader(std::string url, std::string postData, std::string postContentType, bool auto_destroy = false);
     /* POST data with content type, and return data in a file */
-    FileDownloader(string url, string destFile, string postData, string postContentType, bool auto_destroy = false);
+    FileDownloader(std::string url, std::string destFile, std::string postData, std::string postContentType, bool auto_destroy = false);
 
     ~FileDownloader();
 
@@ -86,13 +85,13 @@ public:
                    aborted : download is aborted
                    progress,update : progress update message
                  */
-    void addCallback(sigc::slot<void, string, void *> slot)
+    void addCallback(sigc::slot<void, std::string, void *> slot)
     {
         cb_connection.disconnect();
         cb_connection = cb_signal.connect(slot);
     }
 
-    void addCallback(sigc::slot<void, string, void *, void *> slot, void *_user_data)
+    void addCallback(sigc::slot<void, std::string, void *, void *> slot, void *_user_data)
     {
         user_data = _user_data;
         cb_connection_user.disconnect();

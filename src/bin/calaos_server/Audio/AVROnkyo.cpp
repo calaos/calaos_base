@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "AVROnkyo.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 AVROnkyo::AVROnkyo(Params &p):
     AVReceiver(p, 60128, AVR_CON_BYTES)
@@ -71,9 +71,9 @@ void AVROnkyo::connectionEstablished()
     sendCustomCommand("VL3QSTN");
 }
 
-void AVROnkyo::sendCustomCommand(string command)
+void AVROnkyo::sendCustomCommand(std::string command)
 {
-    vector<char> eISCP;
+    std::vector<char> eISCP;
 
     int data_size = command.length() + 3; //2 more bytes for !1
     //        int msg_size = data_size + 16; //end char + header
@@ -120,7 +120,7 @@ void AVROnkyo::sendCustomCommand(string command)
     sendRequest(eISCP);
 }
 
-void AVROnkyo::processMessage(vector<char> data)
+void AVROnkyo::processMessage(std::vector<char> data)
 {
     if (data.size() < 18) //msg is too small, wait for more data to come
     {
@@ -140,8 +140,8 @@ void AVROnkyo::processMessage(vector<char> data)
         brecv_buffer.clear();
     }
 
-    vector<char>::iterator it = data.begin();
-    string msg;
+    std::vector<char>::iterator it = data.begin();
+    std::string msg;
     for (int i = 0;it < data.end();it++, i++)
     {
         if (i < 18) continue;
@@ -182,7 +182,7 @@ void AVROnkyo::processMessage(vector<char> data)
     }
 }
 
-void AVROnkyo::processMessage(string msg)
+void AVROnkyo::processMessage(std::string msg)
 {
     cDebugDom("output") << "Recv new message: " << msg;
 
@@ -191,8 +191,8 @@ void AVROnkyo::processMessage(string msg)
         msg.erase(0, 3);
         if (is_of_type<int>(msg))
         {
-            istringstream iss(msg);
-            iss >> hex >> volume_main;
+            std::istringstream iss(msg);
+            iss >> std::hex >> volume_main;
 
             state_changed_1.emit("volume", Utils::to_string(volume_main));
         }
@@ -202,8 +202,8 @@ void AVROnkyo::processMessage(string msg)
         msg.erase(0, 3);
         if (is_of_type<int>(msg))
         {
-            istringstream iss(msg);
-            iss >> hex >> volume_zone2;
+            std::istringstream iss(msg);
+            iss >> std::hex >> volume_zone2;
 
             state_changed_2.emit("volume", Utils::to_string(volume_zone2));
         }
@@ -213,8 +213,8 @@ void AVROnkyo::processMessage(string msg)
         msg.erase(0, 3);
         if (is_of_type<int>(msg))
         {
-            istringstream iss(msg);
-            iss >> hex >> volume_zone3;
+            std::istringstream iss(msg);
+            iss >> std::hex >> volume_zone3;
 
             state_changed_3.emit("volume", Utils::to_string(volume_zone3));
         }
@@ -295,7 +295,7 @@ void AVROnkyo::Power(bool on, int zone)
         sendCustomCommand("PW300");
 }
 
-int AVROnkyo::inputFromString(string source)
+int AVROnkyo::inputFromString(std::string source)
 {
     if (source == "00") return AVReceiver::AVR_INPUT_VIDEO_1;
     if (source == "01") return AVReceiver::AVR_INPUT_VIDEO_2;
@@ -320,7 +320,7 @@ int AVROnkyo::inputFromString(string source)
     return AVReceiver::AVR_UNKNOWN;
 }
 
-string AVROnkyo::inputToString(int source)
+std::string AVROnkyo::inputToString(int source)
 {
     switch (source)
     {
@@ -351,13 +351,13 @@ string AVROnkyo::inputToString(int source)
 
 void AVROnkyo::setVolume(int volume, int zone)
 {
-    stringstream ss;
+    std::stringstream ss;
     ss.width(2);
     ss.fill('0');
 
-    if (zone == 1) ss << "MVL" << uppercase << hex << volume;
-    else if (zone == 2) ss << "ZVL" << uppercase << hex << volume;
-    else if (zone == 3) ss << "VL3" << uppercase << hex << volume;
+    if (zone == 1) ss << "MVL" << std::uppercase << std::hex << volume;
+    else if (zone == 2) ss << "ZVL" << std::uppercase << std::hex << volume;
+    else if (zone == 3) ss << "VL3" << std::uppercase << std::hex << volume;
     else return;
 
     sendCustomCommand(ss.str());
@@ -365,14 +365,16 @@ void AVROnkyo::setVolume(int volume, int zone)
 
 void AVROnkyo::selectInputSource(int source, int zone)
 {
-    string s = inputToString(source);
+    std::string s = inputToString(source);
     if (s == "") return;
 
-    string cmd;
+    std::string cmd;
     if (zone == 1) cmd = "SLI" + s;
     else if (zone == 2) cmd = "SLZ" + s;
     else if (zone == 3) cmd = "SL3" + s;
     else return;
 
     sendCustomCommand(cmd);
+}
+
 }

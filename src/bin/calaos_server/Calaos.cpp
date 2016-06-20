@@ -23,9 +23,11 @@
 #include <ListeRoom.h>
 #include <ListeRule.h>
 
-using namespace Calaos;
+namespace Utils {
+type_signal_wago signal_wago;
+}
 
-Utils::type_signal_wago Utils::signal_wago;
+namespace Calaos {
 
 int CURL_write_callback_server(void *buffer, size_t size, size_t nmemb, void *stream)
 {
@@ -34,13 +36,13 @@ int CURL_write_callback_server(void *buffer, size_t size, size_t nmemb, void *st
     return size * nmemb;
 }
 
-void Calaos::CallUrl(string url, string post_data)
+void CallUrl(std::string url, std::string post_data)
 {
     FileDownloader *downloader = new FileDownloader(url, post_data, "text/plain", true);
     downloader->Start();
 }
 
-std::string Calaos::get_new_id(std::string prefix)
+std::string get_new_id(std::string prefix)
 {
     int cpt = 0;
     bool found = false;
@@ -58,15 +60,15 @@ std::string Calaos::get_new_id(std::string prefix)
     return ret;
 }
 
-std::string Calaos::get_new_scenario_id()
+std::string get_new_scenario_id()
 {
     int cpt = 0;
     bool found = true;
-    list<Scenario *> autosc = ListeRoom::Instance().getAutoScenarios();
+    std::list<Scenario *> autosc = ListeRoom::Instance().getAutoScenarios();
 
     while (found && autosc.size() > 0)
     {
-        list<Scenario *>::iterator it = autosc.begin();
+        std::list<Scenario *>::iterator it = autosc.begin();
 
         bool found2 = false;
         for (;it != autosc.end() && !found2;it++)
@@ -82,7 +84,7 @@ std::string Calaos::get_new_scenario_id()
             found = false;
     }
 
-    string ret = "scenario_" + Utils::to_string(cpt);
+    std::string ret = "scenario_" + Utils::to_string(cpt);
     return ret;
 }
 
@@ -101,4 +103,6 @@ void StartReadRules::ioRead()
     count_io--;
     if (count_io == 0)
         ListeRule::Instance().ExecuteStartRules();
+}
+
 }

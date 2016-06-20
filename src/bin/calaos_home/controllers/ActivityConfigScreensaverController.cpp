@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "ActivityConfigScreensaverController.h"
-
 #include "ApplicationMain.h"
+#include "ActivityConfigScreensaverController.h"
 
 ActivityConfigScreensaverController::ActivityConfigScreensaverController(Evas *e, Evas_Object *p):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_SCREENSAVER)

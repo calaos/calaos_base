@@ -22,7 +22,7 @@
 #include "CalaosConfig.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO_USERTYPE(InternalInt, Internal)
 REGISTER_IO_USERTYPE(InternalBool, Internal)
@@ -127,7 +127,7 @@ bool Internal::set_value(double val)
     return true;
 }
 
-bool Internal::set_value(string val)
+bool Internal::set_value(std::string val)
 {
     if (!isEnabled()) return true;
 
@@ -151,7 +151,7 @@ bool Internal::set_value(string val)
         }
         else if (val.compare(0, 4, "inc ") == 0)
         {
-            string t = val;
+            std::string t = val;
             t.erase(0, 4);
 
             double step = 1.0;
@@ -162,7 +162,7 @@ bool Internal::set_value(string val)
         }
         else if (val.compare(0, 4, "dec ") == 0)
         {
-            string t = val;
+            std::string t = val;
             t.erase(0, 4);
 
             double step = 1.0;
@@ -200,7 +200,7 @@ bool Internal::set_value(string val)
     {
         if (val.compare(0, 8, "impulse ") == 0)
         {
-            string tmp = val;
+            std::string tmp = val;
             tmp.erase(0, 8);
             // classic impulse, output goes false after <time> miliseconds
             if (Utils::is_of_type<int>(tmp))
@@ -248,7 +248,7 @@ bool Internal::set_value(string val)
     return true;
 }
 
-void Internal::impulse_extended(string pattern)
+void Internal::impulse_extended(std::string pattern)
 {
     /* Extended impulse to do blinking.
          * It uses a pattern like this one:
@@ -264,7 +264,7 @@ void Internal::impulse_extended(string pattern)
     cInfoDom("output") << get_param("id") << ": got extended impulse action, parsing blinking pattern...";
 
     //Parse the string
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(pattern, tokens);
 
     bool state = true;
@@ -376,7 +376,7 @@ void Internal::LoadFromConfig()
 {
     if (get_param("save") != "true") return;
 
-    string saved_value;
+    std::string saved_value;
     if (!Config::Instance().ReadValueIO(get_param("id"), saved_value))
     {
         saved_value = get_param("value");
@@ -409,11 +409,13 @@ bool Internal::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < get_params().size();i++)
     {
-        string key, value;
+        std::string key, value;
         get_params().get_item(i, key, value);
         if (key == "value" && get_param("save") != "true") continue;
         cnode->SetAttribute(key, value);
     }
 
     return true;
+}
+
 }

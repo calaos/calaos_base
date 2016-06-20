@@ -21,7 +21,6 @@
 #include "CommonUtils.h"
 #include <Elementary.h>
 
-using namespace Utils;
 
 Evas_Object *Utils::createPaddingTable(Evas *evas, Evas_Object *parent, int w, int h, int padding_top_bottom, int padding_side)
 {

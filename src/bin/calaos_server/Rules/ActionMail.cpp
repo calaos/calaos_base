@@ -24,8 +24,8 @@
 #include "FileDownloader.h"
 #include "Prefix.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 ActionMail::ActionMail():
     Action(ACTION_MAIL)
 {
@@ -50,7 +50,7 @@ bool ActionMail::Execute()
                                       << camera->get_param("name")
                                       << ") attachment";
 
-        string tmpFile;
+        std::string tmpFile;
         int cpt = 0;
 
         //Get a temporary filename
@@ -65,11 +65,11 @@ bool ActionMail::Execute()
         // Autodestroy file downloader
         cDebug() << "DL URL: " << camera->getPictureUrl();
         FileDownloader* downloader = new FileDownloader(camera->getPictureUrl(), tmpFile, true);
-        downloader->addCallback([=](string signal, void *sender_data)
+        downloader->addCallback([=](std::string signal, void *sender_data)
         {
             if (signal == "done")
             {
-                mail_attachment_tfile = *(reinterpret_cast<string *>(sender_data));
+                mail_attachment_tfile = *(reinterpret_cast<std::string *>(sender_data));
                 sendMail();
             }
             else if (signal == "failed" || signal == "aborted")
@@ -92,7 +92,7 @@ bool ActionMail::Execute()
 
 void ActionMail::sendMail()
 {
-    string tmpFile;
+    std::string tmpFile;
     int cpt = 0;
     //Get a temporary filename
     do
@@ -109,7 +109,7 @@ void ActionMail::sendMail()
     ofs << mail_message;
     ofs.close();
 
-    stringstream cmd;
+    std::stringstream cmd;
 
     cmd << Prefix::Instance().binDirectoryGet();
     cmd << "/calaos_mail";
@@ -176,4 +176,6 @@ bool ActionMail::SaveToXml(TiXmlElement *node)
     mail_node->LinkEndChild(txt_node);
 
     return true;
+}
+
 }

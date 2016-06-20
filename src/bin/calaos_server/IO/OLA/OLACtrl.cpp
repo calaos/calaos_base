@@ -21,7 +21,8 @@
 #include "OLACtrl.h"
 #include "Prefix.h"
 
-OLACtrl::OLACtrl(const string &universe)
+namespace Calaos {
+OLACtrl::OLACtrl(const std::string &universe)
 {
     cDebugDom("ola") << "new OLACtrl: " << universe;
     process = new ExternProcServer("ola");
@@ -52,7 +53,7 @@ void OLACtrl::setValue(int channel, int value)
     json_object_set_new(jdata, "value", json_integer(value * 255 / 100));
     json_array_append_new(jroot, jdata);
 
-    string res = jansson_to_string(jroot);
+    std::string res = jansson_to_string(jroot);
 
     if (!res.empty())
         process->sendMessage(res);
@@ -79,7 +80,7 @@ void OLACtrl::setColor(const ColorValue &color, int channel_red, int channel_gre
     json_object_set_new(jdata, "value", json_integer(color.getBlue()));
     json_array_append_new(jroot, jdata);
 
-    string res = jansson_to_string(jroot);
+    std::string res = jansson_to_string(jroot);
 
     if (!res.empty())
         process->sendMessage(res);
@@ -87,14 +88,16 @@ void OLACtrl::setColor(const ColorValue &color, int channel_red, int channel_gre
     cDebugDom("ola") << "Sending: " << res;
 }
 
-shared_ptr<OLACtrl> OLACtrl::Instance(const string &universe)
+std::shared_ptr<OLACtrl> OLACtrl::Instance(const std::string &universe)
 {
-    static map<string, shared_ptr<OLACtrl>> mapInst;
+    static std::map<std::string, std::shared_ptr<OLACtrl>> mapInst;
     auto it = mapInst.find(universe);
     if (it != mapInst.end())
         return it->second;
 
-    shared_ptr<OLACtrl> inst(new OLACtrl(universe));
+    std::shared_ptr<OLACtrl> inst(new OLACtrl(universe));
     mapInst[universe] = std::move(inst);
     return mapInst[universe];
+}
+
 }

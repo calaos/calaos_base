@@ -185,7 +185,7 @@ Zibase &Zibase::Instance(std::string h, int p)
 
 void Zibase::stopAllZibase()
 {
-    std::for_each(zibasemaps.maps.begin(), zibasemaps.maps.end(), Delete());
+    std::for_each(zibasemaps.maps.begin(), zibasemaps.maps.end(), Utils::Delete());
     zibasemaps.maps.clear();
 }
 
@@ -268,7 +268,7 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                     std::string myip = TCPSocket::GetLocalIPFor(remote_ip);
 
 
-                    vector<string> splitter;
+                    std::vector<std::string> splitter;
                     Utils::split(myip, splitter, ".", 4);
                     int ipHexa = (atoi(splitter[0].c_str())<<24) |
                             (atoi(splitter[1].c_str())<<16) |

@@ -19,12 +19,12 @@
  **
  ******************************************************************************/
 
-#include "GengridItemConfig.h"
 #include <ApplicationMain.h>
+#include "GengridItemConfig.h"
 
-GengridItemConfig::GengridItemConfig(Evas *_evas, Evas_Object *_parent, string _label, string style_addition, void *data):
+GengridItemConfig::GengridItemConfig(Evas *_evas, Evas_Object *_parent, std::string _label, std::string style_addition, void *data):
     GengridItemBase(_evas, _parent,
-                    "config" + string((style_addition != "")? "/" + style_addition:""),
+                    "config" + std::string((style_addition != "")? "/" + style_addition:""),
                     data),
     label(_label)
 {
@@ -34,7 +34,7 @@ GengridItemConfig::~GengridItemConfig()
 {
 }
 
-string GengridItemConfig::getLabelItem(Evas_Object *obj, string part)
+std::string GengridItemConfig::getLabelItem(Evas_Object *obj, std::string part)
 {
     return label;
 }

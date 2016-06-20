@@ -66,7 +66,7 @@ Eina_Bool ExternProcServer_con_data(void *data, int type, void *event)
         ex->ipcServer != ecore_con_client_server_get(ev->client))
         return ECORE_CALLBACK_PASS_ON;
 
-    string d((char *)ev->data, ev->size);
+    std::string d((char *)ev->data, ev->size);
     ex->processData(d);
 
     return ECORE_CALLBACK_DONE;
@@ -108,7 +108,7 @@ Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event)
     return ECORE_CALLBACK_DONE;
 }
 
-ExternProcServer::ExternProcServer(string pathprefix)
+ExternProcServer::ExternProcServer(std::string pathprefix)
 {
     int pid = getpid();
     sockpath = "/tmp/calaos_proc_";
@@ -161,18 +161,18 @@ void ExternProcServer::terminate()
     ecore_exe_terminate(process_exe);
 }
 
-void ExternProcServer::sendMessage(const string &data)
+void ExternProcServer::sendMessage(const std::string &data)
 {
     for (Ecore_Con_Client *client : clientList)
     {
         ExternProcMessage msg(data);
-        string frame = msg.getRawData();
+        std::string frame = msg.getRawData();
 
         ecore_con_client_send(client, frame.c_str(), frame.size());
     }
 }
 
-void ExternProcServer::processData(const string &data)
+void ExternProcServer::processData(const std::string &data)
 {
     cDebugDom("process") << "Processing frame data " << data.size();
 
@@ -191,9 +191,9 @@ void ExternProcServer::processData(const string &data)
     }
 }
 
-void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
+void ExternProcServer::startProcess(const std::string &process, const std::string &name, const std::string &args)
 {
-    string cmd = process;
+    std::string cmd = process;
     cmd += " --socket \"" + sockpath + "\" --namespace \"" + name + "\" " + args;
 
     cDebugDom("process") << "Starting process: " << cmd;
@@ -205,7 +205,7 @@ ExternProcMessage::ExternProcMessage()
     clear();
 }
 
-ExternProcMessage::ExternProcMessage(string data)
+ExternProcMessage::ExternProcMessage(std::string data)
 {
     payload = data;
     payload_length = data.size();
@@ -222,7 +222,7 @@ void ExternProcMessage::clear()
     state = StateReadHeader;
 }
 
-bool ExternProcMessage::processFrameData(string &data)
+bool ExternProcMessage::processFrameData(std::string &data)
 {
     bool finished = false;
 
@@ -291,9 +291,9 @@ bool ExternProcMessage::processFrameData(string &data)
     return finished;
 }
 
-string ExternProcMessage::getRawData()
+std::string ExternProcMessage::getRawData()
 {
-    string frame;
+    std::string frame;
 
     uint8_t b = static_cast<uint8_t>(opcode);
     frame.push_back(static_cast<char>(b));
@@ -446,10 +446,10 @@ void ExternProcClient::run(int timeoutms)
     }
 }
 
-void ExternProcClient::sendMessage(const string &data)
+void ExternProcClient::sendMessage(const std::string &data)
 {
     ExternProcMessage msg(data);
-    string frame = msg.getRawData();
+    std::string frame = msg.getRawData();
     ssize_t len;
 
     len = send(sockfd, frame.c_str(), frame.size(), 0);

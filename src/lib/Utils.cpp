@@ -23,7 +23,6 @@
 #include <Ecore_File.h>
 #include <tcpsocket.h>
 
-using namespace Utils;
 
 bool Utils::file_copy(std::string source, std::string dest)
 {
@@ -67,9 +66,9 @@ bool Utils::fileExists(std::string filename)
     return false;
 }
 
-string Utils::url_encode(string str)
+std::string Utils::url_encode(std::string str)
 {
-    string ret = "";
+    std::string ret = "";
     char tmp[10];
 
     for (uint i = 0;i < str.length();i++)
@@ -90,9 +89,9 @@ string Utils::url_encode(string str)
     return ret;
 }
 
-string Utils::url_decode(string str)
+std::string Utils::url_decode(std::string str)
 {
-    string ret = "";
+    std::string ret = "";
 
     for (uint i = 0;i < str.length();i++)
     {
@@ -123,7 +122,7 @@ std::string Utils::Base64_decode(std::string &str)
 
 std::string Utils::Base64_decode_data(std::string &str)
 {
-    string ret = base64_decode(str);
+    std::string ret = base64_decode(str);
 
     return ret;
 }
@@ -162,7 +161,7 @@ int Utils::htoi(char *s)
     return (value);
 }
 
-string Utils::time2string(long s, long ms)
+std::string Utils::time2string(long s, long ms)
 {
     double sec = s;
     int hours = (int)(sec / 3600.0);
@@ -170,7 +169,7 @@ string Utils::time2string(long s, long ms)
     int min = (int)(sec / 60.0);
     sec -= min * 60;
 
-    stringstream str;
+    std::stringstream str;
 
     if (hours == 1)
         str << hours << " " << "heure" << " ";
@@ -196,7 +195,7 @@ string Utils::time2string(long s, long ms)
     return str.str();
 }
 
-string Utils::time2string_digit(long s, long ms)
+std::string Utils::time2string_digit(long s, long ms)
 {
     double sec = s;
     int hours = (int)(sec / 3600.0);
@@ -204,34 +203,34 @@ string Utils::time2string_digit(long s, long ms)
     int min = (int)(sec / 60.0);
     sec -= min * 60;
 
-    stringstream str;
+    std::stringstream str;
 
     if (hours > 0)
-        str << setw(2) << setfill('0') << hours << ":";
+        str << std::setw(2) << std::setfill('0') << hours << ":";
 
-    str << setw(2) << setfill('0') << min << ":";
-    str << setw(2) << setfill('0') << sec;
+    str << std::setw(2) << std::setfill('0') << min << ":";
+    str << std::setw(2) << std::setfill('0') << sec;
 
     if (ms > 0)
-        str << "." << setw(4) << setfill('0') << ms;
+        str << "." << std::setw(4) << std::setfill('0') << ms;
 
     return str.str();
 }
 
-void Utils::split(const string &str, vector<string> &tokens, const string &delimiters, int max /* = 0 */)
+void Utils::split(const std::string &str, std::vector<std::string> &tokens, const std::string &delimiters, int max /* = 0 */)
 {
     // Skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
+    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
     // Find first "non-delimiter".
-    string::size_type pos     = str.find_first_of(delimiters, lastPos);
+    std::string::size_type pos     = str.find_first_of(delimiters, lastPos);
 
     int counter = 0;
 
-    while (string::npos != pos || string::npos != lastPos)
+    while (std::string::npos != pos || std::string::npos != lastPos)
     {
         if (counter + 1 >= max && max > 0)
         {
-            tokens.push_back(str.substr(lastPos, string::npos));
+            tokens.push_back(str.substr(lastPos, std::string::npos));
             break;
         }
 
@@ -248,14 +247,14 @@ void Utils::split(const string &str, vector<string> &tokens, const string &delim
     while (tokens.size() < (uint)max) tokens.push_back("");
 }
 
-void Utils::remove_tag(string &html, const string begin_tag, const string end_tag)
+void Utils::remove_tag(std::string &html, const std::string begin_tag, const std::string end_tag)
 {
-    string::size_type start_pos = html.find(begin_tag, 0);
+    std::string::size_type start_pos = html.find(begin_tag, 0);
 
-    while (start_pos != string::npos)
+    while (start_pos != std::string::npos)
     {
-        string::size_type end_pos = html.find(end_tag, start_pos);
-        if (end_pos == string::npos)
+        std::string::size_type end_pos = html.find(end_tag, start_pos);
+        if (end_pos == std::string::npos)
         {
             break;
         }
@@ -268,10 +267,10 @@ void Utils::remove_tag(string &html, const string begin_tag, const string end_ta
     }
 }
 
-void Utils::replace_str(string &source, const string searchstr, const string replacestr)
+void Utils::replace_str(std::string &source, const std::string searchstr, const std::string replacestr)
 {
-    string::size_type pos = 0;
-    while((pos = source.find(searchstr, pos)) != string::npos)
+    std::string::size_type pos = 0;
+    while((pos = source.find(searchstr, pos)) != std::string::npos)
     {
         source.erase(pos, searchstr.length());
         source.insert(pos, replacestr);
@@ -295,7 +294,7 @@ double Utils::roundValue(double value, int precision)
     return (double)round(value * tmp) / tmp;
 }
 
-bool Utils::strContains(const string &str, const string &needle, CaseSensitivity cs)
+bool Utils::strContains(const std::string &str, const std::string &needle, CaseSensitivity cs)
 {
     if (needle.empty())
         return true;
@@ -306,11 +305,11 @@ bool Utils::strContains(const string &str, const string &needle, CaseSensitivity
     if (cs == Utils::CaseSensitive)
         return str.find(needle) != std::string::npos;
 
-    string s = str;
+    std::string s = str;
     return str_to_lower(s).find(str_to_lower(needle)) != std::string::npos;
 }
 
-bool Utils::strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs)
+bool Utils::strStartsWith(const std::string &str, const std::string &needle, Utils::CaseSensitivity cs)
 {
     if (needle.empty())
         return true;
@@ -330,16 +329,16 @@ bool Utils::strStartsWith(const string &str, const string &needle, Utils::CaseSe
     return true;
 }
 
-void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
+void Utils::parseParamsItemList(std::string l, std::vector<Params> &res, int start_at)
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(l, tokens);
     Params item;
 
     for (unsigned int i = start_at;i < tokens.size();i++)
     {
-        string tmp = tokens[i];
-        vector<string> tk;
+        std::string tmp = tokens[i];
+        std::vector<std::string> tk;
         split(tmp, tk, ":", 2);
 
         if (tk.size() != 2) continue;
@@ -359,7 +358,7 @@ void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
 
 int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream)
 {
-    File_CURL *out = (File_CURL *)stream;
+    Utils::File_CURL *out = (Utils::File_CURL *)stream;
 
     if(out && !out->fp)
     {
@@ -374,7 +373,7 @@ int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream)
 
 int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream)
 {
-    Buffer_CURL *cbuffer = (Buffer_CURL *)stream;
+    Utils::Buffer_CURL *cbuffer = (Utils::Buffer_CURL *)stream;
 
     cbuffer->buffer = realloc(cbuffer->buffer, cbuffer->bufsize + size * nmemb);
     memcpy((char *)cbuffer->buffer + cbuffer->bufsize, buffer, size * nmemb);
@@ -384,17 +383,21 @@ int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream
     return nmemb;
 }
 
-static bool einaLogShuttingDown = false;
-static string default_domain;
-static std::unordered_map<std::string, EinaLog *> logger_hash;
-static EinaLog defaultCoutLogger(true);
+namespace {
 
-EinaLog *Utils::einaLogger(const char *domain)
+bool einaLogShuttingDown = false;
+std::string default_domain;
+std::unordered_map<std::string, efl::eina::log::EinaLog *> logger_hash;
+efl::eina::log::EinaLog defaultCoutLogger(true);
+
+}
+
+efl::eina::log::EinaLog *Utils::einaLogger(const char *domain)
 {
     if (einaLogShuttingDown)
         return &defaultCoutLogger;
 
-    string d = default_domain;
+    std::string d = default_domain;
     
     if (domain)
       d = domain;
@@ -406,11 +409,11 @@ EinaLog *Utils::einaLogger(const char *domain)
     if (!Utils::strStartsWith(d, "calaos_"))
         d.insert(0, "calaos_");
 
-    EinaLog *logger = nullptr;
+    efl::eina::log::EinaLog *logger = nullptr;
     auto it = logger_hash.find(d);
     if (it == logger_hash.end())
     {
-        logger = new EinaLog(d);
+        logger = new efl::eina::log::EinaLog(d);
         logger_hash[d] = logger;
     }
     else
@@ -432,7 +435,7 @@ void Utils::InitEinaLog(const char *d)
 
     eina_init();
     default_domain = d;
-    logger_hash[default_domain] = new EinaLog(default_domain);
+    logger_hash[default_domain] = new efl::eina::log::EinaLog(default_domain);
 }
 
 void Utils::FreeEinaLogs()
@@ -448,14 +451,18 @@ void Utils::FreeEinaLogs()
     einaLogShuttingDown = true;
 }
 
-static string _configBase;
-static string _cacheBase;
+namespace {
 
-string Utils::getConfigFile(const char *configType)
+std::string _configBase;
+std::string _cacheBase;
+
+}
+
+std::string Utils::getConfigFile(const char *configType)
 {
     if (_configBase.empty())
     {
-        string home;
+        std::string home;
         if (getenv("HOME"))
         {
             home = getenv("HOME");
@@ -466,7 +473,7 @@ string Utils::getConfigFile(const char *configType)
             home = pw->pw_dir;
         }
 
-        list<string> confDirs;
+        std::list<std::string> confDirs;
         confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
         confDirs.push_back(ETC_CONFIG_PATH);
         confDirs.push_back(PREFIX_CONFIG_PATH);
@@ -477,10 +484,10 @@ string Utils::getConfigFile(const char *configType)
         // - pkg_prefix/etc/calaos
         // - create $HOME/.config/calaos/ if nothing found
 
-        list<string>::iterator it = confDirs.begin();
+        std::list<std::string>::iterator it = confDirs.begin();
         for (;it != confDirs.end();it++)
         {
-            string conf = *it;
+            std::string conf = *it;
             conf += "/" IO_CONFIG;
             if (ecore_file_exists(conf.c_str()))
             {
@@ -492,8 +499,8 @@ string Utils::getConfigFile(const char *configType)
         if (_configBase.empty())
         {
             //no config dir found, create $HOME/.config/calaos
-            ecore_file_mkdir(string(home + "/.config").c_str());
-            ecore_file_mkdir(string(home + "/.config/calaos").c_str());
+            ecore_file_mkdir(std::string(home + "/.config").c_str());
+            ecore_file_mkdir(std::string(home + "/.config/calaos").c_str());
             _configBase = home + "/" + HOME_CONFIG_PATH;
         }
     }
@@ -501,11 +508,11 @@ string Utils::getConfigFile(const char *configType)
     return _configBase + "/" + configType;
 }
 
-string Utils::getCacheFile(const char *cacheFile)
+std::string Utils::getCacheFile(const char *cacheFile)
 {
     if (_cacheBase.empty())
     {
-        string home;
+        std::string home;
         if (getenv("HOME"))
         {
             home = getenv("HOME");
@@ -517,8 +524,8 @@ string Utils::getCacheFile(const char *cacheFile)
         }
 
         //force the creation of .cache/calaos
-        ecore_file_mkdir(string(home + "/.cache").c_str());
-        ecore_file_mkdir(string(home + "/.cache/calaos").c_str());
+        ecore_file_mkdir(std::string(home + "/.cache").c_str());
+        ecore_file_mkdir(std::string(home + "/.cache/calaos").c_str());
 
         _cacheBase = home + "/.cache/calaos";
     }
@@ -531,7 +538,7 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
     if (configdir) _configBase = configdir;
     if (cachedir) _cacheBase = cachedir;
 
-    string file = getConfigFile(LOCAL_CONFIG);
+    std::string file = getConfigFile(LOCAL_CONFIG);
 
     if (!quiet)
     {
@@ -540,18 +547,18 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
     }
 
     if (!ecore_file_can_write(getConfigFile("").c_str()))
-        throw (runtime_error("config path is not writable"));
+        throw (std::runtime_error("config path is not writable"));
     if (!ecore_file_can_write(getCacheFile("").c_str()))
-        throw (runtime_error("cache path is not writable"));
+        throw (std::runtime_error("cache path is not writable"));
 
     if (!fileExists(file))
     {
         //create a defaut config
         std::ofstream conf(file.c_str(), std::ofstream::out);
-        conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl;
-        conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\">" << endl;
-        conf << "<calaos:option name=\"fw_version\" value=\"0\" />" << endl;
-        conf << "</calaos:config>" << endl;
+        conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
+        conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\">" << std::endl;
+        conf << "<calaos:option name=\"fw_version\" value=\"0\" />" << std::endl;
+        conf << "</calaos:config>" << std::endl;
         conf.close();
 
         set_config_option("fw_target", "calaos_tss");
@@ -567,13 +574,13 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
         set_config_option("latitude", "48.864715");
 
         if (!quiet)
-            cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
+            std::cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << std::endl;
     }
 }
 
-string Utils::get_config_option(string _key)
+std::string Utils::get_config_option(std::string _key)
 {
-    string value = "";
+    std::string value = "";
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
     if (!document.LoadFile())
@@ -606,7 +613,7 @@ string Utils::get_config_option(string _key)
     return value;
 }
 
-bool Utils::set_config_option(string key, string value)
+bool Utils::set_config_option(std::string key, std::string value)
 {
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
@@ -652,7 +659,7 @@ bool Utils::set_config_option(string key, string value)
     return true;
 }
 
-bool Utils::del_config_option(string key)
+bool Utils::del_config_option(std::string key)
 {
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
@@ -752,14 +759,14 @@ char *Utils::argvOptionParam(char **begin, char **end, const std::string &option
 #define HWETH1 "eth0"
 #define HWETH2 "eth1"
 
-string Utils::getHardwareID()
+std::string Utils::getHardwareID()
 {
-    static string hwID;
+    static std::string hwID;
 
     if (!hwID.empty())
         return hwID;
 
-    stringstream ss;
+    std::stringstream ss;
 
     unsigned char hwmac1[6], hwmac2[6];
     if (!TCPSocket::GetMacAddr(HWETH1, hwmac1))
@@ -770,39 +777,39 @@ string Utils::getHardwareID()
 
     for (int i = 0;i < 6;i++)
     {
-        ss << setiosflags(ios_base::uppercase) << setfill('0')
-           << setw(2) << hex << (unsigned int)hwmac1[i];
-        ss << setiosflags(ios_base::uppercase) << setfill('0')
-           << setw(2) << hex << (unsigned int)hwmac2[i];
+        ss << setiosflags(std::ios_base::uppercase) << std::setfill('0')
+           << std::setw(2) << std::hex << (unsigned int)hwmac1[i];
+        ss << setiosflags(std::ios_base::uppercase) << std::setfill('0')
+           << std::setw(2) << std::hex << (unsigned int)hwmac2[i];
     }
     hwID = ss.str();
 
     return hwID;
 }
 
-string Utils::getFileContent(const char *filename)
+std::string Utils::getFileContent(const char *filename)
 {
-    ifstream ifs(filename, ios::in | ios::binary | ios::ate);
+    std::ifstream ifs(filename, std::ios::in | std::ios::binary | std::ios::ate);
     if (!ifs) return "";
 
-    ifstream::pos_type filesize = ifs.tellg();
-    ifs.seekg(0, ios::beg);
+    std::ifstream::pos_type filesize = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
 
-    vector<char> buff(filesize);
+    std::vector<char> buff(filesize);
     ifs.read(&buff[0], filesize);
 
-    return string(&buff[0], filesize);
+    return std::string(&buff[0], filesize);
 }
 
-string Utils::getFileContentBase64(const char *filename)
+std::string Utils::getFileContentBase64(const char *filename)
 {
-    ifstream ifs(filename, ios::in | ios::binary | ios::ate);
+    std::ifstream ifs(filename, std::ios::in | std::ios::binary | std::ios::ate);
     if (!ifs) return "";
 
-    ifstream::pos_type filesize = ifs.tellg();
-    ifs.seekg(0, ios::beg);
+    std::ifstream::pos_type filesize = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
 
-    vector<char> buff(filesize);
+    std::vector<char> buff(filesize);
     ifs.read(&buff[0], filesize);
 
     return Utils::Base64_encode(&buff[0], filesize);
@@ -832,12 +839,12 @@ unsigned int Utils::getUptime()
 #endif
 }
 
-string Utils::createRandomUuid()
+std::string Utils::createRandomUuid()
 {
     struct timeval t1;
     gettimeofday(&t1, NULL);
     srand(t1.tv_usec * t1.tv_sec); //use a more accurate seed for srand.
-    stringstream ssUuid;
+    std::stringstream ssUuid;
 
     ssUuid << std::hex << std::setfill('0') ;
     ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
@@ -849,19 +856,19 @@ string Utils::createRandomUuid()
     return ssUuid.str();
 }
 
-string Utils::str_to_lower(std::string s)
+std::string Utils::str_to_lower(std::string s)
 {
      std::transform(s.begin(), s.end(), s.begin(), Utils::to_lower());
      return s;
 }
 
-string Utils::str_to_upper(std::string s)
+std::string Utils::str_to_upper(std::string s)
 {
      std::transform(s.begin(), s.end(), s.begin(), Utils::to_upper());
      return s;
 }
 
-string Utils::trim(const string &str)
+std::string Utils::trim(const std::string &str)
 {
     if (str.size() == 0)
         return str;
@@ -883,17 +890,17 @@ string Utils::trim(const string &str)
 
     len = end - start + 1;
     if (len <= 0)
-        return string();
+        return std::string();
 
-    return string(str, start, len);
+    return std::string(str, start, len);
 }
 
-string Utils::escape_quotes(const string &s)
+std::string Utils::escape_quotes(const std::string &s)
 {
-    string after;
+    std::string after;
     after.reserve(s.length() + 4);
 
-    for (string::size_type i = 0; i < s.length(); i++)
+    for (std::string::size_type i = 0; i < s.length(); i++)
     {
         switch (s[i])
         {

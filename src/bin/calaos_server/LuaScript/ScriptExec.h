@@ -24,6 +24,8 @@
 #include "Utils.h"
 #include "ExternProc.h"
 
+namespace Calaos {
+
 class ScriptExec
 {
 public:
@@ -31,10 +33,12 @@ public:
     /* Execute the script in a detached process (calaos_script)
      * Communication is done with ExternProc
      */
-    static ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb);
+    static ExternProcServer *ExecuteScriptDetached(const std::string &script, std::function<void(bool ret)> cb);
 
 private:
     ScriptExec() {}
 };
+
+}
 
 #endif // SCRIPTEXEC_H

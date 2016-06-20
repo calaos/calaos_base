@@ -24,16 +24,15 @@
 #include "libquickmail/quickmail.h"
 #include "uri_parser/hef_uri_syntax.h"
 
-using namespace Utils;
 
 void print_usage(void)
 {
-    cout << "Calaos Mail Utility." << endl;
-    cout << "(c)2014 Calaos Team" << endl << endl;
-    cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << endl << endl;
-    cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << endl;
-    cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << endl;
-    cout << "\t--verbose\t\tVerbose mode to debug smtp transaction" << endl << endl;
+    std::cout << "Calaos Mail Utility." << std::endl;
+    std::cout << "(c)2014 Calaos Team" << std::endl << std::endl;
+    std::cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << std::endl << std::endl;
+    std::cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << std::endl;
+    std::cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << std::endl;
+    std::cout << "\t--verbose\t\tVerbose mode to debug smtp transaction" << std::endl << std::endl;
 }
 
 #define EXIT_USAGE \
@@ -43,37 +42,37 @@ int main (int argc, char **argv)
 {
     if (argc < 2) EXIT_USAGE;
 
-    string confTo, confFrom, confSubject, confBody;
-    list<string> confAttach;
+    std::string confTo, confFrom, confSubject, confBody;
+    std::list<std::string> confAttach;
     bool verbose = false, del = false;
 
     Utils::InitEinaLog("mail");
 
-    char *argconf = argvOptionParam(argv, argv + argc, "--from");
+    char *argconf = Utils::argvOptionParam(argv, argv + argc, "--from");
     if (!argconf) EXIT_USAGE;
     confFrom = argconf;
 
-    argconf = argvOptionParam(argv, argv + argc, "--to");
+    argconf = Utils::argvOptionParam(argv, argv + argc, "--to");
     if (!argconf) EXIT_USAGE;
     confTo = argconf;
 
-    argconf = argvOptionParam(argv, argv + argc, "--subject");
+    argconf = Utils::argvOptionParam(argv, argv + argc, "--subject");
     if (!argconf) EXIT_USAGE;
     confSubject = argconf;
 
-    argconf = argvOptionParam(argv, argv + argc, "--body");
+    argconf = Utils::argvOptionParam(argv, argv + argc, "--body");
     if (!argconf) EXIT_USAGE;
     confBody = argconf;
 
     for (int i = 1;i < argc;i++)
     {
-        if (string(argv[i]) == "--attach" && i + 1 < argc)
+        if (std::string(argv[i]) == "--attach" && i + 1 < argc)
             confAttach.push_back(argv[++i]);
     }
 
-    if (argvOptionCheck(argv, argv + argc, "--verbose"))
+    if (Utils::argvOptionCheck(argv, argv + argc, "--verbose"))
         verbose = true;
-    if (argvOptionCheck(argv, argv + argc, "--delete"))
+    if (Utils::argvOptionCheck(argv, argv + argc, "--delete"))
         del = true;
 
     Utils::initConfigOptions(nullptr, nullptr, true);
@@ -82,9 +81,9 @@ int main (int argc, char **argv)
 
     quickmail mailobj = quickmail_create(confFrom.c_str(), confSubject.c_str());
     quickmail_add_to(mailobj, confTo.c_str());
-    quickmail_set_body(mailobj, getFileContent(confBody.c_str()).c_str());
+    quickmail_set_body(mailobj, Utils::getFileContent(confBody.c_str()).c_str());
 
-    for (string attach : confAttach)
+    for (std::string attach : confAttach)
     {
         quickmail_add_attachment_file(mailobj, attach.c_str(), "image/jpeg");
     }
@@ -93,10 +92,10 @@ int main (int argc, char **argv)
     if (verbose)
         quickmail_set_debug_log(mailobj, stderr);
 
-    string smtp_host = Utils::get_config_option("smtp_server");
+    std::string smtp_host = Utils::get_config_option("smtp_server");
 
-    if (strStartsWith(smtp_host, "smtp://") ||
-        strStartsWith(smtp_host, "smtps://"))
+    if (Utils::strStartsWith(smtp_host, "smtp://") ||
+        Utils::strStartsWith(smtp_host, "smtps://"))
     {
         //To be backward compatible with old config where we had full uri
         hef::HfURISyntax uri(smtp_host);
@@ -116,7 +115,7 @@ int main (int argc, char **argv)
                                 Utils::get_config_option("smtp_tls") == "true"?1:0);
 
     if (errmsg)
-        cout << "Error sending e-mail: " << errmsg << endl;
+        std::cout << "Error sending e-mail: " << errmsg << std::endl;
 
     quickmail_destroy(mailobj);
 
@@ -124,7 +123,7 @@ int main (int argc, char **argv)
     if (del)
     {
         ecore_file_unlink(confBody.c_str());
-        for (string attach : confAttach)
+        for (std::string attach : confAttach)
             ecore_file_unlink(attach.c_str());
     }
 

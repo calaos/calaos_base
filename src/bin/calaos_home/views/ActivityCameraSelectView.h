@@ -27,7 +27,6 @@
 #include "ActivityView.h"
 #include "IOView.h"
 
-using namespace Utils;
 
 class CalaosCameraView;
 
@@ -58,7 +57,7 @@ public:
     void ShowLoading();
     void HideLoading();
 
-    virtual string getTitle();
+    virtual std::string getTitle();
 
     void setCamera(Camera *camera);
 };

@@ -31,7 +31,7 @@ namespace Calaos
 class ActionScript: public Action
 {
 private:
-    string script;
+    std::string script;
 
 public:
     ActionScript();

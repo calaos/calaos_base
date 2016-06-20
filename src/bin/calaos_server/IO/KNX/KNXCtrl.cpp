@@ -21,14 +21,16 @@
 #include "KNXCtrl.h"
 #include "Prefix.h"
 
-KNXCtrl::KNXCtrl(const string host)
+namespace Calaos {
+
+KNXCtrl::KNXCtrl(const std::string host)
 {
     cDebugDom("knx") << "new KNXCtrl: " << host;
     process = new ExternProcServer("knx");
     processMonitor = new ExternProcServer("knx_monitor");
 
     //Command process
-    string exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
+    std::string exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
 
     //There should not be any message from command process
     //process->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
@@ -37,10 +39,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "knx", string("--server ") + host);
+        process->startProcess(exe, "knx", std::string("--server ") + host);
     });
 
-    process->startProcess(exe, "knx", string("--server ") + host);
+    process->startProcess(exe, "knx", std::string("--server ") + host);
 
     //Monitor process
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
@@ -51,10 +53,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "monitor process exited, restarting...";
-        process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
+        process->startProcess(exe, "knx", std::string("--internal-monitor-bus --server ") + host);
     });
 
-    process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
+    process->startProcess(exe, "knx", std::string("--internal-monitor-bus --server ") + host);
 }
 
 KNXCtrl::~KNXCtrl()
@@ -62,14 +64,14 @@ KNXCtrl::~KNXCtrl()
     delete process;
 }
 
-shared_ptr<KNXCtrl> KNXCtrl::Instance(const string &host)
+std::shared_ptr<KNXCtrl> KNXCtrl::Instance(const std::string &host)
 {
-    static map<string, shared_ptr<KNXCtrl>> mapInst;
+    static std::map<std::string, std::shared_ptr<KNXCtrl>> mapInst;
     auto it = mapInst.find(host);
     if (it != mapInst.end())
         return it->second;
 
-    shared_ptr<KNXCtrl> inst(new KNXCtrl(host));
+    std::shared_ptr<KNXCtrl> inst(new KNXCtrl(host));
     mapInst[host] = std::move(inst);
     return mapInst[host];
 }
@@ -101,13 +103,13 @@ KNXValue KNXValue::fromJson(json_t *jval)
     return v;
 }
 
-string KNXValue::toString() const
+std::string KNXValue::toString() const
 {
     switch (type)
     {
     case KNXError:
         cError() << "No data";
-        return string();
+        return std::string();
     case KNXInteger:
     {
         switch (eis)
@@ -121,7 +123,7 @@ string KNXValue::toString() const
         case 4:
         {
             struct tm *ltime = localtime( (time_t *)&value_int);
-            stringstream s;
+            std::stringstream s;
             s << ltime->tm_year + 1900 << "/" << ltime->tm_mon + 1 << "/" << ltime->tm_mday;
             return s.str();
         }
@@ -135,7 +137,7 @@ string KNXValue::toString() const
     case KNXString: return value_string;
     }
 
-    return string();
+    return std::string();
 }
 
 bool KNXValue::toBool() const
@@ -230,7 +232,7 @@ KNXValue KNXValue::fromInt(int val, int eis)
     return v;
 }
 
-KNXValue KNXValue::fromString(const string &val, int eis)
+KNXValue KNXValue::fromString(const std::string &val, int eis)
 {
     KNXValue v;
     v.type = KNXString;
@@ -239,7 +241,7 @@ KNXValue KNXValue::fromString(const string &val, int eis)
     return v;
 }
 
-void KNXCtrl::processNewMessage(const string &msg)
+void KNXCtrl::processNewMessage(const std::string &msg)
 {
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
@@ -252,11 +254,11 @@ void KNXCtrl::processNewMessage(const string &msg)
         return;
     }
 
-    string mtype = jansson_string_get(jroot, "type");
+    std::string mtype = jansson_string_get(jroot, "type");
 
     if (mtype == "event")
     {
-        string group_addr = jansson_string_get(jroot, "group_addr");
+        std::string group_addr = jansson_string_get(jroot, "group_addr");
         KNXValue val = KNXValue::fromJson(json_object_get(jroot, "value"));
 
         knxCache[group_addr] = val;
@@ -271,12 +273,12 @@ void KNXCtrl::processNewMessage(const string &msg)
     json_decref(jroot);
 }
 
-KNXValue KNXCtrl::getValue(const string &group_addr)
+KNXValue KNXCtrl::getValue(const std::string &group_addr)
 {
     return knxCache[group_addr];
 }
 
-void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
+void KNXCtrl::writeValue(const std::string &group_addr, const KNXValue &value)
 {
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
@@ -284,7 +286,7 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
     json_t *jroot = p.toJson();
     json_object_set_new(jroot, "value", value.toJson());
 
-    string res = jansson_to_string(jroot);
+    std::string res = jansson_to_string(jroot);
 
     if (!res.empty())
         process->sendMessage(res);
@@ -292,16 +294,18 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
     cDebugDom("knx") << "Sending: " << res;
 }
 
-void KNXCtrl::readValue(const string &group_addr, int eis)
+void KNXCtrl::readValue(const std::string &group_addr, int eis)
 {
     Params p = {{"type", "read"},
                 {"group_addr", group_addr},
                 {"eis", Utils::to_string(eis)}};
 
-    string res = jansson_to_string(p.toJson());
+    std::string res = jansson_to_string(p.toJson());
 
     if (!res.empty())
         process->sendMessage(res);
 
     cDebugDom("knx") << "Sending: " << res;
+}
+
 }

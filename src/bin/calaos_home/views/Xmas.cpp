@@ -30,7 +30,7 @@ static Eina_Bool _snow_cb_animator (void *data)
         return EINA_TRUE;
 }
 
-XmasWidget::XmasWidget(string &_theme, Evas *_evas, ModuleDef &_mdef, string _id, Evas_Object *_parent, ActivityWidgetsView *_view):
+XmasWidget::XmasWidget(std::string &_theme, Evas *_evas, ModuleDef &_mdef, std::string _id, Evas_Object *_parent, ActivityWidgetsView *_view):
                         Widget(_theme, _evas, _mdef, _id, _parent, _view),
                         animator(NULL), clip(NULL)
 {
@@ -42,7 +42,7 @@ XmasWidget::~XmasWidget()
         if (animator) ecore_animator_del(animator);
         animator = NULL;
 
-        for_each(flakes.begin(), flakes.end(), Delete());
+        for_each(flakes.begin(), flakes.end(), Utils::Delete());
 
         evas_object_del(clip);
 }
@@ -64,9 +64,9 @@ void XmasWidget::Hide()
         animator = NULL;
 }
 
-bool XmasWidget::LoadWidget(string, double _x, double _y, string _id)
+bool XmasWidget::LoadWidget(std::string, double _x, double _y, std::string _id)
 {
-        string witem = "calaos/widget/xmas";
+        std::string witem = "calaos/widget/xmas";
         if (!LoadEdje(witem))
         {
                 return false;
@@ -84,7 +84,7 @@ bool XmasWidget::LoadWidget(string, double _x, double _y, string _id)
         //create some flakes
         for (int i = 0;i < MAX_FLAKE;i++)
         {
-                string type;
+                std::string type;
                 if (i < MAX_FLAKE / 3) type = "flake_small";
                 else if (i >= MAX_FLAKE / 3 && i < (MAX_FLAKE / 3) * 2) type = "flake_medium";
                 else type = "flake_large";
@@ -173,7 +173,7 @@ void XmasWidget::Save(TiXmlElement *node)
 {
 }
 
-string XmasWidget::getStringInfo()
+std::string XmasWidget::getStringInfo()
 {
         return "Xmas";
 }

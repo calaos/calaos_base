@@ -25,7 +25,6 @@
 
 #include "BaseView.h"
 
-using namespace Utils;
 
 class MainMenuView: public BaseView
 {
@@ -67,7 +66,7 @@ public:
     void OpenLinkMenu();
     void CloseLinkMenu();
 
-    void setVersionString(string version);
+    void setVersionString(std::string version);
 
     /**
                  * UI Signals

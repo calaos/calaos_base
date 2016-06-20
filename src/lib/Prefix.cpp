@@ -44,7 +44,7 @@ Prefix::~Prefix()
         eina_prefix_free(pfx);
 }
 
-string Prefix::binDirectoryGet()
+std::string Prefix::binDirectoryGet()
 { 
     const char *str = eina_prefix_bin_get(pfx); 
     // test returned string to avoir exception
@@ -53,7 +53,7 @@ string Prefix::binDirectoryGet()
     else return "";
 }
 
-string Prefix::libDirectoryGet()
+std::string Prefix::libDirectoryGet()
 {
     const char *str = eina_prefix_lib_get(pfx); 
     // test returned string to avoir exception
@@ -62,7 +62,7 @@ string Prefix::libDirectoryGet()
     else return "";
 }
 
-string Prefix::dataDirectoryGet()
+std::string Prefix::dataDirectoryGet()
 {
     const char *str = eina_prefix_data_get(pfx); 
     // test returned string to avoir exception
@@ -71,7 +71,7 @@ string Prefix::dataDirectoryGet()
     else return "";
 }
 
-string Prefix::localeDirectoryGet()
+std::string Prefix::localeDirectoryGet()
 {
     const char *str = eina_prefix_locale_get(pfx); 
     // test returned string to avoir exception

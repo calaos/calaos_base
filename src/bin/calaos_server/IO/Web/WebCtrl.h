@@ -38,30 +38,30 @@ private:
     DownloadManager *dlManager;
     double frequency;
     EcoreTimer *timer;
-    void downloadFinished(string emission, string source, void* data);
-    void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
+    void downloadFinished(std::string emission, std::string source, void* data);
+    void downloadProgress(std::string url, std::string destination_file, double dl_now, double dl_total, void* data);
     Params param;
     int file_type;
-    static unordered_map<string, WebCtrl> hash;
+    static std::unordered_map<std::string, WebCtrl> hash;
     void launchDownload();
-    vector<pair<string, std::function<void()>>> fileDownloadedCallbacks;
+    std::vector<std::pair<std::string, std::function<void()>>> fileDownloadedCallbacks;
 
 public:
     static WebCtrl &Instance(Params &p); //Singleton
     WebCtrl();
     ~WebCtrl();
     enum {XML, JSON, TEXT, UNKNOWN};
-    void Add(string path, double _frequency = 60.0,
+    void Add(std::string path, double _frequency = 60.0,
              std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
-    void Del(string path);
+    void Del(std::string path);
 
-    string getValueJson(string path, string filename);
-    string getValueXml(string path, string filename);
-    string getValueText(string path, string filename);
-    string getValue(string path);
-    double getValueDouble(string path);
+    std::string getValueJson(std::string path, std::string filename);
+    std::string getValueXml(std::string path, std::string filename);
+    std::string getValueText(std::string path, std::string filename);
+    std::string getValue(std::string path);
+    double getValueDouble(std::string path);
 
-    void setValue(string value);
+    void setValue(std::string value);
 };
 
 }

@@ -23,7 +23,7 @@
 #include "IOFactory.h"
 #include "MySensors.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsOutputString)
 
@@ -46,8 +46,9 @@ MySensorsOutputString::MySensorsOutputString(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id: " << nodeId << " sensor_id: " << sensorId;
@@ -58,14 +59,16 @@ MySensorsOutputString::~MySensorsOutputString()
     cInfoDom("output");
 }
 
-void MySensorsOutputString::set_value_real(string val)
+void MySensorsOutputString::set_value_real(std::string val)
 {
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     int dataType = MySensors::V_VAR1;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
     MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, val);
+}
+
 }

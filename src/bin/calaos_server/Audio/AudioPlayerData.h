@@ -82,9 +82,9 @@ public:
     }
 
     Params params;
-    vector<Params> vparams;
+    std::vector<Params> vparams;
     int ivalue = 0, ivalue2 = 0;
-    string svalue;
+    std::string svalue;
     double dvalue = 0.0;
 
     void set_chain_data(AudioPlayerData *data)

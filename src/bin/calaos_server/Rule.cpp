@@ -21,9 +21,9 @@
 #include "Rule.h"
 #include "Rules/RulesFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
-Rule::Rule(string type, string name):
+Rule::Rule(std::string type, std::string name):
     auto_sc_mark(false)
 {
     params.Add("type", type);
@@ -92,7 +92,7 @@ void Rule::CheckConditionsAsync(std::function<void (bool check)> cb)
     //if one is failing, stops immediatly.
     //then we can start all scripts in parallel
 
-    list<ConditionScript *> cond_scripts;
+    std::list<ConditionScript *> cond_scripts;
 
     for (Condition *condition: conds)
     {
@@ -162,7 +162,7 @@ bool Rule::ExecuteActions()
 
 void Rule::RemoveCondition(int pos)
 {
-    vector<Condition *>::iterator iter = conds.begin();
+    std::vector<Condition *>::iterator iter = conds.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     conds.erase(iter);
 
@@ -171,7 +171,7 @@ void Rule::RemoveCondition(int pos)
 
 void Rule::RemoveAction(int pos)
 {
-    vector<Action *>::iterator iter = actions.begin();
+    std::vector<Action *>::iterator iter = actions.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     actions.erase(iter);
 
@@ -184,7 +184,7 @@ bool Rule::LoadFromXml(TiXmlElement *node)
 
     for (; attr; attr = attr->Next())
     {
-        if (string(attr->Name()) != "name" && string(attr->Name()) != "type")
+        if (std::string(attr->Name()) != "name" && std::string(attr->Name()) != "type")
             params.Add(attr->Name(), attr->ValueStr());
     }
 
@@ -215,7 +215,7 @@ bool Rule::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < params.size();i++)
     {
-        string key, value;
+        std::string key, value;
         params.get_item(i, key, value);
         rule_node->SetAttribute(key, value);
     }
@@ -235,4 +235,6 @@ bool Rule::SaveToXml(TiXmlElement *node)
     }
 
     return true;
+}
+
 }

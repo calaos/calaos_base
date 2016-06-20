@@ -25,7 +25,6 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityConfigPasswordView: public ActivityView
 {
@@ -38,7 +37,7 @@ class ActivityConfigPasswordView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return _("Configure Password"); }
+                virtual std::string getTitle() { return _("Configure Password"); }
 };
 
 #endif // ActivityConfigPasswordView_H

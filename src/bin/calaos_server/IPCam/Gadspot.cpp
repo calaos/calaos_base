@@ -21,7 +21,7 @@
 #include "Gadspot.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(Gadspot)
 
@@ -49,4 +49,6 @@ std::string Gadspot::getPictureUrl()
     url += "/Jpeg/CamImg.jpg";
 
     return url;
+}
+
 }

@@ -21,45 +21,44 @@
 #include <Params.h>
 #include <sstream>
 
-using namespace std;
 
-void Params::Add(string key, string value)
+void Params::Add(std::string key, std::string value)
 {
     params[key] = value;
 }
 
-bool Params::Exists(string key) const
+bool Params::Exists(std::string key) const
 {
-    map<string, string>::const_iterator fter = params.find(key);
+    std::map<std::string, std::string>::const_iterator fter = params.find(key);
     if (fter != params.cend())
         return true;
     return false;
 }
 
-string Params::get_param(string key)
+std::string Params::get_param(std::string key)
 {
     if (Exists(key))
         return params[key];
     return "";
 }
 
-string Params::get_param_const(const string key) const
+std::string Params::get_param_const(const std::string key) const
 {
-    map<string, string>::const_iterator fter = params.find(key);
+    std::map<std::string, std::string>::const_iterator fter = params.find(key);
     if (fter != params.cend())
         return fter->second;
 
     return "";
 }
 
-string Params::operator[] (string key) const
+std::string Params::operator[] (std::string key) const
 {
     return get_param_const(key);
 }
 
-void Params::get_item(int i, string &key, string &value) const
+void Params::get_item(int i, std::string &key, std::string &value) const
 {
-    map<string, string>::const_iterator iter;
+    std::map<std::string, std::string>::const_iterator iter;
     for (iter = params.cbegin();iter != params.cend();iter++,i--)
     {
         if (i == 0)
@@ -71,7 +70,7 @@ void Params::get_item(int i, string &key, string &value) const
     }
 }
 
-void Params::Parse(string str)
+void Params::Parse(std::string str)
 {
     int count = 0;
     unsigned int i = 0;
@@ -80,8 +79,8 @@ void Params::Parse(string str)
     {
         if (isspace(str[i]))
         {
-            string sid, val = str.substr(0, i);
-            stringstream id;
+            std::string sid, val = str.substr(0, i);
+            std::stringstream id;
             id << count;
             sid = id.str();
             Add(sid, val);
@@ -103,8 +102,8 @@ void Params::Parse(string str)
             i++;
             if (i >= str.length())
             {
-                stringstream id;
-                string sid;
+                std::stringstream id;
+                std::string sid;
                 id << count;
                 sid = id.str();
                 Add(sid, str);
@@ -114,11 +113,11 @@ void Params::Parse(string str)
     }
 }
 
-string Params::toString() const
+std::string Params::toString() const
 {
-    string ret, key, value;
+    std::string ret, key, value;
 
-    map<string, string>::const_iterator iter;
+    std::map<std::string, std::string>::const_iterator iter;
     ret = "Params::toString():\n";
     for (iter = params.cbegin();iter != params.cend();iter++)
     {

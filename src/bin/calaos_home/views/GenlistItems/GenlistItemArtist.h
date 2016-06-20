@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemArtist: public GenlistItemBase
 {
@@ -45,8 +44,8 @@ public:
     GenlistItemArtist(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id = 0, void *data = NULL);
     virtual ~GenlistItemArtist();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickPlay();
     void buttonClickAdd();

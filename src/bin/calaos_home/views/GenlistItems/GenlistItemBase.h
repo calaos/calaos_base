@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <IOView.h>
 
-using namespace Utils;
 
 //This macro is used to add a C callback for elementary buttons on items
 #define ITEM_BUTTON_CALLBACK(_class, it_name) \
@@ -42,7 +41,7 @@ protected:
     Elm_Object_Item *item;
 
     Elm_Genlist_Item_Class item_class;
-    string style;
+    std::string style;
 
     void *user_data;
     Elm_Genlist_Item_Type flags;
@@ -52,7 +51,7 @@ protected:
     virtual void itemAdded() {} //item was added to a genlist
 
 public:
-    GenlistItemBase(Evas *evas, Evas_Object *parent, string style, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE, void *select_user_data = NULL);
+    GenlistItemBase(Evas *evas, Evas_Object *parent, std::string style, Elm_Genlist_Item_Type flags = ELM_GENLIST_ITEM_NONE, void *select_user_data = NULL);
     virtual ~GenlistItemBase();
 
     //Add item to genlist
@@ -68,14 +67,14 @@ public:
     void ShowItem(Elm_Genlist_Item_Scrollto_Type type);
     void BringInItem(Elm_Genlist_Item_Scrollto_Type type);
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
-    virtual bool getStateItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
+    virtual bool getStateItem(Evas_Object *obj, std::string part);
 
     void setSelected(bool sel) { elm_genlist_item_selected_set(item, sel); }
     bool isSelected() { return elm_genlist_item_selected_get(item); }
 
-    void updateField(string part, Elm_Genlist_Item_Field_Type type) { elm_genlist_item_fields_update(item, part.c_str(),  type); }
+    void updateField(std::string part, Elm_Genlist_Item_Field_Type type) { elm_genlist_item_fields_update(item, part.c_str(),  type); }
 
     sigc::signal<void, void *> item_selected;
 
@@ -83,7 +82,7 @@ public:
     void *getUserData() { return user_data; }
     void setAutoDeleteUserData(DeletorBase *how_to_delete_user_data) { autodel_userdata = how_to_delete_user_data; }
 
-    void itemEmitSignal(string signal, string source);
+    void itemEmitSignal(std::string signal, std::string source);
 
     //Used by C callback
     void emitSelectedSignal();

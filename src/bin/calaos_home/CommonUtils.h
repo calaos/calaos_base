@@ -21,8 +21,8 @@
 #ifndef COMMONUTILS_H
 #define COMMONUTILS_H
 
-#include <Evas.h>
 #include <Utils.h>
+#include <Evas.h>
 
 namespace Utils
 {

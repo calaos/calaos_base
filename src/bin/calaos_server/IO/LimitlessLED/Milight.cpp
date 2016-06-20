@@ -26,9 +26,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-using namespace Calaos;
+namespace Calaos {
 
-Milight::Milight(string h, int p):
+Milight::Milight(std::string h, int p):
     host(h),
     port(p)
 {
@@ -151,4 +151,6 @@ ushort Milight::calcMilightColor(const ColorValue &color)
     cDebugDom("milight") << "HSL Hue: " << color.getHSLHue();
     ushort mcolor = (256 + 176 - (int)(color.getHSLHue() / 360.0 * 255.0)) % 256;
     return mcolor + 0xFA;
+}
+
 }

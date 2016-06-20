@@ -26,7 +26,6 @@
 #include "ScriptExec.h"
 #include "IOBase.h"
 
-using namespace std;
 
 namespace Calaos
 {
@@ -34,11 +33,11 @@ namespace Calaos
 class ConditionScript: public Condition
 {
 private:
-    string script;
+    std::string script;
 
     //These are declared inputs that will trigger the rule execution
     //Most generaly, inputs are those used in the script
-    unordered_map<IOBase *, IOBase *> in_event;
+    std::unordered_map<IOBase *, IOBase *> in_event;
 
 public:
     ConditionScript();

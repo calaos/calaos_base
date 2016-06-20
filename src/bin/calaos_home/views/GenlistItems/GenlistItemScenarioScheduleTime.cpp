@@ -38,14 +38,14 @@ GenlistItemScenarioScheduleTime::~GenlistItemScenarioScheduleTime()
 {
 }
 
-string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (part == "text")
     {
         bool same = range.isSameStartEnd();
-        string starttxt;
+        std::string starttxt;
         if (same)
             starttxt = _("Execute at ");
         else
@@ -62,9 +62,9 @@ string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, string pa
                 int v = h * 3600 + m * 60 + s;
 
                 if (range.start_offset == 1)
-                    return string(" +") + Utils::time2string_digit(v);
+                    return std::string(" +") + Utils::time2string_digit(v);
                 else if (range.start_offset == -1)
-                    return string(" -") + Utils::time2string_digit(v);
+                    return std::string(" -") + Utils::time2string_digit(v);
 
             }
             else
@@ -76,13 +76,13 @@ string GenlistItemScenarioScheduleTime::getLabelItem(Evas_Object *obj, string pa
                 int v = h * 3600 + m * 60 + s;
 
                 if (range.end_offset == 1)
-                    return string(" +") + Utils::time2string_digit(v);
+                    return std::string(" +") + Utils::time2string_digit(v);
                 else
                     if (range.end_offset == -1)
-                        return string(" -") + Utils::time2string_digit(v);
+                        return std::string(" -") + Utils::time2string_digit(v);
             }
 
-            return string();
+            return std::string();
         };
 
         if (range.start_type == TimeRange::HTYPE_NORMAL)
@@ -129,7 +129,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemScenarioScheduleTime::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemScenarioScheduleTime::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -159,7 +159,7 @@ Evas_Object *GenlistItemScenarioScheduleTime::getPartItem(Evas_Object *obj, stri
         elm_image_file_set(o, ApplicationMain::getTheme(), "calaos/icons/element/simple/play");
     }
 
-    auto setDay = [=](string day, int active)
+    auto setDay = [=](std::string day, int active)
     {
         if (active == 1)
             itemEmitSignal(day + ",active", "calaos");

@@ -38,8 +38,8 @@ protected:
     Evas_Object *box_content;
     Evas_Object *box_selector;
 
-    vector<Evas_Object *> pages;
-    vector<EdjeObject *> selectors;
+    std::vector<Evas_Object *> pages;
+    std::vector<EdjeObject *> selectors;
 
 public:
     PagingView(Evas *evas, Evas_Object *parent);

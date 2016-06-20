@@ -21,26 +21,26 @@
 #ifndef CALAOS_MODULE_H
 #define CALAOS_MODULE_H
 
+#include <ApplicationMain.h>
 #include <CalaosModule.h>
 #include <Utils.h>
 #include <EdjeObject.h>
 #include <Ecore_File.h>
-#include <ApplicationMain.h>
 
 class ModuleNote: public CalaosModuleBase
 {
     private:
         EdjeObject *edje;
-        string text;
+        std::string text;
 
-        void KeyboardCb(string text);
+        void KeyboardCb(std::string text);
 
     public:
-        ModuleNote(Evas *evas, string id, string module_path);
+        ModuleNote(Evas *evas, std::string id, std::string module_path);
 
         virtual ~ModuleNote();
 
-        virtual string getStringInfo();
+        virtual std::string getStringInfo();
 
         virtual void getSizeMin(int &w, int &h);
         virtual void getSizeMax(int &w, int &h);

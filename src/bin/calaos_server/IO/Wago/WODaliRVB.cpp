@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WODaliRVB)
 REGISTER_IO_USERTYPE(WagoOutputDimmerRGB, WODaliRVB)
@@ -65,7 +65,7 @@ WODaliRVB::WODaliRVB(Params &_p):
     WagoMap::Instance(host, port);
 
     //reqd initial state
-    string cmd;
+    std::string cmd;
     cmd = "WAGO_DALI_GET " + get_param("rline") + " " + get_param("raddress");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODaliRVB::WagoUDPCommandRed_cb));
     cmd = "WAGO_DALI_GET " + get_param("gline") + " " + get_param("gaddress");
@@ -85,7 +85,7 @@ WODaliRVB::~WODaliRVB()
     cDebugDom("output");
 }
 
-void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandRed_cb(bool status, std::string command, std::string result)
 {
     if (!status)
     {
@@ -95,7 +95,7 @@ void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
         return;
     }
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(result, tokens);
     if (tokens.size() >= 3)
     {
@@ -106,7 +106,7 @@ void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandGreen_cb(bool status, std::string command, std::string result)
 {
     if (!status)
     {
@@ -116,7 +116,7 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
         return;
     }
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(result, tokens);
     if (tokens.size() >= 3)
     {
@@ -127,7 +127,7 @@ void WODaliRVB::WagoUDPCommandGreen_cb(bool status, string command, string resul
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result)
+void WODaliRVB::WagoUDPCommandBlue_cb(bool status, std::string command, std::string result)
 {
     if (!status)
     {
@@ -137,7 +137,7 @@ void WODaliRVB::WagoUDPCommandBlue_cb(bool status, string command, string result
         return;
     }
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(result, tokens);
     if (tokens.size() >= 3)
     {
@@ -159,7 +159,7 @@ void WODaliRVB::checkReadState()
     stateUpdated(c, red != 0 || green != 0 || blue != 0);
 }
 
-void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)
+void WODaliRVB::WagoUDPCommand_cb(bool status, std::string command, std::string)
 {
     if (!status)
     {
@@ -179,7 +179,7 @@ void WODaliRVB::setColorReal(const ColorValue &c, bool s)
         b = c.getBlue();
     }
 
-    string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
+    std::string cmd = "WAGO_DALI_SET " + get_param("rline") + " " + get_param("rgroup") +
                  " " + get_param("raddress") + " " + Utils::to_string((r * 100) / 255) +
                  " " + get_param("rfade_time");
     WagoMap::Instance(host, port).SendUDPCommand(cmd);
@@ -195,3 +195,5 @@ void WODaliRVB::setColorReal(const ColorValue &c, bool s)
     WagoMap::Instance(host, port).SendUDPCommand(cmd);
 }
 
+
+}

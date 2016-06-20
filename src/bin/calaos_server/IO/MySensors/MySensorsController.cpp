@@ -27,7 +27,7 @@
 #endif
 #include "ListeRoom.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
 {
@@ -107,7 +107,7 @@ static Eina_Bool _serial_handler_cb(void *data, Ecore_Fd_Handler *handler)
 
 void MySensorsController::serialError()
 {
-    string errstr;
+    std::string errstr;
     switch (errno)
     {
     case ENOENT:
@@ -248,7 +248,7 @@ Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
         if (::ioctl(serialfd, FIONREAD, &bytesAvail) == -1)
             bytesAvail = 4096;
 
-        string data;
+        std::string data;
         data.resize(bytesAvail);
         if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
             serialError();
@@ -309,47 +309,47 @@ void MySensorsController::delConnection(Ecore_Con_Server *srv)
 void MySensorsController::dataGet(Ecore_Con_Server *srv, void *data, int size)
 {
     if (srv != econ) return;
-    string msg((char *)data, size);
+    std::string msg((char *)data, size);
 
     readNewData(msg);
 }
 
-void MySensorsController::readNewData(const string &data)
+void MySensorsController::readNewData(const std::string &data)
 {
     dataBuffer += data;
 
-    if (dataBuffer.find('\n') == string::npos)
+    if (dataBuffer.find('\n') == std::string::npos)
     {
         //We don't have a complete paquet yet, wait for more data.
         return;
     }
 
     size_t pos;
-    while ((pos = dataBuffer.find_first_of('\n')) != string::npos)
+    while ((pos = dataBuffer.find_first_of('\n')) != std::string::npos)
     {
-        string message = dataBuffer.substr(0, pos); //extract message
+        std::string message = dataBuffer.substr(0, pos); //extract message
         dataBuffer.erase(0, pos + 1); //remove from buffer
         processMessage(message);
     }
 }
 
-void MySensorsController::processMessage(string msg)
+void MySensorsController::processMessage(std::string msg)
 {
     cDebugDom("mysensors") << msg;
     //keep in sync with the lua Vera version here:
     //https://github.com/mysensors/Vera/blob/master/L_Arduino.lua
 
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     Utils::split(msg, tokens, ";", 6);
 
-    string nodeid = tokens[0];
-    string sensorid = tokens[1];
+    std::string nodeid = tokens[0];
+    std::string sensorid = tokens[1];
     int messagetype;
     Utils::from_string(tokens[2], messagetype);
-    string ack = tokens[3];
+    std::string ack = tokens[3];
     int subtype;
     Utils::from_string(tokens[4], subtype);
-    string payload = tokens[5];
+    std::string payload = tokens[5];
 
     switch (messagetype)
     {
@@ -360,7 +360,7 @@ void MySensorsController::processMessage(string msg)
             cWarningDom("mysensors") << "Gateway version and node (" << nodeid << ") version mismatch!";
         //create a node if needed
         if (!hashSensors[nodeid].sensor_data.Exists(sensorid))
-            hashSensors[nodeid].param.Add(sensorid, string());
+            hashSensors[nodeid].param.Add(sensorid, std::string());
         break;
     case MySensors::SET_VARIABLE:
         processSensorUpdate(nodeid, sensorid, subtype, payload);
@@ -403,7 +403,7 @@ void MySensorsController::processMessage(string msg)
     }
 }
 
-void MySensorsController::processRequestId(string node_id, string sensor_id)
+void MySensorsController::processRequestId(std::string node_id, std::string sensor_id)
 {
     //A node is requesting a new free id
     int newId = getNextFreeId();
@@ -417,19 +417,19 @@ void MySensorsController::processRequestId(string node_id, string sensor_id)
     sendMessage(node_id, sensor_id, MySensors::INTERNAL, 0, MySensors::I_ID_RESPONSE, Utils::to_string(newId));
 }
 
-void MySensorsController::processTime(string node_id, string sensor_id)
+void MySensorsController::processTime(std::string node_id, std::string sensor_id)
 {
     //Request time from one sensor, send back time as the seconds since 1970
     sendMessage(node_id, sensor_id, MySensors::INTERNAL, 0, MySensors::I_ID_RESPONSE, Utils::to_string(time(NULL)));
 }
 
-void MySensorsController::processNodeInfos(string node_id, string sensor_id, string key, string payload)
+void MySensorsController::processNodeInfos(std::string node_id, std::string sensor_id, std::string key, std::string payload)
 {
     VAR_UNUSED(sensor_id)
     hashSensors[node_id].param.Add(key, payload);
 }
 
-void MySensorsController::processSensorUpdate(string node_id, string sensor_id, int subtype, string payload)
+void MySensorsController::processSensorUpdate(std::string node_id, std::string sensor_id, int subtype, std::string payload)
 {
     if (subtype == MySensors::V_CALAOS)
     {
@@ -437,7 +437,7 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
         //payload format is <calaos_id>:<value>
         //remember that payload size cannot exceed 24 bytes.
         //ex: output_45:toggle
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         Utils::split(payload, tokens, ":", 2);
         IOBase *io = ListeRoom::Instance().get_io(tokens[0]);
         if (io)
@@ -475,7 +475,7 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
         hashSensors[node_id].sensor_data.Add(sensor_id, payload);
 
         //notify calaos IO that value changed
-        string key = node_id;
+        std::string key = node_id;
         key += ";";
         key += sensor_id;
 
@@ -487,13 +487,13 @@ void MySensorsController::processSensorUpdate(string node_id, string sensor_id, 
     }
 }
 
-void MySensorsController::processSensorRequest(string node_id, string sensor_id, int subtype, string payload)
+void MySensorsController::processSensorRequest(std::string node_id, std::string sensor_id, int subtype, std::string payload)
 {
     if (subtype == MySensors::V_CALAOS)
     {
         //the node requested an IO value from calaos
         //the payload is the calaos IO id
-        string s;
+        std::string s;
         IOBase *io = ListeRoom::Instance().get_io(payload);
         if (io)
         {
@@ -513,14 +513,14 @@ void MySensorsController::processSensorRequest(string node_id, string sensor_id,
     else
     {
         //a node requested for it's last value
-        string cached_data = hashSensors[node_id].sensor_data[sensor_id];
+        std::string cached_data = hashSensors[node_id].sensor_data[sensor_id];
         sendMessage(node_id, sensor_id, MySensors::SET_VARIABLE, false, subtype, cached_data);
     }
 }
 
-void MySensorsController::sendMessage(string node_id, string sensor_id, int msgType, int ack, int subType, string payload)
+void MySensorsController::sendMessage(std::string node_id, std::string sensor_id, int msgType, int ack, int subType, std::string payload)
 {
-    stringstream data;
+    std::stringstream data;
 
     //check for payload size
     //should not exceed 25 bytes
@@ -554,9 +554,9 @@ int MySensorsController::getNextFreeId()
     return 0xDEAD;
 }
 
-void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<void> callback)
+void MySensorsController::registerIO(std::string nodeid, std::string sensorid, sigc::slot<void> callback)
 {
-    string key = nodeid;
+    std::string key = nodeid;
     key += ";";
     key += sensorid;
 
@@ -577,7 +577,7 @@ void MySensorsController::registerIO(string nodeid, string sensorid, sigc::slot<
     sensorsCb[key].connect(callback);
 }
 
-string MySensorsController::getValue(string node_id, string sensor_id, string key)
+std::string MySensorsController::getValue(std::string node_id, std::string sensor_id, std::string key)
 {
     //read data from the cache
     if (key == "payload")
@@ -589,11 +589,13 @@ string MySensorsController::getValue(string node_id, string sensor_id, string ke
     else if (key == "battery_level")
         return hashSensors[node_id].param["battery_level"];
 
-    return string();
+    return std::string();
 }
 
-void MySensorsController::setValue(string nodeid, string sensorid, int dataType, string payload)
+void MySensorsController::setValue(std::string nodeid, std::string sensorid, int dataType, std::string payload)
 {
     sendMessage(nodeid, sensorid, MySensors::SET_VARIABLE, 0, dataType, payload);
 }
 
+
+}

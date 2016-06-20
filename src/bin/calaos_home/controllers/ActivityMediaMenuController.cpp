@@ -36,5 +36,5 @@ void ActivityMediaMenuController::createView()
     ActivityController::createView();
 
     ActivityMediaMenuView *mediaMenuView = dynamic_cast<ActivityMediaMenuView *>(view);
-    mediaMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, string>::emit));
+    mediaMenuView->menu_item_clicked.connect(sigc::mem_fun(menu_icon_click, &sigc::signal<void, std::string>::emit));
 }

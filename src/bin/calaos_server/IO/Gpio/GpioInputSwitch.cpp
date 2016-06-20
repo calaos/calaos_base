@@ -23,7 +23,7 @@
 
 #include "GpioInputSwitch.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(GpioInputSwitch)
 
@@ -70,4 +70,6 @@ bool GpioInputSwitch::readValue()
 {
     cInfoDom("Input") << "Read Value : " << val;
     return val;
+}
+
 }

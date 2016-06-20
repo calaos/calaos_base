@@ -34,7 +34,7 @@ class AVRManager
 private:
     AVRManager();
 
-    vector<AVReceiver *> avrs;
+    std::vector<AVReceiver *> avrs;
 public:
     static AVRManager &Instance(); //Singleton
     ~AVRManager();
@@ -42,7 +42,7 @@ public:
     AVReceiver *Create(Params &p);
     void Delete(AVReceiver *obj);
 
-    AVReceiver *getReceiver(string host);
+    AVReceiver *getReceiver(std::string host);
 };
 
 }

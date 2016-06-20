@@ -21,7 +21,7 @@
 #include "AVRPioneer.h"
 #include "AVRManager.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 AVRPioneer::AVRPioneer(Params &p):
     AVReceiver(p, 23)
@@ -72,7 +72,7 @@ void AVRPioneer::connectionEstablished()
     sendRequest("?FL"); //get display text
 }
 
-void AVRPioneer::processMessage(string msg)
+void AVRPioneer::processMessage(std::string msg)
 {
     cDebugDom("output") << "Recv: " << msg;
 
@@ -251,7 +251,7 @@ void AVRPioneer::setVolume(int volume, int zone)
     if (zone == 1)
     {
         int v = volume * 185 / 100;
-        stringstream ss;
+        std::stringstream ss;
         ss.width(3);
         ss.fill('0');
         ss << v << "VL";
@@ -260,7 +260,7 @@ void AVRPioneer::setVolume(int volume, int zone)
     else if (zone == 2)
     {
         int v = volume * 81 / 100;
-        stringstream ss;
+        std::stringstream ss;
         ss.width(2);
         ss.fill('0');
         ss << v << "ZV";
@@ -269,7 +269,7 @@ void AVRPioneer::setVolume(int volume, int zone)
     else if (zone == 3)
     {
         int v = volume * 81 / 100;
-        stringstream ss;
+        std::stringstream ss;
         ss.width(2);
         ss.fill('0');
         ss << v << "YV";
@@ -277,10 +277,10 @@ void AVRPioneer::setVolume(int volume, int zone)
     }
 }
 
-void AVRPioneer::decodeDisplayText(string &text)
+void AVRPioneer::decodeDisplayText(std::string &text)
 {
     display_text.clear();
-    string tmp;
+    std::string tmp;
 
     for (uint i = 0;i < text.length();i++)
     {
@@ -288,7 +288,7 @@ void AVRPioneer::decodeDisplayText(string &text)
         if (tmp.length() < 2) continue;
 
         int c;
-        istringstream iss(tmp);
+        std::istringstream iss(tmp);
         iss >> std::hex >> c;
         display_text += (char)c;
         tmp.clear();
@@ -367,4 +367,6 @@ void AVRPioneer::selectInputSource(int source, int zone)
         default: break;
         }
     }
+}
+
 }

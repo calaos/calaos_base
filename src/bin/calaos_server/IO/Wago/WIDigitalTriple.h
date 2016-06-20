@@ -39,7 +39,7 @@ protected:
 
     bool udp_value;
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
+    void WagoReadCallback(bool status, UWord address, int count, std::vector<bool> &values);
 
     virtual bool readValue();
 

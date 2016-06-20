@@ -35,7 +35,6 @@
 
 #include "ScenarioModel.h"
 
-using namespace Utils;
 
 #define EDJE_GROUP_MAIN_LAYOUT  "calaos/main/layout"
 
@@ -55,7 +54,7 @@ private:
     //The main application controller
     ApplicationController *controller;
 
-    static string theme;
+    static std::string theme;
 
     ApplicationMain(int argc, char **argv);
 public:
@@ -77,12 +76,12 @@ public:
     }
 
     //type is 0 for UTF-8 text, 1 is for keeping evas textblock markup instead
-    void ShowKeyboard(string subtitle, ActivityKeyboardCb callback, bool multiline, string oldtext = "", int type = 0)
+    void ShowKeyboard(std::string subtitle, ActivityKeyboardCb callback, bool multiline, std::string oldtext = "", int type = 0)
     {
         if (controller) controller->ShowKeyboard(subtitle, callback, multiline, oldtext, type);
     }
 
-    void ShowWebBrowser(string url = "")
+    void ShowWebBrowser(std::string url = "")
     {
         if (controller) controller->ShowWebBrowser(url);
     }

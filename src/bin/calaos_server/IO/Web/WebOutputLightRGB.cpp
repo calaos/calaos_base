@@ -27,7 +27,7 @@
 #include <WebCtrl.h>
 #include <jansson.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebOutputLightRGB)
 
@@ -83,9 +83,11 @@ void WebOutputLightRGB::readValue()
 
 void WebOutputLightRGB::setColorReal(const ColorValue &c, bool s)
 {
-    string cStr = c.toString();
+    std::string cStr = c.toString();
     if (raw_value && cStr[0] == '#')
             cStr.erase(0, 1);
 
     WebCtrl::Instance(get_params()).setValue(cStr);
+}
+
 }

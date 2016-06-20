@@ -22,6 +22,7 @@
 #include "IOFactory.h"
 #include "OLACtrl.h"
 
+namespace Calaos {
 REGISTER_IO(OLAOutputLightDimmer)
 
 OLAOutputLightDimmer::OLAOutputLightDimmer(Params &p):
@@ -47,4 +48,6 @@ bool OLAOutputLightDimmer::set_value_real(int val)
     OLACtrl::Instance(get_param("universe"))->setValue(channel, val);
 
     return true;
+}
+
 }

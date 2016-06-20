@@ -36,7 +36,7 @@ protected:
     ActivityWidgetsView *view;
 
     double x, y, start_time;
-    string id, mtype;
+    std::string id, mtype;
 
     ModuleDef mdef;
 
@@ -61,7 +61,7 @@ protected:
     void deleteCancel(void *data);
 
 public:
-    Widget(string &_theme, Evas *_evas, ModuleDef &_mtype, string _id, Evas_Object *parent, ActivityWidgetsView *view);
+    Widget(std::string &_theme, Evas *_evas, ModuleDef &_mtype, std::string _id, Evas_Object *parent, ActivityWidgetsView *view);
     ~Widget();
 
     void Callback(Evas_Object *edje, std::string emission, std::string source);
@@ -80,9 +80,9 @@ public:
     //Save config & position to xml
     virtual void Save(TiXmlElement *node);
 
-    virtual string getId() { return id; }
-    virtual string getType() { return mtype; }
-    virtual string getStringInfo();
+    virtual std::string getId() { return id; }
+    virtual std::string getType() { return mtype; }
+    virtual std::string getStringInfo();
 };
 
 #endif

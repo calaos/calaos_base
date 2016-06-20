@@ -18,11 +18,11 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include "ApplicationMain.h"
 #include "ActivityConfigController.h"
 #include "ActivityConfigClockController.h"
 #include "ActivityConfigPasswordController.h"
 #include "ActivityConfigScreensaverController.h"
-#include "ApplicationMain.h"
 
 ActivityConfigController::ActivityConfigController(Evas *e, Evas_Object *p):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG)
@@ -49,7 +49,7 @@ void ActivityConfigController::createView()
     configView->addView(mainMenuController->getView());
 }
 
-void ActivityConfigController::menuIconClick(string icon)
+void ActivityConfigController::menuIconClick(std::string icon)
 {
     if (icon == "clock")
     {
@@ -71,7 +71,7 @@ void ActivityConfigController::menuIconClick(string icon)
     }
 }
 
-void ActivityConfigController::buttonClick(string button)
+void ActivityConfigController::buttonClick(std::string button)
 {
     ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
 
@@ -114,7 +114,7 @@ void ActivityConfigController::controllerFinished(ActivityController *controller
     DELETE_NULL(controller);
 }
 
-void ActivityConfigController::setButtonMode(string mode)
+void ActivityConfigController::setButtonMode(std::string mode)
 {
     ActivityConfigView *configView = dynamic_cast<ActivityConfigView *>(view);
     configView->EmitSignal(mode, "calaos");

@@ -25,16 +25,15 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityMediaMenuView: public ActivityView
 {
 private:
-    list<EdjeObject *> items;
+    std::list<EdjeObject *> items;
 
-    void addIcon(int position, string type);
+    void addIcon(int position, std::string type);
 
-    void ItemCallback(void *data, Evas_Object *edje, string emission, string source);
+    void ItemCallback(void *data, Evas_Object *edje, std::string emission, std::string source);
 
 public:
     ActivityMediaMenuView(Evas *evas, Evas_Object *parent);
@@ -42,9 +41,9 @@ public:
 
     virtual void resetView();
 
-    virtual string getTitle() { return "Multimédia"; }
+    virtual std::string getTitle() { return "Multimédia"; }
 
-    sigc::signal<void, string> menu_item_clicked;
+    sigc::signal<void, std::string> menu_item_clicked;
 };
 
 #endif // ACTIVITYMEDIAMENUVIEW_H

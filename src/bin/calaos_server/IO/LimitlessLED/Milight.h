@@ -26,11 +26,13 @@
 #include "Calaos.h"
 #include <Ecore_Con.h>
 
+namespace Calaos {
+
 class Milight
 {
 public:
 
-    Milight(string host, int port);
+    Milight(std::string host, int port);
     ~Milight();
 
     void sendOnCommand(int zone);
@@ -50,11 +52,13 @@ public:
 private:
 
     Ecore_Con_Server *udp_sender = nullptr;
-    string host;
+    std::string host;
     int port = DEFAULT_MILIGHT_PORT;
 
     void sendCommand(uint8_t code, uint8_t param);
 
 };
+
+}
 
 #endif

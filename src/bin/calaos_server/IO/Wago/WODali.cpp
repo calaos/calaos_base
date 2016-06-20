@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WODali)
 REGISTER_IO_USERTYPE(WagoOutputDimmer, WODali)
@@ -55,7 +55,7 @@ WODali::WODali(Params &_p):
     if (!get_params().Exists("line")) set_param("line", "1");
     if (!get_params().Exists("fade_time")) set_param("fade_time", "1");
 
-    string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
+    std::string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
     WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
 
     Calaos::StartReadRules::Instance().addIO();
@@ -69,7 +69,7 @@ WODali::~WODali()
 
 bool WODali::set_value_real(int val)
 {
-    string cmd = "WAGO_DALI_SET " + get_param("line") + " " + get_param("group") +
+    std::string cmd = "WAGO_DALI_SET " + get_param("line") + " " + get_param("group") +
                  " " + get_param("address") + " " + Utils::to_string(val) +
                  " " + get_param("fade_time");
     WagoMap::Instance(host, port).SendUDPCommand(cmd);
@@ -77,7 +77,7 @@ bool WODali::set_value_real(int val)
     return true;
 }
 
-void WODali::WagoUDPCommand_cb(bool status, string command, string result)
+void WODali::WagoUDPCommand_cb(bool status, std::string command, std::string result)
 {
     if (!status)
     {
@@ -87,9 +87,9 @@ void WODali::WagoUDPCommand_cb(bool status, string command, string result)
         return;
     }
 
-    if (command.find("WAGO_DALI_GET") != string::npos)
+    if (command.find("WAGO_DALI_GET") != std::string::npos)
     {
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         split(result, tokens);
         if (tokens.size() >= 3)
         {
@@ -110,4 +110,6 @@ void WODali::WagoUDPCommand_cb(bool status, string command, string result)
     }
 
     Calaos::StartReadRules::Instance().ioRead();
+}
+
 }

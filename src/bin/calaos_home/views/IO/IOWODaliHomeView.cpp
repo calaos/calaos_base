@@ -26,8 +26,8 @@ ITEM_BUTTON_CALLBACK(IOWODaliHomeView, Off)
 ITEM_BUTTON_CALLBACK(IOWODaliHomeView, More)
 ITEM_BUTTON_CALLBACK(IOWODaliHomeView, Less)
 
-IOWODaliHomeView::IOWODaliHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string style_addition, Elm_Genlist_Item_Type _flags):
-    GenlistItemBase(_evas, _parent, string("WODali_") + style_addition, _flags),
+IOWODaliHomeView::IOWODaliHomeView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string style_addition, Elm_Genlist_Item_Type _flags):
+    GenlistItemBase(_evas, _parent, std::string("WODali_") + style_addition, _flags),
     IOBaseElement(_io)
 {
 }
@@ -43,7 +43,7 @@ void IOWODaliHomeView::ioDeleted()
     DELETE_NULL_FUNC(elm_object_item_del, item)
 }
 
-Evas_Object *IOWODaliHomeView::getPartItem(Evas_Object *obj, string part)
+Evas_Object *IOWODaliHomeView::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -104,9 +104,9 @@ Evas_Object *IOWODaliHomeView::getPartItem(Evas_Object *obj, string part)
     return o;
 }
 
-string IOWODaliHomeView::getLabelItem(Evas_Object *obj, string part)
+std::string IOWODaliHomeView::getLabelItem(Evas_Object *obj, std::string part)
 {
-    string text;
+    std::string text;
 
     if (!io) return text;
 
@@ -175,7 +175,7 @@ void IOWODaliHomeView::updateView()
     }
 }
 
-void IOWODaliHomeView::sliderSignalCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void IOWODaliHomeView::sliderSignalCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission == "slider,start")
     {
@@ -189,7 +189,7 @@ void IOWODaliHomeView::sliderSignalCallback(void *data, Evas_Object *edje_object
         double x;
         slider->getDragValue("slider", &x, NULL);
 
-        string action = "set ";
+        std::string action = "set ";
         action += Utils::to_string((int)(x * 100.0));
 
         if (io) io->sendAction(action);
@@ -217,7 +217,7 @@ void IOWODaliHomeView::buttonClickMore()
 {
     if (!io) return;
 
-    string action = "set ";
+    std::string action = "set ";
     action += Utils::to_string((int)(io->getDaliValueFromState() + 1));
 
     io->sendAction(action);
@@ -227,7 +227,7 @@ void IOWODaliHomeView::buttonClickLess()
 {
     if (!io) return;
 
-    string action = "set ";
+    std::string action = "set ";
     action += Utils::to_string((int)(io->getDaliValueFromState() - 1));
 
     io->sendAction(action);

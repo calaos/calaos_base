@@ -27,7 +27,6 @@
 #include "ActivityMediaMenuView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityMediaMenuController: public ActivityController
 {
@@ -38,7 +37,7 @@ public:
     ActivityMediaMenuController(Evas *evas, Evas_Object *parent);
     ~ActivityMediaMenuController();
 
-    sigc::signal<void, string> menu_icon_click;
+    sigc::signal<void, std::string> menu_icon_click;
 };
 
 #endif // ACTIVITYMEDIAMENUCONTROLLER_H

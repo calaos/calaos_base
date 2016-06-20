@@ -27,7 +27,7 @@
 #include <WebCtrl.h>
 #include <jansson.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WebOutputLight)
 
@@ -89,8 +89,8 @@ void WebOutputLight::readValue()
 
 bool WebOutputLight::set_value_real(bool val)
 {
-    string on_value = "on";
-    string off_value = "off";
+    std::string on_value = "on";
+    std::string off_value = "off";
 
     if (get_params().Exists("on_value"))
         on_value = get_param("on_value");
@@ -103,4 +103,6 @@ bool WebOutputLight::set_value_real(bool val)
         WebCtrl::Instance(get_params()).setValue(off_value);
 
     return true;
+}
+
 }

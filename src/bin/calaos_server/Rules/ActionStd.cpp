@@ -24,8 +24,8 @@
 #include "WODigital.h"
 #include "ActionTouchscreen.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 ActionStd::~ActionStd()
 {
     cDebugDom("rule.action.standard");
@@ -177,7 +177,7 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
     {
         if (node->ValueStr() == "calaos:output")
         {
-            string id = "", val = "", val_var = "";
+            std::string id = "", val = "", val_var = "";
 
             if (node->Attribute("id")) id = node->Attribute("id");
             if (node->Attribute("val")) val = node->Attribute("val");
@@ -196,7 +196,7 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
             if (!out)
             {
                 //for compatibility with old AudioPlayer and Camera, update ids if needed
-                list<IOBase *> l = ListeRoom::Instance().getAudioList();
+                std::list<IOBase *> l = ListeRoom::Instance().getAudioList();
                 for (IOBase *io: l)
                 {
                     if (io->get_param("iid") == id ||
@@ -251,4 +251,6 @@ bool ActionStd::SaveToXml(TiXmlElement *node)
     }
 
     return true;
+}
+
 }

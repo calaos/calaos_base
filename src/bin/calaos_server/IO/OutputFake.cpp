@@ -21,7 +21,7 @@
 #include "OutputFake.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(OutputFake)
 
@@ -58,4 +58,6 @@ bool OutputFake::set_value(bool val)
     EmitSignalIO();
 
     return true;
+}
+
 }

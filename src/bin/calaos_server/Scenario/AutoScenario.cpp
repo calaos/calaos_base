@@ -19,8 +19,8 @@
  **
  ******************************************************************************/
 #include "AutoScenario.h"
-using namespace Calaos;
 
+namespace Calaos {
 static bool _sortCompStepRule(Rule *r1, Rule* r2)
 {
     int t1, t2;
@@ -140,7 +140,7 @@ void AutoScenario::deleteRules()
     ruleSteps.clear();
 }
 
-IOBase *AutoScenario::createInput(string type, string id)
+IOBase *AutoScenario::createInput(std::string type, std::string id)
 {
     IOBase *in = ListeRoom::Instance().get_io(id);
     if (!in)
@@ -162,7 +162,7 @@ IOBase *AutoScenario::createInput(string type, string id)
     return in;
 }
 
-bool AutoScenario::checkCondition(Rule *rule, IOBase *input, string oper, string value)
+bool AutoScenario::checkCondition(Rule *rule, IOBase *input, std::string oper, std::string value)
 {
     bool ret = false;
     for (int i = 0;i < rule->get_size_conds() && !ret;i++)
@@ -180,7 +180,7 @@ bool AutoScenario::checkCondition(Rule *rule, IOBase *input, string oper, string
     return ret;
 }
 
-bool AutoScenario::checkAction(Rule *rule, IOBase *output, string value)
+bool AutoScenario::checkAction(Rule *rule, IOBase *output, std::string value)
 {
     bool ret = false;
     for (int i = 0;i < rule->get_size_actions() && !ret;i++)
@@ -197,7 +197,7 @@ bool AutoScenario::checkAction(Rule *rule, IOBase *output, string value)
     return ret;
 }
 
-void AutoScenario::addRuleCondition(Rule *rule, IOBase *input, string oper, string value)
+void AutoScenario::addRuleCondition(Rule *rule, IOBase *input, std::string oper, std::string value)
 {
     ConditionStd *cond = new ConditionStd();
     rule->AddCondition(cond);
@@ -207,7 +207,7 @@ void AutoScenario::addRuleCondition(Rule *rule, IOBase *input, string oper, stri
     cond->get_params().Add(input->get_param("id"), value);
 }
 
-void AutoScenario::addRuleAction(Rule *rule, IOBase *output, string value)
+void AutoScenario::addRuleAction(Rule *rule, IOBase *output, std::string value)
 {
     ActionStd *act = new ActionStd();
     rule->AddAction(act);
@@ -216,7 +216,7 @@ void AutoScenario::addRuleAction(Rule *rule, IOBase *output, string value)
     act->get_params().Add(output->get_param("id"), value);
 }
 
-void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, string oper, string value)
+void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, std::string oper, std::string value)
 {
     for (int i = 0;i < rule->get_size_conds();i++)
     {
@@ -231,7 +231,7 @@ void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, string oper, stri
     }
 }
 
-void AutoScenario::setRuleAction(Rule *rule, IOBase *output, string value)
+void AutoScenario::setRuleAction(Rule *rule, IOBase *output, std::string value)
 {
     for (int i = 0;i < rule->get_size_actions();i++)
     {
@@ -245,9 +245,9 @@ void AutoScenario::setRuleAction(Rule *rule, IOBase *output, string value)
     }
 }
 
-string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, string oper)
+std::string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, std::string oper)
 {
-    string ret;
+    std::string ret;
 
     for (int i = 0;i < rule->get_size_conds();i++)
     {
@@ -265,9 +265,9 @@ string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, string ope
     return ret;
 }
 
-string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
+std::string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
 {
-    string ret;
+    std::string ret;
 
     for (int i = 0;i < rule->get_size_actions();i++)
     {
@@ -336,8 +336,8 @@ void AutoScenario::checkScenarioRules()
 
     /* search needed rules for scenario */
 
-    list<Rule *> srules = ListeRule::Instance().getRuleAutoScenario(scenario_id);
-    list<Rule *>::iterator it = srules.begin();
+    std::list<Rule *> srules = ListeRule::Instance().getRuleAutoScenario(scenario_id);
+    std::list<Rule *>::iterator it = srules.begin();
 
     for (;it != srules.end();it++)
     {
@@ -561,7 +561,7 @@ void AutoScenario::setStepPause(int s, double pause)
     setRuleAction(step, ioTimer, Utils::to_string(pause));
 }
 
-void AutoScenario::addStepAction(int s, IOBase *out, string action)
+void AutoScenario::addStepAction(int s, IOBase *out, std::string action)
 {
     cDebugDom("scenario") << "s == " << s << " ruleSteps.size() == " << ruleSteps.size();
     if ((s >= (int)ruleSteps.size() || s < 0) && s != END_STEP) return;
@@ -670,7 +670,7 @@ static bool _sortDesc (SCCategory i, SCCategory j)
     return (i.count > j.count);
 }
 
-string AutoScenario::getCategory()
+std::string AutoScenario::getCategory()
 {
     struct SCCategory catLight = {0, 0};
     struct SCCategory catShutter = {0, 1};
@@ -700,14 +700,14 @@ string AutoScenario::getCategory()
         }
     }
 
-    vector<struct SCCategory> v;
+    std::vector<struct SCCategory> v;
     if (catLight.count) v.push_back(catLight);
     if (catShutter.count) v.push_back(catShutter);
     if (catOther.count) v.push_back(catOther);
 
     sort(v.begin(), v.end(), _sortDesc);
 
-    string cat;
+    std::string cat;
     for (uint i = 0;i < v.size();i++)
     {
         if (v[i].type == 0) cat += "light";
@@ -752,4 +752,6 @@ void AutoScenario::createRuleStepEnd()
         addRuleCondition(ruleStepEnd, ioTimer, "==", "true");
         addRuleAction(ruleStepEnd, ioIsActive, "false");
     }
+}
+
 }

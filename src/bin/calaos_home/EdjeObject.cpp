@@ -25,7 +25,7 @@ static void _edje_del(void *data, Evas *e , Evas_Object *obj, void *event_info);
 static void _edje_show(void *data, Evas *e , Evas_Object *obj, void *event_info);
 static void _edje_hide(void *data, Evas *e , Evas_Object *obj, void *event_info);
 
-EdjeObject::EdjeObject(string &_theme, Evas *_evas):
+EdjeObject::EdjeObject(std::string &_theme, Evas *_evas):
     theme(_theme),
     evas(_evas),
     autodelete(false)
@@ -64,10 +64,10 @@ EdjeObject::EdjeObject(const char *_theme, Evas *_evas):
 EdjeObject::~EdjeObject()
 {
     //deletes all swallowed objs
-    for_each(swallow_eobjs.begin(), swallow_eobjs.end(), Delete());
-    for_each(swallow_objs.begin(), swallow_objs.end(), DeleteEvasObject());
+    for_each(swallow_eobjs.begin(), swallow_eobjs.end(), Utils::Delete());
+    for_each(swallow_objs.begin(), swallow_objs.end(), Utils::DeleteEvasObject());
 
-    vector<EdjeCallbackData *>::iterator iter = callbacks.begin();
+    std::vector<EdjeCallbackData *>::iterator iter = callbacks.begin();
 
     for (;callbacks.size() > 0 && iter != callbacks.end();iter++)
     {
@@ -92,7 +92,7 @@ EdjeObject::~EdjeObject()
     DELETE_NULL_FUNC(evas_object_del, edje)
 }
 
-bool EdjeObject::LoadEdje(string c)
+bool EdjeObject::LoadEdje(std::string c)
 {
     CHECK_EDJE_RETURN(false)
 
@@ -100,7 +100,7 @@ bool EdjeObject::LoadEdje(string c)
     if (edje_object_file_set(edje, theme.c_str(), collection.c_str()) == 0)
     {
         int err = edje_object_load_error_get(edje);
-        string serr = "EdjeObject::LoadEdje(" + theme + ", " + collection + ") - ";
+        std::string serr = "EdjeObject::LoadEdje(" + theme + ", " + collection + ") - ";
         switch (err)
         {
         case EDJE_LOAD_ERROR_NONE: serr += "No Error."; break;
@@ -116,7 +116,7 @@ bool EdjeObject::LoadEdje(string c)
         case EDJE_LOAD_ERROR_RECURSIVE_REFERENCE: serr += "Recursive reference"; break;
         }
 
-        throw (runtime_error(serr));
+        throw (std::runtime_error(serr));
 
         return false;
     }
@@ -131,18 +131,18 @@ void EdjeObject::getGeometry(int *x, int *y, int *w, int *h)
             evas_object_geometry_get(edje, x, y, w, h);
 }
 
-string EdjeObject::getPartText(string part)
+std::string EdjeObject::getPartText(std::string part)
 {
     CHECK_EDJE_RETURN("")
 
             const char *txt = edje_object_part_text_get(edje, part.c_str());
     if (txt)
-        return string(txt);
+        return std::string(txt);
 
     return "";
 }
 
-void EdjeObject::Swallow(EdjeObject *obj, string part, bool delete_on_del)
+void EdjeObject::Swallow(EdjeObject *obj, std::string part, bool delete_on_del)
 {
     CHECK_EDJE_RETURN();
     edje_object_part_swallow(edje, part.c_str(), obj->getEvasObject());
@@ -151,7 +151,7 @@ void EdjeObject::Swallow(EdjeObject *obj, string part, bool delete_on_del)
         swallow_eobjs.push_back(obj);
 }
 
-void EdjeObject::Swallow(Evas_Object *obj, string part, bool delete_on_del)
+void EdjeObject::Swallow(Evas_Object *obj, std::string part, bool delete_on_del)
 {
     CHECK_EDJE_RETURN();
     edje_object_part_swallow(edje, part.c_str(), obj);
@@ -160,7 +160,7 @@ void EdjeObject::Swallow(Evas_Object *obj, string part, bool delete_on_del)
         swallow_objs.push_back(obj);
 }
 
-sigc::connection *EdjeObject::addCallback(string source, string signal, EdjeCallBack slot_cb, void *user_data)
+sigc::connection *EdjeObject::addCallback(std::string source, std::string signal, EdjeCallBack slot_cb, void *user_data)
 {
     CHECK_EDJE_RETURN(NULL)
 
@@ -182,7 +182,7 @@ void EdjeObject::delCallback(sigc::connection *connection)
 {
     CHECK_EDJE_RETURN()
 
-            vector<EdjeCallbackData *>::iterator iter = callbacks.begin();
+    std::vector<EdjeCallbackData *>::iterator iter = callbacks.begin();
 
     for (;iter != callbacks.end();iter++)
     {
@@ -201,7 +201,7 @@ void EdjeObject::delCallback(sigc::connection *connection)
 
 void EdjeObject::_evasObjectDeleted()
 {
-    for_each(callbacks.begin(), callbacks.end(), Delete());
+  for_each(callbacks.begin(), callbacks.end(), Utils::Delete());
 
     //Remove del callback here, because we NULL the edje pointer after that
     evas_object_event_callback_del_full(edje, EVAS_CALLBACK_DEL, _edje_del, this);

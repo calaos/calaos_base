@@ -30,6 +30,7 @@
 #include "EcoreTimer.h"
 #include "HttpClient.h"
 
+namespace Calaos {
 Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
 {
     JsonApiHandlerHttp *api = reinterpret_cast<JsonApiHandlerHttp *>(data);
@@ -64,7 +65,7 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
     ecore_file_unlink(tempfname.c_str());
 }
 
-void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
+void JsonApiHandlerHttp::processApi(const std::string &data, const Params &paramsGET)
 {
     jsonParam.clear();
 
@@ -99,8 +100,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
 
     //check for if username/password matches
-    string user = Utils::get_config_option("calaos_user");
-    string pass = Utils::get_config_option("calaos_password");
+    std::string user = Utils::get_config_option("calaos_user");
+    std::string pass = Utils::get_config_option("calaos_password");
 
     if (Utils::get_config_option("cn_user") != "" &&
         Utils::get_config_option("cn_pass") != "")
@@ -116,9 +117,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+        std::string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
         sendData.emit(res);
-        closeConnection.emit(0, string());
+        closeConnection.emit(0, std::string());
 
         if (jroot)
         {
@@ -165,9 +166,9 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
             Params headers;
             headers.Add("Connection", "close");
             headers.Add("Content-Type", "text/html");
-            string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+            std::string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
             sendData.emit(res);
-            closeConnection.emit(0, string());
+            closeConnection.emit(0, std::string());
 
             return;
         }
@@ -201,15 +202,15 @@ void JsonApiHandlerHttp::sendJson(json_t *json)
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = httpClient->buildHttpResponse(HTTP_500, headers, HTTP_500_BODY);
+        std::string res = httpClient->buildHttpResponse(HTTP_500, headers, HTTP_500_BODY);
         sendData.emit(res);
-        closeConnection.emit(0, string());
+        closeConnection.emit(0, std::string());
 
         return;
     }
     json_decref(json);
 
-    string data(d);
+    std::string data(d);
     free(d);
 
     Params headers;
@@ -218,7 +219,7 @@ void JsonApiHandlerHttp::sendJson(json_t *json)
     headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
     headers.Add("Content-Type", "application/json");
     headers.Add("Content-Length", Utils::to_string(data.size()));
-    string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
+    std::string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
     sendData.emit(res);
 }
 
@@ -304,19 +305,19 @@ void JsonApiHandlerHttp::processPolling()
 
     if (jsonParam["type"] == "register")
     {
-        string uuid = PollListenner::Instance().Register();
+        std::string uuid = PollListenner::Instance().Register();
         json_object_set_new(jret, "uuid", json_string(uuid.c_str()));
     }
     else if (jsonParam["type"] == "unregister")
     {
-        string uuid = jsonParam["uuid"];
+        std::string uuid = jsonParam["uuid"];
         bool success = PollListenner::Instance().Unregister(uuid);
         json_object_set_new(jret, "success", json_string(success?"true":"false"));
     }
     else if (jsonParam["type"] == "get")
     {
-        string uuid = jsonParam["uuid"];
-        list<CalaosEvent> events;
+        std::string uuid = jsonParam["uuid"];
+        std::list<CalaosEvent> events;
 
         bool res = PollListenner::Instance().GetEvents(uuid, events);
         if (!res)
@@ -351,7 +352,7 @@ void JsonApiHandlerHttp::processGetCover()
         return;
     }
 
-    string w, h;
+    std::string w, h;
     if (jsonParam.Exists("width"))
         w = jsonParam["width"];
     if (jsonParam.Exists("height"))
@@ -369,7 +370,7 @@ void JsonApiHandlerHttp::processGetCover()
             return;
         }
 
-        string cmd = "calaos_thumb \"" + data.svalue + "\" \"" + tempfname + "\"";
+        std::string cmd = "calaos_thumb \"" + data.svalue + "\" \"" + tempfname + "\"";
         if (w.empty() || h.empty())
             cmd += " " + w + "x" + h;
         exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
@@ -388,13 +389,13 @@ void JsonApiHandlerHttp::processGetCameraPic()
         return;
     }
 
-    string w, h;
+    std::string w, h;
     if (jsonParam.Exists("width"))
         w = jsonParam["width"];
     if (jsonParam.Exists("height"))
         h = jsonParam["height"];
 
-    string cmd = "calaos_thumb \"" + camera->getPictureUrl() + "\" \"" + tempfname + "\"";
+    std::string cmd = "calaos_thumb \"" + camera->getPictureUrl() + "\" \"" + tempfname + "\"";
     if (w.empty() || h.empty())
         cmd += " " + w + "x" + h;
     exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
@@ -454,7 +455,7 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
             {
                 if (key && json_is_string(value))
                 {
-                    string skey = key;
+                    std::string skey = key;
                     if (skey != IO_CONFIG &&
                         skey != RULES_CONFIG &&
                         skey != LOCAL_CONFIG)
@@ -464,9 +465,9 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
                         continue;
                     }
 
-                    string filecontent = json_string_value(value);
+                    std::string filecontent = json_string_value(value);
 
-                    ofstream ofs(Utils::getConfigFile(key), ios::out | ios::trunc);
+                    std::ofstream ofs(Utils::getConfigFile(key), std::ios::out | std::ios::trunc);
 
                     if (ofs.is_open())
                     {
@@ -507,7 +508,7 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
 
 void JsonApiHandlerHttp::processAudio(json_t *jdata)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    std::string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_playlist_size")
         audioGetPlaylistSize(jdata, [=](json_t *jret)
         {
@@ -534,7 +535,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
 
 void JsonApiHandlerHttp::processAudioDb(json_t *jdata)
 {
-    string msg = jansson_string_get(jdata, "audio_action");
+    std::string msg = jansson_string_get(jdata, "audio_action");
     if (msg == "get_albums")
         audioDbGetAlbums(jdata, [=](json_t *jret)
         {
@@ -631,7 +632,7 @@ void JsonApiHandlerHttp::processSetTimerange(json_t *jroot)
 
 void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
 {
-    string msg = jansson_string_get(jroot, "type");
+    std::string msg = jansson_string_get(jroot, "type");
     if (msg == "list")
         sendJson(buildAutoscenarioList(jroot));
     else if (msg == "get")
@@ -665,13 +666,13 @@ void JsonApiHandlerHttp::processCamera()
         {
             if (status == 200)
             {
-                string bodypic((const char *)eina_binbuf_string_get(downloadedData),
+                std::string bodypic((const char *)eina_binbuf_string_get(downloadedData),
                                eina_binbuf_length_get(downloadedData));
 
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
-                string res = httpClient->buildHttpResponse(HTTP_200, headers, bodypic);
+                std::string res = httpClient->buildHttpResponse(HTTP_200, headers, bodypic);
                 sendData.emit(res);
             }
             else
@@ -681,7 +682,7 @@ void JsonApiHandlerHttp::processCamera()
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
-                string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers,
+                std::string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers,
                                                                    Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
                 sendData.emit(res);
             }
@@ -713,14 +714,14 @@ void JsonApiHandlerHttp::processCamera()
             {
                 if (!camHeaderSent)
                 {
-                    stringstream sres;
+                    std::stringstream sres;
                     //HTTP code
                     sres << HTTP_200 << "\r\n";
 
                     Params h = cameraDl->getResponseHeaders();
                     for (int i = 0;i < h.size();i++)
                     {
-                        string key, value;
+                        std::string key, value;
                         h.get_item(i, key, value);
                         sres << key << ": " << value << "\r\n";
                     }
@@ -731,12 +732,12 @@ void JsonApiHandlerHttp::processCamera()
                     camHeaderSent = true;
                 }
 
-                sendData.emit(string((char *)data, size));
+                sendData.emit(std::string((char *)data, size));
             });
 
             cameraDl->m_signalComplete.connect([=](int)
             {
-                closeConnection.emit(0, string());
+                closeConnection.emit(0, std::string());
                 cameraDl = nullptr;
             });
             cameraDl->httpGet();
@@ -752,7 +753,7 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
         sendData.emit(HTTP_CAMERA_STREAM_BOUNDARY);
         if (status == 200)
         {
-            string bodypic((const char *)eina_binbuf_string_get(downloadedData),
+            std::string bodypic((const char *)eina_binbuf_string_get(downloadedData),
                            eina_binbuf_length_get(downloadedData));
             sendData.emit(bodypic);
         }
@@ -760,8 +761,8 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
         {
             cErrorDom("network") << "Failed to get image for camera at url: " << camera->getPictureUrl() << " failed with code: " << status;
 
-            ifstream file(Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
-            string bodypic((std::istreambuf_iterator<char>(file)),
+            std::ifstream file(Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
+            std::string bodypic((std::istreambuf_iterator<char>(file)),
                             std::istreambuf_iterator<char>());
             sendData.emit(bodypic);
         }
@@ -774,4 +775,6 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
         });
     });
     cameraDl->httpGet();
+}
+
 }

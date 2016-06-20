@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemYear: public GenlistItemBase
 {
@@ -41,8 +40,8 @@ public:
     GenlistItemYear(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, void *data = NULL);
     virtual ~GenlistItemYear();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickPlay();
     void buttonClickAdd();

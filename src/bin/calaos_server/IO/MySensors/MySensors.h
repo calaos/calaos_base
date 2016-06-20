@@ -136,8 +136,8 @@ enum InternalType
     I_GATEWAY_READY = 14,       // Send by gateway to controller when startup is complete.
 };
 
-string DataType2String(int dataType);
-int String2DataType(string dataType);
+std::string DataType2String(int dataType);
+int String2DataType(std::string dataType);
 
 }
 #endif

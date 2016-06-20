@@ -25,17 +25,16 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemAlbum: public GenlistItemBase
 {
 private:
-    string label_album, label_artist, label_year;
+    std::string label_album, label_artist, label_year;
     AudioPlayer *player;
     int item_id;
     Params item_infos;
     bool in_query;
-    string cover_fname;
+    std::string cover_fname;
     bool cover_downloaded;
     int reqtype;
     int command_id;
@@ -49,8 +48,8 @@ public:
     GenlistItemAlbum(Evas *evas, Evas_Object *parent, AudioPlayer *player, int item_id, int request_type, int _command_id = 0, void *data = NULL);
     virtual ~GenlistItemAlbum();
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
 
     void buttonClickPlay();
     void buttonClickAdd();

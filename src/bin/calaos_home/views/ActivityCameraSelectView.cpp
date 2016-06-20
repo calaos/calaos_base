@@ -51,9 +51,9 @@ void ActivityCameraSelectView::resetView()
 {
 }
 
-string ActivityCameraSelectView::getTitle()
+std::string ActivityCameraSelectView::getTitle()
 {
-    return string("Caméra: ") + camera->params["name"];
+    return std::string("Caméra: ") + camera->params["name"];
 }
 
 void ActivityCameraSelectView::ShowLoading()
@@ -91,10 +91,10 @@ void ActivityCameraSelectView::setCamera(Camera *cam)
 
     Swallow(camera_video->getSmartObject(), "camera.swallow");
 
-    string u, p;
+    std::string u, p;
     CalaosConnection::getCredentials(u, p);
 
-    string url = "http://";
+    std::string url = "http://";
     url += CalaosConnection::getCalaosServerIp() + ":5454/api";
     url += "?cn_user=" + u;
     url += "&cn_pass=" + p;
@@ -126,7 +126,7 @@ void ActivityCameraSelectView::setCamera(Camera *cam)
 
     setPartText("room_title.text", room->name);
 
-    list<IOBase *>::iterator it = room->visible_ios.begin();
+    std::list<IOBase *>::iterator it = room->visible_ios.begin();
     for (;it != room->visible_ios.end();it++)
     {
         IOViewFactory::CreateIOBaseElement(evas, list_item, *it, list_item, "left"/*, group_item*/);
@@ -221,7 +221,7 @@ void ActivityCameraSelectView::buttonSavePositionClick()
     header->Append(glist);
     for (int i = 0;i < 8;i++)
     {
-        string label = _("Position %1");
+        std::string label = _("Position %1");
         Utils::replace_str(label, "%1", Utils::to_string(i + 1));
         int *user_data = new int(i + 1);
         GenlistItemSimple *item  = new GenlistItemSimple(evas, glist, label, true, false, user_data);
@@ -251,7 +251,7 @@ void ActivityCameraSelectView::positionSelected(void *data)
 {
     int *user_data = reinterpret_cast<int *>(data);
     int position = *user_data;
-    string text = _("<center>Save to <light_blue>position #%1</light_blue></center>");
+    std::string text = _("<center>Save to <light_blue>position #%1</light_blue></center>");
     Utils::replace_str(text, "%1", Utils::to_string(position));
 
     camera->Save(position);

@@ -32,7 +32,7 @@ MainContentView::MainContentView(Evas *_e, Evas_Object *_p):
 
 MainContentView::~MainContentView()
 {
-    list<ViewAnimation *>::iterator it = views.begin();
+    std::list<ViewAnimation *>::iterator it = views.begin();
     for (;it != views.end();it++)
     {
         ViewAnimation *va = (*it);
@@ -53,7 +53,7 @@ MainContentView::~MainContentView()
 void MainContentView::addView(BaseView *view)
 {
     if (!view)
-        throw(runtime_error("MainContentView::addView(): view is NULL !"));
+        throw(std::runtime_error("MainContentView::addView(): view is NULL !"));
 
     int x, y, w, h;
     evas_object_geometry_get(clip, &x, &y, &w, &h);
@@ -110,10 +110,10 @@ void MainContentView::showView(BaseView *view)
     cCritical() <<  "MainMenuView:showView() not implemented !";
 
     if (!view)
-        throw(runtime_error("MainContentView::showView(): view is NULL !"));
+        throw(std::runtime_error("MainContentView::showView(): view is NULL !"));
 }
 
-void MainContentView::hideFinished(void *data, Evas_Object *edje_object, string emission, string source)
+void MainContentView::hideFinished(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     ViewAnimation *va = reinterpret_cast<ViewAnimation *>(data);
     if (!va) return;
@@ -128,7 +128,7 @@ void MainContentView::hideFinished(void *data, Evas_Object *edje_object, string 
         delete va->animation;
 
         //Don't delete view if it has been pushed again to MainContentView
-        list<ViewAnimation *>::iterator it = views.begin();
+        std::list<ViewAnimation *>::iterator it = views.begin();
         bool found = false;
         for (;it != views.end();it++)
         {

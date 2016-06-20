@@ -25,7 +25,6 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityConfigClockView: public ActivityView
 {
@@ -38,7 +37,7 @@ class ActivityConfigClockView: public ActivityView
 
                 virtual void resetView();
 
-                virtual string getTitle() { return _("Configure Clock and Date"); }
+                virtual std::string getTitle() { return _("Configure Clock and Date"); }
 };
 
 #endif // ActivityConfigClockView_H

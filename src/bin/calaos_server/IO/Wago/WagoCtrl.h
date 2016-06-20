@@ -24,6 +24,8 @@
 #include <Utils.h>
 #include <mbus.h>
 
+namespace Calaos {
+
 class WagoCtrl
 {
 protected:
@@ -43,20 +45,22 @@ public:
     bool is_connected();
 
     //bits
-    bool read_bits(Utils::UWord address, int nb, vector<bool> &values);
+    bool read_bits(Utils::UWord address, int nb, std::vector<bool> &values);
     bool write_single_bit(Utils::UWord address, bool val);
     bool read_single_output_bit(Utils::UWord address);
-    bool write_multiple_bits(Utils::UWord address, int nb, vector<bool> &values);
+    bool write_multiple_bits(Utils::UWord address, int nb, std::vector<bool> &values);
 
     //Words
-    bool read_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
+    bool read_words(Utils::UWord address, int nb, std::vector<Utils::UWord> &values);
     bool write_single_word(Utils::UWord address, Utils::UWord val);
-    bool write_multiple_words(Utils::UWord address, int nb, vector<Utils::UWord> &values);
+    bool write_multiple_words(Utils::UWord address, int nb, std::vector<Utils::UWord> &values);
 
     void set_host(std::string &h) { host = h; }
     std::string get_host() { return host; }
     void set_port(int p) { port = p; }
     int get_port() { return port; }
 };
+
+}
 
 #endif

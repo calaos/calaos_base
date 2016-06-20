@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include <AudioPlayer.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 AudioPlayer::AudioPlayer(Params &p):
     IOBase(p, IOBase::IO_INOUT),
@@ -60,7 +60,7 @@ bool AudioPlayer::SaveToXml(TiXmlElement *node)
 
     for (int i = 0;i < get_params().size();i++)
     {
-        string key, value;
+        std::string key, value;
         param.get_item(i, key, value);
         cnode->SetAttribute(key, value);
     }
@@ -72,7 +72,7 @@ void AudioPlayer::hasChanged()
 {
     if (!isEnabled()) return;
 
-    string answer;
+    std::string answer;
 
     switch (astatus)
     {
@@ -103,7 +103,7 @@ bool AudioPlayer::set_value(std::string value)
 {
     if (!isEnabled()) return true;
 
-    string val = value;
+    std::string val = value;
 
     cInfoDom("output") << "AudioPlayer(" << get_param("id") << "): got action \"" << val << "\"";
 
@@ -185,4 +185,6 @@ void AudioPlayer::get_volume_cb(AudioPlayerData data)
     from_string(data.svalue, vol);
 
     set_volume(data.ivalue + vol);
+}
+
 }

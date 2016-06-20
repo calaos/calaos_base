@@ -46,7 +46,7 @@ static Eina_Bool _progress_cb(void *data, int type, void *event)
     return ECORE_CALLBACK_RENEW;
 }
 
-FileDownloader::FileDownloader(string _url, string _dest, bool auto_del):
+FileDownloader::FileDownloader(std::string _url, std::string _dest, bool auto_del):
     url_con(NULL),
     dl_file(NULL),
     auto_destroy(auto_del),
@@ -61,7 +61,7 @@ FileDownloader::FileDownloader(string _url, string _dest, bool auto_del):
     progress_handler = ecore_event_handler_add(ECORE_CON_EVENT_URL_PROGRESS, _progress_cb, this);
 }
 
-FileDownloader::FileDownloader(string _url, string _dest, string _postData, string _postContentType, bool auto_del):
+FileDownloader::FileDownloader(std::string _url, std::string _dest, std::string _postData, std::string _postContentType, bool auto_del):
     url_con(NULL),
     dl_file(NULL),
     auto_destroy(auto_del),
@@ -78,7 +78,7 @@ FileDownloader::FileDownloader(string _url, string _dest, string _postData, stri
     progress_handler = ecore_event_handler_add(ECORE_CON_EVENT_URL_PROGRESS, _progress_cb, this);
 }
 
-FileDownloader::FileDownloader(string _url, string _postData, string _postContentType, bool auto_del):
+FileDownloader::FileDownloader(std::string _url, std::string _postData, std::string _postContentType, bool auto_del):
     url_con(NULL),
     dl_file(NULL),
     auto_destroy(auto_del),
@@ -138,11 +138,11 @@ bool FileDownloader::Start()
     url_con = ecore_con_url_new(url.c_str());
     if (!url_con)
     {
-        string err = "Failed to create Ecore_Con_Url";
+        std::string err = "Failed to create Ecore_Con_Url";
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "failed",
-                                  IPCData(new string(err), new DeletorT<string *>()),
+                                  IPCData(new std::string(err), new Utils::DeletorT<std::string *>()),
                                   true);
 
         cb_signal.emit("failed", &err);
@@ -176,11 +176,11 @@ bool FileDownloader::Start()
 
     if (!dl_file)
     {
-        string err = "Failed to open file";
+        std::string err = "Failed to open file";
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "failed",
-                                  IPCData(new string(err), new DeletorT<string *>()),
+                                  IPCData(new std::string(err), new Utils::DeletorT<std::string *>()),
                                   true);
 
         cb_signal.emit("failed", &err);
@@ -210,11 +210,11 @@ bool FileDownloader::Start()
 
     if (!ret)
     {
-        string err = "Failed to call GET/POST";
+        std::string err = "Failed to call GET/POST";
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "failed",
-                                  IPCData(new string(err), new DeletorT<string *>()),
+                                  IPCData(new std::string(err), new Utils::DeletorT<std::string *>()),
                                   true);
 
         cb_signal.emit("failed", &err);
@@ -251,7 +251,7 @@ void FileDownloader::Cancel()
 
     IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                               "aborted",
-                              IPCData(new string(url), new DeletorT<string *>()),
+                              IPCData(new std::string(url), new Utils::DeletorT<std::string *>()),
                               true);
 
     cb_signal.emit("aborted", &url);
@@ -267,7 +267,7 @@ void FileDownloader::progressCb(double dlnow, double dltotal)
 {
     IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                               "progress,update",
-                              IPCData(new FileProgress(dlnow, dltotal), new DeletorT<FileProgress *>()),
+                              IPCData(new FileProgress(dlnow, dltotal), new Utils::DeletorT<FileProgress *>()),
                               true);
 
     FileProgress fp(dlnow, dltotal);
@@ -284,11 +284,11 @@ void FileDownloader::completeCb(int status)
 
     if (status >= 400 || status < 100)
     {
-        string err = "Error code : " + Utils::to_string(status);
+        std::string err = "Error code : " + Utils::to_string(status);
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "failed",
-                                  IPCData(new string(err), new DeletorT<string *>()),
+                                  IPCData(new std::string(err), new Utils::DeletorT<std::string *>()),
                                   true);
 
         cb_signal.emit("failed", &err);
@@ -308,7 +308,7 @@ void FileDownloader::completeCb(int status)
     {
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "done",
-                                  IPCData(new string(dest), new DeletorT<string *>()),
+                                  IPCData(new std::string(dest), new Utils::DeletorT<std::string *>()),
                                   true);
 
         cb_signal.emit("done", &dest);
@@ -316,7 +316,7 @@ void FileDownloader::completeCb(int status)
     }
     else
     {
-        Buffer_CURL buff;
+        Utils::Buffer_CURL buff;
 
         dl_file = fopen(tmpFile.c_str(), "rb");
         fseek(dl_file, 0, SEEK_END);
@@ -331,7 +331,7 @@ void FileDownloader::completeCb(int status)
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "done",
-                                  IPCData(new Buffer_CURL(buff), new DeletorT<Buffer_CURL *>()),
+                                  IPCData(new Utils::Buffer_CURL(buff), new Utils::DeletorT<Utils::Buffer_CURL *>()),
                                   true);
 
         cb_signal.emit("done", &buff);

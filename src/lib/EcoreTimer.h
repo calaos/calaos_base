@@ -25,7 +25,6 @@
 #include <sigc++/sigc++.h>
 #include <Ecore.h>
 
-using namespace Utils;
 
 class EcoreTimer
 {

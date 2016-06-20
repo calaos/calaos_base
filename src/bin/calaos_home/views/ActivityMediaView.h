@@ -26,7 +26,6 @@
 #include "ActivityView.h"
 #include "MainContentView.h"
 
-using namespace Utils;
 
 class ActivityMediaView: public ActivityView
 {
@@ -45,7 +44,7 @@ public:
     BaseView *getTopView() { return contentView->getTopView(); }
     void removeTopView() { contentView->removeTopView(); }
 
-    sigc::signal<void, string> button_clicked;
+    sigc::signal<void, std::string> button_clicked;
 };
 
 #endif // ACTIVITYMEDIAVIEW_H

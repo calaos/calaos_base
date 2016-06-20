@@ -22,7 +22,7 @@
 #include <WagoMap.h>
 #include <IOFactory.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(WOVoletSmart)
 REGISTER_IO_USERTYPE(WagoOutputShutterSmart, WOVoletSmart)
@@ -96,4 +96,6 @@ void WOVoletSmart::WagoWriteCallback(bool status, UWord address, bool value)
         cErrorDom("output") << get_param("id") << ": Failed to write value";
         return;
     }
+}
+
 }

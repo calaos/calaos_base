@@ -29,7 +29,7 @@ namespace Calaos
 class MySensorsOutputString : public OutputString
 {
 protected:
-    virtual void set_value_real(string val);
+    virtual void set_value_real(std::string val);
 
 public:
     MySensorsOutputString(Params &p);

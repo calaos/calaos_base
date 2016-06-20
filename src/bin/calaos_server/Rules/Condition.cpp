@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include "Condition.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 Condition::Condition(int type): condition_type(type)
 {
     cDebugDom("rule.condition") <<  "New condition";
@@ -38,4 +38,6 @@ bool Condition::Evaluate()
     cErrorDom("rule.condition") <<  "Can't evaluate base Condition class !";
 
     return false;
+}
+
 }

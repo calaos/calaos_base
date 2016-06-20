@@ -82,7 +82,7 @@ void WebSocketFrame::checkValid()
         isvalid = true;
 }
 
-bool WebSocketFrame::processFrameData(string &data)
+bool WebSocketFrame::processFrameData(std::string &data)
 {
     bool finished = false;
 
@@ -277,11 +277,11 @@ void WebSocketFrame::processMask(char *p, uint64_t size, uint32_t maskingKey)
         *p++ ^= m[i++ % 4];
 }
 
-string WebSocketFrame::toString()
+std::string WebSocketFrame::toString()
 {
     if (!isValid()) return "Invalid frame";
 
-    stringstream s;
+    std::stringstream s;
     s << "Final:" << (isFinalFrame()?'1':'0')
       << " Control:" << (isControlFrame()?'1':'0')
       << " Continue:" << (isContinuationFrame()?'1':'0')
@@ -293,7 +293,7 @@ string WebSocketFrame::toString()
     return s.str();
 }
 
-void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
+void WebSocketFrame::parseCloseCodeReason(uint16_t &code, std::string &reason)
 {
     if (payload.size() == 1)
     {
@@ -306,9 +306,9 @@ void WebSocketFrame::parseCloseCodeReason(uint16_t &code, string &reason)
         reason = payload.substr(2);
 }
 
-string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _lastframe, uint32_t maskingKey)
+std::string WebSocketFrame::makeFrame(int _opcode, const std::string &_payload, bool _lastframe, uint32_t maskingKey)
 {
-    string frame;
+    std::string frame;
 
     if (_payload.size() > 0x7FFFFFFFFFFFFFFFULL)
     {
@@ -360,7 +360,7 @@ string WebSocketFrame::makeFrame(int _opcode, const string &_payload, bool _last
 
     if (maskingKey != 0)
     {
-        string maskedPayload = _payload;
+        std::string maskedPayload = _payload;
         processMask((char *)maskedPayload.c_str(), maskedPayload.size(), maskingKey);
         frame.append(maskedPayload);
     }

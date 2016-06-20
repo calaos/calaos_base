@@ -19,14 +19,14 @@
  **
  ******************************************************************************/
 
-#include "GenlistItemSimpleHeader.h"
 #include "ApplicationMain.h"
+#include "GenlistItemSimpleHeader.h"
 
 ITEM_BUTTON_CALLBACK(GenlistItemSimpleHeader, Back)
 ITEM_BUTTON_CALLBACK(GenlistItemSimpleHeader, Valid)
 
-GenlistItemSimpleHeader::GenlistItemSimpleHeader(Evas *_evas, Evas_Object *_parent, string _label, string style_addition):
-    GenlistItemBase(_evas, _parent, string("simple_header") + string((style_addition != "")? "/" + style_addition:""), ELM_GENLIST_ITEM_GROUP),
+GenlistItemSimpleHeader::GenlistItemSimpleHeader(Evas *_evas, Evas_Object *_parent, std::string _label, std::string style_addition):
+    GenlistItemBase(_evas, _parent, std::string("simple_header") + std::string((style_addition != "")? "/" + style_addition:""), ELM_GENLIST_ITEM_GROUP),
     label(_label)
 {
 }
@@ -35,7 +35,7 @@ GenlistItemSimpleHeader::~GenlistItemSimpleHeader()
 {
 }
 
-string GenlistItemSimpleHeader::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemSimpleHeader::getLabelItem(Evas_Object *obj, std::string part)
 {
     return label;
 }
@@ -55,7 +55,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemSimpleHeader::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemSimpleHeader::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

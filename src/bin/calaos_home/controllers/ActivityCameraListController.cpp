@@ -74,7 +74,7 @@ void ActivityCameraListController::updatePageView()
 {
     ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
-    list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
+    std::list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
     int i = 0;
 
     for (int j = 0;j < page * 4;j++)
@@ -116,10 +116,10 @@ void ActivityCameraListController::updateScenarios()
 {
     ActivityCameraListView *cameraView = dynamic_cast<ActivityCameraListView *>(view);
 
-    const list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
-    list<IOBase *> _page;
+    const std::list<IOBase *> &scenarios = CalaosModel::Instance().getHome()->getCacheScenariosPref();
+    std::list<IOBase *> _page;
 
-    list<IOBase *>::const_iterator it = scenarios.begin();
+    std::list<IOBase *>::const_iterator it = scenarios.begin();
     for (int i = 0;it != scenarios.end();it++, i++)
     {
         IOBase *io = *it;
@@ -165,12 +165,12 @@ void ActivityCameraListController::clickRight()
     cameraView->EmitSignal("hide,left", "calaos");
 }
 
-void ActivityCameraListController::doneCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityCameraListController::doneCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     updatePageView();
 }
 
-void ActivityCameraListController::cameraSelectCallback(void *data, Evas_Object *edje_object, string emission, string source)
+void ActivityCameraListController::cameraSelectCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (emission.substr(0, 7) == "select,")
         emission = emission.erase(0, 7);
@@ -180,7 +180,7 @@ void ActivityCameraListController::cameraSelectCallback(void *data, Evas_Object 
     if ((page * 4 + position - 1) >= (int)CalaosModel::Instance().getCamera()->cameras.size())
         return;
 
-    list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
+    std::list<Camera *>::iterator it = CalaosModel::Instance().getCamera()->cameras.begin();
     for (int j = 0;j < page * 4 + position - 1;j++)
         it++;
 

@@ -20,8 +20,8 @@
  ******************************************************************************/
 #include "Action.h"
 
-using namespace Calaos;
 
+namespace Calaos {
 Action::Action(int type): action_type(type)
 {
     cDebugDom("rule.action") <<  "New action";
@@ -37,4 +37,6 @@ bool Action::Execute()
     cErrorDom("rule.action") <<  "Can't execute base Action class !";
 
     return false;
+}
+
 }

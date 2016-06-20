@@ -18,9 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include "ApplicationMain.h"
 #include "ActivityConfigPasswordController.h"
 
-#include "ApplicationMain.h"
 
 ActivityConfigPasswordController::ActivityConfigPasswordController(Evas *e, Evas_Object *p):
     ActivityController(e, p, ActivityViewFactory::ACTIVITY_VIEW_CONFIG_PASSWORD)

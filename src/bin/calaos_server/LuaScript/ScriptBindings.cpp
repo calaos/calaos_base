@@ -22,10 +22,10 @@
 #include "ScriptManager.h"
 #include "FileDownloader.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 //Debug
-void Calaos::Lua_stackDump(lua_State *L)
+void Lua_stackDump(lua_State *L)
 {
     int i;
     int top = lua_gettop(L);
@@ -58,10 +58,10 @@ void Calaos::Lua_stackDump(lua_State *L)
 /* This print version will replace the one in base lib. It prints out everything
  * through the shared logging facility instead of stdout
  */
-int Calaos::Lua_print(lua_State *L)
+int Lua_print(lua_State *L)
 {
     int n = lua_gettop(L);
-    string msg;
+    std::string msg;
 
     for (int i = 1;i <= n;i++)
     {
@@ -86,7 +86,7 @@ int Calaos::Lua_print(lua_State *L)
     return 0;
 }
 
-void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
+void Lua_DebugHook(lua_State *L, lua_Debug *ar)
 {
     ScriptManager::Instance().LuaDebugHook(L, ar);
 //    double time;
@@ -125,7 +125,7 @@ Lua_Calaos::Lua_Calaos()
 
 Lua_Calaos::Lua_Calaos(lua_State *L)
 {
-    string err = "Calaos(): Don't create a new object, juste use the existing one \"calaos:...\"";
+    std::string err = "Calaos(): Don't create a new object, juste use the existing one \"calaos:...\"";
     lua_pushstring(L, err.c_str());
     lua_error(L);
 }
@@ -136,10 +136,10 @@ int Lua_Calaos::getIOValue(lua_State *L)
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-        string o = lua_tostring(L, 1);
+        std::string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "getIOValue(): invalid IO id: " + o;
+            std::string err = "getIOValue(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -156,7 +156,7 @@ int Lua_Calaos::getIOValue(lua_State *L)
     }
     else
     {
-        string err = "getIOValue(): invalid argument. Requires an IO id.";
+        std::string err = "getIOValue(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -170,10 +170,10 @@ int Lua_Calaos::setIOValue(lua_State *L)
 
     if (nb == 2 && lua_isstring(L, 1))
     {
-        string o = lua_tostring(L, 1);
+        std::string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "setIOValue(): invalid IO id: " + o;
+            std::string err = "setIOValue(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -188,7 +188,7 @@ int Lua_Calaos::setIOValue(lua_State *L)
                 io.set_value(Utils::to_string(lua_tostring(L, 2)));
             else
             {
-                string err = "setIOValue(): invalid IO id";
+                std::string err = "setIOValue(): invalid IO id";
                 lua_pushstring(L, err.c_str());
                 lua_error(L);
             }
@@ -196,7 +196,7 @@ int Lua_Calaos::setIOValue(lua_State *L)
     }
     else
     {
-        string err = "setIOValue(): invalid argument. Requires an IO id.";
+        std::string err = "setIOValue(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -210,16 +210,16 @@ int Lua_Calaos::getIOParam(lua_State *L)
 
     if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
-        string o = lua_tostring(L, 1);
+        std::string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "getIOParam(): invalid IO id: " + o;
+            std::string err = "getIOParam(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
         else
         {
-            string key = Utils::to_string(lua_tostring(L, 2));
+            std::string key = Utils::to_string(lua_tostring(L, 2));
             auto io = ioMap[o];
 
             if (Utils::is_of_type<double>(io.params[key]))
@@ -237,7 +237,7 @@ int Lua_Calaos::getIOParam(lua_State *L)
     }
     else
     {
-        string err = "getIOParam(): invalid argument. Requires an IO id.";
+        std::string err = "getIOParam(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -251,17 +251,17 @@ int Lua_Calaos::setIOParam(lua_State *L)
 
     if (nb == 3 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
-        string o = lua_tostring(L, 1);
+        std::string o = lua_tostring(L, 1);
         if (ioMap.find(o) == ioMap.end())
         {
-            string err = "setIOParam(): invalid IO id: " + o;
+            std::string err = "setIOParam(): invalid IO id: " + o;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
         else
         {
-            string key = Utils::to_string(lua_tostring(L, 2));
-            string value;
+            std::string key = Utils::to_string(lua_tostring(L, 2));
+            std::string value;
 
             auto io = ioMap[o];
 
@@ -273,7 +273,7 @@ int Lua_Calaos::setIOParam(lua_State *L)
                 value = Utils::to_string(lua_tostring(L, 3));
             else
             {
-                string err = "setIOParam(): wrong value";
+                std::string err = "setIOParam(): wrong value";
                 lua_pushstring(L, err.c_str());
                 lua_error(L);
             }
@@ -283,7 +283,7 @@ int Lua_Calaos::setIOParam(lua_State *L)
     }
     else
     {
-        string err = "setIOParam(): invalid argument. Requires an IO id.";
+        std::string err = "setIOParam(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -297,10 +297,10 @@ int Lua_Calaos::waitForIO(lua_State *L)
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-        string id = lua_tostring(L, 1);
+        std::string id = lua_tostring(L, 1);
         if (ioMap.find(id) == ioMap.end())
         {
-            string err = "waitForIO(): invalid IO id: " + id;
+            std::string err = "waitForIO(): invalid IO id: " + id;
             lua_pushstring(L, err.c_str());
             lua_error(L);
         }
@@ -312,7 +312,7 @@ int Lua_Calaos::waitForIO(lua_State *L)
 
             if (abort)
             {
-                string err = "waitForIO(): Abort script.";
+                std::string err = "waitForIO(): Abort script.";
                 lua_pushstring(L, err.c_str());
                 lua_error(L);
             }
@@ -320,7 +320,7 @@ int Lua_Calaos::waitForIO(lua_State *L)
     }
     else
     {
-        string err = "waitForIO(): invalid argument. Requires an IO id.";
+        std::string err = "waitForIO(): invalid argument. Requires an IO id.";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -334,9 +334,9 @@ int Lua_Calaos::requestUrl(lua_State *L)
 
     if (nb == 1 && lua_isstring(L, 1))
     {
-        string url = lua_tostring(L, 1);
+        std::string url = lua_tostring(L, 1);
 
-        string code = "local http = require(\"socket.http\")\n" \
+        std::string code = "local http = require(\"socket.http\")\n"    \
                       "http.request(\"" + url + "\")";
 
         luaL_loadstring(L, code.c_str());
@@ -344,10 +344,10 @@ int Lua_Calaos::requestUrl(lua_State *L)
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
-        string url = lua_tostring(L, 1);
-        string post_data = lua_tostring(L, 2);
+        std::string url = lua_tostring(L, 1);
+        std::string post_data = lua_tostring(L, 2);
 
-        string code = "local http = require(\"socket.http\")\n" \
+        std::string code = "local http = require(\"socket.http\")\n"    \
                       "http.request(\"" + url + "\", \"" + Utils::escape_quotes(post_data) + "\")";
 
         luaL_loadstring(L, code.c_str());
@@ -355,7 +355,7 @@ int Lua_Calaos::requestUrl(lua_State *L)
     }
     else
     {
-        string err = "requestUrl(): invalid argument. Requires a string (URL to call).";
+        std::string err = "requestUrl(): invalid argument. Requires a string (URL to call).";
         lua_pushstring(L, err.c_str());
         lua_error(L);
     }
@@ -376,7 +376,7 @@ double LuaIOBase::get_value_double() const
     return v;
 }
 
-string LuaIOBase::get_value_string() const
+std::string LuaIOBase::get_value_string() const
 {
     return params["state"];
 }
@@ -405,7 +405,7 @@ void LuaIOBase::set_value(std::string val) const
     sendJson("set_state", p);
 }
 
-void LuaIOBase::set_param(const string &key, const string &val)
+void LuaIOBase::set_param(const std::string &key, const std::string &val)
 {
     Params p = {{ "id", params["id"] },
                 { "param", key },
@@ -414,10 +414,12 @@ void LuaIOBase::set_param(const string &key, const string &val)
     sendJson("set_param", p);
 }
 
-void LuaIOBase::sendJson(const string &msg_type, const Params &param) const
+void LuaIOBase::sendJson(const std::string &msg_type, const Params &param) const
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
     json_object_set_new(jroot, "data", param.toJson());
     extClient->sendMessage(jansson_to_string(jroot));
+}
+
 }

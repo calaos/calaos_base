@@ -22,7 +22,7 @@
 #include "IOFactory.h"
 #include "KNXCtrl.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(KNXOutputShutterSmart)
 
@@ -45,7 +45,7 @@ void KNXOutputShutterSmart::setOutputUp(bool enable)
 {
     KNXValue kval = KNXValue::fromInt(enable?1:0, 1);
 
-    string knx_group = get_param("knx_group_up");
+    std::string knx_group = get_param("knx_group_up");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);
 }
 
@@ -53,6 +53,8 @@ void KNXOutputShutterSmart::setOutputDown(bool enable)
 {
     KNXValue kval = KNXValue::fromInt(enable?1:0, 1);
 
-    string knx_group = get_param("knx_group_down");
+    std::string knx_group = get_param("knx_group_down");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);
+}
+
 }

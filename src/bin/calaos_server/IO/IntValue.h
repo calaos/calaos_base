@@ -33,14 +33,14 @@ class Internal : public IOBase
 protected:
     bool bvalue;
     double dvalue;
-    string svalue;
+    std::string svalue;
 
     EcoreTimer *timer = NULL;
 
-    vector<BlinkInfo> blinks;
+    std::vector<BlinkInfo> blinks;
     int current_blink;
 
-    void impulse_extended(string pattern);
+    void impulse_extended(std::string pattern);
     void TimerImpulseExtended();
 
     void Save(); //save value to file
@@ -60,11 +60,11 @@ public:
 
     virtual bool get_value_bool() { return bvalue; }
     virtual double get_value_double() { return dvalue; }
-    virtual string get_value_string() { return svalue; }
+    virtual std::string get_value_string() { return svalue; }
 
     virtual bool set_value(bool val);
     virtual bool set_value(double val);
-    virtual bool set_value(string val);
+    virtual bool set_value(std::string val);
 
     virtual bool SaveToXml(TiXmlElement *node);
 };

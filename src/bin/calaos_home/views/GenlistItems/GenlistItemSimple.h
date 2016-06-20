@@ -25,26 +25,25 @@
 #include <Utils.h>
 #include <GenlistItemBase.h>
 
-using namespace Utils;
 
 class GenlistItemSimple: public GenlistItemBase
 {
 private:
-    string label;
-    string icon;
-    string button_icon;
+    std::string label;
+    std::string icon;
+    std::string button_icon;
     bool multiline;
 
 public:
-    GenlistItemSimple(Evas *evas, Evas_Object *parent, string label, bool can_select, bool multiline = false, void *data = NULL, string style_addition = "");
+    GenlistItemSimple(Evas *evas, Evas_Object *parent, std::string label, bool can_select, bool multiline = false, void *data = NULL, std::string style_addition = "");
     virtual ~GenlistItemSimple();
 
-    virtual string getLabelItem(Evas_Object *obj, string part);
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
 
-    void setIcon(string ic) { icon = ic; }
-    void setButtonIcon(string ic) { button_icon = ic; }
-    void setLabelText(string t) { label = t; updateField("text", ELM_GENLIST_ITEM_FIELD_TEXT); }
+    void setIcon(std::string ic) { icon = ic; }
+    void setButtonIcon(std::string ic) { button_icon = ic; }
+    void setLabelText(std::string t) { label = t; updateField("text", ELM_GENLIST_ITEM_FIELD_TEXT); }
 
     //private, from c callback
     void buttonClickPressed();
@@ -56,17 +55,17 @@ public:
 class GenlistItemSimpleKeyValue: public GenlistItemBase
 {
 private:
-    string label_key, label_value;
-    string icon;
+    std::string label_key, label_value;
+    std::string icon;
 
 public:
-    GenlistItemSimpleKeyValue(Evas *evas, Evas_Object *parent, string label_key, string label_value, void *data = NULL);
+    GenlistItemSimpleKeyValue(Evas *evas, Evas_Object *parent, std::string label_key, std::string label_value, void *data = NULL);
     virtual ~GenlistItemSimpleKeyValue();
 
-    virtual string getLabelItem(Evas_Object *obj, string part);
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
 
-    void setIcon(string ic) { icon = ic; }
+    void setIcon(std::string ic) { icon = ic; }
 };
 
 #endif // GENLISTITEMSIMPLE_H

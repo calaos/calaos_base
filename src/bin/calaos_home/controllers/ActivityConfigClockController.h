@@ -28,7 +28,6 @@
 #include "CalaosModel.h"
 #include "ActivityConfigController.h"
 
-using namespace Utils;
 
 class ActivityConfigClockController: public ActivityController
 {

@@ -26,7 +26,6 @@
 
 #include <CalaosModel.h>
 
-using namespace Utils;
 
 class IOBaseElement
 {
@@ -56,7 +55,7 @@ public:
     enum { IO_NONE = 0, IO_SCENARIO_HOME };
 
 public:
-    IOView(Evas *evas, Evas_Object *parent, IOBase *io, string collection);
+    IOView(Evas *evas, Evas_Object *parent, IOBase *io, std::string collection);
     IOView(Evas *evas, Evas_Object *parent, IOBase *io);
     virtual ~IOView();
 };
@@ -67,7 +66,7 @@ public:
     static IOView *CreateIOView(Evas *evas, Evas_Object *parent, IOBase *io, int type);
     static IOView *CreateIOView(Evas *evas, Evas_Object *parent, int type);
 
-    static IOBaseElement *CreateIOBaseElement(Evas *evas, Evas_Object *parent, IOBase *io, Evas_Object *genlist, string style_addition, GenlistItemBase *gparent = NULL);
+    static IOBaseElement *CreateIOBaseElement(Evas *evas, Evas_Object *parent, IOBase *io, Evas_Object *genlist, std::string style_addition, GenlistItemBase *gparent = NULL);
 };
 
 #endif // IOVIEW_H

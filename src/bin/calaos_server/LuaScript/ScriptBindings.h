@@ -45,18 +45,18 @@ public:
 
     bool get_value_bool() const;
     double get_value_double() const ;
-    string get_value_string() const;
+    std::string get_value_string() const;
 
     void set_value(bool val) const;
     void set_value(double val) const;
     void set_value(std::string val) const;
 
-    void set_param(const string &key, const string &val);
+    void set_param(const std::string &key, const std::string &val);
 
 private:
     ExternProcClient *extClient;
 
-    void sendJson(const string &msg_type, const Params &param) const;
+    void sendJson(const std::string &msg_type, const Params &param) const;
 };
 
 int Lua_print(lua_State *L);
@@ -76,10 +76,10 @@ public:
     Lua_Calaos();
     Lua_Calaos(lua_State *L);
 
-    unordered_map<string, LuaIOBase> ioMap;
+    std::unordered_map<std::string, LuaIOBase> ioMap;
     bool abort = false;
 
-    sigc::signal<bool, const string &> waitForIOChanged;
+    sigc::signal<bool, const std::string &> waitForIOChanged;
 
     /* IO set/get */
     int getIOValue(lua_State *L);

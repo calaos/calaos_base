@@ -36,7 +36,7 @@
 #include "IO/IOWOVoletSmartHomeView.h"
 #include "IO/IOWOStringHomeView.h"
 
-IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string _collection):
+IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, std::string _collection):
     BaseView(_evas, _parent),
     IOBaseElement(_io)
 {
@@ -44,7 +44,7 @@ IOView::IOView(Evas *_evas, Evas_Object *_parent, IOBase *_io, string _collectio
     {
         LoadEdje(_collection);
     }
-    catch (exception const &e)
+    catch (std::exception const &e)
     {
         cCritical() <<  "IOView: Can't load edje";
         throw;
@@ -112,7 +112,7 @@ IOView *IOViewFactory::CreateIOView(Evas *evas, Evas_Object *parent, int type)
     return CreateIOView(evas, parent, NULL, type);
 }
 
-IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *parent, IOBase *io, Evas_Object *genlist, string style_addition, GenlistItemBase *gparent)
+IOBaseElement *IOViewFactory::CreateIOBaseElement(Evas *evas, Evas_Object *parent, IOBase *io, Evas_Object *genlist, std::string style_addition, GenlistItemBase *gparent)
 {
     IOBaseElement *element = NULL;
 

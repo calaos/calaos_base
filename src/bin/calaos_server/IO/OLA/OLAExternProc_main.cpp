@@ -24,6 +24,7 @@
 #include <ola/Logging.h>
 #include <ola/StreamingClient.h>
 
+namespace Calaos {
 class OLAProcess: public ExternProcClient
 {
 public:
@@ -124,4 +125,7 @@ int OLAProcess::procMain()
     return 0;
 }
 
-EXTERN_PROC_CLIENT_MAIN(OLAProcess)
+}
+
+EXTERN_PROC_CLIENT_MAIN(Calaos::OLAProcess)
+

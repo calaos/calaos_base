@@ -47,8 +47,8 @@ void ScenarioModel::scenario_list_cb(json_t *jdata, void *data)
 
     json_array_foreach(json_object_get(jdata, "scenarios"), idx, value)
     {
-        string id = jansson_string_get(value, "id");
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id);
+        std::string id = jansson_string_get(value, "id");
+        std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id);
 
         if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
         {
@@ -81,7 +81,7 @@ void Scenario::load(json_t *jdata)
 
     if (scenario_data.params["schedule"] != "false")
     {
-        map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(scenario_data.params["schedule"]);
+        std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(scenario_data.params["schedule"]);
         if (it != CalaosModel::Instance().getHome()->getCacheIO().end())
         {
             ioSchedule = (*it).second;
@@ -117,10 +117,10 @@ void Scenario::load(json_t *jdata)
 
         json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
         {
-            string id_out = jansson_string_get(value_act, "id");
-            string act = jansson_string_get(value_act, "action");
+            std::string id_out = jansson_string_get(value_act, "id");
+            std::string act = jansson_string_get(value_act, "action");
 
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id_out);
+            std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(id_out);
             if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
             {
                 cErrorDom("scenario") << "Unknown action id \'" << id_out << "\' with action \'" << act << "\' !";
@@ -149,9 +149,9 @@ Room *Scenario::getRoom()
     return room;
 }
 
-string Scenario::getFirstCategory()
+std::string Scenario::getFirstCategory()
 {
-    vector<string> tok;
+    std::vector<std::string> tok;
     split(scenario_data.params["category"], tok, "-");
     if (tok.size() > 0)
         return tok[0];
@@ -292,7 +292,7 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
                                              { "id", ioScenario->params["id"] }},
                             [=](json_t *jdata, void *)
     {
-        string sched_id = jansson_string_get(jdata, "id");
+        std::string sched_id = jansson_string_get(jdata, "id");
 
         if (sched_id.empty())
         {
@@ -305,7 +305,7 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
         //We need to delay a bit because we have to wait for RoomModel to load the io id first
         timer = new EcoreTimer(0.05, [=]()
         {
-            map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(sched_id);
+            std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(sched_id);
 
             if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
             {
@@ -352,22 +352,22 @@ void Scenario::setSchedules(TimeRangeInfos &tr)
     }
 
     cDebugDom("scenario") << "Saving Scenario schedule: ";
-    cout << tr.toString();
+    std::cout << tr.toString();
 
     json_t *jret = json_object();
 
     json_object_set_new(jret, "id", json_string(ioSchedule->params["id"].c_str()));
 
     //Send months
-    stringstream ssmonth;
+    std::stringstream ssmonth;
     ssmonth << tr.range_months;
-    string str = ssmonth.str();
+    std::string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
     json_object_set_new(jret, "months", json_string(str.c_str()));
     json_t *jranges = json_array();
 
-    auto addRange = [=](const vector<TimeRange> &ranges, int day)
+    auto addRange = [=](const std::vector<TimeRange> &ranges, int day)
     {
         for (const TimeRange &t: ranges)
             json_array_append_new(jranges, t.toParams(day).toJson());
@@ -404,7 +404,7 @@ void ScenarioModel::deleteScenario(Scenario *sc)
     connection->sendCommand("autoscenario", {{ "type", "delete" }, { "id", sc->ioScenario->params["id"] }});
 }
 
-void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdata)
+void ScenarioModel::notifyScenarioAdd(const std::string &msgtype, const Params &evdata)
 {
     cDebugDom("scenario") << "New scenario notif, start timer to load scenario data...";
 
@@ -412,12 +412,12 @@ void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdat
     EcoreTimer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), msgtype, evdata));
 }
 
-void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params &evdata)
+void ScenarioModel::notifyScenarioAddDelayed(const std::string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
     cDebugDom("scenario") << "New scenario, load data";
 
-    map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(evdata["id"]);
+    std::map<std::string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(evdata["id"]);
 
     if (it == CalaosModel::Instance().getHome()->getCacheIO().end())
     {
@@ -451,7 +451,7 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
         return;
     }
 
-    list<Scenario *>::iterator it;
+    std::list<Scenario *>::iterator it;
     it = find(scenarios.begin(), scenarios.end(), sc);
 
     if (it == scenarios.end())
@@ -466,12 +466,12 @@ void ScenarioModel::notifyScenarioDel(Scenario *sc)
     scenarios.erase(it);
 }
 
-void ScenarioModel::notifyScenarioChange(const string &msgtype, const Params &evdata)
+void ScenarioModel::notifyScenarioChange(const std::string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
     cDebug() << "scenario id: " << evdata["id"] << " changed, broadcasting signal";
 
-    list<Scenario *>::iterator it = scenarios.begin();
+    std::list<Scenario *>::iterator it = scenarios.begin();
     for (;it != scenarios.end();it++)
     {
         Scenario *sc = *it;
@@ -498,9 +498,9 @@ void ScenarioModel::notifyScenarioChange(const string &msgtype, const Params &ev
     }
 }
 
-list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
+std::list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
 {
-    list<ScenarioSchedule> retList;
+    std::list<ScenarioSchedule> retList;
 
     auto it = scenarios.begin();
     for (;it != scenarios.end();it++)
@@ -513,12 +513,12 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
             continue;
 
         cDebugDom("scenario") << "Scenario schedule: ";
-        cout << sc->ioSchedule->range_infos.toString();
+        std::cout << sc->ioSchedule->range_infos.toString();
 
         auto checkScenario = [=,&retList](int day)
         {
             cDebugDom("scenario") << "Checking day: " << day;
-            vector<int> num;
+            std::vector<int> num;
             num = sc->ioSchedule->range_infos.isScheduledDate(scDate);
 
             for (uint i = 0;i < num.size();i++)
@@ -548,7 +548,7 @@ list<ScenarioSchedule> ScenarioModel::getScenarioForDate(struct tm scDate)
     {
         long timea = 0, timeb = 0;
 
-        vector<TimeRange> vtr = a.scenario->ioSchedule->range_infos.getRange(a.day);
+        std::vector<TimeRange> vtr = a.scenario->ioSchedule->range_infos.getRange(a.day);
         if (a.timeRangeNum >= 0 && a.timeRangeNum < (int)vtr.size())
             timea = vtr[a.timeRangeNum].getStartTimeSec();
 

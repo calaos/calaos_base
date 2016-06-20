@@ -19,14 +19,14 @@
  **
  ******************************************************************************/
 
-#include "GenlistItemSimple.h"
 #include <ApplicationMain.h>
+#include "GenlistItemSimple.h"
 
 ITEM_BUTTON_CALLBACK(GenlistItemSimple, Pressed)
 
-GenlistItemSimple::GenlistItemSimple(Evas *_evas, Evas_Object *_parent, string _label, bool can_select, bool _multiline, void *data, string style_addition):
+GenlistItemSimple::GenlistItemSimple(Evas *_evas, Evas_Object *_parent, std::string _label, bool can_select, bool _multiline, void *data, std::string style_addition):
     GenlistItemBase(_evas, _parent,
-                    string(can_select? "simple_select":"simple") + string(_multiline? "/multiline":"") + string((style_addition != "")? "/" + style_addition:""),
+                    std::string(can_select? "simple_select":"simple") + std::string(_multiline? "/multiline":"") + std::string((style_addition != "")? "/" + style_addition:""),
                     ELM_GENLIST_ITEM_NONE, data),
     label(_label),
     multiline(_multiline)
@@ -42,7 +42,7 @@ GenlistItemSimple::~GenlistItemSimple()
 {
 }
 
-string GenlistItemSimple::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemSimple::getLabelItem(Evas_Object *obj, std::string part)
 {
     return label;
 }
@@ -62,7 +62,7 @@ _button_mouse_up_cb(void *data,
   ev->event_flags = (Evas_Event_Flags)(ev->event_flags | EVAS_EVENT_FLAG_ON_HOLD);
 }
 
-Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemSimple::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 
@@ -108,7 +108,7 @@ void GenlistItemSimple::buttonClickPressed()
     button_pressed.emit();
 }
 
-GenlistItemSimpleKeyValue::GenlistItemSimpleKeyValue(Evas *_evas, Evas_Object *_parent, string _label_key, string _label_value, void *data):
+GenlistItemSimpleKeyValue::GenlistItemSimpleKeyValue(Evas *_evas, Evas_Object *_parent, std::string _label_key, std::string _label_value, void *data):
     GenlistItemBase(_evas, _parent, "simple_info", ELM_GENLIST_ITEM_NONE, data),
     label_key(_label_key),
     label_value(_label_value)
@@ -119,7 +119,7 @@ GenlistItemSimpleKeyValue::~GenlistItemSimpleKeyValue()
 {
 }
 
-string GenlistItemSimpleKeyValue::getLabelItem(Evas_Object *obj, string part)
+std::string GenlistItemSimpleKeyValue::getLabelItem(Evas_Object *obj, std::string part)
 {
     if (part == "key.text")
         return label_key;
@@ -129,7 +129,7 @@ string GenlistItemSimpleKeyValue::getLabelItem(Evas_Object *obj, string part)
     return "?";
 }
 
-Evas_Object *GenlistItemSimpleKeyValue::getPartItem(Evas_Object *obj, string part)
+Evas_Object *GenlistItemSimpleKeyValue::getPartItem(Evas_Object *obj, std::string part)
 {
     Evas_Object *o = NULL;
 

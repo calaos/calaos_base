@@ -56,7 +56,7 @@ void ModuleManager::SearchModules()
         EINA_LIST_FOREACH(subdir, l, data)
         {
             fname = (char *)data;
-            string p;
+            std::string p;
 
             p = search_paths[i];
 
@@ -108,13 +108,13 @@ void ModuleManager::SearchModules()
                     continue;
                 }
 
-                string module_name;
-                vector<string> tok;
+                std::string module_name;
+                std::vector<std::string> tok;
                 Utils::split(p, tok, "/");
                 if (tok.size() > 2)
                     module_name = tok[tok.size() - 2];
 
-                string themepath = Prefix::Instance().dataDirectoryGet();
+                std::string themepath = Prefix::Instance().dataDirectoryGet();
                 themepath += "/widgets/" + module_name;
 
                 ModuleDef mdef;
@@ -144,17 +144,17 @@ void ModuleManager::SearchModules()
     }
 }
 
-bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef &mdef, string id)
+bool ModuleManager::createModuleInstance(Evas *evas, ModuleDef &type, ModuleDef &mdef, std::string id)
 {
     if (!type.handle || !type.api) return false;
 
-    string module_name;
-    vector<string> tok;
+    std::string module_name;
+    std::vector<std::string> tok;
     Utils::split(type.mod_fname, tok, "/");
     if (tok.size() > 2)
         module_name = tok[tok.size() - 2];
 
-    string themepath = Prefix::Instance().dataDirectoryGet();
+    std::string themepath = Prefix::Instance().dataDirectoryGet();
     themepath += "/widgets/" + module_name;
 
     CalaosModuleBase *cmod = type.api->create_object(evas, id.c_str(), themepath.c_str());
@@ -192,7 +192,7 @@ void ModuleManager::DeleteInstance(ModuleDef &mod)
 
     if (!mod.inst) return;
 
-    vector<ModuleDef>::iterator it = mods_inst.begin();
+    std::vector<ModuleDef>::iterator it = mods_inst.begin();
     for (int i = 0;i < instanceSize();i++, it++)
     {
         if (mod.inst == mods_inst[i].inst)
@@ -225,9 +225,9 @@ CalaosModuleBase *ModuleManager::getModuleInstance(ModuleDef &mod)
     return NULL;
 }
 
-vector<ModuleDef> ModuleManager::getModuleInstances(string mod_fname)
+std::vector<ModuleDef> ModuleManager::getModuleInstances(std::string mod_fname)
 {
-    vector<ModuleDef> mods;
+    std::vector<ModuleDef> mods;
 
     for (int i = 0;i < instanceSize();i++)
     {

@@ -97,7 +97,7 @@ inline void jansson_decode_object(json_t *jroot, Params &params)
 
     json_object_foreach(jroot, key, value)
     {
-        string svalue;
+        std::string svalue;
 
         if (json_is_string(value))
             svalue = json_string_value(value);
@@ -110,18 +110,18 @@ inline void jansson_decode_object(json_t *jroot, Params &params)
     }
 }
 
-inline string jansson_to_string(json_t *jroot)
+inline std::string jansson_to_string(json_t *jroot)
 {
     char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
     if (!d)
     {
         cError() << "json_dumps failed!";
         json_decref(jroot);
-        return string();
+        return std::string();
     }
 
     json_decref(jroot);
-    string res(d);
+    std::string res(d);
     free(d);
 
     return res;

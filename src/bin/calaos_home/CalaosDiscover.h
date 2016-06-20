@@ -30,7 +30,6 @@
 #include <EcoreTimer.h>
 #include <CalaosConnection.h>
 
-using namespace Utils;
 
 class CalaosDiscover: public sigc::trackable
 {
@@ -39,7 +38,7 @@ public:
     void dataGet(Ecore_Con_Server *server, void *data, int size);
 
 private:
-    string address;
+    std::string address;
     Ecore_Con_Server *econ;
     Ecore_Con_Server *econ_sender;
 
@@ -58,8 +57,8 @@ public:
     CalaosDiscover();
     ~CalaosDiscover();
 
-    sigc::signal<void, string> server_found;
-    sigc::signal<void, string> login_error;
+    sigc::signal<void, std::string> server_found;
+    sigc::signal<void, std::string> login_error;
 };
 
 #endif // CALAOSDISCOVER_H

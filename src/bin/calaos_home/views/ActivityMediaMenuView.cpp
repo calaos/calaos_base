@@ -48,11 +48,11 @@ ActivityMediaMenuView::ActivityMediaMenuView(Evas *_e, Evas_Object *_parent):
 
 ActivityMediaMenuView::~ActivityMediaMenuView()
 {
-    for_each(items.begin(), items.end(), Delete());
+    for_each(items.begin(), items.end(), Utils::Delete());
     items.clear();
 }
 
-void ActivityMediaMenuView::addIcon(int position, string type)
+void ActivityMediaMenuView::addIcon(int position, std::string type)
 {
     if (Utils::get_config_option("enable_media_" + type) != "false")
     {
@@ -85,7 +85,7 @@ void ActivityMediaMenuView::addIcon(int position, string type)
             obj->setPartText("item_description", _("Play with physics !"));
         }
         obj->addCallback("menu", "click," + type, sigc::mem_fun(*this, &ActivityMediaMenuView::ItemCallback));
-        Swallow(obj, string("icon.") + Utils::to_string(position));
+        Swallow(obj, std::string("icon.") + Utils::to_string(position));
         obj->EmitSignal("show", "calaos");
         obj->Show();
         items.push_back(obj);
@@ -93,7 +93,7 @@ void ActivityMediaMenuView::addIcon(int position, string type)
     }
 }
 
-void ActivityMediaMenuView::ItemCallback(void *data, Evas_Object *_edje, string emission, string source)
+void ActivityMediaMenuView::ItemCallback(void *data, Evas_Object *_edje, std::string emission, std::string source)
 {
     if (source != "menu") return;
 

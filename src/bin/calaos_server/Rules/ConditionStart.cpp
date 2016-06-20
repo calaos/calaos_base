@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "ConditionStart.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 ConditionStart::ConditionStart():
     Condition(COND_START),
@@ -63,4 +63,6 @@ bool ConditionStart::SaveToXml(TiXmlElement *node)
     node->LinkEndChild(cond_node);
 
     return true;
+}
+
 }

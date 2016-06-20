@@ -27,7 +27,6 @@
 #include "ActivityCameraSelectView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityCameraSelectController: public ActivityController
 {

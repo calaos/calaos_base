@@ -93,7 +93,7 @@ void Room::load(json_t *data)
 {
     name = jansson_string_get(data, "name", "<unkown room name>");
     type = jansson_string_get(data, "type", "<unkown type name>");
-    string h = jansson_string_get(data, "hits", "0");
+    std::string h = jansson_string_get(data, "hits", "0");
     Utils::from_string(h, hits);
 
     json_t *items = json_object_get(data, "items");
@@ -136,7 +136,7 @@ void Room::load_io_done(IOBase *io)
     if (io->params["chauffage_id"] != "")
         model->chauffageList.push_back(io);
 
-    string _type = io->params["gui_type"];
+    std::string _type = io->params["gui_type"];
 
     if (_type == "scenario")
         model->cacheScenarios.push_back(io);
@@ -163,7 +163,7 @@ void Room::load_io_done(IOBase *io)
     {
         int value = 100;
 
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         split(io->params["state"], tokens);
         if (tokens.size() > 1)
             from_string(tokens[1], value);
@@ -201,7 +201,7 @@ void Room::load_io_done(IOBase *io)
 
             json_object_foreach(jdata, key, value)
             {
-                string svalue;
+                std::string svalue;
 
                 if (json_is_string(value))
                     svalue = json_string_value(value);
@@ -223,7 +223,7 @@ void Room::updateVisibleIO()
     visible_ios.clear();
     scenario_ios.clear();
 
-    list<IOBase *>::iterator it = ios.begin();
+    std::list<IOBase *>::iterator it = ios.begin();
     for (;it != ios.end();it++)
     {
         IOBase *io = *it;
@@ -264,10 +264,10 @@ void Room::updateVisibleIO()
     scenario_ios.sort(IOHitsCompare);
 }
 
-IOBase *RoomModel::getChauffageForType(string type)
+IOBase *RoomModel::getChauffageForType(std::string type)
 {
-    list<Room *> l;
-    list<Room *>::iterator it = rooms_type.begin();
+    std::list<Room *> l;
+    std::list<Room *>::iterator it = rooms_type.begin();
 
     for (;it != rooms_type.end();it++)
     {
@@ -291,7 +291,7 @@ IOBase *RoomModel::getChauffageForType(string type)
 
 IOBase *Room::getChauffage()
 {
-    list<IOBase *>::iterator it = visible_ios.begin();
+    std::list<IOBase *>::iterator it = visible_ios.begin();
     for (;it != visible_ios.end();it++)
     {
         IOBase *io = (*it);
@@ -306,7 +306,7 @@ void RoomModel::updateRoomType()
 {
     rooms_type.clear();
 
-    list<Room *>::iterator it, itr;
+    std::list<Room *>::iterator it, itr;
     for (it = rooms.begin(); it != rooms.end();it++)
     {
         Room *room = *it;
@@ -327,19 +327,19 @@ void RoomModel::updateRoomType()
     }
 }
 
-void IOBase::sendAction(string command)
+void IOBase::sendAction(std::string command)
 {
     Params p = {{ "id", params["id"] },
                 { "value", command }};
     connection->sendCommand("set_state", p);
 }
 
-void IOBase::sendUserCommand(const string &cmd, const Params &p, CommandDone_cb callback)
+void IOBase::sendUserCommand(const std::string &cmd, const Params &p, CommandDone_cb callback)
 {   
     connection->sendCommand(cmd, p, callback);
 }
 
-void IOBase::notifyChange(const string &msgtype, const Params &evdata)
+void IOBase::notifyChange(const std::string &msgtype, const Params &evdata)
 {
     if (params["gui_type"] == "time_range" &&
         msgtype == "timerange_changed")
@@ -378,7 +378,7 @@ void IOBase::notifyChange(const string &msgtype, const Params &evdata)
     {
         for (int i = 0;i < evdata.size();i++)
         {
-            string key, val;
+            std::string key, val;
             evdata.get_item(i, key, val);
             params.Add(key, val);
         }
@@ -437,7 +437,7 @@ void IOBase::checkCacheChange()
     {
         int value = 100;
 
-        vector<string> tokens;
+        std::vector<std::string> tokens;
         split(params["state"], tokens);
         if (tokens.size() > 1)
             from_string(tokens[1], value);
@@ -467,7 +467,7 @@ void IOBase::checkCacheChange()
     }
 }
 
-void Room::notifyChange(const string &msgtype, const Params &evdata)
+void Room::notifyChange(const std::string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
 
@@ -476,7 +476,7 @@ void Room::notifyChange(const string &msgtype, const Params &evdata)
         evdata["room_type"] == type)
     {
         //an input is deleted from this room
-        map<string, IOBase *>::const_iterator it = model->getCacheIO().find(evdata["io_id_deleted"]);
+        std::map<std::string, IOBase *>::const_iterator it = model->getCacheIO().find(evdata["io_id_deleted"]);
         if (it != model->getCacheIO().end())
         {
             IOBase *io = it->second;
@@ -517,7 +517,7 @@ void RoomModel::notifyRoomChange()
     updateRoomType();
 }
 
-void Room::notifyIOAdd(const string &msgtype, const Params &evdata)
+void Room::notifyIOAdd(const std::string &msgtype, const Params &evdata)
 {
     json_t *jreq = nullptr;
 
@@ -562,7 +562,7 @@ void Room::loadNewIOFromNotif(const Params &ioparam)
 
     load_io_done(io);
 
-    string _type = io->params["gui_type"];
+    std::string _type = io->params["gui_type"];
     if (_type == "scenario")
     {
         //Sort cached scenarios again
@@ -577,13 +577,13 @@ void Room::loadNewIOFromNotif(const Params &ioparam)
     io_added.emit(io);
 }
 
-void Room::notifyIODel(const string &msgtype, const Params &evdata)
+void Room::notifyIODel(const std::string &msgtype, const Params &evdata)
 {
     if (evdata["room_name"] != name ||
         evdata["room_type"] != type)
         return; //not for us
 
-    list<IOBase *>::iterator it;
+    std::list<IOBase *>::iterator it;
     for (it = ios.begin(); it != ios.end();it++)
     {
         IOBase *io = (*it);
@@ -607,7 +607,7 @@ void Room::notifyIODel(const string &msgtype, const Params &evdata)
                 continue;
             }
 
-            list<IOBase *>::iterator cit;
+            std::list<IOBase *>::iterator cit;
             for (cit = model->chauffageList.begin();cit != model->chauffageList.end();cit++)
             {
                 if (*cit == io)
@@ -646,7 +646,7 @@ void Room::notifyIODel(const string &msgtype, const Params &evdata)
     }
 }
 
-void RoomModel::notifyRoomAdd(const string &msgtype, const Params &evdata)
+void RoomModel::notifyRoomAdd(const std::string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
 
@@ -662,7 +662,7 @@ void RoomModel::notifyRoomAdd(const string &msgtype, const Params &evdata)
     room_added.emit(room);
 }
 
-void RoomModel::notifyRoomDel(const string &msgtype, const Params &evdata)
+void RoomModel::notifyRoomDel(const std::string &msgtype, const Params &evdata)
 {
     VAR_UNUSED(msgtype);
 
@@ -683,11 +683,11 @@ void RoomModel::notifyRoomDel(const string &msgtype, const Params &evdata)
     }
 }
 
-list<Room *> RoomModel::getRoomsForType(string type)
+std::list<Room *> RoomModel::getRoomsForType(std::string type)
 {
-    list<Room *> rtypes;
+    std::list<Room *> rtypes;
 
-    list<Room *>::iterator it, itr;
+    std::list<Room *>::iterator it, itr;
     for (it = rooms.begin(); it != rooms.end();it++)
     {
         Room *room = *it;
@@ -708,7 +708,7 @@ IOBase *RoomModel::getConsigneFromTemp(IOBase *temp)
     if (!temp || temp->params["gui_type"] != "temp" || temp->params["chauffage_id"] == "")
         return NULL;
 
-    list<IOBase *>::iterator it;
+    std::list<IOBase *>::iterator it;
     for (it = chauffageList.begin();it != chauffageList.end();it++)
     {
         IOBase *io = (*it);
@@ -726,7 +726,7 @@ IOBase *RoomModel::getTempFromConsigne(IOBase *consigne)
     if (!consigne || consigne->params["gui_type"] != "var_int" || consigne->params["chauffage_id"] == "")
         return NULL;
 
-    list<IOBase *>::iterator it;
+    std::list<IOBase *>::iterator it;
     for (it = chauffageList.begin();it != chauffageList.end();it++)
     {
         IOBase *io = (*it);
@@ -739,9 +739,9 @@ IOBase *RoomModel::getTempFromConsigne(IOBase *consigne)
     return NULL;
 }
 
-map<Room *, list<IOBase *> > RoomModel::getLightsOnForRooms()
+std::map<Room *, std::list<IOBase *> > RoomModel::getLightsOnForRooms()
 {
-    map<Room *, list<IOBase *> > lmap;
+    std::map<Room *, std::list<IOBase *> > lmap;
 
     RoomIOCache::iterator it = cacheLightsOn.begin();
     for (;it != cacheLightsOn.end();it++)
@@ -750,13 +750,13 @@ map<Room *, list<IOBase *> > RoomModel::getLightsOnForRooms()
 
         if (lmap.find(rio.room) == lmap.end())
         {
-            list<IOBase *> l;
+            std::list<IOBase *> l;
             l.push_back(rio.io);
             lmap[rio.room] = l;
         }
         else
         {
-            list<IOBase *> &l = lmap[rio.room];
+            std::list<IOBase *> &l = lmap[rio.room];
             l.push_back(rio.io);
         }
     }
@@ -764,9 +764,9 @@ map<Room *, list<IOBase *> > RoomModel::getLightsOnForRooms()
     return lmap;
 }
 
-map<Room *, list<IOBase *> > RoomModel::getShuttersUpForRooms()
+std::map<Room *, std::list<IOBase *> > RoomModel::getShuttersUpForRooms()
 {
-    map<Room *, list<IOBase *> > lmap;
+    std::map<Room *, std::list<IOBase *> > lmap;
 
     RoomIOCache::iterator it = cacheShuttersUp.begin();
     for (;it != cacheShuttersUp.end();it++)
@@ -775,13 +775,13 @@ map<Room *, list<IOBase *> > RoomModel::getShuttersUpForRooms()
 
         if (lmap.find(rio.room) == lmap.end())
         {
-            list<IOBase *> l;
+            std::list<IOBase *> l;
             l.push_back(rio.io);
             lmap[rio.room] = l;
         }
         else
         {
-            list<IOBase *> &l = lmap[rio.room];
+            std::list<IOBase *> &l = lmap[rio.room];
             l.push_back(rio.io);
         }
     }
@@ -789,7 +789,7 @@ map<Room *, list<IOBase *> > RoomModel::getShuttersUpForRooms()
     return lmap;
 }
 
-string IOBase::getIconForIO()
+std::string IOBase::getIconForIO()
 {
     if (params["gui_type"] == "light" ||
         params["gui_type"] == "light_dimmer" ||
@@ -824,7 +824,7 @@ string IOBase::getIconForIO()
 double IOBase::getDaliValueFromState()
 {
     double val = 0.0;
-    string state = params["state"];
+    std::string state = params["state"];
 
     if (Utils::is_of_type<double>(state))
     {
@@ -832,7 +832,7 @@ double IOBase::getDaliValueFromState()
     }
     else if (state.compare(0, 4, "set ") == 0)
     {
-        string s = state;
+        std::string s = state;
         s.erase(0, 4);
         from_string(s, val);
     }
@@ -850,7 +850,7 @@ double IOBase::getDaliValueFromState()
 
 int IOBase::getPercentVoletSmart()
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     int percent;
 
     Utils::split(params["state"], tokens);
@@ -863,9 +863,9 @@ int IOBase::getPercentVoletSmart()
     return percent;
 }
 
-string IOBase::getStatusVoletSmart()
+std::string IOBase::getStatusVoletSmart()
 {
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     Utils::split(params["state"], tokens);
 
     if (tokens.size() > 0)
@@ -874,9 +874,9 @@ string IOBase::getStatusVoletSmart()
     return "";
 }
 
-vector<IOActionList> IOBase::getActionList()
+std::vector<IOActionList> IOBase::getActionList()
 {
-    vector<IOActionList> v;
+    std::vector<IOActionList> v;
 
     if (params["gui_type"] == "light")
     {
@@ -991,17 +991,17 @@ vector<IOActionList> IOBase::getActionList()
         v.push_back(IOActionList("power off", _("Power Off"), IOActionList::ACTION_SIMPLE));
         v.push_back(IOActionList("volume %1", _("Change volume"), _("Change volume to %1%"), IOActionList::ACTION_SLIDER));
 
-        cout << params.toString() << endl;
+        std::cout << params.toString() << std::endl;
 
-        map<int, string>::iterator it = amplifier_inputs.begin();
+        std::map<int, std::string>::iterator it = amplifier_inputs.begin();
 
         for (;it != amplifier_inputs.end();it++)
         {
             int source_id = (*it).first;
-            string input_name = (*it).second;
+            std::string input_name = (*it).second;
 
-            string src_action = "source " + Utils::to_string(source_id);
-            string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
+            std::string src_action = "source " + Utils::to_string(source_id);
+            std::string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
 
             v.push_back(IOActionList(src_action, src_actionname, IOActionList::ACTION_SIMPLE));
         }
@@ -1091,10 +1091,10 @@ IOActionList IOBase::getActionFromState()
     return ac;
 }
 
-IOActionList IOBase::getActionListFromAction(string action)
+IOActionList IOBase::getActionListFromAction(std::string action)
 {
     IOActionList ac;
-    vector<string> tokens;
+    std::vector<std::string> tokens;
 
     split(action, tokens);
     if (tokens.size() < 1) return ac;
@@ -1252,15 +1252,15 @@ IOActionList IOBase::getActionListFromAction(string action)
             int inputid;
             from_string(tokens[tokens.size() - 1], inputid);
 
-            map<int, string>::iterator it = amplifier_inputs.begin();
+            std::map<int, std::string>::iterator it = amplifier_inputs.begin();
 
             for (;it != amplifier_inputs.end();it++)
             {
                 int source_id = (*it).first;
-                string input_name = (*it).second;
+                std::string input_name = (*it).second;
 
-                string src_action = "source " + Utils::to_string(source_id);
-                string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
+                std::string src_action = "source " + Utils::to_string(source_id);
+                std::string src_actionname = _("Switch source to ") + Utils::to_string(input_name);
 
                 if (inputid == source_id)
                 {
@@ -1274,9 +1274,9 @@ IOActionList IOBase::getActionListFromAction(string action)
     return ac;
 }
 
-string IOActionList::getComputedTitle(IOBase *io)
+std::string IOActionList::getComputedTitle(IOBase *io)
 {
-    string t = title_computed;
+    std::string t = title_computed;
 
     if (type == ACTION_SLIDER ||
         type == ACTION_NUMBER)
@@ -1291,9 +1291,9 @@ string IOActionList::getComputedTitle(IOBase *io)
     return t;
 }
 
-string IOActionList::getComputedAction(IOBase *io)
+std::string IOActionList::getComputedAction(IOBase *io)
 {
-    string ac = action;
+    std::string ac = action;
 
     if (type == ACTION_SIMPLE)
         return ac;
@@ -1355,14 +1355,14 @@ void IOBase::loadPlage_cb(json_t *jdata, void *data)
         if (p["day"] == "7") range_infos.range_sunday.push_back(tr);
     }
 
-    string m = jansson_string_get(jdata, "months");
+    std::string m = jansson_string_get(jdata, "months");
 
     //reverse to have a left to right months representation
     std::reverse(m.begin(), m.end());
 
     try
     {
-        bitset<12> mset(m);
+        std::bitset<12> mset(m);
         range_infos.range_months = mset;
     }
     catch(...)
@@ -1377,9 +1377,9 @@ void IOBase::loadPlage_cb(json_t *jdata, void *data)
     io_changed.emit(); //io has changed
 }
 
-vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
+std::vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
 {
-    vector<int> ret;
+    std::vector<int> ret;
 
     cDebugDom("scenario") << "Checking scenario for date ";
 
@@ -1387,7 +1387,7 @@ vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
     if (!range_months.test(scDate.tm_mon))
         return ret;
 
-    auto checkRange = [=,&ret](const vector<TimeRange> &range)
+    auto checkRange = [=,&ret](const std::vector<TimeRange> &range)
     {
         cDebugDom("scenario") << "day: " << scDate.tm_wday << " range size: " << range.size();
         for (uint i = 0;i < range.size();i++)
@@ -1413,7 +1413,7 @@ vector<int> TimeRangeInfos::isScheduledDate(struct tm scDate)
     return ret;
 }
 
-vector<TimeRange> TimeRangeInfos::getRange(int day)
+std::vector<TimeRange> TimeRangeInfos::getRange(int day)
 {
     switch (day)
     {
@@ -1426,35 +1426,35 @@ vector<TimeRange> TimeRangeInfos::getRange(int day)
     case TimeRange::SUNDAY: return range_sunday; break;
     default: break;
     }
-    vector<TimeRange> v;
+    std::vector<TimeRange> v;
     return v;
 }
 
-string TimeRangeInfos::toString()
+std::string TimeRangeInfos::toString()
 {
-    stringstream str;
+    std::stringstream str;
 
-    str << "*** Monday ***" << endl;
+    str << "*** Monday ***" << std::endl;
     for (uint i = 0; i < range_monday.size();i++)
-        str << "\t" << range_monday[i].toString() << endl;
-    str << "*** Tuesday ***" << endl;
+        str << "\t" << range_monday[i].toString() << std::endl;
+    str << "*** Tuesday ***" << std::endl;
     for (uint i = 0; i < range_tuesday.size();i++)
-        str << "\t" << range_tuesday[i].toString() << endl;
-    str << "*** Wednesday ***" << endl;
+        str << "\t" << range_tuesday[i].toString() << std::endl;
+    str << "*** Wednesday ***" << std::endl;
     for (uint i = 0; i < range_wednesday.size();i++)
-        str << "\t" << range_wednesday[i].toString() << endl;
-    str << "*** Thursday ***" << endl;
+        str << "\t" << range_wednesday[i].toString() << std::endl;
+    str << "*** Thursday ***" << std::endl;
     for (uint i = 0; i < range_thursday.size();i++)
-        str << "\t" << range_thursday[i].toString() << endl;
-    str << "*** Friday ***" << endl;
+        str << "\t" << range_thursday[i].toString() << std::endl;
+    str << "*** Friday ***" << std::endl;
     for (uint i = 0; i < range_friday.size();i++)
-        str << "\t" << range_friday[i].toString() << endl;
-    str << "*** Saturday ***" << endl;
+        str << "\t" << range_friday[i].toString() << std::endl;
+    str << "*** Saturday ***" << std::endl;
     for (uint i = 0; i < range_saturday.size();i++)
-        str << "\t" << range_saturday[i].toString() << endl;
-    str << "*** Sunday ***" << endl;
+        str << "\t" << range_saturday[i].toString() << std::endl;
+    str << "*** Sunday ***" << std::endl;
     for (uint i = 0; i < range_sunday.size();i++)
-        str << "\t" << range_sunday[i].toString() << endl;
+        str << "\t" << range_sunday[i].toString() << std::endl;
 
     return str.str();
 }

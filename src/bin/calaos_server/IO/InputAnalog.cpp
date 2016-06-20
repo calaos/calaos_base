@@ -23,7 +23,7 @@
 #include "Ecore.h"
 #include "CalaosConfig.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 InputAnalog::InputAnalog(Params &p):
     IOBase(p, IOBase::IO_INPUT),
@@ -54,7 +54,7 @@ InputAnalog::InputAnalog(Params &p):
 
     readConfig();
 
-    string v;
+    std::string v;
     if (Config::Instance().ReadValueIO(get_param("id"), v) &&
         Utils::is_of_type<double>(v))
         Utils::from_string(v, value);
@@ -174,4 +174,6 @@ bool InputAnalog::set_value(double v)
     emitChange();
 
     return true;
+}
+
 }

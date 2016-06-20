@@ -22,7 +22,7 @@
 #include "MySensorsController.h"
 #include "IOFactory.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(MySensorsInputString)
 
@@ -44,16 +44,16 @@ MySensorsInputString::MySensorsInputString(Params &p):
                     IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
     ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
-    string nodeId = get_param("node_id");
-    string sensorId = get_param("sensor_id");
+    std::string nodeId = get_param("node_id");
+    std::string sensorId = get_param("sensor_id");
 
     MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
     {
         // Read the value
-        string nId = get_param("node_id");
-        string sId = get_param("sensor_id");
+        std::string nId = get_param("node_id");
+        std::string sId = get_param("sensor_id");
 
-        string v = MySensorsController::Instance(get_params()).getValue(nId, sId);
+        std::string v = MySensorsController::Instance(get_params()).getValue(nId, sId);
 
         if (v != current)
         {
@@ -73,4 +73,6 @@ MySensorsInputString::~MySensorsInputString()
 void MySensorsInputString::readValue()
 {
     value = current;
+}
+
 }

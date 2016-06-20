@@ -33,7 +33,6 @@
 
 #include "ActivityView.h"
 
-using namespace Utils;
 
 class ActivityController: public sigc::trackable
 {
@@ -57,7 +56,7 @@ public:
     sigc::signal<void> wants_quit;
     sigc::signal<void, ActivityController *> view_deleted;
 
-    virtual bool handleButtonClick(string button) { return false; }
+    virtual bool handleButtonClick(std::string button) { return false; }
 
 };
 

@@ -23,9 +23,8 @@
 #include <tcpsocket.h>
 #include "Prefix.h"
 
-using namespace Utils;
-using namespace Calaos;
 
+namespace Calaos {
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev);
 
 WagoMapManager WagoMap::wagomaps;
@@ -57,7 +56,7 @@ WagoMap::WagoMap(std::string h, int p):
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_wago";
 
-    string args = host;
+    std::string args = host;
     args += " " + Utils::to_string(port);
 
     process->messageReceived.connect(sigc::mem_fun(*this, &WagoMap::processNewMessage));
@@ -121,13 +120,13 @@ void WagoMap::WagoModbusHeartBeatTick()
     read_bits(0, 1, sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
 }
 
-void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
+void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, std::vector<bool> &values)
 {
     if (!status)
         cErrorDom("wago") << "failed to read !";
 }
 
-void WagoMap::processNewMessage(const string &msg)
+void WagoMap::processNewMessage(const std::string &msg)
 {
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
@@ -151,8 +150,8 @@ void WagoMap::processNewMessage(const string &msg)
 
     UWord address = 0;
     int count = 0;
-    vector<bool> values_bits;
-    vector<UWord> values_words;
+    std::vector<bool> values_bits;
+    std::vector<UWord> values_words;
     bool status = jsonData["status"] == "true";
 
     Utils::from_string(jsonData["address"], address);
@@ -166,7 +165,7 @@ void WagoMap::processNewMessage(const string &msg)
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
-            string v = json_string_value(value);
+            std::string v = json_string_value(value);
             values_bits.push_back(v == "true");
         }
 
@@ -191,7 +190,7 @@ void WagoMap::processNewMessage(const string &msg)
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
-            string v = json_string_value(value);
+            std::string v = json_string_value(value);
             UWord vv;
             Utils::from_string(v, vv);
             values_words.push_back(vv);
@@ -267,7 +266,7 @@ void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback)
+void WagoMap::write_multiple_bits(UWord address, int nb, std::vector<bool> &values, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_BITS);
     cmd.createSignals();
@@ -341,7 +340,7 @@ void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback)
+void WagoMap::write_multiple_words(UWord address, int nb, std::vector<UWord> &values, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_WORDS);
     cmd.createSignals();
@@ -375,7 +374,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Serv
 
     if (w)
     {
-        string d((char *)ev->data, ev->size);
+        std::string d((char *)ev->data, ev->size);
 
         w->udpRequest_cb(true, d);
     }
@@ -387,7 +386,7 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Serv
     return ECORE_CALLBACK_RENEW;
 }
 
-void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
+void WagoMap::SendUDPCommand(std::string command, WagoUdp_cb callback)
 {
     bool restart_timer = false;
 
@@ -411,7 +410,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
     }
 }
 
-void WagoMap::SendUDPCommand(string command)
+void WagoMap::SendUDPCommand(std::string command)
 {
     bool restart_timer = false;
 
@@ -434,7 +433,7 @@ void WagoMap::SendUDPCommand(string command)
     }
 }
 
-void WagoMap::udpRequest_cb(bool status, string res)
+void WagoMap::udpRequest_cb(bool status, std::string res)
 {
     if (udp_timeout_timer)
     {
@@ -495,10 +494,10 @@ void WagoMap::WagoHeartBeatTick()
     if (heartbeat_timer->getTime() < 10.0)
         heartbeat_timer->Reset(10.0);
 
-    string ip = TCPSocket::GetLocalIPFor(get_host());
+    std::string ip = TCPSocket::GetLocalIPFor(get_host());
     if (ip != "")
     {
-        string cmd = "WAGO_SET_SERVER_IP ";
+        std::string cmd = "WAGO_SET_SERVER_IP ";
         cmd += ip;
 
         SendUDPCommand(cmd);
@@ -510,4 +509,6 @@ void WagoMap::WagoHeartBeatTick()
     {
         cDebugDom("wago") << "No interface found corresponding to network : " << get_host();
     }
+}
+
 }

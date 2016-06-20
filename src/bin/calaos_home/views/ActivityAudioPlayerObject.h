@@ -26,7 +26,6 @@
 #include "ActivityView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityPlayerObject
 {
@@ -44,7 +43,7 @@ private:
     Evas_Object *amp_panel;
     bool amp_volume;
 
-    string cover_fname;
+    std::string cover_fname;
 
     sigc::connection con_volume;
     sigc::connection con_status;
@@ -55,7 +54,7 @@ private:
     sigc::connection con_pl_trackdel;
     sigc::connection con_pl_trackmoved;
 
-    vector<sigc::connection *> small_player_connections;
+    std::vector<sigc::connection *> small_player_connections;
 
     void onVolumeChange();
     void onStatusChange();
@@ -84,7 +83,7 @@ private:
     void selectDetail_cb(void *data, Evas_Object *_edje, std::string emission, std::string source);
 
     void coverGet_cb(Params &infos);
-    void coverDownload_cb(string status, void *data);
+    void coverDownload_cb(std::string status, void *data);
 
     void amplifierChanged();
     void inputSourceSelected(void *data);
@@ -95,7 +94,7 @@ public:
     ActivityPlayerObject(Evas *e, Evas_Object *parent);
     ~ActivityPlayerObject();
 
-    void createEdjeObject(string &theme, Evas *evas);
+    void createEdjeObject(std::string &theme, Evas *evas);
     void resetPlayer();
 
     void setPlayer(AudioPlayer *p);

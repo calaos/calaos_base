@@ -26,7 +26,7 @@
 #include <Ecore.h>
 #include "HttpCodes.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 #ifndef json_array_foreach
 #define json_array_foreach(array, index, value) \
@@ -156,7 +156,7 @@ HttpClient::~HttpClient()
     cDebugDom("network") << this;
 }
 
-int HttpClient::processHeaders(const string &request)
+int HttpClient::processHeaders(const std::string &request)
 {
     size_t nparsed;
 
@@ -200,7 +200,7 @@ int HttpClient::processHeaders(const string &request)
         headers.Add("Cache-Control", "no-cache, must-revalidate");
         headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, headers, "");
+        std::string res = buildHttpResponse(HTTP_200, headers, "");
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -228,12 +228,12 @@ int HttpClient::processHeaders(const string &request)
 
     //decode GET parameters
     paramsGET.clear();
-    vector<string> pars;
+    std::vector<std::string> pars;
     Utils::split(req_url.getQuery(), pars, "&");
 
-    for (const string s: pars)
+    for (const std::string s: pars)
     {
-        vector<string> p;
+        std::vector<std::string> p;
         Utils::split(s, p, "=", 2);
         paramsGET.Add(p[0], p[1]);
     }
@@ -245,7 +245,7 @@ int HttpClient::processHeaders(const string &request)
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
         headers.Add("Location", "debug/index.html");
-        string res = buildHttpResponse(HTTP_301, headers, string());
+        std::string res = buildHttpResponse(HTTP_301, headers, std::string());
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -259,16 +259,16 @@ int HttpClient::processHeaders(const string &request)
     {
         cDebugDom("network") << "Sending debug pages";
 
-        string path = req_url.getPath();
+        std::string path = req_url.getPath();
         path.erase(0, 7);
 
-        string wwwroot = Utils::get_config_option("debug_wwwroot");
+        std::string wwwroot = Utils::get_config_option("debug_wwwroot");
         if (!ecore_file_is_dir(wwwroot.c_str()))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/debug";
 
         cDebugDom("network") << "Using www root: " << wwwroot;
 
-        string fileName = wwwroot +
+        std::string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
         if (!ecore_file_exists(fileName.c_str()))
@@ -278,19 +278,19 @@ int HttpClient::processHeaders(const string &request)
             Params headers;
             headers.Add("Connection", "close");
             headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+            std::string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
             sendToClient(res);
 
             return HTTP_PROCESS_DONE;
         }
 
-        string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
+        std::string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
 
         Params headers;
         headers.Add("Connection", "Close");
         headers.Add("Content-Type", getMimeType(filext));
         cDebug() << "send file " << fileName << "to Client";
-        string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
+        std::string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -304,7 +304,7 @@ int HttpClient::processHeaders(const string &request)
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
         headers.Add("Location", "app/index.html");
-        string res = buildHttpResponse(HTTP_301, headers, string());
+        std::string res = buildHttpResponse(HTTP_301, headers, std::string());
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -314,14 +314,14 @@ int HttpClient::processHeaders(const string &request)
     {
         cDebugDom("network") << "Sending webapp pages";
 
-        string path = req_url.getPath();
+        std::string path = req_url.getPath();
         path.erase(0, 5);
 
-        string wwwroot = Utils::get_config_option("wwwroot");
+        std::string wwwroot = Utils::get_config_option("wwwroot");
         if (!ecore_file_is_dir(wwwroot.c_str()))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/app";
 
-        string fileName = wwwroot +
+        std::string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
         if (!ecore_file_exists(fileName.c_str()) || ecore_file_is_dir(fileName.c_str()))
@@ -331,19 +331,19 @@ int HttpClient::processHeaders(const string &request)
             Params headers;
             headers.Add("Connection", "close");
             headers.Add("Content-Type", "text/html");
-            string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+            std::string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
             sendToClient(res);
 
             return HTTP_PROCESS_DONE;
         }
 
-        string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
+        std::string filext = str_to_lower(path.substr(path.find_last_of(".") + 1));
 
         Params headers;
         headers.Add("Connection", "Close");
         headers.Add("Content-Type", getMimeType(filext));
         cDebug() << "send file " << fileName << "to Client";
-        string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
+        std::string res = buildHttpResponseFromFile(HTTP_200, headers, fileName);
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -356,7 +356,7 @@ int HttpClient::processHeaders(const string &request)
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+        std::string res = buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -389,7 +389,7 @@ int HttpClient::processHeaders(const string &request)
         resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
         resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
         resHeaders.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, resHeaders, "");
+        std::string res = buildHttpResponse(HTTP_200, resHeaders, "");
         sendToClient(res);
 
         return HTTP_PROCESS_DONE;
@@ -435,25 +435,25 @@ void HttpClient::CloseConnection()
     ecore_con_client_del(client_conn);
 }
 
-string HttpClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
+std::string HttpClient::buildHttpResponseFromFile(std::string code, Params &headers, std::string fileName)
 {
-    ifstream file(fileName);
-    string body((std::istreambuf_iterator<char>(file)),
+    std::ifstream file(fileName);
+    std::string body((std::istreambuf_iterator<char>(file)),
                     std::istreambuf_iterator<char>());
 
     return buildHttpResponse(code, headers, body);
 }
 
-string HttpClient::buildHttpResponse(string code, Params &headers, string body)
+std::string HttpClient::buildHttpResponse(std::string code, Params &headers, std::string body)
 {
-    stringstream res;
+    std::stringstream res;
 
     //HTTP code
     res << code << "\r\n";
 
     for (int i = 0;i < headers.size();i++)
     {
-        string key, value;
+        std::string key, value;
         headers.get_item(i, key, value);
         resHeaders.Add(key, value);
     }
@@ -476,7 +476,7 @@ string HttpClient::buildHttpResponse(string code, Params &headers, string body)
     //headers
     for (int i = 0;i < resHeaders.size();i++)
     {
-        string key, value;
+        std::string key, value;
         resHeaders.get_item(i, key, value);
         res << key << ": " << value << "\r\n";
     }
@@ -489,7 +489,7 @@ string HttpClient::buildHttpResponse(string code, Params &headers, string body)
     return res.str();
 }
 
-void HttpClient::sendToClient(string res)
+void HttpClient::sendToClient(std::string res)
 {
     data_size += res.length();
 
@@ -516,11 +516,11 @@ void HttpClient::handleJsonRequest()
             return;
         }
 
-        jsonApi->sendData.connect([=](const string &data)
+        jsonApi->sendData.connect([=](const std::string &data)
         {
             sendToClient(data);
         });
-        jsonApi->closeConnection.connect([=](int c, const string &r)
+        jsonApi->closeConnection.connect([=](int c, const std::string &r)
         {
             VAR_UNUSED(c);
             VAR_UNUSED(r);
@@ -531,7 +531,7 @@ void HttpClient::handleJsonRequest()
     jsonApi->processApi(bodymessage, paramsGET);
 }
 
-string HttpClient::getMimeType(const string &file_ext)
+std::string HttpClient::getMimeType(const std::string &file_ext)
 {
     if (file_ext == "js")
         return "application/javascript";
@@ -563,4 +563,6 @@ string HttpClient::getMimeType(const string &file_ext)
         return "application/vnd.ms-fontobject";
 
     return "text/plain";
+}
+
 }

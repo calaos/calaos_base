@@ -31,7 +31,7 @@ class MilightOutputLightRGB : public OutputLightRGB
 {
 private:
     int port = DEFAULT_MILIGHT_PORT;
-    string host;
+    std::string host;
     int zone = 0;
 
     Milight *milight;

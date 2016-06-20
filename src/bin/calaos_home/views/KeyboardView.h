@@ -25,12 +25,11 @@
 
 #include "BaseView.h"
 
-using namespace Utils;
 
 class KeyboardView: public BaseView
 {
 private:
-    void onKeyboardCallback(void *data, Evas_Object *edje_object, string emission, string source);
+    void onKeyboardCallback(void *data, Evas_Object *edje_object, std::string emission, std::string source);
 
     bool keys_upper;
     bool keys_other;
@@ -40,10 +39,10 @@ public:
     ~KeyboardView();
 
     //simulate a pressed key
-    void pressKey(string key);
+    void pressKey(std::string key);
 
     enum { KEY_ALPHA, KEY_SHIFT, KEY_SPACE, KEY_ENTER };
-    sigc::signal<void, string, int> key_pressed;
+    sigc::signal<void, std::string, int> key_pressed;
 };
 
 #endif // KeyboardView_H

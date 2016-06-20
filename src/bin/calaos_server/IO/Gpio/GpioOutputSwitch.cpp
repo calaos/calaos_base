@@ -22,7 +22,7 @@
 
 #include "GpioOutputSwitch.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 REGISTER_IO(GpioOutputSwitch)
 
@@ -60,4 +60,6 @@ bool GpioOutputSwitch::set_value_real(bool val)
 {
     gpioctrl->setVal(val);
     return true;
+}
+
 }

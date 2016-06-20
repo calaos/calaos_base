@@ -70,7 +70,7 @@ void IOScenarioHomeView::updateView()
     }
 }
 
-void IOScenarioHomeView::clickScenario(void *data, Evas_Object *edje_object, string emission, string source)
+void IOScenarioHomeView::clickScenario(void *data, Evas_Object *edje_object, std::string emission, std::string source)
 {
     if (!io) return;
 

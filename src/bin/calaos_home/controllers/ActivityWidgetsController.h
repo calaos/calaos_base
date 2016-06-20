@@ -27,7 +27,6 @@
 #include "ActivityWidgetsView.h"
 #include "CalaosModel.h"
 
-using namespace Utils;
 
 class ActivityWidgetsController: public ActivityController
 {
@@ -43,7 +42,7 @@ public:
 
     int getWidgetCount();
 
-    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, string id = "");
+    bool AddWidget(ModuleDef &mtype, int x, int y, int w = 0, int h = 0, std::string id = "");
 };
 
 #endif // ACTIVITYWIDGETSCONTROLLER_H

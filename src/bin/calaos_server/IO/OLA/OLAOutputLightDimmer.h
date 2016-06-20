@@ -23,7 +23,7 @@
 
 #include "OutputLightDimmer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class OLAOutputLightDimmer: public OutputLightDimmer
 {
@@ -34,5 +34,7 @@ private:
 public:
     OLAOutputLightDimmer(Params &p);
 };
+
+}
 
 #endif // OLAOUTPUTLIGHTDIMMER_H

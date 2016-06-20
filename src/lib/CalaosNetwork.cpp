@@ -22,7 +22,7 @@
 #include <jansson.h>
 #include <Jansson_Addition.h>
 
-CalaosNetwork::CalaosNetwork(string _username, string _password):
+CalaosNetwork::CalaosNetwork(std::string _username, std::string _password):
     username(_username),
     password(_password),
     download_in_progress(false)
@@ -37,7 +37,7 @@ CalaosNetwork::~CalaosNetwork()
 {
 }
 
-void CalaosNetwork::Register(string cn_user, string cn_pass)
+void CalaosNetwork::Register(std::string cn_user, std::string cn_pass)
 {
     if (download_in_progress)
     {
@@ -49,7 +49,7 @@ void CalaosNetwork::Register(string cn_user, string cn_pass)
 
     download_in_progress = true;
 
-    string jdata = "{";
+    std::string jdata = "{";
     jdata += "\"cn_user\":\"" + cn_user + "\",";
     jdata += "\"cn_pass\":\"" + cn_pass + "\",";
     jdata += "\"action\":\"register\",";
@@ -57,7 +57,7 @@ void CalaosNetwork::Register(string cn_user, string cn_pass)
     //------------------------------------------------------
     //Used to update calaos_id to hwid
     //To be removed in the future when everyone has updated
-    string calaos_id = Utils::get_config_option("calaos_id");
+    std::string calaos_id = Utils::get_config_option("calaos_id");
     if (calaos_id != "")
         jdata += "\"calaos_id\":\"" + calaos_id + "\",";
     //------------------------------------------------------
@@ -70,14 +70,14 @@ void CalaosNetwork::Register(string cn_user, string cn_pass)
     fdownloader->Start();
 }
 
-void CalaosNetwork::register_cb(string result, void *data)
+void CalaosNetwork::register_cb(std::string result, void *data)
 {
     if (result == "done")
     {
         download_in_progress = false;
 
         Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
+        std::string res((const char *)buff->buffer, buff->bufsize);
 
         fdownloader = NULL;
 
@@ -137,7 +137,7 @@ void CalaosNetwork::register_cb(string result, void *data)
     }
 }
 
-void CalaosNetwork::updateIP(string priv_ip)
+void CalaosNetwork::updateIP(std::string priv_ip)
 {
     if (download_in_progress)
     {
@@ -149,7 +149,7 @@ void CalaosNetwork::updateIP(string priv_ip)
 
     download_in_progress = true;
 
-    string jdata = "{";
+    std::string jdata = "{";
     jdata += "\"cn_user\":\"" + username + "\",";
     jdata += "\"cn_pass\":\"" + password + "\",";
     jdata += "\"action\":\"update_ip\",";
@@ -166,14 +166,14 @@ void CalaosNetwork::updateIP(string priv_ip)
     fdownloader->Start();
 }
 
-void CalaosNetwork::update_ip_cb(string result, void *data)
+void CalaosNetwork::update_ip_cb(std::string result, void *data)
 {
     if (result == "done")
     {
         download_in_progress = false;
 
         Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
+        std::string res((const char *)buff->buffer, buff->bufsize);
 
         fdownloader = NULL;
 
@@ -229,7 +229,7 @@ void CalaosNetwork::getIP()
 
     download_in_progress = true;
 
-    string jdata = "{";
+    std::string jdata = "{";
     jdata += "\"cn_user\":\"" + username + "\",";
     jdata += "\"cn_pass\":\"" + password + "\",";
     jdata += "\"action\":\"get_ip\"";
@@ -240,14 +240,14 @@ void CalaosNetwork::getIP()
     fdownloader->Start();
 }
 
-void CalaosNetwork::get_ip_cb(string result, void *data)
+void CalaosNetwork::get_ip_cb(std::string result, void *data)
 {
     if (result == "done")
     {
         download_in_progress = false;
 
         Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
+        std::string res((const char *)buff->buffer, buff->bufsize);
 
         fdownloader = NULL;
 
@@ -271,8 +271,8 @@ void CalaosNetwork::get_ip_cb(string result, void *data)
             return;
         }
 
-        string public_ip;
-        string private_ip;
+        std::string public_ip;
+        std::string private_ip;
         bool at_home;
 
         public_ip = jansson_string_get(json, "public_ip", "bad_value");

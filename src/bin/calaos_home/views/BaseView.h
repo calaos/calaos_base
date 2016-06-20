@@ -21,6 +21,7 @@
 #ifndef BASEVIEW_H
 #define BASEVIEW_H
 
+#include "EdjeObject.h"
 #include <Utils.h>
 
 #include <Eina.h>
@@ -31,11 +32,9 @@
 #include <Edje.h>
 #include <Elementary.h>
 
-#include "EdjeObject.h"
 
 #include <EcoreTimer.h>
 
-using namespace Utils;
 
 class ActivityController;
 class BaseView: public EdjeObject
@@ -49,7 +48,7 @@ public:
     BaseView(Evas *evas, Evas_Object *parent);
     virtual ~BaseView();
 
-    virtual string getTitle() { return "None"; }
+    virtual std::string getTitle() { return "None"; }
 
     sigc::signal<void> view_deleted;
 

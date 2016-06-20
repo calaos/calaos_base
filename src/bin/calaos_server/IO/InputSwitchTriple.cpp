@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "InputSwitchTriple.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 InputSwitchTriple::InputSwitchTriple(Params &p):
     IOBase(p, IOBase::IO_INPUT),
@@ -107,3 +107,4 @@ bool InputSwitchTriple::set_value(double v)
     return true;
 }
 
+}

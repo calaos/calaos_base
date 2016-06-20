@@ -34,17 +34,17 @@ class TimeZoneElt
 {
 public:
     /* la cl du pays  mettre dans /etc/timezone */
-    string key;
+    std::string key;
     /* le chemin complet du pays (continent / pays / ville) */
-    string country;
+    std::string country;
     /* le dcalage horaire sous forme de chaine de caractre */
-    string decalageStr;
+    std::string decalageStr;
     /* le dcalage horaire  sous forme d'entier (non utilis) */
     int decalage;
     /* le code du pays (fr, de ...) */
-    string code;
+    std::string code;
 
-    TimeZoneElt(string k, string c, string dstr, int d, string id);
+    TimeZoneElt(std::string k, std::string c, std::string dstr, int d, std::string id);
 };
 
 class TimeZone
@@ -55,7 +55,7 @@ public:
     int current;
 
     /* la liste des fuseaux horaires */
-    vector<TimeZoneElt> timeZone;
+    std::vector<TimeZoneElt> timeZone;
 
     TimeZone();
     int loadCurrentTimeZone();
@@ -110,9 +110,9 @@ public:
     void setNtp(bool b);
     void timezoneSelect(int id);
 
-    string hoursToString();
-    string minutesToString();
-    string secondesToString();
+    std::string hoursToString();
+    std::string minutesToString();
+    std::string secondesToString();
 
     void monthUp();
     void monthDown();
@@ -126,10 +126,10 @@ public:
     void yearDown();
     void setYear(int m);
 
-    const string getDayFromDate();
+    const std::string getDayFromDate();
     int getDayIdFromDate();
     void initDate();
-    const string getMonthFromDate();
+    const std::string getMonthFromDate();
     int getNbDaysInMonth();
 
     void apply();

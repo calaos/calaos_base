@@ -31,7 +31,6 @@
 #include "AudioModel.h"
 #include "ScenarioModel.h"
 
-using namespace Utils;
 
 class CalaosModel
 {
@@ -40,15 +39,15 @@ private:
 
     CalaosDiscover *discover;
     CalaosConnection *connection;
-    string server_address;
+    std::string server_address;
 
     RoomModel *room_model;
     CameraModel *camera_model;
     AudioModel *audio_model;
     ScenarioModel *scenario_model;
 
-    void discover_found(string address);
-    void discover_error_login(string address);
+    void discover_found(std::string address);
+    void discover_error_login(std::string address);
     void connection_ok();
     void lost_connection();
 
@@ -68,7 +67,7 @@ public:
 
     ~CalaosModel();
 
-    string toString();
+    std::string toString();
 
     RoomModel *getHome() { return room_model; }
     CameraModel *getCamera() { return camera_model; }
@@ -77,7 +76,7 @@ public:
 
     bool isLoaded() { return loaded; }
 
-    sigc::signal<void, string> login_failed;
+    sigc::signal<void, std::string> login_failed;
     sigc::signal<void> home_loaded;
 };
 

@@ -34,7 +34,7 @@ ScreenManager::~ScreenManager()
 
 int ScreenManager::getTime()
 {
-    string time = Utils::get_config_option("dpms_standby");
+    std::string time = Utils::get_config_option("dpms_standby");
     int t;
     Utils::from_string(time, t);
 

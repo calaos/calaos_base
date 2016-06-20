@@ -61,8 +61,8 @@ public:
     void SaveConfigIO();
     void SaveConfigRule();
 
-    void SaveValueIO(string id, string value, bool save = true);
-    bool ReadValueIO(string id, string &value);
+    void SaveValueIO(std::string id, std::string value, bool save = true);
+    bool ReadValueIO(std::string id, std::string &value);
 };
 
 }

@@ -68,7 +68,7 @@ void CalaosDiscover::timerDiscover()
 {
     cDebugDom("network") << "try to discover server...";
 
-    string packet = "CALAOS_DISCOVER";
+    std::string packet = "CALAOS_DISCOVER";
     if (!ecore_con_server_send(econ_sender, packet.c_str(), packet.length()))
     {
         econ_sender = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "0.0.0.0", BCAST_UDP_PORT, this);
@@ -80,7 +80,7 @@ void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
 {
     if (server != econ) return;
 
-    string msg((char *)data, size);
+    std::string msg((char *)data, size);
 
     cDebugDom("network") << "some data arrived msg: \"" << msg << "\"";
 

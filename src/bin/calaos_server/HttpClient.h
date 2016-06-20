@@ -29,7 +29,7 @@
 #include "JsonApiHandlerWS.h"
 #include "EcoreTimer.h"
 
-using namespace Calaos;
+namespace Calaos {
 
 class HttpClient: public sigc::trackable
 {
@@ -42,7 +42,7 @@ protected:
 
     bool parse_done = false;
     unsigned char request_method;
-    unordered_map<string, string> request_headers;
+    std::unordered_map<std::string, std::string> request_headers;
 
     int proto_ver;
 
@@ -50,9 +50,9 @@ protected:
 
     //for parsing purposes
     bool has_field = false, has_value = false;
-    string hfield, hvalue;
-    string bodymessage;
-    string parse_url;
+    std::string hfield, hvalue;
+    std::string bodymessage;
+    std::string parse_url;
 
     //headers to send back
     Params resHeaders;
@@ -80,13 +80,13 @@ protected:
         HTTP_PROCESS_WEBSOCKET,     //websocket request
         HTTP_PROCESS_DONE,          //request already processed (for HTTP OPTIONS, or debug.html)
     };
-    int processHeaders(const string &request);
+    int processHeaders(const std::string &request);
 
     void handleJsonRequest();
 
-    void sendToClient(string res);
+    void sendToClient(std::string res);
 
-    string getMimeType(const string &file_ext);
+    std::string getMimeType(const std::string &file_ext);
 
     friend int _parser_begin(http_parser *parser);
     friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
@@ -105,10 +105,12 @@ public:
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);
 
-    string buildHttpResponse(string code, Params &headers, string body);
-    string buildHttpResponseFromFile(string code, Params &headers, string fileName);
+    std::string buildHttpResponse(std::string code, Params &headers, std::string body);
+    std::string buildHttpResponseFromFile(std::string code, Params &headers, std::string fileName);
 
     void setNeedRestart(bool e) { need_restart = e; }
 };
+
+}
 
 #endif

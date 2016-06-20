@@ -32,7 +32,7 @@ namespace Calaos
 class BlinkstickOutputLightRGB : public OutputLightRGB
 {
 private:
-    string m_serial;
+    std::string m_serial;
     int m_nbLeds;
     bool blinkstickSerialGet(libusb_device *device, unsigned char *serial, libusb_device_handle **handle);
 

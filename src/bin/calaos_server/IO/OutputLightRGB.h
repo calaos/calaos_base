@@ -68,7 +68,7 @@ public:
 
     virtual std::string get_command_string() { return cmd_state; }
 
-    virtual bool check_condition_value(string cvalue, bool equal);
+    virtual bool check_condition_value(std::string cvalue, bool equal);
 };
 
 }

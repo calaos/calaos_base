@@ -22,7 +22,7 @@
 #include <Eet.h>
 #include <IOBase.h>
 
-using namespace Calaos;
+namespace Calaos {
 
 typedef struct _Calaos_DataLogger_Mean Calaos_DataLogger_Mean;
 typedef struct _Calaos_DataLogger_Values Calaos_DataLogger_Values;
@@ -61,7 +61,7 @@ _hash_values_free_cb(void *data)
 
 DataLogger::DataLogger()
 {
-    string db_file = getCacheFile(CALAOS_EET_DATALOGGER_FILE);
+    std::string db_file = getCacheFile(CALAOS_EET_DATALOGGER_FILE);
 
     eet_init();
     initEetDescriptors();
@@ -174,4 +174,6 @@ void DataLogger::log(IOBase *io)
     eet_data_write(ef, calaos_datalogger_mean_edd, section, mean, EINA_TRUE);
 
     eet_sync(ef);
+}
+
 }

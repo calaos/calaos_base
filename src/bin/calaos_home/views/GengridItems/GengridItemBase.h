@@ -25,7 +25,6 @@
 #include <Utils.h>
 #include <IOView.h>
 
-using namespace Utils;
 
 //This macro is used to add a C callback for elementary buttons on items
 #define ITEM_BUTTON_CALLBACK(_class, it_name) \
@@ -42,16 +41,16 @@ protected:
     Elm_Object_Item *item;
 
     Elm_Gengrid_Item_Class item_class;
-    string style;
+    std::string style;
 
     void *user_data;
 
-    DeletorBase *autodel_userdata;
+    Utils::DeletorBase *autodel_userdata;
 
     virtual void itemAdded() {} //item was added to a gengrid
 
 public:
-    GengridItemBase(Evas *evas, Evas_Object *parent, string style, void *select_user_data = NULL);
+    GengridItemBase(Evas *evas, Evas_Object *parent, std::string style, void *select_user_data = NULL);
     virtual ~GengridItemBase();
 
     //Add item to gengrid
@@ -67,9 +66,9 @@ public:
     void ShowItem(Elm_Gengrid_Item_Scrollto_Type type);
     void BringInItem(Elm_Gengrid_Item_Scrollto_Type type);
 
-    virtual Evas_Object *getPartItem(Evas_Object *obj, string part);
-    virtual string getLabelItem(Evas_Object *obj, string part);
-    virtual bool getStateItem(Evas_Object *obj, string part);
+    virtual Evas_Object *getPartItem(Evas_Object *obj, std::string part);
+    virtual std::string getLabelItem(Evas_Object *obj, std::string part);
+    virtual bool getStateItem(Evas_Object *obj, std::string part);
 
     void setSelected(bool sel) { elm_gengrid_item_selected_set(item, sel); }
     bool isSelected() { return elm_gengrid_item_selected_get(item); }
@@ -82,7 +81,7 @@ public:
     void *getUserData() { return user_data; }
     void setAutoDeleteUserData(DeletorBase *how_to_delete_user_data) { autodel_userdata = how_to_delete_user_data; }
 
-    void itemEmitSignal(string signal, string source);
+    void itemEmitSignal(std::string signal, std::string source);
 
     //Used by C callback
     void emitSelectedSignal();
