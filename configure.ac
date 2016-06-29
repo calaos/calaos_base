@@ -161,11 +161,12 @@ then
      AC_DEFINE([HAVE_LIBOLA], [1], [libola])
 fi
 
-have_knx="no"
-PKG_CHECK_MODULES([LIBKNX], [libeibnetmux], [have_libknx="yes"], [have_libknx="no"])
+have_libknx="no"
+AC_CHECK_HEADERS([eibclient.h], [have_libknx="yes"])
 AM_CONDITIONAL([HAVE_LIBKNX], [test "x${have_libknx}" = "xyes"])
 if test "x${have_libknx}" == "xyes"
 then
+     AC_CHECK_LIB([eibclient], [EIBSocketLocal],, AC_ERROR([Missing eibclient library]))
      AC_DEFINE([HAVE_LIBKNX], [1], [libknx])
 fi
 
@@ -255,6 +256,6 @@ echo " EWebkit support.......................: ${have_ewebkit}"
 echo " Ecore_X support.......................: ${have_ecore_x}"
 echo " Libusb support........................: ${have_libusb}"
 echo " Open Lightning Architecture support...: ${have_libola}"
-echo " Eib/KNX support (libeibnetmux)........: ${have_libknx}"
+echo " Eib/KNX support (eibd or knxd)........: ${have_libknx}"
 
 echo

@@ -36,8 +36,7 @@ AM_CPPFLAGS =                                                 \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
         @LIBUSB_CFLAGS@                                       \
-        @LIBOLA_CFLAGS@                                       \
-        @LIBKNX_CFLAGS@
+        @LIBOLA_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -407,6 +406,6 @@ calaos_knx_SOURCES = \
 
 calaos_knx_LDADD = \
 	@CALAOS_SERVER_LIBS@ \
-	@LIBKNX_LIBS@ \
+	-leibclient \
 	$(top_builddir)/src/lib/libcalaos_common.la
 endif

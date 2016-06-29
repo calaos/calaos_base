@@ -25,105 +25,38 @@
 #include "Jansson_Addition.h"
 
 extern "C" {
-#include <eibnetmux/enmx_lib.h>
-#include <eibnetmux/socketserver.h>
+#include <eibclient.h>
 }
-
-//From enmx_lib.private.h
-typedef struct _connInfo {
-    int                     socket;         //!< unix socket client is connected on
-    int                     errorcode;      //!< error code of last command
-    int                     state;          //!< state of connection (see eConnectionState)
-    char                    *hostname;      //!< hostname of client
-    char                    *name;          //!< client identifier
-    struct _connInfo        *next;          //!< link to next connection in linked list
-    int                     mode;           //!< ENMX_MODE_STANDARD or ENMX_MODE_PTH
-    int                     L7connection;   //!< >0 if layer 7 connection has been established with remote device
-    int                     L7sequence_id;  //!< sequence id for layer 7 data requests/responses
-    int                     (*send)( ENMX_HANDLE handle, unsigned char *buf, uint16_t length );                 //!< pointer to send function (standard or PTH)
-    int                     (*recv)( ENMX_HANDLE handle, unsigned char *buf, uint16_t length, int timeout );    //!< pointer to receive function (standard or PTH)
-    void                    (*wait)( int usec );    //!< pointer to wait function (standard or PTH)
-} sConnectionInfo;
-
-/*
- * EIB request frame
- */
-typedef struct __attribute__((packed))
-{
-        uint8_t  code;
-        uint8_t  zero;
-        uint8_t  ctrl;
-        uint8_t  ntwrk;
-        uint16_t saddr;
-        uint16_t daddr;
-        uint8_t  length;
-        uint8_t  tpci;
-        uint8_t  apci;
-        uint8_t  data[16];
-} CEMIFRAME;
-
-/*
- * EIB constants
- */
-#define EIB_CTRL_LENGTHTABLE                    0x00
-#define EIB_CTRL_LENGTHBYTE                     0x80
-#define EIB_CTRL_DATA                           0x00
-#define EIB_CTRL_POLL                           0x40
-#define EIB_CTRL_REPEAT                         0x00
-#define EIB_CTRL_NOREPEAT                       0x20
-#define EIB_CTRL_ACK                            0x00
-#define EIB_CTRL_NONACK                         0x10
-#define EIB_CTRL_PRIO_LOW                       0x0c
-#define EIB_CTRL_PRIO_HIGH                      0x04
-#define EIB_CTRL_PRIO_ALARM                     0x08
-#define EIB_CTRL_PRIO_SYSTEM                    0x00
-#define EIB_NETWORK_HOPCOUNT                    0x70
-#define EIB_DAF_GROUP                           0x80
-#define EIB_DAF_PHYSICAL                        0x00
-#define EIB_LL_NETWORK                          0x70
-#define T_GROUPDATA_REQ                         0x00
-#define A_READ_VALUE_REQ                        0x0000
-#define A_WRITE_VALUE_REQ                       0x0080
-#define A_RESPONSE_VALUE_REQ                    0x0040
-
-/**
- * cEMI Message Codes
- **/
-#define L_BUSMON_IND            0x2B
-#define L_RAW_IND               0x2D
-#define L_RAW_REQ               0x10
-#define L_RAW_CON               0x2F
-#define L_DATA_REQ              0x11
-#define L_DATA_CON              0x2E
-#define L_DATA_IND              0x29
-#define L_POLL_DATA_REQ         0x13
-#define L_POLL_DATA_CON         0x25
-#define M_PROP_READ_REQ         0xFC
-#define M_PROP_READ_CON         0xFB
-#define M_PROP_WRITE_REQ        0xF6
-#define M_PROP_WRITE_CON        0xF5
-#define M_PROP_INFO_IND         0xF7
-#define M_RESET_REQ             0xF1
-#define M_RESET_IND             0xF0
 
 class KNXValue
 {
 public:
     KNXValue() {}
 
-    int eis = -1;
-    int type = enmx_KNXerror;
+    enum
+    {
+        KNXError,
+        KNXInteger,
+        KNXFloat,
+        KNXChar,
+        KNXString,
+    };
 
-    int value_int = 0;
+    int eis = -1;
+    int type = KNXError;
+
+    int64_t value_int = 0;
     float value_float = 0.0;
     unsigned char value_char = 0;
     string value_string;
 
     string toString();
-    bool setValue(int eis, void *data, int datalen, bool cemiframe = false);
+    bool setValue(int eis, vector<uint8_t> data);
+    bool toKnxData(vector<uint8_t> &data) const;
 
     json_t *toJson() const;
     static KNXValue fromJson(json_t *jval);
+    static KNXValue fromString(int eis, const string &s);
 };
 
 class KNXProcess: public ExternProcClient
@@ -149,18 +82,20 @@ protected:
     virtual void readTimeout();
     virtual void messageReceived(const string &msg);
 
-    void connectEibNetMux();
+    void connectKnxd();
     void writeKnxValue(const string &group_addr, const KNXValue &value);
 
-    string knxPhysicalAddr(uint16_t addr);
-    string knxGroupAddr(uint16_t addr);
+    string knxPhysicalAddr(eibaddr_t addr);
+    string knxGroupAddr(eibaddr_t addr);
+    eibaddr_t eKnxGroupAddr(const string &group_addr);
+    eibaddr_t eKnxPhysicalAddr(const string &addr);
 
     string eibserver;
-    ENMX_HANDLE eibsock = -1;
+    EIBConnection *eibsock = nullptr;
 
     bool monitorMode = false;
 
-    bool isConnected() { return eibsock > 0; }
+    bool isConnected() { return eibsock; }
 };
 
 #endif // KNXEXTERNPROC_MAIN_H
