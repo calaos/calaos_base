@@ -30,18 +30,10 @@ OutputAnalog::OutputAnalog(Params &p):
     wago_value_max(0.0)
 {
     ioDoc->descriptionBaseSet(_("Analog output. Useful to control analog output devices connected to calaos."));
-    ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
+    ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
                  IODoc::TYPE_FLOAT, false, "1");
-    ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
-                 IODoc::TYPE_FLOAT, false, "1");
-
-    ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
+    ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false, "0");
-    ioDoc->paramAdd("frequency", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
-                 IODoc::TYPE_FLOAT, false);
-    ioDoc->paramAddInt("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
-                 0, 99999, false, 15);
-    ioDoc->paramAddInt("precision", _("Precision of the returned value. The value represents the number of decimal after the dot. The value is rounded like this : value = 19.275 => returned value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision = 0"), 0, 9999, false, 2);
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
@@ -69,16 +61,8 @@ OutputAnalog::~OutputAnalog()
 
 void OutputAnalog::readConfig()
 {
-    if (get_params().Exists("real_max")) Utils::from_string(get_param("real_max"), real_value_max);
-    if (get_params().Exists("wago_max")) Utils::from_string(get_param("wago_max"), wago_value_max);
-
     if (get_params().Exists("coeff_a")) Utils::from_string(get_param("coeff_a"), coeff_a);
     if (get_params().Exists("coeff_b")) Utils::from_string(get_param("coeff_b"), coeff_b);
-
-    if (get_params().Exists("precision"))
-        Utils::from_string(get_param("precision"), precision);
-    else
-        precision = 2;
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
 }
@@ -86,15 +70,12 @@ void OutputAnalog::readConfig()
 double OutputAnalog::get_value_double()
 {
     readConfig();
- 
-    if (wago_value_max > 0 && real_value_max > 0)
-        return Utils::roundValue(value * real_value_max / wago_value_max, precision);
-    else
-        return Utils::roundValue(value * coeff_a + coeff_b, precision);
+
+    return value;
 }
 
 void OutputAnalog::emitChange()
-{   
+{
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(value) } });
@@ -104,18 +85,14 @@ bool OutputAnalog::set_value(double val)
 {
     if (!isEnabled()) return true;
 
-    UWord v;
-
     readConfig();
 
-    if (wago_value_max > 0 && real_value_max > 0)
-        v = (UWord)(val * wago_value_max / real_value_max);
-    else
-        v = (UWord)(val * coeff_a + coeff_b);
+    //send computed value to device
+    set_value_real(val * coeff_a + coeff_b);
 
-    set_value_real(v);
-
+    //save raw value
     value = val;
+
     EmitSignalIO();
     emitChange();
 

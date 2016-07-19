@@ -30,10 +30,8 @@ namespace Calaos
 class InputAnalog : public IOBase
 {
 protected:
-    double real_value_max;
-    double wago_value_max;
-    double coeff_a;
-    double coeff_b;
+    double coeff_a = 1.0;
+    double coeff_b = 0.0;
 
     double value;
     double timer;

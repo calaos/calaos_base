@@ -32,11 +32,8 @@ class OutputAnalog : public IOBase
 {
 protected:
     double value;
-    double real_value_max;
-    double wago_value_max;
-    double coeff_a;
-    double coeff_b;
-    int precision;
+    double coeff_a = 1.0;
+    double coeff_b = 0.0;
 
     void readConfig();
 

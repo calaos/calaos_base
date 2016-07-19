@@ -35,9 +35,9 @@ InputAnalog::InputAnalog(Params &p):
     ioDoc->descriptionBaseSet(_("An analog input can be used to read analog values to display them and use them in rules."));
 
     ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
-                 IODoc::TYPE_FLOAT, false);
+                 IODoc::TYPE_FLOAT, false, "1");
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
-                 IODoc::TYPE_FLOAT, false);
+                 IODoc::TYPE_FLOAT, false, "0");
 
     ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false);
@@ -75,19 +75,9 @@ void InputAnalog::readConfig()
     if (!get_params().Exists("visible"))
       set_param("visible", "true");
 
-    if (get_params().Exists("real_max")) 
-      Utils::from_string(get_param("real_max"), real_value_max);
-    else 
-      real_value_max = 0.0;
-
-    if (get_params().Exists("wago_max"))
-      Utils::from_string(get_param("wago_max"), wago_value_max);
-    else 
-      wago_value_max = 0.0;
-
     if (get_params().Exists("coeff_a"))
       Utils::from_string(get_param("coeff_a"), coeff_a);
-    else 
+    else
       coeff_a = 1.0;
 
     if (get_params().Exists("coeff_b"))
