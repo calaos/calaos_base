@@ -60,8 +60,8 @@ MySensorsOutputAnalog::~MySensorsOutputAnalog()
 
 void MySensorsOutputAnalog::set_value_real(double val)
 {
-    string nodeId = get_param("node_id_down");
-    string sensorId = get_param("sensor_id_down");
+    string nodeId = get_param("node_id");
+    string sensorId = get_param("sensor_id");
 
     int dataType = MySensors::V_DIMMER;
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
