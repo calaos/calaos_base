@@ -25,9 +25,7 @@ using namespace Utils;
 
 OutputAnalog::OutputAnalog(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
-    value(0),
-    real_value_max(0.0),
-    wago_value_max(0.0)
+    value(0)
 {
     ioDoc->descriptionBaseSet(_("Analog output. Useful to control analog output devices connected to calaos."));
     ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 1.0."),

@@ -27,8 +27,6 @@ using namespace Calaos;
 
 InputAnalog::InputAnalog(Params &p):
     IOBase(p, IOBase::IO_INPUT),
-    real_value_max(0.0),
-    wago_value_max(0.0),
     value(0.0),
     precision(2)
 {
@@ -138,28 +136,16 @@ double InputAnalog::get_value_double()
 {
     readConfig();
 
-    if (wago_value_max > 0 && real_value_max > 0)
-    {
-        cDebugDom("input") << get_param("id") << ": "
-                           << value << " * " << real_value_max << " / " << wago_value_max;
-        return Utils::roundValue(value * real_value_max / wago_value_max, precision);
-    }
-    else
-    {
-        cDebugDom("input") << get_param("id") << ": "
-                           << coeff_a << " * " << value << " + " << coeff_b;
-        return Utils::roundValue(value * coeff_a + coeff_b, precision);
-    }
+    cDebugDom("input") << get_param("id") << ": "
+                       << coeff_a << " * " << value << " + " << coeff_b;
+    return Utils::roundValue(value * coeff_a + coeff_b, precision);
 }
 
 bool InputAnalog::set_value(double v)
 {
     if (!isEnabled()) return false;
 
-    if (wago_value_max > 0 && real_value_max > 0)
-        value = v * wago_value_max / real_value_max;
-    else
-        value = v * coeff_a + coeff_b;
+    value = v;
 
     emitChange();
 
