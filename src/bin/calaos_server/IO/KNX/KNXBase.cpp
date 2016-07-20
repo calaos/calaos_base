@@ -35,6 +35,7 @@ KNXBase::KNXBase(Params *p, IODoc *ioDoc, bool add_doc_group):
     }
     ioDoc->paramAddInt("eis", _("KNX EIS (Data type)"), 0, 15, false, KNXValue::EIS_Value_Int);
     ioDoc->paramAdd("read_at_start", _("Send a read request at start to get the current value. Default is false"), IODoc::TYPE_BOOL, true, "false");
+    ioDoc->paramAdd("host", _("Hostname of knxd, default to localhost"), IODoc::TYPE_STRING, true, "127.0.0.1");
 }
 
 KNXBase::~KNXBase()
