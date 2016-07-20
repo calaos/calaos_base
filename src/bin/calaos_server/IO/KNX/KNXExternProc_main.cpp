@@ -52,7 +52,7 @@ void KNXProcess::messageReceived(const string &msg)
     }
     else if (jsonData["type"] == "read")
     {
-        cInfo() << "TODO: read not implemented yet.";
+        sendReadKnxCommand(jsonData["group_addr"]);
     }
     json_decref(jroot);
 }
@@ -236,19 +236,22 @@ bool KNXProcess::monitorWait()
         return true;
     }
 
-    string t;
+    string t, type;
     bool printValue = true;
     switch (buf[1] & 0xC0)
     {
     case 0x00:
         t = "Read";
+        type = "read";
         printValue = false;
         break;
     case 0x40:
         t = "Response";
+        type = "response";
         break;
     case 0x80:
         t = "Write";
+        type = "write";
         break;
     }
 
@@ -257,7 +260,8 @@ bool KNXProcess::monitorWait()
         cDebug() << t << " Value : " << v.toString();
 
     Params p = {{"type", "event"},
-                {"group_addr", knxGroupAddr(dest)}};
+                {"group_addr", knxGroupAddr(dest)},
+                {"type", type}};
     json_t *j = p.toJson();
     if (printValue)
         json_object_set_new(j, "value", v.toJson());
@@ -285,6 +289,29 @@ void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
     int len = EIBSendGroup(eibsock, knx_addr, data.size(), data.data());
     if (len == -1)
         cError() << "Failed to write data to KNX address " << group_addr;
+}
+
+void KNXProcess::sendReadKnxCommand(const string &group_addr)
+{
+    cDebug() << "Sending Read command for KNX group " << group_addr;
+    std::unique_ptr<KnxdObj> eibobj (new KnxdObj());
+
+    if (!eibobj->open(eibserver))
+        return;
+
+    eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
+
+    if (EIBOpenT_Group(eibobj->sock, knx_addr, 1) == -1)
+    {
+        cError() << "Failed to open T_Group";
+        return;
+    }
+
+    uint8_t buf[2] = { 0, 0 };
+    int len = EIBSendAPDU(eibsock, 2, buf);
+
+    if (len < 0)
+        cError() << "Failed to send READ command";
 }
 
 EXTERN_PROC_CLIENT_MAIN(KNXProcess)

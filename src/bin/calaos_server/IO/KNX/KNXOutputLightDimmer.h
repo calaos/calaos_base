@@ -22,6 +22,7 @@
 #define KNXOUTPUTLIGHTDIMMER_H
 
 #include "OutputLightDimmer.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual bool set_value_real(int val);
+
+    KNXBase *knxBase;
 };
 
 }

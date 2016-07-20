@@ -59,6 +59,17 @@ public:
     static KNXValue fromString(int eis, const string &s);
 };
 
+class KnxdObj
+{
+public:
+    KnxdObj() {}
+    ~KnxdObj() { if (sock != 0) EIBClose(sock); }
+
+    bool open(const string &server);
+
+    EIBConnection * sock = nullptr;
+};
+
 class KNXProcess: public ExternProcClient
 {
 public:
@@ -84,6 +95,7 @@ protected:
 
     void connectKnxd();
     void writeKnxValue(const string &group_addr, const KNXValue &value);
+    void sendReadKnxCommand(const string &group_addr);
 
     string knxPhysicalAddr(eibaddr_t addr);
     string knxGroupAddr(eibaddr_t addr);

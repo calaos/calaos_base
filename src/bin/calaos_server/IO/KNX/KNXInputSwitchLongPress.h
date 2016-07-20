@@ -22,6 +22,7 @@
 #define KNXINPUTSWITCHLONGPRESS_H
 
 #include "InputSwitchLongPress.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual bool readValue();
+
+    KNXBase *knxBase;
 };
 
 }

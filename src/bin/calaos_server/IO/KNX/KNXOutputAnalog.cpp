@@ -32,17 +32,16 @@ KNXOutputAnalog::KNXOutputAnalog(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXOutputAnalog");
     ioDoc->descriptionSet(_("Analog output with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
-    ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAddInt("eis", _("KNX EIS (Data type)"), 0, 15, false, KNXValue::EIS_Value_Int);
 
-    string knx_group = get_param("knx_group");
+    knxBase = new KNXBase(&param, ioDoc);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, );
+    if (get_param("read_at_start") == "true")
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &val)
     {
-        if (group_addr != get_param("knx_group")) return;
+        if (group_addr != knxBase->getReadGroupAddr())
+            return;
 
         int eis;
         Utils::from_string(get_param("eis"), eis);
@@ -54,11 +53,12 @@ KNXOutputAnalog::KNXOutputAnalog(Params &p):
         emitChange();
     });
 
-    cInfoDom("input") << "knx_group: " << knx_group;
+    cInfoDom("input") << "knx_group: " << knxBase->getReadGroupAddr();
 }
 
 KNXOutputAnalog::~KNXOutputAnalog()
 {
+    delete knxBase;
 }
 
 void KNXOutputAnalog::set_value_real(double val)
@@ -70,3 +70,4 @@ void KNXOutputAnalog::set_value_real(double val)
     string knx_group = get_param("knx_group");
     KNXCtrl::Instance(get_param("host"))->writeValue(knx_group, kval);
 }
+

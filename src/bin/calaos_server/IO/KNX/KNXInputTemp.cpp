@@ -32,34 +32,32 @@ KNXInputTemp::KNXInputTemp(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXInputTemp");
     ioDoc->descriptionSet(_("Input temperature with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
-    ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAddInt("eis", _("KNX EIS (Data type)"), 0, 15, false, KNXValue::EIS_Value_Int);
 
-    string knx_group = get_param("knx_group");
+    knxBase = new KNXBase(&param, ioDoc);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, );
+    if (get_param("read_at_start") == "true")
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
     {
-        if (group_addr != get_param("knx_group")) return;
-        readValue();
+        if (group_addr == knxBase->getReadGroupAddr())
+            readValue();
     });
 
-    cInfoDom("input") << "knx_group: " << knx_group;
+    cInfoDom("input") << "knx_group: " << knxBase->getReadGroupAddr();
 }
 
 KNXInputTemp::~KNXInputTemp()
 {
+    delete knxBase;
 }
 
 void KNXInputTemp::readValue()
 {
-    string knx_group = get_param("knx_group");
     int eis;
     Utils::from_string(get_param("eis"), eis);
 
-    KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knx_group);
+    KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knxBase->getReadGroupAddr());
     val.setEis(eis);
 
     if (value != val.toInt())

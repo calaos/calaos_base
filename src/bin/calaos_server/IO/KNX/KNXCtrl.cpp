@@ -256,15 +256,19 @@ void KNXCtrl::processNewMessage(const string &msg)
 
     if (mtype == "event")
     {
-        string group_addr = jansson_string_get(jroot, "group_addr");
-        KNXValue val = KNXValue::fromJson(json_object_get(jroot, "value"));
+        string knxtype = jansson_string_get(jroot, "type");
+        if (knxtype != "read") //Do not emit signal for read commands
+        {
+            string group_addr = jansson_string_get(jroot, "group_addr");
+            KNXValue val = KNXValue::fromJson(json_object_get(jroot, "value"));
 
-        knxCache[group_addr] = val;
-        valueChanged.emit(group_addr, val);
+            knxCache[group_addr] = val;
+            valueChanged.emit(group_addr, val);
+        }
     }
     else if (mtype == "disconnected")
     {
-        cDebugDom("knx") << "Disconnected from eibnetmux, restarting command process...";
+        cDebugDom("knx") << "Disconnected from knxd, restarting command process...";
         process->terminate();
     }
 
@@ -305,3 +309,4 @@ void KNXCtrl::readValue(const string &group_addr, int eis)
 
     cDebugDom("knx") << "Sending: " << res;
 }
+

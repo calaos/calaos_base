@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2016, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,27 +18,27 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef KNXINPUTSWITCHTRIPLE_H
-#define KNXINPUTSWITCHTRIPLE_H
+#ifndef KNXBASE_H
+#define KNXBASE_H
 
-#include "InputSwitchTriple.h"
-#include "KNXBase.h"
+#include "KNXCtrl.h"
+#include "IODoc.h"
 
 namespace Calaos
 {
 
-class KNXInputSwitchTriple: public InputSwitchTriple
+class KNXBase
 {
 public:
-    KNXInputSwitchTriple(Params &p);
-    virtual ~KNXInputSwitchTriple();
+    KNXBase(Params *p, IODoc *ioDoc, bool add_doc_group = true);
+    virtual ~KNXBase();
+
+    string getReadGroupAddr(const string &base = "knx_group");
 
 protected:
-    virtual bool readValue();
-
-    KNXBase *knxBase;
+    Params *params = nullptr;
 };
 
 }
 
-#endif // KNXINPUTSWITCHTRIPLE_H
+#endif // KNXBASE_H

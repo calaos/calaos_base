@@ -34,16 +34,15 @@ KNXOutputLightDimmer::KNXOutputLightDimmer(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXOutputLightDimmer");
     ioDoc->descriptionSet(_("Light dimmer with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
-    ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
+    knxBase = new KNXBase(&param, ioDoc);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
+    if (get_param("read_at_start") == "true")
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr(), KNXValue::EIS_Switch_OnOff);
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)
     {
-        if (group_addr != get_param("knx_group")) return;
+        if (group_addr != knxBase->getReadGroupAddr()) return;
         KNXValue val = v;
         val.setEis(KNXValue::EIS_Dim_UpDown);
         value = val.toInt();
@@ -51,11 +50,12 @@ KNXOutputLightDimmer::KNXOutputLightDimmer(Params &p):
         emitChange();
     });
 
-    cInfoDom("input") << "knx_group: " << knx_group;
+    cInfoDom("input") << "knx_group: " << knxBase->getReadGroupAddr();
 }
 
 KNXOutputLightDimmer::~KNXOutputLightDimmer()
 {
+    delete knxBase;
 }
 
 bool KNXOutputLightDimmer::set_value_real(int val)

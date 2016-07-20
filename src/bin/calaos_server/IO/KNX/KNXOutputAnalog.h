@@ -22,6 +22,7 @@
 #define KNXOUTPUTANALOG_H
 
 #include "OutputAnalog.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual void set_value_real(double val);
+
+    KNXBase *knxBase;
 };
 
 }

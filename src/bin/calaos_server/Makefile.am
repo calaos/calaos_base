@@ -121,6 +121,8 @@ calaos_server_SOURCES = \
         IO/Hue/HueOutputLightRGB.cpp	                \
         IO/KNX/KNXCtrl.h                                \
         IO/KNX/KNXCtrl.cpp                              \
+        IO/KNX/KNXBase.cpp                              \
+        IO/KNX/KNXBase.h                                \
         IO/KNX/KNXInputAnalog.h                         \
         IO/KNX/KNXInputAnalog.cpp                       \
         IO/KNX/KNXInputSwitch.h                         \

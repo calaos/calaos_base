@@ -22,6 +22,7 @@
 #define KNXOUTPUTLIGHTRGB_H
 
 #include "OutputLightRGB.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual void setColorReal(const ColorValue &color, bool state);
+
+    KNXBase *knxBase;
 };
 
 }

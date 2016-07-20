@@ -22,6 +22,7 @@
 #define KNXINPUTSWITCH_H
 
 #include "InputSwitch.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual bool readValue();
+
+    KNXBase *knxBase;
 };
 
 }

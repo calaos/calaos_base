@@ -34,16 +34,30 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXOutputLightRGB");
     ioDoc->descriptionSet(_("Light RGB with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group_red", _("Red channel KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("knx_group_green", _("Green channel KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("knx_group_blue", _("Blue channel KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("listen_knx_group_red", _("Red Group address for listening status, Ex: x/y/z"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("listen_knx_group_green", _("Green Group address for listening status, Ex: x/y/z"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("listen_knx_group_blue", _("Blue Group address for listening status, Ex: x/y/z"), IODoc::TYPE_STRING, false);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
+    knxBase = new KNXBase(&param, ioDoc, false);
+
+    if (get_param("read_at_start") == "true")
+    {
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_red"));
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_green"));
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_blue"));
+    }
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)
     {
-//        if (group_addr != get_param("knx_group")) return;
+        if (group_addr != knxBase->getReadGroupAddr("knx_group_red") &&
+            group_addr != knxBase->getReadGroupAddr("knx_group_green") &&
+            group_addr != knxBase->getReadGroupAddr("knx_group_blue"))
+            return;
+
+        //TODO
 //        KNXValue val = v;
 //        val.setEis(KNXValue::EIS_Dim_UpDown);
 //        value = val.toInt();
@@ -54,6 +68,7 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
 
 KNXOutputLightRGB::~KNXOutputLightRGB()
 {
+    delete knxBase;
 }
 
 void KNXOutputLightRGB::setColorReal(const ColorValue &c, bool s)

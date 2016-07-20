@@ -21,17 +21,6 @@
 #include "KNXExternProc_main.h"
 #include <time.h>
 
-class KnxdObj
-{
-public:
-    KnxdObj() {}
-    ~KnxdObj() { if (sock != 0) EIBClose(sock); }
-
-    bool open(const string &server);
-
-    EIBConnection * sock = nullptr;
-};
-
 bool KnxdObj::open(const string &server)
 {
     if (!server.empty())

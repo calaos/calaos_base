@@ -32,31 +32,29 @@ KNXInputSwitch::KNXInputSwitch(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXInputSwitch");
     ioDoc->descriptionSet(_("Input switch with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
-    ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
+    knxBase = new KNXBase(&param, ioDoc);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
+    if (get_param("read_at_start") == "true")
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr(), KNXValue::EIS_Switch_OnOff);
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
     {
-        if (group_addr != get_param("knx_group")) return;
-        hasChanged();
+        if (group_addr == knxBase->getReadGroupAddr())
+            hasChanged();
     });
 
-    cInfoDom("input") << "knx_group: " << knx_group;
+    cInfoDom("input") << "knx_group: " << knxBase->getReadGroupAddr();
 }
 
 KNXInputSwitch::~KNXInputSwitch()
 {
+    delete knxBase;
 }
 
 bool KNXInputSwitch::readValue()
 {
-    string knx_group = get_param("knx_group");
-
-    KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knx_group);
+    KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knxBase->getReadGroupAddr());
 
     return val.toBool();
 }

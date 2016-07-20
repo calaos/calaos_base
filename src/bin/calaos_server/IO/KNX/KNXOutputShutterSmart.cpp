@@ -32,13 +32,15 @@ KNXOutputShutterSmart::KNXOutputShutterSmart(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXOutputShutterSmart");
     ioDoc->descriptionSet(_("Shutter with with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
     ioDoc->paramAdd("knx_group_up", _("Up KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("knx_group_down", _("Down KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
+
+    knxBase = new KNXBase(&param, ioDoc);
 }
 
 KNXOutputShutterSmart::~KNXOutputShutterSmart()
 {
+    delete knxBase;
 }
 
 void KNXOutputShutterSmart::setOutputUp(bool enable)

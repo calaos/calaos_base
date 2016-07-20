@@ -22,6 +22,7 @@
 #define KNXOUTPUTSHUTTERSMART_H
 
 #include "OutputShutterSmart.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -35,6 +36,8 @@ public:
 protected:
     virtual void setOutputUp(bool enable);
     virtual void setOutputDown(bool enable);
+
+    KNXBase *knxBase;
 };
 
 }

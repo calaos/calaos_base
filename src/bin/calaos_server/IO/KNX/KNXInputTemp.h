@@ -22,6 +22,7 @@
 #define KNXINPUTTEMP_H
 
 #include "InputTemp.h"
+#include "KNXBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ public:
 
 protected:
     virtual void readValue();
+
+    KNXBase *knxBase;
 };
 
 }

@@ -34,27 +34,27 @@ KNXOutputLight::KNXOutputLight(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("KNXOutputLight");
     ioDoc->descriptionSet(_("Light output with KNX and eibnetmux"));
-    ioDoc->linkAdd("eibnetmux", _("http://eibnetmux.sourceforge.net"));
-    ioDoc->paramAdd("knx_group", _("KNX Group address, Ex: x/y/z"), IODoc::TYPE_STRING, true);
 
-    string knx_group = get_param("knx_group");
+    knxBase = new KNXBase(&param, ioDoc);
 
-    //KNXCtrl::Instance(get_param("host"))->readValue(knx_group, KNXValue::EIS_Switch_OnOff);
+    if (get_param("read_at_start") == "true")
+        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr(), KNXValue::EIS_Switch_OnOff);
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &val)
     {
-        if (group_addr != get_param("knx_group")) return;
+        if (group_addr != knxBase->getReadGroupAddr()) return;
         if (val.toBool())
             set_value(string("set_state true"));
         else
             set_value(string("set_state false"));
     });
 
-    cInfoDom("input") << "knx_group: " << knx_group;
+    cInfoDom("input") << "knx_group: " << knxBase->getReadGroupAddr();
 }
 
 KNXOutputLight::~KNXOutputLight()
 {
+    delete knxBase;
 }
 
 bool KNXOutputLight::set_value_real(bool val)

@@ -22,6 +22,7 @@
 #define KNXOUTPUTLIGHT_H
 
 #include "OutputLight.h"
+#include "KNXBase.h"
 
 namespace Calaos {
 
@@ -33,6 +34,8 @@ public:
 
 protected:
     bool set_value_real(bool val);
+
+    KNXBase *knxBase;
 };
 
 }
