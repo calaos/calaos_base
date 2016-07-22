@@ -85,7 +85,7 @@ void WagoProcess::messageReceived(const string &msg)
         if (jsonData["action"] == "read_output_bits")
             offset = 0x200;
 
-        cInfo() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
+        cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
 
         if (!wago->read_bits(address + offset, count, values_bits))
         {
@@ -119,7 +119,7 @@ void WagoProcess::messageReceived(const string &msg)
 
         Utils::from_string(jsonData["address"], address);
 
-        cInfo() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
+        cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
 
         if (!wago->write_single_bit(address, value))
         {
@@ -150,7 +150,7 @@ void WagoProcess::messageReceived(const string &msg)
         uint idx;
         json_t *value;
 
-        cInfo() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
+        cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
@@ -189,7 +189,7 @@ void WagoProcess::messageReceived(const string &msg)
         if (jsonData["action"] == "read_output_words")
             offset = 0x200;
 
-        cInfo() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
+        cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
 
         if (!wago->read_words(address + offset, count, values_words))
         {
@@ -224,7 +224,7 @@ void WagoProcess::messageReceived(const string &msg)
         Utils::from_string(jsonData["address"], address);
         Utils::from_string(jsonData["value"], value);
 
-        cInfo() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
+        cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
 
         if (!wago->write_single_word(address, value))
         {
@@ -255,7 +255,7 @@ void WagoProcess::messageReceived(const string &msg)
         uint idx;
         json_t *value;
 
-        cInfo() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
+        cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
 
         json_array_foreach(json_object_get(jroot, "values"), idx, value)
         {
