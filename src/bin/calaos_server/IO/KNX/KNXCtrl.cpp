@@ -37,10 +37,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "knx", string("--server ") + host);
+        process->startProcess(exe, "knx", string("--server ip:") + host);
     });
 
-    process->startProcess(exe, "knx", string("--server ") + host);
+    process->startProcess(exe, "knx", string("--server ip:") + host);
 
     //Monitor process
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
@@ -51,10 +51,10 @@ KNXCtrl::KNXCtrl(const string host)
     {
         //restart process when stopped
         cWarningDom("process") << "monitor process exited, restarting...";
-        process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
+        process->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
     });
 
-    process->startProcess(exe, "knx", string("--internal-monitor-bus --server ") + host);
+    process->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
 }
 
 KNXCtrl::~KNXCtrl()
