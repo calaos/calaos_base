@@ -42,7 +42,7 @@ WagoCtrl::~WagoCtrl()
     if (mbus)
         mbus_free(mbus);
 
-    cInfoDom("wago") << "WagoCtrl::~WagoCtrl(): Ok";
+    cDebugDom("wago") << "WagoCtrl::~WagoCtrl(): Ok";
 }
 
 bool WagoCtrl::getBit(unsigned char mot, int pos)
@@ -71,7 +71,7 @@ bool WagoCtrl::Connect()
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::Connect(): Ok";
+        cDebugDom("wago") << "WagoCtrl::Connect(): Ok";
         return true;
     }
 }
@@ -79,7 +79,7 @@ bool WagoCtrl::Connect()
 void WagoCtrl::Disconnect()
 {
     mbus_close(mbus);
-    cInfoDom("wago") << "WagoCtrl::Disconnect(): Ok";
+    cDebugDom("wago") << "WagoCtrl::Disconnect(): Ok";
 }
 
 bool WagoCtrl::is_connected()
@@ -111,7 +111,7 @@ bool WagoCtrl::read_bits(UWord address, int nb, vector<bool> &values)
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::read_bits(" << address << "," << nb <<"): Ok";
+        cDebugDom("wago") << "WagoCtrl::read_bits(" << address << "," << nb <<"): Ok";
         return true;
     }
 }
@@ -133,7 +133,7 @@ bool WagoCtrl::write_single_bit(UWord address, bool val)
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::write_single_bit(" << address << ", " << (val?"true":"false") << "): Ok";
+        cDebugDom("wago") << "WagoCtrl::write_single_bit(" << address << ", " << (val?"true":"false") << "): Ok";
         return true;
     }
 }
@@ -172,7 +172,7 @@ bool WagoCtrl::write_multiple_bits(UWord address, int nb, vector<bool> &values)
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::write_multiple_bits(): Ok";
+        cDebugDom("wago") << "WagoCtrl::write_multiple_bits(): Ok";
         return true;
     }
 }
@@ -196,7 +196,7 @@ bool WagoCtrl::read_words(UWord address, int nb, vector<UWord> &values)
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::read_words(): Ok";
+        cDebugDom("wago") << "WagoCtrl::read_words(): Ok";
         return true;
     }
 }
@@ -214,7 +214,7 @@ bool WagoCtrl::write_single_word(UWord address, UWord val)
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::write_single_word(): Ok";
+        cDebugDom("wago") << "WagoCtrl::write_single_word(): Ok";
         return true;
     }
 }
@@ -238,7 +238,7 @@ bool WagoCtrl::write_multiple_words(UWord address, int nb, vector<UWord> &values
     }
     else
     {
-        cInfoDom("wago") << "WagoCtrl::write_multiple_words(): Ok";
+        cDebugDom("wago") << "WagoCtrl::write_multiple_words(): Ok";
         return true;
     }
 }
