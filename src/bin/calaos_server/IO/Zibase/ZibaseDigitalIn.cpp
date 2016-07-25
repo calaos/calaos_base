@@ -63,7 +63,6 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
 
 ZibaseDigitalIn::~ZibaseDigitalIn()
 {
-    cDebugDom("input");
 }
 
 void ZibaseDigitalIn::valueUpdated(ZibaseInfoSensor *sensor)

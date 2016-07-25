@@ -57,8 +57,6 @@ Scenario::Scenario(Params &p):
 Scenario::~Scenario()
 {
     DELETE_NULL(auto_scenario);
-
-    cInfoDom("output") << "Scenario::~Scenario(): Ok";
 }
 
 bool Scenario::set_value(bool val)

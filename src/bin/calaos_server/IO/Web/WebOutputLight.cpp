@@ -77,7 +77,6 @@ WebOutputLight::WebOutputLight(Params &p):
 
 WebOutputLight::~WebOutputLight()
 {
-    cInfoDom("output") << "WebOutputLight::~WebOutputLight()";
 }
 
 

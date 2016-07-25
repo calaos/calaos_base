@@ -71,7 +71,6 @@ WebOutputLightRGB::WebOutputLightRGB(Params &p):
 
 WebOutputLightRGB::~WebOutputLightRGB()
 {
-    cInfoDom("output") << "WebOutputLightRGB::~WebOutputLightRGB()";
 }
 
 

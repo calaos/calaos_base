@@ -59,7 +59,6 @@ GpioInputSwitchLongPress::GpioInputSwitchLongPress(Params &p):
 
 GpioInputSwitchLongPress::~GpioInputSwitchLongPress()
 {
-    cDebugDom("input");
     delete gpioctrl;
 }
 

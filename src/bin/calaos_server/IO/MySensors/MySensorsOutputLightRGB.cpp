@@ -67,7 +67,6 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
 
 MySensorsOutputLightRGB::~MySensorsOutputLightRGB()
 {
-    cInfoDom("output");
 }
 
 void MySensorsOutputLightRGB::setColorReal(const ColorValue &c, bool s)

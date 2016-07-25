@@ -59,7 +59,6 @@ InputTime::InputTime(Params &p):
 
 InputTime::~InputTime()
 {
-    cDebugDom("input");
 }
 
 void InputTime::hasChanged()

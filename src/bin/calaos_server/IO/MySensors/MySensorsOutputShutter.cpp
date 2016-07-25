@@ -61,7 +61,6 @@ MySensorsOutputShutter::MySensorsOutputShutter(Params &p):
 
 MySensorsOutputShutter::~MySensorsOutputShutter()
 {
-    cDebugDom("output");
 }
 
 void MySensorsOutputShutter::setOutputUp(bool enable)

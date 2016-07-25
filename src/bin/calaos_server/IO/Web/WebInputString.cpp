@@ -75,7 +75,6 @@ WebInputString::WebInputString(Params &p):
 WebInputString::~WebInputString()
 {
     WebCtrl::Instance(get_params()).Del(get_param("path"));
-    cInfoDom("input") << "WebInputString::~WebInputString()";
 }
 
 

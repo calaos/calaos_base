@@ -58,7 +58,6 @@ AVRMarantz::AVRMarantz(Params &p):
 
 AVRMarantz::~AVRMarantz()
 {
-    cInfoDom("output");
 }
 
 void AVRMarantz::connectionEstablished()

@@ -50,7 +50,6 @@ AVROnkyo::AVROnkyo(Params &p):
 
 AVROnkyo::~AVROnkyo()
 {
-    cInfoDom("output") << "AVROnkyo::~AVROnkyo(): Ok";
 }
 
 void AVROnkyo::connectionEstablished()

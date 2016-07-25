@@ -68,7 +68,6 @@ ZibaseAnalogIn::ZibaseAnalogIn(Params &p):
 
 ZibaseAnalogIn::~ZibaseAnalogIn()
 {
-    cDebugDom("input");
 }
 
 void ZibaseAnalogIn::valueUpdated(ZibaseInfoSensor *sensor)

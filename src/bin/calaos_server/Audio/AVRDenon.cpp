@@ -56,7 +56,6 @@ AVRDenon::AVRDenon(Params &p):
 
 AVRDenon::~AVRDenon()
 {
-    cInfoDom("output");
 }
 
 void AVRDenon::connectionEstablished()

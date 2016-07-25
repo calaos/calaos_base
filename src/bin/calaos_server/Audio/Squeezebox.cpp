@@ -183,8 +183,6 @@ Squeezebox::~Squeezebox()
     ecore_event_handler_del(ehandler_data);
 
     delete database;
-
-    cDebugDom("squeezebox");
 }
 
 void Squeezebox::timerNotificationReconnect()

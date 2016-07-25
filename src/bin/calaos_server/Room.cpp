@@ -39,8 +39,6 @@ Room::~Room()
         ListeRoom::Instance().deleteIO(ios[0]);
 
     ios.clear();
-
-    cDebugDom("room");
 }
 
 void Room::AddIO(IOBase *io)
@@ -61,8 +59,6 @@ void Room::RemoveIO(int pos, bool del)
     for (int i = 0;i < pos;iter++, i++) ;
     if (del) delete ios[pos];
     ios.erase(iter);
-
-    cDebugDom("room");
 }
 
 void Room::RemoveIOFromRoom(IOBase *io)

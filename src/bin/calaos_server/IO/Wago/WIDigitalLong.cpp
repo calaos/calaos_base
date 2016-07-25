@@ -54,7 +54,6 @@ WIDigitalLong::WIDigitalLong(Params &p):
 WIDigitalLong::~WIDigitalLong()
 {
     iter->disconnect();
-    cDebugDom("input");
 }
 
 void WIDigitalLong::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)

@@ -57,6 +57,7 @@ libcalaos_common_la_SOURCES = \
         EcoreFdHandler.h                        \
         EcoreTimer.cpp                          \
         EcoreTimer.h                            \
+        EinaLog.cpp                             \
         EinaLog.h                               \
         FileDownloader.cpp                      \
         FileDownloader.h                        \

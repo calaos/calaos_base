@@ -31,7 +31,6 @@ ConditionStd::ConditionStd():
 
 ConditionStd::~ConditionStd()
 {
-    cDebugDom("rule.condition.standard");
 }
 
 void ConditionStd::Add(IOBase *in)

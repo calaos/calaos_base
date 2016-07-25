@@ -75,7 +75,6 @@ WebInputAnalog::WebInputAnalog(Params &p):
 WebInputAnalog::~WebInputAnalog()
 {
     WebCtrl::Instance(get_params()).Del(get_param("path"));
-    cInfoDom("input") << "WebInputAnalog::~WebInputAnalog()";
 }
 
 

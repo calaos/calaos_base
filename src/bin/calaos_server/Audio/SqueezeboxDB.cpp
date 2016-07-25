@@ -32,7 +32,6 @@ SqueezeboxDB::SqueezeboxDB(Squeezebox *squeezebox, Params &p):
 
 SqueezeboxDB::~SqueezeboxDB()
 {
-    cDebugDom("squeezebox");
 }
 
 void SqueezeboxDB::getAlbums(AudioRequest_cb callback, int from, int nb, AudioPlayerData user_data)

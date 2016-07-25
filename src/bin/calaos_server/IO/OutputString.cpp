@@ -36,7 +36,6 @@ OutputString::OutputString(Params &p):
 
 OutputString::~OutputString()
 {
-    cInfoDom("output");
 }
 
 void OutputString::readConfig()

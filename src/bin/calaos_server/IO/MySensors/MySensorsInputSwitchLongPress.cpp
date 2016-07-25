@@ -57,7 +57,6 @@ MySensorsInputSwitchLongPress::MySensorsInputSwitchLongPress(Params &p):
 
 MySensorsInputSwitchLongPress::~MySensorsInputSwitchLongPress()
 {
-    cDebugDom("input");
 }
 
 bool MySensorsInputSwitchLongPress::readValue()

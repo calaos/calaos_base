@@ -28,7 +28,6 @@ using namespace Calaos;
 
 ActionStd::~ActionStd()
 {
-    cDebugDom("rule.action.standard");
 }
 
 void ActionStd::Add(IOBase *out)

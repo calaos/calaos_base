@@ -60,7 +60,6 @@ WOAnalog::WOAnalog(Params &p):
 
 WOAnalog::~WOAnalog()
 {
-    cDebugDom("output");
 }
 
 void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)

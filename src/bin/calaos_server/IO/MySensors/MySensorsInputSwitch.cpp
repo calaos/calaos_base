@@ -57,7 +57,6 @@ MySensorsInputSwitch::MySensorsInputSwitch(Params &p):
 
 MySensorsInputSwitch::~MySensorsInputSwitch()
 {
-    cDebugDom("input");
 }
 
 bool MySensorsInputSwitch::readValue()

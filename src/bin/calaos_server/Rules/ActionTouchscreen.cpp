@@ -41,8 +41,6 @@ ActionTouchscreen::ActionTouchscreen(string _action): Action(ACTION_TOUCHSCREEN)
 ActionTouchscreen::~ActionTouchscreen()
 {
     ecore_con_server_del(econ);
-
-    cDebugDom("rule.action.touchscreen");
 }
 
 bool ActionTouchscreen::Execute()

@@ -55,7 +55,6 @@ ZibaseTemp::ZibaseTemp(Params &p):
 
 ZibaseTemp::~ZibaseTemp()
 {
-    cDebugDom("input");
 }
 
 void ZibaseTemp::valueUpdated(ZibaseInfoSensor *sensor)

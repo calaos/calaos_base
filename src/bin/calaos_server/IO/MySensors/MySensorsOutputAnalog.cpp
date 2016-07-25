@@ -55,7 +55,6 @@ MySensorsOutputAnalog::MySensorsOutputAnalog(Params &p):
 
 MySensorsOutputAnalog::~MySensorsOutputAnalog()
 {
-    cInfoDom("output");
 }
 
 void MySensorsOutputAnalog::set_value_real(double val)

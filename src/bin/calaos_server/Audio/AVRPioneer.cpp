@@ -55,7 +55,6 @@ AVRPioneer::AVRPioneer(Params &p):
 
 AVRPioneer::~AVRPioneer()
 {
-    cInfoDom("output");
 }
 
 void AVRPioneer::connectionEstablished()

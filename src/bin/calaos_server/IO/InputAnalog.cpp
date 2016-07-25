@@ -65,7 +65,6 @@ InputAnalog::InputAnalog(Params &p):
 
 InputAnalog::~InputAnalog()
 {
-    cInfoDom("input");
 }
 
 void InputAnalog::readConfig()

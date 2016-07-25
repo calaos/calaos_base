@@ -35,8 +35,6 @@ ListeRule::~ListeRule()
         delete rules[i];
 
     rules.clear();
-
-    cDebugDom("rule");
 }
 
 void ListeRule::Add(Rule *r)

@@ -87,7 +87,6 @@ Internal::Internal(Params &p):
 
 Internal::~Internal()
 {
-    cInfoDom("output");
 }
 
 bool Internal::set_value(bool val)

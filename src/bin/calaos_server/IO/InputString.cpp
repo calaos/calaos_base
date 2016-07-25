@@ -37,7 +37,6 @@ InputString::InputString(Params &p):
 
 InputString::~InputString()
 {
-    cInfoDom("input");
 }
 
 void InputString::emitChange()

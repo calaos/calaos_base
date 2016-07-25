@@ -29,7 +29,6 @@ ActionScript::ActionScript(): Action(ACTION_SCRIPT)
 
 ActionScript::~ActionScript()
 {
-    cDebugDom("rule.action.script");
 }
 
 bool ActionScript::Execute()

@@ -55,7 +55,6 @@ X10Output::X10Output(Params &p):
 
 X10Output::~X10Output()
 {
-    cDebugDom("output");
 }
 
 bool X10Output::set_on_real()

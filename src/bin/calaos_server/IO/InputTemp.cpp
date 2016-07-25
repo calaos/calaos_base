@@ -94,7 +94,6 @@ InputTemp::InputTemp(Params &p):
 
 InputTemp::~InputTemp()
 {
-    cInfoDom("input");
 }
 
 void InputTemp::hasChanged()

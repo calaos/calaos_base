@@ -60,7 +60,6 @@ GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
 
 GpioInputSwitchTriple::~GpioInputSwitchTriple()
 {
-    cDebugDom("input");
     delete gpioctrl;
 }
 

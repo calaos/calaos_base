@@ -59,7 +59,6 @@ WITemp::WITemp(Params &p):
 
 WITemp::~WITemp()
 {
-    cDebugDom("input") << get_param("id") << ": Ok";
 }
 
 void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)

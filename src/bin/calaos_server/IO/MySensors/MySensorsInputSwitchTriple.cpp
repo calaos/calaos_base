@@ -57,7 +57,6 @@ MySensorsInputSwitchTriple::MySensorsInputSwitchTriple(Params &p):
 
 MySensorsInputSwitchTriple::~MySensorsInputSwitchTriple()
 {
-    cDebugDom("input");
 }
 
 bool MySensorsInputSwitchTriple::readValue()

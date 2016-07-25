@@ -141,8 +141,6 @@ ExternProcServer::ExternProcServer(string pathprefix)
 
 ExternProcServer::~ExternProcServer()
 {
-    cDebugDom("process") << "~ExternProcServer()";
-
     ecore_event_handler_del(hAdd);
     ecore_event_handler_del(hData);
     ecore_event_handler_del(hDel);

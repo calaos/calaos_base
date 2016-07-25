@@ -67,7 +67,6 @@ MySensorsInputString::MySensorsInputString(Params &p):
 
 MySensorsInputString::~MySensorsInputString()
 {
-    cInfoDom("input");
 }
 
 void MySensorsInputString::readValue()

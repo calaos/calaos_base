@@ -46,7 +46,6 @@ WebSocket::~WebSocket()
 {
     delete closeTimeout;
     delete timerPing;
-    cDebugDom("websocket") << this;
 }
 
 void WebSocket::ProcessData(string data)

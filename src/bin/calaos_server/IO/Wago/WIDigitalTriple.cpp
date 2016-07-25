@@ -54,7 +54,6 @@ WIDigitalTriple::WIDigitalTriple(Params &p):
 WIDigitalTriple::~WIDigitalTriple()
 {
     iter->disconnect();
-    cDebugDom("input");
 }
 
 void WIDigitalTriple::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)

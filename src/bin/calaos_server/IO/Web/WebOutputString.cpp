@@ -76,7 +76,6 @@ WebOutputString::WebOutputString(Params &p):
 
 WebOutputString::~WebOutputString()
 {
-    cInfoDom("output") << "WebOutputString::~WebOutputString()";
 }
 
 

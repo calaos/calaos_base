@@ -29,7 +29,6 @@ Condition::Condition(int type): condition_type(type)
 
 Condition::~Condition()
 {
-    cDebugDom("rule.condition");
 }
 
 bool Condition::Evaluate()

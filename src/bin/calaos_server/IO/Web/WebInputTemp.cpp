@@ -75,7 +75,6 @@ WebInputTemp::WebInputTemp(Params &p):
 WebInputTemp::~WebInputTemp()
 {
     WebCtrl::Instance(get_params()).Del(get_param("path"));
-    cInfoDom("input") << "WebInputTemp::~WebInputTemp()";
 }
 
 void WebInputTemp::readValue()

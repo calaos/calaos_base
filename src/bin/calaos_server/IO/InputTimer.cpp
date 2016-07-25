@@ -62,7 +62,6 @@ InputTimer::InputTimer(Params &p):
 
 InputTimer::~InputTimer()
 {
-    cDebugDom("input");
 }
 
 bool InputTimer::set_value(string command)

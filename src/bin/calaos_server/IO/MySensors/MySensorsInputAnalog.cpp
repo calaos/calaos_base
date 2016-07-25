@@ -56,7 +56,6 @@ MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
 
 MySensorsInputAnalog::~MySensorsInputAnalog()
 {
-    cInfoDom("input");
 }
 
 void MySensorsInputAnalog::readValue()

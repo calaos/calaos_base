@@ -69,7 +69,6 @@ WIDigitalBP::WIDigitalBP(Params &p):
 WIDigitalBP::~WIDigitalBP()
 {
     iter->disconnect();
-    cDebugDom("input");
 }
 
 void WIDigitalBP::ReceiveFromWago(std::string ip, int addr, bool val, std::string intype)

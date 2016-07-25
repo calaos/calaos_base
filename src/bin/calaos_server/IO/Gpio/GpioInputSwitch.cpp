@@ -62,7 +62,6 @@ GpioInputSwitch::GpioInputSwitch(Params &p):
 
 GpioInputSwitch::~GpioInputSwitch()
 {
-    cDebugDom("input");
     delete gpioctrl;
 }
 

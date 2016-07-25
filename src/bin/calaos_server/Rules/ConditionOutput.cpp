@@ -31,7 +31,6 @@ ConditionOutput::ConditionOutput():
 
 ConditionOutput::~ConditionOutput()
 {
-    cDebugDom("rule.condition.output") <<  "Ok";
 }
 
 bool ConditionOutput::Evaluate()

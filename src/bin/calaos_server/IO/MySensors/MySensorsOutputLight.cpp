@@ -56,7 +56,6 @@ MySensorsOutputLight::MySensorsOutputLight(Params &p):
 
 MySensorsOutputLight::~MySensorsOutputLight()
 {
-    cInfoDom("output") << "MySensorsOutputLight::~MySensorsOutputLight()";
 }
 
 void MySensorsOutputLight::readValue()

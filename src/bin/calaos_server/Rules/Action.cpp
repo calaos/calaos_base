@@ -29,7 +29,6 @@ Action::Action(int type): action_type(type)
 
 Action::~Action()
 {
-    cDebugDom("rule.action");
 }
 
 bool Action::Execute()

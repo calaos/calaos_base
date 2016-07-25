@@ -118,18 +118,13 @@ ZibaseDigitalOut::ZibaseDigitalOut(Params &p):
         /* read variable to know output state*/
         Zibase::Instance(host, port).rw_variable(prot);
 
-        //Utils::logger("output") << Priority::DEBUG << "ZibaseDigitalOut::ZibaseDigitalOut(" << get_param("id") << "): Ok" << log4cpp::eol;
         cDebugDom("output") << get_param("id");
-
     }
-    //else Utils::logger("output") << Priority::DEBUG << "ZibaseDigitalOut::ZibaseDigitalOut(" << get_param("id") << "): NOK" << log4cpp::eol;
 }
 
 ZibaseDigitalOut::~ZibaseDigitalOut()
 {
     if(prot) delete(prot);
-    //Utils::logger("output") << Priority::DEBUG << "ZibaseDigitalOut::~ZibaseDigitalOut(): Ok" << log4cpp::eol;
-    cDebugDom("output");
 }
 
 void ZibaseDigitalOut::valueUpdated(ZibaseInfoSensor *sensor)

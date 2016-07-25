@@ -55,7 +55,6 @@ MySensorsOutputDimmer::MySensorsOutputDimmer(Params &_p):
 
 MySensorsOutputDimmer::~MySensorsOutputDimmer()
 {
-    cDebugDom("output");
 }
 
 bool MySensorsOutputDimmer::set_value_real(int val)

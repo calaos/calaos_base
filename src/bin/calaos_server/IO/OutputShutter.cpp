@@ -61,8 +61,6 @@ OutputShutter::~OutputShutter()
     if (timer_impulse) delete timer_impulse;
     if (timer_up) delete timer_up;
     if (timer_down) delete timer_down;
-
-    cInfoDom("output") << "OutputShutter::~OutputShutter(): Ok";
 }
 
 bool OutputShutter::set_value(std::string val)

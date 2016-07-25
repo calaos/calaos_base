@@ -53,8 +53,6 @@ HttpServer::~HttpServer()
     ecore_event_handler_del(event_handler_client_del);
     ecore_event_handler_del(event_handler_data_get);
     ecore_event_handler_del(event_handler_client_write);
-
-    cDebugDom("network");
 }
 
 Eina_Bool _ecore_con_handler_client_add(void *data, int type, Ecore_Con_Event_Client_Add *ev)

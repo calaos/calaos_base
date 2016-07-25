@@ -67,18 +67,16 @@ int main (int argc, char **argv)
     ecore_init();
     ecore_con_init();
 
-    vector<Params> params;
-    Params p;
-    p.Add("test", "valeur");
-    params.push_back(p);
-
-    for (auto p2 : params)
-    {
-        cout << p2.size() << endl;
-    }
-
-
-    cout << "Calaos Server Daemon - http://www.calaos.fr" << endl;
+    cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
+    cout <<    " ║                                               ║" << endl;
+    cout <<    " ║  Calaos Server Daemon - http://www.calaos.fr  ║" << endl;
+    string v = " ║                                               ║";
+    string vers;
+    vers += PACKAGE_VERSION;
+    v.replace(8, vers.size(), vers);
+    cout << v << endl;
+    cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
+    cout << endl;
 
     Prefix::Instance(argc, argv);
 

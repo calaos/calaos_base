@@ -70,25 +70,7 @@ public:
         logData(new LogData(d, f, fn, ln, l))
     {}
 
-    ~LogStream()
-    {
-        if (logData->domain == -1 &&
-            logData->level == EINA_LOG_LEVEL_UNKNOWN)
-            std::cout << logData->file << ":" << logData->line << " "
-                      << logData->function << ": "
-                      << logData->stream.str()
-                      << std::endl;
-        else
-            eina_log_print(logData->domain,
-                           logData->level,
-                           logData->file.c_str(),
-                           logData->function.c_str(),
-                           logData->line,
-                           "%s",
-                           logData->stream.str().c_str());
-
-        delete logData;
-    }
+    ~LogStream();
 };
 
 class EinaLog

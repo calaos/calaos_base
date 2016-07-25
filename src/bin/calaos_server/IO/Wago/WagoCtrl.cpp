@@ -41,8 +41,6 @@ WagoCtrl::~WagoCtrl()
         Disconnect();
     if (mbus)
         mbus_free(mbus);
-
-    cDebugDom("wago") << "WagoCtrl::~WagoCtrl(): Ok";
 }
 
 bool WagoCtrl::getBit(unsigned char mot, int pos)

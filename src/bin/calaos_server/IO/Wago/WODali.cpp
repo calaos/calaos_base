@@ -64,7 +64,6 @@ WODali::WODali(Params &_p):
 
 WODali::~WODali()
 {
-    cDebugDom("output");
 }
 
 bool WODali::set_value_real(int val)

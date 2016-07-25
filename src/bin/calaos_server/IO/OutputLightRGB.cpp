@@ -55,7 +55,6 @@ OutputLightRGB::OutputLightRGB(Params &p):
 
 OutputLightRGB::~OutputLightRGB()
 {
-    cInfoDom("output") << "OutputLightRGB::~OutputLightRGB(): Ok";
 }
 
 /* List of actions where value is in percent

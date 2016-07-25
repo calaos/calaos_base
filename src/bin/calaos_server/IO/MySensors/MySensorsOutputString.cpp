@@ -55,7 +55,6 @@ MySensorsOutputString::MySensorsOutputString(Params &p):
 
 MySensorsOutputString::~MySensorsOutputString()
 {
-    cInfoDom("output");
 }
 
 void MySensorsOutputString::set_value_real(string val)

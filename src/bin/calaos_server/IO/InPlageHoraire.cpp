@@ -52,7 +52,6 @@ InPlageHoraire::InPlageHoraire(Params &p):
 
 InPlageHoraire::~InPlageHoraire()
 {
-    cDebugDom("input");
 }
 
 void InPlageHoraire::clear()

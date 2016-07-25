@@ -72,7 +72,6 @@ WODigital::WODigital(Params &p):
 
 WODigital::~WODigital()
 {
-    cDebugDom("output");
 }
 
 void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)

@@ -116,8 +116,6 @@ AVReceiver::~AVReceiver()
     DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
     DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
     DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
-
-    cDebugDom("output");
 }
 
 void AVReceiver::timerConnReconnect()

@@ -31,7 +31,6 @@ ConditionScript::ConditionScript():
 
 ConditionScript::~ConditionScript()
 {
-    cDebugDom("rule.condition.script");
 }
 
 bool ConditionScript::Evaluate()

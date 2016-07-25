@@ -34,7 +34,6 @@ ActionMail::ActionMail():
 
 ActionMail::~ActionMail()
 {
-    cDebugDom("rule.action.mail");
 }
 
 bool ActionMail::Execute()

@@ -31,7 +31,6 @@ ConditionStart::ConditionStart():
 
 ConditionStart::~ConditionStart()
 {
-    cDebugDom("rule.condition.start") <<  "Ok";
 }
 
 bool ConditionStart::Evaluate()

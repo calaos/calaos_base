@@ -82,7 +82,6 @@ WODaliRVB::WODaliRVB(Params &_p):
 
 WODaliRVB::~WODaliRVB()
 {
-    cDebugDom("output");
 }
 
 void WODaliRVB::WagoUDPCommandRed_cb(bool status, string command, string result)

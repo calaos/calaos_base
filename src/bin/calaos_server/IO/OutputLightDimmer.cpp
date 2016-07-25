@@ -63,7 +63,6 @@ OutputLightDimmer::~OutputLightDimmer()
 {
     DELETE_NULL(hold_timer);
     DELETE_NULL(impulseTimer);
-    cInfoDom("output");
 }
 
 /* List of actions where value is in percent

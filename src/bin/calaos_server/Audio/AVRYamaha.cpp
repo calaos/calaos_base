@@ -61,7 +61,6 @@ AVRYamaha::AVRYamaha(Params &p):
 
 AVRYamaha::~AVRYamaha()
 {
-    cInfoDom("output");
 }
 
 void AVRYamaha::connectionEstablished()

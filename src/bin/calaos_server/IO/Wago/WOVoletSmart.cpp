@@ -51,7 +51,6 @@ WOVoletSmart::WOVoletSmart(Params &p):
 
 WOVoletSmart::~WOVoletSmart()
 {
-    cDebugDom("output");
 }
 
 void WOVoletSmart::readConfig()

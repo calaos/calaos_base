@@ -42,8 +42,6 @@ PollObject::~PollObject()
         delete timeout;
         timeout = NULL;
     }
-
-    cDebugDom("poll_listener") << "Cleaning object " << uuid;
 }
 
 void PollObject::handleEvents(const CalaosEvent &ev)

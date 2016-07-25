@@ -54,7 +54,6 @@ OutputAnalog::OutputAnalog(Params &p):
 
 OutputAnalog::~OutputAnalog()
 {
-    cInfoDom("output") << "OutputAnalog::~OutputAnalog(): Ok";
 }
 
 void OutputAnalog::readConfig()

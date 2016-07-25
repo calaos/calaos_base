@@ -51,7 +51,6 @@ WOVolet::WOVolet(Params &p):
 
 WOVolet::~WOVolet()
 {
-    cDebugDom("output");
 }
 
 void WOVolet::readConfig()

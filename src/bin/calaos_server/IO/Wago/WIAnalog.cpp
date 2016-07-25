@@ -63,7 +63,6 @@ WIAnalog::WIAnalog(Params &p):
 
 WIAnalog::~WIAnalog()
 {
-    cDebugDom("input");
 }
 
 void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)

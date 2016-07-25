@@ -152,8 +152,6 @@ HttpClient::~HttpClient()
     delete jsonApi;
     free(parser);
     CloseConnection();
-
-    cDebugDom("network") << this;
 }
 
 int HttpClient::processHeaders(const string &request)

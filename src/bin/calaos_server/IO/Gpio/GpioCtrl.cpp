@@ -126,7 +126,7 @@ bool GpioCtrl::getVal(bool &value)
         return false;
     }
 
-    cInfo() << "Read value : " << strval;
+    cDebugDom() << "Read value : " << strval;
     if (strval == "1")
         value = true;
     else
@@ -172,7 +172,7 @@ void GpioCtrl::emitChange(void)
 
     if (debounce)
     {
-        cInfoDom("input") << "debouncing....";
+        cDebugDom("input") << "debouncing....";
         return;
     }
     else
@@ -180,7 +180,7 @@ void GpioCtrl::emitChange(void)
         debounce = true;
 
         EcoreTimer::singleShot(0.05, [=](){
-            cInfoDom("input") << "Debounce finished";
+            cDebugDom("input") << "Debounce finished";
             debounce = false;
             event_signal.emit();
         });

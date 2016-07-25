@@ -56,7 +56,6 @@ MySensorsInputTemp::MySensorsInputTemp(Params &p):
 
 MySensorsInputTemp::~MySensorsInputTemp()
 {
-    cInfoDom("input");
 }
 
 void MySensorsInputTemp::readValue()

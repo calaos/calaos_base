@@ -40,8 +40,6 @@ Rule::~Rule()
 
     for (uint i = 0;i < actions.size();i++)
         delete actions[i];
-
-    cDebugDom("rule");
 }
 
 void Rule::AddCondition(Condition *cond)

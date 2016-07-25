@@ -40,7 +40,6 @@ OutputFake::OutputFake(Params &p):
 
 OutputFake::~OutputFake()
 {
-    cInfoDom("output") << "OutputFake::~OutputFake(): Ok";
 }
 
 bool OutputFake::set_value(bool val)
