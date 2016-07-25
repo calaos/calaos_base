@@ -45,9 +45,12 @@ KNXOutputLightRGB::KNXOutputLightRGB(Params &p):
 
     if (get_param("read_at_start") == "true")
     {
-        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_red"));
-        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_green"));
-        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_blue"));
+        EcoreTimer::singleShot(1.5, [=]()
+        {
+            KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_red"));
+            KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_green"));
+            KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr("knx_group_blue"));
+        });
     }
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &v)

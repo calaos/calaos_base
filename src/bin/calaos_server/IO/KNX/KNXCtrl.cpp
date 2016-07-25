@@ -43,23 +43,22 @@ KNXCtrl::KNXCtrl(const string host)
     process->startProcess(exe, "knx", string("--server ip:") + host);
 
     //Monitor process
-    exe = Prefix::Instance().binDirectoryGet() + "/calaos_knx";
+    processMonitor->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
 
-    process->messageReceived.connect(sigc::mem_fun(*this, &KNXCtrl::processNewMessage));
-
-    process->processExited.connect([=]()
+    processMonitor->processExited.connect([=]()
     {
         //restart process when stopped
         cWarningDom("process") << "monitor process exited, restarting...";
-        process->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
+        processMonitor->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
     });
 
-    process->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
+    processMonitor->startProcess(exe, "knx", string("--internal-monitor-bus --server ip:") + host);
 }
 
 KNXCtrl::~KNXCtrl()
 {
     delete process;
+    delete processMonitor;
 }
 
 shared_ptr<KNXCtrl> KNXCtrl::Instance(const string &host)
@@ -256,7 +255,8 @@ void KNXCtrl::processNewMessage(const string &msg)
 
     if (mtype == "event")
     {
-        string knxtype = jansson_string_get(jroot, "type");
+        cDebugDom("knx") << "Received event: " << msg;
+        string knxtype = jansson_string_get(jroot, "knx_type");
         if (knxtype != "read") //Do not emit signal for read commands
         {
             string group_addr = jansson_string_get(jroot, "group_addr");

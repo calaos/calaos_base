@@ -23,6 +23,7 @@
 
 #include "KNXCtrl.h"
 #include "IODoc.h"
+#include "EcoreTimer.h"
 
 namespace Calaos
 {

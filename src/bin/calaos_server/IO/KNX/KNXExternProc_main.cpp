@@ -191,7 +191,7 @@ void KNXProcess::connectKnxd()
         return;
     }
 
-    if (EIBOpen_GroupSocket(eibsock, 0) != -1)
+    if (EIBOpen_GroupSocket(eibsock, 0) == -1)
     {
         cError() << "Failed to open group socket.";
         return;
@@ -261,7 +261,7 @@ bool KNXProcess::monitorWait()
 
     Params p = {{"type", "event"},
                 {"group_addr", knxGroupAddr(dest)},
-                {"type", type}};
+                {"knx_type", type}};
     json_t *j = p.toJson();
     if (printValue)
         json_object_set_new(j, "value", v.toJson());
@@ -297,7 +297,10 @@ void KNXProcess::sendReadKnxCommand(const string &group_addr)
     std::unique_ptr<KnxdObj> eibobj (new KnxdObj());
 
     if (!eibobj->open(eibserver))
+    {
+        cError() << "Failed to connect to " << eibserver;
         return;
+    }
 
     eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
 
@@ -308,7 +311,7 @@ void KNXProcess::sendReadKnxCommand(const string &group_addr)
     }
 
     uint8_t buf[2] = { 0, 0 };
-    int len = EIBSendAPDU(eibsock, 2, buf);
+    int len = EIBSendAPDU(eibobj->sock, 2, buf);
 
     if (len < 0)
         cError() << "Failed to send READ command";

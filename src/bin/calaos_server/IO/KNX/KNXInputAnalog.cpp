@@ -36,7 +36,12 @@ KNXInputAnalog::KNXInputAnalog(Params &p):
     knxBase = new KNXBase(&param, ioDoc);
 
     if (get_param("read_at_start") == "true")
-        KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
+    {
+        EcoreTimer::singleShot(1.5, [=]()
+        {
+            KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
+        });
+    }
 
     KNXCtrl::Instance(get_param("host"))->valueChanged.connect([=](const string group_addr, const KNXValue &)
     {
