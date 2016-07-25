@@ -24,6 +24,15 @@
 #include "JsonApi.h"
 #include "EventManager.h"
 
+enum
+{
+    ProcessNone = 0,
+    ProcessStarted = 1,
+    ProcessFinished = 2,
+    ProcessExited = 3,
+};
+static unordered_map<ExternProcServer *, int> processStatus;
+
 ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
 {
     ExternProcServer *process = new ExternProcServer("lua");
@@ -32,8 +41,14 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
     JsonApi *jsonApi = new JsonApi();
     sigc::connection *evcon = new sigc::connection;
 
+    processStatus[process] = ProcessNone;
+
     process->messageReceived.connect([=](const string &msg)
     {
+        if (processStatus.find(process) == processStatus.end() ||
+            processStatus[process] != ProcessStarted)
+            return;
+
         cDebug() << "Message received for process:" << process;
         json_error_t jerr;
         json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
@@ -53,6 +68,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             cInfoDom("lua") << "LUA script finished.";
             process->terminate();
             string ret = jansson_string_get(jroot, "return_val", "false");
+            processStatus[process] = ProcessFinished;
             cb(ret == "true"); //process finished, call callback, process will be deleted later
         }
         else if (mtype == "set_state")
@@ -78,12 +94,24 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         cInfoDom("lua") << "LUA process terminated. (" << process << ")";
         evcon->disconnect();
         delete evcon;
-        EcoreIdler::singleIdler([=]() { delete jsonApi; delete process; });
+
+        if (processStatus[process] != ProcessFinished) //the callback was never called, force the call here
+            cb(false);
+        processStatus[process] = ProcessNone;
+
+        EcoreIdler::singleIdler([=]()
+        {
+            delete jsonApi;
+            delete process;
+            processStatus.erase(process);
+        });
     });
 
     //when process is connected, send the script to be executed
     process->processConnected.connect([=]()
     {
+        processStatus[process] = ProcessStarted;
+
         cDebug() << "Process connected. process:" << process;
         Params p = {{ "msg", "execute" },
                     { "script", script } };
