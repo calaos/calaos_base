@@ -18,8 +18,8 @@
 //
 //   see the file "AUTHORS" for contact information.
 
-#ifndef _TCPSOCKET_H
-#define _TCPSOCKET_H
+#ifndef TCPSOCKET_H
+#define TCPSOCKET_H
 
 #include <arpa/inet.h>
 #include <sys/socket.h>

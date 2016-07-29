@@ -126,6 +126,9 @@ protected:
     EcoreTimer *udp_timeout_timer;
     Ecore_Con_Server *econ;
     Ecore_Event_Handler *event_handler_data_get;
+    Ecore_Event_Handler *event_handler_error;
+
+    void createUdpSocket();
 
     void processNewMessage(const string &msg);
 
@@ -169,6 +172,7 @@ public:
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);
+    void udpProcessError(Ecore_Con_Server *srv);
 
     sigc::signal<void> onWagoConnected;
     sigc::signal<void> onWagoDisconnected;

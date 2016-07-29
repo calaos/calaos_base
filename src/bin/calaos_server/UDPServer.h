@@ -33,9 +33,11 @@ protected:
 
     Ecore_Con_Server *udp_server;
     Ecore_Event_Handler *event_handler_data_get;
+    Ecore_Event_Handler *event_handler_error;
 
     Ecore_Con_Server *udp_broadcast, *udp_sender;
 
+    void createUdpSocket();
 
 public:
     UDPServer(int port); //port to listen
@@ -43,6 +45,7 @@ public:
 
     /* Internal stuff used by ecore-con */
     void ProcessRequest(Ecore_Con_Client *client, string request);
+    void ProcessError(Ecore_Con_Server *srv);
 };
 
 #endif

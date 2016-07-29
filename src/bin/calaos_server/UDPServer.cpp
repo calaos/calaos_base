@@ -23,16 +23,17 @@
 using namespace Calaos;
 
 static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev);
+static Eina_Bool _ecore_con_handler_error(void *data, int type, Ecore_Con_Event_Server_Error *ev);
 
 UDPServer::UDPServer(int p):
     port(p),
     udp_broadcast(NULL),
     udp_sender(NULL)
 {
-    udp_server = ecore_con_server_add((Ecore_Con_Type)(ECORE_CON_REMOTE_UDP), "0.0.0.0", port, this);
-    ecore_con_server_data_set(udp_server, this);
+    createUdpSocket();
 
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
+    event_handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_ecore_con_handler_error, this);
 
     cDebugDom("network") << "Starting UDP server...";
     cDebugDom("network") << "Listenning on port " << port;
@@ -41,23 +42,25 @@ UDPServer::UDPServer(int p):
 UDPServer::~UDPServer()
 {
     if (udp_broadcast)
-    {
         ecore_con_server_del(udp_broadcast);
-        udp_broadcast = NULL;
-    }
 
     if (udp_sender)
-    {
         ecore_con_server_del(udp_sender);
-        udp_sender = NULL;
-    }
 
-    ecore_con_server_del(udp_server);
-    udp_server = NULL;
+    if (udp_server)
+        ecore_con_server_del(udp_server);
 
     ecore_event_handler_del(event_handler_data_get);
+    ecore_event_handler_del(event_handler_error);
+}
 
-    cDebugDom("network");
+void UDPServer::createUdpSocket()
+{
+    if (!udp_server)
+    {
+        udp_server = ecore_con_server_add((Ecore_Con_Type)(ECORE_CON_REMOTE_UDP), "0.0.0.0", port, this);
+        ecore_con_server_data_set(udp_server, this);
+    }
 }
 
 Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Client_Data *ev)
@@ -78,6 +81,23 @@ Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Clie
     else
     {
         cCriticalDom("network")  << "failed to get UDPServer object !" ;
+    }
+
+    return ECORE_CALLBACK_RENEW;
+}
+
+Eina_Bool _ecore_con_handler_error(void *data, int type, Ecore_Con_Event_Server_Error *ev)
+{
+    UDPServer *udpserver = reinterpret_cast<UDPServer *>(data);
+
+    if (ev && (udpserver != ecore_con_server_data_get(ev->server)))
+    {
+        return ECORE_CALLBACK_PASS_ON;
+    }
+
+    if (udpserver)
+    {
+        udpserver->ProcessError(ev->server);
     }
 
     return ECORE_CALLBACK_RENEW;
@@ -108,6 +128,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                                                          "255.255.255.255",
                                                          BCAST_UDP_PORT,
                                                          this);
+                ecore_con_server_data_set(udp_broadcast, this);
             }
 
             if (udp_sender)
@@ -119,6 +140,7 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
                                                   remote_ip.c_str(),
                                                   BCAST_UDP_PORT,
                                                   this);
+            ecore_con_server_data_set(udp_sender, this);
 
             ecore_con_server_send(udp_broadcast, packet.c_str(), packet.length() + 1);
             ecore_con_server_send(udp_sender, packet.c_str(), packet.length() + 1);
@@ -172,5 +194,18 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
         //send a signal
         Utils::signal_wago.emit(std::string(ecore_con_client_ip_get(client)), input, val, "knx");
+    }
+}
+
+void UDPServer::ProcessError(Ecore_Con_Server *srv)
+{
+    if (srv == udp_broadcast)
+        udp_broadcast = nullptr;
+    else if (srv == udp_sender)
+        udp_sender = nullptr;
+    else if (srv == udp_server)
+    {
+        udp_server = nullptr;
+        createUdpSocket();
     }
 }
