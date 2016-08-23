@@ -27,9 +27,9 @@ static Eina_Bool _ecore_con_handler_error(void *data, int type, Ecore_Con_Event_
 
 UDPServer::UDPServer(int p):
     port(p),
+    udp_server(NULL),
     udp_broadcast(NULL),
-    udp_sender(NULL),
-    udp_server(NULL)
+    udp_sender(NULL)
 {
     createUdpSocket();
 
