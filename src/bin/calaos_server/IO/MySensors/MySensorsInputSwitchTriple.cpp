@@ -18,6 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include "MySensors.h"
 #include "MySensorsInputSwitchTriple.h"
 #include "MySensorsController.h"
 #include "IOFactory.h"
@@ -32,17 +33,9 @@ MySensorsInputSwitchTriple::MySensorsInputSwitchTriple(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("MySensorsInputSwitchTriple");
     ioDoc->descriptionSet(_("Input triple click switch with MySensors node"));
-    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    MySensors::commonDoc(ioDoc);
     ioDoc->paramAdd("node_id", _("Node ID as set in your network"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("sensor_id", _("Sensor ID, as set in your node"), IODoc::TYPE_STRING, true);
-
-    Params gwlist = {{ "serial", _("Serial") },
-                     { "tcp", _("Tcp") }};
-    ioDoc->paramAddList("gateway", _("Gateway type used, tcp or serial are supported"), true, gwlist, "serial");
-    ioDoc->paramAdd("port",
-                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using tcp gateway port is TCP port of the gateway."),
-                    IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
-    ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");

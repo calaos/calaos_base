@@ -33,7 +33,7 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("MySensorsOutputLightRGB");
     ioDoc->descriptionSet(_("RGB Light dimmer with MySensors node"));
-    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    MySensors::commonDoc(ioDoc);
     ioDoc->paramAdd("node_id_red", _("Node ID for red channel, as set in your network"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("sensor_id_red", _("Sensor ID for red channel, as set in your node"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("node_id_green", _("Node ID for green channel, as set in your network"), IODoc::TYPE_STRING, true);
@@ -41,14 +41,6 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     ioDoc->paramAdd("node_id_blue", _("Node ID for blue channel, as set in your network"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("sensor_id_blue", _("Sensor ID blue red channel, as set in your node"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("data_type", _("Data type sent to the node. Default: V_DIMMER, see MySensors.cpp for more values."), IODoc::TYPE_STRING, false);
-
-    Params gwlist = {{ "serial", _("Serial") },
-                     { "tcp", _("Tcp") }};
-    ioDoc->paramAddList("gateway", _("Gateway type used, tcp or serial are supported"), true, gwlist, "serial");
-    ioDoc->paramAdd("port",
-                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using tcp gateway port is TCP port of the gateway."),
-                    IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
-    ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
 
     string nodeId_r = get_param("node_id_red");
     string sensorId_r = get_param("sensor_id_red");
