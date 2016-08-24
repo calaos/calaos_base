@@ -1,9 +1,13 @@
 [Unit]
-Description=Calaos-Server Daemon
+Description=Calaos home automation server service
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/calaos-server
+ExecStart=/usr/local/bin/calaos_server
+Type=simple
+User=calaos
+Restart=always
+RestartSec=0
 
 [Install]
 WantedBy=multi-user.target
