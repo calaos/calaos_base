@@ -21,6 +21,7 @@
 #ifndef MySensorsInputAnalog_H
 #define MySensorsInputAnalog_H
 
+#include "MySensors.h"
 #include "InputAnalog.h"
 
 namespace Calaos

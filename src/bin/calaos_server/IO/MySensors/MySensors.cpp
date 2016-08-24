@@ -118,3 +118,14 @@ int MySensors::String2DataType(string dataType)
     return V_ERROR;
 }
 
+void MySensors::commonDoc(IODoc *ioDoc)
+{
+    ioDoc->linkAdd("MySensors", _("http://mysensors.org"));
+    Params gwlist = {{ "serial", _("Serial") },
+                     { "tcp", _("TCP") }};
+    ioDoc->paramAddList("gateway", _("Gateway type used, tcp or serial are supported"), true, gwlist, "serial");
+    ioDoc->paramAdd("port",
+                    _("If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If using tcp gateway port is TCP port of the gateway."),
+                    IODoc::TYPE_STRING, true, "/dev/ttyUSB0");
+    ioDoc->paramAdd("host", _("IP address of the tcp gateway if relevant"), IODoc::TYPE_STRING, true);
+}
