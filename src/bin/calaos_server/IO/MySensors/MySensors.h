@@ -21,6 +21,7 @@
 #ifndef MySensors_H
 #define MySensors_H
 
+#include "IODoc.h"
 #include <Utils.h>
 
 namespace MySensors
@@ -138,6 +139,7 @@ enum InternalType
 
 string DataType2String(int dataType);
 int String2DataType(string dataType);
+void commonDoc(IODoc *ioDoc);
 
 }
 #endif
