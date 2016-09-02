@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "OutputAnalog.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 using namespace Utils;
@@ -33,10 +34,8 @@ OutputAnalog::OutputAnalog(Params &p):
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false, "0");
 
-    ioDoc->conditionAdd("value", _("Event on a specific value"));
-    ioDoc->conditionAdd("changed", _("Event on any change of value"));
-
     ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
+    AnalogIO::commonDoc(ioDoc);
     ioDoc->conditionAdd("0", _("Event on a specific number value"));
     ioDoc->actionAdd("0", _("Set a specific number value"));
     ioDoc->actionAdd("inc", _("Increment value with configured step"));

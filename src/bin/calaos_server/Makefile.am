@@ -77,6 +77,8 @@ calaos_server_SOURCES = \
         HttpCodes.h                                     \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
+	IO/AnalogIO.cpp                                 \
+	IO/AnalogIO.h                                   \
 	IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
