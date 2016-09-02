@@ -41,6 +41,8 @@ Internal::Internal(Params &p):
     if (p["type"] == "InternalInt")
     {
         ioDoc->descriptionSet(_("Internal number object. This object is useful for doing internal programing in rules, like counters, of displaying values."));
+
+        ioDoc->paramAdd("unit", _("Unit which will be displayed on the UI as a suffix."), IODoc::TYPE_STRING, false);
         ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
         ioDoc->conditionAdd("0", _("Event on a specific number value"));
         ioDoc->actionAdd("0", _("Set a specific number value"));
