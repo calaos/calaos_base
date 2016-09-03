@@ -24,21 +24,9 @@ void AnalogIO::commonDoc(IODoc *ioDoc)
 {
     ioDoc->paramAdd("unit", _("Unit which will be displayed on the UI as a suffix."), IODoc::TYPE_STRING, false);
 
-    Params gui_style = {{ "temperature", _("Temperature") },
-                     { "humidity", _("Humidity") },
-                     { "pressure", _("Pressure") },
-                     { "luminosity", _("Luminosity") },
-                     { "weight", _("Weight") },
-                     { "distance", _("Distance") },
-                     { "speed", _("Speed") },
-                     { "current", _("Current") },
-                     { "voltage", _("Voltage") },
-                     { "watt", _("Watt") },
-                     { "water_flow", _("Water Flow") },
-                     { "wind_speed", _("Wind Speed") },
-                     { "percent", _("Percent") },
+    Params gui_style = {{ "humidity", _("Humidity") },
                      { "other", _("Other") }};
-    ioDoc->paramAddList("gui_style", _("GUI style display. This will control the icon displayed on the UI"), true, gui_style, "temperature");
+    ioDoc->paramAddList("gui_style", _("GUI style display. This will control the icon displayed on the UI"), true, gui_style, "other");
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
