@@ -25,8 +25,8 @@ void AnalogIO::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("unit", _("Unit which will be displayed on the UI as a suffix."), IODoc::TYPE_STRING, false);
 
     Params gui_style = {{ "humidity", _("Humidity") },
-                     { "other", _("Other") }};
-    ioDoc->paramAddList("gui_style", _("GUI style display. This will control the icon displayed on the UI"), true, gui_style, "other");
+                     { "default", _("Default") }};
+    ioDoc->paramAddList("gui_style", _("GUI style display. This will control the icon displayed on the UI"), true, gui_style, "default");
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
