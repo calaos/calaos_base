@@ -52,10 +52,11 @@ TeleinfoInputAnalog::TeleinfoInputAnalog(Params &p):
 
     ioDoc->paramAddList("value", _("All theses values are reported by the Teleinfo equipment as double."), true, list, "PAPP");
 
-
+    cDebugDom("teleinfo") << "Register IO for " << param["value"];
     TeleinfoCtrl::Instance(get_params()).registerIO(param["value"], [=]()
     {
-        readValue();
+      cDebugDom("teleinfo") << "Read Value : " << param["value"];
+      readValue();
     });
 
 }
@@ -70,6 +71,9 @@ void TeleinfoInputAnalog::readValue()
     string teleinfo_value = get_param("value");
 
     string sv = TeleinfoCtrl::Instance(get_params()).getValue(teleinfo_value);
+
+    cDebugDom("teleinfo") << "sv : " << sv;
+
     double v;
     if (sv.empty() || !Utils::is_of_type<double>(sv))
         return;
@@ -81,4 +85,3 @@ void TeleinfoInputAnalog::readValue()
         emitChange();
     }
 }
-

@@ -26,7 +26,7 @@
 
 
 #if defined(__linux__) || defined(__linux) || defined(linux)
-#include <sys/ioctlh>
+#include <sys/ioctl.h>
 #include <linux/serial.h>
 #endif
 
@@ -202,7 +202,7 @@ Eina_Bool TeleinfoCtrl::_serialHandler(Ecore_Fd_Handler *handler)
         if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
             serialError();
 
-        cDebugDom("teleinfo") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
+        //        cDebugDom("teleinfo") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
 
         readNewData(data);
     }
@@ -239,7 +239,8 @@ void TeleinfoCtrl::processMessage(string msg)
         n = msg.find(f.name);
         if (n != string::npos)
         {
-            f.value = msg.substr(n, f.size);
+            f.value = msg.substr(f.name.size() + 1, f.size);
+            cDebugDom("teleinfo") << "Value read  " << f.name << ": " << f.value;
             valuesCb[f.name].emit();
         }
     }
