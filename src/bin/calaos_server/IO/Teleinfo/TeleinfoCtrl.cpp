@@ -137,7 +137,7 @@ void TeleinfoCtrl::openSerial()
 
         serial_handler = ecore_main_fd_handler_add(serialfd,
                                                    (Ecore_Fd_Handler_Flags)
-                                                   (ECORE_FD_READ | ECORE_FD_WRITE | ECORE_FD_ERROR),
+                                                   (ECORE_FD_READ | ECORE_FD_ERROR),
                                                    _serial_handler_cb,
                                                    this,
                                                    NULL,
