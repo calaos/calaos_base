@@ -15,6 +15,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Teleinfo     \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
@@ -213,7 +214,11 @@ calaos_server_SOURCES = \
         IO/OutputString.h                               \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
-        IO/Wago/WIAnalog.cpp                            \
+        IO/Teleinfo/TeleinfoCtrl.cpp                    \
+        IO/Teleinfo/TeleinfoCtrl.h                      \
+        IO/Teleinfo/TeleinfoInputAnalog.cpp             \
+        IO/Teleinfo/TeleinfoInputAnalog.h               \
+	IO/Wago/WIAnalog.cpp                            \
         IO/Wago/WIAnalog.h                              \
         IO/Wago/WIDigitalBP.cpp                         \
         IO/Wago/WIDigitalBP.h                           \
