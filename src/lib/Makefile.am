@@ -53,8 +53,6 @@ libcalaos_common_la_SOURCES = \
         Calendar.h                              \
         DownloadManager.cpp                     \
         DownloadManager.h                       \
-        EcoreFdHandler.cpp                      \
-        EcoreFdHandler.h                        \
         EcoreTimer.cpp                          \
         EcoreTimer.h                            \
         EinaLog.cpp                             \
