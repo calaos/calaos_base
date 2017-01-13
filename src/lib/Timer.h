@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2007-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,19 +18,19 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef CALAOS_ECORE_TIMER_h
-#define CALAOS_ECORE_TIMER_h
+#ifndef CALAOS_TIMER_H
+#define CALAOS_TIMER_H
 
 #include "Utils.h"
 #include <sigc++/sigc++.h>
-#include <Ecore.h>
+#include <uv.h>
 
 using namespace Utils;
 
-class EcoreTimer
+class Timer
 {
 private:
-    Ecore_Timer *timer;
+    uv_timer_t timer;
 
     sigc::signal<void, void *> event_signal_data;
     sigc::signal<void> event_signal;
@@ -43,9 +43,9 @@ private:
     void *data;
 
 public:
-    EcoreTimer(double time, sigc::slot<void, void *> slot, void *data);
-    EcoreTimer(double time, sigc::slot<void> slot);
-    ~EcoreTimer();
+    Timer(double time, sigc::slot<void, void *> slot, void *data);
+    Timer(double time, sigc::slot<void> slot);
+    ~Timer();
 
     static void singleShot(double time, sigc::slot<void> slot);
 
@@ -58,35 +58,24 @@ public:
     double getTime() { return time; }
 };
 
-class EcoreIdler
+class Idler
 {
-private:
-    Ecore_Idler *eidler = nullptr;
-    Ecore_Idle_Enterer *eidle_enterer = nullptr;
-    Ecore_Idle_Exiter *eidle_exiter = nullptr;
+ private:
+  uv_idle_t idler;
 
-    int idleType;
+  void createIdler();
+  friend void Idler_idler_cb(uv_idle_t *handle);
 
-    void createIdler(int type);
-    friend Eina_Bool EcoreIdler_idler_cb(void *data);
+ public:
+  Idler(sigc::slot<void> slot);
+  Idler();
+  ~Idler();
 
-public:
-    EcoreIdler(int idle_type, sigc::slot<void> slot);
-    EcoreIdler(int idle_type);
-    ~EcoreIdler();
+  static void singleIdler(sigc::slot<void> slot);
 
-    static void singleIdler(sigc::slot<void> slot);
-    static void singleIdleEnterer(sigc::slot<void> slot);
-    static void singleIdleExiter(sigc::slot<void> slot);
+  sigc::signal<void> idlerCallback;
 
-    sigc::signal<void> idlerCallback;
-
-    enum
-    {
-        Idler,
-        IdleEnterer,
-        IdleExiter,
-    };
 };
+
 
 #endif
