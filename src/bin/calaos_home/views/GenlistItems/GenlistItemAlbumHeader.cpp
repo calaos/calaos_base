@@ -135,7 +135,7 @@ Evas_Object *GenlistItemAlbumHeader::getPartItem(Evas_Object *obj, string part)
         {
             if (!dltimer)
             {
-                dltimer = new EcoreTimer(0.2, (sigc::slot<void>)
+                dltimer = new Timer(0.2, (sigc::slot<void>)
                                          sigc::bind(sigc::mem_fun(*player, &AudioPlayer::getDBAlbumCoverItem),
                                                     album_infos, sigc::mem_fun(*this, &GenlistItemAlbumHeader::albumItemCoverGet_cb), AudioPlayer::AUDIO_COVER_SIZE_MEDIUM));
             }

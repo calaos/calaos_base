@@ -43,7 +43,7 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     m_api = get_param("api");
     m_idHue = get_param("id_hue");
 
-    m_timer = new EcoreTimer(2.0,[=](){
+    m_timer = new Timer(2.0,[=](){
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)

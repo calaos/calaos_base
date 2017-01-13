@@ -23,7 +23,7 @@
 #define TELEINFOCTRL_H
 
 #include <Utils.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Params.h>
 #include <unordered_map>
 #include <termios.h>
@@ -57,7 +57,7 @@ private:
     struct termios currentTermios;
     struct termios oldTermios;
 
-    EcoreTimer *timer = nullptr;
+    Timer *timer = nullptr;
     Ecore_Fd_Handler *serial_handler = nullptr;
     string dataBuffer;
 

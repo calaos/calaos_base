@@ -23,14 +23,14 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos {
 
 class OutputLight : public IOBase
 {
 private:
-    EcoreTimer *timer = nullptr;
+    Timer *timer = nullptr;
 
     vector<BlinkInfo> blinks;
     int current_blink;

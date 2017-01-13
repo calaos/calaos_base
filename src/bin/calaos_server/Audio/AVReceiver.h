@@ -22,7 +22,7 @@
 #define AVRECEIVER_H
 
 #include "Calaos.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include <Ecore.h>
 #include <Ecore_Con.h>
 #include "IOBase.h"
@@ -43,7 +43,7 @@ protected:
     AVRList source_names;
 
     Ecore_Con_Server *econ;
-    EcoreTimer *timer_con;
+    Timer *timer_con;
 
     bool isConnected;
     string recv_buffer;

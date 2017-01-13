@@ -549,7 +549,7 @@ void WebSocketClient::sendCloseFrame(uint16_t code, const string &reason, bool f
     //start a timeout to wait for a close frame from the client
     if (!closeReceived && !forceClose)
     {
-        closeTimeout = new EcoreTimer(10.0, [=]()
+        closeTimeout = new Timer(10.0, [=]()
         {
             cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
             CloseConnection();

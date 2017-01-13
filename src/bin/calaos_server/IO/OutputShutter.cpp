@@ -187,7 +187,7 @@ void OutputShutter::Up()
     if (impulse_time > 0)
     {
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerImpulse) );
     }
 
@@ -200,7 +200,7 @@ void OutputShutter::Up()
         if (impulse_action_time + impulse_time < time * 1000)
         {
             double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-            EcoreTimer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
+            Timer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
         }
     }
     else
@@ -213,7 +213,7 @@ void OutputShutter::Up()
     timer_up = NULL;
 
     if (timer_end) delete timer_end;
-    timer_end = new EcoreTimer((double)time,
+    timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
 }
 
@@ -232,7 +232,7 @@ void OutputShutter::Down()
     if (impulse_time > 0)
     {
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerImpulse) );
     }
 
@@ -245,7 +245,7 @@ void OutputShutter::Down()
         if (impulse_action_time + impulse_time < time * 1000)
         {
             double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-            EcoreTimer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
+            Timer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
         }
     }
     else
@@ -258,7 +258,7 @@ void OutputShutter::Down()
     timer_down = NULL;
 
     if (timer_end) delete timer_end;
-    timer_end = new EcoreTimer((double)time,
+    timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
 }
 
@@ -279,7 +279,7 @@ void OutputShutter::DownWait()
 
             double _t = 200;
             if (impulse_time >= 0) _t += impulse_time;
-            timer_down = new EcoreTimer(_t / 1000.,
+            timer_down = new Timer(_t / 1000.,
                                         (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::Down) );
         }
 
@@ -306,7 +306,7 @@ void OutputShutter::UpWait()
 
             double _t = 200;
             if (impulse_time >= 0) _t += impulse_time;
-            timer_up = new EcoreTimer(_t / 1000.,
+            timer_up = new Timer(_t / 1000.,
                                       (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::Up) );
         }
 
@@ -338,7 +338,7 @@ void OutputShutter::Stop()
         }
 
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerImpulse) );
     }
     else

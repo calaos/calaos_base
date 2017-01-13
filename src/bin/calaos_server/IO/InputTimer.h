@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -33,7 +33,7 @@ class InputTimer : public IOBase
 protected:
     int hour, minute, second, ms;
 
-    EcoreTimer *timer;
+    Timer *timer;
     string value;
     bool start;
 

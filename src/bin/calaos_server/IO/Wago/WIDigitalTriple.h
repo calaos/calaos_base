@@ -23,7 +23,7 @@
 
 #include <InputSwitchTriple.h>
 #include <WagoMap.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 
 namespace Calaos
 {

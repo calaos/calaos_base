@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "ScriptExec.h"
 #include "Prefix.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "JsonApi.h"
 #include "EventManager.h"
 
@@ -99,7 +99,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             cb(false);
         processStatus[process] = ProcessNone;
 
-        EcoreIdler::singleIdler([=]()
+        Idler::singleIdler([=]()
         {
             delete jsonApi;
             delete process;

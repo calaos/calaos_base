@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -33,7 +33,7 @@ class InputSwitchLongPress : public IOBase
 protected:
     double value;
 
-    EcoreTimer *timer;
+    Timer *timer;
 
     void longPress_timer();
     void emitChange();

@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "AudioPlayer.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "Ecore.h"
 #include "Ecore_Con.h"
 
@@ -68,10 +68,10 @@ protected:
     Ecore_Event_Handler *ehandler_del;
     Ecore_Event_Handler *ehandler_data;
 
-    EcoreTimer *timer_notification;
-    EcoreTimer *timer_con;
+    Timer *timer_notification;
+    Timer *timer_con;
 
-    EcoreTimer *timer_timeout;
+    Timer *timer_timeout;
     queue<SqueezeboxCommand> squeeze_commands;
 
     string host, id;

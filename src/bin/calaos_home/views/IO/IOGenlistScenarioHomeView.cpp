@@ -163,7 +163,7 @@ void IOGenlistScenarioHomeView::buttonClickGo()
         elm_image_file_set(elm_object_content_get(object_button), ApplicationMain::getTheme(), "calaos/icons/action_button/stop");
 
         //If it's not a SimpleScenario, just flash button when user click it.
-        EcoreTimer::singleShot(0.7, sigc::mem_fun(*this, &IOGenlistScenarioHomeView::clickFlashButton_cb));
+        Timer::singleShot(0.7, sigc::mem_fun(*this, &IOGenlistScenarioHomeView::clickFlashButton_cb));
     }
 }
 

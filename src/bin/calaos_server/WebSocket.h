@@ -64,7 +64,7 @@ private:
     bool isfragmented = false;
 
     double ping_time = 0.0;
-    EcoreTimer *closeTimeout = nullptr;
+    Timer *closeTimeout = nullptr;
     bool closeReceived = false;
 
     void reset(); //reset state machine
@@ -78,7 +78,7 @@ private:
 
     void sendFrameData(const string &data, bool isbinary);
 
-    EcoreTimer *timerPing = nullptr;
+    Timer *timerPing = nullptr;
 };
 
 #endif

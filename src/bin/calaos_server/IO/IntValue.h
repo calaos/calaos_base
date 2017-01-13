@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -35,7 +35,7 @@ protected:
     double dvalue;
     string svalue;
 
-    EcoreTimer *timer = NULL;
+    Timer *timer = NULL;
 
     vector<BlinkInfo> blinks;
     int current_blink;

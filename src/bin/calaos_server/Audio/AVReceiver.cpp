@@ -106,7 +106,7 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
 
     timerConnReconnect();
-    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+    timer_con = new Timer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 }
 
 AVReceiver::~AVReceiver()
@@ -150,7 +150,7 @@ void AVReceiver::delConnection(Ecore_Con_Server *srv)
     cWarningDom("output") << "Main Connection closed !";
     cWarningDom("output") << "Trying to reconnect...";
 
-    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+    timer_con = new Timer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 
     isConnected = false;
 }

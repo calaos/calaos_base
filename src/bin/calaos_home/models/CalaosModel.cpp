@@ -49,7 +49,7 @@ void CalaosModel::discover_found(string address)
 {
     server_address = address;
 
-    EcoreTimer::singleShot(0.0, [=]()
+    Timer::singleShot(0.0, [=]()
     {
         DELETE_NULL(discover);
     });
@@ -84,7 +84,7 @@ void CalaosModel::discover_error_login(string address)
     /* this has to be redispatched to the gui and ask user for username/password */
     server_address = address;
 
-    EcoreTimer::singleShot(0.0, [=]()
+    Timer::singleShot(0.0, [=]()
     {
         DELETE_NULL(discover);
     });
@@ -110,7 +110,7 @@ void CalaosModel::lost_connection()
     DELETE_NULL(camera_model);
     DELETE_NULL(audio_model);
 
-    EcoreTimer::singleShot(0.0, [=]()
+    Timer::singleShot(0.0, [=]()
     {
         DELETE_NULL(discover);
         DELETE_NULL(connection);

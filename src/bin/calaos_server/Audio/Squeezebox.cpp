@@ -156,9 +156,9 @@ Squeezebox::Squeezebox(Params &p):
     timerConnReconnect();
     timerNotificationReconnect();
 
-    timer_notification = new EcoreTimer(SQ_RECONNECT,
+    timer_notification = new Timer(SQ_RECONNECT,
                                         (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
-    timer_con = new EcoreTimer(SQ_RECONNECT,
+    timer_con = new Timer(SQ_RECONNECT,
                                (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
 }
 
@@ -254,7 +254,7 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
         cWarningDom("squeezebox") <<  "Notification Connection closed !";
         cWarningDom("squeezebox") <<  "Trying to reconnect...";
 
-        timer_notification = new EcoreTimer(SQ_RECONNECT,
+        timer_notification = new Timer(SQ_RECONNECT,
                                             (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
 
         isConnected = false;
@@ -270,7 +270,7 @@ void Squeezebox::delConnection(Ecore_Con_Server *srv)
         cWarningDom("squeezebox") <<  "Main Connection closed !";
         cWarningDom("squeezebox") <<  "Trying to reconnect...";
 
-        timer_con = new EcoreTimer(SQ_RECONNECT,
+        timer_con = new Timer(SQ_RECONNECT,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
 
         isConnected = false;
@@ -566,7 +566,7 @@ void Squeezebox::_sendRequest()
     cmd.inProgress = true;
 
     if (!timer_timeout)
-        timer_timeout = new EcoreTimer(SQ_TIMEOUT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::requestTimeout_cb));
+        timer_timeout = new Timer(SQ_TIMEOUT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::requestTimeout_cb));
 
     if (isConnected)
     {

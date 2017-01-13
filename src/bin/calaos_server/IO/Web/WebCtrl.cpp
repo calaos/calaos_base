@@ -94,7 +94,7 @@ void WebCtrl::Add(string path,
         frequency = _frequency;
 
     if (!timer)
-        timer = new EcoreTimer(frequency, [=]() {
+        timer = new Timer(frequency, [=]() {
             launchDownload();
         });
     else

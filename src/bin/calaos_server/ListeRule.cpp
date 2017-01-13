@@ -96,7 +96,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
     if (execInProgress)
     {
         //We can't execute rules for now. Do it later.
-        EcoreIdler::singleIdler([=]()
+        Idler::singleIdler([=]()
         {
             ListeRule::Instance().ExecuteRuleSignal(id);
         });

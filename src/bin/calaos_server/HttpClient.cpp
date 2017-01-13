@@ -419,7 +419,7 @@ void HttpClient::DataWritten(int size)
         //Close connection in 500ms if not closed by client. This forces the closing and
         //has to be done because lighttpd mod_proxy keeps connection open regardless of the Connection: close header
         if (!closeTimer)
-            closeTimer = new EcoreTimer(0.5, sigc::mem_fun(this, &HttpClient::CloseConnection));
+            closeTimer = new Timer(0.5, sigc::mem_fun(this, &HttpClient::CloseConnection));
         else
             closeTimer->Reset(0.5);
     }

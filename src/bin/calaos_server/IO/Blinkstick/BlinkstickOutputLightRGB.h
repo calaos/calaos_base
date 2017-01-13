@@ -23,7 +23,7 @@
 
 #include <libusb-1.0/libusb.h>
 
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "OutputLightRGB.h"
 
 namespace Calaos

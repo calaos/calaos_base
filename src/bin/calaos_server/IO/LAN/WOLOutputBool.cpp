@@ -174,7 +174,7 @@ void WOLOutputBool::doWakeOnLan()
     if (timerState)
         timerState->Reset();
     else
-        timerState = new EcoreTimer(1.5, sigc::mem_fun(*this, &WOLOutputBool::timerTimeout));
+        timerState = new Timer(1.5, sigc::mem_fun(*this, &WOLOutputBool::timerTimeout));
 }
 
 void WOLOutputBool::timerTimeout()

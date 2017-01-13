@@ -53,7 +53,7 @@ NTPClock::NTPClock():restartWhenApply(false), exe(NULL)
     IPC::Instance().AddHandler("CalaosCommon::NTPClock","applyCalendar", sig_applyCalendar,NULL);
 
     //the timer will be trigger when the ecore_loop will be run
-    timer = new EcoreTimer(0, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+    timer = new Timer(0, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
 }
 
 NTPClock::~NTPClock()
@@ -107,7 +107,7 @@ void NTPClock::TimerTick()
 
     updateClock();
 
-    timer = new EcoreTimer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+    timer = new Timer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
 }
 
 void NTPClock::applyCalendarFromServer(string source, string s,
@@ -208,6 +208,6 @@ void NTPClock::Handle2()
     else
     {
         if (timer) delete timer;
-        timer = new EcoreTimer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+        timer = new Timer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
     }
 }

@@ -317,7 +317,7 @@ void Widget::Reset()
 
     //create a timer to do the animation
     if (timer) delete timer;
-    timer = new EcoreTimer(1.0 / 30., (sigc::slot<void>)sigc::mem_fun(*this, &Widget::_ResetAnim) );
+    timer = new Timer(1.0 / 30., (sigc::slot<void>)sigc::mem_fun(*this, &Widget::_ResetAnim) );
 }
 
 void Widget::_ResetAnim()

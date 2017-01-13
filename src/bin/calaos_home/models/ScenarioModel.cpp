@@ -303,7 +303,7 @@ void Scenario::createSchedule(sigc::slot<void, IOBase *> callback)
         double start_time = ecore_time_get();
 
         //We need to delay a bit because we have to wait for RoomModel to load the io id first
-        timer = new EcoreTimer(0.05, [=]()
+        timer = new Timer(0.05, [=]()
         {
             map<string, IOBase *>::const_iterator it = CalaosModel::Instance().getHome()->getCacheIO().find(sched_id);
 
@@ -409,7 +409,7 @@ void ScenarioModel::notifyScenarioAdd(const string &msgtype, const Params &evdat
     cDebugDom("scenario") << "New scenario notif, start timer to load scenario data...";
 
     //We need to delay the load of the scenario because we have to wait for RoomModel to load the scenario id first
-    EcoreTimer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), msgtype, evdata));
+    Timer::singleShot(0.5, sigc::bind(sigc::mem_fun(*this, &ScenarioModel::notifyScenarioAddDelayed), msgtype, evdata));
 }
 
 void ScenarioModel::notifyScenarioAddDelayed(const string &msgtype, const Params &evdata)

@@ -18,8 +18,11 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Ecore.h>
-#include <EcoreTimer.h>
+//#include <Ecore.h>
+//#include <Timer.h>
+
+#include <uv.h>
+
 #include "Calaos.h"
 #include "Room.h"
 #include "ListeRoom.h"
@@ -39,7 +42,7 @@ using namespace Calaos;
 // Globals
 static UDPServer *udpserver = NULL;
 static UDPServer *wserver = NULL;
-static EcoreTimer *watchdogLoop = NULL;
+static Timer *watchdogLoop = NULL;
 
 static void echoVersion(char **argv)
 {
@@ -66,6 +69,10 @@ int main (int argc, char **argv)
     eina_init();
     ecore_init();
     ecore_con_init();
+
+    uv_loop_t *loop = (uv_loop_t*) malloc(sizeof(uv_loop_t));
+    uv_loop_init(loop);
+
 
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
     cout <<    " ║                                               ║" << endl;
@@ -155,13 +162,14 @@ int main (int argc, char **argv)
     Utils::Watchdog("calaosd");
 
     //main loop
-    EcoreTimer *eventLoop = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
-    watchdogLoop = new EcoreTimer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
+    Timer *eventLoop = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
+    watchdogLoop = new Timer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
 
     //Check config once the main loop is started
-    EcoreTimer::singleShot(0.0, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
+    Timer::singleShot(0.0, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
 
-    ecore_main_loop_begin();
+    uv_run(loop, UV_RUN_DEFAULT);
+    //ecore_main_loop_begin();
 
     HttpServer::Instance().disconnectAll();
 
@@ -181,6 +189,8 @@ int main (int argc, char **argv)
     delete wserver;
     delete udpserver;
 
+    uv_loop_close(loop);
+    free(loop);
     Utils::FreeEinaLogs();
 
     return 0;

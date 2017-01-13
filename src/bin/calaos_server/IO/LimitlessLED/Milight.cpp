@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "Milight.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -81,7 +81,7 @@ void Milight::sendWhiteCommand(int zone)
     if (zone < 0 || zone > 4) return;
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         uint8_t codes[5] = { 0xC2, 0xC5, 0xC7, 0xC9, 0xCB };
 
@@ -93,7 +93,7 @@ void Milight::sendDiscoCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x4D, 0x00);
     });
@@ -103,7 +103,7 @@ void Milight::sendDiscoDecCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x43, 0x00);
     });
@@ -113,7 +113,7 @@ void Milight::sendDiscoIncCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x44, 0x00);
     });
@@ -125,7 +125,7 @@ void Milight::sendBrightnessCommand(int zone, int brightness)
         return;
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         uint8_t codes[19] = { 0x02, 0x03, 0x04, 0x05, 0x08,
                               0x09, 0x0A, 0x0B, 0x0D, 0x0E,
@@ -140,7 +140,7 @@ void Milight::sendColorCommand(int zone, ushort color)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x40, color);
     });

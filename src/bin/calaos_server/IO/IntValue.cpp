@@ -215,7 +215,7 @@ bool Internal::set_value(string val)
 
                 set_value(true);
 
-                timer = new EcoreTimer((double)t / 1000., [=]()
+                timer = new Timer((double)t / 1000., [=]()
                 {
                     set_value(false);
                 });
@@ -324,7 +324,7 @@ void Internal::impulse_extended(string pattern)
     {
         set_value(blinks[current_blink].state);
 
-        timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+        timer = new Timer((double)blinks[current_blink].duration / 1000.,
                                (sigc::slot<void>)sigc::mem_fun(*this, &Internal::TimerImpulseExtended) );
     }
 }
@@ -348,7 +348,7 @@ void Internal::TimerImpulseExtended()
     set_value(blinks[current_blink].state);
 
     //restart timer
-    timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+    timer = new Timer((double)blinks[current_blink].duration / 1000.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &Internal::TimerImpulseExtended) );
 }
 

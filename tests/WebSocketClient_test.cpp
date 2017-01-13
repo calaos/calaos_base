@@ -1,5 +1,5 @@
 #include "Utils.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "WebSocketClient.h"
 
 WebSocketClient *wsclient = nullptr;
@@ -24,13 +24,13 @@ void startNextTest()
 
         //do not delete in the slot
         WebSocketClient *w = wsclient;
-        EcoreTimer::singleShot(0, [=]() { delete w; });
+        Timer::singleShot(0, [=]() { delete w; });
 
         wsclient = new WebSocketClient();
         wsclient->websocketDisconnected.connect([]()
         {
             cout << "Reports updated." << endl;
-            EcoreTimer::singleShot(0, [=]() { ecore_main_loop_quit(); });
+            Timer::singleShot(0, [=]() { ecore_main_loop_quit(); });
         });
         string uri = "ws://127.0.0.1:9001/updateReports?agent=CalaosWebSocketClient";
         wsclient->openConnection(uri);
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     if (argc > 2)
         Utils::from_string(argv[2], argCount);
 
-    EcoreTimer::singleShot(0.1, []()
+    Timer::singleShot(0.1, []()
     {
         cout << "Start websocket client" << endl;
         wsclient = new WebSocketClient();
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
         {
             //do not delete in the slot
             WebSocketClient *w = wsclient;
-            EcoreTimer::singleShot(0, [=]() { delete w; });
+            Timer::singleShot(0, [=]() { delete w; });
 
             wsclient = new WebSocketClient();
             wsclient->websocketConnected.connect(sigc::ptr_fun(onConnected));
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
             wsclient->textMessageReceived.connect(sigc::ptr_fun(textMessageReceived));
             wsclient->binaryMessageReceived.connect(sigc::ptr_fun(binMessageReceived));
 
-            EcoreTimer::singleShot(0.1, sigc::ptr_fun(startNextTest));
+            Timer::singleShot(0.1, sigc::ptr_fun(startNextTest));
         });
         wsclient->openConnection("ws://127.0.0.1:9001/getCaseCount");
     });

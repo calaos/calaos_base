@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -37,7 +37,7 @@ protected:
 
     std::string cmd_state;
 
-    EcoreTimer *timer_auto;
+    Timer *timer_auto;
     void TimerAutoChange();
     void setColor(const ColorValue &color, bool state);
     void emitChange();

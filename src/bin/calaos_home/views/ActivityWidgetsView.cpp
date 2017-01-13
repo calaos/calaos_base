@@ -246,7 +246,7 @@ void ActivityWidgetsView::LoadWidgets()
     }
 
     //Check each 6 hours
-    if (!timer) timer = new EcoreTimer(60.0 * 6.0, (sigc::slot<void>)sigc::mem_fun(*this, &ActivityWidgetsView::TimerTick) );
+    if (!timer) timer = new Timer(60.0 * 6.0, (sigc::slot<void>)sigc::mem_fun(*this, &ActivityWidgetsView::TimerTick) );
     TimerTick();
 }
 

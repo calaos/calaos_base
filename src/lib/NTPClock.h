@@ -27,7 +27,7 @@
 #include <Ecore.h>
 #include <IPC.h>
 #include <Calendar.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 
 /**
  * This class is a singleton
@@ -62,7 +62,7 @@ private:
     /**
                  * the timer used to launch a ntp every n secondes
                  */
-    EcoreTimer *timer;
+    Timer *timer;
 
     void TimerTick();
 

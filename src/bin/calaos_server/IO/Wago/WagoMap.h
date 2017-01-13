@@ -22,7 +22,7 @@
 #define S_WAGOMAP_H
 
 #include <Calaos.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Ecore_Con.h>
 #include "ExternProc.h"
 
@@ -119,11 +119,11 @@ protected:
     unordered_map<string, WagoMapCmd> mbus_commands;
 
     /* Heartbeat timer that do a modbus query to avoid TCP disconnection with the Wago */
-    EcoreTimer *mbus_heartbeat_timer;
+    Timer *mbus_heartbeat_timer;
 
     queue<WagoMapCmd> udp_commands;
-    EcoreTimer *udp_timer;
-    EcoreTimer *udp_timeout_timer;
+    Timer *udp_timer;
+    Timer *udp_timeout_timer;
     Ecore_Con_Server *econ;
     Ecore_Event_Handler *event_handler_data_get;
     Ecore_Event_Handler *event_handler_error;
@@ -136,7 +136,7 @@ protected:
     void UDPCommand_cb();
     void UDPCommandTimeout_cb();
 
-    EcoreTimer *heartbeat_timer;
+    Timer *heartbeat_timer;
 
     void WagoHeartBeatTick();
     void WagoModbusHeartBeatTick();

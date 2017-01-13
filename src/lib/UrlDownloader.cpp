@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include <UrlDownloader.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 
 Eina_Bool _complete_cb(void *data, int type, void *event)
 {
@@ -253,7 +253,7 @@ void UrlDownloader::Destroy()
 {
     cErrorDom() << "Launch idler for destroy " << m_url;
 
-    EcoreIdler::singleIdler([=]() { delete this; });
+    Idler::singleIdler([=]() { delete this; });
 }
 
 Params UrlDownloader::getResponseHeaders()

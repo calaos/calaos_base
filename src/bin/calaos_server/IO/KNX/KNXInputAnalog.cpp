@@ -37,7 +37,7 @@ KNXInputAnalog::KNXInputAnalog(Params &p):
 
     if (get_param("read_at_start") == "true")
     {
-        EcoreTimer::singleShot(1.5, [=]()
+        Timer::singleShot(1.5, [=]()
         {
             KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
         });

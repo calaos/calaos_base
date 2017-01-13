@@ -22,8 +22,9 @@
 #define S_ZIBASE_H
 
 #include <Calaos.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Ecore_Con.h>
+#include <Ecore.h>
 
 #define ZIBASE_UDP_PORT     49999
 
@@ -114,7 +115,7 @@ protected:
     void ZibaseCommand_Timeout();
 
     queue<ZibaseQueuRequest> zibase_queue_req;
-    EcoreTimer *zibase_timer;
+    Timer *zibase_timer;
 
     int extract_infos(char* frame,ZibaseInfoSensor* elm);
     void extract_temp(char* frame,float *val);

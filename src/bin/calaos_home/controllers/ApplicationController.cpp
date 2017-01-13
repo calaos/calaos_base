@@ -362,7 +362,7 @@ void ApplicationController::onMenuSuspendClick()
 {
     //delay a little the start of screen suspend
     //because the mouse move is going to reset the timer
-    EcoreTimer::singleShot(0.1, sigc::slot<void>([]()
+    Timer::singleShot(0.1, sigc::slot<void>([]()
     {
         ScreenManager::instance().suspend();
     }));

@@ -25,7 +25,7 @@
 
 #include <Utils.h>
 #include <DownloadManager.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Params.h>
 
 namespace Calaos
@@ -37,7 +37,7 @@ private:
     WebCtrl(Params &p, int file_type);
     DownloadManager *dlManager;
     double frequency;
-    EcoreTimer *timer;
+    Timer *timer;
     void downloadFinished(string emission, string source, void* data);
     void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
     Params param;

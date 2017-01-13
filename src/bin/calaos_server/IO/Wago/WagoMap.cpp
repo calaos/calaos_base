@@ -48,8 +48,8 @@ WagoMap::WagoMap(std::string h, int p):
 
     createUdpSocket();
 
-    heartbeat_timer = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
-    mbus_heartbeat_timer = new EcoreTimer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
+    heartbeat_timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
+    mbus_heartbeat_timer = new Timer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
 
     process = new ExternProcServer("wago");
 
@@ -443,7 +443,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
     if (restart_timer)
     {
         if (udp_timer) delete udp_timer;
-        udp_timer = new EcoreTimer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
+        udp_timer = new Timer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
     }
 }
 
@@ -466,7 +466,7 @@ void WagoMap::SendUDPCommand(string command)
     if (restart_timer)
     {
         if (udp_timer) delete udp_timer;
-        udp_timer = new EcoreTimer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
+        udp_timer = new Timer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
     }
 }
 
@@ -518,7 +518,7 @@ void WagoMap::UDPCommand_cb()
     cDebugDom("wago") << "UDP, real sending command: " << cmd.udp_command;
 
     if (!udp_timeout_timer && !cmd.no_callback)
-        udp_timeout_timer = new EcoreTimer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
+        udp_timeout_timer = new Timer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
 
     ecore_con_server_send(econ, cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
 

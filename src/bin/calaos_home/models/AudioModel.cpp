@@ -321,7 +321,7 @@ void AudioPlayer::registerChange()
                             sigc::mem_fun(*this, &AudioPlayer::audio_db_stats_get_cb));
 
     if (!timer_change)
-        timer_change = new EcoreTimer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &AudioPlayer::timerChangeTick));
+        timer_change = new Timer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &AudioPlayer::timerChangeTick));
 }
 
 void AudioPlayer::unregisterChange()

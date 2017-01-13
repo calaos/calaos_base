@@ -27,7 +27,7 @@
 #include "AudioPlayer.h"
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "HttpClient.h"
 
 Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
@@ -768,7 +768,7 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
 
         cameraDl = nullptr;
 
-        EcoreTimer::singleShot(0, [=]()
+        Timer::singleShot(0, [=]()
         {
             downloadCameraPicture(camera);
         });

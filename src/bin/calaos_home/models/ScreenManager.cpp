@@ -58,7 +58,7 @@ void ScreenManager::startTimer()
 {
     if (timer) return;
 
-    timer = new EcoreTimer(getTime(), sigc::slot<void>([this]()
+    timer = new Timer(getTime(), sigc::slot<void>([this]()
     {
         if(Utils::get_config_option("dpms_enable") == "true")
             suspend();

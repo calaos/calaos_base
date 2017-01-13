@@ -81,7 +81,7 @@ void IOScenarioHomeView::clickScenario(void *data, Evas_Object *edje_object, str
         EmitSignal("scenario,true", "calaos");
 
         //If it's not a SimpleScenario, just flash button when user click it.
-        EcoreTimer::singleShot(0.7, sigc::mem_fun(*this, &IOScenarioHomeView::clickFlashButton_cb));
+        Timer::singleShot(0.7, sigc::mem_fun(*this, &IOScenarioHomeView::clickFlashButton_cb));
     }
 }
 

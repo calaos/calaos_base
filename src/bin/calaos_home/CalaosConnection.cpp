@@ -28,7 +28,7 @@ CalaosCmd::CalaosCmd(CommandDone_cb cb, void *d, CalaosConnection *p, const stri
     msgid(id),
     parent(p)
 {
-    timeout = new EcoreTimer(TIMEOUT_SEND, [=]()
+    timeout = new Timer(TIMEOUT_SEND, [=]()
     {
         DELETE_NULL(timeout);
         parent->timeoutSend(this);
@@ -48,7 +48,7 @@ CalaosConnection::CalaosConnection(string h):
     wsocket->textMessageReceived.connect(sigc::mem_fun(*this, &CalaosConnection::onMessageReceived));
     wsocket->openConnection("ws://" + host + ":5454/api");
 
-    timeout = new EcoreTimer(TIMEOUT_CONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::timeoutConnect));
+    timeout = new Timer(TIMEOUT_CONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &CalaosConnection::timeoutConnect));
 }
 
 CalaosConnection::~CalaosConnection()

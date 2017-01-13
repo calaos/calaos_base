@@ -660,7 +660,7 @@ void ActivityPlayerObject::amplifierClick_cb(void *data, Evas_Object *_edje, std
 
         //elm_slider_value_set(volume, v / 100.0);
         amp_volume = false;
-        EcoreTimer::singleShot(0.1, sigc::mem_fun(*this, &ActivityPlayerObject::amplifierChanged));
+        Timer::singleShot(0.1, sigc::mem_fun(*this, &ActivityPlayerObject::amplifierChanged));
 
         evas_object_smart_callback_add(volume, "slider,drag,start", _elm_volume_start, this);
         evas_object_smart_callback_add(volume, "slider,drag,stop", _elm_volume_stop, this);

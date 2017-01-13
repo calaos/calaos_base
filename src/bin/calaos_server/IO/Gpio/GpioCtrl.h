@@ -23,7 +23,7 @@
 
 #include <Utils.h>
 #include <Ecore.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 
 namespace Calaos
 {

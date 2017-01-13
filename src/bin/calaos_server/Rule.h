@@ -24,7 +24,7 @@
 #include "Calaos.h"
 #include "Condition.h"
 #include "Action.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 using namespace std;
 

@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "PingInputSwitch.h"
 #include "IOFactory.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 using namespace Calaos;
 
@@ -97,7 +97,7 @@ Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event)
     if (Utils::is_of_type<int>(in->get_param("interval")))
         Utils::from_string(in->get_param("interval"), interval);
 
-    EcoreTimer::singleShot(interval / 1000.0, sigc::mem_fun(*in, &PingInputSwitch::doPing));
+    Timer::singleShot(interval / 1000.0, sigc::mem_fun(*in, &PingInputSwitch::doPing));
 
     in->hasChanged();
 

@@ -172,7 +172,7 @@ void TeleinfoCtrl::closeSerial()
 void TeleinfoCtrl::openSerialLater(double t)
 {
     if (timer) return;
-    timer = new EcoreTimer(t, [=]()
+    timer = new Timer(t, [=]()
     {
         delete timer;
         timer = NULL;

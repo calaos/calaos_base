@@ -24,7 +24,7 @@
 #include "Calaos.h"
 #include "IOBase.h"
 #include "Ecore.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -36,8 +36,8 @@ protected:
     int sens, old_sens;
     double position; // range: [0..100]
 
-    EcoreTimer *timer_end, *timer_update, *timer_impulse;
-    EcoreTimer *timer_up, *timer_down, *timer_calib;
+    Timer *timer_end, *timer_update, *timer_impulse;
+    Timer *timer_up, *timer_down, *timer_calib;
     double start_time;
     double start_position;
     bool is_impulse_action;

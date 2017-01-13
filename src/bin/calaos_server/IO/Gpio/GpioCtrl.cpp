@@ -179,7 +179,7 @@ void GpioCtrl::emitChange(void)
     {
         debounce = true;
 
-        EcoreTimer::singleShot(0.05, [=](){
+        Timer::singleShot(0.05, [=](){
             cDebugDom("input") << "Debounce finished";
             debounce = false;
             event_signal.emit();

@@ -26,7 +26,7 @@ PollObject::PollObject(string _uuid):
     uuid(_uuid),
     timeout(NULL)
 {
-    timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
+    timeout = new Timer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
 
     evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &PollObject::handleEvents));
 

@@ -22,7 +22,7 @@
 #define S_OWTemp_H
 
 #include "InputTemp.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 using namespace Calaos;
 

@@ -350,7 +350,7 @@ void Zibase::ZibaseCommand_Timeout()
             ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
             ecore_con_server_flush(econ_client);
             /* arm timer*/
-            //zibase_timer = new EcoreTimer(3.0, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
+            //zibase_timer = new Timer(3.0, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
             StartTimer(3.0);
         }
     }
@@ -704,7 +704,7 @@ int Zibase::StopTimer(void)
 
 int Zibase::StartTimer(float timeout)
 {
-    zibase_timer = new EcoreTimer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
+    zibase_timer = new Timer(timeout, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
     return (0);
 }
 

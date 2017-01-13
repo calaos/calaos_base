@@ -50,7 +50,7 @@ CalaosDiscover::CalaosDiscover():
 
     timerDiscover();
 
-    timer = new EcoreTimer(1.,
+    timer = new Timer(1.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
 }
 
@@ -90,7 +90,7 @@ void CalaosDiscover::dataGet(Ecore_Con_Server *server, void *data, int size)
         address = msg;
 
         DELETE_NULL(timer);
-        EcoreTimer::singleShot(0.0, sigc::mem_fun(*this, &CalaosDiscover::delayDel));
+        Timer::singleShot(0.0, sigc::mem_fun(*this, &CalaosDiscover::delayDel));
 
         connection = new CalaosConnection(address);
         connection->connection_ok.connect(sigc::mem_fun(*this, &CalaosDiscover::loginSuccess));
@@ -108,7 +108,7 @@ void CalaosDiscover::loginSuccess()
 {
     cDebugDom("network") << "Login to host " << address << " successfully";
 
-    EcoreTimer::singleShot(0.0, [=]()
+    Timer::singleShot(0.0, [=]()
     {
         DELETE_NULL(connection);
     });
@@ -125,6 +125,6 @@ void CalaosDiscover::loginFailed()
     login_error.emit(address);
 
     //Restart timer to search again for a valid server
-    timer = new EcoreTimer(1.,
+    timer = new Timer(1.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &CalaosDiscover::timerDiscover));
 }

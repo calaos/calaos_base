@@ -242,7 +242,7 @@ bool OutputLightRGB::set_value(std::string val)
         from_string(val, timems);
 
         DELETE_NULL(timer_auto);
-        timer_auto = new EcoreTimer((double)timems / 1000.,
+        timer_auto = new Timer((double)timems / 1000.,
                                     (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightRGB::TimerAutoChange) );
         //Directly start the first time
         TimerAutoChange();

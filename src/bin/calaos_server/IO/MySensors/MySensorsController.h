@@ -22,7 +22,7 @@
 #define MySensorsController_H
 
 #include <Utils.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Params.h>
 #include <unordered_map>
 #include <termios.h>
@@ -74,7 +74,7 @@ private:
     struct termios currentTermios;
     struct termios oldTermios;
 
-    EcoreTimer *timer = nullptr;
+    Timer *timer = nullptr;
 
     Ecore_Fd_Handler *serial_handler = nullptr;
 
@@ -85,7 +85,7 @@ private:
     Ecore_Event_Handler *ehandler_del;
     Ecore_Event_Handler *ehandler_data;
     Ecore_Con_Server *econ = nullptr;
-    EcoreTimer *timer_con = nullptr;
+    Timer *timer_con = nullptr;
 
     void timerConnReconnect();
 

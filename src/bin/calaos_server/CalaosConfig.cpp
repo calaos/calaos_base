@@ -65,7 +65,7 @@ Config::Config()
     cache_states = eina_hash_string_superfast_new(_eina_hash_free_cb);
     loadStateCache();
 
-    saveCacheTimer = new EcoreTimer(60.0, [=]() { saveStateCache(); });
+    saveCacheTimer = new Timer(60.0, [=]() { saveStateCache(); });
 }
 
 Config::~Config()

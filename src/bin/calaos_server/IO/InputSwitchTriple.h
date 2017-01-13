@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -34,7 +34,7 @@ protected:
     int count;
     double value;
 
-    EcoreTimer *timer;
+    Timer *timer;
 
     void TimerDone();
     void resetInput();

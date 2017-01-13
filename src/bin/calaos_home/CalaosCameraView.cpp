@@ -1,5 +1,5 @@
 #include "CalaosCameraView.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 Eina_Bool _url_data_cb(void *data, int type, void *event_info)
 {
@@ -250,7 +250,7 @@ void CalaosCameraView::processData()
             cWarningDom("camera") << "Wrong image data.";
             format_error = true;
 
-            EcoreTimer::singleShot(0, [=]()
+            Timer::singleShot(0, [=]()
             {
                 cDebugDom("camera") << "Cancel stream";
                 ecore_con_url_free(ecurl);
@@ -346,7 +346,7 @@ void CalaosCameraView::requestCompleted()
     if (format_error)
         return;
 
-    EcoreTimer::singleShot(0, [=]()
+    Timer::singleShot(0, [=]()
     {
         if (!single_frame)
             cWarningDom("camera") << "Restarting request to camera...";

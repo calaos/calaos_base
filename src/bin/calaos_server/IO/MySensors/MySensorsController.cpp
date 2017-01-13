@@ -227,7 +227,7 @@ void MySensorsController::closeSerial()
 void MySensorsController::openSerialLater(double t)
 {
     if (timer) return;
-    timer = new EcoreTimer(t, [=]()
+    timer = new Timer(t, [=]()
     {
         delete timer;
         timer = NULL;
@@ -271,7 +271,7 @@ void MySensorsController::openTCP()
     ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
 
     timerConnReconnect();
-    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+    timer_con = new Timer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
 }
 
 void MySensorsController::timerConnReconnect()
@@ -301,7 +301,7 @@ void MySensorsController::delConnection(Ecore_Con_Server *srv)
     cWarningDom("mysensors") << "Main Connection closed !";
     cWarningDom("mysensors") << "Trying to reconnect...";
 
-    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+    timer_con = new Timer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
 }
 
 void MySensorsController::dataGet(Ecore_Con_Server *srv, void *data, int size)

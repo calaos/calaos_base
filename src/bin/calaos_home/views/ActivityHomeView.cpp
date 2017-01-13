@@ -313,7 +313,7 @@ void ActivityHomeView::selectPage(int page, double delay)
     if (delay > 0.0)
     {
         pageTimer = page;
-        EcoreTimer::singleShot(delay, sigc::mem_fun(*this, &ActivityHomeView::selectPage_cb));
+        Timer::singleShot(delay, sigc::mem_fun(*this, &ActivityHomeView::selectPage_cb));
     }
     else
     {

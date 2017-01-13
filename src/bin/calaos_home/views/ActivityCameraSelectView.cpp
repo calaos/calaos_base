@@ -262,7 +262,7 @@ void ActivityCameraSelectView::positionSelected(void *data)
     page->setPartText("text", text);
 
     elm_naviframe_item_push(pager_position, NULL, NULL, NULL, page->getEvasObject(), "calaos");
-    EcoreTimer::singleShot(2.0, sigc::mem_fun(*this, &ActivityCameraSelectView::positionSaved));
+    Timer::singleShot(2.0, sigc::mem_fun(*this, &ActivityCameraSelectView::positionSaved));
 }
 
 void ActivityCameraSelectView::positionSaved()

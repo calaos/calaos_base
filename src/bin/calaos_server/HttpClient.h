@@ -27,7 +27,7 @@
 #include <unordered_map>
 #include "JsonApiHandlerHttp.h"
 #include "JsonApiHandlerWS.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 using namespace Calaos;
 
@@ -65,7 +65,7 @@ protected:
     bool need_restart = false;
 
     //timer to close the connection after data has been written
-    EcoreTimer *closeTimer = nullptr;
+    Timer *closeTimer = nullptr;
 
     bool isWebsocket = false;
 
