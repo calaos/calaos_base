@@ -390,7 +390,7 @@ typedef enum { TBOOL, TINT, TSTRING, TUNKNOWN } DATA_TYPE;
 enum { AudioPlay, AudioPause, AudioStop, AudioError, AudioSongChange, AudioPlaylistChange, AudioVolumeChange };
 typedef enum { UNKNOWN, SLIMSERVER, IRTRANS, CALAOS } SOCKET_TYPE;
 //-----------------------------------------------------------------------------
-enum { VUP, VDOWN, VSTOP, VNONE };
+enum { SHUTTER_UP, SHUTTER_DOWN, SHUTTER_STOP, SHUTTER_NONE };
 //-----------------------------------------------------------------------------
 typedef unsigned short UWord;
 //-----------------------------------------------------------------------------
