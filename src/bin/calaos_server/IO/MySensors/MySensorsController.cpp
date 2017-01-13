@@ -187,7 +187,7 @@ void MySensorsController::openSerial()
 
         serial_handler = ecore_main_fd_handler_add(serialfd,
                                                    (Ecore_Fd_Handler_Flags)
-                                                   (ECORE_FD_READ | ECORE_FD_WRITE | ECORE_FD_ERROR),
+                                                   (ECORE_FD_READ | ECORE_FD_ERROR),
                                                    _serial_handler_cb,
                                                    this,
                                                    NULL,
@@ -210,15 +210,18 @@ void MySensorsController::openSerial()
 void MySensorsController::closeSerial()
 {
     if (serialfd == 0) return;
-    ::tcdrain(serialfd); //flush
-    ::tcsetattr(serialfd, TCSAFLUSH | TCSANOW, &oldTermios); // Restore old termios
-    ::close(serialfd);
-    serialfd = 0;
+
+    //as the efl doc say: the handler should be removed prior closing the fd
     if (serial_handler)
     {
         ecore_main_fd_handler_del(serial_handler);
         serial_handler = nullptr;
     }
+
+    ::tcdrain(serialfd); //flush
+    ::tcsetattr(serialfd, TCSAFLUSH | TCSANOW, &oldTermios); // Restore old termios
+    ::close(serialfd);
+    serialfd = 0;
 }
 
 void MySensorsController::openSerialLater(double t)
@@ -256,11 +259,6 @@ Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
         //cDebugDom("mysensors") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
 
         readNewData(data);
-    }
-
-    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_WRITE))
-    {
-//        cDebugDom("mysensors") << "Data written on serial port";
     }
 
     return ECORE_CALLBACK_RENEW;
