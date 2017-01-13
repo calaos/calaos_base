@@ -174,8 +174,8 @@ void Config::SaveConfigIO()
 
     if (document.SaveFile(tmp))
     {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
+        unlink(file.c_str());
+        rename(tmp.c_str(), file.c_str());
     }
 
     cInfo() <<  "Done.";
@@ -257,8 +257,8 @@ void Config::SaveConfigRule()
 
     if (document.SaveFile(tmp))
     {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
+        unlink(file.c_str());
+        rename(tmp.c_str(), file.c_str());
     }
 
     cInfo() <<  "Done.";
@@ -336,8 +336,8 @@ void Config::saveStateCache()
 
     if (ret)
     {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
+        unlink(file.c_str());
+        rename(tmp.c_str(), file.c_str());
     }
 
     cInfo() <<  "State cache file written successfully (" << file << ")";

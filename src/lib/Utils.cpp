@@ -482,6 +482,7 @@ string Utils::getConfigFile(const char *configType)
         {
             string conf = *it;
             conf += "/" IO_CONFIG;
+
             if (ecore_file_exists(conf.c_str()))
             {
                 _configBase = *it;
@@ -492,8 +493,8 @@ string Utils::getConfigFile(const char *configType)
         if (_configBase.empty())
         {
             //no config dir found, create $HOME/.config/calaos
-            ecore_file_mkdir(string(home + "/.config").c_str());
-            ecore_file_mkdir(string(home + "/.config/calaos").c_str());
+          mkdir(string(home + "/.config").c_str(), S_IRWXU);
+            mkdir(string(home + "/.config/calaos").c_str(), S_IRWXU);
             _configBase = home + "/" + HOME_CONFIG_PATH;
         }
     }
@@ -517,8 +518,8 @@ string Utils::getCacheFile(const char *cacheFile)
         }
 
         //force the creation of .cache/calaos
-        ecore_file_mkdir(string(home + "/.cache").c_str());
-        ecore_file_mkdir(string(home + "/.cache/calaos").c_str());
+        mkdir(string(home + "/.cache").c_str(), S_IRWXU);
+        mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
 
         _cacheBase = home + "/.cache/calaos";
     }

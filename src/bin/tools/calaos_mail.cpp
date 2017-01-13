@@ -123,9 +123,9 @@ int main (int argc, char **argv)
     //delete files if needed
     if (del)
     {
-        ecore_file_unlink(confBody.c_str());
+        unlink(confBody.c_str());
         for (string attach : confAttach)
-            ecore_file_unlink(attach.c_str());
+            unlink(attach.c_str());
     }
 
     Utils::FreeEinaLogs();

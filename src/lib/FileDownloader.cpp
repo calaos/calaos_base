@@ -227,7 +227,7 @@ bool FileDownloader::Start()
         fclose(dl_file);
 
         if (dest.empty())
-            ecore_file_unlink(tmpFile.c_str());
+            unlink(tmpFile.c_str());
 
         return false;
     }
@@ -245,7 +245,7 @@ void FileDownloader::Cancel()
     fclose(dl_file);
 
     if (dest.empty())
-        ecore_file_unlink(tmpFile.c_str());
+        unlink(tmpFile.c_str());
 
     cDebugDom("downloader") << "Download aborted! (" << url << ")";
 
@@ -297,7 +297,7 @@ void FileDownloader::completeCb(int status)
         cErrorDom("downloader") << "Download failed: " << err;
 
         if (dest.empty())
-            ecore_file_unlink(tmpFile.c_str());
+            unlink(tmpFile.c_str());
 
         return;
     }
@@ -327,7 +327,7 @@ void FileDownloader::completeCb(int status)
             cCriticalDom("downloader") << "FileDownloader: fread failed ! (" << url << ")";
         fclose(dl_file);
 
-        ecore_file_unlink(tmpFile.c_str());
+        unlink(tmpFile.c_str());
 
         IPC::Instance().SendEvent("downloader::" + Utils::to_string(this),
                                   "done",

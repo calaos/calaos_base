@@ -180,7 +180,7 @@ int main (int argc, char **argv)
     bool ret = CreateThumb_Evas(input_file, output_file, size);
 
     if (to_del)
-        ecore_file_unlink(input_file.c_str());
+        unlink(input_file.c_str());
 
     if (ret)
         return 0;

@@ -36,7 +36,6 @@ Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
     timer.data = this;
     uv_timer_init(uv_default_loop(), &timer);
     uv_timer_start(&timer, _calaos_timer_event, time, time);
-    //timer = ecore_timer_add(time, _calaos_timer_event, this);
 }
 
 Timer::Timer(double in, sigc::slot<void> slot):
@@ -49,7 +48,6 @@ Timer::Timer(double in, sigc::slot<void> slot):
     timer.data = this;
     uv_timer_init(uv_default_loop(), &timer);
     uv_timer_start(&timer, _calaos_timer_event, time, time);
-    //timer = ecore_timer_add(time, _calaos_timer_event, this);
 }
 
 Timer::~Timer()
@@ -59,9 +57,6 @@ Timer::~Timer()
         connection.disconnect();
     else
         connection_data.disconnect();
-
-    //delete the ecore timer
-    //if (timer) ecore_timer_del(timer);
 }
 
 void Timer::Reset()

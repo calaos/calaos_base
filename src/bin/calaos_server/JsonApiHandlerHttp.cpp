@@ -61,7 +61,7 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
     delete cameraDl;
     ecore_event_handler_del(exe_handler);
-    ecore_file_unlink(tempfname.c_str());
+    unlink(tempfname.c_str());
 }
 
 void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)

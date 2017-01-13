@@ -37,7 +37,7 @@ static Eina_Bool exe_callback(void *data, int type, void *event)
 AudioModel::AudioModel(CalaosConnection *con):
     connection(con)
 {
-    ecore_file_mkdir(Utils::getCacheFile(".cover_cache").c_str());
+    mkdir(Utils::getCacheFile(".cover_cache").c_str());
     ecore_event_handler_add(ECORE_EXE_EVENT_DEL, exe_callback, this);
 }
 

@@ -52,7 +52,6 @@ public:
     void Reset();
     void Reset(double time);
 
-    //private, used by ecore
     void Tick();
 
     double getTime() { return time; }
@@ -65,7 +64,6 @@ class Idler
 
   void createIdler();
   friend void Idler_idler_cb(uv_idle_t *handle);
-
  public:
   Idler(sigc::slot<void> slot);
   Idler();

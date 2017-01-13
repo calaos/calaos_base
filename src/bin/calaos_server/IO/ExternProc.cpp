@@ -151,7 +151,7 @@ ExternProcServer::~ExternProcServer()
     ecore_con_server_del(ipcServer);
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;
-    ecore_file_unlink(sockpath.c_str());
+    unlink(sockpath.c_str());
 }
 
 void ExternProcServer::terminate()
