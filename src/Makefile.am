@@ -1,3 +1,3 @@
-SUBDIRS = lib bin widgets
+SUBDIRS = lib bin
 
 MAINTAINERCLEANFILES = Makefile.in

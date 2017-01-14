@@ -53,8 +53,8 @@ libcalaos_common_la_SOURCES = \
         Calendar.h                              \
         DownloadManager.cpp                     \
         DownloadManager.h                       \
-        Timer.cpp   		                        \
-        Timer.h			                            \
+        Timer.cpp                               \
+        Timer.h                                 \
         EinaLog.cpp                             \
         EinaLog.h                               \
         FileDownloader.cpp                      \
@@ -72,8 +72,8 @@ libcalaos_common_la_SOURCES = \
         Params.h                                \
         Prefix.cpp                              \
         Prefix.h                                \
-	SHA1.cpp 				\
-	SHA1.h					\
+        SHA1.cpp                                \
+        SHA1.h                                  \
         TimeRange.cpp                           \
         TimeRange.h                             \
         TinyXML/action_store.cpp                \
@@ -130,7 +130,7 @@ libcalaos_common_la_SOURCES = \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
         ColorUtils.h                            \
-        ColorUtils.cpp						    \
+        ColorUtils.cpp                          \
         json.hpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
