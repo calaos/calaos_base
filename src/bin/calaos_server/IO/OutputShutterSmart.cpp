@@ -28,8 +28,8 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     total_time(0),
     time_up(0),
     time_down(0),
-    sens(VSTOP),
-    old_sens(VUP),
+    sens(SHUTTER_STOP),
+    old_sens(SHUTTER_UP),
     position(0.0),
     timer_end(NULL),
     timer_update(NULL),
@@ -72,7 +72,7 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     else
         from_string(initpos, position);
 
-    if (position >= total_time) old_sens = VDOWN;
+    if (position >= total_time) old_sens = SHUTTER_DOWN;
 }
 
 OutputShutterSmart::~OutputShutterSmart()
@@ -235,7 +235,7 @@ bool OutputShutterSmart::set_value(std::string val)
 
             double new_position = (double)percent * (double)time_up / 100.;
             writePosition(new_position);
-            sens = VSTOP;
+            sens = SHUTTER_STOP;
         }
     }
     else
@@ -254,7 +254,7 @@ void OutputShutterSmart::Up(double new_value)
 {
     if (calibrate) return;
 
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
         Stop();
         return;
@@ -271,7 +271,7 @@ void OutputShutterSmart::Up(double new_value)
 
     setOutputUp(true);
     setOutputDown(false);
-    sens = VUP;
+    sens = SHUTTER_UP;
 
     start_time = ecore_time_get();
     start_position = pos;
@@ -324,7 +324,7 @@ void OutputShutterSmart::Down(double new_value)
 {
     if (calibrate) return;
 
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
         Stop();
         return;
@@ -342,7 +342,7 @@ void OutputShutterSmart::Down(double new_value)
 
     setOutputUp(false);
     setOutputDown(true);
-    sens = VDOWN;
+    sens = SHUTTER_DOWN;
 
     start_time = ecore_time_get();
     start_position = pos;
@@ -395,9 +395,9 @@ void OutputShutterSmart::DownWait()
 {
     if (calibrate) return;
 
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
-        if (sens == VDOWN)
+        if (sens == SHUTTER_DOWN)
             Stop();
         else
         {
@@ -421,9 +421,9 @@ void OutputShutterSmart::UpWait()
 {
     if (calibrate) return;
 
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
-        if (sens == VUP)
+        if (sens == SHUTTER_UP)
             Stop();
         else
         {
@@ -448,7 +448,7 @@ void OutputShutterSmart::Stop()
     if (calibrate) return;
 
     cmd_state = "stop";
-    if (sens == VSTOP) return;
+    if (sens == SHUTTER_STOP) return;
 
     if (impulse_time > 0)
     {
@@ -460,7 +460,7 @@ void OutputShutterSmart::Stop()
         }
         else
         {
-            if (sens == VUP)
+            if (sens == SHUTTER_UP)
                 setOutputUp(true);
             else
                 setOutputDown(true);
@@ -483,7 +483,7 @@ void OutputShutterSmart::Stop()
 
     TimerUpdate();
 
-    sens = VSTOP;
+    sens = SHUTTER_STOP;
 }
 
 void OutputShutterSmart::ImpulseUp(int ms)
@@ -504,19 +504,19 @@ void OutputShutterSmart::ImpulseDown(int ms)
 
 void OutputShutterSmart::Toggle()
 {
-    if (sens == VUP)
+    if (sens == SHUTTER_UP)
     {
-        old_sens = VUP;
+        old_sens = SHUTTER_UP;
         Down();
     }
-    else if (sens == VDOWN)
+    else if (sens == SHUTTER_DOWN)
     {
-        old_sens = VDOWN;
+        old_sens = SHUTTER_DOWN;
         Up();
     }
     else
     {
-        if (old_sens == VUP)
+        if (old_sens == SHUTTER_UP)
             Down();
         else
             Up();
@@ -525,14 +525,14 @@ void OutputShutterSmart::Toggle()
 
 void OutputShutterSmart::TimerUpdate()
 {
-    if (sens == VUP)
+    if (sens == SHUTTER_UP)
     {
         //set new position
         double _t = start_position;
         _t -= (ecore_time_get() - start_time);
         writePosition(_t);
     }
-    else if (sens == VDOWN)
+    else if (sens == SHUTTER_DOWN)
     {
         //set new position and conver it to time_up range
         double _t = start_position;
@@ -548,10 +548,10 @@ void OutputShutterSmart::TimerUpdate()
 
 void OutputShutterSmart::TimerEnd()
 {
-    if (sens == VUP)
-        old_sens = VUP;
-    else if (sens == VDOWN)
-        old_sens = VDOWN;
+    if (sens == SHUTTER_UP)
+        old_sens = SHUTTER_UP;
+    else if (sens == SHUTTER_DOWN)
+        old_sens = SHUTTER_DOWN;
 
     string t = cmd_state;
     Stop();
@@ -614,13 +614,13 @@ std::string OutputShutterSmart::get_value_string()
     if (calibrate)
         return "calibration";
 
-    if (sens == VUP)
+    if (sens == SHUTTER_UP)
         return "up " + Utils::to_string(get_value_double());
 
-    if (sens == VDOWN)
+    if (sens == SHUTTER_DOWN)
         return "down " + Utils::to_string(get_value_double());
 
-    if (sens == VSTOP)
+    if (sens == SHUTTER_STOP)
         return "stop " + Utils::to_string(get_value_double());
 
     return " " + Utils::to_string(get_value_double());
@@ -642,8 +642,8 @@ bool OutputShutterSmart::check_condition_value(std::string cvalue, bool equal)
     }
     else if (cvalue == "stop" || cvalue == "stopped")
     {
-        if ((equal && sens == VSTOP) ||
-            (!equal && sens != VSTOP))
+        if ((equal && sens == SHUTTER_STOP) ||
+            (!equal && sens != SHUTTER_STOP))
             return true;
     }
     else if (is_of_type<int>(cvalue))

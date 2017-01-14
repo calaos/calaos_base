@@ -24,8 +24,8 @@ using namespace Calaos;
 
 OutputShutter::OutputShutter(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
-    sens(VSTOP),
-    old_sens(VUP),
+    sens(SHUTTER_STOP),
+    old_sens(SHUTTER_UP),
     timer_end(NULL),
     timer_impulse(NULL),
     timer_up(NULL),
@@ -153,19 +153,19 @@ void OutputShutter::ImpulseDown(int ms)
 
 void OutputShutter::Toggle()
 {
-    if (sens == VUP)
+    if (sens == SHUTTER_UP)
     {
-        old_sens = VUP;
+        old_sens = SHUTTER_UP;
         Down();
     }
-    else if (sens == VDOWN)
+    else if (sens == SHUTTER_DOWN)
     {
-        old_sens = VDOWN;
+        old_sens = SHUTTER_DOWN;
         Up();
     }
     else
     {
-        if (old_sens == VUP)
+        if (old_sens == SHUTTER_UP)
             Down();
         else
             Up();
@@ -174,7 +174,7 @@ void OutputShutter::Toggle()
 
 void OutputShutter::Up()
 {
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
         Stop();
         return;
@@ -182,7 +182,7 @@ void OutputShutter::Up()
 
     setOutputUp(true);
     setOutputDown(false);
-    sens = VUP;
+    sens = SHUTTER_UP;
 
     if (impulse_time > 0)
     {
@@ -219,7 +219,7 @@ void OutputShutter::Up()
 
 void OutputShutter::Down()
 {
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
         Stop();
         return;
@@ -227,7 +227,7 @@ void OutputShutter::Down()
 
     setOutputUp(false);
     setOutputDown(true);
-    sens = VDOWN;
+    sens = SHUTTER_DOWN;
 
     if (impulse_time > 0)
     {
@@ -264,9 +264,9 @@ void OutputShutter::Down()
 
 void OutputShutter::DownWait()
 {
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
-        if (sens == VDOWN)
+        if (sens == SHUTTER_DOWN)
         {
             Stop();
             return;
@@ -291,9 +291,9 @@ void OutputShutter::DownWait()
 
 void OutputShutter::UpWait()
 {
-    if (sens != VSTOP)
+    if (sens != SHUTTER_STOP)
     {
-        if (sens == VUP)
+        if (sens == SHUTTER_UP)
         {
             Stop();
             return;
@@ -319,7 +319,7 @@ void OutputShutter::UpWait()
 void OutputShutter::Stop()
 {
     cmd_state = "stop";
-    if (sens == VSTOP) return;
+    if (sens == SHUTTER_STOP) return;
 
     if (impulse_time > 0)
     {
@@ -331,7 +331,7 @@ void OutputShutter::Stop()
         }
         else
         {
-            if (sens == VUP)
+            if (sens == SHUTTER_UP)
                 setOutputUp(true);
             else
                 setOutputDown(true);
@@ -347,7 +347,7 @@ void OutputShutter::Stop()
         setOutputDown(false);
     }
 
-    sens = VSTOP;
+    sens = SHUTTER_STOP;
 
     if (timer_end)
     {
@@ -358,14 +358,14 @@ void OutputShutter::Stop()
 
 void OutputShutter::TimerEnd()
 {
-    if (sens == VUP)
+    if (sens == SHUTTER_UP)
     {
-        old_sens = VUP;
+        old_sens = SHUTTER_UP;
         state_volet = "true";
     }
-    else if (sens == VDOWN)
+    else if (sens == SHUTTER_DOWN)
     {
-        old_sens = VDOWN;
+        old_sens = SHUTTER_DOWN;
         state_volet = "false";
     }
 
@@ -406,8 +406,8 @@ bool OutputShutter::check_condition_value(std::string cvalue, bool equal)
     }
     else if (cvalue == "stop" || cvalue == "stopped")
     {
-        if ((equal && sens == VSTOP) ||
-            (!equal && sens != VSTOP))
+        if ((equal && sens == SHUTTER_STOP) ||
+            (!equal && sens != SHUTTER_STOP))
             return true;
     }
 
