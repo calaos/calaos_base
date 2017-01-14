@@ -35,7 +35,7 @@ Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
     //create the libuv timer
     timer.data = this;
     uv_timer_init(uv_default_loop(), &timer);
-    uv_timer_start(&timer, _calaos_timer_event, time, time);
+    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
 }
 
 Timer::Timer(double in, sigc::slot<void> slot):
@@ -47,11 +47,13 @@ Timer::Timer(double in, sigc::slot<void> slot):
     //create the libuv timer
     timer.data = this;
     uv_timer_init(uv_default_loop(), &timer);
-    uv_timer_start(&timer, _calaos_timer_event, time, time);
+    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
 }
 
 Timer::~Timer()
 {
+    uv_timer_stop(&timer);
+
     //disconnect the sigc slot
     if (!timer_data)
         connection.disconnect();
@@ -65,7 +67,7 @@ void Timer::Reset()
     //if (timer) ecore_timer_del(timer);
     //timer = ecore_timer_add(time, _calaos_timer_event, this);
     uv_timer_stop(&timer);
-    uv_timer_start(&timer, _calaos_timer_event, time, time);
+    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
 
 }
 
