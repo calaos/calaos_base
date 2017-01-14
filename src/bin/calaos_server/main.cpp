@@ -70,10 +70,6 @@ int main (int argc, char **argv)
     ecore_init();
     ecore_con_init();
 
-    uv_loop_t *loop = (uv_loop_t*) malloc(sizeof(uv_loop_t));
-    uv_loop_init(loop);
-
-
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
     cout <<    " ║                                               ║" << endl;
     cout <<    " ║  Calaos Server Daemon - http://www.calaos.fr  ║" << endl;
@@ -166,10 +162,9 @@ int main (int argc, char **argv)
     watchdogLoop = new Timer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
 
     //Check config once the main loop is started
-    Timer::singleShot(0.0, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
+    Timer::singleShot(0.1, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
 
-    uv_run(loop, UV_RUN_DEFAULT);
-    //ecore_main_loop_begin();
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
     HttpServer::Instance().disconnectAll();
 
@@ -189,8 +184,7 @@ int main (int argc, char **argv)
     delete wserver;
     delete udpserver;
 
-    uv_loop_close(loop);
-    free(loop);
+    uv_loop_close(uv_default_loop());
     Utils::FreeEinaLogs();
 
     return 0;
