@@ -34,7 +34,7 @@ UDPServer::UDPServer(int p):
     createUdpSocket();
 
     event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
-    event_handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_ecore_con_handler_error, this);
+    event_handler_error = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_ERROR, (Ecore_Event_Handler_Cb)_ecore_con_handler_error, this);
 
     cDebugDom("network") << "Starting UDP server...";
     cDebugDom("network") << "Listenning on port " << port;
@@ -123,28 +123,28 @@ void UDPServer::ProcessRequest(Ecore_Con_Client *client, string request)
 
             //sock->Broadcast(packet, BCAST_UDP_PORT);
             //sock->SendTo(packet.c_str(), packet.length(), BCAST_UDP_PORT, remote_ip);
-            if (!udp_broadcast)
-            {
-                udp_broadcast = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST,
-                                                         "255.255.255.255",
-                                                         BCAST_UDP_PORT,
-                                                         this);
-                ecore_con_server_data_set(udp_broadcast, this);
-            }
+//            if (!udp_broadcast)
+//            {
+//                udp_broadcast = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST,
+//                                                         "255.255.255.255",
+//                                                         BCAST_UDP_PORT,
+//                                                         this);
+//                ecore_con_server_data_set(udp_broadcast, this);
+//            }
 
-            if (udp_sender)
-            {
-                ecore_con_server_del(udp_sender);
-            }
+//            if (udp_sender)
+//            {
+//                ecore_con_server_del(udp_sender);
+//            }
 
-            udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                                  remote_ip.c_str(),
-                                                  BCAST_UDP_PORT,
-                                                  this);
-            ecore_con_server_data_set(udp_sender, this);
+//            udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
+//                                                  remote_ip.c_str(),
+//                                                  BCAST_UDP_PORT,
+//                                                  this);
+//            ecore_con_server_data_set(udp_sender, this);
 
-            ecore_con_server_send(udp_broadcast, packet.c_str(), packet.length() + 1);
-            ecore_con_server_send(udp_sender, packet.c_str(), packet.length() + 1);
+//            ecore_con_server_send(udp_broadcast, packet.c_str(), packet.length() + 1);
+//            ecore_con_server_send(udp_sender, packet.c_str(), packet.length() + 1);
 
             //Broadcast response
             /*TCPSocket *sock = new TCPSocket();
