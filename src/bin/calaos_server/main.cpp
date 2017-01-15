@@ -18,11 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-//#include <Ecore.h>
-//#include <Timer.h>
-
-#include <uv.h>
-
 #include "Calaos.h"
 #include "Room.h"
 #include "ListeRoom.h"
@@ -36,6 +31,8 @@
 #include "Zibase.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
+
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -164,7 +161,8 @@ int main (int argc, char **argv)
     //Check config once the main loop is started
     Timer::singleShot(0.1, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
 
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    auto loop = uvw::Loop::getDefault();
+    loop->run();
 
     HttpServer::Instance().disconnectAll();
 
@@ -184,7 +182,7 @@ int main (int argc, char **argv)
     delete wserver;
     delete udpserver;
 
-    uv_loop_close(uv_default_loop());
+    loop->close();
     Utils::FreeEinaLogs();
 
     return 0;

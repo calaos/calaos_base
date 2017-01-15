@@ -31,7 +31,7 @@ using namespace Utils;
 int main(int argc, char **argv)
 {
     TCPSocket *socket = new TCPSocket();
-    socket->Create(UDP);
+    socket->Create(TCPSocketUDP);
     char buffer[256];
     string cmd;
     string host, action;

@@ -17,6 +17,7 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
         -I. \
+        -I$(top_srcdir)/src/lib/uvw/src \
         @CALAOS_COMMON_CFLAGS@
 
 AM_CFLAGS = \
@@ -131,7 +132,8 @@ libcalaos_common_la_SOURCES = \
         uri_parser/hef_uri_syntax.h             \
         ColorUtils.h                            \
         ColorUtils.cpp                          \
-        json.hpp
+        json.hpp                                \
+        uvw/src/uvw.hpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

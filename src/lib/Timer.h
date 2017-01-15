@@ -23,22 +23,25 @@
 
 #include "Utils.h"
 #include <sigc++/sigc++.h>
-#include <uv.h>
 
 using namespace Utils;
+
+namespace uvw {
+class TimerHandle;
+class IdleHandle;
+}
 
 class Timer
 {
 private:
-    //use a smart pointer to let c++ handle memory
-    std::unique_ptr<uv_timer_t> m_timer;
+    std::shared_ptr<uvw::TimerHandle> handleTimer;
 
     sigc::signal<void, void *> event_signal_data;
     sigc::signal<void> event_signal;
     sigc::connection connection_data;
     sigc::connection connection;
 
-    double time;
+    uint64_t time;
     bool timer_data;
 
     void *data = nullptr;
@@ -63,7 +66,7 @@ public:
 class Idler
 {
 private:
-    std::unique_ptr<uv_idle_t> m_idler;
+    std::shared_ptr<uvw::IdleHandle> handleIdler;
 
     void createIdler();
 public:

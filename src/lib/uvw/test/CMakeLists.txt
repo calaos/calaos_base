@@ -1,0 +1,173 @@
+#
+# Tests configuration
+#
+
+set(UVW_SRC_DIR ${CMAKE_SOURCE_DIR}/${PROJECT_SRC_DIR})
+
+set(
+    COMMON_INCLUDE_DIRS
+    ${UVW_SRC_DIR}
+    ${GOOGLETEST_INCLUDE_DIRS}
+    ${UV_INCLUDE_DIRS}
+)
+
+set(
+    COMMON_LINK_LIBS
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${GOOGLETEST_LIBRARIES}
+    ${UV_STATIC_LIBRARY}
+)
+
+if(${LIBRT_FOUND})
+    list(APPEND COMMON_LINK_LIBS ${LIBRT_LIBRARIES})
+endif(${LIBRT_FOUND})
+
+if(WIN32)
+    list(APPEND COMMON_LINK_LIBS ws2_32)
+endif(WIN32)
+
+add_library(odr OBJECT odr.cpp)
+target_include_directories(odr PRIVATE ${COMMON_INCLUDE_DIRS})
+
+# List of available targets
+
+set(TARGET_MAIN main)
+set(TARGET_ASYNC async)
+set(TARGET_CHECK check)
+set(TARGET_EMITTER emitter)
+set(TARGET_EVENT event)
+set(TARGET_FS_REQ fs_req)
+set(TARGET_FILE_REQ file_req)
+set(TARGET_HANDLE handle)
+set(TARGET_IDLE idle)
+set(TARGET_LOOP loop)
+set(TARGET_PREPARE prepare)
+set(TARGET_RESOURCE resource)
+set(TARGET_SIGNAL signal)
+set(TARGET_TIMER timer)
+set(TARGET_WORK work)
+
+# Test TARGET_MAIN
+
+set(TARGET_MAIN_SOURCES $<TARGET_OBJECTS:odr> main.cpp)
+add_executable(${TARGET_MAIN} ${TARGET_MAIN_SOURCES})
+target_include_directories(${TARGET_MAIN} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_MAIN} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_MAIN} COMMAND ${TARGET_MAIN})
+
+# Test TARGET_ASYNC
+
+set(TARGET_ASYNC_SOURCES $<TARGET_OBJECTS:odr> uvw/async.cpp)
+add_executable(${TARGET_ASYNC} ${TARGET_ASYNC_SOURCES})
+target_include_directories(${TARGET_ASYNC} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_ASYNC} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_ASYNC} COMMAND ${TARGET_ASYNC})
+
+# Test TARGET_CHECK
+
+set(TARGET_CHECK_SOURCES $<TARGET_OBJECTS:odr> uvw/check.cpp)
+add_executable(${TARGET_CHECK} ${TARGET_CHECK_SOURCES})
+target_include_directories(${TARGET_CHECK} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_CHECK} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_CHECK} COMMAND ${TARGET_CHECK})
+
+# Test TARGET_EMITTER
+
+set(TARGET_EMITTER_SOURCES $<TARGET_OBJECTS:odr> uvw/emitter.cpp)
+add_executable(${TARGET_EMITTER} ${TARGET_EMITTER_SOURCES})
+target_include_directories(${TARGET_EMITTER} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_EMITTER} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_EMITTER} COMMAND ${TARGET_EMITTER})
+
+# Test TARGET_EVENT
+
+set(TARGET_EVENT_SOURCES $<TARGET_OBJECTS:odr> uvw/event.cpp)
+add_executable(${TARGET_EVENT} ${TARGET_EVENT_SOURCES})
+target_include_directories(${TARGET_EVENT} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_EVENT} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_EVENT} COMMAND ${TARGET_EVENT})
+
+# Test TARGET_FS_REQ
+
+set(TARGET_FS_REQ_SOURCES $<TARGET_OBJECTS:odr> uvw/fs_req.cpp)
+set(TARGET_FS_REQ_DIR ${CMAKE_CURRENT_BINARY_DIR}/fs_req)
+file(MAKE_DIRECTORY ${TARGET_FS_REQ_DIR})
+add_executable(${TARGET_FS_REQ} ${TARGET_FS_REQ_SOURCES})
+target_include_directories(${TARGET_FS_REQ} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_FS_REQ} PRIVATE ${COMMON_LINK_LIBS})
+target_compile_definitions(${TARGET_FS_REQ} PRIVATE TARGET_FS_REQ_DIR="${TARGET_FS_REQ_DIR}")
+add_test(NAME ${TARGET_FS_REQ} COMMAND ${TARGET_FS_REQ})
+
+# Test TARGET_FILE_REQ
+
+set(TARGET_FILE_REQ_SOURCES $<TARGET_OBJECTS:odr> uvw/file_req.cpp)
+set(TARGET_FILE_REQ_DIR ${CMAKE_CURRENT_BINARY_DIR}/file_req)
+file(MAKE_DIRECTORY ${TARGET_FILE_REQ_DIR})
+add_executable(${TARGET_FILE_REQ} ${TARGET_FILE_REQ_SOURCES})
+target_include_directories(${TARGET_FILE_REQ} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_FILE_REQ} PRIVATE ${COMMON_LINK_LIBS})
+target_compile_definitions(${TARGET_FILE_REQ} PRIVATE TARGET_FILE_REQ_DIR="${TARGET_FILE_REQ_DIR}")
+add_test(NAME ${TARGET_FILE_REQ} COMMAND ${TARGET_FILE_REQ})
+
+# Test TARGET_HANDLE
+
+set(TARGET_HANDLE_SOURCES $<TARGET_OBJECTS:odr> uvw/handle.cpp)
+add_executable(${TARGET_HANDLE} ${TARGET_HANDLE_SOURCES})
+target_include_directories(${TARGET_HANDLE} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_HANDLE} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_HANDLE} COMMAND ${TARGET_HANDLE})
+
+# Test TARGET_IDLE
+
+set(TARGET_IDLE_SOURCES $<TARGET_OBJECTS:odr> uvw/idle.cpp)
+add_executable(${TARGET_IDLE} ${TARGET_IDLE_SOURCES})
+target_include_directories(${TARGET_IDLE} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_IDLE} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_IDLE} COMMAND ${TARGET_IDLE})
+
+# Test TARGET_LOOP
+
+set(TARGET_LOOP_SOURCES $<TARGET_OBJECTS:odr> uvw/loop.cpp)
+add_executable(${TARGET_LOOP} ${TARGET_LOOP_SOURCES})
+target_include_directories(${TARGET_LOOP} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_LOOP} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_LOOP} COMMAND ${TARGET_LOOP})
+
+# Test TARGET_PREPARE
+
+set(TARGET_PREPARE_SOURCES $<TARGET_OBJECTS:odr> uvw/prepare.cpp)
+add_executable(${TARGET_PREPARE} ${TARGET_PREPARE_SOURCES})
+target_include_directories(${TARGET_PREPARE} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_PREPARE} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_PREPARE} COMMAND ${TARGET_PREPARE})
+
+# Test TARGET_RESOURCE
+set(TARGET_RESOURCE_SOURCES $<TARGET_OBJECTS:odr> uvw/resource.cpp)
+add_executable(${TARGET_RESOURCE} ${TARGET_RESOURCE_SOURCES})
+target_include_directories(${TARGET_RESOURCE} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_RESOURCE} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_RESOURCE} COMMAND ${TARGET_RESOURCE})
+
+# Test TARGET_SIGNAL
+
+set(TARGET_SIGNAL_SOURCES $<TARGET_OBJECTS:odr> uvw/signal.cpp)
+add_executable(${TARGET_SIGNAL} ${TARGET_SIGNAL_SOURCES})
+target_include_directories(${TARGET_SIGNAL} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_SIGNAL} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_SIGNAL} COMMAND ${TARGET_SIGNAL})
+
+# Test TARGET_TIMER
+
+set(TARGET_TIMER_SOURCES $<TARGET_OBJECTS:odr> uvw/timer.cpp)
+add_executable(${TARGET_TIMER} ${TARGET_TIMER_SOURCES})
+target_include_directories(${TARGET_TIMER} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_TIMER} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_TIMER} COMMAND ${TARGET_TIMER})
+
+# Test TARGET_WORK
+
+set(TARGET_WORK_SOURCES $<TARGET_OBJECTS:odr> uvw/work.cpp)
+add_executable(${TARGET_WORK} ${TARGET_WORK_SOURCES})
+target_include_directories(${TARGET_WORK} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_WORK} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_WORK} COMMAND ${TARGET_WORK})

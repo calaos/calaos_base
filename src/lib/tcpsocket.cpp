@@ -94,9 +94,9 @@ bool TCPSocket::Create(char nType)
 {
     cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
-    if (nType == TCP)
+    if (nType == TCPSocketTCP)
         return Create();
-    if (nType == UDP)
+    if (nType == TCPSocketUDP)
     {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -424,7 +424,7 @@ bool TCPSocket::Create(int nPort, char nType)
 
     cDebugDom("socket") << nPort << ", " << nType << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
-    if (nType == TCP)
+    if (nType == TCPSocketTCP)
     {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1)
@@ -433,7 +433,7 @@ bool TCPSocket::Create(int nPort, char nType)
             return false;
         }
     }
-    if (nType == UDP)
+    if (nType == TCPSocketUDP)
     {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         if (sockfd == -1)

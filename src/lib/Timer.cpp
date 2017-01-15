@@ -19,9 +19,10 @@
  **
  ******************************************************************************/
 #include "Timer.h"
+#include "uvw/src/uvw.hpp"
 
 Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
-    time(in),
+    time(in * 1000.0),
     timer_data(true),
     data(d)
 {
@@ -30,7 +31,7 @@ Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
 }
 
 Timer::Timer(double in, sigc::slot<void> slot):
-    time(in),
+    time(in * 1000.0),
     timer_data(false)
 {
     connection = event_signal.connect(slot);
@@ -39,31 +40,22 @@ Timer::Timer(double in, sigc::slot<void> slot):
 
 void Timer::create()
 {
-    //create the libuv timer
-    m_timer = std::make_unique<uv_timer_t>();
-    m_timer->data = this;
-    uv_timer_init(uv_default_loop(), m_timer.get());
+    auto loop = uvw::Loop::getDefault();
+    handleTimer = loop->resource<uvw::TimerHandle>();
 
-    uv_timer_start(m_timer.get(), [](uv_timer_t* timer)
+    handleTimer->on<uvw::TimerEvent>([=](const auto &, auto &)
     {
-        auto self = (Timer *)timer->data;
-        self->Tick();
-    }, time * 1000.0, time * 1000.0);
+        this->Tick();
+    });
+
+    handleTimer->start(uvw::TimerHandle::Time{time},
+                       uvw::TimerHandle::Time{time});
 }
 
 Timer::~Timer()
 {
-    uv_timer_stop(m_timer.get());
-
-    //Release ownership of smart pointer
-    //because it will get out of scope and destroyed
-    //in the async uv_close call later in the event loop
-    auto handle = m_timer.release();
-    uv_close((uv_handle_t *)handle, [](uv_handle_t *h)
-    {
-        //handle can be safely released now
-        free(h);
-    });
+    handleTimer->stop();
+    handleTimer->close();
 
     //disconnect the sigc slot
     if (!timer_data)
@@ -74,14 +66,14 @@ Timer::~Timer()
 
 void Timer::Reset()
 {
-    uv_timer_again(m_timer.get());
+    handleTimer->again();
 }
 
 void Timer::Reset(double in)
 {
-    time = in;
-    uv_timer_set_repeat(m_timer.get(), time * 1000.0);
-    uv_timer_again(m_timer.get());
+    time = in * 1000.0;
+    handleTimer->repeat(uvw::TimerHandle::Time{time});
+    handleTimer->again();
 }
 
 void Timer::Tick()
@@ -119,31 +111,21 @@ Idler::Idler()
 
 Idler::~Idler()
 {
-    uv_idle_stop(m_idler.get());
-
-    //Release ownership of smart pointer
-    //because it will get out of scope and destroyed
-    //in the async uv_close call later in the event loop
-    auto handle = m_idler.release();
-    uv_close((uv_handle_t *)handle, [](uv_handle_t *h)
-    {
-        //handle can be safely released now
-        free(h);
-    });
+    handleIdler->stop();
+    handleIdler->close();
 }
 
 void Idler::createIdler()
 {
-    //create the libuv idler
-    m_idler = std::make_unique<uv_idle_t>();
-    m_idler->data = this;
-    uv_idle_init(uv_default_loop(), m_idler.get());
+    auto loop = uvw::Loop::getDefault();
+    handleIdler = loop->resource<uvw::IdleHandle>();
 
-    uv_idle_start(m_idler.get(), [](uv_idle_t *idle)
+    handleIdler->on<uvw::IdleEvent>([this](const auto &, auto &)
     {
-        auto self = (Idler *)idle->data;
-        self->idlerCallback.emit();
+        idlerCallback.emit();
     });
+
+    handleIdler->start();
 }
 
 void Idler::singleIdler(sigc::slot<void> slot)
