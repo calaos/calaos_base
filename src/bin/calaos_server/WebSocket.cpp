@@ -20,18 +20,18 @@
  ******************************************************************************/
 #include "WebSocket.h"
 #include "CalaosConfig.h"
-#include <Ecore.h>
 #include "HttpCodes.h"
 #include "SHA1.h"
 #include "hef_uri_syntax.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
 const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
 const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
 
-WebSocket::WebSocket(Ecore_Con_Client *cl):
-    HttpClient(cl)
+WebSocket::WebSocket(const std::shared_ptr<uvw::TcpHandle> &client):
+    HttpClient(client)
 {
     reset();
 
@@ -383,32 +383,44 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     cDebugDom("network") << "Sending " << frame.length() << " bytes, data_size = " << data_size;
 
     data_size += frame.size();
-    if (!client_conn || ecore_con_client_send(client_conn, frame.c_str(), frame.size()) == 0)
-        cCriticalDom("network") << "Error sending data !";
-    else
-        ecore_con_client_flush(client_conn);
+    uint frameSize = frame.size();
 
-    //start a timeout to wait for a close frame from the client
-    if (!closeReceived && !forceClose)
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
     {
-        closeTimeout = new Timer(10.0, [=]()
+        cCriticalDom("network")
+                << "Error sending data ! Closing connection.";
+
+        this->CloseConnection();
+    });
+
+    client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize](const auto &, auto &)
+    {
+        this->DataWritten(frameSize);
+
+        //start a timeout to wait for a close frame from the client
+        if (!closeReceived && !forceClose)
         {
-            cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
+            closeTimeout = new Timer(10.0, [=]()
+            {
+                cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
+                status = WSClosed;
+                this->CloseConnection();
+                DELETE_NULL(closeTimeout);
+            });
+
+            status = WSClosing;
+        }
+        else
+        {
+            //Client initiated closing
             status = WSClosed;
-            CloseConnection();
-            DELETE_NULL(closeTimeout);
-        });
+            this->CloseConnection();
+        }
 
-        status = WSClosing;
-    }
-    else
-    {
-        //Client initiated closing
-        status = WSClosed;
-        CloseConnection();
-    }
+        websocketDisconnected.emit();
+    });
 
-    websocketDisconnected.emit();
+    client_conn->write((char *)frame.c_str(), frame.size());
 }
 
 void WebSocket::processControlFrame()
@@ -429,7 +441,8 @@ void WebSocket::processControlFrame()
     {
         if (status == WSClosing) return;
 
-        double elapsed = ecore_time_get() - ping_time;
+        double elapsed = uvw::Loop::getDefault()->now().count() / 1000.0;
+        elapsed -= ping_time;
         cInfoDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
     }
     else if (currentFrame.isCloseFrame())
@@ -471,7 +484,7 @@ void WebSocket::sendPing(const string &data)
 
     cDebugDom("websocket") << "Sending websocket PING";
 
-    ping_time = ecore_time_get();
+    ping_time = uvw::Loop::getDefault()->now().count() / 1000.0;
 
     string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
                                              data,
@@ -512,62 +525,82 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
 
     cDebugDom("websocket") << "Sending " << numframes << " frames";
 
-    for (int i = 0;i < numframes;i++)
+    writeNextFrame(0, numframes, current, byteswritten, bytesleft, header_size, data, isbinary);
+}
+
+void WebSocket::writeNextFrame(int i, int numframes,
+                               uint64_t current, uint64_t byteswritten, uint64_t bytesleft, int header_size,
+                               const string &data, bool isbinary)
+{
+    if (i >= numframes)
     {
-        bool lastframe = (i == (numframes - 1));
-        bool firstframe = (i == 0);
-
-        uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
-
-        string frame;
-
-        if (sz > 0)
+        if (byteswritten != (data.size() + header_size))
         {
-            frame = WebSocketFrame::makeFrame(firstframe?
-                                                  isbinary?WebSocketFrame::OpCodeBinary:
-                                                           WebSocketFrame::OpCodeText
-                                                         :WebSocketFrame::OpCodeContinue,
-                                              data.substr(current, sz),
-                                              lastframe);
-            header_size += frame.size() - sz;
-        }
-        else
-        {
-            frame = WebSocketFrame::makeFrame(firstframe?
-                                                  isbinary?WebSocketFrame::OpCodeBinary:
-                                                           WebSocketFrame::OpCodeText
-                                                         :WebSocketFrame::OpCodeContinue,
-                                              string(),
-                                              lastframe);
-            header_size += frame.size();
-        }
-
-        //send frame
-        data_size += frame.size();
-        uint n;
-        if (!client_conn ||
-            (n = ecore_con_client_send(client_conn, frame.c_str(), frame.size())) == 0)
-        {
-            cCriticalDom("network") << "Error sending data !";
+            cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << (data.size() + header_size);
             CloseConnection();
             status = WSClosed;
-            return;
         }
-        if (n != frame.size())
-            cWarningDom("websocket") << "All data not sent! framesize: " << frame.size() << " sent: " << n;
-        byteswritten += n;
+
+        return;
+    }
+
+    bool lastframe = (i == (numframes - 1));
+    bool firstframe = (i == 0);
+
+    uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
+
+    string frame;
+
+    if (sz > 0)
+    {
+        frame = WebSocketFrame::makeFrame(firstframe?
+                                              isbinary?WebSocketFrame::OpCodeBinary:
+                                                       WebSocketFrame::OpCodeText
+                                                     :WebSocketFrame::OpCodeContinue,
+                                          data.substr(current, sz),
+                                          lastframe);
+        header_size += frame.size() - sz;
+    }
+    else
+    {
+        frame = WebSocketFrame::makeFrame(firstframe?
+                                              isbinary?WebSocketFrame::OpCodeBinary:
+                                                       WebSocketFrame::OpCodeText
+                                                     :WebSocketFrame::OpCodeContinue,
+                                          string(),
+                                          lastframe);
+        header_size += frame.size();
+    }
+
+    //send frame
+    data_size += frame.size();
+    uint n = frame.size();
+
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    {
+        cCriticalDom("network") << "Error sending data !";
+        this->CloseConnection();
+        status = WSClosed;
+    });
+
+    client_conn->once<uvw::WriteEvent>([=](const auto &, auto &)
+    {
+        uint64_t _current = current;
+        uint64_t _bytesleft = bytesleft;
+        uint64_t _byteswritten = byteswritten;
+
+        this->DataWritten(n);
+
+        _byteswritten += n;
         cDebugDom("websocket") << "Data written: " << n << " byteswritten: " << byteswritten;
 
-        current += sz;
-        bytesleft -= sz;
-    }
+        _current += sz;
+        _bytesleft -= sz;
 
-    if (byteswritten != (data.size() + header_size))
-    {
-        cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << (data.size() + header_size);
-        CloseConnection();
-        status = WSClosed;
-    }
+        this->writeNextFrame(i + 1, numframes, _current, _byteswritten, _bytesleft, header_size, data, isbinary);
+    });
+
+    client_conn->write((char *)frame.c_str(), frame.size());
 }
 
 bool WebSocket::checkCloseStatusCode(uint16_t code)

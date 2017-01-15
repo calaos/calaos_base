@@ -25,6 +25,7 @@
 #include "CalaosConfig.h"
 #include <Ecore.h>
 #include "HttpCodes.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -128,8 +129,8 @@ int _parser_body_complete(http_parser* parser, const char *at, size_t length)
     return 0;
 }
 
-HttpClient::HttpClient(Ecore_Con_Client *cl):
-    client_conn(cl)
+HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
+    client_conn(client)
 {
     //set up callbacks for the parser
     parser_settings.on_message_begin = _parser_begin;
@@ -152,6 +153,8 @@ HttpClient::~HttpClient()
     delete jsonApi;
     free(parser);
     CloseConnection();
+
+    cDebugDom("network") << this;
 }
 
 int HttpClient::processHeaders(const string &request)
@@ -413,8 +416,6 @@ void HttpClient::DataWritten(int size)
     {
         cDebugDom("network")
                 << "All data sent, close connection";
-        //force all remaining data to be written before closing
-        ecore_con_client_flush(client_conn);
 
         //Close connection in 500ms if not closed by client. This forces the closing and
         //has to be done because lighttpd mod_proxy keeps connection open regardless of the Connection: close header
@@ -430,7 +431,12 @@ void HttpClient::CloseConnection()
     DELETE_NULL(closeTimer);
 
     cDebugDom("network") << "Closing connection";
-    ecore_con_client_del(client_conn);
+    client_conn->shutdown();
+    client_conn->on<uvw::ShutdownEvent>([this](const uvw::ShutdownEvent &, auto &)
+    {
+        //After shutdown close handle
+        client_conn->close();
+    });
 }
 
 string HttpClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
@@ -489,17 +495,28 @@ string HttpClient::buildHttpResponse(string code, Params &headers, string body)
 
 void HttpClient::sendToClient(string res)
 {
-    data_size += res.length();
+    int dataSize = res.length();
+    data_size += dataSize;
 
-    cDebugDom("network") << "Sending " << res.length() << " bytes, data_size = " << data_size;
+    cDebugDom("network") << "Sending " << dataSize << " bytes, data_size = " << data_size;
 
-    if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
+    if (client_conn->closing())
+        return;
+
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
     {
         cCriticalDom("network")
                 << "Error sending data ! Closing connection.";
 
-        CloseConnection();
-    }
+        this->CloseConnection();
+    });
+
+    client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
+    {
+        this->DataWritten(dataSize);
+    });
+
+    client_conn->write((char *)res.c_str(), dataSize);
 }
 
 void HttpClient::handleJsonRequest()

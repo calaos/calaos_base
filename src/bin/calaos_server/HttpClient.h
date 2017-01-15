@@ -22,7 +22,6 @@
 #define S_HttpClient_H
 
 #include "Calaos.h"
-#include <Ecore_Con.h>
 #include "http_parser.h"
 #include <unordered_map>
 #include "JsonApiHandlerHttp.h"
@@ -31,11 +30,17 @@
 
 using namespace Calaos;
 
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class TcpHandle;
+}
+
 class HttpClient: public sigc::trackable
 {
 protected:
 
-    Ecore_Con_Client *client_conn;
+    std::shared_ptr<uvw::TcpHandle> client_conn;
 
     http_parser_settings parser_settings;
     http_parser *parser;
@@ -97,7 +102,7 @@ protected:
     friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
 
 public:
-    HttpClient(Ecore_Con_Client *cl);
+    HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);
     virtual ~HttpClient();
 
     enum { APINONE = 0, API_HTTP, API_WEBSOCKET };
