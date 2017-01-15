@@ -27,6 +27,8 @@
 using namespace Utils;
 
 namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
 class TimerHandle;
 class IdleHandle;
 }

@@ -43,7 +43,7 @@ void Timer::create()
     auto loop = uvw::Loop::getDefault();
     handleTimer = loop->resource<uvw::TimerHandle>();
 
-    handleTimer->on<uvw::TimerEvent>([=](const auto &, auto &)
+    handleTimer->on<uvw::TimerEvent>([this](const auto &, auto &)
     {
         this->Tick();
     });
