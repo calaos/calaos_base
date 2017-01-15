@@ -20,39 +20,50 @@
  ******************************************************************************/
 #include "Timer.h"
 
-static void _calaos_timer_event(uv_timer_t *req)
-{
-    Timer *timer = (Timer *)req->data;
-    timer->Tick();
-}
-
 Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
-    time(in), timer_data(true), data(d)
+    time(in),
+    timer_data(true),
+    data(d)
 {
-    //connect the sigc slot
     connection_data = event_signal_data.connect(slot);
-
-    //create the libuv timer
-    timer.data = this;
-    uv_timer_init(uv_default_loop(), &timer);
-    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
+    create();
 }
 
 Timer::Timer(double in, sigc::slot<void> slot):
-    time(in), timer_data(false)
+    time(in),
+    timer_data(false)
 {
-    //connect the sigc slot
     connection = event_signal.connect(slot);
+    create();
+}
 
+void Timer::create()
+{
     //create the libuv timer
-    timer.data = this;
-    uv_timer_init(uv_default_loop(), &timer);
-    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
+    m_timer = std::make_unique<uv_timer_t>();
+    m_timer->data = this;
+    uv_timer_init(uv_default_loop(), m_timer.get());
+
+    uv_timer_start(m_timer.get(), [](uv_timer_t* timer)
+    {
+        auto self = (Timer *)timer->data;
+        self->Tick();
+    }, time * 1000.0, time * 1000.0);
 }
 
 Timer::~Timer()
 {
-    uv_timer_stop(&timer);
+    uv_timer_stop(m_timer.get());
+
+    //Release ownership of smart pointer
+    //because it will get out of scope and destroyed
+    //in the async uv_close call later in the event loop
+    auto handle = m_timer.release();
+    uv_close((uv_handle_t *)handle, [](uv_handle_t *h)
+    {
+        //handle can be safely released now
+        free(h);
+    });
 
     //disconnect the sigc slot
     if (!timer_data)
@@ -63,18 +74,14 @@ Timer::~Timer()
 
 void Timer::Reset()
 {
-    //reset the ecore timer
-    //if (timer) ecore_timer_del(timer);
-    //timer = ecore_timer_add(time, _calaos_timer_event, this);
-    uv_timer_stop(&timer);
-    uv_timer_start(&timer, _calaos_timer_event, time * 1000.0, time * 1000.0);
-
+    uv_timer_again(m_timer.get());
 }
 
 void Timer::Reset(double in)
 {
     time = in;
-    Reset();
+    uv_timer_set_repeat(m_timer.get(), time * 1000.0);
+    uv_timer_again(m_timer.get());
 }
 
 void Timer::Tick()
@@ -112,23 +119,31 @@ Idler::Idler()
 
 Idler::~Idler()
 {
-  uv_idle_stop(&idler);
-}
+    uv_idle_stop(m_idler.get());
 
-void Idler_idler_cb(uv_idle_t* handle)
-{
-    Idler *o = reinterpret_cast<Idler *>(handle->data);
-    if (o)
+    //Release ownership of smart pointer
+    //because it will get out of scope and destroyed
+    //in the async uv_close call later in the event loop
+    auto handle = m_idler.release();
+    uv_close((uv_handle_t *)handle, [](uv_handle_t *h)
     {
-        o->idlerCallback.emit();
-    }
+        //handle can be safely released now
+        free(h);
+    });
 }
 
 void Idler::createIdler()
 {
-    idler.data = this;
-    uv_idle_init(uv_default_loop(), &idler);
-    uv_idle_start(&idler, Idler_idler_cb);
+    //create the libuv idler
+    m_idler = std::make_unique<uv_idle_t>();
+    m_idler->data = this;
+    uv_idle_init(uv_default_loop(), m_idler.get());
+
+    uv_idle_start(m_idler.get(), [](uv_idle_t *idle)
+    {
+        auto self = (Idler *)idle->data;
+        self->idlerCallback.emit();
+    });
 }
 
 void Idler::singleIdler(sigc::slot<void> slot)
@@ -140,4 +155,3 @@ void Idler::singleIdler(sigc::slot<void> slot)
         delete o;
     });
 }
-

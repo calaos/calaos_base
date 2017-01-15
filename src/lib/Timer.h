@@ -30,7 +30,8 @@ using namespace Utils;
 class Timer
 {
 private:
-    uv_timer_t timer;
+    //use a smart pointer to let c++ handle memory
+    std::unique_ptr<uv_timer_t> m_timer;
 
     sigc::signal<void, void *> event_signal_data;
     sigc::signal<void> event_signal;
@@ -40,7 +41,9 @@ private:
     double time;
     bool timer_data;
 
-    void *data;
+    void *data = nullptr;
+
+    void create();
 
 public:
     Timer(double time, sigc::slot<void, void *> slot, void *data);
@@ -59,19 +62,18 @@ public:
 
 class Idler
 {
- private:
-  uv_idle_t idler;
+private:
+    std::unique_ptr<uv_idle_t> m_idler;
 
-  void createIdler();
-  friend void Idler_idler_cb(uv_idle_t *handle);
- public:
-  Idler(sigc::slot<void> slot);
-  Idler();
-  ~Idler();
+    void createIdler();
+public:
+    Idler(sigc::slot<void> slot);
+    Idler();
+    ~Idler();
 
-  static void singleIdler(sigc::slot<void> slot);
+    static void singleIdler(sigc::slot<void> slot);
 
-  sigc::signal<void> idlerCallback;
+    sigc::signal<void> idlerCallback;
 
 };
 
