@@ -24,6 +24,12 @@
 #include "InputSwitch.h"
 #include <Ecore.h>
 
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
+
 using namespace Calaos;
 
 class PingInputSwitch: public InputSwitch
@@ -32,8 +38,7 @@ protected:
     virtual bool readValue();
 
     bool lastStatus = false;
-    Ecore_Exe *ping_exe = nullptr;
-    Ecore_Event_Handler *hProcDel;
+    std::shared_ptr<uvw::ProcessHandle> ping_exe;
 
     void doPing();
 
