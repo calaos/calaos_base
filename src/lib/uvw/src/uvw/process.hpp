@@ -115,7 +115,7 @@ public:
      * @param env Optional environment for the new process.
      */
     void spawn(const char *file, char **args, char **env = nullptr) {
-        uv_process_options_t po;
+        uv_process_options_t po = {};
 
         po.exit_cb = &exitCallback;
 
@@ -123,7 +123,9 @@ public:
         po.args = args;
         po.env = env;
 
-        po.cwd = poCwd.data();
+        if (!poCwd.empty()) {
+            po.cwd = poCwd.data();
+        }
         po.flags = poFlags;
         po.stdio_count = poStdio.size();
         po.stdio = poStdio.data();
