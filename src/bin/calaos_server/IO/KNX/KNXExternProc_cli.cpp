@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "KNXExternProc_main.h"
 #include <time.h>
+#include <arpa/inet.h>
 
 bool KnxdObj::open(const string &server)
 {
