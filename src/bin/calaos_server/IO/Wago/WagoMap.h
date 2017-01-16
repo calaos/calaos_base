@@ -23,9 +23,13 @@
 
 #include <Calaos.h>
 #include <Timer.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
 #include "ExternProc.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 namespace Calaos
 {
@@ -125,9 +129,7 @@ protected:
     queue<WagoMapCmd> udp_commands;
     Timer *udp_timer;
     Timer *udp_timeout_timer;
-    Ecore_Con_Server *econ;
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_error;
+    std::shared_ptr<uvw::UDPHandle> handleSrv;
 
     void createUdpSocket();
 
@@ -173,7 +175,7 @@ public:
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);
-    void udpProcessError(Ecore_Con_Server *srv);
+    void udpProcessError();
 
     sigc::signal<void> onWagoConnected;
     sigc::signal<void> onWagoDisconnected;

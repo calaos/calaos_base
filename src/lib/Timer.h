@@ -62,7 +62,7 @@ public:
 
     void Tick();
 
-    double getTime() { return time; }
+    double getTime() { return time / 1000.0; }
 };
 
 class Idler
