@@ -26,8 +26,13 @@
 #include <Params.h>
 #include <unordered_map>
 #include <termios.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class PipeHandle;
+class TcpHandle;
+}
 
 namespace Calaos
 {
@@ -76,15 +81,13 @@ private:
 
     Timer *timer = nullptr;
 
-    Ecore_Fd_Handler *serial_handler = nullptr;
+    std::shared_ptr<uvw::PipeHandle> serialHandle;
 
     string dataBuffer;
 
     //tcp connection
-    Ecore_Event_Handler *ehandler_add;
-    Ecore_Event_Handler *ehandler_del;
-    Ecore_Event_Handler *ehandler_data;
-    Ecore_Con_Server *econ = nullptr;
+    std::shared_ptr<uvw::TcpHandle> svrHandle;
+
     Timer *timer_con = nullptr;
 
     void timerConnReconnect();
@@ -120,14 +123,6 @@ public:
     void setValue(string nodeid, string sensorid, int dataType, string payload);
 
     void registerIO(string nodeid, string sensorid, sigc::slot<void> callback);
-
-    Eina_Bool _serialHandler(Ecore_Fd_Handler *handler);
-
-
-    /* This is private for C callbacks */
-    void addConnection(Ecore_Con_Server *srv);
-    void delConnection(Ecore_Con_Server *srv);
-    void dataGet(Ecore_Con_Server *srv, void *data, int size);
 };
 
 }
