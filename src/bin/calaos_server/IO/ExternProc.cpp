@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "uvw/src/uvw.hpp"
+#include "Timer.h"
 
 #define READBUFSIZE 65536
 
@@ -136,13 +137,13 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &)
     {
         process_exe->close();
-        processExited.emit();
+        Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
     process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
     {
         cDebugDom("process") << "Process error: " << ev.what();
         process_exe->close();
-        processExited.emit();
+        Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
 
     vector<string> tok;
