@@ -23,7 +23,6 @@
 
 #include <Calaos.h>
 #include <tcpsocket.h>
-#include <Ecore_Con.h>
 #include <WagoMap.h>
 
 namespace uvw {

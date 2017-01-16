@@ -20,48 +20,11 @@
  ******************************************************************************/
 #include "WOLOutputBool.h"
 #include "IOFactory.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
 REGISTER_IO(WOLOutputBool)
-
-Eina_Bool WOLOutputBool_con_data_written(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    WOLOutputBool *w = reinterpret_cast<WOLOutputBool *>(data);
-    Ecore_Con_Event_Server_Write *ev = reinterpret_cast<Ecore_Con_Event_Server_Write *>(event);
-
-    if (!ev || !w ||
-        w->udp_con != ev->server)
-        return ECORE_CALLBACK_PASS_ON;
-
-    w->data_size -= ev->size;
-    if (w->data_size <= 0)
-    {
-        w->data_size = 0;
-        ecore_con_server_del(w->udp_con);
-        w->udp_con = nullptr;
-    }
-
-    return ECORE_CALLBACK_DONE;
-}
-
-Eina_Bool WOLOutputBool_con_data_error(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    WOLOutputBool *w = reinterpret_cast<WOLOutputBool *>(data);
-    Ecore_Con_Event_Server_Error *ev = reinterpret_cast<Ecore_Con_Event_Server_Error *>(event);
-
-    if (!ev || !w ||
-        w->udp_con != ev->server)
-        return ECORE_CALLBACK_PASS_ON;
-
-    cDebugDom("input") << "WakeOnLan: Error, " << ev->error;
-    w->data_size = 0;
-    w->udp_con = nullptr;
-
-    return ECORE_CALLBACK_DONE;
-}
 
 WOLOutputBool::WOLOutputBool(Params &p):
     IOBase(p, IOBase::IO_OUTPUT)
@@ -79,17 +42,10 @@ WOLOutputBool::WOLOutputBool(Params &p):
     if (!get_params().Exists("visible")) set_param("visible", "false");
 
     set_param("gui_type", "var_bool");
-
-    hwritten = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_WRITE, WOLOutputBool_con_data_written, this);
-    herr = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, WOLOutputBool_con_data_error, this);
 }
 
 WOLOutputBool::~WOLOutputBool()
 {
-    ecore_event_handler_del(herr);
-    ecore_event_handler_del(hwritten);
-    if (udp_con)
-        ecore_con_server_del(udp_con);
 }
 
 bool WOLOutputBool::set_value(bool val)
@@ -156,15 +112,15 @@ void WOLOutputBool::doWakeOnLan()
     for (int i = 0;i < 16;i++)
         magicPacket.insert(magicPacket.end(), address.begin(), address.end());
 
-    //Send packet
-    if (!udp_con)
-        udp_con = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST,
-                                           "255.255.255.255",
-                                           7,
-                                           this);
+    auto loop = uvw::Loop::getDefault();
+    auto udp_con = loop->resource<uvw::UDPHandle>();
 
-    ecore_con_server_send(udp_con, magicPacket.data(), magicPacket.size());
-    data_size += magicPacket.size();
+    udp_con->broadcast(true);
+    udp_con->send("255.255.255.255", 7, (char *)magicPacket.data(), magicPacket.size());
+    udp_con->once<uvw::SendEvent>([](auto &, auto &h)
+    {
+        h.close();
+    });
 
     EmitSignalIO();
     EventManager::create(CalaosEvent::EventIOChanged,

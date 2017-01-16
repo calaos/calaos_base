@@ -22,7 +22,6 @@
 #define PINGINPUTSWITCH_H
 
 #include "InputSwitch.h"
-#include <Ecore.h>
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
