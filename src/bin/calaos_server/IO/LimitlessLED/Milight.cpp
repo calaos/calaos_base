@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -33,31 +34,24 @@ Milight::Milight(string h, int p):
     port(p)
 {
     cDebugDom("milight") << "New Milight host: " << host << " port: " << port;
-    udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                          host.c_str(),
-                                          port,
-                                          this);
 }
 
 Milight::~Milight()
 {
-    ecore_con_server_del(udp_sender);
 }
 
 void Milight::sendCommand(uint8_t code, uint8_t param)
 {
     uint8_t cmd[3] = { code, param, 0x55 };
 
-    if (ecore_con_server_send(udp_sender, cmd, 3) == 0)
+    auto loop = uvw::Loop::getDefault();
+    auto udp_con = loop->resource<uvw::UDPHandle>();
+
+    udp_con->send(host, port, (char *)cmd, 3);
+    udp_con->once<uvw::SendEvent>([](auto &, auto &h)
     {
-        DELETE_NULL_FUNC(ecore_con_server_del, udp_sender);
-        udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                              host.c_str(),
-                                              port,
-                                              this);
-        ecore_con_server_send(udp_sender, cmd, 3);
-        ecore_con_server_flush(udp_sender);
-    }
+        h.close();
+    });
 }
 
 void Milight::sendOnCommand(int zone)
