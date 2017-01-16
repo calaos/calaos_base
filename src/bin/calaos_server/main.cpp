@@ -162,6 +162,28 @@ int main (int argc, char **argv)
     Timer::singleShot(0.1, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
 
     auto loop = uvw::Loop::getDefault();
+    auto sigtermHandler = loop->resource<uvw::SignalHandle>();
+    auto sigintHandler = loop->resource<uvw::SignalHandle>();
+    auto sighupHandler = loop->resource<uvw::SignalHandle>();
+    sigtermHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "Terminating...";
+        h.loop().stop();
+    });
+    sigintHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "CTRL+C...stopped.";
+        h.loop().stop();
+    });
+    sighupHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "Hangup...";
+        h.loop().stop();
+    });
+    sigtermHandler->start(SIGTERM);
+    sigintHandler->start(SIGINT);
+    sighupHandler->start(SIGHUP);
+
     loop->run();
 
     HttpServer::Instance().disconnectAll();
