@@ -88,8 +88,6 @@ private:
     //tcp connection
     std::shared_ptr<uvw::TcpHandle> svrHandle;
 
-    Timer *timer_con = nullptr;
-
     void timerConnReconnect();
 
     void openSerial();

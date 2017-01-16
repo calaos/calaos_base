@@ -48,7 +48,6 @@ MySensorsController::MySensorsController(const Params &p):
 
 MySensorsController::~MySensorsController()
 {
-    delete timer_con;
     if (svrHandle && svrHandle->active())
     {
         svrHandle->stop();
@@ -231,7 +230,7 @@ void MySensorsController::timerConnReconnect()
         h.close();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
-            timer_con = new Timer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
         });
     });
 
@@ -242,7 +241,7 @@ void MySensorsController::timerConnReconnect()
         h.close();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
-            timer_con = new Timer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
         });
     });
 
