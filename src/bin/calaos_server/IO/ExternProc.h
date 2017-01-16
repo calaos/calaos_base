@@ -23,10 +23,15 @@
 
 #include "Utils.h"
 #include "Calaos.h"
-#include <Ecore.h>
-#include <Ecore_Con.h>
 #include <jansson.h>
 #include "Jansson_Addition.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class PipeHandle;
+class ProcessHandle;
+}
 
 /*
  * Small framing for messages
@@ -90,14 +95,14 @@ public:
     sigc::signal<void> processConnected;
 
 private:
-    Ecore_Con_Server *ipcServer;
-    Ecore_Event_Handler *hAdd, *hDel, *hData, *hError, *hProcDel;
+    std::shared_ptr<uvw::PipeHandle> ipcServer;
+
     string sockpath;
     string recv_buffer;
     ExternProcMessage currentFrame;
-    Ecore_Exe *process_exe = nullptr;
+    std::shared_ptr<uvw::ProcessHandle> process_exe;
 
-    list<Ecore_Con_Client *> clientList;
+    std::list<std::shared_ptr<uvw::PipeHandle>> clientList;
 
     void processData(const string &data);
 

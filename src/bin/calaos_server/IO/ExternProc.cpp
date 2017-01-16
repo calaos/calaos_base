@@ -22,91 +22,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include "uvw/src/uvw.hpp"
 
 #define READBUFSIZE 65536
-
-Eina_Bool ExternProcServer_con_add(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Con_Event_Client_Add *ev = reinterpret_cast<Ecore_Con_Event_Client_Add *>(event);
-    ExternProcServer *ex = reinterpret_cast<ExternProcServer *>(data);
-
-    if (!data || !ex ||
-        ex->ipcServer != ecore_con_client_server_get(ev->client))
-        return ECORE_CALLBACK_PASS_ON;
-
-    ex->clientList.push_back(ev->client);
-    ex->processConnected.emit();
-
-    return ECORE_CALLBACK_DONE;
-}
-
-Eina_Bool ExternProcServer_con_del(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Con_Event_Client_Del *ev = reinterpret_cast<Ecore_Con_Event_Client_Del *>(event);
-    ExternProcServer *ex = reinterpret_cast<ExternProcServer *>(data);
-
-    if (!data || !ex ||
-        ex->ipcServer != ecore_con_client_server_get(ev->client))
-        return ECORE_CALLBACK_PASS_ON;
-
-    ex->clientList.remove(ev->client);
-
-    return ECORE_CALLBACK_DONE;
-}
-
-Eina_Bool ExternProcServer_con_data(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Con_Event_Client_Data *ev = reinterpret_cast<Ecore_Con_Event_Client_Data *>(event);
-    ExternProcServer *ex = reinterpret_cast<ExternProcServer *>(data);
-
-    if (!data || !ex ||
-        ex->ipcServer != ecore_con_client_server_get(ev->client))
-        return ECORE_CALLBACK_PASS_ON;
-
-    string d((char *)ev->data, ev->size);
-    ex->processData(d);
-
-    return ECORE_CALLBACK_DONE;
-}
-
-Eina_Bool ExternProcServer_con_error(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Con_Event_Client_Error *ev = reinterpret_cast<Ecore_Con_Event_Client_Error *>(event);
-    ExternProcServer *ex = reinterpret_cast<ExternProcServer *>(data);
-
-    if (!data || !ex ||
-        ex->ipcServer != ecore_con_client_server_get(ev->client))
-        return ECORE_CALLBACK_PASS_ON;
-
-    cErrorDom("process") << "Error in local socket: " << ev->error;
-
-    //remove client
-    ex->clientList.remove(ev->client);
-
-    return ECORE_CALLBACK_DONE;
-}
-
-Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
-    ExternProcServer *ex = reinterpret_cast<ExternProcServer *>(data);
-
-    if (!data || !ex ||
-        ex->process_exe != ev->exe)
-        return ECORE_CALLBACK_PASS_ON;
-
-    cInfoDom("process") << "Process exited";
-
-    ex->process_exe = nullptr; //ecore does free the Ecore_Exe object itself
-    ex->processExited.emit();
-
-    return ECORE_CALLBACK_DONE;
-}
 
 ExternProcServer::ExternProcServer(string pathprefix)
 {
@@ -115,58 +33,77 @@ ExternProcServer::ExternProcServer(string pathprefix)
     sockpath += Utils::createRandomUuid() + "_";
     sockpath += pathprefix + "_" + Utils::to_string(pid);
 
-    ipcServer = ecore_con_server_add(ECORE_CON_LOCAL_SYSTEM, sockpath.c_str(), 0, this);
+    ipcServer = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+    ipcServer->bind(sockpath);
+    ipcServer->listen();
 
-    //ecore adds |0 to the socket filename... reflects that to the filename so we can delete and use the correct file
-    sockpath += "|0";
+    ipcServer->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, auto &)
+    {
+        //new client has just connected to us
+        std::shared_ptr<uvw::PipeHandle> client = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        ipcServer->accept(*client);
 
-    hAdd = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_ADD,
-                                   ExternProcServer_con_add,
-                                   this);
-    hData = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA,
-                                    ExternProcServer_con_data,
-                                    this);
-    hDel = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DEL,
-                                   ExternProcServer_con_del,
-                                   this);
-    hError = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_ERROR,
-                                     ExternProcServer_con_error,
-                                     this);
-    hProcDel = ecore_event_handler_add(ECORE_EXE_EVENT_DEL,
-                                       ExternProcServer_proc_del,
-                                       this);
+        clientList.push_back(client);
+        processConnected.emit();
+
+        //Setup events for client
+
+        //When peer closed the connection, remove it from our map and close it
+        client->on<uvw::EndEvent>([client](const uvw::EndEvent &, auto &)
+        {
+            client->close();
+        });
+
+        //When connection is closed
+        client->on<uvw::CloseEvent>([this, client](const uvw::CloseEvent &, auto &)
+        {
+            clientList.remove(client);
+        });
+
+        client->on<uvw::DataEvent>([this, client](const uvw::DataEvent &ev, auto &)
+        {
+            string d((char *)ev.data.get(), ev.length);
+            this->processData(d);
+        });
+
+        client->read();
+    });
 
     cDebugDom("process") << "New ExternProcServer listening to " << sockpath;
 }
 
 ExternProcServer::~ExternProcServer()
 {
-    ecore_event_handler_del(hAdd);
-    ecore_event_handler_del(hData);
-    ecore_event_handler_del(hDel);
-    ecore_event_handler_del(hError);
-    ecore_event_handler_del(hProcDel);
-    ecore_exe_terminate(process_exe);
-    ecore_exe_free(process_exe);
-    ecore_con_server_del(ipcServer);
+    ipcServer->stop();
+    ipcServer->close();
+
+    terminate();
+    process_exe->close();
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;
-    unlink(sockpath.c_str());
+    auto fsReq = uvw::Loop::getDefault()->resource<uvw::FsReq>();
+    fsReq->unlink(sockpath);
 }
 
 void ExternProcServer::terminate()
 {
-    ecore_exe_terminate(process_exe);
+    if (process_exe->active())
+        process_exe->kill(SIGTERM);
 }
 
 void ExternProcServer::sendMessage(const string &data)
 {
-    for (Ecore_Con_Client *client : clientList)
+    for (const auto &client: clientList)
     {
         ExternProcMessage msg(data);
         string frame = msg.getRawData();
 
-        ecore_con_client_send(client, frame.c_str(), frame.size());
+        client->once<uvw::ErrorEvent>([this](const auto &, auto &)
+        {
+            cCriticalDom("process") << "Error sending data!";
+        });
+
+        client->write((char *)frame.c_str(), frame.size());
     }
 }
 
@@ -191,11 +128,40 @@ void ExternProcServer::processData(const string &data)
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
-    string cmd = process;
-    cmd += " --socket \"" + sockpath + "\" --namespace \"" + name + "\" " + args;
+    string cmd = "--socket " + sockpath + " --namespace " + name + " " + args;
 
-    cDebugDom("process") << "Starting process: " << cmd;
-    process_exe = ecore_exe_run(cmd.c_str(), this);
+    cDebugDom("process") << "Starting process: " << process << " " << cmd;
+
+    process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &)
+    {
+        process_exe->close();
+        processExited.emit();
+    });
+    process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        process_exe->close();
+        processExited.emit();
+    });
+
+    vector<string> tok;
+    Utils::split(cmd, tok, " ");
+
+    //convert args list to a char**
+    const char **argarray = new const char*[tok.size() + 2];
+    unsigned index = 1;
+    for (auto it = tok.begin();it != tok.end();it++)
+    {
+        argarray[index] = it->c_str();
+        index++;
+    }
+    argarray[0] = process.c_str();
+    argarray[index] = NULL;
+
+    process_exe->spawn(process.c_str(), (char **)argarray);
+
+    delete [] argarray;
 }
 
 ExternProcMessage::ExternProcMessage()

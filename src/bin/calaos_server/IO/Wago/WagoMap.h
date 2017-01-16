@@ -23,6 +23,7 @@
 
 #include <Calaos.h>
 #include <Timer.h>
+#include <Ecore.h>
 #include <Ecore_Con.h>
 #include "ExternProc.h"
 
