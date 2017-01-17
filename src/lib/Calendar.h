@@ -22,13 +22,17 @@
 #define  CALENDAR_INC
 
 #include <Utils.h>
-#include <Ecore.h>
-#include <Ecore_File.h>
 
 #define TMP_CURRENT_ZONE    "/tmp/calaos_timezone"
 #define CURRENT_ZONE    "/etc/timezone"
 #define LOCALTIME       "/etc/localtime"
 #define ZONEPATH        "/usr/share/zoneinfo/"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
 
 class TimeZoneElt
 {
@@ -67,7 +71,8 @@ private:
     bool restart;
 public:
 
-    Ecore_Exe *exe;
+    std::shared_ptr<uvw::ProcessHandle> exe, syncexe;
+    void syncHwClock();
 
     static const int mounths[13];
     static const char *days[7];
@@ -88,9 +93,6 @@ public:
     int dayId;
 
     TimeZone timeZone;
-
-    Ecore_Event_Handler* handler;
-    Ecore_Event_Handler* handler2;
 
     Calendar();
 

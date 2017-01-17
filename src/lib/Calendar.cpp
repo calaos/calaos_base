@@ -19,9 +19,7 @@
  **
  ******************************************************************************/
 #include <Calendar.h>
-
-Eina_Bool _CalendarHandle1(void *data, int type, void *event);
-Eina_Bool _CalendarHandle2(void *data, int type, void *event);
+#include "uvw/src/uvw.hpp"
 
 const int Calendar::mounths[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 const char *Calendar::days[] = { "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche" };
@@ -31,34 +29,22 @@ const char *Calendar::M[] =
 
 TimeZone::TimeZone()
 {
-    Eina_Iterator *it, *it2;
-    const Eina_File_Direct_Info *f_info, *f_info2;
-
-
-
-    it = eina_file_direct_ls("/usr/share/zoneinfo");
-    EINA_ITERATOR_FOREACH(it, f_info)
+    auto lst = FileUtils::listDir("/usr/share/zoneinfo");
+    for (const string &s: lst)
     {
-        if (f_info->type == EINA_FILE_DIR)
+        if (FileUtils::isDir("/usr/share/zoneinfo/" + s))
         {
-            it2 = eina_file_direct_ls(f_info->path);
-            EINA_ITERATOR_FOREACH(it2, f_info2)
+            auto sublst = FileUtils::listDir("/usr/share/zoneinfo/" + s);
+            for (const string &sub: sublst)
             {
-                if (f_info2->type == EINA_FILE_REG)
-                {
-                    string tz;
-                    tz = string(ecore_file_file_get(f_info->path)) + "/" + string(f_info2->path + f_info2->name_start);
-                    timeZone.push_back(TimeZoneElt(tz.c_str(), "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
-                }
+                timeZone.push_back(TimeZoneElt(sub, "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
             }
-            eina_iterator_free(it2);
         }
         else
         {
-            timeZone.push_back(TimeZoneElt( f_info->path, "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
+            timeZone.push_back(TimeZoneElt(s, "Europe / Royaume Unis / Londre", "GMT+00:00", 0, "gb"));
         }
     }
-    eina_iterator_free(it);
 
     loadCurrentTimeZone();
 }
@@ -77,11 +63,13 @@ int TimeZone::loadCurrentTimeZone()
             ;
 
         for (unsigned int i = 0; i < timeZone.size(); i++)
+        {
             if (timeZone[i].key == ligne)
             {
                 current = i;
                 return i;
             }
+        }
     }
 
     current = -1;
@@ -97,7 +85,7 @@ TimeZoneElt::TimeZoneElt(string k, string c, string dstr, int d, string id)
     code = id;
 }
 
-Calendar::Calendar():exe(NULL), handler(NULL)
+Calendar::Calendar()
 {
     initClock();
 }
@@ -377,15 +365,24 @@ void Calendar::apply()
 {
     char arg[50];
 
-    if (exe)
-        return;
-
     applyTimezone();
     sprintf(arg, "date %02d%02d%02d%02d%04d.%02d", month, day, hours, minutes, year, secondes);
-    handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _CalendarHandle1, this);
-    handler2 = handler;
 
-    exe = ecore_exe_run(arg, NULL);
+    exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &h)
+    {
+        h.close();
+        this->syncHwClock();
+    });
+    exe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        h.close();
+    });
+
+    const char **argarray = Utils::convertToArgArray(string(arg));
+    exe->spawn(argarray[0], (char **)argarray);
+    delete [] argarray;
 }
 
 /*
@@ -397,13 +394,13 @@ void Calendar::applyTimezone()
     _zone << timeZone.timeZone[timeZone.current].key + "\n";
     _zone.close();
 
-    ecore_file_mv(TMP_CURRENT_ZONE, CURRENT_ZONE);
+    FileUtils::rename(TMP_CURRENT_ZONE, CURRENT_ZONE);
 
     string new_ltime = ZONEPATH;
     new_ltime += timeZone.timeZone[timeZone.current].key;
 
     //copy the new zone info
-    ecore_file_cp(new_ltime.c_str(), LOCALTIME);
+    FileUtils::copyFile(new_ltime, LOCALTIME);
 }
 
 void Calendar::setRestart(bool s)
@@ -416,39 +413,19 @@ bool Calendar::isRestart()
     return restart;
 }
 
-Eina_Bool _CalendarHandle1(void *data, int type, void *event)
+void Calendar::syncHwClock()
 {
-    Calendar *calendar = reinterpret_cast < Calendar * >(data);
-    if (!calendar)
-        return 0;
+    syncexe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    syncexe->once<uvw::ExitEvent>([](const uvw::ExitEvent &, auto &h) { h.close(); });
+    syncexe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        h.close();
+    });
 
-    ecore_event_handler_del(calendar->handler);
-    //ecore_exe_free(calendar->exe);
     string cmd = "/sbin/hwclock --systohc";
 
-    calendar->handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _CalendarHandle2, calendar);
-    calendar->exe = ecore_exe_run(cmd.c_str(), NULL);
-
-    return 0;
-}
-
-Eina_Bool _CalendarHandle2(void *data, int type, void *event)
-{
-    Calendar *calendar = reinterpret_cast < Calendar * >(data);
-    if (!calendar)
-        return 0;
-    ecore_event_handler_del(calendar->handler);
-
-    //ecore_exe_free(calendar->exe);
-    cInfo() <<  "Calendar: Updating clock...  DONE";
-    calendar->exe = NULL;
-    //kill l'application
-    //elle sera redémarrée par un daemon extérieur
-
-    if (calendar->isRestart())
-    {
-		ecore_app_restart();
-    }
-
-    return 0;
+    const char **argarray = Utils::convertToArgArray(cmd);
+    syncexe->spawn(argarray[0], (char **)argarray);
+    delete [] argarray;
 }

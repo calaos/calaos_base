@@ -54,14 +54,14 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
         tempfname = "/tmp/calaos_json_temp_" + Utils::to_string(cpt) + ".jpg";
         cpt++;
     }
-    while (ecore_file_exists(tempfname.c_str()));
+    while (FileUtils::exists(tempfname));
 }
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
     delete cameraDl;
     ecore_event_handler_del(exe_handler);
-    unlink(tempfname.c_str());
+    FileUtils::unlink(tempfname);
 }
 
 void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)

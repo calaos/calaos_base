@@ -67,6 +67,7 @@
 #include <sigc++/sigc++.h>
 
 #include "ColorUtils.h"
+#include "FileUtils.h"
 
 //This is for logging
 #include <EinaLog.h>
@@ -210,10 +211,6 @@ void InitEinaLog(const char *default_domain);
 void FreeEinaLogs();
 EinaLog *einaLogger(const char *domain = nullptr);
 
-bool file_copy(std::string source, std::string dest);
-
-bool fileExists(std::string filename);
-
 string url_encode(string str);
 string url_decode(string str);
 std::string url_decode2(std::string str); //decode 2 times
@@ -268,6 +265,8 @@ std::string Base64_encode(void *data, int size);
 string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
 unsigned int getUptime();
+
+const char **convertToArgArray(const string &cmd);
 
 //-----------------------------------------------------------------------------
 template<typename T>

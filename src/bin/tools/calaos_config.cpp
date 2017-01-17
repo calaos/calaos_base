@@ -24,7 +24,6 @@
 //
 
 #include <Utils.h>
-#include <Ecore_File.h>
 
 void print_usage(void)
 {

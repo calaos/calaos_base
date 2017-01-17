@@ -59,7 +59,7 @@ bool ActionMail::Execute()
             tmpFile += Utils::to_string(cpt);
             cpt++;
         }
-        while (ecore_file_exists(tmpFile.c_str()));
+        while (FileUtils::exists(tmpFile));
 
         // Autodestroy file downloader
         cDebug() << "DL URL: " << camera->getPictureUrl();
@@ -100,7 +100,7 @@ void ActionMail::sendMail()
         tmpFile += Utils::to_string(cpt);
         cpt++;
     }
-    while (ecore_file_exists(tmpFile.c_str()));
+    while (FileUtils::exists(tmpFile));
 
     //Write body message to a temp file
     std::ofstream ofs;
@@ -113,7 +113,7 @@ void ActionMail::sendMail()
     cmd << Prefix::Instance().binDirectoryGet();
     cmd << "/calaos_mail";
 
-    if (ecore_file_exists(cmd.str().c_str()))
+    if (FileUtils::exists(cmd.str()))
     {
         cmd << " ";
         cmd << "--delete "; //force temp file deletion after mail is sent

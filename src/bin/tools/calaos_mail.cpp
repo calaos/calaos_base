@@ -18,8 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-
-#include <Ecore_File.h>
 #include "Utils.h"
 #include "libquickmail/quickmail.h"
 #include "uri_parser/hef_uri_syntax.h"

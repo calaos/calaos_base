@@ -133,7 +133,9 @@ libcalaos_common_la_SOURCES = \
         ColorUtils.h                            \
         ColorUtils.cpp                          \
         json.hpp                                \
-        uvw/src/uvw.hpp
+        uvw/src/uvw.hpp                         \
+        FileUtils.h                             \
+        FileUtils.cpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

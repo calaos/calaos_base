@@ -20,52 +20,9 @@
  ******************************************************************************/
 #include "Utils.h"
 
-#include <Ecore_File.h>
 #include <tcpsocket.h>
 
 using namespace Utils;
-
-bool Utils::file_copy(std::string source, std::string dest)
-{
-    FILE *f1, *f2;
-    char buf[16384];
-    char realpath1[PATH_MAX];
-    char realpath2[PATH_MAX];
-    size_t num;
-    size_t res;
-
-    if (!realpath(source.c_str(), realpath1)) return false;
-    if (realpath(dest.c_str(), realpath2) && !strcmp(realpath1, realpath2)) return false;
-
-    f1 = fopen(source.c_str(), "rb");
-    if (!f1) return false;
-    f2 = fopen(dest.c_str(), "wb");
-    if (!f2)
-    {
-        fclose(f1);
-        return false;
-    }
-
-    while ((num = fread(buf, 1, sizeof(buf), f1)) > 0)
-    {
-        res = fwrite(buf, 1, num, f2);
-        if (res <= 0) cCritical() <<  "Failed to fwrite !";
-    }
-
-    fclose(f1);
-    fclose(f2);
-
-    return true;
-}
-
-bool Utils::fileExists(std::string filename)
-{
-    struct stat buf;
-    if (stat(filename.c_str(), &buf) != -1)
-        return true;
-
-    return false;
-}
 
 string Utils::url_encode(string str)
 {
@@ -483,7 +440,7 @@ string Utils::getConfigFile(const char *configType)
             string conf = *it;
             conf += "/" IO_CONFIG;
 
-            if (ecore_file_exists(conf.c_str()))
+            if (FileUtils::exists(conf))
             {
                 _configBase = *it;
                 break;
@@ -540,12 +497,12 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
         cInfo() << "Using cache path: " << getCacheFile("");
     }
 
-    if (!ecore_file_can_write(getConfigFile("").c_str()))
+    if (!FileUtils::isWritable(getConfigFile("")))
         throw (runtime_error("config path is not writable"));
-    if (!ecore_file_can_write(getCacheFile("").c_str()))
+    if (!FileUtils::isWritable(getCacheFile("")))
         throw (runtime_error("cache path is not writable"));
 
-    if (!fileExists(file))
+    if (!FileUtils::exists(file))
     {
         //create a defaut config
         std::ofstream conf(file.c_str(), std::ofstream::out);
@@ -909,4 +866,22 @@ string Utils::escape_quotes(const string &s)
     }
 
     return after;
+}
+
+const char **Utils::convertToArgArray(const string &cmd)
+{
+    vector<string> tok;
+    Utils::split(cmd, tok, " ");
+
+    //convert args list to a char**
+    const char **argarray = new const char*[tok.size() + 1];
+    unsigned index = 1;
+    for (auto it = tok.begin();it != tok.end();it++)
+    {
+        argarray[index] = it->c_str();
+        index++;
+    }
+    argarray[index] = NULL;
+
+    return argarray;
 }

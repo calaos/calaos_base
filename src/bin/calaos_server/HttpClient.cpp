@@ -264,7 +264,7 @@ int HttpClient::processHeaders(const string &request)
         path.erase(0, 7);
 
         string wwwroot = Utils::get_config_option("debug_wwwroot");
-        if (!ecore_file_is_dir(wwwroot.c_str()))
+        if (!FileUtils::isDir(wwwroot))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/debug";
 
         cDebugDom("network") << "Using www root: " << wwwroot;
@@ -272,7 +272,7 @@ int HttpClient::processHeaders(const string &request)
         string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
-        if (!ecore_file_exists(fileName.c_str()))
+        if (!FileUtils::exists(fileName))
         {
             cDebugDom("network") << "fileName not found: " << fileName;
 
@@ -319,13 +319,13 @@ int HttpClient::processHeaders(const string &request)
         path.erase(0, 5);
 
         string wwwroot = Utils::get_config_option("wwwroot");
-        if (!ecore_file_is_dir(wwwroot.c_str()))
+        if (!FileUtils::isDir(wwwroot))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/app";
 
         string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
-        if (!ecore_file_exists(fileName.c_str()) || ecore_file_is_dir(fileName.c_str()))
+        if (!FileUtils::exists(fileName) || FileUtils::isDir(fileName))
         {
             cDebugDom("network") << "Filename not found: " << fileName;
 

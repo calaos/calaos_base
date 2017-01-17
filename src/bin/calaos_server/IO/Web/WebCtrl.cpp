@@ -124,7 +124,7 @@ void WebCtrl::launchDownload()
         dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
-            ecore_file_mv(src.c_str(), dest.c_str());
+            FileUtils::rename(src, dest);
             for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
               {
                 fileDownloadedCallbacks[i].second();

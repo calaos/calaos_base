@@ -25,8 +25,6 @@
 #include <Utils.h>
 #include <config.h>
 
-#include <Ecore_File.h>
-
 using namespace Utils;
 
 namespace Calaos

@@ -102,7 +102,7 @@ void Config::LoadConfigIO()
 {
     std::string file = Utils::getConfigFile(IO_CONFIG);
 
-    if (!Utils::fileExists(file))
+    if (!FileUtils::exists(file))
     {
         std::ofstream conf(file.c_str(), std::ofstream::out);
         conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
@@ -185,7 +185,7 @@ void Config::LoadConfigRule()
 {
     std::string file = Utils::getConfigFile(RULES_CONFIG);
 
-    if (!Utils::fileExists(file))
+    if (!FileUtils::exists(file))
     {
         std::ofstream conf(file.c_str(), std::ofstream::out);
         conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;

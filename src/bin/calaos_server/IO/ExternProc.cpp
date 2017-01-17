@@ -129,7 +129,7 @@ void ExternProcServer::processData(const string &data)
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
-    string cmd = "--socket " + sockpath + " --namespace " + name + " " + args;
+    string cmd = process + " --socket " + sockpath + " --namespace " + name + " " + args;
 
     cDebugDom("process") << "Starting process: " << process << " " << cmd;
 
@@ -146,22 +146,8 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
 
-    vector<string> tok;
-    Utils::split(cmd, tok, " ");
-
-    //convert args list to a char**
-    const char **argarray = new const char*[tok.size() + 2];
-    unsigned index = 1;
-    for (auto it = tok.begin();it != tok.end();it++)
-    {
-        argarray[index] = it->c_str();
-        index++;
-    }
-    argarray[0] = process.c_str();
-    argarray[index] = NULL;
-
-    process_exe->spawn(process.c_str(), (char **)argarray);
-
+    const char **argarray = Utils::convertToArgArray(cmd);
+    process_exe->spawn(argarray[0], (char **)argarray);
     delete [] argarray;
 }
 
@@ -303,7 +289,7 @@ ExternProcClient::~ExternProcClient()
 
 bool ExternProcClient::connectSocket()
 {
-    if (!ecore_file_exists(sockpath.c_str()))
+    if (!FileUtils::exists(sockpath))
     {
         cError() << "Socket path " << sockpath << " not found";
         return false;

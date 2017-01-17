@@ -165,7 +165,7 @@ bool FileDownloader::Start()
             tmpFile += Utils::to_string(cpt);
             cpt++;
         }
-        while (ecore_file_exists(tmpFile.c_str()));
+        while (FileUtils::exists(tmpFile));
 
         dl_file = fopen(tmpFile.c_str(), "wb");
     }
