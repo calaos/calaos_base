@@ -70,7 +70,7 @@ bool UrlDownloader::start()
     //insecure --> do not check for insecure ssl certificates, needed for local https
     //location --> follow redirect
 
-    string req = "curl --silent --insecure --location --dump-header " + tmpHeader + " ";
+    string req = "curl " + m_url + " --silent --insecure --location --dump-header " + tmpHeader + " ";
 
     switch (m_requestType)
     {
@@ -125,6 +125,7 @@ bool UrlDownloader::start()
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
+        cDebugDom("urlutils") << "curl exited: " << ev.exitStatus;
         h.close();
         this->completeCb(ev.exitStatus);
     });
@@ -132,29 +133,41 @@ bool UrlDownloader::start()
     {
         cDebugDom("urlutils") << "Process error: " << ev.what();
         h.close();
+        if (downloadToFile)
+        {
+            pipe->stop();
+            pipe->close();
+        }
         this->completeCb(255);
     });
 
     if (!downloadToFile)
     {
-        std::shared_ptr<uvw::PipeHandle> pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        cDebugDom("urlutils") << "Setup stdio pipes";
+        pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
         exeCurl->stdio(uvw::ProcessHandle::StdIO::IGNORE_STREAM, static_cast<uvw::FileHandle>(0));
 
         uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
         uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
         exeCurl->stdio(ff, *pipe);
-        pipe->read();
 
         //When pipe is closed, remove it and close it
-        pipe->on<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+        pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
         pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
         {
+            cDebugDom("urlutils") << "Stdio data received: " << ev.length;
             this->dataCb(ev.data.get(), ev.length);
         });
     }
 
     Utils::CStrArray arr(req);
     exeCurl->spawn(arr.at(0), arr.data());
+
+    if (!downloadToFile)
+    {
+        //The start of read() for the pipe has be to done _after_ spawning the process or it crashes
+        pipe->read();
+    }
 
     return true;
 }

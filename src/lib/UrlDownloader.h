@@ -28,6 +28,7 @@ namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
 class ProcessHandle;
+class PipeHandle;
 }
 
 //Url Downloader class
@@ -37,6 +38,7 @@ private:
     enum RequestType {HTTP_GET, HTTP_PUT, HTTP_POST, HTTP_DELETE};
 
     std::shared_ptr<uvw::ProcessHandle> exeCurl;
+    std::shared_ptr<uvw::PipeHandle> pipe;
 
     RequestType m_requestType = HTTP_POST;
 
