@@ -33,7 +33,6 @@ NTPClock & NTPClock::Instance()
 NTPClock::NTPClock():restartWhenApply(false), exe(NULL)
 {
     sig_applyCalendar.connect(sigc::mem_fun(*this, &NTPClock::applyCalendarFromServer));
-    IPC::Instance().AddHandler("CalaosCommon::NTPClock","applyCalendar", sig_applyCalendar,NULL);
 
     //the timer will be trigger when the ecore_loop will be run
     timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));

@@ -24,7 +24,6 @@
 #include <Utils.h>
 #include <CThread.h>
 #include <tcpsocket.h>
-#include <IPC.h>
 #include <Calendar.h>
 #include <Timer.h>
 

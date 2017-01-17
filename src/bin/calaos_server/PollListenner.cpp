@@ -49,17 +49,6 @@ void PollObject::handleEvents(const CalaosEvent &ev)
     events.push_back(ev);
 }
 
-Eina_Bool _timeout_poll_idler_cb(void *data)
-{
-    PollObject *obj = reinterpret_cast<PollObject *>(data);
-    if (!obj) return ECORE_CALLBACK_CANCEL;
-
-    PollListenner::Instance().Unregister(obj->getUUID());
-
-    //delete the ecore_idler
-    return ECORE_CALLBACK_CANCEL;
-}
-
 void PollObject::Timeout_cb()
 {
     delete timeout;
@@ -67,7 +56,10 @@ void PollObject::Timeout_cb()
 
     cDebugDom("poll_listener") << uuid << " Timeout !";
 
-    ecore_idler_add(_timeout_poll_idler_cb, this);
+    Idler::singleIdler([=]()
+    {
+        PollListenner::Instance().Unregister(this->getUUID());
+    });
 }
 
 PollListenner::PollListenner()

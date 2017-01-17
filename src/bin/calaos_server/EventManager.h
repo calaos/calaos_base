@@ -21,7 +21,7 @@
 #ifndef EVENTS_H
 #define EVENTS_H
 
-#include <Ecore.h>
+#include "Timer.h"
 #include "Calaos.h"
 #include "Jansson_Addition.h"
 
@@ -102,9 +102,6 @@ private:
 
     void appendEvent(const CalaosEvent &ev);
     queue<CalaosEvent> eventsQueue;
-    Ecore_Idle_Enterer *idler = nullptr;
-
-    friend Eina_Bool EventManager_event_idler(void *data);
 };
 
 #endif
