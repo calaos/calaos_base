@@ -85,41 +85,37 @@ void ActionMail::sendMail()
     ofs << mail_message;
     ofs.close();
 
-    stringstream cmd;
+    vector<string> cmd;
+    cmd.push_back(Prefix::Instance().binDirectoryGet() + "/calaos_mail");
+    cmd.push_back("--delete"); //force temp file deletion after mail is sent
+    if (Utils::get_config_option("smtp_debug") == "true")
+        cmd.push_back("--verbose");
+    cmd.push_back("--from");
+    cmd.push_back(mail_sender);
+    cmd.push_back("--to");
+    cmd.push_back(mail_recipients);
+    cmd.push_back("--subject");
+    cmd.push_back(mail_subject);
+    cmd.push_back("--body");
+    cmd.push_back(tmpFile);
 
-    cmd << Prefix::Instance().binDirectoryGet();
-    cmd << "/calaos_mail";
-
-    if (FileUtils::exists(cmd.str()))
+    if (!mail_attachment_tfile.empty())
     {
-        cmd << " ";
-        cmd << "--delete "; //force temp file deletion after mail is sent
-        if (Utils::get_config_option("smtp_debug") == "true")
-            cmd << "--verbose ";
-        cmd << "--from \"" << mail_sender << "\" ";
-        cmd << "--to \"" << mail_recipients << "\" ";
-        cmd << "--subject \"" << mail_subject << "\" ";
-        cmd << "--body " << tmpFile << " ";
-
-        if (!mail_attachment_tfile.empty())
-            cmd << "--attach " << mail_attachment_tfile;
-
-        cInfo() << "Executing command : " << cmd.str();
-        auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-        exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
-        exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
-        {
-            cDebugDom("process") << "Process error: " << ev.what();
-            exe->close();
-        });
-
-        Utils::CStrArray arr(cmd.str());
-        exe->spawn(arr.at(0), arr.data());
+        cmd.push_back("--attach");
+        cmd.push_back(mail_attachment_tfile);
     }
-    else
+
+    cInfo() << "Executing command : calaos_mail";
+    auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
+    exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
     {
-        cError() << "Command " << cmd.str() << " not found";
-    }
+        cDebugDom("process") << "Process error: " << ev.what();
+        exe->close();
+    });
+
+    Utils::CStrArray arr(cmd);
+    exe->spawn(arr.at(0), arr.data());
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)
