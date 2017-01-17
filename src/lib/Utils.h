@@ -268,6 +268,8 @@ unsigned int getUptime();
 
 string getTmpFilename(const string &ext = "tmp", const string &prefix = "_tmp");
 
+double getMainLoopTime();
+
 class CStrArray
 {
 public:

@@ -23,7 +23,6 @@
 
 #include "Calaos.h"
 #include "Action.h"
-#include <Ecore_Con.h>
 
 namespace Calaos
 {
@@ -33,7 +32,7 @@ class ActionTouchscreen: public Action
 private:
     string action;
 
-    Ecore_Con_Server *econ;
+//    Ecore_Con_Server *econ;
 
 public:
     ActionTouchscreen();

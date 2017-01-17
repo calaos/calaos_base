@@ -441,8 +441,7 @@ void WebSocket::processControlFrame()
     {
         if (status == WSClosing) return;
 
-        double elapsed = uvw::Loop::getDefault()->now().count() / 1000.0;
-        elapsed -= ping_time;
+        double elapsed = Utils::getMainLoopTime() - ping_time;
         cInfoDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
     }
     else if (currentFrame.isCloseFrame())
@@ -484,7 +483,7 @@ void WebSocket::sendPing(const string &data)
 
     cDebugDom("websocket") << "Sending websocket PING";
 
-    ping_time = uvw::Loop::getDefault()->now().count() / 1000.0;
+    ping_time = Utils::getMainLoopTime();
 
     string frame = WebSocketFrame::makeFrame(WebSocketFrame::OpCodePing,
                                              data,

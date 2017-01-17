@@ -21,6 +21,7 @@
 #include "Utils.h"
 
 #include <tcpsocket.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace Utils;
 
@@ -911,4 +912,9 @@ string Utils::getTmpFilename(const string &ext, const string &prefix)
     while (FileUtils::exists(tempfname));
 
     return tempfname;
+}
+
+double Utils::getMainLoopTime()
+{
+    return uvw::Loop::getDefault()->now().count() / 1000.0;
 }

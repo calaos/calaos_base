@@ -90,7 +90,7 @@ void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
     ScriptManager::Instance().LuaDebugHook(L, ar);
 //    double time;
 //
-//    time = ecore_time_get();
+//    time = Utils::getMainLoopTime();
 //
 //    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
 //    {

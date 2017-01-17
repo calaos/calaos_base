@@ -57,7 +57,7 @@ bool ScriptManager::ExecuteScript(const string &script)
     //Set a hook to kill script in case of a wrong use (infinite loop, ...)
     lua_sethook(L, Lua_DebugHook, LUA_MASKLINE | LUA_MASKCOUNT, 1);
 
-    start_time = ecore_time_get();
+    start_time = Utils::getMainLoopTime();
 
     int err = luaL_loadbuffer(L, script.c_str(), script.length(), "CalaosScript");
     if (err)

@@ -112,8 +112,6 @@ int main (int argc, char **argv)
     ListeRule::Instance();
     ListeRoom::Instance();
 
-    ecore_app_args_set(argc, (const char **)argv);
-
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
 

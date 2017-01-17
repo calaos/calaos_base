@@ -57,7 +57,7 @@ InputAnalog::InputAnalog(Params &p):
         Utils::is_of_type<double>(v))
         Utils::from_string(v, value);
 
-    timer = ecore_time_get();
+    timer = Utils::getMainLoopTime();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
     cInfoDom("input") << get_param("id") << ": Ok";
@@ -122,10 +122,10 @@ void InputAnalog::hasChanged()
 
     readConfig();
 
-    double sec = ecore_time_get() - timer;
+    double sec = Utils::getMainLoopTime() - timer;
     if (sec >= frequency)
     {
-        timer = ecore_time_get();
+        timer = Utils::getMainLoopTime();
 
         readValue();
     }

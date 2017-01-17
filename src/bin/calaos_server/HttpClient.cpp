@@ -409,7 +409,7 @@ void HttpClient::DataWritten(int size)
     {
         cDebugDom("network")
                 << "All config files written, restarting calaos_server";
-        ecore_app_restart();
+        uvw::Loop::getDefault()->stop();
     }
 
     if (conn_close && data_size <= 0)

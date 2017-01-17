@@ -273,7 +273,7 @@ void OutputShutterSmart::Up(double new_value)
     setOutputDown(false);
     sens = SHUTTER_UP;
 
-    start_time = ecore_time_get();
+    start_time = Utils::getMainLoopTime();
     start_position = pos;
 
     if (new_value < 0)
@@ -344,7 +344,7 @@ void OutputShutterSmart::Down(double new_value)
     setOutputDown(true);
     sens = SHUTTER_DOWN;
 
-    start_time = ecore_time_get();
+    start_time = Utils::getMainLoopTime();
     start_position = pos;
 
     if (new_value < 0)
@@ -529,14 +529,14 @@ void OutputShutterSmart::TimerUpdate()
     {
         //set new position
         double _t = start_position;
-        _t -= (ecore_time_get() - start_time);
+        _t -= (Utils::getMainLoopTime() - start_time);
         writePosition(_t);
     }
     else if (sens == SHUTTER_DOWN)
     {
         //set new position and conver it to time_up range
         double _t = start_position;
-        _t += (ecore_time_get() - start_time);
+        _t += (Utils::getMainLoopTime() - start_time);
         _t = (_t * (double)time_up) / (double)time_down;
         writePosition(_t);
     }
