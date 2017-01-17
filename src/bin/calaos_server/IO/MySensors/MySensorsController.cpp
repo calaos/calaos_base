@@ -179,7 +179,6 @@ void MySensorsController::closeSerial()
 {
     if (serialfd == 0) return;
 
-    //as the efl doc say: the handler should be removed prior closing the fd
     if (serialHandle && serialHandle->active())
     {
         serialHandle->stop();
