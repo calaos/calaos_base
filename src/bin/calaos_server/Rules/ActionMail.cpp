@@ -23,6 +23,7 @@
 #include "IPCam.h"
 #include "FileDownloader.h"
 #include "Prefix.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -128,7 +129,16 @@ void ActionMail::sendMail()
             cmd << "--attach " << mail_attachment_tfile;
 
         cInfo() << "Executing command : " << cmd.str();
-        ecore_exe_run(cmd.str().c_str(), NULL);
+        auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+        exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
+        exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
+        {
+            cDebugDom("process") << "Process error: " << ev.what();
+            exe->close();
+        });
+
+        Utils::CStrArray arr(cmd.str());
+        exe->spawn(arr.at(0), arr.data());
     }
     else
     {

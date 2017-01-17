@@ -29,25 +29,11 @@
 #include "HttpCodes.h"
 #include "Timer.h"
 #include "HttpClient.h"
-
-Eina_Bool _ecore_exe_finished(void *data, int type, void *event)
-{
-    JsonApiHandlerHttp *api = reinterpret_cast<JsonApiHandlerHttp *>(data);
-    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
-
-    if (ev->exe != api->exe_thumb)
-        return ECORE_CALLBACK_PASS_ON;
-
-    api->exeFinished(ev->exe, ev->exit_code);
-
-    return ECORE_CALLBACK_CANCEL;
-}
+#include "uvw/src/uvw.hpp"
 
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
-    exe_handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _ecore_exe_finished, this);
-
     int cpt = rand();
     do
     {
@@ -60,7 +46,6 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
     delete cameraDl;
-    ecore_event_handler_del(exe_handler);
     FileUtils::unlink(tempfname);
 }
 
@@ -351,16 +336,14 @@ void JsonApiHandlerHttp::processGetCover()
         return;
     }
 
-    string w, h;
+    string w;
     if (jsonParam.Exists("width"))
         w = jsonParam["width"];
-    if (jsonParam.Exists("height"))
-        h = jsonParam["height"];
 
     player->get_album_cover([=](AudioPlayerData data)
     {
         //do not start another exe if one is running already
-        if (data.svalue == "" || exe_thumb)
+        if (data.svalue == "" || exe_thumb->active())
         {
             json_t *jret = json_object();
             json_object_set_new(jret, "success", json_string("false"));
@@ -369,17 +352,32 @@ void JsonApiHandlerHttp::processGetCover()
             return;
         }
 
-        string cmd = "calaos_thumb \"" + data.svalue + "\" \"" + tempfname + "\"";
-        if (w.empty() || h.empty())
-            cmd += " " + w + "x" + h;
-        exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
+        string cmd = "calaos_picture " + data.svalue + " " + tempfname;
+        if (!w.empty())
+            cmd += " " + w;
+
+        exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+        exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+        {
+            h.close();
+            this->exeFinished(ev.exitStatus);
+        });
+        exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+        {
+            cDebugDom("process") << "Process error: " << ev.what();
+            h.close();
+            this->exeFinished(1);
+        });
+
+        Utils::CStrArray arr(cmd);
+        exe_thumb->spawn(arr.at(0), arr.data());
     });
 }
 
 void JsonApiHandlerHttp::processGetCameraPic()
 {
     IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(jsonParam["id"]));
-    if (!camera)
+    if (!camera || exe_thumb->active())
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
@@ -388,19 +386,32 @@ void JsonApiHandlerHttp::processGetCameraPic()
         return;
     }
 
-    string w, h;
+    string w;
     if (jsonParam.Exists("width"))
         w = jsonParam["width"];
-    if (jsonParam.Exists("height"))
-        h = jsonParam["height"];
 
-    string cmd = "calaos_thumb \"" + camera->getPictureUrl() + "\" \"" + tempfname + "\"";
-    if (w.empty() || h.empty())
-        cmd += " " + w + "x" + h;
-    exe_thumb = ecore_exe_run(cmd.c_str(), nullptr);
+    string cmd = "calaos_picture " + camera->getPictureUrl() + " " + tempfname;
+    if (!w.empty())
+        cmd += " " + w;
+
+    exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+    {
+        h.close();
+        this->exeFinished(ev.exitStatus);
+    });
+    exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        h.close();
+        this->exeFinished(1);
+    });
+
+    Utils::CStrArray arr(cmd);
+    exe_thumb->spawn(arr.at(0), arr.data());
 }
 
-void JsonApiHandlerHttp::exeFinished(Ecore_Exe *exe, int exit_code)
+void JsonApiHandlerHttp::exeFinished(int exit_code)
 {
     if (exit_code != 0)
     {
@@ -410,8 +421,6 @@ void JsonApiHandlerHttp::exeFinished(Ecore_Exe *exe, int exit_code)
         sendJson(jret);
         return;
     }
-
-    ecore_exe_free(exe);
 
     json_t *jret = json_object();
     json_object_set_new(jret, "success", json_string("true"));

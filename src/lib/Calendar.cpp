@@ -380,9 +380,8 @@ void Calendar::apply()
         h.close();
     });
 
-    const char **argarray = Utils::convertToArgArray(string(arg));
-    exe->spawn(argarray[0], (char **)argarray);
-    delete [] argarray;
+    Utils::CStrArray arr(arg);
+    exe->spawn(arr.at(0), arr.data());
 }
 
 /*
@@ -425,7 +424,6 @@ void Calendar::syncHwClock()
 
     string cmd = "/sbin/hwclock --systohc";
 
-    const char **argarray = Utils::convertToArgArray(cmd);
-    syncexe->spawn(argarray[0], (char **)argarray);
-    delete [] argarray;
+    Utils::CStrArray arr(cmd);
+    syncexe->spawn(arr.at(0), arr.data());
 }

@@ -266,7 +266,25 @@ string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
 unsigned int getUptime();
 
-const char **convertToArgArray(const string &cmd);
+class CStrArray
+{
+public:
+    CStrArray() {}
+    CStrArray(const string &str_split);
+    CStrArray(const vector<string> &lst);
+    ~CStrArray();
+
+    const char *at(std::size_t pos) { return m_strings.at(pos).c_str(); }
+    void set(const vector<string> &lst);
+    std::size_t count() const { return m_strings.size(); }
+    const char **constData() const { return m_data; }
+    char **data() { return (char **)m_data; }
+
+private:
+    vector<string> m_strings;
+    const char **m_data = nullptr;
+    void updateNative();
+};
 
 //-----------------------------------------------------------------------------
 template<typename T>

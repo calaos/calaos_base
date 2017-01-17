@@ -40,3 +40,5 @@ calaos_mail_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_COMMON_LIBS@
 
+dist_bin_SCRIPTS = calaos_picture
+

@@ -20,26 +20,9 @@
  ******************************************************************************/
 
 #include <NTPClock.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace std;
-
-static Eina_Bool _NTPHandle1(void *data, int type, void *event)
-{
-    NTPClock *ntpClock = reinterpret_cast < NTPClock * >(data);
-    if (ntpClock)
-        ntpClock->Handle1();
-
-    return 0;
-}
-
-static Eina_Bool _NTPHandle2(void *data, int type, void *event)
-{
-    NTPClock *ntpClock = reinterpret_cast < NTPClock * >(data);
-    if (ntpClock)
-        ntpClock->Handle2();
-
-    return 0;
-}
 
 NTPClock & NTPClock::Instance()
 {
@@ -67,17 +50,25 @@ NTPClock::~NTPClock()
 
 void NTPClock::updateClock()
 {
-    if (exe)
-        return;
-
     if (Utils::get_config_option("use_ntp") == "true")
     {
-        handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle1, this);
         cInfo() <<  "NTPClock::updateClock() Updating clock...";
 
         string cmd = "/usr/sbin/ntpdate calaos.fr";
 
-        exe = ecore_exe_run(cmd.c_str(), NULL);
+        exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+        exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &h)
+        {
+            h.close();
+        });
+        exe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+        {
+            cDebugDom("process") << "Process error: " << ev.what();
+            h.close();
+        });
+
+        Utils::CStrArray arr(cmd);
+        exe->spawn(arr.at(0), arr.data());
     }
 }
 
@@ -181,33 +172,23 @@ void NTPClock::setNetworkCmdCalendarApply(vector < string > s)
     networkCmdCalendarApply = s;
 }
 
-void NTPClock::Handle1()
+void NTPClock::syncHwClock()
 {
-    string cmd = "/sbin/hwclock --systohc";
-
-    ecore_event_handler_del(handler);
-    handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle2, this);
-    exe = ecore_exe_run(cmd.c_str(), NULL);
-}
-
-void NTPClock::Handle2()
-{
-    ecore_event_handler_del(handler);
-
-    cInfo() <<  "NTPClock: Updating clock...  DONE";
-
-    exe = NULL;
-    //kill l'application
-    //elle sera redémarrée par un daemon extérieur
-
-    if (isRestartWhenApply())
+    syncexe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    syncexe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &h)
     {
-        cInfo() <<  "NTPClock: Restart the application";
-        ecore_app_restart();
-    }
-    else
-    {
+        h.close();
         if (timer) delete timer;
         timer = new Timer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
-    }
+    });
+    syncexe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        h.close();
+    });
+
+    string cmd = "/sbin/hwclock --systohc";
+
+    Utils::CStrArray arr(cmd);
+    syncexe->spawn(arr.at(0), arr.data());
 }

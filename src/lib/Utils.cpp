@@ -868,20 +868,33 @@ string Utils::escape_quotes(const string &s)
     return after;
 }
 
-const char **Utils::convertToArgArray(const string &cmd)
+CStrArray::CStrArray(const string &str_split)
 {
-    vector<string> tok;
-    Utils::split(cmd, tok, " ");
+    Utils::split(str_split, m_strings, " ");
+    updateNative();
+}
 
-    //convert args list to a char**
-    const char **argarray = new const char*[tok.size() + 1];
-    unsigned index = 1;
-    for (auto it = tok.begin();it != tok.end();it++)
+CStrArray::CStrArray(const vector<string> &lst):
+    m_strings(lst)
+{
+    updateNative();
+}
+
+CStrArray::~CStrArray()
+{
+    delete [] m_data;
+}
+
+void CStrArray::updateNative()
+{
+    delete [] m_data;
+    m_data = new const char*[m_strings.size() + 1];
+
+    unsigned index = 0;
+    for (auto it = m_strings.begin();it != m_strings.end();it++)
     {
-        argarray[index] = it->c_str();
+        m_data[index] = it->c_str();
         index++;
     }
-    argarray[index] = NULL;
-
-    return argarray;
+    m_data[index] = NULL;
 }

@@ -206,51 +206,51 @@ void Firmwares::download_cb(string result, void *data)
     }
 }
 
-static Eina_Bool exe_exit(void *data, int type, void *event)
-{
-    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
+//static Eina_Bool exe_exit(void *data, int type, void *event)
+//{
+//    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
 
-    Firmwares *fm = reinterpret_cast<Firmwares *>(data);
-    if (fm)
-        fm->ExecutableEnded(ev);
+//    Firmwares *fm = reinterpret_cast<Firmwares *>(data);
+//    if (fm)
+//        fm->ExecutableEnded(ev);
 
-    return EINA_TRUE;
-}
+//    return EINA_TRUE;
+//}
 
 bool Firmwares::installFirmware(sigc::slot<void, string> callback)
 {
-    exehandler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, exe_exit, this);
+//    exehandler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, exe_exit, this);
 
-    cb_con_install.disconnect();
-    cb_con_install = cb_signal_install.connect(callback);
+//    cb_con_install.disconnect();
+//    cb_con_install = cb_signal_install.connect(callback);
 
-    string cmd = "/sbin/fw_update.sh";
+//    string cmd = "/sbin/fw_update.sh";
 
-    fwupdate_exe = ecore_exe_run(cmd.c_str(), NULL);
-    if(!fwupdate_exe)
-    {
-        cb_signal_install.emit("failed");
-        cb_con_install.disconnect();
-        ecore_event_handler_del(exehandler);
+//    fwupdate_exe = ecore_exe_run(cmd.c_str(), NULL);
+//    if(!fwupdate_exe)
+//    {
+//        cb_signal_install.emit("failed");
+//        cb_con_install.disconnect();
+//        ecore_event_handler_del(exehandler);
 
-        return false;
-    }
+//        return false;
+//    }
 
     return true;
 }
 
-void Firmwares::ExecutableEnded(Ecore_Exe_Event_Del *event)
-{
-    if (!event) return;
+//void Firmwares::ExecutableEnded(Ecore_Exe_Event_Del *event)
+//{
+//    if (!event) return;
 
-    if (event->exe == fwupdate_exe)
-    {
-        if (event->exit_code != 0)
-            cb_signal_install.emit("failed");
-        else
-            cb_signal_install.emit("done");
+//    if (event->exe == fwupdate_exe)
+//    {
+//        if (event->exit_code != 0)
+//            cb_signal_install.emit("failed");
+//        else
+//            cb_signal_install.emit("done");
 
-        cb_con_install.disconnect();
-        ecore_event_handler_del(exehandler);
-    }
-}
+//        cb_con_install.disconnect();
+//        ecore_event_handler_del(exehandler);
+//    }
+//}

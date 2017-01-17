@@ -33,8 +33,8 @@ private:
 
     bool download_in_progress;
 
-    Ecore_Exe *fwupdate_exe;
-    Ecore_Event_Handler *exehandler;
+//    Ecore_Exe *fwupdate_exe;
+//    Ecore_Event_Handler *exehandler;
 
     sigc::signal<void, string> cb_signal_check;
     sigc::signal<void, string, FileProgress *> cb_signal_download;
@@ -72,7 +72,7 @@ public:
     bool installFirmware(sigc::slot<void, string> callback);
 
     /* private don't use */
-    void ExecutableEnded(Ecore_Exe_Event_Del *ev);
+//    void ExecutableEnded(Ecore_Exe_Event_Del *ev);
 };
 
 #endif

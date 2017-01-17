@@ -146,9 +146,8 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
 
-    const char **argarray = Utils::convertToArgArray(cmd);
-    process_exe->spawn(argarray[0], (char **)argarray);
-    delete [] argarray;
+    Utils::CStrArray arr(cmd);
+    process_exe->spawn(arr.at(0), arr.data());
 }
 
 ExternProcMessage::ExternProcMessage()

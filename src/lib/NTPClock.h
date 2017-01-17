@@ -24,10 +24,15 @@
 #include <Utils.h>
 #include <CThread.h>
 #include <tcpsocket.h>
-#include <Ecore.h>
 #include <IPC.h>
 #include <Calendar.h>
 #include <Timer.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
 
 /**
  * This class is a singleton
@@ -66,14 +71,8 @@ private:
 
     void TimerTick();
 
-    /**
-                 * the exe used during the object apply a date
-                 */
-    Ecore_Exe *exe;
-    /**
-                 * the handle used during the object apply a date
-                 */
-    Ecore_Event_Handler *handler;
+    std::shared_ptr<uvw::ProcessHandle> exe, syncexe;
+    void syncHwClock();
 
 public:
 
@@ -110,10 +109,6 @@ public:
                  * enable or disable the ntp in the configuration file
                  */
     void enable(bool en);
-
-    //Private, used by Ecore
-    void Handle1();
-    void Handle2();
 };
 
 #endif
