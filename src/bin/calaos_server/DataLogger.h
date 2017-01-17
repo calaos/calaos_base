@@ -21,9 +21,9 @@
 #ifndef __DATA_LOGGER_H
 #define __DATA_LOGGER_H
 
-#include <Eet.h>
-
 #include <IOBase.h>
+
+/* DISABLED, need to be rewritten once */
 
 namespace Calaos
 {
@@ -35,8 +35,8 @@ private:
 
     void initEetDescriptors();
     void releaseEetDescriptors();
-    Eet_File *ef;
-    Eina_Hash *hash_values;
+//    Eet_File *ef;
+//    Eina_Hash *hash_values;
 public:
     static DataLogger &Instance()
     {
