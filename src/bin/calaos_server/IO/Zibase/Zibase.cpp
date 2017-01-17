@@ -20,8 +20,7 @@
 ******************************************************************************/
 #include <Zibase.h>
 #include <tcpsocket.h>
-
-
+#include "uvw/src/uvw.hpp"
 
 /********************************************************/
 /*                      MACROS                          */
@@ -71,55 +70,42 @@ const unsigned char ZSIG[4]= {'Z','S','I','G'};
 
 ZibaseManager Zibase::zibasemaps;
 
-Eina_Bool zibase_udpClientData(void *data, int type, Ecore_Con_Event_Client_Data *ev)
-{
-    Zibase *z = reinterpret_cast<Zibase *>(data);
-
-    if (ev && ev->client && (z != ecore_con_server_data_get(ecore_con_client_server_get(ev->client))))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (z) z->udpClientData(ev);
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-Eina_Bool zibase_udpListenData(void *data, int type, Ecore_Con_Event_Server_Data *ev)
-{
-    Zibase *z = reinterpret_cast<Zibase *>(data);
-
-    if (ev && ev->server && (z != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (z) z->udpListenData(ev);
-
-    return ECORE_CALLBACK_RENEW;
-}
-
 Zibase::Zibase(std::string h, int p):
     host(h),
-    port(p),
-    econ_client(nullptr),
-    econ_listen(nullptr)
+    port(p)
 {
-
-    //Ecore handler
-    event_handler_data_cl = ecore_event_handler_add(ECORE_CON_EVENT_CLIENT_DATA, (Ecore_Event_Handler_Cb)zibase_udpClientData, this);
-    event_handler_data_listen = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)zibase_udpListenData, this);
-
     //Create listening udp server on local port to receive frame from zibase
-    econ_listen = ecore_con_server_add(ECORE_CON_REMOTE_UDP,
-                                       "0.0.0.0", //listen from anyone
-                                       port,
-                                       this);
-    ecore_con_server_data_set(econ_listen, this);
+    listenHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
+
+    listenHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    {
+        this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
+    });
+
+    listenHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    {
+        cErrorDom("network") << "UDP server error: " << ev.what();
+    });
+
+    listenHandle->bind("0.0.0.0", port, uvw::UDPHandle::Bind::REUSEADDR);
+    listenHandle->recv();
 
     //Create udp socket to send data (discover zibase, registering, etc...)
-    econ_client = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                           host.c_str(), //zibase host from io.xml
-                                           ZIBASE_UDP_PORT,
-                                           this);
-    ecore_con_server_data_set(econ_client, this);
+    //Create listening udp server on local port to receive frame from zibase
+    clientHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
 
+    clientHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    {
+        this->udpClientData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
+    });
+
+    clientHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    {
+        cErrorDom("network") << "UDP server error: " << ev.what();
+    });
+
+    clientHandle->bind(host, ZIBASE_UDP_PORT, uvw::UDPHandle::Bind::REUSEADDR);
+    clientHandle->recv();
 
     /* send NOP frame to check Zibase here */
     memcpy(stZAPI_packet.header,ZSIG,4);
@@ -145,17 +131,16 @@ Zibase::Zibase(std::string h, int p):
     {
         /*push request as we wait for an answer */
         zibase_queue_req.push(req);
-        ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-        ecore_con_server_flush(econ_client);
+        clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
     }
 }
 
 Zibase::~Zibase()
 {
-    ecore_event_handler_del(event_handler_data_cl);
-    ecore_event_handler_del(event_handler_data_listen);
-    ecore_con_server_del(econ_client);
-    ecore_con_server_del(econ_listen);
+    listenHandle->stop();
+    listenHandle->close();
+    clientHandle->stop();
+    clientHandle->close();
     StopTimer();
 }
 
@@ -184,12 +169,15 @@ void Zibase::stopAllZibase()
     zibasemaps.maps.clear();
 }
 
-void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
+void Zibase::udpClientData(const char *data, std::size_t length, string remoteIp, int remotePort)
 {
+    VAR_UNUSED(length)
+    VAR_UNUSED(remoteIp)
+    VAR_UNUSED(remotePort)
     char* c;
 
     ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
-    TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;
+    TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)data;
     unsigned char *p = packet->frame;
 
     if(InfoSensor)
@@ -210,7 +198,7 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
             InfoSensor->Error = false;
             sig_newframe.emit(InfoSensor);
         }
-        p = (unsigned char*)ev->data;
+        p = (unsigned char*)data;
         if(strstr ((char*)p, "ZSIG") != NULL)
         {
             p = packet->frame;
@@ -239,18 +227,18 @@ void Zibase::udpClientData(Ecore_Con_Event_Client_Data *ev)
     }
 }
 
-void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
+void Zibase::udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort)
 {
-
-    TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)ev->data;
+    VAR_UNUSED(length)
+    VAR_UNUSED(remotePort)
+    TstZAPI_Rxpacket* packet = (TstZAPI_Rxpacket*)data;
     ZibaseInfoSensor *InfoSensor = new(ZibaseInfoSensor);
     bool checkFifoEmpty = true;
-
 
     if(InfoSensor)
     {
         /* Check ACK Frame */
-        if((strstr ((char*)ev->data, "ZSIG") != NULL) && (BIG_ENDIAN_W(packet->packet.command==ACK_CMD)))
+        if((strstr ((char*)data, "ZSIG") != NULL) && (BIG_ENDIAN_W(packet->packet.command==ACK_CMD)))
         {
             /* check element in fifo*/
             if(!zibase_queue_req.empty())
@@ -259,8 +247,7 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                 /* check request type*/
                 if(req.RunningReq == ZibaseQueuRequest::eNOP)
                 {
-                    std::string remote_ip = ecore_con_server_ip_get(ev->server);
-                    std::string myip = TCPSocket::GetLocalIPFor(remote_ip);
+                    std::string myip = TCPSocket::GetLocalIPFor(remoteIp);
 
 
                     vector<string> splitter;
@@ -278,8 +265,7 @@ void Zibase::udpListenData(Ecore_Con_Event_Server_Data *ev)
                     stZAPI_packet.param1 = BIG_ENDIAN_L(ipHexa);
                     stZAPI_packet.param2 = BIG_ENDIAN_L(port);
 
-                    ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-                    ecore_con_server_flush(econ_client);
+                    clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
                 }
                 else if(req.RunningReq == ZibaseQueuRequest::eREAD)
                 {
@@ -347,10 +333,9 @@ void Zibase::ZibaseCommand_Timeout()
             /* pop element in timeout */
             req = zibase_queue_req.front();
 
-            ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
-            ecore_con_server_flush(econ_client);
+            clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&req.frame[0],sizeof(TstZAPI_packet));
+
             /* arm timer*/
-            //zibase_timer = new Timer(3.0, (sigc::slot<void>)sigc::mem_fun(*this, &Zibase::ZibaseCommand_Timeout));
             StartTimer(3.0);
         }
     }
@@ -412,8 +397,7 @@ int Zibase::rf_frame_sending(bool val,ZibaseInfoProtocol * prot)
             /*push request as we wait for an answer */
             zibase_queue_req.push(req);
             /* send immediatly data*/
-            ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-            ecore_con_server_flush(econ_client);
+            clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&stZAPI_packet, sizeof(TstZAPI_packet));
             /* restart timer*/
             StopTimer();
             StartTimer(3.0);
@@ -462,8 +446,7 @@ int Zibase::rw_variable(ZibaseInfoProtocol * prot)
             /*push request as we wait for an answer */
             zibase_queue_req.push(req);
             /* send immediatly data*/
-            ecore_con_server_send(econ_client, (char*)&stZAPI_packet,sizeof(TstZAPI_packet));
-            ecore_con_server_flush(econ_client);
+            clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&stZAPI_packet, sizeof(TstZAPI_packet));
             /* restart timer*/
             StopTimer();
             StartTimer(3.0);
@@ -717,8 +700,7 @@ int Zibase::PopAndCheckFifo(void)
     {
         /* pop element in timeout */
         req = zibase_queue_req.front();
-        ecore_con_server_send(econ_client, (char*)&req.frame[0],sizeof(TstZAPI_packet));
-        ecore_con_server_flush(econ_client);
+        clientHandle->send(host, ZIBASE_UDP_PORT, (char*)&req.frame[0], sizeof(TstZAPI_packet));
         /* rearm timer*/
         StartTimer(3.0);
     }
