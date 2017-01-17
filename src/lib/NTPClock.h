@@ -22,7 +22,6 @@
 #define S_NTPClock_H
 
 #include <Utils.h>
-#include <CThread.h>
 #include <tcpsocket.h>
 #include <Calendar.h>
 #include <Timer.h>

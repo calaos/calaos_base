@@ -45,24 +45,14 @@ noinst_LTLIBRARIES = \
         libcalaos_common.la
 
 libcalaos_common_la_SOURCES = \
-        CThread.cpp                             \
-        CThread.h                               \
         CalaosModule.h                          \
         Calendar.cpp                            \
         Calendar.h                              \
-        DownloadManager.cpp                     \
-        DownloadManager.h                       \
         Timer.cpp                               \
         Timer.h                                 \
         EinaLog.cpp                             \
         EinaLog.h                               \
-        FileDownloader.cpp                      \
-        FileDownloader.h                        \
-        IPC.cpp                                 \
-        IPC.h                                   \
         Jansson_Addition.h                      \
-        Mutex.cpp                               \
-        Mutex.h                                 \
         NTPClock.cpp                            \
         NTPClock.h                              \
         Params.cpp                              \
@@ -122,8 +112,6 @@ libcalaos_common_la_SOURCES = \
         sunset.h                                \
         tcpsocket.cpp                           \
         tcpsocket.h                             \
-        threadManager.cpp                       \
-        threadManager.h                         \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
         ColorUtils.h                            \

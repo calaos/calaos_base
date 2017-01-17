@@ -105,7 +105,7 @@ protected:
 
     void get_album_cb(bool status, string request, string result, AudioPlayerData data);
 
-    void get_album_cover_json_cb(string result, void *data, void *user_data);
+    void get_album_cover_json_cb(const string &result, int status, void *user_data);
     void get_album_cover_std(AudioPlayerData data);
     void get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data);
     void get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data);

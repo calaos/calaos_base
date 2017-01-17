@@ -23,10 +23,9 @@
 
 #include <unordered_map>
 
-#include <Utils.h>
-#include <DownloadManager.h>
-#include <Timer.h>
-#include <Params.h>
+#include "Utils.h"
+#include "UrlDownloader.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -35,7 +34,6 @@ class WebCtrl
 {
 private:    
     WebCtrl(Params &p, int file_type);
-    DownloadManager *dlManager;
     double frequency;
     Timer *timer;
     void downloadFinished(string emission, string source, void* data);

@@ -67,6 +67,7 @@ private:
 
     bool m_autodelete;
     bool downloadToFile = false;
+    vector<string> headersRequest; //header for the request
 
     void completeCb(int status);
     void dataCb(const char *data, int size);
@@ -77,7 +78,7 @@ public:
 
     // Setter for private members
     void bodyDataSet(string bodyData) {m_bodyData = bodyData;}
-    void postContentTypeSet(string postContentType) {m_postContentType = postContentType;}
+    void setHeader(string header, string value);
     void destinationSet(string destination) {m_destination = destination;}
     void authSet(string user, string password) {m_user = user; m_password = password; m_auth = true;}
     void authUnSet() {m_auth = false;}

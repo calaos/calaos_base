@@ -70,20 +70,36 @@ bool UrlDownloader::start()
     //insecure --> do not check for insecure ssl certificates, needed for local https
     //location --> follow redirect
 
-    string req = "curl " + m_url + " --silent --insecure --location --dump-header " + tmpHeader + " ";
+    vector<string> req;
+    req.push_back("curl");
+    req.push_back(m_url);
+    req.push_back("--silent");
+    req.push_back("--insecure");
+    req.push_back("--location");
+    req.push_back("--dump-header");
+    req.push_back(tmpHeader);
+
+    for (const string &s: headersRequest)
+    {
+        req.push_back("--header");
+        req.push_back(s);
+    }
+
+    req.push_back("--request");
 
     switch (m_requestType)
     {
     case HTTP_POST:
-        req += "--request POST ";
+        req.push_back("POST");
+        break;
     case HTTP_GET:
-        req += "--request GET ";
+        req.push_back("GET");
         break;
     case HTTP_PUT:
-        req += "--request PUT ";
+        req.push_back("PUT");
         break;
     case HTTP_DELETE:
-        req += "--request DELETE ";
+        req.push_back("DELETE");
         break;
     default:
         cErrorDom("urlutils") << "Request type error, you should not be there !";
@@ -93,7 +109,8 @@ bool UrlDownloader::start()
     //output to a file
     if (!m_destination.empty())
     {
-        req += "--output " + m_destination + " ";
+        req.push_back("--output");
+        req.push_back(m_destination);
         downloadToFile = true;
     }
     else
@@ -102,10 +119,13 @@ bool UrlDownloader::start()
 
     if (m_auth)
     {
-        req += "--anyauth --user " + m_user;
+        req.push_back("--anyauth");
+        req.push_back("--user");
+
+        string u = m_user;
         if (!m_password.empty())
-            req += ":" + m_password;
-        req += " ";
+            u += ":" + m_password;
+        req.push_back(u);
     }
 
     if ((m_requestType == HTTP_POST ||
@@ -118,10 +138,11 @@ bool UrlDownloader::start()
         ofs << m_bodyData;
         ofs.close();
 
-        req += "--data-binary @" + tempFilename + " ";
+        req.push_back("--data-binary");
+        req.push_back("@" + tempFilename);
     }
 
-    cDebugDom("urlutils") << "Executing command: " << req;
+    cDebugDom("urlutils") << "Executing command: curl";
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
@@ -274,4 +295,12 @@ Content-Length: 169
     }
 
     return headers;
+}
+
+void UrlDownloader::setHeader(string header, string value)
+{
+    if (value.empty())
+        headersRequest.push_back(header + ";");
+    else
+        headersRequest.push_back(header + ": " + value);
 }

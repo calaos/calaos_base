@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "ScriptBindings.h"
 #include "ScriptManager.h"
-#include "FileDownloader.h"
 
 using namespace Calaos;
 

@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "Squeezebox.h"
 #include "SqueezeboxDB.h"
-#include "FileDownloader.h"
+#include "UrlDownloader.h"
 #include "IOFactory.h"
 #include "EventManager.h"
 #include "ListeRoom.h"
@@ -738,14 +738,17 @@ void Squeezebox::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
     data->set_chain_data(new AudioPlayerData(user_data));
     data->callback = callback;
 
-    FileDownloader *downloader = new FileDownloader(url, postData, "application/json", true);
-    downloader->addCallback(sigc::mem_fun(*this, &Squeezebox::get_album_cover_json_cb), data);
-
-    downloader->Start();
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->setHeader("Content-Type", "application/json");
+    downloader->httpPost(string(), postData);
+    downloader->m_signalCompleteData.connect([this, data](const string &urldata, int status)
+    {
+        get_album_cover_json_cb(urldata, status, data);
+    });
 }
-void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_data)
+void Squeezebox::get_album_cover_json_cb(const string &result, int status, void *user_data)
 {
-    if (result == "failed" || result == "aborted")
+    if (status != 200)
     {
         AudioPlayerData *_data = reinterpret_cast<AudioPlayerData *>(user_data);
         AudioPlayerData adata(*_data);
@@ -753,17 +756,14 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
 
         get_album_cover_std(adata);
     }
-    else if (result == "done")
+    else
     {
         AudioPlayerData *_data = reinterpret_cast<AudioPlayerData *>(user_data);
         AudioPlayerData adata(*_data);
         delete _data;
 
-        Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
-
         json_error_t jerr;
-        json_t *json = json_loads(res.c_str(), 0, &jerr);
+        json_t *json = json_loads(result.c_str(), 0, &jerr);
 
         cDebug() << json_dumps(json, JSON_INDENT(4));
 
