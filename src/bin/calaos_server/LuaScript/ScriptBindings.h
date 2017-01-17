@@ -24,7 +24,6 @@
 #include "Utils.h"
 #include "lua.hpp"
 #include "Lunar.h"
-#include <Ecore.h>
 #include "ExternProc.h"
 
 namespace Calaos

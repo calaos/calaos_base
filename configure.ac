@@ -52,11 +52,11 @@ PKG_PROG_PKG_CONFIG
 
 efl_ver="1.7.10"
 
-requirements_calaos_common="libuv eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
+requirements_calaos_common="libuv eina >= ${efl_ver} eet >= ${efl_ver} sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
-requirements_calaos_server="libuv eina >= ${efl_ver} eet >= ${efl_ver} ecore >= ${efl_ver} ecore-file >= ${efl_ver} ecore-con >= ${efl_ver} libcurl"
+requirements_calaos_server="libuv eina >= ${efl_ver} eet >= ${efl_ver} libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 

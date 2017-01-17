@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "InputAnalog.h"
 #include "ListeRule.h"
-#include "Ecore.h"
 #include "CalaosConfig.h"
 #include "AnalogIO.h"
 

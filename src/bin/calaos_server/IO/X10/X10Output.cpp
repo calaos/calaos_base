@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <X10Output.h>
-#include <Ecore.h>
 #include <IOFactory.h>
 #include "uvw/src/uvw.hpp"
 

@@ -23,7 +23,6 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "Ecore.h"
 #include "Timer.h"
 
 namespace Calaos

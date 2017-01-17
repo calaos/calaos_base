@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "InputTemp.h"
-#include <Ecore.h>
 #include "ListeRule.h"
 #include "CalaosConfig.h"
 

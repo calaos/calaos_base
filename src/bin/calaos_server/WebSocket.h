@@ -22,7 +22,6 @@
 #define S_WebSocketServer_H
 
 #include "Calaos.h"
-#include <Ecore_Con.h>
 #include <unordered_map>
 #include "HttpClient.h"
 #include "WebSocketFrame.h"

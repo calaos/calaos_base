@@ -23,7 +23,6 @@
 #include "hef_uri_syntax.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"
-#include <Ecore.h>
 #include "HttpCodes.h"
 #include "uvw/src/uvw.hpp"
 

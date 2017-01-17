@@ -30,7 +30,6 @@
 #include "ActionStd.h"
 #include "ListeRoom.h"
 #include "Room.h"
-#include <Ecore.h>
 
 using namespace std;
 
