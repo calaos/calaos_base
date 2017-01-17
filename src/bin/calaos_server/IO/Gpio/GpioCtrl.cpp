@@ -19,12 +19,12 @@
  **
  ******************************************************************************/
 #include "GpioCtrl.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
 GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 {
-    fd_handler = NULL;
     debounce = false;
     debounce_time = _debounce_time;
     gpionum = _gpionum;
@@ -36,6 +36,12 @@ GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 
 GpioCtrl::~GpioCtrl()
 {
+    if (fdHandle && fdHandle->active())
+    {
+        fdHandle->stop();
+        fdHandle->close();
+    }
+
     //unexportGpio();
     if (fd == -1)
         close(fd);
@@ -105,7 +111,6 @@ bool GpioCtrl::setActiveLow(bool active_low)
     return writeFile(path, active_low ? "1" : "0");
 }
 
-
 bool GpioCtrl::setVal(bool value)
 {
     string strval;
@@ -148,15 +153,7 @@ int GpioCtrl::getGpioNum(void)
     return gpionum;
 }
 
-Eina_Bool _fd_handler_cb(void *data, Ecore_Fd_Handler *fd_handler)
-{
-    GpioCtrl *gpioctrl = (GpioCtrl*) data;
-
-    gpioctrl->emitChange();
-    return ECORE_CALLBACK_RENEW;
-}
-
-void GpioCtrl::emitChange(void)
+void GpioCtrl::emitChange()
 {
     char buf[2];
 
@@ -168,7 +165,6 @@ void GpioCtrl::emitChange(void)
     lseek(fd, 0, SEEK_SET);
     memset(buf, 0, 2);
     read(fd, buf, 1);
-
 
     if (debounce)
     {
@@ -204,20 +200,26 @@ bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
         }
     }
 
-    if (fd_handler)
-        ecore_main_fd_handler_del(fd_handler);
-
     // Programm both edge to trigger fd
     setEdge("both");
 
     connection = event_signal.connect(slot);
-    fd_handler = ecore_main_fd_handler_add(fd, ECORE_FD_ERROR, _fd_handler_cb, this, NULL, NULL);
-    cDebugDom("input") << "Create Ecore_Fd_Handler " << fd_handler;
-    if (!fd_handler)
+
+    fdHandle = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+    fdHandle->open(fd);
+
+    //When serial is closed, remove it and close it
+    fdHandle->on<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
     {
-        cErrorDom("input") << "Unable to create fd_handler";
-        return false;
-    }
+        cl.close();
+    });
+
+    fdHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &, auto &)
+    {
+        this->emitChange();
+    });
+
+    fdHandle->read();
 
     return true;
 }

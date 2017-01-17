@@ -22,8 +22,13 @@
 #define GPIOCTRL_H
 
 #include <Utils.h>
-#include <Ecore.h>
 #include <Timer.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class PipeHandle;
+}
 
 namespace Calaos
 {
@@ -38,7 +43,7 @@ private:
     int fd;
     sigc::connection connection;
     sigc::signal<void> event_signal;
-    Ecore_Fd_Handler *fd_handler;
+    std::shared_ptr<uvw::PipeHandle> fdHandle;
     bool debounce;
     double debounce_time;
 
@@ -56,7 +61,7 @@ public:
     void closeFd(void);
     int getGpioNum(void);
     bool setValueChanged(sigc::slot<void> slot);
-    void emitChange(void);
+    void emitChange();
 };
 }
 #endif // GPIOCTRL_H
