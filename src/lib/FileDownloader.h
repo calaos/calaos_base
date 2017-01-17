@@ -26,6 +26,7 @@
 #include <IPC.h>
 #include <Ecore.h>
 #include <Ecore_Con.h>
+#include <Ecore_File.h>
 
 using namespace Utils;
 

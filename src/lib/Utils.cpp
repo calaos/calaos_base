@@ -898,3 +898,17 @@ void CStrArray::updateNative()
     }
     m_data[index] = NULL;
 }
+
+string Utils::getTmpFilename(const string &ext, const string &prefix)
+{
+    string tempfname;
+    int cpt = rand();
+    do
+    {
+        tempfname = "/tmp/calaos" + prefix + "_" + Utils::to_string(cpt) + "." + ext;
+        cpt++;
+    }
+    while (FileUtils::exists(tempfname));
+
+    return tempfname;
+}

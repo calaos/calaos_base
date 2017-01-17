@@ -29,26 +29,6 @@ protected:
         return pLoop->loop.get();
     }
 
-    auto get() noexcept {
-        return &resource;
-    }
-
-    auto get() const noexcept {
-        return const_cast<const U *>(&resource);
-    }
-
-    template<typename R>
-    auto get() noexcept {
-        static_assert(not std::is_same<R, U>::value, "!");
-        return reinterpret_cast<R*>(&resource);
-    }
-
-    template<typename R>
-    auto get() const noexcept {
-        static_assert(not std::is_same<R, U>::value, "!");
-        return reinterpret_cast<const R*>(&resource);
-    }
-
     void leak() noexcept {
         ptr = this->shared_from_this();
     }
@@ -112,6 +92,26 @@ public:
      */
     void data(std::shared_ptr<void> uData) {
         userData = std::move(uData);
+    }
+
+    auto get() noexcept {
+        return &resource;
+    }
+
+    auto get() const noexcept {
+        return const_cast<const U *>(&resource);
+    }
+
+    template<typename R>
+    auto get() noexcept {
+        static_assert(not std::is_same<R, U>::value, "!");
+        return reinterpret_cast<R*>(&resource);
+    }
+
+    template<typename R>
+    auto get() const noexcept {
+        static_assert(not std::is_same<R, U>::value, "!");
+        return reinterpret_cast<const R*>(&resource);
     }
 
 private:

@@ -266,6 +266,8 @@ string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
 unsigned int getUptime();
 
+string getTmpFilename(const string &ext = "tmp", const string &prefix = "_tmp");
+
 class CStrArray
 {
 public:

@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "BlinkstickOutputLightRGB.h"
 #include "IOFactory.h"
-#include "UrlDownloader.h"
 
 #define BLINKSTICK_VENDOR_ID 0x20A0
 #define BLINKSTICK_PRODUCT_ID 0x41E5

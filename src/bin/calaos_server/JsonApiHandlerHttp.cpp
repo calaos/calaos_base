@@ -34,13 +34,7 @@
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
-    int cpt = rand();
-    do
-    {
-        tempfname = "/tmp/calaos_json_temp_" + Utils::to_string(cpt) + ".jpg";
-        cpt++;
-    }
-    while (FileUtils::exists(tempfname));
+    tempfname = Utils::getTmpFilename("jpg", "_json_temp");
 }
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
@@ -670,17 +664,14 @@ void JsonApiHandlerHttp::processCamera()
     if (jsonParam["type"] == "get_picture")
     {
         cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
-        cameraDl->m_signalCompleteData.connect([=](Eina_Binbuf *downloadedData, int status)
+        cameraDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
         {
             if (status == 200)
             {
-                string bodypic((const char *)eina_binbuf_string_get(downloadedData),
-                               eina_binbuf_length_get(downloadedData));
-
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
-                string res = httpClient->buildHttpResponse(HTTP_200, headers, bodypic);
+                string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
                 sendData.emit(res);
             }
             else
@@ -718,7 +709,7 @@ void JsonApiHandlerHttp::processCamera()
             //send mjpeg stream
 
             cameraDl = new UrlDownloader(camera->getVideoUrl(), true);
-            cameraDl->m_signalData.connect([=](int size, unsigned char *data)
+            cameraDl->m_signalData.connect([=](int size, const char *data)
             {
                 if (!camHeaderSent)
                 {
@@ -756,14 +747,12 @@ void JsonApiHandlerHttp::processCamera()
 void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
 {
     cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
-    cameraDl->m_signalCompleteData.connect([=](Eina_Binbuf *downloadedData, int status)
+    cameraDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
     {
         sendData.emit(HTTP_CAMERA_STREAM_BOUNDARY);
         if (status == 200)
         {
-            string bodypic((const char *)eina_binbuf_string_get(downloadedData),
-                           eina_binbuf_length_get(downloadedData));
-            sendData.emit(bodypic);
+            sendData.emit(downloadedData);
         }
         else
         {

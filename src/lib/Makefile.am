@@ -48,8 +48,6 @@ libcalaos_common_la_SOURCES = \
         CThread.cpp                             \
         CThread.h                               \
         CalaosModule.h                          \
-        CalaosNetwork.cpp                       \
-        CalaosNetwork.h                         \
         Calendar.cpp                            \
         Calendar.h                              \
         DownloadManager.cpp                     \
@@ -60,8 +58,6 @@ libcalaos_common_la_SOURCES = \
         EinaLog.h                               \
         FileDownloader.cpp                      \
         FileDownloader.h                        \
-        Firmwares.cpp                           \
-        Firmwares.h                             \
         IPC.cpp                                 \
         IPC.h                                   \
         Jansson_Addition.h                      \

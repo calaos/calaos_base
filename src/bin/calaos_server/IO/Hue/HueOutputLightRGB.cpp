@@ -46,13 +46,12 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     m_timer = new Timer(2.0,[=](){
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
-        dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
+        dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
          if (status)
          {
               json_error_t error;
-              const unsigned char* c = eina_binbuf_string_get(downloadedData);
-              json_t *root = json_loads((const char*)eina_binbuf_string_get(downloadedData), 0, &error);
+              json_t *root = json_loads((const char*)downloadedData.c_str(), 0, &error);
               if (!root)
               {
                    cErrorDom("hue") << "Json received malformed : " << error.source
@@ -61,14 +60,14 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
               }
               if (!json_is_object(root))
               {
-                   cErrorDom("hue") << "Protocol changed ? date received : " << eina_binbuf_string_get(downloadedData);
+                   cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
                    return;
               }
 
               json_t *tstate = json_object_get(root, "state");
               if (!tstate || !json_is_object(tstate))
               {
-                   cErrorDom("hue") << "Protocol changed ? date received : " << eina_binbuf_string_get(downloadedData);
+                   cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
                    return;
               }
 
@@ -81,7 +80,7 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
               on = jansson_bool_get(tstate, "on");
               reachable = jansson_bool_get(tstate, "reachable");
 
-              cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << c;
+              cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << downloadedData;
 
               if (reachable)
                    stateUpdated(ColorValue::fromHsl((int)(hue * 360.0 / 65535.0),
@@ -126,9 +125,9 @@ void HueOutputLightRGB::setOff()
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
     dl->bodyDataSet("{\"on\":false}");
-    dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
+    dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
-        cDebugDom("hue") << "datareceived: " << eina_binbuf_string_get(downloadedData);
+        cDebugDom("hue") << "datareceived: " << downloadedData;
     });
 
     dl->httpPut();
@@ -144,10 +143,10 @@ void HueOutputLightRGB::setColor(const ColorValue &c)
                    ",\"bri\":" + Utils::to_string((int)(c.getHSLLightness() * 255.0 / 100.0)) +
                    ",\"hue\":" + Utils::to_string((int)(c.getHSLHue() * 65535.0 / 360.0)) + "}";
     dl->bodyDataSet(ccolor);
-    dl->m_signalCompleteData.connect([&](Eina_Binbuf *downloadedData, int status)
+    dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
         VAR_UNUSED(status);
-        cDebugDom("hue") << "datareceived: " << eina_binbuf_string_get(downloadedData);
+        cDebugDom("hue") << "datareceived: " << downloadedData;
     });
 
     dl->httpPut();

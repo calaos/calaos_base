@@ -62,10 +62,6 @@ static void echoUsage(char **argv)
 int main (int argc, char **argv)
 {
     InitEinaLog("server");
-    //init ecore system
-    eina_init();
-    ecore_init();
-    ecore_con_init();
 
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
     cout <<    " ║                                               ║" << endl;

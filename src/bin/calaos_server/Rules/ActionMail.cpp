@@ -21,9 +21,9 @@
 #include "ActionMail.h"
 #include "ListeRoom.h"
 #include "IPCam.h"
-#include "FileDownloader.h"
 #include "Prefix.h"
 #include "uvw/src/uvw.hpp"
+#include "UrlDownloader.h"
 
 using namespace Calaos;
 
@@ -50,35 +50,19 @@ bool ActionMail::Execute()
                                       << camera->get_param("name")
                                       << ") attachment";
 
-        string tmpFile;
-        int cpt = 0;
-
         //Get a temporary filename
-        do
-        {
-            tmpFile = "/tmp/calaos_mail_attachment_";
-            tmpFile += Utils::to_string(cpt);
-            cpt++;
-        }
-        while (FileUtils::exists(tmpFile));
+        string tmpFile = Utils::getTmpFilename("tmp", "_mail_attachment");
 
-        // Autodestroy file downloader
         cDebug() << "DL URL: " << camera->getPictureUrl();
-        FileDownloader* downloader = new FileDownloader(camera->getPictureUrl(), tmpFile, true);
-        downloader->addCallback([=](string signal, void *sender_data)
+
+        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
+        dl->m_signalComplete.connect([this](int status)
         {
-            if (signal == "done")
-            {
-                mail_attachment_tfile = *(reinterpret_cast<string *>(sender_data));
-                sendMail();
-            }
-            else if (signal == "failed" || signal == "aborted")
-            {
+            if (status < 20 || status >= 300)
                 mail_attachment_tfile.clear();
-                sendMail();
-            }
+            this->sendMail();
         });
-        downloader->Start();
+        dl->httpGet(tmpFile);
     }
     else
     {
@@ -92,16 +76,8 @@ bool ActionMail::Execute()
 
 void ActionMail::sendMail()
 {
-    string tmpFile;
-    int cpt = 0;
     //Get a temporary filename
-    do
-    {
-        tmpFile = "/tmp/calaos_mail_body_";
-        tmpFile += Utils::to_string(cpt);
-        cpt++;
-    }
-    while (FileUtils::exists(tmpFile));
+    string tmpFile = Utils::getTmpFilename("tmp", "_mail_body");
 
     //Write body message to a temp file
     std::ofstream ofs;

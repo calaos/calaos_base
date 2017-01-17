@@ -244,7 +244,7 @@ public:
      * @param fd A valid file descriptor.
      * @return A reference to this process handle.
      */
-    template<typename T>
+//    template<typename T>
     ProcessHandle& stdio(Flags<StdIO> flags, FileHandle fd) {
         uv_stdio_container_t container;
         Flags<StdIO>::Type fgs = flags;
