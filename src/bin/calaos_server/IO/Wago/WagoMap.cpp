@@ -443,6 +443,9 @@ void WagoMap::udpRequest_cb(bool status, string res)
         udp_timeout_timer = NULL;
     }
 
+    if (udp_commands.empty())
+        return;
+
     WagoMapCmd &cmd = udp_commands.front();
     cDebugDom("wago") << "UDP, getting result for command " << cmd.udp_command;
 
