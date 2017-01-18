@@ -70,7 +70,7 @@
 #include "FileUtils.h"
 
 //This is for logging
-#include <EinaLog.h>
+#include <Logger.h>
 
 #include "json.hpp"
 using Json = nlohmann::json;
@@ -84,8 +84,6 @@ using Json = nlohmann::json;
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 #include <time.h>
 #endif
-
-using namespace efl::eina::log;
 
 #ifdef EAPI
 # undef EAPI
@@ -186,30 +184,27 @@ typedef unsigned int uint;
 
 #define VAR_UNUSED(x) (void)x;
 
-//Curl callback
-int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream);
-int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream);
 //-----------------------------------------------------------------------------
 
 //Log macros
-#define cDebug() EinaLogDebug(Utils::einaLogger())
-#define cInfo() EinaLogInfo(Utils::einaLogger())
-#define cWarning() EinaLogWarning(Utils::einaLogger())
-#define cError() EinaLogError(Utils::einaLogger())
-#define cCritical() EinaLogCritical(Utils::einaLogger())
+#define cDebug() LoggerDebug(Utils::calaosLogger())
+#define cInfo() LoggerInfo(Utils::calaosLogger())
+#define cWarning() LoggerWarning(Utils::calaosLogger())
+#define cError() LoggerError(Utils::calaosLogger())
+#define cCritical() LoggerCritical(Utils::calaosLogger())
 
-#define cDebugDom(domain) EinaLogDebug(Utils::einaLogger(domain))
-#define cInfoDom(domain) EinaLogInfo(Utils::einaLogger(domain))
-#define cWarningDom(domain) EinaLogWarning(Utils::einaLogger(domain))
-#define cErrorDom(domain) EinaLogError(Utils::einaLogger(domain))
-#define cCriticalDom(domain) EinaLogCritical(Utils::einaLogger(domain))
+#define cDebugDom(domain) LoggerDebug(Utils::calaosLogger(domain))
+#define cInfoDom(domain) LoggerInfo(Utils::calaosLogger(domain))
+#define cWarningDom(domain) LoggerWarning(Utils::calaosLogger(domain))
+#define cErrorDom(domain) LoggerError(Utils::calaosLogger(domain))
+#define cCriticalDom(domain) LoggerCritical(Utils::calaosLogger(domain))
 
 //-----------------------------------------------------------------------------
 namespace Utils
 {
-void InitEinaLog(const char *default_domain);
-void FreeEinaLogs();
-EinaLog *einaLogger(const char *domain = nullptr);
+void initLogger(const char *default_domain);
+void freeLoggers();
+Logger *calaosLogger(const char *domain = nullptr);
 
 string url_encode(string str);
 string url_decode(string str);

@@ -50,8 +50,8 @@ libcalaos_common_la_SOURCES = \
         Calendar.h                              \
         Timer.cpp                               \
         Timer.h                                 \
-        EinaLog.cpp                             \
-        EinaLog.h                               \
+        Logger.cpp                              \
+        Logger.h                                \
         Jansson_Addition.h                      \
         NTPClock.cpp                            \
         NTPClock.h                              \

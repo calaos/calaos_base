@@ -105,12 +105,6 @@ private:
     std::list<std::shared_ptr<uvw::PipeHandle>> clientList;
 
     void processData(const string &data);
-
-    friend Eina_Bool ExternProcServer_con_add(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_del(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_data(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_error(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event);
 };
 
 class ExternProcClient: public sigc::trackable

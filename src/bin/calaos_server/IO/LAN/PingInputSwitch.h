@@ -41,8 +41,6 @@ protected:
 
     void doPing();
 
-    friend Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event);
-
 public:
     PingInputSwitch(Params &p);
     virtual ~PingInputSwitch();

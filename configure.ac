@@ -16,7 +16,7 @@ AC_SYS_LARGEFILE
 LT_PREREQ([2.2])
 LT_INIT([win32-dll])
 
-AM_GNU_GETTEXT_VERSION([0.17])
+AM_GNU_GETTEXT_VERSION([0.19])
 
 m4_ifdef([AM_GNU_GETTEXT], [
 AM_GNU_GETTEXT([external])
@@ -49,13 +49,11 @@ PKG_PROG_PKG_CONFIG
 
 ### Checks for libraries
 
-efl_ver="1.7.10"
-
-requirements_calaos_common="libuv eina >= ${efl_ver} sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
+requirements_calaos_common="libuv sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
-requirements_calaos_server="libuv eina >= ${efl_ver} libcurl"
+requirements_calaos_server="libuv libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 

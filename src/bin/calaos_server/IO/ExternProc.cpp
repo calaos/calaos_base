@@ -277,13 +277,13 @@ ExternProcClient::ExternProcClient(int &argc, char **&argv)
     else
         name = "extern_process";
 
-    InitEinaLog(name.c_str());
+    initLogger(name.c_str());
 }
 
 ExternProcClient::~ExternProcClient()
 {
     if (sockfd >= 0) close(sockfd);
-    Utils::FreeEinaLogs();
+    Utils::freeLoggers();
 }
 
 bool ExternProcClient::connectSocket()

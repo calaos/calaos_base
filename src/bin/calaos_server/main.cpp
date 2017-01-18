@@ -61,7 +61,7 @@ static void echoUsage(char **argv)
 
 int main (int argc, char **argv)
 {
-    InitEinaLog("server");
+    initLogger("server");
 
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
     cout <<    " ║                                               ║" << endl;
@@ -199,7 +199,7 @@ int main (int argc, char **argv)
     delete udpserver;
 
     loop->close();
-    Utils::FreeEinaLogs();
+    Utils::freeLoggers();
 
     return 0;
 }

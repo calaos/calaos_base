@@ -27,7 +27,7 @@ using namespace Utils;
 void print_usage(void)
 {
     cout << "Calaos Mail Utility." << endl;
-    cout << "(c)2014 Calaos Team" << endl << endl;
+    cout << "(c) Calaos Team" << endl << endl;
     cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << endl << endl;
     cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << endl;
     cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << endl;
@@ -45,7 +45,7 @@ int main (int argc, char **argv)
     list<string> confAttach;
     bool verbose = false, del = false;
 
-    Utils::InitEinaLog("mail");
+    Utils::initLogger("mail");
 
     char *argconf = argvOptionParam(argv, argv + argc, "--from");
     if (!argconf) EXIT_USAGE;
@@ -126,7 +126,7 @@ int main (int argc, char **argv)
             unlink(attach.c_str());
     }
 
-    Utils::FreeEinaLogs();
+    Utils::freeLoggers();
 
     return 0;
 }

@@ -28,7 +28,7 @@
 void print_usage(void)
 {
     cout << "Calaos Configuration Utility." << endl;
-    cout << "(c)2013 Calaos Team" << endl << endl;
+    cout << "(c) Calaos Team" << endl << endl;
     cout << "Usage:\tcalaos_config <action> [params]" << endl << endl;
     cout << "Where action can be:" << endl;
     cout << "\tlist\t\tLists all keys:values" << endl;
@@ -46,7 +46,7 @@ int main (int argc, char **argv)
     }
     string action = argv[1];
 
-    Utils::InitEinaLog("config");
+    Utils::initLogger("config");
 
     Utils::initConfigOptions(nullptr, nullptr, true);
 
@@ -98,7 +98,7 @@ int main (int argc, char **argv)
 
     system("sync");
 
-    Utils::FreeEinaLogs();
+    Utils::freeLoggers();
 
     return 0;
 }

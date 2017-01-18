@@ -315,41 +315,14 @@ void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
         res.push_back(item);
 }
 
-int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-    File_CURL *out = (File_CURL *)stream;
-
-    if(out && !out->fp)
-    {
-        /* open file for writing */
-        out->fp = fopen(out->fname, "wb+");
-        if(!out->fp)
-            return -1; /* failure, can't open file to write */
-    }
-
-    return fwrite(buffer, size, nmemb, out->fp);
-}
-
-int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-    Buffer_CURL *cbuffer = (Buffer_CURL *)stream;
-
-    cbuffer->buffer = realloc(cbuffer->buffer, cbuffer->bufsize + size * nmemb);
-    memcpy((char *)cbuffer->buffer + cbuffer->bufsize, buffer, size * nmemb);
-
-    cbuffer->bufsize = cbuffer->bufsize + size * nmemb;
-
-    return nmemb;
-}
-
-static bool einaLogShuttingDown = false;
+static bool calaosLogShuttingDown = false;
 static string default_domain;
-static std::unordered_map<std::string, EinaLog *> logger_hash;
-static EinaLog defaultCoutLogger(true);
+static std::unordered_map<std::string, Logger *> logger_hash;
+static Logger defaultCoutLogger;
 
-EinaLog *Utils::einaLogger(const char *domain)
+Logger *Utils::calaosLogger(const char *domain)
 {
-    if (einaLogShuttingDown)
+    if (calaosLogShuttingDown)
         return &defaultCoutLogger;
 
     string d = default_domain;
@@ -357,18 +330,11 @@ EinaLog *Utils::einaLogger(const char *domain)
     if (domain)
       d = domain;
 
-    // Prefix all domains with calaos_. We can so filter log domains
-    // with export EINA_LOG_LEVELS_GLOB="calaos*:5"
-
-    //add domain prefix to ease eina logs filtering
-    if (!Utils::strStartsWith(d, "calaos_"))
-        d.insert(0, "calaos_");
-
-    EinaLog *logger = nullptr;
+    Logger *logger = nullptr;
     auto it = logger_hash.find(d);
     if (it == logger_hash.end())
     {
-        logger = new EinaLog(d);
+        logger = new Logger(d);
         logger_hash[d] = logger;
     }
     else
@@ -377,23 +343,17 @@ EinaLog *Utils::einaLogger(const char *domain)
     return logger;
 }
 
-void Utils::InitEinaLog(const char *d)
+void Utils::initLogger(const char *d)
 {
     //We are actually shutting down everything, do not allocate memory
-    if (einaLogShuttingDown)
+    if (calaosLogShuttingDown)
         return;
 
-    //try to get env variable EINA_LOG_LEVELS_GLOB
-    //and if not defined set it to print INF messages by default
-    if (!getenv("EINA_LOG_LEVELS_GLOB"))
-        setenv("EINA_LOG_LEVELS_GLOB", "calaos*:3,*:0", true);
-
-    eina_init();
     default_domain = d;
-    logger_hash[default_domain] = new EinaLog(default_domain);
+    logger_hash[default_domain] = new Logger(default_domain);
 }
 
-void Utils::FreeEinaLogs()
+void Utils::freeLoggers()
 {
     for (auto &kv: logger_hash)
     {
@@ -401,9 +361,7 @@ void Utils::FreeEinaLogs()
     }
     logger_hash.clear();
 
-    eina_shutdown();
-
-    einaLogShuttingDown = true;
+    calaosLogShuttingDown = true;
 }
 
 static string _configBase;
