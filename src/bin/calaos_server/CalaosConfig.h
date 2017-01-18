@@ -39,12 +39,10 @@ class Config
 private:
     Config();
 
-    void initEetDescriptors();
-    void releaseEetDescriptors();
     void loadStateCache();
     void saveStateCache();
 
-    Eina_Hash *cache_states;
+    unordered_map<string, string> cache_states;
     Timer *saveCacheTimer;
 
 public:
