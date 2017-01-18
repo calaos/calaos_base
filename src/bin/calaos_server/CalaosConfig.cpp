@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "CalaosConfig.h"
-#include <Eet.h>
 
 using namespace Calaos;
 

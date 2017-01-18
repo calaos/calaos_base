@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <DataLogger.h>
-#include <Eet.h>
 #include <IOBase.h>
 
 using namespace Calaos;
