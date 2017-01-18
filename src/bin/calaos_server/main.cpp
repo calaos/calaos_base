@@ -61,6 +61,9 @@ static void echoUsage(char **argv)
 
 int main (int argc, char **argv)
 {
+    //Ignore sigpipe signal, they are captured by libuv write error handling
+    signal(SIGPIPE, SIG_IGN);
+
     initLogger("server");
 
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
@@ -140,7 +143,7 @@ int main (int argc, char **argv)
         wserver = new UDPServer(WAGO_LISTEN_PORT);
     }
 
-    cInfo() <<  "### All services started successfully, entering main loop ###";
+    cInfo() << "\u2012\u25b6 All services started successfully, entering main loop \u2714";
 
     //Check if any Start Rules need to be executed.
     Calaos::StartReadRules::Instance().addIO();

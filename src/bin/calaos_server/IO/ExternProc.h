@@ -95,7 +95,7 @@ public:
     sigc::signal<void> processConnected;
 
 private:
-    std::shared_ptr<uvw::PipeHandle> ipcServer;
+    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe;
 
     string sockpath;
     string recv_buffer;

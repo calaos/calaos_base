@@ -36,7 +36,7 @@ static unordered_map<ExternProcServer *, int> processStatus;
 ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
 {
     ExternProcServer *process = new ExternProcServer("lua");
-    cDebug() << "Starting script. (" << process << ")";
+    cInfoDom("lua") << "Starting script. (" << process << ")";
 
     JsonApi *jsonApi = new JsonApi();
     sigc::connection *evcon = new sigc::connection;

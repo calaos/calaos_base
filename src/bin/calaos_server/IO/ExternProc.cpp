@@ -44,6 +44,7 @@ ExternProcServer::ExternProcServer(string pathprefix)
         std::shared_ptr<uvw::PipeHandle> client = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
         ipcServer->accept(*client);
 
+        cDebugDom("process") << "New client connected to ExternProcServer";
         clientList.push_back(client);
         processConnected.emit();
 
@@ -52,17 +53,20 @@ ExternProcServer::ExternProcServer(string pathprefix)
         //When peer closed the connection, remove it from our map and close it
         client->on<uvw::EndEvent>([client](const uvw::EndEvent &, auto &)
         {
+            cDebugDom("process") << "client EndEvent";
             client->close();
         });
 
         //When connection is closed
         client->on<uvw::CloseEvent>([this, client](const uvw::CloseEvent &, auto &)
         {
+            cDebugDom("process") << "client closed, remove from clientList";
             clientList.remove(client);
         });
 
         client->on<uvw::DataEvent>([this, client](const uvw::DataEvent &ev, auto &)
         {
+            cDebugDom("process") << "client DataEvent: " << ev.length;
             string d((char *)ev.data.get(), ev.length);
             this->processData(d);
         });
@@ -82,8 +86,7 @@ ExternProcServer::~ExternProcServer()
     process_exe->close();
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;
-    auto fsReq = uvw::Loop::getDefault()->resource<uvw::FsReq>();
-    fsReq->unlink(sockpath);
+    FileUtils::unlink(sockpath);
 }
 
 void ExternProcServer::terminate()
@@ -104,6 +107,7 @@ void ExternProcServer::sendMessage(const string &data)
             cCriticalDom("process") << "Error sending data!";
         });
 
+        cDebugDom("process") << "client writing data";
         client->write((char *)frame.c_str(), frame.size());
     }
 }
@@ -134,8 +138,9 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     cDebugDom("process") << "Starting process: " << process << " " << cmd;
 
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &)
+    process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
+        cDebugDom("process") << "ExternProcess exited: " << ev.exitStatus;
         process_exe->close();
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
@@ -146,8 +151,25 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
 
+    //Create a pipe for reading stdout
+    pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+    process_exe->stdio(uvw::ProcessHandle::StdIO::IGNORE_STREAM, static_cast<uvw::FileHandle>(0));
+
+    uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
+    uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
+    process_exe->stdio(ff, *pipe);
+
+    //When pipe is closed, remove it and close it
+    pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+    pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+    {
+        cDebugDom("urlutils") << "Stdio data received: " << ev.length;
+        //std::cout << ev.data.get() << std::endl;
+    });
+
     Utils::CStrArray arr(cmd);
     process_exe->spawn(arr.at(0), arr.data());
+    pipe->read();
 }
 
 ExternProcMessage::ExternProcMessage()
