@@ -610,7 +610,7 @@ DLL_EXPORT_LIBQUICKMAIL void quickmail_set_debug_log (quickmail mailobj, FILE* f
 
 DLL_EXPORT_LIBQUICKMAIL void quickmail_fsave (quickmail mailobj, FILE* filehandle)
 {
-  int i;
+  size_t i;
   size_t n;
   char buf[80];
   while ((n = quickmail_get_data(buf, sizeof(buf), 1, mailobj)) > 0) {
@@ -868,7 +868,7 @@ DLL_EXPORT_LIBQUICKMAIL size_t quickmail_get_data (void* ptr, size_t size, size_
 
   //flush pending data if any
   if (mailobj->buflen > 0) {
-    int len = (mailobj->buflen > size * nmemb ? size * nmemb : mailobj->buflen);
+    int len = ((size_t)mailobj->buflen > size * nmemb ? size * nmemb : (size_t)mailobj->buflen);
     memcpy(ptr, mailobj->buf, len);
     if (len < mailobj->buflen) {
       mailobj->buf = memmove(mailobj->buf, mailobj->buf + len, mailobj->buflen - len);
