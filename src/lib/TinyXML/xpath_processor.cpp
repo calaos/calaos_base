@@ -1001,7 +1001,7 @@ void xpath_processor::v_execute_absolute_path (
    if (o_with_rel)
    {
       int i_1, i_2, i_3;
-      int i_bak_position, i_current, i_first, i_relative;
+      int /*i_bak_position,*/ i_current, i_first, i_relative;
       TIXML_STRING S_lit;
 
       // compute position of the first (absolute) step
@@ -1022,7 +1022,7 @@ void xpath_processor::v_execute_absolute_path (
          i_first = i_relative;
       }
       // i_first = i_3 - 1;
-      i_bak_position = as_action_store . i_get_position ();
+      //i_bak_position = as_action_store . i_get_position ();
       as_action_store . v_set_position (i_first);
       if (o_everywhere)
          i_relative_action = -1;
@@ -1538,14 +1538,14 @@ void xpath_processor::v_function_last (
    unsigned u_nb_arg,               ///< Nb of arguments
    expression_result ** erpp_arg)   ///< Argument list
 {
-   const TiXmlElement * XEp_context;
+   const TiXmlElement * _XEp_context;
 
    if (u_nb_arg)
       throw execution_error (20);
-   XEp_context = XEp_get_context ();
-   if (! XEp_context)
+   _XEp_context = XEp_get_context ();
+   if (! _XEp_context)
       throw execution_error (21);
-   v_push_int (i_xml_family_size (XEp_context), "last()");
+   v_push_int (i_xml_family_size (_XEp_context), "last()");
 }
 
 /// XPath \b name function
@@ -1571,10 +1571,12 @@ void xpath_processor::v_function_name (
          {
             nsp_set = erpp_arg [0] -> nsp_get_node_set ();
             if (nsp_set -> u_get_nb_node_in_set ())
+            {
                if (nsp_set -> o_is_attrib (0))
                   S_res = nsp_set -> XAp_get_attribute_in_set (0) -> Name ();
                else
                   S_res = nsp_set -> XNp_get_node_in_set (0) -> Value ();
+            }
          }
          break;
       default :
@@ -1612,14 +1614,14 @@ void xpath_processor::v_function_position (
    unsigned u_nb_arg,               ///< Nb of arguments
    expression_result ** erpp_arg)   ///< Argument list
 {
-   const TiXmlElement * XEp_context;
+   const TiXmlElement * _XEp_context;
 
    if (u_nb_arg)
       throw execution_error (25);
-   XEp_context = XEp_get_context ();
-   if (! XEp_context)
+   _XEp_context = XEp_get_context ();
+   if (! _XEp_context)
       throw execution_error (26);
-   v_push_int (i_xml_cardinality (XEp_context, o_is_context_by_name), "position()");
+   v_push_int (i_xml_cardinality (_XEp_context, o_is_context_by_name), "position()");
 }
 
 /// XPath \b starts-with function
@@ -1741,16 +1743,16 @@ void xpath_processor::v_function_text (
    unsigned u_nb_arg,               ///< Nb of arguments
    expression_result ** erpp_arg)   ///< Argument list
 {
-   const TiXmlElement * XEp_context;
+   const TiXmlElement * _XEp_context;
    const TiXmlNode * XNp_child;
    TIXML_STRING S_res;
 
    if (u_nb_arg)
       throw execution_error (38);
-   XEp_context = XEp_get_context ();
-   if (! XEp_context)
+   _XEp_context = XEp_get_context ();
+   if (! _XEp_context)
       throw execution_error (39);
-   XNp_child = XEp_context -> FirstChild ();
+   XNp_child = _XEp_context -> FirstChild ();
    while (XNp_child)
    {
       if (XNp_child -> Type () == TiXmlNode::TEXT)
