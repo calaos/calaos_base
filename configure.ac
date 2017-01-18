@@ -49,11 +49,11 @@ PKG_PROG_PKG_CONFIG
 
 ### Checks for libraries
 
-requirements_calaos_common="libuv sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
+requirements_calaos_common="libuv >= 1.10.0 sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
-requirements_calaos_server="libuv libcurl"
+requirements_calaos_server="libuv >= 1.10.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 
@@ -92,7 +92,7 @@ have_libusb="no"
 PKG_CHECK_MODULES([LIBUSB], [libusb-1.0], [have_libusb="yes"], [have_libusb="no"])
 AM_CONDITIONAL([HAVE_LIBUSB], [test "x${have_libusb}" = "xyes"])
 if test "x${have_libusb}" == "xyes"
-then 
+then
      AC_DEFINE([HAVE_LIBUSB], [1], [libusb])
 fi
 
@@ -111,6 +111,22 @@ if test "x${have_libknx}" == "xyes"
 then
      AC_CHECK_LIB([eibclient], [EIBSocketLocal],, AC_ERROR([Missing eibclient library]))
      AC_DEFINE([HAVE_LIBKNX], [1], [libknx])
+fi
+
+AC_CHECK_PROG(HAVE_CURLBIN, [curl], ["yes"])
+if test "x${HAVE_CURLBIN}" == "xyes"
+then
+    CURLBIN_INFO="yes"
+else
+    CURLBIN_INFO="No, install curl binary before running calaos_server"
+fi
+
+AC_CHECK_PROG(HAVE_CONVERT, [convert], ["yes"])
+if test "x${HAVE_CONVERT}" == "xyes"
+then
+    CONVERT_INFO="yes"
+else
+    CONVERT_INFO="No, install imagemagick convert tool"
 fi
 
 # Configure pthreads.
@@ -157,6 +173,16 @@ AC_OUTPUT
 #####################################################################
 ## Info
 
+function colorOut()
+{
+    if test "x${1}" == "xyes"
+    then
+        echo -n $(tput setaf 2)${1}$(tput sgr0)
+    else
+        echo -n $(tput setaf 1)$@$(tput sgr0)
+    fi
+}
+
 echo
 echo
 echo "------------------------------------------------------------------------"
@@ -178,9 +204,13 @@ echo
 echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"
 echo "  prefix...............................: $prefix"
 echo
-echo " One Wire support......................: ${have_owcapi}"
-echo " Libusb support........................: ${have_libusb}"
-echo " Open Lightning Architecture support...: ${have_libola}"
-echo " Eib/KNX support (eibd or knxd)........: ${have_libknx}"
-
+echo "Dependencies:"
+echo "  UrlDownloader curl support...........: $(colorOut $CURLBIN_INFO)"
+echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
+echo
+echo "Hardware support:"
+echo "  One Wire support.....................: $(colorOut $have_owcapi)"
+echo "  Libusb support.......................: $(colorOut $have_libusb)"
+echo "  Open Lightning Architecture support..: $(colorOut $have_libola)"
+echo "  Eib/KNX support (eibd or knxd).......: $(colorOut $have_libknx)"
 echo
