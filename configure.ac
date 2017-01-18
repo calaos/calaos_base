@@ -33,7 +33,6 @@ fi
 
 AM_CONDITIONAL([HAVE_PO], [test "x${have_po}" = "xyes"])
 
-
 ### Needed information
 
 AC_CANONICAL_BUILD

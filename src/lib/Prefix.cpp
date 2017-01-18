@@ -23,61 +23,22 @@
 
 Prefix::Prefix(int argc, char **argv)
 {
-    pfx = eina_prefix_new(argv[0], NULL, "CALAOS", "calaos", NULL, 
-                             PACKAGE_BIN_DIR, PACKAGE_LIB_DIR, 
-                             PACKAGE_DATA_DIR, PACKAGE_LOCALE_DIR);
-    if (!pfx)
-        cError() << "Error in finding preffix";
-    else
-    {
-        cInfo() << "Install preffix is " << eina_prefix_get(pfx);
-        cInfo() << "Binaries directory is  " << eina_prefix_bin_get(pfx);
-        cInfo() << "Libraries directory is " << eina_prefix_lib_get(pfx);
-        cInfo() << "Data directory is " << eina_prefix_data_get(pfx);
-        cInfo() << "Locale directory is " << eina_prefix_locale_get(pfx);
-    }
-}
-
-Prefix::~Prefix()
-{
-    if (pfx)
-        eina_prefix_free(pfx);
+    cInfo() << "Binaries directory is: " << binDirectoryGet();
+    cInfo() << "Libraries directory is: " << libDirectoryGet();
+    cInfo() << "Data directory is: " << dataDirectoryGet();
 }
 
 string Prefix::binDirectoryGet()
-{ 
-    const char *str = eina_prefix_bin_get(pfx); 
-    // test returned string to avoir exception
-    if (str) 
-        return str; 
-    else return "";
+{
+    return PACKAGE_BIN_DIR;
 }
 
 string Prefix::libDirectoryGet()
 {
-    const char *str = eina_prefix_lib_get(pfx); 
-    // test returned string to avoir exception
-    if (str) 
-        return str; 
-    else return "";
+    return PACKAGE_LIB_DIR;
 }
 
 string Prefix::dataDirectoryGet()
 {
-    const char *str = eina_prefix_data_get(pfx); 
-    // test returned string to avoir exception
-    if (str) 
-        return str; 
-    else return "";
+    return PACKAGE_DATA_DIR;
 }
-
-string Prefix::localeDirectoryGet()
-{
-    const char *str = eina_prefix_locale_get(pfx); 
-    // test returned string to avoir exception
-    if (str) 
-        return str; 
-    else return "";
-}
-
-
