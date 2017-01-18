@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -42,6 +42,9 @@ int main(int argc, char **argv)
     string file, ip, boolean;
     int dali_line = 0, dali_group = 0, dali_addr = 0, dali_value = 0, dali_fade = 0, dali_time = 0;
     int dali_faderate = 0, dali_fadetime = 0, dali_maxlevel = 0, dali_minlevel = 0, dali_systemfailurelevel = 0, dali_poweronlevel = 0;
+
+    cout << "Calaos Wago Utility." << endl;
+    cout << CALAOS_COPYRIGHT_TEXT << endl << endl;
 
     if (argc < 4)
     {

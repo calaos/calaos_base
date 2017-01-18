@@ -1,9 +1,7 @@
-For next 2.0.0 release:
+For next 3.0.0 release:
 
 - https://github.com/calaos/calaos_base/issues?state=open
 
-- Finish calaos_home Configuration pannel
-- Remove the old calaos_web and make calaos_web_newgen available instead for basic house control
 - Translation! At least in english/french
 - Update calaos_installer accordingly (there are some missing IO in calaos_installer like AVRs)
 - Maybe add some versionning info in config files (io/rules xml)
@@ -11,10 +9,8 @@ For next 2.0.0 release:
 Less important for next release:
 - Test and finish the datalogguer
 - Finish the graph visualizer/dataloguer on the web UI
-- Find a way to display graphs in calaos_home (EFL)
+- Find a way to display graphs in calaos_home
 - Add InputScript/OutputScript to let user write Lua scripts to handle not supported hardware easily
-- Change the script engine to run in a separate thread and do blocking actions (Lua scripts runs in main thread now
-  so you can't wait for a network request for example)
 - Add some example/docs for Lua scripts and maybe add nice helpers/docs directly in calaos_installer script editor
 - Make calaos_installer aware of unkown IO types and handle them correctly (display a unkown type)
   Also save them again to the file so the io.xml file is not corrupted
@@ -35,4 +31,3 @@ The following list has no priority...
 - Add a way to display and record graph of temperature or other metering device
   all heating automatically. Like a function block where you give a temp sensor + a outpu- Add support for BlyssBox products (see: https://github.com/skywodd/arduino_blyss_hack/)
 - Maybe support jeenode to get metering data? (http://jeelabs.com/products/jeenode)
-- Add support for philips Hue lights (see: http://developers.meethue.com/)

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -28,7 +28,7 @@
 void print_usage(void)
 {
     cout << "Calaos Configuration Utility." << endl;
-    cout << "(c) Calaos Team" << endl << endl;
+    cout << CALAOS_COPYRIGHT_TEXT << endl << endl;
     cout << "Usage:\tcalaos_config <action> [params]" << endl << endl;
     cout << "Where action can be:" << endl;
     cout << "\tlist\t\tLists all keys:values" << endl;

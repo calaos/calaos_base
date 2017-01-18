@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -27,7 +27,7 @@ using namespace Utils;
 void print_usage(void)
 {
     cout << "Calaos Mail Utility." << endl;
-    cout << "(c) Calaos Team" << endl << endl;
+    cout << CALAOS_COPYRIGHT_TEXT << endl << endl;
     cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << endl << endl;
     cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << endl;
     cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << endl;
