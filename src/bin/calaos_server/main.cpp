@@ -77,8 +77,6 @@ int main (int argc, char **argv)
     cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
     cout << endl;
 
-    Prefix::Instance(argc, argv);
-
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
         argvOptionCheck(argv, argv + argc, "--help"))
@@ -106,6 +104,8 @@ int main (int argc, char **argv)
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
     Utils::initConfigOptions(confdir, cachedir);
+
+    Prefix::Instance(argc, argv);
 
     srand(time(NULL));
 

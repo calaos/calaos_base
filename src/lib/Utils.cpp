@@ -452,8 +452,8 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 
     if (!quiet)
     {
-        cInfo() << "Using config path: " << getConfigFile("");
-        cInfo() << "Using cache path: " << getCacheFile("");
+        cout << "Using config path: " << getConfigFile("") << endl;
+        cout << "Using cache path: " << getCacheFile("") << endl;
     }
 
     if (!FileUtils::isWritable(getConfigFile("")))
