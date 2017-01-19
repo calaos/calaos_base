@@ -145,6 +145,19 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     parser->data = this;
 
     cDebugDom("network") << this;
+
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    {
+        cCriticalDom("network")
+                << "Error sending data ! Closing connection.";
+
+        this->CloseConnection();
+    });
+
+    client_conn->on<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
+    {
+        this->DataWritten(dataSize);
+    });
 }
 
 HttpClient::~HttpClient()
@@ -501,19 +514,6 @@ void HttpClient::sendToClient(string res)
 
     if (client_conn->closing())
         return;
-
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
-    {
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
-
-        this->CloseConnection();
-    });
-
-    client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
-    {
-        this->DataWritten(dataSize);
-    });
 
     client_conn->write((char *)res.c_str(), dataSize);
 }
