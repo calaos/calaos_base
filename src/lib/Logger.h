@@ -23,6 +23,8 @@
 
 #include <string>
 #include <sstream>
+#include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -49,7 +51,9 @@ private:
         int line;
         int level;
         ostringstream stream;
-    } *logData;
+    };
+
+    std::shared_ptr<LogData> logData;
 
     bool isTerminal();
 

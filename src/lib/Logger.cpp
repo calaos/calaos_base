@@ -116,6 +116,4 @@ LogStream::~LogStream()
     std::cout << colorCyan() << " " << logData->domain << colorReset() << " ";
     std::cout << colorBold() << "(" << logData->file << ":" << logData->line << ")" << colorReset() << " ";
     std::cout << logData->stream.str() << colorReset() << std::endl;
-
-    delete logData;
 }
