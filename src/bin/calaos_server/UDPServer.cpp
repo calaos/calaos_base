@@ -73,10 +73,6 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
             packet += ip;
 
             handleSrv->send(remoteIp, remotePort, (char *)packet.c_str(), packet.length());
-            handleSrv->once<uvw::SendEvent>([](const uvw::SendEvent &, uvw::UDPHandle &)
-            {
-                cDebugDom("network") << "Answer packet sent.";
-            });
 
             cDebugDom("network") << "Sending answer: " << packet;
         }

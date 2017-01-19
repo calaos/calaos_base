@@ -153,11 +153,6 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
 
         this->CloseConnection();
     });
-
-    client_conn->on<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
-    {
-        this->DataWritten(dataSize);
-    });
 }
 
 HttpClient::~HttpClient()
@@ -516,6 +511,10 @@ void HttpClient::sendToClient(string res)
         return;
 
     client_conn->write((char *)res.c_str(), dataSize);
+    client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
+    {
+        this->DataWritten(dataSize);
+    });
 }
 
 void HttpClient::handleJsonRequest()

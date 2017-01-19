@@ -76,9 +76,6 @@ private:
     bool checkCloseStatusCode(uint16_t code);
 
     void sendFrameData(const string &data, bool isbinary);
-    void writeNextFrame(int i, int numframes,
-                        uint64_t current, uint64_t byteswritten, uint64_t bytesleft, int header_size,
-                        const string &data, bool isbinary);
 
     Timer *timerPing = nullptr;
 };

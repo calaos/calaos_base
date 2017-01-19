@@ -109,6 +109,12 @@ void WebSocket::processHandshake()
     status = WSOpened;
     currentFrame.clear();
 
+    //Connect to the ErrorEvent and reset the state
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    {
+        status = WSClosed;
+    });
+
     cDebugDom("websocket") << "Connection switched to websocket";
 }
 
@@ -385,14 +391,6 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     data_size += frame.size();
     uint frameSize = frame.size();
 
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
-    {
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
-
-        this->CloseConnection();
-    });
-
     client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize](const auto &, auto &)
     {
         this->DataWritten(frameSize);
@@ -524,82 +522,59 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
 
     cDebugDom("websocket") << "Sending " << numframes << " frames";
 
-    writeNextFrame(0, numframes, current, byteswritten, bytesleft, header_size, data, isbinary);
-}
-
-void WebSocket::writeNextFrame(int i, int numframes,
-                               uint64_t current, uint64_t byteswritten, uint64_t bytesleft, int header_size,
-                               const string &data, bool isbinary)
-{
-    if (i >= numframes)
+    for (int i = 0;i < numframes;i++)
     {
-        if (byteswritten != (data.size() + header_size))
+        bool lastframe = (i == (numframes - 1));
+        bool firstframe = (i == 0);
+
+        uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
+
+        string frame;
+
+        if (sz > 0)
         {
-            cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << (data.size() + header_size);
-            CloseConnection();
-            status = WSClosed;
+            frame = WebSocketFrame::makeFrame(firstframe?
+                                                  isbinary?WebSocketFrame::OpCodeBinary:
+                                                           WebSocketFrame::OpCodeText
+                                                         :WebSocketFrame::OpCodeContinue,
+                                              data.substr(current, sz),
+                                              lastframe);
+            header_size += frame.size() - sz;
+        }
+        else
+        {
+            frame = WebSocketFrame::makeFrame(firstframe?
+                                                  isbinary?WebSocketFrame::OpCodeBinary:
+                                                           WebSocketFrame::OpCodeText
+                                                         :WebSocketFrame::OpCodeContinue,
+                                              string(),
+                                              lastframe);
+            header_size += frame.size();
         }
 
-        return;
-    }
+        //send frame
+        std::size_t n = frame.size();
+        data_size += n;
 
-    bool lastframe = (i == (numframes - 1));
-    bool firstframe = (i == 0);
+        client_conn->write((char *)frame.c_str(), frame.size());
+        client_conn->once<uvw::WriteEvent>([this, n](const auto &, auto &)
+        {
+            this->DataWritten(n);
+        });
 
-    uint64_t sz = bytesleft < FRAME_SIZE_IN_BYTES?bytesleft:FRAME_SIZE_IN_BYTES;
-
-    string frame;
-
-    if (sz > 0)
-    {
-        frame = WebSocketFrame::makeFrame(firstframe?
-                                              isbinary?WebSocketFrame::OpCodeBinary:
-                                                       WebSocketFrame::OpCodeText
-                                                     :WebSocketFrame::OpCodeContinue,
-                                          data.substr(current, sz),
-                                          lastframe);
-        header_size += frame.size() - sz;
-    }
-    else
-    {
-        frame = WebSocketFrame::makeFrame(firstframe?
-                                              isbinary?WebSocketFrame::OpCodeBinary:
-                                                       WebSocketFrame::OpCodeText
-                                                     :WebSocketFrame::OpCodeContinue,
-                                          string(),
-                                          lastframe);
-        header_size += frame.size();
-    }
-
-    //send frame
-    data_size += frame.size();
-    uint n = frame.size();
-
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
-    {
-        cCriticalDom("network") << "Error sending data !";
-        this->CloseConnection();
-        status = WSClosed;
-    });
-
-    client_conn->once<uvw::WriteEvent>([=](const auto &, auto &)
-    {
-        uint64_t _current = current;
-        uint64_t _bytesleft = bytesleft;
-        uint64_t _byteswritten = byteswritten;
-
-        this->DataWritten(n);
-
-        _byteswritten += n;
+        byteswritten += n;
         cDebugDom("websocket") << "Data written: " << n << " byteswritten: " << byteswritten;
 
-        _current += sz;
-        _bytesleft -= sz;
+        current += sz;
+        bytesleft -= sz;
+    }
 
-        this->writeNextFrame(i + 1, numframes, _current, _byteswritten, _bytesleft, header_size, data, isbinary);
-    });
-
-    client_conn->write((char *)frame.c_str(), frame.size());
+    if (byteswritten != (data.size() + header_size))
+    {
+        cErrorDom("websocket") << "Error, bytes written " << byteswritten << " != " << (data.size() + header_size);
+        CloseConnection();
+        status = WSClosed;
+    }
 }
 
 bool WebSocket::checkCloseStatusCode(uint16_t code)

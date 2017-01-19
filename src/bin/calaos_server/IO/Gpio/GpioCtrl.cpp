@@ -209,7 +209,7 @@ bool GpioCtrl::setValueChanged(sigc::slot<void> slot)
     fdHandle->open(fd);
 
     //When serial is closed, remove it and close it
-    fdHandle->on<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
+    fdHandle->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
     {
         cl.close();
     });

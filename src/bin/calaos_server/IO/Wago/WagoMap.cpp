@@ -119,7 +119,7 @@ void WagoMap::createUdpSocket()
         this->udpRequest_cb(true, s);
     });
 
-    handleSrv->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
     {
         cErrorDom("network") << "UDP server error: " << ev.what();
         udpProcessError();

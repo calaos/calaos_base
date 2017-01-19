@@ -128,13 +128,13 @@ void TeleinfoCtrl::openSerial()
         serialHandle->open(serialfd);
 
         //When serial is closed, remove it and close it
-        serialHandle->on<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
+        serialHandle->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
         {
             cl.close();
         });
 
         //When connection is closed
-        serialHandle->on<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
+        serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
         {
             this->closeSerial();
             this->openSerialLater();
