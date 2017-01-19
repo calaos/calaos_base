@@ -26,7 +26,7 @@ Config::Config()
 {
     loadStateCache();
 
-    saveCacheTimer = new Timer(60.0, [=]() { saveStateCache(); });
+    saveCacheTimer = std::make_shared<Timer>(60.0, [this]() { saveStateCache(); });
 }
 
 Config::~Config()
