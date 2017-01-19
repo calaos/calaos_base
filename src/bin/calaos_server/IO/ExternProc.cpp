@@ -64,11 +64,16 @@ ExternProcServer::ExternProcServer(string pathprefix)
             clientList.remove(client);
         });
 
-        client->on<uvw::DataEvent>([this, client](const uvw::DataEvent &ev, auto &)
+        client->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
         {
             cDebugDom("process") << "client DataEvent: " << ev.length;
             string d((char *)ev.data.get(), ev.length);
             this->processData(d);
+        });
+
+        client->on<uvw::ErrorEvent>([](const auto &, auto &)
+        {
+            cCriticalDom("process") << "Error sending data!";
         });
 
         client->read();
@@ -102,12 +107,7 @@ void ExternProcServer::sendMessage(const string &data)
         ExternProcMessage msg(data);
         string frame = msg.getRawData();
 
-        client->once<uvw::ErrorEvent>([this](const auto &, auto &)
-        {
-            cCriticalDom("process") << "Error sending data!";
-        });
-
-        cDebugDom("process") << "client writing data";
+        cDebugDom("process") << "client writing data: " << data;
         client->write((char *)frame.c_str(), frame.size());
     }
 }
