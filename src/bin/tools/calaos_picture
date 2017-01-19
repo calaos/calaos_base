@@ -9,7 +9,7 @@ url=$1
 filename=$2
 width=$3
 
-function showUsage()
+showUsage()
 {
     echo "Usage: calaos_picture <url> <filename> [width]"
     exit 1
