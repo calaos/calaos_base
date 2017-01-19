@@ -43,7 +43,7 @@ private:
     void saveStateCache();
 
     unordered_map<string, string> cache_states;
-    Timer *saveCacheTimer;
+    std::shared_ptr<Timer> saveCacheTimer;
 
 public:
     static Config &Instance()
