@@ -105,6 +105,7 @@ void X10Output::execCmd(const string &cmd)
     });
 
     Utils::CStrArray arr(cmd);
+    cInfoDom("output") << "Executing command: " << arr.toString();
     exe->spawn(arr.at(0), arr.data());
 }
 

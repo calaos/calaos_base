@@ -279,8 +279,11 @@ public:
     const char **constData() const { return m_data; }
     char **data() { return (char **)m_data; }
 
+    std::string toString();
+
 private:
     vector<string> m_strings;
+    string m_tostring;
     const char **m_data = nullptr;
     void updateNative();
 };

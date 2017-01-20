@@ -364,6 +364,7 @@ void JsonApiHandlerHttp::processGetCover()
         });
 
         Utils::CStrArray arr(cmd);
+        cInfoDom("network") << "Executing command: " << arr.toString();
         exe_thumb->spawn(arr.at(0), arr.data());
     });
 }
@@ -402,6 +403,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
     });
 
     Utils::CStrArray arr(cmd);
+    cInfoDom("network") << "Executing command: " << arr.toString();
     exe_thumb->spawn(arr.at(0), arr.data());
 }
 

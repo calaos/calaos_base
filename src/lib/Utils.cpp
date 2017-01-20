@@ -848,14 +848,22 @@ void CStrArray::updateNative()
 {
     delete [] m_data;
     m_data = new const char*[m_strings.size() + 1];
+    stringstream sstr;
 
     unsigned index = 0;
     for (auto it = m_strings.begin();it != m_strings.end();it++)
     {
+        sstr << *it << " ";
         m_data[index] = it->c_str();
         index++;
     }
     m_data[index] = NULL;
+    m_tostring = sstr.str();
+}
+
+std::string CStrArray::toString()
+{
+    return m_tostring;
 }
 
 string Utils::getTmpFilename(const string &ext, const string &prefix)

@@ -135,8 +135,6 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
 {
     string cmd = process + " --socket " + sockpath + " --namespace " + name + " " + args;
 
-    cDebugDom("process") << "Starting process: " << process << " " << cmd;
-
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
@@ -168,6 +166,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     });
 
     Utils::CStrArray arr(cmd);
+    cInfoDom("process") << "Starting process: " << arr.toString();
     process_exe->spawn(arr.at(0), arr.data());
     pipe->read();
 }

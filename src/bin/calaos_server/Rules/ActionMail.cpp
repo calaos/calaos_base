@@ -51,7 +51,7 @@ bool ActionMail::Execute()
                                       << ") attachment";
 
         //Get a temporary filename
-        string tmpFile = Utils::getTmpFilename("tmp", "_mail_attachment");
+        mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
 
         cDebug() << "DL URL: " << camera->getPictureUrl();
 
@@ -62,7 +62,7 @@ bool ActionMail::Execute()
                 mail_attachment_tfile.clear();
             this->sendMail();
         });
-        dl->httpGet(tmpFile);
+        dl->httpGet(mail_attachment_tfile);
     }
     else
     {
@@ -105,16 +105,16 @@ void ActionMail::sendMail()
         cmd.push_back(mail_attachment_tfile);
     }
 
-    cInfo() << "Executing command : calaos_mail";
     auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
     exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
     {
-        cDebugDom("process") << "Process error: " << ev.what();
+        cDebugDom("rule.action.mail") << "Process error: " << ev.what();
         exe->close();
     });
 
     Utils::CStrArray arr(cmd);
+    cInfoDom("rule.action.mail") << "Executing command: " << arr.toString();
     exe->spawn(arr.at(0), arr.data());
 }
 

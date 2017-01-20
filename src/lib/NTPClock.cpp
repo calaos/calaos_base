@@ -67,6 +67,7 @@ void NTPClock::updateClock()
         });
 
         Utils::CStrArray arr(cmd);
+        cInfo() << "Executing command: " << arr.toString();
         exe->spawn(arr.at(0), arr.data());
     }
 }
@@ -189,5 +190,6 @@ void NTPClock::syncHwClock()
     string cmd = "/sbin/hwclock --systohc";
 
     Utils::CStrArray arr(cmd);
+    cInfo() << "Executing command: " << arr.toString();
     syncexe->spawn(arr.at(0), arr.data());
 }

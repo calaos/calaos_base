@@ -142,7 +142,6 @@ bool UrlDownloader::start()
         req.push_back("@" + tempFilename);
     }
 
-    cDebugDom("urlutils") << "Executing command: curl";
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
@@ -182,6 +181,7 @@ bool UrlDownloader::start()
     }
 
     Utils::CStrArray arr(req);
+    cDebugDom("urlutils") << "Executing command: " << arr.toString();
     exeCurl->spawn(arr.at(0), arr.data());
 
     if (!downloadToFile)
