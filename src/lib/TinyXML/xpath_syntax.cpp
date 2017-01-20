@@ -951,6 +951,7 @@ bool token_syntax_decoder::o_recognize (
                      v_action (xpath_name_test, xpath_name_test_qname);
                }
                break;
+            default: break;
          }
          break;
 

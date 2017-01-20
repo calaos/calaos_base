@@ -14,15 +14,7 @@ AM_CXXFLAGS = \
 -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
--I$(top_srcdir)/src/bin/calaos_home/controllers \
--I$(top_srcdir)/src/bin/calaos_home/views \
--I$(top_srcdir)/src/bin/calaos_home/views/GenlistItems \
--I$(top_srcdir)/src/bin/calaos_home/views/GengridItems \
--I$(top_srcdir)/src/bin/calaos_home/views/IO \
--I$(top_srcdir)/src/bin/calaos_home/models \
--I$(top_srcdir)/src/bin/calaos_home \
 @CALAOS_COMMON_CFLAGS@ \
-@CALAOS_HOME_CFLAGS@ \
 -DLIBMBUS
 
 bin_PROGRAMS = calaos_config wago_test calaos_mail
@@ -41,19 +33,12 @@ wago_test_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_COMMON_LIBS@
 
-if HAVE_CALAOS_HOME_BIN
-bin_PROGRAMS += calaos_thumb
-calaos_thumb_SOURCES = \
-	main_cover.cpp
-
-calaos_thumb_LDADD = \
-	@CALAOS_HOME_LIBS@
-endif
-
 calaos_mail_SOURCES = \
 	calaos_mail.cpp
 
 calaos_mail_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \
 	@CALAOS_COMMON_LIBS@
+
+dist_bin_SCRIPTS = calaos_picture
 

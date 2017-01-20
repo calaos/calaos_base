@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,8 +23,8 @@
 #include "hef_uri_syntax.h"
 #include "Prefix.h"
 #include "CalaosConfig.h"
-#include <Ecore.h>
 #include "HttpCodes.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -128,8 +128,8 @@ int _parser_body_complete(http_parser* parser, const char *at, size_t length)
     return 0;
 }
 
-HttpClient::HttpClient(Ecore_Con_Client *cl):
-    client_conn(cl)
+HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
+    client_conn(client)
 {
     //set up callbacks for the parser
     parser_settings.on_message_begin = _parser_begin;
@@ -145,6 +145,14 @@ HttpClient::HttpClient(Ecore_Con_Client *cl):
     parser->data = this;
 
     cDebugDom("network") << this;
+
+    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    {
+        cCriticalDom("network")
+                << "Error sending data ! Closing connection.";
+
+        this->CloseConnection();
+    });
 }
 
 HttpClient::~HttpClient()
@@ -152,6 +160,8 @@ HttpClient::~HttpClient()
     delete jsonApi;
     free(parser);
     CloseConnection();
+
+    cDebugDom("network") << this;
 }
 
 int HttpClient::processHeaders(const string &request)
@@ -261,7 +271,7 @@ int HttpClient::processHeaders(const string &request)
         path.erase(0, 7);
 
         string wwwroot = Utils::get_config_option("debug_wwwroot");
-        if (!ecore_file_is_dir(wwwroot.c_str()))
+        if (!FileUtils::isDir(wwwroot))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/debug";
 
         cDebugDom("network") << "Using www root: " << wwwroot;
@@ -269,7 +279,7 @@ int HttpClient::processHeaders(const string &request)
         string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
-        if (!ecore_file_exists(fileName.c_str()))
+        if (!FileUtils::exists(fileName))
         {
             cDebugDom("network") << "fileName not found: " << fileName;
 
@@ -316,13 +326,13 @@ int HttpClient::processHeaders(const string &request)
         path.erase(0, 5);
 
         string wwwroot = Utils::get_config_option("wwwroot");
-        if (!ecore_file_is_dir(wwwroot.c_str()))
+        if (!FileUtils::isDir(wwwroot))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/app";
 
         string fileName = wwwroot +
                           (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
 
-        if (!ecore_file_exists(fileName.c_str()) || ecore_file_is_dir(fileName.c_str()))
+        if (!FileUtils::exists(fileName) || FileUtils::isDir(fileName))
         {
             cDebugDom("network") << "Filename not found: " << fileName;
 
@@ -406,20 +416,18 @@ void HttpClient::DataWritten(int size)
     {
         cDebugDom("network")
                 << "All config files written, restarting calaos_server";
-        ecore_app_restart();
+        uvw::Loop::getDefault()->stop();
     }
 
     if (conn_close && data_size <= 0)
     {
         cDebugDom("network")
                 << "All data sent, close connection";
-        //force all remaining data to be written before closing
-        ecore_con_client_flush(client_conn);
 
         //Close connection in 500ms if not closed by client. This forces the closing and
         //has to be done because lighttpd mod_proxy keeps connection open regardless of the Connection: close header
         if (!closeTimer)
-            closeTimer = new EcoreTimer(0.5, sigc::mem_fun(this, &HttpClient::CloseConnection));
+            closeTimer = new Timer(0.5, sigc::mem_fun(this, &HttpClient::CloseConnection));
         else
             closeTimer->Reset(0.5);
     }
@@ -430,7 +438,12 @@ void HttpClient::CloseConnection()
     DELETE_NULL(closeTimer);
 
     cDebugDom("network") << "Closing connection";
-    ecore_con_client_del(client_conn);
+    client_conn->shutdown();
+    client_conn->on<uvw::ShutdownEvent>([this](const uvw::ShutdownEvent &, auto &)
+    {
+        //After shutdown close handle
+        client_conn->close();
+    });
 }
 
 string HttpClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
@@ -489,17 +502,19 @@ string HttpClient::buildHttpResponse(string code, Params &headers, string body)
 
 void HttpClient::sendToClient(string res)
 {
-    data_size += res.length();
+    int dataSize = res.length();
+    data_size += dataSize;
 
-    cDebugDom("network") << "Sending " << res.length() << " bytes, data_size = " << data_size;
+    cDebugDom("network") << "Sending " << dataSize << " bytes, data_size = " << data_size;
 
-    if (!client_conn || ecore_con_client_send(client_conn, res.c_str(), res.length()) == 0)
+    if (client_conn->closing())
+        return;
+
+    client_conn->write((char *)res.c_str(), dataSize);
+    client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
     {
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
-
-        CloseConnection();
-    }
+        this->DataWritten(dataSize);
+    });
 }
 
 void HttpClient::handleJsonRequest()

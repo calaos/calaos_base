@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,7 +22,6 @@
 #define S_WebSocketServer_H
 
 #include "Calaos.h"
-#include <Ecore_Con.h>
 #include <unordered_map>
 #include "HttpClient.h"
 #include "WebSocketFrame.h"
@@ -32,7 +31,7 @@ using namespace Calaos;
 class WebSocket: public HttpClient
 {
 public:
-    WebSocket(Ecore_Con_Client *cl);
+    WebSocket(const std::shared_ptr<uvw::TcpHandle> &client);
     virtual ~WebSocket();
 
     sigc::signal<void, const string &> textMessageReceived;
@@ -64,7 +63,7 @@ private:
     bool isfragmented = false;
 
     double ping_time = 0.0;
-    EcoreTimer *closeTimeout = nullptr;
+    Timer *closeTimeout = nullptr;
     bool closeReceived = false;
 
     void reset(); //reset state machine
@@ -78,7 +77,7 @@ private:
 
     void sendFrameData(const string &data, bool isbinary);
 
-    EcoreTimer *timerPing = nullptr;
+    Timer *timerPing = nullptr;
 };
 
 #endif

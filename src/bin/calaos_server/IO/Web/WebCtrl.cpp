@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,9 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <WebCtrl.h>
+#include "WebCtrl.h"
 #include <jansson.h>
-#include <Params.h>
 
 #include <TinyXML/tinyxml.h>
 #include <TinyXML/xpath_processor.h>
@@ -37,7 +36,6 @@ WebCtrl::WebCtrl()
 
 WebCtrl::WebCtrl(Params &p, int _file_type)
 {
-    dlManager = NULL;
     timer = NULL;
     param = p;
     frequency = 0.0;
@@ -48,8 +46,6 @@ WebCtrl::~WebCtrl()
 {
     if (timer)
         delete timer;
-    if (dlManager)
-        delete dlManager;
 }
 
 
@@ -85,7 +81,7 @@ void WebCtrl::Add(string path,
 
     if (!_frequency)
     {
-       cError() << "The frequency parameter is NUL, plesae set a real value.";
+       cError() << "The frequency parameter is NULL, please set a real value.";
        return;
     }
 
@@ -94,14 +90,12 @@ void WebCtrl::Add(string path,
         frequency = _frequency;
 
     if (!timer)
-        timer = new EcoreTimer(frequency, [=]() {
+        timer = new Timer(frequency, [=]() {
             launchDownload();
         });
     else
         timer->Reset(frequency);
 
-    if (!dlManager)
-        dlManager = new DownloadManager();
     launchDownload();
 }
 
@@ -121,16 +115,18 @@ void WebCtrl::launchDownload()
 
     if (u.find("http://") == 0)
     {
-        dlManager->add(param.get_param("url"), filename, [=](string emission, string source, void* data) {
+        UrlDownloader *dl = new UrlDownloader(param.get_param("url"), true);
+        dl->httpGet(filename);
+        dl->m_signalComplete.connect([=](int status)
+        {
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
-            ecore_file_mv(src.c_str(), dest.c_str());
-            for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
-              {
+            FileUtils::rename(src, dest);
+            for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+            {
                 fileDownloadedCallbacks[i].second();
-              }
-          }, [=](string url, string destination_file, double dl_now, double dl_total, void *data) {
-          }, NULL);
+            }
+        });
     }
     else
     {
@@ -353,8 +349,9 @@ void WebCtrl::setValue(string value)
         replace_str(data, "__##VALUE##__", value);
     }
 
-    FileDownloader *fdownloader = new FileDownloader(url, data, data_type, true);
-    fdownloader->Start();
+    UrlDownloader *fdownloader = new UrlDownloader(url, true);
+    fdownloader->setHeader("Content-Type", data_type);
+    fdownloader->httpPost(string(), data);
 
     cDebug() << "Set value with param : "
              << url << " | "
@@ -363,4 +360,3 @@ void WebCtrl::setValue(string value)
              << data_type;
 
 }
-

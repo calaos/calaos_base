@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -57,7 +57,7 @@ void InputSwitchTriple::hasChanged()
         if (!timer)
         {
             count = 0;
-            timer = new EcoreTimer(0.5,
+            timer = new Timer(0.5,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &InputSwitchTriple::TimerDone));
         }
 
@@ -94,7 +94,7 @@ void InputSwitchTriple::emitChange()
                            { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    EcoreTimer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
+    Timer::singleShot(0.250, sigc::mem_fun(*this, &InputSwitchTriple::resetInput));
 }
 
 bool InputSwitchTriple::set_value(double v)

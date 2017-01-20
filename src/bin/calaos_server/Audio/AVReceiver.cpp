@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,6 +22,7 @@
 #include "AVRManager.h"
 #include "IOFactory.h"
 #include "EventManager.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -30,55 +31,9 @@ REGISTER_IO_USERTYPE(AVReceiver, IOAVReceiver)
 #define AVR_TIMEOUT      40.0
 #define AVR_RECONNECT    10.0
 
-static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
-{
-    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->addConnection(ev->server);
-    else
-        cCriticalDom("output") << "failed to get object !";
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
-{
-    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->delConnection(ev->server);
-    else
-        cCriticalDom("output") << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_Data *ev)
-{
-    AVReceiver *o = reinterpret_cast<AVReceiver *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->dataGet(ev->server, ev->data, ev->size);
-    else
-        cCriticalDom("output") << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
-
 AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     ref_count(0),
     params(p),
-    econ(NULL),
-    timer_con(NULL),
     isConnected(false),
     volume_main(0),
     volume_zone2(0),
@@ -101,79 +56,74 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     if (params.Exists("port"))
         from_string(params["port"], port);
 
-    ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
-    ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
-    ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
-
     timerConnReconnect();
-    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
 }
 
 AVReceiver::~AVReceiver()
 {
-    DELETE_NULL(timer_con);
-    DELETE_NULL_FUNC(ecore_con_server_del, econ);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
+    if (conHandle && conHandle->active())
+    {
+        conHandle->stop();
+        conHandle->close();
+    }
 }
 
 void AVReceiver::timerConnReconnect()
 {
     cDebugDom("output") << "Connecting to " << host << ":" << port;
 
-    DELETE_NULL_FUNC(ecore_con_server_del, econ);
-    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port, this);
-    ecore_con_server_data_set(econ, this);
+    conHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
+    conHandle->connect(host, port);
 
-    cDebugDom("output") << "econ == " << econ;
-}
-
-void AVReceiver::addConnection(Ecore_Con_Server *srv)
-{
-    if (srv != econ) return;
-
-    DELETE_NULL(timer_con);
-    isConnected = true;
-
-    connectionEstablished();
-
-    cDebugDom("output") << "main connection established";
-}
-
-void AVReceiver::delConnection(Ecore_Con_Server *srv)
-{
-    if (srv != econ) return;
-
-    DELETE_NULL(timer_con);
-
-    cWarningDom("output") << "Main Connection closed !";
-    cWarningDom("output") << "Trying to reconnect...";
-
-    timer_con = new EcoreTimer(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
-
-    isConnected = false;
-}
-
-void AVReceiver::dataGet(Ecore_Con_Server *srv, void *data, int size)
-{
-    if (srv != econ) return;
-
-    if (connection_type == AVR_CON_CHAR)
+    conHandle->once<uvw::ConnectEvent>([this](auto &, uvw::TcpHandle &h)
     {
-        string msg((char *)data, size);
-        dataGet(msg);
-    }
-    else if (connection_type == AVR_CON_BYTES)
-    {
-        char *cdata = (char *)data;
-        vector<char> d(cdata, cdata + size);
+        cDebugDom("output") << "connection established";
+        h.read();
 
-        //We don't know how to handle these messages,
-        //so we delegate the processing to the child class
-        //processMessage(vector<char>) has to be inherited !
-        processMessage(d);
-    }
+        isConnected = true;
+        this->connectionEstablished();
+    });
+
+    conHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
+    {
+        cErrorDom("squeezebox") << "Notif connection error: " << ev.what();
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+        });
+    });
+
+    conHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
+    {
+        cWarningDom("output") << "Main Connection closed !";
+        cWarningDom("output") << "Trying to reconnect...";
+        h.close();
+        isConnected = false;
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+        });
+    });
+
+    conHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+    {
+        if (connection_type == AVR_CON_CHAR)
+        {
+            string msg((char *)ev.data.get(), ev.length);
+            this->dataGet(msg);
+        }
+        else if (connection_type == AVR_CON_BYTES)
+        {
+            char *cdata = (char *)ev.data.get();
+            vector<char> d(cdata, cdata + ev.length);
+
+            //We don't know how to handle these messages,
+            //so we delegate the processing to the child class
+            //processMessage(vector<char>) has to be inherited !
+            this->processMessage(d);
+        }
+    });
 }
 
 void AVReceiver::dataGet(string msg)
@@ -221,22 +171,22 @@ void AVReceiver::processMessage(vector<char> msg)
 
 void AVReceiver::sendRequest(string request)
 {
-    if (!econ || !isConnected) return;
+    if (!isConnected) return;
 
     cDebugDom("output") << "Command: " << request;
 
     request += command_suffix;
 
-    ecore_con_server_send(econ, request.c_str(), request.length());
+    conHandle->write((char *)request.c_str(), request.length());
 }
 
 void AVReceiver::sendRequest(vector<char> request)
 {
-    if (!econ || !isConnected) return;
+    if (!isConnected) return;
 
     cDebugDom("output") << request.size() << " bytes";
 
-    ecore_con_server_send(econ, &request[0], request.size());
+    conHandle->write((char *)&request[0], request.size());
 }
 
 bool AVReceiver::getPower(int zone)

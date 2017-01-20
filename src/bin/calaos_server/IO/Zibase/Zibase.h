@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+**  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -22,10 +22,15 @@
 #define S_ZIBASE_H
 
 #include <Calaos.h>
-#include <EcoreTimer.h>
-#include <Ecore_Con.h>
+#include <Timer.h>
 
 #define ZIBASE_UDP_PORT     49999
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 class Zibase;
 class ZibaseManager
@@ -100,21 +105,15 @@ protected:
 
     static ZibaseManager zibasemaps;
 
-    Ecore_Con_Server *econ_client, *econ_listen;
-    Ecore_Event_Handler *event_handler_data_cl;
-    Ecore_Event_Handler *event_handler_data_listen;
+    std::shared_ptr<uvw::UDPHandle> listenHandle, clientHandle;
 
-    friend Eina_Bool zibase_udpClientData(void *data, int type, Ecore_Con_Event_Client_Data *ev);
-    friend Eina_Bool zibase_udpListenData(void *data, int type, Ecore_Con_Event_Server_Data *ev);
-
-    void udpListenData(Ecore_Con_Event_Server_Data *ev);
-    void udpClientData(Ecore_Con_Event_Client_Data *ev);
-
+    void udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort);
+    void udpClientData(const char *data, std::size_t length, string remoteIp, int remotePort);
 
     void ZibaseCommand_Timeout();
 
     queue<ZibaseQueuRequest> zibase_queue_req;
-    EcoreTimer *zibase_timer;
+    Timer *zibase_timer;
 
     int extract_infos(char* frame,ZibaseInfoSensor* elm);
     void extract_temp(char* frame,float *val);

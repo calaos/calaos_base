@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,7 +23,7 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -33,7 +33,7 @@ class InputSwitchLongPress : public IOBase
 protected:
     double value;
 
-    EcoreTimer *timer;
+    Timer *timer;
 
     void longPress_timer();
     void emitChange();

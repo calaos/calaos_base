@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,8 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-
-#include <Ecore_File.h>
 #include "Utils.h"
 #include "libquickmail/quickmail.h"
 #include "uri_parser/hef_uri_syntax.h"
@@ -29,7 +27,7 @@ using namespace Utils;
 void print_usage(void)
 {
     cout << "Calaos Mail Utility." << endl;
-    cout << "(c)2014 Calaos Team" << endl << endl;
+    cout << CALAOS_COPYRIGHT_TEXT << endl << endl;
     cout << "Usage:\tcalaos_mail --from <from address> --to <to address> --subject <subject> --body <body file> --attach <file to attach>" << endl << endl;
     cout << "\t--attach\t\tAttach a file. Can be repeated to attach multiple files" << endl;
     cout << "\t--delete\t\tDelete files passed in parameters (not done by default)" << endl;
@@ -47,7 +45,7 @@ int main (int argc, char **argv)
     list<string> confAttach;
     bool verbose = false, del = false;
 
-    Utils::InitEinaLog("mail");
+    Utils::initLogger("mail");
 
     char *argconf = argvOptionParam(argv, argv + argc, "--from");
     if (!argconf) EXIT_USAGE;
@@ -123,12 +121,12 @@ int main (int argc, char **argv)
     //delete files if needed
     if (del)
     {
-        ecore_file_unlink(confBody.c_str());
+        unlink(confBody.c_str());
         for (string attach : confAttach)
-            ecore_file_unlink(attach.c_str());
+            unlink(attach.c_str());
     }
 
-    Utils::FreeEinaLogs();
+    Utils::freeLoggers();
 
     return 0;
 }

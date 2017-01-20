@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -151,7 +151,7 @@ void InputTimer::StartTimer()
     if (msec < 50) msec = 50;
 
     if (timer) delete timer;
-    timer = new EcoreTimer((double)msec / 1000.,
+    timer = new Timer((double)msec / 1000.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &InputTimer::TimerDone));
 
     value = "false";

@@ -1,0 +1,62 @@
+#/bin/sh
+
+#Usage:
+#calaos_picture <url> <filename> <width>
+
+set -e
+
+url=$1
+filename=$2
+width=$3
+
+showUsage()
+{
+    echo "Usage: calaos_picture <url> <filename> [width]"
+    exit 1
+}
+
+
+if [ "x$url" = "x" ]; then
+    showUsage
+fi
+if [ "x$filename" = "x" ]; then
+    showUsage
+fi
+
+if ! which curl &> /dev/null; then
+    echo "curl is not installed."
+    exit 1
+fi
+
+curl $url --output curl-${filename}
+
+if ! which convert &> /dev/null; then
+    echo "imagemagick is not installed. Resizing is not done."
+    mv curl-${filename} ${filename}
+    exit 0
+fi
+
+if [ "x$width" = "x" ]; then
+    mv curl-${filename} ${filename}
+    exit 0
+fi
+
+convert curl-${filename} \
+    -filter Triangle \
+    -define filter:support=2 \
+    -thumbnail ${width} \
+    -unsharp 0.25x0.25+8+0.065 \
+    -dither None \
+    -posterize 136 \
+    -quality 82 \
+    -define jpeg:fancy-upsampling=off \
+    -define png:compression-filter=5 \
+    -define png:compression-level=9 \
+    -define png:compression-strategy=1 \
+    -define png:exclude-chunk=all \
+    -interlace none \
+    -colorspace sRGB \
+    -strip ${filename}
+
+rm -fr curl-${filename}
+

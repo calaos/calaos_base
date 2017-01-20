@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,7 +22,7 @@
 #define PollListenner_H
 
 #include "Calaos.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "EventManager.h"
 
 #define TIMEOUT_POLLLISTENNER   300.0
@@ -36,7 +36,7 @@ private:
     sigc::signal<void, string, string, void*, void*> sig_events;
 
     string uuid;
-    EcoreTimer *timeout; //timer that invalidates uuid after some time of inactivity
+    Timer *timeout; //timer that invalidates uuid after some time of inactivity
 
     //callback to handle all events from the system
     void handleEvents(const CalaosEvent &ev);

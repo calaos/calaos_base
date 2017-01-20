@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "ScriptBindings.h"
 #include "ScriptManager.h"
-#include "FileDownloader.h"
 
 using namespace Calaos;
 
@@ -91,7 +90,7 @@ void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
     ScriptManager::Instance().LuaDebugHook(L, ar);
 //    double time;
 //
-//    time = ecore_time_get();
+//    time = Utils::getMainLoopTime();
 //
 //    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
 //    {

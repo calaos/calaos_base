@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -64,7 +64,7 @@ void MilightOutputLightRGB::setColorReal(const ColorValue &c, bool s)
         ushort micolor = milight->calcMilightColor(c);
         cDebugDom("milight") << "milight color: " << micolor;
         milight->sendColorCommand(zone, micolor);
-        EcoreTimer::singleShot(0.2, [=]()
+        Timer::singleShot(0.2, [=]()
         {
             double luminance = 0.299 * (double)c.getRed() +
                                0.587 * (double)c.getGreen() +

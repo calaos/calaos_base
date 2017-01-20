@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -19,79 +19,29 @@
  **
  ******************************************************************************/
 #include <UrlDownloader.h>
-#include <EcoreTimer.h>
-
-Eina_Bool _complete_cb(void *data, int type, void *event)
-{
-    Ecore_Con_Event_Url_Complete *ev = reinterpret_cast<Ecore_Con_Event_Url_Complete *>(event);
-    UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
-
-    if (data == ecore_con_url_data_get(ev->url_con))
-    {
-        fd->completeCb(ev->status);
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-Eina_Bool _data_cb(void *data, int type, void *event)
-{
-    Ecore_Con_Event_Url_Data *ev = reinterpret_cast<Ecore_Con_Event_Url_Data *>(event);
-    UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
-
-    if (data == ecore_con_url_data_get(ev->url_con))
-    {
-        if (fd->m_downloadedData)
-            eina_binbuf_append_length(fd->m_downloadedData, ev->data, ev->size);
-        fd->dataCb(ev->data, ev->size);
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-Eina_Bool _progress_cb(void *data, int type, void *event)
-{
-    Ecore_Con_Event_Url_Progress *ev = reinterpret_cast<Ecore_Con_Event_Url_Progress *>(event);
-    UrlDownloader *fd = reinterpret_cast<UrlDownloader *>(data);
-
-    if (data == ecore_con_url_data_get(ev->url_con))
-    {
-        fd->progressCb(ev->down.total, ev->down.now);
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
+#include <Timer.h>
+#include "uvw/src/uvw.hpp"
 
 UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
-    ecore_con_url_init();
-    m_completeHandler = ecore_event_handler_add(ECORE_CON_EVENT_URL_COMPLETE, _complete_cb, this);
-    m_dataHandler = ecore_event_handler_add(ECORE_CON_EVENT_URL_DATA, _data_cb, this);
-    m_progressHandler = ecore_event_handler_add(ECORE_CON_EVENT_URL_PROGRESS, _progress_cb, this);
+    exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
 }
 
 UrlDownloader::~UrlDownloader()
 {
+    if (exeCurl && exeCurl->active())
+        exeCurl->kill(SIGTERM);
+    exeCurl->close();
 
-    if (m_downloadedData)
-        eina_binbuf_free(m_downloadedData);
-
-    if (m_file)
-        fclose(m_file);
-
-    ecore_con_url_free(m_urlCon);
-    ecore_event_handler_del(m_completeHandler);
-    ecore_event_handler_del(m_dataHandler);
-    ecore_event_handler_del(m_progressHandler);
-
-    ecore_con_url_shutdown();
+    FileUtils::unlink(tempFilename);
+    FileUtils::unlink(tmpHeader);
 }
 
 bool UrlDownloader::start()
 {
-    if (m_urlCon)
+    if (exeCurl->active())
     {
         cWarningDom("urlutils") << "A download is already in progress...";
         return false;
@@ -103,81 +53,141 @@ bool UrlDownloader::start()
         return false;
     }
 
+    if (!tempFilename.empty())
+    {
+        FileUtils::unlink(tempFilename);
+        tempFilename.clear();
+    }
+    if (!tmpHeader.empty())
+    {
+        FileUtils::unlink(tmpHeader);
+        tmpHeader.clear();
+    }
+    tmpHeader = Utils::getTmpFilename("tmp", "_dlheader");
+
+    //Default curl parameters
+    //silent --> no progress bar
+    //insecure --> do not check for insecure ssl certificates, needed for local https
+    //location --> follow redirect
+
+    vector<string> req;
+    req.push_back("curl");
+    req.push_back(m_url);
+    req.push_back("--silent");
+    req.push_back("--insecure");
+    req.push_back("--location");
+    req.push_back("--dump-header");
+    req.push_back(tmpHeader);
+
+    for (const string &s: headersRequest)
+    {
+        req.push_back("--header");
+        req.push_back(s);
+    }
+
+    req.push_back("--request");
+
     switch (m_requestType)
     {
     case HTTP_POST:
+        req.push_back("POST");
+        break;
     case HTTP_GET:
-        m_urlCon = ecore_con_url_new(m_url.c_str());
+        req.push_back("GET");
         break;
     case HTTP_PUT:
-        m_urlCon = ecore_con_url_custom_new(m_url.c_str(), "PUT");
+        req.push_back("PUT");
         break;
     case HTTP_DELETE:
-        m_urlCon = ecore_con_url_custom_new(m_url.c_str(), "DELETE");
+        req.push_back("DELETE");
         break;
     default:
         cErrorDom("urlutils") << "Request type error, you should not be there !";
-        if (m_file) fclose(m_file);
-        m_file = NULL;
         return false;
     }
 
-    if (!m_urlCon)
+    //output to a file
+    if (!m_destination.empty())
     {
-        cErrorDom("urlutils") << "Download failed: Failed to create Ecore_Con_Url";
-        return false;
-    }
-
-
-    if (m_fd >= 0)
-    {
-        ecore_con_url_fd_set(m_urlCon, m_fd);
-    }
-    else if (!m_destination.empty())
-    {
-        m_file = fopen(m_destination.c_str(), "wb");
-        ecore_con_url_fd_set(m_urlCon, fileno(m_file));
+        req.push_back("--output");
+        req.push_back(m_destination);
+        downloadToFile = true;
     }
     else
-    {
-        m_downloadedData = eina_binbuf_new();
-    }
+        downloadToFile = false;
+    m_downloadedData.clear();
 
-    ecore_con_url_data_set(m_urlCon, this);
-    ecore_con_url_ssl_verify_peer_set(m_urlCon, false);
     if (m_auth)
-        ecore_con_url_httpauth_set(m_urlCon, m_user.c_str(), m_password.c_str(), EINA_FALSE);
-
-    bool ret;
-    switch (m_requestType)
     {
-    case HTTP_PUT:
-    case HTTP_DELETE:
-    case HTTP_POST:
-        ret = ecore_con_url_post(m_urlCon, m_bodyData.c_str(), m_bodyData.length(),
-                                 m_postContentType.c_str());
-        break;
-    case HTTP_GET:
-        ret = ecore_con_url_get(m_urlCon);
-        break;
+        req.push_back("--anyauth");
+        req.push_back("--user");
 
-    default:
-        cErrorDom("urlutils") << "Request type error, you should not be there !";
-        ecore_con_url_free(m_urlCon);
-        m_urlCon = NULL;
-        if (m_file) fclose(m_file);
-        m_file = NULL;
-        return false;
+        string u = m_user;
+        if (!m_password.empty())
+            u += ":" + m_password;
+        req.push_back(u);
     }
 
-    if (!ret)
+    if ((m_requestType == HTTP_POST ||
+         m_requestType == HTTP_PUT) &&
+        !m_bodyData.empty())
     {
-        cErrorDom("urlutils") << "Download failed: Failed to call GET/POST";
-        ecore_con_url_free(m_urlCon);
-        m_urlCon = NULL;
-        if (m_file) fclose(m_file);
-        m_file = NULL;
-        return false;
+        tempFilename = Utils::getTmpFilename();
+        std::ofstream ofs;
+        ofs.open(tempFilename, ios::out | ios::trunc | ios::binary);
+        ofs << m_bodyData;
+        ofs.close();
+
+        req.push_back("--data-binary");
+        req.push_back("@" + tempFilename);
+    }
+
+    exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+    {
+        cDebugDom("urlutils") << "curl exited: " << ev.exitStatus;
+        h.close();
+        this->completeCb(ev.exitStatus);
+    });
+    exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("urlutils") << "Process error: " << ev.what();
+        h.close();
+        if (downloadToFile)
+        {
+            pipe->stop();
+            pipe->close();
+        }
+        this->completeCb(255);
+    });
+
+    if (!downloadToFile)
+    {
+        cDebugDom("urlutils") << "Setup stdio pipes";
+        pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        exeCurl->stdio(uvw::ProcessHandle::StdIO::IGNORE_STREAM, static_cast<uvw::FileHandle>(0));
+
+        uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
+        uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
+        exeCurl->stdio(ff, *pipe);
+
+        //When pipe is closed, remove it and close it
+        pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+        pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+        {
+            cDebugDom("urlutils") << "Stdio data received: " << ev.length;
+            this->dataCb(ev.data.get(), ev.length);
+        });
+    }
+
+    Utils::CStrArray arr(req);
+    cDebugDom("urlutils") << "Executing command: " << arr.toString();
+    exeCurl->spawn(arr.at(0), arr.data());
+
+    if (!downloadToFile)
+    {
+        //The start of read() for the pipe has be to done _after_ spawning the process or it crashes
+        pipe->read();
     }
 
     return true;
@@ -225,54 +235,72 @@ bool UrlDownloader::httpDelete(string destination, string bodyData)
 
 void UrlDownloader::completeCb(int status)
 {
-    ecore_con_url_free(m_urlCon);
-    m_urlCon = nullptr;
+    getResponseHeaders();
 
-    if (m_downloadedData)
-        m_signalCompleteData.emit(m_downloadedData, status);
+    if (!downloadToFile)
+        m_signalCompleteData.emit(m_downloadedData, statusCode);
 
-    if (m_file) fclose(m_file);
-    m_file = NULL;
-    m_signalComplete.emit(status);
+    m_signalComplete.emit(statusCode);
 
     if (m_autodelete)
         Destroy();
 }
 
-void UrlDownloader::dataCb(unsigned char *data, int size)
+void UrlDownloader::dataCb(const char *data, int size)
 {
+    m_downloadedData.append(data, size);
     m_signalData.emit(size, data);
-}
-
-void UrlDownloader::progressCb(double now, double tot)
-{
-    m_signalProgress.emit(now, tot);
 }
 
 void UrlDownloader::Destroy()
 {
-    cErrorDom() << "Launch idler for destroy " << m_url;
-
-    EcoreIdler::singleIdler([=]() { delete this; });
+    cDebugDom("urlutils") << "Launch idler to destroy " << m_url;
+    Idler::singleIdler([=]() { delete this; });
 }
 
 Params UrlDownloader::getResponseHeaders()
 {
     Params headers;
 
-    void *d;
-    char *str;
-    Eina_List *l;
-    Eina_List *h = (Eina_List *)ecore_con_url_response_headers_get(m_urlCon);
-    EINA_LIST_FOREACH(h, l, d)
+    //Parse headers
+    /*
+HTTP/1.1 404 Not Found
+Server: nginx/1.10.2
+Date: Tue, 17 Jan 2017 15:19:43 GMT
+Content-Type: text/html
+Content-Length: 169
+     */
+
+    statusCode = 0;
+    std::ifstream infile(tmpHeader);
+    string line;
+    bool first = true;
+    while (std::getline(infile, line))
     {
-        str = (char *)d;
-        vector<string> t;
-        Utils::split(str, t, ":", 2);
-        if (Utils::trim(t[0]) != "" &&
-            !Utils::strStartsWith(Utils::trim(t[0]), "HTTP/"))
-            headers.Add(Utils::trim(t[0]), Utils::trim(t[1]));
+        if (first)
+        {
+            first = false;
+            if (Utils::strStartsWith(line, "HTTP/"))
+            {
+                vector<string> tok;
+                Utils::split(line, tok, " ", 3);
+                Utils::from_string(tok[1], statusCode);
+            }
+            continue;
+        }
+
+        vector<string> tok;
+        Utils::split(line, tok, ":", 2);
+        headers.Add(Utils::trim(tok[0]), Utils::trim(tok[1]));
     }
 
     return headers;
+}
+
+void UrlDownloader::setHeader(string header, string value)
+{
+    if (value.empty())
+        headersRequest.push_back(header + ";");
+    else
+        headersRequest.push_back(header + ": " + value);
 }

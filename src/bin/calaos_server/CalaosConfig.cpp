@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -19,90 +19,25 @@
  **
  ******************************************************************************/
 #include "CalaosConfig.h"
-#include <Eet.h>
 
 using namespace Calaos;
 
-typedef struct _ConfigStateValue
-{
-public:
-    char *id;
-    char *value;
-
-    _ConfigStateValue():
-        id(NULL),
-        value(NULL) {}
-    ~_ConfigStateValue()
-    {
-        free(id);
-        free(value);
-    }
-
-} ConfigStateValue;
-
-typedef struct
-{
-    unsigned int version; //versionned cache
-    Eina_Hash *states;
-
-} ConfigStateCache;
-
-static Eet_Data_Descriptor *edd_state = NULL;
-static Eet_Data_Descriptor *edd_cache = NULL;
-
-static void _eina_hash_free_cb(void *data)
-{
-    delete (ConfigStateValue *)data;
-}
-
 Config::Config()
 {
-    //Init eet for States file
-    eet_init();
-    initEetDescriptors();
-
-    //read config hash table
-    cache_states = eina_hash_string_superfast_new(_eina_hash_free_cb);
     loadStateCache();
 
-    saveCacheTimer = new EcoreTimer(60.0, [=]() { saveStateCache(); });
+    saveCacheTimer = std::make_shared<Timer>(60.0, [this]() { saveStateCache(); });
 }
 
 Config::~Config()
 {
-    eina_hash_free(cache_states);
-    releaseEetDescriptors();
-    eet_shutdown();
-}
-
-void Config::initEetDescriptors()
-{
-    Eet_Data_Descriptor_Class edc;
-
-    EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&edc, ConfigStateValue);
-    edd_state = eet_data_descriptor_stream_new(&edc);
-
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd_state, ConfigStateValue, "id", id, EET_T_STRING);
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd_state, ConfigStateValue, "value", value, EET_T_STRING);
-
-    EET_EINA_FILE_DATA_DESCRIPTOR_CLASS_SET(&edc, ConfigStateCache);
-    edd_cache = eet_data_descriptor_stream_new(&edc);
-
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd_cache, ConfigStateCache, "version", version, EET_T_UINT);
-    EET_DATA_DESCRIPTOR_ADD_HASH(edd_cache, ConfigStateCache, "states", states, edd_state);
-}
-
-void Config::releaseEetDescriptors()
-{
-    eet_data_descriptor_free(edd_cache);
-    eet_data_descriptor_free(edd_state);
 }
 
 void Config::LoadConfigIO()
 {
     std::string file = Utils::getConfigFile(IO_CONFIG);
 
-    if (!Utils::fileExists(file))
+    if (!FileUtils::exists(file))
     {
         std::ofstream conf(file.c_str(), std::ofstream::out);
         conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
@@ -174,8 +109,8 @@ void Config::SaveConfigIO()
 
     if (document.SaveFile(tmp))
     {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
+        unlink(file.c_str());
+        rename(tmp.c_str(), file.c_str());
     }
 
     cInfo() <<  "Done.";
@@ -185,7 +120,7 @@ void Config::LoadConfigRule()
 {
     std::string file = Utils::getConfigFile(RULES_CONFIG);
 
-    if (!Utils::fileExists(file))
+    if (!FileUtils::exists(file))
     {
         std::ofstream conf(file.c_str(), std::ofstream::out);
         conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << std::endl;
@@ -257,8 +192,8 @@ void Config::SaveConfigRule()
 
     if (document.SaveFile(tmp))
     {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
+        unlink(file.c_str());
+        rename(tmp.c_str(), file.c_str());
     }
 
     cInfo() <<  "Done.";
@@ -266,112 +201,75 @@ void Config::SaveConfigRule()
 
 void Config::loadStateCache()
 {
-    ConfigStateCache *cache;
     string file = Utils::getCacheFile("iostates.cache");
+    cache_states.clear();
 
-    Eet_File *ef = eet_open(file.c_str(), EET_FILE_MODE_READ);
-    if (!ef)
+    std::ifstream cacheStream;
+    cacheStream.open(file);
+    if (!cacheStream.is_open())
     {
         cWarning() <<  "Could not open iostates.cache for read !";
         return;
     }
 
-    cache = (ConfigStateCache *)eet_data_read(ef, edd_cache, "calaos/states/cache");
-    if (!cache)
+    Json jcache;
+    try
     {
-        eet_close(ef);
-        cWarning() <<  "Could not read iostates.cache, corrupted file?";
+        jcache = Json::parse(cacheStream);
+        if (!jcache.is_object())
+            throw (invalid_argument(string("Json cache is not an object")));
+    }
+    catch (const std::exception &e)
+    {
+        cWarning() << "Error parsing " << file << ":" << e.what();
         return;
     }
 
-    if (cache->version < CONFIG_STATES_CACHE_VERSION)
+    for (Json::iterator it = jcache.begin(); it != jcache.end(); ++it)
     {
-        cWarning() <<  "File version too old, upgrading to new format";
-        cache->version = CONFIG_STATES_CACHE_VERSION;
+        cache_states[it.key()] = it.value();
     }
-
-    //read all states and put it in cache_states
-    Eina_Iterator *it = eina_hash_iterator_tuple_new(cache->states);
-    void *data;
-    while (eina_iterator_next(it, &data))
-    {
-        Eina_Hash_Tuple *t = (Eina_Hash_Tuple *)data;
-        ConfigStateValue *state = (ConfigStateValue *)t->data;
-        string skey = state->id;
-        string svalue = state->value;
-        SaveValueIO(skey, svalue, false);
-    }
-    eina_iterator_free(it);
-
-    eina_hash_free(cache->states);
-    free(cache);
-    eet_close(ef);
 
     cInfo() <<  "States cache read successfully.";
 }
 
 void Config::saveStateCache()
 {
-    Eet_File *ef;
     string file = Utils::getCacheFile("iostates.cache");
-    string tmp = file + "_tmp";
-    ConfigStateCache *cache;
+    string tmp = file + ".tmp";
 
-    cache = new ConfigStateCache;
-    cache->version = CONFIG_STATES_CACHE_VERSION;
-    cache->states = cache_states;
-
-    ef = eet_open(tmp.c_str(), EET_FILE_MODE_WRITE);
-    if (!ef)
+    Json jcache(cache_states);
+    std::ofstream fout;
+    fout.open(tmp, std::ofstream::out | std::ofstream::trunc);
+    if (!fout.is_open())
     {
         cWarning() <<  "Could not open iostates.cache for write !";
-        delete cache;
         return;
     }
 
-    Eina_Bool ret = eet_data_write(ef, edd_cache, "calaos/states/cache", cache, EINA_TRUE);
+    fout << jcache.dump(4);
+    fout.close();
 
-    eet_close(ef);
-    delete cache;
-
-    if (ret)
-    {
-        ecore_file_unlink(file.c_str());
-        ecore_file_mv(tmp.c_str(), file.c_str());
-    }
+    FileUtils::unlink(file);
+    FileUtils::rename(tmp, file);
 
     cInfo() <<  "State cache file written successfully (" << file << ")";
 }
 
 void Config::SaveValueIO(string id, string value, bool save)
 {
-    if (eina_hash_find(cache_states, id.c_str()))
-    {
-        ConfigStateValue *v = new ConfigStateValue;
-        v->id = strdup(id.c_str());
-        v->value = strdup(value.c_str());
-        void *old_data = eina_hash_set(cache_states, id.c_str(), v);
-        delete (ConfigStateValue *)old_data;
-    }
-    else
-    {
-        ConfigStateValue *v = new ConfigStateValue;
-        v->id = strdup(id.c_str());
-        v->value = strdup(value.c_str());
-        eina_hash_add(cache_states, id.c_str(), v);
-    }
-
+    cache_states[id] = value;
     if (save)
         saveStateCache();
 }
 
 bool Config::ReadValueIO(string id, string &value)
 {
-    ConfigStateValue *v = (ConfigStateValue *)eina_hash_find(cache_states, id.c_str());
-    if (!v)
-        return false;
+    if (cache_states.find(id) != cache_states.end())
+    {
+        value = cache_states[id];
+        return true;
+    }
 
-    value = v->value;
-
-    return true;
+    return false;
 }

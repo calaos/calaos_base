@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,10 +20,11 @@
  ******************************************************************************/
 #include "Squeezebox.h"
 #include "SqueezeboxDB.h"
-#include "FileDownloader.h"
+#include "UrlDownloader.h"
 #include "IOFactory.h"
 #include "EventManager.h"
 #include "ListeRoom.h"
+#include "uvw/src/uvw.hpp"
 
 #include <jansson.h>
 
@@ -35,78 +36,8 @@ using namespace Calaos;
 REGISTER_IO_USERTYPE(slim, Squeezebox)
 REGISTER_IO(Squeezebox)
 
-static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
-{
-    Squeezebox *o = reinterpret_cast<Squeezebox *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-    {
-        return ECORE_CALLBACK_PASS_ON;
-    }
-
-    if (o)
-    {
-        o->addConnection(ev->server);
-    }
-    else
-    {
-        cCriticalDom("squeezebox") << "failed to get object !";
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
-{
-    Squeezebox *o = reinterpret_cast<Squeezebox *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-    {
-        return ECORE_CALLBACK_PASS_ON;
-    }
-
-    if (o)
-    {
-        o->delConnection(ev->server);
-    }
-    else
-    {
-        cCriticalDom("squeezebox") << "failed to get object !";
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_Data *ev)
-{
-    Squeezebox *o = reinterpret_cast<Squeezebox *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-    {
-        return ECORE_CALLBACK_PASS_ON;
-    }
-
-    if (o)
-    {
-        o->dataGet(ev->server, ev->data, ev->size);
-    }
-    else
-    {
-        cCriticalDom("squeezebox") << "failed to get object !";
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
 Squeezebox::Squeezebox(Params &p):
     AudioPlayer(p),
-    enotif(NULL),
-    econ(NULL),
-    ehandler_add(NULL),
-    ehandler_del(NULL),
-    ehandler_data(NULL),
-    timer_notification(NULL),
-    timer_con(NULL),
     timer_timeout(NULL),
     isConnected(false)
 {
@@ -149,73 +80,36 @@ Squeezebox::Squeezebox(Params &p):
     //Create DB
     database = new SqueezeboxDB(this, param);
 
-    ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
-    ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
-    ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
-
     timerConnReconnect();
     timerNotificationReconnect();
-
-    timer_notification = new EcoreTimer(SQ_RECONNECT,
-                                        (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
-    timer_con = new EcoreTimer(SQ_RECONNECT,
-                               (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
 }
 
 Squeezebox::~Squeezebox()
 {
-    if (timer_notification)
+    if (notifHandle && notifHandle->active())
     {
-        delete timer_notification;
-        timer_notification = NULL;
+        notifHandle->stop();
+        notifHandle->close();
     }
-    if (timer_con)
+    if (conHandle && conHandle->active())
     {
-        delete timer_con;
-        timer_con = NULL;
+        conHandle->stop();
+        conHandle->close();
     }
-
-    ecore_con_server_del(enotif);
-    ecore_con_server_del(econ);
-
-    ecore_event_handler_del(ehandler_add);
-    ecore_event_handler_del(ehandler_del);
-    ecore_event_handler_del(ehandler_data);
 
     delete database;
 }
 
 void Squeezebox::timerNotificationReconnect()
 {
-    cDebugDom("squeezebox") <<  "Connecting to " << host << ":" << port_cli;
+    cDebugDom("squeezebox") <<  "Notif: Connecting to " << host << ":" << port_cli;
 
-    if (enotif) ecore_con_server_del(enotif);
-    enotif = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port_cli, this);
-    ecore_con_server_data_set(enotif, this);
+    notifHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
+    notifHandle->connect(host, port_cli);
 
-    cDebugDom("squeezebox") <<  "econ == " << econ << " and enotif == " << enotif;
-}
-
-void Squeezebox::timerConnReconnect()
-{
-    cDebugDom("squeezebox") <<  "Connecting to " << host << ":" << port_cli;
-
-    if (econ) ecore_con_server_del(econ);
-    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, host.c_str(), port_cli, this);
-    ecore_con_server_data_set(econ, this);
-
-    cDebugDom("squeezebox") <<  "econ == " << econ << " and enotif == " << enotif;
-}
-
-void Squeezebox::addConnection(Ecore_Con_Server *srv)
-{
-    if (srv == enotif)
+    notifHandle->once<uvw::ConnectEvent>([](auto &, uvw::TcpHandle &h)
     {
-        if (timer_notification)
-        {
-            delete timer_notification;
-            timer_notification = NULL;
-        }
+        cDebugDom("squeezebox") << "Notif connection established";
 
         //we need to subscribe to these commands to watch for status changes
         //string cmd = "subscribe playlist,mixer,pause,stop\n\r";
@@ -223,143 +117,148 @@ void Squeezebox::addConnection(Ecore_Con_Server *srv)
 
         cDebugDom("squeezebox") <<  "trying to subscribe to events";
 
-        ecore_con_server_send(enotif, cmd.c_str(), cmd.length());
-    }
-    else if (srv == econ)
-    {
-        if (timer_con)
-        {
-            delete timer_con;
-            timer_con = NULL;
-        }
+        h.write((char *)cmd.c_str(), cmd.length());
+        h.read();
+    });
 
-        cDebugDom("squeezebox") <<  "Main connection established";
-    }
-    else
+    notifHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
     {
-        cWarningDom("squeezebox") << "Wrong Ecore_Con_Server object";
-    }
+        cErrorDom("squeezebox") << "Notif connection error: " << ev.what();
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
+        });
+    });
+
+    notifHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
+    {
+        cWarningDom("squeezebox") << "Notif Connection closed !";
+        cWarningDom("squeezebox") << "Trying to reconnect...";
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
+        });
+    });
+
+    notifHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+    {
+        string d((char *)ev.data.get(), ev.length);
+        this->dataGetNotif(d);
+    });
 }
 
-void Squeezebox::delConnection(Ecore_Con_Server *srv)
+void Squeezebox::timerConnReconnect()
 {
-    if (srv == enotif)
+    cDebugDom("squeezebox") <<  "Connecting to " << host << ":" << port_cli;
+
+    conHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
+    conHandle->connect(host, port_cli);
+
+    conHandle->once<uvw::ConnectEvent>([](auto &, auto &h)
     {
-        if (timer_notification)
+        cDebugDom("squeezebox") << "main connection established";
+        h.read();
+    });
+
+    conHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
+    {
+        cErrorDom("squeezebox") << "main connection error: " << ev.what();
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
-            delete timer_notification;
-            timer_notification = NULL;
-        }
+            Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
+        });
+    });
 
-        cWarningDom("squeezebox") <<  "Notification Connection closed !";
-        cWarningDom("squeezebox") <<  "Trying to reconnect...";
-
-        timer_notification = new EcoreTimer(SQ_RECONNECT,
-                                            (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
-
-        isConnected = false;
-    }
-    else if (srv == econ)
+    conHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
     {
-        if (timer_con)
+        cWarningDom("squeezebox") << "Main Connection closed !";
+        cWarningDom("squeezebox") << "Trying to reconnect...";
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
-            delete timer_con;
-            timer_con = NULL;
-        }
+            Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
+        });
+    });
 
-        cWarningDom("squeezebox") <<  "Main Connection closed !";
-        cWarningDom("squeezebox") <<  "Trying to reconnect...";
-
-        timer_con = new EcoreTimer(SQ_RECONNECT,
-                                   (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
-
-        isConnected = false;
-    }
-    else
+    conHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
     {
-        cWarningDom("squeezebox")
-                << "Wrong Ecore_Con_Server object (" << srv << ") where econ == " << econ
-                << " and enotif == " << enotif;
-    }
+        string d((char *)ev.data.get(), ev.length);
+        this->dataGetCon(d);
+    });
 }
 
-void Squeezebox::dataGet(Ecore_Con_Server *srv, void *data, int size)
+void Squeezebox::dataGetNotif(string &msg)
 {
-    string msg((char *)data, size);
-
-    if (srv == enotif)
+    if (msg.find('\n') == string::npos &&
+        msg.find('\r') == string::npos)
     {
-        if (msg.find('\n') == string::npos &&
-            msg.find('\r') == string::npos)
-        {
-            //We have not a complete paquet yet, buffurize it.
-            buffer_notif += msg;
+        //We have not a complete paquet yet, buffurize it.
+        buffer_notif += msg;
 
-            cDebugDom("squeezebox") <<  "Bufferize data.";
+        cDebugDom("squeezebox") <<  "Bufferize data.";
 
-            return;
-        }
-
-        if (!buffer_notif.empty())
-        {
-            msg = buffer_notif;
-            buffer_notif.clear();
-        }
-
-        //Clean data string
-        int i = msg.length() - 1;
-        while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
-
-        replace_str(msg, "\r\n", "\n");
-        replace_str(msg, "\r", "\n");
-
-        vector<string> tokens;
-        split(msg, tokens, "\n");
-
-        isConnected = true;
-        cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
-
-        for(uint j = 0; j < tokens.size(); j++)
-            processNotificationMessage(tokens[j]);
+        return;
     }
-    else if (srv == econ)
+
+    if (!buffer_notif.empty())
     {
-        if (msg.find('\n') == string::npos &&
-            msg.find('\r') == string::npos)
-        {
-            //We have not a complete paquet yet, buffurize it.
-            buffer_main += msg;
-
-            cDebugDom("squeezebox") <<  "Bufferize data.";
-
-            return;
-        }
-
-        if (!buffer_main.empty())
-        {
-            msg = buffer_main;
-            buffer_main.clear();
-        }
-
-        //Clean data string
-        int i = msg.length() - 1;
-        while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
-
-        replace_str(msg, "\r\n", "\n");
-        replace_str(msg, "\r", "\n");
-
-        vector<string> tokens;
-        split(msg, tokens, "\n");
-
-        cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
-
-        for(uint j = 0; j < tokens.size(); j++)
-            processMessage(true, tokens[j]);
+        msg = buffer_notif;
+        buffer_notif.clear();
     }
-    else
+
+    //Clean data string
+    int i = msg.length() - 1;
+    while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
+
+    replace_str(msg, "\r\n", "\n");
+    replace_str(msg, "\r", "\n");
+
+    vector<string> tokens;
+    split(msg, tokens, "\n");
+
+    isConnected = true;
+    cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
+
+    for(uint j = 0; j < tokens.size(); j++)
+        processNotificationMessage(tokens[j]);
+}
+
+void Squeezebox::dataGetCon(string &msg)
+{
+    if (msg.find('\n') == string::npos &&
+        msg.find('\r') == string::npos)
     {
-        cWarningDom("squeezebox") << "Wrong Ecore_Con_Server object";
+        //We have not a complete paquet yet, buffurize it.
+        buffer_main += msg;
+
+        cDebugDom("squeezebox") <<  "Bufferize data.";
+
+        return;
     }
+
+    if (!buffer_main.empty())
+    {
+        msg = buffer_main;
+        buffer_main.clear();
+    }
+
+    //Clean data string
+    int i = msg.length() - 1;
+    while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
+
+    replace_str(msg, "\r\n", "\n");
+    replace_str(msg, "\r", "\n");
+
+    vector<string> tokens;
+    split(msg, tokens, "\n");
+
+    cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
+
+    for(uint j = 0; j < tokens.size(); j++)
+        processMessage(true, tokens[j]);
 }
 
 void Squeezebox::processNotificationMessage(string msg)
@@ -478,13 +377,12 @@ void Squeezebox::processMessage(bool status, string msg)
     else
     {
         cDebugDom("squeezebox") <<  "sending failed !";
+        conHandle->stop();
+        conHandle->close();
+        notifHandle->stop();
+        notifHandle->close();
 
-        //Try reconnecting to avoid unwanted data from old command to alter current command
-        if (ecore_con_server_connected_get(econ))
-        {
-            delConnection(econ);
-            delConnection(enotif);
-        }
+        return;
     }
 
     if (timer_timeout)
@@ -537,17 +435,6 @@ void Squeezebox::sendRequest(string command)
     _sendRequest();
 }
 
-Eina_Bool _execute_request_idler_cb(void *data)
-{
-    Squeezebox *sq = reinterpret_cast<Squeezebox *>(data);
-    if (!sq) return ECORE_CALLBACK_CANCEL;
-
-    sq->processMessage(false, "");
-
-    //delete the ecore_idler
-    return ECORE_CALLBACK_CANCEL;
-}
-
 void Squeezebox::_sendRequest()
 {
     //return if a request is already in progress
@@ -566,16 +453,12 @@ void Squeezebox::_sendRequest()
     cmd.inProgress = true;
 
     if (!timer_timeout)
-        timer_timeout = new EcoreTimer(SQ_TIMEOUT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::requestTimeout_cb));
+        timer_timeout = new Timer(SQ_TIMEOUT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::requestTimeout_cb));
 
     if (isConnected)
     {
         cmd.request += "\n\r";
-        ecore_con_server_send(econ, cmd.request.c_str(), cmd.request.length());
-    }
-    else
-    {
-        ecore_idler_add(_execute_request_idler_cb, this);
+        conHandle->write((char *)cmd.request.c_str(), cmd.request.length());
     }
 }
 
@@ -855,14 +738,17 @@ void Squeezebox::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
     data->set_chain_data(new AudioPlayerData(user_data));
     data->callback = callback;
 
-    FileDownloader *downloader = new FileDownloader(url, postData, "application/json", true);
-    downloader->addCallback(sigc::mem_fun(*this, &Squeezebox::get_album_cover_json_cb), data);
-
-    downloader->Start();
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->setHeader("Content-Type", "application/json");
+    downloader->httpPost(string(), postData);
+    downloader->m_signalCompleteData.connect([this, data](const string &urldata, int status)
+    {
+        get_album_cover_json_cb(urldata, status, data);
+    });
 }
-void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_data)
+void Squeezebox::get_album_cover_json_cb(const string &result, int status, void *user_data)
 {
-    if (result == "failed" || result == "aborted")
+    if (status != 200)
     {
         AudioPlayerData *_data = reinterpret_cast<AudioPlayerData *>(user_data);
         AudioPlayerData adata(*_data);
@@ -870,17 +756,14 @@ void Squeezebox::get_album_cover_json_cb(string result, void *data, void *user_d
 
         get_album_cover_std(adata);
     }
-    else if (result == "done")
+    else
     {
         AudioPlayerData *_data = reinterpret_cast<AudioPlayerData *>(user_data);
         AudioPlayerData adata(*_data);
         delete _data;
 
-        Buffer_CURL *buff = reinterpret_cast<Buffer_CURL *>(data);
-        string res((const char *)buff->buffer, buff->bufsize);
-
         json_error_t jerr;
-        json_t *json = json_loads(res.c_str(), 0, &jerr);
+        json_t *json = json_loads(result.c_str(), 0, &jerr);
 
         cDebug() << json_dumps(json, JSON_INDENT(4));
 

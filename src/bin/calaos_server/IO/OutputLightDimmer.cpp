@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -178,7 +178,7 @@ bool OutputLightDimmer::set_value(std::string val)
 
         press_detected = false;
         stop_after_press = true;
-        hold_timer = new EcoreTimer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::HoldPress_cb));
+        hold_timer = new Timer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::HoldPress_cb));
     }
     else if (val == "hold stop")
     {
@@ -309,7 +309,7 @@ void OutputLightDimmer::HoldPress_cb()
     {
         press_detected = true;
         delete hold_timer;
-        hold_timer = new EcoreTimer(1.0, (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::HoldPress_cb));
+        hold_timer = new Timer(1.0, (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::HoldPress_cb));
     }
 
     int v = 0;
@@ -347,7 +347,7 @@ void OutputLightDimmer::impulse(int _time)
     set_value(true);
 
     DELETE_NULL(impulseTimer);
-    impulseTimer = new EcoreTimer((double)_time / 1000.,
+    impulseTimer = new Timer((double)_time / 1000.,
                                   (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::TimerImpulse) );
 }
 
@@ -434,7 +434,7 @@ void OutputLightDimmer::impulse_extended(string pattern)
     {
         set_value(blinks[current_blink].state);
 
-        impulseTimer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+        impulseTimer = new Timer((double)blinks[current_blink].duration / 1000.,
                                       (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::TimerImpulseExtended) );
     }
 }
@@ -462,7 +462,7 @@ void OutputLightDimmer::TimerImpulseExtended()
     set_value(blinks[current_blink].state);
 
     //restart timer
-    impulseTimer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+    impulseTimer = new Timer((double)blinks[current_blink].duration / 1000.,
                                   (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightDimmer::TimerImpulseExtended) );
 }
 

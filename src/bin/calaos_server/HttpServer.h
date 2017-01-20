@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -24,23 +24,29 @@
 #include "Calaos.h"
 #include "WebSocket.h"
 #include "HttpClient.h"
-#include <Ecore_Con.h>
 
 using namespace std;
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class TcpHandle;
+}
 
 class HttpServer
 {
 private:
     int port;
-    Ecore_Con_Server *tcp_server;
-    Ecore_Event_Handler *event_handler_client_add;
-    Ecore_Event_Handler *event_handler_client_del;
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_client_write;
 
-    map<Ecore_Con_Client *, WebSocket *> connections;
+    std::shared_ptr<uvw::TcpHandle> handleSrv;
+
+    map<std::shared_ptr<uvw::TcpHandle>, WebSocket *> connections;
 
     HttpServer(int port); //port to listen
+
+    void addConnection(const std::shared_ptr<uvw::TcpHandle> &client);
+    void delConnection(const std::shared_ptr<uvw::TcpHandle> &client);
+    void getDataConnection(const std::shared_ptr<uvw::TcpHandle> &client, void *data, int size);
 
 public:
     static HttpServer &Instance(int port = 0)
@@ -52,11 +58,5 @@ public:
     ~HttpServer();
 
     void disconnectAll();
-
-    /* Internal stuff used by ecore-con */
-    void addConnection(Ecore_Con_Client *client);
-    void delConnection(Ecore_Con_Client *client);
-    void getDataConnection(Ecore_Con_Client *client, void *data, int size);
-    void dataWritten(Ecore_Con_Client *client, int size);
 };
 #endif

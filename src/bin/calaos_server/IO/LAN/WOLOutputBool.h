@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,9 +22,13 @@
 #define WOLOutputBool_H
 
 #include "IOBase.h"
-#include <Ecore.h>
-#include <Ecore_Con.h>
-#include "EcoreTimer.h"
+#include "Timer.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 using namespace Calaos;
 
@@ -33,15 +37,7 @@ class WOLOutputBool: public IOBase
 protected:
     bool value = false;
 
-    Ecore_Con_Server *udp_con = nullptr;
-    Ecore_Event_Handler *hwritten = nullptr;
-    Ecore_Event_Handler *herr = nullptr;
-    int data_size = 0;
-
-    EcoreTimer *timerState = nullptr;
-
-    friend Eina_Bool WOLOutputBool_con_data_written(void *data, int type, void *event);
-    friend Eina_Bool WOLOutputBool_con_data_error(void *data, int type, void *event);
+    Timer *timerState = nullptr;
 
     void timerTimeout();
 

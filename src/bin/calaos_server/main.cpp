@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,8 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Ecore.h>
-#include <EcoreTimer.h>
 #include "Calaos.h"
 #include "Room.h"
 #include "ListeRoom.h"
@@ -34,12 +32,14 @@
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 
+#include "uvw/src/uvw.hpp"
+
 using namespace Calaos;
 
 // Globals
 static UDPServer *udpserver = NULL;
 static UDPServer *wserver = NULL;
-static EcoreTimer *watchdogLoop = NULL;
+static Timer *watchdogLoop = NULL;
 
 static void echoVersion(char **argv)
 {
@@ -61,11 +61,10 @@ static void echoUsage(char **argv)
 
 int main (int argc, char **argv)
 {
-    InitEinaLog("server");
-    //init ecore system
-    eina_init();
-    ecore_init();
-    ecore_con_init();
+    //Ignore sigpipe signal, they are captured by libuv write error handling
+    signal(SIGPIPE, SIG_IGN);
+
+    initLogger("server");
 
     cout <<    " ╔═══════════════════════════════════════════════╗" << endl;
     cout <<    " ║                                               ║" << endl;
@@ -77,8 +76,6 @@ int main (int argc, char **argv)
     cout << v << endl;
     cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
     cout << endl;
-
-    Prefix::Instance(argc, argv);
 
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
@@ -108,6 +105,8 @@ int main (int argc, char **argv)
 
     Utils::initConfigOptions(confdir, cachedir);
 
+    Prefix::Instance(argc, argv);
+
     srand(time(NULL));
 
     //Ensure calling order of destructors
@@ -115,8 +114,6 @@ int main (int argc, char **argv)
     EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
-
-    ecore_app_args_set(argc, (const char **)argv);
 
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
@@ -146,7 +143,7 @@ int main (int argc, char **argv)
         wserver = new UDPServer(WAGO_LISTEN_PORT);
     }
 
-    cInfo() <<  "### All services started successfully, entering main loop ###";
+    cInfo() << "\u2012\u25b6 All services started successfully, entering main loop \u2714";
 
     //Check if any Start Rules need to be executed.
     Calaos::StartReadRules::Instance().addIO();
@@ -155,13 +152,36 @@ int main (int argc, char **argv)
     Utils::Watchdog("calaosd");
 
     //main loop
-    EcoreTimer *eventLoop = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
-    watchdogLoop = new EcoreTimer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
+    Timer *eventLoop = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(ListeRule::Instance(), &ListeRule::RunEventLoop) );
+    watchdogLoop = new Timer(5., (sigc::slot<void>)sigc::bind(sigc::ptr_fun(Utils::Watchdog), "calaosd") );
 
     //Check config once the main loop is started
-    EcoreTimer::singleShot(0.0, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
+    Timer::singleShot(0.1, sigc::mem_fun(ListeRoom::Instance(), &ListeRoom::checkAutoScenario));
 
-    ecore_main_loop_begin();
+    auto loop = uvw::Loop::getDefault();
+    auto sigtermHandler = loop->resource<uvw::SignalHandle>();
+    auto sigintHandler = loop->resource<uvw::SignalHandle>();
+    auto sighupHandler = loop->resource<uvw::SignalHandle>();
+    sigtermHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "Terminating...";
+        h.loop().stop();
+    });
+    sigintHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "CTRL+C...stopped.";
+        h.loop().stop();
+    });
+    sighupHandler->once<uvw::SignalEvent>([](auto &, uvw::SignalHandle &h)
+    {
+        cInfo() << "Hangup...";
+        h.loop().stop();
+    });
+    sigtermHandler->start(SIGTERM);
+    sigintHandler->start(SIGINT);
+    sighupHandler->start(SIGHUP);
+
+    loop->run();
 
     HttpServer::Instance().disconnectAll();
 
@@ -181,7 +201,8 @@ int main (int argc, char **argv)
     delete wserver;
     delete udpserver;
 
-    Utils::FreeEinaLogs();
+    loop->close();
+    Utils::freeLoggers();
 
     return 0;
 }

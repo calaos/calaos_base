@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,10 +22,14 @@
 #define AVRECEIVER_H
 
 #include "Calaos.h"
-#include "EcoreTimer.h"
-#include <Ecore.h>
-#include <Ecore_Con.h>
+#include "Timer.h"
 #include "IOBase.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class TcpHandle;
+}
 
 namespace Calaos
 {
@@ -42,8 +46,7 @@ protected:
     Params params;
     AVRList source_names;
 
-    Ecore_Con_Server *econ;
-    EcoreTimer *timer_con;
+    std::shared_ptr<uvw::TcpHandle> conHandle;
 
     bool isConnected;
     string recv_buffer;
@@ -56,10 +59,6 @@ protected:
     int source_main, source_zone2, source_zone3;
 
     string command_suffix;
-
-    Ecore_Event_Handler *ehandler_add;
-    Ecore_Event_Handler *ehandler_del;
-    Ecore_Event_Handler *ehandler_data;
 
     enum { AVR_CON_CHAR = 0, AVR_CON_BYTES };
     int connection_type;
@@ -125,11 +124,6 @@ public:
     sigc::signal<void, string, string> state_changed_1; //zone 1
     sigc::signal<void, string, string> state_changed_2; //zone 2
     sigc::signal<void, string, string> state_changed_3; //zone 3
-
-    /* This is private for C callbacks */
-    void addConnection(Ecore_Con_Server *srv);
-    void delConnection(Ecore_Con_Server *srv);
-    void dataGet(Ecore_Con_Server *srv, void *data, int size);
 };
 
 //Input/Output for A/V Receiver devices

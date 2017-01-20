@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,12 +22,10 @@
 #include <WagoCtrl.h>
 #include <tcpsocket.h>
 #include "Prefix.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Utils;
 using namespace Calaos;
-
-static Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev);
-static Eina_Bool _ecore_con_handler_error(void *data, int type, Ecore_Con_Event_Server_Error *ev);
 
 WagoMapManager WagoMap::wagomaps;
 
@@ -35,21 +33,17 @@ WagoMap::WagoMap(std::string h, int p):
     host(h),
     port(p),
     udp_timer(NULL),
-    udp_timeout_timer(NULL),
-    econ(NULL)
+    udp_timeout_timer(NULL)
 {
     input_bits.resize(MBUS_MAX_BITS, false);
     output_bits.resize(MBUS_MAX_BITS, false);
     input_words.resize(MBUS_MAX_WORDS, 0);
     output_words.resize(MBUS_MAX_WORDS, 0);
 
-    event_handler_data_get = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_ecore_con_handler_data_get, this);
-    event_handler_error = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ERROR, (Ecore_Event_Handler_Cb)_ecore_con_handler_error, this);
-
     createUdpSocket();
 
-    heartbeat_timer = new EcoreTimer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
-    mbus_heartbeat_timer = new EcoreTimer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
+    heartbeat_timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
+    mbus_heartbeat_timer = new Timer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
 
     process = new ExternProcServer("wago");
 
@@ -83,8 +77,8 @@ WagoMap::~WagoMap()
 {
     delete process;
 
-    ecore_event_handler_del(event_handler_data_get);
-    ecore_con_server_del(econ);
+    handleSrv->stop();
+    handleSrv->close();
 
     delete heartbeat_timer;
     delete mbus_heartbeat_timer;
@@ -116,14 +110,23 @@ void WagoMap::stopAllWagoMaps()
 
 void WagoMap::createUdpSocket()
 {
-    if (!econ)
+    auto loop = uvw::Loop::getDefault();
+    handleSrv = loop->resource<uvw::UDPHandle>();
+
+    handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
     {
-        econ = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                        host.c_str(),
-                                        WAGO_LISTEN_PORT,
-                                        this);
-        ecore_con_server_data_set(econ, this);
-    }
+        string s(ev.data.get(), ev.length);
+        this->udpRequest_cb(true, s);
+    });
+
+    handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    {
+        cErrorDom("network") << "UDP server error: " << ev.what();
+        udpProcessError();
+    });
+
+    handleSrv->bind(host, WAGO_LISTEN_PORT, uvw::UDPHandle::Bind::REUSEADDR);
+    handleSrv->recv();
 }
 
 void WagoMap::WagoModbusHeartBeatTick()
@@ -374,53 +377,15 @@ void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values,
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-Eina_Bool _ecore_con_handler_data_get(void *data, int type, Ecore_Con_Event_Server_Data *ev)
+void WagoMap::udpProcessError()
 {
-    WagoMap *w = reinterpret_cast<WagoMap *>(data);
+    //handleSrv->stop();
+    //handleSrv->close();
 
-    if (ev && ev->server && (w != ecore_con_server_data_get(ev->server)))
+    handleSrv->once<uvw::CloseEvent>([this](auto &, auto&)
     {
-        return ECORE_CALLBACK_PASS_ON;
-    }
-
-    if (w)
-    {
-        string d((char *)ev->data, ev->size);
-
-        w->udpRequest_cb(true, d);
-    }
-    else
-    {
-        cCriticalDom("wago") << "failed to get WagoMap object !";
-   }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-Eina_Bool _ecore_con_handler_error(void *data, int type, Ecore_Con_Event_Server_Error *ev)
-{
-    WagoMap *w = reinterpret_cast<WagoMap *>(data);
-
-    if (ev && ev->server && (w != ecore_con_server_data_get(ev->server)))
-    {
-        return ECORE_CALLBACK_PASS_ON;
-    }
-
-    if (w)
-    {
-        w->udpProcessError(ev->server);
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-void WagoMap::udpProcessError(Ecore_Con_Server *srv)
-{
-    if (srv == econ)
-    {
-        econ = nullptr;
-        createUdpSocket();
-    }
+        this->createUdpSocket();
+    });
 }
 
 void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
@@ -443,7 +408,7 @@ void WagoMap::SendUDPCommand(string command, WagoUdp_cb callback)
     if (restart_timer)
     {
         if (udp_timer) delete udp_timer;
-        udp_timer = new EcoreTimer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
+        udp_timer = new Timer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
     }
 }
 
@@ -466,7 +431,7 @@ void WagoMap::SendUDPCommand(string command)
     if (restart_timer)
     {
         if (udp_timer) delete udp_timer;
-        udp_timer = new EcoreTimer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
+        udp_timer = new Timer(50. / 1000., (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommand_cb));
     }
 }
 
@@ -477,6 +442,9 @@ void WagoMap::udpRequest_cb(bool status, string res)
         delete udp_timeout_timer;
         udp_timeout_timer = NULL;
     }
+
+    if (udp_commands.empty())
+        return;
 
     WagoMapCmd &cmd = udp_commands.front();
     cDebugDom("wago") << "UDP, getting result for command " << cmd.udp_command;
@@ -518,9 +486,9 @@ void WagoMap::UDPCommand_cb()
     cDebugDom("wago") << "UDP, real sending command: " << cmd.udp_command;
 
     if (!udp_timeout_timer && !cmd.no_callback)
-        udp_timeout_timer = new EcoreTimer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
+        udp_timeout_timer = new Timer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
 
-    ecore_con_server_send(econ, cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
+    handleSrv->send(host, WAGO_LISTEN_PORT, (char *)cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
 
     if (cmd.no_callback)
         udp_commands.pop();

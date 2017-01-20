@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -24,7 +24,6 @@
 #include "Utils.h"
 #include "lua.hpp"
 #include "Lunar.h"
-#include <Ecore.h>
 #include "ExternProc.h"
 
 namespace Calaos

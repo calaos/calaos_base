@@ -27,7 +27,6 @@ AM_CPPFLAGS = \
               -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
               -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
               -I$(top_srcdir)/src/bin/calaos_server                 \
-              -I$(top_srcdir)/src/bin/calaos_home                   \
               -I$(top_srcdir)/src/lib                               \
               -I$(top_srcdir)/src/lib/LuaScript                     \
               -I$(top_srcdir)/src/lib/TinyXML                       \
@@ -46,11 +45,3 @@ ColorValue_test_LDADD = @CALAOS_SERVER_LIBS@ \
 
 endif
 
-if HAVE_AUTOBAHN
-TESTS += WebSocketClient_test
-check_PROGRAMS += WebSocketClient_test
-WebSocketClient_test_SOURCES = WebSocketClient_test.cpp \
-		$(top_builddir)/src/bin/calaos_home/WebSocketClient.cpp
-WebSocketClient_test_LDADD = @CALAOS_SERVER_LIBS@ \
-		$(top_builddir)/src/lib/libcalaos_common.la
-endif

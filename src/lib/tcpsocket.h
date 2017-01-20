@@ -34,8 +34,8 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-#define TCP 'T'
-#define UDP 'U'
+#define TCPSocketTCP 'T'
+#define TCPSocketUDP 'U'
 
 
 class TCPSocket

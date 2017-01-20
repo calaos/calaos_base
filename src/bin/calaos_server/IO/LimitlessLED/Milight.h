@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -24,7 +24,12 @@
 #define DEFAULT_MILIGHT_PORT    8899
 
 #include "Calaos.h"
-#include <Ecore_Con.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 class Milight
 {
@@ -49,7 +54,6 @@ public:
 
 private:
 
-    Ecore_Con_Server *udp_sender = nullptr;
     string host;
     int port = DEFAULT_MILIGHT_PORT;
 

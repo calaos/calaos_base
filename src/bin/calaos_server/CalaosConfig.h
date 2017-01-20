@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,7 +22,7 @@
 #define S_CONFIG_H
 
 #include "Calaos.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "Room.h"
 #include "ListeRoom.h"
 #include "IOFactory.h"
@@ -39,13 +39,11 @@ class Config
 private:
     Config();
 
-    void initEetDescriptors();
-    void releaseEetDescriptors();
     void loadStateCache();
     void saveStateCache();
 
-    Eina_Hash *cache_states;
-    EcoreTimer *saveCacheTimer;
+    unordered_map<string, string> cache_states;
+    std::shared_ptr<Timer> saveCacheTimer;
 
 public:
     static Config &Instance()

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -39,7 +39,7 @@ KNXOutputLightDimmer::KNXOutputLightDimmer(Params &p):
 
     if (get_param("read_at_start") == "true")
     {
-        EcoreTimer::singleShot(1.5, [=]()
+        Timer::singleShot(1.5, [=]()
         {
             KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr(), KNXValue::EIS_Switch_OnOff);
         });

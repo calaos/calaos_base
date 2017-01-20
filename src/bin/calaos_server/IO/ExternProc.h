@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,10 +23,15 @@
 
 #include "Utils.h"
 #include "Calaos.h"
-#include <Ecore.h>
-#include <Ecore_Con.h>
 #include <jansson.h>
 #include "Jansson_Addition.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class PipeHandle;
+class ProcessHandle;
+}
 
 /*
  * Small framing for messages
@@ -90,22 +95,16 @@ public:
     sigc::signal<void> processConnected;
 
 private:
-    Ecore_Con_Server *ipcServer;
-    Ecore_Event_Handler *hAdd, *hDel, *hData, *hError, *hProcDel;
+    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe;
+
     string sockpath;
     string recv_buffer;
     ExternProcMessage currentFrame;
-    Ecore_Exe *process_exe = nullptr;
+    std::shared_ptr<uvw::ProcessHandle> process_exe;
 
-    list<Ecore_Con_Client *> clientList;
+    std::list<std::shared_ptr<uvw::PipeHandle>> clientList;
 
     void processData(const string &data);
-
-    friend Eina_Bool ExternProcServer_con_add(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_del(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_data(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_con_error(void *data, int type, void *event);
-    friend Eina_Bool ExternProcServer_proc_del(void *data, int type, void *event);
 };
 
 class ExternProcClient: public sigc::trackable

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -26,52 +26,9 @@
   #include <linux/serial.h>
 #endif
 #include "ListeRoom.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
-
-static Eina_Bool _con_server_add(void *data, int type, Ecore_Con_Event_Server_Add *ev)
-{
-    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->addConnection(ev->server);
-    else
-        cCriticalDom("mysensors") << "failed to get object !";
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_del(void *data, int type, Ecore_Con_Event_Server_Del *ev)
-{
-    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->delConnection(ev->server);
-    else
-        cCriticalDom("mysensors") << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool _con_server_data(void *data, int type, Ecore_Con_Event_Server_Data *ev)
-{
-    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
-
-    if (ev && ev->server && (o != ecore_con_server_data_get(ev->server)))
-        return ECORE_CALLBACK_PASS_ON;
-
-    if (o)
-        o->dataGet(ev->server, ev->data, ev->size);
-    else
-        cCriticalDom("mysensors") << "failed to get object !";
-
-    return ECORE_CALLBACK_RENEW;
-}
 
 MySensorsController::MySensorsController(const Params &p):
     param(p)
@@ -91,18 +48,13 @@ MySensorsController::MySensorsController(const Params &p):
 
 MySensorsController::~MySensorsController()
 {
-    delete timer_con;
-    DELETE_NULL_FUNC(ecore_con_server_del, econ);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_add);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_del);
-    DELETE_NULL_FUNC(ecore_event_handler_del, ehandler_data);
-}
+    if (svrHandle && svrHandle->active())
+    {
+        svrHandle->stop();
+        svrHandle->close();
+    }
 
-static Eina_Bool _serial_handler_cb(void *data, Ecore_Fd_Handler *handler)
-{
-    MySensorsController *o = reinterpret_cast<MySensorsController *>(data);
-    if (o) return o->_serialHandler(handler);
-    return ECORE_CALLBACK_RENEW;
+    closeSerial();
 }
 
 void MySensorsController::serialError()
@@ -185,13 +137,29 @@ void MySensorsController::openSerial()
             return;
         }
 
-        serial_handler = ecore_main_fd_handler_add(serialfd,
-                                                   (Ecore_Fd_Handler_Flags)
-                                                   (ECORE_FD_READ | ECORE_FD_ERROR),
-                                                   _serial_handler_cb,
-                                                   this,
-                                                   NULL,
-                                                   NULL);
+        serialHandle = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        serialHandle->open(serialfd);
+
+        //When serial is closed, remove it and close it
+        serialHandle->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
+        {
+            cl.close();
+        });
+
+        //When connection is closed
+        serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
+        {
+            this->closeSerial();
+            this->openSerialLater();
+        });
+
+        serialHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+        {
+            string d((char *)ev.data.get(), ev.length);
+            this->readNewData(d);
+        });
+
+        serialHandle->read();
 
         cInfoDom("mysensors") << "Serial port opened.";
 
@@ -211,11 +179,10 @@ void MySensorsController::closeSerial()
 {
     if (serialfd == 0) return;
 
-    //as the efl doc say: the handler should be removed prior closing the fd
-    if (serial_handler)
+    if (serialHandle && serialHandle->active())
     {
-        ecore_main_fd_handler_del(serial_handler);
-        serial_handler = nullptr;
+        serialHandle->stop();
+        serialHandle->close();
     }
 
     ::tcdrain(serialfd); //flush
@@ -227,7 +194,7 @@ void MySensorsController::closeSerial()
 void MySensorsController::openSerialLater(double t)
 {
     if (timer) return;
-    timer = new EcoreTimer(t, [=]()
+    timer = new Timer(t, [=]()
     {
         delete timer;
         timer = NULL;
@@ -235,81 +202,53 @@ void MySensorsController::openSerialLater(double t)
     });
 }
 
-Eina_Bool MySensorsController::_serialHandler(Ecore_Fd_Handler *handler)
-{
-    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_ERROR))
-    {
-        cErrorDom("mysensors") << "An error occured on the serial port";
-        serialError();
-        serial_handler = nullptr;
-        return ECORE_CALLBACK_CANCEL;
-    }
-
-    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_READ))
-    {
-        int bytesAvail = -1;
-        if (::ioctl(serialfd, FIONREAD, &bytesAvail) == -1)
-            bytesAvail = 4096;
-
-        string data;
-        data.resize(bytesAvail);
-        if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
-            serialError();
-
-        //cDebugDom("mysensors") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
-
-        readNewData(data);
-    }
-
-    return ECORE_CALLBACK_RENEW;
-}
-
 void MySensorsController::openTCP()
 {
-    ehandler_add = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_ADD, (Ecore_Event_Handler_Cb)_con_server_add, this);
-    ehandler_del = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DEL, (Ecore_Event_Handler_Cb)_con_server_del, this);
-    ehandler_data = ecore_event_handler_add(ECORE_CON_EVENT_SERVER_DATA, (Ecore_Event_Handler_Cb)_con_server_data, this);
-
     timerConnReconnect();
-    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
 }
 
 void MySensorsController::timerConnReconnect()
 {
-    DELETE_NULL_FUNC(ecore_con_server_del, econ);
     int p = 5003;
     if (param.Exists("port") && param["port"] != "0")
         Utils::from_string(param["port"], p);
     cDebugDom("mysensors") << "Connecting to " << param["host"] << ":" << p;
-    econ = ecore_con_server_connect(ECORE_CON_REMOTE_TCP, param["host"].c_str(), p, this);
-    ecore_con_server_data_set(econ, this);
-}
 
-void MySensorsController::addConnection(Ecore_Con_Server *srv)
-{
-    if (srv != econ) return;
-    DELETE_NULL(timer_con);
-    cDebugDom("mysensors") << "main connection established";
-}
+    svrHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
+    svrHandle->connect(param["host"], p);
 
-void MySensorsController::delConnection(Ecore_Con_Server *srv)
-{
-    if (srv != econ) return;
+    svrHandle->once<uvw::ConnectEvent>([](auto &, auto &h)
+    {
+        cDebugDom("mysensors") << "main connection established";
+        h.read();
+    });
 
-    DELETE_NULL(timer_con);
+    svrHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
+    {
+        cErrorDom("mysensors") << "main connection error: " << ev.what();
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+        });
+    });
 
-    cWarningDom("mysensors") << "Main Connection closed !";
-    cWarningDom("mysensors") << "Trying to reconnect...";
+    svrHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
+    {
+        cWarningDom("mysensors") << "Main Connection closed !";
+        cWarningDom("mysensors") << "Trying to reconnect...";
+        h.close();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+        });
+    });
 
-    timer_con = new EcoreTimer(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
-}
-
-void MySensorsController::dataGet(Ecore_Con_Server *srv, void *data, int size)
-{
-    if (srv != econ) return;
-    string msg((char *)data, size);
-
-    readNewData(msg);
+    svrHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+    {
+        string d((char *)ev.data.get(), ev.length);
+        this->readNewData(d);
+    });
 }
 
 void MySensorsController::readNewData(const string &data)
@@ -531,13 +470,11 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
 
     if (param["gateway"] == "serial")
     {
-        if (::write(serialfd, data.str().c_str(), data.str().length()) == -1)
-            serialError();
+        serialHandle->write((char *)data.str().c_str(), data.str().length());
     }
     else if (param["gateway"] == "tcp")
     {
-        if (econ && ecore_con_server_connected_get(econ))
-            ecore_con_server_send(econ, data.str().c_str(), data.str().length());
+        svrHandle->write((char *)data.str().c_str(), data.str().length());
     }
 }
 

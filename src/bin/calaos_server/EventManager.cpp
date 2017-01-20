@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -27,25 +27,8 @@ EventManager::EventManager()
 
 EventManager::~EventManager()
 {
-    ecore_idle_enterer_del(idler);
     //clear queue
     eventsQueue = queue<CalaosEvent>();
-}
-
-Eina_Bool EventManager_event_idler(void *data)
-{
-    EventManager *emanager = reinterpret_cast<EventManager *>(data);
-    if (!emanager) return ECORE_CALLBACK_CANCEL;
-
-    while (!emanager->eventsQueue.empty())
-    {
-        CalaosEvent ev = emanager->eventsQueue.front();
-        emanager->eventsQueue.pop();
-
-        emanager->newEvent.emit(ev);
-    }
-
-    return ECORE_CALLBACK_CANCEL;
 }
 
 void EventManager::appendEvent(const CalaosEvent &ev)
@@ -59,7 +42,16 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     if (eventsQueue.empty())
     {
         //start idler if it was stopped
-        idler = ecore_idle_enterer_add(EventManager_event_idler, this);
+        Idler::singleIdler([=]()
+        {
+            while (!eventsQueue.empty())
+            {
+                CalaosEvent e = eventsQueue.front();
+                eventsQueue.pop();
+
+                newEvent.emit(e);
+            }
+        });
     }
 
     eventsQueue.push(ev);

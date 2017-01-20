@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,29 +23,26 @@
 
 #include <Calaos.h>
 #include <tcpsocket.h>
-#include <Ecore_Con.h>
 #include <WagoMap.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 class UDPServer
 {
 protected:
     int port;
-
-    Ecore_Con_Server *udp_server;
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_error;
-
-    Ecore_Con_Server *udp_broadcast, *udp_sender;
+    std::shared_ptr<uvw::UDPHandle> handleSrv;
 
     void createUdpSocket();
+    void processRequest(const string &msg, const string &remoteIp, unsigned int port);
 
 public:
     UDPServer(int port); //port to listen
     ~UDPServer();
-
-    /* Internal stuff used by ecore-con */
-    void ProcessRequest(Ecore_Con_Client *client, string request);
-    void ProcessError(Ecore_Con_Server *srv);
 };
 
 #endif

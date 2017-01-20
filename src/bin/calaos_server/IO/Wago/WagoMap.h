@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,9 +22,14 @@
 #define S_WAGOMAP_H
 
 #include <Calaos.h>
-#include <EcoreTimer.h>
-#include <Ecore_Con.h>
+#include <Timer.h>
 #include "ExternProc.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class UDPHandle;
+}
 
 namespace Calaos
 {
@@ -119,14 +124,12 @@ protected:
     unordered_map<string, WagoMapCmd> mbus_commands;
 
     /* Heartbeat timer that do a modbus query to avoid TCP disconnection with the Wago */
-    EcoreTimer *mbus_heartbeat_timer;
+    Timer *mbus_heartbeat_timer;
 
     queue<WagoMapCmd> udp_commands;
-    EcoreTimer *udp_timer;
-    EcoreTimer *udp_timeout_timer;
-    Ecore_Con_Server *econ;
-    Ecore_Event_Handler *event_handler_data_get;
-    Ecore_Event_Handler *event_handler_error;
+    Timer *udp_timer;
+    Timer *udp_timeout_timer;
+    std::shared_ptr<uvw::UDPHandle> handleSrv;
 
     void createUdpSocket();
 
@@ -136,7 +139,7 @@ protected:
     void UDPCommand_cb();
     void UDPCommandTimeout_cb();
 
-    EcoreTimer *heartbeat_timer;
+    Timer *heartbeat_timer;
 
     void WagoHeartBeatTick();
     void WagoModbusHeartBeatTick();
@@ -172,7 +175,7 @@ public:
 
     /* Private stuff used by C callbacks */
     void udpRequest_cb(bool status, string res);
-    void udpProcessError(Ecore_Con_Server *srv);
+    void udpProcessError();
 
     sigc::signal<void> onWagoConnected;
     sigc::signal<void> onWagoDisconnected;

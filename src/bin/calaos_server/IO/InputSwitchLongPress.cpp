@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -52,7 +52,7 @@ void InputSwitchLongPress::hasChanged()
     {
         if (!timer)
         {
-            timer = new EcoreTimer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &InputSwitchLongPress::longPress_timer));
+            timer = new Timer(0.5, (sigc::slot<void>)sigc::mem_fun(*this, &InputSwitchLongPress::longPress_timer));
         }
     }
     else
@@ -84,7 +84,7 @@ void InputSwitchLongPress::emitChange()
                            { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    EcoreTimer::singleShot(0.250, [=]()
+    Timer::singleShot(0.250, [=]()
     {
         value = 0;
     });

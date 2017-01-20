@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,26 +20,9 @@
  ******************************************************************************/
 
 #include <NTPClock.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace std;
-
-static Eina_Bool _NTPHandle1(void *data, int type, void *event)
-{
-    NTPClock *ntpClock = reinterpret_cast < NTPClock * >(data);
-    if (ntpClock)
-        ntpClock->Handle1();
-
-    return 0;
-}
-
-static Eina_Bool _NTPHandle2(void *data, int type, void *event)
-{
-    NTPClock *ntpClock = reinterpret_cast < NTPClock * >(data);
-    if (ntpClock)
-        ntpClock->Handle2();
-
-    return 0;
-}
 
 NTPClock & NTPClock::Instance()
 {
@@ -50,10 +33,9 @@ NTPClock & NTPClock::Instance()
 NTPClock::NTPClock():restartWhenApply(false), exe(NULL)
 {
     sig_applyCalendar.connect(sigc::mem_fun(*this, &NTPClock::applyCalendarFromServer));
-    IPC::Instance().AddHandler("CalaosCommon::NTPClock","applyCalendar", sig_applyCalendar,NULL);
 
     //the timer will be trigger when the ecore_loop will be run
-    timer = new EcoreTimer(0, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+    timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
 }
 
 NTPClock::~NTPClock()
@@ -67,17 +49,26 @@ NTPClock::~NTPClock()
 
 void NTPClock::updateClock()
 {
-    if (exe)
-        return;
-
     if (Utils::get_config_option("use_ntp") == "true")
     {
-        handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle1, this);
         cInfo() <<  "NTPClock::updateClock() Updating clock...";
 
         string cmd = "/usr/sbin/ntpdate calaos.fr";
 
-        exe = ecore_exe_run(cmd.c_str(), NULL);
+        exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+        exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &h)
+        {
+            h.close();
+        });
+        exe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+        {
+            cDebugDom("process") << "Process error: " << ev.what();
+            h.close();
+        });
+
+        Utils::CStrArray arr(cmd);
+        cInfo() << "Executing command: " << arr.toString();
+        exe->spawn(arr.at(0), arr.data());
     }
 }
 
@@ -107,7 +98,7 @@ void NTPClock::TimerTick()
 
     updateClock();
 
-    timer = new EcoreTimer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+    timer = new Timer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
 }
 
 void NTPClock::applyCalendarFromServer(string source, string s,
@@ -181,33 +172,24 @@ void NTPClock::setNetworkCmdCalendarApply(vector < string > s)
     networkCmdCalendarApply = s;
 }
 
-void NTPClock::Handle1()
+void NTPClock::syncHwClock()
 {
+    syncexe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    syncexe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &, auto &h)
+    {
+        h.close();
+        if (timer) delete timer;
+        timer = new Timer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
+    });
+    syncexe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        h.close();
+    });
+
     string cmd = "/sbin/hwclock --systohc";
 
-    ecore_event_handler_del(handler);
-    handler = ecore_event_handler_add(ECORE_EXE_EVENT_DEL, _NTPHandle2, this);
-    exe = ecore_exe_run(cmd.c_str(), NULL);
-}
-
-void NTPClock::Handle2()
-{
-    ecore_event_handler_del(handler);
-
-    cInfo() <<  "NTPClock: Updating clock...  DONE";
-
-    exe = NULL;
-    //kill l'application
-    //elle sera redémarrée par un daemon extérieur
-
-    if (isRestartWhenApply())
-    {
-        cInfo() <<  "NTPClock: Restart the application";
-        ecore_app_restart();
-    }
-    else
-    {
-        if (timer) delete timer;
-        timer = new EcoreTimer(60 * 60 * 12, (sigc::slot<void>)sigc::mem_fun(*this, &NTPClock::TimerTick));
-    }
+    Utils::CStrArray arr(cmd);
+    cInfo() << "Executing command: " << arr.toString();
+    syncexe->spawn(arr.at(0), arr.data());
 }

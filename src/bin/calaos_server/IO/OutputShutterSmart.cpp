@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -214,11 +214,11 @@ bool OutputShutterSmart::set_value(std::string val)
         if (impulse_time >= 0)
         {
             if (timer_impulse) delete timer_impulse;
-            timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+            timer_impulse = new Timer((double)impulse_time / 1000.,
                                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
         }
 
-        timer_calib = new EcoreTimer((double)total_time,
+        timer_calib = new Timer((double)total_time,
                                      (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate) );
     }
     else if (Utils::strStartsWith(val, "set_state "))
@@ -273,26 +273,26 @@ void OutputShutterSmart::Up(double new_value)
     setOutputDown(false);
     sens = SHUTTER_UP;
 
-    start_time = ecore_time_get();
+    start_time = Utils::getMainLoopTime();
     start_position = pos;
 
     if (new_value < 0)
     {
-        timer_end = new EcoreTimer(pos,
+        timer_end = new Timer(pos,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerEnd) );
     }
     else
     {
-        timer_end = new EcoreTimer(pos - new_value,
+        timer_end = new Timer(pos - new_value,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerEnd) );
     }
-    timer_update = new EcoreTimer((1. * (double)total_time / 100.),
+    timer_update = new Timer((1. * (double)total_time / 100.),
                                   (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerUpdate) );
 
     if (impulse_time > 0)
     {
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
     }
 
@@ -307,7 +307,7 @@ void OutputShutterSmart::Up(double new_value)
         if (impulse_action_time + impulse_time < _t * 1000)
         {
             double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            EcoreTimer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
         }
     }
     else
@@ -344,26 +344,26 @@ void OutputShutterSmart::Down(double new_value)
     setOutputDown(true);
     sens = SHUTTER_DOWN;
 
-    start_time = ecore_time_get();
+    start_time = Utils::getMainLoopTime();
     start_position = pos;
 
     if (new_value < 0)
     {
-        timer_end = new EcoreTimer((double)total_time - pos,
+        timer_end = new Timer((double)total_time - pos,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerEnd) );
     }
     else
     {
-        timer_end = new EcoreTimer(new_value - pos,
+        timer_end = new Timer(new_value - pos,
                                    (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerEnd) );
     }
-    timer_update = new EcoreTimer((1. * (double)total_time / 100.),
+    timer_update = new Timer((1. * (double)total_time / 100.),
                                   (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerUpdate) );
 
     if (impulse_time > 0)
     {
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
     }
 
@@ -378,7 +378,7 @@ void OutputShutterSmart::Down(double new_value)
         if (impulse_action_time + impulse_time < _t * 1000)
         {
             double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            EcoreTimer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
         }
     }
     else
@@ -407,7 +407,7 @@ void OutputShutterSmart::DownWait()
 
             double _t = 200;
             if (impulse_time >= 0) _t += impulse_time;
-            timer_down = new EcoreTimer(_t / 1000.,
+            timer_down = new Timer(_t / 1000.,
                                         (sigc::slot<void>)sigc::bind(sigc::mem_fun(*this, &OutputShutterSmart::Down), -1) );
         }
 
@@ -433,7 +433,7 @@ void OutputShutterSmart::UpWait()
 
             double _t = 200;
             if (impulse_time >= 0) _t += impulse_time;
-            timer_up = new EcoreTimer(_t / 1000.,
+            timer_up = new Timer(_t / 1000.,
                                       (sigc::slot<void>)sigc::bind(sigc::mem_fun(*this, &OutputShutterSmart::Up), -1) );
         }
 
@@ -467,7 +467,7 @@ void OutputShutterSmart::Stop()
         }
 
         if (timer_impulse) delete timer_impulse;
-        timer_impulse = new EcoreTimer((double)impulse_time / 1000.,
+        timer_impulse = new Timer((double)impulse_time / 1000.,
                                        (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
     }
     else
@@ -529,14 +529,14 @@ void OutputShutterSmart::TimerUpdate()
     {
         //set new position
         double _t = start_position;
-        _t -= (ecore_time_get() - start_time);
+        _t -= (Utils::getMainLoopTime() - start_time);
         writePosition(_t);
     }
     else if (sens == SHUTTER_DOWN)
     {
         //set new position and conver it to time_up range
         double _t = start_position;
-        _t += (ecore_time_get() - start_time);
+        _t += (Utils::getMainLoopTime() - start_time);
         _t = (_t * (double)time_up) / (double)time_down;
         writePosition(_t);
     }

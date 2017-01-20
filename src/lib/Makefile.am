@@ -17,6 +17,7 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
         -I. \
+        -I$(top_srcdir)/src/lib/uvw/src \
         @CALAOS_COMMON_CFLAGS@
 
 AM_CFLAGS = \
@@ -44,38 +45,22 @@ noinst_LTLIBRARIES = \
         libcalaos_common.la
 
 libcalaos_common_la_SOURCES = \
-        CThread.cpp                             \
-        CThread.h                               \
         CalaosModule.h                          \
-        CalaosNetwork.cpp                       \
-        CalaosNetwork.h                         \
         Calendar.cpp                            \
         Calendar.h                              \
-        DownloadManager.cpp                     \
-        DownloadManager.h                       \
-        EcoreFdHandler.cpp                      \
-        EcoreFdHandler.h                        \
-        EcoreTimer.cpp                          \
-        EcoreTimer.h                            \
-        EinaLog.cpp                             \
-        EinaLog.h                               \
-        FileDownloader.cpp                      \
-        FileDownloader.h                        \
-        Firmwares.cpp                           \
-        Firmwares.h                             \
-        IPC.cpp                                 \
-        IPC.h                                   \
+        Timer.cpp                               \
+        Timer.h                                 \
+        Logger.cpp                              \
+        Logger.h                                \
         Jansson_Addition.h                      \
-        Mutex.cpp                               \
-        Mutex.h                                 \
         NTPClock.cpp                            \
         NTPClock.h                              \
         Params.cpp                              \
         Params.h                                \
         Prefix.cpp                              \
         Prefix.h                                \
-	SHA1.cpp 				\
-	SHA1.h					\
+        SHA1.cpp                                \
+        SHA1.h                                  \
         TimeRange.cpp                           \
         TimeRange.h                             \
         TinyXML/action_store.cpp                \
@@ -127,13 +112,14 @@ libcalaos_common_la_SOURCES = \
         sunset.h                                \
         tcpsocket.cpp                           \
         tcpsocket.h                             \
-        threadManager.cpp                       \
-        threadManager.h                         \
         uri_parser/hef_uri_syntax.cpp           \
         uri_parser/hef_uri_syntax.h             \
         ColorUtils.h                            \
-        ColorUtils.cpp						    \
-        json.hpp
+        ColorUtils.cpp                          \
+        json.hpp                                \
+        uvw/src/uvw.hpp                         \
+        FileUtils.h                             \
+        FileUtils.cpp
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

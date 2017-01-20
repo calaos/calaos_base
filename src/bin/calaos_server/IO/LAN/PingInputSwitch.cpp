@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,13 +20,12 @@
  ******************************************************************************/
 #include "PingInputSwitch.h"
 #include "IOFactory.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
 REGISTER_IO(PingInputSwitch)
-
-Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event);
 
 PingInputSwitch::PingInputSwitch(Params &p):
     InputSwitch(p)
@@ -42,21 +41,14 @@ PingInputSwitch::PingInputSwitch(Params &p):
 
     if (!param_exists("interval")) set_param("interval", "15000");
 
-    hProcDel = ecore_event_handler_add(ECORE_EXE_EVENT_DEL,
-                                       PingInputSwitch_proc_del,
-                                       this);
-
     doPing();
 }
 
 PingInputSwitch::~PingInputSwitch()
 {
-    ecore_event_handler_del(hProcDel);
-    if (ping_exe)
-    {
-        ecore_exe_kill(ping_exe);
-        ecore_exe_free(ping_exe);
-    }
+    if (ping_exe->active())
+        ping_exe->kill(SIGTERM);
+    ping_exe->close();
 }
 
 bool PingInputSwitch::readValue()
@@ -74,32 +66,43 @@ void PingInputSwitch::doPing()
     string cmd = "ping -c 1 " + timeoutVal + " " + host;
     cDebugDom("input") << "Starting ping: " << cmd;
 
-    ping_exe = ecore_exe_run(cmd.c_str(), this);
-}
+    ping_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    ping_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
+    {
+        ping_exe->close();
 
-Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event)
-{
-    VAR_UNUSED(type);
-    Ecore_Exe_Event_Del *ev = reinterpret_cast<Ecore_Exe_Event_Del *>(event);
-    PingInputSwitch *in = reinterpret_cast<PingInputSwitch *>(data);
+        lastStatus = ev.exitStatus == 0;
 
-    if (!data || !in ||
-        in->ping_exe != ev->exe)
-        return ECORE_CALLBACK_PASS_ON;
+        cDebugDom("input") << "ping state is: " << lastStatus;
 
-    in->ping_exe = nullptr;
+        int interval = 15000; //15s default interval
+        if (Utils::is_of_type<int>(this->get_param("interval")))
+            Utils::from_string(this->get_param("interval"), interval);
 
-    in->lastStatus = ev->exit_code == 0;
+        Timer::singleShot(interval / 1000.0, sigc::mem_fun(*this, &PingInputSwitch::doPing));
 
-    cDebugDom("input") << "ping state is: " << in->lastStatus;
+        this->hasChanged();
+    });
+    ping_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
+    {
+        cDebugDom("process") << "Process error: " << ev.what();
+        ping_exe->close();
+    });
 
-    int interval = 15000; //15s default interval
-    if (Utils::is_of_type<int>(in->get_param("interval")))
-        Utils::from_string(in->get_param("interval"), interval);
+    vector<string> tok;
+    Utils::split(cmd, tok, " ");
 
-    EcoreTimer::singleShot(interval / 1000.0, sigc::mem_fun(*in, &PingInputSwitch::doPing));
+    //convert args list to a char**
+    const char **argarray = new const char*[tok.size() + 1];
+    unsigned index = 1;
+    for (auto it = tok.begin();it != tok.end();it++)
+    {
+        argarray[index] = it->c_str();
+        index++;
+    }
+    argarray[index] = NULL;
 
-    in->hasChanged();
+    ping_exe->spawn(tok[0].c_str(), (char **)argarray);
 
-    return ECORE_CALLBACK_RENEW;
+    delete [] argarray;
 }

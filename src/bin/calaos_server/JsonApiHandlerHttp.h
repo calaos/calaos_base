@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,11 +22,16 @@
 #define JSONAPIV2_H
 
 #include "JsonApi.h"
-#include <Ecore.h>
 #include "Room.h"
 #include "AudioPlayer.h"
 #include "UrlDownloader.h"
 #include "IPCam.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
 
 using namespace Calaos;
 
@@ -40,8 +45,7 @@ public:
 
 private:
 
-    Ecore_Event_Handler *exe_handler;
-    Ecore_Exe *exe_thumb;
+    std::shared_ptr<uvw::ProcessHandle> exe_thumb;
     string tempfname;
 
     Params jsonParam;
@@ -77,8 +81,7 @@ private:
 
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
 
-    void exeFinished(Ecore_Exe *exe, int exit_code);
-    friend Eina_Bool _ecore_exe_finished(void *data, int type, void *event);
+    void exeFinished(int exit_code);
 
     void downloadCameraPicture(IPCam *camera);
 };

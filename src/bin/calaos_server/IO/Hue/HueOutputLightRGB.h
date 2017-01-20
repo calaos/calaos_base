@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -21,7 +21,7 @@
 #ifndef HueOutputLightRGB_H
 #define HueOutputLightRGB_H
 
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "OutputLightRGB.h"
 
 namespace Calaos
@@ -33,7 +33,7 @@ private:
     string m_host;
     string m_api;
     string m_idHue;
-    EcoreTimer *m_timer;
+    Timer *m_timer;
 
     void setOff();
     void setColor(const ColorValue &c);

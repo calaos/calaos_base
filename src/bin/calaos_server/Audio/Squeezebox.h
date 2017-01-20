@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,9 +23,13 @@
 
 #include "Calaos.h"
 #include "AudioPlayer.h"
-#include "EcoreTimer.h"
-#include "Ecore.h"
-#include "Ecore_Con.h"
+#include "Timer.h"
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class TcpHandle;
+}
 
 namespace Calaos
 {
@@ -61,17 +65,10 @@ class Squeezebox: public AudioPlayer, public sigc::trackable
     friend class SqueezeboxDB;
 
 protected:
-    Ecore_Con_Server *enotif;
-    Ecore_Con_Server *econ;
+    std::shared_ptr<uvw::TcpHandle> conHandle;
+    std::shared_ptr<uvw::TcpHandle> notifHandle;
 
-    Ecore_Event_Handler *ehandler_add;
-    Ecore_Event_Handler *ehandler_del;
-    Ecore_Event_Handler *ehandler_data;
-
-    EcoreTimer *timer_notification;
-    EcoreTimer *timer_con;
-
-    EcoreTimer *timer_timeout;
+    Timer *timer_timeout;
     queue<SqueezeboxCommand> squeeze_commands;
 
     string host, id;
@@ -108,7 +105,7 @@ protected:
 
     void get_album_cb(bool status, string request, string result, AudioPlayerData data);
 
-    void get_album_cover_json_cb(string result, void *data, void *user_data);
+    void get_album_cover_json_cb(const string &result, int status, void *user_data);
     void get_album_cover_std(AudioPlayerData data);
     void get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data);
     void get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data);
@@ -221,9 +218,8 @@ public:
     }
 
     /* This is private for C callbacks */
-    void addConnection(Ecore_Con_Server *srv);
-    void delConnection(Ecore_Con_Server *srv);
-    void dataGet(Ecore_Con_Server *srv, void *data, int size);
+    void dataGetCon(string &msg);
+    void dataGetNotif(string &msg);
     void processMessage(bool status, string msg);
 };
 

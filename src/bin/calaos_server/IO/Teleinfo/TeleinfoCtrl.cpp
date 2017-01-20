@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2016, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,12 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-
 #include "TeleinfoCtrl.h"
-
 #include <termios.h>
-
-
+#include "uvw/src/uvw.hpp"
 
 #if defined(__linux__) || defined(__linux) || defined(linux)
 #include <sys/ioctl.h>
@@ -31,7 +28,6 @@
 #endif
 
 using namespace Calaos;
-
 
 TeleinfoCtrl::TeleinfoCtrl(const Params &p):
     param(p)
@@ -42,13 +38,6 @@ TeleinfoCtrl::TeleinfoCtrl(const Params &p):
 
 TeleinfoCtrl::~TeleinfoCtrl()
 {
-}
-
-static Eina_Bool _serial_handler_cb(void *data, Ecore_Fd_Handler *handler)
-{
-    TeleinfoCtrl *o = reinterpret_cast<TeleinfoCtrl *>(data);
-    if (o) return o->_serialHandler(handler);
-    return ECORE_CALLBACK_RENEW;
 }
 
 void TeleinfoCtrl::serialError()
@@ -135,13 +124,29 @@ void TeleinfoCtrl::openSerial()
             return;
         }
 
-        serial_handler = ecore_main_fd_handler_add(serialfd,
-                                                   (Ecore_Fd_Handler_Flags)
-                                                   (ECORE_FD_READ | ECORE_FD_ERROR),
-                                                   _serial_handler_cb,
-                                                   this,
-                                                   NULL,
-                                                   NULL);
+        serialHandle = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        serialHandle->open(serialfd);
+
+        //When serial is closed, remove it and close it
+        serialHandle->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl)
+        {
+            cl.close();
+        });
+
+        //When connection is closed
+        serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
+        {
+            this->closeSerial();
+            this->openSerialLater();
+        });
+
+        serialHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+        {
+            string d((char *)ev.data.get(), ev.length);
+            this->readNewData(d);
+        });
+
+        serialHandle->read();
 
         cInfoDom("teleinfo") << "Serial port opened.";
     }
@@ -157,57 +162,28 @@ void TeleinfoCtrl::openSerial()
 void TeleinfoCtrl::closeSerial()
 {
     if (serialfd == 0) return;
+
+    if (serialHandle && serialHandle->active())
+    {
+        serialHandle->stop();
+        serialHandle->close();
+    }
+
     ::tcdrain(serialfd); //flush
     ::tcsetattr(serialfd, TCSAFLUSH | TCSANOW, &oldTermios); // Restore old termios
     ::close(serialfd);
     serialfd = 0;
-    if (serial_handler)
-    {
-        ecore_main_fd_handler_del(serial_handler);
-        serial_handler = nullptr;
-    }
-
 }
 
 void TeleinfoCtrl::openSerialLater(double t)
 {
     if (timer) return;
-    timer = new EcoreTimer(t, [=]()
+    timer = new Timer(t, [=]()
     {
         delete timer;
         timer = NULL;
         openSerial();
     });
-}
-
-Eina_Bool TeleinfoCtrl::_serialHandler(Ecore_Fd_Handler *handler)
-{
-    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_ERROR))
-    {
-        cErrorDom("teleinfo") << "An error occured on the serial port";
-        serialError();
-        serial_handler = nullptr;
-        return ECORE_CALLBACK_CANCEL;
-    }
-
-    if (ecore_main_fd_handler_active_get(handler, ECORE_FD_READ))
-    {
-        int bytesAvail = 4096;
-#if defined(__linux__) || defined(__linux) || defined(linux)
-        if (::ioctl(serialfd, FIONREAD, &bytesAvail) == -1)
-            bytesAvail = 4096;
-#endif
-        string data;
-        data.resize(bytesAvail);
-        if (::read(serialfd, (char *)data.c_str(), bytesAvail) == -1)
-            serialError();
-
-        //        cDebugDom("teleinfo") << "Data available on serial port, " << bytesAvail << " bytes: " << data;
-
-        readNewData(data);
-    }
-
-    return ECORE_CALLBACK_RENEW;
 }
 
 void TeleinfoCtrl::readNewData(const string &data)

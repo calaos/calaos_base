@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "Scenario.h"
 #include "AutoScenario.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -71,7 +71,7 @@ bool Scenario::set_value(bool val)
                            { "state", val?"true":"false" } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    EcoreTimer::singleShot(0.250, [=]() { value = false; });
+    Timer::singleShot(0.250, [=]() { value = false; });
 
     return true;
 }

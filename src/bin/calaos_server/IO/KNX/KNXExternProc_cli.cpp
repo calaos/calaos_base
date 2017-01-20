@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "KNXExternProc_main.h"
 #include <time.h>
+#include <arpa/inet.h>
 
 bool KnxdObj::open(const string &server)
 {

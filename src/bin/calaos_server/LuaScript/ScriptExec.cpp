@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "ScriptExec.h"
 #include "Prefix.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 #include "JsonApi.h"
 #include "EventManager.h"
 
@@ -36,7 +36,7 @@ static unordered_map<ExternProcServer *, int> processStatus;
 ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
 {
     ExternProcServer *process = new ExternProcServer("lua");
-    cDebug() << "Starting script. (" << process << ")";
+    cInfoDom("lua") << "Starting script. (" << process << ")";
 
     JsonApi *jsonApi = new JsonApi();
     sigc::connection *evcon = new sigc::connection;
@@ -99,7 +99,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             cb(false);
         processStatus[process] = ProcessNone;
 
-        EcoreIdler::singleIdler([=]()
+        Idler::singleIdler([=]()
         {
             delete jsonApi;
             delete process;

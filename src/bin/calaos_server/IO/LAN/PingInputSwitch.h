@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,7 +22,12 @@
 #define PINGINPUTSWITCH_H
 
 #include "InputSwitch.h"
-#include <Ecore.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
 
 using namespace Calaos;
 
@@ -32,12 +37,9 @@ protected:
     virtual bool readValue();
 
     bool lastStatus = false;
-    Ecore_Exe *ping_exe = nullptr;
-    Ecore_Event_Handler *hProcDel;
+    std::shared_ptr<uvw::ProcessHandle> ping_exe;
 
     void doPing();
-
-    friend Eina_Bool PingInputSwitch_proc_del(void *data, int type, void *event);
 
 public:
     PingInputSwitch(Params &p);

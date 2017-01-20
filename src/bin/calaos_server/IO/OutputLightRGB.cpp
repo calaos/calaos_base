@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -242,7 +242,7 @@ bool OutputLightRGB::set_value(std::string val)
         from_string(val, timems);
 
         DELETE_NULL(timer_auto);
-        timer_auto = new EcoreTimer((double)timems / 1000.,
+        timer_auto = new Timer((double)timems / 1000.,
                                     (sigc::slot<void>)sigc::mem_fun(*this, &OutputLightRGB::TimerAutoChange) );
         //Directly start the first time
         TimerAutoChange();

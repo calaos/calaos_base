@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -26,7 +26,7 @@ PollObject::PollObject(string _uuid):
     uuid(_uuid),
     timeout(NULL)
 {
-    timeout = new EcoreTimer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
+    timeout = new Timer(TIMEOUT_POLLLISTENNER, (sigc::slot<void>)sigc::mem_fun(*this, &PollObject::Timeout_cb));
 
     evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &PollObject::handleEvents));
 
@@ -49,17 +49,6 @@ void PollObject::handleEvents(const CalaosEvent &ev)
     events.push_back(ev);
 }
 
-Eina_Bool _timeout_poll_idler_cb(void *data)
-{
-    PollObject *obj = reinterpret_cast<PollObject *>(data);
-    if (!obj) return ECORE_CALLBACK_CANCEL;
-
-    PollListenner::Instance().Unregister(obj->getUUID());
-
-    //delete the ecore_idler
-    return ECORE_CALLBACK_CANCEL;
-}
-
 void PollObject::Timeout_cb()
 {
     delete timeout;
@@ -67,7 +56,10 @@ void PollObject::Timeout_cb()
 
     cDebugDom("poll_listener") << uuid << " Timeout !";
 
-    ecore_idler_add(_timeout_poll_idler_cb, this);
+    Idler::singleIdler([=]()
+    {
+        PollListenner::Instance().Unregister(this->getUUID());
+    });
 }
 
 PollListenner::PollListenner()

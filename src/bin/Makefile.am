@@ -1,3 +1,3 @@
-SUBDIRS = calaos_server calaos_home tools
+SUBDIRS = calaos_server tools
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,26 +18,19 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Calaos.h>
-#include <FileDownloader.h>
-#include <ListeRoom.h>
-#include <ListeRule.h>
+#include "Calaos.h"
+#include "ListeRoom.h"
+#include "ListeRule.h"
+#include "UrlDownloader.h"
 
 using namespace Calaos;
 
 Utils::type_signal_wago Utils::signal_wago;
 
-int CURL_write_callback_server(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-    //don't care about the data
-    //just return the simulated number of data read
-    return size * nmemb;
-}
-
 void Calaos::CallUrl(string url, string post_data)
 {
-    FileDownloader *downloader = new FileDownloader(url, post_data, "text/plain", true);
-    downloader->Start();
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->httpPost(string(), post_data);
 }
 
 std::string Calaos::get_new_id(std::string prefix)

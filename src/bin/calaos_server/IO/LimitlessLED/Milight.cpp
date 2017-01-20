@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -19,12 +19,13 @@
  **
  ******************************************************************************/
 #include "Milight.h"
-#include "EcoreTimer.h"
+#include "Timer.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace Calaos;
 
@@ -33,31 +34,24 @@ Milight::Milight(string h, int p):
     port(p)
 {
     cDebugDom("milight") << "New Milight host: " << host << " port: " << port;
-    udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                          host.c_str(),
-                                          port,
-                                          this);
 }
 
 Milight::~Milight()
 {
-    ecore_con_server_del(udp_sender);
 }
 
 void Milight::sendCommand(uint8_t code, uint8_t param)
 {
     uint8_t cmd[3] = { code, param, 0x55 };
 
-    if (ecore_con_server_send(udp_sender, cmd, 3) == 0)
+    auto loop = uvw::Loop::getDefault();
+    auto udp_con = loop->resource<uvw::UDPHandle>();
+
+    udp_con->send(host, port, (char *)cmd, 3);
+    udp_con->once<uvw::SendEvent>([](auto &, auto &h)
     {
-        DELETE_NULL_FUNC(ecore_con_server_del, udp_sender);
-        udp_sender = ecore_con_server_connect(ECORE_CON_REMOTE_UDP,
-                                              host.c_str(),
-                                              port,
-                                              this);
-        ecore_con_server_send(udp_sender, cmd, 3);
-        ecore_con_server_flush(udp_sender);
-    }
+        h.close();
+    });
 }
 
 void Milight::sendOnCommand(int zone)
@@ -81,7 +75,7 @@ void Milight::sendWhiteCommand(int zone)
     if (zone < 0 || zone > 4) return;
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         uint8_t codes[5] = { 0xC2, 0xC5, 0xC7, 0xC9, 0xCB };
 
@@ -93,7 +87,7 @@ void Milight::sendDiscoCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x4D, 0x00);
     });
@@ -103,7 +97,7 @@ void Milight::sendDiscoDecCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x43, 0x00);
     });
@@ -113,7 +107,7 @@ void Milight::sendDiscoIncCommand(int zone)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x44, 0x00);
     });
@@ -125,7 +119,7 @@ void Milight::sendBrightnessCommand(int zone, int brightness)
         return;
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         uint8_t codes[19] = { 0x02, 0x03, 0x04, 0x05, 0x08,
                               0x09, 0x0A, 0x0B, 0x0D, 0x0E,
@@ -140,7 +134,7 @@ void Milight::sendColorCommand(int zone, ushort color)
 {
     sendOnCommand(zone);
 
-    EcoreTimer::singleShot(0.1, [=]()
+    Timer::singleShot(0.1, [=]()
     {
         sendCommand(0x40, color);
     });

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,10 +23,9 @@
 
 #include <unordered_map>
 
-#include <Utils.h>
-#include <DownloadManager.h>
-#include <EcoreTimer.h>
-#include <Params.h>
+#include "Utils.h"
+#include "UrlDownloader.h"
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -35,9 +34,8 @@ class WebCtrl
 {
 private:    
     WebCtrl(Params &p, int file_type);
-    DownloadManager *dlManager;
     double frequency;
-    EcoreTimer *timer;
+    Timer *timer;
     void downloadFinished(string emission, string source, void* data);
     void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
     Params param;

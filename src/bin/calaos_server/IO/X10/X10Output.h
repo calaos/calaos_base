@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,6 +23,12 @@
 
 #include <OutputLightDimmer.h>
 
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
+
 namespace Calaos
 {
 
@@ -31,6 +37,9 @@ class X10Output : public OutputLightDimmer
 private:
     std::string housecode;
     bool state_value;
+
+    std::shared_ptr<uvw::ProcessHandle> exe;
+    void execCmd(const string &cmd);
 
     virtual bool set_on_real();
     virtual bool set_off_real();

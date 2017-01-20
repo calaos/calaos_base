@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -20,52 +20,10 @@
  ******************************************************************************/
 #include "Utils.h"
 
-#include <Ecore_File.h>
 #include <tcpsocket.h>
+#include "uvw/src/uvw.hpp"
 
 using namespace Utils;
-
-bool Utils::file_copy(std::string source, std::string dest)
-{
-    FILE *f1, *f2;
-    char buf[16384];
-    char realpath1[PATH_MAX];
-    char realpath2[PATH_MAX];
-    size_t num;
-    size_t res;
-
-    if (!realpath(source.c_str(), realpath1)) return false;
-    if (realpath(dest.c_str(), realpath2) && !strcmp(realpath1, realpath2)) return false;
-
-    f1 = fopen(source.c_str(), "rb");
-    if (!f1) return false;
-    f2 = fopen(dest.c_str(), "wb");
-    if (!f2)
-    {
-        fclose(f1);
-        return false;
-    }
-
-    while ((num = fread(buf, 1, sizeof(buf), f1)) > 0)
-    {
-        res = fwrite(buf, 1, num, f2);
-        if (res <= 0) cCritical() <<  "Failed to fwrite !";
-    }
-
-    fclose(f1);
-    fclose(f2);
-
-    return true;
-}
-
-bool Utils::fileExists(std::string filename)
-{
-    struct stat buf;
-    if (stat(filename.c_str(), &buf) != -1)
-        return true;
-
-    return false;
-}
 
 string Utils::url_encode(string str)
 {
@@ -357,41 +315,14 @@ void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
         res.push_back(item);
 }
 
-int CURL_write_callback(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-    File_CURL *out = (File_CURL *)stream;
-
-    if(out && !out->fp)
-    {
-        /* open file for writing */
-        out->fp = fopen(out->fname, "wb+");
-        if(!out->fp)
-            return -1; /* failure, can't open file to write */
-    }
-
-    return fwrite(buffer, size, nmemb, out->fp);
-}
-
-int CURL_writebuf_callback(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-    Buffer_CURL *cbuffer = (Buffer_CURL *)stream;
-
-    cbuffer->buffer = realloc(cbuffer->buffer, cbuffer->bufsize + size * nmemb);
-    memcpy((char *)cbuffer->buffer + cbuffer->bufsize, buffer, size * nmemb);
-
-    cbuffer->bufsize = cbuffer->bufsize + size * nmemb;
-
-    return nmemb;
-}
-
-static bool einaLogShuttingDown = false;
+static bool calaosLogShuttingDown = false;
 static string default_domain;
-static std::unordered_map<std::string, EinaLog *> logger_hash;
-static EinaLog defaultCoutLogger(true);
+static std::unordered_map<std::string, Logger *> logger_hash;
+static Logger defaultCoutLogger;
 
-EinaLog *Utils::einaLogger(const char *domain)
+Logger *Utils::calaosLogger(const char *domain)
 {
-    if (einaLogShuttingDown)
+    if (calaosLogShuttingDown)
         return &defaultCoutLogger;
 
     string d = default_domain;
@@ -399,18 +330,11 @@ EinaLog *Utils::einaLogger(const char *domain)
     if (domain)
       d = domain;
 
-    // Prefix all domains with calaos_. We can so filter log domains
-    // with export EINA_LOG_LEVELS_GLOB="calaos*:5"
-
-    //add domain prefix to ease eina logs filtering
-    if (!Utils::strStartsWith(d, "calaos_"))
-        d.insert(0, "calaos_");
-
-    EinaLog *logger = nullptr;
+    Logger *logger = nullptr;
     auto it = logger_hash.find(d);
     if (it == logger_hash.end())
     {
-        logger = new EinaLog(d);
+        logger = new Logger(d);
         logger_hash[d] = logger;
     }
     else
@@ -419,23 +343,17 @@ EinaLog *Utils::einaLogger(const char *domain)
     return logger;
 }
 
-void Utils::InitEinaLog(const char *d)
+void Utils::initLogger(const char *d)
 {
     //We are actually shutting down everything, do not allocate memory
-    if (einaLogShuttingDown)
+    if (calaosLogShuttingDown)
         return;
 
-    //try to get env variable EINA_LOG_LEVELS_GLOB
-    //and if not defined set it to print INF messages by default
-    if (!getenv("EINA_LOG_LEVELS_GLOB"))
-        setenv("EINA_LOG_LEVELS_GLOB", "calaos*:3,*:0", true);
-
-    eina_init();
     default_domain = d;
-    logger_hash[default_domain] = new EinaLog(default_domain);
+    logger_hash[default_domain] = new Logger(default_domain);
 }
 
-void Utils::FreeEinaLogs()
+void Utils::freeLoggers()
 {
     for (auto &kv: logger_hash)
     {
@@ -443,9 +361,7 @@ void Utils::FreeEinaLogs()
     }
     logger_hash.clear();
 
-    eina_shutdown();
-
-    einaLogShuttingDown = true;
+    calaosLogShuttingDown = true;
 }
 
 static string _configBase;
@@ -482,7 +398,8 @@ string Utils::getConfigFile(const char *configType)
         {
             string conf = *it;
             conf += "/" IO_CONFIG;
-            if (ecore_file_exists(conf.c_str()))
+
+            if (FileUtils::exists(conf))
             {
                 _configBase = *it;
                 break;
@@ -492,8 +409,8 @@ string Utils::getConfigFile(const char *configType)
         if (_configBase.empty())
         {
             //no config dir found, create $HOME/.config/calaos
-            ecore_file_mkdir(string(home + "/.config").c_str());
-            ecore_file_mkdir(string(home + "/.config/calaos").c_str());
+          mkdir(string(home + "/.config").c_str(), S_IRWXU);
+            mkdir(string(home + "/.config/calaos").c_str(), S_IRWXU);
             _configBase = home + "/" + HOME_CONFIG_PATH;
         }
     }
@@ -517,8 +434,8 @@ string Utils::getCacheFile(const char *cacheFile)
         }
 
         //force the creation of .cache/calaos
-        ecore_file_mkdir(string(home + "/.cache").c_str());
-        ecore_file_mkdir(string(home + "/.cache/calaos").c_str());
+        mkdir(string(home + "/.cache").c_str(), S_IRWXU);
+        mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
 
         _cacheBase = home + "/.cache/calaos";
     }
@@ -535,16 +452,16 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 
     if (!quiet)
     {
-        cInfo() << "Using config path: " << getConfigFile("");
-        cInfo() << "Using cache path: " << getCacheFile("");
+        cout << "Using config path: " << getConfigFile("") << endl;
+        cout << "Using cache path: " << getCacheFile("") << endl;
     }
 
-    if (!ecore_file_can_write(getConfigFile("").c_str()))
+    if (!FileUtils::isWritable(getConfigFile("")))
         throw (runtime_error("config path is not writable"));
-    if (!ecore_file_can_write(getCacheFile("").c_str()))
+    if (!FileUtils::isWritable(getCacheFile("")))
         throw (runtime_error("cache path is not writable"));
 
-    if (!fileExists(file))
+    if (!FileUtils::exists(file))
     {
         //create a defaut config
         std::ofstream conf(file.c_str(), std::ofstream::out);
@@ -908,4 +825,62 @@ string Utils::escape_quotes(const string &s)
     }
 
     return after;
+}
+
+CStrArray::CStrArray(const string &str_split)
+{
+    Utils::split(str_split, m_strings, " ");
+    updateNative();
+}
+
+CStrArray::CStrArray(const vector<string> &lst):
+    m_strings(lst)
+{
+    updateNative();
+}
+
+CStrArray::~CStrArray()
+{
+    delete [] m_data;
+}
+
+void CStrArray::updateNative()
+{
+    delete [] m_data;
+    m_data = new const char*[m_strings.size() + 1];
+    stringstream sstr;
+
+    unsigned index = 0;
+    for (auto it = m_strings.begin();it != m_strings.end();it++)
+    {
+        sstr << *it << " ";
+        m_data[index] = it->c_str();
+        index++;
+    }
+    m_data[index] = NULL;
+    m_tostring = sstr.str();
+}
+
+std::string CStrArray::toString()
+{
+    return m_tostring;
+}
+
+string Utils::getTmpFilename(const string &ext, const string &prefix)
+{
+    string tempfname;
+    int cpt = rand();
+    do
+    {
+        tempfname = "/tmp/calaos" + prefix + "_" + Utils::to_string(cpt) + "." + ext;
+        cpt++;
+    }
+    while (FileUtils::exists(tempfname));
+
+    return tempfname;
+}
+
+double Utils::getMainLoopTime()
+{
+    return uvw::Loop::getDefault()->now().count() / 1000.0;
 }

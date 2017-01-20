@@ -28,8 +28,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sstream>
-#include <Eina.h>
-#include <Ecore_File.h>
 
 // On MacosX MSG_NOSIGNAL is not defined, redefine it here, and use the setsockopt(SO_SIGPIPE) when initializing the socket
 #if !defined(MSG_NOSIGNAL)
@@ -94,9 +92,9 @@ bool TCPSocket::Create(char nType)
 {
     cDebugDom("socket") << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
-    if (nType == TCP)
+    if (nType == TCPSocketTCP)
         return Create();
-    if (nType == UDP)
+    if (nType == TCPSocketUDP)
     {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -424,7 +422,7 @@ bool TCPSocket::Create(int nPort, char nType)
 
     cDebugDom("socket") << nPort << ", " << nType << "fd=" << Utils::to_string((!newfd)?sockfd:newfd);
 
-    if (nType == TCP)
+    if (nType == TCPSocketTCP)
     {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1)
@@ -433,7 +431,7 @@ bool TCPSocket::Create(int nPort, char nType)
             return false;
         }
     }
-    if (nType == UDP)
+    if (nType == TCPSocketUDP)
     {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         if (sockfd == -1)
@@ -575,18 +573,7 @@ std::string TCPSocket::GetLocalIP(std::string intf)
 #define SYSCLASSNET     "/sys/class/net"
 vector<string> TCPSocket::getAllInterfaces()
 {
-    vector<string> ret;
-    Eina_Iterator *it = eina_file_ls(SYSCLASSNET);
-
-    const char *f_name;
-    EINA_ITERATOR_FOREACH(it, f_name)
-    {
-        ret.push_back(ecore_file_file_get(f_name));
-        eina_stringshare_del(f_name);
-    }
-    eina_iterator_free(it);
-
-    return ret;
+    return FileUtils::listDir(SYSCLASSNET);
 }
 
 std::string TCPSocket::GetLocalIPFor(std::string ip_search)

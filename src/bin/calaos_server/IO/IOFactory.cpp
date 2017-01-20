@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <IOFactory.h>
-#include <Ecore_File.h>
 
 using namespace Calaos;
 
@@ -100,11 +99,11 @@ void IOFactory::genDocIO(string docPath)
 
 void IOFactory::genDoc(string path)
 {
-    if (!ecore_file_exists(path.c_str()))
+    if (!FileUtils::exists(path))
     {
         cDebug() << "Creating Documentation path " << path;
 
-        if (!ecore_file_mkpath(path.c_str()))
+        if (!FileUtils::mkpath(path))
         {
             cError() << "Unable to create path " << path;
             return;

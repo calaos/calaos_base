@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2015, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,36 +22,34 @@
 #define CALAOS_URL_UTILS_H
 
 #include <stdint.h>
-
 #include <Utils.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
 
-//File Downloader thread
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+class PipeHandle;
+}
+
+//Url Downloader class
 class UrlDownloader: public sigc::trackable
 {
-
 private:
     enum RequestType {HTTP_GET, HTTP_PUT, HTTP_POST, HTTP_DELETE};
 
+    std::shared_ptr<uvw::ProcessHandle> exeCurl;
+    std::shared_ptr<uvw::PipeHandle> pipe;
+
     RequestType m_requestType = HTTP_POST;
+
+    string tempFilename;
+    string tmpHeader;
+    int statusCode = 0; //http status code
 
     bool m_auth = false;
     string m_user;
     string m_password;
 
-    // EcoreCon events handlers
-    Ecore_Event_Handler *m_completeHandler;
-    Ecore_Event_Handler *m_dataHandler;
-    Ecore_Event_Handler *m_progressHandler;
-
-    // Ecore Con handle
-    Ecore_Con_Url *m_urlCon = nullptr;
-
-    // File pointer to pass to ecore when a destination is given
-    FILE *m_file = nullptr;
-    // fd of the file when a fd is given
-    int m_fd = -1;
     // Url to contact
     string m_url = "";
     // Destination where to store the result
@@ -61,33 +59,29 @@ private:
     // Content type to be send
     string m_postContentType = "";
 
+    //data downloaded when no destination file is set
+    string m_downloadedData;
+
     //Common function for starting download of url
     bool start();
 
     bool m_autodelete;
+    bool downloadToFile = false;
+    vector<string> headersRequest; //header for the request
 
-    friend Eina_Bool _progress_cb(void *data, int type, void *event);
-    friend Eina_Bool _complete_cb(void *data, int type, void *event);
-    friend Eina_Bool _data_cb(void *data, int type, void *event);
-
-    void progressCb(double now, double total);
     void completeCb(int status);
-    void dataCb(unsigned char *data, int size);
+    void dataCb(const char *data, int size);
 
 public:
-    // BinBuf pointer containing data downloaded
-    Eina_Binbuf *m_downloadedData = NULL;
-
     // Constructor
     UrlDownloader(string url, bool autodelete = false);
 
     // Setter for private members
     void bodyDataSet(string bodyData) {m_bodyData = bodyData;}
-    void postContentTypeSet(string postContentType) {m_postContentType = postContentType;}
+    void setHeader(string header, string value);
     void destinationSet(string destination) {m_destination = destination;}
     void authSet(string user, string password) {m_user = user; m_password = password; m_auth = true;}
     void authUnSet() {m_auth = false;}
-    void fdSet(int fd) {m_fd = fd;}
 
     Params getResponseHeaders();
 
@@ -100,9 +94,8 @@ public:
 
     // Signals/Slots
     sigc::signal<void, int> m_signalComplete;
-    sigc::signal<void, Eina_Binbuf*, int> m_signalCompleteData;
-    sigc::signal<void, double, double> m_signalProgress;
-    sigc::signal<void, int, unsigned char*> m_signalData;
+    sigc::signal<void, const string &, int> m_signalCompleteData;
+    sigc::signal<void, int, const char *> m_signalData;
 
     void Destroy();
 };

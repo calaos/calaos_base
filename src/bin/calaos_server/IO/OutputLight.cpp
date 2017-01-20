@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -149,7 +149,7 @@ void OutputLight::impulse(int time)
     set_value(true);
 
     if (timer) delete timer;
-    timer = new EcoreTimer((double)time / 1000.,
+    timer = new Timer((double)time / 1000.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputLight::TimerImpulse) );
 }
 
@@ -233,7 +233,7 @@ void OutputLight::impulse_extended(string pattern)
     {
         _set_value(blinks[current_blink].state);
 
-        timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+        timer = new Timer((double)blinks[current_blink].duration / 1000.,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputLight::TimerImpulseExtended) );
     }
 }
@@ -257,7 +257,7 @@ void OutputLight::TimerImpulseExtended()
     _set_value(blinks[current_blink].state);
 
     //restart timer
-    timer = new EcoreTimer((double)blinks[current_blink].duration / 1000.,
+    timer = new Timer((double)blinks[current_blink].duration / 1000.,
                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputLight::TimerImpulseExtended) );
 }
 

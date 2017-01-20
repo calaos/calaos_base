@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -21,8 +21,9 @@
 #include "ActionMail.h"
 #include "ListeRoom.h"
 #include "IPCam.h"
-#include "FileDownloader.h"
 #include "Prefix.h"
+#include "uvw/src/uvw.hpp"
+#include "UrlDownloader.h"
 
 using namespace Calaos;
 
@@ -49,35 +50,19 @@ bool ActionMail::Execute()
                                       << camera->get_param("name")
                                       << ") attachment";
 
-        string tmpFile;
-        int cpt = 0;
-
         //Get a temporary filename
-        do
-        {
-            tmpFile = "/tmp/calaos_mail_attachment_";
-            tmpFile += Utils::to_string(cpt);
-            cpt++;
-        }
-        while (ecore_file_exists(tmpFile.c_str()));
+        mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
 
-        // Autodestroy file downloader
         cDebug() << "DL URL: " << camera->getPictureUrl();
-        FileDownloader* downloader = new FileDownloader(camera->getPictureUrl(), tmpFile, true);
-        downloader->addCallback([=](string signal, void *sender_data)
+
+        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
+        dl->m_signalComplete.connect([this](int status)
         {
-            if (signal == "done")
-            {
-                mail_attachment_tfile = *(reinterpret_cast<string *>(sender_data));
-                sendMail();
-            }
-            else if (signal == "failed" || signal == "aborted")
-            {
+            if (status < 20 || status >= 300)
                 mail_attachment_tfile.clear();
-                sendMail();
-            }
+            this->sendMail();
         });
-        downloader->Start();
+        dl->httpGet(mail_attachment_tfile);
     }
     else
     {
@@ -91,16 +76,8 @@ bool ActionMail::Execute()
 
 void ActionMail::sendMail()
 {
-    string tmpFile;
-    int cpt = 0;
     //Get a temporary filename
-    do
-    {
-        tmpFile = "/tmp/calaos_mail_body_";
-        tmpFile += Utils::to_string(cpt);
-        cpt++;
-    }
-    while (ecore_file_exists(tmpFile.c_str()));
+    string tmpFile = Utils::getTmpFilename("tmp", "_mail_body");
 
     //Write body message to a temp file
     std::ofstream ofs;
@@ -108,32 +85,37 @@ void ActionMail::sendMail()
     ofs << mail_message;
     ofs.close();
 
-    stringstream cmd;
+    vector<string> cmd;
+    cmd.push_back(Prefix::Instance().binDirectoryGet() + "/calaos_mail");
+    cmd.push_back("--delete"); //force temp file deletion after mail is sent
+    if (Utils::get_config_option("smtp_debug") == "true")
+        cmd.push_back("--verbose");
+    cmd.push_back("--from");
+    cmd.push_back(mail_sender);
+    cmd.push_back("--to");
+    cmd.push_back(mail_recipients);
+    cmd.push_back("--subject");
+    cmd.push_back(mail_subject);
+    cmd.push_back("--body");
+    cmd.push_back(tmpFile);
 
-    cmd << Prefix::Instance().binDirectoryGet();
-    cmd << "/calaos_mail";
-
-    if (ecore_file_exists(cmd.str().c_str()))
+    if (!mail_attachment_tfile.empty())
     {
-        cmd << " ";
-        cmd << "--delete "; //force temp file deletion after mail is sent
-        if (Utils::get_config_option("smtp_debug") == "true")
-            cmd << "--verbose ";
-        cmd << "--from \"" << mail_sender << "\" ";
-        cmd << "--to \"" << mail_recipients << "\" ";
-        cmd << "--subject \"" << mail_subject << "\" ";
-        cmd << "--body " << tmpFile << " ";
-
-        if (!mail_attachment_tfile.empty())
-            cmd << "--attach " << mail_attachment_tfile;
-
-        cInfo() << "Executing command : " << cmd.str();
-        ecore_exe_run(cmd.str().c_str(), NULL);
+        cmd.push_back("--attach");
+        cmd.push_back(mail_attachment_tfile);
     }
-    else
+
+    auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+    exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
+    exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
     {
-        cError() << "Command " << cmd.str() << " not found";
-    }
+        cDebugDom("rule.action.mail") << "Process error: " << ev.what();
+        exe->close();
+    });
+
+    Utils::CStrArray arr(cmd);
+    cInfoDom("rule.action.mail") << "Executing command: " << arr.toString();
+    exe->spawn(arr.at(0), arr.data());
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

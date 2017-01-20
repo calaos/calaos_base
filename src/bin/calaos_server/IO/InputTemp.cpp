@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "InputTemp.h"
-#include <Ecore.h>
 #include "ListeRule.h"
 #include "CalaosConfig.h"
 
@@ -52,7 +51,7 @@ InputTemp::InputTemp(Params &p):
 
     coeff_a = 1.0;
     coeff_b = 0.0;
-    timer = ecore_time_get();
+    timer = Utils::getMainLoopTime();
     if (get_params().Exists("coeff_a"))
       Utils::from_string(get_param("coeff_a"), coeff_a);
     if (get_params().Exists("coeff_b"))
@@ -100,10 +99,10 @@ void InputTemp::hasChanged()
 {
     if (!isEnabled()) return;
 
-    double sec = ecore_time_get() - timer;
+    double sec = Utils::getMainLoopTime() - timer;
     if (sec >= readTime)
     {
-        timer = ecore_time_get();
+        timer = Utils::getMainLoopTime();
 
         readValue();
 

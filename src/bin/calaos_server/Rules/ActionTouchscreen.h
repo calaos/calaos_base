@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,7 +23,6 @@
 
 #include "Calaos.h"
 #include "Action.h"
-#include <Ecore_Con.h>
 
 namespace Calaos
 {
@@ -33,7 +32,7 @@ class ActionTouchscreen: public Action
 private:
     string action;
 
-    Ecore_Con_Server *econ;
+//    Ecore_Con_Server *econ;
 
 public:
     ActionTouchscreen();

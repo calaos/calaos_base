@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2016, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -23,13 +23,16 @@
 #define TELEINFOCTRL_H
 
 #include <Utils.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
 #include <Params.h>
 #include <unordered_map>
 #include <termios.h>
-#include <Ecore.h>
-#include <Ecore_Con.h>
 
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class PipeHandle;
+}
 
 namespace Calaos
 {
@@ -37,12 +40,15 @@ namespace Calaos
 class TeleinfoField
 {
 public:
-    TeleinfoField(string _name, int _size, string _value) : name(_name), size(_size), value(_value){};
+    TeleinfoField(string _name, int _size, string _value):
+        name(_name),
+        size(_size),
+        value(_value)
+    {}
 
     string name;
     int size;
     string value;
-
 };
 
 class TeleinfoCtrl
@@ -52,13 +58,12 @@ private:
     TeleinfoCtrl(const Params &p);
     Params param;
 
-
     int serialfd = 0;
     struct termios currentTermios;
     struct termios oldTermios;
 
-    EcoreTimer *timer = nullptr;
-    Ecore_Fd_Handler *serial_handler = nullptr;
+    Timer *timer = nullptr;
+    std::shared_ptr<uvw::PipeHandle> serialHandle;
     string dataBuffer;
 
     void openSerial();
@@ -102,7 +107,6 @@ public:
     }
     ~TeleinfoCtrl();
 
-    Eina_Bool _serialHandler(Ecore_Fd_Handler *handler);
     void registerIO(string teleinfoValue, sigc::slot<void> callback);
     string getValue(string teleinfoValue);
 };

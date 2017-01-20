@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2007-2014, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2017, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -22,12 +22,15 @@
 #define S_NTPClock_H
 
 #include <Utils.h>
-#include <CThread.h>
 #include <tcpsocket.h>
-#include <Ecore.h>
-#include <IPC.h>
 #include <Calendar.h>
-#include <EcoreTimer.h>
+#include <Timer.h>
+
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class ProcessHandle;
+}
 
 /**
  * This class is a singleton
@@ -62,18 +65,12 @@ private:
     /**
                  * the timer used to launch a ntp every n secondes
                  */
-    EcoreTimer *timer;
+    Timer *timer;
 
     void TimerTick();
 
-    /**
-                 * the exe used during the object apply a date
-                 */
-    Ecore_Exe *exe;
-    /**
-                 * the handle used during the object apply a date
-                 */
-    Ecore_Event_Handler *handler;
+    std::shared_ptr<uvw::ProcessHandle> exe, syncexe;
+    void syncHwClock();
 
 public:
 
@@ -110,10 +107,6 @@ public:
                  * enable or disable the ntp in the configuration file
                  */
     void enable(bool en);
-
-    //Private, used by Ecore
-    void Handle1();
-    void Handle2();
 };
 
 #endif
