@@ -41,7 +41,7 @@ WebOutputLightRGB::WebOutputLightRGB(Params &p):
                              "Calaos substitutes __##VALUE##__ string with the value to send. For example "
                              "if the url is http://example.com/api?value=__##VALUE##__ the url post will be :\n"
                              "http://example.com/api?value=20.3\nThe url is encoded before being sent.\n"
-                             "If the URL is of type file:// the data is written to a file."),
+                             "If the URL begins with / the data is written to a file."),
                     IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("data", _("The document send when posting data. This value can be void, in, that case the value "
                               "is substituted in the url, otherwise the __##VALUE##__ contained in data is substituted with "

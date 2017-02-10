@@ -39,7 +39,7 @@ WebInputTemp::WebInputTemp(Params &p):
     ioDoc->friendlyNameSet("WebInputTemp");
     ioDoc->descriptionSet(_("Temperature input read from a web document"));
     ioDoc->paramAdd("url", _("URL where to download the document from.\n"
-                             "If URL begins with file:// the data is read from the local file"),
+                             "If URL begins with / the data is read from the local file"),
                     IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("file_type",_("File type of the document. Values can be xml, json or text."),
                     IODoc::TYPE_STRING, true);
