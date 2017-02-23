@@ -1,11 +1,12 @@
 #pragma once
 
 
+#include <algorithm>
 #include <utility>
 #include <memory>
 #include <string>
+#include <vector>
 #include <uv.h>
-#include "event.hpp"
 #include "handle.hpp"
 #include "stream.hpp"
 #include "util.hpp"
@@ -45,15 +46,14 @@ enum class UVStdIOFlags: std::underlying_type_t<uv_stdio_flags> {
  *
  * It will be emitted by ProcessHandle according with its functionalities.
  */
-struct ExitEvent: Event<ExitEvent> {
-    explicit ExitEvent(int64_t exit_status, int term_signal) noexcept
-        : exitStatus{exit_status}, termSignal{term_signal}
+struct ExitEvent {
+    explicit ExitEvent(int64_t code, int sig) noexcept
+        : status{code}, signal{sig}
     {}
 
-    int64_t exitStatus; /*!< the exit status. */
-    int termSignal; /*!< the signal that caused the process to terminate, if any. */
+    int64_t status; /*!< The exit status. */
+    int signal; /*!< The signal that caused the process to terminate, if any. */
 };
-
 
 /**
  * @brief The ProcessHandle handle.
@@ -71,7 +71,12 @@ public:
     using Process = details::UVProcessFlags;
     using StdIO = details::UVStdIOFlags;
 
-    using Handle::Handle;
+    ProcessHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref)
+        : Handle{std::move(ca), std::move(ref)}, poFdStdio{1}
+    {
+        // stdin container default initialization
+        poFdStdio[0].flags = static_cast<uv_stdio_flags>(StdIO::IGNORE_STREAM);
+    }
 
     /**
      * @brief Disables inheritance for file descriptors/handles.
@@ -122,22 +127,30 @@ public:
      * @param env Optional environment for the new process.
      */
     void spawn(const char *file, char **args, char **env = nullptr) {
-        uv_process_options_t po = {};
+        uv_process_options_t po;
 
         po.exit_cb = &exitCallback;
 
         po.file = file;
         po.args = args;
         po.env = env;
-
-        if (!poCwd.empty()) {
-            po.cwd = poCwd.data();
-        }
+        po.cwd = poCwd.empty() ? nullptr : poCwd.data();
         po.flags = poFlags;
-        po.stdio_count = poStdio.size();
-        po.stdio = poStdio.data();
         po.uid = poUid;
         po.gid = poGid;
+
+        /**
+         * See the constructor, poFdStdio[0] is stdin. It must be poStdio[0] by
+         * convention. From the official documentation:
+         *
+         * > The convention is that stdio[0] points to stdin, fd 1 is used
+         * > for stdout, and fd 2 is stderr.
+         */
+        std::vector<uv_stdio_container_t> poStdio{poFdStdio.size() + poStreamStdio.size()};
+        poStdio.insert(poStdio.begin(), poStreamStdio.cbegin(), poStreamStdio.cend());
+        poStdio.insert(poStdio.begin(), poFdStdio.cbegin(), poFdStdio.cend());
+        po.stdio_count = static_cast<decltype(po.stdio_count)>(poStdio.size());
+        po.stdio = poStdio.data();
 
         invoke(&uv_spawn, parent(), get(), &po);
     }
@@ -210,17 +223,17 @@ public:
      * [documentation](http://docs.libuv.org/en/v1.x/process.html#c.uv_stdio_flags)
      * for further details.
      *
-     * @param flags A valid set of flags.
      * @param stream A valid `stdio` handle.
+     * @param flags A valid set of flags.
      * @return A reference to this process handle.
      */
     template<typename T, typename U>
-    ProcessHandle& stdio(Flags<StdIO> flags, StreamHandle<T, U> &stream) {
+    ProcessHandle& stdio(StreamHandle<T, U> &stream, Flags<StdIO> flags) {
         uv_stdio_container_t container;
         Flags<StdIO>::Type fgs = flags;
         container.flags = static_cast<uv_stdio_flags>(fgs);
-        container.data.stream = this->template get<uv_stream_t>(stream);
-        poStdio.push_back(std::move(container));
+        container.data.stream = get<uv_stream_t>(stream);
+        poStreamStdio.push_back(std::move(container));
         return *this;
     }
 
@@ -236,21 +249,42 @@ public:
      * * `ProcessHandle::StdIO::READABLE_PIPE`
      * * `ProcessHandle::StdIO::WRITABLE_PIPE`
      *
+     * Default file descriptors are:
+     *     * `uvw::StdIN` for `stdin`
+     *     * `uvw::StdOUT` for `stdout`
+     *     * `uvw::StdERR` for `stderr`
+     *
      * See the official
      * [documentation](http://docs.libuv.org/en/v1.x/process.html#c.uv_stdio_flags)
      * for further details.
      *
-     * @param flags A valid set of flags.
      * @param fd A valid file descriptor.
+     * @param flags A valid set of flags.
      * @return A reference to this process handle.
      */
-//    template<typename T>
-    ProcessHandle& stdio(Flags<StdIO> flags, FileHandle fd) {
-        uv_stdio_container_t container;
-        Flags<StdIO>::Type fgs = flags;
-        container.flags = static_cast<uv_stdio_flags>(fgs);
-        container.data.fd = fd;
-        poStdio.push_back(std::move(container));
+    ProcessHandle& stdio(FileHandle fd, Flags<StdIO> flags) {
+        auto fgs = static_cast<uv_stdio_flags>(Flags<StdIO>::Type{flags});
+
+        auto actual = FileHandle::Type{fd};
+
+        if(actual == FileHandle::Type{StdIN}) {
+            poFdStdio[0].flags = fgs;
+        } else {
+            auto it = std::find_if(poFdStdio.begin(), poFdStdio.end(), [actual](auto &&container){
+                return container.data.fd == actual;
+            });
+
+            if(it == poFdStdio.cend()) {
+                uv_stdio_container_t container;
+                container.flags = fgs;
+                container.data.fd = actual;
+                poFdStdio.push_back(std::move(container));
+            } else {
+                it->flags = fgs;
+                it->data.fd = actual;
+            }
+        }
+
         return *this;
     }
 
@@ -277,7 +311,8 @@ public:
 private:
     std::string poCwd;
     Flags<Process> poFlags;
-    std::vector<uv_stdio_container_t> poStdio;
+    std::vector<uv_stdio_container_t> poFdStdio;
+    std::vector<uv_stdio_container_t> poStreamStdio;
     Uid poUid;
     Gid poGid;
 };

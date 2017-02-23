@@ -5,7 +5,6 @@
 #include <memory>
 #include <chrono>
 #include <uv.h>
-#include "event.hpp"
 #include "handle.hpp"
 #include "loop.hpp"
 
@@ -18,7 +17,7 @@ namespace uvw {
  *
  * It will be emitted by TimerHandle according with its functionalities.
  */
-struct TimerEvent: Event<TimerEvent> {};
+struct TimerEvent {};
 
 
 /**
@@ -35,7 +34,7 @@ class TimerHandle final: public Handle<TimerHandle, uv_timer_t> {
     }
 
 public:
-    using Time = std::chrono::milliseconds;
+    using Time = std::chrono::duration<uint64_t, std::milli>;
 
     using Handle::Handle;
 
@@ -54,8 +53,10 @@ public:
      * iteration. If repeat is non-zero, a TimerEvent event is emitted first
      * after timeout milliseconds and then repeatedly after repeat milliseconds.
      *
-     * @param timeout Milliseconds before to emit an event.
-     * @param repeat Milliseconds between successive events.
+     * @param timeout Milliseconds before to emit an event (use
+     * `std::chrono::duration<uint64_t, std::milli>`).
+     * @param repeat Milliseconds between successive events (use
+     * `std::chrono::duration<uint64_t, std::milli>`).
      */
     void start(Time timeout, Time repeat) {
         invoke(&uv_timer_start, get(), &startCallback, timeout.count(), repeat.count());
@@ -94,7 +95,8 @@ public:
      * will have been stopped. If it was repeating, then the old repeat value
      * will have been used to schedule the next timeout.
      *
-     * @param repeat Repeat interval in milliseconds.
+     * @param repeat Repeat interval in milliseconds (use
+     * `std::chrono::duration<uint64_t, std::milli>`).
      */
     void repeat(Time repeat) {
         uv_timer_set_repeat(get(), repeat.count());
@@ -102,7 +104,8 @@ public:
 
     /**
      * @brief Gets the timer repeat value.
-     * @return Timer repeat value in milliseconds.
+     * @return Timer repeat value in milliseconds (as a
+     * `std::chrono::duration<uint64_t, std::milli>`).
      */
     Time repeat() {
         return Time{uv_timer_get_repeat(get())};

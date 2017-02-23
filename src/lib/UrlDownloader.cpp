@@ -145,9 +145,9 @@ bool UrlDownloader::start()
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
-        cDebugDom("urlutils") << "curl exited: " << ev.exitStatus;
+        cDebugDom("urlutils") << "curl exited: " << ev.status;
         h.close();
-        this->completeCb(ev.exitStatus);
+        this->completeCb(ev.status);
     });
     exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {
@@ -165,11 +165,11 @@ bool UrlDownloader::start()
     {
         cDebugDom("urlutils") << "Setup stdio pipes";
         pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
-        exeCurl->stdio(uvw::ProcessHandle::StdIO::IGNORE_STREAM, static_cast<uvw::FileHandle>(0));
+        exeCurl->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
 
         uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
         uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
-        exeCurl->stdio(ff, *pipe);
+        exeCurl->stdio(*pipe, ff);
 
         //When pipe is closed, remove it and close it
         pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });

@@ -6,7 +6,6 @@
 #include <memory>
 #include <string>
 #include <uv.h>
-#include "event.hpp"
 #include "request.hpp"
 #include "stream.hpp"
 #include "util.hpp"
@@ -72,7 +71,7 @@ public:
      * @param name A valid domain socket or named pipe.
      */
     void connect(std::string name) {
-        auto listener = [ptr = shared_from_this()](const auto &event, details::ConnectReq &) {
+        auto listener = [ptr = shared_from_this()](const auto &event, const auto &) {
             ptr->publish(event);
         };
 

@@ -7,7 +7,6 @@
 #include <string>
 #include <chrono>
 #include <uv.h>
-#include "event.hpp"
 #include "request.hpp"
 #include "stream.hpp"
 #include "util.hpp"
@@ -45,7 +44,7 @@ enum class UVTcpFlags: std::underlying_type_t<uv_tcp_flags> {
  */
 class TcpHandle final: public StreamHandle<TcpHandle, uv_tcp_t> {
 public:
-    using Time = std::chrono::seconds;
+    using Time = std::chrono::duration<unsigned int>;
     using Bind = details::UVTcpFlags;
     using IPv4 = uvw::IPv4;
     using IPv6 = uvw::IPv6;
@@ -72,10 +71,10 @@ public:
      * The passed file descriptor or SOCKET is not checked for its type, but
      * it’s required that it represents a valid stream socket.
      *
-     * @param sock A valid socket handle (either a file descriptor or a SOCKET).
+     * @param socket A valid socket handle (either a file descriptor or a SOCKET).
      */
-    void open(OSSocketHandle _sock) {
-        invoke(&uv_tcp_open, get(), _sock);
+    void open(OSSocketHandle socket) {
+        invoke(&uv_tcp_open, get(), socket);
     }
 
     /**
@@ -90,7 +89,8 @@ public:
     /**
      * @brief Enables/Disables TCP keep-alive.
      * @param enable True to enable it, false otherwise.
-     * @param time Initial delay in seconds (use `std::chrono::seconds`).
+     * @param time Initial delay in seconds (use
+     * `std::chrono::duration<unsigned int>`).
      * @return True in case of success, false otherwise.
      */
     bool keepAlive(bool enable = false, Time time = Time{0}) {
@@ -130,13 +130,13 @@ public:
      *
      * @param ip The address to which to bind.
      * @param port The port to which to bind.
-     * @param flags Optional additional flags.
+     * @param opts Optional additional flags.
      */
     template<typename I = IPv4>
-    void bind(std::string ip, unsigned int port, Flags<Bind> _flags = Flags<Bind>{}) {
+    void bind(std::string ip, unsigned int port, Flags<Bind> opts = Flags<Bind>{}) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
-        invoke(&uv_tcp_bind, get(), reinterpret_cast<const sockaddr *>(&addr), _flags);
+        invoke(&uv_tcp_bind, get(), reinterpret_cast<const sockaddr *>(&addr), opts);
     }
 
     /**
@@ -153,11 +153,11 @@ public:
      * IPv6 is used.
      *
      * @param addr A valid instance of Addr.
-     * @param flags Optional additional flags.
+     * @param opts Optional additional flags.
      */
     template<typename I = IPv4>
-    void bind(Addr addr, Flags<Bind> _flags = Flags<Bind>{}) {
-        bind<I>(addr.ip, addr.port, _flags);
+    void bind(Addr addr, Flags<Bind> opts = Flags<Bind>{}) {
+        bind<I>(addr.ip, addr.port, opts);
     }
 
     /**
@@ -193,14 +193,14 @@ public:
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
 
-        auto listener = [ptr = shared_from_this()](const auto &event, details::ConnectReq &) {
+        auto listener = [ptr = shared_from_this()](const auto &event, const auto &) {
             ptr->publish(event);
         };
 
-        auto _connect = loop().resource<details::ConnectReq>();
-        _connect->once<ErrorEvent>(listener);
-        _connect->once<ConnectEvent>(listener);
-        _connect->connect(&uv_tcp_connect, get(), reinterpret_cast<const sockaddr *>(&addr));
+        auto req = loop().resource<details::ConnectReq>();
+        req->once<ErrorEvent>(listener);
+        req->once<ConnectEvent>(listener);
+        req->connect(&uv_tcp_connect, get(), reinterpret_cast<const sockaddr *>(&addr));
     }
 
     /**

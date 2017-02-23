@@ -16,8 +16,7 @@ TEST(Loop, DefaultLoop) {
 }
 
 
-TEST(Loop, PartiallyDone) {
-
+TEST(Loop, Functionalities) {
     auto loop = uvw::Loop::create();
     auto handle = loop->resource<uvw::PrepareHandle>();
     auto req = loop->resource<uvw::WorkReq>([]{});
@@ -34,14 +33,14 @@ TEST(Loop, PartiallyDone) {
     ASSERT_FALSE(loop->alive());
 
     handle->start();
-    handle->on<uvw::PrepareEvent>([](const auto &, auto &handle) {
-        handle.loop().walk([](uvw::BaseHandle &) {
+    handle->on<uvw::PrepareEvent>([](const auto &, auto &hndl) {
+        hndl.loop().walk([](uvw::BaseHandle &) {
             static bool trigger = true;
             ASSERT_TRUE(trigger);
             trigger = false;
         });
 
-        handle.close();
+        hndl.close();
     });
 
     ASSERT_TRUE(loop->alive());

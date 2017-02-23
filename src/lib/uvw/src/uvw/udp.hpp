@@ -9,7 +9,6 @@
 #include <memory>
 #include <string>
 #include <uv.h>
-#include "event.hpp"
 #include "request.hpp"
 #include "handle.hpp"
 #include "util.hpp"
@@ -23,7 +22,7 @@ namespace uvw {
  *
  * It will be emitted by UDPHandle according with its functionalities.
  */
-struct SendEvent: Event<SendEvent> {};
+struct SendEvent {};
 
 
 /**
@@ -31,9 +30,9 @@ struct SendEvent: Event<SendEvent> {};
  *
  * It will be emitted by UDPHandle according with its functionalities.
  */
-struct UDPDataEvent: Event<UDPDataEvent> {
-    explicit UDPDataEvent(Addr _sender, std::unique_ptr<const char[]> _data, std::size_t _length, bool _partial) noexcept
-        : data{std::move(_data)}, length{_length}, sender{std::move(_sender)}, partial{_partial}
+struct UDPDataEvent {
+    explicit UDPDataEvent(Addr sndr, std::unique_ptr<const char[]> buf, std::size_t len, bool part) noexcept
+        : data{std::move(buf)}, length{len}, sender{std::move(sndr)}, partial{part}
     {}
 
     std::unique_ptr<const char[]> data; /*!< A bunch of data read on the stream. */
@@ -60,21 +59,21 @@ enum class UVMembership: std::underlying_type_t<uv_membership> {
 
 class SendReq final: public Request<SendReq, uv_udp_send_t> {
 public:
-    using Deleter = void(*)(uv_buf_t *);
+    using Deleter = void(*)(char *);
 
-    SendReq(ConstructorAccess ca, std::shared_ptr<Loop> loop, std::unique_ptr<uv_buf_t[], Deleter> _bufs, std::size_t _nbufs)
+    SendReq(ConstructorAccess ca, std::shared_ptr<Loop> loop, std::unique_ptr<char[], Deleter> dt, unsigned int len)
         : Request<SendReq, uv_udp_send_t>{std::move(ca), std::move(loop)},
-          bufs{std::move(_bufs)},
-          nbufs{_nbufs}
+          data{std::move(dt)},
+          buf{uv_buf_init(data.get(), len)}
     {}
 
     void send(uv_udp_t *handle, const struct sockaddr* addr) {
-        invoke(&uv_udp_send, get(), handle, bufs.get(), nbufs, addr, &defaultCallback<SendEvent>);
+        invoke(&uv_udp_send, get(), handle, &buf, 1, addr, &defaultCallback<SendEvent>);
     }
 
 private:
-    std::unique_ptr<uv_buf_t[], Deleter> bufs;
-    std::size_t nbufs;
+    std::unique_ptr<char[], Deleter> data;
+    uv_buf_t buf;
 };
 
 
@@ -108,12 +107,12 @@ class UDPHandle final: public Handle<UDPHandle, uv_udp_t> {
 
         if(nread > 0) {
             // data available (can be truncated)
-          udp.publish(UDPDataEvent{details::address<I>(aptr), std::move(data), static_cast<size_t>(nread), static_cast<bool>(flags & UV_UDP_PARTIAL)});
+            udp.publish(UDPDataEvent{details::address<I>(aptr), std::move(data), static_cast<std::size_t>(nread), !(0 == (flags & UV_UDP_PARTIAL))});
         } else if(nread == 0 && addr == nullptr) {
             // no more data to be read, doing nothing is fine
         } else if(nread == 0 && addr != nullptr) {
             // empty udp packet
-          udp.publish(UDPDataEvent{details::address<I>(aptr), std::move(data), static_cast<size_t>(nread), false});
+            udp.publish(UDPDataEvent{details::address<I>(aptr), std::move(data), static_cast<std::size_t>(nread), false});
         } else {
             // transmission error
             udp.publish(ErrorEvent(nread));
@@ -152,10 +151,10 @@ public:
      * [documentation](http://docs.libuv.org/en/v1.x/udp.html#c.uv_udp_open)
      * for further details.
      *
-     * @param sock A valid socket handle (either a file descriptor or a SOCKET).
+     * @param socket A valid socket handle (either a file descriptor or a SOCKET).
      */
-    void open(OSSocketHandle _sock) {
-        invoke(&uv_udp_open, get(), _sock);
+    void open(OSSocketHandle socket) {
+        invoke(&uv_udp_open, get(), socket);
     }
 
     /**
@@ -172,13 +171,13 @@ public:
      *
      * @param ip The IP address to which to bind.
      * @param port The port to which to bind.
-     * @param flags Optional additional flags.
+     * @param opts Optional additional flags.
      */
     template<typename I = IPv4>
-    void bind(std::string ip, unsigned int port, Flags<Bind> _flags = Flags<Bind>{}) {
+    void bind(std::string ip, unsigned int port, Flags<Bind> opts = Flags<Bind>{}) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
-        invoke(&uv_udp_bind, get(), reinterpret_cast<const sockaddr *>(&addr), _flags);
+        invoke(&uv_udp_bind, get(), reinterpret_cast<const sockaddr *>(&addr), opts);
     }
 
     /**
@@ -194,11 +193,11 @@ public:
      * for further details.
      *
      * @param addr A valid instance of Addr.
-     * @param flags Optional additional flags.
+     * @param opts Optional additional flags.
      */
     template<typename I = IPv4>
-    void bind(Addr addr, Flags<Bind> _flags = Flags<Bind>{}) {
-        bind<I>(addr.ip, addr.port, _flags);
+    void bind(Addr addr, Flags<Bind> opts = Flags<Bind>{}) {
+        bind<I>(addr.ip, addr.port, opts);
     }
 
     /**
@@ -296,23 +295,44 @@ public:
      * @param len The lenght of the submitted data.
      */
     template<typename I = IPv4>
-    void send(std::string ip, unsigned int port, std::unique_ptr<char[]> data, std::size_t len) {
+    void send(std::string ip, unsigned int port, std::unique_ptr<char[]> data, unsigned int len) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
 
-        auto _send = loop().resource<details::SendReq>(
-                    std::unique_ptr<uv_buf_t[], details::SendReq::Deleter>{
-                        new uv_buf_t[1]{ uv_buf_init(data.release(), len) },
-                        [](uv_buf_t *bufs) { delete[] bufs->base; delete[] bufs; }
-                    }, 1);
+        auto req = loop().resource<details::SendReq>(
+                    std::unique_ptr<char[], details::SendReq::Deleter>{
+                        data.release(), [](char *aptr) { delete[] aptr; }
+                    }, len);
 
-        auto listener = [ptr = shared_from_this()](const auto &event, details::SendReq &) {
+        auto listener = [ptr = shared_from_this()](const auto &event, const auto &) {
             ptr->publish(event);
         };
 
-        _send->once<ErrorEvent>(listener);
-        _send->once<SendEvent>(listener);
-        _send->send(get(), reinterpret_cast<const sockaddr *>(&addr));
+        req->once<ErrorEvent>(listener);
+        req->once<SendEvent>(listener);
+        req->send(get(), reinterpret_cast<const sockaddr *>(&addr));
+    }
+
+    /**
+     * @brief Sends data over the UDP socket.
+     *
+     * Note that if the socket has not previously been bound with `bind()`, it
+     * will be bound to `0.0.0.0` (the _all interfaces_ IPv4 address) and a
+     * random port number.
+     *
+     * The handle takes the ownership of the data and it is in charge of delete
+     * them.
+     *
+     * A SendEvent event will be emitted when the data have been sent.<br/>
+     * An ErrorEvent event will be emitted in case of errors.
+     *
+     * @param addr A valid instance of Addr.
+     * @param data The data to be sent.
+     * @param len The lenght of the submitted data.
+     */
+    template<typename I = IPv4>
+    void send(Addr addr, std::unique_ptr<char[]> data, unsigned int len) {
+        send<I>(addr.ip, addr.port, std::move(data), len);
     }
 
     /**
@@ -334,23 +354,44 @@ public:
      * @param len The lenght of the submitted data.
      */
     template<typename I = IPv4>
-    void send(std::string ip, unsigned int port, char *data, std::size_t len) {
+    void send(std::string ip, unsigned int port, char *data, unsigned int len) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
 
-        auto _send = loop().resource<details::SendReq>(
-                    std::unique_ptr<uv_buf_t[], details::SendReq::Deleter>{
-                        new uv_buf_t[1]{ uv_buf_init(data, len) },
-                        [](uv_buf_t *bufs) { delete[] bufs; }
-                    }, 1);
+        auto req = loop().resource<details::SendReq>(
+                    std::unique_ptr<char[], details::SendReq::Deleter>{
+                        data, [](char *) {}
+                    }, len);
 
-        auto listener = [ptr = shared_from_this()](const auto &event, details::SendReq &) {
+        auto listener = [ptr = shared_from_this()](const auto &event, const auto &) {
             ptr->publish(event);
         };
 
-        _send->once<ErrorEvent>(listener);
-        _send->once<SendEvent>(listener);
-        _send->send(get(), reinterpret_cast<const sockaddr *>(&addr));
+        req->once<ErrorEvent>(listener);
+        req->once<SendEvent>(listener);
+        req->send(get(), reinterpret_cast<const sockaddr *>(&addr));
+    }
+
+    /**
+     * @brief Sends data over the UDP socket.
+     *
+     * Note that if the socket has not previously been bound with `bind()`, it
+     * will be bound to `0.0.0.0` (the _all interfaces_ IPv4 address) and a
+     * random port number.
+     *
+     * The handle doesn't take the ownership of the data. Be sure that their
+     * lifetime overcome the one of the request.
+     *
+     * A SendEvent event will be emitted when the data have been sent.<br/>
+     * An ErrorEvent event will be emitted in case of errors.
+     *
+     * @param addr A valid instance of Addr.
+     * @param data The data to be sent.
+     * @param len The lenght of the submitted data.
+     */
+    template<typename I = IPv4>
+    void send(Addr addr, char *data, unsigned int len) {
+        send<I>(addr.ip, addr.port, data, len);
     }
 
     /**
@@ -366,7 +407,7 @@ public:
      * @return Number of bytes written.
      */
     template<typename I = IPv4>
-    int trySend(std::string ip, unsigned int port, std::unique_ptr<char[]> data, std::size_t len) {
+    int trySend(std::string ip, unsigned int port, std::unique_ptr<char[]> data, unsigned int len) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
 
@@ -379,6 +420,66 @@ public:
         }
 
         return bw;
+    }
+
+    /**
+     * @brief Sends data over the UDP socket.
+     *
+     * Same as `send()`, but it won’t queue a send request if it can’t be
+     * completed immediately.
+     *
+     * @param addr A valid instance of Addr.
+     * @param data The data to be sent.
+     * @param len The lenght of the submitted data.
+     * @return Number of bytes written.
+     */
+    template<typename I = IPv4>
+    int trySend(Addr addr, std::unique_ptr<char[]> data, unsigned int len) {
+        return trySend<I>(addr.ip, addr.port, std::move(data), len);
+    }
+
+    /**
+     * @brief Sends data over the UDP socket.
+     *
+     * Same as `send()`, but it won’t queue a send request if it can’t be
+     * completed immediately.
+     *
+     * @param ip The address to which to send data.
+     * @param port The port to which to send data.
+     * @param data The data to be sent.
+     * @param len The lenght of the submitted data.
+     * @return Number of bytes written.
+     */
+    template<typename I = IPv4>
+    int trySend(std::string ip, unsigned int port, char *data, unsigned int len) {
+        typename details::IpTraits<I>::Type addr;
+        details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
+
+        uv_buf_t bufs[] = { uv_buf_init(data, len) };
+        auto bw = uv_udp_try_send(get(), bufs, 1, reinterpret_cast<const sockaddr *>(&addr));
+
+        if(bw < 0) {
+            publish(ErrorEvent{bw});
+            bw = 0;
+        }
+
+        return bw;
+    }
+
+    /**
+     * @brief Sends data over the UDP socket.
+     *
+     * Same as `send()`, but it won’t queue a send request if it can’t be
+     * completed immediately.
+     *
+     * @param addr A valid instance of Addr.
+     * @param data The data to be sent.
+     * @param len The lenght of the submitted data.
+     * @return Number of bytes written.
+     */
+    template<typename I = IPv4>
+    int trySend(Addr addr, char *data, unsigned int len) {
+        return trySend<I>(addr.ip, addr.port, data, len);
     }
 
     /**

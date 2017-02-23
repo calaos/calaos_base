@@ -71,7 +71,7 @@ void PingInputSwitch::doPing()
     {
         ping_exe->close();
 
-        lastStatus = ev.exitStatus == 0;
+        lastStatus = ev.status == 0;
 
         cDebugDom("input") << "ping state is: " << lastStatus;
 

@@ -14,9 +14,9 @@
 
 #ifdef _WIN32
 // MSVC doesn't have C++14 relaxed constexpr support yet. Hence the jugglery.
-#define R_CONSTEXPR
+#define CONSTEXPR_SPECIFIER
 #else
-#define R_CONSTEXPR constexpr
+#define CONSTEXPR_SPECIFIER constexpr
 #endif
 
 
@@ -83,8 +83,19 @@ public:
     using Type = InnerType;
 
     /**
+     * @brief Utility factory method to pack a set of values all at once.
+     * @return A valid instance of Flags instantiated from values `V`.
+     */
+    template<E... V>
+    static CONSTEXPR_SPECIFIER Flags<E> from() {
+        auto flags = Flags<E>{};
+        int _[] = { 0, (flags = flags | V, 0)... };
+        return void(_), flags;
+    }
+
+    /**
      * @brief Constructs a Flags object from a value of the enum `E`.
-     * @param flag An value of the enum `E`.
+     * @param flag A value of the enum `E`.
      */
     constexpr Flags(E flag) noexcept: flags{toInnerType(flag)} {}
 
@@ -105,12 +116,12 @@ public:
 
     ~Flags() noexcept { static_assert(std::is_enum<E>::value, "!"); }
 
-    R_CONSTEXPR Flags& operator=(const Flags &f) noexcept {
+    CONSTEXPR_SPECIFIER Flags& operator=(const Flags &f) noexcept {
         flags = f.flags;
         return *this;
     }
 
-    R_CONSTEXPR Flags& operator=(Flags &&f) noexcept {
+    CONSTEXPR_SPECIFIER Flags& operator=(Flags &&f) noexcept {
         flags = std::move(f.flags);
         return *this;
     }
@@ -120,28 +131,28 @@ public:
      * @param f A valid instance of Flags.
      * @return This instance _or-ed_ with `f`.
      */
-    constexpr Flags operator|(const Flags &f) const noexcept { return Flags(flags | f.flags); }
+    constexpr Flags operator|(const Flags &f) const noexcept { return Flags{flags | f.flags}; }
 
     /**
      * @brief Or operator.
      * @param flag A value of the enum `E`.
      * @return This instance _or-ed_ with `flag`.
      */
-    constexpr Flags operator|(E flag) const noexcept { return Flags(flags | toInnerType(flag)); }
+    constexpr Flags operator|(E flag) const noexcept { return Flags{flags | toInnerType(flag)}; }
 
     /**
      * @brief And operator.
      * @param f A valid instance of Flags.
      * @return This instance _and-ed_ with `f`.
      */
-    constexpr Flags operator&(const Flags &f) const noexcept { return Flags(flags & f.flags); }
+    constexpr Flags operator&(const Flags &f) const noexcept { return Flags{flags & f.flags}; }
 
     /**
      * @brief And operator.
      * @param flag A value of the enum `E`.
      * @return This instance _and-ed_ with `flag`.
      */
-    constexpr Flags operator&(E flag) const noexcept { return Flags(flags & toInnerType(flag)); }
+    constexpr Flags operator&(E flag) const noexcept { return Flags{flags & toInnerType(flag)}; }
 
     /**
      * @brief Checks if this instance is initialized.
@@ -175,6 +186,10 @@ using FileHandle = details::UVTypeWrapper<uv_file>;
 using OSSocketHandle = details::UVTypeWrapper<uv_os_sock_t>;
 using OSFileDescriptor = details::UVTypeWrapper<uv_os_fd_t>;
 
+constexpr FileHandle StdIN{0}; /*!< Placeholder for stdin descriptor. */
+constexpr FileHandle StdOUT{1}; /*!< Placeholder for stdout descriptor. */
+constexpr FileHandle StdERR{2}; /*!< Placeholder for stderr descriptor. */
+
 using TimeSpec = uv_timespec_t;
 using Stat = uv_stat_t;
 using Uid = uv_uid_t;
@@ -185,11 +200,11 @@ using RUsage = uv_rusage_t;
 
 
 struct Passwd {
-    Passwd(std::shared_ptr<uv_passwd_t> _passwd): passwd{_passwd} {}
+    Passwd(std::shared_ptr<uv_passwd_t> pwd): passwd{pwd} {}
 
     std::string username() const noexcept { return passwd->username; }
-    Uid uid() const noexcept { return passwd->uid; }
-    Gid gid() const noexcept { return passwd->gid; }
+    auto uid() const noexcept { return passwd->uid; }
+    auto gid() const noexcept { return passwd->gid; }
     std::string shell() const noexcept { return passwd->shell; }
     std::string homedir() const noexcept { return passwd->homedir; }
 
@@ -247,7 +262,7 @@ struct CPUInfo {
  */
 struct InterfaceAddress {
     std::string name; /*!< The name of the interface (as an example _eth0_). */
-    std::string physical; /*!< The physical address. */
+    char physical[6]; /*!< The physical address. */
     bool internal; /*!< True if it is an internal interface (as an example _loopback_), false otherwise. */
     Addr address; /*!< The address of the given interface. */
     Addr netmask; /*!< The netmask of the given interface. */
@@ -504,28 +519,26 @@ struct Utilities {
     static std::vector<InterfaceAddress> interfaceAddresses() noexcept {
         std::vector<InterfaceAddress> interfaces;
 
-        uv_interface_address_t *ifaces;
-        int count;
+        uv_interface_address_t *ifaces{nullptr};
+        int count{0};
 
         if(0 == uv_interface_addresses(&ifaces, &count)) {
             std::for_each(ifaces, ifaces+count, [&interfaces](const auto &iface) {
+                InterfaceAddress interfaceAddress;
+
+                interfaceAddress.name = iface.name;
+                std::copy(iface.phys_addr, (iface.phys_addr+6), interfaceAddress.physical);
+                interfaceAddress.internal = iface.is_internal == 0 ? false : true;
+
                 if(iface.address.address4.sin_family == AF_INET) {
-                    interfaces.push_back({
-                        iface.name,
-                        iface.phys_addr,
-                        iface.is_internal == 0 ? false : true,
-                        details::address<IPv4>(&iface.address.address4),
-                        details::address<IPv4>(&iface.netmask.netmask4)
-                    });
+                    interfaceAddress.address = details::address<IPv4>(&iface.address.address4);
+                    interfaceAddress.netmask = details::address<IPv4>(&iface.netmask.netmask4);
                 } else if(iface.address.address4.sin_family == AF_INET6) {
-                    interfaces.push_back({
-                        iface.name,
-                        iface.phys_addr,
-                        iface.is_internal == 0 ? false : true,
-                        details::address<IPv6>(&iface.address.address6),
-                        details::address<IPv6>(&iface.netmask.netmask6)
-                    });
+                    interfaceAddress.address = details::address<IPv6>(&iface.address.address6);
+                    interfaceAddress.netmask = details::address<IPv6>(&iface.netmask.netmask6);
                 }
+
+                interfaces.push_back(std::move(interfaceAddress));
             });
 
             uv_free_interface_addresses(ifaces, count);

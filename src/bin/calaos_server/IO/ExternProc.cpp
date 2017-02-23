@@ -138,7 +138,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     process_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
-        cDebugDom("process") << "ExternProcess exited: " << ev.exitStatus;
+        cDebugDom("process") << "ExternProcess exited: " << ev.status;
         process_exe->close();
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
@@ -151,18 +151,27 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
 
     //Create a pipe for reading stdout
     pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
-    process_exe->stdio(uvw::ProcessHandle::StdIO::IGNORE_STREAM, static_cast<uvw::FileHandle>(0));
+    process_exe->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
 
     uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
     uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
-    process_exe->stdio(ff, *pipe);
+    process_exe->stdio(*pipe, ff);
 
     //When pipe is closed, remove it and close it
     pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
     pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         cDebugDom("urlutils") << "Stdio data received: " << ev.length;
-        //std::cout << ev.data.get() << std::endl;
+        process_stdout.append(string(ev.data.get(), ev.length));
+
+        //Print lines which ends with endl only. keep remaining in buffer
+        auto pos = process_stdout.find_first_of("\n");
+        while (pos != std::string::npos)
+        {
+            std::cout << process_stdout.substr(0, pos) << std::endl;
+            process_stdout.erase(0, pos + 1);
+            pos = process_stdout.find_first_of("\n");
+        }
     });
 
     Utils::CStrArray arr(cmd);

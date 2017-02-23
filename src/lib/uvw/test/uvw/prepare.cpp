@@ -6,20 +6,16 @@ TEST(Prepare, StartAndStop) {
     auto loop = uvw::Loop::getDefault();
     auto handle = loop->resource<uvw::PrepareHandle>();
 
-    bool checkErrorEvent = false;
     bool checkPrepareEvent = false;
 
-    handle->on<uvw::ErrorEvent>([&checkErrorEvent](const auto &, auto &) {
-        ASSERT_FALSE(checkErrorEvent);
-        checkErrorEvent = true;
-    });
+    handle->on<uvw::ErrorEvent>([](const auto &, auto &) { FAIL(); });
 
-    handle->on<uvw::PrepareEvent>([&checkPrepareEvent](const auto &, auto &handle) {
+    handle->on<uvw::PrepareEvent>([&checkPrepareEvent](const auto &, auto &hndl) {
         ASSERT_FALSE(checkPrepareEvent);
         checkPrepareEvent = true;
-        handle.stop();
-        handle.close();
-        ASSERT_TRUE(handle.closing());
+        hndl.stop();
+        hndl.close();
+        ASSERT_TRUE(hndl.closing());
     });
 
     handle->start();
@@ -29,7 +25,6 @@ TEST(Prepare, StartAndStop) {
 
     loop->run();
 
-    ASSERT_FALSE(checkErrorEvent);
     ASSERT_TRUE(checkPrepareEvent);
 }
 

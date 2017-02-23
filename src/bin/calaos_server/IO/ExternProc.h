@@ -101,6 +101,7 @@ private:
     string recv_buffer;
     ExternProcMessage currentFrame;
     std::shared_ptr<uvw::ProcessHandle> process_exe;
+    string process_stdout;
 
     std::list<std::shared_ptr<uvw::PipeHandle>> clientList;
 

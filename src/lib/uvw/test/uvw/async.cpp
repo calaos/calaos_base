@@ -6,19 +6,15 @@ TEST(Async, Send) {
     auto loop = uvw::Loop::getDefault();
     auto handle = loop->resource<uvw::AsyncHandle>();
 
-    bool checkErrorEvent = false;
     bool checkAsyncEvent = false;
 
-    handle->on<uvw::ErrorEvent>([&checkErrorEvent](const auto &, auto &) {
-        ASSERT_FALSE(checkErrorEvent);
-        checkErrorEvent = true;
-    });
+    handle->on<uvw::ErrorEvent>([](const auto &, auto &) { FAIL(); });
 
-    handle->on<uvw::AsyncEvent>([&checkAsyncEvent](const auto &, auto &handle) {
+    handle->on<uvw::AsyncEvent>([&checkAsyncEvent](const auto &, auto &hndl) {
         ASSERT_FALSE(checkAsyncEvent);
         checkAsyncEvent = true;
-        handle.close();
-        ASSERT_TRUE(handle.closing());
+        hndl.close();
+        ASSERT_TRUE(hndl.closing());
     });
 
     handle->send();
@@ -28,7 +24,6 @@ TEST(Async, Send) {
 
     loop->run();
 
-    ASSERT_FALSE(checkErrorEvent);
     ASSERT_TRUE(checkAsyncEvent);
 }
 

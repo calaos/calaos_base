@@ -6,7 +6,6 @@
 #include <string>
 #include <chrono>
 #include <uv.h>
-#include "event.hpp"
 #include "request.hpp"
 #include "util.hpp"
 #include "loop.hpp"
@@ -111,8 +110,8 @@ enum class UVDirentTypeT: std::underlying_type_t<uv_dirent_type_t> {
  * for further details.
  */
 template<details::UVFsType e>
-struct FsEvent: Event<FsEvent<e>> {
-    FsEvent(const char *_path) noexcept: path{_path} {}
+struct FsEvent {
+    FsEvent(const char *pathname) noexcept: path{pathname} {}
 
     const char * path; /*!< The path affecting the request. */
 };
@@ -125,11 +124,9 @@ struct FsEvent: Event<FsEvent<e>> {
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::READ>
-        : Event<FsEvent<details::UVFsType::READ>>
-{
-    FsEvent(const char *_path, std::unique_ptr<const char[]> _data, std::size_t _size) noexcept
-        : path{_path}, data{std::move(_data)}, size{_size}
+struct FsEvent<details::UVFsType::READ> {
+    FsEvent(const char *pathname, std::unique_ptr<const char[]> buf, std::size_t sz) noexcept
+        : path{pathname}, data{std::move(buf)}, size{sz}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -145,11 +142,9 @@ struct FsEvent<details::UVFsType::READ>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::WRITE>
-        : Event<FsEvent<details::UVFsType::WRITE>>
-{
-    FsEvent(const char *_path, std::size_t _size) noexcept
-        : path{_path}, size{_size}
+struct FsEvent<details::UVFsType::WRITE> {
+    FsEvent(const char *pathname, std::size_t sz) noexcept
+        : path{pathname}, size{sz}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -164,11 +159,9 @@ struct FsEvent<details::UVFsType::WRITE>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::SENDFILE>
-        : Event<FsEvent<details::UVFsType::SENDFILE>>
-{
-    FsEvent(const char *_path, std::size_t _size) noexcept
-        : path{_path}, size{_size}
+struct FsEvent<details::UVFsType::SENDFILE> {
+    FsEvent(const char *pathname, std::size_t sz) noexcept
+        : path{pathname}, size{sz}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -183,11 +176,9 @@ struct FsEvent<details::UVFsType::SENDFILE>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::STAT>
-        : Event<FsEvent<details::UVFsType::STAT>>
-{
-    FsEvent(const char *_path, Stat _stat) noexcept
-        : path{_path}, stat{std::move(_stat)}
+struct FsEvent<details::UVFsType::STAT> {
+    FsEvent(const char *pathname, Stat curr) noexcept
+        : path{pathname}, stat{std::move(curr)}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -202,11 +193,9 @@ struct FsEvent<details::UVFsType::STAT>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::FSTAT>
-        : Event<FsEvent<details::UVFsType::FSTAT>>
-{
-    FsEvent(const char *_path, Stat _stat) noexcept
-        : path{_path}, stat{std::move(_stat)}
+struct FsEvent<details::UVFsType::FSTAT> {
+    FsEvent(const char *pathname, Stat curr) noexcept
+        : path{pathname}, stat{std::move(curr)}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -221,11 +210,9 @@ struct FsEvent<details::UVFsType::FSTAT>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::LSTAT>
-        : Event<FsEvent<details::UVFsType::LSTAT>>
-{
-    FsEvent(const char *_path, Stat _stat) noexcept
-        : path{_path}, stat{std::move(_stat)}
+struct FsEvent<details::UVFsType::LSTAT> {
+    FsEvent(const char *pathname, Stat curr) noexcept
+        : path{pathname}, stat{std::move(curr)}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -240,11 +227,9 @@ struct FsEvent<details::UVFsType::LSTAT>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::SCANDIR>
-        : Event<FsEvent<details::UVFsType::SCANDIR>>
-{
-    FsEvent(const char *_path, std::size_t _size) noexcept
-        : path{_path}, size{_size}
+struct FsEvent<details::UVFsType::SCANDIR> {
+    FsEvent(const char *pathname, std::size_t sz) noexcept
+        : path{pathname}, size{sz}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -259,11 +244,9 @@ struct FsEvent<details::UVFsType::SCANDIR>
  * functionalities.
  */
 template<>
-struct FsEvent<details::UVFsType::READLINK>
-        : Event<FsEvent<details::UVFsType::READLINK>>
-{
-    explicit FsEvent(const char *_path, const char *_data, std::size_t _size) noexcept
-        : path{_path}, data{_data}, size{_size}
+struct FsEvent<details::UVFsType::READLINK> {
+    explicit FsEvent(const char *pathname, const char *buf, std::size_t sz) noexcept
+        : path{pathname}, data{buf}, size{sz}
     {}
 
     const char * path; /*!< The path affecting the request. */
@@ -314,7 +297,7 @@ protected:
     }
 
 public:
-    using Time = std::chrono::seconds;
+    using Time = std::chrono::duration<double>;
     using Type = details::UVFsType;
     using EntryType = details::UVDirentTypeT;
     using Entry = std::pair<EntryType, std::string>;
@@ -470,12 +453,12 @@ public:
      * Emit a `FsEvent<FileReq::Type::WRITE>` event when completed.<br/>
      * Emit an ErrorEvent event in case of errors.
      *
-     * @param data The data to be written.
+     * @param buf The data to be written.
      * @param len The lenght of the submitted data.
      * @param offset Offset, as described in the official documentation.
      */
-    void write(std::unique_ptr<char[]> _data, std::size_t len, int64_t offset) {
-        this->data = std::move(_data);
+    void write(std::unique_ptr<char[]> buf, unsigned int len, int64_t offset) {
+        this->data = std::move(buf);
         uv_buf_t bufs[] = { uv_buf_init(this->data.get(), len) };
         cleanupAndInvoke(&uv_fs_write, parent(), get(), file, bufs, 1, offset, &fsResultCallback<Type::WRITE>);
     }
@@ -489,19 +472,19 @@ public:
      * Emit a `FsEvent<FileReq::Type::WRITE>` event when completed.<br/>
      * Emit an ErrorEvent event in case of errors.
      *
-     * @param data The data to be written.
+     * @param buf The data to be written.
      * @param len The lenght of the submitted data.
      * @param offset Offset, as described in the official documentation.
      */
-    void write(char *_data, std::size_t len, int64_t offset) {
-        uv_buf_t bufs[] = { uv_buf_init(_data, len) };
+    void write(char *buf, unsigned int len, int64_t offset) {
+        uv_buf_t bufs[] = { uv_buf_init(buf, len) };
         cleanupAndInvoke(&uv_fs_write, parent(), get(), file, bufs, 1, offset, &fsResultCallback<Type::WRITE>);
     }
 
     /**
      * @brief Sync [write](http://linux.die.net/man/2/pwritev).
      *
-     * @param data The data to be written.
+     * @param buf The data to be written.
      * @param len The lenght of the submitted data.
      * @param offset Offset, as described in the official documentation.
      *
@@ -509,8 +492,8 @@ public:
      * * A boolean value that is true in case of success, false otherwise.
      * * The amount of data written to the given path.
      */
-    std::pair<bool, std::size_t> writeSync(std::unique_ptr<char[]> _data, std::size_t len, int64_t offset) {
-        this->data = std::move(_data);
+    std::pair<bool, std::size_t> writeSync(std::unique_ptr<char[]> buf, unsigned int len, int64_t offset) {
+        this->data = std::move(buf);
         uv_buf_t bufs[] = { uv_buf_init(this->data.get(), len) };
         auto req = get();
         cleanupAndInvokeSync(&uv_fs_write, parent(), req, file, bufs, 1, offset);
@@ -665,10 +648,10 @@ public:
      * Emit a `FsEvent<FileReq::Type::FUTIME>` event when completed.<br/>
      * Emit an ErrorEvent event in case of errors.
      *
-     * @param atime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
-     * @param mtime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
+     * @param atime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
+     * @param mtime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
      */
     void utime(Time atime, Time mtime) {
         cleanupAndInvoke(&uv_fs_futime, parent(), get(), file, atime.count(), mtime.count(), &fsGenericCallback<Type::FUTIME>);
@@ -676,10 +659,10 @@ public:
 
     /**
      * @brief Sync [futime](http://linux.die.net/man/2/futime).
-     * @param atime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
-     * @param mtime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
+     * @param atime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
+     * @param mtime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
      * @return True in case of success, false otherwise.
      */
     bool utimeSync(Time atime, Time mtime) {
@@ -1063,10 +1046,10 @@ public:
      * Emit an ErrorEvent event in case of errors.
      *
      * @param path Path, as described in the official documentation.
-     * @param atime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
-     * @param mtime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
+     * @param atime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
+     * @param mtime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
      */
     void utime(std::string path, Time atime, Time mtime) {
         cleanupAndInvoke(&uv_fs_utime, parent(), get(), path.data(), atime.count(), mtime.count(), &fsGenericCallback<Type::UTIME>);
@@ -1075,10 +1058,10 @@ public:
     /**
      * @brief Sync [utime](http://linux.die.net/man/2/utime).
      * @param path Path, as described in the official documentation.
-     * @param atime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
-     * @param mtime `std::chrono::seconds`, having the same meaning as described
-     * in the official documentation.
+     * @param atime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
+     * @param mtime `std::chrono::duration<double>`, having the same meaning as
+     * described in the official documentation.
      * @return True in case of success, false otherwise.
      */
     bool utimeSync(std::string path, Time atime, Time mtime) {

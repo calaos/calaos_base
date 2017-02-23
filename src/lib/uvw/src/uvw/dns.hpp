@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <uv.h>
-#include "event.hpp"
 #include "request.hpp"
 #include "util.hpp"
 #include "loop.hpp"
@@ -19,11 +18,11 @@ namespace uvw {
  *
  * It will be emitted by GetAddrInfoReq according with its functionalities.
  */
-struct AddrInfoEvent: Event<AddrInfoEvent> {
+struct AddrInfoEvent {
     using Deleter = void(*)(addrinfo *);
 
-    AddrInfoEvent(std::unique_ptr<addrinfo, Deleter> _data)
-        : data{std::move(_data)}
+    AddrInfoEvent(std::unique_ptr<addrinfo, Deleter> addr)
+        : data{std::move(addr)}
     {}
 
     /**
@@ -41,9 +40,9 @@ struct AddrInfoEvent: Event<AddrInfoEvent> {
  *
  * It will be emitted by GetNameInfoReq according with its functionalities.
  */
-struct NameInfoEvent: Event<NameInfoEvent> {
-    NameInfoEvent(const char *_hostname, const char *_service)
-        : hostname{_hostname}, service{_service}
+struct NameInfoEvent {
+    NameInfoEvent(const char *host, const char *serv)
+        : hostname{host}, service{serv}
     {}
 
     /**
@@ -80,7 +79,7 @@ class GetAddrInfoReq final: public Request<GetAddrInfoReq, uv_getaddrinfo_t> {
             ptr->publish(ErrorEvent{status});
         } else {
             auto data = std::unique_ptr<addrinfo, void(*)(addrinfo *)>{
-                res, [](addrinfo *_res){ uv_freeaddrinfo(_res); }};
+                res, [](addrinfo *addr){ uv_freeaddrinfo(addr); }};
 
             ptr->publish(AddrInfoEvent{std::move(data)});
         }
@@ -93,8 +92,8 @@ class GetAddrInfoReq final: public Request<GetAddrInfoReq, uv_getaddrinfo_t> {
     auto getNodeAddrInfoSync(const char *node, const char *service, addrinfo *hints = nullptr) {
         auto req = get();
         auto err = uv_getaddrinfo(parent(), req, nullptr, node, service, hints);
-        auto _ptr = std::unique_ptr<addrinfo, void(*)(addrinfo *)>{req->addrinfo, [](addrinfo *_res){ uv_freeaddrinfo(_res); }};
-        return std::make_pair(!err, std::move(_ptr));
+        auto data = std::unique_ptr<addrinfo, void(*)(addrinfo *)>{req->addrinfo, [](addrinfo *addr){ uv_freeaddrinfo(addr); }};
+        return std::make_pair(!err, std::move(data));
     }
 
 public:
@@ -211,8 +210,9 @@ public:
     template<typename I = IPv4>
     void getNameInfo(std::string ip, unsigned int port, int flags = 0) {
         typename details::IpTraits<I>::Type addr;
-        details::IpTraits<I>::AddrFunc(ip.data(), port, &addr);
-        invoke(&uv_getnameinfo, parent(), get(), &getNameInfoCallback, &addr, flags);
+        details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
+        auto saddr = reinterpret_cast<const sockaddr *>(&addr);
+        invoke(&uv_getnameinfo, parent(), get(), &getNameInfoCallback, saddr, flags);
     }
 
     /**
@@ -242,9 +242,10 @@ public:
     std::pair<bool, std::pair<const char *, const char *>>
     getNameInfoSync(std::string ip, unsigned int port, int flags = 0) {
         typename details::IpTraits<I>::Type addr;
-        details::IpTraits<I>::AddrFunc(ip.data(), port, &addr);
+        details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
         auto req = get();
-        auto err = uv_getnameinfo(parent(), req, nullptr, &addr, flags);
+        auto saddr = reinterpret_cast<const sockaddr *>(&addr);
+        auto err = uv_getnameinfo(parent(), req, nullptr, saddr, flags);
         return std::make_pair(!err, std::make_pair(req->host, req->service));
     }
 

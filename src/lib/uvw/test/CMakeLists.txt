@@ -13,9 +13,9 @@ set(
 
 set(
     COMMON_LINK_LIBS
-    ${CMAKE_THREAD_LIBS_INIT}
     ${GOOGLETEST_LIBRARIES}
     ${UV_STATIC_LIBRARY}
+    Threads::Threads
 )
 
 if(${LIBRT_FOUND})
@@ -34,17 +34,22 @@ target_include_directories(odr PRIVATE ${COMMON_INCLUDE_DIRS})
 set(TARGET_MAIN main)
 set(TARGET_ASYNC async)
 set(TARGET_CHECK check)
+set(TARGET_DNS dns)
 set(TARGET_EMITTER emitter)
-set(TARGET_EVENT event)
 set(TARGET_FS_REQ fs_req)
 set(TARGET_FILE_REQ file_req)
 set(TARGET_HANDLE handle)
 set(TARGET_IDLE idle)
 set(TARGET_LOOP loop)
 set(TARGET_PREPARE prepare)
+set(TARGET_REQUEST request)
 set(TARGET_RESOURCE resource)
 set(TARGET_SIGNAL signal)
+set(TARGET_TCP tcp)
 set(TARGET_TIMER timer)
+set(TARGET_TTY tty)
+set(TARGET_UDP udp)
+set(TARGET_UTIL util)
 set(TARGET_WORK work)
 
 # Test TARGET_MAIN
@@ -71,6 +76,14 @@ target_include_directories(${TARGET_CHECK} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${TARGET_CHECK} PRIVATE ${COMMON_LINK_LIBS})
 add_test(NAME ${TARGET_CHECK} COMMAND ${TARGET_CHECK})
 
+# Test TARGET_DNS
+
+set(TARGET_DNS_SOURCES $<TARGET_OBJECTS:odr> uvw/dns.cpp)
+add_executable(${TARGET_DNS} ${TARGET_DNS_SOURCES})
+target_include_directories(${TARGET_DNS} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_DNS} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_DNS} COMMAND ${TARGET_DNS})
+
 # Test TARGET_EMITTER
 
 set(TARGET_EMITTER_SOURCES $<TARGET_OBJECTS:odr> uvw/emitter.cpp)
@@ -78,14 +91,6 @@ add_executable(${TARGET_EMITTER} ${TARGET_EMITTER_SOURCES})
 target_include_directories(${TARGET_EMITTER} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${TARGET_EMITTER} PRIVATE ${COMMON_LINK_LIBS})
 add_test(NAME ${TARGET_EMITTER} COMMAND ${TARGET_EMITTER})
-
-# Test TARGET_EVENT
-
-set(TARGET_EVENT_SOURCES $<TARGET_OBJECTS:odr> uvw/event.cpp)
-add_executable(${TARGET_EVENT} ${TARGET_EVENT_SOURCES})
-target_include_directories(${TARGET_EVENT} PRIVATE ${COMMON_INCLUDE_DIRS})
-target_link_libraries(${TARGET_EVENT} PRIVATE ${COMMON_LINK_LIBS})
-add_test(NAME ${TARGET_EVENT} COMMAND ${TARGET_EVENT})
 
 # Test TARGET_FS_REQ
 
@@ -141,6 +146,14 @@ target_include_directories(${TARGET_PREPARE} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${TARGET_PREPARE} PRIVATE ${COMMON_LINK_LIBS})
 add_test(NAME ${TARGET_PREPARE} COMMAND ${TARGET_PREPARE})
 
+# Test TARGET_REQUEST
+
+set(TARGET_REQUEST_SOURCES $<TARGET_OBJECTS:odr> uvw/request.cpp)
+add_executable(${TARGET_REQUEST} ${TARGET_REQUEST_SOURCES})
+target_include_directories(${TARGET_REQUEST} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_REQUEST} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_REQUEST} COMMAND ${TARGET_REQUEST})
+
 # Test TARGET_RESOURCE
 set(TARGET_RESOURCE_SOURCES $<TARGET_OBJECTS:odr> uvw/resource.cpp)
 add_executable(${TARGET_RESOURCE} ${TARGET_RESOURCE_SOURCES})
@@ -156,6 +169,14 @@ target_include_directories(${TARGET_SIGNAL} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${TARGET_SIGNAL} PRIVATE ${COMMON_LINK_LIBS})
 add_test(NAME ${TARGET_SIGNAL} COMMAND ${TARGET_SIGNAL})
 
+# Test TARGET_TCP
+
+set(TARGET_TCP_SOURCES $<TARGET_OBJECTS:odr> uvw/tcp.cpp)
+add_executable(${TARGET_TCP} ${TARGET_TCP_SOURCES})
+target_include_directories(${TARGET_TCP} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_TCP} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_TCP} COMMAND ${TARGET_TCP})
+
 # Test TARGET_TIMER
 
 set(TARGET_TIMER_SOURCES $<TARGET_OBJECTS:odr> uvw/timer.cpp)
@@ -163,6 +184,30 @@ add_executable(${TARGET_TIMER} ${TARGET_TIMER_SOURCES})
 target_include_directories(${TARGET_TIMER} PRIVATE ${COMMON_INCLUDE_DIRS})
 target_link_libraries(${TARGET_TIMER} PRIVATE ${COMMON_LINK_LIBS})
 add_test(NAME ${TARGET_TIMER} COMMAND ${TARGET_TIMER})
+
+# Test TARGET_TTY
+
+set(TARGET_TTY_SOURCES $<TARGET_OBJECTS:odr> uvw/tty.cpp)
+add_executable(${TARGET_TTY} ${TARGET_TTY_SOURCES})
+target_include_directories(${TARGET_TTY} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_TTY} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_TTY} COMMAND ${TARGET_TTY})
+
+# Test TARGET_UDP
+
+set(TARGET_UDP_SOURCES $<TARGET_OBJECTS:odr> uvw/udp.cpp)
+add_executable(${TARGET_UDP} ${TARGET_UDP_SOURCES})
+target_include_directories(${TARGET_UDP} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_UDP} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_UDP} COMMAND ${TARGET_UDP})
+
+# Test TARGET_UTIL
+
+set(TARGET_UTIL_SOURCES $<TARGET_OBJECTS:odr> uvw/util.cpp)
+add_executable(${TARGET_UTIL} ${TARGET_UTIL_SOURCES})
+target_include_directories(${TARGET_UTIL} PRIVATE ${COMMON_INCLUDE_DIRS})
+target_link_libraries(${TARGET_UTIL} PRIVATE ${COMMON_LINK_LIBS})
+add_test(NAME ${TARGET_UTIL} COMMAND ${TARGET_UTIL})
 
 # Test TARGET_WORK
 

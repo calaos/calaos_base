@@ -2,10 +2,8 @@
 
 
 #include <utility>
-#include <cstddef>
 #include <memory>
 #include <uv.h>
-#include "event.hpp"
 #include "stream.hpp"
 #include "util.hpp"
 
@@ -41,9 +39,9 @@ enum class UVTTYModeT: std::underlying_type_t<uv_tty_mode_t> {
  * To create a `TTYHandle` through a `Loop`, arguments follow:
  *
  * * A valid FileHandle. Usually the file descriptor will be:
- *     * `0` = `stdin`
- *     * `1` = `stdout`
- *     * `2` = `stderr`
+ *     * `uvw::StdIN` or `0` for `stdin`
+ *     * `uvw::StdOUT` or `1` for `stdout`
+ *     * `uvw::StdERR` or `2` for `stderr`
  * * A boolean value that specifies the plan on calling `read()` with this
  * stream. Remember that `stdin` is readable, `stdout` is not.
  *

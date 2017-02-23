@@ -354,7 +354,7 @@ void JsonApiHandlerHttp::processGetCover()
         exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
         {
             h.close();
-            this->exeFinished(ev.exitStatus);
+            this->exeFinished(ev.status);
         });
         exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
         {
@@ -393,7 +393,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
     exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
         h.close();
-        this->exeFinished(ev.exitStatus);
+        this->exeFinished(ev.status);
     });
     exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {

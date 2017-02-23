@@ -1,16 +1,15 @@
 #include <gtest/gtest.h>
 #include <uvw/emitter.hpp>
-#include <uvw/event.hpp>
 
 
-struct FakeEvent: uvw::Event<FakeEvent> { };
+struct FakeEvent { };
 
 struct TestEmitter: uvw::Emitter<TestEmitter> {
     void emit() { publish(FakeEvent{}); }
 };
 
 
-TEST(Emitter, ClearAndClear) {
+TEST(Emitter, EmptyAndClear) {
     TestEmitter emitter{};
 
     ASSERT_TRUE(emitter.empty());

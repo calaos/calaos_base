@@ -5,7 +5,6 @@
 #include <string>
 #include <memory>
 #include <uv.h>
-#include "event.hpp"
 #include "handle.hpp"
 #include "util.hpp"
 #include "loop.hpp"
@@ -19,9 +18,9 @@ namespace uvw {
  *
  * It will be emitted by FsPollHandle according with its functionalities.
  */
-struct FsPollEvent: Event<FsPollEvent> {
-    explicit FsPollEvent(Stat _prev, Stat _curr) noexcept
-        : prev{std::move(_prev)}, curr{std::move(_curr)}
+struct FsPollEvent {
+    explicit FsPollEvent(Stat previous, Stat current) noexcept
+        : prev{std::move(previous)}, curr{std::move(current)}
     {}
 
     Stat prev; /*!< The old Stat struct. */
