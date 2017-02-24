@@ -59,7 +59,7 @@ void ScriptProcess::messageReceived(const string &msg)
 
     if (mtype == "execute")
     {
-        cInfoDom("lua") << "Executing LUA script";
+        cInfoDom("lua") << "(PID#" << getpid() << ") " << "Executing LUA script";
         string script = jansson_string_get(jroot, "script");
 
         json_t *jctx = json_object_get(jroot, "context");
@@ -132,6 +132,8 @@ void ScriptProcess::messageReceived(const string &msg)
         Params pret = {{ "msg", "finished" },
                        { "return_val", ret?"true":"false" }};
         sendMessage(jansson_to_string(pret.toJson()));
+
+        cInfoDom("lua") << "(PID#" << getpid() << ") " << "Script finished, exiting process.";
 
         ::exit(0);
     }
