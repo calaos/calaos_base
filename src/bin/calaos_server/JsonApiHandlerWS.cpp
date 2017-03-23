@@ -202,7 +202,21 @@ void JsonApiHandlerWS::processGetState(json_t *jdata, const string &client_id)
         return;
     }
 
-    buildJsonState(jdata, [=](json_t *jret)
+    vector<string> iolist;
+    json_t *jio = json_object_get(jdata, "items");
+    if (jio && json_is_array(jio))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jio, idx, value)
+        {
+            if (json_is_string(value))
+                iolist.push_back(json_string_value(value));
+        }
+    }
+
+    buildJsonState(iolist, [=](json_t *jret)
     {
         sendJson("get_state", jret, client_id);
     });
@@ -247,7 +261,21 @@ void JsonApiHandlerWS::processGetIO(json_t *jdata, const string &client_id)
         return;
     }
 
-    sendJson("get_io", buildJsonGetIO(jdata), client_id);
+    vector<string> iolist;
+    json_t *jio = json_object_get(jdata, "items");
+    if (jio && json_is_array(jio))
+    {
+        uint idx;
+        json_t *value;
+
+        json_array_foreach(jio, idx, value)
+        {
+            if (json_is_string(value))
+                iolist.push_back(json_string_value(value));
+        }
+    }
+
+    sendJson("get_io", buildJsonGetIO(iolist), client_id);
 }
 
 void JsonApiHandlerWS::processSetState(Params &jsonReq, const string &client_id)

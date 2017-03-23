@@ -113,6 +113,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processGetHome();
     else if (jsonParam["action"] == "get_state")
         processGetState(jroot);
+    else if (jsonParam["action"] == "get_io")
+        processGetIO(jroot);
     else if (jsonParam["action"] == "get_states")
         processGetStates();
     else if (jsonParam["action"] == "query")
@@ -153,8 +155,6 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
         if (jsonParam["action"] == "config")
             processConfig(jroot);
-        else if (jsonParam["action"] == "get_io")
-            processGetIO(jroot);
         else if (jsonParam["action"] == "audio")
             processAudio(jroot);
         else if (jsonParam["action"] == "audio_db")
@@ -220,7 +220,32 @@ void JsonApiHandlerHttp::processGetHome()
 
 void JsonApiHandlerHttp::processGetState(json_t *jroot)
 {
-    buildJsonState(jroot, [=](json_t *jret)
+    vector<string> iolist;
+
+    if (jroot)
+    {
+        json_t *jio = json_object_get(jroot, "items");
+        if (jio && json_is_array(jio))
+        {
+            uint idx;
+            json_t *value;
+
+            json_array_foreach(jio, idx, value)
+            {
+                if (json_is_string(value))
+                    iolist.push_back(json_string_value(value));
+            }
+        }
+    }
+    else
+    {
+        if (jsonParam.Exists("items"))
+        {
+            Utils::split(jsonParam["items"], iolist, ",");
+        }
+    }
+
+    buildJsonState(iolist, [=](json_t *jret)
     {
         sendJson(jret);
     });
@@ -259,7 +284,32 @@ void JsonApiHandlerHttp::processDelParam()
 
 void JsonApiHandlerHttp::processGetIO(json_t *jroot)
 {
-    sendJson(buildJsonGetIO(jroot));
+    vector<string> iolist;
+
+    if (jroot)
+    {
+        json_t *jio = json_object_get(jroot, "items");
+        if (jio && json_is_array(jio))
+        {
+            uint idx;
+            json_t *value;
+
+            json_array_foreach(jio, idx, value)
+            {
+                if (json_is_string(value))
+                    iolist.push_back(json_string_value(value));
+            }
+        }
+    }
+    else
+    {
+        if (jsonParam.Exists("items"))
+        {
+            Utils::split(jsonParam["items"], iolist, ",");
+        }
+    }
+
+    sendJson(buildJsonGetIO(iolist));
 }
 
 void JsonApiHandlerHttp::processSetState()

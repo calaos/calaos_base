@@ -57,7 +57,7 @@ public:
 
     //result is given with a call to a lambda because we may need to wait for
     //network queries
-    void buildJsonState(json_t *jroot, std::function<void(json_t *)>result_lambda);
+    void buildJsonState(vector<string> iolist, std::function<void(json_t *)>result_lambda);
     void buildJsonStates(const Params &jParam, std::function<void(json_t *)>result_lambda);
     void buildQuery(const Params &jParam, std::function<void(json_t *)>result_lambda);
 
@@ -76,7 +76,7 @@ public:
     json_t *buildAutoscenarioAddSchedule(json_t *jdata);
     json_t *buildAutoscenarioDelSchedule(json_t *jdata);
 
-    json_t *buildJsonGetIO(json_t *jroot);
+    json_t *buildJsonGetIO(vector<string> iolist);
 
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);

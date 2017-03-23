@@ -198,42 +198,29 @@ json_t *JsonApi::buildJsonAudio()
     return jdata;
 }
 
-void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result_lambda)
+void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)> result_lambda)
 {
-    json_incref(jroot);
     json_t *jio = json_object();
     list<AudioPlayer *> audioplayers;
 
-    json_t *jin = json_object_get(jroot, "items");
-    if (jin && json_is_array(jin))
+    for (string ioid: iolist)
     {
-        uint idx;
-        json_t *value;
+        IOBase *io = ListeRoom::Instance().get_io(ioid);
+        if (!io) continue;
 
-        json_array_foreach(jin, idx, value)
+        if (io->get_param("gui_type") != "audio_player")
         {
-            string svalue;
-
-            if (!json_is_string(value)) continue;
-
-            svalue = json_string_value(value);
-            IOBase *io = ListeRoom::Instance().get_io(svalue);
-            if (!io) continue;
-
-            if (io->get_param("gui_type") != "audio_player")
-            {
-                if (io->get_type() == TBOOL)
-                    json_object_set_new(jio, svalue.c_str(), json_string(io->get_value_bool()?"true":"false"));
-                else if (io->get_type() == TINT)
-                    json_object_set_new(jio, svalue.c_str(), json_string(Utils::to_string(io->get_value_double()).c_str()));
-                else if (io->get_type() == TSTRING)
-                    json_object_set_new(jio, svalue.c_str(), json_string(io->get_value_string().c_str()));
-            }
-            else
-            {
-                AudioPlayer *p = dynamic_cast<AudioPlayer *>(io);
-                if (p) audioplayers.push_back(p);
-            }
+            if (io->get_type() == TBOOL)
+                json_object_set_new(jio, ioid.c_str(), json_string(io->get_value_bool()?"true":"false"));
+            else if (io->get_type() == TINT)
+                json_object_set_new(jio, ioid.c_str(), json_string(Utils::to_string(io->get_value_double()).c_str()));
+            else if (io->get_type() == TSTRING)
+                json_object_set_new(jio, ioid.c_str(), json_string(io->get_value_string().c_str()));
+        }
+        else
+        {
+            AudioPlayer *p = dynamic_cast<AudioPlayer *>(io);
+            if (p) audioplayers.push_back(p);
         }
     }
 
@@ -311,7 +298,6 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
                                 if (playerCounts[uuid] <= 0)
                                 {
                                     playerCounts.erase(uuid);
-                                    json_decref(jroot);
                                     result_lambda(jio);
                                 }
                             });
@@ -326,7 +312,6 @@ void JsonApi::buildJsonState(json_t *jroot, std::function<void(json_t *)> result
     if (playerCounts[uuid] == 0)
     {
         playerCounts.erase(uuid);
-        json_decref(jroot);
         result_lambda(jio);
     }
 }
@@ -471,31 +456,19 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     return ret.toJson();
 }
 
-json_t *JsonApi::buildJsonGetIO(json_t *jroot)
+json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
 {
     json_t *jret = json_object();
 
-    json_t *jin = json_object_get(jroot, "items");
-    if (jin && json_is_array(jin))
+    for (string ioid: iolist)
     {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(jin, idx, value)
+        IOBase *io = ListeRoom::Instance().get_io(ioid);
+        if (io)
         {
-            string svalue;
+            json_t *jio = json_object();
+            buildJsonIO(io, jio);
 
-            if (!json_is_string(value)) continue;
-
-            svalue = json_string_value(value);
-            IOBase *io = ListeRoom::Instance().get_io(svalue);
-            if (io)
-            {
-                json_t *jio = json_object();
-                buildJsonIO(io, jio);
-
-                json_object_set_new(jret, svalue.c_str(), jio);
-            }
+            json_object_set_new(jret, ioid.c_str(), jio);
         }
     }
 

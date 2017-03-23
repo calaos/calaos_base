@@ -26,6 +26,7 @@
 #include "AudioPlayer.h"
 #include "UrlDownloader.h"
 #include "IPCam.h"
+#include "json.hpp"
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
