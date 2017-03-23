@@ -435,6 +435,10 @@ void HttpClient::DataWritten(int size)
 
 void HttpClient::CloseConnection()
 {
+    if (isClosing)
+        return; //already closing...
+    isClosing = true;
+
     DELETE_NULL(closeTimer);
 
     cDebugDom("network") << "Closing connection";

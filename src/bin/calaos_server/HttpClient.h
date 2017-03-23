@@ -72,6 +72,8 @@ protected:
     //timer to close the connection after data has been written
     Timer *closeTimer = nullptr;
 
+    bool isClosing = false;
+
     bool isWebsocket = false;
 
     JsonApi *jsonApi = nullptr;
