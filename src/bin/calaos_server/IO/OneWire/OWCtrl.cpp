@@ -81,6 +81,7 @@ void OwCtrl::processNewMessage(const string &msg)
     catch (const std::exception &e)
     {
         cWarningDom("1wire") << "Error parsing json from sub process: " << e.what();
+        cDebugDom("1wire") << msg;
         return;
     }
 

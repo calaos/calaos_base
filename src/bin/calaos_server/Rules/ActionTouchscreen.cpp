@@ -19,23 +19,14 @@
  **
  ******************************************************************************/
 #include "ActionTouchscreen.h"
+#include "EventManager.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
 ActionTouchscreen::ActionTouchscreen():
     Action(ACTION_TOUCHSCREEN)
 {
-    //econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
-
-    cDebugDom("rule.action.touchscreen") <<  "New Touchscreen action";
-}
-
-ActionTouchscreen::ActionTouchscreen(string _action):
-    Action(ACTION_TOUCHSCREEN),
-    action(_action)
-{
-//    econ = ecore_con_server_connect(ECORE_CON_REMOTE_BROADCAST, "255.255.255.255", BCAST_UDP_PORT, NULL);
-
     cDebugDom("rule.action.touchscreen") <<  "New Touchscreen action";
 }
 
@@ -45,28 +36,39 @@ ActionTouchscreen::~ActionTouchscreen()
 
 bool ActionTouchscreen::Execute()
 {
-    cCritical() << "ActionTouchscreen not implemented yet! TODO!!";
+    IOBase *io = ListeRoom::Instance().get_io(cameraId);
 
-    if (action.substr(0, 9) == "show,cam,")
+    if (!io)
     {
-//        ecore_con_server_send(econ, action.c_str(), action.size());
-
-        cDebugDom("rule.action.touchscreen") <<  "Show camera";
-
-        return true;
-    }
-    else
-    {
-        cWarningDom("rule.action.touchscreen") <<  "Unknown action !";
+        cWarningDom("rule.action.touchscreen") << "Unable to find camera " << cameraId << ". Can't start action.";
+        return false;
     }
 
-    return false;
+    cDebugDom("rule.action.touchscreen") <<  "Show camera";
+
+    EventManager::create(CalaosEvent::EventTouchScreenCamera,
+                         { { "id", cameraId } });
+
+    return true;
 }
 
 bool ActionTouchscreen::LoadFromXml(TiXmlElement *pnode)
 {
     if (pnode->Attribute("action"))
-        action = pnode->Attribute("action");
+    {
+        if (string(pnode->Attribute("action")) == "view_camera")
+            action = TypeActionCamera;
+    }
+
+    switch (action)
+    {
+    case TypeActionCamera:
+        if (pnode->Attribute("camera"))
+            cameraId = pnode->Attribute("camera");
+        break;
+    default:
+        break;
+    }
 
     return true;
 }
@@ -75,7 +77,16 @@ bool ActionTouchscreen::SaveToXml(TiXmlElement *node)
 {
     TiXmlElement *action_node = new TiXmlElement("calaos:action");
     action_node->SetAttribute("type", "touchscreen");
-    action_node->SetAttribute("action", action);
+    switch (action)
+    {
+    case TypeActionCamera:
+        action_node->SetAttribute("action", "view_camera");
+        action_node->SetAttribute("camera", cameraId);
+        break;
+    default:
+        cWarningDom("rule.action.touchscreen") << "Unknown action type!";
+        break;
+    }
     node->LinkEndChild(action_node);
 
     return true;

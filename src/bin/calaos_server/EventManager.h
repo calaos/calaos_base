@@ -62,6 +62,8 @@ public:
 
         EventAudioStatusChanged, //player status changed
         EventAudioVolumeChanged,
+
+        EventTouchScreenCamera, //event sent to a client to wake up and display required camera on screen
     };
 
     CalaosEvent();

@@ -111,6 +111,8 @@ string CalaosEvent::typeToString(int type)
     case EventAudioStatusChanged: return "audio_status_changed";
     case EventAudioVolumeChanged: return "audio_volume_changed";
 
+    case EventTouchScreenCamera: return "touchscreen_camera_request";
+
     default: break;
     }
 

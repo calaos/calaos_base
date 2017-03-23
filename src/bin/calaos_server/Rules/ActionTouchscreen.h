@@ -30,13 +30,18 @@ namespace Calaos
 class ActionTouchscreen: public Action
 {
 private:
-    string action;
-
-//    Ecore_Con_Server *econ;
+    int action = TypeActionNone;
+    string cameraId;
 
 public:
+
+    enum
+    {
+        TypeActionNone,
+        TypeActionCamera, //send an event to calaos_home to wake up and display the selected camera
+    };
+
     ActionTouchscreen();
-    ActionTouchscreen(string action);
     ~ActionTouchscreen();
 
     bool Execute();

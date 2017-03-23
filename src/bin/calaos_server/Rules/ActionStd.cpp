@@ -182,14 +182,6 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            if (id == "OutTouchscreen" && ListeRule::Instance().size() > 0)
-            {
-                cInfoDom("rule.action.standard") <<  "Converting old OutTouchscreen to new ActionTouchscreen";
-                Rule *rule = ListeRule::Instance().get_rule(ListeRule::Instance().size() - 1);
-                ActionTouchscreen *action = new ActionTouchscreen(val);
-                rule->AddAction(dynamic_cast<Action *>(action));
-            }
-
             IOBase *out = ListeRoom::Instance().get_io(id);
 
             if (!out)
