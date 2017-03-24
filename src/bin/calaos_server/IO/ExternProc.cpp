@@ -91,7 +91,6 @@ ExternProcServer::~ExternProcServer()
     {
         process_exe->kill(SIGTERM);
         process_exe->close();
-        process_exe->once<uvw::CloseEvent>([h = process_exe](const uvw::CloseEvent &, auto &) { });
     }
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;

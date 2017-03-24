@@ -43,10 +43,6 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
     {
         exe_thumb->kill(SIGTERM);
         exe_thumb->close();
-
-        //Here is a workaround to keep a reference to the exeCurl until the CloseEvent comes.
-        //This prevent a crash when exeCurl ref is deleted and the CloseEvent is called
-        exe_thumb->once<uvw::CloseEvent>([h = exe_thumb](const uvw::CloseEvent &, auto &) { });
     }
 
     delete cameraDl;

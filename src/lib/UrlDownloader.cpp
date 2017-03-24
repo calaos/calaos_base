@@ -34,10 +34,6 @@ UrlDownloader::~UrlDownloader()
     {
         exeCurl->kill(SIGTERM);
         exeCurl->close();
-
-        //Here is a workaround to keep a reference to the exeCurl until the CloseEvent comes.
-        //This prevent a crash when exeCurl ref is deleted and the CloseEvent is called
-        exeCurl->once<uvw::CloseEvent>([h = exeCurl](const uvw::CloseEvent &, auto &) { });
     }
 
     FileUtils::unlink(tempFilename);

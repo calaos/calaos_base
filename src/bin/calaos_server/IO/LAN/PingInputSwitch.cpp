@@ -50,10 +50,6 @@ PingInputSwitch::~PingInputSwitch()
     {
         ping_exe->kill(SIGTERM);
         ping_exe->close();
-
-        //Here is a workaround to keep a reference to the exeCurl until the CloseEvent comes.
-        //This prevent a crash when exeCurl ref is deleted and the CloseEvent is called
-        ping_exe->once<uvw::CloseEvent>([h = ping_exe](const uvw::CloseEvent &, auto &) { });
     }
 }
 
