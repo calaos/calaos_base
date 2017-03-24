@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "OutputShutter.h"
+#include "CalaosConfig.h"
 
 using namespace Calaos;
 
@@ -53,6 +54,17 @@ OutputShutter::OutputShutter(Params &p):
     if (!get_params().Exists("visible")) set_param("visible", "true");
 
     cInfoDom("output") << "OutputShutter::OutputShutter(" << get_param("id") << "): Ok";
+
+    //read values from cache
+    string id = get_param("id") + "_" + get_param("type");
+    Params cache;
+    if (Config::Instance().ReadValueParams(id, cache))
+    {
+        Utils::from_string(cache["sens"], sens);
+        Utils::from_string(cache["old_sens"], old_sens);
+        state_volet = cache["state_volet"];
+        cmd_state = cache["cmd_state"];
+    }
 }
 
 OutputShutter::~OutputShutter()
@@ -122,6 +134,8 @@ bool OutputShutter::set_value(std::string val)
             state_volet = "false";
             cmd_state = "down";
         }
+
+        updateCache();
     }
     else
         return false;
@@ -141,6 +155,8 @@ void OutputShutter::ImpulseUp(int ms)
     impulse_action_time = ms;
     UpWait();
     cmd_state = "impulse up " + Utils::to_string(impulse_action_time);
+
+    updateCache();
 }
 
 void OutputShutter::ImpulseDown(int ms)
@@ -149,6 +165,8 @@ void OutputShutter::ImpulseDown(int ms)
     impulse_action_time = ms;
     DownWait();
     cmd_state = "impulse down " + Utils::to_string(impulse_action_time);
+
+    updateCache();
 }
 
 void OutputShutter::Toggle()
@@ -170,6 +188,8 @@ void OutputShutter::Toggle()
         else
             Up();
     }
+
+    updateCache();
 }
 
 void OutputShutter::Up()
@@ -215,6 +235,8 @@ void OutputShutter::Up()
     if (timer_end) delete timer_end;
     timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
+
+    updateCache();
 }
 
 void OutputShutter::Down()
@@ -260,6 +282,8 @@ void OutputShutter::Down()
     if (timer_end) delete timer_end;
     timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
+
+    updateCache();
 }
 
 void OutputShutter::DownWait()
@@ -287,6 +311,8 @@ void OutputShutter::DownWait()
     }
 
     Down();
+
+    updateCache();
 }
 
 void OutputShutter::UpWait()
@@ -314,6 +340,8 @@ void OutputShutter::UpWait()
     }
 
     Up();
+
+    updateCache();
 }
 
 void OutputShutter::Stop()
@@ -354,6 +382,8 @@ void OutputShutter::Stop()
         delete timer_end;
         timer_end = NULL;
     }
+
+    updateCache();
 }
 
 void OutputShutter::TimerEnd()
@@ -372,6 +402,8 @@ void OutputShutter::TimerEnd()
     string t = cmd_state;
     Stop();
     cmd_state = t;
+
+    updateCache();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
@@ -412,4 +444,15 @@ bool OutputShutter::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
+void OutputShutter::updateCache()
+{
+    Params p = {{ "sens", Utils::to_string(sens) },
+                { "old_sens", Utils::to_string(old_sens) },
+                { "state_volet", state_volet },
+                { "cmd_state", cmd_state }};
+
+    string id = get_param("id") + "_" + get_param("type");
+    Config::Instance().SaveValueParams(id, p, false);
 }

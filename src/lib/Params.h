@@ -25,6 +25,9 @@
 #include <map>
 #include <jansson.h>
 
+#include "json.hpp"
+using Json = nlohmann::json;
+
 using namespace std;
 
 class Params
@@ -63,8 +66,11 @@ public:
 
     string toString() const;
     json_t *toJson() const;
+    Json toNJson() const;
 
     void clear() { params.clear(); }
+
+    static Params fromNJson(const Json &j);
 };
 
 #endif

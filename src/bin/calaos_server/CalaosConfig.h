@@ -43,6 +43,7 @@ private:
     void saveStateCache();
 
     unordered_map<string, string> cache_states;
+    unordered_map<string, Params> cache_params;
     std::shared_ptr<Timer> saveCacheTimer;
 
 public:
@@ -60,7 +61,9 @@ public:
     void SaveConfigRule();
 
     void SaveValueIO(string id, string value, bool save = true);
+    void SaveValueParams(string id, Params value, bool save = true);
     bool ReadValueIO(string id, string &value);
+    bool ReadValueParams(string id, Params &value);
 };
 
 }

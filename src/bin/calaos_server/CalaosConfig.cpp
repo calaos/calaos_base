@@ -225,9 +225,22 @@ void Config::loadStateCache()
         return;
     }
 
-    for (Json::iterator it = jcache.begin(); it != jcache.end(); ++it)
+    if (!jcache.is_object())
+    {
+        cWarning() << "Failed to read, not an object. " << file;
+        return;
+    }
+    Json jstates = jcache["iostates"];
+    Json jparams = jcache["ioparams"];
+
+    for (Json::iterator it = jstates.begin(); it != jstates.end(); ++it)
     {
         cache_states[it.key()] = it.value();
+    }
+
+    for (Json::iterator it = jparams.begin(); it != jparams.end(); ++it)
+    {
+        cache_params[it.key()] = Params::fromNJson(it.value());
     }
 
     cInfo() <<  "States cache read successfully.";
@@ -238,7 +251,14 @@ void Config::saveStateCache()
     string file = Utils::getCacheFile("iostates.cache");
     string tmp = file + ".tmp";
 
-    Json jcache(cache_states);
+    Json jparams;
+    for (auto it = cache_params.begin();it != cache_params.end(); it++)
+    {
+        jparams[it->first] = it->second.toNJson();
+    }
+
+    Json jcache({{ "iostates", cache_states },
+                 { "ioparams", jparams } });
     std::ofstream fout;
     fout.open(tmp, std::ofstream::out | std::ofstream::trunc);
     if (!fout.is_open())
@@ -268,6 +288,24 @@ bool Config::ReadValueIO(string id, string &value)
     if (cache_states.find(id) != cache_states.end())
     {
         value = cache_states[id];
+        return true;
+    }
+
+    return false;
+}
+
+void Config::SaveValueParams(string id, Params value, bool save)
+{
+    cache_params[id] = value;
+    if (save)
+        saveStateCache();
+}
+
+bool Config::ReadValueParams(string id, Params &value)
+{
+    if (cache_params.find(id) != cache_params.end())
+    {
+        value = cache_params[id];
         return true;
     }
 

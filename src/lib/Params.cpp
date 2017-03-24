@@ -145,3 +145,18 @@ json_t *Params::toJson() const
 
     return ret;
 }
+
+Json Params::toNJson() const
+{
+    return Json(params);
+}
+
+Params Params::fromNJson(const Json &j)
+{
+    Params p;
+    for (Json::const_iterator it = j.begin(); it != j.end(); ++it)
+    {
+        p.params[it.key()] = it.value();
+    }
+    return p;
+}

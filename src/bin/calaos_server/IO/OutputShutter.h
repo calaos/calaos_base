@@ -42,6 +42,8 @@ protected:
 
     std::string state_volet, cmd_state;
 
+    void updateCache();
+
     void TimerEnd();
     void TimerImpulse();
 
