@@ -46,9 +46,15 @@ PingInputSwitch::PingInputSwitch(Params &p):
 
 PingInputSwitch::~PingInputSwitch()
 {
-    if (ping_exe->active())
+    if (ping_exe && ping_exe->referenced())
+    {
         ping_exe->kill(SIGTERM);
-    ping_exe->close();
+        ping_exe->close();
+
+        //Here is a workaround to keep a reference to the exeCurl until the CloseEvent comes.
+        //This prevent a crash when exeCurl ref is deleted and the CloseEvent is called
+        ping_exe->once<uvw::CloseEvent>([h = ping_exe](const uvw::CloseEvent &, auto &) { });
+    }
 }
 
 bool PingInputSwitch::readValue()

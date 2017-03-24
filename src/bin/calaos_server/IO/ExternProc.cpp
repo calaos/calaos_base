@@ -87,8 +87,12 @@ ExternProcServer::~ExternProcServer()
     ipcServer->stop();
     ipcServer->close();
 
-    terminate();
-    process_exe->close();
+    if (process_exe && process_exe->referenced())
+    {
+        process_exe->kill(SIGTERM);
+        process_exe->close();
+        process_exe->once<uvw::CloseEvent>([h = process_exe](const uvw::CloseEvent &, auto &) { });
+    }
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;
     FileUtils::unlink(sockpath);
@@ -96,7 +100,7 @@ ExternProcServer::~ExternProcServer()
 
 void ExternProcServer::terminate()
 {
-    if (process_exe->active())
+    if (process_exe && process_exe->referenced())
         process_exe->kill(SIGTERM);
 }
 

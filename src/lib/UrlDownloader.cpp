@@ -26,14 +26,19 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
-    exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
 }
 
 UrlDownloader::~UrlDownloader()
 {
-    if (exeCurl && exeCurl->active())
+    if (exeCurl && exeCurl->referenced())
+    {
         exeCurl->kill(SIGTERM);
-    exeCurl->close();
+        exeCurl->close();
+
+        //Here is a workaround to keep a reference to the exeCurl until the CloseEvent comes.
+        //This prevent a crash when exeCurl ref is deleted and the CloseEvent is called
+        exeCurl->once<uvw::CloseEvent>([h = exeCurl](const uvw::CloseEvent &, auto &) { });
+    }
 
     FileUtils::unlink(tempFilename);
     FileUtils::unlink(tmpHeader);
@@ -41,7 +46,7 @@ UrlDownloader::~UrlDownloader()
 
 bool UrlDownloader::start()
 {
-    if (exeCurl->active())
+    if (exeCurl && exeCurl->active())
     {
         cWarningDom("urlutils") << "A download is already in progress...";
         return false;
