@@ -33,7 +33,7 @@ enum
 };
 static unordered_map<ExternProcServer *, int> processStatus;
 
-ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb)
+ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb, Params env)
 {
     ExternProcServer *process = new ExternProcServer("lua");
     cInfoDom("lua") << "Starting script. (" << process << ")";
@@ -122,6 +122,9 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         //after connect process to calaos events, and send him event so the process
         //can update its local cache of IO states.
         json_object_set_new(jroot, "context", jsonApi->buildFlatIOList());
+
+        //Also append the env to the json. Actually the env can contain which io has triggered the script
+        json_object_set_new(jroot, "env", env.toJson());
 
         string m = jansson_to_string(jroot);
         process->sendMessage(m);

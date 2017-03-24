@@ -49,7 +49,7 @@ public:
     void AddAction(Action *p);
     bool Execute();
     bool CheckConditions();
-    void CheckConditionsAsync(std::function<void (bool check)> cb);
+    void CheckConditionsAsync(std::function<void (bool check)> cb, string triggerId);
     bool ExecuteActions();
     void RemoveCondition(int i);
     void RemoveAction(int i);

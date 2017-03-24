@@ -31,7 +31,7 @@ public:
     /* Execute the script in a detached process (calaos_script)
      * Communication is done with ExternProc
      */
-    static ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb);
+    static ExternProcServer *ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb, Params env = Params());
 
 private:
     ScriptExec() {}

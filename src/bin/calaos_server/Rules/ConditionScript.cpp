@@ -39,13 +39,14 @@ bool ConditionScript::Evaluate()
     return false;
 }
 
-void ConditionScript::EvaluateAsync(std::function<void(bool eval)> cb)
+void ConditionScript::EvaluateAsync(std::function<void(bool eval)> cb, string triggerId)
 {
     ScriptExec::ExecuteScriptDetached(script, [=](bool ret)
     {
         cInfoDom("rule.condition.script") << "Script finished with " << (ret?"true":"false");
         cb(ret);
-    });
+    },
+    {{ "trigger_id", triggerId }});
 }
 
 bool ConditionScript::containsTriggerIO(IOBase *io)

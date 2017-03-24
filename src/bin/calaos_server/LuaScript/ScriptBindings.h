@@ -77,6 +77,7 @@ public:
 
     unordered_map<string, LuaIOBase> ioMap;
     bool abort = false;
+    Params env;
 
     sigc::signal<bool, const string &> waitForIOChanged;
 
@@ -91,6 +92,8 @@ public:
 
     /* Url request */
     int requestUrl(lua_State *L);
+
+    int getEnv(lua_State *L);
 };
 }
 

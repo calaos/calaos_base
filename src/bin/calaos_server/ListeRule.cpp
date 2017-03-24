@@ -162,7 +162,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
                     execInProgress = true;
                     rule->ExecuteActions();
                     execInProgress = false;
-                });
+                }, id);
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));

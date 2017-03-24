@@ -126,6 +126,10 @@ void ScriptProcess::messageReceived(const string &msg)
             return waitIds.find(id) != waitIds.end();
         });
 
+        //Set env
+        jansson_decode_object(json_object_get(jroot, "env"),
+                              ScriptManager::Instance().luaCalaos.env);
+
         //Execute the script, this call will block
         bool ret = ScriptManager::Instance().ExecuteScript(script);
 

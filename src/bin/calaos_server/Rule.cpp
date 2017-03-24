@@ -81,7 +81,7 @@ bool Rule::CheckConditions()
     return ret;
 }
 
-void Rule::CheckConditionsAsync(std::function<void (bool check)> cb)
+void Rule::CheckConditionsAsync(std::function<void (bool check)> cb, string triggerId)
 {
     //this works only for scripts because they need
     //to be executed in separate process
@@ -132,7 +132,7 @@ void Rule::CheckConditionsAsync(std::function<void (bool check)> cb)
                 delete res;
                 cb(r);
             }
-        });
+        }, triggerId);
     }
 }
 

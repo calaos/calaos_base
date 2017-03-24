@@ -45,7 +45,7 @@ public:
     virtual ~ConditionScript();
 
     virtual bool Evaluate();
-    void EvaluateAsync(std::function<void(bool eval)> cb);
+    void EvaluateAsync(std::function<void(bool eval)> cb, string triggerId);
 
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
