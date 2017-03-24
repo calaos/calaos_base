@@ -40,13 +40,11 @@ private:
 
     std::shared_ptr<uvw::TcpHandle> handleSrv;
 
-    map<std::shared_ptr<uvw::TcpHandle>, WebSocket *> connections;
+    list<WebSocket *> connections;
 
     HttpServer(int port); //port to listen
 
     void addConnection(const std::shared_ptr<uvw::TcpHandle> &client);
-    void delConnection(const std::shared_ptr<uvw::TcpHandle> &client);
-    void getDataConnection(const std::shared_ptr<uvw::TcpHandle> &client, void *data, int size);
 
 public:
     static HttpServer &Instance(int port = 0)

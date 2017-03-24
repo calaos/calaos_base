@@ -159,7 +159,7 @@ HttpClient::~HttpClient()
 {
     delete jsonApi;
     free(parser);
-    CloseConnection();
+    DELETE_NULL(closeTimer);
 
     cDebugDom("network") << this;
 }
@@ -511,7 +511,7 @@ void HttpClient::sendToClient(string res)
 
     cDebugDom("network") << "Sending " << dataSize << " bytes, data_size = " << data_size;
 
-    if (client_conn->closing())
+    if (client_conn->closing() || isClosing)
         return;
 
     client_conn->write((char *)res.c_str(), dataSize);

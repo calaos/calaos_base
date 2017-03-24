@@ -58,74 +58,46 @@ HttpServer::~HttpServer()
 
 void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
 {
+    string ipAddr = client->peer().ip;
     cDebugDom("network")
             << "Got a new connection from address "
-            << client->peer().ip;
+            << ipAddr;
 
     WebSocket *conn = new WebSocket(client);
-    connections[client] = conn;
+    //connections[client] = conn;
 
     //When peer closed the connection, remove it from our map and close it
-    client->on<uvw::EndEvent>([client](const uvw::EndEvent &, auto &)
+    client->once<uvw::EndEvent>([conn](const uvw::EndEvent &, auto &h)
     {
-        client->close();
+        h.close();
     });
 
     //When connection is closed
-    client->on<uvw::CloseEvent>([this, client](const uvw::CloseEvent &, auto &)
+    client->once<uvw::CloseEvent>([ipAddr, conn, this](const uvw::CloseEvent &, auto &)
     {
-        this->delConnection(client);
+        cDebugDom("network")
+                << "Connection from adress "
+                << ipAddr << " closed.";
+        connections.remove(conn);
+        delete conn;
     });
 
-    client->on<uvw::DataEvent>([this, client](const uvw::DataEvent &ev, auto &)
+    client->on<uvw::DataEvent>([ipAddr, conn](const uvw::DataEvent &ev, auto &)
     {
-        this->getDataConnection(client, ev.data.get(), ev.length);
+        cDebugDom("network")
+                << "Got data from client at address "
+                << ipAddr;
+        conn->ProcessData(string(ev.data.get(), ev.length));
     });
 
     client->read();
-}
-
-void HttpServer::delConnection(const std::shared_ptr<uvw::TcpHandle> &client)
-{
-    cDebugDom("network")
-            << "Connection from adress "
-            << client->peer().ip << " closed.";
-
-    auto it = connections.find(client);
-    if (it == connections.end())
-    {
-        cCriticalDom("network") << "Can't find corresponding HttpClient !";
-        return;
-    }
-
-    delete it->second;
-    connections.erase(it);
-}
-
-void HttpServer::getDataConnection(const std::shared_ptr<uvw::TcpHandle> &client, void *data, int size)
-{
-    string d((char *)data, size);
-
-    cDebugDom("network")
-            << "Got data from client at address "
-            << client->peer().ip;
-
-    auto it = connections.find(client);
-    if (it == connections.end())
-    {
-        cCriticalDom("network") << "Can't find corresponding HttpClient !";
-
-        return;
-    }
-
-    it->second->ProcessData(d);
 }
 
 void HttpServer::disconnectAll()
 {
     for (auto iter = connections.begin();iter != connections.end();iter++)
     {
-        WebSocket *ws = (*iter).second;
+        WebSocket *ws = (*iter);
         ws->sendCloseFrame(WebSocketFrame::CloseCodeNormal, "Shutting down", true);
     }
 }
