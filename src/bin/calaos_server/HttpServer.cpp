@@ -64,7 +64,6 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
             << ipAddr;
 
     WebSocket *conn = new WebSocket(client);
-    //connections[client] = conn;
 
     //When peer closed the connection, remove it from our map and close it
     client->once<uvw::EndEvent>([conn](const uvw::EndEvent &, auto &h)

@@ -103,7 +103,7 @@ private:
     std::shared_ptr<uvw::ProcessHandle> process_exe;
     string process_stdout;
 
-    std::list<std::shared_ptr<uvw::PipeHandle>> clientList;
+    std::shared_ptr<uvw::PipeHandle> client;
 
     void processData(const string &data);
 };

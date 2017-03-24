@@ -41,27 +41,27 @@ ExternProcServer::ExternProcServer(string pathprefix)
     ipcServer->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, auto &)
     {
         //new client has just connected to us
-        std::shared_ptr<uvw::PipeHandle> client = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
-        ipcServer->accept(*client);
+        std::shared_ptr<uvw::PipeHandle> cl = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+        ipcServer->accept(*cl);
 
         cDebugDom("process") << "New client connected to ExternProcServer";
-        clientList.push_back(client);
+        client = cl;
         processConnected.emit();
 
         //Setup events for client
 
         //When peer closed the connection, remove it from our map and close it
-        client->on<uvw::EndEvent>([client](const uvw::EndEvent &, auto &)
+        client->on<uvw::EndEvent>([](const uvw::EndEvent &, auto &h)
         {
             cDebugDom("process") << "client EndEvent";
-            client->close();
+            h.close();
         });
 
         //When connection is closed
-        client->on<uvw::CloseEvent>([this, client](const uvw::CloseEvent &, auto &)
+        client->on<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
         {
             cDebugDom("process") << "client closed, remove from clientList";
-            clientList.remove(client);
+            client.reset();
         });
 
         client->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
@@ -105,7 +105,7 @@ void ExternProcServer::terminate()
 
 void ExternProcServer::sendMessage(const string &data)
 {
-    for (const auto &client: clientList)
+    if (client)
     {
         ExternProcMessage msg(data);
         string frame = msg.getRawData();
