@@ -104,6 +104,7 @@ void NTPClock::TimerTick()
 void NTPClock::applyCalendarFromServer(string source, string s,
                                        void *listener_data, void* sender_data)
 {
+    /*
     if (networkCmdCalendarApply[2] == "ntp_on")
     {
         cInfo() <<  "Enabling NTP";
@@ -165,6 +166,7 @@ void NTPClock::applyCalendarFromServer(string source, string s,
         }
         cApply.apply();
     }
+    */
 }
 
 void NTPClock::setNetworkCmdCalendarApply(vector < string > s)

@@ -23,7 +23,7 @@
 
 #include <Utils.h>
 #include <tcpsocket.h>
-#include <Calendar.h>
+//#include <Calendar.h>
 #include <Timer.h>
 
 namespace uvw {
@@ -58,7 +58,7 @@ private:
     /**
                  * Calendar use to apply a manual date (no ntp)
                  */
-    Calendar cApply;
+//    Calendar cApply;
 
     bool restartWhenApply;
 
