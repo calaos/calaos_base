@@ -66,13 +66,21 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
 
     cInfoDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value";
 
-    string initpos;
-    if (!Config::Instance().ReadValueIO(get_param("id"), initpos))
-        cErrorDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value failed!";
-    else
-        from_string(initpos, position);
-
-    if (position >= total_time) old_sens = SHUTTER_DOWN;
+    //read values from cache
+    string id = get_param("id") + "_" + get_param("type");
+    Params cache;
+    if (Config::Instance().ReadValueParams(id, cache))
+    {
+        Utils::from_string(cache["total_time"], total_time);
+        Utils::from_string(cache["time_up"], time_up);
+        Utils::from_string(cache["time_down"], time_down);
+        Utils::from_string(cache["sens"], sens);
+        Utils::from_string(cache["old_sens"], old_sens);
+        Utils::from_string(cache["position"], position);
+        Utils::from_string(cache["start_time"], start_time);
+        Utils::from_string(cache["start_position"], start_position);
+        cmd_state = cache["cmd_state"];
+    }
 }
 
 OutputShutterSmart::~OutputShutterSmart()
@@ -237,6 +245,8 @@ bool OutputShutterSmart::set_value(std::string val)
             writePosition(new_position);
             sens = SHUTTER_STOP;
         }
+
+        updateCache();
     }
     else
         return false;
@@ -264,7 +274,11 @@ void OutputShutterSmart::Up(double new_value)
     double pos = readPosition();
     total_time = time_up;
 
-    if (pos <= 0) return;
+    if (pos <= 0)
+    {
+        updateCache();
+        return;
+    }
 
     if (timer_end) delete timer_end;
     if (timer_update) delete timer_update;
@@ -318,6 +332,8 @@ void OutputShutterSmart::Up(double new_value)
 
     if (timer_up) delete timer_up;
     timer_up = NULL;
+
+    updateCache();
 }
 
 void OutputShutterSmart::Down(double new_value)
@@ -335,7 +351,11 @@ void OutputShutterSmart::Down(double new_value)
     total_time = time_down;
     new_value = (new_value * (double)time_down) / (double) time_up;
 
-    if (pos >= total_time) return;
+    if (pos >= total_time)
+    {
+        updateCache();
+        return;
+    }
 
     if (timer_end) delete timer_end;
     if (timer_update) delete timer_update;
@@ -389,6 +409,8 @@ void OutputShutterSmart::Down(double new_value)
 
     if (timer_down) delete timer_down;
     timer_down = NULL;
+
+    updateCache();
 }
 
 void OutputShutterSmart::DownWait()
@@ -411,6 +433,7 @@ void OutputShutterSmart::DownWait()
                                         (sigc::slot<void>)sigc::bind(sigc::mem_fun(*this, &OutputShutterSmart::Down), -1) );
         }
 
+        updateCache();
         return;
     }
 
@@ -437,6 +460,7 @@ void OutputShutterSmart::UpWait()
                                       (sigc::slot<void>)sigc::bind(sigc::mem_fun(*this, &OutputShutterSmart::Up), -1) );
         }
 
+        updateCache();
         return;
     }
 
@@ -484,6 +508,8 @@ void OutputShutterSmart::Stop()
     TimerUpdate();
 
     sens = SHUTTER_STOP;
+
+    updateCache();
 }
 
 void OutputShutterSmart::ImpulseUp(int ms)
@@ -492,6 +518,8 @@ void OutputShutterSmart::ImpulseUp(int ms)
     impulse_action_time = ms;
     UpWait();
     cmd_state = "impulse up " + Utils::to_string(impulse_action_time);
+
+    updateCache();
 }
 
 void OutputShutterSmart::ImpulseDown(int ms)
@@ -500,6 +528,8 @@ void OutputShutterSmart::ImpulseDown(int ms)
     impulse_action_time = ms;
     DownWait();
     cmd_state = "impulse down " + Utils::to_string(impulse_action_time);
+
+    updateCache();
 }
 
 void OutputShutterSmart::Toggle()
@@ -521,6 +551,8 @@ void OutputShutterSmart::Toggle()
         else
             Up();
     }
+
+    updateCache();
 }
 
 void OutputShutterSmart::TimerUpdate()
@@ -541,6 +573,8 @@ void OutputShutterSmart::TimerUpdate()
         writePosition(_t);
     }
 
+    updateCache();
+
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });
@@ -556,6 +590,8 @@ void OutputShutterSmart::TimerEnd()
     string t = cmd_state;
     Stop();
     cmd_state = t;
+
+    updateCache();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
@@ -588,6 +624,8 @@ void OutputShutterSmart::TimerCalibrate()
     writePosition(0.);
 
     calibrate = false;
+
+    updateCache();
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
@@ -656,4 +694,20 @@ bool OutputShutterSmart::check_condition_value(std::string cvalue, bool equal)
     }
 
     return false;
+}
+
+void OutputShutterSmart::updateCache()
+{
+    Params p = {{ "total_time", Utils::to_string(total_time) },
+                { "time_up", Utils::to_string(time_up) },
+                { "time_down", Utils::to_string(time_down) },
+                { "sens", Utils::to_string(sens) },
+                { "old_sens", Utils::to_string(old_sens) },
+                { "position", Utils::to_string(position) },
+                { "start_time", Utils::to_string(start_time) },
+                { "start_position", Utils::to_string(start_position) },
+                { "cmd_state", cmd_state }};
+
+    string id = get_param("id") + "_" + get_param("type");
+    Config::Instance().SaveValueParams(id, p, false);
 }

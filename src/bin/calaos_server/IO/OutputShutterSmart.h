@@ -46,6 +46,8 @@ protected:
 
     std::string cmd_state;
 
+    void updateCache();
+
     virtual void readConfig();
 
     void TimerEnd();
