@@ -73,7 +73,7 @@ ExternProcServer::ExternProcServer(string pathprefix)
 
         client->on<uvw::ErrorEvent>([](const auto &, auto &)
         {
-            cCriticalDom("process") << "Error sending data!";
+            cDebugDom("process") << "Error sending data!";
         });
 
         client->read();
