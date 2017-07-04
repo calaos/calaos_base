@@ -20,6 +20,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/xPL          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
         -I$(top_srcdir)/src/bin/calaos_server/IO              \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
@@ -266,6 +267,12 @@ calaos_server_SOURCES = \
         IO/Web/WebOutputString.h                        \
         IO/X10/X10Output.cpp                            \
         IO/X10/X10Output.h                              \
+        IO/xPL/xPLController.cpp                        \
+        IO/xPL/xPLController.h                          \
+        IO/xPL/xPLInputTemp.cpp                         \
+        IO/xPL/xPLInputTemp.h                           \
+        IO/xPL/xPLOutputSwitch.cpp                      \
+        IO/xPL/xPLOutputSwitch.h                        \
         IO/Zibase/Zibase.cpp                            \
         IO/Zibase/Zibase.h                              \
         IO/Zibase/ZibaseTemp.cpp                        \

@@ -41,7 +41,7 @@ PingInputSwitch::PingInputSwitch(Params &p):
 
     if (!param_exists("interval")) set_param("interval", "15000");
 
-    doPing();
+    if (param_exists("host")) doPing();
 }
 
 PingInputSwitch::~PingInputSwitch()
