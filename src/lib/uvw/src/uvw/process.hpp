@@ -235,7 +235,7 @@ public:
         uv_stdio_container_t container;
         Flags<StdIO>::Type fgs = flags;
         container.flags = static_cast<uv_stdio_flags>(fgs);
-        container.data.stream = get<uv_stream_t>(stream);
+        container.data.stream = this->template get<uv_stream_t>(stream);
         poStreamStdio.push_back(std::move(container));
         return *this;
     }
