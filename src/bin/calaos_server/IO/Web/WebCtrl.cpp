@@ -113,7 +113,8 @@ void WebCtrl::launchDownload()
     string filename = "/tmp/calaos_" + param.get_param("id") + ".part";
     string u = param.get_param("url");
 
-    if (u.find("http://") == 0)
+    if (Utils::strStartsWith(u, "http://") ||
+        Utils::strStartsWith(u, "https://"))
     {
         UrlDownloader *dl = new UrlDownloader(param.get_param("url"), true);
         dl->httpGet(filename);
@@ -130,7 +131,7 @@ void WebCtrl::launchDownload()
     }
     else
     {
-        for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+        for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
         {
             fileDownloadedCallbacks[i].second();
         }
@@ -140,78 +141,95 @@ void WebCtrl::launchDownload()
 string WebCtrl::getValueJson(string path, string filename)
 {
     string value;
-    json_t *root = nullptr, *parent = nullptr, *var = nullptr;
-    json_error_t err;
+
+    std::ifstream ifs(filename);
+    if (!ifs.is_open())
+    {
+        cWarning() << "Failed to open WebCtrl file: " << filename;
+        return string();
+    }
+
+    Json root;
+    try
+    {
+        root = Json::parse(ifs);
+    }
+    catch (const std::exception &e)
+    {
+        cWarning() << "Error parsing " << filename << ":" << e.what();
+        return string();
+    }
 
     vector<string> tokens;
-    vector<string>::iterator it;
-
     Utils::split(path, tokens, "/");
 
-    root = json_load_file(filename.c_str(), 0, &err);
-
-    if (tokens.size())
+    if (!tokens.empty())
     {
-        if(root)
+        Json parent = root;
+        for (auto it = tokens.begin();it != tokens.end();it++)
         {
-            parent = root;
-            for (it = tokens.begin();it != tokens.end();it++)
-            {
-                string val = *it;
-                // Test if the token is an array index
-                // if it's the case, it must be something like [x]
-                if (val[0] == '[')
-                {
-                    int idx;
-                    // Remove first and last char
-                    val.erase(0, 1);
-                    val.pop_back();
-                    // Read array index
-                    Utils::from_string(val, idx);
-                    var = json_array_get(parent, idx);
-                }
-                // Toke is a normal object name
-                else
-                {
-                    var = json_object_get(parent, val.c_str());
-                }
+            string val = *it;
 
-                if (!var)
-                {
-                    var = parent;
-                    break;
-                }
-                else
-                {
-                    parent = var;
-                }
-            }
-
-            if (var)
+            // Test if the token is an array index
+            // if it's the case, it must be something like [x]
+            if (val[0] == '[')
             {
-                if (json_is_string(var))
-                    value = json_string_value(var);
-                else if (json_is_number(var))
-                    value = Utils::to_string(json_number_value(var));
-                json_decref(var);
-                json_decref(root);
+                int idx;
+                // Remove first and last char
+                val.erase(0, 1);
+                val.pop_back();
+                // Read array index
+                Utils::from_string(val, idx);
+
+                try
+                {
+                    parent = parent.at(idx);
+                }
+                catch (const std::exception &e)
+                {
+                    cWarning() << "Error in path " << path << ", index not found " << *it << " : " << e.what();
+                    return string();
+                }
             }
             else
             {
-                cError() << "Error, " << path << " Can't be read";
+                // Toke is a normal object name
+                try
+                {
+                    parent = parent.at(val);
+                }
+                catch (const std::exception &e)
+                {
+                    cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
+                    return string();
+                }
             }
+        }
+
+        if (parent.is_null())
+            value = "null";
+        else if (parent.is_boolean())
+            value = parent.get<bool>()?"true":"false";
+        else if (parent.is_number())
+            value = Utils::to_string(parent.get<double>());
+        else if (parent.is_string())
+            value = parent.get<string>();
+        else if (parent.is_object())
+        {
+            cWarning() << "Error, path returns an object, not a value";
+            value = "object{}";
+        }
+        else if (parent.is_array())
+        {
+            cWarning() << "Error, path returns an array, not a value";
+            value = "array[]";
         }
     }
     else
     {
-        var = json_object_get(root, path.c_str());
-        if (var)
-        {
-            json_decref(var);
-            value = json_string_value(var);
-            json_decref(root);
-        }
+        cWarning() << "Error emtpy path not allowed";
     }
+
     return value;
 }
 
@@ -308,10 +326,12 @@ string WebCtrl::getValue(string path)
     string filename;
     string url =  param.get_param("url");
 
-    if (url.find("http://") != 0)
+    if (Utils::strStartsWith(url, "/") ||
+        Utils::strStartsWith(url, "file://"))
     {
-
         filename = url;
+        if (Utils::strStartsWith(url, "file://"))
+            filename.erase(0, 7);
     }
     else
     {
@@ -326,9 +346,11 @@ string WebCtrl::getValue(string path)
         return getValueXml(path, filename);
     else if (file_type == TEXT)
         return getValueText(path, filename);
-
     else
+    {
+        cWarning() << "WebIO: unknown file type " << file_type << ". Can't process data.";
         return "";
+    }
 }
 
 void WebCtrl::setValue(string value)
@@ -360,3 +382,4 @@ void WebCtrl::setValue(string value)
              << data_type;
 
 }
+
