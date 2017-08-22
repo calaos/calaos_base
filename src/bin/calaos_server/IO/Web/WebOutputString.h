@@ -22,18 +22,21 @@
 #ifndef WEBOUTPUTSTRING_H
 #define WEBOUTPUTSTRING_H
 
-#include <Calaos.h>
-#include <OutputString.h>
+#include "Calaos.h"
+#include "OutputString.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
 
-class WebOutputString : public OutputString
+class WebOutputString: public OutputString
 {
 
 protected:
     virtual void readValue();
     virtual void set_value_real(string val);
+
+    WebDocBase docBase;
 
 public:
     WebOutputString(Params &p);

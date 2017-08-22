@@ -264,6 +264,8 @@ calaos_server_SOURCES = \
         IO/Web/WebOutputLightRGB.h                      \
         IO/Web/WebOutputString.cpp                      \
         IO/Web/WebOutputString.h                        \
+        IO/Web/WebDocBase.h                             \
+        IO/Web/WebDocBase.cpp                           \
         IO/X10/X10Output.cpp                            \
         IO/X10/X10Output.h                              \
         IO/Zibase/Zibase.cpp                            \

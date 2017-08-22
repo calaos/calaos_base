@@ -22,8 +22,9 @@
 #ifndef WEBOUTPUTSWITCH_H
 #define WEBOUTPUTSWITCH_H
 
-#include <Calaos.h>
-#include <OutputLight.h>
+#include "Calaos.h"
+#include "OutputLight.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
@@ -34,6 +35,8 @@ class WebOutputLight : public OutputLight
 protected:
     virtual void readValue();
     virtual bool set_value_real(bool val);
+
+    WebDocBase docBase;
 
 public:
     WebOutputLight(Params &p);
