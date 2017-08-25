@@ -19,7 +19,8 @@
  **
  ******************************************************************************/
 #include "xPLInputTemp.h"
-#include <IOFactory.h>
+#include "xPLDocBase.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
@@ -31,8 +32,7 @@ xPLInputTemp::xPLInputTemp(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("xPLInputTemp");
     ioDoc->descriptionSet(_("xPL temperature sensor"));
-    ioDoc->paramAdd("source", _("Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("sensor", _("Sensor ID, as set in your xPL network"), IODoc::TYPE_STRING, true);
+    xPLDocBase::commonSensorDoc(ioDoc);
 
     if(get_param("id")=="doc") return; //Json documentation detector
 
@@ -41,7 +41,7 @@ xPLInputTemp::xPLInputTemp(Params &p):
     
     xPLController::Instance().RegisterSensor(source, sensor, sigc::mem_fun(*this, &xPLInputTemp::valueUpdated));
 
-    cDebugDom("input") << source << ":" << sensor;
+    cInfoDom("input") << source << ":" << sensor;
 }
 
 xPLInputTemp::~xPLInputTemp()
@@ -50,11 +50,7 @@ xPLInputTemp::~xPLInputTemp()
 
 void xPLInputTemp::valueUpdated(xPLInfoSensor *sensor)
 {
-    if (sensor->AnalogVal != value)
-    {
-        value = sensor->AnalogVal;
-        emitChange();
-    }
+    if (sensor->AnalogVal != value) set_value(sensor->AnalogVal);
 }
 
 void xPLInputTemp::readValue()

@@ -18,9 +18,7 @@
     along with xPPLib.  If not, see <http://www.gnu.org/licenses/>.
 */
 /***************************************************************************************************/
-
 #include <iostream>
-#include "SimpleFolders/SimpleFolders.h"
 #include "xPLDevice.h"
 #include "Schemas/SchemaConfig.h"
 
@@ -41,12 +39,12 @@ xPLDevice::xPLDevice()
 
 xPLDevice::xPLDevice(const string& vendor, const string& device)
 {
-	 Initialisation(vendor, device, "default");
+    Initialisation(vendor, device, "default");
 }
 
 xPLDevice::xPLDevice(const string& vendor, const string& device, const string& instance)
 {
-	 Initialisation(vendor, device, instance);
+    Initialisation(vendor, device, instance);
 }
 
 void xPLDevice::Initialisation(const std::string& vendor, const std::string& device, const std::string& instance)
@@ -55,12 +53,27 @@ void xPLDevice::Initialisation(const std::string& vendor, const std::string& dev
 
 
     m_bAnswerAllMsg = false;
-    m_bLoadConfig = false;
-    m_logFile = "";
-    m_Log = &m_SimpleLog;
-    m_SimpleLog.SetFilter(&m_logFilter);
-    m_SimpleLog.SetWriter(&m_logWriter);
 
+    #ifndef XPLLIB_NOCONF
+      m_bLoadConfig = false;
+      m_ConfigFile = "";
+      m_HBeatType = ConfigAPP;
+    #else
+      m_HBeatType = HeartBeatAPP;
+    #endif
+
+    #ifndef XPLLIB_NOLOG
+      m_logFile = "";
+      m_Log = &m_SimpleLog;
+      m_SimpleLog.SetFilter(&m_logFilter);
+      m_SimpleLog.SetWriter(&m_logWriter);
+    #endif
+
+    #ifdef XPLLIB_NOSOCK
+      m_SockRecvAdr = "";
+      m_SockRecvPort = 0;
+      m_SockSend = nullptr;
+    #endif
     LOG_ENTER;
 
     if(vendor!="")
@@ -78,10 +91,8 @@ void xPLDevice::Initialisation(const std::string& vendor, const std::string& dev
 
         LOG_INFO(m_Log) << "Source : " << m_Source.ToString();
     }
-	m_HBeatMsg = nullptr;
-    m_HBeatType = ConfigAPP;
+  	m_HBeatMsg = nullptr;
     m_HBeatInterval = 5;
-    m_ConfigFile = "";
 
 	LOG_EXIT_OK;
 }
@@ -96,39 +107,23 @@ void xPLDevice::AddExtension(IExtension* extensionClass)
     m_ExtensionClass.push_back(extensionClass);
 }
 
-void xPLDevice::AddExtension(IExtensionConfig* extensionClass)
-{
-    m_ExtensionConfigClass.push_back(extensionClass);
-}
-
-SimpleLog* xPLDevice::GetLogHandle()
-{
-    return m_Log;
-}
-
 void xPLDevice::SetAppName(const string& appName, const string& appVersion)
 {
     m_AppName = appName;
     m_AppVersion = appVersion;
 }
 
-void xPLDevice::SetNetworkInterface(const std::string& networkInterface)
-{
-    m_networkInterface = networkInterface;
-}
-
 void xPLDevice::SetInstance(const string& instance)
 {
     LOG_ENTER;
-
     if(instance==m_Source.GetInstance())
     {
-        LOG_VERBOSE(m_Log) << "L'instance n'a pas changé";
+        LOG_VERBOSE(m_Log) << "The instance has not changed";
         LOG_EXIT_OK;
         return;
     }
 
-    if(m_SenderSock.isOpen()) SendHeartBeatEnd();
+    if(SockIsOpen()) SendHeartBeatEnd();
     try
     {
         m_Source.SetAddress(m_Source.GetVendor(), m_Source.GetDevice(), instance);
@@ -139,7 +134,7 @@ void xPLDevice::SetInstance(const string& instance)
         LOG_EXIT_KO;
         throw;
     }
-    if(m_SenderSock.isOpen()) SendMessage(m_HBeatMsg, "*");
+    if(SockIsOpen()) SendxPLMessage(m_HBeatMsg, "*");
 
     LOG_INFO(m_Log) << "Source : " << m_Source.ToString();
     LOG_EXIT_OK;
@@ -163,6 +158,12 @@ void xPLDevice::SetHeartBeatType(HeartBeatType type)
 xPLDevice::HeartBeatType xPLDevice::GetHeartBeatType()
 {
     return m_HBeatType;
+}
+
+#ifndef XPLLIB_NOLOG
+SimpleLog* xPLDevice::GetLogHandle()
+{
+    return m_Log;
 }
 
 void xPLDevice::SetLogLevel(int level)
@@ -212,23 +213,24 @@ void xPLDevice::SetLogDestination(const std::string& value)
     }
     m_logFile = value;
 }
+#endif
 
-void xPLDevice::SetGroups(const std::vector<std::string>& group)
+void xPLDevice::SetGroups(const std::set<std::string>& group)
 {
-    std::vector<std::string>::const_iterator it;
+    std::set<std::string>::const_iterator it;
 
     m_Groups.clear();
     for(it=group.begin(); it!=group.end(); ++it)
-        m_Groups.push_back(*it);
+        m_Groups.insert(*it);
 }
 
-void xPLDevice::SetFilters(const std::vector<std::string>& filter)
+void xPLDevice::SetFilters(const std::set<std::string>& filter)
 {
-    std::vector<std::string>::const_iterator it;
+    std::set<std::string>::const_iterator it;
 
     m_Filters.clear();
     for(it=filter.begin(); it!=filter.end(); ++it)
-        m_Filters.push_back(*it);
+        m_Filters.insert(*it);
 }
 
 void xPLDevice::SetHeartBeat(HeartBeatType type, int interval)
@@ -260,7 +262,7 @@ void xPLDevice::SetHeartBeat(HeartBeatType type, int interval)
             break;
 
         case xPLDevice::ConfigAPP :
-            m_HBeatMsg = new SchemaConfigApp(interval, m_ReceiverSock.GetPort(), m_ReceiverSock.LocalAddress(""));
+            m_HBeatMsg = new SchemaConfigApp(interval, SockRecvPort(), SockRecvAdr());
             break;
 
         case xPLDevice::HeartBeatBASIC :
@@ -268,7 +270,7 @@ void xPLDevice::SetHeartBeat(HeartBeatType type, int interval)
             break;
 
         case xPLDevice::HeartBeatAPP :
-            m_HBeatMsg = new SchemaHbeatApp(interval, m_ReceiverSock.GetPort(), m_ReceiverSock.LocalAddress(""));
+            m_HBeatMsg = new SchemaHbeatApp(interval, SockRecvPort(), SockRecvAdr());
             break;
 
         default :
@@ -287,9 +289,137 @@ void xPLDevice::SetHeartBeat(HeartBeatType type, int interval)
     LOG_EXIT_OK;
 }
 
+void xPLDevice::SendxPLMessage(ISchema *Schema, const string& target)
+{
+    string strMsg;
+
+	LOG_ENTER;
+
+    try
+    {
+        Schema->Check();
+    }
+    catch(const char * errMsg)
+    {
+        LOG_WARNING(m_Log) << errMsg;
+        LOG_EXIT_KO;
+        return;
+    }
+
+    strMsg = Schema->ToMessage(m_Source.ToString(), target);
+
+    if(!SockIsOpen())
+    {
+        LOG_VERBOSE(m_Log) << "Socket not open, message transfered in the cache";
+        m_PreSend.push_back(strMsg);
+        LOG_EXIT_OK;
+        return;
+    }
+
+    LOG_VERBOSE(m_Log) << "Send message : " << strMsg;
+    SockSend(strMsg);
+
+    LOG_EXIT_OK;
+}
+
+void xPLDevice::SendHeartBeat(bool force)
+{
+    time_t timeNow;
+    int interval;
+
+	//LOG_ENTER;
+    if((m_HBeatType==xPLDevice::ConfigBASIC)||(m_HBeatType==xPLDevice::ConfigAPP))
+        interval = 3;
+    else
+        interval = m_HBeatInterval*60;
+
+    timeNow = time((time_t*)0);
+    if((timeNow-m_LastHBeat>=interval)||(m_LastHBeat==0)||(force==true))
+    {
+ 		m_LastHBeat=timeNow;
+        SendxPLMessage(m_HBeatMsg, "*");
+	}
+
+    //LOG_EXIT_OK;
+}
+
+void xPLDevice::SendHeartBeatEnd()
+{
+    SchemaObject *hbeatMsg;
+	LOG_ENTER;
+
+    hbeatMsg = new SchemaHbeatEnd();
+    SendxPLMessage(hbeatMsg, "*");
+    delete hbeatMsg;
+
+    LOG_EXIT_OK;
+}
+
 unsigned short xPLDevice::GetTCPPort()
 {
-    return m_ReceiverSock.GetPort();
+    return SockRecvPort();
+}
+
+void xPLDevice::Open()
+{
+    vector<string>::iterator it;
+    int nb;
+	LOG_ENTER;
+
+	#ifndef XPLLIB_NOCONF
+    if(m_bLoadConfig==false) LoadConfig();
+    #endif
+
+    #ifndef XPLLIB_NOSOCK
+    DiscoverTCPPort();
+    m_SenderSock.Open(3865);
+    #endif
+
+    if((m_HBeatType==xPLDevice::ConfigAPP)||(m_HBeatType==xPLDevice::HeartBeatAPP)) SetHeartBeat(m_HBeatType, m_HBeatInterval);
+    SendHeartBeat(true);
+
+    nb = m_PreSend.size();
+    if(nb>0)
+    {
+        LOG_VERBOSE(m_Log) << nb << " messages to send.";
+
+        for(it=m_PreSend.begin(); it!=m_PreSend.end(); ++it)
+            SockSend(*it);
+
+        m_PreSend.clear();
+    }
+
+    LOG_EXIT_OK;
+}
+
+void xPLDevice::Close()
+{
+	LOG_ENTER;
+
+    try
+    {
+        SendHeartBeatEnd();
+    }
+    catch(const exception &e)
+    {
+    }
+
+    #ifndef XPLLIB_NOSOCK
+    m_SenderSock.Close();
+    m_ReceiverSock.Close();
+    #endif
+
+	#ifndef XPLLIB_NOCONF
+    m_bLoadConfig = false;
+    #endif
+
+    LOG_EXIT_OK;
+}
+
+#ifndef XPLLIB_NOSOCK
+void xPLDevice::SetNetworkInterface(const std::string& networkInterface)
+{
+    m_networkInterface = networkInterface;
 }
 
 void xPLDevice::DiscoverTCPPort()
@@ -311,7 +441,7 @@ void xPLDevice::DiscoverTCPPort()
         LOG_EXIT_OK;
         return;
     }
-    catch(const SimpleSockUDP::Exception &e)
+    catch(const SimpleSock::Exception &e)
     {
         if(e.GetNumber() != 0x0025) throw;
         LOG_VERBOSE(m_Log) << "Socket port " << portHub << " in use" ;
@@ -327,7 +457,7 @@ void xPLDevice::DiscoverTCPPort()
             LOG_EXIT_OK;
             return;
         }
-        catch(const SimpleSockUDP::Exception &e)
+        catch(const SimpleSock::Exception &e)
         {
             if(e.GetNumber() != 0x0025) throw;
             LOG_VERBOSE(m_Log) << "Socket port " << portTCP << " in use";
@@ -340,129 +470,18 @@ void xPLDevice::DiscoverTCPPort()
     return;
 }
 
-void xPLDevice::SendMessage(ISchema *Schema, const string& target)
-{
-    string strMsg;
-
-	LOG_ENTER;
-
-    try
-    {
-        Schema->Check();
-    }
-    catch(const char * errMsg)
-    {
-        LOG_WARNING(m_Log) << errMsg;
-        LOG_EXIT_KO;
-        return;
-    }
-
-    strMsg = Schema->ToMessage(m_Source.ToString(), target);
-
-    if(!m_SenderSock.isOpen())
-    {
-        LOG_VERBOSE(m_Log) << "Socket not open, message transfered in the cache";
-        m_PreSend.push_back(strMsg);
-        LOG_EXIT_OK;
-        return;
-    }
-
-    LOG_VERBOSE(m_Log) << "Send message : " << strMsg;
-    m_SenderSock.Send(strMsg);
-
-    LOG_EXIT_OK;
-}
-
-void xPLDevice::SendHeartBeat()
-{
-    time_t timeNow;
-    static time_t timeLast=0;
-    int interval;
-
-	//LOG_ENTER;
-    if((m_HBeatType==xPLDevice::ConfigBASIC)||(m_HBeatType==xPLDevice::ConfigAPP))
-        interval = 3;
-    else
-        interval = m_HBeatInterval*60;
-
-    timeNow = time((time_t*)0);
-    if((timeNow-timeLast>=interval)||(timeLast==0))
-    {
- 		timeLast=timeNow;
-        SendMessage(m_HBeatMsg, "*");
-	}
-
-    //LOG_EXIT_OK;
-}
-
-void xPLDevice::SendHeartBeatEnd()
-{
-    SchemaObject *hbeatMsg;
-	LOG_ENTER;
-
-    hbeatMsg = new SchemaHbeatEnd();
-    SendMessage(hbeatMsg, "*");
-    delete hbeatMsg;
-
-    LOG_EXIT_OK;
-}
-
-void xPLDevice::Open()
-{
-    vector<string>::iterator it;
-    int nb;
-	LOG_ENTER;
-
-    if(m_bLoadConfig==false) LoadConfig();
-
-    DiscoverTCPPort();
-    m_SenderSock.Open(3865);
-
-    if((m_HBeatType==xPLDevice::ConfigAPP)||(m_HBeatType==xPLDevice::HeartBeatAPP)) SetHeartBeat(m_HBeatType, m_HBeatInterval);
-    SendHeartBeat();
-
-    nb = m_PreSend.size();
-    if(nb>0)
-    {
-        LOG_VERBOSE(m_Log) << nb << " messages to send.";
-
-        for(it=m_PreSend.begin(); it!=m_PreSend.end(); ++it)
-            m_SenderSock.Send(*it);
-
-        m_PreSend.clear();
-    }
-
-    LOG_EXIT_OK;
-}
-
-void xPLDevice::Close()
-{
-	LOG_ENTER;
-
-    SendHeartBeatEnd();
-    m_SenderSock.Close();
-    m_ReceiverSock.Close();
-
-    m_bLoadConfig = false;
-
-    LOG_EXIT_OK;
-}
-
-void xPLDevice::SetAnswerAllMsg(bool bAnswerAllMsg)
-{
-    m_bAnswerAllMsg = bAnswerAllMsg;
-}
-
 bool xPLDevice::WaitRecv(int delay)
 {
     vector<IExtension *>::iterator it;
+    #ifndef XPLLIB_NOCONF
     vector<IExtensionConfig *>::iterator itConfig;
+    #endif
     bool bCallExtention;
     string xPLRaw;
     SchemaObject xPLparse;
 
 
-    SendHeartBeat();
+    SendHeartBeat(false);
 
     if(!m_ReceiverSock.WaitRecv(delay))
     {
@@ -499,14 +518,22 @@ bool xPLDevice::WaitRecv(int delay)
                 LOG_VERBOSE(m_Log) << "Call extended message answer";
                 (*it)->MsgAnswer(xPLparse);
             }
+            #ifndef XPLLIB_NOCONF
             for(itConfig=m_ExtensionConfigClass.begin(); itConfig!=m_ExtensionConfigClass.end(); ++itConfig)
             {
                 LOG_VERBOSE(m_Log) << "Call extended message answer";
                 (*itConfig)->MsgAnswer(xPLparse);
             }
+            #endif
         }
     }
     return true;
+}
+#endif
+
+void xPLDevice::SetAnswerAllMsg(bool bAnswerAllMsg)
+{
+    m_bAnswerAllMsg = bAnswerAllMsg;
 }
 
 bool xPLDevice::FilterAllow(const SchemaObject& msg)
@@ -515,7 +542,8 @@ bool xPLDevice::FilterAllow(const SchemaObject& msg)
     string filter;
     string filterPart;
     string msgType;
-    vector<string>::const_iterator it;
+    Address sourceAddress;
+    set<string>::const_iterator it;
 
 
 	LOG_ENTER;
@@ -541,32 +569,33 @@ bool xPLDevice::FilterAllow(const SchemaObject& msg)
        	// Check the schema class
        	posDeb = posFin+1;
         posFin = filter.find('.', posDeb);
-        filterPart = filter.substr(posDeb, posFin-posDeb+1);
+        filterPart = filter.substr(posDeb, posFin-posDeb);
         if((filterPart!="*")&&(filterPart!=msg.GetClass())) continue;
 
         // Check the schema type
        	posDeb = posFin+1;
         posFin = filter.find('.', posDeb);
-        filterPart = filter.substr(posDeb, posFin-posDeb+1);
+        filterPart = filter.substr(posDeb, posFin-posDeb);
         if((filterPart!="*")&&(filterPart!=msg.GetType())) continue;
 
         // Check the vendor
+        sourceAddress.SetAddress(msg.GetSource());
        	posDeb = posFin+1;
         posFin = filter.find('.', posDeb);
-        filterPart = filter.substr(posDeb, posFin-posDeb+1);
-        if((filterPart!="*")&&(filterPart!=msg.TargetAddress.GetVendor())) continue;
+        filterPart = filter.substr(posDeb, posFin-posDeb);
+        if((filterPart!="*")&&(filterPart!=sourceAddress.GetVendor())) continue;
 
         // Check the device
        	posDeb = posFin+1;
         posFin = filter.find('.', posDeb);
-        filterPart = filter.substr(posDeb, posFin-posDeb+1);
-        if((filterPart!="*")&&(filterPart!=msg.TargetAddress.GetDevice())) continue;
+        filterPart = filter.substr(posDeb, posFin-posDeb);
+        if((filterPart!="*")&&(filterPart!=sourceAddress.GetDevice())) continue;
 
         // Check the instance
        	posDeb = posFin+1;
         posFin = filter.find('.', posDeb);
-        filterPart = filter.substr(posDeb, posFin-posDeb+1);
-        if((filterPart!="*")&&(filterPart!=msg.TargetAddress.GetInstance())) continue;
+        filterPart = filter.substr(posDeb, posFin-posDeb);
+        if((filterPart!="*")&&(filterPart!=sourceAddress.GetInstance())) continue;
 
         LOG_VERBOSE(m_Log) << "One filter match";
         LOG_EXIT_OK;
@@ -581,7 +610,7 @@ bool xPLDevice::FilterAllow(const SchemaObject& msg)
 bool xPLDevice::InGroup(const string& target)
 {
     size_t pos;
-    vector<string>::const_iterator it;
+    set<string>::const_iterator it;
 
 
 	LOG_ENTER;
@@ -607,19 +636,17 @@ bool xPLDevice::InGroup(const string& target)
         return false;
     }
 
-    for(it=m_Groups.begin(); it!=m_Groups.end(); ++it)
+    it = m_Groups.find(target);
+    if(it == m_Groups.end())
     {
-        if(*it==target)
-        {
-            LOG_VERBOSE(m_Log) << "Target match with a group";
-            LOG_EXIT_OK;
-            return true;
-        }
+        LOG_VERBOSE(m_Log) << "Target does not match with a group";
+        LOG_EXIT_OK;
+        return false;
     }
 
-    LOG_VERBOSE(m_Log) << "Target does not match with a group";
+    LOG_VERBOSE(m_Log) << "Target match with a group";
     LOG_EXIT_OK;
-    return false;
+    return true;
 }
 
 bool xPLDevice::MsgForMe(SchemaObject& msg)
@@ -692,13 +719,19 @@ bool xPLDevice::MsgAnswer(SchemaObject& msg)
             return false;
         }
         LOG_VERBOSE(m_Log) << "send hbeat message";
-        SendMessage(m_HBeatMsg, msg.GetSource());
+        SendxPLMessage(m_HBeatMsg, msg.GetSource());
         LOG_EXIT_OK;
         return true;
     }
 
     LOG_EXIT_OK;
 	return false;
+}
+
+#ifndef XPLLIB_NOCONF
+void xPLDevice::AddExtension(IExtensionConfig* extensionClass)
+{
+    m_ExtensionConfigClass.push_back(extensionClass);
 }
 
 string xPLDevice::GetConfigFolder()
@@ -744,7 +777,10 @@ bool xPLDevice::LoadConfig()
 
     iniFile.SetOptions(iniFile.Comment, "#");
     if(!iniFile.Load(configFileName))
+    {
+        LOG_INFO(m_Log) << "Unable to open config file.";
         return false;
+    }
 
     m_bLoadConfig = true;
 
@@ -774,6 +810,7 @@ bool xPLDevice::SaveConfig()
     iniFile.SaveAs(GetConfigFileName());
     return true;
 }
+#endif
 
 bool xPLDevice::isDevice(const string& deviceName)
 {
@@ -787,6 +824,63 @@ bool xPLDevice::isDevice(const string& deviceName)
     if(pos==string::npos) return false;
 
     return true;
+}
+
+#ifdef XPLLIB_NOSOCK
+void xPLDevice::SetRecvSockInfo(const std::string& address, int port)
+{
+    m_SockRecvAdr = address;
+    m_SockRecvPort = port;
+}
+
+void xPLDevice::SetSendSockCallback(ISockSend *sockSend)
+{
+    m_SockSend = sockSend;
+}
+#endif
+
+bool xPLDevice::SockIsOpen()
+{
+    #ifndef XPLLIB_NOSOCK
+        return m_SenderSock.isOpen();
+    #else
+      if(m_SockSend==nullptr)
+        throw xPLDevice::Exception(0x0203, "xPLDevice::SockIsOpen: No callback for sender socket is defined, use xPLDevice::SetSendSockCallback");
+      return m_SockSend->IsOpen();
+    #endif
+}
+
+void xPLDevice::SockSend(const string& msg)
+{
+    #ifndef XPLLIB_NOSOCK
+        m_SenderSock.Send(msg);
+    #else
+      if(m_SockSend==nullptr)
+        throw xPLDevice::Exception(0x0204, "xPLDevice::SockSend: No callback for sender socket is defined, use xPLDevice::SetSendSockCallback");
+      return m_SockSend->Send(msg);
+    #endif
+}
+
+int xPLDevice::SockRecvPort()
+{
+    #ifndef XPLLIB_NOSOCK
+      return m_ReceiverSock.GetPort();
+    #else
+      if(m_SockRecvPort==0)
+        throw xPLDevice::Exception(0x0205, "xPLDevice::SockRecvPort: No TCP port defined, use xPLDevice::SetRecvSockInfo");
+      return m_SockRecvPort;
+    #endif
+}
+
+string xPLDevice::SockRecvAdr()
+{
+    #ifndef XPLLIB_NOSOCK
+      return m_ReceiverSock.LocalAddress("");
+    #else
+      if(m_SockRecvAdr=="")
+        throw xPLDevice::Exception(0x0206, "xPLDevice::SockRecvAdr: No receive socket address defined, use xPLDevice::SetRecvSockInfo");
+      return m_SockRecvAdr;
+    #endif
 }
 
 xPLDevice::Exception::Exception(int number, string const& message) throw()

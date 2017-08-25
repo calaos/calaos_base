@@ -18,43 +18,25 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "xPLOutputSwitch.h"
-#include "xPLDocBase.h"
-#include "IOFactory.h"
+#ifndef xPLOutputAnalog_H
+#define xPLOutputAnalog_H
 
-using namespace Calaos;
+#include "OutputAnalog.h"
+#include "xPLController.h"
 
-REGISTER_IO(xPLOutputSwitch)
-
-xPLOutputSwitch::xPLOutputSwitch(Params &p):
-    OutputLight(p)
+namespace Calaos
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("xPLOutputSwitch");
-    ioDoc->descriptionSet(_("Light/relay controlled by xPL Protocol"));
-    xPLDocBase::commonActuatorDoc(ioDoc);
 
-    if(get_param("id")=="doc") return; //Json documentation detector
+class xPLOutputAnalog : public OutputAnalog
+{
+protected:
+    void set_value_real(double val);
 
-    cInfoDom("output") << get_param("source") << ":" << get_param("actuator");
+public:
+    xPLOutputAnalog(Params &p);
+    virtual ~xPLOutputAnalog();
+};
+
 }
 
-xPLOutputSwitch::~xPLOutputSwitch()
-{
-}
-
-bool xPLOutputSwitch::set_value_real(bool val)
-{
-    string source = get_param("source");
-    string actuator = get_param("actuator");
-    string value;
-
-    if(val == true)
-      value = "high";
-    else
-      value = "low";
-
-    xPLController::Instance().SetValue(source, actuator, value);
-
-    return true;
-}
+#endif

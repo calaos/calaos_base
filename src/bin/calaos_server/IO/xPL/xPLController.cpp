@@ -18,45 +18,97 @@
 **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 **
 ******************************************************************************/
-#include <xPLController.h>
+#include "xPLController.h"
 #include "uvw/src/uvw.hpp"
+
+
+xPLSockWrapper::xPLSockWrapper()
+{
+}
+
+xPLSockWrapper::~xPLSockWrapper()
+{
+}
+
+bool xPLSockWrapper::IsOpen()
+{
+    return true;
+}
+
+void xPLSockWrapper::Send(string const& xplMsg)
+{
+    std::shared_ptr<uvw::UDPHandle> udpSenderHandle;
+
+    udpSenderHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
+    udpSenderHandle->bind("255.255.255.255", 3865);
+    udpSenderHandle->broadcast(true);
+    udpSenderHandle->send("255.255.255.255", 3865, (char *)xplMsg.c_str(), xplMsg.size());
+    udpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    {
+        cErrorDom("network") << "xPL UDP client error : " << ev.what();
+    });
+    udpSenderHandle->once<uvw::SendEvent>([](auto &, auto &h)
+    {
+        h.close();
+    });
+}
 
 xPLController::xPLController()
 {
-    //xPL Device initialisation
-    //m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
-    //m_xPLDevice.SetAppName("xPL Calaos", "1.0.0.0");    //CALAOS_VERSION ?
-    
-    //m_xPLDevice.SendHeartBeat();    //A lancer régulièrement
-    /*timer = new Timer((double)t / 1000., [=]()
-      {
-          KNXCtrl::Instance(get_param("host"))->readValue(knxBase->getReadGroupAddr());
-      });
-    */
-
     //Create listening udp server on local port to receive frame from xPL network
-    udpSrvHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
+    m_UdpRecvHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
 
-    udpSrvHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    m_UdpRecvHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
     {
         this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    udpSrvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    m_UdpRecvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
     {
-        cErrorDom("network") << "UDP server error: " << ev.what();
+        cErrorDom("network") << "xPL UDP server error : " << ev.what();
     });
 
-    udpSrvHandle->bind("0.0.0.0", 3865, uvw::UDPHandle::Bind::REUSEADDR);
-    udpSrvHandle->recv();
+    m_UdpRecvHandle->broadcast(true);
+    m_UdpRecvHandle->bind("0.0.0.0", 3865, uvw::UDPHandle::Bind::REUSEADDR);
+    m_UdpRecvHandle->recv();
+
+    //xPL Device initialisation
+    m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
+    m_xPLDevice.SetAppName("xPL Calaos", "1.0.0.0");    //CALAOS_VERSION ?
+    auto addr = m_UdpRecvHandle->sock();
+    m_xPLDevice.SetRecvSockInfo(localAddress(), addr.port);
+    m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);     
+    m_xPLDevice.Open();
+
+    //Heartbeat each 5 minutes
+    m_timer = new Timer((double)5*60, [=]()
+    {
+      m_xPLDevice.SendHeartBeat(true);
+    });
 }
 
 xPLController::~xPLController()
 {
-    udpSrvHandle->stop();
-    udpSrvHandle->close();
-    //m_xPLDevice.Close();
+    m_UdpRecvHandle->stop();
+    m_UdpRecvHandle->close();
     DELETE_NULL(m_timer);
+    m_xPLDevice.Close();
+}
+
+string xPLController::localAddress()
+{
+  std::vector<uvw::InterfaceAddress> interfaceAdrs;
+  std::vector<uvw::InterfaceAddress>::iterator it;
+
+  interfaceAdrs = uvw::Utilities::interfaceAddresses();
+  it = interfaceAdrs.begin();
+  while(it != interfaceAdrs.end())
+  {
+    if((!it->internal)&&(it->address.ip.find('.')!=string::npos))
+      return it->address.ip;   
+    ++it;
+  }    
+  return "127.0.0.1";
 }
 
 xPLController &xPLController::Instance()
@@ -71,53 +123,61 @@ void xPLController::RegisterSensor(const string& source, const string& sensor, s
     string key = source;
     key += ":";
     key += sensor;
-    
     m_sensorsChangeCb[key].connect(callback);
-    //TODO Envoyer un message xPL pour demander la valeur 
+    
+    //Send xPL message to get the value's sensor 
+    xPL::SchemaSensorRequest ssr;
+    ssr.SetDeviceName(sensor);
+    m_xPLDevice.SendxPLMessage(&ssr, source);
+cInfoDom("xPL") << "--- Get device value for " << key;
 }
 
 void xPLController::SetValue(const string& source, const string& device, const string& value)
 {
-    auto loop = uvw::Loop::getDefault();
-    auto udp_con = loop->resource<uvw::UDPHandle>();
-    string xplMsg;
-
-    xplMsg = "TEST";  //Implémenter la construction du message xPL
-    udp_con->send("0.0.0.0", 3865, (char *)xplMsg.c_str(), xplMsg.size());
-    udp_con->once<uvw::SendEvent>([](auto &, auto &h)
-    {
-        h.close();
-    });
+    //Send xPL message to set the value 
+    xPL::SchemaControlBasic scb;
+    scb.SetDeviceName(device);
+    scb.SetCurrent(value);    
+    m_xPLDevice.SendxPLMessage(&scb, source);
 }
 
 void xPLController::udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort)
 {
-/*
     string xPLRaw(data, length);
     xPL::SchemaObject xPLparse;
     string key;
+    xPLInfoSensor infoSensor;
     std::unordered_map<string, sigc::signal<void, xPLInfoSensor*>>::iterator it;
-    
+
+
     while(xPLRaw!="")
     {
         try
         {
             xPLRaw = xPLparse.Parse(xPLRaw);
         }
-        catch(const SchemaObject::Exception &e)
+        catch(const xPL::SchemaObject::Exception &e)
         {
             cErrorDom("xPLcontroller") <<  "Failed to parse : " << e.what();
             return;
         }
         
-        if(m_xPLDevice.MsgForMe(xPLparse) && (m_xPLDevice.MsgAnswer(xPLparse)) continue;
+        if(m_xPLDevice.MsgForMe(xPLparse) && m_xPLDevice.MsgAnswer(xPLparse)) continue;
+        
+        xPL::ISchema::MsgType msgType = xPLparse.GetMsgType();
+        if((msgType!=xPL::ISchema::MsgType::stat)&&(msgType!=xPL::ISchema::MsgType::trig)) continue;
+        if(xPLparse.GetClass()!="sensor") continue;
+        if(xPLparse.GetType()!="basic") continue;
         
         key = xPLparse.GetSource()+":"+xPLparse.GetValue("device");
+
         it = m_sensorsChangeCb.find(key);
-        if(it != m_sensorsChangeCb.end()
+        if(it != m_sensorsChangeCb.end())
         {
-            it->emit();
+cInfoDom("xPL") << "--- xPL recv " << key << " = " << xPLparse.GetValue("current");
+            infoSensor.StringVal = xPLparse.GetValue("current");
+            infoSensor.AnalogVal = xPLparse.GetValue<float>("current"); 
+            (it->second).emit(&infoSensor);
         }
     }
-*/
 }

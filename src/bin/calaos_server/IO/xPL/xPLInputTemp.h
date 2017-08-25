@@ -21,7 +21,7 @@
 #ifndef xPLInputTemp_H
 #define xPLInputTemp_H
 
-#include <InputTemp.h>
+#include "InputTemp.h"
 #include "xPLController.h"
 
 class xPLInfoSensor;
@@ -41,4 +41,4 @@ public:
 };
 
 }
-#endif
+#endif  //xPLInputTemp_H

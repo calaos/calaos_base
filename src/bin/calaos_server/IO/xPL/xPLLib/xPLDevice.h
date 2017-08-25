@@ -1,30 +1,30 @@
 /*** LICENCE ***************************************************************************************/
 /*
-  xPPLib - Simple class to manage xPL or xAP protocol
+  xPLLib - Simple class to manage xPL protocol
 
-  This file is part of xPPLib.
+  This file is part of xPLLib.
 
-    xPPLib is free software : you can redistribute it and/or modify
+    xPLLib is free software : you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    xPPLib is distributed in the hope that it will be useful,
+    xPLLib is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with xPPLib.  If not, see <http://www.gnu.org/licenses/>.
+    along with xPLLib.  If not, see <http://www.gnu.org/licenses/>.
 */
 /***************************************************************************************************/
 
 /*** MAIN PAGE FOR DOXYGEN *************************************************************************/
-/// \mainpage xPPDevice Class Documentation
+/// \mainpage xPLDevice Class Documentation
 /// \section intro_sec Introduction
 ///
-/// This class allows you to easily manage network commun,ication, with less than 10 methods.\n
-/// To use, include in your project xPPDevice.cpp and xPPDevice.h and ... (ToDo).
+/// This class allows you to easily manage xPL protocol.\n
+/// To use, include in your project xPLDevice.cpp and xPLDevice.h and ... (ToDo).
 ///
 /// \section feature_sec Features
 ///
@@ -37,32 +37,15 @@
 /// \li Linux Ubuntu (CPU Intel Atom)
 /// \li Linux Raspian on Raspberry Pi (CPU ARM)
 /// \li Linux FunPlug on NAS DNS-320 (CPU ARM)\n
-/// (Compilation directives define LINUX or WIN only necessary for colours in unit tests)
+/// (Compilation directives define LINUX or WIN only necessary for colors in unit tests)
 ///
 /// \section example_sec Example
-/// \code
-/// #include <iostream>
-/// #include "xPPDevice.h"
-///
-/// using namespace std;
-///
-/// int main()
-/// {
-///     xPPDevice ini;
-///
-///     ini.Load("examples\\example1.ini");
-///     cout << "SGBD Host : " << ini.GetValue<string>("SGBD", "Host", "127.0.0.1") << endl;
-///     cout << "Port TCP : " << ini.GetValue<int>("SGBD", "PortTCP", 3306) << endl;
-///     cout << "Database : " << ini.GetValue<string>("SGBD", "BDD", "MyDB") << endl;
-///
-///     return 0;
-/// }
-/// \endcode
+/// See examples projets in Code::Blocks Workspace
 ///
 /// \section licence_sec Licence
-///  xPPLib is free software : you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\n
-///  xPPLib is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\n
-///  You should have received a copy of the GNU General Public License along with xPPLib. If not, see <http://www.gnu.org/licenses/>.
+///  xPLLib is free software : you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\n
+///  xPLLib is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\n
+///  You should have received a copy of the GNU General Public License along with xPLLib. If not, see <http://www.gnu.org/licenses/>.
 ///
 /***************************************************************************************************/
 
@@ -74,40 +57,60 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include "SimpleSock/SimpleSock.h"
-#include "SimpleLog/SimpleLog.h"
-#include "SimpleIni/SimpleIni.h"
+#include <set>
+#ifndef XPLLIB_NOSOCK
+  #include "SimpleSock/SimpleSockUDP.h"
+#endif
+#ifndef XPLLIB_NOLOG
+  #include "SimpleLog/SimpleLog.h"
+  #define LOG_ENTER LOG_DEBUG(m_Log) << "*** Enter ***"
+  #define LOG_EXIT_OK LOG_DEBUG(m_Log) << "*** Exit OK ***"
+  #define LOG_EXIT_KO LOG_DEBUG(m_Log) << "*** Exit KO ***"
+#else
+    #define LOG_ENTER
+    #define LOG_EXIT_OK
+    #define LOG_EXIT_KO
+    #define LOG_FATAL(log)  std::ostream(0)
+    #define LOG_ERROR(log)  std::ostream(0)
+    #define LOG_WARNING(log)    std::ostream(0)
+    #define LOG_INFO(log)   std::ostream(0)
+    #define LOG_VERBOSE(log)    std::ostream(0)
+    #define LOG_DEBUG(log)  std::ostream(0)
+    #define LOG_TRACE(log)  std::ostream(0)
+#endif
+#ifndef XPLLIB_NOCONF
+  #include "SimpleFolders/SimpleFolders.h"
+  #include "SimpleIni/SimpleIni.h"
+#endif
 #include "xPLLib/Address.h"
 #include "xPLLib/Schemas/SchemaObject.h"
 #include "xPLLib/Schemas/SchemaHbeat.h"
 
 
-#define LOG_ENTER LOG_DEBUG(m_Log) << "*** Enter ***"
-#define LOG_EXIT_OK LOG_DEBUG(m_Log) << "*** Exit OK ***"
-#define LOG_EXIT_KO LOG_DEBUG(m_Log) << "*** Exit KO ***"
-
 namespace xPL
 {
 
-/// \brief    Very simple class to manage configuration files
-/// \details  Class allows you to easily manage configuration files with less than 10 methods.
+/// \brief    Simple class to manage xPL protocol
+/// \details  Class allows you to easily manage xPL protocol.
 class xPLDevice
 {
     public:
         class Exception;
         class IExtension;
-        class IExtensionConfig;
+        #ifdef XPLLIB_NOSOCK
+        class ISockSend;
+        #endif
+
         enum HeartBeatType {HeartBeatBASIC, HeartBeatAPP, ConfigBASIC, ConfigAPP};
 
-        /// \brief    Constructor of xPPDevice
+        /// \brief    Constructor of xPLDevice
         /// \param    filename         Name of the configuration file.
-        /// \details  Constructor of xPPDevice, optionally can load configuration file \a filename, by Load method. If the Load method fails, an exception is raised.
+        /// \details  Constructor of xPLDevice
         xPLDevice();
         xPLDevice(const std::string& vendor, const std::string& device);
         xPLDevice(const std::string& vendor, const std::string& device, const std::string& instance);
-		void Initialisation(const std::string& vendor, const std::string& device, const std::string& instance);
+        void Initialisation(const std::string& vendor, const std::string& device, const std::string& instance);
         void AddExtension(IExtension* extensionClass);
-        void AddExtension(IExtensionConfig* extensionClass);
         void SetAnswerAllMsg(bool bAllMsg);
 
         /// \brief    Destructor of xPPDevice
@@ -116,72 +119,107 @@ class xPLDevice
 
         void SetInstance(const std::string& instance);
         void SetAppName(const std::string& appName, const std::string& appVersion);
-        void SetNetworkInterface(const std::string& networkInterface);
-        void SetGroups(const std::vector<std::string>& group);
-        void SetFilters(const std::vector<std::string>& filter);
-        void SetLogLevel(int level);
-        void SetLogModule(const std::string& module);
-        void SetLogFunction(const std::string& funct);
-        void SetLogDestination(const std::string& destination);
+        void SetGroups(const std::set<std::string>& group);
+        void SetFilters(const std::set<std::string>& filter);
         void SetHeartBeatInterval(int interval);
         void SetHeartBeatType(HeartBeatType type);
-        unsigned short GetTCPPort();
         bool MsgForMe(SchemaObject& msg);
-
         std::string GetInstance();
-        SimpleLog* GetLogHandle();
         HeartBeatType GetHeartBeatType();
-
+        bool isDevice(const std::string& deviceName);
+        bool MsgAnswer(SchemaObject& msg);
+        void SendxPLMessage(ISchema *Schema, const std::string& target);
+        unsigned short GetTCPPort();
         void Open();
         void Close();
-        bool WaitRecv(int delay);
-        void SendMessage(ISchema *Schema, const std::string& target);
+        void SendHeartBeat(bool force);
 
-		bool isDevice(const std::string& deviceName);
+        #ifndef XPLLIB_NOSOCK
+          void SetNetworkInterface(const std::string& networkInterface);
+          bool WaitRecv(int delay);
+        #else
+          void SetSendSockCallback(ISockSend *sockSend);
+          void SetRecvSockInfo(const std::string& address, int port);
+        #endif
 
-        std::string GetConfigFolder();
-        bool LoadConfig();
-        bool SaveConfig();
-        void SetConfigFileName(const char* fileName);
+        #ifndef XPLLIB_NOLOG
+          SimpleLog* GetLogHandle();
+          void SetLogLevel(int level);
+          void SetLogModule(const std::string& module);
+          void SetLogFunction(const std::string& funct);
+          void SetLogDestination(const std::string& destination);
+        #endif
+
+        #ifndef XPLLIB_NOCONF
+          class IExtensionConfig;
+          void AddExtension(IExtensionConfig* extensionClass);
+          std::string GetConfigFolder();
+          bool LoadConfig();
+          bool SaveConfig();
+          void SetConfigFileName(const char* fileName);
+        #endif
 
     private:
-        std::string GetConfigFileName();
-        void DiscoverTCPPort();
         bool FilterAllow(const SchemaObject& msg);
         bool InGroup(const std::string& target);
-        bool MsgAnswer(SchemaObject& msg);
         void SetHeartBeat(HeartBeatType type, int interval);
-        void SendHeartBeat();
         void SendHeartBeatEnd();
+        bool SockIsOpen();
+        void SockSend(const std::string& msg);
+        int SockRecvPort();
+        std::string SockRecvAdr();
 
         Address m_Source;
         int m_HBeatInterval;
         std::string m_AppName;
         std::string m_AppVersion;
-        std::vector<std::string> m_Groups;
-        std::vector<std::string> m_Filters;
+        std::set<std::string> m_Groups;
+        std::set<std::string> m_Filters;
 
         std::vector<std::string> m_PreSend;
         SchemaObject *m_HBeatMsg;
         HeartBeatType m_HBeatType;
+        time_t m_LastHBeat=0;
+
         bool m_bAnswerAllMsg;
-        bool m_bLoadConfig;
         std::vector<IExtension*> m_ExtensionClass;
-        std::vector<IExtensionConfig*> m_ExtensionConfigClass;
 
-        std::ofstream m_logStream;
-        std::string m_logFile;
-        SimpleLog* m_Log;
-        SimpleLog m_SimpleLog;
-        SimpleLog::DefaultWriter m_logWriter;
-        SimpleLog::DefaultFilter m_logFilter;
+        #ifndef XPLLIB_NOLOG
+          std::ofstream m_logStream;
+          std::string m_logFile;
+          SimpleLog* m_Log;
+          SimpleLog m_SimpleLog;
+          SimpleLog::DefaultWriter m_logWriter;
+          SimpleLog::DefaultFilter m_logFilter;
+        #endif
 
-        SimpleSockUDP m_SenderSock;
-        SimpleSockUDP m_ReceiverSock;
-        std::string m_networkInterface;
+        #ifndef XPLLIB_NOSOCK
+          SimpleSockUDP m_SenderSock;
+          SimpleSockUDP m_ReceiverSock;
+          std::string m_networkInterface;
+          void DiscoverTCPPort();
+        #else
+          std::string m_SockRecvAdr;
+          int m_SockRecvPort;
+          ISockSend *m_SockSend;
+        #endif
 
-        std::string m_ConfigFile;
+        #ifndef XPLLIB_NOCONF
+          std::vector<IExtensionConfig*> m_ExtensionConfigClass;
+          std::string GetConfigFileName();
+          bool m_bLoadConfig;
+          std::string m_ConfigFile;
+        #endif
 };
+
+#ifdef XPLLIB_NOSOCK
+class xPLDevice::ISockSend
+{
+    public:
+        virtual bool IsOpen() = 0;
+        virtual void Send(std::string const& xplmsg) = 0;
+};
+#endif
 
 class xPLDevice::IExtension
 {
@@ -189,6 +227,7 @@ class xPLDevice::IExtension
         virtual bool MsgAnswer(SchemaObject& msg) = 0;
 };
 
+#ifndef XPLLIB_NOCONF
 class xPLDevice::IExtensionConfig
 {
     public:
@@ -196,6 +235,7 @@ class xPLDevice::IExtensionConfig
         virtual void LoadConfig(SimpleIni& iniFile) = 0;
         virtual void SaveConfig(SimpleIni& iniFile) = 0;
 };
+#endif
 
 class xPLDevice::Exception: public std::exception
 {

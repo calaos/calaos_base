@@ -150,11 +150,11 @@ void SchemaControlBasic::Check()
             if(svalue=="enable") return;
             if(svalue=="disable") return;
             if(svalue=="do") return;
-            throw SchemaControlBasic::Exception(0x0105, "SchemaControlBasic::Check() : Macro value unknown");
+            throw SchemaControlBasic::Exception(0x0106, "SchemaControlBasic::Check() : Macro value unknown");
         case mute :
             if(svalue=="yes") return;
             if(svalue=="no") return;
-            throw SchemaControlBasic::Exception(0x0106, "SchemaControlBasic::Check() : Mute value unknown");
+            throw SchemaControlBasic::Exception(0x0107, "SchemaControlBasic::Check() : Mute value unknown");
         case output :
             if(svalue=="enable") return;
             if(svalue=="disable") return;
@@ -162,18 +162,19 @@ void SchemaControlBasic::Check()
             if(svalue=="low") return;
             if(svalue=="toggle") return;
             if(svalue=="pulse") return;
-            throw SchemaControlBasic::Exception(0x0107, "SchemaControlBasic::Check() : Output value unknown");
+            throw SchemaControlBasic::Exception(0x0108, "SchemaControlBasic::Check() : Output value unknown");
         case variable :
-            ivalue = GetValue<int>("current");
-            if((ivalue>=0)&&(ivalue<=255)) return;
             if(svalue=="inc") return;
             if(svalue=="dec") return;
-            throw SchemaControlBasic::Exception(0x0108, "SchemaControlBasic::Check() : Variable value unknown");
+            if(svalue=="0") return;
+            ivalue = GetValue<int>("current");
+            if((ivalue>=1)&&(ivalue<=255)) return;
+            throw SchemaControlBasic::Exception(0x0109, "SchemaControlBasic::Check() : Variable value unknown");
         case periodic :
             if(svalue=="started") return;
             if(svalue=="enable") return;
             if(svalue=="disable") return;
-            throw SchemaControlBasic::Exception(0x0109, "SchemaControlBasic::Check() : Periodic value unknown");
+            throw SchemaControlBasic::Exception(0x010A, "SchemaControlBasic::Check() : Periodic value unknown");
         case scheduled :
             if(svalue=="started") return;
             if(svalue=="enable") return;

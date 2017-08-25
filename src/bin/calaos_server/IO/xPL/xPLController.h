@@ -21,9 +21,11 @@
 #ifndef xPLController_H
 #define xPLController_H
 
-#include <Calaos.h>
+#include "Calaos.h"
 #include "Timer.h"
-//#include "xPLLib/xPLDevice.h"
+#include "xPLLib/xPLDevice.h"
+#include "xPLLib/Schemas/SchemaControl.h"
+#include "xPLLib/Schemas/SchemaSensor.h"
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
@@ -39,7 +41,17 @@ public:
     xPLInfoSensor() { }
 
     float AnalogVal;
-    bool DigitalVal;
+    string StringVal;
+};
+
+class xPLSockWrapper : public xPL::xPLDevice::ISockSend
+{
+public:
+    xPLSockWrapper();
+    ~xPLSockWrapper();
+
+    bool IsOpen();
+    void Send(std::string const& xplmsg);
 };
 
 class xPLController
@@ -47,13 +59,15 @@ class xPLController
 
 protected:
     xPLController();
-
-    std::shared_ptr<uvw::UDPHandle> udpSrvHandle;
+    
     void udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort);
+
+    std::shared_ptr<uvw::UDPHandle> m_UdpRecvHandle;
+    xPLSockWrapper m_xPLSockWrapper;
 
     std::unordered_map<string, sigc::signal<void, xPLInfoSensor*>> m_sensorsChangeCb;
     Timer *m_timer;
-    //xPL::xPLDevice m_xPLDevice;
+    xPL::xPLDevice m_xPLDevice;
 
 
 public:
@@ -62,6 +76,7 @@ public:
     //Singleton
     static xPLController &Instance();
     
+    std::string localAddress();
     void RegisterSensor(const string& source, const string& device, sigc::slot<void, xPLInfoSensor*> callback);
     void SetValue(const string& source, const string& device, const string& value);
 

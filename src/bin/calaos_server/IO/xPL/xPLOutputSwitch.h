@@ -30,9 +30,7 @@ namespace Calaos
 class xPLOutputSwitch : public OutputLight
 {
 protected:
-    virtual void readValue();
-    virtual bool set_value_real(bool val);
-    void valueUpdated(xPLInfoSensor *sensor);
+    bool set_value_real(bool val);
 
 public:
     xPLOutputSwitch(Params &p);

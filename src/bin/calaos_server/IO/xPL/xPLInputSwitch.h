@@ -18,43 +18,31 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "xPLOutputSwitch.h"
-#include "xPLDocBase.h"
-#include "IOFactory.h"
+#ifndef xPLInputSwitch_H
+#define xPLInputSwitch_H
 
-using namespace Calaos;
+#include "InputSwitch.h"
+#include "xPLController.h"
 
-REGISTER_IO(xPLOutputSwitch)
+class xPLInfoSensor;
 
-xPLOutputSwitch::xPLOutputSwitch(Params &p):
-    OutputLight(p)
+namespace Calaos
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("xPLOutputSwitch");
-    ioDoc->descriptionSet(_("Light/relay controlled by xPL Protocol"));
-    xPLDocBase::commonActuatorDoc(ioDoc);
 
-    if(get_param("id")=="doc") return; //Json documentation detector
+class xPLInputSwitch : public InputSwitch, public sigc::trackable
+{
+protected:
+    virtual bool readValue();
+    void valueUpdated(xPLInfoSensor *sensor);
 
-    cInfoDom("output") << get_param("source") << ":" << get_param("actuator");
+public:
+    xPLInputSwitch(Params &p);
+    ~xPLInputSwitch();
+
+private:
+    bool m_xPLValue;
+};
+
 }
 
-xPLOutputSwitch::~xPLOutputSwitch()
-{
-}
-
-bool xPLOutputSwitch::set_value_real(bool val)
-{
-    string source = get_param("source");
-    string actuator = get_param("actuator");
-    string value;
-
-    if(val == true)
-      value = "high";
-    else
-      value = "low";
-
-    xPLController::Instance().SetValue(source, actuator, value);
-
-    return true;
-}
+#endif  //xPLInputSwitch_H
