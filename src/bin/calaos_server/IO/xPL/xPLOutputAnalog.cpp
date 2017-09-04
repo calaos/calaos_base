@@ -49,5 +49,5 @@ void xPLOutputAnalog::set_value_real(double val)
     string actuator = get_param("actuator");
     string value = Utils::to_string(val);
 
-    xPLController::Instance().SetValue(source, actuator, value);
+    xPLController::Instance().setValue(source, actuator, value);
 }

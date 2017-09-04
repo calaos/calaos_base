@@ -48,5 +48,5 @@ void xPLOutputString::set_value_real(string val)
     string source = get_param("source");
     string actuator = get_param("actuator");
 
-    xPLController::Instance().SetValue(source, actuator, val);
+    xPLController::Instance().setValue(source, actuator, val);
 }

@@ -54,7 +54,7 @@ bool xPLOutputSwitch::set_value_real(bool val)
     else
       value = "low";
 
-    xPLController::Instance().SetValue(source, actuator, value);
+    xPLController::Instance().setValue(source, actuator, value);
 
     return true;
 }

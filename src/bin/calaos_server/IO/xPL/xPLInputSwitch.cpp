@@ -40,7 +40,7 @@ xPLInputSwitch::xPLInputSwitch(Params &p):
     string source = get_param("source");
     string sensor = get_param("sensor");
     
-    xPLController::Instance().RegisterSensor(source, sensor, sigc::mem_fun(*this, &xPLInputSwitch::valueUpdated));
+    xPLController::Instance().registerSensor(source, sensor, sigc::mem_fun(*this, &xPLInputSwitch::valueUpdated));
 
     cInfoDom("input") << source << ":" << sensor;
 }
