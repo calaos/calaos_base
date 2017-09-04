@@ -56,30 +56,27 @@ public:
 
 class xPLController
 {
-
-protected:
+private:
     xPLController();
     
     void udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort);
+    int discoverxPLPort();
+    std::string localAddress();
+    std::string getCalaosVersion();
 
     std::shared_ptr<uvw::UDPHandle> m_UdpRecvHandle;
     xPLSockWrapper m_xPLSockWrapper;
-
     std::unordered_map<string, sigc::signal<void, xPLInfoSensor*>> m_sensorsChangeCb;
     Timer *m_timer;
     xPL::xPLDevice m_xPLDevice;
 
-
 public:
-    ~xPLController();
-
-    //Singleton
     static xPLController &Instance();
+    ~xPLController();
     
-    std::string localAddress();
-    void RegisterSensor(const string& source, const string& device, sigc::slot<void, xPLInfoSensor*> callback);
-    void SetValue(const string& source, const string& device, const string& value);
-
+    void registerSensor(const string& source, const string& device, sigc::slot<void, xPLInfoSensor*> callback);
+    void setValue(const string& source, const string& device, const string& value);
+    void getValue(const string& source, const string& sensor);
 };
 
 #endif

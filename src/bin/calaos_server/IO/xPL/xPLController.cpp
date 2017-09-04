@@ -19,6 +19,7 @@
 **
 ******************************************************************************/
 #include "xPLController.h"
+#include "uv.h"
 #include "uvw/src/uvw.hpp"
 
 
@@ -55,6 +56,8 @@ void xPLSockWrapper::Send(string const& xplMsg)
 
 xPLController::xPLController()
 {
+    int portTCP;
+
     //Create listening udp server on local port to receive frame from xPL network
     m_UdpRecvHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
 
@@ -68,22 +71,23 @@ xPLController::xPLController()
         cErrorDom("network") << "xPL UDP server error : " << ev.what();
     });
 
+    portTCP = discoverxPLPort();
     m_UdpRecvHandle->broadcast(true);
-    m_UdpRecvHandle->bind("0.0.0.0", 3865, uvw::UDPHandle::Bind::REUSEADDR);
+    cInfoDom("xPL") << "Listening on port " << portTCP;
+    m_UdpRecvHandle->bind("0.0.0.0", portTCP, uvw::UDPHandle::Bind::REUSEADDR);
     m_UdpRecvHandle->recv();
 
     //xPL Device initialisation
     m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
-    m_xPLDevice.SetAppName("xPL Calaos", "1.0.0.0");    //CALAOS_VERSION ?
-    auto addr = m_UdpRecvHandle->sock();
-    m_xPLDevice.SetRecvSockInfo(localAddress(), addr.port);
+    m_xPLDevice.SetAppName("xPL Calaos", getCalaosVersion());
+    m_xPLDevice.SetRecvSockInfo(localAddress(), portTCP);
     m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);     
     m_xPLDevice.Open();
 
     //Heartbeat each 5 minutes
     m_timer = new Timer((double)5*60, [=]()
     {
-      m_xPLDevice.SendHeartBeat(true);
+        m_xPLDevice.SendHeartBeat(true);
     });
 }
 
@@ -95,20 +99,59 @@ xPLController::~xPLController()
     m_xPLDevice.Close();
 }
 
+string xPLController::getCalaosVersion()
+{
+    string packageString(PACKAGE_STRING);
+
+    if(packageString.substr(0, 8)!="calaos v")
+        return "unknown";
+    
+    return packageString.substr(8);
+}
+
+int xPLController::discoverxPLPort()
+{
+    int portHub = 3865;
+    int portMin = 49152-1;
+    int portMax = 65535;
+    int portTCP;
+    uv_udp_t sock;
+    struct sockaddr_in addr;
+    int r;
+
+
+    r = uv_udp_init(uv_default_loop(), &sock);
+    if(r!=0) return 3865;
+    
+    portTCP = portHub;
+    do
+    {
+        uv_ip4_addr("0.0.0.0", portTCP, &addr);
+        r = uv_udp_bind(&sock, (const struct sockaddr*) &addr, UV_UDP_REUSEADDR);
+        if(r==0) break;
+        if(portTCP==portHub) portTCP=portMin;
+        portTCP++;
+    } while(portTCP!=portMax);
+    uv_udp_recv_stop(&sock);
+
+    if(r!=0) return 3865;
+    return portTCP;  
+}
+
 string xPLController::localAddress()
 {
-  std::vector<uvw::InterfaceAddress> interfaceAdrs;
-  std::vector<uvw::InterfaceAddress>::iterator it;
-
-  interfaceAdrs = uvw::Utilities::interfaceAddresses();
-  it = interfaceAdrs.begin();
-  while(it != interfaceAdrs.end())
-  {
-    if((!it->internal)&&(it->address.ip.find('.')!=string::npos))
-      return it->address.ip;   
-    ++it;
-  }    
-  return "127.0.0.1";
+    std::vector<uvw::InterfaceAddress> interfaceAdrs;
+    std::vector<uvw::InterfaceAddress>::iterator it;
+  
+    interfaceAdrs = uvw::Utilities::interfaceAddresses();
+    it = interfaceAdrs.begin();
+    while(it != interfaceAdrs.end())
+    {
+        if((!it->internal)&&(it->address.ip.find('.')!=string::npos))
+            return it->address.ip;   
+        ++it;
+    }    
+    return "127.0.0.1";
 }
 
 xPLController &xPLController::Instance()
@@ -118,23 +161,24 @@ xPLController &xPLController::Instance()
     return myInstance;
 }
 
-void xPLController::RegisterSensor(const string& source, const string& sensor, sigc::slot<void, xPLInfoSensor*> callback)
+void xPLController::registerSensor(const string& source, const string& sensor, sigc::slot<void, xPLInfoSensor*> callback)
 {
     string key = source;
     key += ":";
     key += sensor;
     m_sensorsChangeCb[key].connect(callback);
-    
-    //Send xPL message to get the value's sensor 
+    getValue(source, sensor);
+}
+
+void xPLController::getValue(const string& source, const string& sensor)
+{
     xPL::SchemaSensorRequest ssr;
     ssr.SetDeviceName(sensor);
     m_xPLDevice.SendxPLMessage(&ssr, source);
-cInfoDom("xPL") << "--- Get device value for " << key;
 }
 
-void xPLController::SetValue(const string& source, const string& device, const string& value)
+void xPLController::setValue(const string& source, const string& device, const string& value)
 {
-    //Send xPL message to set the value 
     xPL::SchemaControlBasic scb;
     scb.SetDeviceName(device);
     scb.SetCurrent(value);    
@@ -174,7 +218,6 @@ void xPLController::udpListenData(const char *data, std::size_t length, string r
         it = m_sensorsChangeCb.find(key);
         if(it != m_sensorsChangeCb.end())
         {
-cInfoDom("xPL") << "--- xPL recv " << key << " = " << xPLparse.GetValue("current");
             infoSensor.StringVal = xPLparse.GetValue("current");
             infoSensor.AnalogVal = xPLparse.GetValue<float>("current"); 
             (it->second).emit(&infoSensor);
