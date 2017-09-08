@@ -22,8 +22,9 @@
 #ifndef WEBINPUTANALOG_H
 #define WEBINPUTANALOG_H
 
-#include <Calaos.h>
-#include <InputAnalog.h>
+#include "Calaos.h"
+#include "InputAnalog.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
@@ -32,6 +33,8 @@ class WebInputAnalog : public InputAnalog
 {
 protected:
     virtual void readValue();
+
+    WebDocBase docBase;
 
 public:
     WebInputAnalog(Params &p);

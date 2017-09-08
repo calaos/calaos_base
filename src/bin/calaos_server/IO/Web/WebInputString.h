@@ -22,8 +22,9 @@
 #ifndef WEBINPUTSTRING_H
 #define WEBINPUTSTRING_H
 
-#include <Calaos.h>
-#include <InputString.h>
+#include "Calaos.h"
+#include "InputString.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
@@ -33,6 +34,8 @@ class WebInputString : public InputString
 
 protected:
     virtual void readValue();
+
+    WebDocBase docBase;
 
 public:
     WebInputString(Params &p);

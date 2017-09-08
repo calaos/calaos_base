@@ -22,20 +22,20 @@
 #ifndef WEBOUTPUTLIGHTRGB_H
 #define WEBOUTPUTLIGHTRGB_H
 
-#include <Calaos.h>
-#include <OutputLightRGB.h>
+#include "Calaos.h"
+#include "OutputLightRGB.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
 
 class WebOutputLightRGB : public OutputLightRGB
 {
-private:
-    bool raw_value;
-
 protected:
     virtual void readValue();
     virtual void setColorReal(const ColorValue &color, bool state);
+
+    WebDocBase docBase;
 
 public:
     WebOutputLightRGB(Params &p);

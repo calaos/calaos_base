@@ -41,7 +41,8 @@ static bool logger_isTerm_check()
         sterm == "kterm" ||
         sterm == "aterm" ||
         sterm == "gnome" ||
-        sterm == "interix")
+        sterm == "interix" ||
+        sterm == "screen.xterm-256color")
     {
         int fdout = STDOUT_FILENO;
         if ((fdout >= 0) && (!::isatty(fdout)))

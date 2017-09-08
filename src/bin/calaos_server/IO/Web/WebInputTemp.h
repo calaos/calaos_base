@@ -22,8 +22,9 @@
 #ifndef WEBINPUTTEMP_H
 #define WEBINPUTTEMP_H
 
-#include <Calaos.h>
-#include <InputTemp.h>
+#include "Calaos.h"
+#include "InputTemp.h"
+#include "WebDocBase.h"
 
 namespace Calaos
 {
@@ -33,6 +34,8 @@ class WebInputTemp : public InputTemp
 
 protected:
     virtual void readValue();
+
+    WebDocBase docBase;
 
 public:
     WebInputTemp(Params &p);

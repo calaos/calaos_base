@@ -18,48 +18,25 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
-#include "ListeRule.h"
-#include "WebInputTemp.h"
-#include "WebCtrl.h"
-#include "jansson.h"
-#include "IOFactory.h"
+#ifndef WEBDOCBASE_H
+#define WEBDOCBASE_H
 
-using namespace Calaos;
+#include "Calaos.h"
+#include "IODoc.h"
 
-REGISTER_IO(WebInputTemp)
-
-WebInputTemp::WebInputTemp(Params &p):
-    InputTemp(p)
+namespace Calaos
 {
 
-    ioDoc->friendlyNameSet("WebInputTemp");
-    ioDoc->descriptionSet(_("Temperature input read from a web document"));
-    docBase.initDoc(ioDoc);
-
-    cInfoDom("input") << "WebInputTemp::WebInputTemp()";
-    Calaos::StartReadRules::Instance().addIO();
-
-    // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(get_param("path"), readTime, [=]()
-    {
-        readValue();
-        Calaos::StartReadRules::Instance().ioRead();
-    });
-}
-
-WebInputTemp::~WebInputTemp()
+class WebDocBase
 {
-    WebCtrl::Instance(get_params()).Del(get_param("path"));
+public:
+    WebDocBase();
+    virtual ~WebDocBase();
+
+    void initDoc(IODoc *ioDoc, bool docPost = false);
+};
+
 }
 
-void WebInputTemp::readValue()
-{
-  // Read the value
-    value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
-    emitChange();
-}
-
+#endif // WEBDOCBASE_H
