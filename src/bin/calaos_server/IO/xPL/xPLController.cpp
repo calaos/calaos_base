@@ -39,11 +39,14 @@ bool xPLSockWrapper::IsOpen()
 void xPLSockWrapper::Send(string const& xplMsg)
 {
     std::shared_ptr<uvw::UDPHandle> udpSenderHandle;
+    int dataSize = xplMsg.length();
+    auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+    std::copy(xplMsg.begin(), xplMsg.end(), dataWrite.get());
 
     udpSenderHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
     udpSenderHandle->bind("255.255.255.255", 3865);
     udpSenderHandle->broadcast(true);
-    udpSenderHandle->send("255.255.255.255", 3865, (char *)xplMsg.c_str(), xplMsg.size());
+    udpSenderHandle->send("255.255.255.255", 3865, std::move(dataWrite), dataSize);
     udpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
     {
         cErrorDom("network") << "xPL UDP client error : " << ev.what();
