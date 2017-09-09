@@ -514,7 +514,9 @@ void HttpClient::sendToClient(string res)
     if (client_conn->closing() || isClosing)
         return;
 
-    client_conn->write((char *)res.c_str(), dataSize);
+    auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+    std::copy(res.begin(), res.end(), dataWrite.get());
+    client_conn->write(std::move(dataWrite), dataSize);
     client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
     {
         this->DataWritten(dataSize);

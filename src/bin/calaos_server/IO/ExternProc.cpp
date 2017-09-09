@@ -111,7 +111,11 @@ void ExternProcServer::sendMessage(const string &data)
         string frame = msg.getRawData();
 
         cDebugDom("process") << "client writing data: " << data;
-        client->write((char *)frame.c_str(), frame.size());
+
+        int dataSize = frame.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(frame.begin(), frame.end(), dataWrite.get());
+        client->write(std::move(dataWrite), dataSize);
     }
 }
 

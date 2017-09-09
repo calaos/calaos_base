@@ -177,7 +177,10 @@ void AVReceiver::sendRequest(string request)
 
     request += command_suffix;
 
-    conHandle->write((char *)request.c_str(), request.length());
+    int dataSize = request.length();
+    auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+    std::copy(request.begin(), request.end(), dataWrite.get());
+    conHandle->write(std::move(dataWrite), dataSize);
 }
 
 void AVReceiver::sendRequest(vector<char> request)
