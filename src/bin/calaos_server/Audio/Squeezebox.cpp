@@ -117,7 +117,10 @@ void Squeezebox::timerNotificationReconnect()
 
         cDebugDom("squeezebox") <<  "trying to subscribe to events";
 
-        h.write((char *)cmd.c_str(), cmd.length());
+        int dataSize = cmd.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(cmd.begin(), cmd.end(), dataWrite.get());
+        h.write(std::move(dataWrite), dataSize);
         h.read();
     });
 
@@ -458,7 +461,10 @@ void Squeezebox::_sendRequest()
     if (isConnected)
     {
         cmd.request += "\n\r";
-        conHandle->write((char *)cmd.request.c_str(), cmd.request.length());
+        int dataSize = cmd.request.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(cmd.request.begin(), cmd.request.end(), dataWrite.get());
+        conHandle->write(std::move(dataWrite), dataSize);
     }
 }
 

@@ -470,11 +470,19 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
 
     if (param["gateway"] == "serial")
     {
-        serialHandle->write((char *)data.str().c_str(), data.str().length());
+        string msg = data.str();
+        int dataSize = msg.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(msg.begin(), msg.end(), dataWrite.get());
+        serialHandle->write(std::move(dataWrite), dataSize);
     }
     else if (param["gateway"] == "tcp")
     {
-        svrHandle->write((char *)data.str().c_str(), data.str().length());
+        string msg = data.str();
+        int dataSize = msg.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(msg.begin(), msg.end(), dataWrite.get());      
+        svrHandle->write(std::move(dataWrite), dataSize);
     }
 }
 

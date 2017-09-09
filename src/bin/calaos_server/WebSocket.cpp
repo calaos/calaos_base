@@ -418,7 +418,10 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
         websocketDisconnected.emit();
     });
 
-    client_conn->write((char *)frame.c_str(), frame.size());
+    int dataSize = frame.length();
+    auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+    std::copy(frame.begin(), frame.end(), dataWrite.get());
+    client_conn->write(std::move(dataWrite), dataSize);
 }
 
 void WebSocket::processControlFrame()
@@ -556,7 +559,10 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
         std::size_t n = frame.size();
         data_size += n;
 
-        client_conn->write((char *)frame.c_str(), frame.size());
+        int dataSize = frame.length();
+        auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
+        std::copy(frame.begin(), frame.end(), dataWrite.get());
+        client_conn->write(std::move(dataWrite), dataSize);
         client_conn->once<uvw::WriteEvent>([this, n](const auto &, auto &)
         {
             this->DataWritten(n);
