@@ -52,6 +52,10 @@ public:
 
     bool IsOpen();
     void Send(std::string const& xplmsg);
+
+private:
+    std::shared_ptr<uvw::UDPHandle> m_UdpSenderHandle;
+    void Connect();
 };
 
 class xPLController
@@ -61,6 +65,7 @@ private:
     
     void udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort);
     int discoverxPLPort();
+    void Connect();
     std::string localAddress();
     std::string getCalaosVersion();
 

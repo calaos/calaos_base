@@ -25,10 +25,30 @@
 
 xPLSockWrapper::xPLSockWrapper()
 {
+    Connect();
 }
 
 xPLSockWrapper::~xPLSockWrapper()
 {
+    if(m_UdpSenderHandle)
+        m_UdpSenderHandle->close();
+}
+
+void xPLSockWrapper::Connect()
+{
+    m_UdpSenderHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
+    m_UdpSenderHandle->bind("255.255.255.255", 3865, uvw::UDPHandle::Bind::REUSEADDR);
+    m_UdpSenderHandle->broadcast(true);
+
+    m_UdpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    {
+        cErrorDom("network") << "xPL UDP client error : " << ev.what();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(2.5, (sigc::slot<void>)sigc::mem_fun(*this, &xPLSockWrapper::Connect));
+        });
+        h.close();
+    });
 }
 
 bool xPLSockWrapper::IsOpen()
@@ -38,54 +58,21 @@ bool xPLSockWrapper::IsOpen()
 
 void xPLSockWrapper::Send(string const& xplMsg)
 {
-    std::shared_ptr<uvw::UDPHandle> udpSenderHandle;
     int dataSize = xplMsg.length();
     auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
     std::copy(xplMsg.begin(), xplMsg.end(), dataWrite.get());
 
-    udpSenderHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
-    udpSenderHandle->bind("255.255.255.255", 3865);
-    udpSenderHandle->broadcast(true);
-    udpSenderHandle->send("255.255.255.255", 3865, std::move(dataWrite), dataSize);
-    udpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
-    {
-        cErrorDom("network") << "xPL UDP client error : " << ev.what();
-    });
-    udpSenderHandle->once<uvw::SendEvent>([](auto &, auto &h)
-    {
-        h.close();
-    });
+    m_UdpSenderHandle->send("255.255.255.255", 3865, std::move(dataWrite), dataSize);
 }
 
 xPLController::xPLController()
 {
-    int portTCP;
-
-    //Create listening udp server on local port to receive frame from xPL network
-    m_UdpRecvHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
-
-    m_UdpRecvHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
-    {
-        this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
-    });
-
-    m_UdpRecvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
-    {
-        cErrorDom("network") << "xPL UDP server error : " << ev.what();
-    });
-
-    portTCP = discoverxPLPort();
-    m_UdpRecvHandle->broadcast(true);
-    cInfoDom("xPL") << "Listening on port " << portTCP;
-    m_UdpRecvHandle->bind("0.0.0.0", portTCP, uvw::UDPHandle::Bind::REUSEADDR);
-    m_UdpRecvHandle->recv();
-
     //xPL Device initialisation
     m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
     m_xPLDevice.SetAppName("xPL Calaos", getCalaosVersion());
-    m_xPLDevice.SetRecvSockInfo(localAddress(), portTCP);
     m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);     
-    m_xPLDevice.Open();
+
+    Connect();
 
     //Heartbeat each 5 minutes
     m_timer = new Timer((double)5*60, [=]()
@@ -96,10 +83,45 @@ xPLController::xPLController()
 
 xPLController::~xPLController()
 {
-    m_UdpRecvHandle->stop();
-    m_UdpRecvHandle->close();
+    if(m_UdpRecvHandle!=nullptr)
+    {
+        m_UdpRecvHandle->stop();
+        m_UdpRecvHandle->close();
+    }
     DELETE_NULL(m_timer);
     m_xPLDevice.Close();
+}
+
+void xPLController::Connect()
+{
+    int portTCP;
+
+
+    m_UdpRecvHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
+
+    m_UdpRecvHandle->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    {
+        this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
+    });
+
+    m_UdpRecvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    {
+        cErrorDom("network") << "xPL UDP server error : " << ev.what();
+        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        {
+            Timer::singleShot(2.5, (sigc::slot<void>)sigc::mem_fun(*this, &xPLController::Connect));
+        });
+        h.close();
+    });
+
+    portTCP = discoverxPLPort();
+    m_UdpRecvHandle->broadcast(true);
+    cInfoDom("xPL") << "Listening on port " << portTCP;
+    m_UdpRecvHandle->bind("0.0.0.0", portTCP, uvw::UDPHandle::Bind::REUSEADDR);
+    m_UdpRecvHandle->recv();
+    m_xPLDevice.SetRecvSockInfo(localAddress(), portTCP);
+    m_xPLDevice.Close();
+    m_xPLDevice.Open();
 }
 
 string xPLController::getCalaosVersion()
