@@ -129,9 +129,7 @@ bool UrlDownloader::start()
         req.push_back(u);
     }
 
-    if ((m_requestType == HTTP_POST ||
-         m_requestType == HTTP_PUT) &&
-        !m_bodyData.empty())
+    if (!m_bodyData.empty())
     {
         tempFilename = Utils::getTmpFilename();
         std::ofstream ofs;
