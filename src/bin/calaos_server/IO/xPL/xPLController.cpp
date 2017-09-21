@@ -37,12 +37,12 @@ xPLSockWrapper::~xPLSockWrapper()
 void xPLSockWrapper::Connect()
 {
     m_UdpSenderHandle = uvw::Loop::getDefault()->resource<uvw::UDPHandle>();
-    m_UdpSenderHandle->bind("255.255.255.255", 3865, uvw::UDPHandle::Bind::REUSEADDR);
+    m_UdpSenderHandle->bind("255.255.255.255", XPL_DEFAULT_PORT, uvw::UDPHandle::Bind::REUSEADDR);
     m_UdpSenderHandle->broadcast(true);
 
     m_UdpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
-        cErrorDom("network") << "xPL UDP client error : " << ev.what();
+        cErrorDom("xpl") << "xPL UDP client error : " << ev.what();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
             Timer::singleShot(2.5, (sigc::slot<void>)sigc::mem_fun(*this, &xPLSockWrapper::Connect));
@@ -62,20 +62,20 @@ void xPLSockWrapper::Send(string const& xplMsg)
     auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
     std::copy(xplMsg.begin(), xplMsg.end(), dataWrite.get());
 
-    m_UdpSenderHandle->send("255.255.255.255", 3865, std::move(dataWrite), dataSize);
+    m_UdpSenderHandle->send("255.255.255.255", XPL_DEFAULT_PORT, std::move(dataWrite), dataSize);
 }
 
 xPLController::xPLController()
 {
     //xPL Device initialisation
     m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
-    m_xPLDevice.SetAppName("xPL Calaos", getCalaosVersion());
+    m_xPLDevice.SetAppName("xPL Calaos", PACKAGE_VERSION);
     m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);     
 
     Connect();
 
     //Heartbeat each 5 minutes
-    m_timer = new Timer((double)5*60, [=]()
+    m_timer = new Timer((double)XPL_HEARTBEAT_PERIOD, [=]()
     {
         m_xPLDevice.SendHeartBeat(true);
     });
@@ -106,7 +106,7 @@ void xPLController::Connect()
 
     m_UdpRecvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
-        cErrorDom("network") << "xPL UDP server error : " << ev.what();
+        cErrorDom("xpl") << "xPL UDP server error : " << ev.what();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
             Timer::singleShot(2.5, (sigc::slot<void>)sigc::mem_fun(*this, &xPLController::Connect));
@@ -116,7 +116,7 @@ void xPLController::Connect()
 
     portTCP = discoverxPLPort();
     m_UdpRecvHandle->broadcast(true);
-    cInfoDom("xPL") << "Listening on port " << portTCP;
+    cInfoDom("xpl") << "Listening on port " << portTCP;
     m_UdpRecvHandle->bind("0.0.0.0", portTCP, uvw::UDPHandle::Bind::REUSEADDR);
     m_UdpRecvHandle->recv();
     m_xPLDevice.SetRecvSockInfo(localAddress(), portTCP);
@@ -124,21 +124,8 @@ void xPLController::Connect()
     m_xPLDevice.Open();
 }
 
-string xPLController::getCalaosVersion()
-{
-    string packageString(PACKAGE_STRING);
-
-    if(packageString.substr(0, 8)!="calaos v")
-        return "unknown";
-    
-    return packageString.substr(8);
-}
-
 int xPLController::discoverxPLPort()
 {
-    int portHub = 3865;
-    int portMin = 49152-1;
-    int portMax = 65535;
     int portTCP;
     uv_udp_t sock;
     struct sockaddr_in addr;
@@ -146,20 +133,20 @@ int xPLController::discoverxPLPort()
 
 
     r = uv_udp_init(uv_default_loop(), &sock);
-    if(r!=0) return 3865;
+    if(r!=0) return XPL_DEFAULT_PORT;
     
-    portTCP = portHub;
+    portTCP = XPL_DEFAULT_PORT;
     do
     {
         uv_ip4_addr("0.0.0.0", portTCP, &addr);
         r = uv_udp_bind(&sock, (const struct sockaddr*) &addr, UV_UDP_REUSEADDR);
         if(r==0) break;
-        if(portTCP==portHub) portTCP=portMin;
+        if(portTCP == XPL_DEFAULT_PORT) portTCP = XPL_PORT_LOWER_BOUND-1;
         portTCP++;
-    } while(portTCP!=portMax);
+    } while(portTCP != XPL_PORT_UPPER_BOUND);
     uv_udp_recv_stop(&sock);
 
-    if(r!=0) return 3865;
+    if(r!=0) return XPL_DEFAULT_PORT;
     return portTCP;  
 }
 
@@ -227,7 +214,7 @@ void xPLController::udpListenData(const char *data, std::size_t length, string r
         }
         catch(const xPL::SchemaObject::Exception &e)
         {
-            cErrorDom("xPLcontroller") <<  "Failed to parse : " << e.what();
+            cErrorDom("xpl") <<  "Failed to parse : " << e.what();
             return;
         }
         

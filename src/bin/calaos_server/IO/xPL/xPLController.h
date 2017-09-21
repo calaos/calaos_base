@@ -27,6 +27,11 @@
 #include "xPLLib/Schemas/SchemaControl.h"
 #include "xPLLib/Schemas/SchemaSensor.h"
 
+#define XPL_HEARTBEAT_PERIOD 5*60
+#define XPL_DEFAULT_PORT 3865
+#define XPL_PORT_LOWER_BOUND 49152
+#define XPL_PORT_UPPER_BOUND 65535
+
 namespace uvw {
 //Forward declare classes here to prevent long build time
 //because of uvw.hpp being header only
@@ -67,7 +72,6 @@ private:
     int discoverxPLPort();
     void Connect();
     std::string localAddress();
-    std::string getCalaosVersion();
 
     std::shared_ptr<uvw::UDPHandle> m_UdpRecvHandle;
     xPLSockWrapper m_xPLSockWrapper;
