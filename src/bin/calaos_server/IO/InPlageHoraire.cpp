@@ -104,6 +104,10 @@ void InPlageHoraire::hasChanged()
 
         if (cur >= start_time && cur <= end_time)
             val = true;
+
+        //If the month is not set, force the time_range to false
+        if (!months.test(ctime->tm_mon))
+            val = false;
     }
 
     if (val != value)
