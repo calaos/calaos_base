@@ -9,6 +9,9 @@ AM_CPPFLAGS =                                                 \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DTIXML_USE_STL                                       \
         -DLUA_USE_DLOPEN                                      \
+        -DXPLLIB_NOSOCK                                       \
+        -DXPLLIB_NOLOG                                        \
+        -DXPLLIB_NOCONF                                       \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
@@ -20,6 +23,8 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/xPL          \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/xPL/xPLLib   \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
         -I$(top_srcdir)/src/bin/calaos_server/IO              \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
@@ -268,6 +273,40 @@ calaos_server_SOURCES = \
         IO/Web/WebDocBase.cpp                           \
         IO/X10/X10Output.cpp                            \
         IO/X10/X10Output.h                              \
+        IO/xPL/xPLDocBase.cpp                           \
+        IO/xPL/xPLDocBase.h                             \
+        IO/xPL/xPLController.cpp                        \
+        IO/xPL/xPLController.h                          \
+        IO/xPL/xPLInputAnalog.cpp                       \
+        IO/xPL/xPLInputAnalog.h                         \
+        IO/xPL/xPLInputString.cpp                       \
+        IO/xPL/xPLInputString.h                         \
+        IO/xPL/xPLInputSwitch.cpp                       \
+        IO/xPL/xPLInputSwitch.h                         \
+        IO/xPL/xPLInputTemp.cpp                         \
+        IO/xPL/xPLInputTemp.h                           \
+        IO/xPL/xPLOutputAnalog.cpp                      \
+        IO/xPL/xPLOutputAnalog.h                        \
+        IO/xPL/xPLOutputString.cpp                      \
+        IO/xPL/xPLOutputString.h                        \
+        IO/xPL/xPLOutputSwitch.cpp                      \
+        IO/xPL/xPLOutputSwitch.h                        \
+        IO/xPL/xPLLib/Address.cpp                       \
+        IO/xPL/xPLLib/Address.h                         \
+        IO/xPL/xPLLib/xPLDevice.cpp                     \
+        IO/xPL/xPLLib/xPLDevice.h                       \
+        IO/xPL/xPLLib/Schemas/SchemaObject.cpp          \
+        IO/xPL/xPLLib/Schemas/SchemaObject.h            \
+        IO/xPL/xPLLib/Schemas/SchemaHbeat.cpp           \
+        IO/xPL/xPLLib/Schemas/SchemaHbeat.h             \
+        IO/xPL/xPLLib/Schemas/SchemaConfig.cpp          \
+        IO/xPL/xPLLib/Schemas/SchemaConfig.h            \
+        IO/xPL/xPLLib/Schemas/SchemaSensor.cpp          \
+        IO/xPL/xPLLib/Schemas/SchemaSensor.h            \
+        IO/xPL/xPLLib/Schemas/SchemaControl.cpp         \
+        IO/xPL/xPLLib/Schemas/SchemaControl.h           \
+        IO/xPL/xPLLib/StringTools/StringTools.cpp       \
+        IO/xPL/xPLLib/StringTools/StringTools.h         \
         IO/Zibase/Zibase.cpp                            \
         IO/Zibase/Zibase.h                              \
         IO/Zibase/ZibaseTemp.cpp                        \
