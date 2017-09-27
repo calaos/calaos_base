@@ -1,0 +1,41 @@
+language: cpp
+dist: trusty
+sudo: required
+
+matrix:
+  include:
+  - os: linux
+    compiler: gcc
+    addons:
+      apt:
+        sources: ['ubuntu-toolchain-r-test']
+        packages: ['g++-6']
+    env: COMPILER=g++-6
+  - os: linux
+    compiler: clang
+    addons:
+      apt:
+        sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-trusty-4.0']
+        packages: ['clang-4.0', 'libstdc++-4.9-dev']
+    env: COMPILER=clang++-4.0
+  - os: osx
+    osx_image: xcode8.3
+    compiler: clang
+    env: COMPILER=clang++
+
+before_install:
+  - git fetch --tags && git fetch
+
+install:
+  - ./scripts/$TRAVIS_OS_NAME/install.sh
+
+script:
+  - ./scripts/$TRAVIS_OS_NAME/script.sh
+
+after_success:
+  - ./scripts/$TRAVIS_OS_NAME/after_success.sh
+
+notifications:
+  email:
+    on_success: never
+    on_failure: always
