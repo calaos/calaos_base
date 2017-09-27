@@ -15,6 +15,9 @@ mkdir $LOCAL_DEPS
 
 pushd $HOME
 
+#check to see if deps folder is empty
+if [ ! -d "$LOCAL_DEPS/bin" ]; then
+
 wget_retry https://dist.libuv.org/dist/v1.14.1/libuv-v1.14.1.tar.gz
 tar xzvf libuv-v1.14.1.tar.gz
 pushd libuv-v1.14.1
@@ -42,13 +45,17 @@ make
 make install
 popd
 
+else
+    echo "Using cached deps folder."
+fi
+
 wget_retry https://github.com/google/googletest/archive/release-1.8.0.zip
 unzip release-1.8.0.zip
 pushd googletest-release-1.8.0
 mkdir build && cd build
 cmake ..
 make
-sudo cp -a ../include/gtest /usr/local/include
+sudo cp -a ../googletest/include/gtest /usr/local/include
 sudo cp -a *.a /usr/local/lib
 popd
 
