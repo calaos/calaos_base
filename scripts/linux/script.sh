@@ -12,9 +12,9 @@ $CXX --version
 
 mkdir -p $HOME/local
 ./autogen.sh --prefix=$HOME/local
-#make
-#make install
-#make check
+make
+make install
+make check
 
 echo "[ Installed Files ]"
 find $HOME/local
