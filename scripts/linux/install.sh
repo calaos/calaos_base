@@ -7,9 +7,9 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 
-sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libsystemd-daemon-dev libev-dev
+sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libev-dev gcc-5 g++-5
 
-mkdir $HOME/local
+mkdir $LOCAL_DEPS
 
 pushd $HOME
 
@@ -17,7 +17,7 @@ wget_retry https://dist.libuv.org/dist/v1.14.1/libuv-v1.14.1.tar.gz
 tar xzvf libuv-v1.14.1.tar.gz
 pushd libuv-v1.14.1
 ./autogen.sh
-./configure --prefix=$HOME/local
+./configure --prefix=$LOCAL_DEPS
 make
 make install
 popd
@@ -25,8 +25,9 @@ popd
 wget_retry https://github.com/knxd/knxd/archive/v0.14.17.tar.gz
 tar xzvf v0.14.17.tar.gz
 pushd knxd-0.14.17
+
 ./bootstrap.sh
-./configure --prefix=$HOME/local
+CXX="g++-5" CC="gcc-5" ./configure --prefix=$LOCAL_DEPS --disable-systemd
 make
 make install
 popd
@@ -34,7 +35,7 @@ popd
 wget_retry https://github.com/OpenLightingProject/ola/releases/download/0.10.5/ola-0.10.5.tar.gz
 tar xzvf ola-0.10.5.tar.gz
 pushd ola-0.10.5
-./configure --prefix=$HOME/local
+./configure --prefix=$LOCAL_DEPS
 make
 make install
 popd
