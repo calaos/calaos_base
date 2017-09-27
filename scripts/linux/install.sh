@@ -11,12 +11,12 @@ sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit
 #For OLA
 sudo apt-get install libcppunit-dev bison flex uuid-dev libprotobuf-dev protobuf-compiler libprotoc-dev
 
-mkdir $LOCAL_DEPS
+mkdir -p $LOCAL_DEPS
 
 pushd $HOME
 
 #check to see if deps folder is empty
-if [ ! -d "$LOCAL_DEPS/bin" ]; then
+if [ ! -d "$LOCAL_DEPS/lib/libuv.so" ]; then
 
 wget_retry https://dist.libuv.org/dist/v1.14.1/libuv-v1.14.1.tar.gz
 tar xzvf libuv-v1.14.1.tar.gz
