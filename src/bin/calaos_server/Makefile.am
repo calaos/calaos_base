@@ -163,6 +163,8 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/MilightOutputLightRGB.cpp       \
         IO/MySensors/MySensors.h	                \
         IO/MySensors/MySensors.cpp                      \
+        IO/MySensors/MySensorsControllerList.cpp        \
+        IO/MySensors/MySensorsControllerList.h          \
         IO/MySensors/MySensorsController.cpp            \
         IO/MySensors/MySensorsController.h              \
         IO/MySensors/MySensorsInputAnalog.h             \

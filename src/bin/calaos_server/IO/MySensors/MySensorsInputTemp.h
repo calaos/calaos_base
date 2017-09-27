@@ -22,12 +22,15 @@
 #define MySensorsInputTemp_H
 
 #include "InputTemp.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsInputTemp : public InputTemp
 {
+private:
+    MySensorsController *ctrl;
 
 protected:
     virtual void readValue();

@@ -22,12 +22,15 @@
 #define MySensorsOutputLightRGB_H
 
 #include "OutputLightRGB.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsOutputLightRGB : public OutputLightRGB
 {
+private:
+    MySensorsController *ctrl;
 
 protected:
     virtual void setColorReal(const ColorValue &color, bool state);

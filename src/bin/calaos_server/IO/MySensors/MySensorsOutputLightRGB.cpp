@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsOutputLightRGB.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "IOFactory.h"
 #include "MySensors.h"
 
@@ -49,9 +49,10 @@ MySensorsOutputLightRGB::MySensorsOutputLightRGB(Params &p):
     string nodeId_b = get_param("node_id_blue");
     string sensorId_b = get_param("sensor_id_blue");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId_r, sensorId_r, [=]() { /*nothing*/ });
-    MySensorsController::Instance(get_params()).registerIO(nodeId_g, sensorId_g, [=]() { /*nothing*/ });
-    MySensorsController::Instance(get_params()).registerIO(nodeId_b, sensorId_b, [=]() { /*nothing*/ });
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeId_r, sensorId_r, [=]() { /*nothing*/ });
+    ctrl->registerIO(nodeId_g, sensorId_g, [=]() { /*nothing*/ });
+    ctrl->registerIO(nodeId_b, sensorId_b, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id_r: " << nodeId_r << " sensor_id_r: " << sensorId_r;
     cInfoDom("output") << "node_id_g: " << nodeId_g << " sensor_id_g: " << sensorId_g;
     cInfoDom("output") << "node_id_b: " << nodeId_b << " sensor_id_b: " << sensorId_b;
@@ -82,8 +83,8 @@ void MySensorsOutputLightRGB::setColorReal(const ColorValue &c, bool s)
         b = c.getBlue();
     }
 
-    MySensorsController::Instance(get_params()).setValue(nodeId_r, sensorId_r, dataType, Utils::to_string(r));
-    MySensorsController::Instance(get_params()).setValue(nodeId_g, sensorId_g, dataType, Utils::to_string(g));
-    MySensorsController::Instance(get_params()).setValue(nodeId_b, sensorId_b, dataType, Utils::to_string(b));
+    ctrl->setValue(nodeId_r, sensorId_r, dataType, Utils::to_string(r));
+    ctrl->setValue(nodeId_g, sensorId_g, dataType, Utils::to_string(g));
+    ctrl->setValue(nodeId_b, sensorId_b, dataType, Utils::to_string(b));
 }
 

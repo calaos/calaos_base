@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsInputString.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -39,13 +39,14 @@ MySensorsInputString::MySensorsInputString(Params &p):
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeId, sensorId, [=]()
     {
         // Read the value
         string nId = get_param("node_id");
         string sId = get_param("sensor_id");
 
-        string v = MySensorsController::Instance(get_params()).getValue(nId, sId);
+        string v = ctrl->getValue(nId, sId);
 
         if (v != current)
         {
