@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsOutputLight.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "MySensors.h"
 #include "IOFactory.h"
 
@@ -41,7 +41,8 @@ MySensorsOutputLight::MySensorsOutputLight(Params &p):
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
 
     cInfoDom("output") << "MySensorsOutputLight::MySensorsOutputLight()";
 }
@@ -63,7 +64,7 @@ bool MySensorsOutputLight::set_value_real(bool val)
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
+    ctrl->setValue(nodeId, sensorId, dataType, Utils::to_string(val));
 
     return true;
 }

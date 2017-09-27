@@ -58,8 +58,6 @@ class MySensorsController
 {
 private:
 
-    MySensorsController(const Params &p);
-
     string gatewayVersion;
 
     //gateway configuration
@@ -110,11 +108,7 @@ private:
     void processSensorRequest(string node_id, string sensor_id, int subtype, string payload);
 
 public:
-    static MySensorsController &Instance(const Params &p)
-    {
-        static MySensorsController ctrl(p);
-        return ctrl;
-    }
+    MySensorsController(const Params &p);
     ~MySensorsController();
 
     string getValue(string nodeid, string sensorid, string key = "payload");

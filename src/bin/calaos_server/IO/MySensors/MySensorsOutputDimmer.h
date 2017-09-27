@@ -22,12 +22,16 @@
 #define S_MySensorsOutputDimmer_H
 
 #include "OutputLightDimmer.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsOutputDimmer : public OutputLightDimmer
 {
+private:
+    MySensorsController *ctrl;
+
 private:
     virtual bool set_value_real(int val);
 

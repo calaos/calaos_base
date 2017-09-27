@@ -22,6 +22,7 @@
 #define MySensorsInputAnalog_H
 
 #include "MySensors.h"
+#include "MySensorsController.h"
 #include "InputAnalog.h"
 
 namespace Calaos
@@ -29,6 +30,9 @@ namespace Calaos
 
 class MySensorsInputAnalog : public InputAnalog
 {
+private:
+    MySensorsController *ctrl;
+
 protected:
     virtual void readValue();
 

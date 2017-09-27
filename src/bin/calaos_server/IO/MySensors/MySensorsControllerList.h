@@ -18,31 +18,31 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputString_H
-#define MySensorsInputString_H
+#ifndef MySensorsControllerList_H
+#define MySensorsControllerList_H
 
-#include "MySensors.h"
 #include "MySensorsController.h"
-#include "InputString.h"
+#include <unordered_map>
 
 namespace Calaos
 {
 
-class MySensorsInputString : public InputString
+class MySensorsControllerList
 {
 private:
-    MySensorsController *ctrl;
+    MySensorsControllerList();
 
-protected:
-    virtual void readValue();
-
-    string current;
+    std::unordered_map<string, MySensorsController *> hashController;
 
 public:
-    MySensorsInputString(Params &p);
-    virtual ~MySensorsInputString();
+    MySensorsController *get_controller(const Params &p);
+
+    static MySensorsControllerList &Instance()
+    {
+        static MySensorsControllerList list;
+        return list;
+    }
 };
 
 }
-
-#endif // MySensorsInputString_H
+#endif

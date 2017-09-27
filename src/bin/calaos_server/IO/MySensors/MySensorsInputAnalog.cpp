@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsInputAnalog.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -39,7 +39,8 @@ MySensorsInputAnalog::MySensorsInputAnalog(Params &p):
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]()
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeId, sensorId, [=]()
     {
         readValue();
     });
@@ -56,7 +57,7 @@ void MySensorsInputAnalog::readValue()
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    string sv = MySensorsController::Instance(get_params()).getValue(nodeId, sensorId);
+    string sv = ctrl->getValue(nodeId, sensorId);
     double v;
     if (sv.empty() || !Utils::is_of_type<double>(sv))
         return;

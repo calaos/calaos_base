@@ -22,12 +22,16 @@
 #define MySensorsOutputAnalog_H
 
 #include "OutputAnalog.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsOutputAnalog : public OutputAnalog
 {
+private:
+    MySensorsController *ctrl;
+
 protected:
     virtual void set_value_real(double val);
 

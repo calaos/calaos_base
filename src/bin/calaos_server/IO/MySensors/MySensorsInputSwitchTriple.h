@@ -22,12 +22,16 @@
 #define S_MySensorsInputSwitchTriple_H
 
 #include "InputSwitchTriple.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsInputSwitchTriple : public InputSwitchTriple
 {
+private:
+    MySensorsController *ctrl;
+
 protected:
     virtual bool readValue();
 

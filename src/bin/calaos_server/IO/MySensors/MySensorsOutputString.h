@@ -22,12 +22,16 @@
 #define MySensorsOutputString_H
 
 #include "OutputString.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsOutputString : public OutputString
 {
+private:
+	MySensorsController *ctrl;
+
 protected:
     virtual void set_value_real(string val);
 

@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsOutputShutterSmart.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "IOFactory.h"
 #include "MySensors.h"
 
@@ -45,8 +45,9 @@ MySensorsOutputShutterSmart::MySensorsOutputShutterSmart(Params &p):
     string nodeIdDown = get_param("node_id_up");
     string sensorIdDown = get_param("sensor_id_up");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeIdUp, sensorIdUp, [=]() { /*nothing*/ });
-    MySensorsController::Instance(get_params()).registerIO(nodeIdDown, sensorIdDown, [=]() { /*nothing*/ });
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeIdUp, sensorIdUp, [=]() { /*nothing*/ });
+    ctrl->registerIO(nodeIdDown, sensorIdDown, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id_up: " << nodeIdUp << " sensor_id_up: " << sensorIdUp;
     cInfoDom("output") << "node_id_down: " << nodeIdDown << " sensor_id_down: " << sensorIdDown;
 }
@@ -64,7 +65,7 @@ void MySensorsOutputShutterSmart::setOutputUp(bool enable)
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(enable));
+    ctrl->setValue(nodeId, sensorId, dataType, Utils::to_string(enable));
 }
 
 void MySensorsOutputShutterSmart::setOutputDown(bool enable)
@@ -76,6 +77,6 @@ void MySensorsOutputShutterSmart::setOutputDown(bool enable)
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(enable));
+    ctrl->setValue(nodeId, sensorId, dataType, Utils::to_string(enable));
 }
 

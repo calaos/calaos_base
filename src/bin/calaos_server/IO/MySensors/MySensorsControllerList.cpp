@@ -18,31 +18,34 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef MySensorsInputString_H
-#define MySensorsInputString_H
+#include "MySensorsControllerList.h"
 
-#include "MySensors.h"
-#include "MySensorsController.h"
-#include "InputString.h"
+using namespace Calaos;
 
-namespace Calaos
+MySensorsControllerList::MySensorsControllerList()
 {
-
-class MySensorsInputString : public InputString
-{
-private:
-    MySensorsController *ctrl;
-
-protected:
-    virtual void readValue();
-
-    string current;
-
-public:
-    MySensorsInputString(Params &p);
-    virtual ~MySensorsInputString();
-};
-
 }
 
-#endif // MySensorsInputString_H
+MySensorsController *MySensorsControllerList::get_controller(const Params &p)
+{
+    string key, gateway = "serial", port = "/dev/ttyUSB0";
+
+    if (p.Exists("gateway"))
+        gateway = p["gateway"];
+    if (p.Exists("port"))
+        port = p["port"];
+
+    /* Compute the key per controller */
+    if (gateway == "serial") {
+        key = port;
+    } else if (gateway== "tcp") {
+        key = p["host"] + ":" + port;
+    }
+
+    if (hashController.find(key) != hashController.end())
+        return hashController[key];
+
+    hashController[key] = new MySensorsController(p);
+
+    return hashController[key];
+}
