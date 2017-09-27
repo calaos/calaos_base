@@ -7,7 +7,7 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 
-sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-dev libola-dev curl imagemagick libgtest-dev python-autobahn
+sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-dev curl imagemagick
 
 mkdir $HOME/local
 
@@ -29,6 +29,24 @@ pushd knxd-0.14.17
 ./configure --prefix=$HOME/local
 make
 make install
+popd
+
+wget_retry https://github.com/OpenLightingProject/ola/releases/download/0.10.5/ola-0.10.5.tar.gz
+tar xzvf ola-0.10.5.tar.gz
+pushd ola-0.10.5
+./configure --prefix=$HOME/local
+make
+make install
+popd
+
+wget_retry https://github.com/google/googletest/archive/release-1.8.0.zip
+unzip release-1.8.0.zip
+pushd googletest-release-1.8.0
+mkdir build && cd build
+cmake ..
+make
+sudo cp -a ../include/gtest /usr/local/include
+sudo cp -a *.a /usr/local/lib
 popd
 
 popd
