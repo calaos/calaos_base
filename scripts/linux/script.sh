@@ -10,11 +10,11 @@ export CXX=${COMPILER}
 echo "Using compiler: $CXX"
 $CXX --version
 
-mkdir $HOME/local
+mkdir -p $HOME/local
 ./autogen.sh --prefix=$HOME/local
-make
-make install
-make check
+#make
+#make install
+#make check
 
 echo "[ Installed Files ]"
 find $HOME/local
