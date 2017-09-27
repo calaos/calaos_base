@@ -7,7 +7,7 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 
-sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-dev curl imagemagick
+sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-dev curl imagemagick libsystemd-daemon-dev
 
 mkdir $HOME/local
 
