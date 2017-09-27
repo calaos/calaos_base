@@ -16,7 +16,7 @@ mkdir -p $LOCAL_DEPS
 pushd $HOME
 
 #check to see if deps folder is empty
-if [ ! -d "$LOCAL_DEPS/lib/libuv.so" ]; then
+if [ ! -e "$LOCAL_DEPS/lib/libuv.so" ]; then
 
 wget_retry https://dist.libuv.org/dist/v1.14.1/libuv-v1.14.1.tar.gz
 tar xzvf libuv-v1.14.1.tar.gz
