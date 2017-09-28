@@ -8,7 +8,6 @@ source $SCRIPTDIR/../lib.sh
 #install dependencies
 brew update
 brew install libsigc++ jansson curl luajit owfs libusb ola
-sudo apt-get install libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-dev libola-dev curl imagemagick libgtest-dev python-autobahn
 
 mkdir $HOME/local
 
