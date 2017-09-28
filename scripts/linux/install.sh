@@ -7,7 +7,7 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 
-sudo apt-get install autopoint libsigc++-2.0-dev libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libev-dev gcc-5 g++-5
+sudo apt-get install autopoint libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libev-dev gcc-5 g++-5
 #For OLA
 sudo apt-get install libcppunit-dev bison flex uuid-dev libprotobuf-dev protobuf-compiler libprotoc-dev
 
@@ -47,6 +47,18 @@ popd
 
 else
     echo "Using cached deps folder."
+fi
+
+if [ ! -e "$LOCAL_DEPS/lib/libsigc-2.0.so" ]; then
+
+wget_retry https://download.gnome.org/sources/libsigc++/2.10/libsigc++-2.10.0.tar.xz
+tar xJvf libsigc++-2.10.0.tar.xz
+pushd libsigc++-2.10.0
+./configure --prefix=$LOCAL_DEPS
+make
+make install
+popd
+
 fi
 
 wget_retry https://github.com/google/googletest/archive/release-1.8.0.zip
