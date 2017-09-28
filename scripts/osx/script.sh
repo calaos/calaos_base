@@ -14,5 +14,6 @@ $CXX --version
 make
 make install
 make check
+cat tests/test-suite.log
 
 popd

@@ -15,6 +15,7 @@ mkdir -p $HOME/local
 make
 make install
 make check
+cat tests/test-suite.log
 
 echo "[ Installed Files ]"
 find $HOME/local
