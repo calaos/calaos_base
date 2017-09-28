@@ -11,7 +11,7 @@ echo "Using compiler: $CXX"
 $CXX --version
 
 mkdir -p $HOME/local
-./autogen.sh --prefix=$HOME/local
+./autogen.sh --prefix=$HOME/local CPPFLAGS=-I$LOCAL_DEPS/include LDFLAGS=-L-I$LOCAL_DEPS/lib
 make
 make install
 make check
