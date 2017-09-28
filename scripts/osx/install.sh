@@ -7,7 +7,7 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 brew update
-brew install libsigc++ jansson curl luajit owfs libusb ola
+brew install libtool libsigc++ jansson curl luajit owfs libusb ola
 
 mkdir -p $LOCAL_DEPS
 
