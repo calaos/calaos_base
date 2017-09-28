@@ -27,12 +27,21 @@ make
 make install
 popd
 
+wget_retry https://github.com/fmtlib/fmt/releases/download/4.0.0/fmt-4.0.0.zip
+unzip fmt-4.0.0.zip
+mkdir -p fmt-4.0.0/build
+pushd fmt-4.0.0/build
+cmake .. -DCMAKE_INSTALL_PREFIX=$LOCAL_DEPS
+make
+make install
+popd
+
 wget_retry https://github.com/knxd/knxd/archive/v0.14.17.tar.gz
 tar xzvf v0.14.17.tar.gz
 pushd knxd-0.14.17
 
 ./bootstrap.sh
-CXX="g++-5" CC="gcc-5" ./configure --prefix=$LOCAL_DEPS --disable-systemd
+CXX="g++-5" CC="gcc-5" ./configure --prefix=$LOCAL_DEPS --disable-systemd CPPFLAGS=-I$LOCAL_DEPS/include LDFLAGS=-L$LOCAL_DEPS/lib
 make
 make install
 popd
