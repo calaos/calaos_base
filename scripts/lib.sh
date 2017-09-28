@@ -6,11 +6,9 @@ export PROJECT_NAME=calaos_base
 export TRAVIS_BUILD_DIR=$(pwd)
 export BUILD_TAG=$(git tag --points-at=HEAD --sort version:refname | head -n 1)
 
-if [[ "${TRAVIS_OS_NAME}" == "linux"  ]]; then
-    export LOCAL_DEPS=$HOME/local_deps
-    export PATH=$LOCAL_DEPS/bin:$PATH
-    export PKG_CONFIG_PATH=$LOCAL_DEPS/lib/pkgconfig
-fi
+export LOCAL_DEPS=$HOME/local_deps
+export PATH=$LOCAL_DEPS/bin:$PATH
+export PKG_CONFIG_PATH=$LOCAL_DEPS/lib/pkgconfig
 
 #Usage: get_version /path/to/repo
 function get_version()

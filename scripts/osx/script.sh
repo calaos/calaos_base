@@ -10,7 +10,8 @@ export CXX=${COMPILER}
 echo "Using compiler: $CXX"
 $CXX --version
 
-./autogen.sh --prefix=$HOME/local
+mkdir -p $HOME/local
+./autogen.sh --prefix=$HOME/local CPPFLAGS=-I$LOCAL_DEPS/include LDFLAGS=-L$LOCAL_DEPS/lib
 make
 make install
 make check
