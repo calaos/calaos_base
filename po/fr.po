@@ -222,7 +222,7 @@ msgid ""
 "parameter."
 msgstr ""
 "Type graphique interne pour tous les objets calaos. Paramètre en lecture seule, "
-"définit automatiquement
+"définit automatiquement"
 
 #: src/bin/calaos_server/IOBase.cpp:39
 msgid "IO type, can be \"input\", \"output\", \"inout\""
@@ -1891,7 +1891,7 @@ msgstr ""
 "entière est renvoyée. Exemple, pour un fichier contenant \n"
 "10,0,10,1,10,2,10,3\n"
 "20,0,20,1,20,2,20.3\n"
-"Si le chemin est 2/4/, la valeur retournée sera 20.3"
+"Si le chemin est 2/4/, la valeur retournée sera 20.3\n"
 
 #: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:39
 msgid "Analog input read from a web document"
