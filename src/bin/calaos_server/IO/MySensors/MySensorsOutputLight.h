@@ -22,12 +22,16 @@
 #define MySensorsOutputLight_H
 
 #include "OutputLight.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsOutputLight : public OutputLight
 {
+private:
+    MySensorsController *ctrl;
+
 protected:
     virtual void readValue();
     virtual bool set_value_real(bool val);

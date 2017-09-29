@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "MySensorsOutputAnalog.h"
-#include "MySensorsController.h"
+#include "MySensorsControllerList.h"
 #include "IOFactory.h"
 #include "MySensors.h"
 
@@ -41,7 +41,8 @@ MySensorsOutputAnalog::MySensorsOutputAnalog(Params &p):
     string nodeId = get_param("node_id");
     string sensorId = get_param("sensor_id");
 
-    MySensorsController::Instance(get_params()).registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
+    ctrl = MySensorsControllerList::Instance().get_controller(get_params());
+    ctrl->registerIO(nodeId, sensorId, [=]() { /*nothing*/ });
     cInfoDom("output") << "node_id: " << nodeId << " sensor_id: " << sensorId;
 }
 
@@ -58,6 +59,6 @@ void MySensorsOutputAnalog::set_value_real(double val)
     if (MySensors::String2DataType(get_param("data_type")) != MySensors::V_ERROR)
         dataType = MySensors::String2DataType(get_param("data_type"));
 
-    MySensorsController::Instance(get_params()).setValue(nodeId, sensorId, dataType, Utils::to_string(val));
+    ctrl->setValue(nodeId, sensorId, dataType, Utils::to_string(val));
 }
 

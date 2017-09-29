@@ -22,6 +22,7 @@
 #define S_MySensorsOutputShutter_H
 
 #include "OutputShutter.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
@@ -29,6 +30,7 @@ namespace Calaos
 class MySensorsOutputShutter : public OutputShutter
 {
 private:
+    MySensorsController *ctrl;
     virtual void setOutputUp(bool enable);
     virtual void setOutputDown(bool enable);
 

@@ -22,12 +22,16 @@
 #define S_MySensorsInputSwitchLongPress_H
 
 #include "InputSwitchLongPress.h"
+#include "MySensorsController.h"
 
 namespace Calaos
 {
 
 class MySensorsInputSwitchLongPress : public InputSwitchLongPress
 {
+private:
+    MySensorsController *ctrl;
+
 protected:
     virtual bool readValue();
 

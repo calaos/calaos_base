@@ -53,7 +53,8 @@ TEST_F(ColorValueTest, IsColorValid)
 TEST_F(ColorValueTest, ChangeRGB)
 {
     c0->setRed(500);
-    EXPECT_EQ(false, c0->isValid());
+    EXPECT_EQ(true, c0->isValid());
+    EXPECT_EQ(255, c0->getRed());
 
     c0->setRed(255);
     EXPECT_EQ(255, c0->getRed());
