@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos v2.99-302-g9a858fe\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2015-12-19 14:21+0100\n"
+"POT-Creation-Date: 2017-09-24 21:54+0200\n"
 "PO-Revision-Date: 2015-12-20 10:23+0100\n"
 "Last-Translator: Nicolas Aguirre <nico@calaos.fr>\n"
 "Language-Team: Polish\n"
@@ -17,1799 +17,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:252
-msgid "No lights on"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:254
-msgid "1 light on"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:256
-msgid " lights on"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:268
-msgid "No shutter open"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:270
-msgid "1 shutter open"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ActivityHomeController.cpp:272
-msgid " shutters are open"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ApplicationController.cpp:282
-msgid "Restart application only"
-msgstr ""
-
-#: src/bin/calaos_home/controllers/ApplicationController.cpp:292
-msgid "Reboot machine"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:52
-msgid ""
-"Usage:\n"
-"\t"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:43 src/bin/calaos_server/main.cpp:52
-msgid " [options]"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:44 src/bin/calaos_server/main.cpp:53
-msgid "\tOptions:\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:45 src/bin/calaos_server/main.cpp:54
-msgid "\t-h, --help\tDisplay this help.\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:46 src/bin/calaos_server/main.cpp:55
-msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:47 src/bin/calaos_server/main.cpp:56
-msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:48
-msgid "\t--theme <file.edj>\tUse the given edje file instead of the default.\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:49
-msgid ""
-"\t--set-elm-config\tForce calaos_home to set the correct elementary config "
-"options for touchscreen usage.\n"
-msgstr ""
-
-#: src/bin/calaos_home/main.cpp:50 src/bin/calaos_server/main.cpp:58
-msgid "\t-v, --version\tDisplay current version and exit.\n"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:883
-#: src/bin/calaos_home/models/RoomModel.cpp:891
-#: src/bin/calaos_home/models/RoomModel.cpp:903
-#: src/bin/calaos_home/models/RoomModel.cpp:1020
-#: src/bin/calaos_home/models/RoomModel.cpp:1027
-#: src/bin/calaos_home/models/RoomModel.cpp:1038
-#: src/bin/calaos_home/models/RoomModel.cpp:1104
-#: src/bin/calaos_home/models/RoomModel.cpp:1115
-#: src/bin/calaos_home/models/RoomModel.cpp:1130
-msgid "Switch light on"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:884
-#: src/bin/calaos_home/models/RoomModel.cpp:892
-#: src/bin/calaos_home/models/RoomModel.cpp:904
-#: src/bin/calaos_home/models/RoomModel.cpp:1022
-#: src/bin/calaos_home/models/RoomModel.cpp:1029
-#: src/bin/calaos_home/models/RoomModel.cpp:1040
-#: src/bin/calaos_home/models/RoomModel.cpp:1105
-#: src/bin/calaos_home/models/RoomModel.cpp:1116
-#: src/bin/calaos_home/models/RoomModel.cpp:1131
-msgid "Switch light off"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:885
-#: src/bin/calaos_home/models/RoomModel.cpp:893
-#: src/bin/calaos_home/models/RoomModel.cpp:905
-#: src/bin/calaos_home/models/RoomModel.cpp:1106
-#: src/bin/calaos_home/models/RoomModel.cpp:1117
-#: src/bin/calaos_home/models/RoomModel.cpp:1132
-msgid "Toggle light state"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:886
-#: src/bin/calaos_home/models/RoomModel.cpp:898
-#: src/bin/calaos_home/models/RoomModel.cpp:1107
-#: src/bin/calaos_home/models/RoomModel.cpp:1122
-msgid "Blink the light"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:887
-#: src/bin/calaos_home/models/RoomModel.cpp:899
-#: src/bin/calaos_home/models/RoomModel.cpp:1108
-#: src/bin/calaos_home/models/RoomModel.cpp:1123
-msgid "Switch light on for X seconds"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:887
-#: src/bin/calaos_home/models/RoomModel.cpp:899
-#: src/bin/calaos_home/models/RoomModel.cpp:1108
-#: src/bin/calaos_home/models/RoomModel.cpp:1123
-msgid "Switch light on for %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:894
-#: src/bin/calaos_home/models/RoomModel.cpp:1119
-msgid "Dim the light to X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:894
-#: src/bin/calaos_home/models/RoomModel.cpp:1119
-msgid "Dim the light to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:895
-#: src/bin/calaos_home/models/RoomModel.cpp:1118
-msgid "Dim the light to X percent without switching on"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:895
-#: src/bin/calaos_home/models/RoomModel.cpp:1118
-msgid "Dim the light to %1% without switching on"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:896
-#: src/bin/calaos_home/models/RoomModel.cpp:1120
-msgid "Brighten light for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:896
-#: src/bin/calaos_home/models/RoomModel.cpp:1120
-msgid "Brighten light for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:897
-#: src/bin/calaos_home/models/RoomModel.cpp:1121
-msgid "Dim light for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:897
-#: src/bin/calaos_home/models/RoomModel.cpp:1121
-msgid "Dim light for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:906
-#: src/bin/calaos_home/models/RoomModel.cpp:1042
-#: src/bin/calaos_home/models/RoomModel.cpp:1133
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:418
-msgid "Choose color"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:906
-#: src/bin/calaos_home/models/RoomModel.cpp:1042
-#: src/bin/calaos_home/models/RoomModel.cpp:1133
-msgid "Set color"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:907
-#: src/bin/calaos_home/models/RoomModel.cpp:1134
-msgid "Choose red brightness"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:907
-#: src/bin/calaos_home/models/RoomModel.cpp:1134
-msgid "Set red to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:908
-#: src/bin/calaos_home/models/RoomModel.cpp:1135
-msgid "Increase red for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:908
-#: src/bin/calaos_home/models/RoomModel.cpp:1135
-msgid "Increase red for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:909
-#: src/bin/calaos_home/models/RoomModel.cpp:1136
-msgid "Decrease red for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:909
-#: src/bin/calaos_home/models/RoomModel.cpp:1136
-msgid "Decrease red for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:910
-#: src/bin/calaos_home/models/RoomModel.cpp:1137
-msgid "Choose green brightness"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:910
-#: src/bin/calaos_home/models/RoomModel.cpp:1137
-msgid "Set green to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:911
-#: src/bin/calaos_home/models/RoomModel.cpp:1138
-msgid "Increase green for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:911
-#: src/bin/calaos_home/models/RoomModel.cpp:1138
-msgid "Increase green for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:912
-#: src/bin/calaos_home/models/RoomModel.cpp:1139
-msgid "Decrease green for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:912
-#: src/bin/calaos_home/models/RoomModel.cpp:1139
-msgid "Decrease green for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:913
-#: src/bin/calaos_home/models/RoomModel.cpp:1140
-msgid "Choose blue brightness"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:913
-#: src/bin/calaos_home/models/RoomModel.cpp:1140
-msgid "Set blue to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:914
-#: src/bin/calaos_home/models/RoomModel.cpp:1141
-msgid "Increase blue for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:914
-#: src/bin/calaos_home/models/RoomModel.cpp:1141
-msgid "Increase blue for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:915
-#: src/bin/calaos_home/models/RoomModel.cpp:1142
-msgid "Decrease blue for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:915
-#: src/bin/calaos_home/models/RoomModel.cpp:1142
-msgid "Decrease blue for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:919
-#: src/bin/calaos_home/models/RoomModel.cpp:928
-#: src/bin/calaos_home/models/RoomModel.cpp:1048
-#: src/bin/calaos_home/models/RoomModel.cpp:1052
-#: src/bin/calaos_home/models/RoomModel.cpp:1149
-#: src/bin/calaos_home/models/RoomModel.cpp:1161
-msgid "Open shutter"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:920
-#: src/bin/calaos_home/models/RoomModel.cpp:929
-#: src/bin/calaos_home/models/RoomModel.cpp:1150
-#: src/bin/calaos_home/models/RoomModel.cpp:1162
-msgid "Close shutter"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:921
-#: src/bin/calaos_home/models/RoomModel.cpp:930
-#: src/bin/calaos_home/models/RoomModel.cpp:1151
-#: src/bin/calaos_home/models/RoomModel.cpp:1163
-msgid "Stop shutter"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:922
-#: src/bin/calaos_home/models/RoomModel.cpp:931
-#: src/bin/calaos_home/models/RoomModel.cpp:1152
-#: src/bin/calaos_home/models/RoomModel.cpp:1164
-msgid "Toggle shutter state"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:923
-#: src/bin/calaos_home/models/RoomModel.cpp:1153
-msgid "Impulse up"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:923
-#: src/bin/calaos_home/models/RoomModel.cpp:1153
-msgid "Open shutter for %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:924
-#: src/bin/calaos_home/models/RoomModel.cpp:1154
-msgid "Impulse down"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:924
-#: src/bin/calaos_home/models/RoomModel.cpp:1154
-msgid "Close shutter for %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:932
-#: src/bin/calaos_home/models/RoomModel.cpp:1165
-msgid "Set shutter to a position"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:932
-#: src/bin/calaos_home/models/RoomModel.cpp:1165
-msgid "Set shutter to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:933
-#: src/bin/calaos_home/models/RoomModel.cpp:1166
-msgid "Open shutter for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:933
-#: src/bin/calaos_home/models/RoomModel.cpp:1166
-msgid "Open shutter for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:934
-#: src/bin/calaos_home/models/RoomModel.cpp:1167
-msgid "Close shutter for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:934
-#: src/bin/calaos_home/models/RoomModel.cpp:1167
-msgid "Close shutter for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:935
-#: src/bin/calaos_home/models/RoomModel.cpp:1168
-msgid "Start shutter calibration"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:939
-#: src/bin/calaos_home/models/RoomModel.cpp:953
-#: src/bin/calaos_home/models/RoomModel.cpp:1056
-#: src/bin/calaos_home/models/RoomModel.cpp:1070
-#: src/bin/calaos_home/models/RoomModel.cpp:1190
-msgid "Set value"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:939
-#: src/bin/calaos_home/models/RoomModel.cpp:953
-#: src/bin/calaos_home/models/RoomModel.cpp:1056
-#: src/bin/calaos_home/models/RoomModel.cpp:1070
-#: src/bin/calaos_home/models/RoomModel.cpp:1175
-#: src/bin/calaos_home/models/RoomModel.cpp:1190
-msgid "Set value to %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:943
-#: src/bin/calaos_home/models/RoomModel.cpp:1061
-#: src/bin/calaos_home/models/RoomModel.cpp:1180
-msgid "Execute scenario"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:945
-#: src/bin/calaos_home/models/RoomModel.cpp:1181
-msgid "Stop scenario"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:949
-#: src/bin/calaos_home/models/RoomModel.cpp:1065
-#: src/bin/calaos_home/models/RoomModel.cpp:1185
-msgid "Set text"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:949
-#: src/bin/calaos_home/models/RoomModel.cpp:1065
-#: src/bin/calaos_home/models/RoomModel.cpp:1185
-msgid "Set text to '%1'"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:957
-#: src/bin/calaos_home/models/RoomModel.cpp:1075
-#: src/bin/calaos_home/models/RoomModel.cpp:1195
-msgid "Activate"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:958
-#: src/bin/calaos_home/models/RoomModel.cpp:1196
-msgid "Deactivate"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:959
-#: src/bin/calaos_home/models/RoomModel.cpp:1197
-msgid "Toggle state"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:960
-#: src/bin/calaos_home/models/RoomModel.cpp:1198
-msgid "Blink state"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:961
-msgid "Activate for X seconds"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:961
-#: src/bin/calaos_home/models/RoomModel.cpp:1199
-msgid "Activate for %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:965
-#: src/bin/calaos_home/models/RoomModel.cpp:1079
-#: src/bin/calaos_home/models/RoomModel.cpp:1205
-msgid "Move camera to a saved position"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:965
-#: src/bin/calaos_home/models/RoomModel.cpp:1079
-#: src/bin/calaos_home/models/RoomModel.cpp:1205
-msgid "Move camera to position %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:966
-#: src/bin/calaos_home/models/RoomModel.cpp:1208
-msgid "Save position"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:966
-#: src/bin/calaos_home/models/RoomModel.cpp:1208
-msgid "Save to position %1"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:967
-#: src/bin/calaos_home/models/RoomModel.cpp:1211
-msgid "Move up"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:968
-#: src/bin/calaos_home/models/RoomModel.cpp:1212
-msgid "Move down"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:969
-#: src/bin/calaos_home/models/RoomModel.cpp:1213
-msgid "Move left"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:970
-#: src/bin/calaos_home/models/RoomModel.cpp:1214
-msgid "Move right"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:971
-#: src/bin/calaos_home/models/RoomModel.cpp:1215
-msgid "Move to default"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:975
-#: src/bin/calaos_home/models/RoomModel.cpp:1084
-#: src/bin/calaos_home/models/RoomModel.cpp:1220
-msgid "Play"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:976
-msgid "Pause"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:977
-#: src/bin/calaos_home/models/RoomModel.cpp:1222
-msgid "Stop playing"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:978
-#: src/bin/calaos_home/models/RoomModel.cpp:1223
-msgid "Next track"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:979
-#: src/bin/calaos_home/models/RoomModel.cpp:1224
-msgid "Previous track"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:980
-#: src/bin/calaos_home/models/RoomModel.cpp:992
-#: src/bin/calaos_home/models/RoomModel.cpp:1227
-#: src/bin/calaos_home/models/RoomModel.cpp:1247
-msgid "Change volume"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:980
-#: src/bin/calaos_home/models/RoomModel.cpp:1227
-msgid "Set volume to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:981
-#: src/bin/calaos_home/models/RoomModel.cpp:1228
-msgid "Increase volume for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:981
-#: src/bin/calaos_home/models/RoomModel.cpp:1228
-msgid "Increase volume for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:982
-#: src/bin/calaos_home/models/RoomModel.cpp:1229
-msgid "Decrease volume for X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:982
-#: src/bin/calaos_home/models/RoomModel.cpp:1229
-msgid "Decrease volume for %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:983
-#: src/bin/calaos_home/models/RoomModel.cpp:1232
-msgid "Power on music zone"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:984
-#: src/bin/calaos_home/models/RoomModel.cpp:1233
-msgid "Power off music zone"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:985
-#: src/bin/calaos_home/models/RoomModel.cpp:1236
-msgid "Power off music zone in X seconds (Sleep mode)"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:985
-#: src/bin/calaos_home/models/RoomModel.cpp:1236
-msgid "Power off music zone in %1% seconds (sleep mode)"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:990
-#: src/bin/calaos_home/models/RoomModel.cpp:1088
-#: src/bin/calaos_home/models/RoomModel.cpp:1243
-msgid "Power On"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:991
-#: src/bin/calaos_home/models/RoomModel.cpp:1244
-msgid "Power Off"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:992
-#: src/bin/calaos_home/models/RoomModel.cpp:1247
-msgid "Change volume to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:1004
-#: src/bin/calaos_home/models/RoomModel.cpp:1263
-msgid "Switch source to "
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:1031
-msgid "Set light to X percent"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:1031
-msgid "Set light to %1%"
-msgstr ""
-
-#: src/bin/calaos_home/models/RoomModel.cpp:1221
-msgid "Plause"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:52
-msgid "Back"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:55
-msgid "My Music"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
-msgid "My Albums"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:98
-msgid "Access to your albums."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
-msgid "Artists"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:101
-msgid "Display by artists."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
-msgid "Years"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:104
-msgid "Sort songs by year."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
-msgid "Genre"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:107
-msgid "Show titles by genre."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
-msgid "Music Directory"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:110
-msgid "Browse your music library by directory."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
-msgid "Playlists"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:113
-msgid "Your saved playlists."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
-msgid "Radios"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:116
-msgid "Web radios web and online service."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
-msgid "Search..."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:119
-msgid "Search into your music library."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:242
-msgid "<small><blue>Media library : </blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:243
-msgid " albums with "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:244
-msgid " tracks by "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:245
-msgid " artists.</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:784
-msgid "Search into radios"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioListView.cpp:798
-msgid "Search into your music library"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:64
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:77
-msgid "No zone"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:67
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:68
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:69
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:80
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:81
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:82
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:260
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:261
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:262
-msgid "None"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:70
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:79
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:83
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:46
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:59
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:66
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:73
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:80
-msgid "Na"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:94
-msgid "Position :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:95
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:123
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:185
-msgid "Artist :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:96
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:129
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:191
-msgid "Album :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:97
-msgid "Track :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:98
-msgid "Year :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityAudioPlayerObject.cpp:99
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:143
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:205
-msgid "Duration :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityCameraListView.cpp:99
-msgid "No camera"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:220
-msgid ""
-"Save the <light_blue>actual position</light_blue><br><small>Choose a "
-"position.</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:224
-msgid "Position %1"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityCameraSelectView.cpp:254
-msgid "<center>Save to <light_blue>position #%1</light_blue></center>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:33
-msgid "Action and positions of widgets"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:34
-msgid ""
-"Resume : <light_blue>Current settings</light_blue><br><small>Configure Date "
-"and Time !</small"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:35
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:40
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:31
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:37
-msgid "About"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.cpp:36
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:41
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:32
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:38
-msgid ""
-"About : <light_blue>Calaos products</light_blue><br><small>Touchscreen "
-"solutions.</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.h:41
-msgid "Configure Clock and Date"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:36
-msgid "Resume"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:37
-msgid ""
-"Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
-"your Calaos System</small"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
-msgid "Our Partners"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:39
-msgid ""
-"<light_blue>Calaos</light_blue> partners<br><small>List of Calaos partners</"
-"small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:43
-msgid "Product Version: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:45
-msgid "Last update: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:47
-msgid "System started since : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:53
-msgid " day"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:55
-msgid " days"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:59
-msgid "Machine name : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:96
-msgid "Network address :"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:99
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:44
-msgid "Web Site : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:101
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:46
-msgid "Email : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:120
-msgid "Date and clock"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:138
-msgid "Screen saver"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.h:42
-msgid "Configuration center"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:29
-msgid "Change your password"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.cpp:30
-msgid ""
-"Resume : <light_blue>Password</light_blue><br><small>Change your password !</"
-"small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.h:41
-msgid "Configure Password"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:35
-msgid "Configure Touch Screen"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:36
-msgid ""
-"Resume : <light_blue>Touch Screen</light_blue><br><small>Configure your "
-"Touch Screen !</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:40
-msgid "Configure power management settings"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:41
-msgid ""
-"Enable if you want to activate automatic screen blanking and the delay after "
-"which the screen will be turned off. You can also ask for a password when "
-"the screen is turned on again."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:42
-msgid "TouchScreen"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:43
-msgid "TouchScreen configuration."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:50
-msgid "Time before screensaver activation : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:51
-msgid "Enable screen saver : "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:74
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:86
-msgid " minutes"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:124
-msgid "0 minutes"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:134
-msgid "1 minute"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.h:41
-msgid "Configure Screen saver settings"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigView.cpp:26
-msgid "Control Panel"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityConfigView.cpp:32
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:74
-#: src/bin/calaos_home/views/ActivityMediaView.cpp:37
-#: src/bin/calaos_home/views/ActivityMediaView.cpp:40
-#: src/bin/calaos_home/views/ActivityWebView.cpp:120
-msgid "Back to menu"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:75
-msgid "My new scenario"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:47
-msgid ""
-"<b><huge>Informations</huge></b><br><light_blue><small>Enter the name "
-"and<br> all informations about the scenario.</small></light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:49
-msgid ""
-"<disabled><b><huge>Informations</huge></b><br><light_blue><small>Enter the "
-"name and<br> all informations about the scenario.</small></light_blue></"
-"disabled>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:51
-msgid ""
-"<b><huge>Configuration</huge></b><br><light_blue><small>Add items from "
-"your<br> rooms and configure them.</small></light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:53
-msgid ""
-"<disabled><b><huge>Configuration</huge></b><br><light_blue><small>Add items "
-"from your<br> rooms and configure them.</small></light_blue></disabled>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:102
-msgid "Scenario name: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:105
-msgid ""
-"<big>Scenario creation or modification</big><br><br><small><disabled>Use the "
-"following field to enter the name of your scenario and find it <br>quickly. "
-"Also, choose the visibility of you scenario.</disabled></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:123
-msgid ""
-"<small><disabled>Select and add wanted items into your scenario.<br>You will "
-"then define the actions.</disabled></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:124
-msgid ""
-"<small><disabled>Modify items added to the following list. The Actions "
-"define <br>what is going to happend when the scenario is executed.</"
-"disabled></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:128
-msgid ""
-"<small><disabled>Select and add wanted items into your scenario.<br>You will "
-"have then to define the actions.</disabled></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:129
-msgid ""
-"<small><disabled>Modify items added to the following list. The actions "
-"define <br>what will happen when the scenario will be executed.</disabled></"
-"small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:131
-msgid "Step 1"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
-msgid "Displayed in the interface: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:146
-msgid "Displayed in"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:151
-msgid "Don't display it."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
-msgid "Infinite loop: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:160
-msgid "Enabled"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:165
-msgid "Disabled"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:173
-msgid "Enter the scenario name"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:183
-msgid "Scenario name"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:197
-msgid ""
-"Display scenario<br><small><light_blue>Choose a room.</light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:203
-msgid "Don't display it"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:513
-msgid "Final step"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:416
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:498
-msgid "Step"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
-msgid "Scenario step"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:489
-msgid "Scenario progress"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:507
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:631
-msgid "Pause: "
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
-msgid "Choose time"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:558
-msgid "Pause time before next step"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:564
-msgid "Steps"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:578
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:488
-#, c-format
-msgid "%.0f<br><subtitle>Hours</subtitle>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:588
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:498
-#, c-format
-msgid "%.0f<br><subtitle>Min.</subtitle>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:598
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:508
-#, c-format
-msgid "%.0f<br><subtitle>Sec.</subtitle>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:608
-#, c-format
-msgid "%.0f<br><subtitle>Ms.</subtitle>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:730
-msgid "Confirmation"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:656
-msgid "Are you sure to delete this step?"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:660
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:739
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:277
-#: src/bin/calaos_home/views/Widget.cpp:207
-msgid "Yes, delete it"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:664
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:281
-#: src/bin/calaos_home/views/Widget.cpp:211
-msgid "No"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:36
-msgid "My House"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:37
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbum.cpp:60
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemArtist.cpp:60
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemBrowserPlaylist.cpp:63
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemGenre.cpp:53
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:48
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:64
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemYear.cpp:53
-msgid "Loading..."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:77
-#: src/bin/calaos_home/views/ActivityView.cpp:77
-msgid "Quit"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:80
-msgid "Save room state"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:446
-msgid ""
-"House state : <light_blue>Normal</light_blue><br><small>Informations about "
-"your house</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:455
-#: src/bin/calaos_home/views/ActivityHomeView.cpp:461
-msgid "More infos"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityKeyboardView.cpp:38
-msgid "Valider"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityKeyboardView.cpp:41
-msgid "Tout effacer"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:64
-msgid "Your Music"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:65
-msgid "Access your media library"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:69
-msgid "CCTV"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:70
-msgid "Drive all your cctv cameras"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:74
-msgid "Flickr"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:75
-msgid "Browse your pictures"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:79
-msgid "Internet"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:80
-msgid "Go surf the web"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:84
-msgid "Eskiss"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaMenuView.cpp:85
-msgid "Play with physics !"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaView.cpp:31
-msgid "Multimedia"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityMediaView.cpp:43
-msgid "Edit playlist"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:29
-msgid "Scenario management"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:46
-msgid "Today"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:49
-msgid "Create a new scenario"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:52
-msgid "All"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:55
-msgid "Lights"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:58
-msgid "Shutters"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:61
-msgid "Scheduled"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:188
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:197
-msgid "Lights scenarios"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:190
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:202
-msgid "Shutters scenarios"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:192
-msgid "Other Scenarios"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:272
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:587
-msgid "Sunday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:273
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:581
-msgid "Monday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:274
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:582
-msgid "Tuesday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:275
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:583
-msgid "Wednesday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:276
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:584
-msgid "Thursday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:277
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:585
-msgid "Friday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:278
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:586
-msgid "Saturday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:285
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:60
-msgid "January"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:286
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:64
-msgid "February"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:287
-msgid "Mars"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:288
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:72
-msgid "April"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:289
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:76
-msgid "May"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:290
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:80
-msgid "June"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:291
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:84
-msgid "July"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:292
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:88
-msgid "August"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:293
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:92
-msgid "September"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:294
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:96
-msgid "October"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:295
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:100
-msgid "November"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:296
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:104
-msgid "December"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScenariosView.cpp:300
-msgid "On <blue>%1, %2 %3, %4</blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:33
-msgid "Scheduling"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:52
-msgid "Month of year"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:55
-msgid "All year"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:68
-msgid "March"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:155
-msgid "Apply"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:158
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:119
-msgid "Add"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:160
-msgid "<big><disabled>Hours of execution</disabled></big>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:161
-msgid "<big><disabled>Specific schedule</disabled></big>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:266
-msgid ""
-"Schedule start time<br><small><light_blue>Start time of the scenario</"
-"light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:272
-msgid ""
-"Schedule stop<br><small><light_blue>End time of the scenario</light_blue></"
-"small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:275
-msgid "Start"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:285
-msgid "Use a fixed time"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:286
-msgid "Use the sunrise"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:287
-msgid "Use the sunset"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:288
-msgid "Use the midday sun"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:345
-msgid ""
-"<b>Offset time</b><br><light_blue><small>You can choose to shift the sun "
-"time</small></light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:348
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:568
-msgid "Beginning"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:357
-msgid "Use the exact sun time"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:358
-msgid "Add time"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:359
-msgid "Substract time"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:454
-msgid ""
-"<b>Choose a schedule</b><br><light_blue><small>Start time of scenario</"
-"small></light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:456
-msgid ""
-"<b>Choose a schedule</b><br><light_blue><small>End time of scenario</small></"
-"light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:458
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:460
-msgid ""
-"<b>Choose a time shift</b><br><light_blue><small>Shifting offset of "
-"scenario</small></light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:561
-msgid ""
-"Days of the week<br><small><light_blue>Days of the week when scenario is "
-"executed.</light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:566
-msgid "End"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:580
-msgid "Everyday"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:588
-msgid "ERROR"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:732
-msgid "Are you sure to delete this schedule?"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:89
-msgid "Web browser"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:123
-msgid "Reload"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:126
-msgid "Stop"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:129
-msgid "Home page"
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:132
-msgid "Go to..."
-msgstr ""
-
-#: src/bin/calaos_home/views/ActivityWebView.cpp:135
-msgid "Add to favorites"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemAlbumHeader.cpp:50
-msgid "Unknown album"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:107
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:176
-msgid ""
-"<light_blue>Track #%1</light_blue> infos<br><small>Track details.</small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:115
-msgid "Loading"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:135
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:197
-msgid "Title :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:149
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:211
-msgid "Genre :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:155
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:217
-msgid "Stream type :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:161
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:223
-msgid "Bitrate :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:171
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:233
-msgid "Size :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:177
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:239
-msgid "Sampling :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:183
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:245
-msgid "Tag version :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:189
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemTrack.cpp:251
-msgid "Comments :"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylist.cpp:193
-msgid "Remove track"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylistHeader.cpp:47
-msgid "Playlist:"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemPlaylistHeader.cpp:99
-msgid "Remove"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:123
-msgid ""
-"Edit element<br><small><light_blue>Choose action that will be executed</"
-"light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:127
-msgid "Remove action"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:259
-msgid "Choose value"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:287
-msgid "Choose number"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:346
-msgid "Choose duration"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:359
-msgid "Hours"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:370
-msgid "Min."
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:381
-msgid "Sec."
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioAction.cpp:392
-msgid "Ms."
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:101
-msgid "No actions."
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:103
-msgid "steps"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:106
-msgid "actions"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:160
-msgid ""
-"Scenario parameters<br><small><light_blue>Modify, add or delete a schedule.</"
-"light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:166
-msgid "Modify scenario"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:171
-msgid "Delete scenario"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:176
-msgid "Run scenario now"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:183
-msgid "Add a schedule"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:190
-msgid "Schedule modification"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:195
-msgid "Delete schedule"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:205
-msgid "Disable schedule"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:212
-msgid "Enable schedule"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioSchedule.cpp:273
-msgid ""
-"Confirmation<br><small><light_blue>Are you sure to delete this scenarios?</"
-"light_blue></small>"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:50
-msgid "Execute at "
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:52
-msgid "Start at "
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:91
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:106
-msgid "Sunrise"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:93
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:108
-msgid "Sunset"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:95
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:110
-msgid "Noon"
-msgstr ""
-
-#: src/bin/calaos_home/views/GenlistItems/GenlistItemScenarioScheduleTime.cpp:101
-msgid "stop at "
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOInternalStringHomeView.cpp:101
-#: src/bin/calaos_home/views/IO/IOWOStringHomeView.cpp:101
-msgid "Change value"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:154
-msgid "State: <light_blue>Open.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:156
-msgid "State: <light_blue>%1% open.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:158
-msgid "State: <light_blue>%1% closed.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:160
-msgid "State: <light_blue>Closed.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:167
-msgid "Action: <light_blue>Stopped.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:169
-msgid "Action: <light_blue>Closing.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/IO/IOWOVoletSmartHomeView.cpp:171
-msgid "Action: <light_blue>Opening.</light_blue>"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:45
-msgid "My Home"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:46
-msgid "Medias"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:47
-msgid "Scenarios"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:48
-msgid "Configuration"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:100
-msgid "Add a widget."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:105
-msgid "Widgets configuration."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:110
-msgid "Shut the screen off."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:115
-msgid "Reboot the machine."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:122
-msgid "Touch the screen once to wake up the machine."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:125
-msgid "Auto: Off"
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:131
-msgid "Auto: "
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:144
-msgid "Add widgets on the desktop."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:150
-msgid "Move and setup your widgets on the desktop."
-msgstr ""
-
-#: src/bin/calaos_home/views/MainMenuView.cpp:155
-msgid "Please wait during the reboot."
-msgstr ""
-
-#: src/bin/calaos_home/views/Widget.cpp:203
-msgid ""
-"Confirmation<br><small><light_blue>Are you sure to delete this widget?</"
-"light_blue></small>"
-msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:30
 msgid "Event when play is started"
@@ -1856,7 +63,7 @@ msgid "Play previous song in playlist"
 msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:42
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:279
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:230
 msgid "Set current volume"
 msgstr ""
 
@@ -1872,107 +79,164 @@ msgstr ""
 msgid "Audio players are not displayed in rooms"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:271
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:222
 msgid "AVReceiver object to control network amplifier"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:272
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:223
 msgid "IP address of the device"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:273
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:224
 msgid "Port to use for connection"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:274
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:225
 msgid "Zone of the amplifier (if supported)"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:275
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:226
 msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:277
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:228
 msgid "Switch receiver on"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:278
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:229
 msgid "Switch receiver off"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:280
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:231
 msgid "Change current input source"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:281
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:232
 msgid "Send a custom command to receiver (if you know the protocol)"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:115
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:46
 msgid "Squeezebox audio player allows control of a Squeezebox from Calaos"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:117
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:48
 msgid "Logitech media server IP address"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:118
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:49
 msgid "Unique ID of squeezebox in LMS"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:119
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:50
 msgid "CLI port of LMS, default to 9090"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:120
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:51
 msgid "Web interface port of LMS, default to 9000."
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:122
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:53
 msgid "Switch player on"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:123
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:54
 msgid "Switch player off"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:124
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:55
 msgid "Start sleep mode with X seconds"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:125
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:56
 msgid "Sync this player with an other"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:126
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:57
 msgid "Stop sync of this player with an other"
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:127
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:58
 msgid ""
 "Clear playlist and play argument. <argument> can be any of album_id:XX "
 "artist_id:XX playlist_id:XX, ..."
 msgstr ""
 
-#: src/bin/calaos_server/Audio/Squeezebox.cpp:128
+#: src/bin/calaos_server/Audio/Squeezebox.cpp:59
 msgid ""
 "Add tracks to playlist. <argument> can be any of album_id:XX artist_id:XX "
 "playlist_id:XX, ..."
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:37
+#: src/bin/calaos_server/IO/AnalogIO.cpp:25
+#: src/bin/calaos_server/IO/IntValue.cpp:45
+msgid "Unit which will be displayed on the UI as a suffix."
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:27
+msgid "Humidity"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:28
+msgid "Default"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:29
+msgid "GUI style display. This will control the icon displayed on the UI"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:31
+msgid "Event on a specific value"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:32
+#: src/bin/calaos_server/IO/IntValue.cpp:78
+#: src/bin/calaos_server/IO/OutputLight.cpp:30
+#: src/bin/calaos_server/IO/OutputLightDimmer.cpp:34
+#: src/bin/calaos_server/IO/OutputLightRGB.cpp:30
+msgid "Event on any change of value"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:34
+msgid "Unique ID identifying the Input/Output in calaos-server"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:35
+msgid "Name of Input/Output."
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:36
+msgid "Display the Input/Output on all user interfaces if set. Default to true"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:37
+msgid ""
+"Enable the Input/Output. The default value is true. This parameter is added "
+"if it's not found in the configuration."
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:38
+msgid ""
+"Internal graphical type for all calaos objects. Set automatically, read-only "
+"parameter."
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:39
+msgid "IO type, can be \"input\", \"output\", \"inout\""
+msgstr ""
+
+#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:36
 msgid "RGB Light dimmer using a Blinkstick"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:38
+#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:37
 msgid "http://www.blinkstick.com"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:39
+#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:38
 msgid "Blinkstick serial to control"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:40
+#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:39
 msgid "Number of LEDs to control with the blinkstick"
 msgstr ""
 
@@ -2065,72 +329,52 @@ msgstr ""
 msgid "Event on any change of range"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:35
+#: src/bin/calaos_server/IO/InputAnalog.cpp:33
 msgid ""
 "An analog input can be used to read analog values to display them and use "
 "them in rules."
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:37
-#: src/bin/calaos_server/IO/InputTemp.cpp:35
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:33
+#: src/bin/calaos_server/IO/InputAnalog.cpp:35
+#: src/bin/calaos_server/IO/InputTemp.cpp:34
 msgid ""
 "use in conjunction of coeff_b to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 1.0."
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:39
-#: src/bin/calaos_server/IO/InputTemp.cpp:37
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:35
+#: src/bin/calaos_server/IO/InputAnalog.cpp:37
+#: src/bin/calaos_server/IO/InputTemp.cpp:36
 msgid ""
 "use in conjunction of coeff_a to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 0.0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:42
-#: src/bin/calaos_server/IO/InputTemp.cpp:40
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:38
+#: src/bin/calaos_server/IO/InputAnalog.cpp:40
+#: src/bin/calaos_server/IO/InputTemp.cpp:39
 msgid "same as coeff_b, can be used alone. Default value is 0.0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:44
-#: src/bin/calaos_server/IO/InputTemp.cpp:42
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:40
+#: src/bin/calaos_server/IO/InputAnalog.cpp:42
+#: src/bin/calaos_server/IO/InputTemp.cpp:41
 msgid ""
 "Sampling time in microsecond. The value is read at this frequency. If this "
 "value is not set, calaos tries to read the interval parameter"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:46
-#: src/bin/calaos_server/IO/InputTemp.cpp:44
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:42
+#: src/bin/calaos_server/IO/InputAnalog.cpp:44
+#: src/bin/calaos_server/IO/InputTemp.cpp:43
 msgid ""
 "Sampling time in seconds. The value is read at this frequency. If this value "
 "is not set, the default value is 15s"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:48
-#: src/bin/calaos_server/IO/InputTemp.cpp:46
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:44
+#: src/bin/calaos_server/IO/InputAnalog.cpp:46
+#: src/bin/calaos_server/IO/InputTemp.cpp:45
 msgid ""
 "Precision of the returned value. The value represents the number of decimal "
 "after the dot. The value is rounded like this : value = 19.275 => returned "
 "value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision "
 "= 0"
-msgstr ""
-
-#: src/bin/calaos_server/IO/InputAnalog.cpp:50
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:46
-msgid "Event on a specific value"
-msgstr ""
-
-#: src/bin/calaos_server/IO/InputAnalog.cpp:51
-#: src/bin/calaos_server/IO/IntValue.cpp:76
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:47
-#: src/bin/calaos_server/IO/OutputLight.cpp:30
-#: src/bin/calaos_server/IO/OutputLightDimmer.cpp:34
-#: src/bin/calaos_server/IO/OutputLightRGB.cpp:30
-msgid "Event on any change of value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputSwitch.cpp:29
@@ -2189,17 +433,17 @@ msgstr ""
 msgid "Event triggered when switch is triple clicked"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:34
+#: src/bin/calaos_server/IO/InputTemp.cpp:33
 msgid ""
 "Temperature sensor input. Use for displaying temperature and to control "
 "heating devices with rules based on temperature value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:48
+#: src/bin/calaos_server/IO/InputTemp.cpp:47
 msgid "Event on a temperature value in degree Celsius"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:49
+#: src/bin/calaos_server/IO/InputTemp.cpp:48
 msgid "Event on any change of temperature value"
 msgstr ""
 
@@ -2312,73 +556,73 @@ msgid ""
 "in rules, like counters, of displaying values."
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:44
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:49
+#: src/bin/calaos_server/IO/IntValue.cpp:46
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:37
 msgid "Set a step for increment/decrement value. Default is 1.0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:45
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:50
+#: src/bin/calaos_server/IO/IntValue.cpp:47
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:39
 msgid "Event on a specific number value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:46
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:51
+#: src/bin/calaos_server/IO/IntValue.cpp:48
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:40
 msgid "Set a specific number value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:47
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:52
+#: src/bin/calaos_server/IO/IntValue.cpp:49
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:41
 msgid "Increment value with configured step"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:48
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:53
+#: src/bin/calaos_server/IO/IntValue.cpp:50
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:42
 msgid "Decrement value with configured step"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:49
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:54
+#: src/bin/calaos_server/IO/IntValue.cpp:51
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:43
 msgid "Increment value by value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:50
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:55
+#: src/bin/calaos_server/IO/IntValue.cpp:52
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:44
 msgid "Decrement value by value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:54
+#: src/bin/calaos_server/IO/IntValue.cpp:56
 msgid ""
 "Internal boolean object. This object is useful for doing internal programing "
 "in rules, like keeping boolean states, or displaying boolean values"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:55
+#: src/bin/calaos_server/IO/IntValue.cpp:57
 msgid "Event when value is true"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:56
+#: src/bin/calaos_server/IO/IntValue.cpp:58
 msgid "Event when value is false"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:57
+#: src/bin/calaos_server/IO/IntValue.cpp:59
 msgid "Set a value to true"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:58
+#: src/bin/calaos_server/IO/IntValue.cpp:60
 msgid "Set a value to false"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:59
+#: src/bin/calaos_server/IO/IntValue.cpp:61
 msgid "Invert boolean value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:60
+#: src/bin/calaos_server/IO/IntValue.cpp:62
 msgid ""
 "Do an impulse on boolean value. Set to true for X ms then reset to false"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:61
+#: src/bin/calaos_server/IO/IntValue.cpp:63
 msgid ""
 "Do an impulse on boolean value with a pattern.<br>Ex: 500 200 500 200 means: "
 "TRUE for 500ms, FALSE for 200ms, TRUE for 500ms, FALSE for 200ms<br>Ex: 500 "
@@ -2387,65 +631,58 @@ msgid ""
 "then set to the old start state (before impulse starts)"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:68
+#: src/bin/calaos_server/IO/IntValue.cpp:70
 msgid ""
 "Internal string object. This object is useful for doing internal programing "
 "in rules or displaying text values on user interfaces."
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:69
+#: src/bin/calaos_server/IO/IntValue.cpp:71
 msgid "Event on a specific string value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:70
+#: src/bin/calaos_server/IO/IntValue.cpp:72
 msgid "Set a specific string value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:73
+#: src/bin/calaos_server/IO/IntValue.cpp:75
 msgid ""
 "Enable edit mode for this object. It allows user to modify the value on "
 "interfaces. Default to false"
 msgstr ""
 
-#: src/bin/calaos_server/IO/IntValue.cpp:74
+#: src/bin/calaos_server/IO/IntValue.cpp:76
 msgid ""
 "Automatically save the value in cache. The value will be reloaded when "
 "restarting calaos is true. Default to false"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:34
-msgid "Input analog with KNX and eibnetmux"
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:30
+msgid "https://github.com/knxd/knxd/g"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitch.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitchLongPress.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitchTriple.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXInputTemp.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXOutputAnalog.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXOutputLight.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightDimmer.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:35
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutterSmart.cpp:35
-msgid "http://eibnetmux.sourceforge.net"
-msgstr ""
-
-#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitch.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitchLongPress.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXInputSwitchTriple.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXInputTemp.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXOutputAnalog.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXOutputLight.cpp:38
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightDimmer.cpp:38
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:33
 msgid "KNX Group address, Ex: x/y/z"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXInputTemp.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXOutputAnalog.cpp:37
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:34
+msgid "KNX Group address for listening status, Ex: x/y/z"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:36
 msgid "KNX EIS (Data type)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:37
+msgid "Send a read request at start to get the current value. Default is false"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXBase.cpp:38
+msgid "Hostname of knxd, default to localhost"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:34
+msgid "Input analog with KNX and eibnetmux"
 msgstr ""
 
 #: src/bin/calaos_server/IO/KNX/KNXInputSwitch.cpp:34
@@ -2480,16 +717,28 @@ msgstr ""
 msgid "Light RGB with KNX and eibnetmux"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:38
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:37
 msgid "Red channel KNX Group address, Ex: x/y/z"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:39
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:38
 msgid "Green channel KNX Group address, Ex: x/y/z"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:40
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:39
 msgid "Blue channel KNX Group address, Ex: x/y/z"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:40
+msgid "Red Group address for listening status, Ex: x/y/z"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:41
+msgid "Green Group address for listening status, Ex: x/y/z"
+msgstr ""
+
+#: src/bin/calaos_server/IO/KNX/KNXOutputLightRGB.cpp:42
+msgid "Blue Group address for listening status, Ex: x/y/z"
 msgstr ""
 
 #: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:34
@@ -2497,54 +746,54 @@ msgstr ""
 msgid "Shutter with with KNX and eibnetmux"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:36
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutterSmart.cpp:36
+#: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:35
+#: src/bin/calaos_server/IO/KNX/KNXOutputShutterSmart.cpp:35
 msgid "Up KNX Group address, Ex: x/y/z"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:37
-#: src/bin/calaos_server/IO/KNX/KNXOutputShutterSmart.cpp:37
+#: src/bin/calaos_server/IO/KNX/KNXOutputShutter.cpp:36
+#: src/bin/calaos_server/IO/KNX/KNXOutputShutterSmart.cpp:36
 msgid "Down KNX Group address, Ex: x/y/z"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:36
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:35
 msgid ""
 "A switch input based on the result of a ping command. Useful to detect "
 "presence of a host on the network."
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:37
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:36
 msgid "IP address or host where to send the ping"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:38
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:37
 msgid "Timeout of the ping request in ms"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:39
-#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:73
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:38
+#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:36
 msgid "Interval between pings in ms. Default to 15 sec"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:40
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:39
 msgid "The host is online and respond to the ping"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:41
+#: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:40
 msgid "The host is offline and/or does not respond to the ping"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:71
+#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:34
 msgid ""
 "Wake On Lan output object. Send wake-on-lan packet to a device on the "
 "network."
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:72
+#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:35
 msgid "Ethernet MAC address of the host to wake up"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:74
+#: src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp:37
 msgid "Send wake on lan packet to the configured device"
 msgstr ""
 
@@ -2568,32 +817,42 @@ msgstr ""
 msgid "Zone to control. Each gateway supports 4 zones."
 msgstr ""
 
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:123
+msgid "http://mysensors.org"
+msgstr ""
+
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:124
+msgid "Serial"
+msgstr ""
+
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:125
+msgid "TCP"
+msgstr ""
+
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:126
+msgid "Gateway type used, tcp or serial are supported"
+msgstr ""
+
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:128
+msgid ""
+"If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If "
+"using tcp gateway port is TCP port of the gateway."
+msgstr ""
+
+#: src/bin/calaos_server/IO/MySensors/MySensors.cpp:130
+msgid "IP address of the tcp gateway if relevant"
+msgstr ""
+
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:34
 msgid "Analog measurement with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:35
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:36
-msgid "http://mysensors.org"
-msgstr ""
-
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:36
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:36
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:36
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:37
@@ -2603,10 +862,10 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:37
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:37
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:37
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:37
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:38
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:38
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:38
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:38
@@ -2614,105 +873,23 @@ msgstr ""
 msgid "Sensor ID, as set in your node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:39
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:41
-msgid "Serial"
-msgstr ""
-
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:40
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:42
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:42
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:42
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:46
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:44
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:44
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:42
-msgid "Ethernet"
-msgstr ""
-
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:41
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:43
-msgid "Gateway type used, ethernet or serial are supported"
-msgstr ""
-
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:43
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:49
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:45
-msgid ""
-"If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If "
-"using ethernet gateway port is TCP port of the gateway."
-msgstr ""
-
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:45
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:47
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputLightRGB.cpp:51
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutter.cpp:49
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputShutterSmart.cpp:49
-#: src/bin/calaos_server/IO/MySensors/MySensorsOutputString.cpp:47
-msgid "IP address of the ethernet gateway if relevant"
-msgstr ""
-
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:34
 msgid "Display string from MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:34
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:35
 msgid "Input switch with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:34
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:35
 msgid "Input long press switch with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:34
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:35
 msgid "Input triple click switch with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:34
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:35
 msgid "Temperature sensor with MySensors node"
 msgstr ""
 
@@ -2867,9 +1044,21 @@ msgstr ""
 msgid "Force the use of w1 kernel driver instead of OneWire driver"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:32
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:31
 msgid ""
 "Analog output. Useful to control analog output devices connected to calaos."
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:32
+msgid ""
+"use in conjunction of coeff_b to apply equation of the form `value_sent = "
+"coeff_a * raw_value + coeff_b`. Default value is 1.0."
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:34
+msgid ""
+"use in conjunction of coeff_a to apply equation of the form `value_sent = "
+"coeff_a * raw_value + coeff_b`. Default value is 0.0"
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputFake.cpp:34
@@ -3024,77 +1213,77 @@ msgstr ""
 msgid "Decrease intensity by X percent of blue channel"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:35
+#: src/bin/calaos_server/IO/OutputShutter.cpp:36
 msgid ""
 "Simple shutter. This shutter supports open/close states, as well as impulse "
 "shutters."
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:36
+#: src/bin/calaos_server/IO/OutputShutter.cpp:37
 msgid "Time in sec for shutter to open or close"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:37
+#: src/bin/calaos_server/IO/OutputShutter.cpp:38
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:45
 msgid ""
 "Impulse time for shutter that needs impulse instead of holding up/down "
 "relays. If set to 0 impulse shutter is disabled. Time is in ms. Default to 0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:38
+#: src/bin/calaos_server/IO/OutputShutter.cpp:39
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:46
 msgid ""
 "If in impulse mode, some shutters needs to activate both up dans down relays "
 "when stopping the shutter"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:39
+#: src/bin/calaos_server/IO/OutputShutter.cpp:40
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:47
 msgid "Event on any change of shutter state"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:40
+#: src/bin/calaos_server/IO/OutputShutter.cpp:41
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:48
 msgid "Event when shutter is open"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:41
+#: src/bin/calaos_server/IO/OutputShutter.cpp:42
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:49
 msgid "Event when shutter is closed"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:42
+#: src/bin/calaos_server/IO/OutputShutter.cpp:43
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:50
 msgid "Open the shutter"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:43
+#: src/bin/calaos_server/IO/OutputShutter.cpp:44
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:51
 msgid "Close the shutter"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:44
+#: src/bin/calaos_server/IO/OutputShutter.cpp:45
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:52
 msgid "Stop the shutter"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:45
+#: src/bin/calaos_server/IO/OutputShutter.cpp:46
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:53
 msgid "Invert shutter state"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:46
+#: src/bin/calaos_server/IO/OutputShutter.cpp:47
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:54
 msgid "Open shutter for X ms"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:47
+#: src/bin/calaos_server/IO/OutputShutter.cpp:48
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:55
 msgid "Close shutter for X ms"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OutputShutter.cpp:48
 #: src/bin/calaos_server/IO/OutputShutter.cpp:49
+#: src/bin/calaos_server/IO/OutputShutter.cpp:50
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:60
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:61
 msgid ""
@@ -3159,6 +1348,97 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Scenario.cpp:42
 msgid "Internal use only for Auto Scenario. read only."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:33
+msgid "Analog measurement retrieved from Teleinfo informations."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:35
+msgid ""
+"port on which to get Teleinfo information usually a serial port like /dev/"
+"ttyS0 or /dev/ttyAMA0"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:37
+msgid "Subscribed intensity. (in Ampere)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:38
+msgid "Index if optione BASE is subscribed. (in Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:39
+msgid "Index \"Heures Creuses\" if this option is subscribed. (in Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:40
+msgid ""
+"Index \"Heures Pleine\" if option \"Heures Creuses\" is subscribed. (in Watt-"
+"hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:41
+msgid ""
+"Index \"Heures Normales\" if otion \"EJP\" is subscribed. (in Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:42
+msgid ""
+"Index \"Heures de pointe mobile\" if otion \"EJP\" is subscribed. (in Watt-"
+"hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:43
+msgid ""
+"Index \"Heures creuses jours bleues\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:44
+msgid ""
+"Index \"Heures pleines jours bleues\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:45
+msgid ""
+"Index \"Heures creuses jours blancs\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:46
+msgid ""
+"Index \"Heures pleines jours blancs\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:47
+msgid ""
+"Index \"Heures creuses jours rouges\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:48
+msgid ""
+"Index \"Heures pleines jours rouges\" if otion \"Tempo\" is subscribed. (in "
+"Watt-hour)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:49
+msgid "Instant intensity. (in Ampere)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:50
+msgid "Maximal intensity. (in Ampere)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:51
+msgid "Apparent power. (in Volt-ampere)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:53
+msgid "All theses values are reported by the Teleinfo equipment as double."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:38
@@ -3392,30 +1672,42 @@ msgstr ""
 msgid "Smart shutter using wago digital output modules (like 750-1504, ...)"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:39
-msgid "Analog input read from a web document"
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:37
+msgid ""
+"URL where to POST the document to. The POST request is associated with the "
+"data field if not null. When no data is provided, Calaos substitutes "
+"__##VALUE##__ string with the value to send. For example if the url is "
+"http://example.com/api?value=__##VALUE##__ the url post will be :\n"
+"http://example.com/api?value=20.3\n"
+"The url is encoded before being sent.\n"
+"If the URL begins with / or file:// the data is written to a file."
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:40
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:44
+msgid ""
+"The document send when posting data. This value can be void, in, that case "
+"the value is substituted in the url, otherwise the __##VALUE##__ contained "
+"in data is substituted with with the value to be sent."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:48
+msgid ""
+"The HTTP header Content-Type used when posting the document. It depends on "
+"the website, but you can use application/json application/xml as correct "
+"values."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:56
 msgid ""
 "URL where to download the document from\n"
-"If URL begins with file:// the data is read from the local file"
+"If URL begins with / or with file:// the data is read from the local file"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:43
-#: src/bin/calaos_server/IO/Web/WebInputString.cpp:42
-#: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:44
-#: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:55
-#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:55
-#: src/bin/calaos_server/IO/Web/WebOutputString.cpp:54
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:59
 msgid "File type of the document. Values can be xml, json or text."
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:45
-#: src/bin/calaos_server/IO/Web/WebInputString.cpp:44
-#: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:46
-#: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:57
-#: src/bin/calaos_server/IO/Web/WebOutputString.cpp:56
+#: src/bin/calaos_server/IO/Web/WebDocBase.cpp:61
 msgid ""
 "The path where to found the value. This value can take multiple values "
 "depending on the file type. If file_type is JSON, the json file downloaded "
@@ -3433,15 +1725,12 @@ msgid ""
 "If the path is 2/4/, the value returne wil be 20.3\n"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputString.cpp:38
-msgid "String input providing from a web document"
+#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:39
+msgid "Analog input read from a web document"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputString.cpp:39
-#: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:41
-msgid ""
-"URL where to download the document from.\n"
-"If URL begins with file:// the data is read from the local file"
+#: src/bin/calaos_server/IO/Web/WebInputString.cpp:38
+msgid "String input providing from a web document"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:40
@@ -3452,48 +1741,11 @@ msgstr ""
 msgid "Bool output written to a web document or URL"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:39
-#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:39
-msgid ""
-"URL where to POST the document to. The POST request is associated with the "
-"data field if not void. When no data is provided, Calaos substitutes "
-"__##VALUE##__ string with the value to send. For example if the url is "
-"http://example.com/api?value=__##VALUE##__ the url post will be :\n"
-"http://example.com/api?value=20.3\n"
-"The url is encoded before being sent.\n"
-"If the URL is of type file:// the data is written to a file."
-msgstr ""
-
-#: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:46
-#: src/bin/calaos_server/IO/Web/WebOutputString.cpp:45
-msgid ""
-"The document send when posting data. This value can be void, in, that case "
-"the value is substituted in the url, otherwise the __##VALUE##__ contained "
-"in data is substituted with with the value to be sent."
-msgstr ""
-
-#: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:50
-#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:50
-#: src/bin/calaos_server/IO/Web/WebOutputString.cpp:49
-msgid ""
-"The HTTP header Content-Type used when posting the document. It depends on "
-"the website, but you can use application/json application/xml as correct "
-"values."
-msgstr ""
-
 #: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:38
 msgid "RGB value written to a web document or URL"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:46
-msgid ""
-"The document send when posting data. This value can be void, in, that case "
-"the value is substituted in the url, otherwise the __##VALUE##__ contained "
-"in data is substituted with with the value to be sent. Value sent has "
-"#RRGGBB format or RRGGBB depending on raw_value boolean"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:58
+#: src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp:41
 msgid ""
 "RGB value has #RRGGBB. Sometimes some web api take only RRGGBBformat. If "
 "raw_value is true, the # in front of the line isremoved. The default value "
@@ -3504,22 +1756,50 @@ msgstr ""
 msgid "String output written to a web document or URL"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebOutputString.cpp:39
-msgid ""
-"URL where to POST the document to. The POST request is associated with the "
-"data field if not void. When no data is provided, Calaos substitutes "
-"__##VALUE##__ string with the value to send. For example if the url is "
-"http://example.com/api?value=__##VALUE##__ the url post will be :\n"
-"http://example.com/api?value=20.3\n"
-"The url is encoded before being sent."
-msgstr ""
-
 #: src/bin/calaos_server/IO/X10/X10Output.cpp:34
 msgid "Light dimmer using X10 and heyu."
 msgstr ""
 
 #: src/bin/calaos_server/IO/X10/X10Output.cpp:35
 msgid "House code of the X10 light device"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:26
+msgid "Sensor ID, as set in your xPL network"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:32
+msgid "Actuator ID, as set in your xPL network"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:37
+msgid ""
+"Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLInputAnalog.cpp:34
+msgid "xPL analog sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLInputString.cpp:34
+msgid "xPL string sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLInputSwitch.cpp:35
+msgid "xPL input switch"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLInputTemp.cpp:34
+msgid "xPL temperature sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLOutputAnalog.cpp:34
+#: src/bin/calaos_server/IO/xPL/xPLOutputString.cpp:34
+msgid "Analog output controlled by xPL Protocol"
+msgstr ""
+
+#: src/bin/calaos_server/IO/xPL/xPLOutputSwitch.cpp:34
+msgid "Light/relay controlled by xPL Protocol"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:35
@@ -3652,61 +1932,41 @@ msgstr ""
 msgid "Temperature sensor"
 msgstr ""
 
-#: src/bin/calaos_server/IOBase.cpp:34
-msgid "Unique ID identifying the Input/Output in calaos-server"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:35
-msgid "Name of Input/Output."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:36
-msgid "Display the Input/Output on all user interfaces if set. Default to true"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:37
-msgid ""
-"Enable the Input/Output. The default value is true. This parameter is added "
-"if it's not found in the configuration."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:38
-msgid ""
-"Internal graphical type for all calaos objects. Set automatically, read-only "
-"parameter."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:39
-msgid "IO type, can be \"input\", \"output\", \"inout\""
-msgstr ""
-
-#: src/bin/calaos_server/JsonApi.cpp:1370
-#: src/bin/calaos_server/JsonApi.cpp:1475
+#: src/bin/calaos_server/JsonApi.cpp:1343
+#: src/bin/calaos_server/JsonApi.cpp:1448
 msgid "New unnamed scenario"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:52
+msgid ""
+"Usage:\n"
+"\t"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:52
+msgid " [options]"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:53
+msgid "\tOptions:\n"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:54
+msgid "\t-h, --help\tDisplay this help.\n"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:55
+msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
+msgstr ""
+
+#: src/bin/calaos_server/main.cpp:56
+msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr ""
 
 #: src/bin/calaos_server/main.cpp:57
 msgid "\t--gendoc <path>\tGenerate Io documentation in <path>\n"
 msgstr ""
 
-#: src/widgets/clock/module.cpp:32
-msgid "Clock"
-msgstr ""
-
-#: src/widgets/clock/module.cpp:33
-msgid "Numeric or Analogic clock to be placed on your main page."
-msgstr ""
-
-#: src/widgets/note/module.cpp:32
-msgid "Notes"
-msgstr ""
-
-#: src/widgets/note/module.cpp:33
-msgid ""
-"Let messages on the screen thanks to the numeric version of the well known "
-"yellow paper."
-msgstr ""
-
-#: src/widgets/note/module.cpp:78
-msgid "You can now write the new note to display."
+#: src/bin/calaos_server/main.cpp:58
+msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr ""
