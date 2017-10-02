@@ -77,6 +77,10 @@ int main (int argc, char **argv)
     cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
     cout << endl;
 
+    setlocale(LC_ALL, "");
+    bindtextdomain("calaos", "/usr/local/share/locale/");
+    textdomain("calaos");
+
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
         argvOptionCheck(argv, argv + argc, "--help"))
