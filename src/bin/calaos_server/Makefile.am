@@ -7,6 +7,7 @@ AM_CPPFLAGS =                                                 \
         -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
+        -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\"            \
         -DTIXML_USE_STL                                       \
         -DLUA_USE_DLOPEN                                      \
         -DXPLLIB_NOSOCK                                       \
