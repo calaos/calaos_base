@@ -78,8 +78,8 @@ int main (int argc, char **argv)
     cout << endl;
 
     setlocale(LC_ALL, "");
-    bindtextdomain("calaos", "/usr/local/share/locale/");
-    textdomain("calaos");
+    bindtextdomain(PACKAGE_NAME, PACKAGE_LOCALE_DIR);
+    textdomain(PACKAGE_NAME);
 
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
