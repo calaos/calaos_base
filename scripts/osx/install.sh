@@ -7,7 +7,8 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 brew update
-brew install libtool gettext libuv libsigc++ jansson curl luajit owfs libusb ola
+brew install libtool gettext libuv libsigc++ jansson curl luajit owfs libusb ola gettext
+brew link --force gettext
 
 mkdir -p $LOCAL_DEPS
 
