@@ -390,6 +390,7 @@ endif
 calaos_server_LDADD =                                   \
         @CALAOS_SERVER_LIBS@                            \
         @LIBUSB_LIBS@                               	\
+	@INTLLIBS@ 					\
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic
@@ -405,7 +406,8 @@ calaos_script_SOURCES = \
 	IO/ExternProc.h
 
  calaos_script_LDADD = \
-	@CALAOS_SERVER_LIBS@ \
+	@CALAOS_SERVER_LIBS@ 				\
+	@INTLLIBS@ 					\
 	$(top_builddir)/src/lib/libcalaos_common.la
 
 bin_PROGRAMS += calaos_wago
