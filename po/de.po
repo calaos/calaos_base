@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2017-09-24 21:54+0200\n"
+"POT-Creation-Date: 2017-10-25 14:09+0000\n"
 "PO-Revision-Date: 2015-12-19 14:21+0100\n"
 "Last-Translator: Nicolas <nico@calaos.fr>\n"
 "Language-Team: German\n"
@@ -1728,6 +1728,10 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:40
 msgid "Temperature input read from a web document"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Web/WebOutputAnalog.cpp:39
+msgid "Analog output in a web request"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:38

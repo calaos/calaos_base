@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2017-09-24 21:54+0200\n"
+"POT-Creation-Date: 2017-10-25 14:09+0000\n"
 "PO-Revision-Date: 2015-12-19 13:35+0000\n"
 "Last-Translator: FragJage <inscrip.jage@free.fr>\n"
 "Language-Team: French\n"
@@ -93,7 +93,8 @@ msgstr "Zone de l'amplificateur (si pris en charge)"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:226
 msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
-msgstr "Modèle AVReceiver. Pris en charge : pionnier, denon, onkyo, marantz, yamaha"
+msgstr ""
+"Modèle AVReceiver. Pris en charge : pionnier, denon, onkyo, marantz, yamaha"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:228
 msgid "Switch receiver on"
@@ -109,11 +110,14 @@ msgstr "Changer l'entrée actuelle"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:232
 msgid "Send a custom command to receiver (if you know the protocol)"
-msgstr "Envoyer une commande personnalisée au récepteur (si vous connaissez le protocole)"
+msgstr ""
+"Envoyer une commande personnalisée au récepteur (si vous connaissez le "
+"protocole)"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:46
 msgid "Squeezebox audio player allows control of a Squeezebox from Calaos"
-msgstr "Le lecteur audio Squeezebox permet de contrôler une Squeezebox depuis Calaos"
+msgstr ""
+"Le lecteur audio Squeezebox permet de contrôler une Squeezebox depuis Calaos"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:48
 msgid "Logitech media server IP address"
@@ -164,8 +168,8 @@ msgid ""
 "Add tracks to playlist. <argument> can be any of album_id:XX artist_id:XX "
 "playlist_id:XX, ..."
 msgstr ""
-"Ajouter des pistes à la liste de lecture. <argument> peut être "
-"n'importe quel album_id: XX artist_id: XX playlist_id: XX, ..."
+"Ajouter des pistes à la liste de lecture. <argument> peut être n'importe "
+"quel album_id: XX artist_id: XX playlist_id: XX, ..."
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:25
 #: src/bin/calaos_server/IO/IntValue.cpp:45
@@ -182,7 +186,8 @@ msgstr "Défaut"
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:29
 msgid "GUI style display. This will control the icon displayed on the UI"
-msgstr "Style d'affichage. Contrôle l'icône affichée sur l'interface utilisateur"
+msgstr ""
+"Style d'affichage. Contrôle l'icône affichée sur l'interface utilisateur"
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:31
 msgid "Event on a specific value"
@@ -206,7 +211,9 @@ msgstr "Nom de l'entrée/sortie."
 
 #: src/bin/calaos_server/IOBase.cpp:36
 msgid "Display the Input/Output on all user interfaces if set. Default to true"
-msgstr "Affichez l'entrée/sortie sur toutes les interfaces utilisateur. Vrai par défaut"
+msgstr ""
+"Affichez l'entrée/sortie sur toutes les interfaces utilisateur. Vrai par "
+"défaut"
 
 #: src/bin/calaos_server/IOBase.cpp:37
 msgid ""
@@ -221,8 +228,8 @@ msgid ""
 "Internal graphical type for all calaos objects. Set automatically, read-only "
 "parameter."
 msgstr ""
-"Type graphique interne pour tous les objets calaos. Paramètre en lecture seule, "
-"définit automatiquement"
+"Type graphique interne pour tous les objets calaos. Paramètre en lecture "
+"seule, définit automatiquement"
 
 #: src/bin/calaos_server/IOBase.cpp:39
 msgid "IO type, can be \"input\", \"output\", \"inout\""
@@ -304,8 +311,9 @@ msgid ""
 "API key return by Hue bridge when assciation has been made. Use Hue Wizard "
 "in calaos_installer to get this value automatically."
 msgstr ""
-"Clé API renvoyée par la passerelle Hue lorsque l'association a été effectuée. "
-"Utilisez Hue Wizard dans Calaos_installer pour obtenir cette valeur automatiquement."
+"Clé API renvoyée par la passerelle Hue lorsque l'association a été "
+"effectuée. Utilisez Hue Wizard dans Calaos_installer pour obtenir cette "
+"valeur automatiquement."
 
 #: src/bin/calaos_server/IO/Hue/HueOutputLightRGB.cpp:40
 msgid ""
@@ -319,9 +327,9 @@ msgid ""
 "one of the included range, false otherwise. The time range also support "
 "weekdays and months."
 msgstr ""
-"Représentez un objet de plage de temps. Une plage de temps est vraie si l'heure "
-"actuelle est dans l'une des gammes incluses, false sinon. La gamme de temps "
-"prend également en charge les jours de semaine et les mois."
+"Représentez un objet de plage de temps. Une plage de temps est vraie si "
+"l'heure actuelle est dans l'une des gammes incluses, false sinon. La gamme "
+"de temps prend également en charge les jours de semaine et les mois."
 
 #: src/bin/calaos_server/IO/InPlageHoraire.cpp:38
 msgid "A time range can't be visible. Always false."
@@ -353,8 +361,8 @@ msgid ""
 "use in conjunction of coeff_b to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 1.0."
 msgstr ""
-"Utiliser conjointement coeff_b pour appliquer l'équation de la forme "
-"valeur = coeff_a * raw_value + coeff_b. La valeur par défaut est 1.0."
+"Utiliser conjointement coeff_b pour appliquer l'équation de la forme valeur "
+"= coeff_a * raw_value + coeff_b. La valeur par défaut est 1.0."
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:37
 #: src/bin/calaos_server/IO/InputTemp.cpp:36
@@ -362,8 +370,8 @@ msgid ""
 "use in conjunction of coeff_a to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 0.0"
 msgstr ""
-"Utiliser conjointement coeff_a pour appliquer l'équation de la forme "
-"valeur = coeff_a * raw_value + coeff_b. La valeur par défaut est 0.0."
+"Utiliser conjointement coeff_a pour appliquer l'équation de la forme valeur "
+"= coeff_a * raw_value + coeff_b. La valeur par défaut est 0.0."
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:40
 #: src/bin/calaos_server/IO/InputTemp.cpp:39
@@ -376,8 +384,9 @@ msgid ""
 "Sampling time in microsecond. The value is read at this frequency. If this "
 "value is not set, calaos tries to read the interval parameter"
 msgstr ""
-"Temps d'échantillonnage en microseconde. La valeur est lue à cette fréquence. Si cette valeur "
-"n'est pas définie, calaos essaie de lire le paramètre d'intervalle en seconde"
+"Temps d'échantillonnage en microseconde. La valeur est lue à cette "
+"fréquence. Si cette valeur n'est pas définie, calaos essaie de lire le "
+"paramètre d'intervalle en seconde"
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:44
 #: src/bin/calaos_server/IO/InputTemp.cpp:43
@@ -385,8 +394,8 @@ msgid ""
 "Sampling time in seconds. The value is read at this frequency. If this value "
 "is not set, the default value is 15s"
 msgstr ""
-"Temps d'échantillonnage en secondes. La valeur est lue à cette fréquence. "
-"Si cette valeur n'est pas définie, la valeur par défaut est 15s"
+"Temps d'échantillonnage en secondes. La valeur est lue à cette fréquence. Si "
+"cette valeur n'est pas définie, la valeur par défaut est 15s"
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:46
 #: src/bin/calaos_server/IO/InputTemp.cpp:45
@@ -396,10 +405,10 @@ msgid ""
 "value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision "
 "= 0"
 msgstr ""
-"Précision de la valeur retournée. La valeur représente le nombre de décimales "
-"après le point. La valeur est arrondie comme ceci: valeur = 19.275 => valeur "
-"renvoyée 19.28 lors de la précision = 2, 19.3 lorsque la précision = 1, 19 "
-"lorsque la précision = 0"
+"Précision de la valeur retournée. La valeur représente le nombre de "
+"décimales après le point. La valeur est arrondie comme ceci: valeur = 19.275 "
+"=> valeur renvoyée 19.28 lors de la précision = 2, 19.3 lorsque la précision "
+"= 1, 19 lorsque la précision = 0"
 
 #: src/bin/calaos_server/IO/InputSwitch.cpp:29
 msgid "Basic switch with press/release states."
@@ -431,7 +440,8 @@ msgid ""
 "has 500ms to perform the long press."
 msgstr ""
 "Interrupteur à appui long. Cet interrupteur prend en charge un appui court "
-"et un appui long. L'utilisateur dispose de 500 ms pour effectuer un appui long."
+"et un appui long. L'utilisateur dispose de 500 ms pour effectuer un appui "
+"long."
 
 #: src/bin/calaos_server/IO/InputSwitchLongPress.cpp:32
 msgid "Event triggered when switch is pressed quickly"
@@ -466,8 +476,9 @@ msgid ""
 "Temperature sensor input. Use for displaying temperature and to control "
 "heating devices with rules based on temperature value"
 msgstr ""
-"Capteur de température. Utiliser pour afficher la température et contrôler les "
-"appareils de chauffage avec des règles basées sur la valeur de la température"
+"Capteur de température. Utiliser pour afficher la température et contrôler "
+"les appareils de chauffage avec des règles basées sur la valeur de la "
+"température"
 
 #: src/bin/calaos_server/IO/InputTemp.cpp:47
 msgid "Event on a temperature value in degree Celsius"
@@ -587,13 +598,15 @@ msgid ""
 "Internal number object. This object is useful for doing internal programing "
 "in rules, like counters, of displaying values."
 msgstr ""
-"Objet de numérique interne. Cet objet est utile pour la programmation interne "
-"dans les règles, comme les compteurs, d'affichage des valeurs."
+"Objet de numérique interne. Cet objet est utile pour la programmation "
+"interne dans les règles, comme les compteurs, d'affichage des valeurs."
 
 #: src/bin/calaos_server/IO/IntValue.cpp:46
 #: src/bin/calaos_server/IO/OutputAnalog.cpp:37
 msgid "Set a step for increment/decrement value. Default is 1.0"
-msgstr "Définit le pas pour incrémenter/décrémenter la valeur. La valeur par défaut est 1.0"
+msgstr ""
+"Définit le pas pour incrémenter/décrémenter la valeur. La valeur par défaut "
+"est 1.0"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:47
 #: src/bin/calaos_server/IO/OutputAnalog.cpp:39
@@ -630,8 +643,9 @@ msgid ""
 "Internal boolean object. This object is useful for doing internal programing "
 "in rules, like keeping boolean states, or displaying boolean values"
 msgstr ""
-"Booléen interne. Cet objet est utile pour effectuer une programmation interne dans "
-"les règles, comme le maintien d'états booléens ou l'affichage de valeurs booléennes"
+"Booléen interne. Cet objet est utile pour effectuer une programmation "
+"interne dans les règles, comme le maintien d'états booléens ou l'affichage "
+"de valeurs booléennes"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:57
 msgid "Event when value is true"
@@ -657,7 +671,8 @@ msgstr "Inverser la valeur"
 msgid ""
 "Do an impulse on boolean value. Set to true for X ms then reset to false"
 msgstr ""
-"Faites une impulsion sur une valeur booléenne. Mis à vrai pour X ms puis réinitialiser à faux"
+"Faites une impulsion sur une valeur booléenne. Mis à vrai pour X ms puis "
+"réinitialiser à faux"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:63
 msgid ""
@@ -667,11 +682,12 @@ msgid ""
 "FALSE for 200ms, TRUE for 300ms<br>Ex: 100 100 200 old means: blinks and "
 "then set to the old start state (before impulse starts)"
 msgstr ""
-"Impulsion sur la valeur booléenne avec un motif.<br>Ex: 500 200 500 200 signifie: "
-"VRAI pour 500ms, FAUX pour 200ms, VRAI pour 500ms, FAUX pour 200ms<br>Ex: 500 "
-"loop 200 300 signifie: VRAI pour 500ms, puis relancer les prochaines étapes à l'infini, "
-"FAUX pour 200ms, VRAI pour 300ms<br>Ex: 100 100 200 old signifie: clignote et reprend "
-"l'ancien état (avant le clignotement)"
+"Impulsion sur la valeur booléenne avec un motif.<br>Ex: 500 200 500 200 "
+"signifie: VRAI pour 500ms, FAUX pour 200ms, VRAI pour 500ms, FAUX pour "
+"200ms<br>Ex: 500 loop 200 300 signifie: VRAI pour 500ms, puis relancer les "
+"prochaines étapes à l'infini, FAUX pour 200ms, VRAI pour 300ms<br>Ex: 100 "
+"100 200 old signifie: clignote et reprend l'ancien état (avant le "
+"clignotement)"
 
 #: src/bin/calaos_server/IO/IntValue.cpp:70
 msgid ""
@@ -679,7 +695,8 @@ msgid ""
 "in rules or displaying text values on user interfaces."
 msgstr ""
 "Chaîne interne. Cet objet est utile pour effectuer une programmation interne "
-"dans les règles ou afficher des valeurs de texte sur les interfaces utilisateur."
+"dans les règles ou afficher des valeurs de texte sur les interfaces "
+"utilisateur."
 
 #: src/bin/calaos_server/IO/IntValue.cpp:71
 msgid "Event on a specific string value"
@@ -702,8 +719,8 @@ msgid ""
 "Automatically save the value in cache. The value will be reloaded when "
 "restarting calaos is true. Default to false"
 msgstr ""
-"Enregistrer automatiquement la valeur dans le cache. La valeur sera rechargée "
-"lors du démarrage de calaos. Défaut à faux"
+"Enregistrer automatiquement la valeur dans le cache. La valeur sera "
+"rechargée lors du démarrage de calaos. Défaut à faux"
 
 #: src/bin/calaos_server/IO/KNX/KNXBase.cpp:30
 msgid "https://github.com/knxd/knxd/g"
@@ -723,7 +740,9 @@ msgstr "KNX EIS (type de données)"
 
 #: src/bin/calaos_server/IO/KNX/KNXBase.cpp:37
 msgid "Send a read request at start to get the current value. Default is false"
-msgstr "Envoyer une demande de lecture au démarrage pour obtenir la valeur. Faux par défaut"
+msgstr ""
+"Envoyer une demande de lecture au démarrage pour obtenir la valeur. Faux par "
+"défaut"
 
 #: src/bin/calaos_server/IO/KNX/KNXBase.cpp:38
 msgid "Hostname of knxd, default to localhost"
@@ -809,8 +828,8 @@ msgid ""
 "A switch input based on the result of a ping command. Useful to detect "
 "presence of a host on the network."
 msgstr ""
-"Entrée basée sur le résultat d'une commande ping. Utile pour détecter "
-"la présence d'un hôte sur le réseau."
+"Entrée basée sur le résultat d'une commande ping. Utile pour détecter la "
+"présence d'un hôte sur le réseau."
 
 #: src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp:36
 msgid "IP address or host where to send the ping"
@@ -890,8 +909,9 @@ msgid ""
 "If using serial gateway, port is the serial port (/dev/ttyUSB0 for ex.). If "
 "using tcp gateway port is TCP port of the gateway."
 msgstr ""
-"Si vous utilisez la passerelle série, le port est le port série (/dev/ttyUSB0 par ex.). Si "
-"vous utilisez la passerelle tcp, c'est le port TCP de la passerelle."
+"Si vous utilisez la passerelle série, le port est le port série (/dev/"
+"ttyUSB0 par ex.). Si vous utilisez la passerelle tcp, c'est le port TCP de "
+"la passerelle."
 
 #: src/bin/calaos_server/IO/MySensors/MySensors.cpp:130
 msgid "IP address of the tcp gateway if relevant"
@@ -1044,8 +1064,8 @@ msgid ""
 "Data type sent to the node. Default: V_VAR1, see MySensors.cpp for more "
 "values."
 msgstr ""
-"Type de données envoyé au noeud. Par défaut: V_VAR1, voir MySensors.cpp "
-"pour plus de valeurs."
+"Type de données envoyé au noeud. Par défaut: V_VAR1, voir MySensors.cpp pour "
+"plus de valeurs."
 
 #: src/bin/calaos_server/IO/OLA/OLAOutputLightDimmer.cpp:32
 msgid "DMX Light dimmer using OLA (Open Lighting Architecture)"
@@ -1069,7 +1089,8 @@ msgstr "Canal DMX à contrôler"
 msgid ""
 "RGB Light dimmer using 3 DMX channels with OLA (Open Lighting Architecture)"
 msgstr ""
-"Le variateur de lumière RVB utilise 3 canaux DMX avec OLA (Open Lighting Architecture)"
+"Le variateur de lumière RVB utilise 3 canaux DMX avec OLA (Open Lighting "
+"Architecture)"
 
 #: src/bin/calaos_server/IO/OLA/OLAOutputLightRGB.cpp:35
 msgid "DMX channel for red to control"
@@ -1100,8 +1121,8 @@ msgid ""
 "Additional parameter used for owfs initialization.For example you can use -u "
 "to use the USB owfs drivers"
 msgstr ""
-"Paramètre supplémentaire utilisé pour initialiser owfs. Par exemple, -u permet "
-"d'utiliser les drivers USB de owfs"
+"Paramètre supplémentaire utilisé pour initialiser owfs. Par exemple, -u "
+"permet d'utiliser les drivers USB de owfs"
 
 #: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:45
 msgid "Force the use of w1 kernel driver instead of OneWire driver"
@@ -1110,23 +1131,25 @@ msgstr "Forcer l'utilisation du pilote kernel w1 au lieu du pilote OneWire"
 #: src/bin/calaos_server/IO/OutputAnalog.cpp:31
 msgid ""
 "Analog output. Useful to control analog output devices connected to calaos."
-msgstr "Utile pour contrôler les périphériques de sortie analogique connectés à calaos."
+msgstr ""
+"Utile pour contrôler les périphériques de sortie analogique connectés à "
+"calaos."
 
 #: src/bin/calaos_server/IO/OutputAnalog.cpp:32
 msgid ""
 "use in conjunction of coeff_b to apply equation of the form `value_sent = "
 "coeff_a * raw_value + coeff_b`. Default value is 1.0."
 msgstr ""
-"Utiliser conjointement coeff_b pour appliquer l'équation de la forme "
-"valeur = coeff_a * raw_value + coeff_b. La valeur par défaut est 1.0."
+"Utiliser conjointement coeff_b pour appliquer l'équation de la forme valeur "
+"= coeff_a * raw_value + coeff_b. La valeur par défaut est 1.0."
 
 #: src/bin/calaos_server/IO/OutputAnalog.cpp:34
 msgid ""
 "use in conjunction of coeff_a to apply equation of the form `value_sent = "
 "coeff_a * raw_value + coeff_b`. Default value is 0.0"
 msgstr ""
-"Utiliser conjointement coeff_a pour appliquer l'équation de la forme "
-"valeur = coeff_a * raw_value + coeff_b. La valeur par défaut est 0.0."
+"Utiliser conjointement coeff_a pour appliquer l'équation de la forme valeur "
+"= coeff_a * raw_value + coeff_b. La valeur par défaut est 0.0."
 
 #: src/bin/calaos_server/IO/OutputFake.cpp:34
 msgid "Fake test output. Do nothing. Do not use."
@@ -1178,11 +1201,11 @@ msgid ""
 "FALSE for 200ms, TRUE for 300ms<br>Ex: 100 100 200 old means: blinks and "
 "then set to the old start state (before impulse starts)"
 msgstr ""
-"Allume la lumière avec un motif.<br>Ex: 500 200 500 200 signifie: "
-"VRAI pour 500ms, FAUX pour 200ms, VRAI pour 500ms, FAUX pour 200ms<br>Ex: 500 "
-"loop 200 300 signifie: VRAI pour 500ms, puis relancer les prochaines étapes à l'infini, "
-"FAUX pour 200ms, VRAI pour 300ms<br>Ex: 100 100 200 old signifie: clignote et reprend "
-"l'ancien état (avant le clignotement)"
+"Allume la lumière avec un motif.<br>Ex: 500 200 500 200 signifie: VRAI pour "
+"500ms, FAUX pour 200ms, VRAI pour 500ms, FAUX pour 200ms<br>Ex: 500 loop 200 "
+"300 signifie: VRAI pour 500ms, puis relancer les prochaines étapes à "
+"l'infini, FAUX pour 200ms, VRAI pour 300ms<br>Ex: 100 100 200 old signifie: "
+"clignote et reprend l'ancien état (avant le clignotement)"
 
 #: src/bin/calaos_server/IO/OutputLight.cpp:41
 #: src/bin/calaos_server/IO/OutputLight.cpp:42
@@ -1196,8 +1219,9 @@ msgid ""
 "Update internal light state without starting real action. This is useful "
 "when having updating the light state from an external source."
 msgstr ""
-"Mettre à jour l'état de la lumière interne sans une action réelle. Ceci est utile "
-"lorsque vous avez mis à jour l'état de la lumière à partir d'une source externe."
+"Mettre à jour l'état de la lumière interne sans une action réelle. Ceci est "
+"utile lorsque vous avez mis à jour l'état de la lumière à partir d'une "
+"source externe."
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:33
 msgid ""
@@ -1219,8 +1243,8 @@ msgid ""
 "Set light value without switching on. This will be the light intensity for "
 "the next ON"
 msgstr ""
-"Réglez la valeur de la lumière sans allumer. Ce sera l'intensité lumineuse pour "
-"le prochaine allumage"
+"Réglez la valeur de la lumière sans allumer. Ce sera l'intensité lumineuse "
+"pour le prochaine allumage"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:49
 msgid "Set light intensity and swith on if light is off"
@@ -1236,11 +1260,15 @@ msgstr "Diminuer l'intensité de X pourcent"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:52
 msgid "Dynamically change light intensity when holding a switch (press action)"
-msgstr "Modifie dynamiquement l'intensité lumineuse lorsque vous maintenez un interrupteur (action appuyer)"
+msgstr ""
+"Modifie dynamiquement l'intensité lumineuse lorsque vous maintenez un "
+"interrupteur (action appuyer)"
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:53
 msgid "Dynamically change light intensity when holding a switch (stop action)"
-msgstr "Modifie dynamiquement l'intensité lumineuse lorsque vous maintenez un interrupteur (action relacher)"
+msgstr ""
+"Modifie dynamiquement l'intensité lumineuse lorsque vous maintenez un "
+"interrupteur (action relacher)"
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:29
 msgid "RGB light. Choose a color to be set for this light."
@@ -1255,8 +1283,8 @@ msgid ""
 "Set color. Color can be represented by using HTML notation: #AABBCC, rgb(50, "
 "10, 30), hsl(11, 22, 33)"
 msgstr ""
-"Définir la couleur. La couleur peut être représentée en utilisant la notation HTML: "
-"#AABBCC, rgb (50, 10, 30), hsl (11, 22, 33)"
+"Définir la couleur. La couleur peut être représentée en utilisant la "
+"notation HTML: #AABBCC, rgb (50, 10, 30), hsl (11, 22, 33)"
 
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:40
 msgid "Set red channel to X percent"
@@ -1299,8 +1327,8 @@ msgid ""
 "Simple shutter. This shutter supports open/close states, as well as impulse "
 "shutters."
 msgstr ""
-"Volet simple. Ce volet prend en charge les états ouvert/fermer, ainsi que les "
-"volets à impulsions."
+"Volet simple. Ce volet prend en charge les états ouvert/fermer, ainsi que "
+"les volets à impulsions."
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:37
 msgid "Time in sec for shutter to open or close"
@@ -1321,8 +1349,8 @@ msgid ""
 "If in impulse mode, some shutters needs to activate both up dans down relays "
 "when stopping the shutter"
 msgstr ""
-"En mode impulsion, certains volets doivent activer les deux relais haut et bas "
-"lors de l'arrêt du volet"
+"En mode impulsion, certains volets doivent activer les deux relais haut et "
+"bas lors de l'arrêt du volet"
 
 #: src/bin/calaos_server/IO/OutputShutter.cpp:40
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:47
@@ -1377,8 +1405,9 @@ msgid ""
 "Update internal shutter state without starting real action. This is useful "
 "when having updating the shutter state from an external source."
 msgstr ""
-"Met à jour l'état du volet en interne sans démarrer d'action réelle. Ceci est utile "
-"lorsque vous avez mis à jour l'état du volet à partir d'une source externe."
+"Met à jour l'état du volet en interne sans démarrer d'action réelle. Ceci "
+"est utile lorsque vous avez mis à jour l'état du volet à partir d'une source "
+"externe."
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:42
 msgid ""
@@ -1386,9 +1415,9 @@ msgid ""
 "the time it takes to open and close. It then allows to set directly the "
 "shutter at a specified position."
 msgstr ""
-"Volet intelligent. Cet volet calcule sa position en fonction du temps nécessaire "
-"pour s'ouvrir et se fermer. Il est alors possible de régler directement le volet "
-"à une position spécifiée."
+"Volet intelligent. Cet volet calcule sa position en fonction du temps "
+"nécessaire pour s'ouvrir et se fermer. Il est alors possible de régler "
+"directement le volet à une position spécifiée."
 
 #: src/bin/calaos_server/IO/OutputShutterSmart.cpp:43
 msgid ""
@@ -1423,16 +1452,17 @@ msgid ""
 "Start calibration on shutter. This opens fully the shutter and resets all "
 "internal position values. Use this if shutter sync is lost."
 msgstr ""
-"Commencez l'étalonnage du volet. Cela ouvre complètement le volet et réinitialise toutes les "
-"valeurs de position internes. Utilisez cette option si la synchronisation du volet est perdue."
+"Commencez l'étalonnage du volet. Cela ouvre complètement le volet et "
+"réinitialise toutes les valeurs de position internes. Utilisez cette option "
+"si la synchronisation du volet est perdue."
 
 #: src/bin/calaos_server/IO/Scenario.cpp:36
 msgid ""
 "A scenario variable. Use this like a virtual button to start a scenario "
 "(list of actions)"
 msgstr ""
-"Une variable de scénario. Utilisez-la comme un bouton virtuel pour lancer "
-"un scénario (liste d'actions)"
+"Une variable de scénario. Utilisez-la comme un bouton virtuel pour lancer un "
+"scénario (liste d'actions)"
 
 #: src/bin/calaos_server/IO/Scenario.cpp:37
 msgid "Start the scenario"
@@ -1440,7 +1470,8 @@ msgstr "Démarrer le scénario"
 
 #: src/bin/calaos_server/IO/Scenario.cpp:38
 msgid "Stop the scenario (only for special looping scenarios)"
-msgstr "Arrêtez le scénario (uniquement pour les scénarios de boucles spéciales)"
+msgstr ""
+"Arrêtez le scénario (uniquement pour les scénarios de boucles spéciales)"
 
 #: src/bin/calaos_server/IO/Scenario.cpp:39
 msgid "Event triggered when scenario is started"
@@ -1458,7 +1489,8 @@ msgstr "Mesure analogique extraite des informations Teleinfo."
 msgid ""
 "port on which to get Teleinfo information usually a serial port like /dev/"
 "ttyS0 or /dev/ttyAMA0"
-msgstr "Port sur lequel obtenir les informations Teleinfo habituellement un port "
+msgstr ""
+"Port sur lequel obtenir les informations Teleinfo habituellement un port "
 "série comme / dev / ttyS0 ou / dev / ttyAMA0"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:37
@@ -1471,15 +1503,15 @@ msgstr "Index si option BASE est souscrit. (en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:39
 msgid "Index \"Heures Creuses\" if this option is subscribed. (in Watt-hour)"
-msgstr "Index \"Heures Creuses\" si cette option est souscrite. (en Watt-heure)"
+msgstr ""
+"Index \"Heures Creuses\" si cette option est souscrite. (en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:40
 msgid ""
 "Index \"Heures Pleine\" if option \"Heures Creuses\" is subscribed. (in Watt-"
 "hour)"
 msgstr ""
-"Index \"Heures Pleines\" si cette option est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures Pleines\" si cette option est souscrite. (en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:41
 msgid ""
@@ -1487,62 +1519,61 @@ msgid ""
 msgstr ""
 "Index \"Heures Normales\" si l'option \"EJP\" est souscrite. (en Watt-heure)"
 
-
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:42
 msgid ""
 "Index \"Heures de pointe mobile\" if otion \"EJP\" is subscribed. (in Watt-"
 "hour)"
 msgstr ""
-"Index \"Heures de pointe mobile\" si l'option \"EJP\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures de pointe mobile\" si l'option \"EJP\" est souscrite. (en "
+"Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:43
 msgid ""
 "Index \"Heures creuses jours bleues\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures creuses jours bleu\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures creuses jours bleu\" si l'option \"Tempo\" est souscrite. (en "
+"Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:44
 msgid ""
 "Index \"Heures pleines jours bleues\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures pleines jours bleu\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures pleines jours bleu\" si l'option \"Tempo\" est souscrite. (en "
+"Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:45
 msgid ""
 "Index \"Heures creuses jours blancs\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures creuses jours blanc\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures creuses jours blanc\" si l'option \"Tempo\" est souscrite. "
+"(en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:46
 msgid ""
 "Index \"Heures pleines jours blancs\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures pleines jours blanc\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures pleines jours blanc\" si l'option \"Tempo\" est souscrite. "
+"(en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:47
 msgid ""
 "Index \"Heures creuses jours rouges\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures creuses jours rouge\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures creuses jours rouge\" si l'option \"Tempo\" est souscrite. "
+"(en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:48
 msgid ""
 "Index \"Heures pleines jours rouges\" if otion \"Tempo\" is subscribed. (in "
 "Watt-hour)"
 msgstr ""
-"Index \"Heures pleines jours rouge\" si l'option \"Tempo\" est souscrite. (en Watt-"
-"heure)"
+"Index \"Heures pleines jours rouge\" si l'option \"Tempo\" est souscrite. "
+"(en Watt-heure)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:49
 msgid "Instant intensity. (in Ampere)"
@@ -1558,7 +1589,9 @@ msgstr "Puissance apparente (en Volt-Ampère)"
 
 #: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:53
 msgid "All theses values are reported by the Teleinfo equipment as double."
-msgstr "Toutes ces valeurs sont lues sur l'équipement de Teleinfo en double précision."
+msgstr ""
+"Toutes ces valeurs sont lues sur l'équipement de Teleinfo en double "
+"précision."
 
 #: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:38
 msgid "Analog measurement with Wago module (like 0-10V, 4-20mA, ...)"
@@ -1619,7 +1652,8 @@ msgstr "Adresse PLC de l'entrée numérique"
 
 #: src/bin/calaos_server/IO/Wago/WIDigitalLong.cpp:37
 msgid "Switch long press with digital input Wago modules (like 750-1405, ...)"
-msgstr "Appui long avec les modules Wago d'entrée numérique (comme 750-1405, ...)"
+msgstr ""
+"Appui long avec les modules Wago d'entrée numérique (comme 750-1405, ...)"
 
 #: src/bin/calaos_server/IO/Wago/WIDigitalTriple.cpp:37
 msgid ""
@@ -1629,7 +1663,8 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Wago/WITemp.cpp:38
 msgid "Temperature measurement with Wago temperature module (like 750-460)"
-msgstr "Mesure de la température avec module de température Wago (comme 750-460)"
+msgstr ""
+"Mesure de la température avec module de température Wago (comme 750-460)"
 
 #: src/bin/calaos_server/IO/Wago/WITemp.cpp:39
 msgid "http://calaos.fr/wiki/fr/750-460"
@@ -1652,8 +1687,9 @@ msgstr "Adresse de l'automate de la sortie"
 msgid ""
 "Light using DALI or DMX. For DALI you need a 750-641 wago module. For DMX, a "
 "DMX4ALL-LAN device connected to the Wago PLC."
-msgstr "Lumière utilisant DALI ou DMX. Pour DALI, vous avez besoin d'un module wago 750-641. "
-"Pour DMX, un périphérique DMX4ALL-LAN connecté au Wago PLC."
+msgstr ""
+"Lumière utilisant DALI ou DMX. Pour DALI, vous avez besoin d'un module wago "
+"750-641. Pour DMX, un périphérique DMX4ALL-LAN connecté au Wago PLC."
 
 #: src/bin/calaos_server/IO/Wago/WODali.cpp:38
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:38
@@ -1673,8 +1709,10 @@ msgstr "Ligne de bus DALI, habituellement 1"
 msgid ""
 "Device address. For DALI address is between 1-64. For DMX, the address "
 "starts at 100. So for DMX device 5, address should be 105"
-msgstr "Adresse de l'appareil. Les adresses DALI se situent entre 1 et 64. Pour les DMX, "
-"les adresses commencent à 100. Donc, pour le périphérique DMX 5, l'adresse doit être 105."
+msgstr ""
+"Adresse de l'appareil. Les adresses DALI se situent entre 1 et 64. Pour les "
+"DMX, les adresses commencent à 100. Donc, pour le périphérique DMX 5, "
+"l'adresse doit être 105."
 
 #: src/bin/calaos_server/IO/Wago/WODali.cpp:45
 msgid "Set to 1 if address is a DALI group address, set to 0 otherwise."
@@ -1689,9 +1727,10 @@ msgid ""
 "RGB Light using DALI or DMX. To work you need 3 DALI/DMX channels. For DALI "
 "you need a 750-641 wago module. For DMX, a DMX4ALL-LAN device connected to "
 "the Wago PLC."
-msgstr "Lumière RVB utilisant DALI ou DMX. Pour fonctionner, vous avez besoin de 3 canaux "
-"DALI/DMX. Pour DALI, vous avez besoin d'un module wago 750-641. Pour DMX, un périphérique "
-"DMX4ALL-LAN connecté au Wago PLC."
+msgstr ""
+"Lumière RVB utilisant DALI ou DMX. Pour fonctionner, vous avez besoin de 3 "
+"canaux DALI/DMX. Pour DALI, vous avez besoin d'un module wago 750-641. Pour "
+"DMX, un périphérique DMX4ALL-LAN connecté au Wago PLC."
 
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:43
 msgid "DALI bus line for red channel, usually 1"
@@ -1702,16 +1741,17 @@ msgid ""
 "Device address for red channel. For DALI address is between 1-64. For DMX, "
 "the address starts at 100. So for DMX device 5, address should be 105"
 msgstr ""
-"Adresse pour le canal rouge. Les adresses DALI se situent entre 1 et 64. Pour les DMX, "
-"les adresses commencent à 100. Donc, pour le périphérique DMX 5, l'adresse doit être 105."
+"Adresse pour le canal rouge. Les adresses DALI se situent entre 1 et 64. "
+"Pour les DMX, les adresses commencent à 100. Donc, pour le périphérique DMX "
+"5, l'adresse doit être 105."
 
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:46
 msgid ""
 "Set to 1 if address for red channel is a DALI group address, set to 0 "
 "otherwise."
 msgstr ""
-"Réglez sur 1 si l'adresse du canal rouge est une adresse de groupe DALI, "
-" sinon mettre 0"
+"Réglez sur 1 si l'adresse du canal rouge est une adresse de groupe DALI,  "
+"sinon mettre 0"
 
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:47
 msgid "DALI fade time for red channel. value is between 1-10"
@@ -1726,8 +1766,9 @@ msgid ""
 "Device address for green channel. For DALI address is between 1-64. For DMX, "
 "the address starts at 100. So for DMX device 5, address should be 105"
 msgstr ""
-"Adresse pour le canal vert. Les adresses DALI se situent entre 1 et 64. Pour les DMX, "
-"les adresses commencent à 100. Donc, pour le périphérique DMX 5, l'adresse doit être 105."
+"Adresse pour le canal vert. Les adresses DALI se situent entre 1 et 64. Pour "
+"les DMX, les adresses commencent à 100. Donc, pour le périphérique DMX 5, "
+"l'adresse doit être 105."
 
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:52
 msgid ""
@@ -1750,8 +1791,9 @@ msgid ""
 "Device address for blue channel. For DALI address is between 1-64. For DMX, "
 "the address starts at 100. So for DMX device 5, address should be 105"
 msgstr ""
-"Adresse pour le canal bleu. Les adresses DALI se situent entre 1 et 64. Pour les DMX, "
-"les adresses commencent à 100. Donc, pour le périphérique DMX 5, l'adresse doit être 105."
+"Adresse pour le canal bleu. Les adresses DALI se situent entre 1 et 64. Pour "
+"les DMX, les adresses commencent à 100. Donc, pour le périphérique DMX 5, "
+"l'adresse doit être 105."
 
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:58
 msgid ""
@@ -1791,11 +1833,13 @@ msgstr "Doit être faux pour le PLC 750-842, sinon vrai"
 msgid ""
 "Set to true if output is a KNX device (only for 750-849 with KNX/TP1 module)"
 msgstr ""
-"Mettre à true si la sortie est un périphérique KNX (uniquement pour 750-849 avec le module KNX / TP1)"
+"Mettre à true si la sortie est un périphérique KNX (uniquement pour 750-849 "
+"avec le module KNX / TP1)"
 
 #: src/bin/calaos_server/IO/Wago/WOVolet.cpp:37
 msgid "Simple shutter using wago digital output modules (like 750-1504, ...)"
-msgstr "Volet utilisant des modules de sortie numérique wago (comme 750-1504, ...)"
+msgstr ""
+"Volet utilisant des modules de sortie numérique wago (comme 750-1504, ...)"
 
 #: src/bin/calaos_server/IO/Wago/WOVolet.cpp:41
 #: src/bin/calaos_server/IO/Wago/WOVoletSmart.cpp:41
@@ -1809,7 +1853,9 @@ msgstr "Sortie numérique sur l'automate pour fermer le volet"
 
 #: src/bin/calaos_server/IO/Wago/WOVoletSmart.cpp:37
 msgid "Smart shutter using wago digital output modules (like 750-1504, ...)"
-msgstr "Volet intelligent utilisant des modules de sortie numérique wago (comme 750-1504, ...)"
+msgstr ""
+"Volet intelligent utilisant des modules de sortie numérique wago (comme "
+"750-1504, ...)"
 
 #: src/bin/calaos_server/IO/Web/WebDocBase.cpp:37
 msgid ""
@@ -1821,13 +1867,14 @@ msgid ""
 "The url is encoded before being sent.\n"
 "If the URL begins with / or file:// the data is written to a file."
 msgstr ""
-"URL pour poster le document. Le champ data est envoyé en POST "
-"si il n'est pas nul. Lorsque aucune donnée n'est fournie, Calaos substitue "
-"__##VALUE##__ de l'URL avec la valeur à envoyer. Par exemple, si l'url est "
-"http://example.com/api?value=__##VALUE##__ l'url sera :\n"
+"URL pour poster le document. Le champ data est envoyé en POST si il n'est "
+"pas nul. Lorsque aucune donnée n'est fournie, Calaos substitue __##VALUE##__ "
+"de l'URL avec la valeur à envoyer. Par exemple, si l'url est http://example."
+"com/api?value=__##VALUE##__ l'url sera :\n"
 "http://example.com/api?value=20.3\n"
 "L'URL est encodée avant d'être envoyée.\n"
-"Si l'URL commence par / ou file:// les données sont écrites dans un fichier local."
+"Si l'URL commence par / ou file:// les données sont écrites dans un fichier "
+"local."
 
 #: src/bin/calaos_server/IO/Web/WebDocBase.cpp:44
 msgid ""
@@ -1835,9 +1882,9 @@ msgid ""
 "the value is substituted in the url, otherwise the __##VALUE##__ contained "
 "in data is substituted with with the value to be sent."
 msgstr ""
-"Données à publier. Cette valeur peut être nulle, dans ce cas, "
-"la valeur est remplacée dans l'URL, sinon la valeur __##VALUE##__ contenue "
-"dans les données est remplacée par la valeur à envoyer."
+"Données à publier. Cette valeur peut être nulle, dans ce cas, la valeur est "
+"remplacée dans l'URL, sinon la valeur __##VALUE##__ contenue dans les "
+"données est remplacée par la valeur à envoyer."
 
 #: src/bin/calaos_server/IO/Web/WebDocBase.cpp:48
 msgid ""
@@ -1845,9 +1892,9 @@ msgid ""
 "the website, but you can use application/json application/xml as correct "
 "values."
 msgstr ""
-"Entête HTTP Content-Type utilisé lors de l'envoi du document. Cela dépend du site, "
-"mais vous pouvez utiliser application/json ou application/xml comme valeurs "
-"correctes."
+"Entête HTTP Content-Type utilisé lors de l'envoi du document. Cela dépend du "
+"site, mais vous pouvez utiliser application/json ou application/xml comme "
+"valeurs correctes."
 
 #: src/bin/calaos_server/IO/Web/WebDocBase.cpp:56
 msgid ""
@@ -1878,17 +1925,19 @@ msgid ""
 "20.0,20.1,20.2,20.3\n"
 "If the path is 2/4/, the value returne wil be 20.3\n"
 msgstr ""
-"Chemin pour identifier l'emplacement de la valeur. Ce chemin peut prendre plusieurs "
-"formes en fonction du type de fichier. Si file_type est JSON, le fichier téléchargé "
-"sera lu et les informations seront extraites du chemin. Par exemple "
-"weather[0]/description, essayez de lire la description du premier "
-"élément du tableau de l'objet weahter.\n"
-"Si file_type est XML, le chemin d'accès est une expression xpath; Regardez ici la syntaxe: "
-"http://www.w3schools.com/xsl/xpath_syntax.asp. Si file_type est TEXT, le fichier téléchargé "
-"est renvoyé en tant que fichier texte simple, et le chemin doit être sous la forme ligne/pos/separateur. "
-"La ligne lue est divisée à l'aide du séparateur en tant que délimiteurs. La valeur renvoyée "
-"est la valeur à pos dans la ligne fractionnée. Si le séparateur n'est pas trouvé, la ligne "
-"entière est renvoyée. Exemple, pour un fichier contenant \n"
+"Chemin pour identifier l'emplacement de la valeur. Ce chemin peut prendre "
+"plusieurs formes en fonction du type de fichier. Si file_type est JSON, le "
+"fichier téléchargé sera lu et les informations seront extraites du chemin. "
+"Par exemple weather[0]/description, essayez de lire la description du "
+"premier élément du tableau de l'objet weahter.\n"
+"Si file_type est XML, le chemin d'accès est une expression xpath; Regardez "
+"ici la syntaxe: http://www.w3schools.com/xsl/xpath_syntax.asp. Si file_type "
+"est TEXT, le fichier téléchargé est renvoyé en tant que fichier texte "
+"simple, et le chemin doit être sous la forme ligne/pos/separateur. La ligne "
+"lue est divisée à l'aide du séparateur en tant que délimiteurs. La valeur "
+"renvoyée est la valeur à pos dans la ligne fractionnée. Si le séparateur "
+"n'est pas trouvé, la ligne entière est renvoyée. Exemple, pour un fichier "
+"contenant \n"
 "10,0,10,1,10,2,10,3\n"
 "20,0,20,1,20,2,20.3\n"
 "Si le chemin est 2/4/, la valeur retournée sera 20.3\n"
@@ -1905,6 +1954,11 @@ msgstr "Chaine fournis par un document Web"
 msgid "Temperature input read from a web document"
 msgstr "Température lu dans un document Web"
 
+#: src/bin/calaos_server/IO/Web/WebOutputAnalog.cpp:39
+#, fuzzy
+msgid "Analog output in a web request"
+msgstr "Sortie analogique KNX avec eibnetmux"
+
 #: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:38
 msgid "Bool output written to a web document or URL"
 msgstr "Booléen à écrire dans un document Web ou une URL"
@@ -1919,9 +1973,9 @@ msgid ""
 "raw_value is true, the # in front of the line isremoved. The default value "
 "for this parameter is false."
 msgstr ""
-"Valeur RVB au format #RRVVBB. Certaines web api prennent seulement "
-"le format RRVVBB. Si Raw_value est à vrai, le # est supprimé. La valeur "
-"par défaut est faux."
+"Valeur RVB au format #RRVVBB. Certaines web api prennent seulement le format "
+"RRVVBB. Si Raw_value est à vrai, le # est supprimé. La valeur par défaut est "
+"faux."
 
 #: src/bin/calaos_server/IO/Web/WebOutputString.cpp:38
 msgid "String output written to a web document or URL"
@@ -1946,8 +2000,7 @@ msgstr "ID de l'actionneur sur le réseau xPL"
 #: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:37
 msgid ""
 "Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"
-msgstr ""
-"Nom de la source sur le réseau xPL (Format VendorId-DeviceId.Instance)"
+msgstr "Nom de la source sur le réseau xPL (Format VendorId-DeviceId.Instance)"
 
 #: src/bin/calaos_server/IO/xPL/xPLInputAnalog.cpp:34
 msgid "xPL analog sensor"
@@ -1979,8 +2032,9 @@ msgid ""
 "Zibase analog input. This object can read value from devices like Energy "
 "monitor sensors, Lux sensors, ..."
 msgstr ""
-"Entrée analogique Zibase. Cet objet peut lire une valeur à partir de périphériques tels que "
-"les capteurs de consommation d'énergie, les capteurs de luminosité, ..."
+"Entrée analogique Zibase. Cet objet peut lire une valeur à partir de "
+"périphériques tels que les capteurs de consommation d'énergie, les capteurs "
+"de luminosité, ..."
 
 #: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:36
 #: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:36
@@ -2133,7 +2187,8 @@ msgstr "\t-h, --help\tAfficher l'aide.\n"
 
 #: src/bin/calaos_server/main.cpp:55
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
-msgstr "\t--config <path>\tDéfinir <chemin> comme dossier pour la configuration.\n"
+msgstr ""
+"\t--config <path>\tDéfinir <chemin> comme dossier pour la configuration.\n"
 
 #: src/bin/calaos_server/main.cpp:56
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"

@@ -123,6 +123,8 @@
 ./src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.h
 ./src/bin/calaos_server/IO/MySensors/MySensorsController.cpp
 ./src/bin/calaos_server/IO/MySensors/MySensorsController.h
+./src/bin/calaos_server/IO/MySensors/MySensorsControllerList.cpp
+./src/bin/calaos_server/IO/MySensors/MySensorsControllerList.h
 ./src/bin/calaos_server/IO/MySensors/MySensors.cpp
 ./src/bin/calaos_server/IO/MySensors/MySensors.h
 ./src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp
@@ -228,6 +230,8 @@
 ./src/bin/calaos_server/IO/Web/WebInputString.h
 ./src/bin/calaos_server/IO/Web/WebInputTemp.cpp
 ./src/bin/calaos_server/IO/Web/WebInputTemp.h
+./src/bin/calaos_server/IO/Web/WebOutputAnalog.cpp
+./src/bin/calaos_server/IO/Web/WebOutputAnalog.h
 ./src/bin/calaos_server/IO/Web/WebOutputLight.cpp
 ./src/bin/calaos_server/IO/Web/WebOutputLight.h
 ./src/bin/calaos_server/IO/Web/WebOutputLightRGB.cpp

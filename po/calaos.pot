@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: calaos v3.0-alpha6-11-gda71ede\n"
+"Project-Id-Version: calaos v3.0-alpha6-45-gd4a4362\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2017-09-24 21:54+0200\n"
+"POT-Creation-Date: 2017-10-25 14:09+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1734,6 +1734,10 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:40
 msgid "Temperature input read from a web document"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Web/WebOutputAnalog.cpp:39
+msgid "Analog output in a web request"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:38
