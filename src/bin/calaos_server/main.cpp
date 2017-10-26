@@ -93,13 +93,7 @@ int main (int argc, char **argv)
         exit(0);
     }
 
-    char *gendocDir = argvOptionParam(argv, argv + argc, "--gendoc");
-    if (gendocDir)
-    {
-        IOFactory::Instance().genDoc(gendocDir);
-        exit(0);
-    }
-
+    //Init config options before starting gendoc
     char *confdir = argvOptionParam(argv, argv + argc, "--config");
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
@@ -108,6 +102,13 @@ int main (int argc, char **argv)
     Prefix::Instance(argc, argv);
 
     srand(time(NULL));
+
+    char *gendocDir = argvOptionParam(argv, argv + argc, "--gendoc");
+    if (gendocDir)
+    {
+        IOFactory::Instance().genDoc(gendocDir);
+        exit(0);
+    }
 
     //Ensure calling order of destructors
     AVRManager::Instance();
