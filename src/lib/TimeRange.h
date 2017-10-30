@@ -30,6 +30,7 @@ private:
     int cyear = 0, cmonth = 0, cday = 0;
     int sunrise_hour_cache = 0, sunrise_min_cache = 0;
     int sunset_hour_cache = 0, sunset_min_cache = 0;
+    int dst_cache = false; //Daylight saving time
 
     long getTimezoneOffset();
     void computeSunSetRise(int year, int month, int day,

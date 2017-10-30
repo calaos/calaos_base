@@ -229,7 +229,12 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
                                   int &rise_hour, int &rise_min,
                                   int &set_hour, int &set_min)
 {
+    //get current DST flag
+    time_t tcurrent = time(NULL);
+    struct tm *timeinfo = localtime(&tcurrent);
+
     if (year == cyear && month == cmonth && day == cday &&
+        dst_cache == timeinfo->tm_isdst &&
         (sunrise_hour_cache != 0 || sunrise_min_cache != 0 ||
          sunset_hour_cache != 0 || sunset_min_cache != 0))
     {
@@ -240,6 +245,8 @@ void TimeRange::computeSunSetRise(int year, int month, int day,
 
         return;
     }
+
+    dst_cache = timeinfo->tm_isdst;
 
     double longitude;
     double latitude;
