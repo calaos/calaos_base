@@ -87,6 +87,9 @@ ExternProcServer::~ExternProcServer()
     ipcServer->stop();
     ipcServer->close();
 
+    if (client)
+        client->stop();
+
     if (process_exe && process_exe->referenced())
     {
         process_exe->kill(SIGTERM);
@@ -99,6 +102,9 @@ ExternProcServer::~ExternProcServer()
 
 void ExternProcServer::terminate()
 {
+    if (client)
+        client->stop();
+
     if (process_exe && process_exe->referenced())
         process_exe->kill(SIGTERM);
 }
