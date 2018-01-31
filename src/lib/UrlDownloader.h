@@ -62,6 +62,9 @@ private:
     //data downloaded when no destination file is set
     string m_downloadedData;
 
+    bool isStarted = false;
+    bool hasFailedStarting = false;
+
     //Common function for starting download of url
     bool start();
 

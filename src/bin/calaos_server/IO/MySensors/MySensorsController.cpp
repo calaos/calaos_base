@@ -146,6 +146,11 @@ void MySensorsController::openSerial()
             cl.close();
         });
 
+        serialHandle->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl)
+        {
+            cl.close();
+        });
+
         //When connection is closed
         serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
         {
@@ -481,7 +486,7 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
         string msg = data.str();
         int dataSize = msg.length();
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
-        std::copy(msg.begin(), msg.end(), dataWrite.get());      
+        std::copy(msg.begin(), msg.end(), dataWrite.get());
         svrHandle->write(std::move(dataWrite), dataSize);
     }
 }

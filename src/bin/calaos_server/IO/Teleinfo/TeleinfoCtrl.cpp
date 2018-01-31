@@ -133,6 +133,11 @@ void TeleinfoCtrl::openSerial()
             cl.close();
         });
 
+        serialHandle->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl)
+        {
+            cl.close();
+        });
+
         //When connection is closed
         serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
         {

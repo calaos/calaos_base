@@ -41,8 +41,9 @@ HttpServer::HttpServer(int p):
     {
         cDebugDom("network") << "Closed";
     });
-    handleSrv->on<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, uvw::TcpHandle &)
+    handleSrv->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, uvw::TcpHandle &h)
     {
+        h.stop();
         cDebugDom("network") << "Error: " << ev.what();
     });
 

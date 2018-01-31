@@ -49,8 +49,9 @@ void UDPServer::createUdpSocket()
         this->processRequest(s, ev.sender.ip, ev.sender.port);
     });
 
-    handleSrv->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
+        h.stop();
         cErrorDom("network") << "UDP server error: " << ev.what();
     });
 

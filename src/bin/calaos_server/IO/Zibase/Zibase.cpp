@@ -82,9 +82,10 @@ Zibase::Zibase(std::string h, int p):
         this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    listenHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    listenHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
         cErrorDom("network") << "UDP server error: " << ev.what();
+        h.stop();
     });
 
     listenHandle->bind("0.0.0.0", port, uvw::UDPHandle::Bind::REUSEADDR);
@@ -99,9 +100,10 @@ Zibase::Zibase(std::string h, int p):
         this->udpClientData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    clientHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
+    clientHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
         cErrorDom("network") << "UDP server error: " << ev.what();
+        h.stop();
     });
 
     clientHandle->bind(host, ZIBASE_UDP_PORT, uvw::UDPHandle::Bind::REUSEADDR);
@@ -628,13 +630,13 @@ printf("Extract infos\n");
         extract_zwave_detectOpen(frame,&elm->DigitalVal);
         elm->type = ZibaseInfoSensor::eDETECT;
     }
-    
+
     c = strstr (frame, "Chacon");
     if(c != NULL)
     {
         extract_Chacon(frame,elm);
     }
-    
+
     c = strstr (frame, "Decoded by EEP"); //Enocean frame
     if(c != NULL)
     {

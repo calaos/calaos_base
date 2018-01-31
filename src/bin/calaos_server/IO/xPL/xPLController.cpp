@@ -40,7 +40,7 @@ void xPLSockWrapper::Connect()
     m_UdpSenderHandle->bind("255.255.255.255", XPL_DEFAULT_PORT, uvw::UDPHandle::Bind::REUSEADDR);
     m_UdpSenderHandle->broadcast(true);
 
-    m_UdpSenderHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    m_UdpSenderHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
         cErrorDom("xpl") << "xPL UDP client error : " << ev.what();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
@@ -70,7 +70,7 @@ xPLController::xPLController()
     //xPL Device initialisation
     m_xPLDevice.Initialisation("fragxpl", "calaos", "default");
     m_xPLDevice.SetAppName("xPL Calaos", PACKAGE_VERSION);
-    m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);     
+    m_xPLDevice.SetSendSockCallback(&m_xPLSockWrapper);
 
     Connect();
 
@@ -104,7 +104,7 @@ void xPLController::Connect()
         this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    m_UdpRecvHandle->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    m_UdpRecvHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
     {
         cErrorDom("xpl") << "xPL UDP server error : " << ev.what();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
@@ -134,7 +134,7 @@ int xPLController::discoverxPLPort()
 
     r = uv_udp_init(uv_default_loop(), &sock);
     if(r!=0) return XPL_DEFAULT_PORT;
-    
+
     portTCP = XPL_DEFAULT_PORT;
     do
     {
@@ -147,22 +147,22 @@ int xPLController::discoverxPLPort()
     uv_udp_recv_stop(&sock);
 
     if(r!=0) return XPL_DEFAULT_PORT;
-    return portTCP;  
+    return portTCP;
 }
 
 string xPLController::localAddress()
 {
     std::vector<uvw::InterfaceAddress> interfaceAdrs;
     std::vector<uvw::InterfaceAddress>::iterator it;
-  
+
     interfaceAdrs = uvw::Utilities::interfaceAddresses();
     it = interfaceAdrs.begin();
     while(it != interfaceAdrs.end())
     {
         if((!it->internal)&&(it->address.ip.find('.')!=string::npos))
-            return it->address.ip;   
+            return it->address.ip;
         ++it;
-    }    
+    }
     return "127.0.0.1";
 }
 
@@ -193,7 +193,7 @@ void xPLController::setValue(const string& source, const string& device, const s
 {
     xPL::SchemaControlBasic scb;
     scb.SetDeviceName(device);
-    scb.SetCurrent(value);    
+    scb.SetCurrent(value);
     m_xPLDevice.SendxPLMessage(&scb, source);
 }
 
@@ -217,21 +217,21 @@ void xPLController::udpListenData(const char *data, std::size_t length, string r
             cErrorDom("xpl") <<  "Failed to parse : " << e.what();
             return;
         }
-        
+
         if(m_xPLDevice.MsgForMe(xPLparse) && m_xPLDevice.MsgAnswer(xPLparse)) continue;
-        
+
         xPL::ISchema::MsgType msgType = xPLparse.GetMsgType();
         if((msgType!=xPL::ISchema::MsgType::stat)&&(msgType!=xPL::ISchema::MsgType::trig)) continue;
         if(xPLparse.GetClass()!="sensor") continue;
         if(xPLparse.GetType()!="basic") continue;
-        
+
         key = xPLparse.GetSource()+":"+xPLparse.GetValue("device");
 
         it = m_sensorsChangeCb.find(key);
         if(it != m_sensorsChangeCb.end())
         {
             infoSensor.StringVal = xPLparse.GetValue("current");
-            infoSensor.AnalogVal = xPLparse.GetValue<float>("current"); 
+            infoSensor.AnalogVal = xPLparse.GetValue<float>("current");
             (it->second).emit(&infoSensor);
         }
     }

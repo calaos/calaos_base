@@ -141,6 +141,9 @@ bool UrlDownloader::start()
         req.push_back("@" + tempFilename);
     }
 
+    isStarted = false;
+    hasFailedStarting = false;
+
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
@@ -150,7 +153,8 @@ bool UrlDownloader::start()
     });
     exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {
-        cDebugDom("urlutils") << "Process error: " << ev.what();
+        if (!isStarted) hasFailedStarting = true;
+        cCriticalDom("urlutils") << "Process error: " << ev.what();
         h.close();
         if (downloadToFile)
         {
@@ -172,6 +176,7 @@ bool UrlDownloader::start()
 
         //When pipe is closed, remove it and close it
         pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+        pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
         pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
         {
             cDebugDom("urlutils") << "Stdio data received: " << ev.length;
@@ -186,7 +191,8 @@ bool UrlDownloader::start()
     if (!downloadToFile)
     {
         //The start of read() for the pipe has be to done _after_ spawning the process or it crashes
-        pipe->read();
+        if (!hasFailedStarting)
+            pipe->read();
     }
 
     return true;

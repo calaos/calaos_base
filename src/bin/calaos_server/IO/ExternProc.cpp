@@ -71,9 +71,10 @@ ExternProcServer::ExternProcServer(string pathprefix)
             this->processData(d);
         });
 
-        client->on<uvw::ErrorEvent>([](const auto &, auto &)
+        client->once<uvw::ErrorEvent>([](const auto &, auto &h)
         {
             cDebugDom("process") << "Error sending data!";
+            h.close();
         });
 
         client->read();
@@ -146,6 +147,8 @@ void ExternProcServer::processData(const string &data)
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
 {
+    isStarted = false;
+    hasFailedStarting = false;
     string cmd = process + " --socket " + sockpath + " --namespace " + name + " " + args;
 
     process_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
@@ -157,7 +160,8 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     });
     process_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
     {
-        cDebugDom("process") << "Process error: " << ev.what();
+        if (!isStarted) hasFailedStarting = true;
+        cCriticalDom("process") << "Process error: " << ev.what();
         process_exe->close();
         Timer::singleShot(0.1, [this]() { processExited.emit(); });
     });
@@ -172,6 +176,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
 
     //When pipe is closed, remove it and close it
     pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+    pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
     pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         cDebugDom("urlutils") << "Stdio data received: " << ev.length;
@@ -190,7 +195,11 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     Utils::CStrArray arr(cmd);
     cInfoDom("process") << "Starting process: " << arr.toString();
     process_exe->spawn(arr.at(0), arr.data());
-    pipe->read();
+
+    if (!hasFailedStarting)
+        pipe->read();
+
+    isStarted = true;
 }
 
 ExternProcMessage::ExternProcMessage()

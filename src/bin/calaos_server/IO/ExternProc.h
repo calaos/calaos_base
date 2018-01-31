@@ -105,6 +105,9 @@ private:
 
     std::shared_ptr<uvw::PipeHandle> client;
 
+    bool isStarted = false;
+    bool hasFailedStarting = false;
+
     void processData(const string &data);
 };
 
