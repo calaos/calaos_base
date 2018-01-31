@@ -441,13 +441,19 @@ void HttpClient::CloseConnection()
 
     DELETE_NULL(closeTimer);
 
-    cDebugDom("network") << "Closing connection";
-    client_conn->shutdown();
+    cDebugDom("network") << "Closing connection...";
+    client_conn->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+    {
+        cDebugDom("network") << "Shutdown failed: " << ev.what() << ". Closing.";
+        h.close();
+    });
     client_conn->on<uvw::ShutdownEvent>([this](const uvw::ShutdownEvent &, auto &)
     {
         //After shutdown close handle
+        cDebugDom("network") << "Shutdown done. Closing.";
         client_conn->close();
     });
+    client_conn->shutdown();
 }
 
 string HttpClient::buildHttpResponseFromFile(string code, Params &headers, string fileName)
