@@ -60,7 +60,7 @@ ExternProcServer::ExternProcServer(string pathprefix)
         //When connection is closed
         client->on<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
         {
-            cDebugDom("process") << "client closed, remove from clientList";
+            cDebugDom("process") << "client closed, remove ref";
             client.reset();
         });
 
@@ -89,7 +89,12 @@ ExternProcServer::~ExternProcServer()
     ipcServer->close();
 
     if (client)
-        client->stop();
+    {
+        cDebugDom("process") << "Stopping client";
+        client->clear(); //Remove all connected slots, the ExternProcServer class will be deleted
+        client->once<uvw::CloseEvent>([](const auto &, auto &) { cDebugDom("process") << "client closed."; });
+        client->close();
+    }
 
     if (process_exe && process_exe->referenced())
     {
