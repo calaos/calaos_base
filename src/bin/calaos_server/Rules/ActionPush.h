@@ -18,44 +18,33 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef S_ACTION_H
-#define S_ACTION_H
+#ifndef S_ACTIONPUSH_H
+#define S_ACTIONPUSH_H
 
 #include "Calaos.h"
-
-using namespace std;
+#include "Action.h"
 
 namespace Calaos
 {
-//-----------------------------------------------------------------------------
-//      Base class for all actions
-//-----------------------------------------------------------------------------
 
-enum
+class ActionPush: public Action
 {
-    ACTION_UNKONWN = 0,
-    ACTION_STD,
-    ACTION_MAIL,
-    ACTION_SCRIPT,
-    ACTION_TOUCHSCREEN,
-    ACTION_PUSH,
-};
+private:
+    string notif_attachment;
+    string notif_message;
+    string notif_attachment_tfile;
+    string notif_pic_uid;
 
-class Action
-{
-protected:
-    int action_type;
+    void sendNotif();
 
 public:
-    Action(int type);
-    virtual ~Action();
+    ActionPush();
+    ~ActionPush();
 
-    virtual bool Execute();
+    bool Execute();
 
-    int getType() { return action_type; }
-
-    virtual bool LoadFromXml(TiXmlElement *node) { return true; }
-    virtual bool SaveToXml(TiXmlElement *node) { return true; }
+    bool LoadFromXml(TiXmlElement *node);
+    bool SaveToXml(TiXmlElement *node);
 };
 
 }

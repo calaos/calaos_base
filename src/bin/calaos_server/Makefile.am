@@ -364,6 +364,8 @@ calaos_server_SOURCES = \
         Rules/ActionStd.h                               \
         Rules/ActionTouchscreen.cpp                     \
         Rules/ActionTouchscreen.h                       \
+        Rules/ActionPush.h                              \
+        Rules/ActionPush.cpp                            \
         Rules/Condition.cpp                             \
         Rules/Condition.h                               \
         Rules/ConditionOutput.cpp                       \

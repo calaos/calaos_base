@@ -95,6 +95,12 @@ Action *RulesFactory::CreateAction(TiXmlElement *node)
         action = new ActionTouchscreen();
     }
 
+    /* Push notification action */
+    else if (type == "push")
+    {
+        action = new ActionPush();
+    }
+
     if (action && !action->LoadFromXml(node))
         return NULL;
 
