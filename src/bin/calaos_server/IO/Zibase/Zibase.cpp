@@ -20,7 +20,7 @@
 ******************************************************************************/
 #include <Zibase.h>
 #include <tcpsocket.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 /********************************************************/
 /*                      MACROS                          */
@@ -82,10 +82,10 @@ Zibase::Zibase(std::string h, int p):
         this->udpListenData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    listenHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    listenHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &hl)
     {
         cErrorDom("network") << "UDP server error: " << ev.what();
-        h.stop();
+        hl.stop();
     });
 
     listenHandle->bind("0.0.0.0", port, uvw::UDPHandle::Bind::REUSEADDR);
@@ -100,10 +100,10 @@ Zibase::Zibase(std::string h, int p):
         this->udpClientData(ev.data.get(), ev.length, ev.sender.ip, ev.sender.port);
     });
 
-    clientHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    clientHandle->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &hl)
     {
         cErrorDom("network") << "UDP server error: " << ev.what();
-        h.stop();
+        hl.stop();
     });
 
     clientHandle->bind(host, ZIBASE_UDP_PORT, uvw::UDPHandle::Bind::REUSEADDR);

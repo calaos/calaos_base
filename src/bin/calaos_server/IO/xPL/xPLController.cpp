@@ -20,7 +20,7 @@
 ******************************************************************************/
 #include "xPLController.h"
 #include "uv.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 
 xPLSockWrapper::xPLSockWrapper()

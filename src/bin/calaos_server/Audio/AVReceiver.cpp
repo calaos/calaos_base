@@ -22,7 +22,7 @@
 #include "AVRManager.h"
 #include "IOFactory.h"
 #include "EventManager.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

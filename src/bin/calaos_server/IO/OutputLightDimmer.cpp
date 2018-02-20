@@ -55,6 +55,7 @@ OutputLightDimmer::OutputLightDimmer(Params &p):
     set_param("gui_type", "light_dimmer");
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
     cInfoDom("output") << get_param("id") << ": Ok";
 }
@@ -296,7 +297,7 @@ bool OutputLightDimmer::set_off_real()
 }
 
 void OutputLightDimmer::emitChange()
-{   
+{
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", get_value_string() } });

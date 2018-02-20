@@ -21,7 +21,7 @@
 #include "Utils.h"
 
 #include <tcpsocket.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Utils;
 
@@ -326,7 +326,7 @@ Logger *Utils::calaosLogger(const char *domain)
         return &defaultCoutLogger;
 
     string d = default_domain;
-    
+
     if (domain)
       d = domain;
 

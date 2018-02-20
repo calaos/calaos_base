@@ -64,6 +64,8 @@ public:
         EventAudioVolumeChanged,
 
         EventTouchScreenCamera, //event sent to a client to wake up and display required camera on screen
+
+        EventPushNotification, //event that is sent to a mobile device
     };
 
     CalaosEvent();

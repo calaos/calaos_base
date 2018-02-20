@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 #include "Timer.h"
 
 #define READBUFSIZE 65536

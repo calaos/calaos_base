@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include <UrlDownloader.h>
 #include <Timer.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),

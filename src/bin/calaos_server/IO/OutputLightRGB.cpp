@@ -48,7 +48,9 @@ OutputLightRGB::OutputLightRGB(Params &p):
     ioDoc->actionAdd("down_blue 5", _("Decrease intensity by X percent of blue channel"));
 
     set_param("gui_type", "light_rgb");
+
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
     cInfoDom("output") << "OutputLightRGB::OutputLightRGB(" << get_param("id") << "): Ok";
 }

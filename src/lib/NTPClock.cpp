@@ -20,7 +20,7 @@
  ******************************************************************************/
 
 #include <NTPClock.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace std;
 

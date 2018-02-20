@@ -44,7 +44,7 @@ void OutputString::readConfig()
 }
 
 void OutputString::emitChange()
-{   
+{
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value } });
@@ -57,7 +57,7 @@ bool OutputString::set_value(string val)
     readConfig();
 
     set_value_real(val);
-   
+
     value = val;
     EmitSignalIO();
     emitChange();

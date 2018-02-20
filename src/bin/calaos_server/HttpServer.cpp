@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "HttpServer.h"
 #include "WebSocket.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 HttpServer::HttpServer(int p):
     port(p)

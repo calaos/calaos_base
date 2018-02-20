@@ -24,7 +24,7 @@
 #include "IOFactory.h"
 #include "EventManager.h"
 #include "ListeRoom.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 #include <jansson.h>
 

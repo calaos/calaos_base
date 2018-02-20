@@ -23,7 +23,7 @@
 #include "HttpCodes.h"
 #include "SHA1.h"
 #include "hef_uri_syntax.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

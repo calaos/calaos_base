@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include <X10Output.h>
 #include <IOFactory.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

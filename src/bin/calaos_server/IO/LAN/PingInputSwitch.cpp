@@ -21,7 +21,7 @@
 #include "PingInputSwitch.h"
 #include "IOFactory.h"
 #include "Timer.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

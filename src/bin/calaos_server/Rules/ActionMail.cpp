@@ -22,7 +22,7 @@
 #include "ListeRoom.h"
 #include "IPCam.h"
 #include "Prefix.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 #include "UrlDownloader.h"
 
 using namespace Calaos;

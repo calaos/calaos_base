@@ -24,7 +24,7 @@
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

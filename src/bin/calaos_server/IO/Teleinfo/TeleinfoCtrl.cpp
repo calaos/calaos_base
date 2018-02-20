@@ -20,7 +20,7 @@
  ******************************************************************************/
 #include "TeleinfoCtrl.h"
 #include <termios.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 #if defined(__linux__) || defined(__linux) || defined(linux)
 #include <sys/ioctl.h>

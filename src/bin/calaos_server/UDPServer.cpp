@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include <UDPServer.h>
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 

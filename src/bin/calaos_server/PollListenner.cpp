@@ -18,7 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <PollListenner.h>
+#include "PollListenner.h"
+#include "sole.hpp"
 
 using namespace Calaos;
 
@@ -72,16 +73,8 @@ PollListenner::~PollListenner()
 
 string PollListenner::Register()
 {
-    srand(time(NULL));
-    stringstream ssUuid;
-    ssUuid << std::hex << std::setfill('0') ;
-    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
-
-    string uuid = ssUuid.str();
+    sole::uuid u4 = sole::uuid4();
+    string uuid = u4.str();
     pollobjects[uuid] = new PollObject(uuid);
 
     cDebugDom("poll_listener") << "uuid:" << uuid;

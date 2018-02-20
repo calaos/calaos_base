@@ -39,6 +39,8 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/lib/http-parser                   \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
+        -I$(top_srcdir)/src/lib/sqlite_modern_cpp/hdr         \
+        -I$(top_srcdir)/src/lib/sole                          \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
         @LIBUSB_CFLAGS@                                       \
@@ -76,16 +78,16 @@ calaos_server_SOURCES = \
         CalaosConfig.h                                  \
         DataLogger.cpp                                  \
         DataLogger.h                                    \
-	EventManager.cpp                                \
-	EventManager.h                                  \
+        EventManager.cpp                                \
+        EventManager.h                                  \
         HttpClient.cpp                                  \
         HttpClient.h                                    \
         HttpCodes.h                                     \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
-	IO/AnalogIO.cpp                                 \
-	IO/AnalogIO.h                                   \
-	IO/ExternProc.cpp                               \
+        IO/AnalogIO.cpp                                 \
+        IO/AnalogIO.h                                   \
+        IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
@@ -101,8 +103,8 @@ calaos_server_SOURCES = \
         IO/Gpio/GpioOutputShutterSmart.h                \
         IO/Gpio/GpioOutputSwitch.cpp                    \
         IO/Gpio/GpioOutputSwitch.h                      \
-        IO/IODoc.cpp					\
-        IO/IODoc.h 					\
+        IO/IODoc.cpp                                    \
+        IO/IODoc.h                                      \
         IO/IOFactory.cpp                                \
         IO/IOFactory.h                                  \
         IO/InPlageHoraire.cpp                           \
@@ -125,8 +127,8 @@ calaos_server_SOURCES = \
         IO/InputTimer.h                                 \
         IO/IntValue.cpp                                 \
         IO/IntValue.h                                   \
-        IO/Hue/HueOutputLightRGB.h	                \
-        IO/Hue/HueOutputLightRGB.cpp	                \
+        IO/Hue/HueOutputLightRGB.h                      \
+        IO/Hue/HueOutputLightRGB.cpp                    \
         IO/KNX/KNXCtrl.h                                \
         IO/KNX/KNXCtrl.cpp                              \
         IO/KNX/KNXBase.cpp                              \
@@ -161,7 +163,7 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputLightRGB.h         \
         IO/LimitlessLED/MilightOutputLightRGB.cpp       \
-        IO/MySensors/MySensors.h	                \
+        IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsControllerList.cpp        \
         IO/MySensors/MySensorsControllerList.h          \
@@ -225,7 +227,7 @@ calaos_server_SOURCES = \
         IO/Teleinfo/TeleinfoCtrl.h                      \
         IO/Teleinfo/TeleinfoInputAnalog.cpp             \
         IO/Teleinfo/TeleinfoInputAnalog.h               \
-	IO/Wago/WIAnalog.cpp                            \
+        IO/Wago/WIAnalog.cpp                            \
         IO/Wago/WIAnalog.h                              \
         IO/Wago/WIDigitalBP.cpp                         \
         IO/Wago/WIDigitalBP.h                           \
@@ -380,86 +382,89 @@ calaos_server_SOURCES = \
         UDPServer.h                                     \
         WebSocket.cpp                                   \
         WebSocket.h                                     \
+        HistLogger.cpp                                  \
+        HistLogger.h                                    \
         main.cpp
 
 if HAVE_LIBUSB
 calaos_server_SOURCES += \
-	IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
+        IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
         IO/Blinkstick/BlinkstickOutputLightRGB.h
 endif
 
 calaos_server_LDADD =                                   \
+        @CALAOS_COMMON_LIBS@                            \
         @CALAOS_SERVER_LIBS@                            \
-        @LIBUSB_LIBS@                               	\
+        @LIBUSB_LIBS@                                   \
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic
 
 bin_PROGRAMS += calaos_script
 calaos_script_SOURCES = \
-	LuaScript/ScriptExtern_main.cpp \
-	LuaScript/ScriptManager.h \
-	LuaScript/ScriptManager.cpp \
-	LuaScript/ScriptBindings.h \
-	LuaScript/ScriptBindings.cpp \
-	IO/ExternProc.cpp \
-	IO/ExternProc.h
+        LuaScript/ScriptExtern_main.cpp \
+        LuaScript/ScriptManager.h \
+        LuaScript/ScriptManager.cpp \
+        LuaScript/ScriptBindings.h \
+        LuaScript/ScriptBindings.cpp \
+        IO/ExternProc.cpp \
+        IO/ExternProc.h
 
  calaos_script_LDADD = \
-	@CALAOS_SERVER_LIBS@ \
-	$(top_builddir)/src/lib/libcalaos_common.la
+        @CALAOS_SERVER_LIBS@ \
+        $(top_builddir)/src/lib/libcalaos_common.la
 
 bin_PROGRAMS += calaos_wago
 calaos_wago_SOURCES = \
-	IO/ExternProc.cpp                               \
-	IO/ExternProc.h                                 \
-	IO/Wago/WagoCtrl.cpp				\
-	IO/Wago/libmbus/mbus.c				\
-	IO/Wago/libmbus/mbus.h				\
-	IO/Wago/libmbus/mbus_cmd.c			\
-	IO/Wago/libmbus/mbus_conf.h			\
-	IO/Wago/libmbus/mbus_rqst.c			\
-	IO/Wago/libmbus/mbus_sock.c			\
-	IO/Wago/WagoExternProc_main.cpp
+        IO/ExternProc.cpp                   \
+        IO/ExternProc.h                     \
+        IO/Wago/WagoCtrl.cpp                \
+        IO/Wago/libmbus/mbus.c              \
+        IO/Wago/libmbus/mbus.h              \
+        IO/Wago/libmbus/mbus_cmd.c          \
+        IO/Wago/libmbus/mbus_conf.h         \
+        IO/Wago/libmbus/mbus_rqst.c         \
+        IO/Wago/libmbus/mbus_sock.c         \
+        IO/Wago/WagoExternProc_main.cpp
 
 calaos_wago_LDADD = \
-	@CALAOS_SERVER_LIBS@ \
-	$(top_builddir)/src/lib/libcalaos_common.la
+        @CALAOS_SERVER_LIBS@ \
+        $(top_builddir)/src/lib/libcalaos_common.la
 
 bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \
-	IO/ExternProc.cpp				\
-	IO/ExternProc.h  				\
-	IO/OneWire/OWExternProc_main.cpp
+        IO/ExternProc.cpp               \
+        IO/ExternProc.h                 \
+        IO/OneWire/OWExternProc_main.cpp
 
 calaos_1wire_LDADD = \
-	@CALAOS_SERVER_LIBS@ \
-	$(top_builddir)/src/lib/libcalaos_common.la
+        @CALAOS_SERVER_LIBS@ \
+        $(top_builddir)/src/lib/libcalaos_common.la
 
 if HAVE_LIBOLA
 bin_PROGRAMS += calaos_ola
 calaos_ola_SOURCES = \
-    IO/ExternProc.cpp				\
-    IO/ExternProc.h  				\
-    IO/OLA/OLAExternProc_main.cpp
+        IO/ExternProc.cpp               \
+        IO/ExternProc.h                 \
+        IO/OLA/OLAExternProc_main.cpp
 
 calaos_ola_LDADD = \
-    @CALAOS_SERVER_LIBS@ \
-    @LIBOLA_LIBS@ \
-    $(top_builddir)/src/lib/libcalaos_common.la
+        @CALAOS_SERVER_LIBS@ \
+        @LIBOLA_LIBS@ \
+        $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
 if HAVE_LIBKNX
 bin_PROGRAMS += calaos_knx
 calaos_knx_SOURCES = \
-	IO/ExternProc.cpp			    \
-	IO/ExternProc.h  			    \
-	IO/KNX/KNXExternProc_main.h     \
-	IO/KNX/KNXExternProc_main.cpp   \
-	IO/KNX/KNXExternProc_cli.cpp
+        IO/ExternProc.cpp               \
+        IO/ExternProc.h                 \
+        IO/KNX/KNXExternProc_main.h     \
+        IO/KNX/KNXExternProc_main.cpp   \
+        IO/KNX/KNXExternProc_cli.cpp
 
 calaos_knx_LDADD = \
-	@CALAOS_SERVER_LIBS@ \
-	-leibclient \
-	$(top_builddir)/src/lib/libcalaos_common.la
+        @CALAOS_SERVER_LIBS@ \
+        -leibclient \
+        $(top_builddir)/src/lib/libcalaos_common.la
 endif

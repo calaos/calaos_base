@@ -33,7 +33,7 @@ xPLOutputAnalog::xPLOutputAnalog(Params &p):
     ioDoc->friendlyNameSet("xPLOutputAnalog");
     ioDoc->descriptionSet(_("Analog output controlled by xPL Protocol"));
     xPLDocBase::commonActuatorDoc(ioDoc);
-  
+
     if(get_param("id")=="doc") return; //Json documentation detector
 
     cInfoDom("output") << get_param("source") << ":" << get_param("actuator");
@@ -47,7 +47,7 @@ void xPLOutputAnalog::set_value_real(double val)
 {
     string source = get_param("source");
     string actuator = get_param("actuator");
-    string value = Utils::to_string(val);
+    string v = Utils::to_string(val);
 
-    xPLController::Instance().setValue(source, actuator, value);
+    xPLController::Instance().setValue(source, actuator, v);
 }

@@ -43,8 +43,9 @@ OutputAnalog::OutputAnalog(Params &p):
     ioDoc->actionAdd("inc 1", _("Increment value by value"));
     ioDoc->actionAdd("dec 1", _("Decrement value by value"));
 
-
     set_param("gui_type", "analog_out");
+
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
     readConfig();
 

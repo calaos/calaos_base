@@ -47,14 +47,14 @@ bool xPLOutputSwitch::set_value_real(bool val)
 {
     string source = get_param("source");
     string actuator = get_param("actuator");
-    string value;
+    string v;
 
     if(val == true)
       value = "high";
     else
       value = "low";
 
-    xPLController::Instance().setValue(source, actuator, value);
+    xPLController::Instance().setValue(source, actuator, v);
 
     return true;
 }

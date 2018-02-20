@@ -62,6 +62,9 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
 
     set_param("gui_type", "shutter_smart");
 
+    if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
+
     readConfig();
 
     cInfoDom("output") << "OutputShutterSmart::OutputShutterSmart(" << get_param("id") << "): Reading initial value";

@@ -52,6 +52,7 @@ Scenario::Scenario(Params &p):
     }
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 }
 
 Scenario::~Scenario()

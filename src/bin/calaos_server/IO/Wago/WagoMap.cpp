@@ -22,7 +22,7 @@
 #include <WagoCtrl.h>
 #include <tcpsocket.h>
 #include "Prefix.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Utils;
 using namespace Calaos;

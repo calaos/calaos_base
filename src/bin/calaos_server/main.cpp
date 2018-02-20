@@ -31,8 +31,9 @@
 #include "Zibase.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
+#include "HistLogger.h"
 
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 
@@ -111,6 +112,7 @@ int main (int argc, char **argv)
     }
 
     //Ensure calling order of destructors
+    HistLogger::Instance();
     AVRManager::Instance();
     EventManager::Instance();
     ListeRule::Instance();

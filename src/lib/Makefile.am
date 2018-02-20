@@ -18,6 +18,8 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/lib/uri_parser \
         -I. \
         -I$(top_srcdir)/src/lib/uvw/src \
+        -I$(top_srcdir)/src/lib/sqlite_modern_cpp/hdr \
+        -I$(top_srcdir)/src/lib/sole \
         @CALAOS_COMMON_CFLAGS@
 
 AM_CFLAGS = \
@@ -119,7 +121,10 @@ libcalaos_common_la_SOURCES = \
         json.hpp                                \
         uvw/src/uvw.hpp                         \
         FileUtils.h                             \
-        FileUtils.cpp
+        FileUtils.cpp                           \
+        ThreadedQueue.h                         \
+        sole/sole.hpp                           \
+        libuvw.h
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 

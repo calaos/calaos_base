@@ -52,6 +52,7 @@ OutputShutter::OutputShutter(Params &p):
     set_param("gui_type", "shutter");
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
     cInfoDom("output") << "OutputShutter::OutputShutter(" << get_param("id") << "): Ok";
 

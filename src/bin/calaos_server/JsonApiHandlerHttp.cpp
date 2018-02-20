@@ -29,7 +29,7 @@
 #include "HttpCodes.h"
 #include "Timer.h"
 #include "HttpClient.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)

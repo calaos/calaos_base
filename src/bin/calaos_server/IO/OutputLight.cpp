@@ -42,6 +42,7 @@ OutputLight::OutputLight(Params &p):
     ioDoc->actionAdd("set_state false", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
     set_param("gui_type", "light");
 }
@@ -52,7 +53,7 @@ OutputLight::~OutputLight()
 }
 
 void OutputLight::emitChange()
-{   
+{
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", value?"true":"false" } });

@@ -39,7 +39,7 @@ namespace Calaos
 class ScenarioAction
 {
 public:
-    IOBase *io;
+    IOBase *io = nullptr;
     string action;
 };
 

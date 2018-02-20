@@ -20,6 +20,8 @@
  ******************************************************************************/
 
 #include "EventManager.h"
+#include "HistLogger.h"
+#include "ListeRoom.h"
 
 EventManager::EventManager()
 {
@@ -55,6 +57,43 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     }
 
     eventsQueue.push(ev);
+
+    //Write events to the history logger
+    if (ev.getType() == CalaosEvent::EventIOChanged)
+    {
+        string id = ev.getParam()["id"];
+        IOBase *io = ListeRoom::Instance().get_io(id);
+
+        if (!io)
+        {
+            cWarning() << "Failed to find IO " << id;
+            return;
+        }
+
+        //Do not log IO that are not enabled
+        if (io->get_param("log_history") != "true")
+            return;
+
+        json_t *j = ev.toJson();
+        char *d = json_dumps(j, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
+        if (!d)
+        {
+            json_decref(j);
+            cWarning() << "Failed to convert event to JSON";
+            return;
+        }
+        json_decref(j);
+        string jstr(d);
+        free(d);
+
+        HistEvent e = HistEvent::create();
+        e.event_raw = jstr;
+        e.event_type = ev.getType();
+        e.io_id = id;
+        e.io_state = ev.getParam()["state"];
+
+        HistLogger::Instance().appendEvent(e);
+    }
 }
 
 CalaosEvent EventManager::create(int type)

@@ -19,7 +19,7 @@
  **
  ******************************************************************************/
 #include "Timer.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 Timer::Timer(double in, sigc::slot<void, void *> slot, void *d):
     time(in * 1000.0),

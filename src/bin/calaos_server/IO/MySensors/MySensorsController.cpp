@@ -26,7 +26,7 @@
   #include <linux/serial.h>
 #endif
 #include "ListeRoom.h"
-#include "uvw/src/uvw.hpp"
+#include "libuvw.h"
 
 using namespace Calaos;
 
