@@ -97,24 +97,30 @@ LogStream::~LogStream()
     //Strip away file path and only keep filename
     logData->file = FileUtils::filename(logData->file);
 
+    std::ostringstream s;
+
     switch (logData->level)
     {
-    case Logger::LOG_LEVEL_CRITICAL: std::cout << colorPurple() << "[CRI]";
+    case Logger::LOG_LEVEL_CRITICAL: s << colorPurple() << "[CRI]";
         break;
-    case Logger::LOG_LEVEL_DEBUG: std::cout << colorBlue() << "[DBG]";
+    case Logger::LOG_LEVEL_DEBUG: s << colorBlue() << "[DBG]";
         break;
-    case Logger::LOG_LEVEL_ERROR: std::cout << colorRed() << "[ERR]";
+    case Logger::LOG_LEVEL_ERROR: s << colorRed() << "[ERR]";
         break;
-    case Logger::LOG_LEVEL_INFO: std::cout << colorGreen() << "[INF]";
+    case Logger::LOG_LEVEL_INFO: s << colorGreen() << "[INF]";
         break;
-    case Logger::LOG_LEVEL_WARNING: std::cout << colorYellow() << "[WRN]";
+    case Logger::LOG_LEVEL_WARNING: s << colorYellow() << "[WRN]";
         break;
     default:
-    case Logger::LOG_LEVEL_UNKNOWN: std::cout << colorRed() << colorBold() << "[???]";
+    case Logger::LOG_LEVEL_UNKNOWN: s << colorRed() << colorBold() << "[???]";
         break;
     }
 
-    std::cout << colorCyan() << " " << logData->domain << colorReset() << " ";
-    std::cout << colorBold() << "(" << logData->file << ":" << logData->line << ")" << colorReset() << " ";
-    std::cout << logData->stream.str() << colorReset() << std::endl;
+    s << colorCyan() << " " << logData->domain << colorReset() << " ";
+    s << colorBold() << "(" << logData->file << ":" << logData->line << ")" << colorReset() << " ";
+    s << logData->stream.str() << colorReset() << std::endl;
+
+    std::cout << s.str();
+    std::cout.flush();
 }
+
