@@ -23,6 +23,8 @@
 #include <tcpsocket.h>
 #include "libuvw.h"
 
+#include <mutex>
+
 using namespace Utils;
 
 string Utils::url_encode(string str)
@@ -488,8 +490,13 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
     }
 }
 
+//A global mutex for get/set config options threadsafely
+static std::mutex configMutex;
+
 string Utils::get_config_option(string _key)
 {
+    std::lock_guard<std::mutex> lock{configMutex};
+
     string value = "";
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
@@ -525,6 +532,8 @@ string Utils::get_config_option(string _key)
 
 bool Utils::set_config_option(string key, string value)
 {
+    std::lock_guard<std::mutex> lock{configMutex};
+
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
     if (!document.LoadFile())
@@ -571,6 +580,8 @@ bool Utils::set_config_option(string key, string value)
 
 bool Utils::del_config_option(string key)
 {
+    std::lock_guard<std::mutex> lock{configMutex};
+
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
     if (!document.LoadFile())
@@ -606,6 +617,8 @@ bool Utils::del_config_option(string key)
 
 bool Utils::get_config_options(Params &options)
 {
+    std::lock_guard<std::mutex> lock{configMutex};
+
     TiXmlDocument document(getConfigFile(LOCAL_CONFIG).c_str());
 
     if (!document.LoadFile())
