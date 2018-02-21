@@ -7,6 +7,7 @@ AM_CPPFLAGS =                                                 \
         -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
+        -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\"            \
         -DTIXML_USE_STL                                       \
         -DLUA_USE_DLOPEN                                      \
         -DXPLLIB_NOSOCK                                       \
@@ -398,6 +399,7 @@ calaos_server_LDADD =                                   \
         @CALAOS_COMMON_LIBS@                            \
         @CALAOS_SERVER_LIBS@                            \
         @LIBUSB_LIBS@                                   \
+        @INTLLIBS@                                      \
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic
@@ -414,6 +416,7 @@ calaos_script_SOURCES = \
 
  calaos_script_LDADD = \
         @CALAOS_SERVER_LIBS@ \
+        @INTLLIBS@ \
         $(top_builddir)/src/lib/libcalaos_common.la
 
 bin_PROGRAMS += calaos_wago

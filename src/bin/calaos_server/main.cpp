@@ -78,6 +78,12 @@ int main (int argc, char **argv)
     cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
     cout << endl;
 
+    #if HAVE_GETTEXT
+    setlocale(LC_ALL, "");
+    bindtextdomain(PACKAGE_NAME, PACKAGE_LOCALE_DIR);
+    textdomain(PACKAGE_NAME);
+    #endif
+
     //Check command line args
     if (argvOptionCheck(argv, argv + argc, "-h") ||
         argvOptionCheck(argv, argv + argc, "--help"))
