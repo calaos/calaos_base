@@ -29,7 +29,7 @@
 #define DB_CREATE_SQL "CREATE TABLE IF NOT EXISTS events (" \
     "id INTEGER PRIMARY KEY UNIQUE NOT NULL, " \
     "uuid TEXT, " \
-    "datetime DATETIME, " \
+    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
     "event_type INTEGER, " \
     "io_id TEXT, " \
     "io_state TEXT, " \
@@ -42,7 +42,6 @@ HistEvent HistEvent::create()
 
     HistEvent e;
     e.uuid = u4.str();
-    e.datetime = std::chrono::seconds(std::time(nullptr)).count();
 
     return e;
 }
@@ -92,14 +91,38 @@ void HistLogger::sqliteWorker()
 
             try
             {
-                db << "INSERT INTO events (uuid, datetime, event_type, io_id, io_state, event_raw, pic_uid) values (?, ?, ?, ?, ?, ?, ?);"
+                db << "INSERT INTO events (uuid, event_type, io_id, io_state, event_raw, pic_uid) values (?, ?, ?, ?, ?, ?);"
                    << event.uuid
-                   << event.datetime
                    << event.event_type
                    << event.io_id
                    << event.io_state
                    << event.event_raw
                    << event.pic_uid;
+
+                string numdays = Utils::get_config_option("history_keep_days");
+                if (numdays == "")
+                    numdays = "30"; // 30 days are kept by default
+
+                cDebugDom("history") << "Cleaning events older than " << numdays;
+
+                string q = "SELECT pic_uid FROM events WHERE created_at <= date('now', '-" + numdays + " days');";
+                db << q >> [&](string pic_uid)
+                {
+                    string file = Utils::getCacheFile("push_pictures") + "/" + pic_uid + ".jpg";
+
+                    cDebugDom("history") << "Deleting file: " << file;
+                    if (!FileUtils::unlink(file))
+                        cWarningDom("history") << "Failed to delete file: " << file;
+                };
+
+                q = "DELETE FROM events WHERE created_at <= date('now', '-" + numdays + " days');";
+                db << q;
+            }
+            catch (sqlite::sqlite_exception &e)
+            {
+                cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what() <<
+                    " during " << e.get_sql();
+                cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
             }
             catch (exception &e)
             {

@@ -33,7 +33,6 @@ class HistEvent
 public:
     int64_t id;
     string uuid;
-    int64_t datetime;
     int event_type;
     string io_id;
     string io_state;
