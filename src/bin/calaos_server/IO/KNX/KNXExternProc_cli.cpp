@@ -368,6 +368,7 @@ bool KNXValue::toKnxData(vector<uint8_t> &data) const
             if (value_int >= 128)
                 data[1] |= 0x08;
             data[1] |= 0x80; //write command
+            break;
         case 3:
         {
             data.resize(5, 0);
