@@ -147,6 +147,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processCamera();
     else if (jsonParam["action"] == "eventlog")
         processEventLog();
+    else if (jsonParam["action"] == "event_picture")
+        processEventPicture();
     else
     {
         if (!jroot)
@@ -849,3 +851,28 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
     });
     cameraDl->httpGet();
 }
+
+void JsonApiHandlerHttp::processEventPicture()
+{
+    string pic_uid = jsonParam["pic_uid"];
+    string file = Utils::getCacheFile("push_pictures") + "/" + pic_uid + ".jpg";
+
+    if (!FileUtils::exists(file))
+    {
+        cDebugDom("network") << "Picture " << file << " not found";
+
+        Params headers;
+        headers.Add("Connection", "close");
+        headers.Add("Content-Type", "text/html");
+        string res = httpClient->buildHttpResponse(HTTP_404, headers, HTTP_404_BODY);
+        sendData.emit(res);
+        return;
+    }
+
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "image/jpeg");
+    string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers, file);
+    sendData.emit(res);
+}
+

@@ -77,6 +77,7 @@ private:
     void processAutoscenario(json_t *jroot);
     void processCamera();
     void processEventLog();
+    void processEventPicture();
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);
