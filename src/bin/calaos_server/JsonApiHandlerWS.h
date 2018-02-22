@@ -43,7 +43,7 @@ private:
     bool loggedin = false;
 
     void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
-    void sendJson(const string &msg_type, const Params &p, const string &client_id = string());
+    void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
     void processGetState(json_t *jdata, const string &client_id = string());
@@ -57,6 +57,7 @@ private:
     void processGetIO(json_t *jdata, const string &client_id = string());
     void processGetTimerange(const Params &jsonReq, const string &client_id = string());
     void processSetTimerange(json_t *jdata, const string &client_id = string());
+    void processEventLog(const Params &jsonReq, const string &client_id = string());
 
     void processAudio(json_t *jdata, const string &client_id = string());
     void processAudioDb(json_t *jdata, const string &client_id = string());

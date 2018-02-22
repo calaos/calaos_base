@@ -26,6 +26,12 @@
 #include "Calaos.h"
 #include "Timer.h"
 
+namespace uvw {
+//Forward declare classes here to prevent long build time
+//because of uvw.hpp being header only
+class AsyncHandle;
+}
+
 using namespace Calaos;
 
 class HistEvent
@@ -38,10 +44,15 @@ public:
     string io_state;
     string event_raw;
     string pic_uid;
+    string created_at;
 
     //init a new event with filled parameters
     static HistEvent create();
+
+    Json toJson() const;
 };
+
+class HistWorkerAction;
 
 class HistLogger
 {
@@ -55,6 +66,10 @@ public:
 
     void appendEvent(HistEvent &ev);
 
+    //read events back from db async
+    void getEvents(int page, int per_page,
+                   std::function<void(bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)> callback);
+
 private:
     HistLogger();
 
@@ -64,7 +79,7 @@ private:
 
     std::atomic_bool done{false};
     std::thread sqliteThread;
-    ThreadedQueue<HistEvent> eventQueue;
+    ThreadedQueue<std::shared_ptr<HistWorkerAction>> eventQueue;
 };
 
 #endif

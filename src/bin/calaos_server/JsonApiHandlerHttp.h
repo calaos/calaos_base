@@ -55,7 +55,7 @@ private:
     bool camHeaderSent = false;
 
     void sendJson(json_t *json);
-    void sendJson(const Params &p);
+    void sendJson(const Json &json);
 
     //processing functions
     void processGetHome();
@@ -76,6 +76,7 @@ private:
     void processSetTimerange(json_t *jroot);
     void processAutoscenario(json_t *jroot);
     void processCamera();
+    void processEventLog();
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);

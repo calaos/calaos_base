@@ -252,7 +252,7 @@ int HttpClient::processHeaders(const string &request)
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        headers.Add("Location", "debug/index.html");
+        headers.Add("Location", "/debug/index.html");
         string res = buildHttpResponse(HTTP_301, headers, string());
         sendToClient(res);
 
@@ -311,7 +311,7 @@ int HttpClient::processHeaders(const string &request)
         Params headers;
         headers.Add("Connection", "close");
         headers.Add("Content-Type", "text/html");
-        headers.Add("Location", "app/index.html");
+        headers.Add("Location", "/app/index.html");
         string res = buildHttpResponse(HTTP_301, headers, string());
         sendToClient(res);
 

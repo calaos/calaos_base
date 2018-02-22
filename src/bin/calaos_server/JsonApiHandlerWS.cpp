@@ -63,9 +63,16 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, json_t *data, const stri
     sendData.emit(jansson_to_string(jroot));
 }
 
-void JsonApiHandlerWS::sendJson(const string &msg_type, const Params &p, const string &client_id)
+void JsonApiHandlerWS::sendJson(const string &msg_type, const Json &json, const string &client_id)
 {
-    sendJson(msg_type, p.toJson(), client_id);
+    Json jroot = {{ "msg", msg_type }};
+
+    if (client_id != "")
+        jroot["msg_id"] = client_id;
+
+    jroot["data"] = json;
+
+    sendData.emit(jroot.dump());
 }
 
 void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
@@ -170,6 +177,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processSetTimerange(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "autoscenario")
             processAutoscenario(jdata, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "eventlog")
+            processEventLog(jsonData, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -440,3 +449,12 @@ void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const string &client_i
     else if (msg == "del_schedule")
         sendJson("autoscenario", buildAutoscenarioDelSchedule(jdata), client_id);
 }
+
+void JsonApiHandlerWS::processEventLog(const Params &jsonReq, const string &client_id)
+{
+    buildJsonEventLog(jsonReq, [=](Json &j)
+    {
+        sendJson("eventlog", j, client_id);
+    });
+}
+

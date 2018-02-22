@@ -24,6 +24,7 @@
 #include "ListeRule.h"
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
+#include "HistLogger.h"
 
 JsonApi::JsonApi(HttpClient *client):
     httpClient(client)
@@ -1596,3 +1597,37 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
     Params p = {{ "success", "true" }};
     return p.toJson();
 }
+
+void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback)
+{
+    int page = 0;
+    int perPage = 100;
+
+    Utils::from_string(jParam["page"], page);
+    Utils::from_string(jParam["per_page"], perPage);
+
+    HistLogger::Instance().getEvents(page, perPage,
+            [=](bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)
+    {
+        Json jevents = Json::array();
+
+        if (!success)
+        {
+            Json err = {{ "error", errorMsg }};
+            callback(err);
+            return;
+        }
+
+        for (const auto &e: events)
+            jevents.emplace_back(e.toJson());
+
+        Json jroot = {
+            { "total_page", total_page },
+            { "total_count", total_count },
+            { "events", jevents }
+        };
+
+        callback(jroot);
+    });
+}
+

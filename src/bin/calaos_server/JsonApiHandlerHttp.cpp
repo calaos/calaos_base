@@ -145,6 +145,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processGetTimerange();
     else if (jsonParam["action"] == "camera")
         processCamera();
+    else if (jsonParam["action"] == "eventlog")
+        processEventLog();
     else
     {
         if (!jroot)
@@ -169,6 +171,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
             processSetTimerange(jroot);
         else if (jsonParam["action"] == "autoscenario")
             processAutoscenario(jroot);
+        else
+            sendJson({{ "error", "unknown action" }});
     }
 
     if (jroot)
@@ -207,9 +211,18 @@ void JsonApiHandlerHttp::sendJson(json_t *json)
     sendData.emit(res);
 }
 
-void JsonApiHandlerHttp::sendJson(const Params &p)
+void JsonApiHandlerHttp::sendJson(const Json &json)
 {
-    sendJson(p.toJson());
+    string data = json.dump();
+
+    Params headers;
+    headers.Add("Connection", "Close");
+    headers.Add("Cache-Control", "no-cache, must-revalidate");
+    headers.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
+    headers.Add("Content-Type", "application/json");
+    headers.Add("Content-Length", Utils::to_string(data.size()));
+    string res = httpClient->buildHttpResponse(HTTP_200, headers, data);
+    sendData.emit(res);
 }
 
 void JsonApiHandlerHttp::processGetHome()
@@ -688,6 +701,11 @@ void JsonApiHandlerHttp::processGetTimerange()
 void JsonApiHandlerHttp::processSetTimerange(json_t *jroot)
 {
     sendJson(buildJsonSetTimerange(jroot));
+}
+
+void JsonApiHandlerHttp::processEventLog()
+{
+    buildJsonEventLog(jsonParam, [this](Json &j) { sendJson(j); });
 }
 
 void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)

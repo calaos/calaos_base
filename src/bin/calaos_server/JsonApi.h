@@ -78,6 +78,8 @@ public:
 
     json_t *buildJsonGetIO(vector<string> iolist);
 
+    void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
+
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
     void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
