@@ -1606,6 +1606,26 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     Utils::from_string(jParam["page"], page);
     Utils::from_string(jParam["per_page"], perPage);
 
+    if (jParam["uuid"] != "")
+    {
+        //Only load 1 event
+        HistLogger::Instance().getEvent(jParam["uuid"],
+                [=](bool success, string errorMsg, const HistEvent &event)
+        {
+            if (!success)
+            {
+                Json err = {{ "error", errorMsg }};
+                callback(err);
+                return;
+            }
+
+            Json j = event.toJson();
+            callback(j);
+        });
+
+        return;
+    }
+
     HistLogger::Instance().getEvents(page, perPage,
             [=](bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)
     {

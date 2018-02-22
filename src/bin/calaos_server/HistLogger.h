@@ -69,6 +69,8 @@ public:
     //read events back from db async
     void getEvents(int page, int per_page,
                    std::function<void(bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)> callback);
+    void getEvent(string uuid,
+                  std::function<void(bool success, string errorMsg, const HistEvent &event)> callback);
 
 private:
     HistLogger();

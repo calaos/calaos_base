@@ -46,6 +46,7 @@ public:
         WorkerNoAction,
         WorkerAppend,
         WorkerRead,
+        WorkerReadSingle,
     };
 
     int action = WorkerNoAction;
@@ -55,6 +56,7 @@ public:
     bool success = true;
     string errMsg;
     int page, per_page, total_count, total_page;
+    string uuid;
 };
 
 HistEvent HistEvent::create()
@@ -125,6 +127,23 @@ void HistLogger::getEvents(int page, int per_page,
     a->handle->once<uvw::AsyncEvent>([callback, a](const auto &, uvw::AsyncHandle &h)
     {
         callback(a->success, a->errMsg, a->events, a->total_page, a->total_count);
+        h.close();
+    });
+
+    eventQueue.push(a);
+}
+
+void HistLogger::getEvent(string uuid,
+                          std::function<void(bool success, string errorMsg, const HistEvent &event)> callback)
+{
+    std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
+    a->action = HistWorkerAction::WorkerReadSingle;
+    a->handle = uvw::Loop::getDefault()->resource<uvw::AsyncHandle>();
+    a->uuid = uuid;
+
+    a->handle->once<uvw::AsyncEvent>([callback, a](const auto &, uvw::AsyncHandle &h)
+    {
+        callback(a->success, a->errMsg, a->event);
         h.close();
     });
 
@@ -259,6 +278,47 @@ void HistLogger::sqliteWorker()
                     cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
                 }
 
+            }
+            else if (ac->action == HistWorkerAction::WorkerReadSingle)
+            {
+                cDebugDom("history") << "Reading from SQLite db, uuid: " << ac->uuid;
+
+                try
+                {
+                    string q = "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events WHERE uuid = ?";
+                    cDebugDom("history") << q;
+
+                    db << q << ac->uuid
+                        >> [&](string uuid, string created_at, int event_type, string io_id, string io_state, string event_raw, string pic_uid)
+                    {
+                        ac->event.uuid = uuid;
+                        ac->event.event_type = event_type;
+                        ac->event.io_id = io_id;
+                        ac->event.io_state = io_state;
+                        ac->event.event_raw = event_raw;
+                        ac->event.pic_uid = pic_uid;
+                        ac->event.created_at = created_at;
+                    };
+
+                    if (ac->uuid != ac->event.uuid)
+                    {
+                        ac->success = false;
+                        ac->errMsg = "uuid not found";
+                    }
+
+                    //wakeup the mainloop with the result
+                    ac->handle->send();
+                }
+                catch (sqlite::sqlite_exception &e)
+                {
+                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
+                                            << " during " << e.get_sql();
+                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
+                }
+                catch (exception &e)
+                {
+                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
+                }
             }
         }
     }
