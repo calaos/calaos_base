@@ -7,7 +7,7 @@ source $SCRIPTDIR/../lib.sh
 
 #install dependencies
 
-sudo apt-get install autopoint libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libev-dev gcc-5 g++-5
+sudo apt-get install autopoint libjansson-dev libcurl4-gnutls-dev luajit libluajit-5.1-dev libow-dev libusb-1.0.0-dev curl imagemagick libev-dev gcc-5 g++-5 libsqlite3-dev
 #For OLA
 sudo apt-get install libcppunit-dev bison flex uuid-dev libprotobuf-dev protobuf-compiler libprotoc-dev
 
