@@ -91,6 +91,8 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_playlist_titles", "from": "0", "count": "1", "playlist_id": "0", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_track_infos", "from": "0", "count": "1", "track_id": "0", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "camera", "type": "get_picture", "id": "output_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "eventlog", "page": 0, "per_page": 100, "uuid": "<uuid for single event>" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "event_picture", "pic_uid": "<UUID>" }'
 ];
 
 $(document).ready(function() {
