@@ -2,9 +2,23 @@
 #include <uvw.hpp>
 
 
+struct fake_handle_t { void *data; };
+
+
+struct FakeHandle: uvw::Handle<FakeHandle, fake_handle_t> {
+    using Handle::Handle;
+
+    template<typename... Args>
+    bool init(Args&&...) { return initialize([](auto...){ return true; }); }
+};
+
+
 TEST(Handle, Functionalities) {
     auto loop = uvw::Loop::getDefault();
     auto handle = loop->resource<uvw::AsyncHandle>();
+
+    ASSERT_EQ(uvw::Utilities::guessHandle(handle->category()), uvw::HandleType::ASYNC);
+    ASSERT_EQ(handle->type(), uvw::HandleType::ASYNC);
 
     ASSERT_TRUE(handle->active());
     ASSERT_FALSE(handle->closing());
@@ -29,4 +43,12 @@ TEST(Handle, Functionalities) {
     ASSERT_FALSE(handle->recvBufferSize(0));
 
     ASSERT_NO_THROW(handle->fileno());
+}
+
+
+TEST(Handle, InitializationFailure) {
+    auto loop = uvw::Loop::getDefault();
+    auto resource = loop->resource<FakeHandle>();
+
+    ASSERT_FALSE(static_cast<bool>(resource));
 }

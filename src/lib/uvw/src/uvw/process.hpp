@@ -72,7 +72,7 @@ public:
     using StdIO = details::UVStdIOFlags;
 
     ProcessHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref)
-        : Handle{std::move(ca), std::move(ref)}, poFdStdio{1}
+        : Handle{ca, std::move(ref)}, poFdStdio{1}
     {
         // stdin container default initialization
         poFdStdio[0].flags = static_cast<uv_stdio_flags>(StdIO::IGNORE_STREAM);
@@ -111,8 +111,9 @@ public:
      * @return True in case of success, false otherwise.
      */
     bool init() {
-        // fake initialization so as to have leak invoked
-        return initialize([](auto...){ return 0; });
+        // deferred initialization: libuv initializes process handles only when
+        // uv_spawn is invoked and uvw stays true to the underlying library
+        return true;
     }
 
     /**
@@ -155,6 +156,10 @@ public:
         po.stdio_count = static_cast<decltype(po.stdio_count)>(poStdio.size());
         po.stdio = poStdio.data();
 
+        // fake initialization so as to have leak invoked
+        // see init member function for more details
+        initialize([](auto...){ return 0; });
+
         invoke(&uv_spawn, parent(), get(), &po);
     }
 
@@ -182,7 +187,7 @@ public:
      * @param path The working directory to be used when `spawn()` is invoked.
      * @return A reference to this process handle.
      */
-    ProcessHandle& cwd(std::string &path) noexcept {
+    ProcessHandle & cwd(std::string path) noexcept {
         poCwd = path;
         return *this;
     }
@@ -205,7 +210,7 @@ public:
      * @param flags A valid set of flags.
      * @return A reference to this process handle.
      */
-    ProcessHandle& flags(Flags<Process> flags) noexcept {
+    ProcessHandle & flags(Flags<Process> flags) noexcept {
         poFlags = flags;
         return *this;
     }
@@ -231,11 +236,11 @@ public:
      * @return A reference to this process handle.
      */
     template<typename T, typename U>
-    ProcessHandle& stdio(StreamHandle<T, U> &stream, Flags<StdIO> flags) {
+    ProcessHandle & stdio(StreamHandle<T, U> &stream, Flags<StdIO> flags) {
         uv_stdio_container_t container;
         Flags<StdIO>::Type fgs = flags;
         container.flags = static_cast<uv_stdio_flags>(fgs);
-        container.data.stream = this->template get<uv_stream_t>(stream);
+        container.data.stream = get<uv_stream_t>(stream);
         poStreamStdio.push_back(std::move(container));
         return *this;
     }
@@ -265,7 +270,7 @@ public:
      * @param flags A valid set of flags.
      * @return A reference to this process handle.
      */
-    ProcessHandle& stdio(FileHandle fd, Flags<StdIO> flags) {
+    ProcessHandle & stdio(FileHandle fd, Flags<StdIO> flags) {
         auto fgs = static_cast<uv_stdio_flags>(Flags<StdIO>::Type{flags});
 
         auto actual = FileHandle::Type{fd};
@@ -296,7 +301,7 @@ public:
      * @param id A valid user id to be used.
      * @return A reference to this process handle.
      */
-    ProcessHandle& uid(Uid id) {
+    ProcessHandle & uid(Uid id) {
         poUid = id;
         return *this;
     }
@@ -306,7 +311,7 @@ public:
      * @param id A valid group id to be used.
      * @return A reference to this process handle.
      */
-    ProcessHandle& gid(Gid id) {
+    ProcessHandle & gid(Gid id) {
         poGid = id;
         return *this;
     }

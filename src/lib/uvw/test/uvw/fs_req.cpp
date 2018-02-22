@@ -137,7 +137,8 @@ TEST(FsReq, Stat) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -188,7 +189,8 @@ TEST(FsReq, Lstat) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -240,7 +242,8 @@ TEST(FsReq, Rename) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -261,6 +264,16 @@ TEST(FsReq, RenameSync) {
     ASSERT_TRUE(fsReq->renameSync(filename, rename));
 
     loop->run();
+}
+
+
+TEST(FsReq, CopyFile) {
+    // TODO
+}
+
+
+TEST(FsReq, CopyFileSync) {
+    // TODO
 }
 
 
@@ -289,7 +302,8 @@ TEST(FsReq, Access) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -337,7 +351,8 @@ TEST(FsReq, Chmod) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -388,7 +403,8 @@ TEST(FsReq, Utime) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -449,7 +465,8 @@ TEST(FsReq, LinkAndUnlink) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -501,14 +518,15 @@ TEST(FsReq, SymlinkAndUnlink) {
     });
 
     fileReq->on<uvw::FsEvent<uvw::FileReq::Type::CLOSE>>([&fsReq, &filename, &linkname](const auto &, auto &) {
-        fsReq->symlink(filename, linkname, 0);
+        fsReq->symlink(filename, linkname);
     });
 
     fileReq->on<uvw::FsEvent<uvw::FileReq::Type::OPEN>>([](const auto &, auto &request) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -527,7 +545,7 @@ TEST(FsReq, SymlinkAndUnlinkSync) {
 
     ASSERT_TRUE(fileReq->openSync(filename, O_CREAT | O_RDWR | O_TRUNC, 0644));
     ASSERT_TRUE(fileReq->closeSync());
-    ASSERT_TRUE(fsReq->symlinkSync(filename, linkname, 0));
+    ASSERT_TRUE(fsReq->symlinkSync(filename, linkname));
     ASSERT_TRUE(fsReq->unlinkSync(linkname));
 
     loop->run();
@@ -565,7 +583,8 @@ TEST(FsReq, Readlink) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -620,7 +639,8 @@ TEST(FsReq, Realpath) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 
@@ -678,7 +698,8 @@ TEST(FsReq, Chown) {
         request.close();
     });
 
-    fileReq->open(filename, O_CREAT | O_RDWR | O_TRUNC, 0644);
+    auto flags = uvw::Flags<uvw::FileReq::FileOpen>::from<uvw::FileReq::FileOpen::CREAT, uvw::FileReq::FileOpen::RDWR, uvw::FileReq::FileOpen::TRUNC>();
+    fileReq->open(filename, flags, 0644);
 
     loop->run();
 

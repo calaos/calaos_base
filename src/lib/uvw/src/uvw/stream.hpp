@@ -97,7 +97,7 @@ public:
     using Deleter = void(*)(char *);
 
     WriteReq(ConstructorAccess ca, std::shared_ptr<Loop> loop, std::unique_ptr<char[], Deleter> dt, unsigned int len)
-        : Request<WriteReq, uv_write_t>{std::move(ca), std::move(loop)},
+        : Request<WriteReq, uv_write_t>{ca, std::move(loop)},
           data{std::move(dt)},
           buf{uv_buf_init(data.get(), len)}
     {}
@@ -135,13 +135,17 @@ class StreamHandle: public Handle<T, U> {
         // data will be destroyed no matter of what the value of nread is
         std::unique_ptr<char[]> data{buf->base};
 
+        // nread == 0 is ignored (see http://docs.libuv.org/en/v1.x/stream.html)
+        // equivalent to EAGAIN/EWOULDBLOCK, it shouldn't be treated as an error
+        // for we don't have data to emit though, it's fine to suppress it
+
         if(nread == UV_EOF) {
             // end of stream
             ref.publish(EndEvent{});
         } else if(nread > 0) {
             // data available
             ref.publish(DataEvent{std::move(data), static_cast<std::size_t>(nread)});
-        } else {
+        } else if(nread < 0) {
             // transmission error
             ref.publish(ErrorEvent(nread));
         }
@@ -154,9 +158,9 @@ class StreamHandle: public Handle<T, U> {
     }
 
 public:
-#ifdef _WIN32
+#ifdef _MSC_VER
     StreamHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref)
-        : Handle{std::move(ca), std::move(ref)}
+        : Handle{ca, std::move(ref)}
     {}
 #else
     using Handle<T, U>::Handle;
@@ -385,6 +389,29 @@ public:
     }
 
     /**
+     * @brief Queues a write request if it can be completed immediately.
+     *
+     * Same as `write()`, but won’t queue a write request if it can’t be
+     * completed immediately.<br/>
+     * An ErrorEvent event will be emitted in case of errors.
+     *
+     * @param data The data to be written to the stream.
+     * @param len The lenght of the submitted data.
+     * @return Number of bytes written.
+     */
+    int tryWrite(char *data, unsigned int len) {
+        uv_buf_t bufs[] = { uv_buf_init(data, len) };
+        auto bw = uv_try_write(this->template get<uv_stream_t>(), bufs, 1);
+
+        if(bw < 0) {
+            this->publish(ErrorEvent{bw});
+            bw = 0;
+        }
+
+        return bw;
+    }
+
+    /**
      * @brief Checks if the stream is readable.
      * @return True if the stream is readable, false otherwise.
      */
@@ -417,6 +444,14 @@ public:
      */
     bool blocking(bool enable = false) {
         return (0 == uv_stream_set_blocking(this->template get<uv_stream_t>(), enable));
+    }
+
+    /**
+     * @brief Gets the amount of queued bytes waiting to be sent.
+     * @return Amount of queued bytes waiting to be sent.
+     */
+    size_t writeQueueSize() const noexcept {
+        return uv_stream_get_write_queue_size(this->template get<uv_stream_t>());
     }
 };
 

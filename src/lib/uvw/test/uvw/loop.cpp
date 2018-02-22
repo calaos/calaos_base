@@ -30,7 +30,13 @@ TEST(Loop, Functionalities) {
     ASSERT_TRUE(static_cast<bool>(handle));
     ASSERT_TRUE(static_cast<bool>(req));
 
+    ASSERT_TRUE(loop->descriptor());
+    ASSERT_NO_THROW(loop->now());
+    ASSERT_NO_THROW(loop->update());
+    ASSERT_NO_THROW(loop->fork());
+
     ASSERT_FALSE(loop->alive());
+    ASSERT_FALSE(loop->timeout().first);
 
     handle->start();
     handle->on<uvw::PrepareEvent>([](const auto &, auto &hndl) {
@@ -44,6 +50,7 @@ TEST(Loop, Functionalities) {
     });
 
     ASSERT_TRUE(loop->alive());
+    ASSERT_TRUE(loop->timeout().first);
     ASSERT_NO_THROW(loop->run());
 
     loop->walk([](uvw::BaseHandle &) { FAIL(); });
@@ -52,4 +59,25 @@ TEST(Loop, Functionalities) {
     ASSERT_NO_THROW(loop->run<uvw::Loop::Mode::NOWAIT>());
 
     ASSERT_FALSE(loop->alive());
+}
+
+
+TEST(Loop, UserData) {
+    auto loop = uvw::Loop::create();
+    loop->data(std::make_shared<int>(42));
+
+    ASSERT_EQ(*std::static_pointer_cast<int>(loop->data()), 42);
+    ASSERT_EQ(*loop->data<int>(), 42);
+
+    loop->run();
+
+    ASSERT_EQ(*std::static_pointer_cast<int>(loop->data()), 42);
+    ASSERT_EQ(*loop->data<int>(), 42);
+}
+
+
+TEST(Loop, Configure) {
+    auto loop = uvw::Loop::create();
+    ASSERT_NO_THROW(loop->configure(uvw::Loop::Configure::BLOCK_SIGNAL, 9));
+    ASSERT_NO_THROW(loop->run());
 }

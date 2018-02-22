@@ -12,6 +12,7 @@
 #include <chrono>
 #include <uv.h>
 #include "emitter.hpp"
+#include "util.hpp"
 
 
 namespace uvw {
@@ -43,8 +44,29 @@ enum class UVRunMode: std::underlying_type_t<uv_run_mode> {
  * users walk them as untyped instances.<br/>
  * This can help to end all the pending requests by closing the handles.
  */
-class BaseHandle {
-public:
+struct BaseHandle {
+    /**
+     * @brief Gets the category of the handle.
+     *
+     * A base handle offers no functionality to promote it to the actual handle
+     * type. By means of this function, an opaque value that identifies the
+     * category of the handle is made available to the users.
+     *
+     * @return The actual category of the handle.
+     */
+    virtual HandleCategory category() const noexcept = 0;
+
+    /**
+     * @brief Gets the type of the handle.
+     *
+     * A base handle offers no functionality to promote it to the actual handle
+     * type. By means of this function, the type of the underlying handle as
+     * specified by HandleType is made available to the user.
+     *
+     * @return The actual type of the handle.
+     */
+    virtual HandleType type() const noexcept = 0;
+
     /**
      * @brief Checks if the handle is active.
      *
@@ -113,7 +135,7 @@ public:
  * @brief The Loop class.
  *
  * The event loop is the central part of `uvw`'s functionalities, as well as
- * libuv's ones.<br/>
+ * `libuv`'s ones.<br/>
  * It takes care of polling for I/O and scheduling callbacks to be run based on
  * different sources of events.
  */
@@ -181,8 +203,8 @@ public:
 
     Loop(const Loop &) = delete;
     Loop(Loop &&other) = delete;
-    Loop& operator=(const Loop &) = delete;
-    Loop& operator=(Loop &&other) = delete;
+    Loop & operator=(const Loop &) = delete;
+    Loop & operator=(Loop &&other) = delete;
 
     ~Loop() noexcept {
         if(loop) {
@@ -208,7 +230,8 @@ public:
      */
     template<typename... Args>
     void configure(Configure flag, Args&&... args) {
-        auto err = uv_loop_configure(loop.get(), static_cast<std::underlying_type_t<Configure>>(flag), std::forward<Args>(args)...);
+        auto option = static_cast<std::underlying_type_t<Configure>>(flag);
+        auto err = uv_loop_configure(loop.get(), static_cast<uv_loop_option>(option), std::forward<Args>(args)...);
         if(err) { publish(ErrorEvent{err}); }
     }
 
@@ -374,8 +397,61 @@ public:
         }, &callback);
     }
 
+    /**
+     * @brief Reinitialize any kernel state necessary in the child process after
+     * a fork(2) system call.
+     *
+     * Previously started watchers will continue to be started in the child
+     * process.
+     *
+     * It is necessary to explicitly call this function on every event loop
+     * created in the parent process that you plan to continue to use in the
+     * child, including the default loop (even if you don’t continue to use it
+     * in the parent). This function must be called before calling any API
+     * function using the loop in the child. Failure to do so will result in
+     * undefined behaviour, possibly including duplicate events delivered to
+     * both parent and child or aborting the child process.
+     *
+     * When possible, it is preferred to create a new loop in the child process
+     * instead of reusing a loop created in the parent. New loops created in the
+     * child process after the fork should not use this function.
+     *
+     * Note that this function is not implemented on Windows.<br/>
+     * Note also that this function is experimental in `libuv`. It may contain
+     * bugs, and is subject to change or removal. API and ABI stability is not
+     * guaranteed.
+     *
+     * An ErrorEvent will be emitted in case of errors.
+     *
+     * See the official
+     * [documentation](http://docs.libuv.org/en/v1.x/loop.html#c.uv_loop_fork)
+     * for further details.
+     */
+    void fork() noexcept {
+        auto err = uv_loop_fork(loop.get());
+        if(err) { publish(ErrorEvent{err}); }
+    }
+
+    /**
+     * @brief Gets user-defined data. `uvw` won't use this field in any case.
+     * @return User-defined data if any, an invalid pointer otherwise.
+     */
+    template<typename R = void>
+    std::shared_ptr<R> data() const {
+        return std::static_pointer_cast<R>(userData);
+    }
+
+    /**
+     * @brief Sets arbitrary data. `uvw` won't use this field in any case.
+     * @param uData User-defined arbitrary data.
+     */
+    void data(std::shared_ptr<void> uData) {
+        userData = std::move(uData);
+    }
+
 private:
     std::unique_ptr<uv_loop_t, Deleter> loop;
+    std::shared_ptr<void> userData{nullptr};
 };
 
 

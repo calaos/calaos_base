@@ -4,6 +4,7 @@
 #include <utility>
 #include <string>
 #include <memory>
+#include <chrono>
 #include <uv.h>
 #include "handle.hpp"
 #include "util.hpp"
@@ -45,6 +46,8 @@ class FsPollHandle final: public Handle<FsPollHandle, uv_fs_poll_t> {
     }
 
 public:
+    using Time = std::chrono::duration<unsigned int, std::milli>;
+
     using Handle::Handle;
 
     /**
@@ -63,8 +66,8 @@ public:
      * @param file The path to the file to be checked.
      * @param interval Milliseconds between successive checks.
      */
-    void start(std::string file, unsigned int interval) {
-        invoke(&uv_fs_poll_start, get(), &startCallback, file.data(), interval);
+    void start(std::string file, Time interval) {
+        invoke(&uv_fs_poll_start, get(), &startCallback, file.data(), interval.count());
     }
 
     /**
@@ -76,10 +79,11 @@ public:
 
     /**
      * @brief Gets the path being monitored by the handle.
-     * @return The path being monitored by the handle.
+     * @return The path being monitored by the handle, an empty string in case
+     * of errors.
      */
     std::string path() noexcept {
-        return details::path(&uv_fs_poll_getpath, get());
+        return details::tryRead(&uv_fs_poll_getpath, get());
     }
 };
 

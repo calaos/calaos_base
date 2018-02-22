@@ -15,6 +15,18 @@
 namespace uvw {
 
 
+namespace details {
+
+
+enum class UVChmodFlags: std::underlying_type_t<uv_poll_event> {
+    READABLE = UV_READABLE,
+    WRITABLE = UV_WRITABLE
+};
+
+
+}
+
+
 /**
  * @brief The PipeHandle handle.
  *
@@ -28,8 +40,10 @@ namespace uvw {
  */
 class PipeHandle final: public StreamHandle<PipeHandle, uv_pipe_t> {
 public:
+    using Chmod = details::UVChmodFlags;
+
     explicit PipeHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref, bool pass = false)
-        : StreamHandle{std::move(ca), std::move(ref)}, ipc{pass}
+        : StreamHandle{ca, std::move(ref)}, ipc{pass}
     {}
 
     /**
@@ -44,7 +58,8 @@ public:
      * @brief Opens an existing file descriptor or HANDLE as a pipe.
      *
      * The passed file descriptor or HANDLE is not checked for its type, but
-     * it’s required that it represents a valid pipe.
+     * it’s required that it represents a valid pipe.<br/>
+     * An ErrorEvent event is emitted in case of errors.
      *
      * @param file A valid file handle (either a file descriptor or a HANDLE).
      */
@@ -55,7 +70,8 @@ public:
     /**
      * @brief bind Binds the pipe to a file path (Unix) or a name (Windows).
      *
-     * Paths on Unix get truncated typically between 92 and 108 bytes.
+     * Paths on Unix get truncated typically between 92 and 108 bytes.<br/>
+     * An ErrorEvent event is emitted in case of errors.
      *
      * @param name A valid file path.
      */
@@ -66,7 +82,10 @@ public:
     /**
      * @brief Connects to the Unix domain socket or the named pipe.
      *
-     * Paths on Unix get truncated typically between 92 and 108 bytes.
+     * Paths on Unix get truncated typically between 92 and 108 bytes.<br/>
+     * A ConnectEvent event is emitted when the connection has been
+     * established.<br/>
+     * An ErrorEvent event is emitted in case of errors during the connection.
      *
      * @param name A valid domain socket or named pipe.
      */
@@ -83,20 +102,21 @@ public:
 
     /**
      * @brief Gets the name of the Unix domain socket or the named pipe.
-     * @return The name of the Unix domain socket or the named pipe.
+     * @return The name of the Unix domain socket or the named pipe, an empty
+     * string in case of errors.
      */
     std::string sock() const noexcept {
-        return details::path(&uv_pipe_getsockname, get());
+        return details::tryRead(&uv_pipe_getsockname, get());
     }
 
     /**
      * @brief Gets the name of the Unix domain socket or the named pipe to which
      * the handle is connected.
      * @return The name of the Unix domain socket or the named pipe to which
-     * the handle is connected.
+     * the handle is connected, an empty string in case of errors.
      */
     std::string peer() const noexcept {
-        return details::path(&uv_pipe_getpeername, get());
+        return details::tryRead(&uv_pipe_getpeername, get());
     }
 
     /**
@@ -137,8 +157,29 @@ public:
      * * `HandleType::UNKNOWN`
      */
     HandleType receive() noexcept {
-        auto type = uv_pipe_pending_type(get());
-        return Utilities::guessHandle(type);
+        HandleCategory category = uv_pipe_pending_type(get());
+        return Utilities::guessHandle(category);
+    }
+
+    /**
+     * @brief Alters pipe permissions.
+     *
+     * It allows the pipe to be accessed from processes run by different users.
+     *
+     * Available flags are:
+     *
+     * * `PipeHandle::Chmod::READABLE`
+     * * `PipeHandle::Chmod::WRITABLE`
+     *
+     * See the official
+     * [documentation](http://docs.libuv.org/en/v1.x/pipe.html#c.uv_pipe_chmod)
+     * for further details.
+     *
+     * @param flags A valid set of flags.
+     * @return True in case of success, false otherwise.
+     */
+    bool chmod(Flags<Chmod> flags) noexcept {
+        return (0 == uv_pipe_chmod(get(), flags));
     }
 
 private:

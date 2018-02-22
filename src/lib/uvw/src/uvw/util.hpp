@@ -52,12 +52,24 @@ template<typename T>
 struct UVTypeWrapper {
     using Type = T;
 
+    constexpr UVTypeWrapper(): value{} {}
     constexpr UVTypeWrapper(Type val): value{val} {}
+
     constexpr operator Type() const noexcept { return value; }
+
+    bool operator==(UVTypeWrapper other) const noexcept {
+        return value == other.value;
+    }
 
 private:
     const Type value;
 };
+
+
+template<typename T>
+bool operator==(UVTypeWrapper<T> lhs, UVTypeWrapper<T> rhs) {
+    return !(lhs == rhs);
+}
 
 
 }
@@ -116,12 +128,12 @@ public:
 
     ~Flags() noexcept { static_assert(std::is_enum<E>::value, "!"); }
 
-    CONSTEXPR_SPECIFIER Flags& operator=(const Flags &f) noexcept {
+    CONSTEXPR_SPECIFIER Flags & operator=(const Flags &f) noexcept {
         flags = f.flags;
         return *this;
     }
 
-    CONSTEXPR_SPECIFIER Flags& operator=(Flags &&f) noexcept {
+    CONSTEXPR_SPECIFIER Flags & operator=(Flags &&f) noexcept {
         flags = std::move(f.flags);
         return *this;
     }
@@ -180,33 +192,85 @@ struct WinSize {
 };
 
 
-using HandleType = details::UVHandleType;
+using HandleType = details::UVHandleType; /*!< The type of a handle. */
 
-using FileHandle = details::UVTypeWrapper<uv_file>;
-using OSSocketHandle = details::UVTypeWrapper<uv_os_sock_t>;
-using OSFileDescriptor = details::UVTypeWrapper<uv_os_fd_t>;
+using HandleCategory = details::UVTypeWrapper<uv_handle_type>; /*!< Utility class that wraps an internal handle type. */
+using FileHandle = details::UVTypeWrapper<uv_file>; /*!< Utility class that wraps an internal file handle. */
+using OSSocketHandle = details::UVTypeWrapper<uv_os_sock_t>; /*!< Utility class that wraps an os socket handle. */
+using OSFileDescriptor = details::UVTypeWrapper<uv_os_fd_t>; /*!< Utility class that wraps an os file descriptor. */
+using PidType = details::UVTypeWrapper<uv_pid_t>; /*!< Utility class that wraps a cross platform representation of a pid. */
 
 constexpr FileHandle StdIN{0}; /*!< Placeholder for stdin descriptor. */
 constexpr FileHandle StdOUT{1}; /*!< Placeholder for stdout descriptor. */
 constexpr FileHandle StdERR{2}; /*!< Placeholder for stderr descriptor. */
 
-using TimeSpec = uv_timespec_t;
-using Stat = uv_stat_t;
-using Uid = uv_uid_t;
-using Gid = uv_gid_t;
+using TimeSpec = uv_timespec_t; /*!< Library equivalent for uv_timespec_t. */
+using Stat = uv_stat_t; /*!< Library equivalent for uv_stat_t. */
+using Uid = uv_uid_t; /*!< Library equivalent for uv_uid_t. */
+using Gid = uv_gid_t; /*!< Library equivalent for uv_gid_t. */
 
-using TimeVal = uv_timeval_t;
-using RUsage = uv_rusage_t;
+using TimeVal = uv_timeval_t; /*!< Library equivalent for uv_timeval_t. */
+using RUsage = uv_rusage_t; /*!< Library equivalent for uv_rusage_t. */
 
 
+/**
+ * @brief Utility class.
+ *
+ * This class can be used to query the subset of the password file entry for the
+ * current effective uid (not the real uid).
+ *
+ * \sa Utilities::passwd
+ */
 struct Passwd {
     Passwd(std::shared_ptr<uv_passwd_t> pwd): passwd{pwd} {}
 
-    std::string username() const noexcept { return passwd->username; }
-    auto uid() const noexcept { return passwd->uid; }
-    auto gid() const noexcept { return passwd->gid; }
-    std::string shell() const noexcept { return passwd->shell; }
-    std::string homedir() const noexcept { return passwd->homedir; }
+    /**
+     * @brief Gets the username.
+     * @return The username of the current effective uid (not the real uid).
+     */
+    std::string username() const noexcept {
+        return ((passwd && passwd->username) ? passwd->username : "");
+    }
+
+    /**
+     * @brief Gets the uid.
+     * @return The current effective uid (not the real uid).
+     */
+    auto uid() const noexcept {
+        return (passwd ? passwd->uid : decltype(uv_passwd_t::uid){});
+    }
+
+    /**
+     * @brief Gets the gid.
+     * @return The gid of the current effective uid (not the real uid).
+     */
+    auto gid() const noexcept {
+        return (passwd ?  passwd->gid : decltype(uv_passwd_t::gid){});
+    }
+
+    /**
+     * @brief Gets the shell.
+     * @return The shell of the current effective uid (not the real uid).
+     */
+    std::string shell() const noexcept {
+        return ((passwd && passwd->shell) ? passwd->shell : "");
+    }
+
+    /**
+     * @brief Gets the homedir.
+     * @return The homedir of the current effective uid (not the real uid).
+     */
+    std::string homedir() const noexcept {
+        return ((passwd && passwd->homedir) ? passwd->homedir: "");
+    }
+
+    /**
+     * @brief Checks if the instance contains valid data.
+     * @return True if data are all valid, false otherwise.
+     */
+    operator bool() const noexcept {
+        return static_cast<bool>(passwd);
+    }
 
 private:
     std::shared_ptr<uv_passwd_t> passwd;
@@ -335,7 +399,7 @@ Addr address(F &&f, const H *handle) noexcept {
 
 
 template<typename F, typename... Args>
-std::string path(F &&f, Args&&... args) noexcept {
+std::string tryRead(F &&f, Args&&... args) noexcept {
     std::size_t size = DEFAULT_SIZE;
     char buf[DEFAULT_SIZE];
     std::string str{};
@@ -348,7 +412,7 @@ std::string path(F &&f, Args&&... args) noexcept {
         if(0 == err) {
             str = data.get();
         }
-    } else {
+    } else if(0 == err) {
         str.assign(buf, size);
     }
 
@@ -370,7 +434,36 @@ struct Utilities {
     using CallocFuncType = void*(*)(size_t, size_t);
     using FreeFuncType = void(*)(void*);
 
+    /**
+     * @brief OS dedicated utilities.
+     */
     struct OS {
+        /**
+         * @brief Returns the current process id.
+         *
+         * See the official
+         * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_os_getpid)
+         * for further details.
+         *
+         * @return The current process id.
+         */
+        static PidType pid() noexcept {
+            return uv_os_getpid();
+        }
+
+        /**
+         * @brief Returns the parent process id.
+         *
+         * See the official
+         * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_os_getppid)
+         * for further details.
+         *
+         * @return The parent process id.
+         */
+        static PidType parent() noexcept {
+            return uv_os_getppid();
+        }
+
         /**
          * @brief Gets the current user's home directory.
          *
@@ -378,10 +471,11 @@ struct Utilities {
          * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_os_homedir)
          * for further details.
          *
-         * @return The current user's home directory.
+         * @return The current user's home directory, an empty string in case of
+         * errors.
          */
         static std::string homedir() noexcept {
-            return details::path(&uv_os_homedir);
+            return details::tryRead(&uv_os_homedir);
         }
 
         /**
@@ -391,10 +485,39 @@ struct Utilities {
          * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_os_tmpdir)
          * for further details.
          *
-         * @return The temp directory.
+         * @return The temp directory, an empty string in case of errors.
          */
         static std::string tmpdir() noexcept {
-            return details::path(&uv_os_tmpdir);
+            return details::tryRead(&uv_os_tmpdir);
+        }
+
+        /**
+         * @brief Retrieves an environment variable.
+         * @param name The name of the variable to be retrieved.
+         * @return The value of the environment variable, an empty string in
+         * case of errors.
+         */
+        static std::string env(const std::string &name) noexcept {
+            return details::tryRead(&uv_os_getenv, name.c_str());
+        }
+
+        /**
+         * @brief Creates, updates or deletes an environment variable.
+         * @param name The name of the variable to be updated.
+         * @param value The value to be used for the variable (an empty string
+         * to unset it).
+         * @return True in case of success, false otherwise.
+         */
+        static bool env(const std::string &name, const std::string &value) noexcept {
+            return (0 == (value.empty() ? uv_os_unsetenv(name.c_str()) : uv_os_setenv(name.c_str(), value.c_str())));
+        }
+
+        /**
+         * @brief Returns the hostname.
+         * @return The hostname, an empty string in case of errors.
+         */
+        static std::string hostname() noexcept {
+            return details::tryRead(&uv_os_gethostname);
         }
 
         /**
@@ -422,27 +545,12 @@ struct Utilities {
     };
 
     /**
-     * @brief Gets the type of the stream to be used with the given descriptor.
-     *
-     * Returns the type of stream that should be used with a given file
-     * descriptor.<br/>
-     * Usually this will be used during initialization to guess the type of the
-     * stdio streams.
-     *
-     * @param file A valid descriptor.
-     * @return One of the following types:
-     *
-     * * `HandleType::UNKNOWN`
-     * * `HandleType::PIPE`
-     * * `HandleType::TCP`
-     * * `HandleType::TTY`
-     * * `HandleType::UDP`
-     * * `HandleType::FILE`
+     * @brief Gets the type of the handle given a category.
+     * @param category A properly initialized handle category.
+     * @return The actual type of the handle as defined by HandleType
      */
-    static HandleType guessHandle(FileHandle file) noexcept {
-        auto type = uv_guess_handle(file);
-
-        switch(type) {
+    static HandleType guessHandle(HandleCategory category) noexcept {
+        switch(category) {
         case UV_ASYNC:
             return HandleType::ASYNC;
         case UV_CHECK:
@@ -482,6 +590,29 @@ struct Utilities {
         }
     }
 
+    /**
+     * @brief Gets the type of the stream to be used with the given descriptor.
+     *
+     * Returns the type of stream that should be used with a given file
+     * descriptor.<br/>
+     * Usually this will be used during initialization to guess the type of the
+     * stdio streams.
+     *
+     * @param file A valid descriptor.
+     * @return One of the following types:
+     *
+     * * `HandleType::UNKNOWN`
+     * * `HandleType::PIPE`
+     * * `HandleType::TCP`
+     * * `HandleType::TTY`
+     * * `HandleType::UDP`
+     * * `HandleType::FILE`
+     */
+    static HandleType guessHandle(FileHandle file) noexcept {
+        HandleCategory category = uv_guess_handle(file);
+        return guessHandle(category);
+    }
+
 
     /** @brief Gets information about the CPUs on the system.
      *
@@ -506,7 +637,6 @@ struct Utilities {
 
         return cpuinfos;
     }
-
 
     /**
      * @brief Gets a set of descriptors of all the available interfaces.
@@ -547,6 +677,36 @@ struct Utilities {
         return interfaces;
     }
 
+    /**
+     * @brief IPv6-capable implementation of
+     * [if_indextoname](https://linux.die.net/man/3/if_indextoname).
+     *
+     * Mapping between network interface names and indexes.
+     *
+     * See the official
+     * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_if_indextoname)
+     * for further details.
+     *
+     * @param index Network interface index.
+     * @return Network interface name.
+     */
+    static std::string indexToName(unsigned int index) noexcept {
+        return details::tryRead(&uv_if_indextoname, index);
+    }
+
+    /**
+     * @brief Retrieves a network interface identifier.
+     *
+     * See the official
+     * [documentation](http://docs.libuv.org/en/v1.x/misc.html#c.uv_if_indextoiid)
+     * for further details.
+     *
+     * @param index Network interface index.
+     * @return Network interface identifier.
+     */
+    static std::string indexToIid(unsigned int index) noexcept {
+        return details::tryRead(&uv_if_indextoiid, index);
+    }
 
     /**
      * @brief Override the use of some standard library’s functions.
@@ -582,6 +742,42 @@ struct Utilities {
         std::array<double, 3> avg;
         uv_loadavg(avg.data());
         return avg;
+    }
+
+    /**
+     * @brief Store the program arguments.
+     *
+     * Required for getting / setting the process title.
+     *
+     * @return Arguments that haven't been consumed internally.
+     */
+    static char ** setupArgs(int argc, char** argv) {
+        return uv_setup_args(argc, argv);
+    }
+
+    /**
+     * @brief Gets the title of the current process.
+     * @return The process title.
+     */
+    static std::string processTitle() {
+        std::size_t size = details::DEFAULT_SIZE;
+        char buf[details::DEFAULT_SIZE];
+        std::string str{};
+
+        if(0 == uv_get_process_title(buf, size)) {
+            str.assign(buf, size);
+        }
+
+        return str;
+    }
+
+    /**
+     * @brief Sets the current process title.
+     * @param title The process title to be set.
+     * @return True in case of success, false otherwise.
+     */
+    static bool processTitle(std::string title) {
+        return (0 == uv_set_process_title(title.c_str()));
     }
 
     /**
@@ -634,8 +830,8 @@ struct Utilities {
      * @brief Gets the executable path.
      * @return The executable path, an empty string in case of errors.
      */
-    static std::string exepath() noexcept {
-        return details::path(&uv_exepath);
+    static std::string path() noexcept {
+        return details::tryRead(&uv_exepath);
     }
 
     /**
@@ -643,7 +839,7 @@ struct Utilities {
      * @return The current working directory, an empty string in case of errors.
      */
     static std::string cwd() noexcept {
-        return details::path(&uv_cwd);
+        return details::tryRead(&uv_cwd);
     }
 
     /**

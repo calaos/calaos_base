@@ -1,9 +1,11 @@
 ![cynny-logo](https://web.cynny.com/live/static/favicon/favicon-16.png) **Sponsored and contributed by [Cynny SpA](https://www.cynny.com/).**
 
-# uvw
+# uvw - libuv wrapper in modern C++
 
 [![Build Status](https://travis-ci.org/skypjack/uvw.svg?branch=master)](https://travis-ci.org/skypjack/uvw)
 [![Build status](https://ci.appveyor.com/api/projects/status/m5ndm8gnu8isg2to?svg=true)](https://ci.appveyor.com/project/skypjack/uvw)
+[![Coverage Status](https://coveralls.io/repos/github/skypjack/uvw/badge.svg?branch=master)](https://coveralls.io/github/skypjack/uvw?branch=master)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=W2HF9FESD5LJY&lc=IT&item_name=Michele%20Caini&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted)
 
 # Introduction
 
@@ -14,7 +16,7 @@ As an example, a *handle* should be initialized before any other operation and c
 
 ## Code Example
 
-```
+```cpp
 #include <uvw.hpp>
 #include <memory>
 
@@ -67,15 +69,15 @@ The main reason for which `uvw` has been written is the fact that it does not ex
 
 To be able to use `uvw`, users must provide the following system-wide tools:
 
-* A full-featured compiler that supports at least C++14
-* `libuv` version 1.9.0 or later
+* A full-featured compiler that supports at least C++14.
+* `libuv` (which version depends on the tag of `uvw` in use).
 
 The requirements below are mandatory to compile the tests and to extract the documentation:
 
-* CMake version 3.4 or later
-* Doxygen version 1.8 or later
+* CMake version 3.2 or later.
+* Doxygen version 1.8 or later.
 
-Note that `libuv` is part of the dependencies of the project and it will be cloned by executing the script `deps.sh` (see below for further details).<br/>
+Note that `libuv` is part of the dependencies of the project and it will be cloned by `cmake` (see below for further details).<br/>
 Because of that, users have not to install it to compile and execute the tests.
 
 ## Library
@@ -84,14 +86,33 @@ Because of that, users have not to install it to compile and execute the tests.
 This means that including the `uvw.hpp` header or one of the other `uvw/*.hpp` headers is enough to use it.<br/>
 It's a matter of adding the following line at the top of a file:
 
-    #include <uvw.hpp>
+```cpp
+#include <uvw.hpp>
+```
 
 Then pass the proper `-I` argument to the compiler to add the `src` directory to the include paths.<br/>
 Note that users are demanded to correctly setup include directories and libraries search paths for *libuv*.
 
-## Documentation
+## Versioning
 
-### API Reference
+Starting with tag _v1.12.0_ of `libuv`, `uvw` follows the [semantic versioning](http://semver.org/) scheme.<br/>
+The problem is that any version of `uvw` also requires to track explicitly the version of `libuv` to which it is bound.<br/>
+Because of that, the latter wil be appended to the version of `uvw`. As an example:
+
+    vU.V.W_libuv-vX.Y
+
+In particular, the following applies:
+
+* _U.V.W_ are major, minor and patch versions of `uvw`.
+* _X.Y_ is the version of `libuv` to which to refer (where any patch version is valid).
+
+In other terms, tags will look like this from now on:
+
+    v1.0.0_libuv-v1.12
+
+Branch `master` of `uvw` will be a work in progress branch that follows branch _v1.x_ of `libuv` (at least as long as it remains their _master_ branch).<br/>
+
+## Documentation
 
 The documentation is based on [`doxygen`](http://www.stack.nl/~dimitri/doxygen/). To build it:
 
@@ -105,9 +126,28 @@ To navigate it with your favorite browser:
 * `$ cd build`
 * `$ your_favorite_browser docs/html/index.html`
 
-### Crash Course
+The API reference is also available [online](https://skypjack.github.io/uvw/) for the latest version.
 
-#### Vademecum
+### Note
+
+The documentation is mostly inspired by the official [libuv API documentation](http://docs.libuv.org/en/v1.x/) for obvious reasons.<br/>
+If you are mainly interested in the way `uvw` imports `libuv` in a `cmake` based project, I suggest you to take a look at [this](https://github.com/skypjack/libuv_cmake) repository instead.
+
+## Tests
+
+To compile and run the tests, `uvw` requires *libuv* and *googletest*.<br/>
+`cmake` will download and compile both the libraries before to compile anything else.
+
+To build the tests:
+
+* `$ cd build`
+* `$ cmake ..`
+* `$ make`
+* `$ make test`
+
+# Crash Course
+
+## Vademecum
 
 There is only one rule when using `uvw`: always initialize the resources and terminate them.
 
@@ -115,80 +155,97 @@ Resources belong mainly to two families: _handles_ and _requests_.<br/>
 Handles represent long-lived objects capable of performing certain operations while active.<br/>
 Requests represent (typically) short-lived operations performed either over a handle or standalone.
 
-The following sections will explain in short what it means to initialize and terminate these kinds of resources.
+The following sections will explain in short what it means to initialize and terminate these kinds of resources.<br/>
+For more details, please refer to the [online documentation](https://skypjack.github.io/uvw/).
 
-#### Handles
+## Handles
 
 Initialization is usually performed under the hood and can be even passed over, as far as handles are created using the `Loop::resource` member function.<br/>
 On the other side, handles keep themselves alive until one explicitly closes them. Because of that, memory usage will grow up if users simply forget about a handle.<br/>
-Therefore the rule quickly becomes *always close your handles*. It's simple as calling the `close` member function on them.
+Therefore the rule quickly becomes *always close your handles*. It's as simple as calling the `close` member function on them.
 
-#### Requests
+## Requests
 
 Usually initializing a request object is not required. Anyway, the recommended way to create a request is still through the `Loop::resource` member function.<br/>
 Requests will keep themselves alive as long as they are bound to unfinished underlying activities. This means that users have not to discard explicitly a request.<br/>
-Therefore the rule quickly becomes *feel free to make a request and forget about it*. It's simple as calling a member function on them.
+Therefore the rule quickly becomes *feel free to make a request and forget about it*. It's as simple as calling a member function on them.
 
-#### The Loop and the Resource
+## The Loop and the Resource
 
 The first thing to do to use `uvw` is to create a loop. In case the default one is enough, it's easy as doing this:
 
-    auto loop = uvw::Loop::getDefault();
+```cpp
+auto loop = uvw::Loop::getDefault();
+```
 
 Note that loop objects don't require to be closed explicitly, even if they offer the `close` member function in case an user wants to do that.<br/>
 Loops can be started using the `run` member function. The two calls below are equivalent:
 
-    loop->run();
-    loop->run<uvw::Loop::Mode::DEFAULT>
+```cpp
+loop->run();
+loop->run<uvw::Loop::Mode::DEFAULT>
+```
 
 Available modes are: `DEFAULT`, `ONCE`, `NOWAIT`. Please refer to the documentation of *libuv* for further details.
 
 In order to create a resource and to bind it to the given loop, just do the following:
 
-    auto tcp = loop.resource<uvw::TcpHandle>();
+```cpp
+auto tcp = loop.resource<uvw::TcpHandle>();
+```
 
 The line above will create and initialize a tcp handle, then a shared pointer to that resource will be returned.<br/>
 Users should check if pointers have been correctly initialized: in case of errors, they won't be.<br/>
 Another way to create a resource is:
 
-    auto tcp = TcpHandle::create(loop);
-    tcp->init();
+```cpp
+auto tcp = TcpHandle::create(loop);
+tcp->init();
+```
 
 Pretty annoying indeed. Using a loop is the recommended approach.
 
 The resources also accept arbitrary user-data that won't be touched in any case.<br/>
 Users can set and get them through the `data` member function as it follows:
 
-    resource->data(std::make_shared<int>(42));
-    std::shared_ptr<void> data = resource->data();
+```cpp
+resource->data(std::make_shared<int>(42));
+std::shared_ptr<void> data = resource->data();
+```
 
 Resources expect a `std::shared_pointer<void>` and return it, therefore any kind of data is welcome.<br/>
 Users can explicitly specify a type other than `void` when calling the `data` member function:
 
-    std::shared_ptr<int> data = resource->data<int>();
+```cpp
+std::shared_ptr<int> data = resource->data<int>();
+```
 
 Remember from the previous section that a handle will keep itself alive until one invokes the `close` member function on it.<br/>
 To know what are the handles that are still alive and bound to a given loop, just do the following:
 
-    loop.walk([](uvw::BaseHandle &){ /* application code here */ });
+```cpp
+loop.walk([](uvw::BaseHandle &){ /* application code here */ });
+```
 
-`BaseHandle` exposes a few methods and cannot be used to know the original type of the handle.<br/>
+`BaseHandle` exposes a few methods and cannot be promoted to the original type of the handle (even though `type` and `category` member functions fill the gap somehow).<br/>
 Anyway, it can be used to close the handle that originated from it. As an example, all the pending handles can be closed easily as it follows:
 
-    loop.walk([](uvw::BaseHandle &h){ h.close(); });
+```cpp
+loop.walk([](uvw::BaseHandle &h){ h.close(); });
+```
 
 No need to keep track of them.
 
 To know what are the available resources' types, please refer the API reference.
 
-#### The event-based approach
+## The event-based approach
 
 For `uvw` offers an event-based approach, resources are small event emitters to which listeners can be attached.<br/>
 Attaching a listener to a resource is the recommended way to be notified about changes.<br/>
 Listeners must be callable objects of type `void(EventType &, ResourceType &)`, where:
 
-* `EventType` is the type of the event for which they have been designed
-* `ResourceType` is the type of the resource that has originated the event
+* `EventType` is the type of the event for which they have been designed.
+* `ResourceType` is the type of the resource that has originated the event.
 
 It means that the following function types are all valid:
 
@@ -201,8 +258,8 @@ Once more, please note that there is no need to keep around references to the re
 
 There exist two methods to attach an event to a resource:
 
-* `resource.once<EventType>(listener)`: the listener will be automatically removed after the first event of the given type
-* `resource.on<EventType>(listener)`: to be used for long-running listeners
+* `resource.once<EventType>(listener)`: the listener will be automatically removed after the first event of the given type.
+* `resource.on<EventType>(listener)`: to be used for long-running listeners.
 
 Both of them return an object of type `ResourceType::Connection` (as an example, `TcpHandle::Connection`).<br/>
 A connection object can be used later as an argument to the `erase` member function of the resource to remove the listener.<br/>
@@ -213,7 +270,7 @@ All the other events are specific for the given resource and documented in the A
 
 The code below shows how to create a simple tcp server using `uvw`:
 
-```
+```cpp
 auto loop = uvw::Loop::getDefault();
 auto tcp = loop.resource<uvw::TcpHandle>();
 
@@ -236,38 +293,32 @@ It's suffice to explicitly specify `uvw::IPv6` as the underlying protocol to use
 
 The API reference is the recommended documentation for further details about resources and their methods.
 
-## Tests
-
-To compile and run the tests, `uvw` requires *libuv* and *googletest*.<br/>
-Run the script `deps.sh` to download them. It is good practice to do it every time one pull the project.
-
-Then, to build the tests:
-
-* `$ cd build`
-* `$ cmake ..`
-* `$ make`
-* `$ make test`
-
 # Contributors
 
-Michele Caini aka [skypjack](https://github.com/skypjack)<br/>
-Federico Bertolucci aka [lessness](https://github.com/lessness)<br/>
-Luca Martini aka [lordlukas](https://github.com/lucamartini)<br/>
-Elia Mazzuoli aka [Zikoel](https://github.com/Zikoel)<br/>
-Francesco De Felice aka [fradefe](https://github.com/fradefe)<br/>
-Tushar Maheshwari aka [tusharpm](https://github.com/tusharpm)<br/>
-Paolo Monteverde aka [morbo84](https://github.com/morbo84)<br/>
-Jan Vcelak aka [fcelda](https://github.com/fcelda)<br/>
-Raoul Hecky aka raoul [raoulh](https://github.com/raoulh)
+If you want to contribute, please send patches as pull requests against the branch master.<br/>
+Check the [contributors list](https://github.com/skypjack/uvw/blob/master/AUTHORS) to see who has partecipated so far.
 
-If you want to contribute, please send patches as pull requests against the branch master.
+# Projects that use `uvw`
+
+Below an incomplete list of projects that use `uvw`:
+
+* Internal tools (not publicly available) at **[Cynny SpA](https://www.morphcast.com/)** and **[Cynny Space](http://www.cynnyspace.com/)**.
+* **[Calaos.fr](https://www.calaos.fr/en/)** (Open source home automation) on [GitHub](https://github.com/calaos).
+* **[Iroha](http://iroha.tech/en/) - A simple, decentralized ledger** on [Github](https://github.com/hyperledger/iroha).
+* **Iroha blockchain core** on [Github](https://github.com/finshield/iroha-core).
+* **Ecwid Console Downloader** on [GitHub](https://github.com/dvetutnev/Ecwid-Console-downloader).
+* **Simple network ping pong for lazy students** on [GitHub](https://github.com/dvetutnev/ping_pong).
+
+If you know of other projects that use `libuv` through `uvw`, feel free to open a PR and I'll be glad to add them to the list.
 
 # License
 
-Code and documentation Copyright (c) 2017 Michele Caini.<br/>
+Code and documentation Copyright (c) 2018 Michele Caini.<br/>
 Code released under [the MIT license](https://github.com/skypjack/uvw/blob/master/LICENSE).<br/>
 Docs released under [Creative Commons](https://github.com/skypjack/uvw/blob/master/docs/LICENSE).
 
-# Note
+# Donation
 
-This documentation is mostly inspired by the official [libuv API documentation](http://docs.libuv.org/en/v1.x/) for obvious reasons.
+Developing and maintaining `uvw` takes some time and lots of coffee. It still lacks a proper test suite, documentation is partially incomplete and not all functionalities have been fully implemented yet.<br/>
+If you want to support this project, you can offer me an espresso. I'm from Italy, we're used to turning the best coffee ever in code. If you find that it's not enough, feel free to support me the way you prefer.<br/>
+Take a look at the donation button at the top of the page for more details or just click [here](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=W2HF9FESD5LJY&lc=IT&item_name=Michele%20Caini&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted).

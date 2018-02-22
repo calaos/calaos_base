@@ -18,7 +18,8 @@ namespace details {
 enum class UVPollEvent: std::underlying_type_t<uv_poll_event> {
     READABLE = UV_READABLE,
     WRITABLE = UV_WRITABLE,
-    DISCONNECT = UV_DISCONNECT
+    DISCONNECT = UV_DISCONNECT,
+    PRIORITIZED = UV_PRIORITIZED
 };
 
 
@@ -43,6 +44,7 @@ struct PollEvent {
      * * `PollHandle::Event::READABLE`
      * * `PollHandle::Event::WRITABLE`
      * * `PollHandle::Event::DISCONNECT`
+     * * `PollHandle::Event::PRIORITIZED`
      */
     Flags<details::UVPollEvent> flags;
 };
@@ -75,11 +77,11 @@ public:
     using Event = details::UVPollEvent;
 
     explicit PollHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref, int desc)
-        : Handle{std::move(ca), std::move(ref)}, tag{FD}, fd{desc}
+        : Handle{ca, std::move(ref)}, tag{FD}, fd{desc}
     {}
 
     explicit PollHandle(ConstructorAccess ca, std::shared_ptr<Loop> ref, OSSocketHandle sock)
-        : Handle{std::move(ca), std::move(ref)}, tag{SOCKET}, socket{sock}
+        : Handle{ca, std::move(ref)}, tag{SOCKET}, socket{sock}
     {}
 
     /**
@@ -100,6 +102,7 @@ public:
      * * `PollHandle::Event::READABLE`
      * * `PollHandle::Event::WRITABLE`
      * * `PollHandle::Event::DISCONNECT`
+     * * `PollHandle::Event::PRIORITIZED`
      *
      * As soon as an event is detected, a PollEvent is emitted by the
      * handle.<br>
@@ -122,6 +125,7 @@ public:
      * * `PollHandle::Event::READABLE`
      * * `PollHandle::Event::WRITABLE`
      * * `PollHandle::Event::DISCONNECT`
+     * * `PollHandle::Event::PRIORITIZED`
      *
      * As soon as an event is detected, a PollEvent is emitted by the
      * handle.<br>

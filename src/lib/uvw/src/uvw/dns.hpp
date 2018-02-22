@@ -72,7 +72,7 @@ struct NameInfoEvent {
  * To create a `GetAddrInfoReq` through a `Loop`, no arguments are required.
  */
 class GetAddrInfoReq final: public Request<GetAddrInfoReq, uv_getaddrinfo_t> {
-    static void getAddrInfoCallback(uv_getaddrinfo_t *req, int status, addrinfo *res) {
+    static void addrInfoCallback(uv_getaddrinfo_t *req, int status, addrinfo *res) {
         auto ptr = reserve(req);
 
         if(status) {
@@ -85,11 +85,11 @@ class GetAddrInfoReq final: public Request<GetAddrInfoReq, uv_getaddrinfo_t> {
         }
     }
 
-    void getNodeAddrInfo(const char *node, const char *service, addrinfo *hints = nullptr) {
-        invoke(&uv_getaddrinfo, parent(), get(), &getAddrInfoCallback, node, service, hints);
+    void nodeAddrInfo(const char *node, const char *service, addrinfo *hints = nullptr) {
+        invoke(&uv_getaddrinfo, parent(), get(), &addrInfoCallback, node, service, hints);
     }
 
-    auto getNodeAddrInfoSync(const char *node, const char *service, addrinfo *hints = nullptr) {
+    auto nodeAddrInfoSync(const char *node, const char *service, addrinfo *hints = nullptr) {
         auto req = get();
         auto err = uv_getaddrinfo(parent(), req, nullptr, node, service, hints);
         auto data = std::unique_ptr<addrinfo, void(*)(addrinfo *)>{req->addrinfo, [](addrinfo *addr){ uv_freeaddrinfo(addr); }};
@@ -107,8 +107,8 @@ public:
      * @param hints Optional `addrinfo` data structure with additional address
      * type constraints.
      */
-    void getNodeAddrInfo(std::string node, addrinfo *hints = nullptr) {
-        getNodeAddrInfo(node.data(), nullptr, hints);
+    void nodeAddrInfo(std::string node, addrinfo *hints = nullptr) {
+        nodeAddrInfo(node.data(), nullptr, hints);
     }
 
     /**
@@ -123,8 +123,8 @@ public:
      * * A `std::unique_ptr<addrinfo, Deleter>` containing the data requested.
      */
     std::pair<bool, std::unique_ptr<addrinfo, Deleter>>
-    getNodeAddrInfoSync(std::string node, addrinfo *hints = nullptr) {
-        return getNodeAddrInfoSync(node.data(), nullptr, hints);
+    nodeAddrInfoSync(std::string node, addrinfo *hints = nullptr) {
+        return nodeAddrInfoSync(node.data(), nullptr, hints);
     }
 
     /**
@@ -133,8 +133,8 @@ public:
      * @param hints Optional `addrinfo` data structure with additional address
      * type constraints.
      */
-    void getServiceAddrInfo(std::string service, addrinfo *hints = nullptr) {
-        getNodeAddrInfo(nullptr, service.data(), hints);
+    void serviceAddrInfo(std::string service, addrinfo *hints = nullptr) {
+        nodeAddrInfo(nullptr, service.data(), hints);
     }
 
     /**
@@ -149,8 +149,8 @@ public:
      * * A `std::unique_ptr<addrinfo, Deleter>` containing the data requested.
      */
     std::pair<bool, std::unique_ptr<addrinfo, Deleter>>
-    getServiceAddrInfoSync(std::string service, addrinfo *hints = nullptr) {
-        return getNodeAddrInfoSync(nullptr, service.data(), hints);
+    serviceAddrInfoSync(std::string service, addrinfo *hints = nullptr) {
+        return nodeAddrInfoSync(nullptr, service.data(), hints);
     }
 
     /**
@@ -160,8 +160,8 @@ public:
      * @param hints Optional `addrinfo` data structure with additional address
      * type constraints.
      */
-    void getAddrInfo(std::string node, std::string service, addrinfo *hints = nullptr) {
-        getNodeAddrInfo(node.data(), service.data(), hints);
+    void addrInfo(std::string node, std::string service, addrinfo *hints = nullptr) {
+        nodeAddrInfo(node.data(), service.data(), hints);
     }
 
     /**
@@ -177,8 +177,8 @@ public:
      * * A `std::unique_ptr<addrinfo, Deleter>` containing the data requested.
      */
     std::pair<bool, std::unique_ptr<addrinfo, Deleter>>
-    getAddrInfoSync(std::string node, std::string service, addrinfo *hints = nullptr) {
-        return getNodeAddrInfoSync(node.data(), service.data(), hints);
+    addrInfoSync(std::string node, std::string service, addrinfo *hints = nullptr) {
+        return nodeAddrInfoSync(node.data(), service.data(), hints);
     }
 };
 
@@ -192,7 +192,7 @@ public:
  * To create a `GetNameInfoReq` through a `Loop`, no arguments are required.
  */
 class GetNameInfoReq final: public Request<GetNameInfoReq, uv_getnameinfo_t> {
-    static void getNameInfoCallback(uv_getnameinfo_t *req, int status, const char *hostname, const char *service) {
+    static void nameInfoCallback(uv_getnameinfo_t *req, int status, const char *hostname, const char *service) {
         auto ptr = reserve(req);
         if(status) { ptr->publish(ErrorEvent{status}); }
         else { ptr->publish(NameInfoEvent{hostname, service}); }
@@ -203,16 +203,24 @@ public:
 
     /**
      * @brief Async [getnameinfo](http://linux.die.net/man/3/getnameinfo).
+     * @param addr Initialized `sockaddr_in` or `sockaddr_in6` data structure.
+     * @param flags Optional flags that modify the behavior of `getnameinfo`.
+     */
+    void nameInfo(const sockaddr &addr, int flags = 0) {
+        invoke(&uv_getnameinfo, parent(), get(), &nameInfoCallback, &addr, flags);
+    }
+
+    /**
+     * @brief Async [getnameinfo](http://linux.die.net/man/3/getnameinfo).
      * @param ip A valid IP address.
      * @param port A valid port number.
      * @param flags Optional flags that modify the behavior of `getnameinfo`.
      */
     template<typename I = IPv4>
-    void getNameInfo(std::string ip, unsigned int port, int flags = 0) {
+    void nameInfo(std::string ip, unsigned int port, int flags = 0) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
-        auto saddr = reinterpret_cast<const sockaddr *>(&addr);
-        invoke(&uv_getnameinfo, parent(), get(), &getNameInfoCallback, saddr, flags);
+        nameInfo(reinterpret_cast<const sockaddr &>(addr), flags);
     }
 
     /**
@@ -221,8 +229,27 @@ public:
      * @param flags Optional flags that modify the behavior of `getnameinfo`.
      */
     template<typename I = IPv4>
-    void getNameInfo(Addr addr, int flags = 0) {
-        getNameInfo<I>(addr.ip, addr.port, flags);
+    void nameInfo(Addr addr, int flags = 0) {
+        nameInfo<I>(std::move(addr.ip), addr.port, flags);
+    }
+
+    /**
+     * @brief Sync [getnameinfo](http://linux.die.net/man/3/getnameinfo).
+     *
+     * @param addr Initialized `sockaddr_in` or `sockaddr_in6` data structure.
+     * @param flags Optional flags that modify the behavior of `getnameinfo`.
+     *
+     * @return A `std::pair` composed as it follows:
+     * * A boolean value that is true in case of success, false otherwise.
+     * * A `std::pair` composed as it follows:
+     *   * A `const char *` containing a valid hostname.
+     *   * A `const char *` containing a valid service name.
+     */
+    std::pair<bool, std::pair<const char *, const char *>>
+    nameInfoSync(const sockaddr &addr, int flags = 0) {
+        auto req = get();
+        auto err = uv_getnameinfo(parent(), req, nullptr, &addr, flags);
+        return std::make_pair(!err, std::make_pair(req->host, req->service));
     }
 
     /**
@@ -240,13 +267,10 @@ public:
      */
     template<typename I = IPv4>
     std::pair<bool, std::pair<const char *, const char *>>
-    getNameInfoSync(std::string ip, unsigned int port, int flags = 0) {
+    nameInfoSync(std::string ip, unsigned int port, int flags = 0) {
         typename details::IpTraits<I>::Type addr;
         details::IpTraits<I>::addrFunc(ip.data(), port, &addr);
-        auto req = get();
-        auto saddr = reinterpret_cast<const sockaddr *>(&addr);
-        auto err = uv_getnameinfo(parent(), req, nullptr, saddr, flags);
-        return std::make_pair(!err, std::make_pair(req->host, req->service));
+        return nameInfoSync(reinterpret_cast<const sockaddr &>(addr), flags);
     }
 
     /**
@@ -263,8 +287,8 @@ public:
      */
     template<typename I = IPv4>
     std::pair<bool, std::pair<const char *, const char *>>
-    getNameInfoSync(Addr addr, int flags = 0) {
-        return getNameInfoSync<I>(addr.ip, addr.port, flags);
+    nameInfoSync(Addr addr, int flags = 0) {
+        return nameInfoSync<I>(std::move(addr.ip), addr.port, flags);
     }
 };
 
