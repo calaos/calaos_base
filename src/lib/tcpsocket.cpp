@@ -59,7 +59,7 @@ bool TCPSocket::Create()
 
 #if defined(SO_NOSIGPIPE)
     // Mac OS X does not have the MSG_NOSIGNAL flag when calling sendo, but we can use this socket option instead
-    if (socket > 0)
+    if (sockfd > 0)
     {
         int set_option = 1;
         if (setsockopt(sockfd, SOL_SOCKET, SO_NOSIGPIPE, &set_option,
