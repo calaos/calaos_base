@@ -149,6 +149,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processEventLog();
     else if (jsonParam["action"] == "event_picture")
         processEventPicture();
+    else if (jsonParam["action"] == "register_push")
+        processRegisterPush();
     else
     {
         if (!jroot)
@@ -874,5 +876,27 @@ void JsonApiHandlerHttp::processEventPicture()
     headers.Add("Content-Type", "image/jpeg");
     string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers, file);
     sendData.emit(res);
+}
+
+void JsonApiHandlerHttp::processRegisterPush()
+{
+    /* TODO
+
+websocket
+    "data": {
+        "hardware": "ios",
+        "token": "abcdef"
+    },
+    "msg": "register_push"
+
+http
+{
+    "cn_user": "user",
+    "cn_pass": "pass",
+    "action": "register_push",
+    "token": "abcdef",
+    "hardware": "android"
+}
+     */
 }
 

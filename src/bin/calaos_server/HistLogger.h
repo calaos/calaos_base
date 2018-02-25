@@ -54,6 +54,17 @@ public:
 
 class HistWorkerAction;
 
+class PushToken
+{
+public:
+    PushToken(string &&t, int hw):
+        token(t), hw_type(hw) {}
+    PushToken() {}
+    string token;
+    int hw_type = 0;
+    string created_at;
+};
+
 class HistLogger
 {
 public:
@@ -71,6 +82,18 @@ public:
                    std::function<void(bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)> callback);
     void getEvent(string uuid,
                   std::function<void(bool success, string errorMsg, const HistEvent &event)> callback);
+
+    enum {
+        PUSH_HW_NONE = 0,
+        PUSH_HW_IOS,
+        PUSH_HW_ANDROID,
+    };
+
+    //Add a new device token to the db
+    void registerPushToken(string token, int push_hw);
+
+    //Get all push token devices
+    void getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &tokens)> callback);
 
 private:
     HistLogger();

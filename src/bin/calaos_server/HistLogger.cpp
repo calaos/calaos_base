@@ -28,7 +28,7 @@
 
 #include "libuvw.h"
 
-#define DB_CREATE_SQL "CREATE TABLE IF NOT EXISTS events (" \
+#define DB_CREATE_SQL_EVENTS "CREATE TABLE IF NOT EXISTS events (" \
     "id INTEGER PRIMARY KEY UNIQUE NOT NULL, " \
     "uuid TEXT, " \
     "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " \
@@ -37,6 +37,12 @@
     "io_state TEXT, " \
     "event_raw TEXT, " \
     "pic_uid TEXT);"
+
+#define DB_CREATE_SQL_TOKENS "CREATE TABLE IF NOT EXISTS push_tokens (" \
+    "id INTEGER PRIMARY KEY UNIQUE NOT NULL, " \
+    "token TEXT, " \
+    "hw_type INTEGER, " \
+    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP);"
 
 class HistWorkerAction
 {
@@ -47,6 +53,8 @@ public:
         WorkerAppend,
         WorkerRead,
         WorkerReadSingle,
+        WorkerTokenRegister,
+        WorkerTokenGetAll,
     };
 
     int action = WorkerNoAction;
@@ -57,6 +65,8 @@ public:
     string errMsg;
     int page, per_page, total_count, total_page;
     string uuid;
+    PushToken token;
+    vector<PushToken> tokens;
 };
 
 HistEvent HistEvent::create()
@@ -150,6 +160,30 @@ void HistLogger::getEvent(string uuid,
     eventQueue.push(a);
 }
 
+void HistLogger::registerPushToken(string token, int push_hw)
+{
+    std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
+    a->action = HistWorkerAction::WorkerTokenRegister;
+    a->token.token = token;
+    a->token.hw_type = push_hw;
+    eventQueue.push(a);
+}
+
+void HistLogger::getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &event)> callback)
+{
+    std::shared_ptr<HistWorkerAction> a = std::make_shared<HistWorkerAction>();
+    a->action = HistWorkerAction::WorkerTokenGetAll;
+    a->handle = uvw::Loop::getDefault()->resource<uvw::AsyncHandle>();
+
+    a->handle->once<uvw::AsyncEvent>([callback, a](const auto &, uvw::AsyncHandle &h)
+    {
+        callback(a->success, a->errMsg, a->tokens);
+        h.close();
+    });
+
+    eventQueue.push(a);
+}
+
 void HistLogger::sqliteWorker()
 {
     cInfoDom("history") << "History logger, setup database to " << dbname;
@@ -157,7 +191,8 @@ void HistLogger::sqliteWorker()
 
     try
     {
-        db << DB_CREATE_SQL;
+        db << DB_CREATE_SQL_EVENTS;
+        db << DB_CREATE_SQL_TOKENS;
     }
     catch (exception &e)
     {
@@ -320,6 +355,77 @@ void HistLogger::sqliteWorker()
                     cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
                 }
             }
+            else if (ac->action == HistWorkerAction::WorkerTokenRegister)
+            {
+                //write the new event to the db
+                cDebugDom("history") << "Write to SQLite db: " << ac->token.token;
+
+                try
+                {
+                    bool alreadyExists = false;
+                    db << "SELECT id FROM push_tokens WHERE token = ?;"
+                       << ac->token.token
+                       >> [&](int id)
+                    {
+                        alreadyExists = true;
+                    };
+
+                    if (alreadyExists)
+                    {
+                        db << "UPDATE SET created_at = DATETIME('now') WHERE token = ?;"
+                           << ac->token.token;
+                    }
+                    else
+                    {
+                        db << "INSERT INTO push_tokens (token, hw_type) values (?, ?);"
+                           << ac->token.token
+                           << ac->token.hw_type;
+                    }
+
+                    cDebugDom("history") << "Cleaning push_tokens older than 30 days";
+                    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+                }
+                catch (sqlite::sqlite_exception &e)
+                {
+                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
+                                            << " during " << e.get_sql();
+                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
+                }
+                catch (exception &e)
+                {
+                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
+                }
+            }
+            else if (ac->action == HistWorkerAction::WorkerTokenGetAll)
+            {
+                cDebugDom("history") << "Reading from SQLite db all tokens";
+
+                try
+                {
+                    db << "SELECT token, hw_type FROM push_tokens;"
+                       >> [&](string token, int hw_type)
+                    {
+                        ac->tokens.emplace_back(std::move(token), hw_type);
+                    };
+
+                    cDebugDom("history") << "Cleaning push_tokens older than 30 days";
+                    db << "DELETE FROM push_tokens WHERE created_at <= date('now', '-30 days');";
+
+                    //wakeup the mainloop with the result
+                    ac->handle->send();
+                }
+                catch (sqlite::sqlite_exception &e)
+                {
+                    cCriticalDom("history") << "SQL failed: " << e.get_code() << ": " << e.what()
+                                            << " during " << e.get_sql();
+                    cCriticalDom("history") << "SQLite error: " << sqlite3_errmsg(db.connection().get());
+                }
+                catch (exception &e)
+                {
+                    cCriticalDom("history") << "Failed to INSERT into db: " << e.what();
+                }
+            }
+
         }
     }
 

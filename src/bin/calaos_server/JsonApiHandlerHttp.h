@@ -78,6 +78,7 @@ private:
     void processCamera();
     void processEventLog();
     void processEventPicture();
+    void processRegisterPush();
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);
