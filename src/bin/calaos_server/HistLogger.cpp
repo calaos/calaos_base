@@ -372,7 +372,7 @@ void HistLogger::sqliteWorker()
 
                     if (alreadyExists)
                     {
-                        db << "UPDATE SET created_at = DATETIME('now') WHERE token = ?;"
+                        db << "UPDATE push_tokens SET created_at = DATETIME('now') WHERE token = ?;"
                            << ac->token.token;
                     }
                     else

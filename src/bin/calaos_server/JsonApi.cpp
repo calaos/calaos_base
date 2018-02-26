@@ -1655,7 +1655,7 @@ bool JsonApi::registerPushToken(const Params &jParam)
 {
     if (jParam["token"] == "")
         return false;
-    if (jParam["hardware"] != "android" ||
+    if (jParam["hardware"] != "android" &&
         jParam["hardware"] != "ios")
         return false;
 
