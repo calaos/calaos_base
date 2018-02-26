@@ -49,11 +49,11 @@ PKG_PROG_PKG_CONFIG
 
 ### Checks for libraries
 
-requirements_calaos_common="libuv >= 1.10.0 sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit sqlite3"
+requirements_calaos_common="libuv >= 1.19.0 sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit sqlite3"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
-requirements_calaos_server="libuv >= 1.10.0 libcurl"
+requirements_calaos_server="libuv >= 1.19.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 
