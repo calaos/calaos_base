@@ -89,6 +89,8 @@ void ActionPush::sendNotif()
     e.pic_uid = notif_pic_uid;
     e.event_type = CalaosEvent::EventPushNotification;
 
+    string eventUuid = e.uuid;
+
     Json data = {
         { "message", notif_message},
         { "pic_uid", notif_pic_uid }
@@ -134,7 +136,7 @@ void ActionPush::sendNotif()
             if (!notif_pic_uid.empty())
             {
                 notif["mutable-content"] = true;
-                notif["data"] = {{ "event_uuid", e.uuid }};
+                notif["data"] = {{ "event_uuid", eventUuid }};
             }
 
             if (Utils::get_config_option("notif_development") == "true")
