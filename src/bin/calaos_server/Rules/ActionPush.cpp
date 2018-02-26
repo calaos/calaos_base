@@ -172,6 +172,9 @@ void ActionPush::sendNotif()
             return;
         }
 
+        cDebugDom("rule.action.push") << "Sending notif to service:";
+        cDebugDom("rule.action.push") << jnotif.dump();
+
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
         u->m_signalComplete.connect([](int statusCode)
         {
