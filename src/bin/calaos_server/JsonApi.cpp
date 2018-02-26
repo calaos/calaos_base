@@ -1651,3 +1651,17 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     });
 }
 
+bool JsonApi::registerPushToken(const Params &jParam)
+{
+    if (jParam["token"] == "")
+        return false;
+    if (jParam["hardware"] != "android" ||
+        jParam["hardware"] != "ios")
+        return false;
+
+    HistLogger::Instance().registerPushToken(jParam["token"],
+            jParam["hardware"] == "ios"? HistLogger::PUSH_HW_IOS: HistLogger::PUSH_HW_ANDROID);
+
+    return true;
+}
+

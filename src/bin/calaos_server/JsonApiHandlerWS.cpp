@@ -179,6 +179,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processAutoscenario(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "eventlog")
             processEventLog(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "register_push")
+            processRegisterPush(jsonData, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -456,5 +458,16 @@ void JsonApiHandlerWS::processEventLog(const Params &jsonReq, const string &clie
     {
         sendJson("eventlog", j, client_id);
     });
+}
+
+void JsonApiHandlerWS::processRegisterPush(const Params &jsonReq, const string &client_id)
+{
+    bool r = registerPushToken(jsonReq);
+
+    if (!client_id.empty())
+    {
+        Json ret = {{ "success", r?"true":"false" }};
+        sendJson("register_push", ret, client_id);
+    }
 }
 

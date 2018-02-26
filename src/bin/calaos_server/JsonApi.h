@@ -79,6 +79,7 @@ public:
     json_t *buildJsonGetIO(vector<string> iolist);
 
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
+    bool registerPushToken(const Params &jParam);
 
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);

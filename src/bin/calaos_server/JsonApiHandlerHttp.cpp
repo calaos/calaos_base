@@ -880,23 +880,7 @@ void JsonApiHandlerHttp::processEventPicture()
 
 void JsonApiHandlerHttp::processRegisterPush()
 {
-    /* TODO
-
-websocket
-    "data": {
-        "hardware": "ios",
-        "token": "abcdef"
-    },
-    "msg": "register_push"
-
-http
-{
-    "cn_user": "user",
-    "cn_pass": "pass",
-    "action": "register_push",
-    "token": "abcdef",
-    "hardware": "android"
-}
-     */
+    Json ret = {{ "success", registerPushToken(jsonParam)?"true":"false" }};
+    sendJson(ret);
 }
 

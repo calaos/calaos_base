@@ -97,7 +97,88 @@ void ActionPush::sendNotif()
 
     HistLogger::Instance().appendEvent(e);
 
-    //TODO: send push to our service
+    HistLogger::Instance().getPushTokens(
+            [=](bool success, string errorMsg, const vector<PushToken> &tokens)
+    {
+        if (!success)
+        {
+            cCriticalDom("rule.action.push") << "Unable to send push notification: " << errorMsg;
+            return;
+        }
+
+        vector<PushToken> androidTokens;
+        vector<PushToken> iosTokens;
+
+        for (const auto &t: tokens)
+        {
+            if (t.hw_type == HistLogger::PUSH_HW_IOS)
+                iosTokens.push_back(t);
+            else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
+                androidTokens.push_back(t);
+        }
+
+        Json jarr = Json::array();
+        if (!iosTokens.empty())
+        {
+            Json tokArray = Json::array();
+            for (const auto &t: iosTokens)
+                tokArray.push_back(t.token);
+
+            Json notif = {
+                { "tokens", tokArray },
+                { "platform", 1 },
+                { "message", notif_message },
+                { "topic", "fr.calaos.CalaosMobile" }
+            };
+
+            if (!notif_pic_uid.empty())
+            {
+                notif["mutable-content"] = true;
+                notif["data"] = {{ "event_uuid", e.uuid }};
+            }
+
+            if (Utils::get_config_option("notif_development") == "true")
+                notif["development"] = true;
+
+            jarr.push_back(notif);
+        }
+
+        if (!androidTokens.empty())
+        {
+            Json tokArray = Json::array();
+            for (const auto &t: androidTokens)
+                tokArray.push_back(t.token);
+
+            Json notif = {
+                { "tokens", tokArray },
+                { "platform", 2 },
+                { "message", notif_message },
+                { "topic", "" }
+            };
+
+            if (!notif_pic_uid.empty())
+            {
+                //TODO
+            }
+
+            jarr.push_back(notif);
+        }
+
+        Json jnotif = {{ "notifications", jarr }};
+
+        if (jarr.empty())
+        {
+            cInfoDom("rule.action.push") << "No token registered. Cannot send push.";
+            return;
+        }
+
+        UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
+        u->m_signalComplete.connect([](int statusCode)
+        {
+            cDebugDom("rule.action.push") << "Push notif sent with code: " << statusCode;
+        });
+        u->httpPost(string(), jnotif.dump());
+    });
 }
 
 bool ActionPush::LoadFromXml(TiXmlElement *pnode)
