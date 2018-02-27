@@ -98,14 +98,19 @@ bool Internal::set_value(bool val)
 
     cInfoDom("output") << get_param("id") << ": got action, " << ((val)?"True":"False");
 
+    bool hasChanged = false;
+    if (bvalue != val)
+        hasChanged = true;
+
     bvalue = val;
     EmitSignalIO();
 
     Save();
 
-    EventManager::create(CalaosEvent::EventIOChanged,
-                         { { "id", get_param("id") },
-                           { "state", bvalue?"true":"false" } });
+    if (hasChanged)
+        EventManager::create(CalaosEvent::EventIOChanged,
+                             { { "id", get_param("id") },
+                               { "state", bvalue?"true":"false" } });
 
     return true;
 }
@@ -188,14 +193,19 @@ bool Internal::set_value(string val)
     {
         cInfoDom("output") << get_param("id") << ": got action, " << val;
 
+        bool hasChanged = false;
+        if (svalue != val)
+            hasChanged = true;
+
         svalue = val;
         EmitSignalIO();
 
         Save();
 
-        EventManager::create(CalaosEvent::EventIOChanged,
-                             { { "id", get_param("id") },
-                               { "state", svalue } });
+        if (hasChanged)
+            EventManager::create(CalaosEvent::EventIOChanged,
+                                 { { "id", get_param("id") },
+                                   { "state", svalue } });
     }
     else if (get_type() == TBOOL)
     {
