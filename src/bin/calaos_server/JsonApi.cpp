@@ -1644,6 +1644,8 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
         Json jroot = {
             { "total_page", total_page },
             { "total_count", total_count },
+            { "page", page },
+            { "per_page", perPage },
             { "events", jevents }
         };
 
