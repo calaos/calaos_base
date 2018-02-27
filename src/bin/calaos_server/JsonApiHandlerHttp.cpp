@@ -544,6 +544,12 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
 
                     string filecontent = json_string_value(value);
 
+                    if (!Utils::strStartsWith(filecontent, "<?xml"))
+                    {
+                        cErrorDom("network") << "Error, file content for " << skey << " is not XML, skipping...";
+                        continue;
+                    }
+
                     ofstream ofs(Utils::getConfigFile(key), ios::out | ios::trunc);
 
                     if (ofs.is_open())
