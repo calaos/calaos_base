@@ -87,11 +87,17 @@ bool OutputAnalog::set_value(double val)
     //send computed value to device
     set_value_real(val * coeff_a + coeff_b);
 
+    bool hasChanged = false;
+    if (value != val)
+        hasChanged = true;
+
     //save raw value
     value = val;
 
     EmitSignalIO();
-    emitChange();
+
+    if (hasChanged)
+        emitChange();
 
     return true;
 }

@@ -152,6 +152,8 @@ string CalaosEvent::typeToString(int type)
 
     case EventTouchScreenCamera: return "touchscreen_camera_request";
 
+    case EventPushNotification: return "push_notif";
+
     default: break;
     }
 

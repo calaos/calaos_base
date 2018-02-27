@@ -77,11 +77,16 @@ bool OutputLight::_set_value(bool val)
     {
         if (!useRealState)
         {
+            bool hasChanged = false;
+            if (value != val)
+                hasChanged = true;
+
             value = val;
 
             EmitSignalIO();
 
-            emitChange();
+            if (hasChanged)
+                emitChange();
         }
         return true;
     }
