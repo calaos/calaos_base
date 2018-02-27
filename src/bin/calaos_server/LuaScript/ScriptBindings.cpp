@@ -21,6 +21,7 @@
 #include "ScriptBindings.h"
 #include "ScriptManager.h"
 #include "UrlDownloader.h"
+#include "libuvw.h"
 
 using namespace Calaos;
 
@@ -339,6 +340,10 @@ int Lua_Calaos::requestUrl(lua_State *L)
 
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->httpGet();
+
+        //we are in an extern process here, so run a loop to do the download
+        //it will be stopped when the download is finished
+        uvw::Loop::getDefault()->run();
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
@@ -347,6 +352,8 @@ int Lua_Calaos::requestUrl(lua_State *L)
 
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->httpPost(string(), post_data);
+
+        uvw::Loop::getDefault()->run();
     }
     else
     {
