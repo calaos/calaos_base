@@ -267,7 +267,6 @@ void HistLogger::sqliteWorker()
                     ac->total_count = rowcount;
                     ac->total_page = rowcount / ac->per_page + ((rowcount % ac->per_page) > 0?1:0);
                     int start = ac->page * ac->per_page;
-                    int end = start + ac->per_page;
 
                     if (ac->page > ac->total_page ||
                         ac->page < 0)
@@ -280,7 +279,7 @@ void HistLogger::sqliteWorker()
                     {
                         string q = "SELECT uuid, created_at, event_type, io_id, io_state, event_raw, pic_uid FROM events ORDER BY created_at DESC LIMIT "
                             + Utils::to_string(start) + ", "
-                            + Utils::to_string(end);
+                            + Utils::to_string(ac->per_page);
 
                         cDebugDom("history") << q;
 
