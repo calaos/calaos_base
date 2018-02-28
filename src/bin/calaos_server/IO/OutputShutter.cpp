@@ -145,7 +145,8 @@ bool OutputShutter::set_value(std::string val)
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         false);
 
     return true;
 }
@@ -408,7 +409,8 @@ void OutputShutter::TimerEnd()
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         true);
 }
 
 void OutputShutter::TimerImpulse()

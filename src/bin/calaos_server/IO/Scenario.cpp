@@ -69,7 +69,8 @@ bool Scenario::set_value(bool val)
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", val?"true":"false" } });
+                           { "state", val?"true":"false" } },
+                         value); //Only log scenario activation
 
     //reset input value to 0 after 250ms (simulate button press/release)
     Timer::singleShot(0.250, [=]() { value = false; });

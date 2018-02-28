@@ -258,7 +258,8 @@ bool OutputShutterSmart::set_value(std::string val)
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         false);
 
     return true;
 }
@@ -580,7 +581,8 @@ void OutputShutterSmart::TimerUpdate()
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         false);
 }
 
 void OutputShutterSmart::TimerEnd()
@@ -598,7 +600,8 @@ void OutputShutterSmart::TimerEnd()
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         true);
 }
 
 void OutputShutterSmart::TimerImpulse()
@@ -632,7 +635,8 @@ void OutputShutterSmart::TimerCalibrate()
 
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
-                           { "state", get_value_string() } });
+                           { "state", get_value_string() } },
+                         false);
 }
 
 double OutputShutterSmart::readPosition()

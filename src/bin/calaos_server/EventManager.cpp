@@ -59,7 +59,8 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     eventsQueue.push(ev);
 
     //Write events to the history logger
-    if (ev.getType() == CalaosEvent::EventIOChanged)
+    if (ev.getType() == CalaosEvent::EventIOChanged &&
+        ev.logHistory)
     {
         string id = ev.getParam()["id"];
         IOBase *io = ListeRoom::Instance().get_io(id);
@@ -96,21 +97,23 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     }
 }
 
-CalaosEvent EventManager::create(int type)
+CalaosEvent EventManager::create(int type, bool logHistory)
 {
     CalaosEvent ev;
     ev.evType = type;
+    ev.logHistory = logHistory;
 
     EventManager::Instance().appendEvent(ev);
 
     return ev;
 }
 
-CalaosEvent EventManager::create(int type, Params p)
+CalaosEvent EventManager::create(int type, Params p, bool logHistory)
 {
     CalaosEvent ev;
     ev.evType = type;
     ev.evParams = p;
+    ev.logHistory = logHistory;
 
     EventManager::Instance().appendEvent(ev);
 

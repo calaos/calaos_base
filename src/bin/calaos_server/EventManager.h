@@ -81,6 +81,7 @@ public:
 private:
     int evType = EventUnkown;
     Params evParams;
+    bool logHistory = true;
 
     friend class EventManager;
 };
@@ -98,8 +99,8 @@ public:
     sigc::signal<void, const CalaosEvent &> newEvent;
 
     //create an event and give it to the EventManager
-    static CalaosEvent create(int type);
-    static CalaosEvent create(int type, Params p);
+    static CalaosEvent create(int type, bool logHistory = true);
+    static CalaosEvent create(int type, Params p, bool logHistory = true);
 
 private:
     EventManager();
