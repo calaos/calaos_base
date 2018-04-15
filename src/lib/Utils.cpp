@@ -27,6 +27,8 @@
 
 using namespace Utils;
 
+static const char* ENV_CONFIG = "CALAOS_CONFIG";
+
 string Utils::url_encode(string str)
 {
     string ret = "";
@@ -369,51 +371,68 @@ void Utils::freeLoggers()
 static string _configBase;
 static string _cacheBase;
 
+static string getDefaultConfig()
+{
+    string result;
+    string home;
+
+    if (getenv("HOME"))
+    {
+        home = getenv("HOME");
+    }
+    else
+    {
+        struct passwd *pw = getpwuid(getuid());
+        home = pw->pw_dir;
+    }
+
+    list<string> confDirs;
+    confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
+    confDirs.push_back(ETC_CONFIG_PATH);
+    confDirs.push_back(PREFIX_CONFIG_PATH);
+
+    //Check config in that order:
+    // - $HOME/.config/calaos/
+    // - /etc/calaos
+    // - pkg_prefix/etc/calaos
+    // - create $HOME/.config/calaos/ if nothing found
+
+    list<string>::iterator it = confDirs.begin();
+    for (;it != confDirs.end();it++)
+    {
+        string conf = *it;
+        conf += "/" IO_CONFIG;
+
+        if (FileUtils::exists(conf))
+        {
+          result = *it;
+          break;
+        }
+    }
+
+    if (result.empty())
+    {
+        //no config dir found, create $HOME/.config/calaos
+        mkdir(string(home + "/.config").c_str(), S_IRWXU);
+        mkdir(string(home + "/.config/calaos").c_str(), S_IRWXU);
+        result = home + "/" + HOME_CONFIG_PATH;
+    }
+
+    return result;
+}
+
 string Utils::getConfigFile(const char *configType)
 {
     if (_configBase.empty())
     {
-        string home;
-        if (getenv("HOME"))
-        {
-            home = getenv("HOME");
+        const char* envConfig = getenv(ENV_CONFIG);
+
+        if (envConfig) {
+            _configBase = envConfig;
         }
         else
         {
-            struct passwd *pw = getpwuid(getuid());
-            home = pw->pw_dir;
-        }
-
-        list<string> confDirs;
-        confDirs.push_back(home + "/" + HOME_CONFIG_PATH);
-        confDirs.push_back(ETC_CONFIG_PATH);
-        confDirs.push_back(PREFIX_CONFIG_PATH);
-
-        //Check config in that order:
-        // - $HOME/.config/calaos/
-        // - /etc/calaos
-        // - pkg_prefix/etc/calaos
-        // - create $HOME/.config/calaos/ if nothing found
-
-        list<string>::iterator it = confDirs.begin();
-        for (;it != confDirs.end();it++)
-        {
-            string conf = *it;
-            conf += "/" IO_CONFIG;
-
-            if (FileUtils::exists(conf))
-            {
-                _configBase = *it;
-                break;
-            }
-        }
-
-        if (_configBase.empty())
-        {
-            //no config dir found, create $HOME/.config/calaos
-          mkdir(string(home + "/.config").c_str(), S_IRWXU);
-            mkdir(string(home + "/.config/calaos").c_str(), S_IRWXU);
-            _configBase = home + "/" + HOME_CONFIG_PATH;
+            _configBase = getDefaultConfig();
         }
     }
 
@@ -447,7 +466,12 @@ string Utils::getCacheFile(const char *cacheFile)
 
 void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 {
-    if (configdir) _configBase = configdir;
+    if (configdir)
+    {
+        _configBase = configdir;
+        setenv(ENV_CONFIG, configdir, 1);
+    }
+
     if (cachedir) _cacheBase = cachedir;
 
     string file = getConfigFile(LOCAL_CONFIG);
