@@ -109,7 +109,9 @@ bool ActionStd::Execute()
             }
             else if (is_of_type<double>(tmp))
             {
-                if (!outputs[i]->set_value(atof(tmp.c_str()))) ret = false;
+                double v;
+                Utils::from_string(tmp, v);
+                if (!outputs[i]->set_value(v)) ret = false;
             }
             else
             {

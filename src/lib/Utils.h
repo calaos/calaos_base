@@ -51,6 +51,7 @@
 #include <memory>
 #include <functional>
 #include <ctime>
+#include <locale>
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/types.h>
@@ -301,6 +302,7 @@ template<typename T>
 bool from_string(const std::string &str, T &dest)
 {
     std::istringstream iss(str);
+    iss.imbue(std::locale("C")); //use the C locale when parsing
     iss >> dest;
     return iss.eof();
 }

@@ -130,7 +130,7 @@ bool ConditionStd::Evaluate()
                     if (sval == "changed")
                         changed = true;
                     else
-                        dval = atof(sval.c_str());
+                        Utils::from_string(sval, dval);
                 }
 
                 if (!changed)
