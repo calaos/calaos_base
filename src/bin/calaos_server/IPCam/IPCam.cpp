@@ -25,8 +25,6 @@ using namespace Calaos;
 IPCam::IPCam(Params &p):
     IOBase(p, IOBase::IO_INOUT)
 {
-    //TODO add IODoc
-
     if (!param_exists("port"))
         set_param("port", "80");
 
@@ -36,6 +34,7 @@ IPCam::IPCam(Params &p):
 
 IPCam::~IPCam()
 {
+    delete cameraSnapDl;
 }
 
 bool IPCam::set_value(std::string val)
@@ -80,4 +79,31 @@ bool IPCam::SaveToXml(TiXmlElement *node)
     }
 
     return true;
+}
+
+void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
+{
+    if (!cameraSnapDl)
+        cameraSnapDl = new UrlDownloader(getPictureUrl(), false);
+
+    if (cameraSnapDl->isRunning())
+    {
+        Timer::singleShot(0, [=]() { dataCb(lastSnapshot); });
+        return;
+    }
+
+    cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
+    {
+        lastSnapshot = downloadedData;
+        if (status == 200)
+        {
+            dataCb(downloadedData);
+        }
+        else
+        {
+            cErrorDom("network") << "Failed to get image for camera at url: " << getPictureUrl() << " failed with code: " << status;
+            dataCb({});
+        }
+    });
+    cameraSnapDl->httpGet();
 }

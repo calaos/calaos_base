@@ -336,6 +336,8 @@ calaos_server_SOURCES = \
         IPCam/Planet.h                                  \
         IPCam/StandardMjpeg.cpp                         \
         IPCam/StandardMjpeg.h                           \
+        IPCam/SynoSurveillanceStation.cpp               \
+        IPCam/SynoSurveillanceStation.h                 \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
         JsonApiHandlerHttp.h                            \

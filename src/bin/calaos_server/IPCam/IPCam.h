@@ -22,6 +22,7 @@
 #define S_IPCam_H
 
 #include "IOBase.h"
+#include "UrlDownloader.h"
 
 namespace Calaos
 {
@@ -30,6 +31,9 @@ class IPCam: public IOBase
 {
 protected:
     Params caps;
+
+    string lastSnapshot;
+    UrlDownloader *cameraSnapDl = nullptr;
 
 public:
     IPCam(Params &p);
@@ -62,6 +66,8 @@ public:
     virtual DATA_TYPE get_type() { return TSTRING; }
 
     virtual bool set_value(std::string val);
+
+    virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
 
     virtual bool SaveToXml(TiXmlElement *node);
 };

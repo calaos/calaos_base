@@ -749,21 +749,10 @@ void JsonApiHandlerHttp::processCamera()
 
     if (jsonParam["type"] == "get_picture")
     {
-        cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
-        cameraDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
+        camera->downloadSnapshot([=](const string &downloadedData)
         {
-            if (status == 200)
+            if (downloadedData.empty())
             {
-                Params headers;
-                headers.Add("Connection", "close");
-                headers.Add("Content-Type", "image/jpeg");
-                string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
-                sendData.emit(res);
-            }
-            else
-            {
-                cErrorDom("network") << "Failed to get image for camera at url: " << camera->getPictureUrl() << " failed with code: " << status;
-
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
@@ -771,10 +760,15 @@ void JsonApiHandlerHttp::processCamera()
                                                                    Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
                 sendData.emit(res);
             }
-
-            cameraDl = nullptr;
+            else
+            {
+                Params headers;
+                headers.Add("Connection", "close");
+                headers.Add("Content-Type", "image/jpeg");
+                string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
+                sendData.emit(res);
+            }
         });
-        cameraDl->httpGet();
     }
     else if (jsonParam["type"] == "get_video")
     {
@@ -832,32 +826,26 @@ void JsonApiHandlerHttp::processCamera()
 
 void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
 {
-    cameraDl = new UrlDownloader(camera->getPictureUrl(), true);
-    cameraDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
+    camera->downloadSnapshot([=](const string &downloadedData)
     {
         sendData.emit(HTTP_CAMERA_STREAM_BOUNDARY);
-        if (status == 200)
+        if (!downloadedData.empty())
         {
             sendData.emit(downloadedData);
         }
         else
         {
-            cErrorDom("network") << "Failed to get image for camera at url: " << camera->getPictureUrl() << " failed with code: " << status;
-
             ifstream file(Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
             string bodypic((std::istreambuf_iterator<char>(file)),
                             std::istreambuf_iterator<char>());
             sendData.emit(bodypic);
         }
 
-        cameraDl = nullptr;
-
         Timer::singleShot(0, [=]()
         {
             downloadCameraPicture(camera);
         });
     });
-    cameraDl->httpGet();
 }
 
 void JsonApiHandlerHttp::processEventPicture()

@@ -30,7 +30,13 @@ Axis::Axis(Params &p):
     quality("30"),
     camera("1")
 {
-    //TODO: add ioDoc!
+    ioDoc->descriptionBaseSet(_("Axis IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
+    ioDoc->paramAdd("model", _("Camera model/chanel to use"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("zoom_step", "", IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("pan_framesize", "", IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("tilt_framesize", "", IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("resolution", _("Resolution to use"), IODoc::TYPE_STRING, false);
 
     caps.Add("resolution", "176x144 320x240 640x480");
     caps.Add("quality", "100");

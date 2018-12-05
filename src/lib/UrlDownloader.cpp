@@ -54,6 +54,8 @@ bool UrlDownloader::start()
         return false;
     }
 
+    m_isRunning = true;
+
     if (!tempFilename.empty())
     {
         FileUtils::unlink(tempFilename);
@@ -150,6 +152,7 @@ bool UrlDownloader::start()
         cDebugDom("urlutils") << "curl exited: " << ev.status;
         h.close();
         this->completeCb(ev.status);
+        this->m_isRunning = false;
     });
     exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {
@@ -162,6 +165,7 @@ bool UrlDownloader::start()
             pipe->close();
         }
         this->completeCb(255);
+        this->m_isRunning = false;
     });
 
     if (!downloadToFile)

@@ -18,35 +18,44 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include "Gadspot.h"
-#include "IOFactory.h"
+#ifndef S_SYNOSS_H
+#define S_SYNOSS_H
 
-using namespace Calaos;
+#include "IPCam.h"
 
-REGISTER_IO(Gadspot)
-
-Gadspot::Gadspot(Params &p):
-    IPCam(p)
+namespace Calaos
 {
-    ioDoc->descriptionBaseSet(_("Gadspot IP Camera. Camera can be viewed directly inside calaos and used in rules."));
 
-    caps.Add("resolution", "640x480");
+class SynoSurveillanceStation: public IPCam
+{
+public:
+    SynoSurveillanceStation(Params &p);
+    virtual ~SynoSurveillanceStation();
+
+    virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
+
+private:
+    bool isRunning = false;
+
+    std::function<void(const string &)> downloadDataCb = [](const string &){};
+
+    string authUrl;
+    string apiSid;
+    string snapUrl;
+
+    Json parseJsonResult(const string &data, bool &error);
+
+    void getApiInfo(const string &api, const string &method, const string &version,
+                    std::function<void(const string &url)> cb);
+
+    void tryLogin();
+    void login(std::function<void(const string &sid)> cb);
+
+    void tryGetSnapshot();
+    void getSnapshot(std::function<void(const string &data)> cb);
+    void doGetSnapshot();
+};
+
 }
 
-std::string Gadspot::getVideoUrl()
-{
-    std::string url;
-    url = "http://" + param["host"] + ":" + param["port"];
-    url += "/GetData.cgi";
-
-    return url;
-}
-
-std::string Gadspot::getPictureUrl()
-{
-    std::string url;
-    url = "http://" + param["host"] + ":" + param["port"];
-    url += "/Jpeg/CamImg.jpg";
-
-    return url;
-}
+#endif

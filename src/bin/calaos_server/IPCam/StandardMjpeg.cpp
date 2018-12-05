@@ -29,7 +29,10 @@ REGISTER_IO_USERTYPE(standard_mjpeg, StandardMjpeg)
 StandardMjpeg::StandardMjpeg(Params &p):
     IPCam(p)
 {
-    //TODO: add iodoc
+    ioDoc->descriptionBaseSet(_("MJPEG/Jpeg IP Camera. Camera can be viewed directly inside calaos and used in rules."));
+    ioDoc->paramAdd("url_jpeg", _("URL for snapshot in jpeg format"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("url_mjpeg", _("URL for mjpeg stream support"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
 
     //Nothing
     for (int i = 0;i < p.size();i++)

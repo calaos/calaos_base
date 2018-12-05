@@ -64,6 +64,7 @@ private:
 
     bool isStarted = false;
     bool hasFailedStarting = false;
+    bool m_isRunning = false;
 
     //Common function for starting download of url
     bool start();
@@ -85,6 +86,8 @@ public:
     void destinationSet(string destination) {m_destination = destination;}
     void authSet(string user, string password) {m_user = user; m_password = password; m_auth = true;}
     void authUnSet() {m_auth = false;}
+
+    bool isRunning() { return m_isRunning; }
 
     Params getResponseHeaders();
 

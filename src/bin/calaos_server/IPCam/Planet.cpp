@@ -33,7 +33,10 @@ Planet::Planet(Params &p):
     hue("127"),
     brightness("127")
 {
-    //TODO: add iodoc
+    ioDoc->descriptionBaseSet(_("Planet IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
+    ioDoc->paramAdd("model", _("Camera model (ICA-210, ICA-210W, ICA-300, ICA-302, ICA-500) to use"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("username", _("Username for accessing the camera"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("password", _("Password for user"), IODoc::TYPE_STRING, false);
 
     //Set up capabilities
     if (param["model"] == "ICA-300" || param["model"] == "ICA-302" ||
