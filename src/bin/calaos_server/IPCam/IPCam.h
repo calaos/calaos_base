@@ -33,6 +33,7 @@ protected:
     Params caps;
 
     string lastSnapshot;
+    std::function<void(const string &)> snapshotDataCb = {};
     UrlDownloader *cameraSnapDl = nullptr;
 
 public:

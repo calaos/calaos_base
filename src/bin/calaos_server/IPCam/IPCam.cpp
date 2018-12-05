@@ -84,7 +84,22 @@ bool IPCam::SaveToXml(TiXmlElement *node)
 void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
 {
     if (!cameraSnapDl)
+    {
         cameraSnapDl = new UrlDownloader(getPictureUrl(), false);
+        cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
+        {
+            lastSnapshot = downloadedData;
+            if (status == 200)
+            {
+                snapshotDataCb(downloadedData);
+            }
+            else
+            {
+                cErrorDom("network") << "Failed to get image for camera at url: " << getPictureUrl() << " failed with code: " << status;
+                snapshotDataCb({});
+            }
+        });
+    }
 
     if (cameraSnapDl->isRunning())
     {
@@ -92,18 +107,6 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
         return;
     }
 
-    cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
-    {
-        lastSnapshot = downloadedData;
-        if (status == 200)
-        {
-            dataCb(downloadedData);
-        }
-        else
-        {
-            cErrorDom("network") << "Failed to get image for camera at url: " << getPictureUrl() << " failed with code: " << status;
-            dataCb({});
-        }
-    });
+    snapshotDataCb = dataCb;
     cameraSnapDl->httpGet();
 }

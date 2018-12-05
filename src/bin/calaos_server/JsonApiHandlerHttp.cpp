@@ -751,6 +751,7 @@ void JsonApiHandlerHttp::processCamera()
     {
         camera->downloadSnapshot([=](const string &downloadedData)
         {
+            cCritical() << "JsonApiHandlerHttp is : " << this;
             if (downloadedData.empty())
             {
                 Params headers;

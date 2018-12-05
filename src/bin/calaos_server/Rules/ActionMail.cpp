@@ -106,8 +106,8 @@ void ActionMail::sendMail()
     }
 
     auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exe->once<uvw::ExitEvent>([this, exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
-    exe->once<uvw::ErrorEvent>([this, exe](const uvw::ErrorEvent &ev, auto &)
+    exe->once<uvw::ExitEvent>([exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
+    exe->once<uvw::ErrorEvent>([exe](const uvw::ErrorEvent &ev, auto &)
     {
         cDebugDom("rule.action.mail") << "Process error: " << ev.what();
         exe->close();

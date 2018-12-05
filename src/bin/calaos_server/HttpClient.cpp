@@ -442,7 +442,7 @@ void HttpClient::CloseConnection()
     DELETE_NULL(closeTimer);
 
     cDebugDom("network") << "Closing connection...";
-    client_conn->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+    client_conn->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &ev, auto &h)
     {
         cDebugDom("network") << "Shutdown failed: " << ev.what() << ". Closing.";
         h.close();
