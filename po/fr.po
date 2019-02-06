@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2017-10-25 14:09+0000\n"
+"POT-Creation-Date: 2018-12-06 09:31+0100\n"
 "PO-Revision-Date: 2015-12-19 13:35+0000\n"
 "Last-Translator: FragJage <inscrip.jage@free.fr>\n"
 "Language-Team: French\n"
@@ -13,6 +13,50 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "X-Generator: Pootle 2.5.1.1\n"
 "X-POOTLE-MTIME: 1450532110.000000\n"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:222
+msgid "AVReceiver object to control network amplifier"
+msgstr "Objet AVReceiver pour contrôler l'amplificateur réseau"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:223
+msgid "IP address of the device"
+msgstr "Adresse IP de l'appareil"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:224
+msgid "Port to use for connection"
+msgstr "Port pour la connexion"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:225
+msgid "Zone of the amplifier (if supported)"
+msgstr "Zone de l'amplificateur (si pris en charge)"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:226
+msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
+msgstr ""
+"Modèle AVReceiver. Pris en charge : pionnier, denon, onkyo, marantz, yamaha"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:228
+msgid "Switch receiver on"
+msgstr "Allumer le récepteur"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:229
+msgid "Switch receiver off"
+msgstr "Eteindre le récepteur"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:230
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:42
+msgid "Set current volume"
+msgstr "Régler le volume"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:231
+msgid "Change current input source"
+msgstr "Changer l'entrée actuelle"
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:232
+msgid "Send a custom command to receiver (if you know the protocol)"
+msgstr ""
+"Envoyer une commande personnalisée au récepteur (si vous connaissez le "
+"protocole)"
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:30
 msgid "Event when play is started"
@@ -58,11 +102,6 @@ msgstr "Lire la prochaine chanson de la liste de lecture"
 msgid "Play previous song in playlist"
 msgstr "Lire la précédente chanson de la liste de lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:42
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:230
-msgid "Set current volume"
-msgstr "Régler le volume"
-
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
 msgid "Increase volume by a value"
 msgstr "Augmenter le volume"
@@ -74,45 +113,6 @@ msgstr "Diminuer le volume"
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:46
 msgid "Audio players are not displayed in rooms"
 msgstr "Les lecteurs audio ne sont pas affichés dans les pièces"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:222
-msgid "AVReceiver object to control network amplifier"
-msgstr "Objet AVReceiver pour contrôler l'amplificateur réseau"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:223
-msgid "IP address of the device"
-msgstr "Adresse IP de l'appareil"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:224
-msgid "Port to use for connection"
-msgstr "Port pour la connexion"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:225
-msgid "Zone of the amplifier (if supported)"
-msgstr "Zone de l'amplificateur (si pris en charge)"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:226
-msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
-msgstr ""
-"Modèle AVReceiver. Pris en charge : pionnier, denon, onkyo, marantz, yamaha"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:228
-msgid "Switch receiver on"
-msgstr "Allumer le récepteur"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:229
-msgid "Switch receiver off"
-msgstr "Eteindre le récepteur"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:231
-msgid "Change current input source"
-msgstr "Changer l'entrée actuelle"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:232
-msgid "Send a custom command to receiver (if you know the protocol)"
-msgstr ""
-"Envoyer une commande personnalisée au récepteur (si vous connaissez le "
-"protocole)"
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:46
 msgid "Squeezebox audio player allows control of a Squeezebox from Calaos"
@@ -200,40 +200,6 @@ msgstr "Événement sur une valeur spécifique"
 #: src/bin/calaos_server/IO/OutputLightRGB.cpp:30
 msgid "Event on any change of value"
 msgstr "Événement à chaque changement"
-
-#: src/bin/calaos_server/IOBase.cpp:34
-msgid "Unique ID identifying the Input/Output in calaos-server"
-msgstr "Identifiant unique de l'entrée/sortie dans calaos-server"
-
-#: src/bin/calaos_server/IOBase.cpp:35
-msgid "Name of Input/Output."
-msgstr "Nom de l'entrée/sortie."
-
-#: src/bin/calaos_server/IOBase.cpp:36
-msgid "Display the Input/Output on all user interfaces if set. Default to true"
-msgstr ""
-"Affichez l'entrée/sortie sur toutes les interfaces utilisateur. Vrai par "
-"défaut"
-
-#: src/bin/calaos_server/IOBase.cpp:37
-msgid ""
-"Enable the Input/Output. The default value is true. This parameter is added "
-"if it's not found in the configuration."
-msgstr ""
-"Activez l'entrée/sortie. Vrai par défaut. Ce paramètre est ajouté s'il n'est "
-"pas trouvé dans la configuration."
-
-#: src/bin/calaos_server/IOBase.cpp:38
-msgid ""
-"Internal graphical type for all calaos objects. Set automatically, read-only "
-"parameter."
-msgstr ""
-"Type graphique interne pour tous les objets calaos. Paramètre en lecture "
-"seule, définit automatiquement"
-
-#: src/bin/calaos_server/IOBase.cpp:39
-msgid "IO type, can be \"input\", \"output\", \"inout\""
-msgstr "Type d'entrée/sortie (input, output, inout)"
 
 #: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:36
 msgid "RGB Light dimmer using a Blinkstick"
@@ -1989,44 +1955,6 @@ msgstr "Variateur de lumière X10."
 msgid "House code of the X10 light device"
 msgstr "House code de la lumière X10"
 
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:26
-msgid "Sensor ID, as set in your xPL network"
-msgstr "ID du capteur sur le réseau xPL"
-
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:32
-msgid "Actuator ID, as set in your xPL network"
-msgstr "ID de l'actionneur sur le réseau xPL"
-
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:37
-msgid ""
-"Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"
-msgstr "Nom de la source sur le réseau xPL (Format VendorId-DeviceId.Instance)"
-
-#: src/bin/calaos_server/IO/xPL/xPLInputAnalog.cpp:34
-msgid "xPL analog sensor"
-msgstr "Capteur xPL analogique"
-
-#: src/bin/calaos_server/IO/xPL/xPLInputString.cpp:34
-msgid "xPL string sensor"
-msgstr "Capteur xPL chaine"
-
-#: src/bin/calaos_server/IO/xPL/xPLInputSwitch.cpp:35
-msgid "xPL input switch"
-msgstr "Entrée xPL"
-
-#: src/bin/calaos_server/IO/xPL/xPLInputTemp.cpp:34
-msgid "xPL temperature sensor"
-msgstr "Capteur de température xPL"
-
-#: src/bin/calaos_server/IO/xPL/xPLOutputAnalog.cpp:34
-#: src/bin/calaos_server/IO/xPL/xPLOutputString.cpp:34
-msgid "Analog output controlled by xPL Protocol"
-msgstr "Sortie analogique pilotée par le protocole xPL"
-
-#: src/bin/calaos_server/IO/xPL/xPLOutputSwitch.cpp:34
-msgid "Light/relay controlled by xPL Protocol"
-msgstr "Lumière/relai piloté par le protocole xPL"
-
 #: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:35
 msgid ""
 "Zibase analog input. This object can read value from devices like Energy "
@@ -2160,12 +2088,170 @@ msgstr "Capteur de température Zibase"
 msgid "Temperature sensor"
 msgstr "Capteur de température"
 
-#: src/bin/calaos_server/JsonApi.cpp:1343
-#: src/bin/calaos_server/JsonApi.cpp:1448
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:26
+msgid "Sensor ID, as set in your xPL network"
+msgstr "ID du capteur sur le réseau xPL"
+
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:32
+msgid "Actuator ID, as set in your xPL network"
+msgstr "ID de l'actionneur sur le réseau xPL"
+
+#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:37
+msgid ""
+"Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"
+msgstr "Nom de la source sur le réseau xPL (Format VendorId-DeviceId.Instance)"
+
+#: src/bin/calaos_server/IO/xPL/xPLInputAnalog.cpp:34
+msgid "xPL analog sensor"
+msgstr "Capteur xPL analogique"
+
+#: src/bin/calaos_server/IO/xPL/xPLInputString.cpp:34
+msgid "xPL string sensor"
+msgstr "Capteur xPL chaine"
+
+#: src/bin/calaos_server/IO/xPL/xPLInputSwitch.cpp:35
+msgid "xPL input switch"
+msgstr "Entrée xPL"
+
+#: src/bin/calaos_server/IO/xPL/xPLInputTemp.cpp:34
+msgid "xPL temperature sensor"
+msgstr "Capteur de température xPL"
+
+#: src/bin/calaos_server/IO/xPL/xPLOutputAnalog.cpp:34
+#: src/bin/calaos_server/IO/xPL/xPLOutputString.cpp:34
+msgid "Analog output controlled by xPL Protocol"
+msgstr "Sortie analogique pilotée par le protocole xPL"
+
+#: src/bin/calaos_server/IO/xPL/xPLOutputSwitch.cpp:34
+msgid "Light/relay controlled by xPL Protocol"
+msgstr "Lumière/relai piloté par le protocole xPL"
+
+#: src/bin/calaos_server/IOBase.cpp:34
+msgid "Unique ID identifying the Input/Output in calaos-server"
+msgstr "Identifiant unique de l'entrée/sortie dans calaos-server"
+
+#: src/bin/calaos_server/IOBase.cpp:35
+msgid "Name of Input/Output."
+msgstr "Nom de l'entrée/sortie."
+
+#: src/bin/calaos_server/IOBase.cpp:36
+msgid "Display the Input/Output on all user interfaces if set. Default to true"
+msgstr ""
+"Affichez l'entrée/sortie sur toutes les interfaces utilisateur. Vrai par "
+"défaut"
+
+#: src/bin/calaos_server/IOBase.cpp:37
+msgid ""
+"Enable the Input/Output. The default value is true. This parameter is added "
+"if it's not found in the configuration."
+msgstr ""
+"Activez l'entrée/sortie. Vrai par défaut. Ce paramètre est ajouté s'il n'est "
+"pas trouvé dans la configuration."
+
+#: src/bin/calaos_server/IOBase.cpp:38
+msgid ""
+"Internal graphical type for all calaos objects. Set automatically, read-only "
+"parameter."
+msgstr ""
+"Type graphique interne pour tous les objets calaos. Paramètre en lecture "
+"seule, définit automatiquement"
+
+#: src/bin/calaos_server/IOBase.cpp:39
+msgid "IO type, can be \"input\", \"output\", \"inout\""
+msgstr "Type d'entrée/sortie (input, output, inout)"
+
+#: src/bin/calaos_server/IOBase.cpp:40
+msgid "If enabled, write an entry in the history event log for this IO"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Axis.cpp:33
+msgid ""
+"Axis IP Camera/Encoder. Camera can be viewed directly inside calaos and used "
+"in rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Axis.cpp:34
+msgid "Camera model/chanel to use"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Axis.cpp:35
+#: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:35
+msgid "Set to true if camera has PTZ support"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Axis.cpp:39
+msgid "Resolution to use"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Gadspot.cpp:31
+msgid ""
+"Gadspot IP Camera. Camera can be viewed directly inside calaos and used in "
+"rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Planet.cpp:36
+msgid ""
+"Planet IP Camera/Encoder. Camera can be viewed directly inside calaos and "
+"used in rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Planet.cpp:37
+msgid "Camera model (ICA-210, ICA-210W, ICA-300, ICA-302, ICA-500) to use"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Planet.cpp:38
+msgid "Username for accessing the camera"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Planet.cpp:39
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:38
+msgid "Password for user"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:32
+msgid ""
+"MJPEG/Jpeg IP Camera. Camera can be viewed directly inside calaos and used "
+"in rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:33
+msgid "URL for snapshot in jpeg format"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:34
+msgid "URL for mjpeg stream support"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:35
+msgid ""
+"Synology Surveillance Station IP Camera. Camera can be viewed directly "
+"inside calaos and used in rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:36
+msgid "Full url to Synology nas. Ex: https://192.168.0.22:5000"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:37
+msgid "Username which can access Surveillance Station"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:39
+#, fuzzy
+msgid "ID of the camera"
+msgstr "Arrêter la minuterie"
+
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:40
+msgid ""
+"Profile to use for snapshot. 0- High quality, 1- Balanced, 2- Low bandwidth"
+msgstr ""
+
+#: src/bin/calaos_server/JsonApi.cpp:1344
+#: src/bin/calaos_server/JsonApi.cpp:1449
 msgid "New unnamed scenario"
 msgstr "Nouveau scénario"
 
-#: src/bin/calaos_server/main.cpp:52
+#: src/bin/calaos_server/main.cpp:53
 msgid ""
 "Usage:\n"
 "\t"
@@ -2173,31 +2259,31 @@ msgstr ""
 "Utilisation :\n"
 "\t"
 
-#: src/bin/calaos_server/main.cpp:52
+#: src/bin/calaos_server/main.cpp:53
 msgid " [options]"
 msgstr "  [options]"
 
-#: src/bin/calaos_server/main.cpp:53
+#: src/bin/calaos_server/main.cpp:54
 msgid "\tOptions:\n"
 msgstr "\tOptions:\n"
 
-#: src/bin/calaos_server/main.cpp:54
+#: src/bin/calaos_server/main.cpp:55
 msgid "\t-h, --help\tDisplay this help.\n"
 msgstr "\t-h, --help\tAfficher l'aide.\n"
 
-#: src/bin/calaos_server/main.cpp:55
+#: src/bin/calaos_server/main.cpp:56
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
 msgstr ""
 "\t--config <path>\tDéfinir <chemin> comme dossier pour la configuration.\n"
 
-#: src/bin/calaos_server/main.cpp:56
+#: src/bin/calaos_server/main.cpp:57
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr "\t--cache <path>\tDéfinir <chemin> comme dossier pour le cache.\n"
 
-#: src/bin/calaos_server/main.cpp:57
+#: src/bin/calaos_server/main.cpp:58
 msgid "\t--gendoc <path>\tGenerate Io documentation in <path>\n"
 msgstr "\t--gendoc <path>\tGénérer la documentation des E/S sur <path>\n"
 
-#: src/bin/calaos_server/main.cpp:58
+#: src/bin/calaos_server/main.cpp:59
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr "\t-v, --version\tAfficher la version et quitter.\n"
