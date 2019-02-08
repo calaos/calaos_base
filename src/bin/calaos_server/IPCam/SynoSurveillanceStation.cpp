@@ -157,6 +157,7 @@ void SynoSurveillanceStation::doGetSnapshot()
             snapUrl.clear();
         }
         lastSnapshot = data;
+        cInfo() << "new snapshot: " << lastSnapshot.length();
         isRunning = false;
         downloadDataCb(lastSnapshot);
     });
@@ -164,6 +165,7 @@ void SynoSurveillanceStation::doGetSnapshot()
 
 void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)> cb)
 {
+    cDebugDom("syno.ss") << "Getting new Snapshot...";
     string url = snapUrl;
     url += "&id=" + Utils::url_encode(get_param("camera_id"));
     url += "&_sid=" + Utils::url_encode(apiSid);
@@ -174,9 +176,12 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
 
     dl->m_signalCompleteData.connect([=](const string &data, int status)
     {
+        cDebugDom("syno.ss") << "getSnapshot done, status: " << status;
+
         if (status == 200)
-        {
+        {    
             auto headers = dl->getResponseHeaders();
+            cDebugDom("syno.ss") << "Headers Content-Type: " << headers["Content-Type"];
             if (headers["Content-Type"] != "image/jpeg")
             {
                 cWarning() << "GetSnapshot failed: " << data;
