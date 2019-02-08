@@ -280,27 +280,65 @@ Content-Type: text/html
 Content-Length: 169
      */
 
+    //Can also be mutliple with redirect:
+    /*
+HTTP/2 302
+date: Fri, 08 Feb 2019 12:13:15 GMT
+content-type: text/plain; charset=utf-8
+content-length: 0
+access-control-allow-origin: *
+cache-control: no-cache, no-store, must-revalidate
+location: /640/480/?image=743
+vary: Accept
+x-beluga-cache-status: Miss
+x-beluga-document: 134517132967552875205061749237587549195
+x-beluga-node: 32
+x-beluga-record: f5c531b4640ffd773650c0975b4c67a3a7a45f25
+x-beluga-response-time: 155 ms
+x-beluga-status: 000
+x-beluga-trace: 05c27b98-df54-41ec-9914-fe921d868fc2
+x-powered-by: Express
+server: BelugaCDN/v2.44.11
+x-beluga-response-time-x: 0.157 sec
+
+HTTP/2 200
+date: Fri, 08 Feb 2019 12:13:16 GMT
+content-type: image/jpeg
+content-length: 49219
+access-control-allow-origin: *
+cache-control: public, max-age=604800
+etag: W/"BiWNpbjT/do55p+JUMKZhg=="
+x-beluga-cache-status: Hit (1)
+x-beluga-node: 32
+x-beluga-record: 9e416b65adaa83757fb3d79be36ca6bf6011d202
+x-beluga-response-time: 1 ms
+x-beluga-status: 003
+x-beluga-trace: 1c4887b9-db41-433d-9f2a-dc60b3f47b32
+x-powered-by: Express
+server: BelugaCDN/v2.44.11
+x-beluga-response-time-x: 0.002 sec
+
+     */
+
     statusCode = 0;
     std::ifstream infile(tmpHeader);
     string line;
     bool first = true;
     while (std::getline(infile, line))
     {
-        if (first)
+        if (Utils::strStartsWith(line, "HTTP/"))
         {
-            first = false;
-            if (Utils::strStartsWith(line, "HTTP/"))
-            {
-                vector<string> tok;
-                Utils::split(line, tok, " ", 3);
-                Utils::from_string(tok[1], statusCode);
-            }
-            continue;
+            vector<string> tok;
+            Utils::split(line, tok, " ", 3);
+            Utils::from_string(tok[1], statusCode);
+            headers.clear();
         }
-
-        vector<string> tok;
-        Utils::split(line, tok, ":", 2);
-        headers.Add(Utils::trim(tok[0]), Utils::trim(tok[1]));
+        else
+        {
+            vector<string> tok;
+            Utils::split(line, tok, ":", 2);
+            headers.Add(Utils::trim(tok[0]), Utils::trim(tok[1]));
+        }
     }
 
     return headers;
