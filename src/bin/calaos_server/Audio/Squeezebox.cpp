@@ -271,11 +271,8 @@ void Squeezebox::processNotificationMessage(string msg)
     Params p;
     p.Parse(msg);
 
-    if (param["id"] != url_decode2(p["0"]))
+    if (id != url_decode2(p["0"]))
         return;
-
-    int pid;
-    from_string(param["pid"], pid);
 
     if (p["1"] == "playlist")
     {
@@ -285,7 +282,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioSongChange);
 
             EventManager::create(CalaosEvent::EventAudioSongChanged,
-                                 { { "player_id", get_param("pid") } });
+                                 { { "player_id", id } });
         }
         else if (p["2"] == "move")
         {
@@ -293,7 +290,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistMove,
-                                 { { "player_id", get_param("pid") },
+                                 { { "player_id", id },
                                    { "from", p["3"] },
                                    { "to", p["4"] } });
         }
@@ -303,7 +300,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistDelete,
-                                 { { "player_id", get_param("pid") },
+                                 { { "player_id", id },
                                    { "position", p["3"] } });
         }
         else if (p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play" || p["2"] == "load")
@@ -312,7 +309,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistReload,
-                                 { { "player_id", get_param("pid") } });
+                                 { { "player_id", id } });
         }
         else if (p["2"] == "addtracks" || p["2"] == "add")
         {
@@ -320,7 +317,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistAdd,
-                                 { { "player_id", get_param("pid") } });
+                                 { { "player_id", id } });
         }
         else if (p["2"] == "clear")
         {
@@ -328,7 +325,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioPlaylistChange);
 
             EventManager::create(CalaosEvent::EventAudioPlaylistCleared,
-                                 { { "player_id", get_param("pid") } });
+                                 { { "player_id", id } });
         }
         else if (p["2"] == "pause")
         {
@@ -345,7 +342,7 @@ void Squeezebox::processNotificationMessage(string msg)
                 state = "pause";
 
             EventManager::create(CalaosEvent::EventAudioStatusChanged,
-                                 { { "player_id", get_param("pid") },
+                                 { { "player_id", id },
                                    { "state", state } });
         }
         else if (p["2"] == "stop")
@@ -354,7 +351,7 @@ void Squeezebox::processNotificationMessage(string msg)
             set_status(AudioStop);
 
             EventManager::create(CalaosEvent::EventAudioStatusChanged,
-                                 { { "player_id", get_param("pid") },
+                                 { { "player_id", id },
                                    { "state", "stop" } });
         }
     }
@@ -366,7 +363,7 @@ void Squeezebox::processNotificationMessage(string msg)
         set_status(AudioVolumeChange);
 
         EventManager::create(CalaosEvent::EventAudioVolumeChanged,
-                             { { "player_id", get_param("pid") },
+                             { { "player_id", id },
                                { "volume", Utils::url_decode(p["3"]) } });
     }
 }
