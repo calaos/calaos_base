@@ -19,6 +19,3 @@ fi
 
 autoreconf -vif
 
-if [ -z "$NOCONFIGURE" ]; then
-	./configure "$@"
-fi
