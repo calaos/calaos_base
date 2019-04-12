@@ -8,10 +8,6 @@ matrix:
   include:
   - os: linux
     compiler: gcc
-  - os: osx
-    osx_image: xcode8.3
-    compiler: clang
-    env: COMPILER=clang++
 
 before_install:
   - git fetch --tags && git fetch
