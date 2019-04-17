@@ -28,20 +28,20 @@ if ! which curl &> /dev/null; then
     exit 1
 fi
 
-curl $url --output curl-${filename}
+curl $url --output ${filename}_curl
 
 if ! which convert &> /dev/null; then
     echo "imagemagick is not installed. Resizing is not done."
-    mv curl-${filename} ${filename}
+    mv ${filename}_curl ${filename}
     exit 0
 fi
 
 if [ "x$width" = "x" ]; then
-    mv curl-${filename} ${filename}
+    mv ${filename}_curl ${filename}
     exit 0
 fi
 
-convert curl-${filename} \
+convert ${filename}_curl \
     -filter Triangle \
     -define filter:support=2 \
     -thumbnail ${width} \
@@ -58,5 +58,5 @@ convert curl-${filename} \
     -colorspace sRGB \
     -strip ${filename}
 
-rm -fr curl-${filename}
+rm -fr ${filename}_curl
 
