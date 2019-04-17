@@ -12,13 +12,14 @@ function getHTML(command) {
         http.onreadystatechange = function() {
             if(http.readyState === 4) {
                 if(http.status === 200) {
+                    console.log("HTTP Content-Type: " + http.getResponseHeader('Content-Type'));
                     if (http.getResponseHeader('Content-Type') == "image/jpeg") {
 
                         $('#answer').html('<img id="campic" />');
 
                         var img = document.getElementById('campic');
 
-                        var blob = http.response; //new Blob([http.response], { type: 'image/jpeg' });
+                        var blob = http.response; // new Blob([http.response], { type: 'image/jpeg' });
 
                         img.src = window.URL.createObjectURL(blob);
                         img.onload = function() {
@@ -75,6 +76,7 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_time", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_playlist_item", "item": "0", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_cover_url", "id": "output_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio", "audio_action": "get_cover", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_albums", "from": "0", "count": "1", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_artists", "from": "0", "count": "1", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_years", "from": "0", "count": "1", "id": "output_0" }',
@@ -91,6 +93,7 @@ var apiList = [
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_playlist_titles", "from": "0", "count": "1", "playlist_id": "0", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "audio_db", "audio_action": "get_track_infos", "from": "0", "count": "1", "track_id": "0", "id": "output_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "camera", "type": "get_picture", "id": "output_0" }',
+    '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "get_cover", "id": "audio_id_0" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "eventlog", "page": 0, "per_page": 100, "uuid": "<uuid for single event>" }',
     '{ "cn_user": "USERNAME", "cn_pass": "PASSWORD", "action": "event_picture", "pic_uid": "<UUID>" }'
 ];
