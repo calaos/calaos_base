@@ -641,7 +641,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
                     json_t *jret = json_object();
                     json_object_set_new(jret, "success", json_string("false"));
                     json_object_set_new(jret, "error_str", json_string("unable to load data from url"));
-                    sendJson(jret);
+                    this->sendJson(jret);
                     return;
                 }
 
