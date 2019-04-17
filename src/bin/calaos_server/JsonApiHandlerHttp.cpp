@@ -410,7 +410,7 @@ void JsonApiHandlerHttp::processGetCover()
     player->get_album_cover([=](AudioPlayerData data)
     {
         //do not start another exe if one is running already
-        if (data.svalue == "" || exe_thumb->active())
+        if (data.svalue == "" || exe_thumb_running)
         {
             json_t *jret = json_object();
             json_object_set_new(jret, "success", json_string("false"));
@@ -439,13 +439,14 @@ void JsonApiHandlerHttp::processGetCover()
         Utils::CStrArray arr(cmd);
         cInfoDom("network") << "Executing command: " << arr.toString();
         exe_thumb->spawn(arr.at(0), arr.data());
+        exe_thumb_running = true;
     });
 }
 
 void JsonApiHandlerHttp::processGetCameraPic()
 {
     IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(jsonParam["id"]));
-    if (!camera || exe_thumb->active())
+    if (!camera || exe_thumb_running)
     {
         json_t *jret = json_object();
         json_object_set_new(jret, "success", json_string("false"));
@@ -466,18 +467,21 @@ void JsonApiHandlerHttp::processGetCameraPic()
     exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
     {
         h.close();
+        exe_thumb_running = false;
         this->exeFinished(ev.status);
     });
     exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
+        exe_thumb_running = false;
         this->exeFinished(1);
     });
 
     Utils::CStrArray arr(cmd);
     cInfoDom("network") << "Executing command: " << arr.toString();
     exe_thumb->spawn(arr.at(0), arr.data());
+    exe_thumb_running = true;
 }
 
 void JsonApiHandlerHttp::exeFinished(int exit_code)
@@ -612,6 +616,56 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
         {
             sendJson(jret);
         });
+    else if (msg == "get_cover")
+    {
+        string err;
+        AudioPlayer *player = getAudioPlayer(jdata, err);
+
+        if (!err.empty())
+        {
+            Params p = {{"error", err }};
+            sendJson(p.toJson());
+            return;
+        }
+
+        player->get_album_cover([=](AudioPlayerData data)
+        {
+            string cmd = "calaos_picture " + data.svalue + " " + tempfname;
+            exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
+            exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+            {
+                h.close();
+                exe_thumb_running = false;
+                if (ev.status != 0)
+                {
+                    json_t *jret = json_object();
+                    json_object_set_new(jret, "success", json_string("false"));
+                    json_object_set_new(jret, "error_str", json_string("unable to load data from url"));
+                    sendJson(jret);
+                    return;
+                }
+
+                Params headers;
+                headers.Add("Connection", "close");
+                headers.Add("Content-Type", "image/jpeg");
+                string res = httpClient->buildHttpResponse(HTTP_200, headers, Utils::getFileContent(tempfname.c_str()));
+                sendData.emit(res);
+
+            });
+            exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+            {
+                cDebugDom("process") << "Process error: " << ev.what();
+                h.close();
+                exe_thumb_running = false;
+                this->exeFinished(1);
+            });
+
+            Utils::CStrArray arr(cmd);
+            cInfoDom("network") << "Executing command: " << arr.toString();
+            exe_thumb->spawn(arr.at(0), arr.data());
+            exe_thumb_running = true;
+        });
+    }
     else
         sendJson({{"error", "unkown audio_action" }});
 }

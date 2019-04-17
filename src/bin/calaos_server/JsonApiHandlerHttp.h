@@ -47,6 +47,7 @@ public:
 private:
 
     std::shared_ptr<uvw::ProcessHandle> exe_thumb;
+    bool exe_thumb_running = false;
     string tempfname;
 
     Params jsonParam;
