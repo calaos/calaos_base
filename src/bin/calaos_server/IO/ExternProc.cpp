@@ -101,6 +101,11 @@ ExternProcServer::~ExternProcServer()
         process_exe->kill(SIGTERM);
         process_exe->close();
     }
+    
+    if (pipe && pipe->referenced())
+    {
+        pipe->close();
+    }
 
     cDebugDom("process") << "Deleting socket file: " << sockpath;
     FileUtils::unlink(sockpath);
@@ -113,6 +118,12 @@ void ExternProcServer::terminate()
 
     if (process_exe && process_exe->referenced())
         process_exe->kill(SIGTERM);
+    
+    if (pipe && pipe->referenced())
+    {
+        pipe->close();
+        pipe.reset();
+    }
 }
 
 void ExternProcServer::sendMessage(const string &data)
