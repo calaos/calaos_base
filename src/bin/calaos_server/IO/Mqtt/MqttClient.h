@@ -12,8 +12,6 @@ public:
 	MqttClient(const Params &p);
 	~MqttClient();
 
-    std::vector<sigc::signal<void>> subscribeCb;
-    std::unordered_map<string, struct mosquitto_message*> messages;
     void subscribeTopic(const string topic, sigc::slot<void> callback);
 
 	void on_connect(int rc);
@@ -24,7 +22,12 @@ public:
 
     string getValueJson(string path, string payload);
     string getValue(const Params &params);
-    double getValueDouble(const Params &params);
+    double getValueDouble(const Params &params, bool &err);
+
+private:
+    std::unordered_map<string, std::vector<sigc::slot<void>>> subscribeCb;
+    std::unordered_map<string, struct mosquitto_message*> messages;
+
 };
 
 
