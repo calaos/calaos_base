@@ -15,6 +15,7 @@ AM_CPPFLAGS =                                                 \
         -DXPLLIB_NOCONF                                       \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
@@ -164,7 +165,13 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputLightRGB.h         \
         IO/LimitlessLED/MilightOutputLightRGB.cpp       \
-        IO/MySensors/MySensors.h                        \
+		IO/Mqtt/MqttBrokersList.h						\
+		IO/Mqtt/MqttBrokerslist.cpp						\
+		IO/Mqtt/MqttClient.h							\
+		IO/Mqtt/MqttClient.cpp							\
+		IO/Mqtt/MqttInputTemp.h							\
+		IO/Mqtt/MqttInputTemp.cpp						\
+		IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsControllerList.cpp        \
         IO/MySensors/MySensorsControllerList.h          \
