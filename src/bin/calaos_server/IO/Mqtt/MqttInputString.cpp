@@ -39,7 +39,7 @@ MqttInputString::MqttInputString(Params &p):
 
     ioDoc->friendlyNameSet("MqttInputString");
     ioDoc->descriptionSet(_("Temperature read from a mqtt broker"));
-
+    MqttClient::commonDoc(ioDoc);
     cInfoDom("input") << "MqttInputString::MqttInputString()";
     Calaos::StartReadRules::Instance().addIO();
 
