@@ -1,10 +1,13 @@
 #ifndef __MQTT_CLIENT_H__
 #define __MQTT_CLIENT_H__
 
+#include <unordered_map>
+
 #include <mosquittopp.h>
 #include "Params.h"
 #include "Utils.h"
-#include <unordered_map>
+#include "IODoc.h"
+
 
 class MqttClient : public mosqpp::mosquittopp
 {
@@ -23,7 +26,7 @@ public:
     string getValueJson(string path, string payload);
     string getValue(const Params &params);
     double getValueDouble(const Params &params, bool &err);
-
+    static void commonDoc(IODoc *ioDoc);
 private:
     std::unordered_map<string, std::vector<sigc::slot<void>>> subscribeCb;
     std::unordered_map<string, struct mosquitto_message*> messages;
