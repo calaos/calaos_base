@@ -16,6 +16,7 @@ public:
 	~MqttClient();
 
     void subscribeTopic(const string topic, sigc::slot<void> callback);
+    void publishTopic(const string topic, const string payload);
 
 	void on_connect(int rc);
 	void on_message(const struct mosquitto_message *message);
@@ -27,6 +28,10 @@ public:
     string getValue(const Params &params);
     double getValueDouble(const Params &params, bool &err);
     static void commonDoc(IODoc *ioDoc);
+    void   setValue(const Params &params, bool val);
+    void  setValueString(const Params &params, string val);
+    void  setValueInt(const Params &params, int val);
+
 private:
     std::unordered_map<string, std::vector<sigc::slot<void>>> subscribeCb;
     std::unordered_map<string, struct mosquitto_message*> messages;

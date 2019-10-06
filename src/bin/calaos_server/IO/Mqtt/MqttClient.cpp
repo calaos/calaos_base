@@ -63,6 +63,12 @@ void MqttClient::subscribeTopic(const string topic, sigc::slot<void> callback)
     subscribe(NULL, topic.c_str());
 }
 
+void MqttClient::publishTopic(const string topic, const string payload)
+{
+    publish(NULL, topic.c_str(), payload.size(), payload.c_str());
+}
+
+
 void MqttClient::on_connect(int rc)
 {
     cDebugDom("mqtt") << "Connected with code"  << rc;
@@ -201,18 +207,17 @@ string MqttClient::getValue(const Params &params)
 {
     string type = params["type"];
 
-
-    if (!params.Exists("topic") || !params.Exists("path"))
+    if (!params.Exists("topic_sub") || !params.Exists("path"))
     {
         cDebugDom("mqtt") << "Topic or path does not exists";
         return "";
     }
 
-    const struct mosquitto_message *m = messages[params["topic"]];
+    const struct mosquitto_message *m = messages[params["topic_sub"]];
 
     if (!m)
     {
-        cDebugDom("mqtt") << "No message received for topic " << params["topic"] << " yet";
+        cDebugDom("mqtt") << "No message received for topic " << params["topic_sub"] << " yet";
         return "";
     }
     string payload((const char*)m->payload);
@@ -224,6 +229,7 @@ double MqttClient::getValueDouble(const Params &params, bool &err)
     double val = 0;
     string value;
     err = true;
+
     value = getValue(params);
 
     if (Utils::is_of_type<double>(value) && !value.empty())
@@ -235,6 +241,79 @@ double MqttClient::getValueDouble(const Params &params, bool &err)
     return val;
 }
 
+void MqttClient::setValueString(const Params &params, string val)
+{
+    string data;
+    string topic = params["topic_pub"];
+
+    if (params.Exists("data"))
+    {
+        data = params["data"];
+        replace_str(data, "__##VALUE##__", val);
+    }
+    else
+    {
+        cErrorDom("mqtt") << "No data provided in configuration IO";
+        return;
+    }
+
+    cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
+
+    publish(NULL, topic.c_str(), data.size(), data.c_str());
+
+}
+
+void MqttClient::setValue(const Params &params, bool val)
+{
+    string on_value = "on";
+    string off_value = "off";
+    string topic = params["topic_pub"];
+    string data;
+
+    if (params.Exists("on_value"))
+        on_value = params["on_value"];
+
+    if (params.Exists("off_value"))
+        off_value = params["off_value"];
+
+    if (params.Exists("data"))
+    {
+        data = params["data"];
+        replace_str(data, "__##VALUE##__", val ? on_value : off_value);
+    }
+    else
+    {
+        cErrorDom("mqtt") << "No data provided in configuration IO";
+        return;
+    }
+
+    cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
+
+    publish(NULL, topic.c_str(), data.size(), data.c_str());
+}
+
+
+void MqttClient::setValueInt(const Params &params, int val)
+{
+    string topic = params["topic_pub"];
+    string data;
+
+    if (params.Exists("data"))
+    {
+        data = params["data"];
+        replace_str(data, "__##VALUE##__", to_string((int)(val * 2.55)));
+    }
+    else
+    {
+        cErrorDom("mqtt") << "No data provided in configuration IO";
+        return;
+    }
+
+    cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
+
+    publish(NULL, topic.c_str(), data.size(), data.c_str());
+}
+
 void MqttClient::commonDoc(IODoc *ioDoc)
 {
     ioDoc->paramAdd("host", _("IP address of the mqtt broker to connect to. Default value is 127.0.0.1."), IODoc::TYPE_STRING, false);
@@ -244,7 +323,9 @@ void MqttClient::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("password", _("Password to use for authentication with mqtt broker. User must be defined in that case."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("user", _("User to use for authentication with mqtt broker. Password must be defined in that case."), IODoc::TYPE_STRING, false);
 
-    ioDoc->paramAdd("topic", _("Topic on with to subscribe."), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("topic_pub", _("Topic on witch to publish."), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("topic_sub", _("Topic on witch to subscribe."), IODoc::TYPE_STRING, true);
+
     ioDoc->paramAdd("path", _("The path where to found the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is somple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path\n"), IODoc::TYPE_STRING, true);
 
     //user, password, keepalive
