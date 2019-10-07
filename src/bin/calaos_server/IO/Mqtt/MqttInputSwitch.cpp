@@ -48,8 +48,10 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
     Calaos::StartReadRules::Instance().addIO();
 
     client = MqttBrokersList::Instance().get_client(get_params());
-    client->subscribeTopic(get_param("topic"), [=]()
+    cDebugDom("mqtt") << "regoister on topic : " << get_param("topic_sub");
+    client->subscribeTopic(get_param("topic_sub"), [=]()
     {
+        cDebugDom("mqtt") << "New value on topic " << get_param("topic_sub");
         hasChanged();
     });
 
@@ -65,8 +67,8 @@ bool MqttInputSwitch::readValue()
     string sv = client->getValue(get_params());
 
     cDebugDom("mqtt") << "Read value " << sv;
-
-    if (sv == "single")
+    // TODO : read on_value and off_value from params
+    if (sv == "single" || sv == "toggle")
         return true;
     else if (sv == "")
         return false;

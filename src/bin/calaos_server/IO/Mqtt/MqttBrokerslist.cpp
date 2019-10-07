@@ -30,8 +30,8 @@ MqttClient *MqttBrokersList::get_client(const Params &p)
 {
     string key, broker = "127.0.0.1", port = "1883";
 
-    if (p.Exists("broker"))
-        broker = p["broker"];
+    if (p.Exists("host"))
+        broker = p["host"];
     if (p.Exists("port"))
         port = p["port"];
 
