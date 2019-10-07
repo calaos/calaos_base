@@ -35,7 +35,7 @@ public:
 private:
     std::unordered_map<string, std::vector<sigc::slot<void>>> subscribeCb;
     std::unordered_map<string, struct mosquitto_message*> messages;
-
+    bool connected = false;
 };
 
 

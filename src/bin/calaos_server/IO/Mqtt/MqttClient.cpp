@@ -14,32 +14,32 @@ MqttClient::MqttClient(const Params &p) : mosquittopp("calaos")
 
     mosqpp::lib_init();
 
-    if (p.Exists("broker"))
-        broker = p["broker"];
+    if (p.Exists("host"))
+        broker = p["host"];
     if (p.Exists("port"))
         Utils::from_string(p["port"], port);
 
     if (p.Exists("user") && p.Exists("password"))
         username_pw_set(p["user"].c_str(), p["password"].c_str());
 
-
     int keepalive = 120;
     if (p.Exists("keepalive"))
         Utils::from_string(p["keepalive"], keepalive);
 
     cDebugDom("mqtt") << "Connecting to broker " << broker << ":" << port;
+
     int res = connect_async(broker.c_str(), port, keepalive);
 
     switch (res)
     {
     case MOSQ_ERR_INVAL:
-        cDebugDom("mqtt") << "Error connecting to host : " << broker;
+        cErrorDom("mqtt") << "Error connecting to host : " << broker;
         break;
     case MOSQ_ERR_SUCCESS:
         loop_start();
         break;
     default:
-        cDebugDom("mqtt") << "Error connecting : " << strerror(res);
+        cErrorDom("mqtt") << "Error connecting : " << strerror(res);
         break;
     }
 }
@@ -53,14 +53,23 @@ MqttClient::~MqttClient()
 void MqttClient::subscribeTopic(const string topic, sigc::slot<void> callback)
 {
     // subscribeCb contains a map of list of callbacks, register this callback to the key  relative of this topic
+    cDebugDom("mqtt") << "Topic : " << topic;
+    if (topic == "")
+    {
+        cErrorDom("mqtt") << "Topic is empty !";
+        return;
+    }
+
     auto v = subscribeCb[topic];
     v.push_back(callback);
     subscribeCb[topic] = v;
 
-    cDebugDom("mqtt") << "Subscribing to topic " << topic;
-
-    // mosquitto subscribe call
-    subscribe(NULL, topic.c_str());
+    if (connected)
+    {
+        cDebugDom("mqtt") << "Subscribing to topic " << topic;
+        // mosquitto subscribe call
+        subscribe(NULL, topic.c_str());
+    }
 }
 
 void MqttClient::publishTopic(const string topic, const string payload)
@@ -71,7 +80,17 @@ void MqttClient::publishTopic(const string topic, const string payload)
 
 void MqttClient::on_connect(int rc)
 {
-    cDebugDom("mqtt") << "Connected with code"  << rc;
+    cDebugDom("mqtt") << "Connected with code "  << rc;
+
+    if (!rc)
+    {
+         connected = true;
+         for (auto t : subscribeCb)
+         {
+             cDebugDom("mqtt") << "Subscribing to topic " << t.first;
+             subscribe(NULL, t.first.c_str());
+         }
+    }
 
 }
 
@@ -84,6 +103,7 @@ void MqttClient::on_subcribe(int mid, int qos_count, const int *granted_qos)
 void MqttClient::on_message(const struct mosquitto_message *message)
 {
     cDebugDom("mqtt") << "New message received";
+
     struct mosquitto_message *m = (struct mosquitto_message*) calloc(sizeof(struct mosquitto_message), 1);
 
     // First copu the message
@@ -111,7 +131,7 @@ void MqttClient::on_log(int level, const char *str)
 
 void MqttClient::on_error()
 {
-
+    cErrorDom("mqtt") << "Error";
 }
 
 string MqttClient::getValueJson(string path, string payload)
@@ -209,7 +229,7 @@ string MqttClient::getValue(const Params &params)
 
     if (!params.Exists("topic_sub") || !params.Exists("path"))
     {
-        cDebugDom("mqtt") << "Topic or path does not exists";
+        cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params["path"];
         return "";
     }
 
