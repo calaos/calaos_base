@@ -61,7 +61,10 @@ MqttInputTemp::~MqttInputTemp()
 void MqttInputTemp::readValue()
 {
     bool err;
-    value = client->getValueDouble(get_params(), err);
+    double v = client->getValueDouble(get_params(), err);
     if (!err)
+    {
+        value = v;
         emitChange();
+    }
 }
