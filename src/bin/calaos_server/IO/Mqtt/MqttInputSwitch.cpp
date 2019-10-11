@@ -68,10 +68,18 @@ bool MqttInputSwitch::readValue()
 
     cDebugDom("mqtt") << "Read value " << sv;
     // TODO : read on_value and off_value from params
-    if (sv == "single" || sv == "toggle")
+    if (sv == get_param("on_value"))
+    {
+        cDebugDom("mqtt") << "TRUE : " << get_param("on_value");
         return true;
-    else if (sv == "")
-        return false;
+    }
+    else if (sv == get_param("off_value"))
+    {
+        cDebugDom("mqtt") << "FALSE : " << get_param("off_value");
 
+        return false;
+    }
+    // else
+    //     cErrorDom("mqtt") << "Value " << sv << " != " << get_param("on_value") << " or " << get_param("off_value");
     return false;
 }
