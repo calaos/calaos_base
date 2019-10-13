@@ -32,9 +32,9 @@ MqttOutputAnalog::MqttOutputAnalog(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputAnalog");
     ioDoc->descriptionSet(_("Control analog output through mqtt broker"));
-    MqttClient::commonDoc(ioDoc);
+    MqttCtrl::commonDoc(ioDoc);
 
-    client = MqttBrokersList::Instance().get_client(get_params());
+    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
 
     cInfoDom("output") << "MqttOutputAnalog::MqttOutputAnalog()";
 }
@@ -49,5 +49,5 @@ void MqttOutputAnalog::readValue()
 
 void MqttOutputAnalog::set_value_real(double val)
 {
-    client->setValueString(get_params(), Utils::to_string(val));
+    ctrl->setValueString(get_params(), Utils::to_string(val));
 }

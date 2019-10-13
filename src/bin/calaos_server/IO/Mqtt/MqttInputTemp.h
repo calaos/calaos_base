@@ -22,7 +22,7 @@
 #define __MQTT_INPUT_TEMP_H__
 
 #include "InputTemp.h"
-#include "MqttClient.h"
+#include "MqttCtrl.h"
 
 namespace Calaos
 {
@@ -30,7 +30,7 @@ namespace Calaos
 class MqttInputTemp : public InputTemp
 {
 private:
-    MqttClient *client;
+    MqttCtrl *ctrl;
 
 protected:
     virtual void readValue();

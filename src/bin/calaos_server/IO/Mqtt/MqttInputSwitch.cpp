@@ -39,7 +39,7 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
 
     ioDoc->friendlyNameSet("MqttInputSwitch");
     ioDoc->descriptionSet(_("Switch value readed from a mqtt broker"));
-    MqttClient::commonDoc(ioDoc);
+    MqttCtrl::commonDoc(ioDoc);
 
     ioDoc->paramAdd("on_value", _("Value to interpret as ON value"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
@@ -47,9 +47,9 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
     cInfoDom("input") << "MqttInputSwitch::MqttInputSwitch()";
     Calaos::StartReadRules::Instance().addIO();
 
-    client = MqttBrokersList::Instance().get_client(get_params());
+    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
     cDebugDom("mqtt") << "regoister on topic : " << get_param("topic_sub");
-    client->subscribeTopic(get_param("topic_sub"), [=]()
+    ctrl->subscribeTopic(get_param("topic_sub"), [=]()
     {
         cDebugDom("mqtt") << "New value on topic " << get_param("topic_sub");
         hasChanged();
@@ -65,7 +65,7 @@ MqttInputSwitch::~MqttInputSwitch()
 bool MqttInputSwitch::readValue()
 {
     bool err;
-    string sv = client->getValue(get_params(), err);
+    string sv = ctrl->getValue(get_params(), err);
 
     if (err)
         return false;

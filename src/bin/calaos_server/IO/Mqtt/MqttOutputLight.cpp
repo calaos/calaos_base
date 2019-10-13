@@ -32,12 +32,12 @@ MqttOutputLight::MqttOutputLight(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputLight");
     ioDoc->descriptionSet(_("Control lights through mqtt broker"));
-    MqttClient::commonDoc(ioDoc);
+    MqttCtrl::commonDoc(ioDoc);
 
     ioDoc->paramAdd("on_value", _("Value to interpret as ON value"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
 
-    client = MqttBrokersList::Instance().get_client(get_params());
+    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
 
     cInfoDom("output") << "MqttOutputLight::MqttOutputLight()";
 }
@@ -50,7 +50,7 @@ MqttOutputLight::~MqttOutputLight()
 void MqttOutputLight::readValue()
 {
     bool err;
-    value = client->getValueDouble(get_params(), err);
+    value = ctrl->getValueDouble(get_params(), err);
     if (!err)
         emitChange();
 }
@@ -58,6 +58,6 @@ void MqttOutputLight::readValue()
 bool MqttOutputLight::set_value_real(bool val)
 {
     cDebugDom("mqtt") << "Set value to " << val;
-    client->setValue(get_params(), val);
+    ctrl->setValue(get_params(), val);
     return true;
 }

@@ -22,7 +22,7 @@
 #define __MQTT_INPUT_SWITCH_H__
 
 #include "InputSwitch.h"
-#include "MqttClient.h"
+#include "MqttCtrl.h"
 
 namespace Calaos
 {
@@ -30,7 +30,7 @@ namespace Calaos
 class MqttInputSwitch : public InputSwitch
 {
 private:
-    MqttClient *client;
+    MqttCtrl *ctrl;
 
 protected:
     virtual bool readValue();

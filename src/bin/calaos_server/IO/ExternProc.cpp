@@ -152,7 +152,7 @@ void ExternProcServer::processData(const string &data)
     {
         if (currentFrame.isValid())
         {
-            cDebugDom("process") << "Got a new frame";
+            cDebugDom("process") << "Got a new frame : " << currentFrame.getPayload();
 
             messageReceived.emit(currentFrame.getPayload());
 
@@ -195,7 +195,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
     pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
-        cDebugDom("urlutils") << "Stdio data received: " << ev.length;
+        cDebugDom("process") << "Stdio data received: " << ev.length;
         process_stdout.append(string(ev.data.get(), ev.length));
 
         //Print lines which ends with endl only. keep remaining in buffer

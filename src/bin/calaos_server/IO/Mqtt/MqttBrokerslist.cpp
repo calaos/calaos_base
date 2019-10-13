@@ -26,7 +26,7 @@ MqttBrokersList::MqttBrokersList()
 {
 }
 
-MqttClient *MqttBrokersList::get_client(const Params &p)
+MqttCtrl *MqttBrokersList::get_ctrl(const Params &p)
 {
     string key, broker = "127.0.0.1", port = "1883";
 
@@ -38,10 +38,10 @@ MqttClient *MqttBrokersList::get_client(const Params &p)
     /* Compute the key per broker */
     key = p["host"] + ":" + port;
 
-    if (hashBrokers.find(key) != hashBrokers.end())
-        return hashBrokers[key];
+    if (hashControllers.find(key) != hashControllers.end())
+        return hashControllers[key];
 
-    hashBrokers[key] = new MqttClient(p);
+    hashControllers[key] = new MqttCtrl(p);
 
-    return hashBrokers[key];
+    return hashControllers[key];
 }

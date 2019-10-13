@@ -22,7 +22,7 @@
 #define __MQTT_INPUT_ANALOG_H__
 
 #include "InputAnalog.h"
-#include "MqttClient.h"
+#include "MqttCtrl.h"
 
 namespace Calaos
 {
@@ -30,7 +30,7 @@ namespace Calaos
 class MqttInputAnalog : public InputAnalog
 {
 private:
-    MqttClient *client;
+    MqttCtrl *ctrl;
 
 protected:
     virtual void readValue();

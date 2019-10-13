@@ -21,7 +21,7 @@
 #ifndef __MQTT_BROKERS_LIST_H__
 #define __MQTT_BROKERS_LIST_H__
 
-#include "MqttClient.h"
+#include "MqttCtrl.h"
 #include <unordered_map>
 #include "Params.h"
 
@@ -33,10 +33,10 @@ class MqttBrokersList
 private:
     MqttBrokersList();
 
-    std::unordered_map<string, MqttClient *> hashBrokers;
+    std::unordered_map<string, MqttCtrl *> hashControllers;
 
 public:
-    MqttClient *get_client(const Params &p);
+    MqttCtrl *get_ctrl(const Params &p);
 
     static MqttBrokersList &Instance()
     {

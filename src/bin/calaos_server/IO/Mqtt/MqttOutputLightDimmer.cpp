@@ -32,13 +32,10 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputLightDimmer");
     ioDoc->descriptionSet(_("Control lights through mqtt broker"));
-    MqttClient::commonDoc(ioDoc);
+    MqttCtrl::commonDoc(ioDoc);
 
-    client = MqttBrokersList::Instance().get_client(get_params());
-    client->subscribeTopic(get_param("topic_sub"), [=]()
-    {
-        readValue();
-    });
+    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
+
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
 }
 
@@ -50,7 +47,7 @@ MqttOutputLightDimmer::~MqttOutputLightDimmer()
 void MqttOutputLightDimmer::readValue()
 {
     bool err;
-    value = client->getValueDouble(get_params(), err);
+    value = ctrl->getValueDouble(get_params(), err);
     if (!err)
         emitChange();
 }
@@ -58,6 +55,6 @@ void MqttOutputLightDimmer::readValue()
 bool MqttOutputLightDimmer::set_value_real(int val)
 {
     cDebugDom("mqtt") << "Set value to " << val;
-    client->setValueInt(get_params(), val);
+    ctrl->setValueInt(get_params(), val);
     return true;
 }

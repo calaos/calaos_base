@@ -22,7 +22,7 @@
 #define __MQTT_OUTPUT_LIGHT_DIMMER_H__
 
 #include "OutputLightDimmer.h"
-#include "MqttClient.h"
+#include "MqttCtrl.h"
 
 namespace Calaos
 {
@@ -30,7 +30,7 @@ namespace Calaos
 class MqttOutputLightDimmer : public OutputLightDimmer
 {
 private:
-    MqttClient *client;
+    MqttCtrl *ctrl;
 
 protected:
     virtual void readValue();

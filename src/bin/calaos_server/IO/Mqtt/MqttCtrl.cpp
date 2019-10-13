@@ -3,54 +3,57 @@
 
 #include "Utils.h"
 #include "IOFactory.h"
-#include "MqttClient.h"
+#include "MqttCtrl.h"
+#include "Prefix.h"
 
 using namespace Calaos;
 
-MqttClient::MqttClient(const Params &p) : mosquittopp("calaos")
+MqttCtrl::MqttCtrl(const Params &p)
 {
-    string broker = "127.0.0.1";
+    string host = "127.0.0.1";
     int port = 1883;
+    string username = "";
+    string password = "";
+    int keepalive = 120;
 
-    mosqpp::lib_init();
+    cDebugDom("mqtt") << "New MQTT external process " << host << ":" << port;
+    process = new ExternProcServer("mqtt");
+    exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
-    if (p.Exists("host"))
-        broker = p["host"];
-    if (p.Exists("port"))
-        Utils::from_string(p["port"], port);
+    json_t *root = json_object();
+    json_object_set_new(root, "host", json_string(p["host"].c_str()));
+    json_object_set_new(root, "port", json_string(p["port"].c_str()));
+    json_object_set_new(root, "keepalive", json_string(p["keepalive"].c_str()));
 
     if (p.Exists("user") && p.Exists("password"))
-        username_pw_set(p["user"].c_str(), p["password"].c_str());
-
-    int keepalive = 120;
-    if (p.Exists("keepalive"))
-        Utils::from_string(p["keepalive"], keepalive);
-
-    cDebugDom("mqtt") << "Connecting to broker " << broker << ":" << port;
-
-    int res = connect_async(broker.c_str(), port, keepalive);
-
-    switch (res)
     {
-    case MOSQ_ERR_INVAL:
-        cErrorDom("mqtt") << "Error connecting to host : " << broker;
-        break;
-    case MOSQ_ERR_SUCCESS:
-        loop_start();
-        break;
-    default:
-        cErrorDom("mqtt") << "Error connecting : " << strerror(res);
-        break;
+        json_object_set_new(root, "user", json_string(p["user"].c_str()));
+        json_object_set_new(root, "password", json_string(p["password"].c_str()));
     }
+
+    string arg = jansson_to_string(root);
+
+    process->processExited.connect([=]()
+    {
+        //restart process when stopped
+        cWarningDom("process") << "process exited, restarting...";
+        process->startProcess(exe, "mqtt", arg);
+    });
+
+    process->messageReceived.connect([=](const string &msg)
+    {
+        cDebugDom("mqtt") << "New message received " << msg;
+    });
+
+    process->startProcess(exe, "mqtt", arg);
+
 }
 
-MqttClient::~MqttClient()
+MqttCtrl::~MqttCtrl()
 {
-    for (auto m : messages)
-        free(m.second);
 }
 
-void MqttClient::subscribeTopic(const string topic, sigc::slot<void> callback)
+void MqttCtrl::subscribeTopic(const string topic, sigc::slot<void> callback)
 {
     // subscribeCb contains a map of list of callbacks, register this callback to the key  relative of this topic
     cDebugDom("mqtt") << "Topic : " << topic;
@@ -63,78 +66,23 @@ void MqttClient::subscribeTopic(const string topic, sigc::slot<void> callback)
     auto v = subscribeCb[topic];
     v.push_back(callback);
     subscribeCb[topic] = v;
-
-    if (connected)
-    {
-        cDebugDom("mqtt") << "Subscribing to topic " << topic;
-        // mosquitto subscribe call
-        subscribe(NULL, topic.c_str());
-    }
 }
 
-void MqttClient::publishTopic(const string topic, const string payload)
+void MqttCtrl::publishTopic(const string topic, const string payload)
 {
-    publish(NULL, topic.c_str(), payload.size(), payload.c_str());
+    string message;
+
+
+    json_t *jroot = json_object();
+    json_object_set_new(jroot, "topic", json_string(topic.c_str()));
+    json_object_set_new(jroot, "payload", json_string(payload.c_str()));
+
+    process->sendMessage(jansson_to_string(jroot));
+    json_decref(jroot);
 }
 
 
-void MqttClient::on_connect(int rc)
-{
-    cDebugDom("mqtt") << "Connected with code "  << rc;
-
-    if (!rc)
-    {
-        connected = true;
-        for (auto t : subscribeCb)
-        {
-            cDebugDom("mqtt") << "Subscribing to topic " << t.first;
-            subscribe(NULL, t.first.c_str());
-        }
-    }
-
-}
-
-void MqttClient::on_subcribe(int mid, int qos_count, const int *granted_qos)
-{
-    cDebugDom("mqtt") << "Subscription succeeded.";
-}
-
-
-void MqttClient::on_message(const struct mosquitto_message *message)
-{
-    cDebugDom("mqtt") << "New message received";
-
-    struct mosquitto_message *m = (struct mosquitto_message*) calloc(sizeof(struct mosquitto_message), 1);
-
-    // First copu the message
-    mosquitto_message_copy(m, message);
-
-    // If a message for this topic exists, free it
-    if (messages.find(message->topic) != messages.end())
-    {
-        free(messages[message->topic]);
-    }
-    // Set or replace the message
-    messages[message->topic] = m;
-
-    // Call all callback registered for this topic
-    for(auto cb : subscribeCb[m->topic])
-    {
-        cb();
-    }
-}
-
-void MqttClient::on_log(int level, const char *str)
-{
-    cDebugDom("mqtt") << str;
-}
-
-void MqttClient::on_error()
-{
-    cErrorDom("mqtt") << "Error";
-}
-
-string MqttClient::getValueJson(string path, string payload)
+string MqttCtrl::getValueJson(string path, string payload)
 {
     string value;
 
@@ -223,10 +171,10 @@ string MqttClient::getValueJson(string path, string payload)
 }
 
 
-string MqttClient::getValue(const Params &params, bool &err)
+string MqttCtrl::getValue(const Params &params, bool &err)
 {
     string type = params["type"];
-    err = false;
+
     if (!params.Exists("topic_sub") || !params.Exists("path"))
     {
         cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params["path"];
@@ -234,19 +182,19 @@ string MqttClient::getValue(const Params &params, bool &err)
         return "";
     }
 
-    const struct mosquitto_message *m = messages[params["topic_sub"]];
+    string payload = messages[params["topic_sub"]];
 
-    if (!m)
+    if (payload.empty())
     {
-        // No message received for topic yet return error and empty value
+        cDebugDom("mqtt") << "No message received for topic " << params["topic_sub"] << " yet";
         err = true;
         return "";
     }
-    string payload((const char*)m->payload);
+    err = false;
     return getValueJson(params["path"], payload);
 }
 
-double MqttClient::getValueDouble(const Params &params, bool &err)
+double MqttCtrl::getValueDouble(const Params &params, bool &err)
 {
     double val = 0;
     string value;
@@ -263,7 +211,7 @@ double MqttClient::getValueDouble(const Params &params, bool &err)
     return val;
 }
 
-void MqttClient::setValueString(const Params &params, string val)
+void MqttCtrl::setValueString(const Params &params, string val)
 {
     string data;
     string topic = params["topic_pub"];
@@ -281,11 +229,11 @@ void MqttClient::setValueString(const Params &params, string val)
 
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 
-    publish(NULL, topic.c_str(), data.size(), data.c_str());
+    publishTopic(topic, data);
 
 }
 
-void MqttClient::setValue(const Params &params, bool val)
+void MqttCtrl::setValue(const Params &params, bool val)
 {
     string on_value = "on";
     string off_value = "off";
@@ -311,11 +259,11 @@ void MqttClient::setValue(const Params &params, bool val)
 
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 
-    publish(NULL, topic.c_str(), data.size(), data.c_str());
+    publishTopic(topic, data);
 }
 
 
-void MqttClient::setValueInt(const Params &params, int val)
+void MqttCtrl::setValueInt(const Params &params, int val)
 {
     string topic = params["topic_pub"];
     string data;
@@ -333,10 +281,10 @@ void MqttClient::setValueInt(const Params &params, int val)
 
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 
-    publish(NULL, topic.c_str(), data.size(), data.c_str());
+    publishTopic(topic, data);
 }
 
-void MqttClient::commonDoc(IODoc *ioDoc)
+void MqttCtrl::commonDoc(IODoc *ioDoc)
 {
     ioDoc->paramAdd("host", _("IP address of the mqtt broker to connect to. Default value is 127.0.0.1."), IODoc::TYPE_STRING, false, "127.0.0.1");
     ioDoc->paramAdd("port", _("TCP port of the mqtt broker. Default value is 1883"), IODoc::TYPE_INT, false, "1883");
