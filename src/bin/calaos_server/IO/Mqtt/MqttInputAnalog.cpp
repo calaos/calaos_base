@@ -46,7 +46,6 @@ MqttInputAnalog::MqttInputAnalog(Params &p):
     client = MqttBrokersList::Instance().get_client(get_params());
     client->subscribeTopic(get_param("topic_sub"), [=]()
     {
-        cDebugDom("mqtt") << "Read Value";
         readValue();
     });
 
@@ -60,7 +59,11 @@ MqttInputAnalog::~MqttInputAnalog()
 void MqttInputAnalog::readValue()
 {
     bool err;
-    value = client->getValueDouble(get_params(), err);
-    if (!err)
+    double v;
+    v = client->getValueDouble(get_params(), err);
+    if (!err && v != value)
+    {
+        value = v;
         emitChange();
+    }
 }

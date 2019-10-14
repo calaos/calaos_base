@@ -25,7 +25,7 @@ public:
     void on_log(int level, const char *str);
 
     string getValueJson(string path, string payload);
-    string getValue(const Params &params);
+    string getValue(const Params &params, bool &err);
     double getValueDouble(const Params &params, bool &err);
     static void commonDoc(IODoc *ioDoc);
     void   setValue(const Params &params, bool val);

@@ -47,7 +47,6 @@ MqttInputTemp::MqttInputTemp(Params &p):
     client = MqttBrokersList::Instance().get_client(get_params());
     client->subscribeTopic(get_param("topic_sub"), [=]()
     {
-        cDebugDom("mqtt") << "Read Value";
         readValue();
     });
 
@@ -62,7 +61,7 @@ void MqttInputTemp::readValue()
 {
     bool err;
     double v = client->getValueDouble(get_params(), err);
-    if (!err)
+    if (!err && v != value)
     {
         value = v;
         emitChange();

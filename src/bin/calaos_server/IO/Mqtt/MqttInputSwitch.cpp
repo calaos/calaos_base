@@ -64,7 +64,11 @@ MqttInputSwitch::~MqttInputSwitch()
 
 bool MqttInputSwitch::readValue()
 {
-    string sv = client->getValue(get_params());
+    bool err;
+    string sv = client->getValue(get_params(), err);
+
+    if (err)
+        return false;
 
     cDebugDom("mqtt") << "Read value " << sv;
     // TODO : read on_value and off_value from params
@@ -76,10 +80,8 @@ bool MqttInputSwitch::readValue()
     else if (sv == get_param("off_value"))
     {
         cDebugDom("mqtt") << "FALSE : " << get_param("off_value");
-
         return false;
     }
-    // else
-    //     cErrorDom("mqtt") << "Value " << sv << " != " << get_param("on_value") << " or " << get_param("off_value");
+
     return false;
 }

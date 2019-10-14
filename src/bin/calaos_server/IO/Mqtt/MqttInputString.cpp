@@ -59,6 +59,11 @@ MqttInputString::~MqttInputString()
 
 void MqttInputString::readValue()
 {
-    value = client->getValue(get_params());
-    emitChange();
+    bool err;
+    string v = client->getValue(get_params(), err);
+    if (!err && v != value)
+    {
+        value = v;
+        emitChange();
+    }
 }

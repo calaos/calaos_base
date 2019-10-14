@@ -223,13 +223,14 @@ string MqttClient::getValueJson(string path, string payload)
 }
 
 
-string MqttClient::getValue(const Params &params)
+string MqttClient::getValue(const Params &params, bool &err)
 {
     string type = params["type"];
-
+    err = false;
     if (!params.Exists("topic_sub") || !params.Exists("path"))
     {
         cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params["path"];
+        err = true;
         return "";
     }
 
@@ -237,7 +238,8 @@ string MqttClient::getValue(const Params &params)
 
     if (!m)
     {
-        cDebugDom("mqtt") << "No message received for topic " << params["topic_sub"] << " yet";
+        // No message received for topic yet return error and empty value
+        err = true;
         return "";
     }
     string payload((const char*)m->payload);
@@ -250,7 +252,7 @@ double MqttClient::getValueDouble(const Params &params, bool &err)
     string value;
     err = true;
 
-    value = getValue(params);
+    value = getValue(params, err);
 
     if (Utils::is_of_type<double>(value) && !value.empty())
     {
