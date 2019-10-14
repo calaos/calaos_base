@@ -35,7 +35,10 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     MqttClient::commonDoc(ioDoc);
 
     client = MqttBrokersList::Instance().get_client(get_params());
-
+    client->subscribeTopic(get_param("topic_sub"), [=]()
+    {
+        readValue();
+    });
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
 }
 
