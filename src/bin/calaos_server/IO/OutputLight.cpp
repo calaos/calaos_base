@@ -47,7 +47,7 @@ OutputLight::OutputLight(Params &p):
                         { "boiler", _("Boiler") },
                         { "pump", _("Pump") },
                        };
-    ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), true, io_style, "default");
+    ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), true, io_style, "light");
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("log_history")) set_param("log_history", "true");
