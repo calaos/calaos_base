@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2018-12-06 09:31+0100\n"
+"POT-Creation-Date: 2019-10-15 19:43+0200\n"
 "PO-Revision-Date: 2015-12-19 14:21+0100\n"
 "Last-Translator: Nicolas <nico@calaos.fr>\n"
 "Language-Team: German\n"
@@ -166,22 +166,51 @@ msgid "Unit which will be displayed on the UI as a suffix."
 msgstr ""
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:27
-msgid "Humidity"
-msgstr ""
-
-#: src/bin/calaos_server/IO/AnalogIO.cpp:28
 msgid "Default"
 msgstr ""
 
+#: src/bin/calaos_server/IO/AnalogIO.cpp:28
+msgid "Temperature"
+msgstr ""
+
 #: src/bin/calaos_server/IO/AnalogIO.cpp:29
-msgid "GUI style display. This will control the icon displayed on the UI"
+msgid "Humidity"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:30
+msgid "Pressure"
 msgstr ""
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:31
-msgid "Event on a specific value"
+msgid "Luminosity"
 msgstr ""
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:32
+msgid "Speed"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:33
+msgid "Current"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:34
+msgid "Voltage"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:35
+msgid "Watt"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:37
+#: src/bin/calaos_server/IO/OutputLight.cpp:50
+msgid "GUI style display. This will control the icon displayed on the UI"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:39
+msgid "Event on a specific value"
+msgstr ""
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:40
 #: src/bin/calaos_server/IO/IntValue.cpp:78
 #: src/bin/calaos_server/IO/OutputLight.cpp:30
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:34
@@ -219,6 +248,9 @@ msgid "GPIO ID on your hardware"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitch.cpp:38
+msgid "Set this if your GPIO has an inverted level"
+msgstr ""
+
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitchLongPress.cpp:38
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitchTriple.cpp:38
 #: src/bin/calaos_server/IO/Gpio/GpioOutputShutter.cpp:38
@@ -1086,6 +1118,26 @@ msgstr ""
 msgid ""
 "Update internal light state without starting real action. This is useful "
 "when having updating the light state from an external source."
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:44
+msgid "Light"
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:45
+msgid "Outlet"
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:46
+msgid "Heater"
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:47
+msgid "Boiler"
+msgstr ""
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:48
+msgid "Pump"
 msgstr ""
 
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:33

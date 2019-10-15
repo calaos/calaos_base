@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2018-12-06 09:31+0100\n"
-"PO-Revision-Date: 2015-12-19 13:35+0000\n"
+"POT-Creation-Date: 2019-10-15 19:43+0200\n"
+"PO-Revision-Date: 2019-10-15 19:50+0200\n"
 "Last-Translator: FragJage <inscrip.jage@free.fr>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -11,7 +11,7 @@ msgstr ""
 "Content-Type: text/plain; charset=iso-8859-1\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
-"X-Generator: Pootle 2.5.1.1\n"
+"X-Generator: Poedit 2.2.1\n"
 "X-POOTLE-MTIME: 1450532110.000000\n"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:222
@@ -177,23 +177,52 @@ msgid "Unit which will be displayed on the UI as a suffix."
 msgstr "Unité affichée sur l'interface utilisateur en tant que suffixe."
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:27
-msgid "Humidity"
-msgstr "Humidité"
-
-#: src/bin/calaos_server/IO/AnalogIO.cpp:28
 msgid "Default"
 msgstr "Défaut"
 
+#: src/bin/calaos_server/IO/AnalogIO.cpp:28
+msgid "Temperature"
+msgstr "Température"
+
 #: src/bin/calaos_server/IO/AnalogIO.cpp:29
+msgid "Humidity"
+msgstr "Humidité"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:30
+msgid "Pressure"
+msgstr "Pression"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:31
+msgid "Luminosity"
+msgstr "Luminosité"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:32
+msgid "Speed"
+msgstr "Vitesse"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:33
+msgid "Current"
+msgstr "Courant"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:34
+msgid "Voltage"
+msgstr "Voltage"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:35
+msgid "Watt"
+msgstr "Puissance"
+
+#: src/bin/calaos_server/IO/AnalogIO.cpp:37
+#: src/bin/calaos_server/IO/OutputLight.cpp:50
 msgid "GUI style display. This will control the icon displayed on the UI"
 msgstr ""
 "Style d'affichage. Contrôle l'icône affichée sur l'interface utilisateur"
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:31
+#: src/bin/calaos_server/IO/AnalogIO.cpp:39
 msgid "Event on a specific value"
 msgstr "Événement sur une valeur spécifique"
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:32
+#: src/bin/calaos_server/IO/AnalogIO.cpp:40
 #: src/bin/calaos_server/IO/IntValue.cpp:78
 #: src/bin/calaos_server/IO/OutputLight.cpp:30
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:34
@@ -231,6 +260,9 @@ msgid "GPIO ID on your hardware"
 msgstr "ID du GPIO sur la carte"
 
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitch.cpp:38
+msgid "Set this if your GPIO has an inverted level"
+msgstr "Mettre à vrai pour inverser le GPIO"
+
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitchLongPress.cpp:38
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitchTriple.cpp:38
 #: src/bin/calaos_server/IO/Gpio/GpioOutputShutter.cpp:38
@@ -1189,6 +1221,26 @@ msgstr ""
 "utile lorsque vous avez mis à jour l'état de la lumière à partir d'une "
 "source externe."
 
+#: src/bin/calaos_server/IO/OutputLight.cpp:44
+msgid "Light"
+msgstr "Lumière"
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:45
+msgid "Outlet"
+msgstr "Sortie"
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:46
+msgid "Heater"
+msgstr "Chauffage"
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:47
+msgid "Boiler"
+msgstr "Chauffe-eau"
+
+#: src/bin/calaos_server/IO/OutputLight.cpp:48
+msgid "Pump"
+msgstr "Pompe"
+
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:33
 msgid ""
 "Light with dimming control. Light intensity can be changed for this light."
@@ -1921,9 +1973,8 @@ msgid "Temperature input read from a web document"
 msgstr "Température lu dans un document Web"
 
 #: src/bin/calaos_server/IO/Web/WebOutputAnalog.cpp:39
-#, fuzzy
 msgid "Analog output in a web request"
-msgstr "Sortie analogique KNX avec eibnetmux"
+msgstr "Sortie analogique dans une requete web"
 
 #: src/bin/calaos_server/IO/Web/WebOutputLight.cpp:38
 msgid "Bool output written to a web document or URL"
@@ -2162,26 +2213,28 @@ msgstr "Type d'entrée/sortie (input, output, inout)"
 
 #: src/bin/calaos_server/IOBase.cpp:40
 msgid "If enabled, write an entry in the history event log for this IO"
-msgstr ""
+msgstr "Si activé, ecrit une entrée dans l'historique pour cet IO"
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:33
 msgid ""
 "Axis IP Camera/Encoder. Camera can be viewed directly inside calaos and used "
 "in rules."
 msgstr ""
+"Encodeur/Camera IP Axis. La caméra peut etre directement vue dans calaos et "
+"utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:34
 msgid "Camera model/chanel to use"
-msgstr ""
+msgstr "Modèle de caméra/Canal à utiliser"
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:35
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:35
 msgid "Set to true if camera has PTZ support"
-msgstr ""
+msgstr "Activer si la caméra supporte le PTZ"
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:39
 msgid "Resolution to use"
-msgstr ""
+msgstr "Résolution à utiliser"
 
 #: src/bin/calaos_server/IPCam/Gadspot.cpp:31
 msgid ""
@@ -2201,12 +2254,12 @@ msgstr ""
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:38
 msgid "Username for accessing the camera"
-msgstr ""
+msgstr "Nom d'utilisateur pour accéder à la caméra"
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:39
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:38
 msgid "Password for user"
-msgstr ""
+msgstr "Mot de passe pour l'utilisateur"
 
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:32
 msgid ""
@@ -2237,7 +2290,6 @@ msgid "Username which can access Surveillance Station"
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:39
-#, fuzzy
 msgid "ID of the camera"
 msgstr "Arrêter la minuterie"
 
