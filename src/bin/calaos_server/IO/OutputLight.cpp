@@ -41,6 +41,14 @@ OutputLight::OutputLight(Params &p):
     ioDoc->actionAdd("set_state true", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
     ioDoc->actionAdd("set_state false", _("Update internal light state without starting real action. This is useful when having updating the light state from an external source."));
 
+    Params io_style = {{ "light", _("Light") },
+                        { "outlet", _("Outlet") },
+                        { "heater", _("Heater") },
+                        { "boiler", _("Boiler") },
+                        { "pump", _("Pump") },
+                       };
+    ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), true, io_style, "default");
+
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("log_history")) set_param("log_history", "true");
 
