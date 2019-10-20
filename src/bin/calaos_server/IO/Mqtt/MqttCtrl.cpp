@@ -43,6 +43,29 @@ MqttCtrl::MqttCtrl(const Params &p)
     process->messageReceived.connect([=](const string &msg)
     {
         cDebugDom("mqtt") << "New message received " << msg;
+        json_error_t jerr;
+        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+
+        if (!jroot)
+        {
+            cWarningDom("mqtt") << "Error parsing json: " << jerr.text;
+            if (jroot)
+                json_decref(jroot);
+            return;
+        }
+        Params p;
+        jansson_decode_object(jroot, p);
+
+        cDebugDom("mqtt") << "Topic :  " << p["topic"] << " payload : " << p["payload"];
+
+        // Set or replace the message
+        messages[p["topic"]] = p["payload"];
+        for(auto cb : subscribeCb[p["topic"]])
+        {
+            cb();
+        }
+        json_decref(jroot);
+
     });
 
     process->startProcess(exe, "mqtt", arg);

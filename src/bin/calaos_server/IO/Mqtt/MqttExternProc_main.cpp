@@ -141,6 +141,7 @@ protected:
 
 void MqttProcess::readTimeout()
 {
+    m_client->loop(0, 1);
 }
 
 void MqttProcess::messageReceived(const string &msg)
@@ -275,11 +276,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
 int MqttProcess::procMain()
 {
-    m_client->loop_forever();
-
-    //disconnect mqtt client
-    m_client->loop_stop();
-    delete m_client;
+    run(200);
     return 0;
 }
 
