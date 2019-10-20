@@ -88,11 +88,6 @@ void MqttClient::on_subcribe(int mid, int qos_count, const int *granted_qos)
 void MqttClient::on_message(const struct mosquitto_message *message)
 {
     cDebugDom("mqtt") << "New message received";
-    ofstream myfile;
-    myfile.open ("messages.txt", std::ios_base::app);
-    myfile << message->topic << endl;
-    myfile << (const char*)message->payload << endl;
-    myfile.close();
 
     // Call all callback registered for this topic
     for(auto cb : subscribeCb)
@@ -104,21 +99,11 @@ void MqttClient::on_message(const struct mosquitto_message *message)
 void MqttClient::on_log(int level, const char *str)
 {
     cDebugDom("mqtt") << str;
-    ofstream myfile;
-    myfile.open ("logs.txt", std::ios_base::app);
-    myfile << str << endl;
-    myfile.close();
-
 }
 
 void MqttClient::on_error()
 {
     cErrorDom("mqtt") << "Error";
-    ofstream myfile;
-    myfile.open ("errors.txt", std::ios_base::app);
-    myfile << "error" << endl;
-    myfile.close();
-
 }
 
 class MqttProcess: public ExternProcClient
@@ -186,11 +171,6 @@ bool MqttProcess::setup(int &argc, char **&argv)
     if (argc != 2)
     {
         cError() << "Unable to read configuration";
-        ofstream myfile;
-        myfile.open ("out.txt");
-        myfile << argv[1] << endl;
-
-        myfile.close();
         return false;
     }
 
@@ -201,12 +181,6 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
     if (!jroot)
     {
-        ofstream myfile;
-        myfile.open ("out.txt");
-        myfile << argv[1] << endl;
-        myfile << jerr.text << endl;
-        myfile.close();
-
         cError() << jerr.text;
         return false;
     }
@@ -239,11 +213,6 @@ bool MqttProcess::setup(int &argc, char **&argv)
     case MOSQ_ERR_INVAL:
     {
         cErrorDom("mqtt") << "Error connecting to host : " << host;
-        ofstream myfile;
-        myfile.open ("out.txt");
-        myfile << argv[1] << endl;
-        myfile << host << endl;
-        myfile.close();
         return false;
     }
     case MOSQ_ERR_SUCCESS:
@@ -251,11 +220,6 @@ bool MqttProcess::setup(int &argc, char **&argv)
         break;
     default:
     {
-        ofstream myfile;
-        myfile.open ("out.txt");
-        myfile << argv[1] << endl;
-        myfile << strerror(res) << endl;
-        myfile.close();
         cErrorDom("mqtt") << "Error connecting : " << strerror(res);
         return false;
     }
