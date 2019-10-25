@@ -186,7 +186,7 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
     pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
     process_exe->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
 
-    uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
+    uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
     uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
     process_exe->stdio(*pipe, ff);
 

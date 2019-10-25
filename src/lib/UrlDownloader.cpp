@@ -174,7 +174,7 @@ bool UrlDownloader::start()
         pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
         exeCurl->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
 
-        uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE);
+        uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
         uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
         exeCurl->stdio(*pipe, ff);
 
