@@ -29,11 +29,11 @@ OLACtrl::OLACtrl(const string &universe)
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_ola";
 
     process->processExited.connect([=]()
-    {
-        //restart process when stopped
-        cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "ola", universe);
-    });
+                                       {
+                                           //restart process when stopped
+                                           cWarningDom("process") << "process exited, restarting...";
+                                           process->startProcess(exe, "ola", universe);
+                                       });
 
     process->startProcess(exe, "ola", universe);
 }

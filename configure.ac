@@ -129,6 +129,14 @@ else
     CONVERT_INFO="No, install imagemagick convert tool"
 fi
 
+have_mosquitto="no"
+PKG_CHECK_MODULES([LIBMOSQUITTO], [libmosquitto libmosquittopp], [have_mosquitto="yes"], [have_mosquitto="no"])
+AM_CONDITIONAL([HAVE_MOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
+if test "x${have_mosquitto}" == "xyes"
+then
+     AC_DEFINE([HAVE_MOSQUITTO], [1], [libmoquitto])
+fi
+
 # Configure pthreads.
 ACX_PTHREAD([have_pthread=yes])
 
@@ -213,4 +221,5 @@ echo "  One Wire support.....................: $(colorOut $have_owcapi)"
 echo "  Libusb support.......................: $(colorOut $have_libusb)"
 echo "  Open Lightning Architecture support..: $(colorOut $have_libola)"
 echo "  Eib/KNX support (eibd or knxd).......: $(colorOut $have_libknx)"
+echo "  MQTT support (libmosquittopp)........: $(colorOut $have_mosquitto)"
 echo

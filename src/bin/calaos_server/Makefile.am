@@ -15,6 +15,7 @@ AM_CPPFLAGS =                                                 \
         -DXPLLIB_NOCONF                                       \
         -I$(top_srcdir)/src/bin/calaos_server/Audio           \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
@@ -164,7 +165,25 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputLightRGB.h         \
         IO/LimitlessLED/MilightOutputLightRGB.cpp       \
-        IO/MySensors/MySensors.h                        \
+		IO/Mqtt/MqttBrokersList.h						\
+		IO/Mqtt/MqttBrokerslist.cpp						\
+		IO/Mqtt/MqttCtrl.h								\
+		IO/Mqtt/MqttCtrl.cpp							\
+		IO/Mqtt/MqttInputAnalog.h						\
+		IO/Mqtt/MqttInputAnalog.cpp						\
+		IO/Mqtt/MqttInputString.h						\
+		IO/Mqtt/MqttInputString.cpp						\
+		IO/Mqtt/MqttInputSwitch.h						\
+		IO/Mqtt/MqttInputSwitch.cpp						\
+		IO/Mqtt/MqttInputTemp.h							\
+		IO/Mqtt/MqttInputTemp.cpp						\
+		IO/Mqtt/MqttOutputAnalog.h						\
+		IO/Mqtt/MqttOutputAnalog.cpp					\
+		IO/Mqtt/MqttOutputLight.h						\
+		IO/Mqtt/MqttOutputLight.cpp						\
+		IO/Mqtt/MqttOutputLightDimmer.h					\
+		IO/Mqtt/MqttOutputLightDimmer.cpp				\
+		IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsControllerList.cpp        \
         IO/MySensors/MySensorsControllerList.h          \
@@ -464,14 +483,29 @@ endif
 if HAVE_LIBKNX
 bin_PROGRAMS += calaos_knx
 calaos_knx_SOURCES = \
-        IO/ExternProc.cpp               \
-        IO/ExternProc.h                 \
-        IO/KNX/KNXExternProc_main.h     \
-        IO/KNX/KNXExternProc_main.cpp   \
-        IO/KNX/KNXExternProc_cli.cpp
+IO/ExternProc.cpp               \
+IO/ExternProc.h                 \
+IO/KNX/KNXExternProc_main.h     \
+IO/KNX/KNXExternProc_main.cpp   \
+IO/KNX/KNXExternProc_cli.cpp
 
 calaos_knx_LDADD = \
-        @CALAOS_SERVER_LIBS@ \
-        -leibclient \
-        $(top_builddir)/src/lib/libcalaos_common.la
+@CALAOS_SERVER_LIBS@ \
+-leibclient \
+$(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+if HAVE_MOSQUITTO
+bin_PROGRAMS += calaos_mqtt
+calaos_mqtt_SOURCES = \
+IO/ExternProc.cpp               \
+IO/ExternProc.h                 \
+IO/Mqtt/MqttExternProc_main.h   \
+IO/Mqtt/MqttExternProc_main.cpp
+
+calaos_mqtt_LDADD = \
+@CALAOS_SERVER_LIBS@ \
+@LIBMOSQUITTO_LIBS@ \
+$(top_builddir)/src/lib/libcalaos_common.la
+endif
+
