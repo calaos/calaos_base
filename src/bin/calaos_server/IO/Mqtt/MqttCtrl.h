@@ -3,7 +3,6 @@
 
 #include <unordered_map>
 
-#include <mosquittopp.h>
 #include "Params.h"
 #include "Utils.h"
 #include "IODoc.h"

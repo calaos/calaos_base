@@ -1,4 +1,3 @@
-#include <mosquittopp.h>
 #include <json.hpp>
 
 #include "Utils.h"
@@ -8,27 +7,26 @@
 
 using namespace Calaos;
 
-MqttCtrl::MqttCtrl(const Params &p)
+MqttCtrl::MqttCtrl(const Params &params)
 {
     string host = "127.0.0.1";
     int port = 1883;
     string username = "";
     string password = "";
-    int keepalive = 120;
 
     cDebugDom("mqtt") << "New MQTT external process " << host << ":" << port;
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
     json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(p["host"].c_str()));
-    json_object_set_new(root, "port", json_string(p["port"].c_str()));
-    json_object_set_new(root, "keepalive", json_string(p["keepalive"].c_str()));
+    json_object_set_new(root, "host", json_string(params["host"].c_str()));
+    json_object_set_new(root, "port", json_string(params["port"].c_str()));
+    json_object_set_new(root, "keepalive", json_string(params["keepalive"].c_str()));
 
-    if (p.Exists("user") && p.Exists("password"))
+    if (params.Exists("user") && params.Exists("password"))
     {
-        json_object_set_new(root, "user", json_string(p["user"].c_str()));
-        json_object_set_new(root, "password", json_string(p["password"].c_str()));
+        json_object_set_new(root, "user", json_string(params["user"].c_str()));
+        json_object_set_new(root, "password", json_string(params["password"].c_str()));
     }
 
     string arg = jansson_to_string(root);
@@ -65,7 +63,6 @@ MqttCtrl::MqttCtrl(const Params &p)
             cb();
         }
         json_decref(jroot);
-
     });
 
     process->startProcess(exe, "mqtt", arg);

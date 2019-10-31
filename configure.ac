@@ -53,7 +53,7 @@ requirements_calaos_common="libuv >= 1.19.0 sigc++-2.0 >= 2.4.1 jansson >= 2.5 l
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
-requirements_calaos_server="libuv >= 1.19.0 libcurl libmosquitto libmosquittopp"
+requirements_calaos_server="libuv >= 1.19.0 libcurl"
 PKG_CHECK_MODULES([CALAOS_SERVER], [${requirements_calaos_server}])
 AC_SUBST([requirements_calaos_server])
 
@@ -127,6 +127,14 @@ then
     CONVERT_INFO="yes"
 else
     CONVERT_INFO="No, install imagemagick convert tool"
+fi
+
+have_mosquitto="no"
+PKG_CHECK_MODULES([LIBMOSQUITTO], [libmosquitto libmosquittopp], [have_mosquitto="yes"], [have_mosquitto="no"])
+AM_CONDITIONAL([HAVE_MOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
+if test "x${have_mosquitto}" == "xyes"
+then
+     AC_DEFINE([HAVE_MOSQUITTO], [1], [libmoquitto])
 fi
 
 # Configure pthreads.
@@ -213,4 +221,5 @@ echo "  One Wire support.....................: $(colorOut $have_owcapi)"
 echo "  Libusb support.......................: $(colorOut $have_libusb)"
 echo "  Open Lightning Architecture support..: $(colorOut $have_libola)"
 echo "  Eib/KNX support (eibd or knxd).......: $(colorOut $have_libknx)"
+echo "  MQTT support (libmosquittopp)........: $(colorOut $have_mosquitto)"
 echo
