@@ -495,7 +495,7 @@ calaos_knx_LDADD = \
 $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
-if HAVE_MOSQUITTO
+if HAVE_LIBMOSQUITTO
 bin_PROGRAMS += calaos_mqtt
 calaos_mqtt_SOURCES = \
 IO/ExternProc.cpp               \
@@ -505,7 +505,7 @@ IO/Mqtt/MqttExternProc_main.cpp
 
 calaos_mqtt_LDADD = \
 @CALAOS_SERVER_LIBS@ \
-@LIBMOSQUITTO_LIBS@ \
+-lmosquitto -lmosquittopp \
 $(top_builddir)/src/lib/libcalaos_common.la
 endif
 

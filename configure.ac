@@ -85,7 +85,7 @@ AC_CHECK_HEADERS([owcapi.h], [have_owcapi="yes"])
 AM_CONDITIONAL([HAVE_OWCAPI], [test "x${have_owcapi}" = "xyes"])
 if test "x${have_owcapi}" == "xyes"
 then
-    AC_CHECK_LIB([owcapi], [OW_init],, AC_ERROR([Misssing owfs library]))
+    AC_CHECK_LIB([owcapi], [OW_init],, AC_ERROR([Missing owfs library]))
 fi
 
 have_libusb="no"
@@ -130,11 +130,12 @@ else
 fi
 
 have_mosquitto="no"
-PKG_CHECK_MODULES([LIBMOSQUITTO], [libmosquitto libmosquittopp], [have_mosquitto="yes"], [have_mosquitto="no"])
-AM_CONDITIONAL([HAVE_MOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
+AC_CHECK_HEADERS([mosquitto.h], [have_mosquitto="yes"])
+AM_CONDITIONAL([HAVE_LIBMOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
 if test "x${have_mosquitto}" == "xyes"
 then
-     AC_DEFINE([HAVE_MOSQUITTO], [1], [libmoquitto])
+    AC_CHECK_LIB([mosquitto], [mosquitto_lib_init],, AC_ERROR([Missing mosquitto library]))
+    AC_DEFINE([HAVE_LIBMOSQUITTO], [1], [libmosquitto])
 fi
 
 # Configure pthreads.
