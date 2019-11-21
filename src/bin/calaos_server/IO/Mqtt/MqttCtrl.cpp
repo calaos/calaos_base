@@ -10,18 +10,25 @@ using namespace Calaos;
 MqttCtrl::MqttCtrl(const Params &params)
 {
     string host = "127.0.0.1";
-    int port = 1883;
-    string username = "";
-    string password = "";
+    string port = "1883";
+    string keepalive = "120";
+
+    //use default parameters if not set from config
+    if (params.Exists("host") && !params["host"].empty())
+        host = params["host"];
+    if (params.Exists("port") && !params["port"].empty())
+        port = params["port"];
+    if (params.Exists("keepalive") && !params["keepalive"].empty())
+        keepalive = params["keepalive"];
 
     cDebugDom("mqtt") << "New MQTT external process " << host << ":" << port;
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
     json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(params["host"].c_str()));
-    json_object_set_new(root, "port", json_string(params["port"].c_str()));
-    json_object_set_new(root, "keepalive", json_string(params["keepalive"].c_str()));
+    json_object_set_new(root, "host", json_string(host.c_str()));
+    json_object_set_new(root, "port", json_string(port.c_str()));
+    json_object_set_new(root, "keepalive", json_string(keepalive.c_str()));
 
     if (params.Exists("user") && params.Exists("password"))
     {
