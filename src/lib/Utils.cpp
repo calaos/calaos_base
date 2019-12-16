@@ -864,6 +864,35 @@ string Utils::escape_quotes(const string &s)
     return after;
 }
 
+string Utils::escape_space(const string &s)
+{
+   
+    int count = 0;
+
+    for (string::size_type i = 0; i < s.length(); i++)
+    {
+        if (isspace(s[i]))
+            count ++;
+    }
+
+    string ret;
+    ret.reserve(s.length() + count);
+
+    for (string::size_type i = 0; i < s.length(); i++)
+    {
+        switch (s[i])
+        {
+            case ' ':
+                ret += '\\';
+                // Fall through.
+            default:
+                ret += s[i];
+        }
+    }
+
+    return ret;
+}
+
 CStrArray::CStrArray(const string &str_split)
 {
     Utils::split(str_split, m_strings, " ");

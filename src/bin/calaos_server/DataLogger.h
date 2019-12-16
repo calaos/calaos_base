@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2019, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -32,11 +32,12 @@ class DataLogger
 {
 private:
     DataLogger();
+    bool m_enable = false;
+    string m_influxdb_host;
+    uint16_t m_influxdb_port;
+    string m_influxdb_database;
+    int m_influxdb_log_timeout;
 
-    void initEetDescriptors();
-    void releaseEetDescriptors();
-//    Eet_File *ef;
-//    Eina_Hash *hash_values;
 public:
     static DataLogger &Instance()
     {

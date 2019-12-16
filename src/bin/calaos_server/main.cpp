@@ -32,7 +32,7 @@
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
-
+#include "DataLogger.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -126,6 +126,8 @@ int main (int argc, char **argv)
 
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
+
+    DataLogger::Instance();
 
     bool enable_udp = true;
     if (argvOptionCheck(argv, argv + argc, "-noudp"))
