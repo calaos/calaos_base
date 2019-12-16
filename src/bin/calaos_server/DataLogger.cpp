@@ -23,6 +23,8 @@
 #include <IOBase.h>
 #include <Utils.h>
 #include "UrlDownloader.h"
+#include "Room.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -81,16 +83,21 @@ void DataLogger::log(IOBase *io)
     if (io->get_param("logged") != "true")
        return;
 
-//    value->timestamp = time(NULL);
-    double value = io->get_value_double();
-    cInfoDom("datalogger") << "Log value " << value;
+    Room *room  = ListeRoom::Instance().getRoomByIO(io);
 
     string url = "http://" + m_influxdb_host + ":" + Utils::to_string(m_influxdb_port) + "/write?db=" + m_influxdb_database;
     UrlDownloader *query = new UrlDownloader(url, true);
-    
+
     stringstream postData;
     uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    postData <<  "calaos " << Utils::escape_space(io->get_param("name")) << "=" << io->get_value_double()  << " " << now;
+
+    string value = "";
+
+    if (io->get_type() == TBOOL) value = Utils::to_string(io->get_value_bool());
+    else if (io->get_type() == TINT) value = Utils::to_string(io->get_value_double());
+    else if (io->get_type() == TSTRING) value = io->get_value_string();
+
+    postData <<  Utils::escape_space(io->get_param("name"))  << ",room=" << Utils::escape_space(room->get_name()) << " value=" << value  << " " << now;
     cInfoDom("datalogger") << "send value " << postData.str();
 
     query->httpPost(string(), postData.str());
