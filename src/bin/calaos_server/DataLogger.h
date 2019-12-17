@@ -22,8 +22,7 @@
 #define __DATA_LOGGER_H
 
 #include <IOBase.h>
-
-/* DISABLED, need to be rewritten once */
+#include "Timer.h"
 
 namespace Calaos
 {
@@ -37,6 +36,9 @@ private:
     uint16_t m_influxdb_port;
     string m_influxdb_database;
     int m_influxdb_log_timeout;
+    Timer *timer;
+
+    void logAll();
 
 public:
     static DataLogger &Instance()

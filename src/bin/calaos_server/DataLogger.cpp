@@ -67,12 +67,29 @@ DataLogger::DataLogger()
         if (!m_influxdb_log_timeout)
             m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
         
+        logAll();
+
+        timer = new Timer(m_influxdb_log_timeout, [=]() {
+            logAll();
+        });
     }
 }
 
 DataLogger::~DataLogger()
 {
+    delete timer;
+}
 
+void DataLogger::logAll()
+{
+    for (int i = 0; i < ListeRoom::Instance().size(); i++)
+    {
+        Room *room = ListeRoom::Instance().get_room(i);
+        for (int j = 0; j < room->get_size(); j++)
+        {
+            log(room->get_io(j));
+        }
+    }
 }
 
 void DataLogger::log(IOBase *io)
