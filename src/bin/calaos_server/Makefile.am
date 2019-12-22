@@ -165,25 +165,27 @@ calaos_server_SOURCES = \
         IO/LimitlessLED/Milight.cpp                     \
         IO/LimitlessLED/MilightOutputLightRGB.h         \
         IO/LimitlessLED/MilightOutputLightRGB.cpp       \
-		IO/Mqtt/MqttBrokersList.h						\
-		IO/Mqtt/MqttBrokerslist.cpp						\
-		IO/Mqtt/MqttCtrl.h								\
-		IO/Mqtt/MqttCtrl.cpp							\
-		IO/Mqtt/MqttInputAnalog.h						\
-		IO/Mqtt/MqttInputAnalog.cpp						\
-		IO/Mqtt/MqttInputString.h						\
-		IO/Mqtt/MqttInputString.cpp						\
-		IO/Mqtt/MqttInputSwitch.h						\
-		IO/Mqtt/MqttInputSwitch.cpp						\
-		IO/Mqtt/MqttInputTemp.h							\
-		IO/Mqtt/MqttInputTemp.cpp						\
-		IO/Mqtt/MqttOutputAnalog.h						\
-		IO/Mqtt/MqttOutputAnalog.cpp					\
-		IO/Mqtt/MqttOutputLight.h						\
-		IO/Mqtt/MqttOutputLight.cpp						\
-		IO/Mqtt/MqttOutputLightDimmer.h					\
-		IO/Mqtt/MqttOutputLightDimmer.cpp				\
-		IO/MySensors/MySensors.h                        \
+        IO/Mqtt/MqttBrokersList.h			\
+        IO/Mqtt/MqttBrokerslist.cpp			\
+        IO/Mqtt/MqttCtrl.h				\
+        IO/Mqtt/MqttCtrl.cpp				\
+        IO/Mqtt/MqttInputAnalog.h			\
+        IO/Mqtt/MqttInputAnalog.cpp			\
+        IO/Mqtt/MqttInputString.h			\
+        IO/Mqtt/MqttInputString.cpp			\
+        IO/Mqtt/MqttInputSwitch.h			\
+        IO/Mqtt/MqttInputSwitch.cpp			\
+        IO/Mqtt/MqttInputTemp.h				\
+        IO/Mqtt/MqttInputTemp.cpp			\
+        IO/Mqtt/MqttOutputAnalog.h			\
+        IO/Mqtt/MqttOutputAnalog.cpp			\
+        IO/Mqtt/MqttOutputLight.h			\
+        IO/Mqtt/MqttOutputLight.cpp			\
+        IO/Mqtt/MqttOutputLightDimmer.h			\
+        IO/Mqtt/MqttOutputLightDimmer.cpp		\
+        IO/Mqtt/MqttOutputShutter.h			\
+        IO/Mqtt/MqttOutputShutter.cpp          		\
+        IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsControllerList.cpp        \
         IO/MySensors/MySensorsControllerList.h          \
