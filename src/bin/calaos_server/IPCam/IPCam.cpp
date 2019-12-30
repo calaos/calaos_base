@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "IPCam.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -30,6 +31,10 @@ IPCam::IPCam(Params &p):
 
     set_param("gui_type", "camera");
     set_param("visible", "false");
+
+    //Add again to cache, because gui_type has changed
+    //Special case for Camera
+    ListeRoom::Instance().addIOHash(this);
 }
 
 IPCam::~IPCam()

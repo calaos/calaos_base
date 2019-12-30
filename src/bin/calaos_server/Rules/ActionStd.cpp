@@ -194,7 +194,10 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
                 {
                     if (io->get_param("iid") == id ||
                         io->get_param("oid") == id)
+                    {
                         out = io;
+                        id = out->get_param("id"); //Use new ID
+                    }
                 }
 
                 l = ListeRoom::Instance().getCameraList();
@@ -202,7 +205,10 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
                 {
                     if (io->get_param("iid") == id ||
                         io->get_param("oid") == id)
+                    {
                         out = io;
+                        id = out->get_param("id"); //Use new ID
+                    }
                 }
             }
 

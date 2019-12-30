@@ -50,9 +50,11 @@ void ListeRoom::addIOHash(IOBase *io)
 
     io_table[io->get_param("id")] = io;
 
-    if (io->get_param("gui_type") == "camera")
+    if (io->get_param("gui_type") == "camera" &&
+        find(cameraCache.begin(), cameraCache.end(), io) == cameraCache.end())
         cameraCache.push_back(io);
-    else if (io->get_param("gui_type") == "audio_player")
+    else if (io->get_param("gui_type") == "audio_player" &&
+             find(audioCache.begin(), audioCache.end(), io) == audioCache.end())
         audioCache.push_back(io);
 }
 

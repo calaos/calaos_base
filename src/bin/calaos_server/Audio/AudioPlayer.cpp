@@ -18,7 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <AudioPlayer.h>
+#include "AudioPlayer.h"
+#include "ListeRoom.h"
 
 using namespace Calaos;
 
@@ -47,6 +48,10 @@ AudioPlayer::AudioPlayer(Params &p):
 
     get_params().Add("gui_type", "audio_player");
     get_params().Add("visible", "false");
+
+    //Add again to cache, because gui_type has changed
+    //Special case for AudioPlayer
+    ListeRoom::Instance().addIOHash(this);
 }
 
 AudioPlayer::~AudioPlayer()
