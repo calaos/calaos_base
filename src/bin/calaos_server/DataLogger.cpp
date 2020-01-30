@@ -110,18 +110,13 @@ void DataLogger::log(IOBase *io)
 
     string value = "";
 
-    if (io->get_type() == TBOOL)
-    {
-        value = Utils::to_string(io->get_value_bool());
-        //append the 0/1 numeric value too
-        value += ",value_numeric=" + (io->get_value_bool()? 1:0);
-    }
+    if (io->get_type() == TBOOL) value = Utils::to_string(io->get_value_bool());
     else if (io->get_type() == TINT) value = Utils::to_string(io->get_value_double());
     else if (io->get_type() == TSTRING) value = io->get_value_string();
 
     postData <<  Utils::escape_space(io->get_param("name"))  << ",room=" << Utils::escape_space(room->get_name()) << " value=" << value  << " " << now;
-    cDebugDom("datalogger") << "send value " << postData.str();
+    cInfoDom("datalogger") << "send value " << postData.str();
 
     query->httpPost(string(), postData.str());
-}
 
+}
