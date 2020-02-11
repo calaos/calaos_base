@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
 "POT-Creation-Date: 2019-10-15 19:43+0200\n"
-"PO-Revision-Date: 2019-10-15 19:50+0200\n"
+"PO-Revision-Date: 2020-02-10 23:11+0100\n"
 "Last-Translator: FragJage <inscrip.jage@free.fr>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -11,7 +11,7 @@ msgstr ""
 "Content-Type: text/plain; charset=iso-8859-1\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
-"X-Generator: Poedit 2.2.1\n"
+"X-Generator: Poedit 2.0.6\n"
 "X-POOTLE-MTIME: 1450532110.000000\n"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:222
@@ -205,8 +205,9 @@ msgid "Current"
 msgstr "Courant"
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:34
+#, fuzzy
 msgid "Voltage"
-msgstr "Voltage"
+msgstr "Tension"
 
 #: src/bin/calaos_server/IO/AnalogIO.cpp:35
 msgid "Watt"
@@ -2220,7 +2221,7 @@ msgid ""
 "Axis IP Camera/Encoder. Camera can be viewed directly inside calaos and used "
 "in rules."
 msgstr ""
-"Encodeur/Camera IP Axis. La caméra peut etre directement vue dans calaos et "
+"Encodeur/Camera IP Axis. La caméra peut être directement vue dans calaos et "
 "utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:34
@@ -2241,16 +2242,21 @@ msgid ""
 "Gadspot IP Camera. Camera can be viewed directly inside calaos and used in "
 "rules."
 msgstr ""
+"Camera IP Gadspot. La caméra peut être directement vue dans calaos et "
+"utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:36
 msgid ""
 "Planet IP Camera/Encoder. Camera can be viewed directly inside calaos and "
 "used in rules."
 msgstr ""
+"Encodeur/Camera IP Planet. La caméra peut être directement vue dans calaos "
+"et utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:37
 msgid "Camera model (ICA-210, ICA-210W, ICA-300, ICA-302, ICA-500) to use"
 msgstr ""
+"Modèle de caméra (ICA-210, ICA-210W, ICA-300, ICA-302, ICA-500) à utiliser"
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:38
 msgid "Username for accessing the camera"
@@ -2266,28 +2272,32 @@ msgid ""
 "MJPEG/Jpeg IP Camera. Camera can be viewed directly inside calaos and used "
 "in rules."
 msgstr ""
+"Camera IP MJPEG/Jpeg. La caméra peut être directement vue dans calaos et "
+"utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:33
 msgid "URL for snapshot in jpeg format"
-msgstr ""
+msgstr "URL pour un instantané au format Jpeg"
 
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:34
 msgid "URL for mjpeg stream support"
-msgstr ""
+msgstr "URL pour le support du flux Mjpeg"
 
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:35
 msgid ""
 "Synology Surveillance Station IP Camera. Camera can be viewed directly "
 "inside calaos and used in rules."
 msgstr ""
+"Station de surveillance à cameras IP Synology. La caméra peut être "
+"directement vue dans calaos et utilisée dans les règles."
 
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:36
 msgid "Full url to Synology nas. Ex: https://192.168.0.22:5000"
-msgstr ""
+msgstr "Url complet ver le NAS Synology. Ex: https://192.168.0.22:5000"
 
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:37
 msgid "Username which can access Surveillance Station"
-msgstr ""
+msgstr "Nom d'utilisateur qui a accès à la station de surveillance"
 
 #: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:39
 msgid "ID of the camera"
@@ -2297,6 +2307,8 @@ msgstr "Arrêter la minuterie"
 msgid ""
 "Profile to use for snapshot. 0- High quality, 1- Balanced, 2- Low bandwidth"
 msgstr ""
+"Profil à utiliser pour l'instantané. 0- Haute qualité, 1- Équilibré, 2- "
+"Faible bande-passante"
 
 #: src/bin/calaos_server/JsonApi.cpp:1344
 #: src/bin/calaos_server/JsonApi.cpp:1449
