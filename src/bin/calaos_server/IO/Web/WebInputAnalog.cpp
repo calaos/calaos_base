@@ -43,7 +43,7 @@ WebInputAnalog::WebInputAnalog(Params &p):
     Calaos::StartReadRules::Instance().addIO();
 
     // Add input to WebCtrl instance
-    WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
+    WebCtrl::Instance(p).Add(get_param("path"), period, [=]()
     {
         readValue();
         Calaos::StartReadRules::Instance().ioRead();

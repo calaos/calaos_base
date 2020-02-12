@@ -38,7 +38,7 @@ WebCtrl::WebCtrl(Params &p, int _file_type)
 {
     timer = NULL;
     param = p;
-    frequency = 0.0;
+    period = 0.0;
     file_type = _file_type;
 }
 
@@ -75,26 +75,26 @@ WebCtrl &WebCtrl::Instance(Params &p)
 
 
 void WebCtrl::Add(string path,
-                  double _frequency,
+                  double _period,
                   std::function<void()> fileDownloaded_cb)
 {
 
-    if (!_frequency)
+    if (!_period)
     {
-       cError() << "The frequency parameter is NULL, please set a real value.";
+       cError() << "The period parameter is NULL, please set a real value.";
        return;
     }
 
     fileDownloadedCallbacks.push_back(std::make_pair(path, fileDownloaded_cb));
-    if (!frequency || frequency > _frequency )
-        frequency = _frequency;
+    if (!period || period > _period )
+        period = _period;
 
     if (!timer)
-        timer = new Timer(frequency, [=]() {
+        timer = new Timer(period, [=]() {
             launchDownload();
         });
     else
-        timer->Reset(frequency);
+        timer->Reset(period);
 
     launchDownload();
 }

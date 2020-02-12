@@ -39,7 +39,7 @@ InputAnalog::InputAnalog(Params &p):
 
     ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false);
-    ioDoc->paramAdd("frequency", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
+    ioDoc->paramAdd("period", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
                  IODoc::TYPE_FLOAT, false);
@@ -84,16 +84,16 @@ void InputAnalog::readConfig()
     if (get_params().Exists("interval"))
     {
         /* Interval for legacy reasons is in seconds */
-        Utils::from_string(get_param("interval"), frequency);
+        Utils::from_string(get_param("interval"), period);
     }
-    else if (get_params().Exists("frequency"))
+    else if (get_params().Exists("period"))
     {
-        Utils::from_string(get_param("frequency"), frequency);
-        /* frequency parameter is in millisecond */
-        frequency /= 1000.0;
+        Utils::from_string(get_param("period"), period);
+        /* period parameter is in millisecond */
+        period /= 1000.0;
     }
     else
-      frequency = 15.0;
+      period = 15.0;
 
     if (!get_params().Exists("precision"))
         precision = 2;
@@ -122,7 +122,7 @@ void InputAnalog::hasChanged()
     readConfig();
 
     double sec = Utils::getMainLoopTime() - timer;
-    if (sec >= frequency)
+    if (sec >= period)
     {
         timer = Utils::getMainLoopTime();
 

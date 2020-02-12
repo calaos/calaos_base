@@ -29,8 +29,8 @@ InputString::InputString(Params &p):
     set_param("gui_type", "string_in");
     if (!get_params().Exists("visible")) set_param("visible", "true");
 
-    if (get_params().Exists("interval")) Utils::from_string(get_param("interval"), frequency);
-    if (get_params().Exists("frequency")) Utils::from_string(get_param("frequency"), frequency);
+    if (get_params().Exists("interval")) Utils::from_string(get_param("interval"), period);
+    if (get_params().Exists("period")) Utils::from_string(get_param("period"), period);
 
     cInfoDom("input") << get_param("id") << ": Ok";
 }

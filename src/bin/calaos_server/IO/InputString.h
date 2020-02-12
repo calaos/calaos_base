@@ -31,7 +31,7 @@ class InputString : public IOBase
 {
 protected:
     string value;
-    double frequency;
+    double period;
     void readConfig();
 
     void emitChange();

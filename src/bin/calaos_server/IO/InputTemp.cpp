@@ -38,7 +38,7 @@ InputTemp::InputTemp(Params &p):
 
     ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false);
-    ioDoc->paramAdd("frequency", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
+    ioDoc->paramAdd("period", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
                  IODoc::TYPE_FLOAT, false);
@@ -60,10 +60,10 @@ InputTemp::InputTemp(Params &p):
       Utils::from_string(get_param("offset"), coeff_b);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
-    if (get_params().Exists("frequency"))
+    if (get_params().Exists("period"))
     {
-        /* Frequency is in milliseconds */
-        Utils::from_string(get_param("frequency"), readTime);
+        /* period is in milliseconds */
+        Utils::from_string(get_param("period"), readTime);
         readTime /= 1000.0;
     }
     else if (get_params().Exists("interval"))
@@ -84,7 +84,7 @@ InputTemp::InputTemp(Params &p):
         Utils::is_of_type<double>(v))
         Utils::from_string(v, value);
 
-    cInfoDom("input") << "frequency: " << readTime << " seconds, value from cache: " << value;
+    cInfoDom("input") << "period: " << readTime << " seconds, value from cache: " << value;
 
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 

@@ -34,7 +34,7 @@ class WebCtrl
 {
 private:    
     WebCtrl(Params &p, int file_type);
-    double frequency;
+    double period;
     Timer *timer;
     void downloadFinished(string emission, string source, void* data);
     void downloadProgress(string url, string destination_file, double dl_now, double dl_total, void* data);
@@ -49,7 +49,7 @@ public:
     WebCtrl();
     ~WebCtrl();
     enum {XML, JSON, TEXT, UNKNOWN};
-    void Add(string path, double _frequency = 60.0,
+    void Add(string path, double _period = 60.0,
              std::function<void()> fileDownloaded_cb = []() { cDebugDom("web") << "File downloaded"; });
     void Del(string path);
 
