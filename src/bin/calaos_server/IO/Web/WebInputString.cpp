@@ -47,7 +47,7 @@ WebInputString::WebInputString(Params &p):
         readValue();
         Calaos::StartReadRules::Instance().ioRead();
     });
-    cInfoDom("input") << "Frequency : " << frequency;
+    cInfoDom("input") << "Period : " << frequency;
 }
 
 WebInputString::~WebInputString()
