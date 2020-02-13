@@ -74,6 +74,7 @@ public:
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }
     virtual bool param_exists(std::string opt) { return param.Exists(opt); }
+    virtual void del_param(std::string opt) { param.Delete(opt); }
 
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);

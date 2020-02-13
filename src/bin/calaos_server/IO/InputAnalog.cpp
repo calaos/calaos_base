@@ -81,19 +81,27 @@ void InputAnalog::readConfig()
     else
       coeff_b = 0.0;
 
+    /* rename frequency to period */
+    if (get_params().Exists("frequency"))
+    {
+	Utils::from_string(get_param("frequency"), frequency);
+        set_param("period", Utils::to_string(frequency));
+        del_param("frequency");
+    }
+
     if (get_params().Exists("interval"))
     {
         /* Interval for legacy reasons is in seconds */
-        Utils::from_string(get_param("interval"), period);
+        Utils::from_string(get_param("interval"), frequency);
     }
     else if (get_params().Exists("period"))
     {
-        Utils::from_string(get_param("period"), period);
-        /* period parameter is in millisecond */
-        period /= 1000.0;
+        Utils::from_string(get_param("period"), frequency);
+        /* frequency parameter is in millisecond */
+        frequency /= 1000.0;
     }
     else
-      period = 15.0;
+      frequency = 15.0;
 
     if (!get_params().Exists("precision"))
         precision = 2;
@@ -122,7 +130,7 @@ void InputAnalog::hasChanged()
     readConfig();
 
     double sec = Utils::getMainLoopTime() - timer;
-    if (sec >= period)
+    if (sec >= frequency)
     {
         timer = Utils::getMainLoopTime();
 

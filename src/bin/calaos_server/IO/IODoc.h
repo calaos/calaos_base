@@ -47,6 +47,7 @@ public:
     void paramAddInt(const string &name, const string &description, int min, int max, bool mandatory, int defval = 0, bool readonly = false);
     void paramAddFloat(const string &name, const string &description, bool mandatory, double min, double max, double defval = 0, bool readonly = false);
     void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false);
+    void paramDelete(const string &name);
     void conditionAdd(const string &name, const string &description);
     void actionAdd(const string &name, const string &description);
     void aliasAdd(string alias);

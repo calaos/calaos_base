@@ -60,9 +60,18 @@ InputTemp::InputTemp(Params &p):
       Utils::from_string(get_param("offset"), coeff_b);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
+    
+    /* rename frequency to period */
+    if (get_params().Exists("frequency"))
+    {
+	Utils::from_string(get_param("frequency"), readTime);
+        set_param("period", Utils::to_string(readTime));
+        del_param("frequency");
+    }
+    
     if (get_params().Exists("period"))
     {
-        /* period is in milliseconds */
+        /* Frequency is in milliseconds */
         Utils::from_string(get_param("period"), readTime);
         readTime /= 1000.0;
     }
