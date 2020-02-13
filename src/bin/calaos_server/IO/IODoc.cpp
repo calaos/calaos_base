@@ -103,12 +103,6 @@ void IODoc::paramAddList(const string &name, const string &description, bool man
     param_list_value[name] = keyvalues;
 }
 
-void IODoc::paramDelete(const string &name)
-{
-	if (m_parameters.count(name))
-		m_parameters.erase(m_parameters.find(name));
-}
-
 void IODoc::conditionAdd(const string &name, const string &description)
 {
     Params p;
