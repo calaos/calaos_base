@@ -80,6 +80,8 @@ private:
     void processEventLog();
     void processEventPicture();
     void processRegisterPush();
+    
+    void processDataLogger(json_t *jroot);
 
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);
