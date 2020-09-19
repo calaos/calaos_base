@@ -28,6 +28,7 @@
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "Timer.h"
+#include "DataLogger.h"
 #include "HttpClient.h"
 #include "libuvw.h"
 
@@ -151,6 +152,8 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processEventPicture();
     else if (jsonParam["action"] == "register_push")
         processRegisterPush();
+    else if (jsonParam["action"] == "datalogger")
+        processDataLogger(jroot);
     else
     {
         if (!jroot)
@@ -930,5 +933,68 @@ void JsonApiHandlerHttp::processRegisterPush()
 {
     Json ret = {{ "success", registerPushToken(jsonParam)?"true":"false" }};
     sendJson(ret);
+}
+
+void JsonApiHandlerHttp::processDataLogger(json_t *jroot)
+{
+    if (!DataLogger::Instance().isEnabled())
+    {
+        json_t *jret = NULL;
+        jret = json_object();
+        json_object_set_new(jret, "success", json_string("false"));
+        json_object_set_new(jret, "reason", json_string("datalogger not enabled."));
+        sendJson(jret);
+        return;
+    }
+
+    string url = "http://" + DataLogger::Instance().getHost() + ":" + 
+                 Utils::to_string(DataLogger::Instance().getPort()) + "/query?db=" +
+                 DataLogger::Instance().getDatabase();
+
+    string q = "";
+    if (jroot)
+        q = jansson_string_get(jroot, "q");
+
+    if (!q.empty())
+    {
+        url += "&q=" + Utils::url_encode(q);
+        cDebugDom("network") << "Proxyfing influxdb request : " + url;
+        UrlDownloader *dl = new UrlDownloader(url, true);   
+        dl->m_signalCompleteData.connect([this](const string &data, int status)
+        {
+            if (status < 20 || status >= 300) {
+                json_t *jret = NULL;
+                jret = json_object();
+                json_object_set_new(jret, "success", json_string("false"));
+                string err = "InfluxDB http error : " + to_string(status);
+                json_object_set_new(jret, "reason", json_string(err.c_str()));
+                sendJson(jret);
+            } else {
+                json_error_t jerr;
+                json_t *jret = NULL;
+                jret = json_loads(data.c_str(), 0, &jerr);
+                if (!jret)
+                {
+                    cErrorDom("network") << "Json received malformed : " << jerr.source
+                                    << " " << jerr.text << " (" << Utils::to_string(jerr.line) << " )";
+                    jret = json_object();
+                    json_object_set_new(jret, "success", json_string("false"));
+                    sendJson(jret);
+                    return;
+                }
+               sendJson(jret);
+               return;
+            }
+        });
+        dl->httpPost();
+
+    } else {
+        json_t *jret = NULL;
+        jret = json_object();
+        json_object_set_new(jret, "success", json_string("false"));
+        json_object_set_new(jret, "reason", json_string("q (query) is empty or not provided"));
+        sendJson(jret);
+    }
+   
 }
 
