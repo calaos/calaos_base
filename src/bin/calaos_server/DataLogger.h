@@ -48,6 +48,11 @@ public:
     }
     ~DataLogger();
 
+    bool isEnabled() {return m_enable;};
+    string getHost() {return m_influxdb_host;};
+    uint16_t getPort() {return m_influxdb_port;};
+    string getDatabase() {return m_influxdb_database;};
+
     void log(IOBase *io);
 };
 
