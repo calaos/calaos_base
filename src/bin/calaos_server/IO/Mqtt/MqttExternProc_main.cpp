@@ -157,7 +157,6 @@ bool MqttProcess::setup(int &argc, char **&argv)
     string password = "";
     int keepalive = 120;
 
-    cout << "test stdout" << endl;
     cDebugDom("mqtt") << "Mqtt external process";
 
     if (!connectSocket())
