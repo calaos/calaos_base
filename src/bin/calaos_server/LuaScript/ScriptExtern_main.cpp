@@ -66,6 +66,8 @@ void ScriptProcess::messageReceived(const string &msg)
         size_t idx;
         json_t *value;
 
+        ScriptManager::Instance().luaCalaos.setExternProcClient(this);
+
         json_array_foreach(jctx, idx, value)
         {
             LuaIOBase io(this);

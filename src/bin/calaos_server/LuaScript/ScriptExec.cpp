@@ -23,6 +23,7 @@
 #include "Timer.h"
 #include "JsonApi.h"
 #include "EventManager.h"
+#include "ActionPush.h"
 
 enum
 {
@@ -84,6 +85,19 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             jansson_decode_object(json_object_get(jroot, "data"), p);
             if (!jsonApi->buildJsonSetParam(p))
                 cWarningDom("lua") << "Failed to decode set_param from Lua Script!";
+        }
+        else if (mtype == "send_push_notif")
+        {
+            Params p;
+            jansson_decode_object(json_object_get(jroot, "data"), p);
+
+            ActionPush *push = new ActionPush(p["message"], p["attachment"]);
+            push->notifSent.connect([push]()
+            {
+                cDebugDom("lua") << "ActionPush finished, deleting...";
+                delete push;
+            });
+            push->Execute();
         }
 
         json_decref(jroot);

@@ -46,7 +46,8 @@ AM_CPPFLAGS =                                                 \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
         @LIBUSB_CFLAGS@                                       \
-        @LIBOLA_CFLAGS@
+        @LIBOLA_CFLAGS@										  \
+		@PTHREAD_CFLAGS@
 
 bin_PROGRAMS = calaos_server
 
@@ -421,6 +422,7 @@ calaos_server_LDADD =                                   \
         @CALAOS_SERVER_LIBS@                            \
         @LIBUSB_LIBS@                                   \
         @INTLLIBS@                                      \
+		@PTHREAD_CFLAGS@								\
         $(top_builddir)/src/lib/libcalaos_common.la
 
 calaos_server_LDFLAGS = -rdynamic

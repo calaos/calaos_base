@@ -39,12 +39,15 @@ private:
 
 public:
     ActionPush();
+    ActionPush(const string &message, const string &attachement);
     ~ActionPush();
 
     bool Execute();
 
     bool LoadFromXml(TiXmlElement *node);
     bool SaveToXml(TiXmlElement *node);
+
+    sigc::signal<void> notifSent;
 };
 
 }

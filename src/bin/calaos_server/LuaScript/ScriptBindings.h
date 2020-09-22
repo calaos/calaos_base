@@ -71,9 +71,15 @@ private:
     static const char className[];
     static Lunar<Lua_Calaos>::RegType methods[];
 
+    ExternProcClient *extClient = nullptr;
+
+    void sendJson(const string &msg_type, const Params &param) const;
+
 public:
     Lua_Calaos();
     Lua_Calaos(lua_State *L);
+
+    void setExternProcClient(ExternProcClient *e) { extClient = e; }
 
     unordered_map<string, LuaIOBase> ioMap;
     bool abort = false;
@@ -94,6 +100,8 @@ public:
     int requestUrl(lua_State *L);
 
     int getEnv(lua_State *L);
+
+    int sendPushNotif(lua_State *L);
 };
 }
 

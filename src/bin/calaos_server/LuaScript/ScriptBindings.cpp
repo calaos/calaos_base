@@ -115,6 +115,7 @@ Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
     { "setIOParam", &Lua_Calaos::setIOParam },
     { "waitForIO", &Lua_Calaos::waitForIO },
     { "requestUrl", &Lua_Calaos::requestUrl },
+    { "sendPushNotif", &Lua_Calaos::sendPushNotif },
     { "getEnv", &Lua_Calaos::getEnv },
     { 0, 0 }
 };
@@ -389,6 +390,39 @@ int Lua_Calaos::getEnv(lua_State *L)
     }
 
     return 1;
+}
+
+int Lua_Calaos::sendPushNotif(lua_State *L)
+{
+    int argCount = lua_gettop(L);
+
+    if (argCount == 1 && lua_isstring(L, 1))
+    {
+        Params p = {{ "message", string(lua_tostring(L, 1)) }};
+        sendJson("send_push_notif", p);
+    }
+    else if (argCount == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
+    {
+        Params p = {{ "message", string(lua_tostring(L, 1)) },
+                    { "attachment", string(lua_tostring(L, 2)) }};
+        sendJson("send_push_notif", p);
+    }
+    else
+    {
+        string err = "sendPushNotif(): invalid arguments. Requires a string (message) and optional attachment (string).";
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
+    return 0;
+}
+
+void Lua_Calaos::sendJson(const string &msg_type, const Params &param) const
+{
+    json_t *jroot = json_object();
+    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
+    json_object_set_new(jroot, "data", param.toJson());
+    extClient->sendMessage(jansson_to_string(jroot));
 }
 
 bool LuaIOBase::get_value_bool() const

@@ -36,6 +36,14 @@ ActionPush::ActionPush():
     cDebugDom("rule.action.push") <<  "New Push Notification action";
 }
 
+ActionPush::ActionPush(const string &message, const string &attachement):
+    Action(ACTION_PUSH)
+{
+    cDebugDom("rule.action.push") <<  "New Push Notification action with message/attachment";
+    notif_message = message;
+    notif_attachment = attachement;
+}
+
 ActionPush::~ActionPush()
 {
 }
@@ -76,7 +84,7 @@ bool ActionPush::Execute()
     {
         sendNotif();
 
-        cInfoDom("rule.action.push") <<  "Ok, mail is in queue";
+        cInfoDom("rule.action.push") <<  "Ok, Push Notif sent";
     }
 
     return true;
@@ -178,9 +186,10 @@ void ActionPush::sendNotif()
         cDebugDom("rule.action.push") << jnotif.dump();
 
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
-        u->m_signalComplete.connect([](int statusCode)
+        u->m_signalComplete.connect([this](int statusCode)
         {
             cDebugDom("rule.action.push") << "Push notif sent with code: " << statusCode;
+            notifSent.emit();
         });
         u->httpPost(string(), jnotif.dump());
     });
