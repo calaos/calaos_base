@@ -122,6 +122,8 @@ protected:
     //needs to be reimplemented
     virtual void readTimeout();
     virtual void messageReceived(const string &msg);
+    virtual bool handleFdSet(int fd);
+
 };
 
 void MqttProcess::readTimeout()
@@ -217,6 +219,8 @@ bool MqttProcess::setup(int &argc, char **&argv)
     }
     case MOSQ_ERR_SUCCESS:
         /* Connect ok ! */
+        cInfoDom("mqtt") << "Connect to : " << host << "socket " << m_client->socket();
+        appendFd(m_client->socket());
         break;
     default:
     {
@@ -235,6 +239,13 @@ bool MqttProcess::setup(int &argc, char **&argv)
         sendMessage(json_dumps(root, 0));
     });
 
+    return true;
+}
+
+bool MqttProcess::handleFdSet(int fd)
+{
+    cDebugDom("mqtt") << "Data received : " << fd;
+    m_client->loop(0, 1);
     return true;
 }
 
