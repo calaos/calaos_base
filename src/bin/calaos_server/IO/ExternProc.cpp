@@ -421,6 +421,7 @@ void ExternProcClient::run(int timeoutms)
     {
         fd_set events;
         struct timeval tv;
+        int maxfd = -1;
 
         FD_ZERO(&events);
 
@@ -428,13 +429,14 @@ void ExternProcClient::run(int timeoutms)
         tv.tv_usec = (timeoutms - tv.tv_sec * 1000) * 1000;
 
         FD_SET(sockfd, &events);
-
+        maxfd = sockfd;
         for (int fd: userFds)
         {
             FD_SET(fd, &events);
+            maxfd = MAX(fd, maxfd);
         }
 
-        int ret = select(sockfd + 1, &events, NULL, NULL, &tv);
+        int ret = select(maxfd + 1, &events, NULL, NULL, &tv);
 
         if (ret == 0)
             readTimeout();
