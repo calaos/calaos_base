@@ -44,6 +44,8 @@ InputTemp::InputTemp(Params &p):
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAddInt("precision", _("Precision of the returned value. The value represents the number of decimal after the dot. The value is rounded like this : value = 19.275 => returned value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision = 0"), 0, 9999, false, 2);
 
+    ioDoc->paramAdd("display_warning", _("Display a warning if value has not been updated for a long time. Default to true"), IODoc::TYPE_BOOL, false, "true");
+
     ioDoc->conditionAdd("value", _("Event on a temperature value in degree Celsius"));
     ioDoc->conditionAdd("changed", _("Event on any change of temperature value"));
 
@@ -97,11 +99,27 @@ InputTemp::InputTemp(Params &p):
 
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
 
+    set_param("value_warning", "false");
+
+    if (!param.Exists("display_warning"))
+        param.Add("display_warning", "true");
+
+    timerChanged = new Timer(IOBase::TimerChangedWarning, [=]()
+    {
+        if (get_param("display_warning") != "true") return;
+
+        set_param("value_warning", "true");
+        EventManager::create(CalaosEvent::EventIOChanged,
+                             { { "id", get_param("id") },
+                               { "value_warning", "true" } });
+    });
+
     cInfoDom("input") << get_param("id") << ": Ok";
 }
 
 InputTemp::~InputTemp()
 {
+    delete timerChanged;
 }
 
 void InputTemp::hasChanged()
@@ -133,6 +151,17 @@ void InputTemp::emitChange()
     EventManager::create(CalaosEvent::EventIOChanged,
                          { { "id", get_param("id") },
                            { "state", Utils::to_string(get_value_double()) } });
+
+    timerChanged->Reset();
+
+    if (get_param("value_warning") != "false" &&
+        get_param("display_warning") == "true")
+    {
+        set_param("value_warning", "false");
+        EventManager::create(CalaosEvent::EventIOChanged,
+                             { { "id", get_param("id") },
+                               { "value_warning", "false" } });
+    }
 }
 
 bool InputTemp::set_value(double v)

@@ -43,6 +43,9 @@ protected:
     double coeff_b;
     int precision;
 
+    //timer that triggers a property when value has not been updated for some time
+    Timer *timerChanged = nullptr;
+
     void emitChange();
     virtual void readValue() = 0;
 

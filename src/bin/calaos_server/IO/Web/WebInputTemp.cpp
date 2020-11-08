@@ -58,8 +58,12 @@ WebInputTemp::~WebInputTemp()
 
 void WebInputTemp::readValue()
 {
-  // Read the value
-    value = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
-    emitChange();
+    // Read the value
+    double v = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
+    if (v != value)
+    {
+        value = v;
+        emitChange();
+    }
 }
 

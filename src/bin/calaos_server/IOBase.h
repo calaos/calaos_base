@@ -30,6 +30,8 @@ namespace Calaos
 
 class AutoScenario;
 
+
+
 class IOBase
 {
 protected:
@@ -53,6 +55,8 @@ public:
         IO_OUTPUT,
         IO_INOUT,
     };
+
+    static double const TimerChangedWarning;
 
     IOBase(Params &p, int iotype);
     virtual ~IOBase();

@@ -44,7 +44,8 @@ void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
     vector<string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
-      "auto_scenario", "step", "io_type", "io_style" };
+      "auto_scenario", "step", "io_type", "io_style",
+      "value_warning" };
 
     for (string &param: params)
     {

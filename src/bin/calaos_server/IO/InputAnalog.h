@@ -39,6 +39,9 @@ protected:
     double frequency;
     int precision;
 
+    //timer that triggers a property when value has not been updated for some time
+    Timer *timerChanged = nullptr;
+
     void readConfig();
 
     void emitChange();

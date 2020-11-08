@@ -25,6 +25,9 @@
 
 using namespace Calaos;
 
+//Default timer value before value is considered bad (4 hours)
+double const IOBase::TimerChangedWarning = 60 * 60 * 4;
+
 IOBase::IOBase(Params &p, int iotype):
     param(p),
     auto_sc_mark(false),

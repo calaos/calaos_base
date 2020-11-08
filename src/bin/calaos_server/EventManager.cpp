@@ -60,6 +60,7 @@ void EventManager::appendEvent(const CalaosEvent &ev)
 
     //Write events to the history logger
     if (ev.getType() == CalaosEvent::EventIOChanged &&
+        ev.getParam().Exists("state") &&
         ev.logHistory)
     {
         string id = ev.getParam()["id"];
