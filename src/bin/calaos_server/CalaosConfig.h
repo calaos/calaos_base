@@ -64,6 +64,8 @@ public:
     void SaveValueParams(string id, Params value, bool save = true);
     bool ReadValueIO(string id, string &value);
     bool ReadValueParams(string id, Params &value);
+
+    void BackupFiles();
 };
 
 }

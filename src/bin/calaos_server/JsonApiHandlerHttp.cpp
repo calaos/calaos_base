@@ -532,6 +532,9 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
             const char *key;
             json_t *value;
 
+            //Do a backup before overwriting new files
+            Config::Instance().BackupFiles();
+
             json_object_foreach(jfiles, key, value)
             {
                 if (key && json_is_string(value))

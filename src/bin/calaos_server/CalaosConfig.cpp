@@ -19,6 +19,9 @@
  **
  ******************************************************************************/
 #include "CalaosConfig.h"
+#include <iomanip>
+#include <ctime>
+#include "FileUtils.h"
 
 using namespace Calaos;
 
@@ -310,4 +313,47 @@ bool Config::ReadValueParams(string id, Params &value)
     }
 
     return false;
+}
+
+void Config::BackupFiles()
+{
+    string backFolder = Utils::getConfigPath() + "/backups";
+
+    std::time_t t = std::time(nullptr);
+    std::tm tm = *std::localtime(&t);
+    std::cout.imbue(std::locale("C"));
+
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y");
+    string year = ss.str();
+
+    ss.str({});
+    ss << std::put_time(&tm, "%m");
+    string month = ss.str();
+
+    ss.str({});
+    ss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
+    string dateTime = ss.str();
+
+    string folder = backFolder + "/" + year + "/" + month + "/" + dateTime;
+    if (!FileUtils::mkpath(folder))
+    {
+        cError() << "Unable to create backup folder (" << folder << "), skipping backup...";
+        return;
+    }
+
+    if (!FileUtils::copyFile(Utils::getConfigFile(IO_CONFIG), folder + "/" + IO_CONFIG))
+    {
+        cError() << "Unable to backup file io.xml";
+    }
+
+    if (!FileUtils::copyFile(Utils::getConfigFile(RULES_CONFIG), folder + "/" + RULES_CONFIG))
+    {
+        cError() << "Unable to backup file rules.xml";
+    }
+
+    if (!FileUtils::copyFile(Utils::getConfigFile(LOCAL_CONFIG), folder + "/" + LOCAL_CONFIG))
+    {
+        cError() << "Unable to backup file rules.xml";
+    }
 }

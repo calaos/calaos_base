@@ -371,7 +371,7 @@ void Utils::freeLoggers()
 static string _configBase;
 static string _cacheBase;
 
-static string getDefaultConfig()
+string Utils::getConfigPath()
 {
     string result;
     string home;
@@ -432,7 +432,7 @@ string Utils::getConfigFile(const char *configType)
         }
         else
         {
-            _configBase = getDefaultConfig();
+            _configBase = getConfigPath();
         }
     }
 
