@@ -65,6 +65,8 @@ private:
     bool isStarted = false;
     bool hasFailedStarting = false;
     bool m_isRunning = false;
+    int exitStatus = 0;
+    bool pipeClosed = false;
 
     //Common function for starting download of url
     bool start();
@@ -73,7 +75,7 @@ private:
     bool downloadToFile = false;
     vector<string> headersRequest; //header for the request
 
-    void completeCb(int status);
+    void completeCb();
     void dataCb(const char *data, int size);
 
 public:

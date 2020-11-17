@@ -26,6 +26,7 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
+    cInfoDom("urlutils") << "UrlDownloader: " << url;
 }
 
 UrlDownloader::~UrlDownloader()
@@ -38,6 +39,8 @@ UrlDownloader::~UrlDownloader()
 
     FileUtils::unlink(tempFilename);
     FileUtils::unlink(tmpHeader);
+
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") destroyed";
 }
 
 bool UrlDownloader::start()
@@ -151,21 +154,21 @@ bool UrlDownloader::start()
     {
         cDebugDom("urlutils") << "curl exited: " << ev.status;
         h.close();
-        this->completeCb(ev.status);
         this->m_isRunning = false;
+        this->completeCb();
     });
     exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
     {
         if (!isStarted) hasFailedStarting = true;
         cCriticalDom("urlutils") << "Process error: " << ev.what();
         h.close();
-        if (downloadToFile)
+        if (!downloadToFile)
         {
             pipe->stop();
             pipe->close();
         }
-        this->completeCb(255);
         this->m_isRunning = false;
+        this->completeCb();
     });
 
     if (!downloadToFile)
@@ -179,13 +182,20 @@ bool UrlDownloader::start()
         exeCurl->stdio(*pipe, ff);
 
         //When pipe is closed, remove it and close it
-        pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+        pipe->once<uvw::EndEvent>([this](const uvw::EndEvent &, auto &cl)
+        {
+            this->pipeClosed = true;
+            cl.close();
+            this->completeCb();
+        });
         pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
         pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
         {
-            cDebugDom("urlutils") << "Stdio data received: " << ev.length;
+            cDebugDom("urlutils") << "UrlDownloader(" << this << ") Stdio data received: " << ev.length;
             this->dataCb(ev.data.get(), ev.length);
         });
+
+        pipeClosed = false;
     }
 
     Utils::CStrArray arr(req);
@@ -242,17 +252,31 @@ bool UrlDownloader::httpDelete(string destination, string bodyData)
     return start();
 }
 
-void UrlDownloader::completeCb(int status)
+void UrlDownloader::completeCb()
 {
-    getResponseHeaders();
+    if (downloadToFile)
+    {
+        getResponseHeaders();
 
-    if (!downloadToFile)
-        m_signalCompleteData.emit(m_downloadedData, statusCode);
+        m_signalComplete.emit(statusCode);
 
-    m_signalComplete.emit(statusCode);
+        if (m_autodelete)
+            Destroy();
+    }
+    else
+    {
+        //we need to wait for pipe closing
+        if (pipeClosed && !m_isRunning)
+        {
+            getResponseHeaders();
 
-    if (m_autodelete)
-        Destroy();
+            m_signalCompleteData.emit(m_downloadedData, statusCode);
+            m_signalComplete.emit(statusCode);
+
+            if (m_autodelete)
+                Destroy();
+        }
+    }
 }
 
 void UrlDownloader::dataCb(const char *data, int size)
@@ -263,7 +287,7 @@ void UrlDownloader::dataCb(const char *data, int size)
 
 void UrlDownloader::Destroy()
 {
-    cDebugDom("urlutils") << "Launch idler to destroy " << m_url;
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << m_url;
     Idler::singleIdler([=]() { delete this; });
 }
 
