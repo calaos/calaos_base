@@ -816,6 +816,28 @@ ColorValue ColorValue::fromHsl(int h, int s, int l, int a)
 
 bool ColorValue::operator ==(const ColorValue &c) const
 {
+    if (type == c.type)
+    {
+        if (type == ColorHSL)
+        {
+            return color.hsl.h == c.color.hsl.h &&
+                   color.hsl.s == c.color.hsl.s &&
+                   color.hsl.l == c.color.hsl.l;
+        }
+        else if (type == ColorHSV)
+        {
+            return color.hsv.h == c.color.hsv.h &&
+                   color.hsv.s == c.color.hsv.s &&
+                   color.hsv.v == c.color.hsv.v;
+        }
+        else if (type == ColorRGB)
+        {
+            return color.rgb.r == c.color.rgb.r &&
+                   color.rgb.g == c.color.rgb.g &&
+                   color.rgb.b == c.color.rgb.b;
+        }
+    }
+
     return getRed() == c.getRed() &&
            getGreen() == c.getGreen() &&
            getBlue() == c.getBlue();

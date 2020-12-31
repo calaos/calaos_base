@@ -35,6 +35,11 @@ private:
     string m_idHue;
     Timer *m_timer;
 
+    ColorValue lastColor;
+    bool lastState = false;
+
+    void updateHueState(const ColorValue &c, bool s);
+
     void setOff();
     void setColor(const ColorValue &c);
 

@@ -43,63 +43,64 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     m_api = get_param("api");
     m_idHue = get_param("id_hue");
 
-    m_timer = new Timer(2.0,[=](){
+    m_timer = new Timer(2.0, [=]()
+    {
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
-    {
-         if (status)
-         {
-              json_error_t error;
-              json_t *root = json_loads((const char*)downloadedData.c_str(), 0, &error);
-              if (!root)
-              {
-                   cErrorDom("hue") << "Json received malformed : " << error.source
-                                    << " " << error.text << " (" << Utils::to_string(error.line) << " )";
-                   return;
-              }
-              if (!json_is_object(root))
-              {
-                   cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
-                   return;
-              }
+        {
+            if (status)
+            {
+                json_error_t error;
+                json_t *root = json_loads((const char*)downloadedData.c_str(), 0, &error);
+                if (!root)
+                {
+                    cErrorDom("hue") << "Json received malformed : " << error.source
+                                     << " " << error.text << " (" << Utils::to_string(error.line) << " )";
+                    return;
+                }
+                if (!json_is_object(root))
+                {
+                    cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
+                    return;
+                }
 
-              json_t *tstate = json_object_get(root, "state");
-              if (!tstate || !json_is_object(tstate))
-              {
-                   cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
-                   return;
-              }
+                json_t *tstate = json_object_get(root, "state");
+                if (!tstate || !json_is_object(tstate))
+                {
+                    cErrorDom("hue") << "Protocol changed ? date received : " << downloadedData;
+                    return;
+                }
 
-              int sat, bri, hue;
-              bool on, reachable;
+                int sat, bri, hue;
+                bool on, reachable;
 
-              sat = json_integer_value(json_object_get(tstate, "sat"));
-              bri = json_integer_value(json_object_get(tstate, "bri"));
-              hue = json_integer_value(json_object_get(tstate, "hue"));
-              on = jansson_bool_get(tstate, "on");
-              reachable = jansson_bool_get(tstate, "reachable");
+                sat = json_integer_value(json_object_get(tstate, "sat"));
+                bri = json_integer_value(json_object_get(tstate, "bri"));
+                hue = json_integer_value(json_object_get(tstate, "hue"));
+                on = jansson_bool_get(tstate, "on");
+                reachable = jansson_bool_get(tstate, "reachable");
 
-              cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << downloadedData;
+                cDebugDom("hue") << "State: " << on << " Hue : " << hue << " Bri: " << bri << " Hue : " << hue << "Data : " << downloadedData;
 
-              if (reachable)
-                   stateUpdated(ColorValue::fromHsl((int)(hue * 360.0 / 65535.0),
-                                                    (int)(sat * 100.0 / 255.0),
-                                                    (int)(bri * 100.0 / 255.0)), on);
-              else
-                   stateUpdated(ColorValue(0,0,0), reachable);
+                if (reachable)
+                    updateHueState(ColorValue::fromHsl((int)(hue * 360.0 / 65535.0),
+                                                       (int)(sat * 100.0 / 255.0),
+                                                       (int)(bri * 100.0 / 255.0)), on);
+                else
+                    updateHueState(ColorValue(), reachable);
 
-              json_decref(root);
-         }
-         else
-         {
-              stateUpdated(ColorValue(0,0,0), false);
-         }
-    });
+                json_decref(root);
+            }
+            else
+            {
+                updateHueState(ColorValue(), false);
+            }
+        });
 
         if (!dl->httpGet())
-             delete dl;
-         });
+            delete dl;
+    });
 }
 
 HueOutputLightRGB::~HueOutputLightRGB()
@@ -117,6 +118,16 @@ void HueOutputLightRGB::setColorReal(const ColorValue &c, bool s)
     {
         cDebugDom("hue") << "Hue color: " << c.toString();
         setColor(c);
+    }
+}
+
+void HueOutputLightRGB::updateHueState(const ColorValue &c, bool s)
+{
+    if (c != lastColor || s != lastState)
+    {
+        lastColor = c;
+        lastState = s;
+        stateUpdated(c, s);
     }
 }
 
