@@ -99,8 +99,12 @@ void ActionPush::sendNotif()
 
     string eventUuid = e.uuid;
 
+    auto nmsg = notif_message;
+    if (nmsg == "")
+        nmsg = "Calaos Notification";
+
     Json data = {
-        { "message", notif_message},
+        { "message", nmsg},
         { "pic_uid", notif_pic_uid }
     };
     e.event_raw = data.dump();
@@ -137,13 +141,14 @@ void ActionPush::sendNotif()
             Json notif = {
                 { "tokens", tokArray },
                 { "platform", 1 },
-                { "message", notif_message },
+                { "message", nmsg },
                 { "topic", "fr.calaos.CalaosMobile" }
             };
 
             if (!notif_pic_uid.empty())
             {
                 notif["mutable-content"] = true;
+                notif["mutable_content"] = true;
                 notif["data"] = {{ "event_uuid", eventUuid }};
             }
 
@@ -162,7 +167,7 @@ void ActionPush::sendNotif()
             Json notif = {
                 { "tokens", tokArray },
                 { "platform", 2 },
-                { "message", notif_message },
+                { "message", nmsg },
                 { "topic", "" }
             };
 
