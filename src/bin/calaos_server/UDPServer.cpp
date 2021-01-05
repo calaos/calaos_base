@@ -55,7 +55,11 @@ void UDPServer::createUdpSocket()
         cErrorDom("network") << "UDP server error: " << ev.what();
     });
 
-    handleSrv->bind("0.0.0.0", port, uvw::UDPHandle::Bind::REUSEADDR);
+    auto listenAddr = Utils::get_config_option("listen_address");
+    if (listenAddr == "")
+        listenAddr = "0.0.0.0";
+
+    handleSrv->bind(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
     handleSrv->recv();
 }
 

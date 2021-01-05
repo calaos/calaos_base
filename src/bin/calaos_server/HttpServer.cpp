@@ -25,9 +25,13 @@
 HttpServer::HttpServer(int p):
     port(p)
 {
+    auto listenAddr = Utils::get_config_option("listen_address");
+    if (listenAddr == "")
+        listenAddr = "0.0.0.0";
+
     auto loop = uvw::Loop::getDefault();
     handleSrv = loop->resource<uvw::TcpHandle>();
-    handleSrv->bind("0.0.0.0", port);
+    handleSrv->bind(listenAddr, port);
     handleSrv->listen();
 
     handleSrv->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TcpHandle &)

@@ -114,10 +114,14 @@ void xPLController::Connect()
         h.close();
     });
 
+    auto listenAddr = Utils::get_config_option("listen_address");
+    if (listenAddr == "")
+        listenAddr = "0.0.0.0";
+
     portTCP = discoverxPLPort();
     m_UdpRecvHandle->broadcast(true);
     cInfoDom("xpl") << "Listening on port " << portTCP;
-    m_UdpRecvHandle->bind("0.0.0.0", portTCP, uvw::UDPHandle::Bind::REUSEADDR);
+    m_UdpRecvHandle->bind(listenAddr, portTCP, uvw::UDPHandle::Bind::REUSEADDR);
     m_UdpRecvHandle->recv();
     m_xPLDevice.SetRecvSockInfo(localAddress(), portTCP);
     m_xPLDevice.Close();

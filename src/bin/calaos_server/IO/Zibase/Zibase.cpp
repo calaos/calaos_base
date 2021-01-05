@@ -88,7 +88,11 @@ Zibase::Zibase(std::string h, int p):
         hl.stop();
     });
 
-    listenHandle->bind("0.0.0.0", port, uvw::UDPHandle::Bind::REUSEADDR);
+    auto listenAddr = Utils::get_config_option("listen_address");
+    if (listenAddr == "")
+        listenAddr = "0.0.0.0";
+
+    listenHandle->bind(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
     listenHandle->recv();
 
     //Create udp socket to send data (discover zibase, registering, etc...)
