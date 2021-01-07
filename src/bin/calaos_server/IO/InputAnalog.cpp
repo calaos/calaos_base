@@ -42,7 +42,7 @@ InputAnalog::InputAnalog(Params &p):
     ioDoc->paramAdd("period", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
-                 IODoc::TYPE_FLOAT, false);
+                 IODoc::TYPE_FLOAT, false, "15");
     ioDoc->paramAddInt("precision", _("Precision of the returned value. The value represents the number of decimal after the dot. The value is rounded like this : value = 19.275 => returned value 19.28 when preicision = 2, 19.3 when precision = 1, 19 when precision = 0"), 0, 9999, false, 2);
 
     ioDoc->paramAdd("display_warning", _("Display a warning if value has not been updated for a long time. Default to true"), IODoc::TYPE_BOOL, false, "true");
