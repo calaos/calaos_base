@@ -434,7 +434,7 @@ void ExternProcClient::run(int timeoutms)
         for (int fd: userFds)
         {
             FD_SET(fd, &events);
-            maxfd = MAX(fd, maxfd);
+            maxfd = std::max(fd, maxfd);
         }
 
         int ret = select(maxfd + 1, &events, NULL, NULL, &tv);
