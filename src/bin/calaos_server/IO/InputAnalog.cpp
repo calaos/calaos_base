@@ -185,3 +185,10 @@ bool InputAnalog::set_value(double v)
 
     return true;
 }
+
+bool InputAnalog::set_value(string v)
+{
+    double dval;
+    Utils::from_string(v, dval);
+    set_value(dval);
+}

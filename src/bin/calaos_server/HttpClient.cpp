@@ -375,9 +375,6 @@ int HttpClient::processHeaders(const string &request)
         req_url.getPath() == "/api")
         proto_ver = API_HTTP;
 
-    //TODO: get url parameters here?
-    //for example get username/password as a url parameter
-
     //Handle CORS here
     if (request_headers.find("Origin") != request_headers.end())
     {

@@ -173,3 +173,10 @@ bool InputTemp::set_value(double v)
 
     return true;
 }
+
+bool InputTemp::set_value(string v)
+{
+    double dval;
+    Utils::from_string(v, dval);
+    set_value(dval);
+}

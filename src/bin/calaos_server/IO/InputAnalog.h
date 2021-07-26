@@ -53,6 +53,8 @@ public:
     virtual DATA_TYPE get_type() { return TINT; }
     virtual bool set_value(double v);
 
+    virtual bool set_value(string v);
+
     virtual double get_value_double();
 
     virtual void hasChanged();
