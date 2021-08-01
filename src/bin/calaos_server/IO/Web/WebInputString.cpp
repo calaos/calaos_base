@@ -60,11 +60,14 @@ WebInputString::~WebInputString()
 
 void WebInputString::readValue()
 {
-    auto v = WebCtrl::Instance(get_params()).getValue(get_param("path"));
-    if (v != value)
+    if (!get_param("path").empty())
     {
-        value = v;
-        cInfoDom("input") << "Read string value : " << value;
-        emitChange();
+        auto v = WebCtrl::Instance(get_params()).getValue(get_param("path"));
+        if (v != value)
+        {
+            value = v;
+            cInfoDom("input") << "Read string value : " << value;
+            emitChange();
+        }
     }
 }
