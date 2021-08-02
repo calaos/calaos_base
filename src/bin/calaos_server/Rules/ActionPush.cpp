@@ -168,12 +168,12 @@ void ActionPush::sendNotif()
                 { "tokens", tokArray },
                 { "platform", 2 },
                 { "message", nmsg },
-                { "topic", "" }
+                { "title", "Calaos" }
             };
 
             if (!notif_pic_uid.empty())
             {
-                //TODO
+                notif["data"] = {{ "event_uuid", eventUuid }};
             }
 
             jarr.push_back(notif);
