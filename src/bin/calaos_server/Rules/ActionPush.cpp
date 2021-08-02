@@ -173,7 +173,20 @@ void ActionPush::sendNotif()
 
             if (!notif_pic_uid.empty())
             {
-                notif["data"] = {{ "event_uuid", eventUuid }};
+                notif["data"] = {
+                    { "event_uuid", eventUuid },
+                    { "body", nmsg },
+                    { "message", nmsg },
+                    { "title", "Calaos" }
+                };
+            }
+            else
+            {
+                notif["data"] = {
+                    { "body", nmsg },
+                    { "message", nmsg },
+                    { "title", "Calaos" }
+                };
             }
 
             jarr.push_back(notif);
