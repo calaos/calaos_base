@@ -64,6 +64,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
     if (cap == "ptz" && cmd == "move")
     {
         string url;
+        string urlStop;
         string valcmd = "";
         if (value == "up") 
             valcmd = "ptzMoveUp";
@@ -90,5 +91,18 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
         Calaos::CallUrl(url);
+        
+        urlStop = "http://" + param["host"] + ":" + param["port"];
+        urlStop += "/cgi-bin/CGIProxy.fcgi";
+        if (valcmd.compare(0, 4, "zoom") == 0) 
+            urlStop += "?cmd=zoomstop" ; 
+        else
+            urlStop += "?cmd=ptzStopRun";
+        urlStop += "&usr=" + param["username"] + "&pwd=" + param["password"];
+          
+        Timer::singleShot(250, [=]()
+        {   
+            Calaos::CallUrl(urlStop);   
+        });
     } 
 }
