@@ -30,7 +30,6 @@ Foscam::Foscam(Params &p):
 {
     ioDoc->descriptionBaseSet(_("Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
     ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
-    ioDoc->paramAdd("zoom", _("Set to true if camera has zoom support"), IODoc::TYPE_BOOL, false, "false");
     
     if (param["ptz"] == "1" || param["ptz"] == "true")
         caps.Add("ptz", "true");    
@@ -65,27 +64,31 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
     if (cap == "ptz" && cmd == "move")
     {
         string url;
-        // valeurs possibles ptzMoveUp,ptzMoveDown,ptzMoveRight, ptzMoveLeft, ptzStopRun, ptzReset    
+        string valcmd = "";
+        if (value == "up") 
+            valcmd = "ptzMoveUp";
+        else if  (value == "down") 
+            valcmd = "ptzMoveDown";
+        else if  (value == "right") 
+            valcmd = "ptzMoveRight";
+        else if  (value == "left") 
+            valcmd = "ptzMoveLeft";
+        else if  (value == "stop") 
+            valcmd = "ptzStopRun";
+        else if  (value == "reset") 
+            valcmd = "ptzReset";
+        else if  (value == "zoomin") 
+            valcmd = "zoomIn";
+        else if  (value == "zoomout") 
+            valcmd = "zoomOut";
+        else if  (value == "zoomstop") 
+            valcmd = "zoomStop";
+
         url = "http://" + param["host"] + ":" + param["port"];
         url += "cgi-bin/CGIProxy.fcgi";
-        url += "?cmd=ptz" + value; 
+        url += "?cmd=" + valcmd; 
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
         Calaos::CallUrl(url);
-    }
-    
-    if (cap == "ptz" && cmd == "zoom")
-    {
-        string url;
-        // valeurs possibles zoomIn, zoomOut, zoomStop
-        if ((value == "zoomIn" || value == "zoomOut" || value == "zoomStop"))
-        {
-            url = "http://" + param["host"] + ":" + param["port"];
-            url += "cgi-bin/CGIProxy.fcgi";
-            url += "?cmd=" + value; 
-            url += "&usr=" + param["username"] + "&pwd=" + param["password"];
-        }
-
-        Calaos::CallUrl(url);
-    }  
+    } 
 }
