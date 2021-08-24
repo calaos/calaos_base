@@ -22,6 +22,7 @@
 #define S_FOSCAM_H
 
 #include "IPCam.h"
+#include "Timer.h"
 
 namespace Calaos
 {

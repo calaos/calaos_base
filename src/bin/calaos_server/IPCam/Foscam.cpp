@@ -39,7 +39,7 @@ std::string Foscam::getVideoUrl()
 {
     std::string url;
     url = "http://" + param["host"] + ":" + param["port"];
-    url += "cgi-bin/CGIStream.cgi";
+    url += "/cgi-bin/CGIStream.cgi";
     url += "?cmd=GetMJStream";
     url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
@@ -50,7 +50,7 @@ std::string Foscam::getPictureUrl()
 {
     std::string url;
     url = "http://" + param["host"] + ":" + param["port"];
-    url += "cgi-bin/CGIProxy.fcgi";
+    url += "/cgi-bin/CGIProxy.fcgi";
     url += "?cmd=snapPicture2";
     url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
@@ -64,6 +64,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
     if (cap == "ptz" && cmd == "move")
     {
         string url;
+        string urlStop;
         string valcmd = "";
         if (value == "up") 
             valcmd = "ptzMoveUp";
@@ -85,10 +86,23 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
             valcmd = "zoomStop";
 
         url = "http://" + param["host"] + ":" + param["port"];
-        url += "cgi-bin/CGIProxy.fcgi";
+        url += "/cgi-bin/CGIProxy.fcgi";
         url += "?cmd=" + valcmd; 
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
         Calaos::CallUrl(url);
+        
+        urlStop = "http://" + param["host"] + ":" + param["port"];
+        urlStop += "/cgi-bin/CGIProxy.fcgi";
+        if (valcmd.compare(0, 4, "zoom") == 0) 
+            urlStop += "?cmd=zoomstop" ; 
+        else
+            urlStop += "?cmd=ptzStopRun";
+        urlStop += "&usr=" + param["username"] + "&pwd=" + param["password"];
+          
+        Timer::singleShot(250, [=]()
+        {   
+            Calaos::CallUrl(urlStop);   
+        });
     } 
 }
