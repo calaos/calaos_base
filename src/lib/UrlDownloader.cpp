@@ -78,7 +78,7 @@ bool UrlDownloader::start()
 
     vector<string> req;
     req.push_back("curl");
-    req.push_back(m_url);
+    req.push_back("\"" + m_url + "\"");
     req.push_back("--silent");
     req.push_back("--insecure");
     req.push_back("--location");
@@ -347,7 +347,6 @@ x-beluga-response-time-x: 0.002 sec
     statusCode = 0;
     std::ifstream infile(tmpHeader);
     string line;
-    bool first = true;
     while (std::getline(infile, line))
     {
         if (Utils::strStartsWith(line, "HTTP/"))
