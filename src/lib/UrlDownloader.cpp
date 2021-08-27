@@ -254,6 +254,8 @@ bool UrlDownloader::httpDelete(string destination, string bodyData)
 
 void UrlDownloader::completeCb()
 {
+    cDebugDom("urlutils") << "Finished with status code: " << statusCode;
+
     if (downloadToFile)
     {
         getResponseHeaders();
@@ -269,6 +271,8 @@ void UrlDownloader::completeCb()
         if (pipeClosed && !m_isRunning)
         {
             getResponseHeaders();
+
+            cDebugDom("urlutils") << "Response data: " << m_downloadedData;
 
             m_signalCompleteData.emit(m_downloadedData, statusCode);
             m_signalComplete.emit(statusCode);
@@ -347,9 +351,13 @@ x-beluga-response-time-x: 0.002 sec
     statusCode = 0;
     std::ifstream infile(tmpHeader);
     string line;
-    bool first = true;
+
+    cDebugDom("urlutils") << "Response headers:";
+
     while (std::getline(infile, line))
     {
+        cDebugDom("urlutils") << line;
+
         if (Utils::strStartsWith(line, "HTTP/"))
         {
             vector<string> tok;
