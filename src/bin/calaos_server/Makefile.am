@@ -348,6 +348,8 @@ calaos_server_SOURCES = \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
+        IPCam/Foscam.cpp                                \
+        IPCam/Foscam.h                                  \
         IPCam/Gadspot.cpp                               \
         IPCam/Gadspot.h                                 \
         IPCam/IPCam.cpp                                 \
