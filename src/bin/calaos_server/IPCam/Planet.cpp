@@ -133,7 +133,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Resolution.cgi?ResType=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "quality" && cmd == "set")
         {
@@ -146,7 +146,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Compress_Ratio.cgi?Ratio=" + quality;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "saturation" && cmd == "set")
         {
@@ -171,7 +171,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&Image_Size=" + _size;
             url += "&Image_Quality=" + quality;
             url += "&CamPan=0&CamTilt=0&Exposure_Mode_AM=0&Display_Mode=0&Camera_Tour=0&Camera_Reset=0";
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "sharpness" && cmd == "set")
         {
@@ -196,7 +196,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&Image_Size=" + _size;
             url += "&Image_Quality=" + quality;
             url += "&CamPan=0&CamTilt=0&Exposure_Mode_AM=0&Display_Mode=0&Camera_Tour=0&Camera_Reset=0";
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "contrast" && cmd == "set")
         {
@@ -221,7 +221,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&Image_Size=" + _size;
             url += "&Image_Quality=" + quality;
             url += "&CamPan=0&CamTilt=0&Exposure_Mode_AM=0&Display_Mode=0&Camera_Tour=0&Camera_Reset=0";
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "hue" && cmd == "set")
         {
@@ -246,7 +246,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&Image_Size=" + _size;
             url += "&Image_Quality=" + quality;
             url += "&CamPan=0&CamTilt=0&Exposure_Mode_AM=0&Display_Mode=0&Camera_Tour=0&Camera_Reset=0";
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "brightness" && cmd == "set")
         {
@@ -259,7 +259,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/Change_Brightness.cgi?Brightness=" + brightness;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
     }
 
@@ -276,21 +276,21 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (value == "up") url += "Up";
             if (value == "down") url += "Down";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "position" && cmd == "recall")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/MoveCamera.cgi?Dir=Recall&CameraParam=" + value;
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "position" && cmd == "save")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/MoveCamera.cgi?Dir=Preset&CameraParam=" + value;
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
     }
 
@@ -304,7 +304,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/resSel?f_ResIdxSel=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "quality" && cmd == "set")
         {
@@ -314,7 +314,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/qualSel?f_quality=" + quality;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         if (cap == "ptz" && cmd == "move")
         {
@@ -327,14 +327,14 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             if (value == "up") url += "-1";
             if (value == "down") url += "-2";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "position" && cmd == "recall")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/ptpreset?f_presetact=" + value;
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "position" && cmd == "save")
         {
@@ -344,35 +344,35 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/adminptpreset?f_presetidx=" + Utils::to_string(pos);
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "led")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/devact?f_devno=2&f_devact=1";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "buzzer")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/devact?f_devno=1&f_devact=1";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "privacy" && cmd == "set" && value == "true")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/ptact?f_mvaction=1";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "privacy" && cmd == "set" && value == "false")
         {
             string url = "http://" + user + param["host"] + ":" + param["port"];
             url += "/goform/privacymode_unset";
 
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "brightness" && cmd == "set")
         {
@@ -390,7 +390,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&sharp=" + sharpness;
             url += "&quality=" + quality;
             url += "&f_resolution=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "color" && cmd == "set")
         {
@@ -408,7 +408,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&sharp=" + sharpness;
             url += "&quality=" + quality;
             url += "&f_resolution=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "contrast" && cmd == "set")
         {
@@ -426,7 +426,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&sharp=" + sharpness;
             url += "&quality=" + quality;
             url += "&f_resolution=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
         else if (cap == "sharpness" && cmd == "set")
         {
@@ -444,7 +444,7 @@ void Planet::activateCapabilities(std::string cap, std::string cmd, std::string 
             url += "&sharp=" + sharpness;
             url += "&quality=" + quality;
             url += "&f_resolution=" + resolution;
-            Calaos::CallUrl(url);
+            UrlDownloader::get(url);
         }
     }
 }

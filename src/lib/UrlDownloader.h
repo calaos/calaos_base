@@ -98,6 +98,9 @@ public:
     bool httpPost(string destination = "", string bodyData = "");
     bool httpPut(string destination = "", string bodyData = "");
 
+    static void get(string url, string get_data = "");
+    static void post(string url, string post_data = "");
+
     ~UrlDownloader();
 
     // Signals/Slots
