@@ -90,7 +90,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         url += "?cmd=" + valcmd; 
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
-        Calaos::CallUrl(url);
+        UrlDownloader::get(url);
         
         urlStop = "http://" + param["host"] + ":" + param["port"];
         urlStop += "/cgi-bin/CGIProxy.fcgi";
@@ -100,9 +100,9 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
             urlStop += "?cmd=ptzStopRun";
         urlStop += "&usr=" + param["username"] + "&pwd=" + param["password"];
           
-        Timer::singleShot(250, [=]()
+        Timer::singleShot(0.500, [=]()
         {   
-            Calaos::CallUrl(urlStop);   
+            UrlDownloader::get(urlStop);   
         });
     } 
 }

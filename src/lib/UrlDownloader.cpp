@@ -347,7 +347,6 @@ x-beluga-response-time-x: 0.002 sec
     statusCode = 0;
     std::ifstream infile(tmpHeader);
     string line;
-    bool first = true;
     while (std::getline(infile, line))
     {
         if (Utils::strStartsWith(line, "HTTP/"))
@@ -366,6 +365,18 @@ x-beluga-response-time-x: 0.002 sec
     }
 
     return headers;
+}
+
+void UrlDownloader::get(string url, string get_data)
+{
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->httpGet(string(),get_data);
+}
+
+void UrlDownloader::post(string url, string post_data)
+{
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->httpPost(string(), post_data);
 }
 
 void UrlDownloader::setHeader(string header, string value)

@@ -27,12 +27,6 @@ using namespace Calaos;
 
 Utils::type_signal_wago Utils::signal_wago;
 
-void Calaos::CallUrl(string url, string post_data)
-{
-    UrlDownloader *downloader = new UrlDownloader(url, true);
-    downloader->httpPost(string(), post_data);
-}
-
 std::string Calaos::get_new_id(std::string prefix)
 {
     int cpt = 0;

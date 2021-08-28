@@ -147,7 +147,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
             url += "&move=" + value;
         }
 
-        Calaos::CallUrl(url);
+        UrlDownloader::get(url);
     }
     else if (cap == "moveclick" && cmd == "set")
     {
@@ -185,7 +185,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
         url += "camera=" + camera;
         url += "&rpan=" + Utils::to_string(-pan) + "&rtilt=" + Utils::to_string(tilt);
 
-        Calaos::CallUrl(url);
+        UrlDownloader::get(url);
     }
     else if (cap == "position" && cmd == "recall")
     {
@@ -194,7 +194,7 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
         url += "camera=" + camera;
         url += "&gotoserverpresetno=" + value;
 
-        Calaos::CallUrl(url);
+        UrlDownloader::get(url);
     }
     else if (cap == "position" && cmd == "save")
     {
@@ -203,6 +203,6 @@ void Axis::activateCapabilities(std::string cap, std::string cmd, std::string va
         url += "camera=" + camera;
         url += "&setserverpresetno=" + value;
 
-        Calaos::CallUrl(url);
+        UrlDownloader::get(url);
     }
 }
