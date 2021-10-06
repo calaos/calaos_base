@@ -41,6 +41,10 @@ MqttOutputLight::MqttOutputLight(Params &p):
                     IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
+    ctrl->subscribeTopic(get_param("topic_sub"), [=]()
+    {
+        readValue();
+    });
 
     cInfoDom("output") << "MqttOutputLight::MqttOutputLight()";
 }
@@ -53,9 +57,35 @@ MqttOutputLight::~MqttOutputLight()
 void MqttOutputLight::readValue()
 {
     bool err;
-    value = ctrl->getValueDouble(get_params(), err);
-    if (!err)
-        emitChange();
+    auto val = ctrl->getValue(get_params(), err);
+
+    if (err)
+        return;
+
+    cDebugDom("mqtt") << "Read value " << val;
+
+    if (val == get_param("on_value"))
+    {
+        bool hasChanged = value != true;
+        cDebugDom("mqtt") << "TRUE : " << get_param("on_value");
+        value = true;
+
+        EmitSignalIO();
+
+        if (hasChanged)
+            emitChange();
+    }
+    else if (val == get_param("off_value"))
+    {
+        bool hasChanged = value != false;
+        cDebugDom("mqtt") << "FALSE : " << get_param("off_value");
+        value = false;
+
+        EmitSignalIO();
+
+        if (hasChanged)
+            emitChange();
+    }
 }
 
 bool MqttOutputLight::set_value_real(bool val)
