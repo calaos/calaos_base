@@ -34,6 +34,10 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     ioDoc->descriptionSet(_("Control lights through mqtt broker"));
     MqttCtrl::commonDoc(ioDoc);
 
+    ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
+                              "with the state (integer value) to be sent."),
+                    IODoc::TYPE_STRING, true);
+
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
 
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";

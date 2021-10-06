@@ -34,6 +34,10 @@ MqttOutputAnalog::MqttOutputAnalog(Params &p):
     ioDoc->descriptionSet(_("Control analog output through mqtt broker"));
     MqttCtrl::commonDoc(ioDoc);
 
+    ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
+                              "with the state (float value) to be sent."),
+                    IODoc::TYPE_STRING, true);
+
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
 
     cInfoDom("output") << "MqttOutputAnalog::MqttOutputAnalog()";

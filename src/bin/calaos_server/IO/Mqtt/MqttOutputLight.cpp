@@ -36,6 +36,9 @@ MqttOutputLight::MqttOutputLight(Params &p):
 
     ioDoc->paramAdd("on_value", _("Value to interpret as ON value"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted with "
+                              "with the state (on_value, off_value) to be sent."),
+                    IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
 
