@@ -69,7 +69,7 @@ void SynoSurveillanceStation::downloadSnapshot(std::function<void(const string &
         cDebugDom("syno.ss") << "Probing API info for Login";
         apiSid.clear();
         snapUrl.clear();
-        getApiInfo("SYNO.API.Auth", "Login", "2", [=](const string &api)
+        getApiInfo("SYNO.API.Auth", "Login", "6", [=](const string &api)
         {
             if (api.empty())
             {
