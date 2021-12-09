@@ -44,8 +44,7 @@ DataLogger::DataLogger()
         if (m_influxdb_host == "")
             m_influxdb_host = "127.0.0.1";
 
-        uint16_t influxdb_port = 0;
-        Utils::from_string(Utils::get_config_option("influxdb_port"), influxdb_port);
+        Utils::from_string(Utils::get_config_option("influxdb_port"), m_influxdb_port);
         if (m_influxdb_port == 0)
             m_influxdb_port = 8086;
 
