@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "Foscam.h"
 #include "IOFactory.h"
+#include <string.h>
 
 using namespace Calaos;
 
@@ -30,9 +31,15 @@ Foscam::Foscam(Params &p):
 {
     ioDoc->descriptionBaseSet(_("Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
     ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("zoom_step", "", IODoc::TYPE_STRING, false,"1");
+    ioDoc->paramAdd("username", _("Username for accessing the camera"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("password", _("Password for user"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("host", _("IP Address"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("port", _("Port number"), IODoc::TYPE_STRING, true,"88");
     
     if (param["ptz"] == "1" || param["ptz"] == "true")
         caps.Add("ptz", "true");    
+          
 }
 
 std::string Foscam::getVideoUrl()
@@ -95,12 +102,14 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         urlStop = "http://" + param["host"] + ":" + param["port"];
         urlStop += "/cgi-bin/CGIProxy.fcgi";
         if (valcmd.compare(0, 4, "zoom") == 0) 
-            urlStop += "?cmd=zoomstop" ; 
+            urlStop += "?cmd=zoomStop" ; 
         else
             urlStop += "?cmd=ptzStopRun";
         urlStop += "&usr=" + param["username"] + "&pwd=" + param["password"];
-          
-        Timer::singleShot(0.500, [=]()
+        
+        //Commande d'arrêt du mouvement pour simuler du pas à pas
+        float moveDelay = 0.100 * (1 + std::stoi(param["zoom_step"]));
+        Timer::singleShot(moveDelay, [=]()
         {   
             UrlDownloader::get(urlStop);   
         });
