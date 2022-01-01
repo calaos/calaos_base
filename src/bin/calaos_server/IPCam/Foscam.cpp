@@ -20,7 +20,6 @@
  ******************************************************************************/
 #include "Foscam.h"
 #include "IOFactory.h"
-#include <string.h>
 
 using namespace Calaos;
 
@@ -108,7 +107,9 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         urlStop += "&usr=" + param["username"] + "&pwd=" + param["password"];
         
         //Commande d'arrêt du mouvement pour simuler du pas à pas
-        float moveDelay = 0.100 * (1 + std::stoi(param["zoom_step"]));
+        int zstep = 0;
+        Utils::from_string(param["zoom_step"], zstep);
+        float moveDelay = 0.100 * (1 + zstep);
         Timer::singleShot(moveDelay, [=]()
         {   
             UrlDownloader::get(urlStop);   
