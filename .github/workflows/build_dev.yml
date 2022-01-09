@@ -1,0 +1,27 @@
+name: Build dev package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (x.x.x-dev)'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.ACTION_DISPATCH }}
+          repository: calaos/calaos-build
+          event-type: build_pkg
+          client-payload: '{"pkgname": "calaos-server", "repo": "calaos-dev", "version": "${{ github.event.inputs.version }}", "commit": "${{ github.sha }}" }'
+
+      - name: Create Tag
+        uses: negz/create-tag@v1
+        with:
+          version: ${{ github.event.inputs.version }}
+          token: ${{ secrets.ACTION_DISPATCH }}

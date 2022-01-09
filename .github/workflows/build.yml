@@ -1,8 +1,6 @@
 name: Build
 
 on:
-  workflow_dispatch:
-
   push:
     branches: [ master ]
 
@@ -17,4 +15,4 @@ jobs:
           token: ${{ secrets.ACTION_DISPATCH }}
           repository: calaos/calaos-build
           event-type: build_pkg
-          client-payload: '{ "pkgname": "calaos-server", "repo": "calaos-dev", "arch": "x86_64" }'
+          client-payload: '{ "pkgname": "calaos-server", "commit": "${{ github.sha }}" }'
