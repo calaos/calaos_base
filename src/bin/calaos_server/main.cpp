@@ -34,6 +34,7 @@
 #include "HistLogger.h"
 #include "DataLogger.h"
 #include "libuvw.h"
+#include "version.h"
 
 using namespace Calaos;
 
@@ -72,7 +73,7 @@ int main (int argc, char **argv)
     cout <<    " ║  Calaos Server Daemon - http://www.calaos.fr  ║" << endl;
     string v = " ║                                               ║";
     string vers;
-    vers += PACKAGE_VERSION;
+    vers += PKG_VERSION_STR;
     v.replace(8, vers.size(), vers);
     cout << v << endl;
     cout <<    " ╚═══════════════════════════════════════════════╝" << endl;
