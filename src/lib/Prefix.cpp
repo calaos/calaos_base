@@ -30,15 +30,27 @@ Prefix::Prefix(int argc, char **argv)
 
 string Prefix::binDirectoryGet()
 {
-    return PACKAGE_BIN_DIR;
+    char *str = getenv("CALAOS_BIN_PREFIX");
+    if (str != NULL)
+        return str;
+    else
+        return PACKAGE_BIN_DIR;
 }
 
 string Prefix::libDirectoryGet()
 {
-    return PACKAGE_LIB_DIR;
+    char *str = getenv("CALAOS_LIB_PREFIX");
+    if (str != NULL)
+        return str;
+    else
+        return PACKAGE_LIB_DIR;
 }
 
 string Prefix::dataDirectoryGet()
 {
-    return PACKAGE_DATA_DIR;
+    char *str = getenv("CALAOS_DATA_PREFIX");
+    if (str != NULL)
+        return str;
+    else
+        return PACKAGE_DATA_DIR;
 }
