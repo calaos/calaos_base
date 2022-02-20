@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "(gdb) Lancer",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/bin/calaos_server/calaos_server",
+            
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}/src/bin/calaos_server",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

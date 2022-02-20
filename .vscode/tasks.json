@@ -1,0 +1,47 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "make -j16",
+            "problemMatcher": "$gcc",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "make clean",
+            "group": "build",
+        },
+        {
+            "label": "configure (Debug)",
+            "type": "shell",
+            "command": "./configure",
+            "options": {
+                "env": {
+                    "CFLAGS": "-g3 -ggdb -O0",
+                    "CXXFLAGS": "-g3 -ggdb -O0"
+                }
+            },
+            "dependsOn": [
+                "clean"
+            ],
+            "group": "build",
+        },
+        {
+            "label": "configure (Release)",
+            "type": "shell",
+            "command": "./configure",
+            "dependsOn": [
+                "clean"
+            ],
+            "group": "build"
+        }
+    ]
+}
