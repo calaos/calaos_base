@@ -28,18 +28,15 @@
 
 using namespace Calaos;
 
-
 DataLogger::DataLogger()
 {
     if (Utils::get_config_option("influxdb_enabled") == "true")
-        m_enable = true;
-    else
-        m_enable = false;
-    
-    cInfoDom("datalogger") << "DataLogger is " << (m_enable ? "enabled" : "disabled");
+    {
+        int influxdb_version = -1;
+        Utils::from_string(Utils::get_config_option("influxdb_version"), influxdb_version);
+        if (influxdb_version == -1)
+            influxdb_version = 1;
 
-    if (m_enable)
-    { 
         m_influxdb_host = Utils::get_config_option("influxdb_host");
         if (m_influxdb_host == "")
             m_influxdb_host = "127.0.0.1";
@@ -53,25 +50,40 @@ DataLogger::DataLogger()
         if (m_influxdb_database == "")
             m_influxdb_database = "calaos";
 
-
         cInfoDom("datalogger") << "Create database  " << m_influxdb_database << " on host " << m_influxdb_host;
 
-        string url = "http://" + m_influxdb_host + ":" + Utils::to_string(m_influxdb_port) + "/query";
-        UrlDownloader *query = new UrlDownloader(url, true);
+        m_influxdb_apiurl = "http://" + m_influxdb_host + ":" + Utils::to_string(m_influxdb_port);
+
+        UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/query", true);
+
         string postData = "q=CREATE DATABASE " + m_influxdb_database;
+
         query->httpPost(string(), postData);
+        query->m_signalComplete.connect([=](int status)
+        {
+            if (status < 20 || status >= 300)
+            {
+                m_enable = false;
+                cErrorDom("datalogger") << " Error " << status << " while creating influxdb ("
+                                        << m_influxdb_database << ") database. Please check influxdb is up and running";
+            }
+            else
+            {
+                m_enable = true;
+                m_influxdb_log_timeout = 0;
 
-        m_influxdb_log_timeout = 0;
-    
-        Utils::from_string(Utils::get_config_option("influxdb_log_timeout"), m_influxdb_log_timeout);
-        if (!m_influxdb_log_timeout)
-            m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
-        
-        logAll();
+                Utils::from_string(Utils::get_config_option("influxdb_log_timeout"), m_influxdb_log_timeout);
+                if (!m_influxdb_log_timeout)
+                    m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
 
-        timer = new Timer(m_influxdb_log_timeout, [=]() {
-            logAll();
+                logAll();
+
+                timer = new Timer(m_influxdb_log_timeout, [=]()
+                              { logAll(); });
+            }
+            cInfoDom("datalogger") << "DataLogger is " << (m_enable ? "enabled" : "disabled");
         });
+
     }
 }
 
@@ -98,11 +110,11 @@ void DataLogger::log(IOBase *io)
         return;
 
     if (io->get_param("logged") != "true")
-       return;
+        return;
 
-    Room *room  = ListeRoom::Instance().getRoomByIO(io);
+    Room *room = ListeRoom::Instance().getRoomByIO(io);
 
-    string url = "http://" + m_influxdb_host + ":" + Utils::to_string(m_influxdb_port) + "/write?db=" + m_influxdb_database;
+    string url = m_influxdb_apiurl + "/write?db=" + m_influxdb_database;
     UrlDownloader *query = new UrlDownloader(url, true);
 
     stringstream postData;
@@ -110,13 +122,22 @@ void DataLogger::log(IOBase *io)
 
     string value = "";
 
-    if (io->get_type() == TBOOL) value = Utils::to_string(io->get_value_bool());
-    else if (io->get_type() == TINT) value = Utils::to_string(io->get_value_double());
-    else if (io->get_type() == TSTRING) value = io->get_value_string();
+    if (io->get_type() == TBOOL)
+        value = Utils::to_string(io->get_value_bool());
+    else if (io->get_type() == TINT)
+        value = Utils::to_string(io->get_value_double());
+    else if (io->get_type() == TSTRING)
+        value = io->get_value_string();
 
-    postData <<  Utils::escape_space(io->get_param("name"))  << ",room=" << Utils::escape_space(room->get_name()) << " value=" << value  << " " << now;
+    postData << Utils::escape_space(io->get_param("name")) << ",room=" << Utils::escape_space(room->get_name()) << " value=" << value << " " << now;
     cInfoDom("datalogger") << "send value " << postData.str();
-
     query->httpPost(string(), postData.str());
-
+    query->m_signalComplete.connect([=](int status)
+    {
+        if (status < 20 || status >= 300)
+        {
+            cErrorDom("datalogger") << " Error " << status << " while sending value to influxdb ("
+                                    << m_influxdb_database << ") database. Please check influxdb is up and running";
+        }
+    });
 }

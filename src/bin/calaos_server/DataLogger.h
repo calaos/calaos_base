@@ -35,6 +35,8 @@ private:
     string m_influxdb_host;
     uint16_t m_influxdb_port;
     string m_influxdb_database;
+    string m_influxdb_apiurl;
+    int m_influxdb_version;
     int m_influxdb_log_timeout;
     Timer *timer;
 
