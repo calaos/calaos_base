@@ -190,13 +190,13 @@ string IODoc::genDocMd(const string iotype)
     if (m_name.empty())
     {
         name = iotype;
-        doc += "#" + name + " - UNDOCUMENTED IO\n";
+        doc += "# " + name + " - UNDOCUMENTED IO\n";
         doc += "SPANK SPANK SPANK : naughty programmer ! You did not add documentation for this IO, that's BAD :'(\n";
         doc += "Go document it in your code or you will burn in hell!\n\n";
     }
     else
     {
-        doc += "\n#" + name + "\n";
+        doc += "\n# " + name + "\n";
 
         for (uint i = 0;i < m_aliases.size();i++)
         {
@@ -217,7 +217,7 @@ string IODoc::genDocMd(const string iotype)
     if (m_parameters.size())
     {
 
-        doc += "\n##Parameters of " + name + "\n";
+        doc += "\n## Parameters of " + name + "\n";
 
         doc += "Name | Type | Mandatory | Description\n";
         doc += "---- | ---- | --------- | -----------\n";
@@ -237,7 +237,7 @@ string IODoc::genDocMd(const string iotype)
 
     if (m_conditions.size())
     {
-        doc += "##Conditions of " + name + "\n";
+        doc += "## Conditions of " + name + "\n";
 
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
@@ -252,7 +252,7 @@ string IODoc::genDocMd(const string iotype)
 
     if (m_actions.size())
     {
-        doc += "##Actions of " + name + "\n";
+        doc += "## Actions of " + name + "\n";
         doc += "Name | Description\n";
         doc += "---- | -----------\n";
 
@@ -266,7 +266,7 @@ string IODoc::genDocMd(const string iotype)
 
     if (m_links.size())
     {
-        doc += "##More Infos\n";
+        doc += "## More Infos\n";
 
 
         for (const auto &param : m_links)
