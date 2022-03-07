@@ -36,11 +36,16 @@ private:
     uint16_t m_influxdb_port;
     string m_influxdb_database;
     string m_influxdb_apiurl;
+    string m_influxdb_token;
+    string m_influxdb_bucket;
+    string m_influxdb_org;
     int m_influxdb_version;
     int m_influxdb_log_timeout;
     Timer *timer;
 
     void logAll();
+    void initInfluxDBv2();
+    void initInfluxDBv1();
 
 public:
     static DataLogger &Instance()
@@ -55,3 +60,4 @@ public:
 
 }
 #endif /* __DATA_LOGGER_H */
+

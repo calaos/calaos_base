@@ -28,62 +28,131 @@
 
 using namespace Calaos;
 
+void DataLogger::initInfluxDBv2()
+{
+    m_influxdb_org = Utils::get_config_option("influxdb_org");
+    if (m_influxdb_org == "")
+    {
+       m_influxdb_org = "calaos";
+    }
+
+    m_influxdb_token = Utils::get_config_option("influxdb_token");
+    if (m_influxdb_token == "")
+    {
+        m_enable = false;
+        cErrorDom("datalogger") << " Error, unable to retrieve influxdb token in configuration";
+        return;
+    }
+
+    m_influxdb_bucket = Utils::get_config_option("influxdb_bucket");
+    if (m_influxdb_bucket == "")
+    {
+        m_influxdb_bucket = "calaos-data";
+    }
+
+    m_influxdb_apiurl += "/api/v2";
+    UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/authorizations", true);
+    query->setHeader("Authorization", "Token " + m_influxdb_token);
+    query->httpGet();
+    query->m_signalCompleteData.connect([=](const string &data, int status)
+    {
+        if (status == 401)
+        {
+            m_enable = false;
+            cErrorDom("datalogger") << " Error : Unauthorized access (" << status << ") while connecting to influxdb database. Please check influxdb_token in configuration";
+        }
+        else if (status < 20 || status >= 300)
+        {
+            m_enable = false;
+            cErrorDom("datalogger") << " Error " << status << " while connecting to influxdb database. Please check influxdb is up and running";
+        }
+        else
+        {
+            m_enable = true;
+            m_influxdb_log_timeout = 0;
+
+            Utils::from_string(Utils::get_config_option("influxdb_log_timeout"), m_influxdb_log_timeout);
+            if (!m_influxdb_log_timeout)
+                m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
+
+
+
+            logAll();
+
+            timer = new Timer(m_influxdb_log_timeout, [=]()
+                        { logAll(); });
+        }
+        cInfoDom("datalogger") << "DataLogger is " << (m_enable ? "enabled" : "disabled");
+    });
+}
+
+void DataLogger::initInfluxDBv1()
+{
+    m_influxdb_database = Utils::get_config_option("influxdb_database");
+    if (m_influxdb_database == "")
+        m_influxdb_database = "calaos";
+
+    cInfoDom("datalogger") << "Create database  " << m_influxdb_database << " on host " << m_influxdb_host;
+    UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/query", true);
+
+    string postData = "q=CREATE DATABASE " + m_influxdb_database;
+
+    query->httpPost(string(), postData);
+    query->m_signalComplete.connect([=](int status)
+    {
+        if (status < 20 || status >= 300)
+        {
+            m_enable = false;
+            cErrorDom("datalogger") << " Error " << status << " while creating influxdb ("
+                                    << m_influxdb_database << ") database. Please check influxdb is up and running";
+        }
+        else
+        {
+            m_enable = true;
+            m_influxdb_log_timeout = 0;
+
+            Utils::from_string(Utils::get_config_option("influxdb_log_timeout"), m_influxdb_log_timeout);
+            if (!m_influxdb_log_timeout)
+                m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
+
+            logAll();
+
+            timer = new Timer(m_influxdb_log_timeout, [=]()
+                        { logAll(); });
+        }
+        cInfoDom("datalogger") << "DataLogger is " << (m_enable ? "enabled" : "disabled");
+    });
+}
+
+
 DataLogger::DataLogger()
 {
     if (Utils::get_config_option("influxdb_enabled") == "true")
     {
-        int influxdb_version = -1;
-        Utils::from_string(Utils::get_config_option("influxdb_version"), influxdb_version);
-        if (influxdb_version == -1)
-            influxdb_version = 1;
+        m_influxdb_version = 1;
+        Utils::from_string(Utils::get_config_option("influxdb_version"), m_influxdb_version);
+
+        cInfoDom("datalogger") << "Configured for influxdb API version " << m_influxdb_version;
 
         m_influxdb_host = Utils::get_config_option("influxdb_host");
         if (m_influxdb_host == "")
             m_influxdb_host = "127.0.0.1";
 
-        uint16_t influxdb_port = 0;
-        Utils::from_string(Utils::get_config_option("influxdb_port"), influxdb_port);
+
+        m_influxdb_port = 0;
+        Utils::from_string(Utils::get_config_option("influxdb_port"), m_influxdb_port);
         if (m_influxdb_port == 0)
             m_influxdb_port = 8086;
 
-        m_influxdb_database = Utils::get_config_option("influxdb_database");
-        if (m_influxdb_database == "")
-            m_influxdb_database = "calaos";
-
-        cInfoDom("datalogger") << "Create database  " << m_influxdb_database << " on host " << m_influxdb_host;
-
         m_influxdb_apiurl = "http://" + m_influxdb_host + ":" + Utils::to_string(m_influxdb_port);
-
-        UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/query", true);
-
-        string postData = "q=CREATE DATABASE " + m_influxdb_database;
-
-        query->httpPost(string(), postData);
-        query->m_signalComplete.connect([=](int status)
+        if (m_influxdb_version == 2)
         {
-            if (status < 20 || status >= 300)
-            {
-                m_enable = false;
-                cErrorDom("datalogger") << " Error " << status << " while creating influxdb ("
-                                        << m_influxdb_database << ") database. Please check influxdb is up and running";
-            }
-            else
-            {
-                m_enable = true;
-                m_influxdb_log_timeout = 0;
-
-                Utils::from_string(Utils::get_config_option("influxdb_log_timeout"), m_influxdb_log_timeout);
-                if (!m_influxdb_log_timeout)
-                    m_influxdb_log_timeout = 300; // log if nothing happend in last 5 minutes
-
-                logAll();
-
-                timer = new Timer(m_influxdb_log_timeout, [=]()
-                              { logAll(); });
-            }
-            cInfoDom("datalogger") << "DataLogger is " << (m_enable ? "enabled" : "disabled");
-        });
-
+           initInfluxDBv2();
+        }
+        else
+        {
+            initInfluxDBv1();
+        }
     }
 }
 
@@ -114,7 +183,16 @@ void DataLogger::log(IOBase *io)
 
     Room *room = ListeRoom::Instance().getRoomByIO(io);
 
-    string url = m_influxdb_apiurl + "/write?db=" + m_influxdb_database;
+    string url = m_influxdb_apiurl;
+    if (m_influxdb_version == 2 )
+    {
+        url += "/write?org=" + Utils::escape_space(m_influxdb_org) + "&bucket=" + Utils::escape_space(m_influxdb_bucket) + "&precision=ns";
+    }
+    else
+    {
+        url += "/write?db=" + m_influxdb_database;
+    }
+
     UrlDownloader *query = new UrlDownloader(url, true);
 
     stringstream postData;
@@ -130,6 +208,14 @@ void DataLogger::log(IOBase *io)
         value = io->get_value_string();
 
     postData << Utils::escape_space(io->get_param("name")) << ",room=" << Utils::escape_space(room->get_name()) << " value=" << value << " " << now;
+
+    if (m_influxdb_version == 2 )
+    {
+        query->setHeader("Authorization", "Token " + m_influxdb_token);
+        query->setHeader("Content-Type","text/plain; charset=utf-8");
+        query->setHeader("Accept", "application/json");
+    }
+
     cInfoDom("datalogger") << "send value " << postData.str();
     query->httpPost(string(), postData.str());
     query->m_signalComplete.connect([=](int status)
