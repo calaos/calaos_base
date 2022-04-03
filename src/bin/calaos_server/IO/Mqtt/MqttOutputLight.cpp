@@ -41,7 +41,7 @@ MqttOutputLight::MqttOutputLight(Params &p):
                     IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=]()
+    ctrl->subscribeTopic(get_param("topic_sub"), [=](string)
     {
         readValue();
     });

@@ -67,7 +67,7 @@ MqttCtrl::MqttCtrl(const Params &params)
         messages[p["topic"]] = p["payload"];
         for(auto cb : subscribeCb[p["topic"]])
         {
-            cb();
+            cb(p["payload"]);
         }
         json_decref(jroot);
     });
@@ -80,7 +80,7 @@ MqttCtrl::~MqttCtrl()
 {
 }
 
-void MqttCtrl::subscribeTopic(const string topic, sigc::slot<void> callback)
+void MqttCtrl::subscribeTopic(const string topic, sigc::slot<void, string> callback)
 {
     // subscribeCb contains a map of list of callbacks, register this callback to the key  relative of this topic
     cDebugDom("mqtt") << "Topic : " << topic;

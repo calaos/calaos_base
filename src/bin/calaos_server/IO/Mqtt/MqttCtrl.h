@@ -16,7 +16,7 @@ public:
 	MqttCtrl(const Params &p);
 	~MqttCtrl();
 
-    void subscribeTopic(const string topic, sigc::slot<void> callback);
+    void subscribeTopic(const string topic, sigc::slot<void, string> callback);
     void publishTopic(const string topic, const string payload);
 
     string getValueJson(string path, string payload);
@@ -31,7 +31,7 @@ private:
     ExternProcServer *process;
     string exe;
 
-    unordered_map<string, vector<sigc::slot<void>>> subscribeCb;
+    unordered_map<string, vector<sigc::slot<void, string>>> subscribeCb;
     unordered_map<string, string> messages;
     bool connected = false;
 };
