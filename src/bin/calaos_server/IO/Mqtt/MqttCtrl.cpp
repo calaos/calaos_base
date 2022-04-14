@@ -4,6 +4,7 @@
 #include "IOFactory.h"
 #include "MqttCtrl.h"
 #include "Prefix.h"
+#include "Params.h"
 
 using namespace Calaos;
 
@@ -101,7 +102,6 @@ void MqttCtrl::publishTopic(const string topic, const string payload)
 {
     string message;
 
-
     json_t *jroot = json_object();
     json_object_set_new(jroot, "topic", json_string(topic.c_str()));
     json_object_set_new(jroot, "payload", json_string(payload.c_str()));
@@ -110,8 +110,7 @@ void MqttCtrl::publishTopic(const string topic, const string payload)
     json_decref(jroot);
 }
 
-
-string MqttCtrl::getValueJson(string path, string payload)
+string MqttCtrl::getValueJson(const Params &params, string path, string payload)
 {
     string value;
 
@@ -132,7 +131,7 @@ string MqttCtrl::getValueJson(string path, string payload)
     if (!tokens.empty())
     {
         Json parent = root;
-        for (auto it = tokens.begin();it != tokens.end();it++)
+        for (auto it = tokens.begin(); it != tokens.end(); it++)
         {
             string val = *it;
 
@@ -175,9 +174,25 @@ string MqttCtrl::getValueJson(string path, string payload)
         if (parent.is_null())
             value = "null";
         else if (parent.is_boolean())
-            value = parent.get<bool>()?"true":"false";
+            value = parent.get<bool>() ? "true" : "false";
         else if (parent.is_number())
-            value = Utils::to_string(parent.get<double>());
+        {
+            double v;
+            double coeff_a, coeff_b;
+            if (params.Exists("coeff_a"))
+                Utils::from_string(params["coeff_a"], coeff_a);
+            else
+                coeff_a = 1.0;
+
+            if (params.Exists("coeff_b"))
+                Utils::from_string(params["coeff_b"], coeff_b);
+            else
+                coeff_b = 0.0;
+
+            v = (parent.get<double>() - coeff_b) / coeff_a;
+
+            value = Utils::to_string(v);
+        }
         else if (parent.is_string())
             value = parent.get<string>();
         else if (parent.is_object())
@@ -199,7 +214,6 @@ string MqttCtrl::getValueJson(string path, string payload)
     return value;
 }
 
-
 string MqttCtrl::getValue(const Params &params, bool &err)
 {
     string type = params["type"];
@@ -220,7 +234,7 @@ string MqttCtrl::getValue(const Params &params, bool &err)
         return "";
     }
     err = false;
-    return getValueJson(params["path"], payload);
+    return getValueJson(params, params["path"], payload);
 }
 
 double MqttCtrl::getValueDouble(const Params &params, bool &err)
@@ -259,7 +273,6 @@ void MqttCtrl::setValueString(const Params &params, string val)
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 
     publishTopic(topic, data);
-
 }
 
 void MqttCtrl::setValue(const Params &params, bool val)
@@ -291,7 +304,6 @@ void MqttCtrl::setValue(const Params &params, bool val)
     publishTopic(topic, data);
 }
 
-
 void MqttCtrl::setValueInt(const Params &params, int val)
 {
     string topic = params["topic_pub"];
@@ -300,7 +312,19 @@ void MqttCtrl::setValueInt(const Params &params, int val)
     if (params.Exists("data"))
     {
         data = params["data"];
-        replace_str(data, "__##VALUE##__", to_string((int)(val * 2.55)));
+        double coeff_a, coeff_b;
+        if (params.Exists("coeff_a"))
+            Utils::from_string(params["coeff_a"], coeff_a);
+        else
+            coeff_a = 1.0;
+
+        if (params.Exists("coeff_b"))
+            Utils::from_string(params["coeff_b"], coeff_b);
+        else
+            coeff_b = 0.0;
+
+
+        replace_str(data, "__##VALUE##__", to_string((int)(val * coeff_a + coeff_b)));
     }
     else
     {

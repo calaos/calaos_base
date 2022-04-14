@@ -44,7 +44,7 @@ MqttInputString::MqttInputString(Params &p):
     Calaos::StartReadRules::Instance().addIO();
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string)
+    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
     {
         cDebugDom("mqtt") << "Read Value";
         readValue();

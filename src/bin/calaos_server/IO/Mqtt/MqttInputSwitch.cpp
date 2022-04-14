@@ -49,7 +49,7 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
     cDebugDom("mqtt") << "regoister on topic : " << get_param("topic_sub");
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string)
+    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
     {
         cDebugDom("mqtt") << "New value on topic " << get_param("topic_sub");
         hasChanged();
