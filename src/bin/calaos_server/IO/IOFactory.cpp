@@ -61,7 +61,8 @@ IOBase *IOFactory::CreateIO(TiXmlElement *node)
     readParams(node, p);
 
     IOBase *io = CreateIO(p["type"], p);
-    io->LoadFromXml(node);
+    if (io)
+        io->LoadFromXml(node);
 
     return io;
 }
