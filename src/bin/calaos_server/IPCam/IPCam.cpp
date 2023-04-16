@@ -32,6 +32,9 @@ IPCam::IPCam(Params &p):
     set_param("gui_type", "camera");
     set_param("visible", "false");
 
+    ioDoc->paramAdd("width", _("Width of the image, if this parameter is set, video will be resized to fit the given width. Let parameter empty to keep the original size."), IODoc::TYPE_INT, false, "");
+    ioDoc->paramAdd("rotate", _("Rotate the image. Set a value between. The value is in degrees. Example : -90 for  Counter Clock Wise rotation, 90 for Clock Wise rotationCW."), IODoc::TYPE_INT, false, "");
+
     //Add again to cache, because gui_type has changed
     //Special case for Camera
     ListeRoom::Instance().addIOHash(this);
