@@ -403,10 +403,12 @@ void JsonApiHandlerHttp::processGetCover()
         return;
     }
 
-    string w;
+    string width;
     if (jsonParam.Exists("width"))
-        w = jsonParam["width"];
+        width = jsonParam["width"];
 
+    string rotate;
+    if (jsonParam.Exists("rotate"))
     player->get_album_cover([=](AudioPlayerData data)
     {
         //do not start another exe if one is running already
@@ -420,8 +422,8 @@ void JsonApiHandlerHttp::processGetCover()
         }
 
         string cmd = "calaos_picture " + data.svalue + " " + tempfname;
-        if (!w.empty())
-            cmd += " " + w;
+        if (!width.empty())
+            cmd += " -w " + width;
 
         exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
         exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
@@ -455,13 +457,20 @@ void JsonApiHandlerHttp::processGetCameraPic()
         return;
     }
 
-    string w;
+    string width;
     if (jsonParam.Exists("width"))
-        w = jsonParam["width"];
+        width = jsonParam["width"];
+
+    string rotate;
+    if (jsonParam.Exists("rotate"))
+        rotate = jsonParam["rotate"];
 
     string cmd = "calaos_picture " + camera->getPictureUrl() + " " + tempfname;
-    if (!w.empty())
-        cmd += " " + w;
+    if (!width.empty())
+        cmd += " -w " + width;
+
+    if (!rotate.empty())
+        cmd += " -r " + rotate;
 
     exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
@@ -934,4 +943,3 @@ void JsonApiHandlerHttp::processRegisterPush()
     Json ret = {{ "success", registerPushToken(jsonParam)?"true":"false" }};
     sendJson(ret);
 }
-

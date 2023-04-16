@@ -1,62 +1,79 @@
-#/bin/sh
+#!/bin/bash
 
 #Usage:
-#calaos_picture <url> <filename> <width>
+#calaos_picture <url> <filename> [width] [rotate]
 
-set -e
+set -x
 
-url=$1
-filename=$2
-width=$3
+# Parse command line arguments
+OPTIONS=$(getopt -o r:w: --long rotate:,width: -- "$@")
+eval set -- "$OPTIONS"
+
+# Set default values
+rotate=""
+width=""
+
+# Process options
+while true; do
+  case "$1" in
+    -r|--rotate)
+      rotate="$2"
+      shift 2;;
+    -w|--width)
+      width="$2"
+      shift 2;;
+    --)
+      shift; break;;
+    *)
+      echo "Invalid option: $1" >&2; exit 1;;
+  esac
+done
+
+# Get remaining arguments
+url="$1"
+filename="$2"
+
+# Download file from URL
+curl -o "$filename" "$url"
 
 showUsage()
 {
-    echo "Usage: calaos_picture <url> <filename> [width]"
+    echo "Usage: calaos_picture <url> <filename> -w|--width [width] -r|--rotate [rotate]"
     exit 1
 }
 
-
-if [ "x$url" = "x" ]; then
+if [ "$url" == "" ]; then
     showUsage
 fi
-if [ "x$filename" = "x" ]; then
+if [ "$filename" == "" ]; then
     showUsage
 fi
 
-if ! which curl &> /dev/null; then
+if ! which curl > /dev/null 2>&1 ; then
     echo "curl is not installed."
     exit 1
 fi
 
-curl $url --output ${filename}_curl
+curl "$url" --output "${filename}"_curl
 
-if ! which convert &> /dev/null; then
+if ! which convert > /dev/null 2>&1 ; then
     echo "imagemagick is not installed. Resizing is not done."
-    mv ${filename}_curl ${filename}
+    mv "${filename}"_curl "${filename}"
     exit 0
 fi
 
-if [ "x$width" = "x" ]; then
-    mv ${filename}_curl ${filename}
+if [ "$width" == "" ] && [ "$rotate" == "" ]; then
+    mv "${filename}"_curl "${filename}"
     exit 0
 fi
 
-convert ${filename}_curl \
-    -filter Triangle \
-    -define filter:support=2 \
-    -thumbnail ${width} \
-    -unsharp 0.25x0.25+8+0.065 \
-    -dither None \
-    -posterize 136 \
-    -quality 82 \
-    -define jpeg:fancy-upsampling=off \
-    -define png:compression-filter=5 \
-    -define png:compression-level=9 \
-    -define png:compression-strategy=1 \
-    -define png:exclude-chunk=all \
-    -interlace none \
-    -colorspace sRGB \
-    -strip ${filename}
+# Resize image and rotate before resizing
+if [ ! "$rotate" == "" ]; then
+    convert "${filename}"_curl -rotate "${rotate}" "${filename}_curl"
+fi
 
-rm -fr ${filename}_curl
+if [ ! "$width" == "" ]; then
+    convert "${filename}"_curl  -thumbnail "${width}" "${filename}_curl"
+fi
 
+mv "${filename}"_curl "${filename}"
