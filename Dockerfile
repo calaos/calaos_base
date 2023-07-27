@@ -8,17 +8,17 @@ RUN mkdir -p $HOME /build /opt
 #required packages
 RUN apt-get update -qq && \
     apt-get install -y build-essential wget git curl libsigc++-2.0-dev \
-        libjansson-dev libcurl4-openssl-dev libluajit-5.1-dev libsqlite3-dev \
+        libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
         libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev unzip \
         zip cmake automake autoconf libtool autopoint gettext libusb-1.0-0-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola tar gzip
 
-RUN curl https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz && \
-    tar xzvf *.tar.gz && \
+RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz --output webapp.tar.gz && \
+    tar xzvf webapp.tar.gz && \
     mkdir -p /opt/share/calaos/app && \
-    mv calaos-web-app-*/dist/* /opt/share/calaos/app &&
-    rm -fr *.tar.gz calaos-web-app-*
+    mv calaos-web-app-*/dist/* /opt/share/calaos/app && \
+    rm -fr webapp.tar.gz calaos-web-app-*
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
@@ -35,8 +35,8 @@ FROM debian:12-slim as runner
 RUN apt -y update && \
     apt -y upgrade && \
     apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 libjansson4 \
-        libluajit-5.1 libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
-        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 libprotobuf23 ola
+        libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
+        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /build/*
