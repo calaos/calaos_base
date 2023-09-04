@@ -6,6 +6,9 @@ on:
 
 env:
   REGISTRY_IMAGE: ghcr.io/calaos/calaos_base
+  NAME: calaos_base
+  CALAOS_REL_URL: https://releases.calaos.fr/v4/image-dev
+  IMG_TAG: dev
 
 jobs:
   # define job to build and publish docker image
@@ -57,8 +60,8 @@ jobs:
           push: true
           build-args: APP_VERSION=${{ steps.bump_version.outputs.next-version }}
           tags: |
-            ghcr.io/calaos/calaos_base:dev
-            ghcr.io/calaos/calaos_base:${{ steps.bump_version.outputs.next-version }}
+            ${{ env.REGISTRY_IMAGE }}:${{ env.IMG_TAG }}
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.next-version }}
 
       - name: Create Tag
         uses: negz/create-tag@v1
@@ -69,8 +72,8 @@ jobs:
       - name: update calaos release
         uses: fjogeleit/http-request-action@v1
         with:
-          url: 'https://releases.calaos.fr/v4/image-dev/calaos_base'
+          url: '${{ env.CALAOS_REL_URL }}/${{ env.NAME }}'
           method: 'POST'
           customHeaders: '{"Content-Type": "application/json"}'
           bearerToken: ${{ secrets.CALAOS_REL_TOKEN }}
-          data: '{"name": "calaos_base", "source": "ghcr.io/calaos/calaos_base:${{ steps.bump_version.outputs.next-version }}", "version": "${{ steps.bump_version.outputs.next-version }}"}'
+          data: '{"name": "${{ env.NAME }}", "source": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.next-version }}", "version": "${{ steps.bump_version.outputs.next-version }}"}'
