@@ -65,7 +65,9 @@ jobs:
           context: .
           push: true
           build-args: APP_VERSION=${{ steps.bump_version.outputs.next-version }}
-          tags: ghcr.io/calaos/calaos_base:latest,ghcr.io/calaos/calaos_base:${{ steps.bump_version.outputs.next-version }}
+          tags: |
+            ghcr.io/calaos/calaos_base:latest
+            ghcr.io/calaos/calaos_base:${{ steps.bump_version.outputs.next-version }}
 
       - name: Create Tag
         uses: negz/create-tag@v1
