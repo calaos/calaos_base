@@ -2,6 +2,9 @@
 FROM debian:12-slim as dev
 ENV DEBIAN_FRONTEND noninteractive
 
+ARG APP_VERSION
+LABEL version=$APP_VERSION
+
 ENV HOME /opt
 RUN mkdir -p $HOME /build /opt
 
@@ -26,6 +29,8 @@ FROM dev as builder
 
 RUN git clone https://github.com/calaos/calaos_base.git && \
     cd calaos_base && ./autogen.sh && \
+    sed -i 's/^#define\s+PKG_VERSION_STR\s+"\w+"/#define PKG_VERSION_STR "'$APP_VERSION'"/g' src/bin/calaos_server/version.h && \
+    echo $APP_VERSION > version && \
     ./configure --prefix=/opt CPPFLAGS=-I/opt/include LDFLAGS=-L/opt/lib && \
     make -j$(nproc) && \
     make install-strip
