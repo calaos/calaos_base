@@ -28,9 +28,11 @@ jobs:
 
       - name: Increment dev release version
         id: bump_version
-        uses: christian-draeger/increment-semantic-version@1.1.0
+        uses: actionsdesk/semver@0.6.0-rc.10
         with:
-          current-version: ${{ steps.fetch-latest-release.outputs.latest-release }}
+          prerelease: withBuildNumber
+          prelabel: alpha
+          initial_version: ${{ steps.fetch-latest-release.outputs.latest-release }}
           version-fragment: 'alpha'
 
       - name: Docker meta
@@ -58,15 +60,15 @@ jobs:
         with:
           context: .
           push: true
-          build-args: APP_VERSION=${{ steps.bump_version.outputs.next-version }}
+          build-args: APP_VERSION=${{ steps.bump_version.outputs.release }}
           tags: |
             ${{ env.REGISTRY_IMAGE }}:${{ env.IMG_TAG }}
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.next-version }}
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}
 
       - name: Create Tag
         uses: negz/create-tag@v1
         with:
-          version: ${{ steps.bump_version.outputs.next-version }}
+          version: ${{ steps.bump_version.outputs.release }}
           token: ${{ secrets.ACTION_DISPATCH }}
 
       - name: update calaos release
@@ -76,4 +78,4 @@ jobs:
           method: 'POST'
           customHeaders: '{"Content-Type": "application/json"}'
           bearerToken: ${{ secrets.CALAOS_REL_TOKEN }}
-          data: '{"name": "${{ env.NAME }}", "source": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.next-version }}", "version": "${{ steps.bump_version.outputs.next-version }}"}'
+          data: '{"name": "${{ env.NAME }}", "source": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}", "version": "${{ steps.bump_version.outputs.release }}"}'
