@@ -1,31 +1,10 @@
 {
-	"name": "Existing Dockerfile",
-
-	// Sets the run context to one level up instead of the .devcontainer folder.
+	"name": "Calaos Dockerfile",
 	"context": "..",
-
-	// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
 	"dockerFile": "../Dockerfile",
-	"target": "dev",
-
-	// Set *default* container specific settings.json values on container create.
-	"settings": {},
-	
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [],
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"build": {
+		"target": "dev"
+	},
 	"forwardPorts": [5454],
-
-	// Uncomment the next line to run commands after the container is created - for example installing curl.
-	// "postCreateCommand": "apt-get update && apt-get install -y curl",
-
-	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
 	"runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--add-host=host.docker.internal:host-gateway" ],
-
-	// Uncomment to use the Docker CLI from inside the container. See https://aka.ms/vscode-remote/samples/docker-from-docker.
-	// "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
-
-	// Uncomment to connect as a non-root user if you've added one. See https://aka.ms/vscode-remote/containers/non-root.
-	// "remoteUser": "vscode"
 }
