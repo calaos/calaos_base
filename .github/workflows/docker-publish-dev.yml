@@ -71,11 +71,11 @@ jobs:
           version: ${{ steps.bump_version.outputs.release }}
           token: ${{ secrets.ACTION_DISPATCH }}
 
-      - name: update calaos release
-        uses: fjogeleit/http-request-action@v1
+      - name: Build deb
+        uses: peter-evans/repository-dispatch@v1
         with:
-          url: '${{ env.CALAOS_REL_URL }}/${{ env.NAME }}'
-          method: 'POST'
-          customHeaders: '{"Content-Type": "application/json"}'
-          bearerToken: ${{ secrets.CALAOS_REL_TOKEN }}
-          data: '{"name": "${{ env.NAME }}", "source": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}", "version": "${{ steps.bump_version.outputs.release }}"}'
+          token: ${{ secrets.ACTION_DISPATCH }}
+          repository: calaos/pkgdebs
+          event-type: build_deb
+          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.bump_version.outputs.release }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}", "prerelease": true }'
+
