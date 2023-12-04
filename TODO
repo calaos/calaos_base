@@ -29,5 +29,5 @@ The following list has no priority...
 - Add support for Flukso (see https://www.flukso.net/)
 - Add support for OpenEnergyMonitor (http://openenergymonitor.org/emon/)
 - Add a way to display and record graph of temperature or other metering device
-  all heating automatically. Like a function block where you give a temp sensor + a outpu- Add support for BlyssBox products (see: https://github.com/skywodd/arduino_blyss_hack/)
+- Add support for BlyssBox products (see: https://github.com/skywodd/arduino_blyss_hack/)
 - Maybe support jeenode to get metering data? (http://jeelabs.com/products/jeenode)
