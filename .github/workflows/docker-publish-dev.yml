@@ -7,7 +7,6 @@ on:
 env:
   REGISTRY_IMAGE: ghcr.io/calaos/calaos_base
   NAME: calaos_base
-  CALAOS_REL_URL: https://releases.calaos.fr/v4/image-dev
   IMG_TAG: dev
 
 jobs:
@@ -22,18 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Fetch latest release version
-        id: fetch-latest-release
-        uses: reloc8/action-latest-release-version@1.0.0
-
-      - name: Increment dev release version
-        id: bump_version
-        uses: actionsdesk/semver@0.6.0-rc.10
+      - name: Calaos Action Bump Version
+        id: calaos_version
+        uses: calaos/action-bump-version@1.0.0
         with:
-          prerelease: withBuildNumber
-          prelabel: alpha
-          initial_version: ${{ steps.fetch-latest-release.outputs.latest-release }}
-          version-fragment: 'alpha'
+          version-fragment: 'prerelease'
 
       - name: Docker meta
         id: meta
@@ -60,15 +52,15 @@ jobs:
         with:
           context: .
           push: true
-          build-args: APP_VERSION=${{ steps.bump_version.outputs.release }}
+          build-args: APP_VERSION=${{ steps.calaos_version.outputs.version-bumped }}
           tags: |
             ${{ env.REGISTRY_IMAGE }}:${{ env.IMG_TAG }}
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version-bumped }}
 
       - name: Create Tag
         uses: negz/create-tag@v1
         with:
-          version: ${{ steps.bump_version.outputs.release }}
+          version: ${{ steps.calaos_version.outputs.version-bumped }}
           token: ${{ secrets.ACTION_DISPATCH }}
 
       - name: Build deb
@@ -77,5 +69,5 @@ jobs:
           token: ${{ secrets.ACTION_DISPATCH }}
           repository: calaos/pkgdebs
           event-type: build_deb
-          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.bump_version.outputs.release }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.bump_version.outputs.release }}", "prerelease": true }'
+          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.calaos_version.outputs.version-bumped }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version-bumped }}", "prerelease": true }'
 
