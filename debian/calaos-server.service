@@ -1,9 +1,0 @@
-[Unit]
-Description=Calaos-Server Daemon
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/calaos-server
-
-[Install]
-WantedBy=multi-user.target
