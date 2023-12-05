@@ -35,7 +35,7 @@ jobs:
         id: calaos_version
         uses: calaos/action-bump-version@1.0.1
         with:
-          version-fragment: ${{ github.event.inputs.vincrement }}
+          version_fragment: ${{ github.event.inputs.vincrement }}
           
       - name: Docker meta
         id: meta
@@ -62,15 +62,15 @@ jobs:
         with:
           context: .
           push: true
-          build-args: APP_VERSION=${{ steps.calaos_version.outputs.version-bumped }}
+          build-args: APP_VERSION=${{ steps.calaos_version.outputs.version_bumped }}
           tags: |
             ${{ env.REGISTRY_IMAGE }}:${{ env.IMG_TAG }}
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version-bumped }}
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version_bumped }}
 
       - name: Create Tag
         uses: negz/create-tag@v1
         with:
-          version: ${{ steps.calaos_version.outputs.version-bumped }}
+          version: ${{ steps.calaos_version.outputs.version_bumped }}
           token: ${{ secrets.ACTION_DISPATCH }}
 
       - name: Build deb
@@ -79,5 +79,5 @@ jobs:
           token: ${{ secrets.ACTION_DISPATCH }}
           repository: calaos/pkgdebs
           event-type: build_deb
-          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.calaos_version.outputs.version-bumped }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version-bumped }}", "prerelease": false }'
+          client-payload: '{ "pkgname": "calaos-server", "version": "${{ steps.calaos_version.outputs.version_bumped }}", "image_src": "${{ env.REGISTRY_IMAGE }}:${{ steps.calaos_version.outputs.version_bumped }}", "prerelease": false }'
   
