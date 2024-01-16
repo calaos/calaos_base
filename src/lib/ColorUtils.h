@@ -22,6 +22,7 @@
 #define ColorValue_H
 
 #include <iostream>
+#include <cstdint>
 
 using namespace std;
 
