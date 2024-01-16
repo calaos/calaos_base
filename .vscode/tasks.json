@@ -4,26 +4,46 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "create_build_folder",
+            "type": "shell",
+            "command": "mkdir -p _build",
+            "group": "build",
+        },
+        {
             "label": "build",
             "type": "shell",
             "command": "make -j16",
             "problemMatcher": "$gcc",
+            "options": {
+                "cwd": "${workspaceFolder}/_build"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "dependsOn": [
+                "create_build_folder",
+            ],
         },
         {
             "label": "clean",
             "type": "shell",
             "command": "make clean",
+            "options": {
+                "cwd": "${workspaceFolder}/_build"
+            },
             "group": "build",
+            "dependsOn": [
+                "create_build_folder",
+            ],
+
         },
         {
             "label": "configure (Debug)",
             "type": "shell",
-            "command": "./configure",
+            "command": "../configure",
             "options": {
+                "cwd": "${workspaceFolder}/_build",
                 "env": {
                     "CFLAGS": "-g3 -ggdb -O0",
                     "CXXFLAGS": "-g3 -ggdb -O0"
@@ -37,7 +57,10 @@
         {
             "label": "configure (Release)",
             "type": "shell",
-            "command": "./configure",
+            "command": "../configure",
+            "options": {
+                "cwd": "${workspaceFolder}/_build",
+            },
             "dependsOn": [
                 "clean"
             ],

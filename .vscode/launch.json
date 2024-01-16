@@ -3,14 +3,14 @@
     "configurations": [
 
         {
-            "name": "(gdb) Lancer",
+            "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/src/bin/calaos_server/calaos_server",
+            "program": "${workspaceRoot}/_build/src/bin/calaos_server/calaos_server",
             
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceRoot}/src/bin/calaos_server",
+            "cwd": "${workspaceRoot}/_build/src/bin/calaos_server",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
