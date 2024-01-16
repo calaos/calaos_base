@@ -1,5 +1,4 @@
 FROM debian:12-slim as dev
-ENV DEBIAN_FRONTEND noninteractive
 
 ARG APP_VERSION
 LABEL version=$APP_VERSION
@@ -9,14 +8,21 @@ RUN mkdir -p $HOME /build /opt
 
 #required packages
 RUN apt-get update -qq && \
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential wget git curl \
         libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
         libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev libusb-1.0-0-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
-        tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb
+        tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales
+
+RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
+    update-locale LANG=en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 RUN echo "export EDITOR=nano \n\
     export VISUAL=nano \n\
