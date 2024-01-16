@@ -22,7 +22,7 @@
 #define S_HttpClient_H
 
 #include "Calaos.h"
-#include "http_parser.h"
+#include "llhttp.h"
 #include <unordered_map>
 #include "JsonApiHandlerHttp.h"
 #include "JsonApiHandlerWS.h"
@@ -42,8 +42,8 @@ protected:
 
     std::shared_ptr<uvw::TcpHandle> client_conn;
 
-    http_parser_settings parser_settings;
-    http_parser *parser;
+    llhttp_settings_t parser_settings;
+    llhttp_t *parser;
 
     bool parse_done = false;
     unsigned char request_method;
@@ -95,13 +95,13 @@ protected:
 
     string getMimeType(const string &file_ext);
 
-    friend int _parser_begin(http_parser *parser);
-    friend int _parser_header_field(http_parser *parser, const char *at, size_t length);
-    friend int _parser_header_value(http_parser *parser, const char *at, size_t length);
-    friend int _parser_headers_complete(http_parser *parser);
-    friend int _parser_message_complete(http_parser *parser);
-    friend int _parser_url(http_parser *parser, const char *at, size_t length);
-    friend int _parser_body_complete(http_parser* parser, const char *at, size_t length);
+    friend int _parser_begin(llhttp_t *parser);
+    friend int _parser_header_field(llhttp_t *parser, const char *at, size_t length);
+    friend int _parser_header_value(llhttp_t *parser, const char *at, size_t length);
+    friend int _parser_headers_complete(llhttp_t *parser);
+    friend int _parser_message_complete(llhttp_t *parser);
+    friend int _parser_url(llhttp_t *parser, const char *at, size_t length);
+    friend int _parser_body_complete(llhttp_t* parser, const char *at, size_t length);
 
 public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);

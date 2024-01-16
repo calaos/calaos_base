@@ -31,7 +31,7 @@ AM_CPPFLAGS = \
               -I$(top_srcdir)/src/lib/LuaScript                     \
               -I$(top_srcdir)/src/lib/TinyXML                       \
               -I$(top_srcdir)/src/lib/cJSON                         \
-              -I$(top_srcdir)/src/lib/http-parser                   \
+              -I$(top_srcdir)/src/lib/llhttp/include                \
               -I$(top_srcdir)/src/lib/libquickmail                  \
               -I$(top_srcdir)/src/lib/uri_parser                    \
               @CALAOS_COMMON_CFLAGS@

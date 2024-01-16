@@ -1,7 +1,7 @@
 
 CALAOS_VERSION
-AC_INIT([calaos], [calaos_version], [team@calaos.fr])
-AC_PREREQ([2.59])
+AC_INIT([calaos],[calaos_version],[team@calaos.fr])
+AC_PREREQ([2.71])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -10,7 +10,7 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([tar-ustar 1.6 dist-xz subdir-objects foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 
 LT_PREREQ([2.2])
@@ -85,7 +85,7 @@ AC_CHECK_HEADERS([owcapi.h], [have_owcapi="yes"])
 AM_CONDITIONAL([HAVE_OWCAPI], [test "x${have_owcapi}" = "xyes"])
 if test "x${have_owcapi}" == "xyes"
 then
-    AC_CHECK_LIB([owcapi], [OW_init],, AC_ERROR([Missing owfs library]))
+    AC_CHECK_LIB([owcapi], [OW_init],, AC_MSG_ERROR(Missing owfs library))
 fi
 
 have_libusb="no"
@@ -109,7 +109,7 @@ AC_CHECK_HEADERS([eibclient.h], [have_libknx="yes"])
 AM_CONDITIONAL([HAVE_LIBKNX], [test "x${have_libknx}" = "xyes"])
 if test "x${have_libknx}" == "xyes"
 then
-     AC_CHECK_LIB([eibclient], [EIBSocketLocal],, AC_ERROR([Missing eibclient library]))
+     AC_CHECK_LIB([eibclient], [EIBSocketLocal],, AC_MSG_ERROR(Missing eibclient library))
      AC_DEFINE([HAVE_LIBKNX], [1], [libknx])
 fi
 
@@ -134,7 +134,7 @@ AC_CHECK_HEADERS([mosquitto.h], [have_mosquitto="yes"])
 AM_CONDITIONAL([HAVE_LIBMOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
 if test "x${have_mosquitto}" == "xyes"
 then
-    AC_CHECK_LIB([mosquitto], [mosquitto_lib_init],, AC_ERROR([Missing mosquitto library]))
+    AC_CHECK_LIB([mosquitto], [mosquitto_lib_init],, AC_MSG_ERROR(Missing mosquitto library))
     AC_DEFINE([HAVE_LIBMOSQUITTO], [1], [libmosquitto])
 fi
 

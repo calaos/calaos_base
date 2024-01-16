@@ -50,7 +50,7 @@
                 }
             },
             "dependsOn": [
-                "clean"
+                "create_build_folder"
             ],
             "group": "build",
         },
@@ -62,7 +62,7 @@
                 "cwd": "${workspaceFolder}/_build",
             },
             "dependsOn": [
-                "clean"
+                "create_build_folder"
             ],
             "group": "build"
         }

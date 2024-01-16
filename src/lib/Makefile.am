@@ -13,7 +13,7 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam \
         -I$(top_srcdir)/src/bin/calaos_server/Rules \
         -I$(top_srcdir)/src/lib \
-        -I$(top_srcdir)/src/lib/http-parser \
+        -I$(top_srcdir)/src/lib/llhttp/include \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
         -I. \
@@ -36,7 +36,7 @@ AM_CFLAGS = \
         -I$(top_srcdir)/src/bin/calaos_server/Rules \
         -I$(top_srcdir)/src/lib \
         -I$(top_srcdir)/src/lib/LuaScript \
-        -I$(top_srcdir)/src/lib/http-parser \
+        -I$(top_srcdir)/src/lib/llhttp/include \
         -I$(top_srcdir)/src/lib/libquickmail \
         -I$(top_srcdir)/src/lib/uri_parser \
         -I. \
@@ -106,8 +106,10 @@ libcalaos_common_la_SOURCES = \
         WebSocketFrame.h                        \
         base64.cpp                              \
         base64.h                                \
-        http-parser/http_parser.c               \
-        http-parser/http_parser.h               \
+        llhttp/src/api.c                        \
+        llhttp/src/http.c                       \
+        llhttp/src/llhttp.c                     \
+        llhttp/include/llhttp.h                 \
         libquickmail/quickmail.c                \
         libquickmail/quickmail.h                \
         sunset.c                                \

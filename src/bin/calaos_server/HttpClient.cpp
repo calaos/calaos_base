@@ -35,7 +35,7 @@ using namespace Calaos;
     index++)
 #endif
 
-int _parser_begin(http_parser *parser)
+int _parser_begin(llhttp_t *parser)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -51,7 +51,7 @@ int _parser_begin(http_parser *parser)
     return 0;
 }
 
-int _parser_header_field(http_parser *parser, const char *at, size_t length)
+int _parser_header_field(llhttp_t *parser, const char *at, size_t length)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -72,7 +72,7 @@ int _parser_header_field(http_parser *parser, const char *at, size_t length)
     return 0;
 }
 
-int _parser_header_value(http_parser *parser, const char *at, size_t length)
+int _parser_header_value(llhttp_t *parser, const char *at, size_t length)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -84,7 +84,7 @@ int _parser_header_value(http_parser *parser, const char *at, size_t length)
     return 0;
 }
 
-int _parser_headers_complete(http_parser *parser)
+int _parser_headers_complete(llhttp_t *parser)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -100,7 +100,7 @@ int _parser_headers_complete(http_parser *parser)
     return 0;
 }
 
-int _parser_url(http_parser *parser, const char *at, size_t length)
+int _parser_url(llhttp_t *parser, const char *at, size_t length)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -109,7 +109,7 @@ int _parser_url(http_parser *parser, const char *at, size_t length)
     return 0;
 }
 
-int _parser_message_complete(http_parser *parser)
+int _parser_message_complete(llhttp_t *parser)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -119,7 +119,7 @@ int _parser_message_complete(http_parser *parser)
     return 0;
 }
 
-int _parser_body_complete(http_parser* parser, const char *at, size_t length)
+int _parser_body_complete(llhttp_t* parser, const char *at, size_t length)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
@@ -131,6 +131,8 @@ int _parser_body_complete(http_parser* parser, const char *at, size_t length)
 HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     client_conn(client)
 {
+    llhttp_settings_init(&parser_settings);
+
     //set up callbacks for the parser
     parser_settings.on_message_begin = _parser_begin;
     parser_settings.on_url = _parser_url;
@@ -140,8 +142,8 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     parser_settings.on_body = _parser_body_complete;
     parser_settings.on_message_complete = _parser_message_complete;
 
-    parser = (http_parser *)calloc(1, sizeof(http_parser));
-    http_parser_init(parser, HTTP_REQUEST);
+    parser = (llhttp_t *)calloc(1, sizeof(llhttp_t));
+    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
     parser->data = this;
 
     cDebugDom("network") << this;
@@ -166,14 +168,15 @@ HttpClient::~HttpClient()
 
 int HttpClient::processHeaders(const string &request)
 {
-    size_t nparsed;
+    enum llhttp_errno err = llhttp_execute(parser, request.c_str(), request.size());
 
-    nparsed = http_parser_execute(parser, &parser_settings, request.c_str(), request.size());
-
-    if (nparsed != request.size())
+    if (err != HPE_OK)
     {
         /* Handle error. Usually just close the connection. */
         CloseConnection();
+
+        cDebugDom("network") << "Error parsing HTTP request: " << llhttp_errno_name(err)
+                << " (" << parser->reason << ")";
 
         return HTTP_PROCESS_DONE;
     }

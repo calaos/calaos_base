@@ -63,7 +63,7 @@ void WebSocket::ProcessData(string data)
         if (parse_done)
         {
             //init parser again
-            http_parser_init(parser, HTTP_REQUEST);
+            llhttp_init(parser, HTTP_REQUEST, &parser_settings);
             parser->data = this;
 
             handleJsonRequest();
