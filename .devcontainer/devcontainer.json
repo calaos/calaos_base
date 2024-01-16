@@ -1,9 +1,25 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
 {
-	"name": "Calaos Dockerfile",
-	"context": "..",
-	"dockerFile": "../Dockerfile",
+	"name": "Debian12 calaos-server dev container",
 	"build": {
-		"target": "dev"
+		"dockerfile": "Dockerfile"
 	},
-	"forwardPorts": [5454],
+
+	"mounts": [
+		"source=extensionCache,target=/root/.vscode-server/extensions,type=volume"
+	],
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"forwardPorts": [ 5454 ],
+
+	// Configure tool-specific properties.
+	"customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	"remoteUser": "root",
+	
+	"runArgs": ["--privileged"]
 }

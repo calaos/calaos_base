@@ -10,12 +10,14 @@ RUN mkdir -p $HOME /build /opt
 
 #required packages
 RUN apt-get update -qq && \
-    apt-get install -y build-essential wget git curl libsigc++-2.0-dev \
-        libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
-        libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev unzip \
-        zip cmake automake autoconf libtool autopoint gettext libusb-1.0-0-dev \
+    apt-get install -y \
+        build-essential wget git curl \
+        libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
+        libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev libusb-1.0-0-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
-        libola-dev ola tar gzip
+        libola-dev ola \
+        unzip zip cmake automake autoconf libtool autopoint gettext  \
+        tar gzip
 
 RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz --output webapp.tar.gz && \
     tar xzvf webapp.tar.gz && \
