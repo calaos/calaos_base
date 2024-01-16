@@ -239,7 +239,7 @@ int HttpClient::processHeaders(const string &request)
     vector<string> pars;
     Utils::split(req_url.getQuery(), pars, "&");
 
-    for (const string s: pars)
+    for (const string &s: pars)
     {
         vector<string> p;
         Utils::split(s, p, "=", 2);
