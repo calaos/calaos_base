@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2024, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -18,28 +18,25 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef __MQTT_OUTPUT_LIGHT_H__
-#define __MQTT_OUTPUT_LIGHT_H__
+#pragma once
 
-#include "OutputLight.h"
+#include "OutputLightRGB.h"
 #include "MqttCtrl.h"
 
 namespace Calaos
 {
 
-class MqttOutputLight : public OutputLight
+class MqttOutputLightRGB : public OutputLightRGB
 {
 private:
     MqttCtrl *ctrl;
 
 protected:
     void readValue();
-    virtual bool set_value_real(bool val) override;
+    virtual void setColorReal(const ColorValue &color, bool state) override;
 
 public:
-    MqttOutputLight(Params &p);
+    MqttOutputLightRGB(Params &p);
 };
 
 }
-
-#endif // __MQTT_OUTPUT_LIGHT_H__

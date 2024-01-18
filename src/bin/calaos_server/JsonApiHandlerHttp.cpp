@@ -563,6 +563,7 @@ void JsonApiHandlerHttp::processConfig(json_t *jroot)
                     if (!Utils::strStartsWith(filecontent, "<?xml"))
                     {
                         cErrorDom("network") << "Error, file content for " << skey << " is not XML, skipping...";
+                        cDebugDom("network") << filecontent;
                         continue;
                     }
 

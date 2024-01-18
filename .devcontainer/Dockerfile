@@ -18,6 +18,7 @@ RUN apt-get update -qq && \
         tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales
 
 RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    sed -i -e 's/# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen && \
     dpkg-reconfigure --frontend=noninteractive locales && \
     update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8

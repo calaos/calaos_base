@@ -33,12 +33,11 @@ private:
     MqttCtrl *ctrl;
 
 protected:
-    virtual void readValue();
-    virtual void set_value_real(double val);
+    void readValue();
+    virtual void set_value_real(double val) override;
 
 public:
     MqttOutputAnalog(Params &p);
-    virtual ~MqttOutputAnalog();
 };
 
 }

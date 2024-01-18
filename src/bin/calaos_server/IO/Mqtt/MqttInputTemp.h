@@ -33,11 +33,10 @@ private:
     MqttCtrl *ctrl;
 
 protected:
-    virtual void readValue();
+    virtual void readValue() override;
 
 public:
     MqttInputTemp(Params &p);
-    virtual ~MqttInputTemp();
 };
 
 }

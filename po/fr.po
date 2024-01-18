@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2019-10-15 19:43+0200\n"
+"POT-Creation-Date: 2024-01-18 11:42+0000\n"
 "PO-Revision-Date: 2020-02-10 23:11+0100\n"
 "Last-Translator: FragJage <inscrip.jage@free.fr>\n"
 "Language-Team: French\n"
@@ -44,7 +44,7 @@ msgid "Switch receiver off"
 msgstr "Eteindre le récepteur"
 
 #: src/bin/calaos_server/Audio/AVReceiver.cpp:230
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:42
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
 msgid "Set current volume"
 msgstr "Régler le volume"
 
@@ -58,59 +58,59 @@ msgstr ""
 "Envoyer une commande personnalisée au récepteur (si vous connaissez le "
 "protocole)"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:30
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:31
 msgid "Event when play is started"
 msgstr "Événement lors de la lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:31
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:32
 msgid "Event when pausing player"
 msgstr "Événement lors de la pause"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:32
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:33
 msgid "Event when stopping player"
 msgstr "Événement lors de l'arrêt"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:33
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:34
 msgid "Event when a new song is being played"
 msgstr "Événement lors de la lecture d'une nouvelle chanson"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:34
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:35
 msgid "Event when a change in the current playlist happens"
 msgstr "Événement lors d'une modification de la liste de lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:35
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:36
 msgid "Event when a change of volume happens"
 msgstr "Événement lors d'un changement de volume"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:37
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:38
 msgid "Start playing"
 msgstr "Démarrer la lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:38
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:39
 msgid "Pause player"
 msgstr "Suspendre la lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:39
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:40
 msgid "Stop player"
 msgstr "Arrêter la lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:40
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:41
 msgid "Play next song in playlist"
 msgstr "Lire la prochaine chanson de la liste de lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:41
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:42
 msgid "Play previous song in playlist"
 msgstr "Lire la précédente chanson de la liste de lecture"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:44
 msgid "Increase volume by a value"
 msgstr "Augmenter le volume"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:44
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:45
 msgid "Decrease volume by a value"
 msgstr "Diminuer le volume"
 
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:46
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:47
 msgid "Audio players are not displayed in rooms"
 msgstr "Les lecteurs audio ne sont pas affichés dans les pièces"
 
@@ -409,6 +409,13 @@ msgstr ""
 "=> valeur renvoyée 19.28 lors de la précision = 2, 19.3 lorsque la précision "
 "= 1, 19 lorsque la précision = 0"
 
+#: src/bin/calaos_server/IO/InputAnalog.cpp:48
+#: src/bin/calaos_server/IO/InputTemp.cpp:47
+msgid ""
+"Display a warning if value has not been updated for a long time. Default to "
+"true"
+msgstr ""
+
 #: src/bin/calaos_server/IO/InputSwitch.cpp:29
 msgid "Basic switch with press/release states."
 msgstr "Interrupteur de base avec états de appuyé/relâché."
@@ -479,11 +486,11 @@ msgstr ""
 "les appareils de chauffage avec des règles basées sur la valeur de la "
 "température"
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:47
+#: src/bin/calaos_server/IO/InputTemp.cpp:49
 msgid "Event on a temperature value in degree Celsius"
 msgstr "Événement sur une valeur de température en degrés Celsius"
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:48
+#: src/bin/calaos_server/IO/InputTemp.cpp:50
 msgid "Event on any change of temperature value"
 msgstr "Événement sur toute modification de température"
 
@@ -2178,21 +2185,21 @@ msgstr "Sortie analogique pilotée par le protocole xPL"
 msgid "Light/relay controlled by xPL Protocol"
 msgstr "Lumière/relai piloté par le protocole xPL"
 
-#: src/bin/calaos_server/IOBase.cpp:34
+#: src/bin/calaos_server/IOBase.cpp:37
 msgid "Unique ID identifying the Input/Output in calaos-server"
 msgstr "Identifiant unique de l'entrée/sortie dans calaos-server"
 
-#: src/bin/calaos_server/IOBase.cpp:35
+#: src/bin/calaos_server/IOBase.cpp:38
 msgid "Name of Input/Output."
 msgstr "Nom de l'entrée/sortie."
 
-#: src/bin/calaos_server/IOBase.cpp:36
+#: src/bin/calaos_server/IOBase.cpp:39
 msgid "Display the Input/Output on all user interfaces if set. Default to true"
 msgstr ""
 "Affichez l'entrée/sortie sur toutes les interfaces utilisateur. Vrai par "
 "défaut"
 
-#: src/bin/calaos_server/IOBase.cpp:37
+#: src/bin/calaos_server/IOBase.cpp:40
 msgid ""
 "Enable the Input/Output. The default value is true. This parameter is added "
 "if it's not found in the configuration."
@@ -2200,7 +2207,7 @@ msgstr ""
 "Activez l'entrée/sortie. Vrai par défaut. Ce paramètre est ajouté s'il n'est "
 "pas trouvé dans la configuration."
 
-#: src/bin/calaos_server/IOBase.cpp:38
+#: src/bin/calaos_server/IOBase.cpp:41
 msgid ""
 "Internal graphical type for all calaos objects. Set automatically, read-only "
 "parameter."
@@ -2208,13 +2215,19 @@ msgstr ""
 "Type graphique interne pour tous les objets calaos. Paramètre en lecture "
 "seule, définit automatiquement"
 
-#: src/bin/calaos_server/IOBase.cpp:39
+#: src/bin/calaos_server/IOBase.cpp:42
 msgid "IO type, can be \"input\", \"output\", \"inout\""
 msgstr "Type d'entrée/sortie (input, output, inout)"
 
-#: src/bin/calaos_server/IOBase.cpp:40
+#: src/bin/calaos_server/IOBase.cpp:43
 msgid "If enabled, write an entry in the history event log for this IO"
 msgstr "Si activé, ecrit une entrée dans l'historique pour cet IO"
+
+#: src/bin/calaos_server/IOBase.cpp:44
+msgid ""
+"If enabled, and if influxdb is enabled in local_config send the value to "
+"influxdb for this IO"
+msgstr ""
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:33
 msgid ""
@@ -2244,6 +2257,18 @@ msgid ""
 msgstr ""
 "Camera IP Gadspot. La caméra peut être directement vue dans calaos et "
 "utilisée dans les règles."
+
+#: src/bin/calaos_server/IPCam/IPCam.cpp:35
+msgid ""
+"Width of the image, if this parameter is set, video will be resized to fit "
+"the given width. Let parameter empty to keep the original size."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/IPCam.cpp:36
+msgid ""
+"Rotate the image. Set a value between. The value is in degrees. Example : "
+"-90 for  Counter Clock Wise rotation, 90 for Clock Wise rotationCW."
+msgstr ""
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:36
 msgid ""
@@ -2310,12 +2335,12 @@ msgstr ""
 "Profil à utiliser pour l'instantané. 0- Haute qualité, 1- Équilibré, 2- "
 "Faible bande-passante"
 
-#: src/bin/calaos_server/JsonApi.cpp:1344
-#: src/bin/calaos_server/JsonApi.cpp:1449
+#: src/bin/calaos_server/JsonApi.cpp:1345
+#: src/bin/calaos_server/JsonApi.cpp:1450
 msgid "New unnamed scenario"
 msgstr "Nouveau scénario"
 
-#: src/bin/calaos_server/main.cpp:53
+#: src/bin/calaos_server/main.cpp:54
 msgid ""
 "Usage:\n"
 "\t"
@@ -2323,31 +2348,31 @@ msgstr ""
 "Utilisation :\n"
 "\t"
 
-#: src/bin/calaos_server/main.cpp:53
+#: src/bin/calaos_server/main.cpp:54
 msgid " [options]"
 msgstr "  [options]"
 
-#: src/bin/calaos_server/main.cpp:54
+#: src/bin/calaos_server/main.cpp:55
 msgid "\tOptions:\n"
 msgstr "\tOptions:\n"
 
-#: src/bin/calaos_server/main.cpp:55
+#: src/bin/calaos_server/main.cpp:56
 msgid "\t-h, --help\tDisplay this help.\n"
 msgstr "\t-h, --help\tAfficher l'aide.\n"
 
-#: src/bin/calaos_server/main.cpp:56
+#: src/bin/calaos_server/main.cpp:57
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
 msgstr ""
 "\t--config <path>\tDéfinir <chemin> comme dossier pour la configuration.\n"
 
-#: src/bin/calaos_server/main.cpp:57
+#: src/bin/calaos_server/main.cpp:58
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr "\t--cache <path>\tDéfinir <chemin> comme dossier pour le cache.\n"
 
-#: src/bin/calaos_server/main.cpp:58
+#: src/bin/calaos_server/main.cpp:59
 msgid "\t--gendoc <path>\tGenerate Io documentation in <path>\n"
 msgstr "\t--gendoc <path>\tGénérer la documentation des E/S sur <path>\n"
 
-#: src/bin/calaos_server/main.cpp:59
+#: src/bin/calaos_server/main.cpp:60
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr "\t-v, --version\tAfficher la version et quitter.\n"

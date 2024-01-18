@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# This script creates the iodoc.json file from the calaos_server.
+
+#get the path where the script is located
+rootdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+
+docdir=$rootdir/build_doc
+
+# create the build directory
+mkdir -p "$docdir"
+
+calaos_server="$rootdir/_build/src/bin/calaos_server/calaos_server"
+
+function build_doc()
+{
+    export LC_ALL=$1
+    export LANG=$1
+    export LANGUAGE=$1
+    local lang=$2
+    
+    $calaos_server --gendoc "$docdir"
+    mkdir -p "$docdir/$lang"
+    mv "$docdir"/*.json "$docdir"/*.md "$docdir/$lang"
+}
+
+#calaos_server can crash when generating iodoc. We don't want to stop the build
+handle_sigterm() {
+    echo "Script received SIGTERM. Ignoring."
+}
+trap 'handle_sigterm' SIGTERM
+
+echo "> Building english IO doc"
+build_doc "en_US.UTF-8" "en"
+
+echo "> Building french IO doc"
+build_doc "fr_FR.UTF-8" "fr"
+
+echo "[*] done"

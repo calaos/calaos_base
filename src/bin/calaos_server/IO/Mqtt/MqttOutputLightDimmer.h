@@ -33,12 +33,11 @@ private:
     MqttCtrl *ctrl;
 
 protected:
-    virtual void readValue();
-    virtual bool set_value_real(int val);
+    void readValue();
+    virtual bool set_value_real(int val) override;
 
 public:
     MqttOutputLightDimmer(Params &p);
-    virtual ~MqttOutputLightDimmer();
 };
 
 }

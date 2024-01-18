@@ -80,7 +80,7 @@ int main (int argc, char **argv)
     cout << endl;
 
     #if HAVE_GETTEXT
-    setlocale(LC_ALL, "");
+    cout << "Current locale: " << setlocale(LC_ALL, "") << endl;
     bindtextdomain(PACKAGE_NAME, PACKAGE_LOCALE_DIR);
     textdomain(PACKAGE_NAME);
     #endif
@@ -115,6 +115,9 @@ int main (int argc, char **argv)
     if (gendocDir)
     {
         IOFactory::Instance().genDoc(gendocDir);
+        cout << endl;
+        cout << "IODoc generated in " << gendocDir << endl;
+        cout << endl;
         exit(0);
     }
 

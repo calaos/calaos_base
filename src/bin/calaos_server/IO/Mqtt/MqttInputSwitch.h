@@ -33,11 +33,10 @@ private:
     MqttCtrl *ctrl;
 
 protected:
-    virtual bool readValue();
+    virtual bool readValue() override;
 
 public:
     MqttInputSwitch(Params &p);
-    virtual ~MqttInputSwitch();
 };
 
 }

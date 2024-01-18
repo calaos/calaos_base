@@ -36,12 +36,9 @@ REGISTER_IO(MqttInputAnalog)
 MqttInputAnalog::MqttInputAnalog(Params &p):
     InputAnalog(p)
 {
-
     ioDoc->friendlyNameSet("MqttInputAnalog");
-    ioDoc->descriptionSet(_("Temperature read from a mqtt broker"));
+    ioDoc->descriptionSet(_("Analog value read from a mqtt broker"));
     MqttCtrl::commonDoc(ioDoc);
-    cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
-    Calaos::StartReadRules::Instance().addIO();
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
     ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
@@ -49,11 +46,7 @@ MqttInputAnalog::MqttInputAnalog(Params &p):
         readValue();
     });
 
-}
-
-MqttInputAnalog::~MqttInputAnalog()
-{
-
+    cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
 }
 
 void MqttInputAnalog::readValue()

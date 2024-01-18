@@ -48,7 +48,6 @@ MqttCtrl::MqttCtrl(const Params &params)
 
     process->messageReceived.connect([=](const string &msg)
     {
-        cDebugDom("mqtt") << "New message received " << msg;
         json_error_t jerr;
         json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
@@ -66,12 +65,15 @@ MqttCtrl::MqttCtrl(const Params &params)
 
         // Set or replace the message
         messages[p["topic"]] = p["payload"];
-        for (auto& it: subscribeCb) {
-            if (topicMatchesSubscription(it.first, p["topic"]))
+        for (auto& it: subscribeCb)
         {
+            if (topicMatchesSubscription(it.first, p["topic"]))
+            {
+                cDebugDom("mqtt") << "New message received on topic " << msg;
+
                 auto cb = it.second[0];
                 cb(p["topic"], p["payload"]);
-        }
+            }
         }
 
         json_decref(jroot); });
@@ -85,7 +87,7 @@ MqttCtrl::~MqttCtrl()
 
 void MqttCtrl::subscribeTopic(const string topic, sigc::slot<void, string, string> callback)
 {
-    // subscribeCb contains a map of list of callbacks, register this callback to the key  relative of this topic
+    // subscribeCb contains a map of list of callbacks, register this callback to the key relative of this topic
     cDebugDom("mqtt") << "Topic : " << topic;
     if (topic == "")
     {
@@ -158,7 +160,7 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
             }
             else
             {
-                // Toke is a normal object name
+                // Token is a normal object name
                 try
                 {
                     parent = parent.at(val);
@@ -214,13 +216,13 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
     return value;
 }
 
-string MqttCtrl::getValue(const Params &params, bool &err)
+string MqttCtrl::getValue(const Params &params, bool &err, string path)
 {
     string type = params["type"];
 
-    if (!params.Exists("topic_sub") || !params.Exists("path"))
+    if (!params.Exists("topic_sub") || !params.Exists(path))
     {
-        cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params["path"];
+        cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params[path];
         err = true;
         return "";
     }
@@ -234,7 +236,7 @@ string MqttCtrl::getValue(const Params &params, bool &err)
         return "";
     }
     err = false;
-    return getValueJson(params, params["path"], payload);
+    return getValueJson(params, params[path], payload);
 }
 
 double MqttCtrl::getValueDouble(const Params &params, bool &err)
@@ -252,6 +254,43 @@ double MqttCtrl::getValueDouble(const Params &params, bool &err)
     }
 
     return val;
+}
+
+ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
+{
+    string value;
+    double x, y;
+    int b;
+    err = true;
+
+    value = getValue(params, err, "path_x");
+
+    if (Utils::is_of_type<double>(value) && !value.empty())
+    {
+        Utils::from_string(value, x);
+        err = false;
+    }
+
+    value = getValue(params, err, "path_y");
+
+    if (Utils::is_of_type<double>(value) && !value.empty())
+    {
+        Utils::from_string(value, y);
+        err = false;
+    }
+
+    value = getValue(params, err, "path_brightness");
+
+    if (Utils::is_of_type<int>(value) && !value.empty())
+    {
+        Utils::from_string(value, b);
+        err = false;
+    }
+
+    if (err)
+        return {};
+
+    return ColorValue::fromXYBrightness(x, y, b / 255.0);
 }
 
 void MqttCtrl::setValueString(const Params &params, string val)
@@ -304,14 +343,14 @@ void MqttCtrl::setValue(const Params &params, bool val)
     publishTopic(topic, data);
 }
 
-void MqttCtrl::setValueInt(const Params &params, int val)
+void MqttCtrl::setValueInt(const Params &params, int val, string dataParam)
 {
     string topic = params["topic_pub"];
     string data;
 
-    if (params.Exists("data"))
+    if (params.Exists(dataParam))
     {
-        data = params["data"];
+        data = params[dataParam];
         double coeff_a, coeff_b;
         if (params.Exists("coeff_a"))
             Utils::from_string(params["coeff_a"], coeff_a);
@@ -324,7 +363,36 @@ void MqttCtrl::setValueInt(const Params &params, int val)
             coeff_b = 0.0;
 
 
-        replace_str(data, "__##VALUE##__", to_string((int)(val * coeff_a + coeff_b)));
+        replace_str(data, "__##VALUE##__", Utils::to_string((int)(val * coeff_a + coeff_b)));
+    }
+    else
+    {
+        cErrorDom("mqtt") << "No data provided in configuration IO";
+        return;
+    }
+
+    cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
+
+    publishTopic(topic, data);
+}
+
+void MqttCtrl::setValueColor(const Params &params, ColorValue val)
+{
+    string data;
+    string topic = params["topic_pub"];
+
+    if (params.Exists("data"))
+    {
+        data = params["data"];
+        replace_str(data, "__##VALUE_R##__", Utils::to_string(val.getRed()));
+        replace_str(data, "__##VALUE_G##__", Utils::to_string(val.getGreen()));
+        replace_str(data, "__##VALUE_B##__", Utils::to_string(val.getBlue()));
+        double x, y, b;
+        val.toXYBrightness(x, y, b);
+        replace_str(data, "__##VALUE_X##__", Utils::to_string(x));
+        replace_str(data, "__##VALUE_Y##__", Utils::to_string(y));
+        replace_str(data, "__##VALUE_BRIGHTNESS##__", Utils::to_string(b * 255.0));
+        replace_str(data, "__##VALUE_HEX##__", val.toString());
     }
     else
     {
@@ -350,15 +418,11 @@ void MqttCtrl::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("topic_sub", _("Topic on witch to subscribe."), IODoc::TYPE_STRING, true);
 
     ioDoc->paramAdd("path", _("The path where to found the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is somple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path\n"), IODoc::TYPE_STRING, true);
-
-    // user, password, keepalive
 }
 
-/* Does a topic match a subscription? */
-/* Does a topic match a subscription? */
+// Does a topic match a subscription?
 bool MqttCtrl::topicMatchesSubscription(string s, string t)
 {
-
     const char *sub = s.c_str();
     const char *topic = t.c_str();
     size_t spos;
@@ -371,7 +435,6 @@ bool MqttCtrl::topicMatchesSubscription(string s, string t)
 
     if ((sub[0] == '$' && topic[0] != '$') || (topic[0] == '$' && sub[0] != '$'))
     {
-
         return result;
     }
 

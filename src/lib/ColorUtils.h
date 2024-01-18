@@ -74,6 +74,9 @@ public:
 
     void setHsl(int h, int s, int l, int a = 255);
 
+    //convert to CIE 1931 X/Y + Brightness color space
+    void toXYBrightness(double &x, double &y, double &brightness) const;
+
     ColorValue toRgb() const;
     ColorValue toHsv() const;
     ColorValue toHsl() const;
@@ -81,6 +84,8 @@ public:
     static ColorValue fromRgb(int r, int g, int b, int a = 255);
     static ColorValue fromHsv(int h, int s, int v, int a = 255);
     static ColorValue fromHsl(int h, int s, int l, int a = 255);
+    //from CIE 1931 X/Y + Brightness color space
+    static ColorValue fromXYBrightness(double x, double y, double brightness);
 
     bool operator ==(const ColorValue &c) const;
     bool operator !=(const ColorValue &c) const;

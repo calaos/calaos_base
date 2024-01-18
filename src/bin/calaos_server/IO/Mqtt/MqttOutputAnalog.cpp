@@ -39,16 +39,26 @@ MqttOutputAnalog::MqttOutputAnalog(Params &p):
                     IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
+    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
+    {
+        readValue();
+    });
 
     cInfoDom("output") << "MqttOutputAnalog::MqttOutputAnalog()";
 }
 
-MqttOutputAnalog::~MqttOutputAnalog()
-{
-}
-
 void MqttOutputAnalog::readValue()
 {
+    bool err;
+    auto newValue = ctrl->getValueDouble(get_params(), err);
+    
+    if (!err)
+    {
+        value = newValue;
+
+        EmitSignalIO();
+        emitChange();
+    }
 }
 
 void MqttOutputAnalog::set_value_real(double val)

@@ -847,3 +847,129 @@ bool ColorValue::operator !=(const ColorValue &c) const
 {
     return !operator ==(c);
 }
+
+//https://github.com/johnciech/PhilipsHueSDK/blob/master/ApplicationDesignNotes/RGB%20to%20xy%20Color%20conversion.md
+//https://viereck.ch/hue-xy-rgb/
+
+void ColorValue::toXYBrightness(double &x, double &y, double &brightness) const
+{
+    if (!isValid())
+    {
+        x = y = brightness = 0;
+        return;
+    }
+
+    if (type != ColorRGB)
+        return toRgb().toXYBrightness(x, y, brightness);
+
+    if (color.rgb.r == 0 && color.rgb.g == 0 && color.rgb.b == 0)
+    {
+        x = y = brightness = 0;
+        return;
+    }
+
+    // convert to 0-1 range
+    double rr = color.rgb.r / 255.0;
+    double gg = color.rgb.g / 255.0;
+    double bb = color.rgb.b / 255.0;
+
+    // Apply gamma correction
+    float r = (rr > 0.04045f) ? pow((rr + 0.055f) / (1.0f + 0.055f), 2.4f) : (rr / 12.92f);
+    float g = (gg > 0.04045f) ? pow((gg + 0.055f) / (1.0f + 0.055f), 2.4f) : (gg / 12.92f);
+    float b = (bb > 0.04045f) ? pow((bb + 0.055f) / (1.0f + 0.055f), 2.4f) : (bb / 12.92f);
+
+    // Wide gamut conversion D65
+    float X = r * 0.649926f + g * 0.103455f + b * 0.197109f;
+    float Y = r * 0.234327f + g * 0.743075f + b * 0.022598f;
+    float Z = r * 0.0000000f + g * 0.053077f + b * 1.035763f;
+
+    float cx = X / (X + Y + Z);
+    float cy = Y / (X + Y + Z);
+
+    if (std::isnan(cx)) {
+        cx = 0.0f;
+    }
+
+    if (std::isnan(cy)) {
+        cy = 0.0f;
+    }
+
+    x = cx;
+    y = cy;
+
+    // Brightness is the Y of XYZ
+    brightness = Y;
+}
+
+ColorValue ColorValue::fromXYBrightness(double x, double y, double brightness)
+{
+    // Conversion de xyY vers XYZ
+    double Y = brightness;
+    double X = (Y / y) * x;
+    double Z = (Y / y) * (1.0 - x - y);
+
+    // sRGB D65 conversion
+    double r = X  * 3.2406f - Y * 1.5372f - Z * 0.4986f;
+    double g = -X * 0.9689f + Y * 1.8758f + Z * 0.0415f;
+    double b = X  * 0.0557f - Y * 0.2040f + Z * 1.0570f;
+
+    if (r > b && r > g && r > 1.0f) {
+        // red is too big
+        g = g / r;
+        b = b / r;
+        r = 1.0f;
+    }
+    else if (g > b && g > r && g > 1.0f) {
+        // green is too big
+        r = r / g;
+        b = b / g;
+        g = 1.0f;
+    }
+    else if (b > r && b > g && b > 1.0f) {
+        // blue is too big
+        r = r / b;
+        g = g / b;
+        b = 1.0f;
+    }
+
+    // Apply gamma correction
+    r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * pow(r, (1.0f / 2.4f)) - 0.055f;
+    g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * pow(g, (1.0f / 2.4f)) - 0.055f;
+    b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * pow(b, (1.0f / 2.4f)) - 0.055f;
+
+    if (r > b && r > g) {
+        // red is biggest
+        if (r > 1.0f) {
+            g = g / r;
+            b = b / r;
+            r = 1.0f;
+        }
+    }
+    else if (g > b && g > r) {
+        // green is biggest
+        if (g > 1.0f) {
+            r = r / g;
+            b = b / g;
+            g = 1.0f;
+        }
+    }
+    else if (b > r && b > g) {
+        // blue is biggest
+        if (b > 1.0f) {
+            r = r / b;
+            g = g / b;
+            b = 1.0f;
+        }
+    }
+
+    // Conversion from linear to gamma-corrected
+    int rr = static_cast<int>(r * 255.0);
+    int gg = static_cast<int>(g * 255.0);
+    int bb = static_cast<int>(b * 255.0);
+
+    r = std::clamp(rr, 0, 255);
+    g = std::clamp(gg, 0, 255);
+    b = std::clamp(bb, 0, 255);
+
+    return ColorValue(r, g, b);
+}

@@ -29,6 +29,9 @@ REGISTER_IO(MqttOutputLight)
 MqttOutputLight::MqttOutputLight(Params &p):
     OutputLight(p)
 {
+    // We use real state for this IO: only emit change when the value really changes
+    useRealState = true;
+
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputLight");
     ioDoc->descriptionSet(_("Control lights through mqtt broker"));
@@ -49,11 +52,6 @@ MqttOutputLight::MqttOutputLight(Params &p):
     cInfoDom("output") << "MqttOutputLight::MqttOutputLight()";
 }
 
-MqttOutputLight::~MqttOutputLight()
-{
-
-}
-
 void MqttOutputLight::readValue()
 {
     bool err;
@@ -70,10 +68,11 @@ void MqttOutputLight::readValue()
         cDebugDom("mqtt") << "TRUE : " << get_param("on_value");
         value = true;
 
-        EmitSignalIO();
-
         if (hasChanged)
+        {
+            EmitSignalIO();
             emitChange();
+        }
     }
     else if (val == get_param("off_value"))
     {
@@ -81,10 +80,11 @@ void MqttOutputLight::readValue()
         cDebugDom("mqtt") << "FALSE : " << get_param("off_value");
         value = false;
 
-        EmitSignalIO();
-
         if (hasChanged)
+        {
+            EmitSignalIO();
             emitChange();
+        }
     }
 }
 

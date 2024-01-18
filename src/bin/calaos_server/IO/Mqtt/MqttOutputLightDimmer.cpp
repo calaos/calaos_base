@@ -29,6 +29,9 @@ REGISTER_IO(MqttOutputLightDimmer)
 MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     OutputLightDimmer(p)
 {
+    // We use real state for this IO: only emit change when the value really changes
+    useRealState = true;
+
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputLightDimmer");
     ioDoc->descriptionSet(_("Control lights through mqtt broker"));
@@ -39,21 +42,28 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
                     IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
+    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
+    {
+        readValue();
+    });
 
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
-}
-
-MqttOutputLightDimmer::~MqttOutputLightDimmer()
-{
-
 }
 
 void MqttOutputLightDimmer::readValue()
 {
     bool err;
-    value = ctrl->getValueDouble(get_params(), err);
+    auto newValue = ctrl->getValueDouble(get_params(), err);
+    
     if (!err)
+    {
+        old_value = value;
+        value = newValue;
+        cmd_state = "set " + Utils::to_string(value);
+
+        EmitSignalIO();
         emitChange();
+    }
 }
 
 bool MqttOutputLightDimmer::set_value_real(int val)

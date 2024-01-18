@@ -170,7 +170,10 @@ int HttpClient::processHeaders(const string &request)
 {
     enum llhttp_errno err = llhttp_execute(parser, request.c_str(), request.size());
 
-    if (err != HPE_OK)
+    if (err != HPE_OK &&
+        err != HPE_PAUSED &&
+        err != HPE_PAUSED_UPGRADE &&
+        err != HPE_PAUSED_H2_UPGRADE)
     {
         /* Handle error. Usually just close the connection. */
         CloseConnection();

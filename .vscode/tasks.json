@@ -65,6 +65,15 @@
                 "create_build_folder"
             ],
             "group": "build"
+        },
+        {
+            "label": "Create IODoc",
+            "type": "shell",
+            "command": "./scripts/create_iodoc",
+            "dependsOn": [
+                "build"
+            ],
+            "group": "build"
         }
     ]
 }

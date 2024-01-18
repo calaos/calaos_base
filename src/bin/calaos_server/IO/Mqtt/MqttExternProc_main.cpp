@@ -60,7 +60,6 @@ void MqttClient::messageRcv(sigc::slot<void, const struct mosquitto_message *> c
         // mosquitto subscribe call
         subscribe(NULL, "#");
     }
-
 }
 
 void MqttClient::publishTopic(const string topic, const string payload)
