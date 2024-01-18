@@ -130,7 +130,7 @@ string OWProcess::getValue(const string &path, const string &param)
         free(res);
     }
     else
-        cError() << "Error reading OW path: " << p << " " << strerror(errno);
+        cDebug() << "Error reading OW path: " << p << " " << strerror(errno);
 
     return value;
 #else
