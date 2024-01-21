@@ -850,6 +850,8 @@ bool ColorValue::operator !=(const ColorValue &c) const
 
 //https://github.com/johnciech/PhilipsHueSDK/blob/master/ApplicationDesignNotes/RGB%20to%20xy%20Color%20conversion.md
 //https://viereck.ch/hue-xy-rgb/
+//https://github.com/Koenkk/zigbee-herdsman-converters/blob/master/src/lib/color.ts#L254
+//https://github.com/usolved/cie-rgb-converter/blob/master/cie_rgb_converter.js
 
 void ColorValue::toXYBrightness(double &x, double &y, double &brightness) const
 {
@@ -873,10 +875,14 @@ void ColorValue::toXYBrightness(double &x, double &y, double &brightness) const
     double gg = color.rgb.g / 255.0;
     double bb = color.rgb.b / 255.0;
 
+    float r = rr;
+    float g = gg;
+    float b = bb;
+
     // Apply gamma correction
-    float r = (rr > 0.04045f) ? pow((rr + 0.055f) / (1.0f + 0.055f), 2.4f) : (rr / 12.92f);
-    float g = (gg > 0.04045f) ? pow((gg + 0.055f) / (1.0f + 0.055f), 2.4f) : (gg / 12.92f);
-    float b = (bb > 0.04045f) ? pow((bb + 0.055f) / (1.0f + 0.055f), 2.4f) : (bb / 12.92f);
+    // float r = (rr > 0.04045f) ? pow((rr + 0.055f) / (1.0f + 0.055f), 2.4f) : (rr / 12.92f);
+    // float g = (gg > 0.04045f) ? pow((gg + 0.055f) / (1.0f + 0.055f), 2.4f) : (gg / 12.92f);
+    // float b = (bb > 0.04045f) ? pow((bb + 0.055f) / (1.0f + 0.055f), 2.4f) : (bb / 12.92f);
 
     // Wide gamut conversion D65
     float X = r * 0.649926f + g * 0.103455f + b * 0.197109f;
@@ -904,7 +910,7 @@ void ColorValue::toXYBrightness(double &x, double &y, double &brightness) const
 ColorValue ColorValue::fromXYBrightness(double x, double y, double brightness)
 {
     // Conversion de xyY vers XYZ
-    double Y = brightness;
+    double Y = brightness; //Or use max brighness (254) once it's implemented as a separate property
     double X = (Y / y) * x;
     double Z = (Y / y) * (1.0 - x - y);
 
@@ -933,9 +939,9 @@ ColorValue ColorValue::fromXYBrightness(double x, double y, double brightness)
     }
 
     // Apply gamma correction
-    r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * pow(r, (1.0f / 2.4f)) - 0.055f;
-    g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * pow(g, (1.0f / 2.4f)) - 0.055f;
-    b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * pow(b, (1.0f / 2.4f)) - 0.055f;
+    // r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * pow(r, (1.0f / 2.4f)) - 0.055f;
+    // g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * pow(g, (1.0f / 2.4f)) - 0.055f;
+    // b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * pow(b, (1.0f / 2.4f)) - 0.055f;
 
     if (r > b && r > g) {
         // red is biggest
