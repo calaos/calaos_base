@@ -155,7 +155,7 @@ void WODaliRVB::checkReadState()
                  double(green) * 255. / 100.,
                  double(blue) * 255. / 1000.);
 
-    stateUpdated(c, red != 0 || green != 0 || blue != 0);
+    stateUpdated(c, red != 0 && green != 0 && blue != 0);
 }
 
 void WODaliRVB::WagoUDPCommand_cb(bool status, string command, string)

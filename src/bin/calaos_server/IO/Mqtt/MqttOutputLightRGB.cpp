@@ -30,7 +30,7 @@ MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
     OutputLightRGB(p)
 {
     // We use real state for this IO: only emit change when the value really changes
-    useRealState = true;
+    //useRealState = true;
 
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputLightRGB");
@@ -58,12 +58,11 @@ void MqttOutputLightRGB::readValue()
     bool err;
     auto c = ctrl->getValueColor(get_params(), err);
 
-    if (!err)
-    {
-        color = c;
-        EmitSignalIO();
-        emitChange();
-    }
+    //TODO: it does not work for now. We need to refactor the way it handle color+state in all
+    //RGB class and also add better state/color/brightness control in calaos
+
+    //if (!err)
+        //stateUpdated(c, c != ColorValue(0, 0, 0));
 }
 
 void MqttOutputLightRGB::setColorReal(const ColorValue &c, bool _state)

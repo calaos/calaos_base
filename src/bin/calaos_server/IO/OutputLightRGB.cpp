@@ -318,12 +318,17 @@ void OutputLightRGB::TimerAutoChange()
 
 void OutputLightRGB::stateUpdated(const ColorValue &c, bool s)
 {
-    color = c;
+    bool hasChanged = false;
+    if (s != state || c != color)
+        hasChanged = true;
+    
     state = s;
+    color = c;
     cmd_state = "set " + get_value_string();
 
     EmitSignalIO();
-    emitChange();
+    if (hasChanged)
+        emitChange();
 }
 
 bool OutputLightRGB::check_condition_value(std::string cvalue, bool equal)
