@@ -33,7 +33,7 @@ jobs:
 
       - name: Calaos Action Bump Version
         id: calaos_version
-        uses: calaos/action-bump-version@1.0.1
+        uses: calaos/action-bump-version@1.1.1
         with:
           version_fragment: ${{ github.event.inputs.vincrement }}
           
