@@ -23,7 +23,7 @@ jobs:
 
       - name: Calaos Action Bump Version
         id: calaos_version
-        uses: calaos/action-bump-version@1.2.0
+        uses: calaos/action-bump-version@1.2.1
         with:
           version_fragment: 'prerelease'
 
