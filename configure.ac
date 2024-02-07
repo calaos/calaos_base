@@ -88,14 +88,6 @@ then
     AC_CHECK_LIB([owcapi], [OW_init],, AC_MSG_ERROR(Missing owfs library))
 fi
 
-have_libusb="no"
-PKG_CHECK_MODULES([LIBUSB], [libusb-1.0], [have_libusb="yes"], [have_libusb="no"])
-AM_CONDITIONAL([HAVE_LIBUSB], [test "x${have_libusb}" = "xyes"])
-if test "x${have_libusb}" == "xyes"
-then
-     AC_DEFINE([HAVE_LIBUSB], [1], [libusb])
-fi
-
 have_libola="no"
 PKG_CHECK_MODULES([LIBOLA], [libola], [have_libola="yes"], [have_libola="no"])
 AM_CONDITIONAL([HAVE_LIBOLA], [test "x${have_libola}" = "xyes"])
@@ -220,7 +212,6 @@ echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
 echo
 echo "Hardware support:"
 echo "  One Wire support.....................: $(colorOut $have_owcapi)"
-echo "  Libusb support.......................: $(colorOut $have_libusb)"
 echo "  Open Lightning Architecture support..: $(colorOut $have_libola)"
 echo "  Eib/KNX support (eibd or knxd).......: $(colorOut $have_libknx)"
 echo "  MQTT support (libmosquittopp)........: $(colorOut $have_mosquitto)"

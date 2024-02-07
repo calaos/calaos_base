@@ -45,7 +45,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/lib/sole                          \
         @CALAOS_COMMON_CFLAGS@                                \
         @CALAOS_SERVER_CFLAGS@                                \
-        @LIBUSB_CFLAGS@                                       \
         @LIBOLA_CFLAGS@                                       \
         @PTHREAD_CFLAGS@
 
@@ -415,16 +414,9 @@ calaos_server_SOURCES = \
         HistLogger.h                                    \
         main.cpp
 
-if HAVE_LIBUSB
-calaos_server_SOURCES += \
-        IO/Blinkstick/BlinkstickOutputLightRGB.cpp      \
-        IO/Blinkstick/BlinkstickOutputLightRGB.h
-endif
-
 calaos_server_LDADD =                                   \
         @CALAOS_COMMON_LIBS@                            \
         @CALAOS_SERVER_LIBS@                            \
-        @LIBUSB_LIBS@                                   \
         @INTLLIBS@                                      \
         @PTHREAD_CFLAGS@                                \
         $(top_builddir)/src/lib/libcalaos_common.la
@@ -514,4 +506,3 @@ calaos_mqtt_LDADD = \
 -lmosquitto -lmosquittopp \
 $(top_builddir)/src/lib/libcalaos_common.la
 endif
-

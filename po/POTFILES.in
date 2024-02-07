@@ -38,8 +38,6 @@
 ./src/bin/calaos_server/HttpServer.h
 ./src/bin/calaos_server/IO/AnalogIO.cpp
 ./src/bin/calaos_server/IO/AnalogIO.h
-./src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp
-./src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.h
 ./src/bin/calaos_server/IO/ExternProc.cpp
 ./src/bin/calaos_server/IO/ExternProc.h
 ./src/bin/calaos_server/IO/Gpio/GpioCtrl.cpp

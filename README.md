@@ -19,7 +19,6 @@ Requires:
  - luajit
  - sigc++ > 2.4.1
  - owfs (optional) [http://owfs.org/](http://owfs.org/)
- - libusb (optional)
  - imagemagick (optional)
  - OLA (optional) [https://github.com/OpenLightingProject/ola](https://github.com/OpenLightingProject/ola)
  - knxd (optional) [https://github.com/knxd/knxd](https://github.com/knxd/knxd)
