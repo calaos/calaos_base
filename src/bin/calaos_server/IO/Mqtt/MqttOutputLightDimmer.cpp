@@ -57,7 +57,6 @@ void MqttOutputLightDimmer::readValue()
     
     if (!err)
     {
-        old_value = value;
         value = newValue;
         cmd_state = "set " + Utils::to_string(value);
 
