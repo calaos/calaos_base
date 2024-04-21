@@ -6,6 +6,7 @@
                 "${workspaceFolder}/**",
                 "/usr/include/sigc++-2.0",
                 "/usr/lib/x86_64-linux-gnu/sigc++-2.0/include",
+                "/usr/lib/aarch64-linux-gnu/sigc++-2.0/include",
                 "${workspaceFolder}/src/lib/llhttp/include"
             ],
             "defines": [],
