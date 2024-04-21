@@ -56,7 +56,8 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
     if (params.Exists("port"))
         from_string(params["port"], port);
 
-    timerConnReconnect();
+    if (connection_type != AVR_CON_CUSTOM)
+        timerConnReconnect();
 }
 
 AVReceiver::~AVReceiver()

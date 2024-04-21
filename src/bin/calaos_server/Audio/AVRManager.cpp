@@ -24,6 +24,7 @@
 #include "AVROnkyo.h"
 #include "AVRMarantz.h"
 #include "AVRYamaha.h"
+#include "AVRRose.h"
 
 using namespace Calaos;
 
@@ -61,6 +62,8 @@ AVReceiver *AVRManager::Create(Params &p)
             receiver = new AVRMarantz(p);
         else if (p["model"] == "yamaha")
             receiver = new AVRYamaha(p);
+        else if (p["model"] == "hifirose")
+            receiver = new AVRRose(p);
         else
         {
             cInfoDom("output") << "AVRManager(): Unknown A/V Receiver model " << p["model"];

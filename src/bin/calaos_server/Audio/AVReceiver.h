@@ -60,7 +60,12 @@ protected:
 
     string command_suffix;
 
-    enum { AVR_CON_CHAR = 0, AVR_CON_BYTES };
+    enum
+    { 
+        AVR_CON_CHAR = 0,
+        AVR_CON_BYTES,
+        AVR_CON_CUSTOM = 99, // do not use autoconnection code from AVReceiver class
+    };
     int connection_type;
 
     void timerConnReconnect();
