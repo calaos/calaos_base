@@ -152,6 +152,8 @@ void AVRRose::postRequest(string urlPath, string data, std::function<void(const 
 {
     string url = "http://" + host + ":" + Utils::to_string(port) + "/" + urlPath;
 
+    cDebugDom("hifirose") << "POST " << url << " data: " << data;
+
     UrlDownloader *dl = new UrlDownloader(url, true);
     dl->setHeader("Content-Type", "application/json");
     dl->httpPost({}, data);

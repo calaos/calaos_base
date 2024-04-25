@@ -73,29 +73,74 @@ bool LogStream::isTerminal()
  *      LOG_LEVEL_WARNING   = 3
  *      LOG_LEVEL_INFO      = 4
  *      LOG_LEVEL_DEBUG     = 5
+ * 
+ * To configure log levels per domain, use:
+ * calaos_config set debug_domains hifirose:5,network:0
+ * 
+ * To set default log level for all non-specified domains, use:
+ * calaos_config set debug_level 3
+ * 
  */
 
-static int maxLevelPrintable()
+static int maxLevelPrintable(string domain)
 {
-    static int max_level_print = -1;
+    static std::unordered_map<std::string, int> logger_domains;
 
-    if (max_level_print > -1)
-        return max_level_print;
+    if (logger_domains.empty())
+    {
+        int logger_default_level = Logger::LOG_LEVEL_INFO;
+        string lvl = Utils::get_config_option("debug_level");
+        if (Utils::is_of_type<int>(lvl))
+            Utils::from_string(lvl, logger_default_level);
 
-    string lvl = Utils::get_config_option("debug_level");
-    if (Utils::is_of_type<int>(lvl))
-        Utils::from_string(lvl, max_level_print);
+        if (logger_default_level < Logger::LOG_LEVEL_UNKNOWN ||
+            logger_default_level > Logger::LOG_LEVEL_DEBUG)
+            logger_default_level = Logger::LOG_LEVEL_INFO;
 
-    if (max_level_print < 0 ||
-        max_level_print > Logger::LOG_LEVEL_DEBUG)
-        max_level_print = Logger::LOG_LEVEL_INFO;
+        //default logger level for all non-specified domains
+        logger_domains["default"] = logger_default_level;
 
-    return max_level_print;
+        string domains = Utils::get_config_option("debug_domains");
+        if (!domains.empty())
+        {
+            std::vector<std::string> parts;
+            Utils::split(domains, parts, ",");
+            
+            for (const auto &d: parts)
+            {
+                std::vector<std::string> dp;
+                Utils::split(d, dp, ":");
+
+                if (dp.size() == 2)
+                {
+                    int l;
+                    if (Utils::is_of_type<int>(dp[1]))
+                    {
+                        Utils::from_string(dp[1], l);
+                        if (l >= Logger::LOG_LEVEL_UNKNOWN && l <= Logger::LOG_LEVEL_DEBUG)
+                            logger_domains[dp[0]] = l;
+                    }
+                }
+            }
+        }
+
+        if (logger_default_level == Logger::LOG_LEVEL_DEBUG)
+        {
+            for (const auto &d: logger_domains)
+                cDebug() << "Logger: Domain: " << d.first << " Level: " << d.second;
+        }
+    }
+
+    auto it = logger_domains.find(domain);
+    if (it != logger_domains.end())
+        return it->second;
+
+    return logger_domains["default"];
 }
 
 LogStream::~LogStream()
 {
-    if (logData->level > maxLevelPrintable())
+    if (logData->level > maxLevelPrintable(logData->domain))
         return;
 
     //Strip away file path and only keep filename

@@ -443,7 +443,7 @@ void WebSocket::processControlFrame()
         if (status == WSClosing) return;
 
         double elapsed = Utils::getMainLoopTime() - ping_time;
-        cInfoDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
+        cDebugDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
     }
     else if (currentFrame.isCloseFrame())
     {
@@ -452,7 +452,7 @@ void WebSocket::processControlFrame()
         string close_reason;
         currentFrame.parseCloseCodeReason(code, close_reason);
 
-        cInfoDom("websocket") << "Close frame received, code:" << code << " reason: " << close_reason;
+        cDebugDom("websocket") << "Close frame received, code:" << code << " reason: " << close_reason;
 
         DELETE_NULL(closeTimeout);
         closeReceived = true;
