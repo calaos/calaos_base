@@ -23,6 +23,10 @@
 
 static bool logger_isTerm_check()
 {
+    const char *forceColor = getenv("CALAOS_FORCE_COLOR");
+    if (forceColor && strcmp(forceColor, "1") == 0)
+        return true;
+
     const char *term = getenv("TERM");
     if (!term) return false;
     string sterm(term);
