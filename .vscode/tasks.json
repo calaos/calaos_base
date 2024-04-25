@@ -12,7 +12,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "make -j16",
+            "command": "make -j16 install",
             "problemMatcher": "$gcc",
             "options": {
                 "cwd": "${workspaceFolder}/_build"

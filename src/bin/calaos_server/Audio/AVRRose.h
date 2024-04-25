@@ -32,8 +32,8 @@ class AVRRose: public AVReceiver
 {
 protected:
 
-    int inputFromString(string source);
-    string inputToString(int source);
+    void postRequest(string urlPath, string data, std::function<void(const string &)> dataCb);
+    void pollStatus(std::function<void()> nextCb = nullptr);
 
 public:
     AVRRose(Params &p);
