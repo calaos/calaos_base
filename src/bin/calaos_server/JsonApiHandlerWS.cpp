@@ -100,7 +100,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         free(d);
     }
 
-    //decode the json root object into jsonParam
+    //decode the json root object into Params
     jansson_decode_object(jroot, jsonRoot);
 
     json_t *jdata = json_object_get(jroot, "data");
@@ -111,7 +111,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 
     if (jsonRoot["msg"] == "login")
     {
-        //check for if username/password matches
+        //check if username/password matches
         string user = Utils::get_config_option("calaos_user");
         string pass = Utils::get_config_option("calaos_password");
 
@@ -137,10 +137,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         }
         else
         {
-            json_t *jret = json_object();
-            json_object_set_new(jret, "success", json_string("true"));
-
-            sendJson("login", jret, jsonRoot["msg_id"]);
+            sendJson("login", {{ "success", "true" }}, jsonRoot["msg_id"]);
 
             loggedin = true;
         }
@@ -181,6 +178,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processEventLog(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "register_push")
             processRegisterPush(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "settings")
+            processSettings(jsonData, jsonRoot["msg_id"]);
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -471,3 +470,15 @@ void JsonApiHandlerWS::processRegisterPush(const Params &jsonReq, const string &
     }
 }
 
+void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &client_id)
+{
+    if (jsonReq["action"] == "change_cred")
+    {
+        bool ok = changeCredentials(jsonReq["old_user"], jsonReq["old_pw"], jsonReq["new_user"], jsonReq["new_pw"]);
+        if (ok)
+            loggedin = false; //user must login again with new password
+
+        Json ret = {{ "success", ok?"true":"false" }};
+        sendJson("settings", ret, client_id);
+    }
+}

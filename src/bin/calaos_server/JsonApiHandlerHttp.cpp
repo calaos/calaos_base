@@ -83,7 +83,7 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     }
 
 
-    //check for if username/password matches
+    //check if username/password matches
     string user = Utils::get_config_option("calaos_user");
     string pass = Utils::get_config_option("calaos_password");
 

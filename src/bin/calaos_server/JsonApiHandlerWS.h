@@ -59,6 +59,7 @@ private:
     void processSetTimerange(json_t *jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
+    void processSettings(const Params &jsonReq, const string &client_id = string());
 
     void processAudio(json_t *jdata, const string &client_id = string());
     void processAudioDb(json_t *jdata, const string &client_id = string());

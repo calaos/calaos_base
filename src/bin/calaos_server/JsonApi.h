@@ -117,6 +117,8 @@ protected:
     HttpClient *httpClient = nullptr;
 
     map<string, int> playerCounts;
+
+    bool changeCredentials(string olduser, string oldpass, string newuser, string newpass);
 };
 
 #endif // JSONAPI_H

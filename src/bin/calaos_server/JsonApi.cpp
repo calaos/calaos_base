@@ -1668,3 +1668,29 @@ bool JsonApi::registerPushToken(const Params &jParam)
     return true;
 }
 
+bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, string newpass)
+{
+    //get actual user/pass
+    string user = Utils::get_config_option("calaos_user");
+    string pass = Utils::get_config_option("calaos_password");
+
+    if (Utils::get_config_option("cn_user") != "" &&
+        Utils::get_config_option("cn_pass") != "")
+    {
+        user = Utils::get_config_option("cn_user");
+        pass = Utils::get_config_option("cn_pass");
+    }
+
+    if (user != olduser || pass != oldpass)
+        return false; //wrong old user/pass
+
+    //change user/pass
+    Utils::set_config_option("cn_user", newuser);
+    Utils::set_config_option("cn_pass", newpass);
+    //remove old entries if needed
+    Utils::del_config_option("calaos_user");
+    Utils::del_config_option("calaos_password");
+    sync();
+
+    return true;
+}
