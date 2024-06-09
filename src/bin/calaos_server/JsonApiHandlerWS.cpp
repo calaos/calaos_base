@@ -478,7 +478,8 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
         if (ok)
             loggedin = false; //user must login again with new password
 
-        Json ret = {{ "success", ok?"true":"false" }};
+        Json ret = {{ "action", "change_cred" },
+                    { "success", ok?"true":"false" }};
         sendJson("settings", ret, client_id);
     }
 }
