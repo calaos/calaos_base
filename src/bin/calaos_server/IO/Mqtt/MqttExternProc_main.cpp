@@ -114,6 +114,7 @@ public:
     virtual int procMain();
 
     EXTERN_PROC_CLIENT_CTOR(MqttProcess)
+    virtual ~MqttProcess();
 
 protected:
     MqttClient *m_client;
@@ -124,6 +125,12 @@ protected:
     virtual bool handleFdSet(int fd);
 
 };
+
+MqttProcess::~MqttProcess()
+{
+    delete m_client;
+    mosqpp::lib_cleanup();
+}
 
 void MqttProcess::readTimeout()
 {
@@ -138,8 +145,6 @@ void MqttProcess::messageReceived(const string &msg)
     if (!jroot)
     {
         cWarningDom("mqtt") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
         return;
     }
 
@@ -191,6 +196,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
     Params p;
     jansson_decode_object(jroot, p);
+    json_decref(jroot);
 
     if (p.Exists("host"))
         host = p["host"];
@@ -235,6 +241,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
         json_object_set_new(root, "payload", json_string((const char*)m->payload));
         cDebugDom("mqtt") << "Send : " << json_dumps(root, 0);
         sendMessage(json_dumps(root, 0));
+        json_decref(root);
     });
 
     return true;
