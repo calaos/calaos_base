@@ -168,7 +168,16 @@ void ActionPush::sendNotif()
                 { "tokens", tokArray },
                 { "platform", 2 },
                 { "message", nmsg },
-                { "title", "Calaos" }
+                { "title", "Calaos" },
+                { "priority", "high" },
+                { "sound", "default" }
+            };
+
+            //force priority to high to make sure the notification is displayed
+            notif["notification"] = {
+                { "title", "Calaos" },
+                { "body", nmsg },
+                { "sound", "default" }
             };
 
             if (!notif_pic_uid.empty())
