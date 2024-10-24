@@ -69,6 +69,11 @@ bool ActionStd::Execute()
                     bval = out->get_value_bool();
                     ovar = true;
                 }
+                else if (out && out->get_type() == TSTRING)
+                {
+                    bval = out->get_value_bool();
+                    ovar = true;
+                }
             }
 
             if (ovar)
@@ -128,6 +133,11 @@ bool ActionStd::Execute()
                 if (out && out->get_type() == TSTRING)
                 {
                     sval = out->get_command_string();
+                    ovar = true;
+                }
+                else if (out && out->get_type() == TBOOL)
+                {
+                    sval = out->get_value_bool() ? "true" : "false";
                     ovar = true;
                 }
             }
