@@ -106,8 +106,10 @@ public:
     virtual bool set_value(double val)  { return false; }
     virtual bool set_value(std::string val)  { return false; }
 
-    //used to retreive the last state command of the TSTRING output
+    //used to retreive the last state command of the output
     virtual std::string get_command_string() { return ""; }
+    virtual bool get_command_bool() { return false; }
+    virtual double get_command_double() { return 0.0; }
 
     //used to get a better condition value in ConditionOutput rules
     //like if shutter is open or is light on

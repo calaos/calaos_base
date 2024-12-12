@@ -84,6 +84,7 @@ bool OutputLightRGB::set_value(std::string val)
                 color = ColorValue::fromRgb(255, 255, 255);
             setColor(color, true);
             cmd_state = "on";
+            cmd_state_bool = true;
             state = true;
         }
 
@@ -96,6 +97,7 @@ bool OutputLightRGB::set_value(std::string val)
         {
             setColor(ColorValue::fromRgb(0, 0, 0), false);
             cmd_state = "off";
+            cmd_state_bool = false;
             state = false;
         }
 
@@ -113,6 +115,7 @@ bool OutputLightRGB::set_value(std::string val)
                 setColor(color, state);
 
             cmd_state = "set off " + color.toString();
+            cmd_state_bool = false;
 
             DELETE_NULL(timer_auto);
         }
@@ -132,8 +135,6 @@ bool OutputLightRGB::set_value(std::string val)
             state = true;
 
             setColor(color, state);
-
-            cmd_state = "set " + color.toString();
 
             DELETE_NULL(timer_auto);
         }
@@ -299,6 +300,7 @@ void OutputLightRGB::setColor(const ColorValue &c, bool s)
     cInfo() << "New color: " << c.toString() << " state: " << s;
 
     cmd_state = "set " + color.toString();
+    cmd_state_bool = s;
     state = s;
 
     setColorReal(c, s);
@@ -325,6 +327,7 @@ void OutputLightRGB::stateUpdated(const ColorValue &c, bool s)
     state = s;
     color = c;
     cmd_state = "set " + get_value_string();
+    cmd_state_bool = state;
 
     EmitSignalIO();
     if (hasChanged)

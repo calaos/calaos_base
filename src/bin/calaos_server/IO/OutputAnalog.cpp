@@ -84,6 +84,8 @@ bool OutputAnalog::set_value(double val)
 
     readConfig();
 
+    cmd_state = val;
+
     //send computed value to device
     set_value_real(val * coeff_a + coeff_b);
 

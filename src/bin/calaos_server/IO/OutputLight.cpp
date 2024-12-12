@@ -81,6 +81,8 @@ bool OutputLight::_set_value(bool val)
 {
     cInfoDom("output") << get_param("id") << ": got action, " << ((val)?"True":"False");
 
+    cmd_state = val;
+
     if (set_value_real(val))
     {
         if (!useRealState)

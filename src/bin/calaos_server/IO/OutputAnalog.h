@@ -34,6 +34,7 @@ protected:
     double value;
     double coeff_a = 1.0;
     double coeff_b = 0.0;
+    double cmd_state = 0.0;
 
     void readConfig();
 
@@ -52,6 +53,8 @@ public:
     virtual bool set_value(double val);
     virtual double get_value_double();
     virtual bool set_value(string val);
+
+    virtual double get_command_double() { return cmd_state; }
 };
 
 }

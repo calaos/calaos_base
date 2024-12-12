@@ -41,6 +41,7 @@ protected:
     int current_blink;
 
     std::string cmd_state;
+    bool cmd_state_bool = false;
     bool press_detected;
     bool press_sens;
     bool stop_after_press;
@@ -84,6 +85,7 @@ public:
     bool get_value_bool() { if (value == 0) return false; else return true; }
 
     virtual std::string get_command_string() { return cmd_state; }
+    virtual bool get_command_bool() { return cmd_state_bool; }
 
     virtual bool check_condition_value(std::string cvalue, bool equal);
 };

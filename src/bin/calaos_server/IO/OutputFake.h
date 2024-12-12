@@ -40,6 +40,8 @@ public:
 
     bool set_value(bool val);
     bool get_value_bool() { return value; }
+
+    virtual bool get_command_bool() { return value; }
 };
 
 }

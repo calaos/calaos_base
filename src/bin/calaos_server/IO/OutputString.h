@@ -31,6 +31,7 @@ class OutputString : public IOBase
 {
 protected:
     string value;
+    string cmd_state;
 
     void readConfig();
 
@@ -41,9 +42,11 @@ public:
     OutputString(Params &p);
     ~OutputString();
 
-    DATA_TYPE get_type() { return TSTRING; }
+    virtual DATA_TYPE get_type() override { return TSTRING; }
 
-    bool set_value(string val);
+    virtual bool set_value(string val) override;
+
+    virtual string get_command_string() override { return cmd_state; }
 };
 
 }

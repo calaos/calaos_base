@@ -41,12 +41,14 @@ public:
     Scenario(Params &p);
     ~Scenario();
 
-    virtual DATA_TYPE get_type() { return TBOOL; }
+    virtual DATA_TYPE get_type() override { return TBOOL; }
 
-    virtual bool get_value_bool() { return value; }
-    virtual bool set_value(bool val);
+    virtual bool get_value_bool() override { return value; }
+    virtual bool set_value(bool val) override;
 
     AutoScenario *getAutoScenario() { return auto_scenario; }
+
+    virtual bool get_command_bool() override { return value; }
 
     json_t *toJson();
 };

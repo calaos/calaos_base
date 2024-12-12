@@ -97,6 +97,7 @@ bool OutputLightDimmer::set_value(std::string val)
             set_on_real();
 
             cmd_state = "on";
+            cmd_state_bool = true;
         }
     }
     else if (val == "off" || val == "false")
@@ -107,6 +108,7 @@ bool OutputLightDimmer::set_value(std::string val)
             set_off_real();
 
             cmd_state = "off";
+            cmd_state_bool = false;
         }
     }
     else if (val == "toggle")
@@ -125,6 +127,7 @@ bool OutputLightDimmer::set_value(std::string val)
         if (percent > 100) percent = 100;
 
         cmd_state = "set off " + Utils::to_string(percent);
+        cmd_state_bool = false;
 
         if (value > 0)
         {
@@ -145,6 +148,7 @@ bool OutputLightDimmer::set_value(std::string val)
         if (percent > 100) percent = 100;
 
         cmd_state = "set " + Utils::to_string(percent);
+        cmd_state_bool = percent > 0 ? true : false;
 
         set_value_real(percent);
         value = percent;
@@ -158,6 +162,7 @@ bool OutputLightDimmer::set_value(std::string val)
         set_dim_up_real(percent);
 
         cmd_state = "up " + val;
+        cmd_state_bool = true;
     }
     else if (val.compare(0, 5, "down ") == 0)
     {
@@ -166,6 +171,7 @@ bool OutputLightDimmer::set_value(std::string val)
         Utils::from_string(val, percent);
 
         cmd_state = "down " + val;
+        cmd_state_bool = true;
 
         set_dim_down_real(percent);
     }
@@ -223,12 +229,14 @@ bool OutputLightDimmer::set_value(std::string val)
         {
             value = old_value;
             cmd_state = "on";
+            cmd_state_bool = true;
         }
         else if (val == "false")
         {
             old_value = value;
             value = 0;
             cmd_state = "off";
+            cmd_state_bool = false;
         }
         else if (is_of_type<int>(val))
         {
@@ -238,6 +246,7 @@ bool OutputLightDimmer::set_value(std::string val)
             if (percent > 100) percent = 100;
 
             cmd_state = "set " + Utils::to_string(percent);
+            cmd_state_bool = percent > 0 ? true : false;
             value = percent;
         }
     }

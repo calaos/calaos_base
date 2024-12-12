@@ -64,14 +64,11 @@ bool ActionStd::Execute()
             {
                 std::string var_id = params_var[outputs[i]->get_param("id")];
                 IOBase *out = ListeRoom::Instance().get_io(var_id);
-                if (out && out->get_type() == TBOOL)
+                if (out &&
+                    (out->get_type() == TBOOL ||
+                     out->get_type() == TSTRING))
                 {
-                    bval = out->get_value_bool();
-                    ovar = true;
-                }
-                else if (out && out->get_type() == TSTRING)
-                {
-                    bval = out->get_value_bool();
+                    bval = out->get_command_bool();
                     ovar = true;
                 }
             }
@@ -102,7 +99,7 @@ bool ActionStd::Execute()
                 IOBase *out = ListeRoom::Instance().get_io(var_id);
                 if (out && out->get_type() == TINT)
                 {
-                    dval = out->get_value_double();
+                    dval = out->get_command_double();
                     ovar = true;
                 }
             }
@@ -137,7 +134,7 @@ bool ActionStd::Execute()
                 }
                 else if (out && out->get_type() == TBOOL)
                 {
-                    sval = out->get_value_bool() ? "true" : "false";
+                    sval = out->get_command_bool() ? "true" : "false";
                     ovar = true;
                 }
             }

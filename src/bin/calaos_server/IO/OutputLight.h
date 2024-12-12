@@ -35,6 +35,8 @@ private:
     vector<BlinkInfo> blinks;
     int current_blink;
 
+    bool cmd_state = false;
+
     void TimerImpulse();
     void TimerImpulseExtended();
 
@@ -69,6 +71,8 @@ public:
     virtual bool set_value(bool val);
     virtual bool get_value_bool() { return value; }
     virtual bool set_value(string val);
+
+    virtual bool get_command_bool() { return cmd_state; }
 };
 
 }

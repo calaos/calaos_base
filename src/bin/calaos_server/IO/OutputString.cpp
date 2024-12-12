@@ -56,6 +56,8 @@ bool OutputString::set_value(string val)
 
     readConfig();
 
+    cmd_state = val;
+
     set_value_real(val);
 
     value = val;

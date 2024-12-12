@@ -36,6 +36,7 @@ protected:
     ColorValue color;
 
     std::string cmd_state;
+    bool cmd_state_bool = false;
 
     Timer *timer_auto;
     void TimerAutoChange();
@@ -67,6 +68,7 @@ public:
     bool get_value_bool() { return state; }
 
     virtual std::string get_command_string() { return cmd_state; }
+    virtual bool get_command_bool() { return cmd_state_bool; }
 
     virtual bool check_condition_value(string cvalue, bool equal);
 };
