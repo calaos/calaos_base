@@ -421,7 +421,7 @@ void JsonApiHandlerHttp::processGetCover()
             return;
         }
 
-        string cmd = "calaos_picture " + data.svalue + " " + tempfname;
+        string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + data.svalue + " " + tempfname;
         if (!width.empty())
             cmd += " -w " + width;
 
@@ -465,7 +465,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
     if (jsonParam.Exists("rotate"))
         rotate = jsonParam["rotate"];
 
-    string cmd = "calaos_picture " + camera->getPictureUrl() + " " + tempfname;
+    string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + camera->getPictureUrl() + " " + tempfname;
     if (!width.empty())
         cmd += " -w " + width;
 
@@ -643,7 +643,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
 
         player->get_album_cover([=](AudioPlayerData data)
         {
-            string cmd = "calaos_picture " + data.svalue + " " + tempfname;
+            string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + data.svalue + " " + tempfname;
             exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
             exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
             {
