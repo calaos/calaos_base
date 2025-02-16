@@ -15,7 +15,10 @@ RUN apt-get update -qq && \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
-        tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales
+        tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales \
+        python3-pip python3-full iproute2
+
+RUN pip install roonapi --break-system-packages
 
 RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
     sed -i -e 's/# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen && \

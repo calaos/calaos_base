@@ -83,6 +83,7 @@ src/bin/calaos_server/calaos_wago
 src/bin/calaos_server/calaos_knx
 src/bin/calaos_server/calaos_script
 src/bin/calaos_server/calaos_mqtt
+src/bin/calaos_server/Audio/calaos_roon
 calaos.config
 calaos.creator*
 calaos.files

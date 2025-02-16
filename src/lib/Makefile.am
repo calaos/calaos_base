@@ -1,3 +1,5 @@
+SUBDIRS = calaos-python
+
 AM_CXXFLAGS = \
         $(CXX_PIC) \
         -DETC_DIR=\"$(sysconfdir)\" \

@@ -508,3 +508,23 @@ calaos_mqtt_LDADD = \
 -lmosquitto -lmosquittopp \
 $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+if HAVE_PYTHON_ROON
+bin_SCRIPTS = \
+        Audio/calaos_roon
+
+externalprocessdir = $(prefix)/lib/calaos
+externalprocess_PYTHON = \
+    Audio/ExternProcRoon_main.py
+
+BUILT_SOURCES = Audio/calaos_roon
+CLEANFILES = Audio/calaos_roon
+
+install-data-hook:
+	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
+
+clean-local:
+	rm -f Audio/calaos_roon
+
+EXTRA_DIST = Audio/calaos_roon.in
+endif

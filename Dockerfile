@@ -17,13 +17,15 @@ RUN apt-get update -qq && \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
-        tar gzip
+        tar gzip python3 python3-pip
 
 RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz --output webapp.tar.gz && \
     tar xzvf webapp.tar.gz && \
     mkdir -p /opt/share/calaos/app && \
     mv calaos-web-app-*/dist/* /opt/share/calaos/app && \
     rm -fr webapp.tar.gz calaos-web-app-*
+
+RUN pip install roonapi --break-system-packages
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
@@ -43,7 +45,9 @@ RUN apt -y update && \
     apt -y upgrade && \
     apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 libjansson4 \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
-        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola
+        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip
+
+RUN pip install roonapi --break-system-packages
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /build/*
