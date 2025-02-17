@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -102,7 +102,7 @@ ExternProcServer::~ExternProcServer()
         process_exe->kill(SIGTERM);
         process_exe->close();
     }
-    
+
     if (pipe && pipe->referenced())
     {
         pipe->close();
@@ -119,7 +119,7 @@ void ExternProcServer::terminate()
 
     if (process_exe && process_exe->referenced())
         process_exe->kill(SIGTERM);
-    
+
     if (pipe && pipe->referenced())
     {
         pipe->close();

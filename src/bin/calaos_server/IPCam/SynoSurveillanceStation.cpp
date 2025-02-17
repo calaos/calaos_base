@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -179,7 +179,7 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
         cDebugDom("syno.ss") << "getSnapshot done, status: " << status;
 
         if (status == 200)
-        {    
+        {
             auto headers = dl->getResponseHeaders();
             cDebugDom("syno.ss") << "Headers Content-Type: " << headers["Content-Type"];
             if (headers["Content-Type"] != "image/jpeg")

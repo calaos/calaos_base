@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -73,13 +73,13 @@ bool LogStream::isTerminal()
  *      LOG_LEVEL_WARNING   = 3
  *      LOG_LEVEL_INFO      = 4
  *      LOG_LEVEL_DEBUG     = 5
- * 
+ *
  * To configure log levels per domain, use:
  * calaos_config set debug_domains hifirose:5,network:0
- * 
+ *
  * To set default log level for all non-specified domains, use:
  * calaos_config set debug_level 3
- * 
+ *
  */
 
 static int maxLevelPrintable(string domain)
@@ -105,7 +105,7 @@ static int maxLevelPrintable(string domain)
         {
             std::vector<std::string> parts;
             Utils::split(domains, parts, ",");
-            
+
             for (const auto &d: parts)
             {
                 std::vector<std::string> dp;

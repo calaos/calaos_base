@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -866,7 +866,7 @@ string Utils::escape_quotes(const string &s)
 
 string Utils::escape_space(const string &s)
 {
-   
+
     int count = 0;
 
     for (string::size_type i = 0; i < s.length(); i++)

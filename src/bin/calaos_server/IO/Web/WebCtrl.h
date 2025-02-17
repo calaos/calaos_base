@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -32,7 +32,7 @@ namespace Calaos
 
 class WebCtrl
 {
-private:    
+private:
     WebCtrl(Params &p, int file_type);
     double frequency;
     Timer *timer;

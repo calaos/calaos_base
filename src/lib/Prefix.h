@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -28,7 +28,7 @@
 #include <Utils.h>
 
 // When the instance is created, the class will find in which prefix
-// Calaos has been installed. So when you call dataDirectoryGet, 
+// Calaos has been installed. So when you call dataDirectoryGet,
 // it's able to retrieve the path of data directory.
 // For example if you install calaos in : /opt/usr dataDirectoryGet will
 // returns /opt/usr/share/calaos as for dataDirectoryGet

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2019, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -45,7 +45,7 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    
+
     cDebugDom("mqtt") << "register on topic : " << get_param("topic_sub");
     ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
     {

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -56,7 +56,7 @@ public:
     virtual DATA_TYPE get_type() { return TINT; }
 
     virtual bool set_value(double v);
-    
+
     virtual bool set_value(string v);
 
     virtual double get_value_double();

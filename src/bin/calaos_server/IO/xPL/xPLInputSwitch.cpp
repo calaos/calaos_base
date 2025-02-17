@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -39,7 +39,7 @@ xPLInputSwitch::xPLInputSwitch(Params &p):
 
     string source = get_param("source");
     string sensor = get_param("sensor");
-    
+
     xPLController::Instance().registerSensor(source, sensor, sigc::mem_fun(*this, &xPLInputSwitch::valueUpdated));
 
     cInfoDom("input") << source << ":" << sensor;
@@ -51,7 +51,7 @@ xPLInputSwitch::~xPLInputSwitch()
 
 void xPLInputSwitch::valueUpdated(xPLInfoSensor *sensor)
 {
-    m_xPLValue = ((sensor->StringVal=="HIGH")||(sensor->StringVal=="high")); 
+    m_xPLValue = ((sensor->StringVal=="HIGH")||(sensor->StringVal=="high"));
     hasChanged();
 }
 
