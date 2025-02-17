@@ -22,7 +22,10 @@
 				"ms-vscode.cpptools-extension-pack",
 				"ms-vscode.makefile-tools",
 				"lizebang.bash-extension-pack",
-				"ms-vscode.cmake-tools"
+				"ms-vscode.cmake-tools",
+				"ms-python.python",
+				"VisualStudioExptTeam.vscodeintellicode",
+				"KevinRose.vsc-python-indent"
 			]
 		}
 	},

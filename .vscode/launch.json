@@ -7,7 +7,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceRoot}/_build/src/bin/calaos_server/calaos_server",
-            
+
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}/_build/src/bin/calaos_server",
@@ -20,6 +20,14 @@
                     "ignoreFailures": true
                 }
             ]
-        }
+        },
+
+        {
+            "name": "Python: Roon extern proc",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/bin/calaos_server/Audio/ExternProcRoon_main.py",
+            "args": [],
+        },
     ]
 }

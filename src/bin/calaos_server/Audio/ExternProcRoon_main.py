@@ -1,8 +1,26 @@
 #!/bin/env python3
 
 from calaos_extern_proc import ExternProcClient
-from roonapi import RoonDiscovery
+from roonapi import RoonApi, RoonDiscovery
 import time
+import json
+
+class RoonClient(ExternProcClient):
+    def __init__(self):
+        super().__init__()
+        self.roon_discovery = None
+        self.roon_api = None
+
+    def setup(self):
+        self.parse_arguments()
+
+        if not self.connect_socket():
+            print("Failed to connect to socket")
+            return False
+
+        self.roon_discovery = RoonDiscovery(None)
+
+
 
 # Création d'une instance de découverte
 discovery = RoonDiscovery(None)
