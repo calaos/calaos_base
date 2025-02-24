@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -61,7 +61,7 @@ protected:
     string command_suffix;
 
     enum
-    { 
+    {
         AVR_CON_CHAR = 0,
         AVR_CON_BYTES,
         AVR_CON_CUSTOM = 99, // do not use autoconnection code from AVReceiver class

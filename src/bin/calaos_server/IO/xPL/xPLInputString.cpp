@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -38,7 +38,7 @@ xPLInputString::xPLInputString(Params &p):
 
     string source = get_param("source");
     string sensor = get_param("sensor");
-    
+
     xPLController::Instance().registerSensor(source, sensor, sigc::mem_fun(*this, &xPLInputString::valueUpdated));
 
     cInfoDom("input") << source << ":" << sensor;

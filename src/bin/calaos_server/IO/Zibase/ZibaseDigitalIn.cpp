@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -49,7 +49,7 @@ ZibaseDigitalIn::ZibaseDigitalIn(Params &p):
     host = get_param("host");
     Utils::from_string(get_param("port"), port);
     id = get_param("zibase_id");
-    id2 = get_param("zibase_id2");	
+    id2 = get_param("zibase_id2");
 
     if(type == "detect")
         sensor_type = ZibaseInfoSensor::eDETECT;

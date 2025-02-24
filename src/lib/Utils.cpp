@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -419,6 +419,31 @@ string Utils::getConfigPath()
     }
 
     return result;
+}
+
+string Utils::getCachePath()
+{
+    if (_cacheBase.empty())
+    {
+        string home;
+        if (getenv("HOME"))
+        {
+            home = getenv("HOME");
+        }
+        else
+        {
+            struct passwd *pw = getpwuid(getuid());
+            home = pw->pw_dir;
+        }
+
+        //force the creation of .cache/calaos
+        mkdir(string(home + "/.cache").c_str(), S_IRWXU);
+        mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
+
+        _cacheBase = home + "/.cache/calaos";
+    }
+
+    return _cacheBase;
 }
 
 string Utils::getConfigFile(const char *configType)
@@ -866,7 +891,7 @@ string Utils::escape_quotes(const string &s)
 
 string Utils::escape_space(const string &s)
 {
-   
+
     int count = 0;
 
     for (string::size_type i = 0; i < s.length(); i++)

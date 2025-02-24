@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -102,7 +102,7 @@ ExternProcServer::~ExternProcServer()
         process_exe->kill(SIGTERM);
         process_exe->close();
     }
-    
+
     if (pipe && pipe->referenced())
     {
         pipe->close();
@@ -119,7 +119,7 @@ void ExternProcServer::terminate()
 
     if (process_exe && process_exe->referenced())
         process_exe->kill(SIGTERM);
-    
+
     if (pipe && pipe->referenced())
     {
         pipe->close();
@@ -185,36 +185,88 @@ void ExternProcServer::startProcess(const string &process, const string &name, c
 
     //Create a pipe for reading stdout
     pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+    pipe_stderr = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
+
     process_exe->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
 
+    // Configure stdout pipe
     uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
     uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
     process_exe->stdio(*pipe, ff);
 
-    //When pipe is closed, remove it and close it
-    pipe->once<uvw::EndEvent>([](const uvw::EndEvent &, auto &cl) { cl.close(); });
+    // Configure stderr pipe
+    process_exe->stdio(*pipe_stderr, ff);
+
+    //When pipes are closed, remove them and close them
+    auto cleanup_pipe = [](const auto &, auto &cl) { cl.close(); };
+    pipe->once<uvw::EndEvent>(cleanup_pipe);
     pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
+    pipe_stderr->once<uvw::EndEvent>(cleanup_pipe);
+    pipe_stderr->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
+
+    // Handler for stdout
     pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
-        cDebugDom("process") << "Stdio data received: " << ev.length;
+        cDebugDom("process") << "Stdout data received: " << ev.length;
         process_stdout.append(string(ev.data.get(), ev.length));
 
-        //Print lines which ends with endl only. keep remaining in buffer
         auto pos = process_stdout.find_first_of("\n");
         while (pos != std::string::npos)
         {
-            std::cout << process_stdout.substr(0, pos) << std::endl;
+            std::cout << process_stdout.substr(0, pos) << "\n";
             process_stdout.erase(0, pos + 1);
             pos = process_stdout.find_first_of("\n");
         }
     });
 
+    // Handler for stderr
+    pipe_stderr->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+    {
+        cDebugDom("process") << "Stderr data received: " << ev.length;
+        process_stderr.append(string(ev.data.get(), ev.length));
+
+        auto pos = process_stderr.find_first_of("\n");
+        while (pos != std::string::npos)
+        {
+            std::cerr << process_stderr.substr(0, pos) << "\n";
+            process_stderr.erase(0, pos + 1);
+            pos = process_stderr.find_first_of("\n");
+        }
+    });
+
+    auto parentEnvVar = [](const string &var)
+    {
+        char *env = getenv(var.c_str());
+        if (env)
+            return var + "=" + string(env);
+        return var + "=";
+    };
+
+    std::vector<string> envVars = {
+        "CALAOS_CACHE_PATH=" + Utils::getCachePath(),
+        "CALAOS_CONFIG_PATH=" + Utils::getConfigPath(),
+        "CALAOS_LOG_LEVEL=" + Utils::get_config_option("debug_level"),
+        "CALAOS_LOG_DOMAINS=" + Utils::get_config_option("debug_domains"),
+        "CALAOS_FORCE_COLOR=" + Logger::isColorEnabled(),
+        parentEnvVar("PATH"),
+        parentEnvVar("HOME"),
+        parentEnvVar("LANG"),
+        parentEnvVar("LC_ALL"),
+        parentEnvVar("LANGUAGE"),
+        parentEnvVar("LD_LIBRARY_PATH"),
+        parentEnvVar("PWD"),
+    };
+
+    Utils::CStrArray env(envVars);
     Utils::CStrArray arr(cmd);
     cInfoDom("process") << "Starting process: " << arr.toString();
-    process_exe->spawn(arr.at(0), arr.data());
+    process_exe->spawn(arr.at(0), arr.data(), env.data());
 
     if (!hasFailedStarting)
+    {
         pipe->read();
+        pipe_stderr->read();
+    }
 
     isStarted = true;
 }

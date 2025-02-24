@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2019, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -54,7 +54,7 @@ void MqttOutputLightDimmer::readValue()
 {
     bool err;
     auto newValue = ctrl->getValueDouble(get_params(), err);
-    
+
     if (!err)
     {
         value = newValue;

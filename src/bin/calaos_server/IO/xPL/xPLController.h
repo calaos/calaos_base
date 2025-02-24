@@ -1,5 +1,5 @@
 /******************************************************************************
-**  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+**  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
 **
 **  This file is part of Calaos Home.
 **
@@ -67,7 +67,7 @@ class xPLController
 {
 private:
     xPLController();
-    
+
     void udpListenData(const char *data, std::size_t length, string remoteIp, int remotePort);
     int discoverxPLPort();
     void Connect();
@@ -82,7 +82,7 @@ private:
 public:
     static xPLController &Instance();
     ~xPLController();
-    
+
     void registerSensor(const string& source, const string& device, sigc::slot<void, xPLInfoSensor*> callback);
     void setValue(const string& source, const string& device, const string& value);
     void getValue(const string& source, const string& sensor);

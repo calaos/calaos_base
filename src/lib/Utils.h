@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -146,7 +146,7 @@ typedef unsigned int uint;
 #define CALAOS_NETWORK_URL      "https://www.calaos.fr/calaos_network"
 #define CALAOS_WEBSITE_URL      "http://www.calaos.fr"
 #define CALAOS_CONTACT_EMAIL    "contact@calaos.fr"
-#define CALAOS_COPYRIGHT_TEXT   "Copyright (c) 2006-2018, Calaos. All Rights Reserved."
+#define CALAOS_COPYRIGHT_TEXT   "Copyright (c) 2006-2025, Calaos. All Rights Reserved."
 #define ZONETAB                 "/usr/share/zoneinfo/zone.tab"
 #define CURRENT_ZONE            "/etc/timezone"
 #define LOCALTIME               "/etc/localtime"
@@ -237,6 +237,7 @@ void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 void initConfigOptions(char *configdir = NULL, char *cachedir = NULL, bool quiet = false);
 
 string getConfigPath();
+string getCachePath();
 string getConfigFile(const char *configFile);
 string getCacheFile(const char *cacheFile);
 

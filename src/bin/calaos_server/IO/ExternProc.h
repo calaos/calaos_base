@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -95,13 +95,13 @@ public:
     sigc::signal<void> processConnected;
 
 private:
-    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe;
+    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe, pipe_stderr;
 
     string sockpath;
     string recv_buffer;
     ExternProcMessage currentFrame;
     std::shared_ptr<uvw::ProcessHandle> process_exe;
-    string process_stdout;
+    string process_stdout, process_stderr;
 
     std::shared_ptr<uvw::PipeHandle> client;
 

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -106,7 +106,7 @@ Room *ListeRoom::get_room(int i)
 }
 
 IOBase *ListeRoom::get_io(std::string id)
-{    
+{
     if (io_table.find(id) != io_table.end())
         return io_table[id];
 

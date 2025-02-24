@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -323,7 +323,7 @@ void OutputLightRGB::stateUpdated(const ColorValue &c, bool s)
     bool hasChanged = false;
     if (s != state || c != color)
         hasChanged = true;
-    
+
     state = s;
     color = c;
     cmd_state = "set " + get_value_string();

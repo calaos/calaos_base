@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -26,7 +26,7 @@
 
 class OwCtrl: public sigc::trackable
 {
-private:    
+private:
     OwCtrl(const string &args);
 
     ExternProcServer *process;

@@ -63,8 +63,8 @@ calaos_server_SOURCES = \
         Audio/AVRPioneer.h                              \
         Audio/AVRYamaha.cpp                             \
         Audio/AVRYamaha.h                               \
-        Audio/AVRRose.cpp                              \
-        Audio/AVRRose.h                                \
+        Audio/AVRRose.cpp                               \
+        Audio/AVRRose.h                                 \
         Audio/AVReceiver.cpp                            \
         Audio/AVReceiver.h                              \
         Audio/AudioDB.cpp                               \
@@ -76,6 +76,8 @@ calaos_server_SOURCES = \
         Audio/Squeezebox.h                              \
         Audio/SqueezeboxDB.cpp                          \
         Audio/SqueezeboxDB.h                            \
+        Audio/RoonPlayer.cpp                            \
+        Audio/RoonPlayer.h                              \
         Calaos.cpp                                      \
         Calaos.h                                        \
         CalaosConfig.cpp                                \
@@ -507,4 +509,24 @@ calaos_mqtt_LDADD = \
 @CALAOS_SERVER_LIBS@ \
 -lmosquitto -lmosquittopp \
 $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+if HAVE_PYTHON_ROON
+bin_SCRIPTS = \
+        Audio/calaos_roon
+
+externalprocessdir = $(prefix)/lib/calaos
+externalprocess_PYTHON = \
+    Audio/ExternProcRoon_main.py
+
+BUILT_SOURCES = Audio/calaos_roon
+CLEANFILES = Audio/calaos_roon
+
+install-data-hook:
+	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
+
+clean-local:
+	rm -f Audio/calaos_roon
+
+EXTRA_DIST = Audio/calaos_roon.in
 endif

@@ -155,11 +155,45 @@ else
      WS_INFO="install autobahn testsuite to run this test"
 fi
 
+# Check for Python and dependencies
+have_python="no"
+have_python_roon="no"
+
+# Check for Python 3
+AM_PATH_PYTHON([3], [
+    have_python="yes"
+
+    # Check for pip3
+    AC_CHECK_PROG([PYTHON_PIP], [pip3], [yes])
+    if test "x${PYTHON_PIP}" = "xyes"; then
+        # Check for roonapi
+        AC_MSG_CHECKING([for Python roonapi module])
+        if $PYTHON -c "import roonapi" 2>/dev/null; then
+            have_python_roon="yes"
+            AC_MSG_RESULT([yes])
+            AC_DEFINE([HAVE_PYTHON_ROON], [1], [Define if python roonapi is available])
+        else
+            AC_MSG_RESULT([no])
+            AC_MSG_WARN([Python roonapi module not found. Install with: pip3 install roonapi])
+            have_python="no"
+        fi
+    else
+        AC_MSG_WARN([pip3 not found. Install with: apt-get install python3-pip])
+        have_python="no"
+    fi
+], [
+    AC_MSG_WARN([Python 3 not found. Python support will be disabled])
+])
+
+AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
+AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
+
 AC_CONFIG_FILES([
 Makefile
 tests/Makefile
 src/Makefile
 src/lib/Makefile
+src/lib/calaos-python/Makefile
 src/bin/Makefile
 src/bin/calaos_server/Makefile
 src/bin/tools/Makefile
@@ -167,6 +201,7 @@ data/Makefile
 data/debug/Makefile
 data/debug/dist/Makefile
 $po_makefile_in
+src/bin/calaos_server/Audio/calaos_roon
 ])
 
 AC_OUTPUT
@@ -215,4 +250,7 @@ echo "  One Wire support.....................: $(colorOut $have_owcapi)"
 echo "  Open Lightning Architecture support..: $(colorOut $have_libola)"
 echo "  Eib/KNX support (eibd or knxd).......: $(colorOut $have_libknx)"
 echo "  MQTT support (libmosquittopp)........: $(colorOut $have_mosquitto)"
+echo
+echo "Python support:........................: $(colorOut $have_python)"
+echo "  RoonAPI support......................: $(colorOut $have_python_roon)"
 echo

@@ -1,5 +1,5 @@
 /******************************************************************************
- **  Copyright (c) 2006-2018, Calaos. All Rights Reserved.
+ **  Copyright (c) 2006-2025, Calaos. All Rights Reserved.
  **
  **  This file is part of Calaos.
  **
@@ -50,7 +50,7 @@ void IODoc::linkAdd(const string &description, const string &link)
 }
 
 void IODoc::paramAdd(const string &name, const string &description, ParamType type, bool mandatory, const string defaultval, bool readonly)
-{   
+{
     Params param;
     param.Add("name", name);
     param.Add("description", description);
