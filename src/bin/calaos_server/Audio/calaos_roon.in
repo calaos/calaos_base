@@ -2,3 +2,5 @@
 CALAOS_PREFIX=@prefix@
 export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
 exec python3 $CALAOS_PREFIX/lib/calaos/ExternProcRoon_main.py "$@"
+#export PYTHONPATH=/workspaces/calaos_base/src/lib/calaos-python:$PYTHONPATH
+#exec python3 -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client /workspaces/calaos_base/src/bin/calaos_server/Audio/ExternProcRoon_main.py "$@"

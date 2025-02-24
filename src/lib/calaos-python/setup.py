@@ -4,7 +4,9 @@ setup(
     name="calaos_extern_proc",
     version="1.0.0",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=[
+        'colorama>=0.4.4'
+    ],
     author="Calaos",
     author_email="team@calaos.fr",
     description="External process library for Calaos",

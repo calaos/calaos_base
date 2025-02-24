@@ -17,7 +17,7 @@ RUN apt-get update -qq && \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
-        tar gzip python3 python3-pip
+        tar gzip python3 python3-pip python3-colorama
 
 RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz --output webapp.tar.gz && \
     tar xzvf webapp.tar.gz && \

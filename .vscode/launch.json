@@ -27,7 +27,21 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/bin/calaos_server/Audio/ExternProcRoon_main.py",
-            "args": [],
+            "args": [
+                "--socket", "/tmp/mysocket",
+                "--namespace", "roon",
+            ],
+        },
+
+        {
+            "name": "Attach to Python Process",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "justMyCode": false
         },
     ]
 }

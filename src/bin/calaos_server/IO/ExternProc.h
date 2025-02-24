@@ -95,13 +95,13 @@ public:
     sigc::signal<void> processConnected;
 
 private:
-    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe;
+    std::shared_ptr<uvw::PipeHandle> ipcServer, pipe, pipe_stderr;
 
     string sockpath;
     string recv_buffer;
     ExternProcMessage currentFrame;
     std::shared_ptr<uvw::ProcessHandle> process_exe;
-    string process_stdout;
+    string process_stdout, process_stderr;
 
     std::shared_ptr<uvw::PipeHandle> client;
 

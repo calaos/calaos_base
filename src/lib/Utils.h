@@ -237,6 +237,7 @@ void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 void initConfigOptions(char *configdir = NULL, char *cachedir = NULL, bool quiet = false);
 
 string getConfigPath();
+string getCachePath();
 string getConfigFile(const char *configFile);
 string getCacheFile(const char *cacheFile);
 

@@ -130,6 +130,8 @@ public:
     {
         return LogStream(domainName, file, function, line, LOG_LEVEL_WARNING);
     }
+
+    static bool isColorEnabled();
 };
 
 #endif

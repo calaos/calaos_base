@@ -3,8 +3,8 @@ import struct
 from enum import Enum
 
 class MessageType(Enum):
-    TypeUnknown = 0
-    TypeMessage = 1
+    TypeUnknown = 0x00
+    TypeMessage = 0x21  # Changed to match C++ version (0x21)
 
 class MessageState(Enum):
     StateReadHeader = 0
@@ -31,11 +31,16 @@ class ExternProcMessage:
 
         while data and not finished:
             if self.state == MessageState.StateReadHeader:
-                if len(data) >= 5:
-                    # Read header
+                if len(data) >= 5:  # Header is 5 bytes (1 byte type + 4 bytes size)
+                    # Read header type (1 byte)
                     self.opcode = data[0]
-                    # Read length
-                    self.payload_length = struct.unpack('!I', data[1:5])[0]
+                    # Read length (4 bytes, big endian)
+                    self.payload_length = (
+                        (data[1] << 24) |
+                        (data[2] << 16) |
+                        (data[3] << 8) |
+                        data[4]
+                    )
                     data = data[5:]
 
                     if self.opcode == MessageType.TypeMessage.value:
@@ -65,7 +70,13 @@ class ExternProcMessage:
 
     def get_raw_data(self):
         frame = bytearray()
+        # Add type byte
         frame.append(self.opcode.value if isinstance(self.opcode, MessageType) else self.opcode)
-        frame.extend(struct.pack('!I', self.payload_length))
+        # Add length as 4 bytes, big endian
+        frame.append((self.payload_length >> 24) & 0xFF)
+        frame.append((self.payload_length >> 16) & 0xFF)
+        frame.append((self.payload_length >> 8) & 0xFF)
+        frame.append(self.payload_length & 0xFF)
+        # Add payload data
         frame.extend(self.payload.encode('utf-8'))
-        return frame
+        return bytes(frame)

@@ -421,6 +421,31 @@ string Utils::getConfigPath()
     return result;
 }
 
+string Utils::getCachePath()
+{
+    if (_cacheBase.empty())
+    {
+        string home;
+        if (getenv("HOME"))
+        {
+            home = getenv("HOME");
+        }
+        else
+        {
+            struct passwd *pw = getpwuid(getuid());
+            home = pw->pw_dir;
+        }
+
+        //force the creation of .cache/calaos
+        mkdir(string(home + "/.cache").c_str(), S_IRWXU);
+        mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
+
+        _cacheBase = home + "/.cache/calaos";
+    }
+
+    return _cacheBase;
+}
+
 string Utils::getConfigFile(const char *configType)
 {
     if (_configBase.empty())

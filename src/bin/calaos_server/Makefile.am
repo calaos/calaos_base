@@ -63,8 +63,8 @@ calaos_server_SOURCES = \
         Audio/AVRPioneer.h                              \
         Audio/AVRYamaha.cpp                             \
         Audio/AVRYamaha.h                               \
-        Audio/AVRRose.cpp                              \
-        Audio/AVRRose.h                                \
+        Audio/AVRRose.cpp                               \
+        Audio/AVRRose.h                                 \
         Audio/AVReceiver.cpp                            \
         Audio/AVReceiver.h                              \
         Audio/AudioDB.cpp                               \
@@ -76,6 +76,8 @@ calaos_server_SOURCES = \
         Audio/Squeezebox.h                              \
         Audio/SqueezeboxDB.cpp                          \
         Audio/SqueezeboxDB.h                            \
+        Audio/RoonPlayer.cpp                            \
+        Audio/RoonPlayer.h                              \
         Calaos.cpp                                      \
         Calaos.h                                        \
         CalaosConfig.cpp                                \

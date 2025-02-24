@@ -173,3 +173,7 @@ LogStream::~LogStream()
     std::cout.flush();
 }
 
+bool Logger::isColorEnabled()
+{
+    return logger_isTerm;
+}

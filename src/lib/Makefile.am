@@ -57,6 +57,7 @@ libcalaos_common_la_SOURCES = \
         Logger.cpp                              \
         Logger.h                                \
         Jansson_Addition.h                      \
+        Json_Addition.h                         \
         NTPClock.cpp                            \
         NTPClock.h                              \
         Params.cpp                              \

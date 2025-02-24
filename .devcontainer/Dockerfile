@@ -16,7 +16,7 @@ RUN apt-get update -qq && \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
         tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales \
-        python3-pip python3-full iproute2
+        python3-pip python3-full iproute2 python3-colorama
 
 RUN pip install roonapi --break-system-packages
 

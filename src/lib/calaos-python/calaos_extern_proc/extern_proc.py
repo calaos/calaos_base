@@ -3,6 +3,13 @@ import select
 import os
 import argparse
 from .message import ExternProcMessage
+from .logger import (
+    cDebugDom,
+    cInfoDom,
+    cWarningDom,
+    cErrorDom,
+    cCriticalDom
+)
 
 class ExternProcClient:
     def __init__(self):
@@ -12,6 +19,10 @@ class ExternProcClient:
         self.user_fds = []
         self.name = "extern_process"
         self.sockpath = ""
+
+        #Calaos config/cache paths passed to process by environment variables
+        self.cachePath = os.environ.get('CALAOS_CACHE_PATH', ".")
+        self.configPath = os.environ.get('CALAOS_CONFIG_PATH', ".")
 
     def parse_arguments(self):
         parser = argparse.ArgumentParser()
@@ -25,7 +36,7 @@ class ExternProcClient:
 
     def connect_socket(self):
         if not os.path.exists(self.sockpath):
-            print(f"Socket path {self.sockpath} not found")
+            cCriticalDom("ExternProcClient")(f"Socket path {self.sockpath} not found")
             return False
 
         try:
@@ -33,7 +44,7 @@ class ExternProcClient:
             self.sockfd.connect(self.sockpath)
             return True
         except Exception as e:
-            print(f"Connect failed: {str(e)}")
+            cCriticalDom("ExternProcClient")(f"Connect failed: {str(e)}")
             return False
 
     def process_socket_recv(self):
@@ -42,15 +53,35 @@ class ExternProcClient:
             if not data:
                 return False
 
+            cDebugDom("ExternProcClient")(f"Received {len(data)} bytes")
             self.recv_buffer.extend(data)
-            while self.current_frame.process_frame_data(self.recv_buffer):
+
+            while True:
+                # Process one frame
+                frame_processed = self.current_frame.process_frame_data(self.recv_buffer)
+
+                if not frame_processed:
+                    # Not enough data for a complete frame
+                    break
+
                 if self.current_frame.isvalid:
                     self.message_received(self.current_frame.payload)
-                    self.current_frame.clear()
+
+                # Calculate how many bytes were consumed
+                frame_size = 5 + self.current_frame.payload_length  # header(5) + payload
+                self.recv_buffer = self.recv_buffer[frame_size:]
+
+                # Clear frame for next message
+                self.current_frame.clear()
+
+                # If no more data in buffer, stop processing
+                if len(self.recv_buffer) < 5:  # Minimum frame size (header)
+                    break
 
             return True
+
         except Exception as e:
-            print(f"Error reading socket: {str(e)}")
+            cErrorDom("ExternProcClient")(f"Error reading socket: {str(e)}")
             return False
 
     def run(self, timeout_ms):
@@ -76,7 +107,7 @@ class ExternProcClient:
                             break
 
             except Exception as e:
-                print(f"Error in run loop: {str(e)}")
+                cCriticalDom("ExternProcClient")(f"Error in run loop: {str(e)}")
                 quit_loop = True
 
     def stop(self):
@@ -88,7 +119,7 @@ class ExternProcClient:
         try:
             self.sockfd.send(frame)
         except Exception as e:
-            print(f"Error writing to socket: {str(e)}")
+            cErrorDom("ExternProcClient")(f"Error writing to socket: {str(e)}")
 
     # Methods to be implemented by child classes
     def setup(self):
@@ -98,6 +129,7 @@ class ExternProcClient:
         pass
 
     def message_received(self, msg):
+        cDebugDom("ExternProcClient")(f"Received message (unhandeld): {msg}")
         pass
 
     def handle_fd_set(self, fd):
