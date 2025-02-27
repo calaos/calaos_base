@@ -45,7 +45,7 @@ RUN apt -y update && \
     apt -y upgrade && \
     apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 libjansson4 \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
-        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip
+        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip python3-colorama
 
 RUN pip install roonapi --break-system-packages
 
