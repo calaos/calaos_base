@@ -26,7 +26,7 @@
 
 using namespace Calaos;
 
-REGISTER_IO_USERTYPE(roon, RoonPlayer)
+REGISTER_IO_USERTYPE(Roon, RoonPlayer)
 
 RoonCtrl::RoonCtrl(const string &host, int port)
 {
@@ -167,7 +167,6 @@ RoonPlayer::RoonPlayer(Params &p):
     AudioPlayer(p)
 {
     ioDoc->friendlyNameSet("Roon");
-    ioDoc->aliasAdd("roon");
     ioDoc->descriptionSet(_("Roon audio player allows control of a Roon player from Calaos"));
 
     ioDoc->paramAdd("zone_id", _("Roon zone ID"), IODoc::TYPE_STRING, true);
