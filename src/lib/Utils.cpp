@@ -542,7 +542,7 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 //A global mutex for get/set config options threadsafely
 static std::mutex configMutex;
 
-string Utils::get_config_option(string _key)
+string Utils::get_config_option(string _key, bool no_logger_out)
 {
     std::lock_guard<std::mutex> lock{configMutex};
 
@@ -551,9 +551,18 @@ string Utils::get_config_option(string _key)
 
     if (!document.LoadFile())
     {
-        cError() <<  "There was an exception in XML parsing.";
-        cError() <<  "Parse error: " << document.ErrorDesc();
-        cError() <<  " At line " << document.ErrorRow();
+        if (!no_logger_out)
+        {
+            cError() <<  "There was an exception in XML parsing.";
+            cError() <<  "Parse error: " << document.ErrorDesc();
+            cError() <<  " At line " << document.ErrorRow();
+        }
+        else
+        {
+            cout <<  "There was an exception in XML parsing." << endl;
+            cout <<  "Parse error: " << document.ErrorDesc() << endl;
+            cout <<  " At line " << document.ErrorRow() << endl;
+        }
 
         return value;
     }

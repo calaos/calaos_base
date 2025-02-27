@@ -89,7 +89,7 @@ static int maxLevelPrintable(string domain)
     if (logger_domains.empty())
     {
         int logger_default_level = Logger::LOG_LEVEL_INFO;
-        string lvl = Utils::get_config_option("debug_level");
+        string lvl = Utils::get_config_option("debug_level", true);
         if (Utils::is_of_type<int>(lvl))
             Utils::from_string(lvl, logger_default_level);
 
@@ -100,7 +100,7 @@ static int maxLevelPrintable(string domain)
         //default logger level for all non-specified domains
         logger_domains["default"] = logger_default_level;
 
-        string domains = Utils::get_config_option("debug_domains");
+        string domains = Utils::get_config_option("debug_domains", true);
         if (!domains.empty())
         {
             std::vector<std::string> parts;
@@ -127,7 +127,7 @@ static int maxLevelPrintable(string domain)
         if (logger_default_level == Logger::LOG_LEVEL_DEBUG)
         {
             for (const auto &d: logger_domains)
-                cDebug() << "Logger: Domain: " << d.first << " Level: " << d.second;
+                cout << "Logger: Domain: " << d.first << " Level: " << d.second << endl;
         }
     }
 

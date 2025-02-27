@@ -241,7 +241,7 @@ string getCachePath();
 string getConfigFile(const char *configFile);
 string getCacheFile(const char *cacheFile);
 
-string get_config_option(string key);
+string get_config_option(string key, bool no_logger_out = false);
 bool set_config_option(string key, string value);
 bool del_config_option(string key);
 bool get_config_options(Params &options);
