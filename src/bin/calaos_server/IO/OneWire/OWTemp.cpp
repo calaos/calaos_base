@@ -25,6 +25,7 @@
 #include "OWCtrl.h"
 #include "OWTemp.h"
 #include "IOFactory.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -71,7 +72,7 @@ void OWTemp::readValue()
     val = Utils::roundValue(val, precision);
     if (val != value)
     {
-        value = val;
+        value = AnalogIO::convertValue(get_params(), val);
         emitChange();
         cDebugDom("input") << ow_id << ": value: " << val;
     }

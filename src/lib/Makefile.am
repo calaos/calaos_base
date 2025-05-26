@@ -22,6 +22,7 @@ AM_CXXFLAGS = \
         -I$(top_srcdir)/src/lib/uvw/src \
         -I$(top_srcdir)/src/lib/sqlite_modern_cpp/hdr \
         -I$(top_srcdir)/src/lib/sole \
+        -I$(top_srcdir)/src/lib/exprtk \
         @CALAOS_COMMON_CFLAGS@
 
 AM_CFLAGS = \
@@ -52,6 +53,8 @@ libcalaos_common_la_SOURCES = \
         CalaosModule.h                          \
         Calendar.cpp                            \
         Calendar.h                              \
+        ExpressionEvaluator.h                   \
+        ExpressionEvaluator.cpp                 \
         Timer.cpp                               \
         Timer.h                                 \
         Logger.cpp                              \

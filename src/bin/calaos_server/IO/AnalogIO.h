@@ -23,10 +23,12 @@
 
 #include "IODoc.h"
 
-namespace AnalogIO
+class AnalogIO
 {
+public:
+    static void commonDoc(IODoc *ioDoc);
 
-void commonDoc(IODoc *ioDoc);
+    static double convertValue(const Params &params, double dvalue);
+};
 
-}
 #endif

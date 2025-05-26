@@ -27,6 +27,7 @@
 #include "WebCtrl.h"
 #include "jansson.h"
 #include "IOFactory.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -66,7 +67,7 @@ void WebInputAnalog::readValue()
         double v = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
         if (v != value)
         {
-            value = v;
+            value = AnalogIO::convertValue(get_params(), v);
             emitChange();
         }
     }

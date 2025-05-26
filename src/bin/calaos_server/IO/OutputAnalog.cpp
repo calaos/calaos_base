@@ -33,6 +33,8 @@ OutputAnalog::OutputAnalog(Params &p):
                  IODoc::TYPE_FLOAT, false, "1");
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("calc_expr", _("Use a mathematical expression to calculate the value from the raw value. The variable `x` is replaced with the raw value. For example, if you want to convert a raw value of 0-1000 to a temperature in Celsius, you can use `x / 10.0 - 50.0`. If this expression is set, coeff_a, coeff_b and offset parameters are ignored."),
+                 IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
     AnalogIO::commonDoc(ioDoc);
@@ -58,9 +60,6 @@ OutputAnalog::~OutputAnalog()
 
 void OutputAnalog::readConfig()
 {
-    if (get_params().Exists("coeff_a")) Utils::from_string(get_param("coeff_a"), coeff_a);
-    if (get_params().Exists("coeff_b")) Utils::from_string(get_param("coeff_b"), coeff_b);
-
     if (!get_params().Exists("visible")) set_param("visible", "true");
 }
 
@@ -86,8 +85,10 @@ bool OutputAnalog::set_value(double val)
 
     cmd_state = val;
 
+    val = AnalogIO::convertValue(get_params(), val);
+
     //send computed value to device
-    set_value_real(val * coeff_a + coeff_b);
+    set_value_real(val);
 
     bool hasChanged = false;
     if (value != val)

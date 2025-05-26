@@ -30,12 +30,8 @@ namespace Calaos
 class InputAnalog : public IOBase
 {
 protected:
-    double coeff_a = 1.0;
-    double coeff_b = 0.0;
-
     double value;
     double timer;
-    double offset;
     double frequency;
     int precision;
 
@@ -46,6 +42,7 @@ protected:
 
     void emitChange();
     virtual void readValue() = 0;
+
 public:
     InputAnalog(Params &p);
     virtual ~InputAnalog();

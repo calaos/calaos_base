@@ -22,6 +22,7 @@
 #include "MySensorsInputTemp.h"
 #include "MySensorsControllerList.h"
 #include "IOFactory.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -66,7 +67,7 @@ void MySensorsInputTemp::readValue()
 
     if (v != value)
     {
-        value = v;
+        value = AnalogIO::convertValue(get_params(), v);
         emitChange();
     }
 }

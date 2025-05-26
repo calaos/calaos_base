@@ -21,6 +21,7 @@
 #include "KNXInputTemp.h"
 #include "IOFactory.h"
 #include "KNXCtrl.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -65,9 +66,9 @@ void KNXInputTemp::readValue()
     KNXValue val = KNXCtrl::Instance(get_param("host"))->getValue(knxBase->getReadGroupAddr());
     val.setEis(eis);
 
-    if (value != val.toInt())
+    if (value != val.toFloat())
     {
-        value = val.toInt();
+        value = AnalogIO::convertValue(get_params(), val.toFloat());
         emitChange();
     }
 }

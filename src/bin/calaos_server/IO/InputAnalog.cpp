@@ -36,10 +36,12 @@ InputAnalog::InputAnalog(Params &p):
                  IODoc::TYPE_FLOAT, false, "1");
     ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_displayed = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("calc_expr", _("Use a mathematical expression to calculate the value from the raw value. The variable `x` is replaced with the raw value. For example, if you want to convert a raw value of 0-1000 to a temperature in Celsius, you can use `x / 10.0 - 50.0`. If this expression is set, coeff_a, coeff_b and offset parameters are ignored."),
+                 IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("offset", _("same as coeff_b, can be used alone. Default value is 0.0"),
                  IODoc::TYPE_FLOAT, false);
-    ioDoc->paramAdd("period", _("Sampling time in microsecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
+    ioDoc->paramAdd("period", _("Sampling time in millisecond. The value is read at this frequency. If this value is not set, calaos tries to read the interval parameter"),
                  IODoc::TYPE_FLOAT, false);
     ioDoc->paramAdd("interval", _("Sampling time in seconds. The value is read at this frequency. If this value is not set, the default value is 15s"),
                  IODoc::TYPE_FLOAT, false, "15");
@@ -86,22 +88,12 @@ InputAnalog::~InputAnalog()
 void InputAnalog::readConfig()
 {
     if (!get_params().Exists("visible"))
-      set_param("visible", "true");
-
-    if (get_params().Exists("coeff_a"))
-      Utils::from_string(get_param("coeff_a"), coeff_a);
-    else
-      coeff_a = 1.0;
-
-    if (get_params().Exists("coeff_b"))
-      Utils::from_string(get_param("coeff_b"), coeff_b);
-    else
-      coeff_b = 0.0;
+        set_param("visible", "true");
 
     /* rename frequency to period */
     if (get_params().Exists("frequency"))
     {
-	Utils::from_string(get_param("frequency"), frequency);
+	    Utils::from_string(get_param("frequency"), frequency);
         set_param("period", Utils::to_string(frequency));
         del_param("frequency");
     }
@@ -118,13 +110,12 @@ void InputAnalog::readConfig()
         frequency /= 1000.0;
     }
     else
-      frequency = 15.0;
+        frequency = 15.0;
 
     if (!get_params().Exists("precision"))
         precision = 2;
     else
         Utils::from_string(get_param("precision"), precision);
-
 }
 
 void InputAnalog::emitChange()
@@ -168,11 +159,7 @@ void InputAnalog::hasChanged()
 
 double InputAnalog::get_value_double()
 {
-    readConfig();
-
-    cDebugDom("input") << get_param("id") << ": "
-                       << coeff_a << " * " << value << " + " << coeff_b;
-    return Utils::roundValue(value * coeff_a + coeff_b, precision);
+    return value;
 }
 
 bool InputAnalog::set_value(double v)

@@ -21,6 +21,7 @@
 #include <WITemp.h>
 #include <WagoMap.h>
 #include <IOFactory.h>
+#include <AnalogIO.h>
 
 using namespace Calaos;
 
@@ -82,7 +83,7 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
     if (val != value)
     {
-        value = val;
+        value = AnalogIO::convertValue(get_params(), val);
         emitChange();
     }
 

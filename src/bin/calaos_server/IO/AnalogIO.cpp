@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "AnalogIO.h"
+#include "ExpressionEvaluator.h"
 
 void AnalogIO::commonDoc(IODoc *ioDoc)
 {
@@ -38,4 +39,41 @@ void AnalogIO::commonDoc(IODoc *ioDoc)
 
     ioDoc->conditionAdd("value", _("Event on a specific value"));
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
+}
+
+double AnalogIO::convertValue(const Params &params, double dvalue)
+{
+    if (params.Exists("calc_expr") &&
+        ExpressionEvaluator::isExpressionValid(params["calc_expr"]))
+    {
+        bool failed = false;
+        double v = ExpressionEvaluator::calculateExpression(params["calc_expr"], dvalue, failed);
+        if (failed)
+        {
+            cWarningDom("analog") << "Failed to calculate expression: " << params["calc_expr"];
+            return dvalue; // Return original value on failure
+        }
+
+        cDebugDom("input") << "Calculated value from expression (" << dvalue << "): " << v;
+        return v;
+    }
+
+    double coeff_a, coeff_b;
+    if (params.Exists("coeff_a"))
+        Utils::from_string(params["coeff_a"], coeff_a);
+    else
+        coeff_a = 1.0;
+
+    if (params.Exists("coeff_b"))
+        Utils::from_string(params["coeff_b"], coeff_b);
+    else if (params.Exists("offset"))
+        Utils::from_string(params["offset"], coeff_b);
+    else
+        coeff_b = 0.0;
+
+    // Apply coefficients to the value
+    double v = (dvalue * coeff_a) + coeff_b;
+    cDebugDom("analog") << "Converted value: " << v << " from raw value: " << dvalue
+                        << " using coeff_a: " << coeff_a << " and coeff_b: " << coeff_b;
+    return v;
 }

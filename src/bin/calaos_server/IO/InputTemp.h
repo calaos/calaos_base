@@ -22,46 +22,17 @@
 #define S_InputTemp_H
 
 #include "Calaos.h"
-#include "IOBase.h"
+#include "InputAnalog.h"
 
 namespace Calaos
 {
 
-class InputTemp : public IOBase
+// InputTemp is a specific InputAnalog for temperature sensors
+class InputTemp : public InputAnalog
 {
-protected:
-    int address;
-
-    std::string host;
-    int port;
-
-    double value;
-    double timer;
-    double readTime; //interval between each read, can be configured with "interval" parameter
-    double offset;
-    double coeff_a;
-    double coeff_b;
-    int precision;
-
-    //timer that triggers a property when value has not been updated for some time
-    Timer *timerChanged = nullptr;
-
-    void emitChange();
-    virtual void readValue() = 0;
-
 public:
     InputTemp(Params &p);
     ~InputTemp();
-
-    virtual DATA_TYPE get_type() { return TINT; }
-
-    virtual bool set_value(double v);
-
-    virtual bool set_value(string v);
-
-    virtual double get_value_double();
-
-    virtual void hasChanged();
 };
 
 }

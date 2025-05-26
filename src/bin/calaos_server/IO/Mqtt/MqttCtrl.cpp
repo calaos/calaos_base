@@ -5,6 +5,7 @@
 #include "MqttCtrl.h"
 #include "Prefix.h"
 #include "Params.h"
+#include "ExpressionEvaluator.h"
 
 using namespace Calaos;
 
@@ -116,6 +117,17 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
 {
     string value;
 
+    // If path is empty, treat payload as direct raw value
+    if (path.empty())
+    {
+        cDebugDom("mqtt") << "Path is empty, returning raw payload value";
+        value = payload;
+
+        cDebugDom("mqtt") << "Returning value: " << value;
+        return value;
+    }
+
+    // Original JSON parsing logic for non-empty paths
     Json root;
     try
     {
@@ -178,23 +190,7 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
         else if (parent.is_boolean())
             value = parent.get<bool>() ? "true" : "false";
         else if (parent.is_number())
-        {
-            double v;
-            double coeff_a, coeff_b;
-            if (params.Exists("coeff_a"))
-                Utils::from_string(params["coeff_a"], coeff_a);
-            else
-                coeff_a = 1.0;
-
-            if (params.Exists("coeff_b"))
-                Utils::from_string(params["coeff_b"], coeff_b);
-            else
-                coeff_b = 0.0;
-
-            v = (parent.get<double>() - coeff_b) / coeff_a;
-
-            value = Utils::to_string(v);
-        }
+            value = Utils::to_string(parent.get<double>());
         else if (parent.is_string())
             value = parent.get<string>();
         else if (parent.is_object())
@@ -207,10 +203,6 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
             cWarning() << "Error, path returns an array, not a value";
             value = "array[]";
         }
-    }
-    else
-    {
-        cWarning() << "Error emtpy path not allowed";
     }
 
     return value;
@@ -417,7 +409,29 @@ void MqttCtrl::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("topic_pub", _("Topic on witch to publish."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("topic_sub", _("Topic on witch to subscribe."), IODoc::TYPE_STRING, true);
 
-    ioDoc->paramAdd("path", _("The path where to found the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is somple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path\n"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("path", _("The path where to find the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is simple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path"), IODoc::TYPE_STRING, true);
+
+    ioDoc->paramAdd("battery_topic", _("The topic on witch to publish the battery status of the sensor. If not set, no battery status will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("battery_path", _("The path where to find the battery status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json object, just try to use the key of the value you want to read, for example : {\"battery\":90} use \"battery\" as path. When this path is set, and the level drops below 30%. The battery reported should be in percent. Use `battery_calc` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("battery_calc", _("If the battery value is not directly available in the payload, you can use this parameter to calculate the battery value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the battery value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+
+    ioDoc->paramAdd("connected_status_topic", _("The topic on witch to publish the connected status of the sensor. If not set, no connected status will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("connected_status_path", _("The path where to find the connected status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"connected\":true} use \"connected\" as path. The value should be a boolean. Use connected_status_expr to convert to a boolean"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("connected_status_expr", _("If the connected status value is not directly available in the payload, you can use this parameter to convert the value from the path to a boolean. The value will be calculated as any valid mathematic expression. In the expression, the variable `value` is replaced with the raw value from path. If not set, the connected status will be read directly from the path. Example: \"value == 'connected'\" or \"value > 30 && value < 150\" or \"value == 'on' || value > 50\""), IODoc::TYPE_STRING, false);
+
+    ioDoc->paramAdd("wireless_signal_topic", _("The topic on witch to publish the wireless signal strength of the sensor. If not set, no wireless signal strength will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wireless_signal_path", _("The path where to find the wireless signal strength in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"signal\": 70} use \"signal\" as path. The value should be a number in percent. Use `wireless_signal_calc` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wireless_signal_calc", _("If the wireless signal value is not directly available in the payload, you can use this parameter to calculate the wireless signal value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the wireless signal value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+
+    ioDoc->paramAdd("uptime_topic", _("The topic on witch to publish the uptime of the sensor. If not set, no uptime will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("uptime_path", _("The path where to find the uptime of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"uptime\": 3600} use \"uptime\" as path. The value should be a number in seconds. Use `uptime_calc` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("uptime_calc", _("If the uptime value is not directly available in the payload, you can use this parameter to calculate the uptime value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the uptime value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+
+    ioDoc->paramAdd("ip_address_topic", _("The topic on witch to publish the IP address of the sensor. If not set, no IP address will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("ip_address_path", _("The path where to find the IP address of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value should be a string with the IP address."), IODoc::TYPE_STRING, false);
+
+    ioDoc->paramAdd("wifi_ssid_topic", _("The topic on witch to publish the WiFi SSID of the sensor. If not set, no WiFi SSID will be reported."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wifi_ssid_path", _("The path where to find the WiFi SSID where the sensor is connected in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value should be a string with the WiFi SSID."), IODoc::TYPE_STRING, false);
 }
 
 // Does a topic match a subscription?

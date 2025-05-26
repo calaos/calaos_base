@@ -28,6 +28,7 @@
 #include "WebCtrl.h"
 #include "jansson.h"
 #include "IOFactory.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -56,7 +57,7 @@ void MqttInputAnalog::readValue()
     v = ctrl->getValueDouble(get_params(), err);
     if (!err && v != value)
     {
-        value = v;
+        value = AnalogIO::convertValue(get_params(), v);
         emitChange();
     }
 }

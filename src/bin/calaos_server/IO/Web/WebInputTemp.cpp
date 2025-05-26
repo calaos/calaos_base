@@ -27,6 +27,7 @@
 #include "WebCtrl.h"
 #include "jansson.h"
 #include "IOFactory.h"
+#include "AnalogIO.h"
 
 using namespace Calaos;
 
@@ -46,7 +47,7 @@ WebInputTemp::WebInputTemp(Params &p):
     if (!get_param("path").empty())
     {
         // Add input to WebCtrl instance
-        WebCtrl::Instance(p).Add(get_param("path"), readTime, [=]()
+        WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
         {
             readValue();
             Calaos::StartReadRules::Instance().ioRead();
@@ -67,7 +68,7 @@ void WebInputTemp::readValue()
         double v = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
         if (v != value)
         {
-            value = v;
+            value = AnalogIO::convertValue(get_params(), v);
             emitChange();
         }
     }
