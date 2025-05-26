@@ -132,8 +132,6 @@ void InputTemp::hasChanged()
         timer = Utils::getMainLoopTime();
 
         readValue();
-
-        Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
     }
 }
 
@@ -145,6 +143,8 @@ double InputTemp::get_value_double()
 void InputTemp::emitChange()
 {
     cInfoDom("input") << get_param("id") << ": " << get_value_double() << " °C";
+
+    Config::Instance().SaveValueIO(get_param("id"), Utils::to_string(value), false);
 
     EmitSignalIO();
 
