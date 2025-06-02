@@ -66,6 +66,8 @@ public:
         EventTouchScreenCamera, //event sent to a client to wake up and display required camera on screen
 
         EventPushNotification, //event that is sent to a mobile device
+
+        EventIOStatusChanged, //IO status changed, used for IO that have a status (like battery level, etc)
     };
 
     CalaosEvent();
@@ -101,6 +103,7 @@ public:
     //create an event and give it to the EventManager
     static CalaosEvent create(int type, bool logHistory = true);
     static CalaosEvent create(int type, Params p, bool logHistory = true);
+    static CalaosEvent create(int type, string ioId, Params p, bool logHistory = true);
 
 private:
     EventManager();

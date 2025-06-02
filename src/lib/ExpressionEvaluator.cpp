@@ -12,6 +12,7 @@ bool ExpressionEvaluator::isExpressionValid(const std::string &expression)
 
     symbol_table_t symbol_table;
     symbol_table.add_variable("x", x);
+    symbol_table.add_variable("value", x);
 
     expression_t expr;
     expr.register_symbol_table(symbol_table);
@@ -38,6 +39,7 @@ double ExpressionEvaluator::calculateExpression(const std::string &expression, d
 
     symbol_table_t symbol_table;
     symbol_table.add_variable("x", rawValue);
+    symbol_table.add_variable("value", rawValue);
 
     expression_t expr;
     expr.register_symbol_table(symbol_table);
@@ -69,27 +71,51 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
     typedef exprtk::expression<double>   expression_t;
     typedef exprtk::parser<double>       parser_t;
 
-    bool result = false;
+    bool result  = false;
     failed = true;
 
-    symbol_table_t symbol_table;
+    // 1) quick check: must contain a boolean operator
+    static const std::vector<std::string> bool_ops =
+      { "==", "!=", "<=", ">=", " and ", " or ", "<", ">" };
+    bool has_bool_op = false;
+    for (auto &op : bool_ops)
+      if (expression.find(op) != std::string::npos)
+      {
+        has_bool_op = true;
+        break;
+      }
+    if (!has_bool_op)
+    {
+      cWarningDom("expr")
+        << "No boolean operator in expression: " << expression;
+      return false;
+    }
 
-    // Add string variable for comparisons like "value == 'connected'"
-    std::string value_str = rawValue;
-    symbol_table.add_stringvar("value", value_str);
-
-    // Try to convert rawValue to double for numeric comparisons
-    double value_num = 0.0;
+    // 2) detect rawValue type
+    double  value_num = 0.0;
+    bool    is_numeric = true;
     try
     {
-        value_num = std::stod(rawValue);
-        symbol_table.add_variable("value", value_num);
+      value_num = std::stod(rawValue);
     }
-    catch (const std::exception&)
+    catch (...)
     {
-        // If conversion fails, just use string comparison
-        double zero_value = 0.0;
-        symbol_table.add_variable("value", zero_value);
+      is_numeric = false;
+    }
+
+    symbol_table_t symbol_table;
+    if (is_numeric)
+    {
+      // only numeric
+      symbol_table.add_variable("x",     value_num);
+      symbol_table.add_variable("value", value_num);
+    }
+    else
+    {
+      // only string
+      std::string value_str = rawValue;
+      symbol_table.add_stringvar("x",     value_str);
+      symbol_table.add_stringvar("value", value_str);
     }
 
     expression_t expr;
@@ -99,7 +125,8 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
 
     if (!parser.compile(expression, expr))
     {
-        cWarningDom("expr") << "Invalid boolean expression: " << parser.error();
+        cWarningDom("expr") << "Invalid boolean expression: "
+                            << parser.error();
         return result;
     }
 
@@ -112,7 +139,8 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
     }
     catch (const std::exception &e)
     {
-        cWarningDom("expr") << "Error evaluating boolean expression: " << e.what();
+        cWarningDom("expr") << "Error evaluating boolean expression: "
+                            << e.what();
     }
 
     return result;

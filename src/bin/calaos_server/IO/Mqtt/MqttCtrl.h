@@ -9,6 +9,7 @@
 
 #include "Calaos.h"
 #include "ExternProc.h"
+#include "IOBase.h"
 
 class MqttCtrl : public sigc::trackable
 {
@@ -18,11 +19,13 @@ public:
 
     static void commonDoc(IODoc *ioDoc);
 
-    void subscribeTopic(const string topic, sigc::slot<void, string, string> callback);
+    typedef sigc::slot<void, string, string> MsgReceivedSignal;
+
+    void subscribeTopic(const string topic, MsgReceivedSignal callback);
     void publishTopic(const string topic, const string payload);
 
     string getValueJson(const Params &params,string path, string payload);
-    string getValue(const Params &params, bool &err, string path = "path");
+    string getValue(const Params &params, bool &err, string topic_param, string path_param = "path");
     double getValueDouble(const Params &params, bool &err);
     ColorValue getValueColor(const Params &params, bool &err);
 
@@ -33,11 +36,15 @@ public:
 
     bool topicMatchesSubscription(string subscription, string topic);
 
+    //register all special topics that are used to status updates (battery, online, etc.)
+    //It's only used for sensors that have topics sets for battery, online, etc.
+    void subscribeStatusTopics(Calaos::IOBase *io);
+
 private:
     ExternProcServer *process;
     string exe;
 
-    unordered_map<string, vector<sigc::slot<void, string, string>>> subscribeCb;
+    unordered_map<string, vector<MsgReceivedSignal>> subscribeCb;
     unordered_map<string, string> messages;
 
     bool connected = false;

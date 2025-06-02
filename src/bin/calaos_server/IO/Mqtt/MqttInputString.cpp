@@ -47,13 +47,15 @@ MqttInputString::MqttInputString(Params &p):
         readValue();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("input") << "MqttInputString::MqttInputString()";
 }
 
 void MqttInputString::readValue()
 {
     bool err;
-    string v = ctrl->getValue(get_params(), err);
+    string v = ctrl->getValue(get_params(), err, "topic_sub");
     if (!err && v != value)
     {
         value = v;

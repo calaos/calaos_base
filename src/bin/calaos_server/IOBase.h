@@ -34,11 +34,31 @@ class AutoScenario;
 
 class IOBase
 {
+public:
+    enum class StatusConnected
+    {
+        STATUS_NONE = 0,
+        STATUS_DISCONNECTED = 1,
+        STATUS_CONNECTED = 2,
+    };
+
 protected:
     //we store all params here
     Params param;
 
     IODoc *ioDoc = nullptr;
+
+    struct StatusInfo
+    {
+        double battery_level = 0.0; // Battery level in percentage
+        StatusConnected connected = StatusConnected::STATUS_NONE; // True if the device is connected
+        double wireless_signal = 0.0; // Wireless signal strength in percentage
+        uint64_t uptime = 0; // Uptime in seconds
+        string ip_address; // IP address of the device
+        string wifi_ssid; // WiFi SSID if connected to WiFi
+    };
+
+    StatusInfo status_info;
 
 private:
     bool auto_sc_mark;
@@ -115,6 +135,33 @@ public:
     //like if shutter is open or is light on
     //Note: this is only used for TSTRING outputs
     virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
+
+    enum class StatusType
+    {
+        BatteryLevel,
+        Connected,
+        WirelessSignal,
+        Uptime,
+        IpAddress,
+        WifiSSID
+    };
+
+    void setStatusInfo(StatusType type, double value);
+    void setStatusInfo(StatusType type, const string &value);
+    void setStatusInfo(StatusType type, StatusConnected value);
+    void setStatusInfo(StatusType type, uint64_t value);
+
+    bool hasStatusInfo() const
+    {
+        return status_info.battery_level != 0.0 ||
+               status_info.connected != StatusConnected::STATUS_NONE ||
+               status_info.wireless_signal != 0.0 ||
+               status_info.uptime != 0 ||
+               !status_info.ip_address.empty() ||
+               !status_info.wifi_ssid.empty();
+    }
+
+    Params getStatusInfo() const;
 };
 
 }

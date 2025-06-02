@@ -53,13 +53,15 @@ MqttInputSwitch::MqttInputSwitch(Params &p):
         hasChanged();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("input") << "MqttInputSwitch::MqttInputSwitch()";
 }
 
 bool MqttInputSwitch::readValue()
 {
     bool err;
-    string sv = ctrl->getValue(get_params(), err);
+    string sv = ctrl->getValue(get_params(), err, "topic_sub");
 
     if (err)
         return false;

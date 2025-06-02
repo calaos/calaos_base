@@ -50,6 +50,8 @@ MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
         readValue();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("output") << "MqttOutputLightRGB::MqttOutputLightRGB()";
 }
 

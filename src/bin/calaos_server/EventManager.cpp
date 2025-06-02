@@ -121,6 +121,19 @@ CalaosEvent EventManager::create(int type, Params p, bool logHistory)
     return ev;
 }
 
+CalaosEvent EventManager::create(int type, string ioId, Params p, bool logHistory)
+{
+    CalaosEvent ev;
+    ev.evType = type;
+    ev.evParams = p;
+    ev.logHistory = logHistory;
+    ev.evParams.Add("id", ioId);
+
+    EventManager::Instance().appendEvent(ev);
+
+    return ev;
+}
+
 CalaosEvent::CalaosEvent()
 {
 }
@@ -157,6 +170,8 @@ string CalaosEvent::typeToString(int type)
     case EventTouchScreenCamera: return "touchscreen_camera_request";
 
     case EventPushNotification: return "push_notif";
+
+    case EventIOStatusChanged: return "io_status_changed";
 
     default: break;
     }

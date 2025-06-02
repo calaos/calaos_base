@@ -76,6 +76,10 @@ void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
         json_object_set_new(jio, param.c_str(),
                             json_string(value.c_str()));
     }
+
+    auto jstatus = buildJsonStatusInfo(io);
+    if (jstatus)
+        json_object_set_new(jio, "status_info", jstatus);
 }
 
 json_t *JsonApi::buildJsonRoomIO(Room *room)
@@ -1693,4 +1697,23 @@ bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, 
     sync();
 
     return true;
+}
+
+json_t *JsonApi::buildJsonStatusInfo(IOBase *io)
+{
+    if (!io || !io->hasStatusInfo()) return nullptr;
+
+    json_t *jret = json_object();
+
+    Params p = io->getStatusInfo();
+
+    for (int i = 0;i < p.size();i++)
+    {
+        string key, value;
+        p.get_item(i, key, value);
+
+        json_object_set_new(jret, key.c_str(), json_string(value.c_str()));
+    }
+
+    return jret;
 }

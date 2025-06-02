@@ -43,5 +43,11 @@ ColorValue_test_SOURCES = ColorValue_test.cpp
 ColorValue_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la
 
+TESTS += ExpressionEvaluator_test
+check_PROGRAMS += ExpressionEvaluator_test
+ExpressionEvaluator_test_SOURCES = ExpressionEvaluator_test.cpp
+ExpressionEvaluator_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
 endif
 

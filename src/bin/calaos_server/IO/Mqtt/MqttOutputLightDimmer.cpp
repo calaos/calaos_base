@@ -47,6 +47,8 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
         readValue();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
 }
 

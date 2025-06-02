@@ -78,6 +78,8 @@ public:
 
     json_t *buildJsonGetIO(vector<string> iolist);
 
+    json_t *buildJsonStatusInfo(IOBase *io);
+
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
     bool registerPushToken(const Params &jParam);
 

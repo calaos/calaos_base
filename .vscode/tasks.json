@@ -74,6 +74,18 @@
                 "build"
             ],
             "group": "build"
+        },
+
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "make check",
+            "options": {
+                "cwd": "${workspaceFolder}/_build"
+            },
+            "dependsOn": [
+                "build"
+            ]
         }
     ]
 }

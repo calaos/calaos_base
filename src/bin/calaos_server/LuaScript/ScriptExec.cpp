@@ -150,7 +150,8 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
             if (ev.getType() == CalaosEvent::EventIOAdded ||
                 ev.getType() == CalaosEvent::EventIODeleted ||
                 ev.getType() == CalaosEvent::EventIOChanged ||
-                ev.getType() == CalaosEvent::EventIOPropertyDelete)
+                ev.getType() == CalaosEvent::EventIOPropertyDelete ||
+                ev.getType() == CalaosEvent::EventIOStatusChanged)
             {
                 json_t *jev = json_object();
                 json_object_set_new(jev, "msg", json_string("event"));

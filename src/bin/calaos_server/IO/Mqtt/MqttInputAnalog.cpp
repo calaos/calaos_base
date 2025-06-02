@@ -47,6 +47,8 @@ MqttInputAnalog::MqttInputAnalog(Params &p):
         readValue();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
 }
 

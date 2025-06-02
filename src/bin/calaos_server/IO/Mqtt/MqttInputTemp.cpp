@@ -48,6 +48,10 @@ MqttInputTemp::MqttInputTemp(Params &p):
     {
         readValue();
     });
+
+    ctrl->subscribeStatusTopics(this);
+
+    cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
 }
 
 void MqttInputTemp::readValue()

@@ -72,8 +72,11 @@ MqttCtrl::MqttCtrl(const Params &params)
             {
                 cDebugDom("mqtt") << "New message received on topic " << msg;
 
-                auto cb = it.second[0];
-                cb(p["topic"], p["payload"]);
+                // Call the all registered callbacks for this topic
+                for (auto &callback : it.second)
+                {
+                    callback(p["topic"], p["payload"]);
+                }
             }
         }
 
@@ -86,10 +89,10 @@ MqttCtrl::~MqttCtrl()
 {
 }
 
-void MqttCtrl::subscribeTopic(const string topic, sigc::slot<void, string, string> callback)
+void MqttCtrl::subscribeTopic(const string topic, MsgReceivedSignal callback)
 {
     // subscribeCb contains a map of list of callbacks, register this callback to the key relative of this topic
-    cDebugDom("mqtt") << "Topic : " << topic;
+    cDebugDom("mqtt") << "subscribeTopic : " << topic;
     if (topic == "")
     {
         cErrorDom("mqtt") << "Topic is empty !";
@@ -208,27 +211,27 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
     return value;
 }
 
-string MqttCtrl::getValue(const Params &params, bool &err, string path)
+string MqttCtrl::getValue(const Params &params, bool &err, string topic_param, string path_param)
 {
     string type = params["type"];
 
-    if (!params.Exists("topic_sub") || !params.Exists(path))
+    if (!params.Exists(topic_param))
     {
-        cDebugDom("mqtt") << "Topic or path does not exists" << params["topic_sub"] << " " << params[path];
+        cDebugDom("mqtt") << "Topic does not exists \"" << topic_param << "\" in params";
         err = true;
         return "";
     }
 
-    string payload = messages[params["topic_sub"]];
+    string payload = messages[params[topic_param]];
 
     if (payload.empty())
     {
-        cDebugDom("mqtt") << "No message received for topic " << params["topic_sub"] << " yet";
+        cDebugDom("mqtt") << "No message received for topic " << params[topic_param] << " yet";
         err = true;
         return "";
     }
     err = false;
-    return getValueJson(params, params[path], payload);
+    return getValueJson(params, params[path_param], payload);
 }
 
 double MqttCtrl::getValueDouble(const Params &params, bool &err)
@@ -237,7 +240,7 @@ double MqttCtrl::getValueDouble(const Params &params, bool &err)
     string value;
     err = true;
 
-    value = getValue(params, err);
+    value = getValue(params, err, "topic_sub");
 
     if (Utils::is_of_type<double>(value) && !value.empty())
     {
@@ -255,7 +258,7 @@ ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
     int b;
     err = true;
 
-    value = getValue(params, err, "path_x");
+    value = getValue(params, err, "topic_sub", "path_x");
 
     if (Utils::is_of_type<double>(value) && !value.empty())
     {
@@ -263,7 +266,7 @@ ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
         err = false;
     }
 
-    value = getValue(params, err, "path_y");
+    value = getValue(params, err, "topic_sub", "path_y");
 
     if (Utils::is_of_type<double>(value) && !value.empty())
     {
@@ -271,7 +274,7 @@ ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
         err = false;
     }
 
-    value = getValue(params, err, "path_brightness");
+    value = getValue(params, err, "topic_sub", "path_brightness");
 
     if (Utils::is_of_type<int>(value) && !value.empty())
     {
@@ -412,20 +415,20 @@ void MqttCtrl::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("path", _("The path where to find the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is simple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path"), IODoc::TYPE_STRING, true);
 
     ioDoc->paramAdd("battery_topic", _("The topic on witch to publish the battery status of the sensor. If not set, no battery status will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("battery_path", _("The path where to find the battery status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json object, just try to use the key of the value you want to read, for example : {\"battery\":90} use \"battery\" as path. When this path is set, and the level drops below 30%. The battery reported should be in percent. Use `battery_calc` to adjust if required."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("battery_calc", _("If the battery value is not directly available in the payload, you can use this parameter to calculate the battery value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the battery value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("battery_path", _("The path where to find the battery status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json object, just try to use the key of the value you want to read, for example : {\"battery\":90} use \"battery\" as path. When this path is set, and the level drops below 30%. The battery reported should be in percent. Use `battery_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("battery_expr", _("If the battery value is not directly available in the payload, you can use this parameter to calculate the battery value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the battery value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("connected_status_topic", _("The topic on witch to publish the connected status of the sensor. If not set, no connected status will be reported."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("connected_status_path", _("The path where to find the connected status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"connected\":true} use \"connected\" as path. The value should be a boolean. Use connected_status_expr to convert to a boolean"), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("connected_status_expr", _("If the connected status value is not directly available in the payload, you can use this parameter to convert the value from the path to a boolean. The value will be calculated as any valid mathematic expression. In the expression, the variable `value` is replaced with the raw value from path. If not set, the connected status will be read directly from the path. Example: \"value == 'connected'\" or \"value > 30 && value < 150\" or \"value == 'on' || value > 50\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("wireless_signal_topic", _("The topic on witch to publish the wireless signal strength of the sensor. If not set, no wireless signal strength will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("wireless_signal_path", _("The path where to find the wireless signal strength in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"signal\": 70} use \"signal\" as path. The value should be a number in percent. Use `wireless_signal_calc` to adjust if required."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("wireless_signal_calc", _("If the wireless signal value is not directly available in the payload, you can use this parameter to calculate the wireless signal value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the wireless signal value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wireless_signal_path", _("The path where to find the wireless signal strength in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"signal\": 70} use \"signal\" as path. The value should be a number in percent. Use `wireless_signal_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wireless_signal_expr", _("If the wireless signal value is not directly available in the payload, you can use this parameter to calculate the wireless signal value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the wireless signal value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("uptime_topic", _("The topic on witch to publish the uptime of the sensor. If not set, no uptime will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("uptime_path", _("The path where to find the uptime of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"uptime\": 3600} use \"uptime\" as path. The value should be a number in seconds. Use `uptime_calc` to adjust if required."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("uptime_calc", _("If the uptime value is not directly available in the payload, you can use this parameter to calculate the uptime value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the uptime value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("uptime_path", _("The path where to find the uptime of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"uptime\": 3600} use \"uptime\" as path. The value should be a number in seconds. Use `uptime_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("uptime_expr", _("If the uptime value is not directly available in the payload, you can use this parameter to calculate the uptime value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the uptime value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("ip_address_topic", _("The topic on witch to publish the IP address of the sensor. If not set, no IP address will be reported."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("ip_address_path", _("The path where to find the IP address of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value should be a string with the IP address."), IODoc::TYPE_STRING, false);
@@ -587,4 +590,203 @@ bool MqttCtrl::topicMatchesSubscription(string s, string t)
     }
 
     return result;
+}
+
+void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
+{
+    auto &params = io->get_params();
+
+    // Subscribe to the status topics if they are defined
+    if (params.Exists("battery_topic"))
+    {
+        subscribeTopic(params["battery_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "battery_topic", "battery_path");
+            if (!err)
+            {
+                double rawValue;
+                Utils::from_string(v, rawValue);
+
+                if (params.Exists("battery_expr") &&
+                    ExpressionEvaluator::isExpressionValid(params["battery_expr"]))
+                {
+                    double dval = ExpressionEvaluator::calculateExpression(params["battery_expr"], rawValue, err);
+
+                    if (!err)
+                    {
+                        cDebugDom("mqtt") << "Battery value calculated: " << dval;
+
+                        io->setStatusInfo(IOBase::StatusType::BatteryLevel, dval);
+
+                        EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                    }
+                }
+                else
+                {
+                    cDebugDom("mqtt") << "Battery value read directly from path: " << v;
+
+                    io->setStatusInfo(IOBase::StatusType::BatteryLevel, rawValue);
+
+                    EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                }
+            }
+        });
+    }
+
+    if (params.Exists("connected_status_topic"))
+    {
+        subscribeTopic(params["connected_status_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "connected_status_topic", "connected_status_path");
+            if (!err)
+            {
+                bool devconnected = false;
+
+                if (params.Exists("connected_status_expr"))
+                    devconnected = ExpressionEvaluator::evaluateExpressionBool(params["connected_status_expr"], v, err);
+                else
+                    err = true;
+
+                if (!err)
+                {
+                    cDebugDom("mqtt") << "Connected status evaluated using \"" << params["connected_status_expr"] << "\" with value=" << v << " : " << devconnected;
+
+                    io->setStatusInfo(IOBase::StatusType::Connected, devconnected? IOBase::StatusConnected::STATUS_CONNECTED : IOBase::StatusConnected::STATUS_DISCONNECTED);
+                    EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                            io->get_param("id"),
+                                            io->getStatusInfo());
+                }
+                else
+                {
+                    cDebugDom("mqtt") << "Connected status read directly from path: " << v;
+
+                    devconnected = (v == "true" || v == "1" || v == "yes");
+                    io->setStatusInfo(IOBase::StatusType::Connected, devconnected? IOBase::StatusConnected::STATUS_CONNECTED : IOBase::StatusConnected::STATUS_DISCONNECTED);
+                    EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                }
+            }
+        });
+    }
+
+    if (params.Exists("wireless_signal_topic"))
+    {
+        subscribeTopic(params["wireless_signal_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "wireless_signal_topic", "wireless_signal_path");
+            if (!err)
+            {
+                double rawValue;
+                Utils::from_string(v, rawValue);
+
+                if (params.Exists("wireless_signal_expr") &&
+                    ExpressionEvaluator::isExpressionValid(params["wireless_signal_expr"]))
+                {
+                    double dval = ExpressionEvaluator::calculateExpression(params["wireless_signal_expr"], rawValue, err);
+
+                    if (!err)
+                    {
+                        cDebugDom("mqtt") << "Wireless signal value calculated: " << dval;
+
+                        io->setStatusInfo(IOBase::StatusType::WirelessSignal, dval);
+                        EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                    }
+                }
+                else
+                {
+                    cDebugDom("mqtt") << "Wireless signal value read directly from path: " << v;
+
+                    io->setStatusInfo(IOBase::StatusType::WirelessSignal, rawValue);
+                    EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                }
+            }
+        });
+    }
+
+    if (params.Exists("uptime_topic"))
+    {
+        subscribeTopic(params["uptime_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "uptime_topic", "uptime_path");
+            if (!err)
+            {
+                double rawValue;
+                Utils::from_string(v, rawValue);
+
+                if (params.Exists("uptime_expr") &&
+                    ExpressionEvaluator::isExpressionValid(params["uptime_expr"]))
+                {
+                    double dval = ExpressionEvaluator::calculateExpression(params["uptime_expr"], rawValue, err);
+
+                    if (!err)
+                    {
+                        cDebugDom("mqtt") << "Uptime value calculated: " << dval;
+
+                        io->setStatusInfo(IOBase::StatusType::Uptime, static_cast<uint64_t>(dval));
+                        EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                    }
+                }
+                else
+                {
+                    cDebugDom("mqtt") << "Uptime value read directly from path: " << v;
+
+                    io->setStatusInfo(IOBase::StatusType::Uptime, static_cast<uint64_t>(rawValue));
+                    EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+                }
+            }
+        });
+    }
+
+    if (params.Exists("ip_address_topic"))
+    {
+        subscribeTopic(params["ip_address_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "ip_address_topic", "ip_address_path");
+            if (!err)
+            {
+                cDebugDom("mqtt") << "IP address read from path: " << v;
+
+                io->setStatusInfo(IOBase::StatusType::IpAddress, v);
+                EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+            }
+        });
+    }
+
+    if (params.Exists("wifi_ssid_topic"))
+    {
+        subscribeTopic(params["wifi_ssid_topic"], [=](string, string)
+        {
+            bool err;
+            auto v = getValue(params, err, "wifi_ssid_topic", "wifi_ssid_path");
+            if (!err)
+            {
+                cDebugDom("mqtt") << "WiFi SSID read from path: " << v;
+
+                io->setStatusInfo(IOBase::StatusType::WifiSSID, v);
+                EventManager::create(CalaosEvent::EventIOStatusChanged,
+                                             io->get_param("id"),
+                                             io->getStatusInfo());
+            }
+        });
+    }
 }

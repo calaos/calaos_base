@@ -49,13 +49,15 @@ MqttOutputLight::MqttOutputLight(Params &p):
         readValue();
     });
 
+    ctrl->subscribeStatusTopics(this);
+
     cInfoDom("output") << "MqttOutputLight::MqttOutputLight()";
 }
 
 void MqttOutputLight::readValue()
 {
     bool err;
-    auto val = ctrl->getValue(get_params(), err);
+    auto val = ctrl->getValue(get_params(), err, "topic_sub");
 
     if (err)
         return;

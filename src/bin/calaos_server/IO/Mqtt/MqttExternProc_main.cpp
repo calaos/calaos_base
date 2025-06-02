@@ -86,8 +86,6 @@ void MqttClient::on_subcribe(int mid, int qos_count, const int *granted_qos)
 
 void MqttClient::on_message(const struct mosquitto_message *message)
 {
-    cDebugDom("mqtt") << "New message received";
-
     // Call all callback registered for this topic
     for(auto cb : subscribeCb)
     {
@@ -97,7 +95,7 @@ void MqttClient::on_message(const struct mosquitto_message *message)
 
 void MqttClient::on_log(int level, const char *str)
 {
-    cDebugDom("mqtt") << str;
+    // cDebugDom("mqtt") << str;
 }
 
 void MqttClient::on_error()
@@ -151,7 +149,7 @@ void MqttProcess::messageReceived(const string &msg)
     Params p;
     jansson_decode_object(jroot, p);
     m_client->publishTopic(p["topic"].c_str(), p["payload"].c_str());
-    cDebugDom("mqtt") << "Message recieved : " << msg;
+    // cDebugDom("mqtt") << "Message recieved : " << msg;
     json_decref(jroot);
 }
 
@@ -168,7 +166,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
     if (!connectSocket())
     {
         cError() << "process cannot connect to calaos_server";
-        //return false;
+        return false;
     }
 
     mosqpp::lib_init();
@@ -239,7 +237,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
         json_t *root = json_object();
         json_object_set_new(root, "topic", json_string(m->topic));
         json_object_set_new(root, "payload", json_string((const char*)m->payload));
-        cDebugDom("mqtt") << "Send : " << json_dumps(root, 0);
+        // cDebugDom("mqtt") << "Send : " << json_dumps(root, 0);
         sendMessage(json_dumps(root, 0));
         json_decref(root);
     });
@@ -249,7 +247,7 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
 bool MqttProcess::handleFdSet(int fd)
 {
-    cDebugDom("mqtt") << "Data received : " << fd;
+    // cDebugDom("mqtt") << "Data received : " << fd;
     m_client->loop(0, 1);
     return true;
 }

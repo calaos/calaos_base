@@ -88,3 +88,74 @@ bool IOBase::SaveToXml(TiXmlElement *node)
 
     return true;
 }
+
+void IOBase::setStatusInfo(StatusType type, double value)
+{
+    switch (type)
+    {
+        case StatusType::BatteryLevel:
+            status_info.battery_level = value;
+            break;
+        case StatusType::WirelessSignal:
+            status_info.wireless_signal = value;
+            break;
+        default:
+            cWarningDom("iobase") << "setStatusInfo: Unsupported status type for double value: " << static_cast<int>(type);
+            break;
+    }
+}
+
+void IOBase::setStatusInfo(StatusType type, const string &value)
+{
+    switch (type)
+    {
+        case StatusType::IpAddress:
+            status_info.ip_address = value;
+            break;
+        case StatusType::WifiSSID:
+            status_info.wifi_ssid = value;
+            break;
+        default:
+            cWarningDom("iobase") << "setStatusInfo: Unsupported status type for string value: " << static_cast<int>(type);
+            break;
+    }
+}
+
+void IOBase::setStatusInfo(StatusType type, StatusConnected value)
+{
+    switch (type)
+    {
+        case StatusType::Connected:
+            status_info.connected = value;
+            break;
+        default:
+            cWarningDom("iobase") << "setStatusInfo: Unsupported status type for bool value: " << static_cast<int>(type);
+            break;
+    }
+}
+
+void IOBase::setStatusInfo(StatusType type, uint64_t value)
+{
+    switch (type)
+    {
+        case StatusType::Uptime:
+            status_info.uptime = value;
+            break;
+        default:
+            cWarningDom("iobase") << "setStatusInfo: Unsupported status type for uint64_t value: " << static_cast<int>(type);
+            break;
+    }
+}
+
+Params IOBase::getStatusInfo() const
+{
+    Params status;
+    if (status_info.battery_level > 0.0) status.Add("battery_level", Utils::to_string(status_info.battery_level));
+    if (status_info.connected != StatusConnected::STATUS_NONE)
+        status.Add("connected", status_info.connected == StatusConnected::STATUS_CONNECTED ? "true" : "false");
+    if (status_info.wireless_signal > 0.0) status.Add("wireless_signal", Utils::to_string(status_info.wireless_signal));
+    if (status_info.uptime > 0) status.Add("uptime", Utils::to_string(status_info.uptime));
+    if (!status_info.ip_address.empty()) status.Add("ip_address", status_info.ip_address);
+    if (!status_info.wifi_ssid.empty()) status.Add("wifi_ssid", status_info.wifi_ssid);
+    return status;
+}
