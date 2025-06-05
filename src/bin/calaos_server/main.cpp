@@ -28,7 +28,6 @@
 #include "NTPClock.h"
 #include "WagoMap.h"
 #include "HttpServer.h"
-#include "Zibase.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
@@ -202,9 +201,6 @@ int main (int argc, char **argv)
 
     //Stop all wagomaps and wait for their threads to terminate correctly.
     WagoMap::stopAllWagoMaps();
-
-    //Stop all zibase
-    Zibase::stopAllZibase();
 
     //Clean up evrything
     delete eventLoop;

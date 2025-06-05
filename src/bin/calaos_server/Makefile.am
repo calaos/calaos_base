@@ -20,14 +20,9 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/Teleinfo     \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/xPL          \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/xPL/xPLLib   \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
         -I$(top_srcdir)/src/bin/calaos_server/IO              \
         -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
         -I$(top_srcdir)/src/bin/calaos_server/LuaScript       \
@@ -165,29 +160,25 @@ calaos_server_SOURCES = \
         IO/LAN/PingInputSwitch.h                        \
         IO/LAN/WOLOutputBool.cpp                        \
         IO/LAN/WOLOutputBool.h                          \
-        IO/LimitlessLED/Milight.h                       \
-        IO/LimitlessLED/Milight.cpp                     \
-        IO/LimitlessLED/MilightOutputLightRGB.h         \
-        IO/LimitlessLED/MilightOutputLightRGB.cpp       \
-        IO/Mqtt/MqttBrokersList.h                        \
-        IO/Mqtt/MqttBrokerslist.cpp                        \
-        IO/Mqtt/MqttCtrl.h                                \
-        IO/Mqtt/MqttCtrl.cpp                                \
-        IO/Mqtt/MqttInputAnalog.h                        \
-        IO/Mqtt/MqttInputAnalog.cpp                        \
-        IO/Mqtt/MqttInputString.h                        \
-        IO/Mqtt/MqttInputString.cpp                        \
-        IO/Mqtt/MqttInputSwitch.h                        \
-        IO/Mqtt/MqttInputSwitch.cpp                        \
-        IO/Mqtt/MqttInputTemp.h                                \
-        IO/Mqtt/MqttInputTemp.cpp                        \
-        IO/Mqtt/MqttOutputAnalog.h                        \
-        IO/Mqtt/MqttOutputAnalog.cpp                        \
-        IO/Mqtt/MqttOutputLight.h                        \
-        IO/Mqtt/MqttOutputLight.cpp                        \
-        IO/Mqtt/MqttOutputLightDimmer.h                        \
-        IO/Mqtt/MqttOutputLightDimmer.cpp                \
-        IO/Mqtt/MqttOutputLightRGB.h                        \
+        IO/Mqtt/MqttBrokersList.h                       \
+        IO/Mqtt/MqttBrokerslist.cpp                     \
+        IO/Mqtt/MqttCtrl.h                              \
+        IO/Mqtt/MqttCtrl.cpp                            \
+        IO/Mqtt/MqttInputAnalog.h                       \
+        IO/Mqtt/MqttInputAnalog.cpp                     \
+        IO/Mqtt/MqttInputString.h                       \
+        IO/Mqtt/MqttInputString.cpp                     \
+        IO/Mqtt/MqttInputSwitch.h                       \
+        IO/Mqtt/MqttInputSwitch.cpp                     \
+        IO/Mqtt/MqttInputTemp.h                         \
+        IO/Mqtt/MqttInputTemp.cpp                       \
+        IO/Mqtt/MqttOutputAnalog.h                      \
+        IO/Mqtt/MqttOutputAnalog.cpp                    \
+        IO/Mqtt/MqttOutputLight.h                       \
+        IO/Mqtt/MqttOutputLight.cpp                     \
+        IO/Mqtt/MqttOutputLightDimmer.h                 \
+        IO/Mqtt/MqttOutputLightDimmer.cpp               \
+        IO/Mqtt/MqttOutputLightRGB.h                    \
         IO/Mqtt/MqttOutputLightRGB.cpp                  \
         IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
@@ -249,10 +240,6 @@ calaos_server_SOURCES = \
         IO/OutputString.h                               \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
-        IO/Teleinfo/TeleinfoCtrl.cpp                    \
-        IO/Teleinfo/TeleinfoCtrl.h                      \
-        IO/Teleinfo/TeleinfoInputAnalog.cpp             \
-        IO/Teleinfo/TeleinfoInputAnalog.h               \
         IO/Wago/WIAnalog.cpp                            \
         IO/Wago/WIAnalog.h                              \
         IO/Wago/WIDigitalBP.cpp                         \
@@ -303,52 +290,6 @@ calaos_server_SOURCES = \
         IO/Web/WebOutputAnalog.cpp                      \
         IO/Web/WebDocBase.h                             \
         IO/Web/WebDocBase.cpp                           \
-        IO/X10/X10Output.cpp                            \
-        IO/X10/X10Output.h                              \
-        IO/xPL/xPLDocBase.cpp                           \
-        IO/xPL/xPLDocBase.h                             \
-        IO/xPL/xPLController.cpp                        \
-        IO/xPL/xPLController.h                          \
-        IO/xPL/xPLInputAnalog.cpp                       \
-        IO/xPL/xPLInputAnalog.h                         \
-        IO/xPL/xPLInputString.cpp                       \
-        IO/xPL/xPLInputString.h                         \
-        IO/xPL/xPLInputSwitch.cpp                       \
-        IO/xPL/xPLInputSwitch.h                         \
-        IO/xPL/xPLInputTemp.cpp                         \
-        IO/xPL/xPLInputTemp.h                           \
-        IO/xPL/xPLOutputAnalog.cpp                      \
-        IO/xPL/xPLOutputAnalog.h                        \
-        IO/xPL/xPLOutputString.cpp                      \
-        IO/xPL/xPLOutputString.h                        \
-        IO/xPL/xPLOutputSwitch.cpp                      \
-        IO/xPL/xPLOutputSwitch.h                        \
-        IO/xPL/xPLLib/Address.cpp                       \
-        IO/xPL/xPLLib/Address.h                         \
-        IO/xPL/xPLLib/xPLDevice.cpp                     \
-        IO/xPL/xPLLib/xPLDevice.h                       \
-        IO/xPL/xPLLib/Schemas/SchemaObject.cpp          \
-        IO/xPL/xPLLib/Schemas/SchemaObject.h            \
-        IO/xPL/xPLLib/Schemas/SchemaHbeat.cpp           \
-        IO/xPL/xPLLib/Schemas/SchemaHbeat.h             \
-        IO/xPL/xPLLib/Schemas/SchemaConfig.cpp          \
-        IO/xPL/xPLLib/Schemas/SchemaConfig.h            \
-        IO/xPL/xPLLib/Schemas/SchemaSensor.cpp          \
-        IO/xPL/xPLLib/Schemas/SchemaSensor.h            \
-        IO/xPL/xPLLib/Schemas/SchemaControl.cpp         \
-        IO/xPL/xPLLib/Schemas/SchemaControl.h           \
-        IO/xPL/xPLLib/StringTools/StringTools.cpp       \
-        IO/xPL/xPLLib/StringTools/StringTools.h         \
-        IO/Zibase/Zibase.cpp                            \
-        IO/Zibase/Zibase.h                              \
-        IO/Zibase/ZibaseTemp.cpp                        \
-        IO/Zibase/ZibaseTemp.h                          \
-        IO/Zibase/ZibaseAnalogIn.cpp                    \
-        IO/Zibase/ZibaseAnalogIn.h                      \
-        IO/Zibase/ZibaseDigitalIn.cpp                   \
-        IO/Zibase/ZibaseDigitalIn.h                     \
-        IO/Zibase/ZibaseDigitalOut.cpp                  \
-        IO/Zibase/ZibaseDigitalOut.h                    \
         IOBase.cpp                                      \
         IOBase.h                                        \
         IPCam/Axis.cpp                                  \
