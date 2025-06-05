@@ -21,16 +21,16 @@
 #include "ActionMail.h"
 #include "ListeRoom.h"
 #include "IPCam.h"
-#include "Prefix.h"
-#include "libuvw.h"
-#include "UrlDownloader.h"
+#include "NotifManager.h"
 
 using namespace Calaos;
+
+static const char *TAG = "rule.action.mail";
 
 ActionMail::ActionMail():
     Action(ACTION_MAIL)
 {
-    cDebugDom("rule.action.mail") <<  "New Mail action";
+    cDebugDom(TAG) <<  "New Mail action";
 }
 
 ActionMail::~ActionMail()
@@ -46,14 +46,14 @@ bool ActionMail::Execute()
 
     if (camera)
     {
-        cInfoDom("rule.action.mail") <<  "Need to download camera ("
+        cInfoDom(TAG) <<  "Need to download camera ("
                                       << camera->get_param("name")
                                       << ") attachment";
 
         //Get a temporary filename
         mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
 
-        cDebug() << "DL URL: " << camera->getPictureUrl();
+        cDebugDom() << "DL URL: " << camera->getPictureUrl();
 
         UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
         dl->m_signalComplete.connect([this](int status)
@@ -67,8 +67,6 @@ bool ActionMail::Execute()
     else
     {
         sendMail();
-
-        cInfoDom("rule.action.mail") <<  "Ok, mail is in queue";
     }
 
     return true;
@@ -76,46 +74,11 @@ bool ActionMail::Execute()
 
 void ActionMail::sendMail()
 {
-    //Get a temporary filename
-    string tmpFile = Utils::getTmpFilename("tmp", "_mail_body");
-
-    //Write body message to a temp file
-    std::ofstream ofs;
-    ofs.open(tmpFile.c_str(), std::ofstream::trunc);
-    ofs << mail_message;
-    ofs.close();
-
-    vector<string> cmd;
-    cmd.push_back(Prefix::Instance().binDirectoryGet() + "/calaos_mail");
-    cmd.push_back("--delete"); //force temp file deletion after mail is sent
-    if (Utils::get_config_option("smtp_debug") == "true")
-        cmd.push_back("--verbose");
-    cmd.push_back("--from");
-    cmd.push_back(mail_sender);
-    cmd.push_back("--to");
-    cmd.push_back(mail_recipients);
-    cmd.push_back("--subject");
-    cmd.push_back(mail_subject);
-    cmd.push_back("--body");
-    cmd.push_back(tmpFile);
-
-    if (!mail_attachment_tfile.empty())
-    {
-        cmd.push_back("--attach");
-        cmd.push_back(mail_attachment_tfile);
-    }
-
-    auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exe->once<uvw::ExitEvent>([exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
-    exe->once<uvw::ErrorEvent>([exe](const uvw::ErrorEvent &ev, auto &)
-    {
-        cDebugDom("rule.action.mail") << "Process error: " << ev.what();
-        exe->close();
-    });
-
-    Utils::CStrArray arr(cmd);
-    cInfoDom("rule.action.mail") << "Executing command: " << arr.toString();
-    exe->spawn(arr.at(0), arr.data());
+    NotifManager::Instance().sendMailNotification(mail_subject,
+                                                  mail_message,
+                                                  mail_recipients,
+                                                  mail_sender,
+                                                  mail_attachment_tfile);
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

@@ -27,19 +27,22 @@
 #include "sole.hpp"
 #include "HistLogger.h"
 #include "EventManager.h"
+#include "NotifManager.h"
 
 using namespace Calaos;
+
+static const char *TAG = "rule.action.push";
 
 ActionPush::ActionPush():
     Action(ACTION_PUSH)
 {
-    cDebugDom("rule.action.push") <<  "New Push Notification action";
+    cDebugDom(TAG) <<  "New Push Notification action";
 }
 
 ActionPush::ActionPush(const string &message, const string &attachement):
     Action(ACTION_PUSH)
 {
-    cDebugDom("rule.action.push") <<  "New Push Notification action with message/attachment";
+    cDebugDom(TAG) <<  "New Push Notification action with message/attachment";
     notif_message = message;
     notif_attachment = attachement;
 }
@@ -57,9 +60,9 @@ bool ActionPush::Execute()
 
     if (camera)
     {
-        cInfoDom("rule.action.push") <<  "Need to download camera ("
-                                      << camera->get_param("name")
-                                      << ") attachment";
+        cInfoDom(TAG) << "Need to download camera ("
+                      << camera->get_param("name")
+                      << ") attachment";
 
         sole::uuid u4 = sole::uuid4();
         notif_pic_uid = u4.str();
@@ -69,7 +72,7 @@ bool ActionPush::Execute()
         mkdir(notif_attachment_tfile.c_str(), S_IRWXU);
         notif_attachment_tfile = notif_attachment_tfile + "/" + notif_pic_uid + ".jpg";
 
-        cDebug() << "DL URL: " << camera->getPictureUrl();
+        cDebugDom(TAG) << "DL URL: " << camera->getPictureUrl();
 
         UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
         dl->m_signalComplete.connect([this](int status)
@@ -82,9 +85,10 @@ bool ActionPush::Execute()
     }
     else
     {
+        notif_pic_uid.clear();
         sendNotif();
 
-        cInfoDom("rule.action.push") <<  "Ok, Push Notif sent";
+        cInfoDom(TAG) <<  "Ok, Push Notif sent";
     }
 
     return true;
@@ -96,8 +100,6 @@ void ActionPush::sendNotif()
     HistEvent e = HistEvent::create();
     e.pic_uid = notif_pic_uid;
     e.event_type = CalaosEvent::EventPushNotification;
-
-    string eventUuid = e.uuid;
 
     auto nmsg = notif_message;
     if (nmsg == "")
@@ -111,115 +113,14 @@ void ActionPush::sendNotif()
 
     HistLogger::Instance().appendEvent(e);
 
-    HistLogger::Instance().getPushTokens(
-            [=](bool success, string errorMsg, const vector<PushToken> &tokens)
-    {
-        if (!success)
+    NotifManager::Instance().sendPushNotification(
+        nmsg, notif_pic_uid.empty() ? "" : e.uuid,
+        [this]()
         {
-            cCriticalDom("rule.action.push") << "Unable to send push notification: " << errorMsg;
-            return;
-        }
-
-        vector<PushToken> androidTokens;
-        vector<PushToken> iosTokens;
-
-        for (const auto &t: tokens)
-        {
-            if (t.hw_type == HistLogger::PUSH_HW_IOS)
-                iosTokens.push_back(t);
-            else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
-                androidTokens.push_back(t);
-        }
-
-        Json jarr = Json::array();
-        if (!iosTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: iosTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 1 },
-                { "message", nmsg },
-                { "topic", "fr.calaos.CalaosMobile" }
-            };
-
-            if (!notif_pic_uid.empty())
-            {
-                notif["mutable-content"] = true;
-                notif["mutable_content"] = true;
-                notif["data"] = {{ "event_uuid", eventUuid }};
-            }
-
-            if (Utils::get_config_option("notif_development") == "true")
-                notif["development"] = true;
-
-            jarr.push_back(notif);
-        }
-
-        if (!androidTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: androidTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 2 },
-                { "message", nmsg },
-                { "title", "Calaos" },
-                { "priority", "high" },
-                { "sound", "default" }
-            };
-
-            //force priority to high to make sure the notification is displayed
-            notif["notification"] = {
-                { "title", "Calaos" },
-                { "body", nmsg },
-                { "sound", "default" }
-            };
-
-            if (!notif_pic_uid.empty())
-            {
-                notif["data"] = {
-                    { "event_uuid", eventUuid },
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-            else
-            {
-                notif["data"] = {
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-
-            jarr.push_back(notif);
-        }
-
-        Json jnotif = {{ "notifications", jarr }};
-
-        if (jarr.empty())
-        {
-            cInfoDom("rule.action.push") << "No token registered. Cannot send push.";
-            return;
-        }
-
-        cDebugDom("rule.action.push") << "Sending notif to service:";
-        cDebugDom("rule.action.push") << jnotif.dump();
-
-        UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
-        u->m_signalComplete.connect([this](int statusCode)
-        {
-            cDebugDom("rule.action.push") << "Push notif sent with code: " << statusCode;
+            cDebugDom(TAG) << "Push notif sent";
             notifSent.emit();
-        });
-        u->httpPost(string(), jnotif.dump());
-    });
+        }
+    );
 }
 
 bool ActionPush::LoadFromXml(TiXmlElement *pnode)

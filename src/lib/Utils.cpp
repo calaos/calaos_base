@@ -512,6 +512,8 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
     if (!FileUtils::isWritable(getCacheFile("")))
         throw (runtime_error("cache path is not writable"));
 
+    Params paramsConf;
+
     if (!FileUtils::exists(file))
     {
         //create a defaut config
@@ -533,9 +535,25 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
         set_config_option("cn_pass", "pass");
         set_config_option("longitude", "2.322235");
         set_config_option("latitude", "48.864715");
+        set_config_option("notif/battery_mail_enabled", "true");
+        set_config_option("notif/battery_push_enabled", "true");
+        set_config_option("notif/io_connected_mail_enabled", "true");
+        set_config_option("notif/io_connected_push_enabled", "true");
 
         if (!quiet)
             cout << "WARNING: no local_config.xml found, generating default config with username: \"user\" and password: \"pass\"" << endl;
+    }
+    else if (get_config_options(paramsConf))
+    {
+        // Set default values if not set
+        if (!paramsConf.Exists("notif/battery_mail_enabled"))
+            set_config_option("notif/battery_mail_enabled", "true");
+        if (!paramsConf.Exists("notif/battery_push_enabled"))
+            set_config_option("notif/battery_push_enabled", "true");
+        if (!paramsConf.Exists("notif/io_connected_mail_enabled"))
+            set_config_option("notif/io_connected_mail_enabled", "true");
+        if (!paramsConf.Exists("notif/io_connected_push_enabled"))
+            set_config_option("notif/io_connected_push_enabled", "true");
     }
 }
 

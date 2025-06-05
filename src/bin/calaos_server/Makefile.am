@@ -416,6 +416,8 @@ calaos_server_SOURCES = \
         WebSocket.h                                     \
         HistLogger.cpp                                  \
         HistLogger.h                                    \
+        NotifManager.h                                  \
+        NotifManager.cpp                                \
         main.cpp
 
 calaos_server_LDADD =                                   \

@@ -22,6 +22,9 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "DataLogger.h"
+#include "Utils.h"
+#include "NotifManager.h"
+#include "CalaosConfig.h"
 
 using namespace Calaos;
 
@@ -94,8 +97,66 @@ void IOBase::setStatusInfo(StatusType type, double value)
     switch (type)
     {
         case StatusType::BatteryLevel:
+        {
             status_info.battery_level = value;
+
+            // If battery level is less than 30%, we send a notification if enabled
+
+            //get last time the notification was sent
+            string id = get_param("id") + "_" + get_param("type");
+            Params cachedParams;
+            Config::Instance().ReadValueParams(id, cachedParams);
+
+            time_t current_time = time(nullptr);
+            time_t last_notif_time = 0;
+            string last_notif_str = cachedParams["last_battery_notif_time"];
+
+            if (!last_notif_str.empty())
+            {
+                try
+                {
+                    last_notif_time = std::stoll(last_notif_str);
+                }
+                catch (const std::exception&)
+                {
+                    last_notif_time = 0;
+                }
+            }
+
+            // Check if 24 hours (86400 seconds) have passed
+            bool enough_time_passed = (current_time - last_notif_time) >= 86400;
+
+            //global notification settings
+            bool g_notif_mail_enabled = Utils::get_config_option("notif/battery_mail_enabled") == "true";
+            bool g_notif_push_enabled = Utils::get_config_option("notif/battery_push_enabled") == "true";
+
+            //IO specific notification settings
+            bool io_notif_enabled = get_param("notif_battery") == "true";
+
+            if (value < 30.0 && io_notif_enabled && enough_time_passed)
+            {
+                if (g_notif_mail_enabled)
+                {
+                    cDebugDom("iobase") << "Sending battery low notification via email for IO: " << get_param("id");
+                    NotifManager::Instance().sendMailNotification(
+                        "Battery Low",
+                        "The battery level of " + get_param("name") + " is low (" + Utils::to_string(value) + "%)."
+                    );
+                }
+                if (g_notif_push_enabled)
+                {
+                    cDebugDom("iobase") << "Sending battery low notification via push for IO: " << get_param("id");
+                    NotifManager::Instance().sendPushNotification(
+                        "The battery level of " + get_param("name") + " is low (" + Utils::to_string(value) + "%)."
+                    );
+                }
+
+                cachedParams["last_battery_notif_time"] = Utils::to_string(current_time);
+                Config::Instance().SaveValueParams(id, cachedParams, false);
+            }
+
             break;
+        }
         case StatusType::WirelessSignal:
             status_info.wireless_signal = value;
             break;
@@ -126,8 +187,39 @@ void IOBase::setStatusInfo(StatusType type, StatusConnected value)
     switch (type)
     {
         case StatusType::Connected:
+        {
             status_info.connected = value;
+
+            //global notification settings
+            bool g_notif_mail_enabled = Utils::get_config_option("notif/io_connected_mail_enabled") == "true";
+            bool g_notif_push_enabled = Utils::get_config_option("notif/io_connected_push_enabled") == "true";
+
+            //IO specific notification settings
+            bool io_notif_enabled = get_param("notif_connected") == "true";
+
+            if (value != StatusConnected::STATUS_NONE && io_notif_enabled)
+            {
+                if (g_notif_mail_enabled)
+                {
+                    cDebugDom("iobase") << "Sending connected notification via email for IO: " << get_param("id");
+                    NotifManager::Instance().sendMailNotification(
+                        "Connected status changed",
+                        "The connected status of " + get_param("name") + " has changed to: " +
+                        (value == StatusConnected::STATUS_CONNECTED ? "connected" : "disconnected") + "."
+                    );
+                }
+                if (g_notif_push_enabled)
+                {
+                    cDebugDom("iobase") << "Sending connected notification via push for IO: " << get_param("id");
+                    NotifManager::Instance().sendPushNotification(
+                        "The connected status of " + get_param("name") + " has changed to: " +
+                        (value == StatusConnected::STATUS_CONNECTED ? "connected" : "disconnected") + "."
+                    );
+                }
+            }
+
             break;
+        }
         default:
             cWarningDom("iobase") << "setStatusInfo: Unsupported status type for bool value: " << static_cast<int>(type);
             break;
