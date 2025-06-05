@@ -105,13 +105,23 @@ int main (int argc, char **argv)
     Utils::from_string(Utils::get_config_option("smtp_port"), smtp_port);
 
     if (Utils::get_config_option("smtp_auth") != "true")
-        errmsg = quickmail_send(mailobj, smtp_host.c_str(), smtp_port, nullptr, nullptr,
-                                Utils::get_config_option("smtp_tls") == "true"?1:0);
+    {
+        if (Utils::get_config_option("smtp_tls") == "true")
+            errmsg = quickmail_send_secure(mailobj, smtp_host.c_str(), smtp_port, nullptr, nullptr);
+        else
+            errmsg = quickmail_send(mailobj, smtp_host.c_str(), smtp_port, nullptr, nullptr);
+    }
     else
-        errmsg = quickmail_send(mailobj, smtp_host.c_str(), smtp_port,
-                                Utils::get_config_option("smtp_username").c_str(),
-                                Utils::get_config_option("smtp_password").c_str(),
-                                Utils::get_config_option("smtp_tls") == "true"?1:0);
+    {
+        if (Utils::get_config_option("smtp_tls") == "true")
+            errmsg = quickmail_send_secure(mailobj, smtp_host.c_str(), smtp_port,
+                                           Utils::get_config_option("smtp_username").c_str(),
+                                           Utils::get_config_option("smtp_password").c_str());
+        else
+            errmsg = quickmail_send(mailobj, smtp_host.c_str(), smtp_port,
+                                    Utils::get_config_option("smtp_username").c_str(),
+                                    Utils::get_config_option("smtp_password").c_str());
+    }
 
     if (errmsg)
         cout << "Error sending e-mail: " << errmsg << endl;
@@ -127,6 +137,7 @@ int main (int argc, char **argv)
     }
 
     Utils::freeLoggers();
+    quickmail_cleanup();
 
     return 0;
 }

@@ -26,8 +26,9 @@
                - multiple To/Cc/Bcc recipients
                - multiple attachments without size limitation
                - specifying the MIME-type to use for the message body
+               - multiple alternative bodies
     \section SYNOPSIS synopsis
-              quickmail -h server [-p port] [-u username] [-w password] -f email [-t email] [-c email] [-b email] [-s subject] [-m mimetype] [-d body] [-a file] [-v] [-?]
+              quickmail -h server [-p port] [-u username] [-w password] -f email [-t email] [-c email] [-b email] [-s subject] [-m mimetype] [-d body] [-a file] [-n hostname] [-v] [-?]
     \section OPTIONS options
               \verbatim
                -h server      hostname or IP address of SMTP server
@@ -38,10 +39,11 @@
                -t email       To e-mail address (multiple -t can be specified)
                -c email       Cc e-mail address (multiple -c can be specified)
                -b email       Bcc e-mail address (multiple -b can be specified)
-               -s subject     Subject
+               -s subject     subject
                -m mimetype    MIME used for the body (must be specified before -d)
-               -d body        Body, if not specified will be read from standard input
+               -d body        body, if not specified will be read from standard input
                -a file        file to attach (multiple -a can be specified)
+               -n hostname    hostname to identify with in SMTP HELO/EHLO (default = detect)
                -v             verbose mode
                -?             show help
               \endverbatim
@@ -52,6 +54,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#if defined(NOCURL) && defined(_WIN32)
+#include <winsock2.h>
+#endif
 #ifndef NOCURL
 #include <curl/curl.h>
 #endif
@@ -59,23 +64,31 @@
 void show_help()
 {
   printf(
-    "Usage:  quickmail {-h server | -o filename} [-p port] [-u username] [-w password] -f email [-t email] [-c email] [-b email] [-s subject] [-m mimetype] [-d body] [-a file] [-v]\n" \
-    "Parameters:\n" \
-    "  -h server   \thostname or IP address of SMTP server\n" \
-    "  -o filename \tname of file to dump the mail content to (- for stdout)\n" \
-    "  -p port     \tTCP port to use for SMTP connection (default is 25)\n" \
-    "  -u username \tusername to use for SMTP authentication\n" \
-    "  -w password \tpassword to use for SMTP authentication\n" \
-    "  -f email    \tFrom e-mail address\n" \
-    "  -t email    \tTo e-mail address (multiple -t can be specified)\n" \
-    "  -c email    \tCc e-mail address (multiple -c can be specified)\n" \
-    "  -b email    \tBcc e-mail address (multiple -b can be specified)\n" \
-    "  -s subject  \tSubject\n" \
-    "  -m mimetype \tMIME used for the body (must be specified before -d)\n" \
-    "  -d body     \tbody, if not specified will be read from standard input\n" \
-    "  -a file     \tfile to attach (multiple -a can be specified)\n" \
-    "  -v          \tverbose mode\n" \
-    "  -?          \tshow help\n" \
+    "Usage:  quickmail"
+#ifdef NOCURL
+    "light"
+#endif
+    " {-h server | -o filename} [-p port] [-u username] [-w password] -f email [-t email] [-c email] [-b email] [-s subject] [-m mimetype] [-d body] [-a file] [-n hostname] [-v]\n"
+    "Parameters:\n"
+    "  -h server   \thostname or IP address of SMTP server\n"
+    "  -o filename \tname of file to dump the mail content to (- for stdout)\n"
+    "  -p port     \tTCP port to use for SMTP connection (default is 25)\n"
+#ifndef NOCURL
+    "  -l          \tUse SMTPS (make sure to also set the port, typically 465)\n"
+#endif
+    "  -u username \tusername to use for SMTP authentication\n"
+    "  -w password \tpassword to use for SMTP authentication\n"
+    "  -f email    \tFrom e-mail address\n"
+    "  -t email    \tTo e-mail address (multiple -t can be specified)\n"
+    "  -c email    \tCc e-mail address (multiple -c can be specified)\n"
+    "  -b email    \tBcc e-mail address (multiple -b can be specified)\n"
+    "  -s subject  \tSubject\n"
+    "  -m mimetype \tMIME used for the next body (must be specified before -d)\n"
+    "  -d body     \tbody, if not specified will be read from standard input\n"
+    "  -a file     \tfile to attach (multiple -a can be specified)\n"
+    "  -n hostname \thostname to identify with in SMTP HELO/EHLO (default = detect)\n"
+    "  -v          \tverbose mode\n"
+    "  -?          \tshow help\n"
     "\n"
   );
 }
@@ -87,10 +100,23 @@ size_t email_info_attachment_read_stdin (void* handle, void* buf, size_t len)
 
 int main (int argc, char *argv[])
 {
+  quickmail mailobj;
+
+#if defined(NOCURL) && defined(_WIN32)
+  //initialize winsock
+  static WSADATA wsaData;
+  int wsaerr = WSAStartup(MAKEWORD(1, 0), &wsaData);
+  if (wsaerr)
+    exit(1);
+  atexit((void(*)())WSACleanup);
+#endif
+
   //default values
+  int status = 0;
   FILE* output_file = NULL;
   const char* smtp_server = NULL;
   int smtp_port = 25;
+  int smtps = 0;
   const char* smtp_username = NULL;
   const char* smtp_password = NULL;
   const char* mime_type = NULL;
@@ -107,7 +133,7 @@ int main (int argc, char *argv[])
 #endif
   //initialize mail object
   quickmail_initialize();
-  quickmail mailobj = quickmail_create(NULL, NULL);
+  mailobj = quickmail_create(NULL, NULL);
 
   //process command line parameters
   {
@@ -156,6 +182,11 @@ int main (int argc, char *argv[])
             else
               smtp_port = atoi(param);
             break;
+#ifndef NOCURL
+          case 'l' :
+            smtps = 1;
+            break;
+#endif
           case 'u' :
             if (argv[i][2])
               param = argv[i] + 2;
@@ -247,10 +278,14 @@ int main (int argc, char *argv[])
               param = argv[i] + 2;
             else if (i + 1 < argc && argv[i + 1])
               param = argv[++i];
-            if (!param)
+            if (!param) {
               paramerror++;
-            else if (strcmp(param, "-") != 0)
+            } else if (strcmp(param, "-") == 0) {
+              body = NULL;
+            } else {
               body = param;
+              quickmail_add_body_memory(mailobj, mime_type, body, strlen(body), 0);
+            }
             break;
           case 'a' :
             if (argv[i][2])
@@ -261,6 +296,16 @@ int main (int argc, char *argv[])
               paramerror++;
             else
               quickmail_add_attachment_file(mailobj, param, NULL);
+            break;
+          case 'n' :
+            if (argv[i][2])
+              param = argv[i] + 2;
+            else if (i + 1 < argc && argv[i + 1])
+              param = argv[++i];
+            if (!param)
+              paramerror++;
+            else
+              quickmail_set_hostname(mailobj, (*param ? param : NULL));
             break;
           case 'v' :
             quickmail_set_debug_log(mailobj, stdout);
@@ -282,17 +327,18 @@ int main (int argc, char *argv[])
     }
   }
   //read body from standard input if not given
-  if (body) {
-    quickmail_add_body_memory(mailobj, mime_type, body, strlen(body), 0);
-  } else {
+  if (!body) {
     quickmail_add_body_custom(mailobj, mime_type, NULL, NULL, email_info_attachment_read_stdin, NULL, NULL);
   }
   mime_type = NULL;
   //send e-mail
-  int status = 0;
   if (smtp_server) {
     const char* errmsg;
-    if ((errmsg = quickmail_send(mailobj, smtp_server, smtp_port, smtp_username, smtp_password)) != NULL) {
+    if (!smtps)
+      errmsg = quickmail_send(mailobj, smtp_server, smtp_port, smtp_username, smtp_password);
+    else
+      errmsg = quickmail_send_secure(mailobj, smtp_server, smtp_port, smtp_username, smtp_password);
+    if (errmsg) {
       status = 1;
       fprintf(stderr, "Error sending e-mail: %s\n", errmsg);
     }
@@ -303,5 +349,6 @@ int main (int argc, char *argv[])
   }
   //clean up
   quickmail_destroy(mailobj);
+  quickmail_cleanup();
   return status;
 }

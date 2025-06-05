@@ -13,7 +13,7 @@ lib_LTLIBRARIES     = libquickmail.la libquickmaillight.la
 
 libquickmail_la_SOURCES = quickmail.c
 libquickmail_la_CFLAGS = -O3 -DBUILD_QUICKMAIL_DLL
-libquickmail_la_LDFLAGS = -lcurl
+libquickmail_la_LDFLAGS = -lcurl $(WINSOCK)
 libquickmail_la_HEADERS = quickmail.h
 libquickmail_ladir = ${includedir}
 

@@ -7,12 +7,16 @@
 #autoreconf -i
 
 # create necessary macros in aclocal.m4 for automake
-aclocal --force
+aclocal --force &&
 # create ltmain.sh
-libtoolize --force
+libtoolize --force &&
 # create configure
-autoconf --force
+autoconf --force &&
 # create config.h.in
-autoheader --force
+autoheader --force &&
 # create Makefile.in from Makefile.am
-automake --force-missing --add-missing
+automake --force-missing --add-missing &&
+
+#autoreconf --force --install &&
+
+echo Done

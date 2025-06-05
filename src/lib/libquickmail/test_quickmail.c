@@ -77,5 +77,6 @@ int main ()
   if ((errmsg = quickmail_send(mailobj, SMTPSERVER, SMTPPORT, SMTPUSER, SMTPPASS)) != NULL)
     fprintf(stderr, "Error sending e-mail: %s\n", errmsg);
   quickmail_destroy(mailobj);
+  quickmail_cleanup();
   return 0;
 }

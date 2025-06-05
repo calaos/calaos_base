@@ -1,9 +1,3 @@
-/*! \file      quickmail.h
- *  \brief     header file for libquickmail
- *  \author    Brecht Sanders
- *  \date      2012-2013
- *  \copyright GPL
- */
 /*
     This file is part of libquickmail.
 
@@ -21,12 +15,19 @@
     along with libquickmail.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*! \file      quickmail.h
+ *  \brief     header file for libquickmail
+ *  \author    Brecht Sanders
+ *  \date      2012-2016
+ *  \copyright GPL
+ */
+
 #ifndef __INCLUDED_QUICKMAIL_H
 #define __INCLUDED_QUICKMAIL_H
 
 #include <stdio.h>
 
-/*! \brief define for exporting/importing functions in/from shared library */
+/*! \cond PRIVATE */
 #ifdef _WIN32
 #if defined(BUILD_QUICKMAIL_DLL)
 #define DLL_EXPORT_LIBQUICKMAIL __declspec(dllexport)
@@ -38,6 +39,7 @@
 #else
 #define DLL_EXPORT_LIBQUICKMAIL
 #endif
+/*! \endcond */
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,10 +102,15 @@ typedef void (*quickmail_list_attachment_callback_fn)(quickmail mailobj, const c
  */
 DLL_EXPORT_LIBQUICKMAIL const char* quickmail_get_version ();
 
-/*! \brief initialize quickmail library
+/*! \brief initialize quickmail library, call once at the beginning of the main thread of the application
  * \return zero on success
  */
 DLL_EXPORT_LIBQUICKMAIL int quickmail_initialize ();
+
+/*! \brief clean up quickmail library, call once at the end of the main thread of the application
+ * \return zero on success
+ */
+DLL_EXPORT_LIBQUICKMAIL int quickmail_cleanup ();
 
 /*! \brief create a new quickmail object
  * \param  from        sender e-mail address
@@ -116,6 +123,12 @@ DLL_EXPORT_LIBQUICKMAIL quickmail quickmail_create (const char* from, const char
  * \param  mailobj     quickmail object
  */
 DLL_EXPORT_LIBQUICKMAIL void quickmail_destroy (quickmail mailobj);
+
+/*! \brief set the local hostname of a quickmail object (used in SMTP HELO/EHLO command)
+ * \param  hostname    local hostname (defaults to NULL = automatically detect)
+ * \param  from        sender e-mail address
+ */
+DLL_EXPORT_LIBQUICKMAIL void quickmail_set_hostname (quickmail mailobj, const char* hostname);
 
 /*! \brief set the sender (from) e-mail address of a quickmail object
  * \param  mailobj     quickmail object
@@ -291,10 +304,20 @@ DLL_EXPORT_LIBQUICKMAIL size_t quickmail_get_data (void* buffer, size_t size, si
  * \param  smtpport    SMTP port number (normally this is 25)
  * \param  username    username to use for authentication (or NULL if not needed)
  * \param  password    password to use for authentication (or NULL if not needed)
- * \param  use_ssl     set to 1 to enable ssl
  * \return NULL on success or error message on error
  */
-DLL_EXPORT_LIBQUICKMAIL const char* quickmail_send (quickmail mailobj, const char* smtpserver, unsigned int smtpport, const char* username, const char* password, int use_ssl);
+DLL_EXPORT_LIBQUICKMAIL const char* quickmail_send (quickmail mailobj, const char* smtpserver, unsigned int smtpport, const char* username, const char* password);
+
+/*! \brief send the e-mail via SMTPS
+ * \param  mailobj     quickmail object
+ * \param  smtpserver  IP address or hostname of SMTPS server
+ * \param  smtpport    SMTPS port number (normally this is 465)
+ * \param  username    username to use for authentication (or NULL if not needed)
+ * \param  password    password to use for authentication (or NULL if not needed)
+ * \return NULL on success or error message on error
+ */
+DLL_EXPORT_LIBQUICKMAIL const char* quickmail_send_secure (quickmail mailobj, const char* smtpserver, unsigned int smtpport, const char* username, const char* password);
+
 
 #ifdef __cplusplus
 }
