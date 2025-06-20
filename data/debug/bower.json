@@ -1,8 +1,0 @@
-{
-  "name": "debug-www",
-  "private": true,
-  "dependencies": {
-    "bootstrap": "~3.2.0",
-    "highlightjs": "~8.4.0"
-  }
-}

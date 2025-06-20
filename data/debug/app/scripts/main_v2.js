@@ -1,11 +1,25 @@
 'use strict';
 
-function getHTML(command) {
+function sendRequest(command) {
     if (window.XMLHttpRequest) {
         var http = new XMLHttpRequest();
         http.open(command, $('#urlinput').val(), true);
 
-        var s = JSON.parse(document.commandform.messagebody.value).action;
+        // Parse request JSON and handle errors
+        var messageText = (window.editor && typeof window.editor.getValue === 'function')
+            ? window.editor.getValue()
+            : document.commandform.messagebody.value;
+        var jsonObj;
+        try {
+            jsonObj = JSON.parse(messageText);
+        } catch (e) {
+            // Display parse error in response block
+            $('#answer')
+              .text('JSON parse error: ' + e.message)
+              .addClass('text-danger');
+            return false;
+        }
+        var s = jsonObj.action;
         if (s == "camera")
             http.responseType = 'blob';
 
@@ -35,12 +49,12 @@ function getHTML(command) {
                 }
 
                 $('pre code').each(function(i, block) {
-                  hljs.highlightBlock(block);
+                  hljs.highlightElement(block);
                 });
             }
         };
 
-        http.send(document.commandform.messagebody.value);
+        http.send(messageText);
     }
     return false;
 }
@@ -115,10 +129,24 @@ $(document).ready(function() {
     $('#api_list').change(function() {
         var j = $('#api_list option:selected').val();
         var s = apiList[parseInt(j)];
-        if ($('#username').val() != "")
-            s = s.replace("USERNAME", $('#username').val());
-        if ($('#passwd').val() != "")
-            s = s.replace("PASSWORD", $('#passwd').val());
-        $('#message').val(JSON.stringify(JSON.parse(s), null, '    '));
+        if ($('#username').val() !== "") s = s.replace("USERNAME", $('#username').val());
+        if ($('#passwd').val() !== "") s = s.replace("PASSWORD", $('#passwd').val());
+        var formatted = JSON.stringify(JSON.parse(s), null, '    ');
+        if (window.editor && typeof window.editor.setValue === 'function') {
+            window.editor.setValue(formatted);
+        } else {
+            $('#message').val(formatted);
+            hljs.highlightElement($('#message')[0]);
+        }
     });
+
+    // Trigger change event on page load to populate the editor with default content
+    $('#api_list').trigger('change');
 });
+
+window.sendRequest = sendRequest;
+function clearResponse() {
+    $('#answer').text('').removeClass('text-danger');
+}
+
+window.clearResponse = clearResponse;

@@ -6,14 +6,15 @@
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width">
     <!-- build:css(.) styles/vendor.css -->
-    <!-- bower:css -->
-    <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css" />
-    <link rel="stylesheet" href="bower_components/highlightjs/styles/tomorrow.css" />
-    <!-- endbower -->
+    <!-- npm:css -->
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/node_modules/highlight.js/styles/base16/humanoid-light.css" />
+    <!-- endnpm -->
     <!-- endbuild -->
-    <!-- build:css(.tmp) styles/main.css -->
     <link rel="stylesheet" href="styles/main.css">
-    <!-- endbuild -->
+    <!-- CodeMirror for editable JSON with syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/codemirror.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/theme/default.min.css" />
   </head>
   <body>
     <!--[if lt IE 10]>
@@ -21,98 +22,86 @@
     <![endif]-->
 
 
-    <nav class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="#">Calaos Debug</a>
-        </div>
-        <div id="navbar" class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
-            <li><a href="index.html">HTTP POST API</a></li>
-            <li class="active"><a href="debug_websocket.html">Websocket API</a></li>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">Calaos Debug</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavWs" aria-controls="navbarNavWs" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavWs">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">HTTP POST API</a>
+            </li>
+            <li class="nav-item active">
+              <a class="nav-link" href="debug_websocket.html">Websocket API</a>
+            </li>
           </ul>
-        </div><!--/.nav-collapse -->
+        </div>
       </div>
     </nav>
 
-    <div class="container">
-        <div>
+    <div class="container mt-5 pt-5">
+      <div>
         <form name="commandform">
-            <h1>Calaos Websocket API Debug Tool</h1>
-            <div class="form-group">
-                <label for="urlinput">Url</label>
-                <input type="text" class="form-control" id="urlinput" placeholder="Enter Calaos websocket API URL" value="ws://127.0.0.1:5454/api">
-            </div>
+          <h1 class="mb-4">Calaos Websocket API Debug Tool</h1>
+          <div class="mb-3">
+            <label for="urlinput" class="form-label">Url</label>
+            <input type="text" class="form-control" id="urlinput" placeholder="Enter Calaos websocket API URL" value="ws://127.0.0.1:5454/api">
+          </div>
 
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="email" class="form-control" id="username" placeholder="Enter username">
-            </div>
-            <div class="form-group">
-                <label for="passwd">Password</label>
-                <input type="text" class="form-control" id="passwd" placeholder="Password">
-            </div>
+          <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="email" class="form-control" id="username" placeholder="Enter username">
+          </div>
+          <div class="mb-3">
+            <label for="passwd" class="form-label">Password</label>
+            <input type="text" class="form-control" id="passwd" placeholder="Password">
+          </div>
 
-            <div class="form-group">
-                <label for="message">Request (JSON)</label>
-                <select class="form-control" id="api_list"></select>
-                <textarea class="form-control" name="messagebody" rows="10" cols="100" id="message"></textarea>
-            </div>
+          <div class="mb-3">
+            <label for="message" class="form-label">Request (JSON)</label>
+            <select class="form-select" id="api_list"></select>
+            <textarea class="form-control" name="messagebody" rows="10" id="message"></textarea>
+          </div>
 
-            <span id="status_con" class="label label-danger">Disconnected</span>
-            <button class="btn btn-default" type="button" id="btconnect">Connect</button>
-            <button class="btn btn-default" type="button" id="btdisconnect">Disconnect</button>
-            <button class="btn btn-primary" type="button" id="btsend">Send message</button>
+          <span id="status_con" class="badge bg-danger">Disconnected</span>
+          <button class="btn btn-secondary" type="button" id="btconnect">Connect</button>
+          <button class="btn btn-secondary" type="button" id="btdisconnect">Disconnect</button>
+          <button class="btn btn-primary" type="button" id="btsend">Send message</button>
 
         </form>
-        <div class="row">
-            <div class="col-md-4">
-                <h4>Log <span class="badge">0</span>
-                    <button class="btn btn-default" type="button" id="btclear">Clear</button>
-                </h4>
-                <div class="log">
-                </div>
+        <div class="row mt-4">
+          <div class="col-md-4">
+            <h4>Log <span id="badge_count" class="badge bg-secondary">0</span>
+              <button class="btn btn-secondary btn-sm ms-2" type="button" id="btclear">Clear</button>
+            </h4>
+            <div class="log">
             </div>
-            <div class="col-md-8 logdetail">
-                <h4>Detail</h4>
-                <pre>
-                    <code class="json" id="answer"></code>
-                </pre>
-            </div>
+          </div>
+          <div class="col-md-8 logdetail">
+            <h4 class="h5">Detail</h4>
+            <pre class="p-3 bg-light rounded"><code class="json hljs" id="answer"></code></pre>
+          </div>
         </div>
-        </div>
+      </div>
     </div>
 
 
     <!-- build:js(.) scripts/vendor.js -->
-    <!-- bower:js -->
-    <script src="bower_components/jquery/dist/jquery.js"></script>
-    <script src="bower_components/highlightjs/highlight.pack.js"></script>
-    <!-- endbower -->
+    <!-- npm:js -->
+    <script src="/node_modules/jquery/dist/jquery.js"></script>
+    <script src="/node_modules/bootstrap/dist/js/bootstrap.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <!-- endnpm -->
+
+    <!-- build:js(.) scripts/plugins.js -->
     <!-- endbuild -->
-
-        <!-- build:js(.) scripts/plugins.js -->
-        <script src="bower_components/bootstrap/js/affix.js"></script>
-        <script src="bower_components/bootstrap/js/alert.js"></script>
-        <script src="bower_components/bootstrap/js/dropdown.js"></script>
-        <script src="bower_components/bootstrap/js/tooltip.js"></script>
-        <script src="bower_components/bootstrap/js/modal.js"></script>
-        <script src="bower_components/bootstrap/js/transition.js"></script>
-        <script src="bower_components/bootstrap/js/button.js"></script>
-        <script src="bower_components/bootstrap/js/popover.js"></script>
-        <script src="bower_components/bootstrap/js/carousel.js"></script>
-        <script src="bower_components/bootstrap/js/scrollspy.js"></script>
-        <script src="bower_components/bootstrap/js/collapse.js"></script>
-        <script src="bower_components/bootstrap/js/tab.js"></script>
-        <!-- endbuild -->
-
-        <script src="scripts/main_v3.js"></script>
+    <!-- CodeMirror JS for editable JSON highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.7/mode/javascript/javascript.min.js"></script>
+    <script src="scripts/codemirror.js"></script>
+    <script src="scripts/main_v3.js"></script>
 
 </body>
 </html>

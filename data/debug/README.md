@@ -2,7 +2,6 @@ Install dev tools
 -----------------
 ```
 npm install
-bower install
-grunt serve
+gulp serve
 ```
-Before commit, do a grunt clean + grunt build
+Before commit, do a gulp clean + gulp build

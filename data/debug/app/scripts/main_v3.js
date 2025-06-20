@@ -65,7 +65,12 @@ function popuplateApiList() {
             s = s.replace("USERNAME", $('#username').val());
         if ($('#passwd').val() != "")
             s = s.replace("PASSWORD", $('#passwd').val());
-        $('#message').val(JSON.stringify(JSON.parse(s), null, '    '));
+        var formatted = JSON.stringify(JSON.parse(s), null, '    ');
+        if (window.editor && typeof window.editor.setValue === 'function') {
+            window.editor.setValue(formatted);
+        } else {
+            $('#message').val(formatted);
+        }
     });
 
     $('#api_list').change();
@@ -75,59 +80,45 @@ var ws = new Object();
 var loginfos = [];
 
 function addLog(o, sending) {
-
     sending = typeof sending !== 'undefined' ? sending : false;
-
-    // <p><span class="glyphicon glyphicon-import"></span>log test</p>
-    // <p class="pselected"><span class="glyphicon glyphicon-import"></span>log test2</p>
     var id = loginfos.length;
     var newItem = $('<p></p>');
     loginfos.push(o);
-
     $('.log').append(newItem);
+    var icon = '';
+    var text = '';
     if (o.type == 'connected') {
-        newItem.append($('<span class="glyphicon glyphicon-ok">'));
-        newItem.append('Connected');
+        icon = '✔️ ';
+        text = 'Connected';
+    } else if (o.type == 'disconnected') {
+        icon = '✖️ ';
+        text = 'Disconnected';
+    } else if (o.type == 'error') {
+        icon = '⚠️ ';
+        text = 'Error';
+    } else if (o.type === 'event') {
+        icon = '🔔 ';
+        text = 'Event';
+    } else if (sending) {
+        icon = '➡️ ';
+        text = o.type || 'Empty "msg"';
+    } else {
+        icon = '⬅️ ';
+        text = o.type || 'Empty "msg"';
     }
-    else if (o.type == 'disconnected') {
-        newItem.append($('<span class="glyphicon glyphicon-remove">'));
-        newItem.append('Disconnected');
-    }
-    else if (o.type == 'error') {
-        newItem.append($('<span class="glyphicon glyphicon-remove-sign">'));
-        newItem.append(o.type);
-    }
-    else if (sending) {
-        newItem.append($('<span class="glyphicon glyphicon-export">'));
-        if (o.type == '')
-            newItem.append('Empty "msg"');
-        else
-            newItem.append(o.type);
-    }
-    else {
-        newItem.append($('<span class="glyphicon glyphicon-import">'));
-        if (o.type == '')
-            newItem.append('Empty "msg"');
-        else
-            newItem.append(o.type);
-    }
-
-    $('.badge').html(loginfos.length);
-
+    newItem.text(icon + text);
+    $('#badge_count').html(loginfos.length);
     newItem.on('click', function () {
         var data = loginfos[id];
         var txt;
         try {
-            txt = JSON.stringify(JSON.parse(data.json), null, '    ');
-        }
-        catch(ex) {
+            txt = JSON.stringify(JSON.parse(data.json), null, 4);
+        } catch(ex) {
             txt = data.json;
         }
-
-        $('#answer').html(txt);
-
+        $('#answer').text(txt);
         $('pre code').each(function(i, block) {
-          hljs.highlightBlock(block);
+            hljs.highlightElement(block);
         });
     });
 }
@@ -135,7 +126,7 @@ function addLog(o, sending) {
 function clearLog() {
     loginfos = [];
     $('.log').html('');
-    $('.badge').html('0');
+    $('#badge_count').html('0');
 }
 
 $(document).ready(function() {
@@ -150,7 +141,9 @@ $(document).ready(function() {
 
     $('#btsend').on('click', function () {
 
-        var m = $('#message').val();
+        var m = (window.editor && typeof window.editor.getValue === 'function')
+            ? window.editor.getValue()
+            : $('#message').val();
 
         if ('readyState' in ws &&
              ws.readyState == ws.OPEN) {
@@ -189,8 +182,8 @@ $(document).ready(function() {
     $('#btconnect').on('click', function () {
         ws = new WebSocket($('#urlinput').val());
         ws.onopen = function(evt) {
-            $('#status_con').removeClass('label-danger');
-            $('#status_con').addClass('label-success');
+            $('#status_con').removeClass('bg-danger');
+            $('#status_con').addClass('bg-success');
             $('#status_con').html('Connected');
 
             addLog({
@@ -200,8 +193,8 @@ $(document).ready(function() {
             });
         };
         ws.onclose = function(evt) {
-            $('#status_con').removeClass('label-success');
-            $('#status_con').addClass('label-danger');
+            $('#status_con').removeClass('bg-success');
+            $('#status_con').addClass('bg-danger');
             $('#status_con').html('Disconnected');
 
             addLog({
@@ -229,8 +222,8 @@ $(document).ready(function() {
             });
         };
         ws.onerror = function(evt) {
-            $('#status_con').removeClass('label-success');
-            $('#status_con').addClass('label-danger');
+            $('#status_con').removeClass('bg-success');
+            $('#status_con').addClass('bg-danger');
             $('#status_con').html('Disconnected');
 
             addLog({
