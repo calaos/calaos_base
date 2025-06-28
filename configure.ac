@@ -158,6 +158,7 @@ fi
 # Check for Python and dependencies
 have_python="no"
 have_python_roon="no"
+have_python_reolink="no"
 
 # Check for Python 3
 AM_PATH_PYTHON([3], [
@@ -175,7 +176,17 @@ AM_PATH_PYTHON([3], [
         else
             AC_MSG_RESULT([no])
             AC_MSG_WARN([Python roonapi module not found. Install with: pip3 install roonapi])
-            have_python="no"
+        fi
+
+        # Check for reolink_aio
+        AC_MSG_CHECKING([for Python reolink_aio module])
+        if $PYTHON -c "import reolink_aio" 2>/dev/null; then
+            have_python_reolink="yes"
+            AC_MSG_RESULT([yes])
+            AC_DEFINE([HAVE_PYTHON_REOLINK], [1], [Define if python reolink_aio is available])
+        else
+            AC_MSG_RESULT([no])
+            AC_MSG_WARN([Python reolink_aio module not found. Install with: pip3 install reolink_aio])
         fi
     else
         AC_MSG_WARN([pip3 not found. Install with: apt-get install python3-pip])
@@ -187,6 +198,7 @@ AM_PATH_PYTHON([3], [
 
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
+AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
 
 AC_CONFIG_FILES([
 Makefile
@@ -202,6 +214,7 @@ data/debug/Makefile
 data/debug/dist/Makefile
 $po_makefile_in
 src/bin/calaos_server/Audio/calaos_roon
+src/bin/calaos_server/IO/Reolink/calaos_reolink
 ])
 
 AC_OUTPUT
@@ -253,4 +266,5 @@ echo "  MQTT support (libmosquittopp)........: $(colorOut $have_mosquitto)"
 echo
 echo "Python support:........................: $(colorOut $have_python)"
 echo "  RoonAPI support......................: $(colorOut $have_python_roon)"
+echo "  Reolink support......................: $(colorOut $have_python_reolink)"
 echo

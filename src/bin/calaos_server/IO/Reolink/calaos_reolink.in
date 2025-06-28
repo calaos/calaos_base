@@ -1,0 +1,6 @@
+#!/bin/bash
+CALAOS_PREFIX=@prefix@
+export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
+exec python3 $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
+#export PYTHONPATH=/workspaces/calaos_base/src/lib/calaos-python:$PYTHONPATH
+#exec python3 -Xfrozen_modules=off -m debugpy --listen localhost:5679 --wait-for-client /workspaces/calaos_base/src/bin/calaos_server/IO/Reolink/ExternProcReolink_main.py "$@"

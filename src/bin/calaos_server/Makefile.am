@@ -19,6 +19,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OLA          \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
@@ -180,6 +181,10 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttOutputLightDimmer.cpp               \
         IO/Mqtt/MqttOutputLightRGB.h                    \
         IO/Mqtt/MqttOutputLightRGB.cpp                  \
+        IO/Reolink/ReolinkCtrl.h                        \
+        IO/Reolink/ReolinkCtrl.cpp                      \
+        IO/Reolink/ReolinkInputSwitch.h                 \
+        IO/Reolink/ReolinkInputSwitch.cpp               \
         IO/MySensors/MySensors.h                        \
         IO/MySensors/MySensors.cpp                      \
         IO/MySensors/MySensorsControllerList.cpp        \
@@ -454,22 +459,45 @@ calaos_mqtt_LDADD = \
 $(top_builddir)/src/lib/libcalaos_common.la
 endif
 
-if HAVE_PYTHON_ROON
-bin_SCRIPTS = \
-        Audio/calaos_roon
-
+# Python external processes directory
 externalprocessdir = $(prefix)/lib/calaos
-externalprocess_PYTHON = \
-    Audio/ExternProcRoon_main.py
 
-BUILT_SOURCES = Audio/calaos_roon
-CLEANFILES = Audio/calaos_roon
+# Initialize variables
+bin_SCRIPTS =
+externalprocess_PYTHON =
+BUILT_SOURCES =
+CLEANFILES =
+EXTRA_DIST =
 
+if HAVE_PYTHON_ROON
+bin_SCRIPTS += Audio/calaos_roon
+externalprocess_PYTHON += Audio/ExternProcRoon_main.py
+BUILT_SOURCES += Audio/calaos_roon
+CLEANFILES += Audio/calaos_roon
+EXTRA_DIST += Audio/calaos_roon.in
+endif
+
+if HAVE_PYTHON_REOLINK
+bin_SCRIPTS += IO/Reolink/calaos_reolink
+externalprocess_PYTHON += IO/Reolink/ExternProcReolink_main.py
+BUILT_SOURCES += IO/Reolink/calaos_reolink
+CLEANFILES += IO/Reolink/calaos_reolink
+EXTRA_DIST += IO/Reolink/calaos_reolink.in
+endif
+
+# Common hooks for Python scripts
 install-data-hook:
+if HAVE_PYTHON_ROON
 	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
+endif
+if HAVE_PYTHON_REOLINK
+	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
+endif
 
 clean-local:
+if HAVE_PYTHON_ROON
 	rm -f Audio/calaos_roon
-
-EXTRA_DIST = Audio/calaos_roon.in
+endif
+if HAVE_PYTHON_REOLINK
+	rm -f IO/Reolink/calaos_reolink
 endif

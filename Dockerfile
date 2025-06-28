@@ -26,6 +26,7 @@ RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar
     rm -fr webapp.tar.gz calaos-web-app-*
 
 RUN pip install roonapi --break-system-packages
+RUN pip install reolink-aio --break-system-packages
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
