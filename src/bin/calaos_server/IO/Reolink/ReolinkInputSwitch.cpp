@@ -36,32 +36,21 @@ ReolinkInputSwitch::ReolinkInputSwitch(Params &p):
 {
     ioDoc->friendlyNameSet("ReolinkInputSwitch");
     ioDoc->descriptionSet(_("Switch activated by events from a Reolink camera"));
-    
+
     ioDoc->paramAdd("hostname", _("IP address or hostname of the Reolink camera"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("username", _("Username for authentication with Reolink camera"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("password", _("Password for authentication with Reolink camera"), IODoc::TYPE_STRING, true);
-    
+
     Params event_types;
     event_types.Add("motion", _("Motion Detection"));
     event_types.Add("person", _("Person Detection"));
     event_types.Add("vehicle", _("Vehicle Detection"));
     event_types.Add("pet", _("Pet Detection"));
-    event_types.Add("animal", _("Animal Detection"));
+    event_types.Add("cry", _("Cry Detection"));
     event_types.Add("face", _("Face Detection"));
     event_types.Add("package", _("Package Detection"));
     event_types.Add("visitor", _("Visitor/Doorbell Detection"));
-    event_types.Add("crossline_person", _("Person Crossline Detection"));
-    event_types.Add("crossline_vehicle", _("Vehicle Crossline Detection"));
-    event_types.Add("crossline_pet", _("Pet Crossline Detection"));
-    event_types.Add("intrusion_person", _("Person Intrusion Detection"));
-    event_types.Add("intrusion_vehicle", _("Vehicle Intrusion Detection"));
-    event_types.Add("intrusion_pet", _("Pet Intrusion Detection"));
-    event_types.Add("loitering_person", _("Person Loitering Detection"));
-    event_types.Add("loitering_vehicle", _("Vehicle Loitering Detection"));
-    event_types.Add("loitering_pet", _("Pet Loitering Detection"));
-    event_types.Add("forgotten_item", _("Forgotten Item Detection"));
-    event_types.Add("taken_item", _("Taken Item Detection"));
-    
+
     ioDoc->paramAddList("event_type", _("Type of event to listen for from the Reolink camera"), true, event_types, "motion");
 
     if (!get_params().Exists("hostname") || get_param("hostname").empty())
@@ -110,10 +99,10 @@ ReolinkInputSwitch::ReolinkInputSwitch(Params &p):
 void ReolinkInputSwitch::eventReceivedCallback(string hostname, string event_type, string event_data)
 {
     cDebugDom("reolink") << "Event received from " << hostname << " type: " << event_type << " data: " << event_data;
-    
+
     lastEventData = event_data;
     eventReceived = true;
-    
+
     // Trigger value change detection
     hasChanged();
 }
@@ -131,9 +120,9 @@ bool ReolinkInputSwitch::readValue()
     // For most Reolink events, we consider any event as a "true" state
     // and then automatically reset to false after a short time
     // This makes it behave like a momentary switch
-    
+
     // Reset the event flag after reading
     eventReceived = false;
-    
+
     return true;
 }

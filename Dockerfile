@@ -49,6 +49,7 @@ RUN apt -y update && \
         libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip python3-colorama
 
 RUN pip install roonapi --break-system-packages
+RUN pip install reolink-aio --break-system-packages
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /build/*

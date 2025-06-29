@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: calaos v2.99-302-g9a858fe\n"
 "Report-Msgid-Bugs-To: http://calaos.fr\n"
-"POT-Creation-Date: 2024-01-18 11:42+0000\n"
+"POT-Creation-Date: 2025-06-29 14:17+0000\n"
 "PO-Revision-Date: 2015-12-20 10:22+0100\n"
 "Last-Translator: Nicolas Aguirre <nico@calaos.fr>\n"
 "Language-Team: Russian\n"
@@ -17,47 +17,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:222
-msgid "AVReceiver object to control network amplifier"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:223
-msgid "IP address of the device"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:224
-msgid "Port to use for connection"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:225
-msgid "Zone of the amplifier (if supported)"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:226
-msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:228
-msgid "Switch receiver on"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:229
-msgid "Switch receiver off"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:230
-#: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
-msgid "Set current volume"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:231
-msgid "Change current input source"
-msgstr ""
-
-#: src/bin/calaos_server/Audio/AVReceiver.cpp:232
-msgid "Send a custom command to receiver (if you know the protocol)"
-msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:31
 msgid "Event when play is started"
@@ -103,6 +62,11 @@ msgstr ""
 msgid "Play previous song in playlist"
 msgstr ""
 
+#: src/bin/calaos_server/Audio/AudioPlayer.cpp:43
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:231
+msgid "Set current volume"
+msgstr ""
+
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:44
 msgid "Increase volume by a value"
 msgstr ""
@@ -113,6 +77,58 @@ msgstr ""
 
 #: src/bin/calaos_server/Audio/AudioPlayer.cpp:47
 msgid "Audio players are not displayed in rooms"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:223
+msgid "AVReceiver object to control network amplifier"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:224
+msgid "IP address of the device"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:225
+msgid "Port to use for connection"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:226
+msgid "Zone of the amplifier (if supported)"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:227
+msgid "AVReceiver model. Supported: pioneer, denon, onkyo, marantz, yamaha"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:229
+msgid "Switch receiver on"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:230
+msgid "Switch receiver off"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:232
+msgid "Change current input source"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/AVReceiver.cpp:233
+msgid "Send a custom command to receiver (if you know the protocol)"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/RoonPlayer.cpp:170
+msgid "Roon audio player allows control of a Roon player from Calaos"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/RoonPlayer.cpp:172
+msgid "Roon zone ID"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/RoonPlayer.cpp:173
+msgid "Static Roon server IP address, empty to autodetect on network"
+msgstr ""
+
+#: src/bin/calaos_server/Audio/RoonPlayer.cpp:174
+msgid "Static Roon server port, empty to autodetect on network"
 msgstr ""
 
 #: src/bin/calaos_server/Audio/Squeezebox.cpp:46
@@ -167,57 +183,57 @@ msgid ""
 "playlist_id:XX, ..."
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:25
+#: src/bin/calaos_server/IO/AnalogIO.cpp:26
 #: src/bin/calaos_server/IO/IntValue.cpp:45
 msgid "Unit which will be displayed on the UI as a suffix."
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:27
+#: src/bin/calaos_server/IO/AnalogIO.cpp:28
 msgid "Default"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:28
+#: src/bin/calaos_server/IO/AnalogIO.cpp:29
 msgid "Temperature"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:29
+#: src/bin/calaos_server/IO/AnalogIO.cpp:30
 msgid "Humidity"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:30
+#: src/bin/calaos_server/IO/AnalogIO.cpp:31
 msgid "Pressure"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:31
+#: src/bin/calaos_server/IO/AnalogIO.cpp:32
 msgid "Luminosity"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:32
+#: src/bin/calaos_server/IO/AnalogIO.cpp:33
 msgid "Speed"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:33
+#: src/bin/calaos_server/IO/AnalogIO.cpp:34
 msgid "Current"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:34
+#: src/bin/calaos_server/IO/AnalogIO.cpp:35
 msgid "Voltage"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:35
+#: src/bin/calaos_server/IO/AnalogIO.cpp:36
 msgid "Watt"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:37
+#: src/bin/calaos_server/IO/AnalogIO.cpp:38
 #: src/bin/calaos_server/IO/OutputLight.cpp:50
 msgid "GUI style display. This will control the icon displayed on the UI"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:39
+#: src/bin/calaos_server/IO/AnalogIO.cpp:40
 msgid "Event on a specific value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/AnalogIO.cpp:40
+#: src/bin/calaos_server/IO/AnalogIO.cpp:41
 #: src/bin/calaos_server/IO/IntValue.cpp:78
 #: src/bin/calaos_server/IO/OutputLight.cpp:30
 #: src/bin/calaos_server/IO/OutputLightDimmer.cpp:34
@@ -225,20 +241,42 @@ msgstr ""
 msgid "Event on any change of value"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:36
-msgid "RGB Light dimmer using a Blinkstick"
+#: src/bin/calaos_server/IOBase.cpp:40
+msgid "Unique ID identifying the Input/Output in calaos-server"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:37
-msgid "http://www.blinkstick.com"
+#: src/bin/calaos_server/IOBase.cpp:41
+msgid "Name of Input/Output."
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:38
-msgid "Blinkstick serial to control"
+#: src/bin/calaos_server/IOBase.cpp:42
+msgid "Display the Input/Output on all user interfaces if set. Default to true"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Blinkstick/BlinkstickOutputLightRGB.cpp:39
-msgid "Number of LEDs to control with the blinkstick"
+#: src/bin/calaos_server/IOBase.cpp:43
+msgid ""
+"Enable the Input/Output. The default value is true. This parameter is added "
+"if it's not found in the configuration."
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:44
+msgid ""
+"Internal graphical type for all calaos objects. Set automatically, read-only "
+"parameter."
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:45
+msgid "IO type, can be \"input\", \"output\", \"inout\""
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:46
+msgid "If enabled, write an entry in the history event log for this IO"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp:47
+msgid ""
+"If enabled, and if influxdb is enabled in local_config send the value to "
+"influxdb for this IO"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Gpio/GpioInputSwitch.cpp:36
@@ -340,40 +378,44 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:35
-#: src/bin/calaos_server/IO/InputTemp.cpp:34
 msgid ""
 "use in conjunction of coeff_b to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 1.0."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:37
-#: src/bin/calaos_server/IO/InputTemp.cpp:36
 msgid ""
 "use in conjunction of coeff_a to apply equation of the form `value_displayed "
 "= coeff_a * raw_value + coeff_b`. Default value is 0.0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:40
-#: src/bin/calaos_server/IO/InputTemp.cpp:39
-msgid "same as coeff_b, can be used alone. Default value is 0.0"
+#: src/bin/calaos_server/IO/InputAnalog.cpp:39
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:36
+msgid ""
+"Use a mathematical expression to calculate the value from the raw value. The "
+"variable `x` is replaced with the raw value. For example, if you want to "
+"convert a raw value of 0-1000 to a temperature in Celsius, you can use `x / "
+"10.0 - 50.0`. If this expression is set, coeff_a, coeff_b and offset "
+"parameters are ignored."
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:42
-#: src/bin/calaos_server/IO/InputTemp.cpp:41
-msgid ""
-"Sampling time in microsecond. The value is read at this frequency. If this "
-"value is not set, calaos tries to read the interval parameter"
+msgid "same as coeff_b, can be used alone. Default value is 0.0"
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputAnalog.cpp:44
-#: src/bin/calaos_server/IO/InputTemp.cpp:43
+msgid ""
+"Sampling time in millisecond. The value is read at this frequency. If this "
+"value is not set, calaos tries to read the interval parameter"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InputAnalog.cpp:46
 msgid ""
 "Sampling time in seconds. The value is read at this frequency. If this value "
 "is not set, the default value is 15s"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:46
-#: src/bin/calaos_server/IO/InputTemp.cpp:45
+#: src/bin/calaos_server/IO/InputAnalog.cpp:48
 msgid ""
 "Precision of the returned value. The value represents the number of decimal "
 "after the dot. The value is rounded like this : value = 19.275 => returned "
@@ -381,8 +423,7 @@ msgid ""
 "= 0"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputAnalog.cpp:48
-#: src/bin/calaos_server/IO/InputTemp.cpp:47
+#: src/bin/calaos_server/IO/InputAnalog.cpp:50
 msgid ""
 "Display a warning if value has not been updated for a long time. Default to "
 "true"
@@ -444,18 +485,10 @@ msgstr ""
 msgid "Event triggered when switch is triple clicked"
 msgstr ""
 
-#: src/bin/calaos_server/IO/InputTemp.cpp:33
+#: src/bin/calaos_server/IO/InputTemp.cpp:30
 msgid ""
-"Temperature sensor input. Use for displaying temperature and to control "
+"Temperature sensor input. Used for displaying temperature and to control "
 "heating devices with rules based on temperature value"
-msgstr ""
-
-#: src/bin/calaos_server/IO/InputTemp.cpp:49
-msgid "Event on a temperature value in degree Celsius"
-msgstr ""
-
-#: src/bin/calaos_server/IO/InputTemp.cpp:50
-msgid "Event on any change of temperature value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/InputTime.cpp:37
@@ -568,37 +601,37 @@ msgid ""
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:46
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:37
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:39
 msgid "Set a step for increment/decrement value. Default is 1.0"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:47
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:39
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:41
 msgid "Event on a specific number value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:48
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:40
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:42
 msgid "Set a specific number value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:49
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:41
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:43
 msgid "Increment value with configured step"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:50
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:42
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:44
 msgid "Decrement value with configured step"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:51
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:43
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:45
 msgid "Increment value by value"
 msgstr ""
 
 #: src/bin/calaos_server/IO/IntValue.cpp:52
-#: src/bin/calaos_server/IO/OutputAnalog.cpp:44
+#: src/bin/calaos_server/IO/OutputAnalog.cpp:46
 msgid "Decrement value by value"
 msgstr ""
 
@@ -692,7 +725,7 @@ msgstr ""
 msgid "Hostname of knxd, default to localhost"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:34
+#: src/bin/calaos_server/IO/KNX/KNXInputAnalog.cpp:35
 msgid "Input analog with KNX and eibnetmux"
 msgstr ""
 
@@ -708,7 +741,7 @@ msgstr ""
 msgid "Input switch triple with KNX and eibnetmux"
 msgstr ""
 
-#: src/bin/calaos_server/IO/KNX/KNXInputTemp.cpp:34
+#: src/bin/calaos_server/IO/KNX/KNXInputTemp.cpp:35
 msgid "Input temperature with KNX and eibnetmux"
 msgstr ""
 
@@ -808,24 +841,286 @@ msgstr ""
 msgid "Send wake on lan packet to the configured device"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.cpp:33
-msgid "RGB light support for Limitless/Milight RGB bulbs."
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:405
+msgid ""
+"IP address of the mqtt broker to connect to. Default value is 127.0.0.1."
 msgstr ""
 
-#: src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.cpp:34
-msgid "http://www.limitlessled.com"
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:406
+msgid "TCP port of the mqtt broker. Default value is 1883"
 msgstr ""
 
-#: src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.cpp:35
-msgid "Milight wifi gateway IP address"
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:407
+msgid "keepalive timeout in seconds. Time between two mqtt PING."
 msgstr ""
 
-#: src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.cpp:36
-msgid "Gateway port, default to 8899"
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:409
+msgid ""
+"Password to use for authentication with mqtt broker. User must be defined in "
+"that case."
 msgstr ""
 
-#: src/bin/calaos_server/IO/LimitlessLED/MilightOutputLightRGB.cpp:37
-msgid "Zone to control. Each gateway supports 4 zones."
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:410
+msgid ""
+"User to use for authentication with mqtt broker. Password must be defined in "
+"that case."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:412
+msgid "Topic on witch to publish."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:413
+msgid "Topic on witch to subscribe."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:415
+msgid ""
+"The path where to find the value in the mqtt payload. If payload if JSON, "
+"informations will be extracted depending on the path. for example weather[0]/"
+"description, try to read the description value of the 1 element of the array "
+"of the weather object. if payload is simple json, just try to use the key of "
+"the value you want to read, for example : {\"temperature\":14.23} use "
+"\"temperature\" as path"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:417
+msgid ""
+"The topic on witch to publish the battery status of the sensor. If not set, "
+"no battery status will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:418
+msgid ""
+"The path where to find the battery status in the mqtt payload. If payload if "
+"JSON, informations will be extracted depending on the path. for example "
+"weather[0]/description, try to read the description value of the 1 element "
+"of the array of the weather object. If payload is simple json object, just "
+"try to use the key of the value you want to read, for example : "
+"{\"battery\":90} use \"battery\" as path. When this path is set, and the "
+"level drops below 30%. The battery reported should be in percent. Use "
+"`battery_expr` to adjust if required."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:419
+msgid ""
+"If the battery value is not directly available in the payload, you can use "
+"this parameter to calculate the battery value from the payload. The value "
+"will be calculated as any valid mathematic expression. In the expression, "
+"the variable x is replaced with the raw value from path. If not set, the "
+"battery value will be read directly from the path. Example: \"x * 100 / 255\""
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:421
+msgid ""
+"The topic on witch to publish the connected status of the sensor. If not "
+"set, no connected status will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:422
+msgid ""
+"The path where to find the connected status in the mqtt payload. If payload "
+"if JSON, informations will be extracted depending on the path. for example "
+"weather[0]/description, try to read the description value of the 1 element "
+"of the array of the weather object. If payload is simple json, just try to "
+"use the key of the value you want to read, for example : {\"connected\":"
+"true} use \"connected\" as path. The value should be a boolean. Use "
+"connected_status_expr to convert to a boolean"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:423
+msgid ""
+"If the connected status value is not directly available in the payload, you "
+"can use this parameter to convert the value from the path to a boolean. The "
+"value will be calculated as any valid mathematic expression. In the "
+"expression, the variable `value` is replaced with the raw value from path. "
+"If not set, the connected status will be read directly from the path. "
+"Example: \"value == 'connected'\" or \"value > 30 and value < 150\""
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:425
+msgid ""
+"The topic on witch to publish the wireless signal strength of the sensor. If "
+"not set, no wireless signal strength will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:426
+msgid ""
+"The path where to find the wireless signal strength in the mqtt payload. If "
+"payload if JSON, informations will be extracted depending on the path. for "
+"example weather[0]/description, try to read the description value of the 1 "
+"element of the array of the weather object. If payload is simple json, just "
+"try to use the key of the value you want to read, for example : {\"signal\": "
+"70} use \"signal\" as path. The value should be a number in percent. Use "
+"`wireless_signal_expr` to adjust if required."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:427
+msgid ""
+"If the wireless signal value is not directly available in the payload, you "
+"can use this parameter to calculate the wireless signal value from the "
+"payload. The value will be calculated as any valid mathematic expression. In "
+"the expression, the variable x is replaced with the raw value from path. If "
+"not set, the wireless signal value will be read directly from the path. "
+"Example: \"x * 100 / 255\""
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:429
+msgid ""
+"The topic on witch to publish the uptime of the sensor. If not set, no "
+"uptime will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:430
+msgid ""
+"The path where to find the uptime of the sensor in the mqtt payload. If "
+"payload if JSON, informations will be extracted depending on the path. for "
+"example weather[0]/description, try to read the description value of the 1 "
+"element of the array of the weather object. If payload is simple json, just "
+"try to use the key of the value you want to read, for example : {\"uptime\": "
+"3600} use \"uptime\" as path. The value should be a number in seconds. Use "
+"`uptime_expr` to adjust if required."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:431
+msgid ""
+"If the uptime value is not directly available in the payload, you can use "
+"this parameter to calculate the uptime value from the payload. The value "
+"will be calculated as any valid mathematic expression. In the expression, "
+"the variable x is replaced with the raw value from path. If not set, the "
+"uptime value will be read directly from the path. Example: \"x * 100 / 255\""
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:433
+msgid ""
+"The topic on witch to publish the IP address of the sensor. If not set, no "
+"IP address will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:434
+msgid ""
+"The path where to find the IP address of the sensor in the mqtt payload. If "
+"payload if JSON, informations will be extracted depending on the path. for "
+"example weather[0]/description, try to read the description value of the 1 "
+"element of the array of the weather object. If payload is simple json, just "
+"try to use the key of the value you want to read, for example : "
+"{\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value "
+"should be a string with the IP address."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:436
+msgid ""
+"The topic on witch to publish the WiFi SSID of the sensor. If not set, no "
+"WiFi SSID will be reported."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:437
+msgid ""
+"The path where to find the WiFi SSID where the sensor is connected in the "
+"mqtt payload. If payload if JSON, informations will be extracted depending "
+"on the path. for example weather[0]/description, try to read the description "
+"value of the 1 element of the array of the weather object. If payload is "
+"simple json, just try to use the key of the value you want to read, for "
+"example : {\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value "
+"should be a string with the WiFi SSID."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:439
+msgid ""
+"If set, a notification will be sent when the battery level drops below 30%. "
+"This is only used if the battery_topic is set."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:440
+msgid ""
+"If set, a notification will be sent when the connected status changes. This "
+"is only used if the connected_status_topic is set."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputAnalog.cpp:41
+msgid "Analog value read from a mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputString.cpp:40
+msgid "String value read from a mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputSwitch.cpp:41
+msgid "Switch value read from a mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputSwitch.cpp:44
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLight.cpp:40
+msgid "Value to interpret as ON value"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputSwitch.cpp:45
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLight.cpp:41
+msgid "Value to interpret as OFF value"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttInputTemp.cpp:41
+msgid "Temperature read from a mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputAnalog.cpp:34
+msgid "Control analog output through mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputAnalog.cpp:37
+msgid ""
+"The data sent when publishing to topic. The __##VALUE##__ contained in data "
+"is substituted with the state (float value) to be sent."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLight.cpp:37
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightDimmer.cpp:37
+msgid "Control lights through mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLight.cpp:42
+msgid ""
+"The data sent when publishing to topic. The __##VALUE##__ contained in data "
+"is substituted with with the state (on_value, off_value) to be sent."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightDimmer.cpp:40
+msgid ""
+"The data sent when publishing to topic. The __##VALUE##__ contained in data "
+"is substituted with the state (integer value) to be sent."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:37
+msgid "Control RGB lights through mqtt broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:40
+msgid ""
+"The data sent when publishing color to topic. The __##VALUE_R##__  "
+"__##VALUE_G##__  __##VALUE_B##__ or __##VALUE_HEX##__ or __##VALUE_X##__ "
+"__##VALUE_Y##__ __##VALUE_BRIGHTNESS##__ contained in data is substituted "
+"with the color (integer value or #RRGGBB string value) to be sent."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:43
+msgid ""
+"The path where to found the X (X/Y Color space) value in the mqtt payload. "
+"If payload if JSON, informations will be extracted depending on the path. "
+"for example color/x, try to read the x value from the color object."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:44
+msgid ""
+"The path where to found the Y (X/Y Color space) value in the mqtt payload. "
+"If payload if JSON, informations will be extracted depending on the path. "
+"for example color/y, try to read the x value from the color object."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:45
+msgid ""
+"The path where to found the brightness value in the mqtt payload. If payload "
+"if JSON, informations will be extracted depending on the path. for example "
+"'brightness'"
 msgstr ""
 
 #: src/bin/calaos_server/IO/MySensors/MySensors.cpp:123
@@ -854,16 +1149,16 @@ msgstr ""
 msgid "IP address of the tcp gateway if relevant"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:34
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:35
 msgid "Analog measurement with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:36
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:36
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:37
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:37
@@ -871,12 +1166,12 @@ msgstr ""
 msgid "Node ID as set in your network"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:37
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputAnalog.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputString.cpp:37
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitch.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchLongPress.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsInputSwitchTriple.cpp:38
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:38
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:39
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputAnalog.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputDimmer.cpp:38
 #: src/bin/calaos_server/IO/MySensors/MySensorsOutputLight.cpp:38
@@ -900,7 +1195,7 @@ msgstr ""
 msgid "Input triple click switch with MySensors node"
 msgstr ""
 
-#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:35
+#: src/bin/calaos_server/IO/MySensors/MySensorsInputTemp.cpp:36
 msgid "Temperature sensor with MySensors node"
 msgstr ""
 
@@ -1033,25 +1328,25 @@ msgstr ""
 msgid "DMX channel for blue to control"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:38
+#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:39
 msgid "Temperature measurement with DS18B20 Onewire Sensor"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:39
+#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:40
 msgid "http://calaos.fr/wiki/OneWire"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:40
+#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:41
 msgid "Unique ID of sensor on OneWire bus."
 msgstr ""
 
-#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:41
+#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:42
 msgid ""
 "Additional parameter used for owfs initialization.For example you can use -u "
 "to use the USB owfs drivers"
 msgstr ""
 
-#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:45
+#: src/bin/calaos_server/IO/OneWire/OWTemp.cpp:46
 msgid "Force the use of w1 kernel driver instead of OneWire driver"
 msgstr ""
 
@@ -1359,6 +1654,58 @@ msgid ""
 "internal position values. Use this if shutter sync is lost."
 msgstr ""
 
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:38
+msgid "Switch activated by events from a Reolink camera"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:40
+msgid "IP address or hostname of the Reolink camera"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:41
+msgid "Username for authentication with Reolink camera"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:42
+msgid "Password for authentication with Reolink camera"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:45
+msgid "Motion Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:46
+msgid "Person Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:47
+msgid "Vehicle Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:48
+msgid "Pet Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:49
+msgid "Cry Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:50
+msgid "Face Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:51
+msgid "Package Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:52
+msgid "Visitor/Doorbell Detection"
+msgstr ""
+
+#: src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp:54
+msgid "Type of event to listen for from the Reolink camera"
+msgstr ""
+
 #: src/bin/calaos_server/IO/Scenario.cpp:36
 msgid ""
 "A scenario variable. Use this like a virtual button to start a scenario "
@@ -1381,110 +1728,19 @@ msgstr ""
 msgid "Internal use only for Auto Scenario. read only."
 msgstr ""
 
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:33
-msgid "Analog measurement retrieved from Teleinfo informations."
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:35
-msgid ""
-"port on which to get Teleinfo information usually a serial port like /dev/"
-"ttyS0 or /dev/ttyAMA0"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:37
-msgid "Subscribed intensity. (in Ampere)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:38
-msgid "Index if optione BASE is subscribed. (in Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:39
-msgid "Index \"Heures Creuses\" if this option is subscribed. (in Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:40
-msgid ""
-"Index \"Heures Pleine\" if option \"Heures Creuses\" is subscribed. (in Watt-"
-"hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:41
-msgid ""
-"Index \"Heures Normales\" if otion \"EJP\" is subscribed. (in Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:42
-msgid ""
-"Index \"Heures de pointe mobile\" if otion \"EJP\" is subscribed. (in Watt-"
-"hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:43
-msgid ""
-"Index \"Heures creuses jours bleues\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:44
-msgid ""
-"Index \"Heures pleines jours bleues\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:45
-msgid ""
-"Index \"Heures creuses jours blancs\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:46
-msgid ""
-"Index \"Heures pleines jours blancs\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:47
-msgid ""
-"Index \"Heures creuses jours rouges\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:48
-msgid ""
-"Index \"Heures pleines jours rouges\" if otion \"Tempo\" is subscribed. (in "
-"Watt-hour)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:49
-msgid "Instant intensity. (in Ampere)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:50
-msgid "Maximal intensity. (in Ampere)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:51
-msgid "Apparent power. (in Volt-ampere)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Teleinfo/TeleinfoInputAnalog.cpp:53
-msgid "All theses values are reported by the Teleinfo equipment as double."
-msgstr ""
-
-#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:38
+#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:39
 msgid "Analog measurement with Wago module (like 0-10V, 4-20mA, ...)"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:39
+#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:40
 msgid "http://calaos.fr/wiki/fr/entree_analog"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:40
+#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:41
 #: src/bin/calaos_server/IO/Wago/WIDigitalBP.cpp:42
 #: src/bin/calaos_server/IO/Wago/WIDigitalLong.cpp:39
 #: src/bin/calaos_server/IO/Wago/WIDigitalTriple.cpp:39
-#: src/bin/calaos_server/IO/Wago/WITemp.cpp:40
+#: src/bin/calaos_server/IO/Wago/WITemp.cpp:41
 #: src/bin/calaos_server/IO/Wago/WOAnalog.cpp:40
 #: src/bin/calaos_server/IO/Wago/WODali.cpp:40
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:40
@@ -1494,11 +1750,11 @@ msgstr ""
 msgid "Wago PLC IP address on the network"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:41
+#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:42
 #: src/bin/calaos_server/IO/Wago/WIDigitalBP.cpp:43
 #: src/bin/calaos_server/IO/Wago/WIDigitalLong.cpp:40
 #: src/bin/calaos_server/IO/Wago/WIDigitalTriple.cpp:40
-#: src/bin/calaos_server/IO/Wago/WITemp.cpp:41
+#: src/bin/calaos_server/IO/Wago/WITemp.cpp:42
 #: src/bin/calaos_server/IO/Wago/WOAnalog.cpp:41
 #: src/bin/calaos_server/IO/Wago/WODali.cpp:41
 #: src/bin/calaos_server/IO/Wago/WODaliRVB.cpp:41
@@ -1508,8 +1764,8 @@ msgstr ""
 msgid "Wago ethernet port, default to 502"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:44
-#: src/bin/calaos_server/IO/Wago/WITemp.cpp:42
+#: src/bin/calaos_server/IO/Wago/WIAnalog.cpp:45
+#: src/bin/calaos_server/IO/Wago/WITemp.cpp:43
 msgid "PLC address of the input sensor"
 msgstr ""
 
@@ -1538,11 +1794,11 @@ msgid ""
 "Switch triple click with digital input Wago modules (like 750-1405, ...)"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WITemp.cpp:38
+#: src/bin/calaos_server/IO/Wago/WITemp.cpp:39
 msgid "Temperature measurement with Wago temperature module (like 750-460)"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Wago/WITemp.cpp:39
+#: src/bin/calaos_server/IO/Wago/WITemp.cpp:40
 msgid "http://calaos.fr/wiki/fr/750-460"
 msgstr ""
 
@@ -1756,7 +2012,7 @@ msgid ""
 "If the path is 2/4/, the value returne wil be 20.3\n"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:39
+#: src/bin/calaos_server/IO/Web/WebInputAnalog.cpp:40
 msgid "Analog input read from a web document"
 msgstr ""
 
@@ -1764,7 +2020,7 @@ msgstr ""
 msgid "String input providing from a web document"
 msgstr ""
 
-#: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:40
+#: src/bin/calaos_server/IO/Web/WebInputTemp.cpp:41
 msgid "Temperature input read from a web document"
 msgstr ""
 
@@ -1791,220 +2047,6 @@ msgstr ""
 msgid "String output written to a web document or URL"
 msgstr ""
 
-#: src/bin/calaos_server/IO/X10/X10Output.cpp:34
-msgid "Light dimmer using X10 and heyu."
-msgstr ""
-
-#: src/bin/calaos_server/IO/X10/X10Output.cpp:35
-msgid "House code of the X10 light device"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:35
-msgid ""
-"Zibase analog input. This object can read value from devices like Energy "
-"monitor sensors, Lux sensors, ..."
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:36
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:36
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:36
-#: src/bin/calaos_server/IO/Zibase/ZibaseTemp.cpp:36
-msgid "Zibase IP address on the network"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:37
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:37
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:37
-#: src/bin/calaos_server/IO/Zibase/ZibaseTemp.cpp:37
-msgid "Zibase ethernet port, default to 17100"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:38
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:38
-#: src/bin/calaos_server/IO/Zibase/ZibaseTemp.cpp:38
-msgid "Zibase device ID (ABC)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:40
-msgid "Energy monitor sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:41
-msgid "Lux sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:42
-msgid "Total rain sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseAnalogIn.cpp:43
-msgid "Wind sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:35
-msgid "Zibase digital input. This object acts as a switch"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:38
-msgid "First Zibase device ID (ABC)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:39
-msgid "Second Zibase device ID (ABC)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:41
-msgid "Door/Window sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalIn.cpp:42
-msgid "Switch/Remote control"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:35
-msgid "Zibase digital output. This object controls Zibase devices"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:40
-msgid "DEFAULT_PROTOCOL"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:41
-msgid "VISONIC433"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:42
-msgid "VISONIC868"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:43
-msgid "CHACON"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:44
-msgid "DOMIA"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:45
-msgid "RFX10"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:46
-msgid "ZWAVE"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:47
-msgid "RFSTS10"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:48
-msgid "XDD433alrm"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:49
-msgid "XDD868alrmn"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:50
-msgid "XDD868shutter"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:51
-msgid "XDD868pilot"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:52
-msgid "XDD868boiler"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseDigitalOut.cpp:54
-msgid "Number of burst to send to the device"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseTemp.cpp:35
-msgid "Zibase temperature sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/Zibase/ZibaseTemp.cpp:40
-msgid "Temperature sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:26
-msgid "Sensor ID, as set in your xPL network"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:32
-msgid "Actuator ID, as set in your xPL network"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLDocBase.cpp:37
-msgid ""
-"Source name, as set in your xPL network (Format VendorId-DeviceId.Instance)"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLInputAnalog.cpp:34
-msgid "xPL analog sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLInputString.cpp:34
-msgid "xPL string sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLInputSwitch.cpp:35
-msgid "xPL input switch"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLInputTemp.cpp:34
-msgid "xPL temperature sensor"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLOutputAnalog.cpp:34
-#: src/bin/calaos_server/IO/xPL/xPLOutputString.cpp:34
-msgid "Analog output controlled by xPL Protocol"
-msgstr ""
-
-#: src/bin/calaos_server/IO/xPL/xPLOutputSwitch.cpp:34
-msgid "Light/relay controlled by xPL Protocol"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:37
-msgid "Unique ID identifying the Input/Output in calaos-server"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:38
-msgid "Name of Input/Output."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:39
-msgid "Display the Input/Output on all user interfaces if set. Default to true"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:40
-msgid ""
-"Enable the Input/Output. The default value is true. This parameter is added "
-"if it's not found in the configuration."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:41
-msgid ""
-"Internal graphical type for all calaos objects. Set automatically, read-only "
-"parameter."
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:42
-msgid "IO type, can be \"input\", \"output\", \"inout\""
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:43
-msgid "If enabled, write an entry in the history event log for this IO"
-msgstr ""
-
-#: src/bin/calaos_server/IOBase.cpp:44
-msgid ""
-"If enabled, and if influxdb is enabled in local_config send the value to "
-"influxdb for this IO"
-msgstr ""
-
 #: src/bin/calaos_server/IPCam/Axis.cpp:33
 msgid ""
 "Axis IP Camera/Encoder. Camera can be viewed directly inside calaos and used "
@@ -2016,12 +2058,38 @@ msgid "Camera model/chanel to use"
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:35
+#: src/bin/calaos_server/IPCam/Foscam.cpp:32
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:35
 msgid "Set to true if camera has PTZ support"
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/Axis.cpp:39
 msgid "Resolution to use"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Foscam.cpp:31
+msgid ""
+"Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and "
+"used in rules."
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Foscam.cpp:34
+#: src/bin/calaos_server/IPCam/Planet.cpp:38
+msgid "Username for accessing the camera"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Foscam.cpp:35
+#: src/bin/calaos_server/IPCam/Planet.cpp:39
+#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:38
+msgid "Password for user"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Foscam.cpp:36
+msgid "IP Address"
+msgstr ""
+
+#: src/bin/calaos_server/IPCam/Foscam.cpp:37
+msgid "Port number"
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/Gadspot.cpp:31
@@ -2050,15 +2118,6 @@ msgstr ""
 
 #: src/bin/calaos_server/IPCam/Planet.cpp:37
 msgid "Camera model (ICA-210, ICA-210W, ICA-300, ICA-302, ICA-500) to use"
-msgstr ""
-
-#: src/bin/calaos_server/IPCam/Planet.cpp:38
-msgid "Username for accessing the camera"
-msgstr ""
-
-#: src/bin/calaos_server/IPCam/Planet.cpp:39
-#: src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp:38
-msgid "Password for user"
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/StandardMjpeg.cpp:32
@@ -2098,41 +2157,41 @@ msgid ""
 "Profile to use for snapshot. 0- High quality, 1- Balanced, 2- Low bandwidth"
 msgstr ""
 
-#: src/bin/calaos_server/JsonApi.cpp:1345
-#: src/bin/calaos_server/JsonApi.cpp:1450
+#: src/bin/calaos_server/JsonApi.cpp:1349
+#: src/bin/calaos_server/JsonApi.cpp:1454
 msgid "New unnamed scenario"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:54
+#: src/bin/calaos_server/main.cpp:53
 msgid ""
 "Usage:\n"
 "\t"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:54
+#: src/bin/calaos_server/main.cpp:53
 msgid " [options]"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:55
+#: src/bin/calaos_server/main.cpp:54
 msgid "\tOptions:\n"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:56
+#: src/bin/calaos_server/main.cpp:55
 msgid "\t-h, --help\tDisplay this help.\n"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:57
+#: src/bin/calaos_server/main.cpp:56
 msgid "\t--config <path>\tSet <path> as the directory for config files.\n"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:58
+#: src/bin/calaos_server/main.cpp:57
 msgid "\t--cache <path>\tSet <path> as the directory for cache files.\n"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:59
+#: src/bin/calaos_server/main.cpp:58
 msgid "\t--gendoc <path>\tGenerate Io documentation in <path>\n"
 msgstr ""
 
-#: src/bin/calaos_server/main.cpp:60
+#: src/bin/calaos_server/main.cpp:59
 msgid "\t-v, --version\tDisplay current version and exit.\n"
 msgstr ""

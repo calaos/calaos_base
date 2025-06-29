@@ -159,8 +159,8 @@ msgid ""
 "Resume of: <light_blue>My Home</light_blue><br><small>Informations about "
 "your Calaos System</small"
 msgstr ""
-"Resume of: <light_blue>My Home</light_blue><br><small>Information about "
-"your Calaos System</small"
+"Resume of: <light_blue>My Home</light_blue><br><small>Information about your "
+"Calaos System</small"
 
 #: src/bin/calaos_home/views/ActivityConfigMenuView.cpp:38
 msgid "Our Partners"
@@ -308,26 +308,6 @@ msgstr "Enable screen saver : "
 #: src/bin/calaos_home/views/ActivityConfigScreensaverView.cpp:76
 msgid " minutes"
 msgstr " minutes"
-
-#: src/bin/calaos_home/views/ActivityConfigMenuView.h:42
-#, fuzzy
-msgid "Configuration center"
-msgstr "Configuration"
-
-#: src/bin/calaos_home/views/ActivityConfigClockView.h:41
-#, fuzzy
-msgid "Configure Clock and Date"
-msgstr "Configure Clock and Date"
-
-#: src/bin/calaos_home/views/ActivityConfigPasswordView.h:41
-#, fuzzy
-msgid "Configure Password"
-msgstr "Configure Password"
-
-#: src/bin/calaos_home/views/ActivityConfigScreensaverView.h:41
-#, fuzzy
-msgid "Configure Screen saver settings"
-msgstr "Configure Screen saver settings"
 
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:39
 #: src/bin/calaos_home/views/ActivityEditScenarioView.cpp:64
@@ -654,11 +634,6 @@ msgstr ""
 "Days of the week<br><small><light_blue>Days of the week when scenario is "
 "executed.</light_blue></small>"
 
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:531
-#, fuzzy
-msgid "End"
-msgstr "End"
-
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:533
 msgid "Beginning"
 msgstr ""
@@ -698,16 +673,6 @@ msgstr "Sunday"
 #: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:553
 msgid "ERROR"
 msgstr "ERROR"
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:726
-#, fuzzy
-msgid "Are you sure to delete this schedule?"
-msgstr "Are you sure to delete this schedule?"
-
-#: src/bin/calaos_home/views/ActivityScheduleScenarioView.cpp:733
-#, fuzzy
-msgid "Yes, delete this schedule"
-msgstr "Oui, supprimer l'étape"
 
 #: src/bin/calaos_home/views/ActivityView.cpp:77
 msgid "Quit"
@@ -803,21 +768,3 @@ msgstr ""
 #: src/bin/calaos_home/views/Widget.cpp:209
 msgid "Yes, del this widget"
 msgstr "Yes, del this widget"
-
-#~ msgid "Spring"
-#~ msgstr "Printemps"
-
-#~ msgid "Summer"
-#~ msgstr "Summer"
-
-#~ msgid "Fall"
-#~ msgstr "Fall"
-
-#~ msgid "Winter"
-#~ msgstr "Winter"
-
-#~ msgid "Energy saving"
-#~ msgstr "Energy saving"
-
-#~ msgid "Password"
-#~ msgstr "Password"
