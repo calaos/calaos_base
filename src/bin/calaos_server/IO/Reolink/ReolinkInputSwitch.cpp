@@ -105,6 +105,9 @@ void ReolinkInputSwitch::eventReceivedCallback(string hostname, string event_typ
 
     // Trigger value change detection
     hasChanged();
+
+    // Reset the value to false after a short delay
+    Timer::singleShot(0.250, [=]() { value = false; });
 }
 
 bool ReolinkInputSwitch::readValue()
