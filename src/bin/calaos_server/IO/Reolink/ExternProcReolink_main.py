@@ -8,6 +8,8 @@ import json
 import threading
 from datetime import datetime
 import time
+import os
+import signal
 
 import logging
 
@@ -21,6 +23,38 @@ class ReolinkClient(ExternProcClient):
         self.reconnect_tasks = {}  # Track reconnection tasks
         self.event_loop = None
         self.event_loop_thread = None
+        
+        # Error tracking and robustness
+        self.max_consecutive_errors = 5
+        self.consecutive_errors = 0
+        self.last_heartbeat = time.time()
+        self.heartbeat_interval = 30  # seconds
+        self.operation_timeout = 30  # seconds for network operations
+        self.restart_requested = False
+
+    def force_restart(self):
+        """Force restart the entire process when recovery is not possible"""
+        try:
+            cCriticalDom("reolink")("Forcing process restart due to unrecoverable errors")
+            self.restart_requested = True
+            
+            # Send restart message to parent process
+            restart_msg = {
+                "status": "restart_required",
+                "message": "Process requires restart due to persistent connection issues",
+                "pid": os.getpid()
+            }
+            self.send_message(json.dumps(restart_msg))
+            
+            # Give time for message to be sent
+            time.sleep(2)
+            
+            # Force exit
+            os.kill(os.getpid(), signal.SIGTERM)
+            
+        except Exception as e:
+            cErrorDom("reolink")(f"Error during force restart: {str(e)}")
+            os._exit(1)
 
     def stop(self):
         # Cancel all reconnection tasks
@@ -94,11 +128,39 @@ class ReolinkClient(ExternProcClient):
             asyncio.run_coroutine_threadsafe(self.check_events_periodically(), self.event_loop)
             # Start connection monitoring
             asyncio.run_coroutine_threadsafe(self.monitor_connections(), self.event_loop)
+            # Start heartbeat monitoring
+            asyncio.run_coroutine_threadsafe(self.heartbeat_monitor(), self.event_loop)
 
         return True
 
     def run(self, timeout_ms):
         return super().run(timeout_ms)
+
+    async def heartbeat_monitor(self):
+        """Monitor event loop health and force restart if needed"""
+        cDebugDom("reolink")("Starting heartbeat monitoring")
+        
+        while True:
+            try:
+                if self.restart_requested:
+                    break
+                    
+                await asyncio.sleep(self.heartbeat_interval)
+                current_time = time.time()
+                
+                # Update heartbeat
+                self.last_heartbeat = current_time
+                
+                # Check if we need to clean up completed reconnection tasks
+                completed_tasks = [hostname for hostname, task in self.reconnect_tasks.items() 
+                                 if task and task.done()]
+                for hostname in completed_tasks:
+                    del self.reconnect_tasks[hostname]
+                    cDebugDom("reolink")(f"Cleaned up completed reconnection task for {hostname}")
+                
+            except Exception as e:
+                cErrorDom("reolink")(f"Error in heartbeat monitor: {str(e)}")
+                await asyncio.sleep(self.heartbeat_interval)
 
     async def monitor_connections(self):
         """Monitor camera connections and trigger reconnections when needed"""
@@ -106,6 +168,9 @@ class ReolinkClient(ExternProcClient):
         
         while True:
             try:
+                if self.restart_requested:
+                    break
+                    
                 await asyncio.sleep(10)  # Check every 10 seconds
                 
                 for camera_key, host in list(self.registered_cameras.items()):
@@ -123,7 +188,9 @@ class ReolinkClient(ExternProcClient):
                         # Try to reconnect if enough time has passed since last attempt
                         last_attempt = self.last_reconnect_attempt.get(hostname, 0)
                         if current_time - last_attempt > 30:  # Wait 30 seconds between reconnection attempts
-                            if hostname not in self.reconnect_tasks or self.reconnect_tasks[hostname].done():
+                            # Check if we already have a running reconnection task
+                            existing_task = self.reconnect_tasks.get(hostname)
+                            if not existing_task or existing_task.done():
                                 cInfoDom("reolink")(f"Starting reconnection task for camera {hostname}")
                                 self.reconnect_tasks[hostname] = asyncio.create_task(
                                     self.reconnect_camera(hostname)
@@ -133,9 +200,19 @@ class ReolinkClient(ExternProcClient):
                         if not self.connection_status.get(hostname, True):
                             cInfoDom("reolink")(f"Camera {hostname} TCP push active again, marking as connected")
                             self.connection_status[hostname] = True
+                
+                # Reset error counter on successful iteration
+                self.consecutive_errors = 0
                             
             except Exception as e:
-                cErrorDom("reolink")(f"Error in connection monitoring: {str(e)}")
+                self.consecutive_errors += 1
+                cErrorDom("reolink")(f"Connection monitoring error ({self.consecutive_errors}/{self.max_consecutive_errors}): {str(e)}")
+                
+                if self.consecutive_errors >= self.max_consecutive_errors:
+                    cCriticalDom("reolink")("Too many consecutive errors in connection monitoring, forcing restart")
+                    self.force_restart()
+                    break
+                
                 await asyncio.sleep(10)
 
     async def reconnect_camera(self, hostname):
@@ -150,31 +227,41 @@ class ReolinkClient(ExternProcClient):
                 cErrorDom("reolink")(f"No configuration found for camera {hostname}")
                 return
             
-            # Remove old camera instance
+            # Remove old camera instance with timeout
             old_keys = [key for key in self.registered_cameras.keys() if key.startswith(hostname)]
             for key in old_keys:
                 old_host = self.registered_cameras.pop(key, None)
                 if old_host:
                     try:
-                        # Unsubscribe from events
-                        await old_host.baichuan.unsubscribe_events()
+                        # Unsubscribe from events with timeout
+                        await asyncio.wait_for(
+                            old_host.baichuan.unsubscribe_events(), 
+                            timeout=self.operation_timeout
+                        )
                         cDebugDom("reolink")(f"Unsubscribed from old events for {hostname}")
+                    except asyncio.TimeoutError:
+                        cWarningDom("reolink")(f"Timeout unsubscribing from old events for {hostname}")
                     except Exception as e:
                         cDebugDom("reolink")(f"Error unsubscribing from old events for {hostname}: {str(e)}")
             
             # Wait a bit before reconnecting
             await asyncio.sleep(5)
             
-            # Try to reconnect
-            await self.connect_camera(
-                config['hostname'],
-                config['username'], 
-                config['password'],
-                config['event_type']
+            # Try to reconnect with timeout
+            await asyncio.wait_for(
+                self.connect_camera(
+                    config['hostname'],
+                    config['username'], 
+                    config['password'],
+                    config['event_type']
+                ),
+                timeout=self.operation_timeout * 2  # Double timeout for full reconnection
             )
             
             cInfoDom("reolink")(f"Successfully reconnected to camera {hostname}")
             
+        except asyncio.TimeoutError:
+            cErrorDom("reolink")(f"Timeout during reconnection to camera {hostname}")
         except Exception as e:
             cErrorDom("reolink")(f"Failed to reconnect to camera {hostname}: {str(e)}")
             # Schedule another attempt later
@@ -244,7 +331,8 @@ class ReolinkClient(ExternProcClient):
             }
 
             host = Host(hostname, username, password)
-            await host.get_host_data()
+            # Add timeout to host data retrieval
+            await asyncio.wait_for(host.get_host_data(), timeout=self.operation_timeout)
 
             camera_key = f"{hostname}_{event_type}"
             self.registered_cameras[camera_key] = host
@@ -252,8 +340,8 @@ class ReolinkClient(ExternProcClient):
 
             cInfoDom("reolink")(f"Connected to camera {hostname}, setting up Baichuan TCP subscription for {event_type} events")
 
-            # Set up Baichuan TCP push notification subscription
-            await host.baichuan.subscribe_events()
+            # Set up Baichuan TCP push notification subscription with timeout
+            await asyncio.wait_for(host.baichuan.subscribe_events(), timeout=self.operation_timeout)
 
             # Get available channels
             channels = getattr(host, 'channels', [0])  # Default to channel 0 if not available
@@ -309,6 +397,13 @@ class ReolinkClient(ExternProcClient):
 
             cInfoDom("reolink")(f"Successfully registered camera {hostname} for Baichuan {event_type} events")
 
+        except asyncio.TimeoutError:
+            cErrorDom("reolink")(f"Timeout connecting to camera {hostname}")
+            error_msg = {
+                "status": "error",
+                "message": f"Timeout connecting to camera {hostname}"
+            }
+            self.send_message(json.dumps(error_msg))
         except Exception as e:
             cErrorDom("reolink")(f"Failed to connect to camera {hostname}: {str(e)}")
             error_msg = {
@@ -320,9 +415,14 @@ class ReolinkClient(ExternProcClient):
     async def check_events_periodically(self):
         """Periodically check for Baichuan events as fallback when callbacks don't work"""
         cDebugDom("reolink")("Starting periodic event checking as fallback")
+        fallback_error_count = 0
+        max_fallback_errors = 3
 
         while True:
             try:
+                if self.restart_requested:
+                    break
+                    
                 # Sleep for a longer interval to reduce spam - callbacks should handle most events
                 await asyncio.sleep(30)  # Increased from 5 to 30 seconds
 
@@ -362,9 +462,19 @@ class ReolinkClient(ExternProcClient):
                                         break
                             except Exception as e:
                                 cDebugDom("reolink")(f"Error in fallback motion check for {hostname}: {str(e)}")
+                
+                # Reset fallback error count on successful iteration
+                fallback_error_count = 0
 
             except Exception as e:
-                cErrorDom("reolink")(f"Error in periodic event check: {str(e)}")
+                fallback_error_count += 1
+                cErrorDom("reolink")(f"Error in periodic event check ({fallback_error_count}/{max_fallback_errors}): {str(e)}")
+                
+                if fallback_error_count >= max_fallback_errors:
+                    cCriticalDom("reolink")("Too many errors in fallback event checking, forcing restart")
+                    self.force_restart()
+                    break
+                    
                 await asyncio.sleep(30)
 
     def message_received(self, message):
