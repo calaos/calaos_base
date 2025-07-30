@@ -1080,11 +1080,21 @@ class ReolinkClient(ExternProcClient):
         return event_callback
 
     async def _async_event_callback(self, host, hostname, channels):
-        """Version with adaptive timeouts"""
+        """Version with adaptive timeouts and initialization filtering"""
         callback_start_time = time.time()
         camera_key = f"{hostname}_{getattr(host, 'event_type', 'unknown')}"
 
         try:
+            # Ignore events during the first 3 seconds after connection
+            init_time = self.get_timer(f"init_time_{hostname}", 0)
+            if init_time == 0:  # First time, mark initialization time
+                self.set_timer(f"init_time_{hostname}", callback_start_time)
+                cDebugDom("reolink")(f"First callback for {hostname}, ignoring potential startup burst")
+                return
+            elif callback_start_time - init_time < 3:
+                cDebugDom("reolink")(f"Ignoring event during initialization period for {hostname}")
+                return
+
             # Mark the callback start for monitoring
             with self._cameras_lock:
                 self.callback_timeouts[camera_key] = callback_start_time
@@ -1099,6 +1109,65 @@ class ReolinkClient(ExternProcClient):
                     detected_events = []
 
                     try:
+                        # Check if this is a doorbell device for optimized processing
+                        is_doorbell = self.get_timer(f"is_doorbell_{hostname}", 0) > 0
+                        event_type = getattr(host, 'event_type', 'unknown')
+
+                        # For doorbell devices, prioritize visitor detection
+                        if is_doorbell or event_type == 'visitor':
+                            # Check visitor detection first (highest priority for doorbells)
+                            visitor_timeout = self.get_adaptive_timeout(hostname, "visitor", 1.0)  # Faster for doorbells
+                            visitor_start = time.time()
+
+                            try:
+                                async with self.timeout_context(visitor_timeout, f"visitor check {hostname}"):
+                                    if hasattr(host, 'visitor_detected'):
+                                        # Use functools.partial to avoid lambdas
+                                        visitor_detector = functools.partial(host.visitor_detected, channel)
+
+                                        if sys.version_info >= (3, 9):
+                                            visitor_result = await asyncio.to_thread(visitor_detector)
+                                        else:
+                                            visitor_result = await asyncio.get_event_loop().run_in_executor(
+                                                self.executor, visitor_detector
+                                            )
+
+                                        if visitor_result:
+                                            detected_events.append("visitor")
+                                            cInfoDom("reolink")(f"🔔 Visitor detected at doorbell {hostname}!")
+
+                                visitor_duration = time.time() - visitor_start
+                                self.update_performance(hostname, "visitor", visitor_duration)
+
+                                # For doorbell, if visitor is detected, we can prioritize sending that event first
+                                if detected_events and is_doorbell:
+                                    # Send visitor event immediately for doorbells
+                                    event_msg = {
+                                        "event": "detection",
+                                        "hostname": hostname,
+                                        "event_type": "visitor",
+                                        "channel": channel,
+                                        "timestamp": datetime.now().isoformat(),
+                                        "camera_name": getattr(host, 'camera_name', lambda x: f"Camera_{x}")(channel) if hasattr(host, 'camera_name') else f"Camera_{channel}",
+                                        "tcp_push_active": host.baichuan.events_active,
+                                        "callback_duration": time.time() - callback_start_time,
+                                        "async_callback": True,
+                                        "adaptive_timeout": global_timeout,
+                                        "doorbell_optimized": True
+                                    }
+                                    self.send_message(json.dumps(event_msg))
+
+                                    # Mark camera as connected since we're receiving events
+                                    self.safe_status_access(lambda: self._mark_connected_if_received_events(hostname))
+
+                                    # For doorbells, we can continue to check other events but visitor takes priority
+                                    continue
+
+                            except asyncio.TimeoutError:
+                                cWarningDom("reolink")(f"Visitor check timeout for {hostname} (timeout: {visitor_timeout:.1f}s)")
+                            except Exception as e:
+                                cDebugDom("reolink")(f"Visitor check failed for {hostname}: {e}")
+
                         # Motion check with adaptive timeout
                         motion_timeout = self.get_adaptive_timeout(hostname, "motion", 1.5)
                         motion_start = time.time()
@@ -1129,65 +1198,67 @@ class ReolinkClient(ExternProcClient):
                         except Exception as e:
                             cDebugDom("reolink")(f"Motion check failed for {hostname}: {e}")
 
-                        # Check for AI detections with adaptive timeouts
-                        ai_types = ["face", "person", "vehicle", "pet", "package", "cry"]
-                        for ai_type in ai_types:
-                            ai_timeout = self.get_adaptive_timeout(hostname, f"ai_{ai_type}", 1.0)
-                            ai_start = time.time()
+                        # Check for AI detections with adaptive timeouts (lower priority for doorbells)
+                        if not is_doorbell or not detected_events:  # Skip AI for doorbells if we already have events
+                            ai_types = ["face", "person", "vehicle", "pet", "package", "cry"]
+                            for ai_type in ai_types:
+                                ai_timeout = self.get_adaptive_timeout(hostname, f"ai_{ai_type}", 1.0)
+                                ai_start = time.time()
+
+                                try:
+                                    async with self.timeout_context(ai_timeout, f"AI {ai_type} check {hostname}"):
+                                        if hasattr(host, 'ai_detected'):
+                                            # Use functools.partial to avoid closure/memory problems
+                                            ai_detector = functools.partial(host.ai_detected, channel, ai_type)
+
+                                            if sys.version_info >= (3, 9):
+                                                ai_result = await asyncio.to_thread(ai_detector)
+                                            else:
+                                                ai_result = await asyncio.get_event_loop().run_in_executor(
+                                                    self.executor, ai_detector
+                                                )
+
+                                            if ai_result:
+                                                detected_events.append(ai_type)
+
+                                    # Update stats
+                                    ai_duration = time.time() - ai_start
+                                    self.update_performance(hostname, f"ai_{ai_type}", ai_duration)
+
+                                except asyncio.TimeoutError:
+                                    cWarningDom("reolink")(f"AI {ai_type} check timeout for {hostname} (timeout: {ai_timeout:.1f}s)")
+                                except Exception as e:
+                                    cDebugDom("reolink")(f"AI {ai_type} check failed for {hostname}: {e}")
+                                    continue
+
+                        # For non-doorbell devices, also check visitor detection
+                        if not is_doorbell and event_type != 'visitor':
+                            visitor_timeout = self.get_adaptive_timeout(hostname, "visitor", 1.5)
+                            visitor_start = time.time()
 
                             try:
-                                async with self.timeout_context(ai_timeout, f"AI {ai_type} check {hostname}"):
-                                    if hasattr(host, 'ai_detected'):
-                                        # Use functools.partial to avoid closure/memory problems
-                                        ai_detector = functools.partial(host.ai_detected, channel, ai_type)
+                                async with self.timeout_context(visitor_timeout, f"visitor check {hostname}"):
+                                    if hasattr(host, 'visitor_detected'):
+                                        # Use functools.partial to avoid lambdas
+                                        visitor_detector = functools.partial(host.visitor_detected, channel)
 
                                         if sys.version_info >= (3, 9):
-                                            ai_result = await asyncio.to_thread(ai_detector)
+                                            visitor_result = await asyncio.to_thread(visitor_detector)
                                         else:
-                                            ai_result = await asyncio.get_event_loop().run_in_executor(
-                                                self.executor, ai_detector
+                                            visitor_result = await asyncio.get_event_loop().run_in_executor(
+                                                self.executor, visitor_detector
                                             )
 
-                                        if ai_result:
-                                            detected_events.append(ai_type)
+                                        if visitor_result:
+                                            detected_events.append("visitor")
 
-                                # Update stats
-                                ai_duration = time.time() - ai_start
-                                self.update_performance(hostname, f"ai_{ai_type}", ai_duration)
+                                visitor_duration = time.time() - visitor_start
+                                self.update_performance(hostname, "visitor", visitor_duration)
 
                             except asyncio.TimeoutError:
-                                cWarningDom("reolink")(f"AI {ai_type} check timeout for {hostname} (timeout: {ai_timeout:.1f}s)")
+                                cWarningDom("reolink")(f"Visitor check timeout for {hostname} (timeout: {visitor_timeout:.1f}s)")
                             except Exception as e:
-                                cDebugDom("reolink")(f"AI {ai_type} check failed for {hostname}: {e}")
-                                continue
-
-                        # Check for visitor detection (doorbell) with adaptive timeout
-                        visitor_timeout = self.get_adaptive_timeout(hostname, "visitor", 1.5)
-                        visitor_start = time.time()
-
-                        try:
-                            async with self.timeout_context(visitor_timeout, f"visitor check {hostname}"):
-                                if hasattr(host, 'visitor_detected'):
-                                    # Use functools.partial to avoid lambdas
-                                    visitor_detector = functools.partial(host.visitor_detected, channel)
-
-                                    if sys.version_info >= (3, 9):
-                                        visitor_result = await asyncio.to_thread(visitor_detector)
-                                    else:
-                                        visitor_result = await asyncio.get_event_loop().run_in_executor(
-                                            self.executor, visitor_detector
-                                        )
-
-                                    if visitor_result:
-                                        detected_events.append("visitor")
-
-                            visitor_duration = time.time() - visitor_start
-                            self.update_performance(hostname, "visitor", visitor_duration)
-
-                        except asyncio.TimeoutError:
-                            cWarningDom("reolink")(f"Visitor check timeout for {hostname} (timeout: {visitor_timeout:.1f}s)")
-                        except Exception as e:
-                            cDebugDom("reolink")(f"Visitor check failed for {hostname}: {e}")
+                                cDebugDom("reolink")(f"Visitor check failed for {hostname}: {e}")
 
                     except Exception as e:
                         cWarningDom("reolink")(f"Error processing channel {channel} for {hostname}: {str(e)}")
@@ -1271,12 +1342,58 @@ class ReolinkClient(ExternProcClient):
             cInfoDom("reolink")(f"Connected to camera {hostname}, setting up Baichuan TCP subscription for {event_type} events")
 
             # Set up Baichuan TCP push notification subscription with timeout
-            async with self.timeout_context(15, f"event subscription {hostname}"):
-                await host.baichuan.subscribe_events()
+            tcp_push_supported = False
+            try:
+                async with self.timeout_context(15, f"event subscription {hostname}"):
+                    await host.baichuan.subscribe_events()
+
+                # IMPORTANT: Wait for TCP connection to establish
+                await asyncio.sleep(2)  # Wait 2 seconds
+
+                # Check now if TCP push is active
+                if host.baichuan.events_active:
+                    cInfoDom("reolink")(f"Baichuan TCP push active for camera {hostname}")
+                    tcp_push_supported = True
+                else:
+                    cWarningDom("reolink")(f"Baichuan TCP push not active for camera {hostname}, retrying...")
+
+                    # Attempt a reconnection
+                    await host.baichuan.unsubscribe_events()
+                    await asyncio.sleep(1)
+                    await host.baichuan.subscribe_events()
+                    await asyncio.sleep(2)
+
+                    if host.baichuan.events_active:
+                        cInfoDom("reolink")(f"Baichuan TCP push now active for {hostname} after retry")
+                        tcp_push_supported = True
+                    else:
+                        cWarningDom("reolink")(f"Baichuan TCP push still not active for {hostname}")
+                        # Mark for using polling
+                        self.set_timer(f"force_polling_{hostname}", 1)
+                        tcp_push_supported = False
+
+            except Exception as e:
+                cWarningDom("reolink")(f"Failed to setup TCP push for {hostname}: {e}")
+                tcp_push_supported = False
+
+            # Wait for connection to establish
+            await asyncio.sleep(2)
 
             # Get available channels
             channels = getattr(host, 'channels', [0])  # Default to channel 0 if not available
             cInfoDom("reolink")(f"Camera {hostname} has channels: {channels}")
+
+            # Optimize for doorbell devices
+            model = getattr(host, 'model', '').lower()
+            if "doorbell" in model or event_type == "visitor":
+                cInfoDom("reolink")(f"Detected doorbell device: {model}")
+
+                # Mark as doorbell for optimization
+                self.set_timer(f"is_doorbell_{hostname}", 1)
+
+                # Adjust timeouts for doorbell (responsiveness is important)
+                self.update_performance(hostname, "visitor", 0.5)  # Fast baseline
+                self.update_performance(hostname, "motion", 0.8)   # Motion secondary
 
             # Create event callback for all channels
             event_callback = self.create_event_callback(host, hostname, channels)
