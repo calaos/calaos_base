@@ -111,10 +111,12 @@ void ActionPush::sendNotif()
     };
     e.event_raw = data.dump();
 
+    auto notif_pic_uuid = notif_pic_uid.empty() ? "" : e.uuid;
+
     HistLogger::Instance().appendEvent(e);
 
     NotifManager::Instance().sendPushNotification(
-        nmsg, notif_pic_uid.empty() ? "" : e.uuid,
+        nmsg, notif_pic_uuid,
         [this]()
         {
             cDebugDom(TAG) << "Push notif sent";

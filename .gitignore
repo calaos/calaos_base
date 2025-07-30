@@ -107,3 +107,5 @@ build_doc
 
 __pycache__
 CLAUDE.md
+homeassitant
+reolink_aio
