@@ -32,6 +32,7 @@
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
 #include "DataLogger.h"
+#include "RemoteUIManager.h"
 #include "libuvw.h"
 #include "version.h"
 
@@ -126,9 +127,15 @@ int main (int argc, char **argv)
     EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
+    
+    // Initialize RemoteUI manager
+    RemoteUIManager::Instance();
 
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
+    
+    // Load RemoteUI configuration after IO config is loaded
+    RemoteUIManager::Instance().loadFromConfig();
 
     DataLogger::Instance();
 

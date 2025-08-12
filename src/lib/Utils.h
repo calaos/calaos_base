@@ -316,6 +316,12 @@ std::string to_string( const T & Value )
     oss << Value;
     return oss.str();
 }
+
+inline bool fileExists(const std::string &filename)
+{
+    std::ifstream file(filename);
+    return file.good();
+}
 //Some usefull fonctors
 struct UrlDecode
 {

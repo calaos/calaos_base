@@ -23,6 +23,7 @@
 #include "HttpCodes.h"
 #include "SHA1.h"
 #include "hef_uri_syntax.h"
+#include "RemoteUIWebSocketHandler.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -149,12 +150,32 @@ bool WebSocket::checkHandshakeRequest()
     echoMode = req_url.getPath() == "/echo";
 
     proto_ver = APINONE;
-    if (req_url.getPath() == "/api") proto_ver = API_WEBSOCKET;
+    if (req_url.getPath() == "/api")
+        proto_ver = API_WEBSOCKET;
+    else if (req_url.getPath() == "/api/v1/remote_ui/ws")
+        proto_ver = API_REMOTE_UI_WEBSOCKET;
 
     if (!jsonApi && !echoMode)
     {
         if (proto_ver == API_WEBSOCKET)
             jsonApi = new JsonApiHandlerWS(this);
+        else if (proto_ver == API_REMOTE_UI_WEBSOCKET)
+        {
+            // Create RemoteUI WebSocket handler and authenticate
+            RemoteUIWebSocketHandler *handler = new RemoteUIWebSocketHandler(this);
+            // Convert unordered_map to std::map for RemoteUI authentication
+            std::map<string, string> headers_map(request_headers.begin(), request_headers.end());
+            if (handler->authenticateConnection(headers_map))
+            {
+                jsonApi = handler;
+            }
+            else
+            {
+                delete handler;
+                cWarningDom("websocket") << "RemoteUI WebSocket authentication failed";
+                return false;
+            }
+        }
         else
         {
             cWarningDom("websocket") << "API version not implemented";

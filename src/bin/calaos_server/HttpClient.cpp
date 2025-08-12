@@ -18,6 +18,7 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include "RemoteUIProvisioningHandler.h"
 #include "HttpClient.h"
 #include "HttpServer.h"
 #include "hef_uri_syntax.h"
@@ -160,6 +161,7 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
 HttpClient::~HttpClient()
 {
     delete jsonApi;
+    delete remoteUIHandler;
     free(parser);
     DELETE_NULL(closeTimer);
 
@@ -534,6 +536,34 @@ void HttpClient::sendToClient(string res)
 
 void HttpClient::handleJsonRequest()
 {
+    // Check if this is a RemoteUI API request first
+    if (!remoteUIHandler)
+    {
+        remoteUIHandler = new RemoteUIProvisioningHandler(this);
+    }
+
+    // Extract HTTP method and URL path
+    string method;
+    switch (parser->method)
+    {
+        case HTTP_GET: method = "GET"; break;
+        case HTTP_POST: method = "POST"; break;
+        case HTTP_PUT: method = "PUT"; break;
+        case HTTP_DELETE: method = "DELETE"; break;
+        default: method = "UNKNOWN"; break;
+    }
+
+    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
+    string uri = req_url.getPath();
+
+    // Route to RemoteUI handler if URL matches
+    if (remoteUIHandler->canHandleRequest(uri, method))
+    {
+        remoteUIHandler->processRequest(uri, method, bodymessage, paramsGET);
+        return;
+    }
+
+    // Fall back to standard JSON API handler
     if (!jsonApi)
     {
         if (proto_ver == API_HTTP)
@@ -591,4 +621,28 @@ string HttpClient::getMimeType(const string &file_ext)
         return "application/vnd.ms-fontobject";
 
     return "text/plain";
+}
+
+string HttpClient::getClientIp() const
+{
+    if (!client_conn)
+        return "unknown";
+
+    try
+    {
+        auto addr = client_conn->peer<uvw::IPv4>();
+        if (!addr.ip.empty())
+            return addr.ip;
+
+        // Try IPv6 if IPv4 failed
+        auto addr6 = client_conn->peer<uvw::IPv6>();
+        if (!addr6.ip.empty())
+            return addr6.ip;
+    }
+    catch (...)
+    {
+        // If both fail, return unknown
+    }
+
+    return "unknown";
 }

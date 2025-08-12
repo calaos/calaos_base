@@ -29,6 +29,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/LuaScript       \
         -I$(top_srcdir)/src/bin/calaos_server/Rules           \
         -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
+        -I$(top_srcdir)/src/bin/calaos_server/RemoteUI        \
         -I$(top_srcdir)/src/bin/calaos_server                 \
         -I$(top_srcdir)/src/lib                               \
         -I$(top_srcdir)/src/lib/LuaScript                     \
@@ -360,6 +361,18 @@ calaos_server_SOURCES = \
         UDPServer.h                                     \
         WebSocket.cpp                                   \
         WebSocket.h                                     \
+        RemoteUI/RemoteUI.cpp                           \
+        RemoteUI/RemoteUI.h                             \
+        RemoteUI/RemoteUIManager.cpp                    \
+        RemoteUI/RemoteUIManager.h                      \
+        RemoteUI/RemoteUIProvisioningHandler.cpp        \
+        RemoteUI/RemoteUIProvisioningHandler.h          \
+        RemoteUI/RemoteUIWebSocketHandler.cpp           \
+        RemoteUI/RemoteUIWebSocketHandler.h             \
+        RemoteUI/HMACAuthenticator.cpp                  \
+        RemoteUI/HMACAuthenticator.h                    \
+        RemoteUI/RemoteUIConfig.cpp                     \
+        RemoteUI/RemoteUIConfig.h                       \
         HistLogger.cpp                                  \
         HistLogger.h                                    \
         NotifManager.h                                  \

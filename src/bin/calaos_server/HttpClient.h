@@ -36,6 +36,10 @@ namespace uvw {
 class TcpHandle;
 }
 
+namespace Calaos {
+class RemoteUIProvisioningHandler;
+}
+
 class HttpClient: public sigc::trackable
 {
 protected:
@@ -77,6 +81,7 @@ protected:
     bool isWebsocket = false;
 
     JsonApi *jsonApi = nullptr;
+    RemoteUIProvisioningHandler *remoteUIHandler = nullptr;
 
     Params paramsGET;
 
@@ -90,8 +95,6 @@ protected:
     int processHeaders(const string &request);
 
     void handleJsonRequest();
-
-    void sendToClient(string res);
 
     string getMimeType(const string &file_ext);
 
@@ -107,7 +110,7 @@ public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);
     virtual ~HttpClient();
 
-    enum { APINONE = 0, API_HTTP, API_WEBSOCKET };
+    enum { APINONE = 0, API_HTTP, API_WEBSOCKET, API_REMOTE_UI_WEBSOCKET };
 
     /* Called by JsonApiServer whenever data has been written to client */
     virtual void DataWritten(int size);
@@ -115,6 +118,8 @@ public:
     string buildHttpResponse(string code, Params &headers, string body);
     string buildHttpResponseFromFile(string code, Params &headers, string fileName);
 
+    string getClientIp() const;
+    void sendToClient(string res);
     void setNeedRestart(bool e) { need_restart = e; }
 };
 
