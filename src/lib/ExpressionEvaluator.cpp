@@ -1,6 +1,8 @@
 #include "ExpressionEvaluator.h"
 #include <exprtk.hpp>
 #include "Utils.h"
+#include <charconv>
+#include <string>
 
 bool ExpressionEvaluator::isExpressionValid(const std::string &expression)
 {
@@ -65,6 +67,19 @@ double ExpressionEvaluator::calculateExpression(const std::string &expression, d
     return result;
 }
 
+static bool parse_double(const std::string& rawValue, double& value_num)
+{
+    const char* begin = rawValue.data();
+    const char* end   = rawValue.data() + rawValue.size();
+
+    auto [ptr, ec] = std::from_chars(begin, end, value_num);
+
+    if (ec != std::errc() || ptr != end)
+        return false;
+
+    return true;
+}
+
 bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, const std::string &rawValue, bool &failed)
 {
     typedef exprtk::symbol_table<double> symbol_table_t;
@@ -76,50 +91,65 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
 
     // 1) quick check: must contain a boolean operator
     static const std::vector<std::string> bool_ops =
-      { "==", "!=", "<=", ">=", " and ", " or ", "<", ">" };
+        { "==", "!=", "<=", ">=", " and ", " or ", "<", ">" };
     bool has_bool_op = false;
     for (auto &op : bool_ops)
-      if (expression.find(op) != std::string::npos)
-      {
-        has_bool_op = true;
-        break;
-      }
+    {
+        if (expression.find(op) != std::string::npos)
+        {
+            has_bool_op = true;
+            break;
+        }
+    }
+
     if (!has_bool_op)
     {
-      cWarningDom("expr")
-        << "No boolean operator in expression: " << expression;
-      return false;
+        cWarningDom("expr") << "No boolean operator in expression: " << expression;
+        return false;
     }
 
     // 2) detect rawValue type
-    double  value_num = 0.0;
-    bool    is_numeric = true;
-    try
-    {
-      value_num = std::stod(rawValue);
-    }
-    catch (...)
-    {
-      is_numeric = false;
-    }
+    double value_num = 0.0;
+    bool is_numeric = parse_double(rawValue, value_num);
 
     symbol_table_t symbol_table;
     if (is_numeric)
     {
-      // only numeric
-      symbol_table.add_variable("x",     value_num);
-      symbol_table.add_variable("value", value_num);
+        // only numeric
+        if (!symbol_table.add_variable("x",     value_num))
+        {
+            cWarningDom("expr") << "Failed to add numeric variable 'x'";
+            return false;
+        }
+
+        if (!symbol_table.add_variable("value", value_num))
+        {
+            cWarningDom("expr") << "Failed to add numeric variable 'value'";
+            return false;
+        }
     }
     else
     {
-      // only string
-      std::string value_str = rawValue;
-      symbol_table.add_stringvar("x",     value_str);
-      symbol_table.add_stringvar("value", value_str);
+        // only string
+        std::string value_str = Utils::trim(rawValue);
+        if (!symbol_table.add_stringvar("x",     value_str))
+        {
+            cWarningDom("expr") << "Failed to add string variable 'x'";
+            return false;
+        }
+        if (!symbol_table.add_stringvar("value", value_str))
+        {
+            cWarningDom("expr") << "Failed to add string variable 'value'";
+            return false;
+        }
     }
 
     expression_t expr;
-    expr.register_symbol_table(symbol_table);
+    if (!expr.register_symbol_table(symbol_table))
+    {
+        cWarningDom("expr") << "Failed to register symbol table";
+        return false;
+    }
 
     parser_t parser;
 

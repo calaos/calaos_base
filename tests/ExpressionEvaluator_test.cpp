@@ -53,6 +53,8 @@ TEST_F(ExpressionEvaluatorTest, evaluateExpressionBool)
     EXPECT_FALSE(failed);
     EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("value == 'connected'", "connected", failed));
     EXPECT_FALSE(failed);
+    EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("value == 'online'", "online", failed));
+    EXPECT_FALSE(failed);
     EXPECT_FALSE(ExpressionEvaluator::evaluateExpressionBool("value == 'disconnected'", "connected", failed));
     EXPECT_FALSE(failed);
     EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("x > 5 and x < 15", "10", failed));
