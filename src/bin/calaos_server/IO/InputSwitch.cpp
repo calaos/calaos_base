@@ -34,7 +34,6 @@ InputSwitch::InputSwitch(Params &p):
 
     Params io_style = { { "switch", _("Switch") },
                         { "door", _("Door/Window sensor") },
-                        { "momentary", _("Momentary") },
                         { "occupancy", _("Occupancy sensor") },
                         { "smoke", _("Smoke detector") },
                         { "water", _("Water leak sensor") },
