@@ -27,12 +27,39 @@ InputSwitch::InputSwitch(Params &p):
     value(false)
 {
     ioDoc->descriptionBaseSet(_("Basic switch with press/release states."));
-    ioDoc->paramAdd("visible", _("A switch can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
+    ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to false for switches"), IODoc::TYPE_BOOL, false, "false");
     ioDoc->conditionAdd("true", _("Event triggered when switch is pressed"));
     ioDoc->conditionAdd("false", _("Event triggered when switch is released"));
     ioDoc->conditionAdd("changed", _("Event on any change of state"));
 
-    set_param("visible", "false");
+    Params io_style = { { "switch", _("Switch") },
+                        { "door", _("Door/Window sensor") },
+                        { "momentary", _("Momentary") },
+                        { "occupancy", _("Occupancy sensor") },
+                        { "smoke", _("Smoke detector") },
+                        { "water", _("Water leak sensor") },
+                        { "gas", _("Gas leak sensor") },
+                        { "carbon_monoxide", _("Carbon monoxide sensor") },
+                        { "sound", _("Sound sensor") },
+                        { "motion", _("Motion sensor") },
+                        { "vibration", _("Vibration sensor") },
+                        { "lock", _("Lock sensor") },
+                        { "garage_door", _("Garage door sensor") },
+                       };
+    ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), true, io_style, "switch");
+
+    // Default style is switch
+    if (!get_params().Exists("io_style"))
+        set_param("io_style", "switch");
+
+    // By default, the switch is not visible and other styles are visible
+    if (!get_params().Exists("visible"))
+    {
+        if (get_param("io_style") == "switch")
+            set_param("visible", "false");
+        else
+            set_param("visible", "true");
+    }
     set_param("gui_type", "switch");
 }
 
