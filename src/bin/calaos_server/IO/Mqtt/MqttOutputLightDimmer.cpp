@@ -55,7 +55,7 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
 void MqttOutputLightDimmer::readValue()
 {
     bool err;
-    auto newValue = ctrl->getValueDouble(get_params(), err) / 2.55;
+    auto newValue = ctrl->getValueDouble(get_params(), err) / 2.54;
 
     if (!err)
     {
@@ -70,6 +70,6 @@ void MqttOutputLightDimmer::readValue()
 bool MqttOutputLightDimmer::set_value_real(int val)
 {
     cDebugDom("mqtt") << "Set value to " << val;
-    ctrl->setValueInt(get_params(), val * 2.55);
+    ctrl->setValueInt(get_params(), val * 2.54);
     return true;
 }
