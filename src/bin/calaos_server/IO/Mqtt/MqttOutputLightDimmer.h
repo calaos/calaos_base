@@ -38,6 +38,7 @@ protected:
 
 public:
     MqttOutputLightDimmer(Params &p);
+    double convertValue(const Params &params, string direction, double dvalue);
 };
 
 }
