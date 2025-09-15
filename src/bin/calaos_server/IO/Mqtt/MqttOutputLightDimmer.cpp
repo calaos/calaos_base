@@ -22,6 +22,7 @@
 #include "MqttBrokersList.h"
 #include "IOFactory.h"
 #include <AnalogIO.h>
+#include <ExpressionEvaluator.h>
 
 using namespace Calaos;
 
@@ -41,11 +42,9 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
                               "with the state (integer value) to be sent."),
                     IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
-                 IODoc::TYPE_FLOAT, false, "1");
-    ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
-                 IODoc::TYPE_FLOAT, false, "0");
-    ioDoc->paramAdd("calc_expr", _("Use a mathematical expression to calculate the value from the raw value. The variable `x` is replaced with the raw value. For example, if you want to convert a raw value of 0-1000 to a temperature in Celsius, you can use `x / 10.0 - 50.0`. If this expression is set, coeff_a, coeff_b and offset parameters are ignored."),
+    ioDoc->paramAdd("in_expr", _("Use a mathematical expression to convert the raw value into a percent between 0 and 100. The variable `x` is replaced with the raw value. For example, if you want to convert a brightness of 0-254 to a percentage, you can use `x / 2.54`."),
+                 IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("out_expr", _("Use a mathematical expression to convert the value of the percentage into a raw value. The variable `x` is replaced with the percent value. For example, if you want to convert a percent value of 0-100 to a brightness of 0-254, you can use `x * 2.54`."),
                  IODoc::TYPE_STRING, false);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
@@ -59,6 +58,28 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
 }
 
+double MqttOutputLightDimmer::convertValue(const Params &params, string direction, double dvalue)
+{
+    string expr = direction + "_expr";
+
+    if (params.Exists(expr) &&
+        ExpressionEvaluator::isExpressionValid(params[expr]))
+    {
+        bool failed = false;
+        double v = ExpressionEvaluator::calculateExpression(params[expr], dvalue, failed);
+        if (failed)
+        {
+            cWarningDom("mqtt") << "Failed to calculate expression: " << params[expr];
+            return dvalue; // Return original value on failure
+        }
+
+        cDebugDom("mqtt") << "Calculated value from expression (" << dvalue << "): " << v;
+        return v;
+    }
+
+    return dvalue; // Return original value on failure
+}
+
 void MqttOutputLightDimmer::readValue()
 {
     bool err;
@@ -66,7 +87,7 @@ void MqttOutputLightDimmer::readValue()
 
     if (!err && newValue != value)
     {
-        value = AnalogIO::convertValue(get_params(), newValue);
+        value = convertValue(get_params(), "in", newValue);
         EmitSignalIO();
         emitChange();
     }
@@ -74,7 +95,7 @@ void MqttOutputLightDimmer::readValue()
 
 bool MqttOutputLightDimmer::set_value_real(int val)
 {
-    cDebugDom("mqtt") << "Set value to " << val;
+    val = convertValue(get_params(), "out", val);
     ctrl->setValueInt(get_params(), val);
     return true;
 }
