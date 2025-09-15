@@ -21,6 +21,7 @@
 #include "MqttOutputLightDimmer.h"
 #include "MqttBrokersList.h"
 #include "IOFactory.h"
+#include <AnalogIO.h>
 
 using namespace Calaos;
 
@@ -40,6 +41,12 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
                               "with the state (integer value) to be sent."),
                     IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("coeff_a", _("use in conjunction of coeff_b to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 1.0."),
+                 IODoc::TYPE_FLOAT, false, "1");
+    ioDoc->paramAdd("coeff_b", _("use in conjunction of coeff_a to apply equation of the form `value_sent = coeff_a * raw_value + coeff_b`. Default value is 0.0"),
+                 IODoc::TYPE_FLOAT, false, "0");
+    ioDoc->paramAdd("calc_expr", _("Use a mathematical expression to calculate the value from the raw value. The variable `x` is replaced with the raw value. For example, if you want to convert a raw value of 0-1000 to a temperature in Celsius, you can use `x / 10.0 - 50.0`. If this expression is set, coeff_a, coeff_b and offset parameters are ignored."),
+                 IODoc::TYPE_STRING, false);
 
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
     ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
@@ -55,13 +62,11 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
 void MqttOutputLightDimmer::readValue()
 {
     bool err;
-    auto newValue = ctrl->getValueDouble(get_params(), err) / 2.54;
+    auto newValue = ctrl->getValueDouble(get_params(), err);
 
-    if (!err)
+    if (!err && newValue != value)
     {
-        value = newValue;
-        cmd_state = "set " + Utils::to_string(value);
-
+        value = AnalogIO::convertValue(get_params(), newValue);
         EmitSignalIO();
         emitChange();
     }
@@ -70,6 +75,6 @@ void MqttOutputLightDimmer::readValue()
 bool MqttOutputLightDimmer::set_value_real(int val)
 {
     cDebugDom("mqtt") << "Set value to " << val;
-    ctrl->setValueInt(get_params(), val * 2.54);
+    ctrl->setValueInt(get_params(), val);
     return true;
 }
