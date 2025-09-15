@@ -21,7 +21,6 @@
 #include "MqttOutputLightDimmer.h"
 #include "MqttBrokersList.h"
 #include "IOFactory.h"
-#include <AnalogIO.h>
 #include <ExpressionEvaluator.h>
 
 using namespace Calaos;
