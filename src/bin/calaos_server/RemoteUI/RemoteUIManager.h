@@ -22,7 +22,6 @@
 #define REMOTEUIMANAGER_H
 
 #include "Utils.h"
-#include "RemoteUI.h"
 #include "libuvw.h"
 #include <map>
 #include <memory>
@@ -33,6 +32,7 @@
 
 namespace Calaos {
 class RemoteUIWebSocketHandler;
+class RemoteUI;
 }
 
 #include "json.hpp"
@@ -69,10 +69,6 @@ class RemoteUIManager
 private:
     static RemoteUIManager *_instance;
 
-    std::map<string, std::shared_ptr<RemoteUI>> remote_uis;
-    std::map<string, std::shared_ptr<RemoteUI>> remote_uis_by_code;
-    std::map<string, std::shared_ptr<RemoteUI>> remote_uis_by_token;
-    
     std::map<string, RemoteUIWebSocketHandler*> connected_handlers;
 
     // Security
@@ -82,7 +78,7 @@ private:
     // Timers for cleanup
     std::shared_ptr<uvw::TimerHandle> nonce_cleanup_timer;
     std::shared_ptr<uvw::TimerHandle> rate_limit_cleanup_timer;
-    
+
     // EventManager connection
     sigc::connection event_connection;
 
@@ -98,17 +94,10 @@ public:
 
     ~RemoteUIManager();
 
-    // RemoteUI management
-    void addRemoteUI(std::shared_ptr<RemoteUI> remote_ui);
-    void removeRemoteUI(const string &id);
-    std::shared_ptr<RemoteUI> getRemoteUI(const string &id);
-    std::shared_ptr<RemoteUI> getRemoteUIByCode(const string &code);
-    std::shared_ptr<RemoteUI> getRemoteUIByToken(const string &token);
-
-    const std::map<string, std::shared_ptr<RemoteUI>> &getAllRemoteUIs() const { return remote_uis; }
-
-    // Provisioning
-    Json processProvisioningRequest(const string &code, const DeviceInfo &device_info);
+    // RemoteUI IO discovery (via ListeRoom)
+    RemoteUI *getRemoteUI(const string &id);
+    RemoteUI *getRemoteUIByToken(const string &token);
+    std::vector<RemoteUI*> getAllRemoteUIs();
 
     // Authentication
     bool validateAuthentication(const string &token, const string &timestamp,
@@ -124,14 +113,10 @@ public:
     void addNonce(const string &nonce, const string &ip_address);
     bool isNonceUsed(const string &nonce) const;
 
-    // Configuration
-    void loadFromConfig();
-    void saveToConfig() const;
-
-    // WebSocket handler management  
+    // WebSocket handler management
     void addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler);
     void removeWebSocketHandler(const string &remote_ui_id);
-    
+
     // Statistics
     size_t getOnlineCount() const;
     size_t getTotalCount() const;
@@ -140,8 +125,6 @@ private:
     void setupTimers();
     void cleanupExpiredNonces();
     void cleanupRateLimits();
-    void updateIndices(std::shared_ptr<RemoteUI> remote_ui);
-    void removeFromIndices(std::shared_ptr<RemoteUI> remote_ui);
     void handleIOEvent(const CalaosEvent &event);
 
     static const int MAX_ATTEMPTS_PER_MINUTE = 3;

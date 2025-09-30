@@ -22,9 +22,7 @@
 #define REMOTEUIWEBSOCKETHANDLER_H
 
 #include "JsonApi.h"
-#include "RemoteUI.h"
 #include "RemoteUIManager.h"
-#include "HMACAuthenticator.h"
 #include "EventManager.h"
 #include "ListeRoom.h"
 #include "json.hpp"
@@ -33,10 +31,12 @@
 namespace Calaos
 {
 
+class RemoteUI;
+
 class RemoteUIWebSocketHandler: public JsonApi
 {
 private:
-    std::shared_ptr<RemoteUI> authenticated_remote_ui;
+    RemoteUI *authenticated_remote_ui;
     bool is_authenticated;
     sigc::connection event_connection;
 

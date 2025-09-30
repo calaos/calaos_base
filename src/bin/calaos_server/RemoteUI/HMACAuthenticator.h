@@ -30,15 +30,17 @@ using namespace Utils;
 namespace Calaos
 {
 
+class RemoteUI;
+
 struct WebSocketHeaders
 {
     string authorization;
     string auth_timestamp;
-    string auth_nonce; 
+    string auth_nonce;
     string auth_hmac;
     string user_agent;
     string origin;
-    
+
     bool parse(const std::map<string, string> &headers);
     bool isValid() const;
 };
@@ -46,18 +48,18 @@ struct WebSocketHeaders
 class HMACAuthenticator
 {
 public:
-    static bool authenticateWebSocketConnection(const WebSocketHeaders &headers, 
+    static bool authenticateWebSocketConnection(const WebSocketHeaders &headers,
                                               const string &client_ip,
-                                              std::shared_ptr<RemoteUI> &authenticated_remote_ui);
-    
+                                              RemoteUI* &authenticated_remote_ui);
+
     static bool authenticateHttpRequest(const std::map<string, string> &headers,
                                       const string &client_ip,
-                                      std::shared_ptr<RemoteUI> &authenticated_remote_ui);
-    
+                                      RemoteUI* &authenticated_remote_ui);
+
     static string extractTokenFromBearer(const string &authorization);
     static bool validateTimestamp(const string &timestamp);
     static string generateNonce();
-    
+
 private:
     static const int TIMESTAMP_TOLERANCE_SECONDS = 60;
 };

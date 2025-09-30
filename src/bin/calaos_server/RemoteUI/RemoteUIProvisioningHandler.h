@@ -57,7 +57,7 @@ private:
 
     string getClientIP() const;
     bool validateProvisioningRequest(const Json &request) const;
-    DeviceInfo parseDeviceInfo(const Json &device_info_json) const;
+    Json parseDeviceInfo(const Json &device_info_json) const;
 };
 
 }

@@ -20,6 +20,11 @@
  ******************************************************************************/
 #include "RemoteUIProvisioningHandler.h"
 #include "HttpClient.h"
+#include "IO/RemoteUI/RemoteUI.h"
+#include "ListeRoom.h"
+#include "CalaosConfig.h"
+
+static const char *TAG = "remote_ui";
 
 using namespace Calaos;
 
@@ -48,7 +53,7 @@ bool RemoteUIProvisioningHandler::canHandleRequest(const string &uri, const stri
 void RemoteUIProvisioningHandler::processRequest(const string &uri, const string &method,
                                                const string &data, const Params &paramsGET)
 {
-    cDebug() << "RemoteUIProvisioningHandler: Processing " << method << " " << uri;
+    cDebugDom(TAG) << "RemoteUIProvisioningHandler: Processing " << method << " " << uri;
 
     try
     {
@@ -72,7 +77,7 @@ void RemoteUIProvisioningHandler::processRequest(const string &uri, const string
     }
     catch (const std::exception &e)
     {
-        cError() << "RemoteUIProvisioningHandler: Exception processing request: " << e.what();
+        cErrorDom(TAG) << "RemoteUIProvisioningHandler: Exception processing request: " << e.what();
         sendErrorResponse("Internal server error", 500);
     }
 }
@@ -103,13 +108,65 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     }
 
     string code = request["code"];
-    DeviceInfo device_info = parseDeviceInfo(request["device_info"]);
+    Json device_info = parseDeviceInfo(request["device_info"]);
+    string mac_address = device_info.value("mac_address", "");
 
-    cInfo() << "RemoteUIProvisioningHandler: Provisioning request for code " << code
-            << " from device " << device_info.mac_address;
+    cInfoDom(TAG) << "RemoteUIProvisioningHandler: Provisioning request for code " << code
+            << " from device " << mac_address;
 
-    Json response = RemoteUIManager::Instance().processProvisioningRequest(code, device_info);
+    // Search for existing RemoteUI IO with this provisioning code
+    RemoteUI *remote_ui = nullptr;
+    for (int i = 0; i < ListeRoom::Instance().size(); i++)
+    {
+        Room *room = ListeRoom::Instance()[i];
+        for (int j = 0; j < room->get_size(); j++)
+        {
+            IOBase *io = room->get_io(j);
+            if ((io->get_param("type") == "RemoteUI" || io->get_param("type") == "remote_ui") &&
+                io->get_param("provisioning_code") == code)
+            {
+                remote_ui = dynamic_cast<RemoteUI*>(io);
+                break;
+            }
+        }
+        if (remote_ui)
+            break;
+    }
+
+    if (!remote_ui)
+    {
+        cErrorDom(TAG) << "RemoteUIProvisioningHandler: No RemoteUI found with provisioning code " << code;
+        sendErrorResponse("Invalid provisioning code", 404);
+        return;
+    }
+
+    // Update device info
+    if (device_info.contains("type"))
+        remote_ui->set_param("device_type", device_info["type"]);
+    if (device_info.contains("manufacturer"))
+        remote_ui->set_param("device_manufacturer", device_info["manufacturer"]);
+    if (device_info.contains("model"))
+        remote_ui->set_param("device_model", device_info["model"]);
+    if (device_info.contains("firmware"))
+        remote_ui->set_param("device_firmware", device_info["firmware"]);
+    if (device_info.contains("mac_address"))
+        remote_ui->set_param("mac_address", device_info["mac_address"]);
+
+    // Generate secrets if not already provisioned
+    if (remote_ui->get_param("device_secret").empty())
+    {
+        remote_ui->set_param("auth_token", "remote_ui_" + code);
+        remote_ui->generateDeviceSecret();
+    }
+
+    // Save configuration
+    Config::Instance().SaveConfigIO();
+
+    // Send provisioning response
+    Json response = remote_ui->getProvisioningResponse();
     sendJsonResponse(response);
+
+    cInfoDom(TAG) << "RemoteUIManager: Provisioned RemoteUI " << remote_ui->get_param("id");
 }
 
 void RemoteUIProvisioningHandler::handleRemoteUIList()
@@ -118,16 +175,16 @@ void RemoteUIProvisioningHandler::handleRemoteUIList()
     response["status"] = "ok";
 
     Json remote_uis_array = Json::array();
-    const auto &remote_uis = RemoteUIManager::Instance().getAllRemoteUIs();
+    auto remote_uis = RemoteUIManager::Instance().getAllRemoteUIs();
 
-    for (const auto &pair : remote_uis)
+    for (RemoteUI *remote_ui : remote_uis)
     {
         Json remote_ui_info;
-        remote_ui_info["id"] = pair.second->getId();
-        remote_ui_info["name"] = pair.second->getConfig().name;
-        remote_ui_info["room"] = pair.second->getConfig().room;
-        remote_ui_info["is_online"] = pair.second->isOnline();
-        remote_ui_info["mac_address"] = pair.second->getMacAddress();
+        remote_ui_info["id"] = remote_ui->get_param("id");
+        remote_ui_info["name"] = remote_ui->get_param("name");
+        remote_ui_info["room"] = remote_ui->get_param("room");
+        remote_ui_info["is_online"] = remote_ui->isOnline();
+        remote_ui_info["mac_address"] = remote_ui->get_param("mac_address");
 
         remote_uis_array.push_back(remote_ui_info);
     }
@@ -141,7 +198,7 @@ void RemoteUIProvisioningHandler::handleRemoteUIList()
 
 void RemoteUIProvisioningHandler::handleRemoteUIStatus(const string &remote_ui_id)
 {
-    auto remote_ui = RemoteUIManager::Instance().getRemoteUI(remote_ui_id);
+    RemoteUI *remote_ui = RemoteUIManager::Instance().getRemoteUI(remote_ui_id);
     if (!remote_ui)
     {
         sendErrorResponse("Remote UI not found", 404);
@@ -150,7 +207,19 @@ void RemoteUIProvisioningHandler::handleRemoteUIStatus(const string &remote_ui_i
 
     Json response;
     response["status"] = "ok";
-    response["remote_ui"] = remote_ui->toJson();
+
+    Json remote_ui_json;
+    remote_ui_json["id"] = remote_ui->get_param("id");
+    remote_ui_json["name"] = remote_ui->get_param("name");
+    remote_ui_json["room"] = remote_ui->get_param("room");
+    remote_ui_json["is_online"] = remote_ui->isOnline();
+    remote_ui_json["brightness"] = remote_ui->get_param("brightness");
+    remote_ui_json["timeout"] = remote_ui->get_param("timeout");
+    remote_ui_json["theme"] = remote_ui->get_param("theme");
+    remote_ui_json["pages"] = remote_ui->getPages();
+    remote_ui_json["device_info"] = remote_ui->getDeviceInfo();
+
+    response["remote_ui"] = remote_ui_json;
 
     sendJsonResponse(response);
 }
@@ -166,7 +235,7 @@ void RemoteUIProvisioningHandler::sendJsonResponse(const Json &response, int sta
                           "Connection: close\r\n\r\n" + response_str;
     httpClient->sendToClient(http_response);
 
-    cDebug() << "RemoteUIProvisioningHandler: Sent JSON response (" << response_str.length() << " bytes)";
+    cDebugDom(TAG) << "RemoteUIProvisioningHandler: Sent JSON response (" << response_str.length() << " bytes)";
 }
 
 void RemoteUIProvisioningHandler::sendErrorResponse(const string &error, int status_code)
@@ -202,9 +271,8 @@ bool RemoteUIProvisioningHandler::validateProvisioningRequest(const Json &reques
     return true;
 }
 
-DeviceInfo RemoteUIProvisioningHandler::parseDeviceInfo(const Json &device_info_json) const
+Json RemoteUIProvisioningHandler::parseDeviceInfo(const Json &device_info_json) const
 {
-    DeviceInfo info;
-    info.fromJson(device_info_json);
-    return info;
+    // Just return the device info JSON as is
+    return device_info_json;
 }

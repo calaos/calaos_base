@@ -19,13 +19,12 @@
  **
  ******************************************************************************/
 #include "RemoteUIManager.h"
-#include "RemoteUIConfig.h"
-#include "CalaosConfig.h"
-#include "FileUtils.h"
-#include "Timer.h"
 #include "RemoteUIWebSocketHandler.h"
+#include "IO/RemoteUI/RemoteUI.h"
 #include "ListeRoom.h"
 #include "EventManager.h"
+
+static const char *TAG = "remote_ui";
 
 using namespace Calaos;
 
@@ -34,12 +33,12 @@ RemoteUIManager *RemoteUIManager::_instance = nullptr;
 RemoteUIManager::RemoteUIManager()
 {
     setupTimers();
-    
+
     event_connection = EventManager::Instance().newEvent.connect(
         sigc::mem_fun(*this, &RemoteUIManager::handleIOEvent)
     );
 
-    cInfo() << "RemoteUIManager: Initialized";
+    cInfoDom(TAG) << "RemoteUIManager: Initialized";
 }
 
 RemoteUIManager::~RemoteUIManager()
@@ -48,7 +47,7 @@ RemoteUIManager::~RemoteUIManager()
         nonce_cleanup_timer->stop();
     if (rate_limit_cleanup_timer)
         rate_limit_cleanup_timer->stop();
-    
+
     event_connection.disconnect();
 }
 
@@ -73,82 +72,59 @@ void RemoteUIManager::setupTimers()
     rate_limit_cleanup_timer->start(uvw::TimerHandle::Time{60000}, uvw::TimerHandle::Time{60000});
 }
 
-void RemoteUIManager::addRemoteUI(std::shared_ptr<RemoteUI> remote_ui)
+RemoteUI *RemoteUIManager::getRemoteUI(const string &id)
 {
-    if (!remote_ui)
-        return;
+    IOBase *io = ListeRoom::Instance().get_io(id);
+    if (!io)
+        return nullptr;
 
-    remote_uis[remote_ui->getId()] = remote_ui;
-    updateIndices(remote_ui);
-
-    cInfo() << "RemoteUIManager: Added RemoteUI " << remote_ui->getId();
+    return dynamic_cast<RemoteUI*>(io);
 }
 
-void RemoteUIManager::removeRemoteUI(const string &id)
+RemoteUI *RemoteUIManager::getRemoteUIByToken(const string &token)
 {
-    auto it = remote_uis.find(id);
-    if (it != remote_uis.end())
+    // Search all IOs for RemoteUI with matching auth_token
+    for (int i = 0; i < ListeRoom::Instance().size(); i++)
     {
-        removeFromIndices(it->second);
-        remote_uis.erase(it);
-        cInfo() << "RemoteUIManager: Removed RemoteUI " << id;
-    }
-}
-
-std::shared_ptr<RemoteUI> RemoteUIManager::getRemoteUI(const string &id)
-{
-    auto it = remote_uis.find(id);
-    return (it != remote_uis.end()) ? it->second : nullptr;
-}
-
-std::shared_ptr<RemoteUI> RemoteUIManager::getRemoteUIByCode(const string &code)
-{
-    auto it = remote_uis_by_code.find(code);
-    return (it != remote_uis_by_code.end()) ? it->second : nullptr;
-}
-
-std::shared_ptr<RemoteUI> RemoteUIManager::getRemoteUIByToken(const string &token)
-{
-    auto it = remote_uis_by_token.find(token);
-    return (it != remote_uis_by_token.end()) ? it->second : nullptr;
-}
-
-void RemoteUIManager::updateIndices(std::shared_ptr<RemoteUI> remote_ui)
-{
-    if (!remote_ui)
-        return;
-
-    remote_uis_by_code[remote_ui->getProvisioningCode()] = remote_ui;
-    remote_uis_by_token[remote_ui->getAuthToken()] = remote_ui;
-}
-
-void RemoteUIManager::removeFromIndices(std::shared_ptr<RemoteUI> remote_ui)
-{
-    if (!remote_ui)
-        return;
-
-    remote_uis_by_code.erase(remote_ui->getProvisioningCode());
-    remote_uis_by_token.erase(remote_ui->getAuthToken());
-}
-
-Json RemoteUIManager::processProvisioningRequest(const string &code, const DeviceInfo &device_info)
-{
-    auto remote_ui = getRemoteUIByCode(code);
-    if (!remote_ui)
-    {
-        Json error_response;
-        error_response["status"] = "unknown";
-        error_response["error"] = "Code not found";
-        return error_response;
+        Room *room = ListeRoom::Instance()[i];
+        for (int j = 0; j < room->get_size(); j++)
+        {
+            IOBase *io = room->get_io(j);
+            if (io->get_param("type") == "RemoteUI" ||
+                io->get_param("type") == "remote_ui_output")
+            {
+                if (io->get_param("auth_token") == token)
+                {
+                    return dynamic_cast<RemoteUI*>(io);
+                }
+            }
+        }
     }
 
-    // Update device info and mark as provisioned
-    remote_ui->setDeviceInfo(device_info);
+    return nullptr;
+}
 
-    cInfo() << "RemoteUIManager: Provisioned RemoteUI " << remote_ui->getId()
-            << " with device " << device_info.mac_address;
+std::vector<RemoteUI*> RemoteUIManager::getAllRemoteUIs()
+{
+    std::vector<RemoteUI*> outputs;
 
-    return remote_ui->getProvisioningResponse();
+    for (int i = 0; i < ListeRoom::Instance().size(); i++)
+    {
+        Room *room = ListeRoom::Instance()[i];
+        for (int j = 0; j < room->get_size(); j++)
+        {
+            IOBase *io = room->get_io(j);
+            if (io->get_param("type") == "RemoteUI" ||
+                io->get_param("type") == "remote_ui_output")
+            {
+                RemoteUI *remoteui_output = dynamic_cast<RemoteUI*>(io);
+                if (remoteui_output)
+                    outputs.push_back(remoteui_output);
+            }
+        }
+    }
+
+    return outputs;
 }
 
 bool RemoteUIManager::validateAuthentication(const string &token, const string &timestamp,
@@ -158,55 +134,55 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
     // Check rate limiting
     if (!checkRateLimit(ip_address))
     {
-        cWarning() << "RemoteUIManager: Rate limit exceeded for IP " << ip_address;
+        cWarningDom(TAG) << "RemoteUIManager: Rate limit exceeded for IP " << ip_address;
         return false;
     }
 
     // Check if nonce was already used
     if (isNonceUsed(nonce))
     {
-        cWarning() << "RemoteUIManager: Nonce reuse attempt from IP " << ip_address;
+        cWarningDom(TAG) << "RemoteUIManager: Nonce reuse attempt from IP " << ip_address;
         return false;
     }
 
     auto now = std::chrono::system_clock::now();
-    
+
     try
     {
         auto timestamp_val = std::stoull(timestamp);
         auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
         auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
-        
+
         if (std::abs(time_diff) > TIMESTAMP_TOLERANCE_SECONDS)
         {
-            cWarning() << "RemoteUIManager: Timestamp too old/new from IP " << ip_address;
+            cWarningDom(TAG) << "RemoteUIManager: Timestamp too old/new from IP " << ip_address;
             return false;
         }
     }
     catch (const std::exception &e)
     {
-        cWarning() << "RemoteUIManager: Invalid timestamp format from IP " << ip_address;
+        cWarningDom(TAG) << "RemoteUIManager: Invalid timestamp format from IP " << ip_address;
         return false;
     }
 
     // Get RemoteUI and validate HMAC
-    auto remote_ui = getRemoteUIByToken(token);
+    RemoteUI *remote_ui = getRemoteUIByToken(token);
     if (!remote_ui)
     {
-        cWarning() << "RemoteUIManager: Unknown token from IP " << ip_address;
+        cWarningDom(TAG) << "RemoteUIManager: Unknown token from IP " << ip_address;
         return false;
     }
 
     if (!remote_ui->validateHMAC(token, timestamp, nonce, hmac))
     {
-        cWarning() << "RemoteUIManager: HMAC validation failed for " << remote_ui->getId();
+        cWarningDom(TAG) << "RemoteUIManager: HMAC validation failed for " << remote_ui->get_param("id");
         return false;
     }
 
     // Add nonce to prevent replay
     addNonce(nonce, ip_address);
 
-    cDebug() << "RemoteUIManager: Authentication successful for " << remote_ui->getId();
+    cDebugDom(TAG) << "RemoteUIManager: Authentication successful for " << remote_ui->get_param("id");
     return true;
 }
 
@@ -266,7 +242,7 @@ void RemoteUIManager::cleanupExpiredNonces()
         }
     }
 
-    cDebug() << "RemoteUIManager: Cleaned up expired nonces, " << nonce_cache.size() << " remaining";
+    cDebugDom(TAG) << "RemoteUIManager: Cleaned up expired nonces, " << nonce_cache.size() << " remaining";
 }
 
 void RemoteUIManager::cleanupRateLimits()
@@ -295,16 +271,16 @@ void RemoteUIManager::notifyIOStateChange(const string &io_id, const Json &io_da
     message["data"]["io_id"] = io_id;
     message["data"]["state"] = io_data;
 
-    for (const auto &pair : remote_uis)
+    auto remote_uis = getAllRemoteUIs();
+    for (RemoteUI *remote_ui : remote_uis)
     {
-        auto remote_ui = pair.second;
         if (remote_ui->isOnline() && remote_ui->hasReferencedIO(io_id))
         {
-            auto handler_it = connected_handlers.find(remote_ui->getId());
+            auto handler_it = connected_handlers.find(remote_ui->get_param("id"));
             if (handler_it != connected_handlers.end())
             {
                 handler_it->second->sendMessage(message);
-                cDebug() << "RemoteUIManager: Notified " << remote_ui->getId()
+                cDebugDom(TAG) << "RemoteUIManager: Notified " << remote_ui->get_param("id")
                         << " of IO state change for " << io_id;
             }
         }
@@ -317,12 +293,12 @@ void RemoteUIManager::notifyAllIOStates()
     {
         const string &remote_ui_id = handler_pair.first;
         RemoteUIWebSocketHandler *handler = handler_pair.second;
-        
-        auto remote_ui = getRemoteUI(remote_ui_id);
+
+        RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
         if (remote_ui && remote_ui->isOnline())
         {
             handler->sendInitialIOStates();
-            cDebug() << "RemoteUIManager: Sent all IO states to " << remote_ui_id;
+            cDebugDom(TAG) << "RemoteUIManager: Sent all IO states to " << remote_ui_id;
         }
     }
 }
@@ -330,9 +306,10 @@ void RemoteUIManager::notifyAllIOStates()
 size_t RemoteUIManager::getOnlineCount() const
 {
     size_t count = 0;
-    for (const auto &pair : remote_uis)
+    auto remote_uis = const_cast<RemoteUIManager*>(this)->getAllRemoteUIs();
+    for (RemoteUI *remote_ui : remote_uis)
     {
-        if (pair.second->isOnline())
+        if (remote_ui->isOnline())
             count++;
     }
     return count;
@@ -340,88 +317,28 @@ size_t RemoteUIManager::getOnlineCount() const
 
 size_t RemoteUIManager::getTotalCount() const
 {
-    return remote_uis.size();
-}
-
-void RemoteUIManager::loadFromConfig()
-{
-    // Load RemoteUIs from XML configuration file
-    string file = Utils::getConfigFile(IO_CONFIG);
-    if (!Utils::fileExists(file))
-    {
-        cInfo() << "RemoteUIManager: Config file " << file << " does not exist";
-        return;
-    }
-
-    TiXmlDocument document(file);
-    if (!document.LoadFile())
-    {
-        cError() << "RemoteUIManager: Unable to load XML file " << file;
-        return;
-    }
-
-    auto loaded_remote_uis = RemoteUIConfigParser::parseRemoteUIsFromConfig(&document);
-
-    for (auto remote_ui : loaded_remote_uis)
-    {
-        addRemoteUI(remote_ui);
-    }
-
-    cInfo() << "RemoteUIManager: Loaded " << loaded_remote_uis.size() << " RemoteUIs from config";
-}
-
-void RemoteUIManager::saveToConfig() const
-{
-    string file = Utils::getConfigFile(IO_CONFIG);
-
-    TiXmlDocument document(file);
-    if (!document.LoadFile())
-    {
-        cError() << "RemoteUIManager: Unable to load XML file " << file << " for saving";
-        return;
-    }
-
-    // Convert map to vector for saving
-    std::vector<std::shared_ptr<RemoteUI>> remote_ui_vector;
-    for (const auto &pair : remote_uis)
-    {
-        remote_ui_vector.push_back(pair.second);
-    }
-
-    if (!RemoteUIConfigParser::saveRemoteUIsToConfig(&document, remote_ui_vector))
-    {
-        cError() << "RemoteUIManager: Failed to save RemoteUIs to config";
-        return;
-    }
-
-    if (!document.SaveFile())
-    {
-        cError() << "RemoteUIManager: Unable to save XML file " << file;
-        return;
-    }
-
-    cInfo() << "RemoteUIManager: Saved " << remote_ui_vector.size() << " RemoteUIs to config";
+    return const_cast<RemoteUIManager*>(this)->getAllRemoteUIs().size();
 }
 
 void RemoteUIManager::addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler)
 {
     connected_handlers[remote_ui_id] = handler;
-    auto remote_ui = getRemoteUI(remote_ui_id);
+    RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
     if (remote_ui)
     {
         remote_ui->setOnline(true);
-        cInfo() << "RemoteUIManager: WebSocket handler connected for " << remote_ui_id;
+        cInfoDom(TAG) << "RemoteUIManager: WebSocket handler connected for " << remote_ui_id;
     }
 }
 
 void RemoteUIManager::removeWebSocketHandler(const string &remote_ui_id)
 {
     connected_handlers.erase(remote_ui_id);
-    auto remote_ui = getRemoteUI(remote_ui_id);
+    RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
     if (remote_ui)
     {
         remote_ui->setOnline(false);
-        cInfo() << "RemoteUIManager: WebSocket handler disconnected for " << remote_ui_id;
+        cInfoDom(TAG) << "RemoteUIManager: WebSocket handler disconnected for " << remote_ui_id;
     }
 }
 
@@ -431,10 +348,10 @@ void RemoteUIManager::handleIOEvent(const CalaosEvent &event)
     {
         string io_id = event.getParam().get_param_const("id");
         string state = event.getParam().get_param_const("state");
-        
+
         Json io_data;
         io_data["state"] = state;
-        
+
         notifyIOStateChange(io_id, io_data);
     }
 }

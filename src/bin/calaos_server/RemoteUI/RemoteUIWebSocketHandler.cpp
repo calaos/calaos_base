@@ -19,17 +19,22 @@
  **
  ******************************************************************************/
 #include "RemoteUIWebSocketHandler.h"
+#include "IO/RemoteUI/RemoteUI.h"
 #include "IOBase.h"
 #include "HttpClient.h"
 #include "RemoteUIManager.h"
+#include "HMACAuthenticator.h"
+
+static const char *TAG = "remote_ui";
 
 using namespace Calaos;
 
 RemoteUIWebSocketHandler::RemoteUIWebSocketHandler(HttpClient *client):
     JsonApi(client),
+    authenticated_remote_ui(nullptr),
     is_authenticated(false)
 {
-    cDebug() << "RemoteUIWebSocketHandler: Created for client " << httpClient->getClientIp();
+    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Created for client " << httpClient->getClientIp();
 }
 
 RemoteUIWebSocketHandler::~RemoteUIWebSocketHandler()
@@ -39,8 +44,8 @@ RemoteUIWebSocketHandler::~RemoteUIWebSocketHandler()
     if (authenticated_remote_ui)
     {
         // Unregister this handler from RemoteUIManager
-        RemoteUIManager::Instance().removeWebSocketHandler(authenticated_remote_ui->getId());
-        cInfo() << "RemoteUIWebSocketHandler: Disconnected RemoteUI " << authenticated_remote_ui->getId();
+        RemoteUIManager::Instance().removeWebSocketHandler(authenticated_remote_ui->get_param("id"));
+        cInfoDom(TAG) << "RemoteUIWebSocketHandler: Disconnected RemoteUI " << authenticated_remote_ui->get_param("id");
     }
 }
 
@@ -49,7 +54,7 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
     WebSocketHeaders ws_headers;
     if (!ws_headers.parse(headers))
     {
-        cWarning() << "RemoteUIWebSocketHandler: Failed to parse WebSocket headers";
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: Failed to parse WebSocket headers";
         return false;
     }
 
@@ -58,12 +63,12 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
     {
         is_authenticated = true;
         connectToEventManager();
-        
-        // Register this handler with RemoteUIManager
-        RemoteUIManager::Instance().addWebSocketHandler(authenticated_remote_ui->getId(), this);
 
-        cInfo() << "RemoteUIWebSocketHandler: Successfully authenticated RemoteUI "
-               << authenticated_remote_ui->getId();
+        // Register this handler with RemoteUIManager
+        RemoteUIManager::Instance().addWebSocketHandler(authenticated_remote_ui->get_param("id"), this);
+
+        cInfoDom(TAG) << "RemoteUIWebSocketHandler: Successfully authenticated RemoteUI "
+               << authenticated_remote_ui->get_param("id");
 
         // Send initial IO states
         Timer::singleShot(0.1, sigc::mem_fun(*this, &RemoteUIWebSocketHandler::sendInitialIOStates));
@@ -78,7 +83,7 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
 {
     if (!is_authenticated)
     {
-        cWarning() << "RemoteUIWebSocketHandler: Received message from unauthenticated client";
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: Received message from unauthenticated client";
         sendMessage(createErrorMessage("Not authenticated"));
         return;
     }
@@ -93,7 +98,7 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
     }
     catch (const std::exception &e)
     {
-        cWarning() << "RemoteUIWebSocketHandler: Invalid JSON received: " << e.what();
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: Invalid JSON received: " << e.what();
         sendMessage(createErrorMessage("Invalid JSON"));
     }
 }
@@ -108,7 +113,7 @@ void RemoteUIWebSocketHandler::handleMessage(const Json &message)
 
     string msg_type = message["msg"];
 
-    cDebug() << "RemoteUIWebSocketHandler: Handling message type: " << msg_type;
+    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling message type: " << msg_type;
 
     if (msg_type == "set_state")
     {
@@ -144,8 +149,8 @@ void RemoteUIWebSocketHandler::handleSetState(const Json &data)
     // Verify this RemoteUI has access to this IO
     if (!authenticated_remote_ui->hasReferencedIO(io_id))
     {
-        cWarning() << "RemoteUIWebSocketHandler: Unauthorized access attempt to IO "
-                   << io_id << " by RemoteUI " << authenticated_remote_ui->getId();
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: Unauthorized access attempt to IO "
+                   << io_id << " by RemoteUI " << authenticated_remote_ui->get_param("id");
         sendMessage(createErrorMessage("Unauthorized access to IO: " + io_id));
         return;
     }
@@ -173,7 +178,7 @@ void RemoteUIWebSocketHandler::handleSetState(const Json &data)
             io->set_value(data["value"].get<string>());
         }
 
-        cDebug() << "RemoteUIWebSocketHandler: Set state of " << io_id
+        cDebugDom(TAG) << "RemoteUIWebSocketHandler: Set state of " << io_id
                  << " to " << data["value"].dump();
     }
 }
@@ -215,8 +220,8 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
     Json message = authenticated_remote_ui->getRemoteUIIOStatesMessage(io_states);
     sendMessage(message);
 
-    cDebug() << "RemoteUIWebSocketHandler: Sent initial IO states ("
-             << io_states.size() << " IOs) to " << authenticated_remote_ui->getId();
+    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent initial IO states ("
+             << io_states.size() << " IOs) to " << authenticated_remote_ui->get_param("id");
 }
 
 void RemoteUIWebSocketHandler::sendIOStateUpdate(const string &io_id, const Json &io_state)
@@ -249,7 +254,7 @@ void RemoteUIWebSocketHandler::sendMessage(const Json &message)
     string msg_str = message.dump();
     httpClient->sendToClient(msg_str);
 
-    cDebug() << "RemoteUIWebSocketHandler: Sent message (" << msg_str.length() << " bytes)";
+    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent message (" << msg_str.length() << " bytes)";
 }
 
 void RemoteUIWebSocketHandler::connectToEventManager()
@@ -281,7 +286,7 @@ void RemoteUIWebSocketHandler::handleIOEvent(const CalaosEvent &event)
         Json io_state = getIOStateJson(io);
         sendIOStateUpdate(io_id, io_state);
 
-        cDebug() << "RemoteUIWebSocketHandler: Sent IO state update for " << io_id;
+        cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent IO state update for " << io_id;
     }
 }
 

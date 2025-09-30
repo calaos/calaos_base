@@ -361,8 +361,6 @@ calaos_server_SOURCES = \
         UDPServer.h                                     \
         WebSocket.cpp                                   \
         WebSocket.h                                     \
-        RemoteUI/RemoteUI.cpp                           \
-        RemoteUI/RemoteUI.h                             \
         RemoteUI/RemoteUIManager.cpp                    \
         RemoteUI/RemoteUIManager.h                      \
         RemoteUI/RemoteUIProvisioningHandler.cpp        \
@@ -371,8 +369,8 @@ calaos_server_SOURCES = \
         RemoteUI/RemoteUIWebSocketHandler.h             \
         RemoteUI/HMACAuthenticator.cpp                  \
         RemoteUI/HMACAuthenticator.h                    \
-        RemoteUI/RemoteUIConfig.cpp                     \
-        RemoteUI/RemoteUIConfig.h                       \
+        IO/RemoteUI/RemoteUI.cpp                        \
+        IO/RemoteUI/RemoteUI.h                          \
         HistLogger.cpp                                  \
         HistLogger.h                                    \
         NotifManager.h                                  \

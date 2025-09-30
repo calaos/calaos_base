@@ -133,9 +133,6 @@ int main (int argc, char **argv)
 
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();
-    
-    // Load RemoteUI configuration after IO config is loaded
-    RemoteUIManager::Instance().loadFromConfig();
 
     DataLogger::Instance();
 
