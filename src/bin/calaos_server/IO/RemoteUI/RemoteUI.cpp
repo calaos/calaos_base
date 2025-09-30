@@ -37,6 +37,7 @@ RemoteUI::RemoteUI(Params &p):
     is_online(false),
     is_provisioned(false)
 {
+    ioDoc->friendlyNameSet("RemoteUI");
     ioDoc->descriptionBaseSet(_("Remote UI device. Represents a remote user interface device. Some actions are available to control the device from rules."));
 
     Params io_devtype = {{ "waveshare-esp32-p4-86-panel", _("Waveshare ESP32-P4-86-Panel") },
