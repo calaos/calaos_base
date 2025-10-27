@@ -63,11 +63,13 @@ void WebSocket::ProcessData(string data)
     {
         if (parse_done)
         {
+            auto method = parser->method;
+
             //init parser again
             llhttp_init(parser, HTTP_REQUEST, &parser_settings);
             parser->data = this;
 
-            handleJsonRequest();
+            handleJsonRequest(method);
         }
         break;
     }
@@ -152,7 +154,7 @@ bool WebSocket::checkHandshakeRequest()
     proto_ver = APINONE;
     if (req_url.getPath() == "/api")
         proto_ver = API_WEBSOCKET;
-    else if (req_url.getPath() == "/api/v1/remote_ui/ws")
+    else if (req_url.getPath() == "/api/v3/remote_ui/ws")
         proto_ver = API_REMOTE_UI_WEBSOCKET;
 
     if (!jsonApi && !echoMode)

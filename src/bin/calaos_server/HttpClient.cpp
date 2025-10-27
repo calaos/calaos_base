@@ -367,7 +367,8 @@ int HttpClient::processHeaders(const string &request)
 
     if (req_url.getPath() != "/api" &&
         req_url.getPath() != "/api.php" &&
-        req_url.getPath() != "/api/v2")
+        req_url.getPath() != "/api/v2" &&
+        !Utils::strStartsWith(req_url.getPath(), "/api/v3"))
     {
         Params headers;
         headers.Add("Connection", "close");
@@ -534,7 +535,7 @@ void HttpClient::sendToClient(string res)
     });
 }
 
-void HttpClient::handleJsonRequest()
+void HttpClient::handleJsonRequest(uint8_t parser_method)
 {
     // Check if this is a RemoteUI API request first
     if (!remoteUIHandler)
@@ -544,7 +545,7 @@ void HttpClient::handleJsonRequest()
 
     // Extract HTTP method and URL path
     string method;
-    switch (parser->method)
+    switch (parser_method)
     {
         case HTTP_GET: method = "GET"; break;
         case HTTP_POST: method = "POST"; break;

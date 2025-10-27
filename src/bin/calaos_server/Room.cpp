@@ -116,7 +116,8 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
             node->ValueStr() == "calaos:internal" ||
             node->ValueStr() == "calaos:avr" ||
             node->ValueStr() == "calaos:camera" ||
-            node->ValueStr() == "calaos:audio")
+            node->ValueStr() == "calaos:audio" ||
+            node->ValueStr() == "calaos:remote_ui")
         {
             IOBase *io = IOFactory::Instance().CreateIO(node);
             if (io) AddIO(io);

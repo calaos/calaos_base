@@ -120,7 +120,7 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
                     string attr_name = attr->Name();
                     string attr_value = attr->ValueStr();
 
-                    if (attr_name == "x" || attr_name == "y" || attr_name == "w" || attr_name == "h")
+                    if (attr_name == "x" || attr_name == "y")
                         widget[attr_name] = std::stoi(attr_value);
                     else
                         widget[attr_name] = attr_value;
@@ -128,7 +128,12 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
                     attr = attr->Next();
                 }
 
-                widgets.push_back(widget);
+                //Only add widget if it has an io_id, a type and x/y positions
+                if (widget.contains("io_id") && widget.contains("type") &&
+                    widget.contains("x") && widget.contains("y"))
+                    widgets.push_back(widget);
+                else
+                    cWarningDom(TAG) << "RemoteUI(" << get_param("id") << "): Ignoring widget with missing required attributes";
             }
 
             page["widgets"] = widgets;
@@ -143,8 +148,14 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
 bool RemoteUI::SaveToXml(TiXmlElement *node)
 {
-    if (!IOBase::SaveToXml(node))
-        return false;
+    TiXmlElement *cnode = new TiXmlElement("calaos:remote_ui");
+
+    for (int i = 0;i < get_params().size();i++)
+    {
+        string key, value;
+        get_params().get_item(i, key, value);
+        cnode->SetAttribute(key, value);
+    }
 
     // Save device_info
     if (!device_info.empty())
@@ -200,8 +211,10 @@ bool RemoteUI::SaveToXml(TiXmlElement *node)
             pages_elem->LinkEndChild(page_elem);
         }
 
-        node->LinkEndChild(pages_elem);
+        cnode->LinkEndChild(pages_elem);
     }
+
+    node->LinkEndChild(cnode);
 
     return true;
 }
@@ -338,9 +351,9 @@ void RemoteUI::extractReferencedIOs()
             {
                 for (const auto &widget : page["widgets"])
                 {
-                    if (widget.contains("io") && widget["io"].is_string())
+                    if (widget.contains("io_id") && widget["io_id"].is_string())
                     {
-                        referenced_ios.insert(widget["io"]);
+                        referenced_ios.insert(widget["io_id"]);
                     }
                 }
             }
@@ -364,16 +377,12 @@ Json RemoteUI::getProvisioningResponse()
     response["device_secret"] = get_param("device_secret");
 
     Json server_config;
-    server_config["websocket_url"] = "ws://localhost:5454/api/v1/remote_ui/ws";
+    server_config["websocket_url"] = "ws://localhost:5454/api/v3/remote_ui/ws";
     server_config["sync_interval"] = 1000;
     response["server_config"] = server_config;
 
     Json remote_ui_config;
     remote_ui_config["name"] = get_param("name");
-    remote_ui_config["room"] = get_param("room");
-    remote_ui_config["theme"] = get_param("theme");
-    remote_ui_config["brightness"] = std::stoi(get_param("brightness"));
-    remote_ui_config["timeout"] = std::stoi(get_param("timeout"));
     remote_ui_config["pages"] = pages;
     response["remote_ui_config"] = remote_ui_config;
 

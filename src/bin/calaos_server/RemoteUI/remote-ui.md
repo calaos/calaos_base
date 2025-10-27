@@ -38,7 +38,7 @@ RemoteUI/
 
 A new touch screen initiates a provisioning request via HTTP POST.
 
-**Endpoint**: `POST /api/v1/provision/request`
+**Endpoint**: `POST /api/v3/provision/request`
 
 **Request Structure**:
 ```json
@@ -77,7 +77,7 @@ The server validates the provisioning code and creates a new RemoteUI object:
     "id": "remote_ui_ABC123",
     "auth_token": "remote_ui_ABC123",
     "device_secret": "7f3b5a2d9e1c4b6a8c3f5e2d9a7b4c6e1f8d5a2c9b6e3f0d7a4b1c8e5f2a9",
-    "websocket_endpoint": "ws://192.168.1.100:5454/api/v1/remote_ui/ws",
+    "websocket_endpoint": "ws://192.168.1.100:5454/api/v3/remote_ui/ws",
     "config": {
       "name": "Living Room Screen",
       "room": "living_room",
@@ -133,7 +133,7 @@ string hmac = compute_hmac_sha256(device_secret, data_to_sign);
 
 ### Connection and Authentication
 
-**Endpoint**: `ws://server:5454/api/v1/remote_ui/ws`
+**Endpoint**: `ws://server:5454/api/v3/remote_ui/ws`
 
 Once authenticated, the touch screen automatically receives:
 - Initial states of all IOs referenced in its configuration
@@ -278,7 +278,7 @@ Once authenticated, the touch screen automatically receives:
 
 ### RemoteUI List
 
-**Endpoint**: `GET /api/v1/remote_ui/list`
+**Endpoint**: `GET /api/v3/remote_ui/list`
 
 **Response**:
 ```json
@@ -303,7 +303,7 @@ Once authenticated, the touch screen automatically receives:
 
 ### RemoteUI Status
 
-**Endpoint**: `GET /api/v1/remote_ui/status/{id}`
+**Endpoint**: `GET /api/v3/remote_ui/status/{id}`
 
 **Response**:
 ```json
@@ -417,7 +417,7 @@ if (remoteUIHandler->canHandleRequest(uri, method))
 
 ```cpp
 // RemoteUI WebSocket connection routing
-if (uri == "/api/v1/remote_ui/ws")
+if (uri == "/api/v3/remote_ui/ws")
 {
     handler = new RemoteUIWebSocketHandler(httpClient);
 }
@@ -496,7 +496,7 @@ public:
                                  nonce_header + "\r\n" +
                                  hmac_header);
 
-        webSocket.begin("192.168.1.100", 5454, "/api/v1/remote_ui/ws");
+        webSocket.begin("192.168.1.100", 5454, "/api/v3/remote_ui/ws");
     }
 
     void sendIOState(const String& io_id, const String& state) {

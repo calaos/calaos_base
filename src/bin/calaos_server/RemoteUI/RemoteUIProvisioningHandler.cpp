@@ -40,11 +40,11 @@ RemoteUIProvisioningHandler::~RemoteUIProvisioningHandler()
 bool RemoteUIProvisioningHandler::canHandleRequest(const string &uri, const string &method) const
 {
     // Handle provisioning endpoints
-    if (uri.find("/api/v1/provision/") == 0)
+    if (uri.find("/api/v3/provision/") == 0)
         return true;
 
     // Handle remote UI management endpoints
-    if (uri.find("/api/v1/remote_ui/") == 0)
+    if (uri.find("/api/v3/remote_ui/") == 0)
         return true;
 
     return false;
@@ -57,17 +57,17 @@ void RemoteUIProvisioningHandler::processRequest(const string &uri, const string
 
     try
     {
-        if (uri == "/api/v1/provision/request" && method == "POST")
+        if (uri == "/api/v3/provision/request" && method == "POST")
         {
             handleProvisionRequest(data);
         }
-        else if (uri == "/api/v1/remote_ui/list" && method == "GET")
+        else if (uri == "/api/v3/remote_ui/list" && method == "GET")
         {
             handleRemoteUIList();
         }
-        else if (uri.find("/api/v1/remote_ui/status/") == 0 && method == "GET")
+        else if (uri.find("/api/v3/remote_ui/status/") == 0 && method == "GET")
         {
-            string remote_ui_id = uri.substr(25); // Remove "/api/v1/remote_ui/status/"
+            string remote_ui_id = uri.substr(25); // Remove "/api/v3/remote_ui/status/"
             handleRemoteUIStatus(remote_ui_id);
         }
         else

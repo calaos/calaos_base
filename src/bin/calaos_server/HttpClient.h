@@ -94,7 +94,7 @@ protected:
     };
     int processHeaders(const string &request);
 
-    void handleJsonRequest();
+    void handleJsonRequest(uint8_t method);
 
     string getMimeType(const string &file_ext);
 
