@@ -181,6 +181,8 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttOutputLightDimmer.cpp               \
         IO/Mqtt/MqttOutputLightRGB.h                    \
         IO/Mqtt/MqttOutputLightRGB.cpp                  \
+        IO/Mqtt/MqttOutputShutter.h                     \
+        IO/Mqtt/MqttOutputShutter.cpp                   \
         IO/Reolink/ReolinkCtrl.h                        \
         IO/Reolink/ReolinkCtrl.cpp                      \
         IO/Reolink/ReolinkInputSwitch.h                 \
