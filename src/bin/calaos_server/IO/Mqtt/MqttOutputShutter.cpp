@@ -35,9 +35,7 @@ MqttOutputShutter::MqttOutputShutter(Params &p):
     ioDoc->descriptionSet(_("Control shutters through mqtt broker"));
     MqttCtrl::commonDoc(ioDoc);
 
-    ioDoc->paramAdd("topic_open", _("Topic to publish for opening the shutter"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("topic_close", _("Topic to publish for closing the shutter"), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("topic_stop", _("Topic to publish for stopping the shutter"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("topic_pub", _("Topic to publish commands (open/close/stop)"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("topic_sub", _("Topic to subscribe to get shutter status (optional). If not set, state is managed by Calaos timing logic."), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("payload_open", _("Payload to send when opening"), IODoc::TYPE_STRING, true, "OPEN");
@@ -155,7 +153,7 @@ void MqttOutputShutter::setOutputUp(bool enable)
 
     cDebugDom("mqtt") << "Opening shutter via MQTT";
 
-    string topic = get_param("topic_open");
+    string topic = get_param("topic_pub");
     string payload = get_param("payload_open");
     if (payload.empty())
         payload = "OPEN";
@@ -170,7 +168,7 @@ void MqttOutputShutter::setOutputDown(bool enable)
 
     cDebugDom("mqtt") << "Closing shutter via MQTT";
 
-    string topic = get_param("topic_close");
+    string topic = get_param("topic_pub");
     string payload = get_param("payload_close");
     if (payload.empty())
         payload = "CLOSE";
@@ -182,7 +180,7 @@ void MqttOutputShutter::Stop()
 {
     cDebugDom("mqtt") << "Stopping shutter via MQTT";
 
-    string topic = get_param("topic_stop");
+    string topic = get_param("topic_pub");
     string payload = get_param("payload_stop");
     if (payload.empty())
         payload = "STOP";
