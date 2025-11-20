@@ -235,8 +235,11 @@ void OutputShutter::Up()
     timer_up = NULL;
 
     if (timer_end) delete timer_end;
-    timer_end = new Timer((double)time,
+    if (!useExternalState)
+    {
+        timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
+    }
 
     updateCache();
 }
@@ -282,8 +285,11 @@ void OutputShutter::Down()
     timer_down = NULL;
 
     if (timer_end) delete timer_end;
-    timer_end = new Timer((double)time,
+    if (!useExternalState)
+    {
+        timer_end = new Timer((double)time,
                                (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutter::TimerEnd) );
+    }
 
     updateCache();
 }

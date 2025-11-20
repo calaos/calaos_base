@@ -27,8 +27,7 @@ using namespace Calaos;
 REGISTER_IO(MqttOutputShutter)
 
 MqttOutputShutter::MqttOutputShutter(Params &p):
-    OutputShutter(p),
-    useExternalState(false)
+    OutputShutter(p)
 {
     // Define IO documentation
     ioDoc->friendlyNameSet("MqttOutputShutter");
@@ -113,6 +112,10 @@ void MqttOutputShutter::readValue()
 
         updateCache();
         EmitSignalIO();
+        EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } },
+                         true);
     }
     else if (val == state_close)
     {
@@ -143,6 +146,10 @@ void MqttOutputShutter::readValue()
 
         updateCache();
         EmitSignalIO();
+        EventManager::create(CalaosEvent::EventIOChanged,
+                         { { "id", get_param("id") },
+                           { "state", get_value_string() } },
+                         true);
     }
 }
 

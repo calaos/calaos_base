@@ -31,7 +31,6 @@ class MqttOutputShutter : public OutputShutter
 {
 private:
     MqttCtrl *ctrl;
-    bool useExternalState;
 
 protected:
     void readValue();

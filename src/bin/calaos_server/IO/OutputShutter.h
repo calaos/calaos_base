@@ -42,6 +42,8 @@ protected:
 
     std::string state_volet, cmd_state;
 
+    bool useExternalState = false; // If true, shutter state is managed by external source (eg MQTT status topic)
+
     void updateCache();
 
     void TimerEnd();
