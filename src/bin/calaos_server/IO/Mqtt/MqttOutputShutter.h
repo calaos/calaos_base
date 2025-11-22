@@ -18,29 +18,30 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#ifndef __MQTT_OUTPUT_LIGHT_DIMMER_H__
-#define __MQTT_OUTPUT_LIGHT_DIMMER_H__
+#ifndef __MQTT_OUTPUT_SHUTTER_H__
+#define __MQTT_OUTPUT_SHUTTER_H__
 
-#include "OutputLightDimmer.h"
+#include "OutputShutter.h"
 #include "MqttCtrl.h"
 
 namespace Calaos
 {
 
-class MqttOutputLightDimmer : public OutputLightDimmer
+class MqttOutputShutter : public OutputShutter
 {
 private:
     MqttCtrl *ctrl;
 
 protected:
     void readValue();
-    virtual bool set_value_real(int val) override;
+    virtual void setOutputUp(bool enable) override;
+    virtual void setOutputDown(bool enable) override;
+    virtual void Stop() override;
 
 public:
-    MqttOutputLightDimmer(Params &p);
-    double convertValue(const Params &params, string direction, double dvalue);
+    MqttOutputShutter(Params &p);
 };
 
 }
 
-#endif // __MQTT_OUTPUT_LIGHT_DIMMER_H__
+#endif // __MQTT_OUTPUT_SHUTTER_H__
