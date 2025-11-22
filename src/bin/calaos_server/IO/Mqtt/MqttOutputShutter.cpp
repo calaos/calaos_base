@@ -26,6 +26,8 @@ using namespace Calaos;
 
 REGISTER_IO(MqttOutputShutter)
 
+const char *TAG = "mqtt_shutter";
+
 MqttOutputShutter::MqttOutputShutter(Params &p):
     OutputShutter(p)
 {
@@ -42,7 +44,7 @@ MqttOutputShutter::MqttOutputShutter(Params &p):
     ioDoc->paramAdd("payload_stop", _("Payload to send when stopping"), IODoc::TYPE_STRING, true, "STOP");
 
     ioDoc->paramAdd("state_open", _("Value received for open state (when topic_sub is set)"), IODoc::TYPE_STRING, false, "open");
-    ioDoc->paramAdd("state_close", _("Value received for closed state (when topic_sub is set)"), IODoc::TYPE_STRING, false, "close");
+    ioDoc->paramAdd("state_close", _("Value received for closed state (when topic_sub is set)"), IODoc::TYPE_STRING, false, "closed");
 
     // Get MQTT controller
     ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
@@ -59,7 +61,7 @@ MqttOutputShutter::MqttOutputShutter(Params &p):
 
     ctrl->subscribeStatusTopics(this);
 
-    cInfoDom("output") << "MqttOutputShutter::MqttOutputShutter()";
+    cInfoDom(TAG) << "MqttOutputShutter::MqttOutputShutter()";
 }
 
 void MqttOutputShutter::readValue()
@@ -73,7 +75,7 @@ void MqttOutputShutter::readValue()
     if (err)
         return;
 
-    cDebugDom("mqtt") << "Read shutter status value: " << val;
+    cDebugDom(TAG) << "Read shutter status value: " << val;
 
     string state_open = get_param("state_open");
     if (state_open.empty())
@@ -81,11 +83,11 @@ void MqttOutputShutter::readValue()
 
     string state_close = get_param("state_close");
     if (state_close.empty())
-        state_close = "close";
+        state_close = "closed";
 
     if (val == state_open)
     {
-        cDebugDom("mqtt") << "Shutter is OPEN";
+        cDebugDom(TAG) << "Shutter is OPEN";
 
         // Update internal state
         sens = SHUTTER_STOP;
@@ -119,7 +121,7 @@ void MqttOutputShutter::readValue()
     }
     else if (val == state_close)
     {
-        cDebugDom("mqtt") << "Shutter is CLOSED";
+        cDebugDom(TAG) << "Shutter is CLOSED";
 
         // Update internal state
         sens = SHUTTER_STOP;
@@ -158,7 +160,7 @@ void MqttOutputShutter::setOutputUp(bool enable)
     if (!enable)
         return;
 
-    cDebugDom("mqtt") << "Opening shutter via MQTT";
+    cDebugDom(TAG) << "Opening shutter via MQTT";
 
     string topic = get_param("topic_pub");
     string payload = get_param("payload_open");
@@ -173,7 +175,7 @@ void MqttOutputShutter::setOutputDown(bool enable)
     if (!enable)
         return;
 
-    cDebugDom("mqtt") << "Closing shutter via MQTT";
+    cDebugDom(TAG) << "Closing shutter via MQTT";
 
     string topic = get_param("topic_pub");
     string payload = get_param("payload_close");
@@ -185,7 +187,7 @@ void MqttOutputShutter::setOutputDown(bool enable)
 
 void MqttOutputShutter::Stop()
 {
-    cDebugDom("mqtt") << "Stopping shutter via MQTT";
+    cDebugDom(TAG) << "Stopping shutter via MQTT";
 
     string topic = get_param("topic_pub");
     string payload = get_param("payload_stop");
