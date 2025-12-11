@@ -143,6 +143,7 @@ bool WebSocket::checkHandshakeRequest()
     //Check if path is our API
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
     if (req_url.getPath() != "/api" &&
+        Utils::strStartsWith(req_url.getPath(), "/api/v3/") == false &&
         req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();

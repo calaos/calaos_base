@@ -70,8 +70,12 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
         cInfoDom(TAG) << "RemoteUIWebSocketHandler: Successfully authenticated RemoteUI "
                << authenticated_remote_ui->get_param("id");
 
-        // Send initial IO states
-        Timer::singleShot(0.1, sigc::mem_fun(*this, &RemoteUIWebSocketHandler::sendInitialIOStates));
+        // Send config first, then initial IO states
+        Timer::singleShot(0.1, [this]()
+        {
+            sendConfigUpdate();
+            sendInitialIOStates();
+        });
 
         return true;
     }
@@ -252,7 +256,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
 void RemoteUIWebSocketHandler::sendMessage(const Json &message)
 {
     string msg_str = message.dump();
-    httpClient->sendToClient(msg_str);
+    sendData.emit(msg_str);
 
     cDebugDom(TAG) << "RemoteUIWebSocketHandler: Sent message (" << msg_str.length() << " bytes)";
 }
