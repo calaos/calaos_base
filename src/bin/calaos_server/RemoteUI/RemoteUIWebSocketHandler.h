@@ -21,9 +21,8 @@
 #ifndef REMOTEUIWEBSOCKETHANDLER_H
 #define REMOTEUIWEBSOCKETHANDLER_H
 
-#include "JsonApi.h"
+#include "JsonApiHandlerWS.h"
 #include "RemoteUIManager.h"
-#include "EventManager.h"
 #include "ListeRoom.h"
 #include "json.hpp"
 #include <memory>
@@ -33,44 +32,30 @@ namespace Calaos
 
 class RemoteUI;
 
-class RemoteUIWebSocketHandler: public JsonApi
+class RemoteUIWebSocketHandler: public JsonApiHandlerWS
 {
 private:
     RemoteUI *authenticated_remote_ui;
-    bool is_authenticated;
-    sigc::connection event_connection;
 
 public:
     RemoteUIWebSocketHandler(HttpClient *client);
     virtual ~RemoteUIWebSocketHandler();
 
-    // Override JsonApi methods
+    // Override processApi to handle RemoteUI-specific messages first
     virtual void processApi(const string &data, const Params &paramsGET) override;
 
-    // Authentication
+    // Authentication via HMAC headers
     bool authenticateConnection(const std::map<string, string> &headers);
-    bool isAuthenticated() const { return is_authenticated; }
 
-    // Message handlers
-    void handleMessage(const Json &message);
-    void handleSetState(const Json &data);
+    // RemoteUI-specific handlers
     void handleGetConfig();
-    void handlePing();
 
-    // Send messages to RemoteUI
+    // Send RemoteUI-specific messages
     void sendInitialIOStates();
-    void sendIOStateUpdate(const string &io_id, const Json &io_state);
     void sendConfigUpdate();
-    void sendMessage(const Json &message);
 
-    // Event handling
-    void handleIOEvent(const CalaosEvent &event);
-
-private:
-    void connectToEventManager();
-    void disconnectFromEventManager();
-    Json createErrorMessage(const string &error) const;
-    Json getIOStateJson(IOBase *io) const;
+    // Expose sendJson for RemoteUIManager to send notifications
+    using JsonApiHandlerWS::sendJson;
 };
 
 }

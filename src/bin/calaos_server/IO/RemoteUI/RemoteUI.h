@@ -86,6 +86,7 @@ public:
 
     // Actions for rules
     bool setBrightness(int brightness);
+    int getBrightness();
     bool setPage(const string &page_id);
     bool showNotification(const string &message);
 

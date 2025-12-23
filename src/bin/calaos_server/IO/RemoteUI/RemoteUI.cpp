@@ -391,9 +391,6 @@ Json RemoteUI::getProvisioningResponse()
 
 Json RemoteUI::getRemoteUIIOStatesMessage(const std::map<string, Json> &io_states)
 {
-    Json message;
-    message["msg"] = "remote_ui_io_states";
-
     Json data = Json::array();
     for (const string &io_id : referenced_ios)
     {
@@ -404,15 +401,11 @@ Json RemoteUI::getRemoteUIIOStatesMessage(const std::map<string, Json> &io_state
         }
     }
 
-    message["data"] = data;
-    return message;
+    return data;
 }
 
 Json RemoteUI::getRemoteUIConfigMessage()
 {
-    Json message;
-    message["msg"] = "remote_ui_config";
-
     Json config;
     config["name"] = get_param("name");
     config["room"] = get_param("room");
@@ -421,8 +414,7 @@ Json RemoteUI::getRemoteUIConfigMessage()
     config["timeout"] = std::stoi(get_param("timeout"));
     config["pages"] = pages;
 
-    message["data"] = config;
-    return message;
+    return config;
 }
 
 bool RemoteUI::setBrightness(int brightness)
@@ -433,11 +425,20 @@ bool RemoteUI::setBrightness(int brightness)
         return false;
     }
 
+    set_param("brightness", Utils::to_string(brightness));
+
     // Emit event to notify WebSocket handler
     emitChange();
 
     cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Brightness set to " << brightness;
     return true;
+}
+
+int RemoteUI::getBrightness()
+{
+    int brightness = 100; // Default value
+    Utils::from_string(get_param("brightness"), brightness);
+    return brightness;
 }
 
 bool RemoteUI::setPage(const string &page_id)

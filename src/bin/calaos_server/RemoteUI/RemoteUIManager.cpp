@@ -34,10 +34,6 @@ RemoteUIManager::RemoteUIManager()
 {
     setupTimers();
 
-    event_connection = EventManager::Instance().newEvent.connect(
-        sigc::mem_fun(*this, &RemoteUIManager::handleIOEvent)
-    );
-
     cInfoDom(TAG) << "RemoteUIManager: Initialized";
 }
 
@@ -47,8 +43,6 @@ RemoteUIManager::~RemoteUIManager()
         nonce_cleanup_timer->stop();
     if (rate_limit_cleanup_timer)
         rate_limit_cleanup_timer->stop();
-
-    event_connection.disconnect();
 }
 
 void RemoteUIManager::setupTimers()
@@ -264,29 +258,6 @@ void RemoteUIManager::cleanupRateLimits()
     }
 }
 
-void RemoteUIManager::notifyIOStateChange(const string &io_id, const Json &io_data)
-{
-    Json message;
-    message["msg"] = "io_state";
-    message["data"]["io_id"] = io_id;
-    message["data"]["state"] = io_data;
-
-    auto remote_uis = getAllRemoteUIs();
-    for (RemoteUI *remote_ui : remote_uis)
-    {
-        if (remote_ui->isOnline() && remote_ui->hasReferencedIO(io_id))
-        {
-            auto handler_it = connected_handlers.find(remote_ui->get_param("id"));
-            if (handler_it != connected_handlers.end())
-            {
-                handler_it->second->sendMessage(message);
-                cDebugDom(TAG) << "RemoteUIManager: Notified " << remote_ui->get_param("id")
-                        << " of IO state change for " << io_id;
-            }
-        }
-    }
-}
-
 void RemoteUIManager::notifyAllIOStates()
 {
     for (const auto &handler_pair : connected_handlers)
@@ -339,19 +310,5 @@ void RemoteUIManager::removeWebSocketHandler(const string &remote_ui_id)
     {
         remote_ui->setOnline(false);
         cInfoDom(TAG) << "RemoteUIManager: WebSocket handler disconnected for " << remote_ui_id;
-    }
-}
-
-void RemoteUIManager::handleIOEvent(const CalaosEvent &event)
-{
-    if (event.getType() == CalaosEvent::EventIOChanged)
-    {
-        string io_id = event.getParam().get_param_const("id");
-        string state = event.getParam().get_param_const("state");
-
-        Json io_data;
-        io_data["state"] = state;
-
-        notifyIOStateChange(io_id, io_data);
     }
 }

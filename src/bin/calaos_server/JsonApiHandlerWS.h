@@ -32,18 +32,22 @@ public:
 
     virtual void processApi(const string &data, const Params &paramsGET);
 
-private:
+protected:
+    // Allow subclasses to set authentication state (e.g., for HMAC auth)
+    void setAuthenticated(bool auth) { loggedin = auth; }
+    bool isAuthenticated() const { return loggedin; }
 
+    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
+    void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
+
+    bool loggedin = false;
+
+private:
     sigc::connection evcon;
 
     sigc::signal<void, string, string, void*, void*> sig_events;
 
     void handleEvents(const CalaosEvent &event);
-
-    bool loggedin = false;
-
-    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
-    void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
     void processGetState(json_t *jdata, const string &client_id = string());

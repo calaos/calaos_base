@@ -79,9 +79,6 @@ private:
     std::shared_ptr<uvw::TimerHandle> nonce_cleanup_timer;
     std::shared_ptr<uvw::TimerHandle> rate_limit_cleanup_timer;
 
-    // EventManager connection
-    sigc::connection event_connection;
-
     RemoteUIManager();
 
 public:
@@ -105,7 +102,6 @@ public:
                               const string &ip_address);
 
     // IO state notifications
-    void notifyIOStateChange(const string &io_id, const Json &io_data);
     void notifyAllIOStates();
 
     // Security
@@ -125,7 +121,6 @@ private:
     void setupTimers();
     void cleanupExpiredNonces();
     void cleanupRateLimits();
-    void handleIOEvent(const CalaosEvent &event);
 
     static const int MAX_ATTEMPTS_PER_MINUTE = 3;
     static const int NONCE_EXPIRY_SECONDS = 300; // 5 minutes
