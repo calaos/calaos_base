@@ -78,7 +78,7 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
             if (authenticated_remote_ui && OtaFirmwareManager::Instance().isEnabled())
             {
                 string hardwareId = authenticated_remote_ui->get_param("device_type");
-                string currentVersion = authenticated_remote_ui->get_param("device_firmware");
+                string currentVersion = authenticated_remote_ui->get_param("device_version");
                 OtaFirmwareManager::Instance().checkDeviceForUpdate(this, hardwareId, currentVersion);
             }
         });
