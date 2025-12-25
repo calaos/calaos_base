@@ -24,6 +24,7 @@
 #include "HttpClient.h"
 #include "RemoteUIManager.h"
 #include "HMACAuthenticator.h"
+#include "OtaFirmwareManager.h"
 
 static const char *TAG = "remote_ui";
 
@@ -67,11 +68,19 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
         cInfoDom(TAG) << "RemoteUIWebSocketHandler: Successfully authenticated RemoteUI "
                << authenticated_remote_ui->get_param("id");
 
-        // Send config first, then initial IO states
+        // Send config first, then initial IO states, then check for OTA updates
         Timer::singleShot(0.1, [this]()
         {
             sendConfigUpdate();
             sendInitialIOStates();
+
+            // Check for firmware updates
+            if (authenticated_remote_ui && OtaFirmwareManager::Instance().isEnabled())
+            {
+                string hardwareId = authenticated_remote_ui->get_param("device_type");
+                string currentVersion = authenticated_remote_ui->get_param("device_firmware");
+                OtaFirmwareManager::Instance().checkDeviceForUpdate(this, hardwareId, currentVersion);
+            }
         });
 
         return true;

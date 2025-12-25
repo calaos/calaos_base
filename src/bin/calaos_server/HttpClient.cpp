@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "RemoteUIProvisioningHandler.h"
+#include "OtaHttpHandler.h"
 #include "HttpClient.h"
 #include "HttpServer.h"
 #include "hef_uri_syntax.h"
@@ -162,6 +163,7 @@ HttpClient::~HttpClient()
 {
     delete jsonApi;
     delete remoteUIHandler;
+    delete otaHandler;
     free(parser);
     DELETE_NULL(closeTimer);
 
@@ -561,6 +563,16 @@ void HttpClient::handleJsonRequest(uint8_t parser_method)
     if (remoteUIHandler->canHandleRequest(uri, method))
     {
         remoteUIHandler->processRequest(uri, method, bodymessage, paramsGET);
+        return;
+    }
+
+    // Route to OTA handler if URL matches
+    if (!otaHandler)
+        otaHandler = new Calaos::OtaHttpHandler(this);
+
+    if (otaHandler->canHandleRequest(uri, method))
+    {
+        otaHandler->processRequest(uri, method, bodymessage, paramsGET);
         return;
     }
 

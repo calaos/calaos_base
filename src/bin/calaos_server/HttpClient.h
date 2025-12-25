@@ -38,6 +38,7 @@ class TcpHandle;
 
 namespace Calaos {
 class RemoteUIProvisioningHandler;
+class OtaHttpHandler;
 }
 
 class HttpClient: public sigc::trackable
@@ -82,6 +83,7 @@ protected:
 
     JsonApi *jsonApi = nullptr;
     RemoteUIProvisioningHandler *remoteUIHandler = nullptr;
+    OtaHttpHandler *otaHandler = nullptr;
 
     Params paramsGET;
 
@@ -121,6 +123,9 @@ public:
     string getClientIp() const;
     void sendToClient(string res);
     void setNeedRestart(bool e) { need_restart = e; }
+
+    // Expose request headers for handlers that need authentication
+    const unordered_map<string, string> &getRequestHeaders() const { return request_headers; }
 };
 
 #endif

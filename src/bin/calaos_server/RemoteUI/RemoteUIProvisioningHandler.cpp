@@ -149,6 +149,8 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
         remote_ui->set_param("device_model", device_info["model"]);
     if (device_info.contains("firmware"))
         remote_ui->set_param("device_firmware", device_info["firmware"]);
+    if (device_info.contains("version"))
+        remote_ui->set_param("device_version", device_info["version"]);
     if (device_info.contains("mac_address"))
         remote_ui->set_param("mac_address", device_info["mac_address"]);
 

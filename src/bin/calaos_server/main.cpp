@@ -33,6 +33,7 @@
 #include "HistLogger.h"
 #include "DataLogger.h"
 #include "RemoteUIManager.h"
+#include "OtaFirmwareManager.h"
 #include "libuvw.h"
 #include "version.h"
 
@@ -127,9 +128,12 @@ int main (int argc, char **argv)
     EventManager::Instance();
     ListeRule::Instance();
     ListeRoom::Instance();
-    
+
     // Initialize RemoteUI manager
     RemoteUIManager::Instance();
+
+    // Initialize OTA Firmware manager
+    OtaFirmwareManager::Instance().init();
 
     Config::Instance().LoadConfigIO();
     Config::Instance().LoadConfigRule();

@@ -2,6 +2,7 @@ MAINTAINERCLEANFILES = Makefile.in
 
 AM_CPPFLAGS =                                                 \
         -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
+        -DOTA_FIRMWARE_PATH=\"$(datadir)/calaos/firmwares\"   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
         -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
@@ -371,6 +372,12 @@ calaos_server_SOURCES = \
         RemoteUI/RemoteUIWebSocketHandler.h             \
         RemoteUI/HMACAuthenticator.cpp                  \
         RemoteUI/HMACAuthenticator.h                    \
+        RemoteUI/FirmwareManifest.cpp                   \
+        RemoteUI/FirmwareManifest.h                     \
+        RemoteUI/OtaFirmwareManager.cpp                 \
+        RemoteUI/OtaFirmwareManager.h                   \
+        RemoteUI/OtaHttpHandler.cpp                     \
+        RemoteUI/OtaHttpHandler.h                       \
         IO/RemoteUI/RemoteUI.cpp                        \
         IO/RemoteUI/RemoteUI.h                          \
         HistLogger.cpp                                  \
