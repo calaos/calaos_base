@@ -49,6 +49,7 @@ public:
 
 private:
     void handleProvisionRequest(const string &data);
+    void handleProvisionVerify(const string &data);
     void handleRemoteUIList();
     void handleRemoteUIStatus(const string &remote_ui_id);
 
