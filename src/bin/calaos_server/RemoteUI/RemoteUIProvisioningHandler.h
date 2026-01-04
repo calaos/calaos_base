@@ -73,6 +73,9 @@ private:
     bool validateProvisioningRequest(const Json &request) const;
     Json parseDeviceInfo(const Json &device_info_json) const;
 
+    // Authentication token generation
+    string generateAuthToken() const;
+
     // Rate limiting and brute force protection
     bool checkRateLimitAndBlacklist(const string &client_ip, const string &code);
     void trackProvisioningAttempt(const string &client_ip, const string &code);

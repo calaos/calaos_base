@@ -23,6 +23,9 @@
 #include "IO/RemoteUI/RemoteUI.h"
 #include "ListeRoom.h"
 #include "CalaosConfig.h"
+#include <openssl/rand.h>  // For RAND_bytes()
+#include <iomanip>         // For std::setw, std::setfill
+#include <sstream>         // For std::ostringstream
 
 static const char *TAG = "remote_ui";
 
@@ -166,8 +169,20 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     // Generate secrets if not already provisioned
     if (remote_ui->get_param("device_secret").empty())
     {
-        remote_ui->set_param("auth_token", "remote_ui_" + code);
+        // Generate cryptographically random auth token (32 bytes = 256 bits)
+        string auth_token = generateAuthToken();
+        if (auth_token.empty())
+        {
+            cErrorDom(TAG) << "RemoteUIProvisioningHandler: Failed to generate auth token";
+            sendErrorResponse("Internal server error - token generation failed", 500);
+            return;
+        }
+
+        remote_ui->set_param("auth_token", auth_token);
         remote_ui->generateDeviceSecret();
+
+        cInfoDom(TAG) << "RemoteUIProvisioningHandler: Generated secure auth token for device "
+                      << remote_ui->get_param("id");
     }
 
     // Save configuration
@@ -431,4 +446,33 @@ void RemoteUIProvisioningHandler::cleanupExpiredTracking()
             ++it;
         }
     }
+}
+
+string RemoteUIProvisioningHandler::generateAuthToken() const
+{
+    // Generate 32 bytes (256 bits) of cryptographically secure random data
+    const size_t TOKEN_BYTES = 32;
+    const size_t MAX_TOKEN_BYTES = 1024;
+
+    if (TOKEN_BYTES > MAX_TOKEN_BYTES)
+    {
+        cErrorDom(TAG) << "RemoteUIProvisioningHandler: Token size exceeds maximum";
+        return "";
+    }
+
+    std::vector<unsigned char> buffer(TOKEN_BYTES);
+    if (RAND_bytes(buffer.data(), TOKEN_BYTES) != 1)
+    {
+        cErrorDom(TAG) << "RemoteUIProvisioningHandler: Failed to generate random bytes for auth token";
+        return "";
+    }
+
+    // Convert to hexadecimal string (64 characters for 32 bytes)
+    std::ostringstream oss;
+    for (size_t i = 0; i < TOKEN_BYTES; ++i)
+    {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
+    }
+
+    return oss.str();
 }

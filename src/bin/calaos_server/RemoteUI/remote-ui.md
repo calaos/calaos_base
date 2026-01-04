@@ -75,7 +75,7 @@ The server validates the provisioning code and creates a new RemoteUI object:
   "success": true,
   "remote_ui": {
     "id": "remote_ui_ABC123",
-    "auth_token": "remote_ui_ABC123",
+    "auth_token": "a7f3b5d2e9c1b4a6f8e3d5c2a9b7e4d6c1f8a5e2d9b6c3f0a7d4b1e8c5a2f9d6",
     "device_secret": "7f3b5a2d9e1c4b6a8c3f5e2d9a7b4c6e1f8d5a2c9b6e3f0d7a4b1c8e5f2a9",
     "websocket_endpoint": "ws://192.168.1.100:5454/api/v3/remote_ui/ws",
     "config": {
@@ -134,6 +134,25 @@ This approach ensures that:
 - No manual intervention required to unblock legitimate devices
 - Attack attempts are logged for security monitoring
 
+### Authentication Token Security
+
+Authentication tokens (`auth_token`) are generated using cryptographically secure random number generation (OpenSSL `RAND_bytes()`). Each token contains 256 bits of entropy, making them cryptographically secure and impossible to predict or guess.
+
+**Token Format**:
+- **Length**: 64 characters (32 bytes hex-encoded)
+- **Character set**: Hexadecimal (0-9, a-f)
+- **Entropy**: 256 bits (cryptographic strength)
+- **Example**: `a7f3b5d2e9c1b4a6f8e3d5c2a9b7e4d6c1f8a5e2d9b6c3f0a7d4b1e8c5a2f9d6`
+
+**Security Properties**:
+- Tokens are generated independently of provisioning codes using cryptographically secure random generation
+- Collision probability is negligible (< 2^-256)
+- Tokens cannot be derived, predicted, or enumerated from any user-controlled input
+- Each device receives a unique, unpredictable token during provisioning
+
+**Backward Compatibility**:
+Devices provisioned before version 4.5 may have tokens in the older format (`remote_ui_<code>`). These devices continue to function normally without requiring updates. To upgrade old devices to cryptographically secure tokens, administrators can delete the `device_secret` and `auth_token` parameters from `io.xml` and re-provision the device.
+
 ## HMAC Authentication
 
 ### Security Principles
@@ -149,7 +168,7 @@ Authentication uses HMAC-SHA256 to guarantee:
 When connecting via WebSocket, the touch screen must provide the following headers:
 
 ```
-Authorization: Bearer remote_ui_ABC123
+Authorization: Bearer a7f3b5d2e9c1b4a6f8e3d5c2a9b7e4d6c1f8a5e2d9b6c3f0a7d4b1e8c5a2f9d6
 X-Auth-Timestamp: 1640995200
 X-Auth-Nonce: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
 X-Auth-HMAC: computed_hmac_signature
@@ -282,7 +301,7 @@ Once authenticated, the touch screen automatically receives:
     <calaos:remote_uis>
       <calaos:remote_ui id="remote_ui_ABC123">
         <calaos:provisioning_code>ABC123</calaos:provisioning_code>
-        <calaos:auth_token>remote_ui_ABC123</calaos:auth_token>
+        <calaos:auth_token>a7f3b5d2e9c1b4a6f8e3d5c2a9b7e4d6c1f8a5e2d9b6c3f0a7d4b1e8c5a2f9d6</calaos:auth_token>
         <calaos:device_secret>7f3b5a2d9e1c4b6a...</calaos:device_secret>
         <calaos:mac_address>AA:BB:CC:DD:EE:FF</calaos:mac_address>
 
