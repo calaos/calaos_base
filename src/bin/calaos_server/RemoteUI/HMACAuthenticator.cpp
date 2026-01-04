@@ -188,7 +188,7 @@ bool HMACAuthenticator::validateTimestamp(const string &timestamp)
         auto now = std::chrono::system_clock::now();
         auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
 
-        return std::abs(time_diff) <= TIMESTAMP_TOLERANCE_SECONDS;
+        return std::abs(time_diff) <= RemoteUIManager::TIMESTAMP_TOLERANCE_SECONDS;
     }
     catch (const std::exception &e)
     {

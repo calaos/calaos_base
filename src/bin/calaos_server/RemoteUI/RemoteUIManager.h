@@ -117,14 +117,20 @@ public:
     size_t getOnlineCount() const;
     size_t getTotalCount() const;
 
+    // Security constants (public for use by HMACAuthenticator and other components)
+    static constexpr int MAX_ATTEMPTS_PER_MINUTE = 3;
+    static constexpr int NONCE_EXPIRY_SECONDS = 300; // 5 minutes
+
+    // Timestamp tolerance: ±30 seconds (1-minute replay attack window)
+    // This balances security (minimize replay window) with reliability
+    // (accommodate clock drift and network latency on embedded devices)
+    // Clients SHOULD implement NTP/SNTP for accurate time synchronization
+    static constexpr int TIMESTAMP_TOLERANCE_SECONDS = 30;
+
 private:
     void setupTimers();
     void cleanupExpiredNonces();
     void cleanupRateLimits();
-
-    static const int MAX_ATTEMPTS_PER_MINUTE = 3;
-    static const int NONCE_EXPIRY_SECONDS = 300; // 5 minutes
-    static const int TIMESTAMP_TOLERANCE_SECONDS = 60;
 };
 
 }

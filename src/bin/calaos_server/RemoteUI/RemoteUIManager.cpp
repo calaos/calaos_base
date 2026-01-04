@@ -147,9 +147,19 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
         auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
         auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
 
+        // Log large time differences for monitoring (before rejection)
+        if (std::abs(time_diff) > 15)  // Warning if > 15 seconds
+        {
+            cInfoDom(TAG) << "RemoteUIManager: Large time difference ("
+                          << time_diff << "s) from IP " << ip_address
+                          << " (tolerance: ±" << TIMESTAMP_TOLERANCE_SECONDS << "s)";
+        }
+
         if (std::abs(time_diff) > TIMESTAMP_TOLERANCE_SECONDS)
         {
-            cWarningDom(TAG) << "RemoteUIManager: Timestamp too old/new from IP " << ip_address;
+            cWarningDom(TAG) << "RemoteUIManager: Timestamp rejected ("
+                              << time_diff << "s) from IP " << ip_address
+                              << " - check client time synchronization";
             return false;
         }
     }

@@ -61,7 +61,8 @@ public:
     static string generateNonce();
 
 private:
-    static const int TIMESTAMP_TOLERANCE_SECONDS = 60;
+    // Use TIMESTAMP_TOLERANCE_SECONDS from RemoteUIManager.h
+    // (No local definition - prevents duplication and inconsistency)
 };
 
 }

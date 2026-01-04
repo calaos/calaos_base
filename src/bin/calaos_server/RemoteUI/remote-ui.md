@@ -153,6 +153,81 @@ Authentication tokens (`auth_token`) are generated using cryptographically secur
 **Backward Compatibility**:
 Devices provisioned before version 4.5 may have tokens in the older format (`remote_ui_<code>`). These devices continue to function normally without requiring updates. To upgrade old devices to cryptographically secure tokens, administrators can delete the `device_secret` and `auth_token` parameters from `io.xml` and re-provision the device.
 
+### Time Synchronization Requirements
+
+**Critical:** RemoteUI clients MUST maintain accurate time synchronization for authentication to work correctly.
+
+#### Server Configuration
+- **Timestamp tolerance**: ±30 seconds
+- Requests with timestamps outside this window will be rejected
+- Error messages: `"Timestamp too old/new"` or `"Timestamp rejected - check client time synchronization"`
+
+#### Client Requirements
+
+RemoteUI clients (ESP32, embedded Linux, etc.) must implement NTP/SNTP time synchronization to ensure authentication works reliably.
+
+**ESP32 Example (NTP/SNTP Setup):**
+```cpp
+#include <time.h>
+#include "esp_sntp.h"
+
+void setupTimeSync() {
+    // Configure SNTP
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_init();
+
+    // Wait for time sync (max 10 seconds)
+    int retry = 0;
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < 100) {
+        delay(100);
+    }
+
+    // Set timezone (example: Europe/Paris)
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+}
+
+void setup() {
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    setupTimeSync();  // MUST be called after WiFi connection
+
+    // Now safe to authenticate with Calaos server
+}
+```
+
+**Linux Embedded Devices:**
+```bash
+# Install NTP client
+apt-get install ntpdate
+
+# Sync with NTP server
+ntpdate -s pool.ntp.org
+
+# Or use systemd-timesyncd
+timedatectl set-ntp true
+```
+
+#### Troubleshooting Time Sync Issues
+
+**Symptom:** Authentication fails with `"Timestamp too old/new"` or `"Timestamp rejected"`
+
+**Solutions:**
+1. Verify NTP sync is working: `sntp_get_sync_status()` on ESP32
+2. Check system time: `time(NULL)` should return current Unix timestamp
+3. Verify network connectivity to NTP servers (pool.ntp.org, time.google.com, etc.)
+4. Check timezone configuration (use UTC or configure correctly)
+5. Monitor server logs for `"Large time difference"` warnings (indicates approaching the tolerance limit)
+
+**Clock Drift:**
+- **Acceptable drift**: < 15 seconds (server logs info message)
+- **Warning threshold**: > 15 seconds (server logs detailed warning)
+- **Rejection threshold**: > 30 seconds (authentication fails)
+- **Recommendation**: Re-sync NTP every 1-24 hours depending on device clock accuracy
+- **ESP32 typical drift**: 50-100 ppm (8-10 seconds per day)
+
 ## HMAC Authentication
 
 ### Security Principles
