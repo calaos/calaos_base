@@ -245,7 +245,7 @@ When connecting via WebSocket, the touch screen must provide the following heade
 ```
 Authorization: Bearer a7f3b5d2e9c1b4a6f8e3d5c2a9b7e4d6c1f8a5e2d9b6c3f0a7d4b1e8c5a2f9d6
 X-Auth-Timestamp: 1640995200
-X-Auth-Nonce: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
+X-Auth-Nonce: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3
 X-Auth-HMAC: computed_hmac_signature
 ```
 
@@ -262,8 +262,11 @@ string hmac = compute_hmac_sha256(device_secret, data_to_sign);
 ### Server-Side Validation
 
 1. **Token extraction**: From `Authorization` header
-2. **Timestamp validation**: ±60 seconds tolerance
-3. **Nonce verification**: Anti-replay protection (5-minute cache)
+2. **Timestamp validation**: ±30 seconds tolerance
+3. **Nonce verification**:
+   - **Format**: Exactly 64 hexadecimal characters (32 bytes of random data)
+   - **Anti-replay protection**: 5-minute cache prevents nonce reuse
+   - **Security**: 256-bit entropy prevents birthday paradox collision attacks
 4. **Rate limiting**: Maximum 3 attempts per minute per IP
 5. **HMAC calculation and comparison**: Integrity validation
 
@@ -508,6 +511,8 @@ void RemoteUI::extractReferencedIOs()
 1. **HMAC Authentication**: Impossible to forge without the secret
 2. **Rate limiting**: Protection against denial of service attacks
 3. **Nonce cache**: Anti-replay protection with automatic expiration
+   - **Required format**: 64 hexadecimal characters (32 bytes of cryptographically secure random data)
+   - **Entropy**: 256 bits minimum to prevent birthday paradox collision attacks
 4. **Timestamp validation**: Prevention of replay attacks
 5. **Session isolation**: Each RemoteUI has its own WebSocket session
 
@@ -525,7 +530,8 @@ void RemoteUI::extractReferencedIOs()
 // Security
 static const int MAX_ATTEMPTS_PER_MINUTE = 3;
 static const int NONCE_EXPIRY_SECONDS = 300;    // 5 minutes
-static const int TIMESTAMP_TOLERANCE_SECONDS = 60;
+static const int TIMESTAMP_TOLERANCE_SECONDS = 30;  // ±30 seconds
+static const int NONCE_LENGTH = 64;             // 64 hex characters (32 bytes)
 
 // Performance
 static const size_t SECRET_LENGTH = 32;          // 256 bits
@@ -646,6 +652,51 @@ public:
         String json;
         serializeJson(doc, json);
         webSocket.sendTXT(json);
+    }
+
+    String generateNonce() {
+        // Generate 32 bytes (256 bits) of cryptographically secure random data
+        // Returns 64-character hexadecimal string
+        unsigned char nonce[32];
+
+        #ifdef ESP_PLATFORM
+        // ESP32: Use hardware RNG
+        esp_fill_random(nonce, sizeof(nonce));
+        #else
+        // Linux: Use std::random_device
+        std::random_device rd;
+        for (size_t i = 0; i < sizeof(nonce); i++)
+            nonce[i] = static_cast<unsigned char>(rd() & 0xFF);
+        #endif
+
+        return bytesToHex(nonce, sizeof(nonce));
+    }
+
+    String bytesToHex(const unsigned char* data, size_t len) {
+        String hex;
+        hex.reserve(len * 2);
+        for (size_t i = 0; i < len; i++) {
+            char buf[3];
+            sprintf(buf, "%02x", data[i]);
+            hex += buf;
+        }
+        return hex;
+    }
+
+    String calculateHMAC(const String& message) {
+        // HMAC-SHA256 implementation using mbedtls
+        unsigned char hmac[32];
+        mbedtls_md_context_t ctx;
+        mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+
+        mbedtls_md_init(&ctx);
+        mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
+        mbedtls_md_hmac_starts(&ctx, (const unsigned char*)device_secret.c_str(), device_secret.length());
+        mbedtls_md_hmac_update(&ctx, (const unsigned char*)message.c_str(), message.length());
+        mbedtls_md_hmac_finish(&ctx, hmac);
+        mbedtls_md_free(&ctx);
+
+        return bytesToHex(hmac, sizeof(hmac));
     }
 };
 ```

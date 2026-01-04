@@ -139,6 +139,15 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
         return false;
     }
 
+    // Validate nonce length (must be 64 hex characters = 32 bytes)
+    // Prevents birthday paradox collision attacks with weak nonces
+    if (nonce.length() != 64)
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Invalid nonce length ("
+                          << nonce.length() << ", expected 64) from IP " << ip_address;
+        return false;
+    }
+
     auto now = std::chrono::system_clock::now();
 
     try

@@ -199,7 +199,10 @@ bool HMACAuthenticator::validateTimestamp(const string &timestamp)
 
 string HMACAuthenticator::generateNonce()
 {
-    unsigned char buffer[8];
+    // Generate 32 bytes (256 bits) of cryptographically secure random data
+    // This provides strong protection against birthday paradox collision attacks
+    // Nonce format: 64-character hexadecimal string (32 bytes encoded as hex)
+    unsigned char buffer[32];
     if (RAND_bytes(buffer, sizeof(buffer)) != 1)
     {
         cErrorDom(TAG) << "HMACAuthenticator: Failed to generate random nonce";
