@@ -23,6 +23,9 @@
 
 #include "Utils.h"
 #include "RemoteUIManager.h"
+#include <set>
+#include <map>
+#include <ctime>
 
 class HttpClient;
 
@@ -34,10 +37,22 @@ using namespace Utils;
 namespace Calaos
 {
 
+// Structure to track provisioning attempts per IP
+struct ProvisioningIPTracking
+{
+    time_t last_request_time = 0;          // Last provisioning request timestamp
+    std::set<string> codes_tried;          // Unique codes tried in the last hour
+    time_t codes_window_start = 0;         // Start of the 1-hour tracking window
+    time_t blacklist_until = 0;            // Blacklist expiration timestamp
+};
+
 class RemoteUIProvisioningHandler
 {
 private:
     HttpClient *httpClient;
+
+    // IP tracking for rate limiting and brute force detection
+    static std::map<string, ProvisioningIPTracking> ip_tracking;
 
 public:
     RemoteUIProvisioningHandler(HttpClient *client);
@@ -57,6 +72,11 @@ private:
     string getClientIP() const;
     bool validateProvisioningRequest(const Json &request) const;
     Json parseDeviceInfo(const Json &device_info_json) const;
+
+    // Rate limiting and brute force protection
+    bool checkRateLimitAndBlacklist(const string &client_ip, const string &code);
+    void trackProvisioningAttempt(const string &client_ip, const string &code);
+    void cleanupExpiredTracking();
 };
 
 }

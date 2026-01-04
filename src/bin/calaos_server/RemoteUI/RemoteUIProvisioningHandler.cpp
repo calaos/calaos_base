@@ -28,6 +28,15 @@ static const char *TAG = "remote_ui";
 
 using namespace Calaos;
 
+// Static member definition
+std::map<string, ProvisioningIPTracking> RemoteUIProvisioningHandler::ip_tracking;
+
+// Rate limiting and security constants
+static const int RATE_LIMIT_SECONDS = 10;           // Min 10s between requests per IP
+static const int MAX_CODES_PER_IP = 10;             // Max different codes per IP per hour
+static const int TRACKING_WINDOW_SECONDS = 3600;    // 1 hour tracking window
+static const int BLACKLIST_DURATION_SECONDS = 3600; // 1 hour blacklist
+
 RemoteUIProvisioningHandler::RemoteUIProvisioningHandler(HttpClient *client):
     httpClient(client)
 {
@@ -99,11 +108,22 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     }
 
     string code = request["code"];
+    string client_ip = getClientIP();
     Json device_info = parseDeviceInfo(request["device_info"]);
     string mac_address = device_info.value("mac_address", "");
 
+    // Check rate limiting and blacklist BEFORE processing
+    if (!checkRateLimitAndBlacklist(client_ip, code))
+    {
+        sendErrorResponse("Too many requests or blacklisted", 429);
+        return;
+    }
+
+    // Track this provisioning attempt (for code switching detection)
+    trackProvisioningAttempt(client_ip, code);
+
     cInfoDom(TAG) << "RemoteUIProvisioningHandler: Provisioning request for code " << code
-            << " from device " << mac_address;
+            << " from device " << mac_address << " (IP: " << client_ip << ")";
 
     // Search for existing RemoteUI IO with this provisioning code
     RemoteUI *remote_ui = nullptr;
@@ -297,4 +317,118 @@ Json RemoteUIProvisioningHandler::parseDeviceInfo(const Json &device_info_json) 
 {
     // Just return the device info JSON as is
     return device_info_json;
+}
+
+bool RemoteUIProvisioningHandler::checkRateLimitAndBlacklist(const string &client_ip, const string &code)
+{
+    time_t now = time(nullptr);
+
+    // Cleanup expired tracking data periodically
+    cleanupExpiredTracking();
+
+    auto &tracking = ip_tracking[client_ip];
+
+    // Check if IP is blacklisted
+    if (tracking.blacklist_until > 0 && now < tracking.blacklist_until)
+    {
+        int remaining = tracking.blacklist_until - now;
+        cWarningDom(TAG) << "RemoteUIProvisioningHandler: Blocked blacklisted IP " << client_ip
+                        << " (remaining: " << remaining << "s)";
+        return false;
+    }
+
+    // Clear blacklist if expired
+    if (tracking.blacklist_until > 0 && now >= tracking.blacklist_until)
+    {
+        cInfoDom(TAG) << "RemoteUIProvisioningHandler: Blacklist expired for IP " << client_ip;
+        tracking.blacklist_until = 0;
+        tracking.codes_tried.clear();
+        tracking.codes_window_start = now;
+    }
+
+    // Check rate limiting (10 seconds between requests)
+    if (tracking.last_request_time > 0)
+    {
+        int time_since_last = now - tracking.last_request_time;
+        if (time_since_last < RATE_LIMIT_SECONDS)
+        {
+            cWarningDom(TAG) << "RemoteUIProvisioningHandler: Rate limit exceeded for IP " << client_ip
+                            << " (last request " << time_since_last << "s ago, min " << RATE_LIMIT_SECONDS << "s)";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void RemoteUIProvisioningHandler::trackProvisioningAttempt(const string &client_ip, const string &code)
+{
+    time_t now = time(nullptr);
+    auto &tracking = ip_tracking[client_ip];
+
+    // Update last request time
+    tracking.last_request_time = now;
+
+    // Initialize tracking window if needed
+    if (tracking.codes_window_start == 0)
+        tracking.codes_window_start = now;
+
+    // Reset tracking window if it's been more than 1 hour
+    if (now - tracking.codes_window_start > TRACKING_WINDOW_SECONDS)
+    {
+        cDebugDom(TAG) << "RemoteUIProvisioningHandler: Resetting tracking window for IP " << client_ip;
+        tracking.codes_tried.clear();
+        tracking.codes_window_start = now;
+    }
+
+    // Track this code
+    size_t previous_size = tracking.codes_tried.size();
+    tracking.codes_tried.insert(code);
+
+    // Check if this is a new code (code switching detection)
+    if (tracking.codes_tried.size() > previous_size)
+    {
+        cDebugDom(TAG) << "RemoteUIProvisioningHandler: IP " << client_ip << " tried code '"
+                      << code << "' (" << tracking.codes_tried.size() << " unique codes in window)";
+
+        // Detect brute force attack (too many different codes)
+        if (tracking.codes_tried.size() > MAX_CODES_PER_IP)
+        {
+            tracking.blacklist_until = now + BLACKLIST_DURATION_SECONDS;
+            cWarningDom(TAG) << "RemoteUIProvisioningHandler: SECURITY ALERT - Blacklisting IP " << client_ip
+                            << " for " << (BLACKLIST_DURATION_SECONDS / 60) << " minutes"
+                            << " (tried " << tracking.codes_tried.size() << " different codes)";
+        }
+    }
+}
+
+void RemoteUIProvisioningHandler::cleanupExpiredTracking()
+{
+    time_t now = time(nullptr);
+    auto it = ip_tracking.begin();
+
+    while (it != ip_tracking.end())
+    {
+        auto &tracking = it->second;
+        bool is_expired = false;
+
+        // Remove tracking if:
+        // 1. Blacklist expired AND tracking window expired AND no recent requests
+        if (tracking.blacklist_until == 0 &&
+            now - tracking.codes_window_start > TRACKING_WINDOW_SECONDS &&
+            now - tracking.last_request_time > TRACKING_WINDOW_SECONDS)
+        {
+            is_expired = true;
+        }
+
+        if (is_expired)
+        {
+            cDebugDom(TAG) << "RemoteUIProvisioningHandler: Cleaning up expired tracking for IP " << it->first;
+            it = ip_tracking.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }

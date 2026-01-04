@@ -90,6 +90,50 @@ The server validates the provisioning code and creates a new RemoteUI object:
 }
 ```
 
+### 3. Provisioning Security
+
+The provisioning endpoint is protected against brute force attacks through multiple security mechanisms:
+
+#### Rate Limiting
+- **Per-IP rate limiting**: Maximum 1 request per 10 seconds per IP address
+- **Client retry interval**: Legitimate devices retry every 10 seconds, matching the server's rate limit
+- **Error response**: HTTP 429 "Too many requests or blacklisted" when limit exceeded
+
+#### Code Switching Detection
+The server tracks provisioning codes attempted by each IP address:
+- **Tracking window**: 1 hour sliding window
+- **Detection threshold**: Maximum 10 different codes per IP per hour
+- **Legitimate behavior**: A real device always uses the same provisioning code
+- **Attack pattern**: An attacker trying multiple codes is detected and blocked
+
+#### Automatic Blacklisting
+When an IP exceeds the code switching threshold:
+- **Blacklist duration**: 1 hour
+- **Security alert**: Logged with severity WARNING
+- **Automatic cleanup**: Tracking data and blacklist entries are automatically cleaned after expiration
+
+#### Implementation Details
+```cpp
+// Security constants
+RATE_LIMIT_SECONDS = 10          // Min 10s between requests per IP
+MAX_CODES_PER_IP = 10            // Max different codes per IP per hour
+TRACKING_WINDOW_SECONDS = 3600   // 1 hour tracking window
+BLACKLIST_DURATION_SECONDS = 3600 // 1 hour blacklist
+```
+
+#### Device Provisioning Flow
+1. **Device generates code**: The RemoteUI device generates and displays its provisioning code
+2. **Admin adds code**: Administrator adds the code to the server's `io.xml` configuration
+3. **Device retries**: Device retries provisioning request every 10 seconds
+4. **Success**: Once the code is added to config, the next retry succeeds
+5. **Security**: Only the legitimate code will succeed, brute force attempts are blocked
+
+This approach ensures that:
+- Legitimate devices are never blocked (they use the same code)
+- Brute force attacks are detected and prevented
+- No manual intervention required to unblock legitimate devices
+- Attack attempts are logged for security monitoring
+
 ## HMAC Authentication
 
 ### Security Principles
