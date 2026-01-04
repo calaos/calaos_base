@@ -23,6 +23,7 @@
 
 #include "Utils.h"
 #include "RemoteUIManager.h"
+#include "RemoteUISecurityLimits.h"
 #include <set>
 #include <map>
 #include <ctime>
@@ -72,6 +73,10 @@ private:
     string getClientIP() const;
     bool validateProvisioningRequest(const Json &request) const;
     Json parseDeviceInfo(const Json &device_info_json) const;
+
+    // Input validation
+    bool validateRequestSize(const string &data) const;
+    bool validateDeviceInfo(const Json &device_info) const;
 
     // Authentication token generation
     string generateAuthToken() const;

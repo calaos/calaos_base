@@ -23,6 +23,7 @@
 #include "IO/RemoteUI/RemoteUI.h"
 #include "ListeRoom.h"
 #include "CalaosConfig.h"
+#include "RemoteUISecurityLimits.h"
 #include <openssl/rand.h>  // For RAND_bytes()
 #include <iomanip>         // For std::setw, std::setfill
 #include <sstream>         // For std::ostringstream
@@ -93,6 +94,13 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
         return;
     }
 
+    // Validate request size BEFORE parsing
+    if (!validateRequestSize(data))
+    {
+        sendErrorResponse("Request body too large", 413);
+        return;
+    }
+
     Json request;
     try
     {
@@ -113,6 +121,14 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     string code = request["code"];
     string client_ip = getClientIP();
     Json device_info = parseDeviceInfo(request["device_info"]);
+
+    // Validate device_info fields
+    if (!validateDeviceInfo(device_info))
+    {
+        sendErrorResponse("Device info fields too long", 413);
+        return;
+    }
+
     string mac_address = device_info.value("mac_address", "");
 
     // Check rate limiting and blacklist BEFORE processing
@@ -203,6 +219,13 @@ void RemoteUIProvisioningHandler::handleProvisionVerify(const string &data)
         return;
     }
 
+    // Validate request size BEFORE parsing
+    if (!validateRequestSize(data))
+    {
+        sendErrorResponse("Request body too large", 413);
+        return;
+    }
+
     Json request;
     try
     {
@@ -258,6 +281,13 @@ void RemoteUIProvisioningHandler::handleProvisionVerify(const string &data)
     if (request.contains("device_info") && request["device_info"].is_object())
     {
         Json device_info = request["device_info"];
+
+        // Validate device_info fields
+        if (!validateDeviceInfo(device_info))
+        {
+            sendErrorResponse("Device info fields too long", 413);
+            return;
+        }
 
         if (device_info.contains("type"))
             remote_ui->set_param("device_type", device_info["type"]);
@@ -475,4 +505,44 @@ string RemoteUIProvisioningHandler::generateAuthToken() const
     }
 
     return oss.str();
+}
+
+bool RemoteUIProvisioningHandler::validateRequestSize(const string &data) const
+{
+    // Check request body size
+    if (data.size() > RemoteUISecurityLimits::MAX_REQUEST_BODY_SIZE)
+    {
+        cWarningDom(TAG) << "RemoteUIProvisioningHandler: Request body too large ("
+                        << data.size() << " bytes, max "
+                        << RemoteUISecurityLimits::MAX_REQUEST_BODY_SIZE << ")";
+        return false;
+    }
+    return true;
+}
+
+bool RemoteUIProvisioningHandler::validateDeviceInfo(const Json &device_info) const
+{
+    // Check string field lengths
+    const std::vector<string> string_fields = {
+        "mac_address", "type", "name", "model", "firmware_version",
+        "hardware_version", "manufacturer"
+    };
+
+    for (const auto &field : string_fields)
+    {
+        if (device_info.contains(field) && device_info[field].is_string())
+        {
+            string value = device_info[field];
+            if (value.length() > RemoteUISecurityLimits::MAX_STRING_LENGTH)
+            {
+                cWarningDom(TAG) << "RemoteUIProvisioningHandler: Device info field '"
+                                << field << "' too long ("
+                                << value.length() << " chars, max "
+                                << RemoteUISecurityLimits::MAX_STRING_LENGTH << ")";
+                return false;
+            }
+        }
+    }
+
+    return true;
 }

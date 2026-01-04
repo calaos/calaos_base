@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "RemoteUI.h"
 #include "IOFactory.h"
+#include "RemoteUI/RemoteUISecurityLimits.h"
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -92,10 +93,21 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
     {
         pages = Json::array();
 
+        size_t page_count = 0;
         for (TiXmlElement *page_elem = pages_elem->FirstChildElement("calaos:page");
              page_elem;
              page_elem = page_elem->NextSiblingElement("calaos:page"))
         {
+            // Check max pages limit
+            if (page_count >= RemoteUISecurityLimits::MAX_PAGES_PER_REMOTEUI)
+            {
+                cErrorDom(TAG) << "RemoteUI(" << get_param("id") << "): Too many pages ("
+                              << page_count << "), maximum is "
+                              << RemoteUISecurityLimits::MAX_PAGES_PER_REMOTEUI;
+                return false;
+            }
+            page_count++;
+
             Json page = Json::object();
 
             TiXmlAttribute *attr = page_elem->FirstAttribute();
@@ -107,10 +119,21 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
             // Load widgets for this page
             Json widgets = Json::array();
+            size_t widget_count = 0;
             for (TiXmlElement *widget_elem = page_elem->FirstChildElement("calaos:widget");
                  widget_elem;
                  widget_elem = widget_elem->NextSiblingElement("calaos:widget"))
             {
+                // Check max widgets per page limit
+                if (widget_count >= RemoteUISecurityLimits::MAX_WIDGETS_PER_PAGE)
+                {
+                    cErrorDom(TAG) << "RemoteUI(" << get_param("id") << "): Too many widgets in page ("
+                                  << widget_count << "), maximum is "
+                                  << RemoteUISecurityLimits::MAX_WIDGETS_PER_PAGE;
+                    return false;
+                }
+                widget_count++;
+
                 Json widget = Json::object();
 
                 attr = widget_elem->FirstAttribute();
