@@ -43,10 +43,6 @@ bool RemoteUIProvisioningHandler::canHandleRequest(const string &uri, const stri
     if (uri.find("/api/v3/provision/") == 0)
         return true;
 
-    // Handle remote UI management endpoints
-    if (uri.find("/api/v3/remote_ui/") == 0)
-        return true;
-
     return false;
 }
 
@@ -64,15 +60,6 @@ void RemoteUIProvisioningHandler::processRequest(const string &uri, const string
         else if (uri == "/api/v3/provision/verify" && method == "POST")
         {
             handleProvisionVerify(data);
-        }
-        else if (uri == "/api/v3/remote_ui/list" && method == "GET")
-        {
-            handleRemoteUIList();
-        }
-        else if (uri.find("/api/v3/remote_ui/status/") == 0 && method == "GET")
-        {
-            string remote_ui_id = uri.substr(25); // Remove "/api/v3/remote_ui/status/"
-            handleRemoteUIStatus(remote_ui_id);
         }
         else
         {
@@ -256,61 +243,6 @@ void RemoteUIProvisioningHandler::handleProvisionVerify(const string &data)
 
     Json response;
     response["status"] = "valid";
-    sendJsonResponse(response);
-}
-
-void RemoteUIProvisioningHandler::handleRemoteUIList()
-{
-    Json response;
-    response["status"] = "ok";
-
-    Json remote_uis_array = Json::array();
-    auto remote_uis = RemoteUIManager::Instance().getAllRemoteUIs();
-
-    for (RemoteUI *remote_ui : remote_uis)
-    {
-        Json remote_ui_info;
-        remote_ui_info["id"] = remote_ui->get_param("id");
-        remote_ui_info["name"] = remote_ui->get_param("name");
-        remote_ui_info["room"] = remote_ui->get_param("room");
-        remote_ui_info["is_online"] = remote_ui->isOnline();
-        remote_ui_info["mac_address"] = remote_ui->get_param("mac_address");
-
-        remote_uis_array.push_back(remote_ui_info);
-    }
-
-    response["remote_uis"] = remote_uis_array;
-    response["total_count"] = RemoteUIManager::Instance().getTotalCount();
-    response["online_count"] = RemoteUIManager::Instance().getOnlineCount();
-
-    sendJsonResponse(response);
-}
-
-void RemoteUIProvisioningHandler::handleRemoteUIStatus(const string &remote_ui_id)
-{
-    RemoteUI *remote_ui = RemoteUIManager::Instance().getRemoteUI(remote_ui_id);
-    if (!remote_ui)
-    {
-        sendErrorResponse("Remote UI not found", 404);
-        return;
-    }
-
-    Json response;
-    response["status"] = "ok";
-
-    Json remote_ui_json;
-    remote_ui_json["id"] = remote_ui->get_param("id");
-    remote_ui_json["name"] = remote_ui->get_param("name");
-    remote_ui_json["room"] = remote_ui->get_param("room");
-    remote_ui_json["is_online"] = remote_ui->isOnline();
-    remote_ui_json["brightness"] = remote_ui->get_param("brightness");
-    remote_ui_json["timeout"] = remote_ui->get_param("timeout");
-    remote_ui_json["theme"] = remote_ui->get_param("theme");
-    remote_ui_json["pages"] = remote_ui->getPages();
-    remote_ui_json["device_info"] = remote_ui->getDeviceInfo();
-
-    response["remote_ui"] = remote_ui_json;
-
     sendJsonResponse(response);
 }
 

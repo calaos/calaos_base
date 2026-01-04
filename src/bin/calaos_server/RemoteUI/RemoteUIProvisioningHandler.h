@@ -50,8 +50,6 @@ public:
 private:
     void handleProvisionRequest(const string &data);
     void handleProvisionVerify(const string &data);
-    void handleRemoteUIList();
-    void handleRemoteUIStatus(const string &remote_ui_id);
 
     void sendJsonResponse(const Json &response, int status_code = 200);
     void sendErrorResponse(const string &error, int status_code = 400);
