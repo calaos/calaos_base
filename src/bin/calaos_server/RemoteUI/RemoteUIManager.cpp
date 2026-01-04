@@ -149,10 +149,30 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
     }
 
     auto now = std::chrono::system_clock::now();
+    auto now_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+        now.time_since_epoch()
+    ).count();
 
     try
     {
         auto timestamp_val = std::stoull(timestamp);
+
+        // SECURITY: Reject obviously invalid timestamps (defense in depth)
+        // Valid range: [epoch - 1 day, now + 1 day]
+        // This prevents integer overflow attacks and catches clock errors
+        const int64_t ONE_DAY_SECONDS = 86400;
+        const int64_t MIN_VALID_TIMESTAMP = 0 - ONE_DAY_SECONDS;  // Allow small negative (time zones)
+        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + ONE_DAY_SECONDS;
+
+        if (timestamp_val < static_cast<uint64_t>(MIN_VALID_TIMESTAMP) ||
+            timestamp_val > static_cast<uint64_t>(MAX_VALID_TIMESTAMP))
+        {
+            cWarningDom(TAG) << "RemoteUIManager: Timestamp out of valid range ("
+                              << timestamp_val << ") from IP " << ip_address
+                              << " - possible overflow attack or clock misconfiguration";
+            return false;
+        }
+
         auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
         auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
 
