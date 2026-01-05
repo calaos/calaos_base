@@ -65,7 +65,6 @@ public:
 
 private:
     void handleProvisionRequest(const string &data);
-    void handleProvisionVerify(const string &data);
 
     void sendJsonResponse(const Json &response, int status_code = 200);
     void sendErrorResponse(const string &error, int status_code = 400);

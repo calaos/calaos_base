@@ -70,10 +70,6 @@ void RemoteUIProvisioningHandler::processRequest(const string &uri, const string
         {
             handleProvisionRequest(data);
         }
-        else if (uri == "/api/v3/provision/verify" && method == "POST")
-        {
-            handleProvisionVerify(data);
-        }
         else
         {
             sendErrorResponse("Endpoint not found", 404);
@@ -209,106 +205,6 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     sendJsonResponse(response);
 
     cInfoDom(TAG) << "RemoteUIManager: Provisioned RemoteUI " << remote_ui->get_param("id");
-}
-
-void RemoteUIProvisioningHandler::handleProvisionVerify(const string &data)
-{
-    if (data.empty())
-    {
-        sendErrorResponse("Empty request body", 400);
-        return;
-    }
-
-    // Validate request size BEFORE parsing
-    if (!validateRequestSize(data))
-    {
-        sendErrorResponse("Request body too large", 413);
-        return;
-    }
-
-    Json request;
-    try
-    {
-        request = Json::parse(data);
-    }
-    catch (const std::exception &e)
-    {
-        sendErrorResponse("Invalid JSON", 400);
-        return;
-    }
-
-    // Validate required fields
-    if (!request.contains("device_id") || !request["device_id"].is_string())
-    {
-        sendErrorResponse("Missing device_id", 400);
-        return;
-    }
-    if (!request.contains("auth_token") || !request["auth_token"].is_string())
-    {
-        sendErrorResponse("Missing auth_token", 400);
-        return;
-    }
-
-    string device_id = request["device_id"];
-    string auth_token = request["auth_token"];
-
-    cDebugDom(TAG) << "RemoteUIProvisioningHandler: Verify request for device " << device_id;
-
-    // Find RemoteUI by device_id
-    RemoteUI *remote_ui = RemoteUIManager::Instance().getRemoteUI(device_id);
-    if (!remote_ui)
-    {
-        cWarningDom(TAG) << "RemoteUIProvisioningHandler: Unknown device " << device_id;
-        Json response;
-        response["status"] = "invalid";
-        response["reason"] = "unknown_device";
-        sendJsonResponse(response, 401);
-        return;
-    }
-
-    // Verify auth_token matches
-    if (remote_ui->get_param("auth_token") != auth_token)
-    {
-        cWarningDom(TAG) << "RemoteUIProvisioningHandler: Invalid auth_token for device " << device_id;
-        Json response;
-        response["status"] = "invalid";
-        response["reason"] = "invalid_token";
-        sendJsonResponse(response, 401);
-        return;
-    }
-
-    // Optionally update device_info if provided
-    if (request.contains("device_info") && request["device_info"].is_object())
-    {
-        Json device_info = request["device_info"];
-
-        // Validate device_info fields
-        if (!validateDeviceInfo(device_info))
-        {
-            sendErrorResponse("Device info fields too long", 413);
-            return;
-        }
-
-        if (device_info.contains("type"))
-            remote_ui->set_param("device_type", device_info["type"]);
-        if (device_info.contains("manufacturer"))
-            remote_ui->set_param("device_manufacturer", device_info["manufacturer"]);
-        if (device_info.contains("model"))
-            remote_ui->set_param("device_model", device_info["model"]);
-        if (device_info.contains("version"))
-            remote_ui->set_param("device_version", device_info["version"]);
-        if (device_info.contains("mac_address"))
-            remote_ui->set_param("mac_address", device_info["mac_address"]);
-
-        // Save configuration if device_info was updated
-        Config::Instance().SaveConfigIO();
-    }
-
-    cInfoDom(TAG) << "RemoteUIProvisioningHandler: Provisioning verified for device " << device_id;
-
-    Json response;
-    response["status"] = "valid";
-    sendJsonResponse(response);
 }
 
 void RemoteUIProvisioningHandler::sendJsonResponse(const Json &response, int status_code)

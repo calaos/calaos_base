@@ -77,6 +77,9 @@ private:
 
     void sendFrameData(const string &data, bool isbinary);
 
+    // Flag to track if an error response was already sent during handshake
+    bool handshakeErrorSent = false;
+
     Timer *timerPing = nullptr;
 };
 

@@ -32,7 +32,8 @@ using namespace Calaos;
 
 RemoteUIWebSocketHandler::RemoteUIWebSocketHandler(HttpClient *client):
     JsonApiHandlerWS(client),
-    authenticated_remote_ui(nullptr)
+    authenticated_remote_ui(nullptr),
+    last_auth_failure(AuthFailureReason::Success)
 {
     cDebugDom(TAG) << "RemoteUIWebSocketHandler: Created for client " << httpClient->getClientIp();
 }
@@ -53,11 +54,12 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
     if (!ws_headers.parse(headers))
     {
         cWarningDom(TAG) << "RemoteUIWebSocketHandler: Failed to parse WebSocket headers";
+        last_auth_failure = AuthFailureReason::MissingHeaders;
         return false;
     }
 
     string client_ip = httpClient->getClientIp();
-    if (HMACAuthenticator::authenticateWebSocketConnection(ws_headers, client_ip, authenticated_remote_ui))
+    if (HMACAuthenticator::authenticateWebSocketConnection(ws_headers, client_ip, authenticated_remote_ui, last_auth_failure))
     {
         // Use parent's authentication mechanism
         setAuthenticated(true);
@@ -86,6 +88,7 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
         return true;
     }
 
+    // last_auth_failure is already set by authenticateWebSocketConnection
     return false;
 }
 

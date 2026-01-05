@@ -228,6 +228,153 @@ timedatectl set-ntp true
 - **Recommendation**: Re-sync NTP every 1-24 hours depending on device clock accuracy
 - **ESP32 typical drift**: 50-100 ppm (8-10 seconds per day)
 
+### Device Boot Sequence (After Initial Provisioning)
+
+After a device has been provisioned, the following boot sequence should be implemented:
+
+#### Boot Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       DEVICE BOOT                               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Connect WiFi   │
+                    └─────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  NTP Time Sync  │
+                    └─────────────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │ Has credentials?  │───No───▶ Initial Provisioning
+                    │(auth_token+secret)│        (POST /api/v3/provision/request)
+                    └───────────────────┘
+                              │
+                             Yes
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ Connect WebSocket│
+                    │   with HMAC      │
+                    └──────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+           Success                         Error
+              │                               │
+              ▼                               ▼
+    ┌──────────────────┐            ┌─────────────────┐
+    │ Normal operation │            │ Check HTTP code │
+    │  (receive states,│            └─────────────────┘
+    │   send actions)  │                   │
+    └──────────────────┘         ┌─────────┴─────────┐
+                                 │                   │
+                          401/403               Other (429, 500...)
+                       (Invalid token          (Temporary error)
+                        or HMAC)                     │
+                                 │                   │
+                                 ▼                   ▼
+                    ┌────────────────────┐    ┌─────────────────┐
+                    │ Clear credentials  │    │  Retry with     │
+                    │ (delete auth_token │    │  exponential    │
+                    │  and device_secret)│    │  backoff        │
+                    └────────────────────┘    └─────────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────┐
+                    │ Re-provision     │
+                    │ (show new code,  │
+                    │  POST /provision)│
+                    └──────────────────┘
+```
+
+#### WebSocket Authentication Error Responses
+
+When WebSocket connection fails due to authentication issues, the server returns HTTP error responses (not WebSocket) with JSON body:
+
+| HTTP Code | Error String | Meaning | Device Action |
+|-----------|--------------|---------|---------------|
+| 400 | `missing_headers` | Required auth headers not provided | Check code, retry |
+| 401 | `invalid_token` | Token unknown/deleted on server | **Clear credentials & re-provision** |
+| 401 | `invalid_timestamp` | Clock out of sync (>30s drift) | Sync NTP, retry |
+| 401 | `invalid_nonce` | Nonce reused or wrong format | Generate new nonce, retry |
+| 403 | `invalid_hmac` | HMAC mismatch (wrong secret) | **Clear credentials & re-provision** |
+| 429 | `rate_limited` | Too many attempts | Wait 1 minute, retry |
+
+**Response Format:**
+```json
+{
+  "error": "invalid_token",
+  "status": "authentication_failed"
+}
+```
+
+#### Critical Decision: When to Re-provision
+
+The device MUST clear its stored credentials and initiate re-provisioning when:
+- HTTP 401 with `invalid_token` error (token was deleted/changed on server)
+- HTTP 403 with `invalid_hmac` error (secret was changed on server)
+
+The device SHOULD NOT re-provision for temporary errors:
+- HTTP 401 with `invalid_timestamp` → Sync NTP and retry
+- HTTP 401 with `invalid_nonce` → Generate new nonce and retry
+- HTTP 429 → Wait and retry
+- Network errors → Retry with backoff
+
+#### ESP32 Implementation Example
+
+```cpp
+void connectToServer() {
+    // Build HMAC authentication headers
+    String timestamp = String(time(nullptr));
+    String nonce = generateNonce();  // 64 hex chars
+    String hmac = computeHMAC(auth_token + timestamp + nonce, device_secret);
+
+    // Connect WebSocket with headers
+    webSocket.setExtraHeaders(
+        "Authorization: Bearer " + auth_token + "\r\n"
+        "X-Auth-Timestamp: " + timestamp + "\r\n"
+        "X-Auth-Nonce: " + nonce + "\r\n"
+        "X-Auth-HMAC: " + hmac
+    );
+
+    webSocket.begin(server_host, 5454, "/api/v3/remote_ui/ws");
+}
+
+void handleConnectionError(int httpCode, String response) {
+    DynamicJsonDocument doc(256);
+    deserializeJson(doc, response);
+    String error = doc["error"];
+
+    if (httpCode == 401 && error == "invalid_token") {
+        // Server doesn't recognize our token - must re-provision
+        clearCredentials();
+        startProvisioning();
+    }
+    else if (httpCode == 403 && error == "invalid_hmac") {
+        // Secret mismatch - must re-provision
+        clearCredentials();
+        startProvisioning();
+    }
+    else if (httpCode == 401 && error == "invalid_timestamp") {
+        // Clock drift - sync NTP and retry
+        syncNTP();
+        delay(1000);
+        connectToServer();
+    }
+    else {
+        // Temporary error - retry with backoff
+        delay(retryDelay);
+        retryDelay = min(retryDelay * 2, 60000);  // Max 1 minute
+        connectToServer();
+    }
+}
+```
+
 ## HMAC Authentication
 
 ### Security Principles

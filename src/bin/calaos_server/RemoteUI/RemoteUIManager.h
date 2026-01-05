@@ -23,6 +23,7 @@
 
 #include "Utils.h"
 #include "libuvw.h"
+#include "AuthFailureReason.h"
 #include <map>
 #include <memory>
 #include <set>
@@ -100,6 +101,11 @@ public:
     bool validateAuthentication(const string &token, const string &timestamp,
                               const string &nonce, const string &hmac,
                               const string &ip_address);
+
+    // Authentication with detailed failure reason (for WebSocket error responses)
+    AuthFailureReason validateAuthenticationWithReason(const string &token, const string &timestamp,
+                                                       const string &nonce, const string &hmac,
+                                                       const string &ip_address);
 
     // IO state notifications
     void notifyAllIOStates();

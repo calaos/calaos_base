@@ -67,11 +67,13 @@ bool WebSocketHeaders::isValid() const
 
 bool HMACAuthenticator::authenticateWebSocketConnection(const WebSocketHeaders &headers,
                                                       const string &client_ip,
-                                                      RemoteUI* &authenticated_remote_ui)
+                                                      RemoteUI* &authenticated_remote_ui,
+                                                      AuthFailureReason &failure_reason)
 {
     if (!headers.isValid())
     {
         cWarningDom(TAG) << "HMACAuthenticator: Invalid headers in WebSocket auth";
+        failure_reason = AuthFailureReason::MissingHeaders;
         return false;
     }
 
@@ -79,20 +81,23 @@ bool HMACAuthenticator::authenticateWebSocketConnection(const WebSocketHeaders &
     if (token.empty())
     {
         cWarningDom(TAG) << "HMACAuthenticator: Invalid Authorization header";
+        failure_reason = AuthFailureReason::MissingHeaders;
         return false;
     }
 
     if (!validateTimestamp(headers.auth_timestamp))
     {
         cWarningDom(TAG) << "HMACAuthenticator: Invalid timestamp";
+        failure_reason = AuthFailureReason::InvalidTimestamp;
         return false;
     }
 
-    bool auth_result = RemoteUIManager::Instance().validateAuthentication(
+    // Use validateAuthenticationWithReason to get detailed failure reason
+    failure_reason = RemoteUIManager::Instance().validateAuthenticationWithReason(
         token, headers.auth_timestamp, headers.auth_nonce, headers.auth_hmac, client_ip
     );
 
-    if (auth_result)
+    if (failure_reason == AuthFailureReason::Success)
     {
         authenticated_remote_ui = RemoteUIManager::Instance().getRemoteUIByToken(token);
         if (authenticated_remote_ui)
@@ -101,9 +106,10 @@ bool HMACAuthenticator::authenticateWebSocketConnection(const WebSocketHeaders &
             cInfoDom(TAG) << "HMACAuthenticator: WebSocket authentication successful for "
                    << authenticated_remote_ui->get_param("id");
         }
+        return true;
     }
 
-    return auth_result;
+    return false;
 }
 
 bool HMACAuthenticator::authenticateHttpRequest(const std::map<string, string> &headers,

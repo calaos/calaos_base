@@ -23,6 +23,7 @@
 
 #include "JsonApiHandlerWS.h"
 #include "RemoteUIManager.h"
+#include "AuthFailureReason.h"
 #include "ListeRoom.h"
 #include "json.hpp"
 #include <memory>
@@ -36,6 +37,7 @@ class RemoteUIWebSocketHandler: public JsonApiHandlerWS
 {
 private:
     RemoteUI *authenticated_remote_ui;
+    AuthFailureReason last_auth_failure;
 
 public:
     RemoteUIWebSocketHandler(HttpClient *client);
@@ -45,7 +47,12 @@ public:
     virtual void processApi(const string &data, const Params &paramsGET) override;
 
     // Authentication via HMAC headers
+    // Returns true on success, false on failure
+    // Use getLastAuthFailure() to get the reason for failure
     bool authenticateConnection(const std::map<string, string> &headers);
+
+    // Get the last authentication failure reason (for HTTP error response)
+    AuthFailureReason getLastAuthFailure() const { return last_auth_failure; }
 
     // RemoteUI-specific handlers
     void handleGetConfig();

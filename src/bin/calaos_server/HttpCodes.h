@@ -22,7 +22,10 @@
 #define S_HttpCodes_H
 
 #define HTTP_400 "HTTP/1.0 400 Bad Request"
+#define HTTP_401 "HTTP/1.0 401 Unauthorized"
+#define HTTP_403 "HTTP/1.0 403 Forbidden"
 #define HTTP_404 "HTTP/1.0 404 Not Found"
+#define HTTP_429 "HTTP/1.0 429 Too Many Requests"
 #define HTTP_301 "HTTP/1.1 301 Moved Permanently"
 #define HTTP_500 "HTTP/1.0 500 Internal Server Error"
 #define HTTP_200 "HTTP/1.0 200 OK"

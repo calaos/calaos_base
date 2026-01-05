@@ -22,6 +22,7 @@
 #define HMACAUTHENTICATOR_H
 
 #include "Utils.h"
+#include "AuthFailureReason.h"
 #include "RemoteUIManager.h"
 #include <map>
 
@@ -48,9 +49,13 @@ struct WebSocketHeaders
 class HMACAuthenticator
 {
 public:
+    // Authenticate WebSocket connection with HMAC
+    // Returns true on success, false on failure
+    // Sets failure_reason to indicate why authentication failed (for error responses)
     static bool authenticateWebSocketConnection(const WebSocketHeaders &headers,
                                               const string &client_ip,
-                                              RemoteUI* &authenticated_remote_ui);
+                                              RemoteUI* &authenticated_remote_ui,
+                                              AuthFailureReason &failure_reason);
 
     static bool authenticateHttpRequest(const std::map<string, string> &headers,
                                       const string &client_ip,

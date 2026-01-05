@@ -24,7 +24,11 @@
 #include "SHA1.h"
 #include "hef_uri_syntax.h"
 #include "RemoteUIWebSocketHandler.h"
+#include "RemoteUI/AuthFailureReason.h"
 #include "libuvw.h"
+#include "json.hpp"
+
+using Json = nlohmann::json;
 
 using namespace Calaos;
 
@@ -92,12 +96,17 @@ void WebSocket::processHandshake()
 {
     if (!checkHandshakeRequest())
     {
-        cWarningDom("websocket") << "Websocket Handshake is not formated correctly, aborting.";
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendToClient(res);
+        // Only send generic error if we haven't already sent a specific error response
+        if (!handshakeErrorSent)
+        {
+            cWarningDom("websocket") << "Websocket Handshake is not formated correctly, aborting.";
+            Params headers;
+            headers.Add("Connection", "close");
+            headers.Add("Content-Type", "text/html");
+            string res = buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+            sendToClient(res);
+        }
+        return;  // Don't continue with WebSocket setup on failure
     }
 
     //send a ping at regular interval to keep connection open.
@@ -174,8 +183,46 @@ bool WebSocket::checkHandshakeRequest()
             }
             else
             {
+                // Get the failure reason and send appropriate HTTP response
+                AuthFailureReason failure_reason = handler->getLastAuthFailure();
+                int http_status = authFailureToHttpStatus(failure_reason);
+                string error_string = authFailureToString(failure_reason);
+
+                cWarningDom("websocket") << "RemoteUI WebSocket authentication failed: " << error_string;
+
+                // Build JSON error response
+                Json error_response;
+                error_response["error"] = error_string;
+                error_response["status"] = "authentication_failed";
+
+                // Determine HTTP status line
+                string http_status_line;
+                switch (http_status)
+                {
+                    case 401:
+                        http_status_line = HTTP_401;
+                        break;
+                    case 403:
+                        http_status_line = HTTP_403;
+                        break;
+                    case 429:
+                        http_status_line = HTTP_429;
+                        break;
+                    default:
+                        http_status_line = HTTP_400;
+                        break;
+                }
+
+                // Send JSON error response
+                Params headers;
+                headers.Add("Connection", "close");
+                headers.Add("Content-Type", "application/json");
+                string json_body = error_response.dump();
+                string res = buildHttpResponse(http_status_line, headers, json_body);
+                sendToClient(res);
+
+                handshakeErrorSent = true;  // Mark that we already sent an error response
                 delete handler;
-                cWarningDom("websocket") << "RemoteUI WebSocket authentication failed";
                 return false;
             }
         }

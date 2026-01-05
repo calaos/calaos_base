@@ -219,6 +219,90 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
     return true;
 }
 
+AuthFailureReason RemoteUIManager::validateAuthenticationWithReason(const string &token, const string &timestamp,
+                                                                    const string &nonce, const string &hmac,
+                                                                    const string &ip_address)
+{
+    // Check rate limiting
+    if (!checkRateLimit(ip_address))
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Rate limit exceeded for IP " << ip_address;
+        return AuthFailureReason::RateLimited;
+    }
+
+    // Check if nonce was already used
+    if (isNonceUsed(nonce))
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Nonce reuse attempt from IP " << ip_address;
+        return AuthFailureReason::InvalidNonce;
+    }
+
+    // Validate nonce length (must be 64 hex characters = 32 bytes)
+    if (nonce.length() != 64)
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Invalid nonce length ("
+                          << nonce.length() << ", expected 64) from IP " << ip_address;
+        return AuthFailureReason::InvalidNonce;
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto now_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+        now.time_since_epoch()
+    ).count();
+
+    try
+    {
+        auto timestamp_val = std::stoull(timestamp);
+
+        const int64_t ONE_DAY_SECONDS = 86400;
+        const int64_t MIN_VALID_TIMESTAMP = 0 - ONE_DAY_SECONDS;
+        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + ONE_DAY_SECONDS;
+
+        if (timestamp_val < static_cast<uint64_t>(MIN_VALID_TIMESTAMP) ||
+            timestamp_val > static_cast<uint64_t>(MAX_VALID_TIMESTAMP))
+        {
+            cWarningDom(TAG) << "RemoteUIManager: Timestamp out of valid range ("
+                              << timestamp_val << ") from IP " << ip_address;
+            return AuthFailureReason::InvalidTimestamp;
+        }
+
+        auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
+        auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
+
+        if (std::abs(time_diff) > TIMESTAMP_TOLERANCE_SECONDS)
+        {
+            cWarningDom(TAG) << "RemoteUIManager: Timestamp rejected ("
+                              << time_diff << "s) from IP " << ip_address;
+            return AuthFailureReason::InvalidTimestamp;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Invalid timestamp format from IP " << ip_address;
+        return AuthFailureReason::InvalidTimestamp;
+    }
+
+    // Get RemoteUI and validate HMAC
+    RemoteUI *remote_ui = getRemoteUIByToken(token);
+    if (!remote_ui)
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Unknown token from IP " << ip_address;
+        return AuthFailureReason::InvalidToken;
+    }
+
+    if (!remote_ui->validateHMAC(token, timestamp, nonce, hmac))
+    {
+        cWarningDom(TAG) << "RemoteUIManager: HMAC validation failed for " << remote_ui->get_param("id");
+        return AuthFailureReason::InvalidHMAC;
+    }
+
+    // Add nonce to prevent replay
+    addNonce(nonce, ip_address);
+
+    cDebugDom(TAG) << "RemoteUIManager: Authentication successful for " << remote_ui->get_param("id");
+    return AuthFailureReason::Success;
+}
+
 bool RemoteUIManager::checkRateLimit(const string &ip_address)
 {
     auto now = std::chrono::system_clock::now();
