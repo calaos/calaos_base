@@ -153,42 +153,32 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
         now.time_since_epoch()
     ).count();
 
+    cDebugDom(TAG) << "isTimestampValid: Server time: " << now_timestamp
+                   << ", client timestamp: " << timestamp
+                   << ", tolerance: " << TIMESTAMP_TOLERANCE_SECONDS << "s";
+
     try
     {
         auto timestamp_val = std::stoull(timestamp);
 
         // SECURITY: Reject obviously invalid timestamps (defense in depth)
-        // Valid range: [epoch - 1 day, now + 1 day]
+        // Valid range: [now - tolerance, now + tolerance]
         // This prevents integer overflow attacks and catches clock errors
-        const int64_t ONE_DAY_SECONDS = 86400;
-        const int64_t MIN_VALID_TIMESTAMP = 0 - ONE_DAY_SECONDS;  // Allow small negative (time zones)
-        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + ONE_DAY_SECONDS;
+        const int64_t MIN_VALID_TIMESTAMP = now_timestamp - TIMESTAMP_TOLERANCE_SECONDS;
+        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + TIMESTAMP_TOLERANCE_SECONDS;
 
-        if (timestamp_val < static_cast<uint64_t>(MIN_VALID_TIMESTAMP) ||
-            timestamp_val > static_cast<uint64_t>(MAX_VALID_TIMESTAMP))
+        cDebugDom(TAG) << "isTimestampValid: Valid range: ["
+                       << MIN_VALID_TIMESTAMP << " - " << MAX_VALID_TIMESTAMP << "]";
+
+        if (static_cast<int64_t>(timestamp_val) < MIN_VALID_TIMESTAMP ||
+            static_cast<int64_t>(timestamp_val) > MAX_VALID_TIMESTAMP)
         {
+            int64_t diff = static_cast<int64_t>(timestamp_val) - now_timestamp;
             cWarningDom(TAG) << "RemoteUIManager: Timestamp out of valid range ("
                               << timestamp_val << ") from IP " << ip_address
-                              << " - possible overflow attack or clock misconfiguration";
-            return false;
-        }
-
-        auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
-        auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
-
-        // Log large time differences for monitoring (before rejection)
-        if (std::abs(time_diff) > 15)  // Warning if > 15 seconds
-        {
-            cInfoDom(TAG) << "RemoteUIManager: Large time difference ("
-                          << time_diff << "s) from IP " << ip_address
-                          << " (tolerance: ±" << TIMESTAMP_TOLERANCE_SECONDS << "s)";
-        }
-
-        if (std::abs(time_diff) > TIMESTAMP_TOLERANCE_SECONDS)
-        {
-            cWarningDom(TAG) << "RemoteUIManager: Timestamp rejected ("
-                              << time_diff << "s) from IP " << ip_address
-                              << " - check client time synchronization";
+                              << ", server_time=" << now_timestamp
+                              << ", diff=" << diff << "s (tolerance: ±" << TIMESTAMP_TOLERANCE_SECONDS << "s)"
+                              << " - check server/client time synchronization";
             return false;
         }
     }
@@ -250,29 +240,31 @@ AuthFailureReason RemoteUIManager::validateAuthenticationWithReason(const string
         now.time_since_epoch()
     ).count();
 
+    cDebugDom(TAG) << "RemoteUIManager: Current server timestamp: " << now_timestamp
+                   << ", received timestamp: " << timestamp
+                   << ", tolerance: " << TIMESTAMP_TOLERANCE_SECONDS << "s";
+
     try
     {
         auto timestamp_val = std::stoull(timestamp);
 
-        const int64_t ONE_DAY_SECONDS = 86400;
-        const int64_t MIN_VALID_TIMESTAMP = 0 - ONE_DAY_SECONDS;
-        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + ONE_DAY_SECONDS;
+        // Sanity check: timestamp should be within a reasonable range
+        // (not in the distant past before Unix epoch, not too far in the future)
+        const int64_t MIN_VALID_TIMESTAMP = now_timestamp - TIMESTAMP_TOLERANCE_SECONDS;
+        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + TIMESTAMP_TOLERANCE_SECONDS;
 
-        if (timestamp_val < static_cast<uint64_t>(MIN_VALID_TIMESTAMP) ||
-            timestamp_val > static_cast<uint64_t>(MAX_VALID_TIMESTAMP))
+        cDebugDom(TAG) << "RemoteUIManager: Valid timestamp range: ["
+                       << MIN_VALID_TIMESTAMP << " - " << MAX_VALID_TIMESTAMP << "]"
+                       << ", received: " << timestamp_val;
+
+        if (static_cast<int64_t>(timestamp_val) < MIN_VALID_TIMESTAMP ||
+            static_cast<int64_t>(timestamp_val) > MAX_VALID_TIMESTAMP)
         {
+            int64_t diff = static_cast<int64_t>(timestamp_val) - now_timestamp;
             cWarningDom(TAG) << "RemoteUIManager: Timestamp out of valid range ("
-                              << timestamp_val << ") from IP " << ip_address;
-            return AuthFailureReason::InvalidTimestamp;
-        }
-
-        auto request_time = std::chrono::system_clock::from_time_t(timestamp_val);
-        auto time_diff = std::chrono::duration_cast<std::chrono::seconds>(now - request_time).count();
-
-        if (std::abs(time_diff) > TIMESTAMP_TOLERANCE_SECONDS)
-        {
-            cWarningDom(TAG) << "RemoteUIManager: Timestamp rejected ("
-                              << time_diff << "s) from IP " << ip_address;
+                              << timestamp_val << ") from IP " << ip_address
+                              << ", server_time=" << now_timestamp
+                              << ", diff=" << diff << "s (tolerance: ±" << TIMESTAMP_TOLERANCE_SECONDS << "s)";
             return AuthFailureReason::InvalidTimestamp;
         }
     }
