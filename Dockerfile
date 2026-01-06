@@ -17,7 +17,7 @@ RUN apt-get update -qq && \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
-        tar gzip python3 python3-pip python3-colorama
+        tar gzip python3 python3-pip python3-colorama libssl-dev
 
 RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar.gz --output webapp.tar.gz && \
     tar xzvf webapp.tar.gz && \
@@ -46,7 +46,7 @@ RUN apt -y update && \
     apt -y upgrade && \
     apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 libjansson4 \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
-        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip python3-colorama
+        libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 ola python3 python3-pip python3-colorama openssl
 
 RUN pip install roonapi --break-system-packages
 RUN pip install reolink-aio --break-system-packages
