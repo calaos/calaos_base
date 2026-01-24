@@ -110,6 +110,9 @@ public:
     // IO state notifications
     void notifyAllIOStates();
 
+    // OTA firmware notifications
+    void notifyOtaUpdates();
+
     // Security
     bool checkRateLimit(const string &ip_address);
     void addNonce(const string &nonce, const string &ip_address);

@@ -23,6 +23,7 @@
 #include "IO/RemoteUI/RemoteUI.h"
 #include "ListeRoom.h"
 #include "EventManager.h"
+#include "OtaFirmwareManager.h"
 
 static const char *TAG = "remote_ui";
 
@@ -385,6 +386,30 @@ void RemoteUIManager::notifyAllIOStates()
         {
             handler->sendInitialIOStates();
             cDebugDom(TAG) << "RemoteUIManager: Sent all IO states to " << remote_ui_id;
+        }
+    }
+}
+
+void RemoteUIManager::notifyOtaUpdates()
+{
+    if (!OtaFirmwareManager::Instance().isEnabled())
+        return;
+
+    for (const auto &handler_pair : connected_handlers)
+    {
+        const string &remote_ui_id = handler_pair.first;
+        RemoteUIWebSocketHandler *handler = handler_pair.second;
+
+        RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
+        if (remote_ui && remote_ui->isOnline())
+        {
+            string hardwareId = remote_ui->get_param("device_type");
+            string currentVersion = remote_ui->get_param("device_version");
+
+            if (!hardwareId.empty() && !currentVersion.empty())
+            {
+                OtaFirmwareManager::Instance().checkDeviceForUpdate(handler, hardwareId, currentVersion);
+            }
         }
     }
 }

@@ -299,22 +299,6 @@ void OtaFirmwareManager::notifyAllDevices()
     if (!enabled)
         return;
 
-    // Get all RemoteUI devices
-    auto remoteUIs = RemoteUIManager::Instance().getAllRemoteUIs();
-
-    for (RemoteUI *remoteUI : remoteUIs)
-    {
-        if (!remoteUI || !remoteUI->isOnline())
-            continue;
-
-        string hardwareId = remoteUI->get_param("device_type");
-        string currentVersion = remoteUI->get_param("device_firmware");
-
-        if (hardwareId.empty() || currentVersion.empty())
-            continue;
-
-        // Get the WebSocket handler for this device - we need to use RemoteUIManager
-        // Note: This requires access to the handler map which is in RemoteUIManager
-        // For now, we'll rely on checkDeviceForUpdate being called when devices connect
-    }
+    // Delegate to RemoteUIManager which has access to WebSocket handlers
+    RemoteUIManager::Instance().notifyOtaUpdates();
 }
