@@ -41,15 +41,16 @@ RemoteUI::RemoteUI(Params &p):
     ioDoc->friendlyNameSet("RemoteUI");
     ioDoc->descriptionBaseSet(_("Remote UI device. Represents a remote user interface device. Some actions are available to control the device from rules."));
 
-    Params io_devtype = {{ "waveshare-esp32-p4-86-panel", _("Waveshare ESP32-P4-86-Panel") },
-                         { "luckfox-pico-86-panel", _("Luckfox Luckfox-Pico-86-Panel") },
+    Params io_devtype = {{ "waveshare-86-panel", _("Waveshare ESP32-P4-86-Panel") },
+                         { "luckfox-86-panel", _("Luckfox Luckfox-Pico-86-Panel") },
                          { "custom", _("Custom device (be sure to configure grid size correctly)") },
                         };
 
-    ioDoc->paramAddList("device_type", _("Device model"), true, io_devtype, "waveshare-esp32-p4-86-panel");
+    ioDoc->paramAddList("device_type", _("Device model"), true, io_devtype, "waveshare-86-panel");
     ioDoc->paramAdd("provisioning_code", _("Provisioning code for first time setup"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("auth_token", _("Authentication token"), IODoc::TYPE_STRING, false, "", true);
     ioDoc->paramAdd("device_manufacturer", _("Device manufacturer"), IODoc::TYPE_STRING, false, "", true);
+    ioDoc->paramAdd("device_platform", _("Device platform"), IODoc::TYPE_STRING, false, "", true);
     ioDoc->paramAdd("device_secret", _("Device secret for HMAC validation"), IODoc::TYPE_STRING, false, "", true);
     ioDoc->paramAdd("device_version", _("Device version"), IODoc::TYPE_STRING, false, "", true);
     ioDoc->paramAdd("grid_h", _("Grid horizontal size"), IODoc::TYPE_INT, true, "3");

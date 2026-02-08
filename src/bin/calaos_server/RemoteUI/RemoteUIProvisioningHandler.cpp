@@ -167,12 +167,18 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
     }
 
     // Update device info
-    if (device_info.contains("type"))
-        remote_ui->set_param("device_type", device_info["type"]);
+
+    // hardware_id is the real device type identifier
+    // it must be selected by the user in Calaos Installer to create the RemoteUI, but the device will update it with the real hardware_id during provisioning
+    if (device_info.contains("hardware_id"))
+        remote_ui->set_param("device_type", device_info["hardware_id"]);
+
     if (device_info.contains("manufacturer"))
         remote_ui->set_param("device_manufacturer", device_info["manufacturer"]);
-    if (device_info.contains("model"))
-        remote_ui->set_param("device_model", device_info["model"]);
+
+    if (device_info.contains("platform"))
+        remote_ui->set_param("device_platform", device_info["platform"]);
+
     if (device_info.contains("version"))
         remote_ui->set_param("device_version", device_info["version"]);
     if (device_info.contains("mac_address"))
