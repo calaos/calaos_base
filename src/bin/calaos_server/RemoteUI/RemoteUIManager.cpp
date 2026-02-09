@@ -395,6 +395,8 @@ void RemoteUIManager::notifyOtaUpdates()
     if (!OtaFirmwareManager::Instance().isEnabled())
         return;
 
+    cDebugDom(TAG) << "notifyOtaUpdates: connected_handlers size=" << connected_handlers.size();
+
     for (const auto &handler_pair : connected_handlers)
     {
         const string &remote_ui_id = handler_pair.first;
@@ -403,7 +405,7 @@ void RemoteUIManager::notifyOtaUpdates()
         RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
         if (!remote_ui || !remote_ui->isOnline())
         {
-            cDebugDom("remoteui") << "Skipping OTA notification for " << remote_ui_id
+            cDebugDom(TAG) << "Skipping OTA notification for " << remote_ui_id
                                   << ": device is " << (!remote_ui ? "not found" : "offline");
             continue;
         }
@@ -413,7 +415,7 @@ void RemoteUIManager::notifyOtaUpdates()
 
         if (hardwareId.empty())
         {
-            cDebugDom("remoteui") << "Skipping OTA notification for " << remote_ui_id
+            cDebugDom(TAG) << "Skipping OTA notification for " << remote_ui_id
                                   << ": no device_type set";
             continue;
         }

@@ -125,9 +125,10 @@ public:
     // Statistics
     size_t getOnlineCount() const;
     size_t getTotalCount() const;
+    size_t getConnectedHandlerCount() const { return connected_handlers.size(); }
 
     // Security constants (public for use by HMACAuthenticator and other components)
-    static constexpr int MAX_ATTEMPTS_PER_MINUTE = 3;
+    static constexpr int MAX_ATTEMPTS_PER_MINUTE = 20;
     static constexpr int NONCE_EXPIRY_SECONDS = 300; // 5 minutes
 
     // Timestamp tolerance: ±30 seconds (1-minute replay attack window)

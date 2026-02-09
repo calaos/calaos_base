@@ -280,6 +280,9 @@ void OtaFirmwareManager::notifyAllDevices()
     if (!enabled)
         return;
 
+    cInfoDom(TAG) << "Notifying all connected devices about firmware updates"
+                  << " (connected: " << RemoteUIManager::Instance().getConnectedHandlerCount() << ")";
+
     // Delegate to RemoteUIManager which has access to WebSocket handlers
     RemoteUIManager::Instance().notifyOtaUpdates();
 }
