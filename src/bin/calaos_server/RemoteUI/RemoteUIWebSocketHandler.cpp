@@ -64,6 +64,18 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
         // Use parent's authentication mechanism
         setAuthenticated(true);
 
+        // Update device info from headers if provided
+        if (!ws_headers.device_version.empty())
+        {
+            authenticated_remote_ui->set_param("device_version", ws_headers.device_version);
+            cDebugDom(TAG) << "Updated device_version from WS header: " << ws_headers.device_version;
+        }
+        if (!ws_headers.device_hardware_id.empty())
+        {
+            authenticated_remote_ui->set_param("device_type", ws_headers.device_hardware_id);
+            cDebugDom(TAG) << "Updated device_type from WS header: " << ws_headers.device_hardware_id;
+        }
+
         // Register this handler with RemoteUIManager
         RemoteUIManager::Instance().addWebSocketHandler(authenticated_remote_ui->get_param("id"), this);
 

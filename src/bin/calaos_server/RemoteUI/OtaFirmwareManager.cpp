@@ -121,11 +121,6 @@ void OtaFirmwareManager::rescan()
 
     cInfoDom(TAG) << "Scanning firmware directory: " << firmwarePath;
 
-    // Keep track of old firmware versions for notification
-    std::map<string, string> oldVersions;
-    for (const auto &pair : firmwareCache)
-        oldVersions[pair.first] = pair.second.getVersion();
-
     // Clear existing cache
     firmwareCache.clear();
 
@@ -138,20 +133,6 @@ void OtaFirmwareManager::rescan()
     for (const auto &pair : firmwareCache)
     {
         cDebugDom(TAG) << "Found firmware: " << pair.first << " v" << pair.second.getVersion();
-    }
-
-    // Check for new or updated firmwares and notify affected devices
-    for (const auto &pair : firmwareCache)
-    {
-        const string &hardwareId = pair.first;
-        const string &newVersion = pair.second.getVersion();
-
-        auto it = oldVersions.find(hardwareId);
-        if (it == oldVersions.end() || it->second != newVersion)
-        {
-            // New firmware or version changed - notify connected devices
-            cInfoDom(TAG) << "New/updated firmware detected: " << hardwareId << " v" << newVersion;
-        }
     }
 
     // Notify all connected devices about available updates

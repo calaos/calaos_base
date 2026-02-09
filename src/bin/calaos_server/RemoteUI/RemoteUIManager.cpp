@@ -401,16 +401,24 @@ void RemoteUIManager::notifyOtaUpdates()
         RemoteUIWebSocketHandler *handler = handler_pair.second;
 
         RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
-        if (remote_ui && remote_ui->isOnline())
+        if (!remote_ui || !remote_ui->isOnline())
         {
-            string hardwareId = remote_ui->get_param("device_type");
-            string currentVersion = remote_ui->get_param("device_version");
-
-            if (!hardwareId.empty() && !currentVersion.empty())
-            {
-                OtaFirmwareManager::Instance().checkDeviceForUpdate(handler, hardwareId, currentVersion);
-            }
+            cDebugDom("remoteui") << "Skipping OTA notification for " << remote_ui_id
+                                  << ": device is " << (!remote_ui ? "not found" : "offline");
+            continue;
         }
+
+        string hardwareId = remote_ui->get_param("device_type");
+        string currentVersion = remote_ui->get_param("device_version");
+
+        if (hardwareId.empty())
+        {
+            cDebugDom("remoteui") << "Skipping OTA notification for " << remote_ui_id
+                                  << ": no device_type set";
+            continue;
+        }
+
+        OtaFirmwareManager::Instance().checkDeviceForUpdate(handler, hardwareId, currentVersion);
     }
 }
 

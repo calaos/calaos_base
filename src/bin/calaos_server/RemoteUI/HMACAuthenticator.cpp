@@ -53,6 +53,8 @@ bool WebSocketHeaders::parse(const std::map<string, string> &headers)
     auth_hmac = findHeader("X-Auth-HMAC");
     user_agent = findHeader("User-Agent");
     origin = findHeader("Origin");
+    device_version = findHeader("X-Device-Version");
+    device_hardware_id = findHeader("X-Device-Hardware-Id");
 
     return isValid();
 }

@@ -41,6 +41,8 @@ struct WebSocketHeaders
     string auth_hmac;
     string user_agent;
     string origin;
+    string device_version;
+    string device_hardware_id;
 
     bool parse(const std::map<string, string> &headers);
     bool isValid() const;
