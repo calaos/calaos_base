@@ -2,6 +2,7 @@ import socket
 import select
 import os
 import argparse
+import threading
 from .message import ExternProcMessage
 from .logger import (
     cDebugDom,
@@ -19,6 +20,7 @@ class ExternProcClient:
         self.user_fds = []
         self.name = "extern_process"
         self.sockpath = ""
+        self._send_lock = threading.Lock()
 
         #Calaos config/cache paths passed to process by environment variables
         self.cachePath = os.environ.get('CALAOS_CACHE_PATH', ".")
@@ -116,10 +118,11 @@ class ExternProcClient:
     def send_message(self, data):
         msg = ExternProcMessage(data)
         frame = msg.get_raw_data()
-        try:
-            self.sockfd.send(frame)
-        except Exception as e:
-            cErrorDom("ExternProcClient")(f"Error writing to socket: {str(e)}")
+        with self._send_lock:
+            try:
+                self.sockfd.send(frame)
+            except Exception as e:
+                cErrorDom("ExternProcClient")(f"Error writing to socket: {str(e)}")
 
     # Methods to be implemented by child classes
     def setup(self):
