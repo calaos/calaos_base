@@ -443,6 +443,12 @@ size_t RemoteUIManager::getTotalCount() const
 
 void RemoteUIManager::addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler)
 {
+    auto it = connected_handlers.find(remote_ui_id);
+    if (it != connected_handlers.end() && it->second != handler)
+    {
+        cWarningDom(TAG) << "RemoteUIManager: Replacing existing handler for " << remote_ui_id
+                         << " (device reconnected while old connection still open)";
+    }
     connected_handlers[remote_ui_id] = handler;
     RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
     if (remote_ui)
@@ -452,13 +458,22 @@ void RemoteUIManager::addWebSocketHandler(const string &remote_ui_id, RemoteUIWe
     }
 }
 
-void RemoteUIManager::removeWebSocketHandler(const string &remote_ui_id)
+void RemoteUIManager::removeWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler)
 {
-    connected_handlers.erase(remote_ui_id);
-    RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
-    if (remote_ui)
+    auto it = connected_handlers.find(remote_ui_id);
+    if (it != connected_handlers.end() && it->second == handler)
     {
-        remote_ui->setOnline(false);
-        cInfoDom(TAG) << "RemoteUIManager: WebSocket handler disconnected for " << remote_ui_id;
+        connected_handlers.erase(it);
+        RemoteUI *remote_ui = getRemoteUI(remote_ui_id);
+        if (remote_ui)
+        {
+            remote_ui->setOnline(false);
+            cInfoDom(TAG) << "RemoteUIManager: WebSocket handler disconnected for " << remote_ui_id;
+        }
+    }
+    else
+    {
+        cDebugDom(TAG) << "RemoteUIManager: Ignoring stale removeWebSocketHandler for " << remote_ui_id
+                       << " (handler mismatch, likely replaced by newer connection)";
     }
 }

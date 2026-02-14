@@ -113,8 +113,25 @@ void WebSocket::processHandshake()
     //most web browsers are closing the websocket connection after some time
     //this prevents that from happening. Wee need to rely on a constant connection
     //for events to work correctly.
+    //Also detect dead connections by tracking missed pongs.
     timerPing = new Timer(15.0, [=]()
     {
+        if (!pongReceived)
+        {
+            missedPongs++;
+            cWarningDom("websocket") << "Missed PONG (" << missedPongs << "/" << MAX_MISSED_PONGS << ")";
+            if (missedPongs >= MAX_MISSED_PONGS)
+            {
+                cWarningDom("websocket") << "Too many missed PONGs, closing dead connection";
+                sendCloseFrame(WebSocketFrame::CloseCodeNormal, "pong timeout", true);
+                return;
+            }
+        }
+        else
+        {
+            missedPongs = 0;
+        }
+        pongReceived = false;
         sendPing("calaos_server ping");
     });
 
@@ -517,6 +534,8 @@ void WebSocket::processControlFrame()
     {
         if (status == WSClosing) return;
 
+        pongReceived = true;
+        missedPongs = 0;
         double elapsed = Utils::getMainLoopTime() - ping_time;
         cDebugDom("websocket") << "Received a PONG back in " << Utils::time2string_digit(elapsed, elapsed * 1000.);
     }

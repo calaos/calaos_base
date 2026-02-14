@@ -120,7 +120,7 @@ public:
 
     // WebSocket handler management
     void addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler);
-    void removeWebSocketHandler(const string &remote_ui_id);
+    void removeWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler);
 
     // Statistics
     size_t getOnlineCount() const;

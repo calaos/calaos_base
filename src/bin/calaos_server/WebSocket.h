@@ -81,6 +81,11 @@ private:
     bool handshakeErrorSent = false;
 
     Timer *timerPing = nullptr;
+
+    // PONG timeout: count consecutive missed pongs to detect dead connections
+    int missedPongs = 0;
+    bool pongReceived = true;
+    static constexpr int MAX_MISSED_PONGS = 3;
 };
 
 #endif

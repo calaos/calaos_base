@@ -43,7 +43,9 @@ RemoteUIWebSocketHandler::~RemoteUIWebSocketHandler()
     if (authenticated_remote_ui)
     {
         // Unregister this handler from RemoteUIManager
-        RemoteUIManager::Instance().removeWebSocketHandler(authenticated_remote_ui->get_param("id"));
+        // Pass 'this' so the manager only removes if we are the current handler
+        // (avoids a stale connection removing a newer handler for the same device)
+        RemoteUIManager::Instance().removeWebSocketHandler(authenticated_remote_ui->get_param("id"), this);
         cInfoDom(TAG) << "RemoteUIWebSocketHandler: Disconnected RemoteUI " << authenticated_remote_ui->get_param("id");
     }
 }
