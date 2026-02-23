@@ -161,7 +161,8 @@ void AVRRose::Power(bool on, int zone)
 void AVRRose::setVolume(int volume, int zone)
 {
     Json d = {
-        { "volume", volume }
+        { "volumeType", "volume_set" },
+        { "volumeValue", volume }
     };
 
     postRequest("volume", d.dump(), [this](const string &)
