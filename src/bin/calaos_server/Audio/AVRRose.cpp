@@ -22,6 +22,7 @@
 #include "AVRRoseNotifServer.h"
 #include "UrlDownloader.h"
 #include <tcpsocket.h>
+#include <chrono>
 
 using namespace Calaos;
 
@@ -41,6 +42,9 @@ AVRRose::AVRRose(Params &p):
     AVReceiver(p, HIFIROSE_DEFAULT_PORT, AVR_CON_CUSTOM)
 {
     cInfoDom("hifirose") << "Initializing HiFi Rose device at " << host;
+
+    // Initialize last notification time to now so we don't immediately re-register
+    lastNotifTime = std::chrono::steady_clock::now();
 
     // Start the shared notification server if not already running
     notifServerRefCount++;
@@ -104,6 +108,9 @@ void AVRRose::registerDevice()
                 roseToken = jdoc["data"]["deviceRoseToken"].get<string>();
 
             cInfoDom("hifirose") << "Registered with device, roseToken: " << roseToken;
+
+            // Reset notification timer after successful registration
+            lastNotifTime = std::chrono::steady_clock::now();
         }
         catch (const std::exception &e)
         {
@@ -115,6 +122,19 @@ void AVRRose::registerDevice()
             });
         }
     });
+}
+
+void AVRRose::reregisterIfNeeded()
+{
+    auto now = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double>(now - lastNotifTime).count();
+
+    if (elapsed > NOTIF_TIMEOUT)
+    {
+        cInfoDom("hifirose") << "No push notification received for " << elapsed
+                              << "s, re-registering with device";
+        registerDevice();
+    }
 }
 
 void AVRRose::Power(bool on, int zone)
@@ -206,6 +226,9 @@ void AVRRose::handleNotification(const Json &msg)
 
     string msgType = msg["messageType"].get<string>();
 
+    // Update last notification timestamp — the device is alive and knows about us
+    lastNotifTime = std::chrono::steady_clock::now();
+
     cDebugDom("hifirose") << "Push notification: " << msgType;
 
     if (msgType == "volume_change")
@@ -265,6 +288,7 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
             {
                 power_main = false;
                 state_changed_1.emit("power", "false");
+                deviceReachable = true;
 
                 // Device is sleeping, no point querying volume/mute
                 if (nextCb)
@@ -273,8 +297,22 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
             }
             else if (code == "G0000")
             {
+                bool wasUnreachable = !deviceReachable;
                 power_main = true;
+                deviceReachable = true;
                 state_changed_1.emit("power", "true");
+
+                // Device just came back — likely rebooted, re-register immediately
+                if (wasUnreachable)
+                {
+                    cInfoDom("hifirose") << "Device became reachable again, re-registering";
+                    registerDevice();
+                }
+                else
+                {
+                    // Device was already reachable, check if notifications stopped
+                    reregisterIfNeeded();
+                }
             }
             else
             {
@@ -284,6 +322,7 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
         catch (const std::exception &e)
         {
             cWarningDom("hifirose") << "Error parsing get_current_state: " << e.what();
+            deviceReachable = false;
             if (nextCb)
                 nextCb();
             return;

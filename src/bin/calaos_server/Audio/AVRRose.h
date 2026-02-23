@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "AVReceiver.h"
 #include "Timer.h"
+#include <chrono>
 
 namespace Calaos
 {
@@ -37,14 +38,22 @@ class AVRRose: public AVReceiver
 protected:
 
     bool mute_main = false;
+    bool deviceReachable = false;
     string localIP;
     string roseToken;
     Timer *pollTimer = nullptr;
+
+    // Track the last time we received a push notification from the device.
+    // If too much time passes without one, we assume the device rebooted
+    // and re-register for push notifications.
+    std::chrono::steady_clock::time_point lastNotifTime;
+    static constexpr double NOTIF_TIMEOUT = 90.0; // seconds without notification before re-registering
 
     void postRequest(string urlPath, string data, std::function<void(const string &)> dataCb);
     void getRequest(string urlPath, std::function<void(const string &)> dataCb);
     void pollStatus(std::function<void()> nextCb = nullptr);
     void registerDevice();
+    void reregisterIfNeeded();
 
     static AVRRoseNotifServer *notifServer;
     static int notifServerRefCount;
