@@ -23,17 +23,31 @@
 
 #include "Calaos.h"
 #include "AVReceiver.h"
+#include "Timer.h"
 
 namespace Calaos
 {
 
+class AVRRoseNotifServer;
+
 //Manage HifiRose devices (like RS520)
+//Uses HTTPS REST API on port 9283 and push notifications on port 9284
 class AVRRose: public AVReceiver
 {
 protected:
 
+    bool mute_main = false;
+    string localIP;
+    string roseToken;
+    Timer *pollTimer = nullptr;
+
     void postRequest(string urlPath, string data, std::function<void(const string &)> dataCb);
+    void getRequest(string urlPath, std::function<void(const string &)> dataCb);
     void pollStatus(std::function<void()> nextCb = nullptr);
+    void registerDevice();
+
+    static AVRRoseNotifServer *notifServer;
+    static int notifServerRefCount;
 
 public:
     AVRRose(Params &p);
@@ -45,6 +59,11 @@ public:
     virtual bool hasDisplay() override { return false; }
 
     virtual void sendCustomCommand(string command) override;
+
+    //Called by the notification server when a push notification arrives
+    void handleNotification(const Json &msg);
+
+    string getHost() const { return host; }
 };
 
 }

@@ -63,6 +63,8 @@ calaos_server_SOURCES = \
         Audio/AVRYamaha.h                               \
         Audio/AVRRose.cpp                               \
         Audio/AVRRose.h                                 \
+        Audio/AVRRoseNotifServer.cpp                    \
+        Audio/AVRRoseNotifServer.h                      \
         Audio/AVReceiver.cpp                            \
         Audio/AVReceiver.h                              \
         Audio/AudioDB.cpp                               \
