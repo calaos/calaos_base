@@ -160,8 +160,8 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
                     attr = attr->Next();
                 }
 
-                //Only add widget if it has an io_id, a type and x/y positions
-                if (widget.contains("io_id") && widget.contains("type") &&
+                //Only add widget if it has a type and x/y positions
+                if (widget.contains("type") &&
                     widget.contains("x") && widget.contains("y"))
                     widgets.push_back(widget);
                 else
