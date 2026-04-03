@@ -183,6 +183,13 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     data["brightness"] = authenticated_remote_ui->getBrightness();
     data["grid_height"] = std::stoi(authenticated_remote_ui->get_param("grid_h"));
     data["grid_width"] = std::stoi(authenticated_remote_ui->get_param("grid_w"));
+    data["screensaver_timeout"] = authenticated_remote_ui->get_param("timeout");
+    data["screensaver_dimming"] = authenticated_remote_ui->get_param("screensaver_dimming");
+    data["screensaver_mode"] = authenticated_remote_ui->get_param("screensaver_mode");
+    data["screensaver_clock_timezone"] = authenticated_remote_ui->get_param("screensaver_clock_timezone");
+    data["screensaver_clock_format"] = authenticated_remote_ui->get_param("screensaver_clock_format");
+    data["screensaver_clock_show_date"] = authenticated_remote_ui->get_param("screensaver_clock_show_date");
+    data["screensaver_clock_date_format"] = authenticated_remote_ui->get_param("screensaver_clock_date_format");
     data["pages"] = authenticated_remote_ui->getPages();
 
     // Add room information
