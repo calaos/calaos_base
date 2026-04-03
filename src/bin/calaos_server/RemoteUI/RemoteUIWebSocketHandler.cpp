@@ -190,6 +190,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     data["screensaver_clock_format"] = authenticated_remote_ui->get_param("screensaver_clock_format");
     data["screensaver_clock_show_date"] = authenticated_remote_ui->get_param("screensaver_clock_show_date");
     data["screensaver_clock_date_format"] = authenticated_remote_ui->get_param("screensaver_clock_date_format");
+    data["screensaver_clock_seconds"] = authenticated_remote_ui->get_param("screensaver_clock_seconds");
     data["pages"] = authenticated_remote_ui->getPages();
 
     // Add room information
