@@ -441,6 +441,18 @@ size_t RemoteUIManager::getTotalCount() const
     return const_cast<RemoteUIManager*>(this)->getAllRemoteUIs().size();
 }
 
+void RemoteUIManager::sendCommand(const string &remote_ui_id, const string &msg_type, const Json &data)
+{
+    auto it = connected_handlers.find(remote_ui_id);
+    if (it == connected_handlers.end())
+    {
+        cWarningDom(TAG) << "RemoteUIManager: No connected handler for " << remote_ui_id
+                         << ", cannot send " << msg_type;
+        return;
+    }
+    it->second->sendJson(msg_type, data);
+}
+
 void RemoteUIManager::addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler)
 {
     auto it = connected_handlers.find(remote_ui_id);

@@ -56,6 +56,7 @@ public:
 
     // RemoteUI-specific handlers
     void handleGetConfig();
+    void handleRelayState(const Json &data);
 
     // Send RemoteUI-specific messages
     void sendInitialIOStates();

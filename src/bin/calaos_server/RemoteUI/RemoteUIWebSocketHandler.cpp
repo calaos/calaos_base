@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "RemoteUIWebSocketHandler.h"
 #include "IO/RemoteUI/RemoteUI.h"
+#include "IO/RemoteUI/RemoteUIOutputRelay.h"
 #include "IOBase.h"
 #include "HttpClient.h"
 #include "RemoteUIManager.h"
@@ -127,6 +128,14 @@ void RemoteUIWebSocketHandler::processApi(const string &data, const Params &para
                 handleGetConfig();
                 return;
             }
+
+            if (msg_type == "remote_ui_relay_state")
+            {
+                cDebugDom(TAG) << "RemoteUIWebSocketHandler: Handling remote_ui_relay_state";
+                if (message.contains("data"))
+                    handleRelayState(message["data"]);
+                return;
+            }
         }
     }
     catch (const std::exception &e)
@@ -145,6 +154,60 @@ void RemoteUIWebSocketHandler::handleGetConfig()
 
     Json configData = authenticated_remote_ui->getRemoteUIConfigMessage();
     sendJson("remote_ui_config", configData);
+}
+
+void RemoteUIWebSocketHandler::handleRelayState(const Json &data)
+{
+    if (!authenticated_remote_ui)
+        return;
+
+    if (!data.contains("relay") || !data.contains("state"))
+    {
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: remote_ui_relay_state missing relay or state field";
+        return;
+    }
+
+    int relay_num;
+    bool state;
+
+    try
+    {
+        relay_num = data["relay"].get<int>();
+        state = data["state"].get<bool>();
+    }
+    catch (const std::exception &e)
+    {
+        cWarningDom(TAG) << "RemoteUIWebSocketHandler: Invalid relay state data: " << e.what();
+        return;
+    }
+
+    string remote_ui_id = authenticated_remote_ui->get_param("id");
+    string relay_num_str = Utils::to_string(relay_num);
+
+    for (int i = 0; i < ListeRoom::Instance().size(); i++)
+    {
+        Room *room = ListeRoom::Instance()[i];
+        for (int j = 0; j < room->get_size(); j++)
+        {
+            IOBase *io = room->get_io(j);
+            if (io->get_param("type") == "RemoteUIOutputRelay" &&
+                io->get_param("remote_ui_id") == remote_ui_id &&
+                io->get_param("relay_num") == relay_num_str)
+            {
+                RemoteUIOutputRelay *relay = dynamic_cast<RemoteUIOutputRelay*>(io);
+                if (relay)
+                {
+                    relay->updateStateFromDevice(state);
+                    cDebugDom(TAG) << "RemoteUIWebSocketHandler: Updated relay " << relay_num
+                                   << " state to " << state << " on " << remote_ui_id;
+                }
+                return;
+            }
+        }
+    }
+
+    cWarningDom(TAG) << "RemoteUIWebSocketHandler: No relay IO found for relay "
+                     << relay_num << " on " << remote_ui_id;
 }
 
 void RemoteUIWebSocketHandler::sendInitialIOStates()

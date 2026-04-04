@@ -122,6 +122,9 @@ public:
     void addWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler);
     void removeWebSocketHandler(const string &remote_ui_id, RemoteUIWebSocketHandler *handler);
 
+    // Send a command message to a connected RemoteUI device
+    void sendCommand(const string &remote_ui_id, const string &msg_type, const Json &data);
+
     // Statistics
     size_t getOnlineCount() const;
     size_t getTotalCount() const;

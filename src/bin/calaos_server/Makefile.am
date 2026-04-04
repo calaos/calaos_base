@@ -384,6 +384,8 @@ calaos_server_SOURCES = \
         RemoteUI/OtaHttpHandler.h                       \
         IO/RemoteUI/RemoteUI.cpp                        \
         IO/RemoteUI/RemoteUI.h                          \
+        IO/RemoteUI/RemoteUIOutputRelay.cpp             \
+        IO/RemoteUI/RemoteUIOutputRelay.h               \
         HistLogger.cpp                                  \
         HistLogger.h                                    \
         NotifManager.h                                  \

@@ -21,6 +21,7 @@
 #include "RemoteUI.h"
 #include "IOFactory.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
+#include "RemoteUIManager.h"
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -56,6 +57,10 @@ RemoteUI::RemoteUI(Params &p):
     ioDoc->paramAdd("grid_h", _("Grid horizontal size"), IODoc::TYPE_INT, true, "3");
     ioDoc->paramAdd("grid_w", _("Grid vertical size"), IODoc::TYPE_INT, true, "3");
     ioDoc->paramAdd("mac_address", _("Device MAC address"), IODoc::TYPE_STRING, false, "", true);
+
+    ioDoc->actionAdd("set_brightness X", _("Set screen brightness (0-100)"));
+    ioDoc->actionAdd("set_page page_id", _("Navigate to a specific page by id"));
+    ioDoc->actionAdd("show_notif message", _("Show a notification on screen"));
 
     set_param("gui_type", "remote_ui");
 
@@ -459,7 +464,9 @@ bool RemoteUI::setBrightness(int brightness)
 
     set_param("brightness", Utils::to_string(brightness));
 
-    // Emit event to notify WebSocket handler
+    RemoteUIManager::Instance().sendCommand(get_param("id"), "remote_ui_set_brightness",
+        { { "brightness", brightness } });
+
     emitChange();
 
     cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Brightness set to " << brightness;
@@ -475,7 +482,9 @@ int RemoteUI::getBrightness()
 
 bool RemoteUI::setPage(const string &page_id)
 {
-    // Emit event to notify WebSocket handler
+    RemoteUIManager::Instance().sendCommand(get_param("id"), "remote_ui_set_page",
+        { { "page_id", page_id } });
+
     emitChange();
 
     cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Page set to " << page_id;
@@ -484,10 +493,12 @@ bool RemoteUI::setPage(const string &page_id)
 
 bool RemoteUI::showNotification(const string &message)
 {
-    // Emit event to notify WebSocket handler
+    RemoteUIManager::Instance().sendCommand(get_param("id"), "remote_ui_notification",
+        { { "message", message } });
+
     emitChange();
 
-    cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Notification queued: " << message;
+    cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): Notification sent: " << message;
     return true;
 }
 
