@@ -49,5 +49,11 @@ ExpressionEvaluator_test_SOURCES = ExpressionEvaluator_test.cpp
 ExpressionEvaluator_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la
 
+TESTS += FileUtils_test
+check_PROGRAMS += FileUtils_test
+FileUtils_test_SOURCES = FileUtils_test.cpp
+FileUtils_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
 endif
 

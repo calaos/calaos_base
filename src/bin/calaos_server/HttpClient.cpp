@@ -286,12 +286,11 @@ int HttpClient::processHeaders(const string &request)
 
         cDebugDom("network") << "Using www root: " << wwwroot;
 
-        string fileName = wwwroot +
-                          (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
-
-        if (!FileUtils::exists(fileName))
+        string fileName;
+        if (!FileUtils::resolveSafePath(wwwroot, path, fileName) ||
+            FileUtils::isDir(fileName))
         {
-            cDebugDom("network") << "fileName not found: " << fileName;
+            cWarningDom("network") << "Rejected debug path (traversal or not found): " << path;
 
             Params headers;
             headers.Add("Connection", "close");
@@ -339,12 +338,11 @@ int HttpClient::processHeaders(const string &request)
         if (!FileUtils::isDir(wwwroot))
             wwwroot = Prefix::Instance().dataDirectoryGet() + "/app";
 
-        string fileName = wwwroot +
-                          (wwwroot[wwwroot.length() - 1] == '/'?"":"/") + path;
-
-        if (!FileUtils::exists(fileName) || FileUtils::isDir(fileName))
+        string fileName;
+        if (!FileUtils::resolveSafePath(wwwroot, path, fileName) ||
+            FileUtils::isDir(fileName))
         {
-            cDebugDom("network") << "Filename not found: " << fileName;
+            cWarningDom("network") << "Rejected webapp path (traversal or not found): " << path;
 
             Params headers;
             headers.Add("Connection", "close");
