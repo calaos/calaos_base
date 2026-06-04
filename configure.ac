@@ -159,6 +159,13 @@ fi
 have_python="no"
 have_python_roon="no"
 have_python_reolink="no"
+have_python_mcp="no"
+
+# --without-mcp disables the MCP sidecar entirely.
+AC_ARG_WITH([mcp],
+    AS_HELP_STRING([--without-mcp], [disable the MCP sidecar (Model Context Protocol)]),
+    [with_mcp=$withval],
+    [with_mcp=yes])
 
 # Check for Python 3
 AM_PATH_PYTHON([3], [
@@ -188,6 +195,19 @@ AM_PATH_PYTHON([3], [
             AC_MSG_RESULT([no])
             AC_MSG_WARN([Python reolink_aio module not found. Install with: pip3 install reolink_aio])
         fi
+
+        # Check for MCP sidecar dependencies (mcp[cli], uvicorn, fastapi).
+        if test "x$with_mcp" != "xno"; then
+            AC_MSG_CHECKING([for Python mcp + uvicorn + fastapi modules])
+            if $PYTHON -c "import mcp, uvicorn, fastapi" 2>/dev/null; then
+                have_python_mcp="yes"
+                AC_MSG_RESULT([yes])
+                AC_DEFINE([HAVE_PYTHON_MCP], [1], [Define if Python MCP sidecar deps are available])
+            else
+                AC_MSG_RESULT([no])
+                AC_MSG_WARN([Python MCP deps not found. Install with: pip3 install "mcp[cli]" uvicorn fastapi])
+            fi
+        fi
     else
         AC_MSG_WARN([pip3 not found. Install with: apt-get install python3-pip])
         have_python="no"
@@ -199,6 +219,7 @@ AM_PATH_PYTHON([3], [
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
+AM_CONDITIONAL([HAVE_PYTHON_MCP], [test "x$have_python_mcp" = "xyes"])
 
 AC_CONFIG_FILES([
 Makefile
@@ -208,6 +229,7 @@ src/lib/Makefile
 src/lib/calaos-python/Makefile
 src/bin/Makefile
 src/bin/calaos_server/Makefile
+src/bin/calaos_mcp/Makefile
 src/bin/tools/Makefile
 data/Makefile
 data/debug/Makefile
@@ -215,6 +237,7 @@ data/debug/dist/Makefile
 $po_makefile_in
 src/bin/calaos_server/Audio/calaos_roon
 src/bin/calaos_server/IO/Reolink/calaos_reolink
+src/bin/calaos_mcp/calaos_mcp
 ])
 
 AC_OUTPUT
@@ -267,4 +290,5 @@ echo
 echo "Python support:........................: $(colorOut $have_python)"
 echo "  RoonAPI support......................: $(colorOut $have_python_roon)"
 echo "  Reolink support......................: $(colorOut $have_python_reolink)"
+echo "  MCP sidecar..........................: $(colorOut $have_python_mcp)"
 echo

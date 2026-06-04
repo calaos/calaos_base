@@ -23,6 +23,7 @@
 #include "ListeRule.h"
 #include "PollListenner.h"
 #include "Prefix.h"
+#include "McpServerManager.h"
 #include "CalaosConfig.h"
 #include "AudioPlayer.h"
 #include "IPCam.h"
@@ -142,8 +143,19 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             loggedin = true;
         }
     }
+    else if (jsonRoot["msg"] == "login_service")
+    {
+        processLoginService(jsonData, jsonRoot["msg_id"]);
+    }
     else if (loggedin) //only process other api if loggedin
     {
+        // S2: messages blocked for service-scoped sessions.
+        auto scopeDenied = [&](const string &msg)
+        {
+            cWarningDom("mcp") << "service scope denied action: " << msg;
+            sendJson(msg, {{ "error", "scope denied" }}, jsonRoot["msg_id"]);
+        };
+
         if (jsonRoot["msg"] == "get_home")
             processGetHome(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_state")
@@ -155,9 +167,15 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "get_param")
             processGetParam(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_param")
-            processSetParam(jsonData, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("set_param");
+            else processSetParam(jsonData, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "del_param")
-            processDelParam(jsonData, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("del_param");
+            else processDelParam(jsonData, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "set_state")
             processSetState(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "get_playlist")
@@ -167,19 +185,34 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "audio")
             processAudio(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "audio_db")
-            processAudioDb(jdata, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("audio_db");
+            else processAudioDb(jdata, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "get_timerange")
             processGetTimerange(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "set_timerange")
-            processSetTimerange(jdata, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("set_timerange");
+            else processSetTimerange(jdata, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "autoscenario")
             processAutoscenario(jdata, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "eventlog")
-            processEventLog(jsonData, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("eventlog");
+            else processEventLog(jsonData, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "register_push")
-            processRegisterPush(jsonData, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("register_push");
+            else processRegisterPush(jsonData, jsonRoot["msg_id"]);
+        }
         else if (jsonRoot["msg"] == "settings")
-            processSettings(jsonData, jsonRoot["msg_id"]);
+        {
+            if (serviceScope) scopeDenied("settings");
+            else processSettings(jsonData, jsonRoot["msg_id"]);
+        }
 
 //        else if (jsonParam["action"] == "get_cover")
 //            processGetCover();
@@ -482,4 +515,32 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
                     { "success", ok?"true":"false" }};
         sendJson("settings", ret, client_id);
     }
+}
+
+void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string &client_id)
+{
+    // S2: service account login for the MCP sidecar. Uses the mcp_service_token
+    // stored in local_config.xml. Grants a restricted session (serviceScope=true)
+    // that cannot modify configuration or access sensitive actions.
+    const string &expected = McpServerManager::Instance().getServiceToken();
+    const string &received = jsonData["token"];
+
+    // Constant-time comparison — tokens are 64 hex chars (256-bit).
+    bool ok = (expected.size() == received.size()) &&
+              !expected.empty() &&
+              std::equal(expected.begin(), expected.end(), received.begin(),
+                         [](char a, char b){ return a == b; });
+
+    if (!ok)
+    {
+        cWarningDom("mcp") << "login_service: invalid service token";
+        sendJson("login_service", {{ "success", "false" }, { "error", "invalid token" }}, client_id);
+        closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login_service failed");
+        return;
+    }
+
+    loggedin = true;
+    serviceScope = true;
+    cInfoDom("mcp") << "login_service: MCP sidecar authenticated (service scope)";
+    sendJson("login_service", {{ "success", "true" }}, client_id);
 }

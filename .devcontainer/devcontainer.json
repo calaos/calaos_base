@@ -6,7 +6,11 @@
 	},
 
 	"mounts": [
-		"source=extensionCache,target=/root/.vscode-server/extensions,type=volume"
+		"source=extensionCache,target=/root/.vscode-server/extensions,type=volume",
+		"source=${localEnv:HOME}/.claude,target=/opt/.claude,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.agents,target=/opt/.agents,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.config/rtk,target=/opt/.config/rtk,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.claude.json,target=/opt/.claude.json,type=bind,consistency=cached"
 	],
 
 	// Features to add to the dev container. More info: https://containers.dev/features.

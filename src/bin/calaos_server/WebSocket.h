@@ -26,6 +26,10 @@
 #include "HttpClient.h"
 #include "WebSocketFrame.h"
 
+namespace Calaos {
+class McpProxyHandler;
+}
+
 using namespace Calaos;
 
 class WebSocket: public HttpClient
@@ -86,6 +90,15 @@ private:
     int missedPongs = 0;
     bool pongReceived = true;
     static constexpr int MAX_MISSED_PONGS = 3;
+
+    // MCP reverse-proxy state. Sniff the first chunks for a request line
+    // targeting /mcp/*; if matched, hand the connection off to a
+    // McpProxyHandler that forwards raw bytes to the Python sidecar.
+    enum class McpRouteState { Sniffing, Normal, Proxied, Rejected };
+    McpRouteState mcpState = McpRouteState::Sniffing;
+    std::string mcpSniffBuf;
+    Calaos::McpProxyHandler *mcpProxy = nullptr;
+    static constexpr std::size_t MCP_SNIFF_LIMIT = 16 * 1024;
 };
 
 #endif

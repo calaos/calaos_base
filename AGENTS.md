@@ -23,6 +23,7 @@ Detailed technical documentation for each subsystem is in [`doc/`](doc/README.md
 | [doc/12_extern_proc.md](doc/12_extern_proc.md) | ExternProc IPC framework (C++ subprocess drivers) |
 | [doc/13_utility_lib.md](doc/13_utility_lib.md) | Utils, Params, Timer, Logger, bundled libraries |
 | [doc/14_python_extern_proc.md](doc/14_python_extern_proc.md) | Python drivers: calaos_extern_proc lib, Reolink, Roon |
+| [doc/15_mcp_server.md](doc/15_mcp_server.md) | MCP sidecar: calaos_mcp Python process, reverse proxy, tools, auth |
 
 ---
 
@@ -31,6 +32,8 @@ Detailed technical documentation for each subsystem is in [`doc/`](doc/README.md
 Calaos Server is a home automation daemon that controls lights, shutters, sensors, music, cameras, and more through a JSON/WebSocket API. It reads configuration from three XML files and runs an event-driven loop based on libuv.
 
 The main binary is `calaos_server`. Several drivers run as **separate subprocesses** (C++ or Python) that communicate with the server over Unix sockets using the `ExternProc` IPC framework. Subprocess drivers: Wago, KNX, MQTT, OneWire, OLA, Reolink (Python), Roon (Python), Lua scripts.
+
+An additional Python subprocess, `calaos_mcp`, exposes the home to LLM clients (Claude Desktop, etc.) via the **Model Context Protocol**. Unlike the ExternProc drivers it does *not* use the binary IPC framing: it runs a FastMCP/uvicorn HTTP server on a Unix domain socket and is reverse-proxied through the `/mcp` path of the main HTTP port (5454). See [doc/15_mcp_server.md](doc/15_mcp_server.md).
 
 ---
 
@@ -65,9 +68,10 @@ The project uses GNU Autotools. If dependencies are missing, check `configure.ac
 Startup sequence:
 1. `Config::LoadConfigIO()` — parses `io.xml`, instantiates IOs via `IOFactory`, fills `ListeRoom`
 2. `Config::LoadConfigRule()` — parses `rules.xml`, instantiates `Rule`/`Condition`/`Action` objects
-3. `HttpServer::Instance(4444)` — starts the HTTP/WebSocket server
-4. `ListeRule::ExecuteStartRules()` — fires rules with `ConditionStart` once
-5. libuv event loop runs indefinitely
+3. `HttpServer::Instance(port)` — starts the HTTP/WebSocket server (`JSONAPI_PORT` = **5454** by default, overridable via the `port_api` config option)
+4. `McpServerManager::Instance().start()` — spawns the `calaos_mcp` sidecar (no-op if the wrapper is not installed)
+5. `ListeRule::ExecuteStartRules()` — fires rules with `ConditionStart` once
+6. libuv event loop runs indefinitely
 
 ### IO System (`src/bin/calaos_server/IO/`)
 Every controllable device is an `IOBase` subclass. IOs self-register via a factory macro placed at file scope in the `.cpp`:
@@ -108,7 +112,10 @@ Framework for subprocess drivers. The server side uses `ExternProcServer`; subpr
 Central pub/sub using sigc++ signals. When an IO changes state it calls `EmitSignalIO()` → `ListeRule::ExecuteRuleSignal(id)` (triggers rules) and `EventManager::create(EventIOChanged, ...)` (notifies WebSocket clients). See `doc/10_events_notifications.md`.
 
 ### HTTP / WebSocket API (`src/bin/calaos_server/HttpServer.cpp`, `JsonApi.cpp`)
-Singleton `HttpServer` listens on port 4444. Each connection becomes a `WebSocket` which delegates to `JsonApiHandlerHttp` (single request) or `JsonApiHandlerWS` (persistent connection with real-time event push). See `doc/08_http_api.md`.
+Singleton `HttpServer` listens on port 5454 (`JSONAPI_PORT`). Each connection becomes a `WebSocket` which delegates to `JsonApiHandlerHttp` (single request) or `JsonApiHandlerWS` (persistent connection with real-time event push). `WebSocket::ProcessData` also sniffs the first request line: requests targeting `/mcp` are handed to `McpProxyHandler` instead (see MCP section below). See `doc/08_http_api.md`.
+
+### MCP Sidecar (`src/bin/calaos_server/McpServerManager.{h,cpp}`, `McpProxyHandler.{h,cpp}`, `src/bin/calaos_mcp/`)
+`McpServerManager` (singleton) spawns the `calaos_mcp` Python sidecar at boot via `uvw::ProcessHandle`, auto-generates the `mcp_token` and `mcp_service_token` in `local_config.xml`, and supervises it (restart with backoff, SIGTERM on shutdown). The sidecar listens on a Unix domain socket (`$CALAOS_CACHE_PATH/mcp.sock`, mode 0660). `McpProxyHandler` splices `/mcp/*` TCP connections to that socket as raw bytes, so the existing HTTPS-terminating reverse proxy (haproxy on Calaos OS) covers MCP without any extra port. The sidecar authenticates back to the JsonApi over WebSocket using `login_service` (a scope-restricted session, `serviceScope=true`) rather than admin credentials. See `doc/15_mcp_server.md`.
 
 ### RemoteUI (`src/bin/calaos_server/RemoteUI/`)
 Manages embedded devices (ESP32-S3 wall panels, etc.) that connect via WebSocket with HMAC-SHA256 authentication. Handles IO state synchronization, command dispatch, and OTA firmware updates. See `doc/07_remoteui.md`.
@@ -138,9 +145,14 @@ Scripts run in an isolated subprocess (`ScriptExtern_main.cpp` via ExternProc). 
 | `rules.xml` | `RULES_CONFIG` | Automation rules (conditions + actions) |
 | `local_config.xml` | `LOCAL_CONFIG` | Server settings: credentials, SMTP, InfluxDB, NTP, push tokens, misc options |
 
-Default path: `/etc/calaos/`. Override with env var `CALAOS_HOME` or `~/.config/calaos/` in development. Constants are defined in `src/lib/Utils.h`.
+Default path: `/etc/calaos/`. Override with `--config <dir>` (sets `_configBase` and the `CALAOS_CONFIG_PATH` env var), or fall back to `~/.config/calaos/`. Cache path defaults to `~/.cache/calaos/`, overridable with `--cache <dir>`. Constants are defined in `src/lib/Utils.h`.
 
 **Important:** the `type` attribute in `io.xml` must exactly match a registered `IOFactory` key (case-insensitive). Unknown types are silently skipped at load time.
+
+**Config path gotchas (learned the hard way):**
+- `Utils::getConfigFile(name)` honours `--config` / `CALAOS_CONFIG_PATH` (it reads `_configBase`); `Utils::getConfigPath()` does **not** — it re-derives the directory from `$HOME` every time. When you need the *active* config directory (e.g. to pass to a subprocess), use `getConfigFile("")` and strip the trailing slash, not `getConfigPath()`. `getCachePath()` does respect `--cache`.
+- `local_config.xml` options are namespaced elements: `<calaos:option name="..." value="..."/>` with `xmlns:calaos="http://www.calaos.fr"`. A Python `xml.etree` parser sees the tag as `{http://www.calaos.fr}option`, so `root.iter("option")` matches nothing — match on the local name after the `}` instead.
+- MCP keys in `local_config.xml`: `mcp_token` (Bearer token for MCP clients) and `mcp_service_token` (sidecar→JsonApi service login). Both are auto-generated (64 hex chars) on first boot if absent.
 
 ---
 
@@ -189,6 +201,8 @@ Tests live in `tests/` and use Google Test. Built and run with `make check` (onl
 | `--with-ola` | OLA | DMX512 lighting (OLA driver) |
 
 **Python drivers** (installed separately): `reolink_aio` (Reolink), `roonapi` (Roon), `colorama` (logging)
+
+**MCP sidecar** (enabled by default, disable with `./configure --without-mcp`): requires the Python packages `mcp` (with `mcp[cli]`), `uvicorn`, and `fastapi`. `configure` probes for them; if missing it warns and skips building the sidecar (`HAVE_PYTHON_MCP`). Install with `pip3 install "mcp[cli]" uvicorn fastapi`.
 
 ---
 

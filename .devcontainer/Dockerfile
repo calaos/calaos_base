@@ -23,6 +23,10 @@ RUN pip install reolink-aio --break-system-packages
 
 RUN npm install -g @anthropic-ai/claude-code
 
+#install rtk (Rust Token Killer) - https://github.com/rtk-ai/rtk
+RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+ENV PATH="$HOME/.local/bin:$PATH"
+
 RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
     sed -i -e 's/# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen && \
     dpkg-reconfigure --frontend=noninteractive locales && \

@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Le serveur expose une **API JSON** sur HTTP et WebSocket (port par défaut 4444). Les clients UI (application mobile, web) utilisent cette API pour :
+Le serveur expose une **API JSON** sur HTTP et WebSocket (port par défaut 5454). Les clients UI (application mobile, web) utilisent cette API pour :
 - Lire l'état des IOs
 - Envoyer des commandes
 - S'abonner aux événements en temps réel (via WebSocket)
@@ -13,12 +13,19 @@ Le serveur expose une **API JSON** sur HTTP et WebSocket (port par défaut 4444)
 ## Architecture réseau
 
 ```
-HttpServer (port 4444)
+HttpServer (port 5454)
   └── accepte connexions TCP (via uvw::TcpHandle)
       └── WebSocket (upgrade HTTP → WS)
           ├── JsonApiHandlerHttp   (requêtes HTTP classiques)
-          └── JsonApiHandlerWS     (connexion persistante WS)
+          ├── JsonApiHandlerWS     (connexion persistante WS)
+          └── McpProxyHandler      (chemin /mcp → sidecar calaos_mcp, voir doc/15)
 ```
+
+`WebSocket::ProcessData` renifle la première ligne de requête : si elle cible
+`/mcp` (ou `/mcp/...`), la connexion bascule en mode reverse-proxy brut vers le
+socket Unix du sidecar `calaos_mcp` au lieu d'être traitée comme une requête
+JsonApi. Tout passe donc par le **même port 5454** (un seul port à exposer
+derrière le reverse proxy HTTPS). Voir [15_mcp_server.md](15_mcp_server.md).
 
 ---
 
@@ -29,7 +36,7 @@ HttpServer (port 4444)
 Singleton. Lance le serveur TCP et crée un objet `WebSocket` pour chaque connexion entrante.
 
 ```cpp
-HttpServer::Instance(4444);  // démarrage
+HttpServer::Instance(5454);  // démarrage
 HttpServer::Instance().disconnectAll();  // ferme toutes les connexions
 ```
 
@@ -141,28 +148,41 @@ json_t *buildJsonStatusInfo(IOBase*);  // batterie, connexion, signal, etc.
 {"action": "get_home"}
 ```
 
-**Réponse :**
+**Réponse :** `home` est un **tableau** de pièces ; chaque pièce porte ses IOs
+sous la clé `items` (pas `ios`). Toutes les valeurs scalaires (dont `state` et
+`rw`) sont des **chaînes** JSON.
 ```json
 {
   "home": [
     {
+      "type": "salon",
       "name": "Salon",
-      "type": "living",
+      "hits": "0",
       "items": [
         {
           "id": "id-abc",
           "name": "Lumière principale",
           "type": "WagoOutputLight",
-          "gui_type": "light",
           "var_type": "bool",
-          "val": "true",
-          "enabled": "true"
+          "visible": "true",
+          "rw": "true",
+          "gui_type": "light",
+          "state": "false",
+          "io_type": "inout"
         }
       ]
     }
-  ]
+  ],
+  "cameras": [],
+  "audio": []
 }
 ```
+
+Champs IO renvoyés par `buildJsonIO` (présents seulement s'ils existent sur
+l'IO) : `id`, `name`, `type`, `hits`, `var_type` (`bool`/`float`/`string`),
+`visible`, `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `auto_scenario`,
+`step`, `io_type` (`input`/`output`/`inout`), `io_style`, `value_warning`, plus
+un objet `status_info` (batterie, connectivité…) le cas échéant.
 
 ### SET state (commande IO)
 
@@ -178,9 +198,14 @@ json_t *buildJsonStatusInfo(IOBase*);  // batterie, connexion, signal, etc.
 
 ### GET state
 
-**Requête :**
+**Requête :** `items` est un tableau d'**identifiants** (chaînes).
 ```json
 {"action": "get_state", "items": ["id-abc", "id-def"]}
+```
+
+**Réponse :** un dictionnaire plat `{id: valeur}` (et non une liste d'objets).
+```json
+{"id-abc": "true", "id-def": "21.5"}
 ```
 
 ### Événements WebSocket
@@ -223,9 +248,46 @@ Serveur UDP pour la découverte du serveur Calaos sur le réseau local (broadcas
 
 ---
 
-## Authentification HTTP
+## Authentification
 
-L'API HTTP utilise une authentification basique (username/password) configurable via `local_config.xml`. Les credentials peuvent être changés via `JsonApi::changeCredentials()`.
+### HTTP (requête unique)
+Chaque requête HTTP porte les champs `cn_user` / `cn_pass` dans le corps JSON.
+Les credentials sont stockés dans `local_config.xml` (`calaos_user` /
+`calaos_password`) et modifiables via `JsonApi::changeCredentials()`.
+
+### WebSocket — `login` (session admin)
+Premier message attendu sur une connexion `/api` :
+```json
+{"msg": "login", "msg_id": "1", "data": {"cn_user": "user", "cn_pass": "pass"}}
+```
+Réponse `{"msg": "login", "data": {"success": "true"}}`. La session reste
+authentifiée pour toute la durée de la connexion ; en cas d'échec la connexion
+est fermée.
+
+### WebSocket — `login_service` (session restreinte, sidecar MCP)
+Le sidecar `calaos_mcp` ne se connecte pas en admin : il utilise un compte de
+service à portée restreinte (`serviceScope`). Voir
+[15_mcp_server.md](15_mcp_server.md).
+```json
+{"msg": "login_service", "msg_id": "1", "data": {"token": "<mcp_service_token>"}}
+```
+Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
+(`McpServerManager::getServiceToken()`). En session `serviceScope`, les actions
+de configuration/sensibles sont refusées (`scopeDenied`) : `set_param`,
+`del_param`, `audio_db`, `set_timerange`, `eventlog`, `register_push`,
+`settings`.
+
+### `get_mcp_info` (découverte du token MCP)
+Action JsonApi (HTTP ou WS, session admin) qui renvoie l'URL et le Bearer token
+à donner à un client MCP (Claude Desktop, etc.) :
+```json
+// Requête
+{"action": "get_mcp_info", "cn_user": "user", "cn_pass": "pass"}
+// Réponse
+{"url_path": "/mcp",
+ "token": "<mcp_token>",
+ "hint": "Use token as Bearer in Authorization header. Append /mcp to your Calaos HTTPS base URL."}
+```
 
 ---
 

@@ -4,7 +4,7 @@
 
 Calaos est un serveur de domotique open-source écrit en C++14. Il expose un système d'automatisation basé sur des **règles** (conditions → actions), gère des **entrées/sorties** (IO) sur de nombreux protocoles, et fournit une **API JSON** (HTTP + WebSocket) à ses clients UI.
 
-Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers (MQTT, KNX, Wago, OneWire, OLA, Reolink, scripts Lua, Roon) via le framework `ExternProc`.
+Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers (MQTT, KNX, Wago, OneWire, OLA, Reolink, scripts Lua, Roon) via le framework `ExternProc`. Un sous-processus Python supplémentaire, `calaos_mcp`, expose l'installation aux LLM via le Model Context Protocol (voir [15_mcp_server.md](15_mcp_server.md)).
 
 ---
 
@@ -55,6 +55,7 @@ src/
 | Config & Persistence | Chargement/sauvegarde XML, cache d'état | [11_config_persistence.md](11_config_persistence.md) |
 | ExternProc IPC | Framework sous-processus (MQTT, KNX) | [12_extern_proc.md](12_extern_proc.md) |
 | Utility Library | Utils, Params, Timer, Logger… | [13_utility_lib.md](13_utility_lib.md) |
+| MCP Server | Sidecar calaos_mcp (contrôle par LLM) | [15_mcp_server.md](15_mcp_server.md) |
 
 ---
 
@@ -64,7 +65,8 @@ src/
 main()
   → Config::LoadConfigIO()      // charge io.xml → construit Room/IO
   → Config::LoadConfigRule()    // charge rules.xml → construit Rule/Condition/Action
-  → HttpServer::Instance()      // ouvre port HTTP/WS (défaut 4444)
+  → HttpServer::Instance(port)  // ouvre port HTTP/WS (JSONAPI_PORT = 5454 par défaut)
+  → McpServerManager::start()   // lance le sidecar MCP calaos_mcp (no-op si absent)
   → ListeRule::ExecuteStartRules() // évalue les règles ConditionStart
   → uvw event loop              // boucle libuv principale
 ```

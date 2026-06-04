@@ -30,6 +30,7 @@
 #include "Timer.h"
 #include "HttpClient.h"
 #include "libuvw.h"
+#include "McpServerManager.h"
 
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
@@ -151,6 +152,19 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
         processEventPicture();
     else if (jsonParam["action"] == "register_push")
         processRegisterPush();
+    else if (jsonParam["action"] == "get_mcp_info")
+    {
+        // Return MCP connection info (URL path + bearer token) for the
+        // authenticated admin user — never exposed without credentials.
+        const string &token = McpServerManager::Instance().bearerToken();
+        json_t *jret = json_object();
+        json_object_set_new(jret, "url_path", json_string("/mcp"));
+        json_object_set_new(jret, "token", json_string(token.c_str()));
+        json_object_set_new(jret, "hint",
+            json_string("Use token as Bearer in Authorization header. "
+                        "Append /mcp to your Calaos HTTPS base URL."));
+        sendJson(jret);
+    }
     else
     {
         if (!jroot)

@@ -28,6 +28,7 @@
 #include "NTPClock.h"
 #include "WagoMap.h"
 #include "HttpServer.h"
+#include "McpServerManager.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
@@ -157,6 +158,11 @@ int main (int argc, char **argv)
         from_string(tmp, port);
     HttpServer::Instance(port);
 
+    // Spawn the MCP sidecar (calaos_mcp Python process). The sidecar listens
+    // on a Unix domain socket and is reverse-proxied through /mcp/* on the
+    // HttpServer above. Disabled silently if the wrapper is not installed.
+    McpServerManager::Instance().start();
+
     NTPClock::Instance();
 
     if (enable_udp)
@@ -205,6 +211,7 @@ int main (int argc, char **argv)
 
     loop->run();
 
+    McpServerManager::Instance().stop();
     HttpServer::Instance().disconnectAll();
 
     //Stop all wagomaps and wait for their threads to terminate correctly.

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for the calaos_mcp Python sidecar.
+# Generated from calaos_mcp.in by configure.
+CALAOS_PREFIX=/tmp/calaos-test
+export PYTHONPATH=$CALAOS_PREFIX/lib/python:$CALAOS_PREFIX/lib/calaos:$PYTHONPATH
+exec python3 -m calaos_mcp "$@"

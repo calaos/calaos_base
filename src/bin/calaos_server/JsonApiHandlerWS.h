@@ -41,8 +41,12 @@ protected:
     void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
 
     bool loggedin = false;
+    // Set to true when the session was opened with login_service (S2).
+    // Restricts the set of allowed messages to a read+control subset.
+    bool serviceScope = false;
 
 private:
+    void processLoginService(const Params &jsonData, const string &client_id = string());
     sigc::connection evcon;
 
     sigc::signal<void, string, string, void*, void*> sig_events;

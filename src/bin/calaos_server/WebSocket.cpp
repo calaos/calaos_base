@@ -25,6 +25,7 @@
 #include "hef_uri_syntax.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "RemoteUI/AuthFailureReason.h"
+#include "McpProxyHandler.h"
 #include "libuvw.h"
 #include "json.hpp"
 
@@ -51,11 +52,94 @@ WebSocket::~WebSocket()
 {
     delete closeTimeout;
     delete timerPing;
+    delete mcpProxy;
 }
 
 void WebSocket::ProcessData(string data)
 {
     cDebugDom("websocket") << "Process new data " << data.size();
+
+    // MCP reverse-proxy path: detected by sniffing the first request line.
+    // Once we've decided this is a /mcp request, all bytes (current and
+    // future) are forwarded raw to the calaos_mcp Python sidecar.
+    if (mcpState == McpRouteState::Proxied)
+    {
+        if (mcpProxy && !mcpProxy->isClosed())
+            mcpProxy->onClientData(data);
+        return;
+    }
+    if (mcpState == McpRouteState::Rejected)
+    {
+        return;
+    }
+    if (mcpState == McpRouteState::Sniffing && !isWebsocket)
+    {
+        mcpSniffBuf.append(data);
+        auto result = McpProxyHandler::sniffRequest(mcpSniffBuf);
+        switch (result)
+        {
+        case McpProxyHandler::SniffResult::NotEnoughData:
+            if (mcpSniffBuf.size() >= MCP_SNIFF_LIMIT)
+            {
+                mcpState = McpRouteState::Normal;
+                std::string buffered;
+                buffered.swap(mcpSniffBuf);
+                if (processHeaders(buffered) == HTTP_PROCESS_HTTP && parse_done)
+                {
+                    auto method = parser->method;
+                    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
+                    parser->data = this;
+                    handleJsonRequest(method);
+                }
+            }
+            return;
+        case McpProxyHandler::SniffResult::NotMcp:
+        {
+            mcpState = McpRouteState::Normal;
+            std::string buffered;
+            buffered.swap(mcpSniffBuf);
+            int hs = processHeaders(buffered);
+            if (hs == HTTP_PROCESS_HTTP && parse_done)
+            {
+                auto method = parser->method;
+                llhttp_init(parser, HTTP_REQUEST, &parser_settings);
+                parser->data = this;
+                handleJsonRequest(method);
+            }
+            else if (hs == HTTP_PROCESS_WEBSOCKET)
+            {
+                if (status == WSConnecting)
+                    processHandshake();
+            }
+            return;
+        }
+        case McpProxyHandler::SniffResult::Mcp:
+        {
+            cInfoDom("mcp") << "routing TCP connection to MCP sidecar";
+            std::string buffered;
+            buffered.swap(mcpSniffBuf);
+            mcpProxy = new McpProxyHandler(client_conn, buffered);
+            mcpState = McpRouteState::Proxied;
+            return;
+        }
+        case McpProxyHandler::SniffResult::InvalidPath:
+            cWarningDom("mcp") << "rejecting malformed /mcp path";
+            McpProxyHandler::sendError(client_conn, 400,
+                                       "Invalid /mcp path\n");
+            mcpState = McpRouteState::Rejected;
+            CloseConnection();
+            return;
+        case McpProxyHandler::SniffResult::Smuggling:
+            cWarningDom("mcp")
+                << "rejecting /mcp request with smuggling-suspect headers";
+            McpProxyHandler::sendError(client_conn, 400,
+                                       "Suspicious request headers\n");
+            mcpState = McpRouteState::Rejected;
+            CloseConnection();
+            return;
+        }
+        return;
+    }
 
     int http_status = HTTP_PROCESS_WEBSOCKET;
     if (!isWebsocket)

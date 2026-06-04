@@ -103,11 +103,21 @@ Paramètres serveur globaux (credentials, SMTP, NTP, InfluxDB, tokens push, etc.
 <calaos:config xmlns:calaos="http://www.calaos.fr">
   <calaos:option name="calaos_user" value="user"/>
   <calaos:option name="calaos_password" value="pass"/>
+  <calaos:option name="port_api" value="5454"/>
   <calaos:option name="smtp_server" value="smtp.example.com"/>
   <calaos:option name="mail_to" value="user@example.com"/>
   <calaos:option name="ntp_server" value="pool.ntp.org"/>
+  <!-- Générés automatiquement au premier démarrage par McpServerManager -->
+  <calaos:option name="mcp_token" value="<64 hex>"/>
+  <calaos:option name="mcp_service_token" value="<64 hex>"/>
 </calaos:config>
 ```
+
+Lecture/écriture via `Utils::get_config_option` / `set_config_option`. Les
+options `mcp_token` (Bearer pour les clients MCP) et `mcp_service_token`
+(login de service du sidecar) sont auto-générées si absentes — voir
+[15_mcp_server.md](15_mcp_server.md). Côté parseurs tiers (ex. `xml.etree`
+Python), attention : les éléments sont namespacés (`{http://www.calaos.fr}option`).
 
 ---
 
