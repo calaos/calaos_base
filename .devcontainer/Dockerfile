@@ -20,6 +20,7 @@ RUN apt-get update -qq && \
 
 RUN pip install roonapi --break-system-packages
 RUN pip install reolink-aio --break-system-packages
+RUN pip install "mcp[cli]" uvicorn fastapi --break-system-packages
 
 RUN npm install -g @anthropic-ai/claude-code
 

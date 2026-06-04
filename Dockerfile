@@ -27,6 +27,7 @@ RUN curl -L https://github.com/calaos/calaos-web-app/archive/refs/tags/3.0.1.tar
 
 RUN pip install roonapi --break-system-packages
 RUN pip install reolink-aio --break-system-packages
+RUN pip install "mcp[cli]" uvicorn fastapi --break-system-packages
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
@@ -50,6 +51,7 @@ RUN apt -y update && \
 
 RUN pip install roonapi --break-system-packages
 RUN pip install reolink-aio --break-system-packages
+RUN pip install "mcp[cli]" uvicorn fastapi --break-system-packages
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /build/*
