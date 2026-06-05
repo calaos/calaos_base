@@ -28,9 +28,9 @@
 				"lizebang.bash-extension-pack",
 				"ms-vscode.cmake-tools",
 				"ms-python.python",
-				"VisualStudioExptTeam.vscodeintellicode",
 				"KevinRose.vsc-python-indent",
-				"eamodio.gitlens"
+				"eamodio.gitlens",
+				"Anthropic.claude-code"
 			]
 		}
 	},
