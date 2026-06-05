@@ -44,7 +44,17 @@ def iter_ios(home: dict) -> Iterator[tuple[dict, str]]:
 
 
 def is_writable(io: dict) -> bool:
-    """Return True if the IO is writable. The rw field is a JSON string."""
+    """Return True if the IO can be driven via set_state.
+
+    Writability is determined by io_type, not the rw flag: outputs and inouts
+    (lights, shutters, relays...) are always writable. The rw param only exists
+    on input value objects (IntValue) as an opt-in "edit mode" flag, so relying
+    on it alone wrongly marked every output as read-only.
+    """
+    io_type = str(io.get("io_type", "")).lower()
+    if io_type in ("output", "inout"):
+        return True
+    # Input value objects (IntValue) opt into writability via the rw flag.
     rw = io.get("rw", "false")
     if isinstance(rw, bool):
         return rw
