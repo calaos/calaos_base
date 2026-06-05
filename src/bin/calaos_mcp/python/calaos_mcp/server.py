@@ -213,6 +213,12 @@ def create_app() -> FastAPI:
     base_app.mount("/mcp", mcp_asgi_handler)
 
     # Bearer auth middleware (S7, S11) — wraps everything except /healthz.
-    base_app.add_middleware(BearerAuthMiddleware, expected_token=cfg.mcp_token)
+    base_app.add_middleware(
+        BearerAuthMiddleware,
+        expected_token=cfg.mcp_token,
+        rate_limit=cfg.rate_limit,
+        ban_failures=cfg.ban_failures,
+        ban_seconds=cfg.ban_seconds,
+    )
 
     return base_app

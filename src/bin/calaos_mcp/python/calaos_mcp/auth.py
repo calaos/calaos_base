@@ -1,8 +1,14 @@
 """Bearer token authentication middleware (S7, S11).
 
 Validates Authorization: Bearer <token> using constant-time comparison.
-Rate-limits per source IP: 30 req/min, ban 10 min after 5 consecutive
-auth failures.
+Rate-limits per source IP. The limits are read from local_config.xml (see
+calaos_mcp.config) so operators can loosen them for trusted clients — e.g. an
+automation agent that bursts many tool calls:
+
+    mcp_rate_limit    requests per minute per IP            (default 300)
+    mcp_ban_failures  consecutive auth failures before ban  (default 20,
+                      set 0 to disable banning entirely)
+    mcp_ban_seconds   ban duration in seconds               (default 120)
 """
 
 from __future__ import annotations
@@ -24,11 +30,6 @@ _req_counts: dict[str, list[float]] = defaultdict(list)   # sliding window (60s)
 _fail_counts: dict[str, int] = defaultdict(int)
 _ban_until: dict[str, float] = {}
 
-RATE_LIMIT = 30       # requests per minute
-BURST = 10
-BAN_FAILURES = 5
-BAN_SECONDS = 600
-
 
 def _source_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for", "")
@@ -38,9 +39,15 @@ def _source_ip(request: Request) -> str:
 
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, expected_token: str):
+    def __init__(self, app, expected_token: str,
+                 rate_limit: int = 300,
+                 ban_failures: int = 20,
+                 ban_seconds: int = 120):
         super().__init__(app)
         self._expected = expected_token
+        self._rate_limit = rate_limit
+        self._ban_failures = ban_failures
+        self._ban_seconds = ban_seconds
 
     async def dispatch(self, request: Request, call_next):
         # Always allow healthz without auth
@@ -59,7 +66,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
             # Sliding-window rate limit
             window = [t for t in _req_counts[ip] if now - t < 60]
-            if len(window) >= RATE_LIMIT:
+            if len(window) >= self._rate_limit:
                 LOG.warning("IP %s rate-limited", ip)
                 return Response("Too Many Requests", status_code=429)
             window.append(now)
@@ -84,10 +91,10 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         LOG.warning("Auth failure from %s: %s", ip, reason)
         with _lock:
             _fail_counts[ip] += 1
-            if _fail_counts[ip] >= BAN_FAILURES:
-                _ban_until[ip] = time.monotonic() + BAN_SECONDS
+            if self._ban_failures > 0 and _fail_counts[ip] >= self._ban_failures:
+                _ban_until[ip] = time.monotonic() + self._ban_seconds
                 _fail_counts[ip] = 0
                 LOG.warning("IP %s banned for %ds after %d failures",
-                             ip, BAN_SECONDS, BAN_FAILURES)
+                             ip, self._ban_seconds, self._ban_failures)
         return Response("Unauthorized", status_code=401,
                         headers={"WWW-Authenticate": "Bearer"})
