@@ -1,111 +1,152 @@
-# Board de refactoring Calaos Server
+# Calaos Server — Refactoring Board
 
-Board de suivi pour la distribution des tickets à des sous-agents de dev autonomes.
-Chaque ticket est un fichier `doc/refactoring/<ID>.md`.
+Tracking board for distributing refactoring tickets to autonomous dev sub-agents.
+Each ticket is a file `docs/refactoring/<ID>.md`.
 
-**Statuts** : `📋 Backlog` · `🔨 In Progress` · `👀 Review` · `✅ Done` · `⛔ Blocked`
+**Status:** `📋 Backlog` · `🔨 In Progress` · `👀 Review` · `✅ Done` · `⛔ Blocked`
 
-> Règle anti-conflit : chaque ticket possède un jeu de fichiers **exclusif**. Deux tickets d'une même vague ne modifient jamais le même fichier.
+**Anti-conflict rule:** within a single wave, every ticket owns an **exclusive** set of files. Two tickets in the same wave never modify the same file. Cross-phase edits to the same file are allowed only when serialized into different waves (see the graph).
 
 ---
 
 ## Context
 
-`calaos_base` = serveur domotique Calaos, ~75 000 lignes C++14 (libuv/uvw, sigc++, jansson **et** nlohmann/json, luajit, SQLite) + drivers Python (MCP, Reolink, Roon) via IPC `ExternProc`. Code en production. Un audit en 3 volets (cœur/règles, réseau/IPC/sécurité, drivers/lib/tests/build) révèle une dette homogène :
+`calaos_base` is the Calaos home-automation server: ~75k lines of C++14 (libuv/uvw, sigc++, **two** JSON libraries — jansson **and** nlohmann/json — luajit, SQLite) plus Python drivers (MCP sidecar, Reolink, Roon) over the `ExternProc` Unix-socket IPC. This is production code.
 
-- **Cause racine** : propriété par pointeurs bruts avec multiples alias non-propriétaires du même `IOBase*`/`Rule*` → bugs de cycle de vie (dangling/UAF au runtime).
-- **Sécurité réseau** : path traversal, tokens PRNG faible, absence de limites taille/connexions (DoS pré-auth), comparaisons non constant-time, secrets loggués.
-- **Duplication massive** + **double lib JSON**.
-- **Filet quasi nul** : 3 tests unitaires, aucun sur le cœur, CI sans `make check`.
+A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), re-verified against the current tree and enriched by a 10-subsystem sweep, revealed homogeneous technical debt:
 
-### Décisions retenues
-- **Périmètre** : dépôt complet.
-- **C++** : C++14 → **C++20** (build Arch officiel + `debian:12`/GCC 12 le supportent).
-- **Ambition** : refactoring **+ fixes** (tickets séparés).
-- **Infra qualité en Phase 0** (prérequis).
+- **Root cause:** ownership by raw pointers with multiple non-owning aliases of the same `IOBase*`/`Rule*` → lifecycle bugs (dangling / use-after-free at runtime). Confirmed criticals: `RemoteUIWebSocketHandler` post-auth raw-`this` timer, `HueOutputLightRGB` polling timer with an empty destructor, `ActionMail`/`ActionPush` dangling-this download callbacks.
+- **Network security:** path traversal, weak-PRNG tokens, no size/connection caps (pre-auth DoS), non-constant-time comparisons, secrets logged before auth.
+- **Correctness / edge cases:** off-by-one heap overflow in ping, iterator-invalidation UB in Onkyo reassembly, absent Lua sandbox, `exit(-1)` on malformed XML, many unvalidated inputs.
+- **Massive duplication** and a **dual JSON library**.
+- **Almost no safety net:** 3 unit tests (none on the core), CI without `make check`.
 
-### Gouvernance (chaque ticket)
-1. 1 ticket = 1 branche = les fichiers listés dans « Fichiers possédés » (pas d'édition hors périmètre).
-2. Ordre des vagues strict : vague N+1 après merge de N. Tickets d'une vague = parallélisables.
-3. DoD : `./autogen.sh && ./configure && make` OK, `make check` vert, 0 warning nouveau, tests ajoutés pour tout comportement corrigé.
-4. Tickets « refactor » = iso-comportement ; tickets « fix » = test de non-régression obligatoire.
-5. Pas de reformatage de masse hors ticket `.clang-format`.
+### Decisions taken
+- **Scope:** the whole repository.
+- **C++:** C++14 → **C++20** (official Arch build + `debian:12`/GCC 12 support it).
+- **JSON:** converge on nlohmann/json (already vendored).
+- **Crypto:** reuse OpenSSL (already a hard dependency) instead of bundled SHA1 / weak PRNG.
+- **Backlog language:** English (this board replaces the earlier French draft; git history retains it).
 
 ---
 
-## 🗂 Kanban
+## Board
 
-| 📋 Backlog | 🔨 In Progress | 👀 Review | ✅ Done |
-|---|---|---|---|
-| T0.1 T0.2 T0.3 T0.4 T0.5 | — | — | — |
-| T1.1 … T1.9 | | | |
-| T2.1 … T2.5 | | | |
-| T3.1 T3.2a-f T3.3 T3.4 | | | |
-| E4.1 E4.2 E4.3 | | | |
+| Wave 0a / 0b | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
+|---|---|---|---|---|
+| T0.1 T0.4 T0.6 · T0.2 T0.3 T0.5 | T1.1 … T1.19 | T2.1 … T2.7 | T3.1 T3.2a-f T3.3 T3.4 T3.5 | E4.1 E4.2 E4.3 E4.4 |
 
 ---
 
-## 📊 Suivi
+## Tracking
 
-| ID | Phase | Titre | Type | Dépend de | Statut |
+| ID | Phase | Title | Type | Depends on | Status |
 |---|---|---|---|---|---|
 | [T0.1](T0.1.md) | 0 | CI build + `make check` | infra | — | 📋 |
-| [T0.2](T0.2.md) | 0 | Nettoyage build & artefacts | infra | T0.1 | 📋 |
-| [T0.3](T0.3.md) | 0 | Scaffolding tests cœur | infra | T0.1 | 📋 |
-| [T0.4](T0.4.md) | 0 | Passage C++20 | infra | — | 📋 |
-| [T0.5](T0.5.md) | 0 | clang-format + check CI | infra | T0.2 | 📋 |
-| [T1.1](T1.1.md) | 1 | Cycle de vie règles/IO (C1,C2) | fix | Phase 0 | 📋 |
-| [T1.2](T1.2.md) | 1 | Sémantique conditions (M1,M7) | fix | Phase 0 | 📋 |
-| [T1.3](T1.3.md) | 1 | Robustesse ListeRoom (M6,m9,m10) | fix | Phase 0 | 📋 |
-| [T1.4](T1.4.md) | 1 | Durcissement JsonApi (F6,F7,F3,F4,F2,F11) | fix | Phase 0 | 📋 |
-| [T1.5](T1.5.md) | 1 | Limites transport & framing WS (F9,F10,F12) | fix | Phase 0 | 📋 |
-| [T1.6](T1.6.md) | 1 | Auth RemoteUI constant-time (F2) | fix | Phase 0 | 📋 |
-| [T1.7](T1.7.md) | 1 | Token MCP CSPRNG (F1) | fix | Phase 0 | 📋 |
-| [T1.8](T1.8.md) | 1 | Sidecar Python (F5,+) | fix | Phase 0 | 📋 |
-| [T1.9](T1.9.md) | 1 | Framing ExternProc (F13) | fix | Phase 0 | 📋 |
+| [T0.2](T0.2.md) | 0 | Build & artifact cleanup (tests) | infra | T0.1 | 📋 |
+| [T0.3](T0.3.md) | 0 | Core test scaffolding | infra | T0.1 | 📋 |
+| [T0.4](T0.4.md) | 0 | C++20 switch + configure cleanup | infra | — | 📋 |
+| [T0.5](T0.5.md) | 0 | clang-format + CI check (diff only) | infra | T0.2 | 📋 |
+| [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | 📋 |
+| [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | 📋 |
+| [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 📋 |
+| [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 📋 |
+| [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | 📋 |
+| [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | 📋 |
+| [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 📋 |
+| [T1.7](T1.7.md) | 1 | MCP token CSPRNG (F1) | fix (sec) | Phase 0 | 📋 |
+| [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 📋 |
+| [T1.9](T1.9.md) | 1 | ExternProc framing (F13 + sockfd) | fix | Phase 0 | 📋 |
+| [T1.10](T1.10.md) | 1 | RemoteUI WebSocket/OTA lifecycle | fix | Phase 0 | 📋 |
+| [T1.11](T1.11.md) | 1 | IOBase/IOFactory id integrity | fix | Phase 0 | 📋 |
+| [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | 📋 |
+| [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | 📋 |
+| [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
+| [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | 📋 |
+| [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 📋 |
+| [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 📋 |
+| [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | 📋 |
+| [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | 📋 |
 | [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | 📋 |
-| [T2.2](T2.2.md) | 2 | Découpage Utils god-object | refactor | Phase 1 | 📋 |
+| [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | 📋 |
 | [T2.3](T2.3.md) | 2 | SHA1 → OpenSSL | refactor | Phase 1 | 📋 |
-| [T2.4](T2.4.md) | 2 | Config robuste (m1-m6) | fix | Phase 1 | 📋 |
+| [T2.4](T2.4.md) | 2 | Config robustness (m1–m6 + cache) | fix | Phase 1 | 📋 |
 | [T2.5](T2.5.md) | 2 | UrlDownloader → libcurl | refactor | Phase 1 | 📋 |
-| [T3.1](T3.1.md) | 3 | AVReceiver dédup | refactor | Phase 2 | 📋 |
-| [T3.2a](T3.2a.md) | 3 | IO fines — KNX | refactor | Phase 2 | 📋 |
-| [T3.2b](T3.2b.md) | 3 | IO fines — MySensors | refactor | Phase 2 | 📋 |
-| [T3.2c](T3.2c.md) | 3 | IO fines — Mqtt | refactor | Phase 2 | 📋 |
-| [T3.2d](T3.2d.md) | 3 | IO fines — Web | refactor | Phase 2 | 📋 |
-| [T3.2e](T3.2e.md) | 3 | IO fines — Wago | refactor | Phase 2 | 📋 |
-| [T3.2f](T3.2f.md) | 3 | IO fines — Gpio | refactor | Phase 2 | 📋 |
-| [T3.3](T3.3.md) | 3 | IPCam cleanup | refactor | Phase 2 | 📋 |
-| [T3.4](T3.4.md) | 3 | base64 durci | fix | Phase 2 | 📋 |
-| [E4.1](E4.1.md) | 4 | Lib JSON unique | epic | Phase 3 | 📋 |
-| [E4.2](E4.2.md) | 4 | Modèle de propriété (smart ptr/id) | epic | Phase 3 | 📋 |
-| [E4.3](E4.3.md) | 4 | Couverture de tests | epic | Phase 0 | 📋 |
+| [T2.6](T2.6.md) | 2 | Common-lib correctness (ThreadedQueue/ColorUtils/Calendar/Params) | fix | Phase 1 | 📋 |
+| [T2.7](T2.7.md) | 2 | NTPClock timer lifetime | fix | Phase 1, T2.1 | 📋 |
+| [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 📋 |
+| [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
+| [T3.2b](T3.2b.md) | 3 | Thin IO subclasses — MySensors | refactor | Phase 2 | 📋 |
+| [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |
+| [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 📋 |
+| [T3.2e](T3.2e.md) | 3 | Thin IO subclasses — Wago | refactor | Phase 2 | 📋 |
+| [T3.2f](T3.2f.md) | 3 | Thin IO subclasses — Gpio | refactor | Phase 2 | 📋 |
+| [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | 📋 |
+| [T3.4](T3.4.md) | 3 | base64 hardening | fix | Phase 2, T2.2 | 📋 |
+| [T3.5](T3.5.md) | 3 | Squeezebox correctness & lifetime | fix | Phase 2 | 📋 |
+| [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
+| [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3, E4.3 | 📋 |
+| [E4.3](E4.3.md) | 4 | Test coverage | epic | T0.3 | 📋 |
+| [E4.4](E4.4.md) | 4 | TinyXML 2.5.3 → TinyXML2 | epic | Phase 3, E4.3, T2.4 | 📋 |
 
 ---
 
-## Graphe des vagues
+## Wave / dependency graph
 
 ```
-Phase 0  Fondations qualité      (séquentiel, bloque tout)
-   │
-Phase 1  Fixes critiques & sécu  (parallèle, fichiers disjoints)
-   │
-Phase 2  Refactors structurels   (large rayon → sérialisés ; T2.2 quasi-solo)
-   │
-Phase 3  Factorisation drivers   (parallèle par répertoire de famille)
-   │
-Phase 4  Epics long terme        (JSON unique, modèle de propriété)
+Phase 0 (infra):
+  Wave 0a:  T0.1, T0.4, T0.6          (disjoint: ci.yml / configure.ac / Dockerfile+libquickmail+scripts)
+  Wave 0b:  T0.2 ─▶ T0.3 ─▶ T0.5      (serialized: share tests/Makefile.am and/or ci.yml)
+  E4.3 may begin after T0.3 and run continuously.
+
+Phase 1 (critical fixes / security) — depends on Phase 0. Files fully disjoint → all parallel:
+  T1.1  ListeRule/AutoScenario   T1.2  ConditionStd/Output   T1.3  ListeRoom
+  T1.4  JsonApi*                 T1.5  Http/WebSocket/McpProxy/WebSocketFrame
+  T1.6  RemoteUI/RemoteUI+HMAC+Manager                        T1.7  McpServerManager
+  T1.8  calaos_mcp auth.py + calaos-python extern_proc/logger T1.9  IO/ExternProc
+  T1.10 RemoteUI WS/OTA handlers T1.11 IOBase/IOFactory       T1.12 Utils(RNG/paths)+tcpsocket ⮕ blocks T2.2
+  T1.13 IO/LAN + IO/Hue          T1.14 IO/Reolink              T1.15 LuaScript
+  T1.16 calaos_mcp client/tools + Roon main                   T1.17 extern-proc *_main.cpp
+  T1.18 ActionMail/ActionPush    T1.19 MySensors/Gpio/Web controllers
+
+Phase 2 (structural) — depends on Phase 1:
+  Wave 2a (SOLO):  T2.2  Utils split          (depends T1.12; run alone — Utils.h is included almost everywhere)
+  Wave 2b:         T2.1, T2.3, T2.4, T2.5, T2.6, T2.7   (disjoint files; T2.7 after T2.1)
+
+Phase 3 (driver dedup / fix) — depends on Phase 2. Disjoint files → parallel:
+  T3.1 AVR*/AVReceiver   T3.2a KNX  T3.2b MySensors(sub)  T3.2c Mqtt(sub)
+  T3.2d Web(sub)         T3.2e Wago(sub)  T3.2f Gpio(sub)
+  T3.3 IPCam             T3.4 base64 (after T2.2)          T3.5 Squeezebox
+
+Phase 4 (epics) — depends on Phase 3 + E4.3:
+  E4.3 (ongoing from Phase 0) is the prerequisite net.
+  E4.1 (JSON), E4.2 (ownership), E4.4 (TinyXML2) are SERIALIZED / split into per-module
+  sub-tickets before execution — they all touch ListeRoom / ListeRule / CalaosConfig / JSON files.
 ```
 
-## Quick wins à fort levier
-1. **T0.1** CI `make check` (aucun test ne garde les merges aujourd'hui).
-2. **T1.1** (UAF règles/IO) + **T1.4** (path traversal).
-3. **T1.7** (token MCP CSPRNG) + **T1.5** (limites DoS pré-auth).
-4. **T3.1** supprimer `AVRMarantz.cpp` (283 l. dupliquées, fichier entier).
+Cross-phase sequential edges (same file, different wave — never same wave):
+- `src/lib/Utils.cpp`: T1.12 (P1, RNG+paths) → T2.2 (P2, split).
+- `WebSocket.cpp`: T1.5 (P1) → T2.3 (P2, SHA1 removal).
+- `CalaosConfig.cpp`: T2.4 (P2) → E4.4 (P4, parser migration).
+- IO controller dirs: T1.13/T1.19 (P1, base/ctrl files) vs T3.2b/d/f (P3, subclass files) — disjoint files even inside the same directory.
+- `IO/Wago/`, `IO/Mqtt/`: T1.17 (P1, extern-proc mains) vs T3.2e/c (P3, subclasses) — disjoint files.
 
-## Vérification (par ticket & par vague)
-1. **Build** : `./autogen.sh && ./configure && make` sans warning nouveau (+ `--with-mqtt --with-knx --with-owfs --with-ola` pour les drivers).
-2. **Tests** : `make check` vert ; chaque ticket « fix » ajoute un test de non-régression.
-3. **Sécurité (Phase 1)** : path traversal rejeté, login throttlé, token MCP 256 bits CSPRNG, frame WS > cap rejetée sans OOM.
-4. **Fonctionnel** : serveur démarré avec `io.xml`/`rules.xml` réel, état des IO + exécution d'une règle vérifiés via API JSON (port 5454) ; driver `ExternProc` (MQTT/KNX) + sidecar MCP OK.
-5. **Revue de vague** : `/code-review` sur le diff cumulé avant merge.
+---
+
+## Quick wins (highest leverage first)
+
+1. **T0.1** — CI `make check` (today nothing guards merges).
+2. **T1.4** (path traversal `event_picture`) + **T1.1** (rule/IO UAF).
+3. **T1.13** (ping heap overflow + Hue polling-timer UAF — two confirmed criticals).
+4. **T1.7** (MCP token CSPRNG) + **T1.5** (pre-auth DoS caps).
+5. **T3.1** (Onkyo reassembly iterator-invalidation UB — memory corruption on real traffic).
+
+---
+
+## Verification (per ticket & per wave)
+
+1. **Build:** `./autogen.sh && ./configure && make` with no new warnings (+ `--with-mqtt --with-knx --with-owfs --with-ola` for drivers).
+2. **Tests:** `make check` green; every "fix" ticket adds a regression test.
+3. **Security (Phase 1):** path traversal rejected, login throttled, MCP token 256-bit CSPRNG, oversized WS frame rejected without OOM, ping/WOL/Onkyo inputs validated.
+4. **Functional:** server started with real `io.xml`/`rules.xml`, IO state + rule execution verified via the JSON API (port 5454); `ExternProc` driver (MQTT/KNX) + MCP sidecar OK.
+5. **Wave review:** `/code-review` on the cumulative diff before merge; ASan/valgrind on all lifecycle-fix tickets.
