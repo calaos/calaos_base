@@ -57,8 +57,8 @@ MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
 
 void MqttOutputLightRGB::readValue()
 {
-    bool err;
-    auto c = ctrl->getValueColor(get_params(), err);
+    [[maybe_unused]] bool err;
+    [[maybe_unused]] auto c = ctrl->getValueColor(get_params(), err);
 
     //TODO: it does not work for now. We need to refactor the way it handle color+state in all
     //RGB class and also add better state/color/brightness control in calaos
