@@ -90,7 +90,9 @@ int main (int argc, char **argv)
         return 1;
     }
 
-    system("sync");
+    //No global sync() needed anymore: Utils writes local_config.xml through a
+    //temporary file that is fsync()ed, renamed, and followed by an fsync() of
+    //the directory.
 
     Utils::freeLoggers();
 

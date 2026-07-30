@@ -55,5 +55,11 @@ FileUtils_test_SOURCES = FileUtils_test.cpp
 FileUtils_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la
 
+TESTS += Utils_config_test
+check_PROGRAMS += Utils_config_test
+Utils_config_test_SOURCES = Utils_config_test.cpp
+Utils_config_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
 endif
 
