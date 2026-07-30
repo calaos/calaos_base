@@ -15,6 +15,7 @@ AM_CXXFLAGS = \
 -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
+-I$(top_srcdir)/src/lib/cpptui \
 @CALAOS_COMMON_CFLAGS@ \
 -DLIBMBUS
 

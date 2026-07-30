@@ -136,4 +136,11 @@ libcalaos_common_la_SOURCES = \
 
 libcalaos_common_la_LIBADD = -lm @CALAOS_COMMON_LIBS@
 
+# cpp-tui is a header-only vendored library: nothing to compile, but it must
+# be shipped by "make dist". See cpptui/README.calaos for provenance.
+EXTRA_DIST = \
+        cpptui/cpptui.hpp                       \
+        cpptui/LICENSE                          \
+        cpptui/README.calaos
+
 MAINTAINERCLEANFILES = Makefile.in

@@ -1,0 +1,49 @@
+cpp-tui — vendored copy
+=======================
+
+Origin      : https://github.com/jonoton/cpp-tui
+Branch      : main
+Commit      : 9543ee3c056583eea1fc44491c6c240f0df0b570
+Commit date : 2026-07-25
+Fetched on  : 2026-07-30
+License     : MIT (see LICENSE, kept verbatim from upstream)
+
+Files
+-----
+
+  cpptui.hpp   18106 lines, 570572 bytes, sha256
+               9942394fd8b52f9948313c160a45c360d503c34e52df0626787e36da6927137e
+  LICENSE      1064 bytes, sha256
+               3625194269d1d6c074e61bdda346c44160bd1f02ad4133e7d5cc5cf6129827b4
+
+Both files are **unmodified** verbatim copies of the upstream files at the
+commit above. Any local fix must be sent upstream first; if a local patch ever
+becomes unavoidable, record it here and keep it as a separate .patch file so
+the next update can be replayed.
+
+Updating
+--------
+
+    SHA=$(curl -s https://api.github.com/repos/jonoton/cpp-tui/commits/main \
+          | sed -n 's/.*"sha": "\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
+    curl -L -o cpptui.hpp https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/cpptui.hpp
+    curl -L -o LICENSE    https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/LICENSE
+
+Then update the commit, date, sizes and sha256 above.
+
+Usage notes
+-----------
+
+Header-only, no dependency, no object file: only an include path is needed
+(-I$(top_srcdir)/src/lib/cpptui, added to src/bin/tools/Makefile.am).
+
+cpptui.hpp must only be included from .cpp files of the TUI, never from a
+header exposed to the rest of the tree: it is 18k lines and it costs roughly
++10 s of compile time and +650 MB of compiler RSS per translation unit that
+includes it (measured with the project's own CXXFLAGS, gcc 12, aarch64).
+
+The header produces 30 warnings with the project's warning flags (29 -Wshadow,
+1 -Wunused-variable). Include it through a thin local wrapper that wraps the
+#include in `#pragma GCC diagnostic push / ignored "-Wshadow" / ignored
+"-Wunused-variable" / pop`, so the tree stays at zero warnings without
+weakening the flags for our own code.
