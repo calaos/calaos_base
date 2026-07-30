@@ -11,25 +11,77 @@ License     : MIT (see LICENSE, kept verbatim from upstream)
 Files
 -----
 
-  cpptui.hpp   18106 lines, 570572 bytes, sha256
+  cpptui.hpp   18119 lines, 571283 bytes, sha256
+               393c2b727bc0d2061b07b9ba3b6c013313d0a635f7f6b7b6739dcc459bce88fd
+               (as shipped here, i.e. upstream + the local patch below)
+
+               pristine upstream at the commit above is 18106 lines,
+               570572 bytes, sha256
                9942394fd8b52f9948313c160a45c360d503c34e52df0626787e36da6927137e
+
   LICENSE      1064 bytes, sha256
                3625194269d1d6c074e61bdda346c44160bd1f02ad4133e7d5cc5cf6129827b4
+               unmodified verbatim copy of the upstream file
 
-Both files are **unmodified** verbatim copies of the upstream files at the
-commit above. Any local fix must be sent upstream first; if a local patch ever
-becomes unavoidable, record it here and keep it as a separate .patch file so
-the next update can be replayed.
+Local patches
+-------------
+
+There is exactly **one** local modification, kept in patches/ so it can be
+replayed after every upstream update. LICENSE is unmodified.
+
+  patches/0001-allow-ctrl-c-interception-to-be-disabled.patch
+
+    What: adds App::set_intercept_ctrl_c(bool) / App::intercepts_ctrl_c() and
+    guards the "Mandatory Global Exit (Ctrl+C)" branch of App::run() with the
+    new flag. The flag defaults to true, so upstream behaviour is unchanged for
+    any code that does not call the setter.
+
+    Why: upstream App::run() catches Ctrl+C at the top of the dispatch loop and
+    quits unconditionally — before register_key callbacks, before the focused
+    widget, before the exit keys. Only a live text selection makes it fall
+    through (Ctrl+C then means Copy). calaos_config edits the Calaos
+    configuration and must ask "discard unsaved changes?" before quitting, so
+    it needs Ctrl+C to reach its own handler. With the flag cleared, Ctrl+C
+    continues down the normal dispatch path; Copy-on-selection is unaffected in
+    both modes.
+
+    Upstream status: proposed, not yet merged. patches/UPSTREAM.md holds the
+    ready-to-send issue/PR text. Drop the patch — and that file — as soon as an
+    equivalent knob is released upstream.
+
+The build uses the patched cpptui.hpp directly; there is no build-time patching
+step. Do not "fix" the header any further without adding a numbered patch here:
+an unrecorded local edit is silently lost at the next update.
 
 Updating
 --------
 
+Run from this directory. It re-fetches upstream and re-applies every local
+patch, and stops loudly if a patch no longer applies — which means the patch
+must be rebased, or dropped because upstream fixed it.
+
+    set -e
     SHA=$(curl -s https://api.github.com/repos/jonoton/cpp-tui/commits/main \
           | sed -n 's/.*"sha": "\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
-    curl -L -o cpptui.hpp https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/cpptui.hpp
-    curl -L -o LICENSE    https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/LICENSE
+    curl -fL -o cpptui.hpp https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/cpptui.hpp
+    curl -fL -o LICENSE    https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/LICENSE
 
-Then update the commit, date, sizes and sha256 above.
+    # record the pristine sha256 before patching
+    sha256sum cpptui.hpp
+
+    for p in patches/[0-9]*.patch; do
+      echo "applying $p"
+      patch -p1 -d ../../.. --batch --forward --no-backup-if-mismatch < "$p" || {
+        echo "FAILED to apply $p — rebase it or drop it, do not skip it" >&2
+        exit 1
+      }
+    done
+
+    sha256sum cpptui.hpp   # patched value
+
+Then update the commit, date, sizes and both sha256 above, and re-check the
+"Local patches" section (a patch that upstream has merged must be deleted, not
+kept as a no-op).
 
 Usage notes
 -----------
@@ -47,3 +99,9 @@ The header produces 30 warnings with the project's warning flags (29 -Wshadow,
 #include in `#pragma GCC diagnostic push / ignored "-Wshadow" / ignored
 "-Wunused-variable" / pop`, so the tree stays at zero warnings without
 weakening the flags for our own code.
+
+On Unix, the input parser remaps control characters 1..26 to `c + 96`, so
+Ctrl+C is delivered as `key == 'c'` with `ctrl == true`, not as `key == 3`.
+Code opting out of the Ctrl+C interception must therefore register
+`register_key('c', cb, /*ctrl=*/true)`; `register_key(3, ...)` never fires
+here, even though `Event::is_copy()` also accepts key 3.

@@ -16201,6 +16201,16 @@ class App {
     key_events_.erase({key, ctrl, alt, shift});
   }
 
+  /// @brief Enable or disable the mandatory global exit on Ctrl+C
+  /// @param intercept True (the default) to always exit on Ctrl+C, false to
+  /// dispatch Ctrl+C like any other key, so a registered key or the focused
+  /// widget can handle it (e.g. to confirm before discarding unsaved work).
+  /// The Copy-on-selection behavior of Ctrl+C is unaffected either way.
+  void set_intercept_ctrl_c(bool intercept) { intercept_ctrl_c_ = intercept; }
+
+  /// @brief Check whether Ctrl+C is intercepted as a mandatory global exit
+  bool intercepts_ctrl_c() const { return intercept_ctrl_c_; }
+
   // Dialog Stack
   std::vector<std::shared_ptr<Dialog>> dialog_stack;
 
@@ -16520,7 +16530,7 @@ class App {
 
         // 1. Mandatory Global Exit (Ctrl+C)
         bool is_ctrl_c = (event.is_key_event()) && event.is_copy();
-        if (is_ctrl_c) {
+        if (is_ctrl_c && intercept_ctrl_c_) {
           // Check if focused widget has selection - if so, let it consume the
           // event for Copy
           bool handled_as_copy = false;
@@ -16986,6 +16996,9 @@ class App {
   // Hover State
   std::shared_ptr<Widget> hovered_widget_;
   std::shared_ptr<Tooltip> active_tooltip_;
+
+  // Mandatory global exit on Ctrl+C, see set_intercept_ctrl_c()
+  bool intercept_ctrl_c_ = true;
 
   Buffer current_buffer_;
   Buffer previous_buffer_;
