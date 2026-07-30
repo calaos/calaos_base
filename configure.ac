@@ -20,7 +20,6 @@ AM_GNU_GETTEXT_VERSION([0.19])
 
 m4_ifdef([AM_GNU_GETTEXT], [
 AM_GNU_GETTEXT([external])
-po_makefile_in=po/Makefile.in
 have_po="yes"
 ],[
 have_po="no"
@@ -234,11 +233,17 @@ src/bin/tools/Makefile
 data/Makefile
 data/debug/Makefile
 data/debug/dist/Makefile
-$po_makefile_in
 src/bin/calaos_server/Audio/calaos_roon
 src/bin/calaos_server/IO/Reolink/calaos_reolink
 src/bin/calaos_mcp/calaos_mcp
 ])
+
+# po/Makefile.in must be listed literally, not through a shell variable: config.status
+# stores the AC_CONFIG_FILES arguments as case patterns, and a "$var" pattern is empty
+# when config.status is re-invoked standalone -- which is exactly what automake's
+# "po/Makefile: ... POTFILES.in" rule does whenever POTFILES.in is edited. The gettext
+# condition below is an m4-time test, identical to the one guarding AM_GNU_GETTEXT above.
+m4_ifdef([AM_GNU_GETTEXT], [AC_CONFIG_FILES([po/Makefile.in])])
 
 AC_OUTPUT
 
