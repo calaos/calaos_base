@@ -12,6 +12,7 @@ AM_CXXFLAGS = \
 -DPACKAGE_BIN_DIR=\"$(bindir)\" \
 -DPACKAGE_LIB_DIR=\"$(libdir)\" \
 -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\" \
+-DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
 -I$(top_srcdir)/src/lib \
 -I$(top_srcdir)/src/lib/LuaScript \
 @CALAOS_COMMON_CFLAGS@ \
@@ -20,7 +21,8 @@ AM_CXXFLAGS = \
 bin_PROGRAMS = calaos_config wago_test calaos_mail
 
 calaos_config_SOURCES = \
-        calaos_config.cpp
+        calaos_config.cpp       \
+        ConfigCliOutput.cpp     ConfigCliOutput.h
 
 calaos_config_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \

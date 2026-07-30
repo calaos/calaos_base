@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "Calaos.h"
+#include "ConfigOptions.h"
 #include "Room.h"
 #include "ListeRoom.h"
 #include "IOFactory.h"
@@ -107,6 +108,17 @@ int main (int argc, char **argv)
     char *cachedir = argvOptionParam(argv, argv + argc, "--cache");
 
     Utils::initConfigOptions(confdir, cachedir);
+
+    /* Now that local_config.xml is loaded, drop the options that do not have
+     * any effect anymore. This is deliberately an explicit call and not a side
+     * effect of initConfigOptions(): calaos_config and calaos_mail call that
+     * function too, and neither of them may purge behind the user's back.
+     * purgeObsolete() never throws and is a silent no-op on a read-only rootfs.
+     */
+    std::vector<std::string> purgedOptions;
+    ConfigOptions::purgeObsolete(&purgedOptions);
+    for (const std::string &purgedKey: purgedOptions)
+        cInfoDom("config") << "Purged obsolete option: " << purgedKey;
 
     Prefix::Instance(argc, argv);
 

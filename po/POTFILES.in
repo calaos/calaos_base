@@ -331,6 +331,8 @@
 ./src/bin/calaos_server/WebSocket.h
 ./src/bin/tools/calaos_config.cpp
 ./src/bin/tools/calaos_mail.cpp
+./src/bin/tools/ConfigCliOutput.cpp
+./src/bin/tools/ConfigCliOutput.h
 ./src/bin/tools/wago_test.cpp
 ./src/lib/base64.cpp
 ./src/lib/base64.h
