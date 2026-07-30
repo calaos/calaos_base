@@ -12,7 +12,7 @@ This is the base package for the server.
 ### Dependencies
 Requires:
 
- - gcc > 5 or clang
+ - gcc >= 7 or clang (C++17)
  - libuv > 1.10
  - jansson > 2.5
  - curl > 7.20.0

@@ -189,7 +189,7 @@ Tests live in `tests/` and use Google Test. Built and run with `make check` (onl
 
 ## Key Dependencies
 
-**Required:** `gcc > 5` (C++14), `libuv > 1.10`, `jansson > 2.5`, `libcurl > 7.20`, `luajit`, `sigc++ > 2.4`, `sqlite3`
+**Required:** `gcc >= 7` (C++17), `libuv > 1.10`, `jansson > 2.5`, `libcurl > 7.20`, `luajit`, `sigc++ > 2.4`, `sqlite3`
 
 **Optional** (enabled via `./configure --with-<name>`):
 

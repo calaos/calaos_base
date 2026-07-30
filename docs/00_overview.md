@@ -2,7 +2,7 @@
 
 ## Qu'est-ce que Calaos ?
 
-Calaos est un serveur de domotique open-source écrit en C++14. Il expose un système d'automatisation basé sur des **règles** (conditions → actions), gère des **entrées/sorties** (IO) sur de nombreux protocoles, et fournit une **API JSON** (HTTP + WebSocket) à ses clients UI.
+Calaos est un serveur de domotique open-source écrit en C++17. Il expose un système d'automatisation basé sur des **règles** (conditions → actions), gère des **entrées/sorties** (IO) sur de nombreux protocoles, et fournit une **API JSON** (HTTP + WebSocket) à ses clients UI.
 
 Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers (MQTT, KNX, Wago, OneWire, OLA, Reolink, scripts Lua, Roon) via le framework `ExternProc`. Un sous-processus Python supplémentaire, `calaos_mcp`, expose l'installation aux LLM via le Model Context Protocol (voir [15_mcp_server.md](15_mcp_server.md)).
 

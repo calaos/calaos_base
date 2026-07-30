@@ -42,7 +42,7 @@ AC_CANONICAL_HOST
 AC_PROG_CXX
 AC_PROG_CC
 AM_PROG_CC_C_O
-AX_CXX_COMPILE_STDCXX_14([noext],[mandatory])
+AX_CXX_COMPILE_STDCXX_17([noext],[mandatory])
 
 # pkg-config
 PKG_PROG_PKG_CONFIG
