@@ -22,3 +22,4 @@ Documentation technique du projet `calaos_base` pour agents LLM.
 | [13_utility_lib.md](13_utility_lib.md) | Utils, Params, Timer, Logger, ColorUtils et libs embarquées |
 | [14_python_extern_proc.md](14_python_extern_proc.md) | Drivers Python (calaos_extern_proc, Reolink, Roon) |
 | [15_mcp_server.md](15_mcp_server.md) | Sidecar MCP : calaos_mcp, reverse proxy /mcp, tools, auth Bearer |
+| [16_config_options.md](16_config_options.md) | Référence complète des options de local_config.xml, générée depuis le registre `ConfigOptions` |

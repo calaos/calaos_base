@@ -5,9 +5,13 @@
 La configuration Calaos est persistée dans trois fichiers XML :
 - `io.xml` — définition des IOs (pièces + entrées/sorties)
 - `rules.xml` — règles d'automatisation (conditions + actions)
-- `local_config.xml` — paramètres serveur (identifiants, SMTP, InfluxDB, NTP, tokens push, options diverses)
+- `local_config.xml` — paramètres serveur (identifiants, SMTP, InfluxDB, options diverses) — voir
+  [16_config_options.md](16_config_options.md) pour la liste complète et documentée de ses options
 
-Un cache d'état SQLite sauvegarde les dernières valeurs des IOs pour les restaurer au redémarrage.
+Un cache d'état SQLite sauvegarde les dernières valeurs des IOs pour les restaurer au redémarrage ;
+les tokens de notification push (`push_tokens`) vivent eux aussi dans cette base SQLite (voir
+[src/bin/calaos_server/HistLogger.cpp](../src/bin/calaos_server/HistLogger.cpp)), pas dans
+`local_config.xml`.
 
 ---
 
@@ -15,7 +19,11 @@ Un cache d'état SQLite sauvegarde les dernières valeurs des IOs pour les resta
 
 **Fichier :** [src/bin/calaos_server/CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h)
 
-Singleton. Orchestre le chargement et la sauvegarde.
+Singleton. Charge et sauvegarde `io.xml` (IOs) et `rules.xml` (règles). **`local_config.xml` n'est
+pas géré par `Config`** : il est lu et écrit par des fonctions libres du namespace `Utils`
+(`Utils::get_config_option[s]`, `set_config_option[s]`, `del_config_option`, voir plus bas). `Config`
+ne touche `local_config.xml` qu'indirectement, via `BackupFiles()` qui le copie (lecture seule) au
+même titre que `io.xml` et `rules.xml`.
 
 ```cpp
 Config &conf = Config::Instance();
@@ -96,28 +104,59 @@ En développement (`~/.config/calaos/` ou variable d'env `CALAOS_HOME`).
 
 ## Format local_config.xml
 
-Paramètres serveur globaux (credentials, SMTP, NTP, InfluxDB, tokens push, etc.) :
+Paramètres serveur globaux (identifiants, SMTP, InfluxDB, etc.) — la liste complète et documentée
+de chaque option (type, valeur par défaut, composant consommateur) est dans
+[16_config_options.md](16_config_options.md), généré depuis le registre
+[src/lib/ConfigOptions.cpp](../src/lib/ConfigOptions.cpp) :
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <calaos:config xmlns:calaos="http://www.calaos.fr">
-  <calaos:option name="calaos_user" value="user"/>
-  <calaos:option name="calaos_password" value="pass"/>
+  <calaos:option name="cn_user" value="user"/>
+  <calaos:option name="cn_pass" value="pass"/>
   <calaos:option name="port_api" value="5454"/>
   <calaos:option name="smtp_server" value="smtp.example.com"/>
-  <calaos:option name="mail_to" value="user@example.com"/>
-  <calaos:option name="ntp_server" value="pool.ntp.org"/>
   <!-- Générés automatiquement au premier démarrage par McpServerManager -->
   <calaos:option name="mcp_token" value="<64 hex>"/>
   <calaos:option name="mcp_service_token" value="<64 hex>"/>
 </calaos:config>
 ```
 
-Lecture/écriture via `Utils::get_config_option` / `set_config_option`. Les
-options `mcp_token` (Bearer pour les clients MCP) et `mcp_service_token`
-(login de service du sidecar) sont auto-générées si absentes — voir
-[15_mcp_server.md](15_mcp_server.md). Côté parseurs tiers (ex. `xml.etree`
-Python), attention : les éléments sont namespacés (`{http://www.calaos.fr}option`).
+Lecture/écriture via les fonctions libres `Utils::get_config_option[s]` / `set_config_option[s]` /
+`del_config_option` ([src/lib/Utils.cpp](../src/lib/Utils.cpp)). Les options `mcp_token` (Bearer
+pour les clients MCP) et `mcp_service_token` (login de service du sidecar) sont auto-générées si
+absentes — voir [15_mcp_server.md](15_mcp_server.md). Côté parseurs tiers (ex. `xml.etree` Python),
+attention : les éléments sont namespacés (`{http://www.calaos.fr}option`).
+
+### Un fichier partagé par plusieurs écrivains
+
+`local_config.xml` n'est pas la propriété exclusive du serveur. Quatre processus le lisent et
+l'écrivent :
+
+- **`calaos_server`** — au démarrage (semis des valeurs par défaut, purge des clés obsolètes) et à
+  chaque écriture déclenchée par l'API (`processConfig` dans
+  [JsonApiHandlerHttp.cpp](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) ;
+- **`calaos_config`** — l'outil en ligne de commande (`get`/`set`/`del`/`purge`, voir
+  [16_config_options.md](16_config_options.md)) ;
+- **`calaos_mail`** — relancé par `NotifManager` à **chaque envoi de mail** de notification
+  ([src/bin/calaos_server/NotifManager.cpp](../src/bin/calaos_server/NotifManager.cpp)) ;
+- **Calaos Home** (l'écran tactile, `calaos_mobile` compilé en `CALAOS_DESKTOP`, hors de ce dépôt) —
+  il lit et écrit ses propres clés (`show_cursor`, `dpms_enable`, `lang`, `calaos_server_host`…)
+  directement dans le même fichier, au même format `<calaos:option>`.
+
+Les trois premiers passent tous par `Utils`, qui sérialise les accès inter-processus avec un
+`flock(LOCK_EX)` (`LOCK_SH` en lecture) posé sur un fichier compagnon `local_config.xml.lock`, et
+écrit de façon atomique et durable : écriture dans un fichier temporaire du même répertoire,
+`fchmod`/`fchown` aux mode/uid/gid d'origine, `fsync()` du fichier puis du répertoire, et enfin
+`rename()` — ajouté par le commit `7d7808b9`. Cela évite qu'une écriture concurrente ne perde des
+clés ou qu'une coupure de courant ne laisse un fichier vide ou aux mauvais droits (le fichier
+contient des secrets : `smtp_password`, `influxdb_token`, `mcp_token`, `mcp_service_token`, `cn_pass`).
+
+**Limite connue :** Calaos Home ne passe pas par `Utils` et ne prend donc **pas** ce verrou. Une
+écriture de Calaos Home concurrente à une écriture de `calaos_server`/`calaos_config`/`calaos_mail`
+n'est pas sérialisée par ce mécanisme ; le pire cas reste une clé écrasée par le dernier écrivain,
+jamais un fichier corrompu (l'écriture atomique protège toujours contre ça). Le vrai correctif serait
+côté `calaos_mobile`, hors de ce dépôt.
 
 ---
 
