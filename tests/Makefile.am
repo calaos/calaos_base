@@ -27,6 +27,7 @@ AM_CPPFLAGS = \
               -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
               -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
               -I$(top_srcdir)/src/bin/calaos_server                 \
+              -I$(top_srcdir)/src/bin/tools/config_tui              \
               -I$(top_srcdir)/src/lib                               \
               -I$(top_srcdir)/src/lib/LuaScript                     \
               -I$(top_srcdir)/src/lib/TinyXML                       \
@@ -65,6 +66,19 @@ TESTS += Utils_config_test
 check_PROGRAMS += Utils_config_test
 Utils_config_test_SOURCES = Utils_config_test.cpp
 Utils_config_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
+#ConfigModel lives with the TUI but does not include cpptui.hpp, so it is
+#compiled straight into the test and runs without any terminal
+TESTS += ConfigModel_test
+check_PROGRAMS += ConfigModel_test
+ConfigModel_test_SOURCES = ConfigModel_test.cpp \
+                  $(top_srcdir)/src/bin/tools/config_tui/ConfigModel.cpp \
+                  $(top_srcdir)/src/bin/tools/config_tui/ConfigModel.h
+#Per target flags on purpose: they prefix the object name, so this build of
+#ConfigModel.cpp cannot collide with the one of calaos_config
+ConfigModel_test_CPPFLAGS = $(AM_CPPFLAGS)
+ConfigModel_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la
 
 endif
