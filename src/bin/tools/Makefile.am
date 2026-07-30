@@ -23,7 +23,11 @@ bin_PROGRAMS = calaos_config wago_test calaos_mail
 
 calaos_config_SOURCES = \
         calaos_config.cpp       \
-        ConfigCliOutput.cpp     ConfigCliOutput.h
+        ConfigCliOutput.cpp     ConfigCliOutput.h  \
+        config_tui/ConfigTui.cpp   config_tui/ConfigTui.h   \
+        config_tui/ConfigRow.cpp   config_tui/ConfigRow.h   \
+        config_tui/ConfigModel.cpp config_tui/ConfigModel.h \
+        config_tui/CppTui.h
 
 calaos_config_LDADD = \
 	$(top_builddir)/src/lib/libcalaos_common.la \

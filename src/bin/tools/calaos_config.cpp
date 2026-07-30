@@ -27,6 +27,7 @@
 #include <ConfigOptions.h>
 
 #include "ConfigCliOutput.h"
+#include "config_tui/ConfigTui.h"
 
 #include <unistd.h>
 
@@ -584,20 +585,33 @@ int actionOptions(const CliArgs &args)
     return 0;
 }
 
-/* The interactive browser lands here (steps 8 and 9 of the plan). This is the
- * single call site to plug ConfigTui into: everything else, argument parsing,
- * config path resolution and locale, is already done when we get here.
+/* The interactive browser. Everything else, argument parsing, config path
+ * resolution and locale, is already done when we get here.
  */
-int actionTui()
+int actionTui(const CliArgs &args)
 {
-    std::cerr << _("The interactive configuration browser is not implemented yet.") << std::endl;
-    std::cerr << _("In the meantime:") << std::endl;
-    std::cerr << _("  calaos_config list             list the current configuration") << std::endl;
-    std::cerr << _("  calaos_config options          documentation of every option") << std::endl;
-    std::cerr << _("  calaos_config describe <key>   documentation of one option") << std::endl;
-    std::cerr << _("  calaos_config set <key> <val>  change an option") << std::endl;
+    /* cpp-tui reads STDIN_FILENO and never checks isatty(), and
+     * Terminal::getSize() does an unchecked ioctl(TIOCGWINSZ): this guard is
+     * what keeps "calaos_config tui | cat" from opening an invisible browser.
+     */
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+    {
+        std::cerr << _("The interactive browser needs a terminal.") << std::endl;
+        std::cerr << _("  calaos_config list             list the current configuration") << std::endl;
+        std::cerr << _("  calaos_config options          documentation of every option") << std::endl;
+        std::cerr << _("  calaos_config describe <key>   documentation of one option") << std::endl;
+        std::cerr << _("  calaos_config set <key> <val>  change an option") << std::endl;
+        return 1;
+    }
 
-    return 1;
+    TuiColorMode color = TuiColorMode::Auto;
+    if (args.color == ConfigCli::ColorMode::Always)
+        color = TuiColorMode::Always;
+    else if (args.color == ConfigCli::ColorMode::Never)
+        color = TuiColorMode::Never;
+
+    //Empty path: the browser asks Utils for the file it already resolved
+    return runConfigTui(std::string(), color);
 }
 
 }
@@ -649,14 +663,26 @@ int main (int argc, char **argv)
         std::cerr << _("Cache path:") << " " << Utils::getCacheFile("") << std::endl;
         std::cerr << _("Both paths must be writable. Run the command with sudo, or point it at "
                        "directories you own with --config <dir> and --cache <dir>.") << std::endl;
-        Utils::freeLoggers();
-        return 1;
+
+        /* The browser is a viewer before it is an editor: it opens read only on
+         * a configuration it cannot write, says so and refuses every edit,
+         * rather than leaving the user with nothing at all. initConfigOptions()
+         * resolves both paths before it checks them, so the file it would have
+         * used is known. Every other action really needs a writable config.
+         */
+        if (!args.action.empty() && args.action != "tui")
+        {
+            Utils::freeLoggers();
+            return 1;
+        }
+
+        std::cerr << _("Opening the browser in read-only mode.") << std::endl;
     }
 
     int ret;
 
     if (args.action.empty() || args.action == "tui")
-        ret = actionTui();
+        ret = actionTui(args);
     else if (args.action == "get")
         ret = actionGet(args);
     else if (args.action == "set")
