@@ -25,7 +25,6 @@
 #include "CalaosConfig.h"
 #include "ListeRule.h"
 #include "UDPServer.h"
-#include "NTPClock.h"
 #include "WagoMap.h"
 #include "HttpServer.h"
 #include "McpServerManager.h"
@@ -162,8 +161,6 @@ int main (int argc, char **argv)
     // on a Unix domain socket and is reverse-proxied through /mcp/* on the
     // HttpServer above. Disabled silently if the wrapper is not installed.
     McpServerManager::Instance().start();
-
-    NTPClock::Instance();
 
     if (enable_udp)
     {

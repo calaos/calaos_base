@@ -246,7 +246,6 @@ bool set_config_option(string key, string value);
 bool del_config_option(string key);
 bool get_config_options(Params &options);
 void Watchdog(std::string fname);
-string getHardwareID();
 
 string createRandomUuid();
 

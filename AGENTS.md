@@ -133,7 +133,7 @@ Scripts run in an isolated subprocess (`ScriptExtern_main.cpp` via ExternProc). 
 `Config` singleton loads/saves `local_config.xml` (IOs) and `rules.xml` (rules). A state cache (SQLite via `sqlite_modern_cpp`) persists last known IO values across restarts. See `doc/11_config_persistence.md`.
 
 ### Common Library (`src/lib/`)
-`Utils`, `Logger`, `Params` (string→string map), `Timer` (libuv-based), `ColorUtils`, `FileUtils`, `UrlDownloader` (libcurl async), `ExpressionEvaluator` (exprtk), `NTPClock`. Bundled third-party libs: nlohmann/json, TinyXML+XPath, sole (UUID), sqlite_modern_cpp, llhttp, exprtk, libquickmail, uvw. See `doc/13_utility_lib.md`.
+`Utils`, `Logger`, `Params` (string→string map), `Timer` (libuv-based), `ColorUtils`, `FileUtils`, `UrlDownloader` (libcurl async), `ExpressionEvaluator` (exprtk). Bundled third-party libs: nlohmann/json, TinyXML+XPath, sole (UUID), sqlite_modern_cpp, llhttp, exprtk, libquickmail, uvw. See `doc/13_utility_lib.md`.
 
 ---
 

@@ -520,15 +520,10 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
         std::ofstream conf(file.c_str(), std::ofstream::out);
         conf << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" << endl;
         conf << "<calaos:config xmlns:calaos=\"http://www.calaos.fr\">" << endl;
-        conf << "<calaos:option name=\"fw_version\" value=\"0\" />" << endl;
         conf << "</calaos:config>" << endl;
         conf.close();
 
-        set_config_option("fw_target", "calaos_tss");
-        set_config_option("fw_version", "0");
         set_config_option("show_cursor", "true");
-        set_config_option("use_ntp", "true");
-        set_config_option("device_type", "calaos_server");
         set_config_option("dpms_enable", "false");
         set_config_option("smtp_server", "");
         set_config_option("cn_user", "user");
@@ -624,32 +619,32 @@ bool Utils::set_config_option(string key, string value)
     TiXmlHandle docHandle(&document);
     bool found = false;
 
-    TiXmlElement *key_node = docHandle.FirstChildElement("calaos:config").FirstChildElement().ToElement();
-    if (key_node)
+    TiXmlElement *root = docHandle.FirstChildElement("calaos:config").ToElement();
+    if (!root)
+        return false;
+
+    for (TiXmlElement *key_node = root->FirstChildElement(); key_node; key_node = key_node->NextSiblingElement())
     {
-        for(; key_node; key_node = key_node->NextSiblingElement())
+        if (key_node->ValueStr() == "calaos:option" &&
+            key_node->Attribute("name") &&
+            key_node->Attribute("name") == key)
         {
-            if (key_node->ValueStr() == "calaos:option" &&
-                key_node->Attribute("name") &&
-                key_node->Attribute("name") == key)
-            {
-                key_node->SetAttribute("value", value);
-                found = true;
-                break;
-            }
+            key_node->SetAttribute("value", value);
+            found = true;
+            break;
         }
-
-        //the option was not found, we create it
-        if (!found)
-        {
-            TiXmlElement *element = new TiXmlElement("calaos:option");
-            element->SetAttribute("name", key);
-            element->SetAttribute("value", value);
-            docHandle.FirstChild("calaos:config").ToElement()->LinkEndChild(element);
-        }
-
-        document.SaveFile();
     }
+
+    //the option was not found, we create it
+    if (!found)
+    {
+        TiXmlElement *element = new TiXmlElement("calaos:option");
+        element->SetAttribute("name", key);
+        element->SetAttribute("value", value);
+        root->LinkEndChild(element);
+    }
+
+    document.SaveFile();
 
     return true;
 }
@@ -753,37 +748,6 @@ char *Utils::argvOptionParam(char **begin, char **end, const std::string &option
     if (itr != end && ++itr != end)
         return *itr;
     return NULL;
-}
-
-#define HWETH1 "eth0"
-#define HWETH2 "eth1"
-
-string Utils::getHardwareID()
-{
-    static string hwID;
-
-    if (!hwID.empty())
-        return hwID;
-
-    stringstream ss;
-
-    unsigned char hwmac1[6], hwmac2[6];
-    if (!TCPSocket::GetMacAddr(HWETH1, hwmac1))
-        return "";
-
-    if (!TCPSocket::GetMacAddr(HWETH2, hwmac2))
-        return "";
-
-    for (int i = 0;i < 6;i++)
-    {
-        ss << setiosflags(ios_base::uppercase) << setfill('0')
-           << setw(2) << hex << (unsigned int)hwmac1[i];
-        ss << setiosflags(ios_base::uppercase) << setfill('0')
-           << setw(2) << hex << (unsigned int)hwmac2[i];
-    }
-    hwID = ss.str();
-
-    return hwID;
 }
 
 string Utils::getFileContent(const char *filename)

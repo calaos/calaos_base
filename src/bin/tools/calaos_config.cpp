@@ -54,10 +54,7 @@ int main (int argc, char **argv)
     {
         string key = argv[2];
 
-        if (key == "hwid")
-            cout << Utils::getHardwareID();
-        else
-            cout << Utils::get_config_option(key);
+        cout << Utils::get_config_option(key);
     }
     else if (action == "set")
     {
@@ -69,10 +66,7 @@ int main (int argc, char **argv)
         string key = argv[2];
         string value = argv[3];
 
-        if (key == "hwid")
-            cError() <<  "Can't change hwid";
-        else
-            Utils::set_config_option(key, value);
+        Utils::set_config_option(key, value);
     }
     else if (action == "list")
     {

@@ -106,14 +106,6 @@ t->stop();
 
 ---
 
-## NTPClock
-
-**Fichier :** [src/lib/NTPClock.h](../src/lib/NTPClock.h)
-
-Synchronisation NTP. Maintient l'heure système précise pour les règles temporelles.
-
----
-
 ## ColorUtils
 
 **Fichier :** [src/lib/ColorUtils.h](../src/lib/ColorUtils.h)

@@ -384,8 +384,6 @@
 ./src/lib/llhttp/src/llhttp.c
 ./src/lib/Logger.cpp
 ./src/lib/Logger.h
-./src/lib/NTPClock.cpp
-./src/lib/NTPClock.h
 ./src/lib/Params.cpp
 ./src/lib/Params.h
 ./src/lib/Prefix.cpp
