@@ -333,6 +333,13 @@
 ./src/bin/tools/calaos_mail.cpp
 ./src/bin/tools/ConfigCliOutput.cpp
 ./src/bin/tools/ConfigCliOutput.h
+./src/bin/tools/config_tui/ConfigModel.cpp
+./src/bin/tools/config_tui/ConfigModel.h
+./src/bin/tools/config_tui/ConfigRow.cpp
+./src/bin/tools/config_tui/ConfigRow.h
+./src/bin/tools/config_tui/ConfigTui.cpp
+./src/bin/tools/config_tui/ConfigTui.h
+./src/bin/tools/config_tui/CppTui.h
 ./src/bin/tools/wago_test.cpp
 ./src/lib/base64.cpp
 ./src/lib/base64.h

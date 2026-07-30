@@ -2,6 +2,21 @@
 TESTS =
 check_PROGRAMS =
 
+#Shell tests. They need no gtest, only the built calaos_config, so they live
+#outside of the HAVE_GTEST conditional. They locate the tree through those two
+#variables, and fall back on their own path when run by hand.
+AM_TESTS_ENVIRONMENT = \
+              abs_top_srcdir='$(abs_top_srcdir)'; export abs_top_srcdir;     \
+              abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir;
+
+#check-config-options.sh: every config key used by the sources must be in the
+#ConfigOptions registry, no registry entry may be orphaned, no obsolete key may
+#come back.
+#check-config-docs.sh: docs/16_config_options.md must still match
+#"calaos_config options --markdown".
+TESTS += check-config-options.sh check-config-docs.sh
+dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
+
 if HAVE_GTEST
 AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
