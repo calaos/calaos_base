@@ -339,6 +339,8 @@
 ./src/lib/Calendar.h
 ./src/lib/ColorUtils.cpp
 ./src/lib/ColorUtils.h
+./src/lib/ConfigOptions.cpp
+./src/lib/ConfigOptions.h
 ./src/lib/ExpressionEvaluator.cpp
 ./src/lib/ExpressionEvaluator.h
 ./src/lib/exprtk/exprtk_benchmark.cpp

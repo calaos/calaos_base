@@ -53,6 +53,8 @@ libcalaos_common_la_SOURCES = \
         CalaosModule.h                          \
         Calendar.cpp                            \
         Calendar.h                              \
+        ConfigOptions.cpp                       \
+        ConfigOptions.h                         \
         ExpressionEvaluator.h                   \
         ExpressionEvaluator.cpp                 \
         Timer.cpp                               \
