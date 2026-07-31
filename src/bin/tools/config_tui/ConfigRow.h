@@ -48,36 +48,6 @@ namespace Calaos
 // Widget helpers shared by ConfigRow.cpp and ConfigTui.cpp
 //---------------------------------------------------------------------------
 
-/* cpp-tui only exposes the focus through the virtual on_focus()/on_blur()
- * pair, and its App keeps the focused widget private. Wrapping a widget in
- * FocusAware is how this TUI learns that the focus moved: which row the
- * documentation pane must describe, and whether a text field is being edited
- * (which turns the single letter shortcuts off, see ConfigTui.cpp).
- */
-template<class W>
-class FocusAware: public W
-{
-public:
-    using W::W;
-
-    std::function<void()> onFocusIn;
-    std::function<void()> onFocusOut;
-
-    void on_focus() override
-    {
-        W::on_focus();
-        if (onFocusIn)
-            onFocusIn();
-    }
-
-    void on_blur() override
-    {
-        W::on_blur();
-        if (onFocusOut)
-            onFocusOut();
-    }
-};
-
 /* Text field of the editor. cpptui::Input does not consume Enter and has no
  * read only mode, both of which this TUI needs; Ctrl-R reveals a masked
  * secret while it is being edited.
@@ -126,8 +96,6 @@ class ConfigRowHost
 public:
     virtual ~ConfigRowHost() {}
 
-    //The row took the focus: the documentation pane follows it
-    virtual void rowFocused(ConfigRow *row) = 0;
     //Asks the model to accept value. False, and error is filled, when refused.
     virtual bool rowSetValue(ConfigRow *row, const std::string &value,
                              std::string *error) = 0;
@@ -143,6 +111,18 @@ public:
 class ConfigRow
 {
 public:
+    /* What the line answers to. The keyboard model of the option pane is the
+     * same for every kind: Space activates, Enter edits; only what "activate"
+     * and "edit" do changes.
+     */
+    enum class Kind
+    {
+        Text,   //free text or password: Enter opens the field
+        Number, //integer or decimal: Enter opens the field, Up and Down step
+        Bool,   //Space and Enter flip it, there is nothing to edit
+        Enum    //Space picks the next value, Enter opens the list
+    };
+
     /* Builds the line for one row of the model. readOnly disables every
      * editor without hiding anything, mono drops the few hardcoded colours of
      * the library widgets so that a terminal without truecolor stays readable.
@@ -152,10 +132,7 @@ public:
 
     const std::string &key() const { return m_key; }
     const ConfigOption *option() const { return m_option; }
-
-    //True when the editor of this row is a free text field. The single letter
-    //shortcuts must stay off while such a row has the focus.
-    bool isTextEditor() const { return m_textEditor; }
+    Kind kind() const { return m_kind; }
 
     //The whole line, to be added to the option pane
     std::shared_ptr<cpptui::Widget> widget() const { return m_line; }
@@ -176,15 +153,50 @@ public:
      */
     void detach();
 
-    /* Validates and commits what the field currently holds, on Enter and when
-     * the focus leaves the row. False when the registry refused the value: the
-     * caller decides whether to keep it on screen or to put the value of the
-     * model back.
+    /* Validates and commits what the field currently holds. False when the
+     * registry refused the value: the caller decides whether to keep it on
+     * screen or to put the value of the model back.
      */
     bool commit();
 
-    //Draws, or hides, the marker of the focused line
-    void setFocusMarker(bool on);
+    /* Cursor of the option pane. selected is the line the cursor sits on,
+     * active tells whether that pane is the one the keyboard drives: the
+     * marker is "> " when it is and "* " when it is not, exactly like the
+     * category column.
+     */
+    void setSelected(bool selected, bool active);
+
+    //--- Edit mode ---------------------------------------------------------
+    //
+    // A Bool has nothing to edit: activate() flips it and editing never
+    // starts. Everything else opens on Enter, and while it is open the pane
+    // hands it every key it receives.
+
+    //True when Enter on this line opens an editor rather than just acting
+    bool editable() const { return m_kind != Kind::Bool; }
+
+    /* Space, and Enter on a line with nothing to edit: flips a Bool, moves an
+     * Enum to its next value. False when the kind has nothing to activate.
+     */
+    bool activate();
+
+    //Opens the editor: the widget of the line starts drawing itself focused
+    void beginEdit();
+
+    /* Closes the editor. cancel puts the value of the model back, otherwise
+     * what the field holds is committed. False when the registry refused it:
+     * the editor stays open on the offending value.
+     */
+    bool endEdit(bool cancel);
+
+    //Hands one event to the widget being edited, true when it consumed it
+    bool editEvent(const cpptui::Event &event);
+
+    /* Puts the focus of the library back on the option pane. A click inside a
+     * text field makes cpptui::Input take it, and the pane would stop
+     * receiving keys; editEvent() calls this right after.
+     */
+    std::function<void()> restoreFocus;
 
 private:
     void buildInput(const ConfigModel::Row &row);
@@ -196,6 +208,8 @@ private:
     void submit(const std::string &value);
     //Value the editor should show for this row, empty when the key is unset
     std::string editableValue(const ConfigModel::Row &row) const;
+    //The widget that draws itself focused while the line is being edited
+    std::shared_ptr<cpptui::Widget> editWidget() const;
 
     cpptui::App &m_app;
     ConfigRowHost &m_host;
@@ -204,10 +218,14 @@ private:
     const ConfigOption *m_option = nullptr;
     bool m_readOnly = false;
     bool m_mono = false;
-    bool m_textEditor = false;
+    Kind m_kind = Kind::Text;
     //True while refresh() writes into the widgets: their change callbacks must
     //not be taken for user input
     bool m_updating = false;
+    //True between beginEdit() and endEdit()
+    bool m_editing = false;
+    //Name of the line, drawn bold while the cursor sits on it
+    bool m_selected = false;
 
     bool m_isSet = false;
     bool m_isDefault = false;
@@ -233,6 +251,8 @@ private:
 
     //Raw value of each entry of the dropdown, same order as its options
     std::vector<std::string> m_enumValues;
+    //Entry the model holds, to be put back when an edit is cancelled
+    int m_enumIndex = -1;
 };
 
 }

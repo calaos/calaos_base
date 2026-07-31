@@ -40,13 +40,22 @@
  * about what a value means and what saving does. Nothing here decides whether
  * a value is valid, what a reset writes or how the file is merged.
  *
- * Three things are not composition and deserve a word:
+ * Four things are not composition and deserve a word:
+ *
+ * - Keyboard model. Two panes, one cursor each: Tab switches pane, the arrows
+ *   move inside the pane, Enter opens an editor and Space activates a line.
+ *   cpp-tui cannot express that on its own -- it has one flat Tab ring, so the
+ *   editors of the option pane used to be tab stops themselves, which made Tab
+ *   mean two different things depending on the side of the screen. MainPanes
+ *   is therefore the only tab stop of the browser: it owns both cursors, and
+ *   hands events to the widget of a line only while that line is being
+ *   edited. See MainPanes and ConfigTuiScreen::paneEvent().
  *
  * - Single letter shortcuts. App::register_key() fires before the focused
  *   widget, so a bare "s" would save instead of being typed into a path. The
- *   letter bindings are therefore registered and unregistered as the focus
- *   moves: see updateShortcutState(). They are off as soon as a text field has
- *   the focus, or a dialog is open.
+ *   letter bindings are therefore registered and unregistered as the editor
+ *   opens and closes: see updateShortcutState(). They are off while a line is
+ *   being edited, or while a dialog is open.
  *
  * - Terminal restoration. cpp-tui only restores the terminal from ~Terminal(),
  *   i.e. on the normal way out of App::run(). run() is wrapped in a try/catch
@@ -56,8 +65,9 @@
  *
  * - Monochrome. The library has no reverse video and emits colours in
  *   truecolor only, so with the default theme (every colour "terminal
- *   default") nothing would show the focus. Bold, an explicit "> " marker on
- *   the focused line and ASCII borders carry that job instead.
+ *   default") nothing would show the focus. Bold, a "> " marker on the line
+ *   each cursor sits on ("* " when the other pane has the keyboard) and ASCII
+ *   borders carry that job instead.
  */
 
 using namespace Calaos;
@@ -273,6 +283,9 @@ public:
 /* Category column. A plain list with a visible cursor, written here because
  * every list of the library shows its selection with a background colour,
  * which a monochrome terminal cannot render.
+ *
+ * It is not focusable: MainPanes owns the keyboard for both panes and calls
+ * navigate() when this one is the active side.
  */
 class SelectList: public Widget
 {
@@ -286,10 +299,16 @@ public:
     std::vector<Item> items;
     int selected = 0;
     int scroll = 0;
+    //True when the keyboard is driving this pane: "> " instead of "* "
+    bool active = false;
 
     std::function<void(int)> on_select;
 
-    SelectList() { focusable = true; }
+    SelectList()
+    {
+        focusable = false;
+        tab_stop = false;
+    }
 
     void render(Buffer &buffer) override
     {
@@ -332,7 +351,7 @@ public:
             bool isSelected = (int)index == selected;
             Color fg = isSelected? theme.primary.resolve(theme.foreground): theme.foreground;
 
-            std::string marker = isSelected? (has_focus()? "> ": "* "): "  ";
+            std::string marker = isSelected? (active? "> ": "* "): "  ";
             std::string count = std::to_string(items[index].count);
 
             std::string text = marker + items[index].label;
@@ -349,33 +368,13 @@ public:
         }
     }
 
-    bool on_event(const Event &event) override
+    //MainPanes is the only thing that talks to this list
+    bool on_event(const Event &) override { return false; }
+
+    //One of the keys that move the cursor of a pane, true when it was one
+    bool navigate(const Event &event)
     {
-        if (!visible || items.empty())
-            return false;
-
-        if (event.is_mouse_event())
-        {
-            if (event.x < x || event.x >= x + width || event.y < y || event.y >= y + height)
-                return false;
-
-            if (event.mouse_wheel())
-            {
-                select(selected + (event.mouse_wheel_up()? -1: 1));
-                return true;
-            }
-
-            if (event.mouse_left() && !event.mouse_motion())
-            {
-                set_focus(true);
-                select(scroll + (event.y - y));
-                return true;
-            }
-
-            return false;
-        }
-
-        if (!event.is_key_event() || !has_focus())
+        if (items.empty())
             return false;
 
         if (event.is_nav_up()) select(selected - 1);
@@ -387,6 +386,30 @@ public:
         else return false;
 
         return true;
+    }
+
+    //A click or a wheel inside the column, true when it was one
+    bool point(const Event &event)
+    {
+        if (items.empty())
+            return false;
+
+        if (event.x < x || event.x >= x + width || event.y < y || event.y >= y + height)
+            return false;
+
+        if (event.mouse_wheel())
+        {
+            select(selected + (event.mouse_wheel_up()? -1: 1));
+            return true;
+        }
+
+        if (event.mouse_left() && !event.mouse_motion())
+        {
+            select(scroll + (event.y - y));
+            return true;
+        }
+
+        return false;
     }
 
     void select(int index)
@@ -402,6 +425,65 @@ public:
         selected = index;
         if (on_select)
             on_select(selected);
+    }
+};
+
+/* Option column. Only the scrolling and the layout of ScrollableVertical are
+ * wanted: its own key handling would fight with the cursor MainPanes keeps,
+ * and its children must never take the focus of the library.
+ */
+class RowsPane: public ScrollableVertical
+{
+public:
+    RowsPane()
+    {
+        focusable = false;
+        tab_stop = false;
+    }
+
+    bool on_event(const Event &) override { return false; }
+};
+
+/* The two panes of the browser, and the only tab stop of the whole screen.
+ * ========================================================================
+ *
+ * cpp-tui has one flat ring of tab stops and no way to move the focus from the
+ * outside: App::handle_tab() and its focused widget are private, and set_focus()
+ * only moves the pointer the widgets share, not the one App dispatches with.
+ * A tree with one tab stop per pane could therefore never answer to Right or
+ * Left, and a tree with one tab stop per editor is what made Tab mean "next
+ * option" on the right and nothing at all on the left.
+ *
+ * So the library sees exactly one tab stop here. Tab, the arrows, Enter, Space
+ * and the mouse all arrive at this widget, which routes them to the pane the
+ * user is in. The screen does the routing, this class is only the seam.
+ *
+ * The focus is deliberately not checked: nothing else on this screen can take
+ * it, a click on a frame parks it on the root view, and an open dialog is
+ * modal and never lets an event down here in the first place.
+ */
+class MainPanes: public Horizontal
+{
+public:
+    MainPanes()
+    {
+        focusable = true;
+        tab_stop = true;
+    }
+
+    //Returns true when the screen consumed the event
+    std::function<bool(const Event &)> handler;
+
+    bool on_event(const Event &event) override
+    {
+        if (!visible || !handler)
+            return false;
+
+        if (!event.is_key_event() && !event.is_mouse_event() &&
+            event.type != EventType::Paste)
+            return false;
+
+        return handler(event);
     }
 };
 
@@ -432,6 +514,15 @@ public:
     {
         min_width = 0;
         min_height = 0;
+
+        /* Not a tab stop, but focusable: App::run() clears its focus when a
+         * click lands on a widget that cannot take it, which would leave the
+         * keyboard dead until the next Tab. Clicking a frame or the
+         * documentation pane therefore parks the focus here, and MainPanes
+         * keeps answering from the tree.
+         */
+        focusable = true;
+        tab_stop = false;
     }
 
     bool tooSmall() const { return width < 80 || height < 24; }
@@ -550,7 +641,6 @@ public:
     int run();
 
     //--- ConfigRowHost -----------------------------------------------------
-    void rowFocused(ConfigRow *row) override;
     bool rowSetValue(ConfigRow *row, const std::string &value, std::string *error) override;
     bool rowValidate(ConfigRow *row, const std::string &value, std::string *error) override;
     void rowReset(ConfigRow *row) override;
@@ -562,6 +652,24 @@ private:
         size_t category = 0;
         size_t row = 0;
     };
+
+    //Which of the two panes the keyboard drives
+    enum class Pane { Categories, Options };
+
+    //--- Keyboard model ----------------------------------------------------
+    bool paneEvent(const Event &event);
+    bool paneKey(const Event &event);
+    bool paneMouse(const Event &event);
+    bool editKey(const Event &event);
+
+    void setPane(Pane pane);
+    void setCursor(int index);
+    void refreshCursor();
+    ConfigRow *cursorRow() const;
+
+    void startEdit();
+    void stopEdit(bool cancel);
+    void leaveEdit();
 
     void buildUi();
     void rebuildCategories();
@@ -612,18 +720,26 @@ private:
     std::shared_ptr<Label> m_title;
     std::shared_ptr<Label> m_banner;
     std::shared_ptr<Label> m_bar;
-    std::shared_ptr<FocusAware<SelectList>> m_categories;
-    std::shared_ptr<FocusAware<ScrollableVertical>> m_rowsPane;
+    std::shared_ptr<MainPanes> m_panes;
+    std::shared_ptr<SelectList> m_categories;
+    std::shared_ptr<RowsPane> m_rowsPane;
+    std::shared_ptr<TuiBorder> m_categoriesBorder;
     std::shared_ptr<TuiBorder> m_rowsBorder;
     std::shared_ptr<TuiBorder> m_docBorder;
-    std::shared_ptr<FocusAware<TextPane>> m_doc;
+    std::shared_ptr<TextPane> m_doc;
 
     std::vector<std::unique_ptr<ConfigRow>> m_rows;
     //Model categories currently displayed, in model order
     std::vector<size_t> m_visibleCategories;
     int m_category = 0;
 
+    //The line the cursor of the option pane sits on, and what the doc describes
     ConfigRow *m_current = nullptr;
+    int m_cursor = -1;
+    Pane m_pane = Pane::Categories;
+    //True while the editor of the current line is open
+    bool m_editing = false;
+
     //Refusal attached to the current row, shown in red in the doc pane
     std::string m_message;
     //Transient line at the bottom, replaces the shortcuts when set
@@ -633,13 +749,12 @@ private:
     bool m_fileChanged = false;
     bool m_lettersEnabled = false;
     bool m_escapeEnabled = false;
-    bool m_focusIsText = false;
     int m_modalCount = 0;
 
     std::string m_search;
     std::shared_ptr<Dialog> m_dialog;
     std::shared_ptr<TextPane> m_dialogText;
-    std::shared_ptr<FocusAware<TuiInput>> m_searchInput;
+    std::shared_ptr<TuiInput> m_searchInput;
 };
 
 //---------------------------------------------------------------------------
@@ -770,6 +885,311 @@ void ConfigTuiScreen::rebuildCategories()
     m_categories->selected = m_category;
 }
 
+//---------------------------------------------------------------------------
+// Keyboard model
+//---------------------------------------------------------------------------
+//
+// Tab and Shift-Tab switch pane, and nothing else is a tab stop. Inside a
+// pane the arrows move a cursor. Right and Enter go from the categories to
+// the options, Left comes back. On a line, Space activates and Enter opens an
+// editor; while an editor is open every key belongs to it, except Enter which
+// commits, Escape which cancels and Tab which leaves the pane.
+
+ConfigRow *ConfigTuiScreen::cursorRow() const
+{
+    if (m_cursor < 0 || m_cursor >= (int)m_rows.size())
+        return nullptr;
+
+    return m_rows[m_cursor].get();
+}
+
+void ConfigTuiScreen::refreshCursor()
+{
+    m_categories->active = m_pane == Pane::Categories;
+
+    for (size_t i = 0; i < m_rows.size(); i++)
+        m_rows[i]->setSelected((int)i == m_cursor, m_pane == Pane::Options);
+}
+
+void ConfigTuiScreen::setCursor(int index)
+{
+    if (m_rows.empty())
+        index = -1;
+    else
+    {
+        if (index < 0)
+            index = 0;
+        if (index >= (int)m_rows.size())
+            index = (int)m_rows.size() - 1;
+    }
+
+    if (index != m_cursor)
+        leaveEdit();
+
+    m_cursor = index;
+    m_current = cursorRow();
+    m_message.clear();
+
+    refreshCursor();
+
+    if (m_current)
+        ensureRowVisible(m_current);
+
+    updateDoc();
+    updateStatusBar();
+}
+
+void ConfigTuiScreen::setPane(Pane pane)
+{
+    //Nothing to go to: an empty option list keeps the keyboard on the left
+    if (pane == Pane::Options && m_rows.empty())
+        return;
+
+    if (pane == m_pane)
+        return;
+
+    leaveEdit();
+
+    m_pane = pane;
+
+    if (m_pane == Pane::Options && m_cursor < 0 && !m_rows.empty())
+        setCursor(0);
+
+    refreshCursor();
+    updateStatusBar();
+}
+
+void ConfigTuiScreen::startEdit()
+{
+    ConfigRow *row = cursorRow();
+    if (!row || m_editing)
+        return;
+
+    if (!row->editable())
+    {
+        //A switch has nothing to type into: Enter flips it, like Space
+        row->activate();
+        updateDoc();
+        return;
+    }
+
+    m_editing = true;
+    row->beginEdit();
+
+    updateShortcutState();
+    updateStatusBar();
+}
+
+/* Closes the editor on the way out of a line or of the pane: what was typed is
+ * committed if the registry takes it, and put back if it does not. Leaving an
+ * invalid value open on a line the cursor has left is the one outcome that
+ * cannot be allowed.
+ */
+void ConfigTuiScreen::leaveEdit()
+{
+    if (!m_editing)
+        return;
+
+    stopEdit(false);
+
+    if (m_editing)
+        stopEdit(true);
+}
+
+void ConfigTuiScreen::stopEdit(bool cancel)
+{
+    if (!m_editing)
+        return;
+
+    ConfigRow *row = cursorRow();
+    if (row && !row->endEdit(cancel))
+    {
+        //Refused: the editor stays open on the value that was typed
+        updateDoc();
+        updateStatusBar();
+        return;
+    }
+
+    m_editing = false;
+
+    updateShortcutState();
+    updateDoc();
+    updateStatusBar();
+}
+
+bool ConfigTuiScreen::editKey(const Event &event)
+{
+    ConfigRow *row = cursorRow();
+    if (!row)
+    {
+        m_editing = false;
+        updateShortcutState();
+        return false;
+    }
+
+    //Tab leaves the editor and the pane, like everywhere else
+    if (event.is_key_event() && event.is_tab())
+    {
+        leaveEdit();
+        setPane(Pane::Categories);
+        return true;
+    }
+
+    if (event.is_key_event() && event.is_enter())
+    {
+        stopEdit(false);
+        return true;
+    }
+
+    /* There is no lone Escape in this library: the parser waits for the rest
+     * of a sequence and only delivers the pair, as Alt + ESC. Both shapes mean
+     * cancel, exactly like in the dialogs.
+     */
+    if (event.is_key_event() && event.is_escape())
+    {
+        stopEdit(true);
+        return true;
+    }
+
+    row->editEvent(event);
+
+    //Everything else belongs to the editor while it is open, consumed or not:
+    //letting a key fall back through would move the cursor under the field
+    return true;
+}
+
+bool ConfigTuiScreen::paneKey(const Event &event)
+{
+    if (event.is_tab())
+    {
+        setPane(m_pane == Pane::Categories? Pane::Options: Pane::Categories);
+        return true;
+    }
+
+    if (m_pane == Pane::Categories)
+    {
+        if (m_categories->navigate(event))
+            return true;
+
+        if (event.is_nav_right() || event.is_enter())
+        {
+            setPane(Pane::Options);
+            return true;
+        }
+
+        return false;
+    }
+
+    //Option pane, no editor open
+    if (event.is_nav_left())
+    {
+        setPane(Pane::Categories);
+        return true;
+    }
+
+    if (event.is_nav_up()) { setCursor(m_cursor - 1); return true; }
+    if (event.is_nav_down()) { setCursor(m_cursor + 1); return true; }
+    if (event.is_nav_pgup()) { setCursor(m_cursor - std::max(1, m_rowsPane->height)); return true; }
+    if (event.is_nav_pgdn()) { setCursor(m_cursor + std::max(1, m_rowsPane->height)); return true; }
+    if (event.is_nav_home()) { setCursor(0); return true; }
+    if (event.is_nav_end()) { setCursor((int)m_rows.size() - 1); return true; }
+
+    ConfigRow *row = cursorRow();
+    if (!row)
+        return false;
+
+    if (event.is_space())
+    {
+        //The one verb that means "act on this line", whatever its type
+        if (row->activate())
+            updateDoc();
+        return true;
+    }
+
+    if (event.is_enter())
+    {
+        startEdit();
+        return true;
+    }
+
+    return false;
+}
+
+bool ConfigTuiScreen::paneMouse(const Event &event)
+{
+    /* The editors are not focusable, so App gives this widget the focus for a
+     * click anywhere in either pane. Only the two cursors have to follow.
+     */
+    if (m_categories->point(event))
+    {
+        if (m_pane != Pane::Categories)
+        {
+            leaveEdit();
+            m_pane = Pane::Categories;
+            refreshCursor();
+            updateStatusBar();
+        }
+
+        return true;
+    }
+
+    if (event.x < m_rowsPane->x || event.x >= m_rowsPane->x + m_rowsPane->width ||
+        event.y < m_rowsPane->y || event.y >= m_rowsPane->y + m_rowsPane->height)
+        return false;
+
+    //A drag inside the field being edited is a text selection
+    if (m_editing && !event.mouse_wheel())
+    {
+        ConfigRow *row = cursorRow();
+        if (row && row->widget() && row->widget()->hit_test(event.x, event.y))
+            return row->editEvent(event);
+    }
+
+    if (event.mouse_wheel())
+    {
+        setCursor(m_cursor + (event.mouse_wheel_up()? -1: 1));
+        return true;
+    }
+
+    if (event.mouse_left() && !event.mouse_motion())
+    {
+        int index = m_rowsPane->scroll_offset + (event.y - m_rowsPane->y);
+        if (index < 0 || index >= (int)m_rows.size())
+            return true;
+
+        if (m_pane != Pane::Options)
+        {
+            leaveEdit();
+            m_pane = Pane::Options;
+        }
+
+        setCursor(index);
+        refreshCursor();
+        updateStatusBar();
+
+        return true;
+    }
+
+    return false;
+}
+
+bool ConfigTuiScreen::paneEvent(const Event &event)
+{
+    if (event.is_mouse_event())
+        return paneMouse(event);
+
+    if (m_editing)
+        return editKey(event);
+
+    if (event.type == EventType::Paste)
+        return false;
+
+    if (!event.is_key_event())
+        return false;
+
+    return paneKey(event);
+}
+
 void ConfigTuiScreen::rebuildRows()
 {
     /* Cut every callback of the lines about to disappear: cpp-tui keeps its
@@ -783,15 +1203,18 @@ void ConfigTuiScreen::rebuildRows()
     m_rowsPane->clear_children();
     m_rowsPane->scroll_offset = 0;
     m_current = nullptr;
+    m_cursor = -1;
     m_message.clear();
 
-    //Nothing holds the focus any more: put the letter shortcuts back on, or
-    //the keyboard would be dead until the next Tab
-    m_focusIsText = false;
+    //No editor survives a rebuild: the letter shortcuts go back on, or the
+    //keyboard would stay dead
+    m_editing = false;
     updateShortcutState();
 
     const std::vector<ConfigModel::Category> &categories = m_model.categories();
     std::vector<DisplayRow> rows = displayRows();
+
+    ConfigTuiScreen *self = this;
 
     for (size_t i = 0; i < rows.size(); i++)
     {
@@ -800,9 +1223,23 @@ void ConfigTuiScreen::rebuildRows()
         std::unique_ptr<ConfigRow> configRow(
                 new ConfigRow(m_app, *this, row, m_model.readOnly(), m_mono));
 
+        configRow->restoreFocus = [self]() { self->m_panes->set_focus(true); };
+
         m_rowsPane->add(configRow->widget());
         m_rows.push_back(std::move(configRow));
     }
+
+    //The cursor of the option pane always points at something when there is
+    //something to point at, whichever pane the keyboard is in
+    if (!m_rows.empty())
+    {
+        m_cursor = 0;
+        m_current = m_rows[0].get();
+    }
+    else if (m_pane == Pane::Options)
+        m_pane = Pane::Categories;
+
+    refreshCursor();
 
     std::string title;
     if (!m_search.empty())
@@ -816,6 +1253,7 @@ void ConfigTuiScreen::rebuildRows()
     m_rowsBorder->set_title(title, Alignment::Left);
 
     updateDoc();
+    updateStatusBar();
 }
 
 void ConfigTuiScreen::refreshRows(ConfigRow *typing)
@@ -855,19 +1293,6 @@ void ConfigTuiScreen::ensureRowVisible(ConfigRow *row)
 //---------------------------------------------------------------------------
 // ConfigRowHost
 //---------------------------------------------------------------------------
-
-void ConfigTuiScreen::rowFocused(ConfigRow *row)
-{
-    m_current = row;
-    m_focusIsText = row->isTextEditor();
-    m_message.clear();
-    m_status.clear();
-
-    updateShortcutState();
-    ensureRowVisible(row);
-    updateDoc();
-    updateStatusBar();
-}
 
 bool ConfigTuiScreen::rowValidate(ConfigRow *row, const std::string &value, std::string *error)
 {
@@ -1036,7 +1461,8 @@ void ConfigTuiScreen::updateDoc()
     {
         m_docBorder->set_title(_("Documentation"), Alignment::Left);
         TextPane::Line line;
-        line.text = _("Select an option with Tab and the arrow keys to read what it does.");
+        line.text = _("Pick a category with the arrow keys, then Tab or Right to its "
+                      "options: this pane describes the one the cursor is on.");
         lines.push_back(line);
         m_doc->setLines(lines);
         return;
@@ -1083,6 +1509,25 @@ void ConfigTuiScreen::updateDoc()
         TextPane::Line doc;
         doc.text = option->doc();
         lines.push_back(doc);
+
+        /* The values of a list, so that Space and Enter on that line have
+         * something to aim at: the popup of the library is a mouse affair.
+         */
+        if (option->type() == ConfigOption::Type::Enum && !option->values().empty())
+        {
+            std::string all;
+            for (size_t i = 0; i < option->values().size(); i++)
+            {
+                const std::string &value = option->values()[i].first;
+                if (!all.empty())
+                    all += ", ";
+                all += option->valueLabel(value);
+            }
+
+            TextPane::Line values;
+            values.text = std::string(_("Values:")) + " " + all;
+            lines.push_back(values);
+        }
 
         if (option->isDeprecated())
         {
@@ -1169,11 +1614,22 @@ void ConfigTuiScreen::updateStatusBar()
         return;
     }
 
-    std::string shortcuts = std::string(" ") +
-            _("Tab move  Enter validate  d default  / search  s save  v changes  "
-              "i doc  a advanced  ? help  q quit");
+    /* Three bars, one per state, so that the keys the bar names are the keys
+     * that work. Plain ASCII: the arrow glyphs would be mojibake on the
+     * terminals the monochrome mode exists for.
+     */
+    std::string shortcuts;
 
-    m_bar->set_text(StyledText(shortcuts));
+    if (m_editing)
+        shortcuts = _("Enter commit  Esc Esc cancel  Up/Down change  Ctrl-R reveal");
+    else if (m_pane == Pane::Categories)
+        shortcuts = _("Tab pane  Up/Down move  Enter/Right options  "
+                      "/ search  s save  ? help  q quit");
+    else
+        shortcuts = _("Tab pane  Up/Down move  Enter edit  Space toggle  Left back  "
+                      "d default  ? help  q quit");
+
+    m_bar->set_text(StyledText(" " + shortcuts));
 }
 
 //---------------------------------------------------------------------------
@@ -1248,9 +1704,14 @@ void ConfigTuiScreen::setEscapeShortcut(bool enabled)
     }
 }
 
+/* The letters are on unless something is going to swallow them: an open
+ * editor, or a dialog. The editors of the option pane never hold the focus of
+ * the library any more, so "a text field has the focus" is not a question that
+ * can be asked here: only edit mode tells whether an s is a save or a letter.
+ */
 void ConfigTuiScreen::updateShortcutState()
 {
-    setLetterShortcuts(m_modalCount == 0 && !m_focusIsText);
+    setLetterShortcuts(m_modalCount == 0 && !m_editing);
 }
 
 //---------------------------------------------------------------------------
@@ -1732,13 +2193,22 @@ void ConfigTuiScreen::actionHelp()
     std::vector<TextPane::Line> lines;
 
     const char *help[] = {
-        N_("Tab / Shift-Tab      move the focus"),
-        N_("Arrows, PgUp, PgDn   move in the list, scroll the documentation"),
-        N_("Enter                validate the field, open a list, toggle a switch"),
-        N_("Space                toggle a switch"),
+        N_("Two panes: the categories on the left, the options of the category on "
+           "the right. Tab switches pane, the arrows move inside the pane."),
+        N_(""),
+        N_("Tab / Shift-Tab      switch pane, and nothing else"),
+        N_("Up / Down            move the cursor of the pane you are in"),
+        N_("PgUp / PgDn / Home / End   same, by pages and to the ends"),
+        N_("Right or Enter       from a category, go to its options"),
+        N_("Left                 from the options, go back to the categories"),
+        N_("Space                toggle a switch, next value of a list"),
+        N_("Enter                edit the value of the selected option"),
+        N_("Enter                while editing: keep the value and close the editor"),
+        N_("Esc Esc              while editing: put the old value back"),
+        N_("Up / Down            while editing: step a number, walk a list"),
+        N_("Ctrl-R               reveal a masked secret while editing it"),
         N_("d or Backspace       back to the default value (asks first when it matters)"),
         N_("Empty a field        same thing: an empty field means the default"),
-        N_("Ctrl-R               reveal a masked secret while editing it"),
         N_("i                    full documentation of the current option"),
         N_("/                    search, an empty search clears the filter"),
         N_("v                    what is waiting to be written"),
@@ -1747,8 +2217,8 @@ void ConfigTuiScreen::actionHelp()
         N_("q or Ctrl-C          quit"),
         N_("Esc Esc              close a dialog (a single Esc is not a key here)"),
         N_(""),
-        N_("The letter shortcuts are off while a text field has the focus, so that "
-           "typing an s in a path does not save."),
+        N_("The letter shortcuts are off while an editor is open, so that typing an "
+           "s in a path does not save."),
         N_(""),
         N_("The same registry is available without a terminal:"),
         N_("  calaos_config options          every option"),
@@ -1788,7 +2258,7 @@ void ConfigTuiScreen::actionSearch()
 
     std::shared_ptr<Vertical> body = std::make_shared<Vertical>();
 
-    std::shared_ptr<FocusAware<TuiInput>> input = std::make_shared<FocusAware<TuiInput>>();
+    std::shared_ptr<TuiInput> input = std::make_shared<TuiInput>();
     input->fixed_height = 1;
     input->placeholder = _("key, label or description; empty clears the filter");
     input->set_value(m_search);
@@ -1918,23 +2388,32 @@ void ConfigTuiScreen::buildUi()
     m_banner = barLabel("");
     m_bar = barLabel("");
 
-    m_categories = std::make_shared<FocusAware<SelectList>>();
-    m_rowsPane = std::make_shared<FocusAware<ScrollableVertical>>();
-    m_doc = std::make_shared<FocusAware<TextPane>>();
+    m_categories = std::make_shared<SelectList>();
+    m_rowsPane = std::make_shared<RowsPane>();
+    m_doc = std::make_shared<TextPane>();
 
-    //The option pane is not a stop of its own: its lines are
-    m_rowsPane->tab_stop = false;
+    /* The documentation pane is out of the focus altogether. It used to be a
+     * Tab stop with nothing on screen to say so, which is what made Tab look
+     * like it had an invisible step between the last option and the
+     * categories; leaving it merely focusable would bring that step back the
+     * moment it is clicked. The wheel scrolls it, and i opens the full text in
+     * a pane that answers to the arrows.
+     */
+    m_doc->focusable = false;
+    m_doc->tab_stop = false;
 
-    std::shared_ptr<TuiBorder> categoriesBorder = framed(_("Categories"), m_categories);
-    categoriesBorder->fixed_width = 26;
+    m_categoriesBorder = framed(_("Categories"), m_categories);
+    m_categoriesBorder->fixed_width = 26;
 
     m_rowsBorder = framed("", m_rowsPane);
     m_docBorder = framed(_("Documentation"), m_doc);
     m_docBorder->fixed_height = 8;
 
-    std::shared_ptr<Horizontal> middle = std::make_shared<Horizontal>();
-    middle->add(categoriesBorder);
-    middle->add(m_rowsBorder);
+    m_panes = std::make_shared<MainPanes>();
+    m_panes->add(m_categoriesBorder);
+    m_panes->add(m_rowsBorder);
+
+    std::shared_ptr<Widget> middle = m_panes;
 
     bool hasObsolete = !m_model.obsoletePresent().empty();
     if (hasObsolete)
@@ -1962,23 +2441,7 @@ void ConfigTuiScreen::buildUi()
         self->rebuildRows();
     };
 
-    m_categories->onFocusIn = [self]()
-    {
-        self->m_focusIsText = false;
-        self->updateShortcutState();
-    };
-
-    m_rowsPane->onFocusIn = [self]()
-    {
-        self->m_focusIsText = false;
-        self->updateShortcutState();
-    };
-
-    m_doc->onFocusIn = [self]()
-    {
-        self->m_focusIsText = false;
-        self->updateShortcutState();
-    };
+    m_panes->handler = [self](const Event &event) { return self->paneEvent(event); };
 
     rebuildCategories();
     rebuildRows();

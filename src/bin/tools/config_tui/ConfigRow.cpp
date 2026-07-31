@@ -32,9 +32,9 @@ using namespace cpptui;
 
 bool TuiInput::on_event(const Event &event)
 {
-    /* A hidden field can still be the one cpp-tui considers focused: its App
-     * dispatches to the focused widget without looking at its visibility. Let
-     * the event go through instead of editing something nobody sees.
+    /* A hidden field can still be the one the option pane hands its events
+     * to, for one iteration of the loop. Let the event go through instead of
+     * editing something nobody sees.
      */
     if (!visible)
         return false;
@@ -147,67 +147,23 @@ std::shared_ptr<Label> plainLabel(const StyledText &text, int fixedWidth)
     return label;
 }
 
-//Read only variants: the widget keeps the focus and the documentation, it just
-//refuses to change anything.
-class TuiToggle: public ToggleSwitch
+/* The editors of a line never take the focus of the library.
+ * =========================================================
+ *
+ * The option pane is the single tab stop of the right hand side: it keeps a
+ * cursor of its own and hands its events to the widget of the current line
+ * while that line is being edited. A widget that could be tabbed to, or that
+ * grabbed the focus when it was clicked, would put the pane and the library
+ * out of step - which is exactly the "invisible tab stop" this model removes.
+ */
+void makePassive(const std::shared_ptr<Widget> &widget)
 {
-public:
-    using ToggleSwitch::ToggleSwitch;
+    if (!widget)
+        return;
 
-    bool readOnly = false;
-
-    bool on_event(const Event &event) override
-    {
-        if (readOnly)
-            return event.is_key_event() && has_focus() && event.is_activate();
-
-        return ToggleSwitch::on_event(event);
-    }
-};
-
-class TuiDropdown: public Dropdown
-{
-public:
-    using Dropdown::Dropdown;
-
-    bool readOnly = false;
-
-    bool on_event(const Event &event) override
-    {
-        bool navigation = event.is_key_event() && has_focus() &&
-                          (event.is_nav_up() || event.is_nav_down());
-
-        if (readOnly)
-            return event.is_key_event() && has_focus() &&
-                   (event.is_activate() || navigation);
-
-        /* The popup of the library answers to the mouse and to Escape only:
-         * it has no keyboard selection at all. Up and Down therefore pick the
-         * value in place, and the popup stays available for the mouse.
-         */
-        if (navigation && !options.empty())
-        {
-            if (is_open)
-                close_popup();
-
-            int index = selected_index;
-            index += event.is_nav_down()? 1: -1;
-
-            if (index < 0)
-                index = (int)options.size() - 1;
-            if (index >= (int)options.size())
-                index = 0;
-
-            selected_index = index;
-            if (on_change)
-                on_change(index, options[index]);
-
-            return true;
-        }
-
-        return Dropdown::on_event(event);
-    }
-};
+    widget->focusable = false;
+    widget->tab_stop = false;
+}
 
 }
 
@@ -229,6 +185,7 @@ ConfigRow::ConfigRow(App &app, ConfigRowHost &host, const ConfigModel::Row &row,
 {
     m_line = std::make_shared<Horizontal>();
     m_line->fixed_height = 1;
+    makePassive(m_line);
 
     m_marker = plainLabel(" ", 2);
     m_name = plainLabel(" ", NAME_WIDTH);
@@ -261,12 +218,28 @@ ConfigRow::ConfigRow(App &app, ConfigRowHost &host, const ConfigModel::Row &row,
         }
     }
 
+    makePassive(m_editor);
+    makePassive(m_input);
+    makePassive(m_number);
+    makePassive(m_toggle);
+    makePassive(m_dropdown);
+
     m_line->add(m_marker);
     m_line->add(m_name);
     m_line->add(m_editor);
     m_line->add(m_suffix);
 
     refresh(row);
+}
+
+std::shared_ptr<Widget> ConfigRow::editWidget() const
+{
+    //A NumberInput is a row of three widgets: the one that shows a cursor and
+    //answers to the keyboard is its text field, not the group.
+    if (m_kind == Kind::Text || m_kind == Kind::Number)
+        return m_input;
+
+    return m_editor;
 }
 
 std::string ConfigRow::editableValue(const ConfigModel::Row &row) const
@@ -294,11 +267,11 @@ void ConfigRow::submit(const std::string &value)
 
 void ConfigRow::buildInput(const ConfigModel::Row &row)
 {
-    std::shared_ptr<FocusAware<TuiInput>> input = std::make_shared<FocusAware<TuiInput>>();
+    std::shared_ptr<TuiInput> input = std::make_shared<TuiInput>();
 
     m_input = input;
     m_editor = input;
-    m_textEditor = true;
+    m_kind = Kind::Text;
 
     input->readOnly = m_readOnly;
 
@@ -330,11 +303,10 @@ void ConfigRow::buildInput(const ConfigModel::Row &row)
     input->set_value(editableValue(row));
 
     ConfigRow *self = this;
-    TuiInput *raw = input.get();
 
-    /* Typing only checks, it does not write: the model is changed on Enter or
-     * when the focus leaves the line. Committing every keystroke would store
-     * the "999" of a "99999" that the registry is about to refuse.
+    /* Typing only checks, it does not write: the model is changed when the
+     * edit is validated. Committing every keystroke would store the "999" of
+     * a "99999" that the registry is about to refuse.
      */
     input->on_change = [self](std::string value)
     {
@@ -347,41 +319,6 @@ void ConfigRow::buildInput(const ConfigModel::Row &row)
         else
             self->m_host.rowMessage(self, std::string());
     };
-
-    input->onValidate = [self, raw](bool cancel)
-    {
-        if (cancel)
-        {
-            self->m_updating = true;
-            raw->set_value(self->m_modelValue);
-            self->m_updating = false;
-            self->m_host.rowMessage(self, std::string());
-            return;
-        }
-
-        self->commit();
-    };
-
-    input->onFocusIn = [self]()
-    {
-        self->setFocusMarker(true);
-        self->m_host.rowFocused(self);
-    };
-
-    input->onFocusOut = [self, raw]()
-    {
-        self->setFocusMarker(false);
-
-        //Leaving a field that holds something the registry refuses would keep
-        //an invalid value on screen with no way to see why: put back what the
-        //model really holds.
-        if (!self->commit())
-        {
-            self->m_updating = true;
-            raw->set_value(self->m_modelValue);
-            self->m_updating = false;
-        }
-    };
 }
 
 void ConfigRow::buildNumber(const ConfigModel::Row &row)
@@ -392,12 +329,12 @@ void ConfigRow::buildNumber(const ConfigModel::Row &row)
     bool integer = m_option->type() != ConfigOption::Type::Float;
 
     std::shared_ptr<NumberInput> number = std::make_shared<NumberInput>(0, integer);
-    std::shared_ptr<FocusAware<TuiInput>> input = std::make_shared<FocusAware<TuiInput>>();
+    std::shared_ptr<TuiInput> input = std::make_shared<TuiInput>();
 
     m_number = number;
     m_input = input;
     m_editor = number;
-    m_textEditor = true;
+    m_kind = Kind::Number;
 
     input->readOnly = m_readOnly;
     input->regex_pattern = integer? "^-?[0-9]*$": "^-?[0-9]*\\.?[0-9]*$";
@@ -430,8 +367,7 @@ void ConfigRow::buildNumber(const ConfigModel::Row &row)
     {
         /* The steppers of the library are cpptui::Button, whose colours are
          * hardcoded and always resolved to a real RGB value. Replace them, and
-         * keep them out of the focus: the text field is the tab stop of the
-         * line.
+         * keep them out of the focus like every other widget of a line.
          */
         NumberInput *rawNumber = number.get();
 
@@ -446,8 +382,8 @@ void ConfigRow::buildNumber(const ConfigModel::Row &row)
         up->decorated = false;
         down->fixed_width = 3;
         up->fixed_width = 3;
-        down->focusable = false;
-        up->focusable = false;
+        makePassive(down);
+        makePassive(up);
 
         number->btn_down = down;
         number->btn_up = up;
@@ -476,7 +412,6 @@ void ConfigRow::buildNumber(const ConfigModel::Row &row)
     input->set_value(editableValue(row));
 
     ConfigRow *self = this;
-    TuiInput *raw = input.get();
 
     input->on_change = [self](std::string value)
     {
@@ -496,50 +431,17 @@ void ConfigRow::buildNumber(const ConfigModel::Row &row)
         if (!self->m_updating)
             self->commit();
     };
-
-    input->onValidate = [self, raw](bool cancel)
-    {
-        if (cancel)
-        {
-            self->m_updating = true;
-            raw->set_value(self->m_modelValue);
-            self->m_updating = false;
-            self->m_host.rowMessage(self, std::string());
-            return;
-        }
-
-        self->commit();
-    };
-
-    input->onFocusIn = [self]()
-    {
-        self->setFocusMarker(true);
-        self->m_host.rowFocused(self);
-    };
-
-    input->onFocusOut = [self, raw]()
-    {
-        self->setFocusMarker(false);
-
-        if (!self->commit())
-        {
-            self->m_updating = true;
-            raw->set_value(self->m_modelValue);
-            self->m_updating = false;
-        }
-    };
 }
 
 void ConfigRow::buildToggle(const ConfigModel::Row &row)
 {
-    std::shared_ptr<FocusAware<TuiToggle>> toggle =
-            std::make_shared<FocusAware<TuiToggle>>(StyledText(""), row.value == "true");
+    std::shared_ptr<ToggleSwitch> toggle =
+            std::make_shared<ToggleSwitch>(StyledText(""), row.value == "true");
 
     m_toggle = toggle;
     m_editor = toggle;
-    m_textEditor = false;
+    m_kind = Kind::Bool;
 
-    toggle->readOnly = m_readOnly;
     toggle->on_label = _("[ Yes ]");
     toggle->off_label = _("[ No  ]");
 
@@ -552,14 +454,6 @@ void ConfigRow::buildToggle(const ConfigModel::Row &row)
 
         self->submit(on? "true": "false");
     };
-
-    toggle->onFocusIn = [self]()
-    {
-        self->setFocusMarker(true);
-        self->m_host.rowFocused(self);
-    };
-
-    toggle->onFocusOut = [self]() { self->setFocusMarker(false); };
 }
 
 void ConfigRow::buildDropdown(const ConfigModel::Row &row)
@@ -572,14 +466,11 @@ void ConfigRow::buildDropdown(const ConfigModel::Row &row)
         return;
     }
 
-    std::shared_ptr<FocusAware<TuiDropdown>> dropdown =
-            std::make_shared<FocusAware<TuiDropdown>>(&m_app);
+    std::shared_ptr<Dropdown> dropdown = std::make_shared<Dropdown>(&m_app);
 
     m_dropdown = dropdown;
     m_editor = dropdown;
-    m_textEditor = false;
-
-    dropdown->readOnly = m_readOnly;
+    m_kind = Kind::Enum;
 
     std::vector<StyledText> labels;
     for (size_t i = 0; i < m_option->values().size(); i++)
@@ -592,24 +483,14 @@ void ConfigRow::buildDropdown(const ConfigModel::Row &row)
 
     dropdown->set_options(labels);
 
-    ConfigRow *self = this;
-
-    dropdown->on_change = [self](int index, std::string)
-    {
-        if (self->m_updating)
-            return;
-
-        if (index >= 0 && index < (int)self->m_enumValues.size())
-            self->submit(self->m_enumValues[index]);
-    };
-
-    dropdown->onFocusIn = [self]()
-    {
-        self->setFocusMarker(true);
-        self->m_host.rowFocused(self);
-    };
-
-    dropdown->onFocusOut = [self]() { self->setFocusMarker(false); };
+    /* No on_change: the popup of the library is the only thing that fires it,
+     * and nothing can open that popup any more. It steals the focus of the
+     * whole application when it appears -- Dropdown::toggle() builds its
+     * Dialog without clearing steal_focus -- and answers to the mouse only,
+     * so a keyboard user would be locked out of the browser. Space and Enter
+     * pick the value in place instead, and updateDoc() lists what there is to
+     * pick from.
+     */
 }
 
 bool ConfigRow::commit()
@@ -645,12 +526,176 @@ bool ConfigRow::commit()
     return true;
 }
 
-void ConfigRow::setFocusMarker(bool on)
+void ConfigRow::setSelected(bool selected, bool active)
 {
-    //The default theme shows the focus with colours only, and there is no
-    //reverse video in this library: without this marker nothing at all points
-    //at the current line on a monochrome terminal.
-    m_marker->set_text(StyledText(on? "> ": "  "));
+    /* The default theme shows the focus with colours only, and there is no
+     * reverse video in this library: without this marker nothing at all points
+     * at the current line on a monochrome terminal. "* " for the line the
+     * cursor sits on while the keyboard is driving the other pane, same as the
+     * category column.
+     */
+    m_marker->set_text(StyledText(selected? (active? "> ": "* "): "  "));
+
+    if (selected != m_selected)
+    {
+        m_selected = selected;
+
+        StyledText styled;
+        std::string name = m_option? m_option->label(): m_key;
+        if (m_dirty || m_selected)
+            styled.bold(name);
+        else
+            styled.add(name);
+        m_name->set_text(styled);
+    }
+}
+
+bool ConfigRow::activate()
+{
+    if (m_kind == Kind::Bool)
+    {
+        if (m_readOnly)
+        {
+            m_host.rowMessage(this, _("The configuration file is read only."));
+            return true;
+        }
+
+        m_toggle->is_on = !m_toggle->is_on;
+        submit(m_toggle->is_on? "true": "false");
+
+        return true;
+    }
+
+    if (m_kind == Kind::Enum)
+    {
+        if (m_readOnly)
+        {
+            m_host.rowMessage(this, _("The configuration file is read only."));
+            return true;
+        }
+
+        if (m_enumValues.empty())
+            return true;
+
+        int index = m_dropdown->selected_index + 1;
+        if (index < 0 || index >= (int)m_enumValues.size())
+            index = 0;
+
+        m_dropdown->selected_index = index;
+        submit(m_enumValues[index]);
+
+        return true;
+    }
+
+    return false;
+}
+
+void ConfigRow::beginEdit()
+{
+    if (m_editing || !editable())
+        return;
+
+    m_editing = true;
+
+    /* on_focus() is the only public way in: it makes the widget draw itself
+     * focused and answer to the keyboard, without moving the focus the library
+     * keeps, which stays on the option pane.
+     */
+    std::shared_ptr<Widget> widget = editWidget();
+    if (widget)
+        widget->on_focus();
+}
+
+bool ConfigRow::endEdit(bool cancel)
+{
+    if (!m_editing)
+        return true;
+
+    if (m_kind == Kind::Enum)
+    {
+        if (cancel)
+        {
+            m_dropdown->selected_index = m_enumIndex;
+            m_host.rowMessage(this, std::string());
+        }
+        else if (m_dropdown->selected_index >= 0 &&
+                 m_dropdown->selected_index < (int)m_enumValues.size() &&
+                 m_dropdown->selected_index != m_enumIndex)
+        {
+            submit(m_enumValues[m_dropdown->selected_index]);
+        }
+    }
+    else
+    {
+        if (cancel)
+        {
+            m_updating = true;
+            m_input->set_value(m_modelValue);
+            m_updating = false;
+            m_host.rowMessage(this, std::string());
+        }
+        else if (!commit())
+        {
+            //The registry refused it: the editor stays open on the value that
+            //was typed, with the reason in the documentation pane
+            return false;
+        }
+    }
+
+    m_editing = false;
+
+    std::shared_ptr<Widget> widget = editWidget();
+    if (widget)
+        widget->on_blur();
+
+    return true;
+}
+
+bool ConfigRow::editEvent(const Event &event)
+{
+    if (!m_editing)
+        return false;
+
+    if (m_kind == Kind::Enum)
+    {
+        if (!event.is_key_event() || m_enumValues.empty())
+            return false;
+
+        if (!event.is_nav_up() && !event.is_nav_down())
+            return false;
+
+        if (m_readOnly)
+            return true;
+
+        int index = m_dropdown->selected_index + (event.is_nav_down()? 1: -1);
+        if (index < 0)
+            index = (int)m_enumValues.size() - 1;
+        if (index >= (int)m_enumValues.size())
+            index = 0;
+
+        m_dropdown->selected_index = index;
+
+        return true;
+    }
+
+    std::shared_ptr<Widget> widget = editWidget();
+    if (!widget)
+        return false;
+
+    bool consumed = widget->on_event(event);
+
+    /* Input::on_event() grabs the focus of the library when it is clicked,
+     * which would take it away from the option pane and leave the keyboard
+     * dead. Put it back, and keep the field drawing its cursor.
+     */
+    if (event.is_mouse_event())
+    {
+        if (restoreFocus)
+            restoreFocus();
+        widget->on_focus();
+    }
+
+    return consumed;
 }
 
 bool ConfigRow::hasSelection() const
@@ -661,46 +706,32 @@ bool ConfigRow::hasSelection() const
 void ConfigRow::detach()
 {
     m_updating = true;
+    restoreFocus = nullptr;
+
+    if (m_editing)
+    {
+        m_editing = false;
+        std::shared_ptr<Widget> widget = editWidget();
+        if (widget)
+            widget->on_blur();
+    }
 
     if (m_input)
     {
         m_input->on_change = nullptr;
-        std::shared_ptr<FocusAware<TuiInput>> input =
-                std::dynamic_pointer_cast<FocusAware<TuiInput>>(m_input);
+        std::shared_ptr<TuiInput> input = std::dynamic_pointer_cast<TuiInput>(m_input);
         if (input)
-        {
             input->onValidate = nullptr;
-            input->onFocusIn = nullptr;
-            input->onFocusOut = nullptr;
-        }
     }
 
     if (m_number)
         m_number->on_change = nullptr;
 
     if (m_toggle)
-    {
         m_toggle->on_change = nullptr;
-        std::shared_ptr<FocusAware<TuiToggle>> toggle =
-                std::dynamic_pointer_cast<FocusAware<TuiToggle>>(m_toggle);
-        if (toggle)
-        {
-            toggle->onFocusIn = nullptr;
-            toggle->onFocusOut = nullptr;
-        }
-    }
 
     if (m_dropdown)
-    {
         m_dropdown->on_change = nullptr;
-        std::shared_ptr<FocusAware<TuiDropdown>> dropdown =
-                std::dynamic_pointer_cast<FocusAware<TuiDropdown>>(m_dropdown);
-        if (dropdown)
-        {
-            dropdown->onFocusIn = nullptr;
-            dropdown->onFocusOut = nullptr;
-        }
-    }
 
     m_line->visible = false;
     if (m_editor)
@@ -716,6 +747,18 @@ void ConfigRow::refresh(const ConfigModel::Row &row, bool updateEditor)
     m_dirty = row.dirty;
     m_modelValue = editableValue(row);
 
+    //Entry the model holds, whether the key is set or not: the dropdown always
+    //shows something, and a cancelled edit goes back to it
+    m_enumIndex = -1;
+    for (size_t i = 0; i < m_enumValues.size(); i++)
+    {
+        if (m_enumValues[i] == row.value)
+        {
+            m_enumIndex = (int)i;
+            break;
+        }
+    }
+
     if (updateEditor)
     {
         if (m_input)
@@ -725,22 +768,12 @@ void ConfigRow::refresh(const ConfigModel::Row &row, bool updateEditor)
             m_toggle->is_on = row.value == "true";
 
         if (m_dropdown)
-        {
-            m_dropdown->selected_index = -1;
-            for (size_t i = 0; i < m_enumValues.size(); i++)
-            {
-                if (m_enumValues[i] == row.value)
-                {
-                    m_dropdown->selected_index = (int)i;
-                    break;
-                }
-            }
-        }
+            m_dropdown->selected_index = m_enumIndex;
     }
 
     std::string name = m_option? m_option->label(): m_key;
     StyledText styled;
-    if (m_dirty)
+    if (m_dirty || m_selected)
         styled.bold(name);
     else
         styled.add(name);
