@@ -55,7 +55,11 @@
  *   widget, so a bare "s" would save instead of being typed into a path. The
  *   letter bindings are therefore registered and unregistered as the editor
  *   opens and closes: see updateShortcutState(). They are off while a line is
- *   being edited, or while a dialog is open.
+ *   being edited, while the search prompt is open, or while a dialog is open.
+ *
+ * - Search. "/" opens a one line prompt in the status bar, not a widget: it is
+ *   a state of the keyboard model, so that it can drive the two cursors of
+ *   MainPanes while the user types. See actionSearch() and searchKey().
  *
  * - Terminal restoration. cpp-tui only restores the terminal from ~Terminal(),
  *   i.e. on the normal way out of App::run(). run() is wrapped in a try/catch
@@ -162,7 +166,7 @@ std::vector<std::string> wrapText(const std::string &text, int width)
 }
 
 /* Scrollable block of text: the documentation pane, and the body of every full
- * screen view (i, v, ?, /). cpptui::Paragraph cannot do it because it does not
+ * screen view (i, v, ?). cpptui::Paragraph cannot do it because it does not
  * know its own wrapped height, which is what a ScrollableVertical needs.
  */
 class TextPane: public Widget
@@ -656,11 +660,24 @@ private:
     //Which of the two panes the keyboard drives
     enum class Pane { Categories, Options };
 
+    /* One option the pattern matches, in the coordinates of the display: the
+     * index of its category in m_visibleCategories, and the index of its line
+     * among the ones that category shows.
+     */
+    struct SearchMatch
+    {
+        int category = 0;
+        int row = 0;
+        //Lower is better, see searchRank()
+        int rank = 0;
+    };
+
     //--- Keyboard model ----------------------------------------------------
     bool paneEvent(const Event &event);
     bool paneKey(const Event &event);
     bool paneMouse(const Event &event);
     bool editKey(const Event &event);
+    bool searchKey(const Event &event);
 
     void setPane(Pane pane);
     void setCursor(int index);
@@ -683,7 +700,15 @@ private:
 
     std::vector<DisplayRow> displayRows() const;
     bool rowFiltered(const ConfigModel::Row &row) const;
-    bool rowMatches(const ConfigModel::Row &row) const;
+
+    //--- Search ------------------------------------------------------------
+    void searchClose(bool accept);
+    void searchUpdate();
+    void searchStep(int delta);
+    void searchGoto(int category, int row);
+    std::vector<SearchMatch> searchCollect(const std::string &pattern) const;
+    static int searchRank(const ConfigModel::Row &row, const std::string &needle);
+    std::string searchPrompt() const;
 
     void setLetterShortcuts(bool enabled);
     void setEscapeShortcut(bool enabled);
@@ -751,10 +776,20 @@ private:
     bool m_escapeEnabled = false;
     int m_modalCount = 0;
 
-    std::string m_search;
+    //True while the search prompt owns the keyboard
+    bool m_searching = false;
+    std::string m_pattern;
+    std::vector<SearchMatch> m_matches;
+    //Match the two cursors are previewing, -1 when there is none
+    int m_match = -1;
+    //Where the two cursors were when "/" was pressed, for Esc and for an
+    //emptied pattern
+    int m_searchCategory = 0;
+    int m_searchCursor = -1;
+    Pane m_searchPane = Pane::Categories;
+
     std::shared_ptr<Dialog> m_dialog;
     std::shared_ptr<TextPane> m_dialogText;
-    std::shared_ptr<TuiInput> m_searchInput;
 };
 
 //---------------------------------------------------------------------------
@@ -769,27 +804,6 @@ bool ConfigTuiScreen::rowFiltered(const ConfigModel::Row &row) const
         (row.option->isAdvanced() || row.option->isDeprecated()))
         return true;
 
-    if (!m_search.empty() && !rowMatches(row))
-        return true;
-
-    return false;
-}
-
-bool ConfigTuiScreen::rowMatches(const ConfigModel::Row &row) const
-{
-    std::string needle = Utils::str_to_lower(m_search);
-
-    if (Utils::str_to_lower(row.key).find(needle) != std::string::npos)
-        return true;
-
-    if (row.option)
-    {
-        if (Utils::str_to_lower(row.option->label()).find(needle) != std::string::npos)
-            return true;
-        if (Utils::str_to_lower(row.option->doc()).find(needle) != std::string::npos)
-            return true;
-    }
-
     return false;
 }
 
@@ -797,26 +811,6 @@ std::vector<ConfigTuiScreen::DisplayRow> ConfigTuiScreen::displayRows() const
 {
     std::vector<DisplayRow> result;
     const std::vector<ConfigModel::Category> &categories = m_model.categories();
-
-    //A search flattens every category into one list
-    if (!m_search.empty())
-    {
-        for (size_t c = 0; c < categories.size(); c++)
-        {
-            for (size_t r = 0; r < categories[c].rows.size(); r++)
-            {
-                if (rowFiltered(categories[c].rows[r]))
-                    continue;
-
-                DisplayRow entry;
-                entry.category = c;
-                entry.row = r;
-                result.push_back(entry);
-            }
-        }
-
-        return result;
-    }
 
     if (m_category < 0 || m_category >= (int)m_visibleCategories.size())
         return result;
@@ -842,20 +836,6 @@ void ConfigTuiScreen::rebuildCategories()
 
     m_visibleCategories.clear();
     m_categories->items.clear();
-
-    if (!m_search.empty())
-    {
-        //One virtual entry while a search is on, so the flat result list has
-        //something to belong to
-        SelectList::Item item;
-        item.label = _("Search results");
-        item.count = (int)displayRows().size();
-        m_categories->items.push_back(item);
-        m_category = 0;
-        m_categories->selected = 0;
-
-        return;
-    }
 
     for (size_t c = 0; c < categories.size(); c++)
     {
@@ -894,6 +874,9 @@ void ConfigTuiScreen::rebuildCategories()
 // the options, Left comes back. On a line, Space activates and Enter opens an
 // editor; while an editor is open every key belongs to it, except Enter which
 // commits, Escape which cancels and Tab which leaves the pane.
+//
+// "/" adds a third state on top of that: the search prompt owns every key,
+// and moves the two cursors as the pattern grows.
 
 ConfigRow *ConfigTuiScreen::cursorRow() const
 {
@@ -1176,7 +1159,17 @@ bool ConfigTuiScreen::paneMouse(const Event &event)
 bool ConfigTuiScreen::paneEvent(const Event &event)
 {
     if (event.is_mouse_event())
+    {
+        //Pointing at something is a way of saying where you wanted to go: the
+        //prompt takes the jump it has made and gets out of the way
+        if (m_searching)
+            searchClose(true);
+
         return paneMouse(event);
+    }
+
+    if (m_searching)
+        return searchKey(event);
 
     if (m_editing)
         return editKey(event);
@@ -1188,6 +1181,267 @@ bool ConfigTuiScreen::paneEvent(const Event &event)
         return false;
 
     return paneKey(event);
+}
+
+//---------------------------------------------------------------------------
+// Search
+//---------------------------------------------------------------------------
+//
+// "/" does not filter anything: it walks. The prompt lives on the status bar
+// line and is not a widget at all, because the two cursors it has to drive
+// belong to MainPanes and a focused Input would have taken the keyboard away
+// from it. Every key of the prompt therefore arrives through paneEvent(), and
+// the single letter shortcuts are off for the whole time so that an "s" is an
+// s. Esc puts both cursors back where "/" found them.
+
+//Lower is better, -1 when the row does not match at all. needle is lower case
+//and never empty.
+int ConfigTuiScreen::searchRank(const ConfigModel::Row &row, const std::string &needle)
+{
+    /* The order the user expects: the key they half remember first, then the
+     * ones that merely contain it, and only at the end the rows whose prose
+     * happens to mention the word.
+     */
+    std::string key = Utils::str_to_lower(row.key);
+
+    if (key == needle)
+        return 0;
+    if (key.compare(0, needle.size(), needle) == 0)
+        return 1;
+    if (key.find(needle) != std::string::npos)
+        return 2;
+
+    //An undocumented row has nothing but its key
+    if (row.option)
+    {
+        if (Utils::str_to_lower(row.option->label()).find(needle) != std::string::npos)
+            return 3;
+        if (Utils::str_to_lower(row.option->doc()).find(needle) != std::string::npos)
+            return 4;
+    }
+
+    return -1;
+}
+
+std::vector<ConfigTuiScreen::SearchMatch>
+ConfigTuiScreen::searchCollect(const std::string &pattern) const
+{
+    std::vector<SearchMatch> matches;
+
+    if (pattern.empty())
+        return matches;
+
+    std::string needle = Utils::str_to_lower(pattern);
+    const std::vector<ConfigModel::Category> &categories = m_model.categories();
+
+    /* Only what the browser is showing: an option hidden by "a" cannot be
+     * jumped to, and the obsolete keys are in no category at all. Walking the
+     * visible categories in order is the registry order, which a stable sort on
+     * the rank then keeps as the tie break -- the walk has to be the same list
+     * every time or Down would not be predictable.
+     */
+    for (size_t c = 0; c < m_visibleCategories.size(); c++)
+    {
+        const ConfigModel::Category &category = categories[m_visibleCategories[c]];
+        int display = 0;
+
+        for (size_t r = 0; r < category.rows.size(); r++)
+        {
+            if (rowFiltered(category.rows[r]))
+                continue;
+
+            int rank = searchRank(category.rows[r], needle);
+            if (rank >= 0)
+            {
+                SearchMatch match;
+                match.category = (int)c;
+                match.row = display;
+                match.rank = rank;
+                matches.push_back(match);
+            }
+
+            display++;
+        }
+    }
+
+    std::stable_sort(matches.begin(), matches.end(),
+                     [](const SearchMatch &a, const SearchMatch &b)
+                     { return a.rank < b.rank; });
+
+    return matches;
+}
+
+//Moves both cursors to one line of one category, scrolling it into view
+void ConfigTuiScreen::searchGoto(int category, int row)
+{
+    if (category < 0 || category >= (int)m_visibleCategories.size())
+        return;
+
+    if (category != m_category)
+    {
+        /* Straight to the list, not through SelectList::select(): its
+         * on_select would rebuild the rows a second time.
+         */
+        m_category = category;
+        m_categories->selected = category;
+        rebuildRows();
+    }
+
+    setCursor(row);
+}
+
+void ConfigTuiScreen::searchUpdate()
+{
+    //Back to an empty pattern is back to where the search started, and the
+    //prompt stays open
+    if (m_pattern.empty())
+    {
+        m_matches.clear();
+        m_match = -1;
+        searchGoto(m_searchCategory, m_searchCursor);
+        updateStatusBar();
+        return;
+    }
+
+    std::vector<SearchMatch> matches = searchCollect(m_pattern);
+
+    /* Nothing matches: the cursors stay on the last match instead of jumping
+     * somewhere the user never asked for, and the prompt says so.
+     */
+    if (matches.empty())
+    {
+        m_matches.clear();
+        m_match = -1;
+        updateStatusBar();
+        return;
+    }
+
+    m_matches = matches;
+    m_match = 0;
+
+    searchGoto(m_matches[0].category, m_matches[0].row);
+    updateStatusBar();
+}
+
+void ConfigTuiScreen::searchStep(int delta)
+{
+    if (m_matches.empty())
+        return;
+
+    int count = (int)m_matches.size();
+    m_match = ((m_match + delta) % count + count) % count;
+
+    searchGoto(m_matches[m_match].category, m_matches[m_match].row);
+    updateStatusBar();
+}
+
+void ConfigTuiScreen::searchClose(bool accept)
+{
+    if (!m_searching)
+        return;
+
+    m_searching = false;
+
+    if (accept)
+    {
+        //Land on the option, ready to be acted on: the cursors do not move,
+        //only the pane the keyboard is in
+        setPane(Pane::Options);
+    }
+    else
+    {
+        searchGoto(m_searchCategory, m_searchCursor);
+        setPane(m_searchPane);
+    }
+
+    m_pattern.clear();
+    m_matches.clear();
+    m_match = -1;
+
+    updateShortcutState();
+    updateStatusBar();
+}
+
+bool ConfigTuiScreen::searchKey(const Event &event)
+{
+    if (!event.is_key_event())
+        return false;
+
+    /* There is no lone Escape in this library: it only comes out as the pair,
+     * plain or as Alt + ESC, exactly like in the editors and the dialogs.
+     */
+    if (event.is_escape())
+    {
+        searchClose(false);
+        return true;
+    }
+
+    if (event.is_enter())
+    {
+        searchClose(true);
+        return true;
+    }
+
+    if (event.is_nav_down() || (event.ctrl && event.key == 'n'))
+    {
+        searchStep(1);
+        return true;
+    }
+
+    if (event.is_nav_up() || (event.ctrl && event.key == 'p'))
+    {
+        searchStep(-1);
+        return true;
+    }
+
+    if (event.is_backspace())
+    {
+        //One character, not one byte: a pattern may be typed in any language
+        while (!m_pattern.empty() && ((unsigned char)m_pattern.back() & 0xC0) == 0x80)
+            m_pattern.erase(m_pattern.size() - 1);
+
+        if (!m_pattern.empty())
+        {
+            m_pattern.erase(m_pattern.size() - 1);
+            searchUpdate();
+        }
+
+        return true;
+    }
+
+    if (event.is_printable() && !event.ctrl && !event.alt)
+    {
+        m_pattern += (char)event.key;
+        searchUpdate();
+        return true;
+    }
+
+    //Everything else belongs to the prompt while it is open: letting a key
+    //fall back through would move a cursor under the pattern being typed
+    return true;
+}
+
+std::string ConfigTuiScreen::searchPrompt() const
+{
+    /* "_" is the caret: this prompt is drawn text, not a widget, so nothing
+     * puts a terminal cursor at its end, and a highlighted cell would need a
+     * colour the monochrome mode has not got.
+     */
+    std::string prompt = "/" + m_pattern + "_  ";
+
+    if (m_pattern.empty())
+        prompt += std::string("(") + _("type to search") + ")";
+    else if (m_matches.empty())
+        prompt += std::string("(") + _("no match") + ")";
+    else
+        prompt += "(" + std::to_string(m_match + 1) + "/" +
+                  std::to_string((int)m_matches.size()) + ")";
+
+    //ASCII, like every other bar: the arrow glyphs would be mojibake on the
+    //terminals the monochrome mode exists for
+    prompt += std::string("   ") + _("Enter go  Esc Esc cancel  Up/Down next match");
+
+    return prompt;
 }
 
 void ConfigTuiScreen::rebuildRows()
@@ -1242,9 +1496,7 @@ void ConfigTuiScreen::rebuildRows()
     refreshCursor();
 
     std::string title;
-    if (!m_search.empty())
-        title = _("Search results");
-    else if (m_category >= 0 && m_category < (int)m_visibleCategories.size())
+    if (m_category >= 0 && m_category < (int)m_visibleCategories.size())
         title = categories[m_visibleCategories[m_category]].label;
 
     if (rows.empty())
@@ -1608,15 +1860,23 @@ void ConfigTuiScreen::updateDoc()
 
 void ConfigTuiScreen::updateStatusBar()
 {
+    //The prompt takes the whole line while it is open: it is the only thing
+    //the keyboard is talking to
+    if (m_searching)
+    {
+        m_bar->set_text(StyledText(" " + searchPrompt()));
+        return;
+    }
+
     if (!m_status.empty())
     {
         m_bar->set_text(StyledText(" " + m_status));
         return;
     }
 
-    /* Three bars, one per state, so that the keys the bar names are the keys
-     * that work. Plain ASCII: the arrow glyphs would be mojibake on the
-     * terminals the monochrome mode exists for.
+    /* One bar per state, so that the keys the bar names are the keys that
+     * work. Plain ASCII: the arrow glyphs would be mojibake on the terminals
+     * the monochrome mode exists for.
      */
     std::string shortcuts;
 
@@ -1705,13 +1965,14 @@ void ConfigTuiScreen::setEscapeShortcut(bool enabled)
 }
 
 /* The letters are on unless something is going to swallow them: an open
- * editor, or a dialog. The editors of the option pane never hold the focus of
- * the library any more, so "a text field has the focus" is not a question that
- * can be asked here: only edit mode tells whether an s is a save or a letter.
+ * editor, the search prompt, or a dialog. The editors of the option pane never
+ * hold the focus of the library any more, and the prompt is not a widget at
+ * all, so "a text field has the focus" is not a question that can be asked
+ * here: only these three flags tell whether an s is a save or a letter.
  */
 void ConfigTuiScreen::updateShortcutState()
 {
-    setLetterShortcuts(m_modalCount == 0 && !m_editing);
+    setLetterShortcuts(m_modalCount == 0 && !m_editing && !m_searching);
 }
 
 //---------------------------------------------------------------------------
@@ -1816,7 +2077,6 @@ void ConfigTuiScreen::closeDialog()
 
     m_dialog.reset();
     m_dialogText.reset();
-    m_searchInput.reset();
 
     if (m_modalCount > 0)
         m_modalCount--;
@@ -2210,15 +2470,18 @@ void ConfigTuiScreen::actionHelp()
         N_("d or Backspace       back to the default value (asks first when it matters)"),
         N_("Empty a field        same thing: an empty field means the default"),
         N_("i                    full documentation of the current option"),
-        N_("/                    search, an empty search clears the filter"),
+        N_("/                    jump to an option: the cursors follow as you type"),
+        N_("Up / Down            while searching: previous / next match (Ctrl-P, Ctrl-N)"),
+        N_("Enter                while searching: stay there, on the option pane"),
+        N_("Esc Esc              while searching: put both cursors back"),
         N_("v                    what is waiting to be written"),
         N_("a                    show or hide advanced and deprecated options"),
         N_("s or Ctrl-S          save"),
         N_("q or Ctrl-C          quit"),
         N_("Esc Esc              close a dialog (a single Esc is not a key here)"),
         N_(""),
-        N_("The letter shortcuts are off while an editor is open, so that typing an "
-           "s in a path does not save."),
+        N_("The letter shortcuts are off while an editor or the search prompt is "
+           "open, so that typing an s in a path does not save."),
         N_(""),
         N_("The same registry is available without a terminal:"),
         N_("  calaos_config options          every option"),
@@ -2243,134 +2506,28 @@ void ConfigTuiScreen::actionHelp()
 
 void ConfigTuiScreen::actionSearch()
 {
-    std::pair<int, int> size = Terminal::getSize();
-    int width = std::max(40, size.first - 8);
-    int height = std::max(10, size.second - 6);
+    if (m_searching)
+        return;
 
-    std::shared_ptr<Dialog> dialog = std::make_shared<Dialog>(&m_app, BorderStyle::ASCII);
-    dialog->shadow = false;
-    dialog->modal = true;
-    dialog->set_title(_("Search"), Alignment::Left);
-    dialog->fixed_width = width;
-    dialog->fixed_height = height;
-    dialog->width = width;
-    dialog->height = height;
+    leaveEdit();
 
-    std::shared_ptr<Vertical> body = std::make_shared<Vertical>();
+    m_searching = true;
+    m_pattern.clear();
+    m_matches.clear();
+    m_match = -1;
 
-    std::shared_ptr<TuiInput> input = std::make_shared<TuiInput>();
-    input->fixed_height = 1;
-    input->placeholder = _("key, label or description; empty clears the filter");
-    input->set_value(m_search);
-    m_searchInput = input;
+    //Where to put the two cursors back on Esc, and on a pattern emptied by
+    //Backspace
+    m_searchCategory = m_category;
+    m_searchCursor = m_cursor;
+    m_searchPane = m_pane;
 
-    std::shared_ptr<TextPane> results = std::make_shared<TextPane>();
-    results->focusable = false;
-    results->tab_stop = false;
-    m_dialogText = results;
+    //From here on s, q, d, v, a and i are text, exactly as they are inside an
+    //editor: the prompt has to be able to spell smtp_debug
+    updateShortcutState();
 
-    body->add(input);
-    body->add(results);
-
-    std::shared_ptr<Horizontal> buttonRow = std::make_shared<Horizontal>();
-    buttonRow->fixed_height = 1;
-
-    std::shared_ptr<MonoButton> apply = std::make_shared<MonoButton>(_("Apply"), [this]()
-    {
-        std::string needle = m_searchInput? m_searchInput->get_value(): std::string();
-        closeDialog();
-        m_search = needle;
-        rebuildCategories();
-        scheduleRebuild();
-    });
-    apply->fixed_width = (int)std::string(_("Apply")).size() + 8;
-    buttonRow->add(apply);
-
-    std::shared_ptr<MonoButton> clear = std::make_shared<MonoButton>(_("Clear"), [this]()
-    {
-        closeDialog();
-        m_search.clear();
-        rebuildCategories();
-        scheduleRebuild();
-    });
-    clear->fixed_width = (int)std::string(_("Clear")).size() + 8;
-    buttonRow->add(clear);
-    buttonRow->add(std::make_shared<HorizontalSpacer>());
-
-    body->add(buttonRow);
-    dialog->add(body);
-
-    //Incremental: the result list follows every keystroke
-    ConfigTuiScreen *self = this;
-    TextPane *rawResults = results.get();
-
-    std::function<void(const std::string &)> refresh = [self, rawResults](const std::string &needle)
-    {
-        std::vector<TextPane::Line> lines;
-        std::string saved = self->m_search;
-        self->m_search = needle;
-
-        const std::vector<ConfigModel::Category> &categories = self->m_model.categories();
-        int count = 0;
-
-        if (!needle.empty())
-        {
-            for (size_t c = 0; c < categories.size(); c++)
-            {
-                for (size_t r = 0; r < categories[c].rows.size(); r++)
-                {
-                    const ConfigModel::Row &row = categories[c].rows[r];
-                    if (self->rowFiltered(row))
-                        continue;
-
-                    TextPane::Line line;
-                    line.text = categories[c].label + " > " +
-                                (row.option? row.option->label(): row.key) +
-                                "  (" + row.key + ")";
-                    line.wrap = false;
-                    lines.push_back(line);
-                    count++;
-                }
-            }
-        }
-
-        self->m_search = saved;
-
-        if (needle.empty())
-        {
-            TextPane::Line line;
-            line.text = _("Type to search. Applying an empty search shows every category again.");
-            lines.push_back(line);
-        }
-        else if (count == 0)
-        {
-            TextPane::Line line;
-            line.text = _("No option matches.");
-            lines.push_back(line);
-        }
-
-        rawResults->setLines(lines);
-    };
-
-    input->on_change = [refresh](std::string value) { refresh(value); };
-    input->onValidate = [self, refresh](bool cancel)
-    {
-        if (cancel)
-        {
-            self->closeDialog();
-            return;
-        }
-
-        std::string needle = self->m_searchInput? self->m_searchInput->get_value(): std::string();
-        self->closeDialog();
-        self->m_search = needle;
-        self->rebuildCategories();
-        self->scheduleRebuild();
-    };
-
-    refresh(m_search);
-
-    openDialog(dialog);
+    m_status.clear();
+    updateStatusBar();
 }
 
 //---------------------------------------------------------------------------
