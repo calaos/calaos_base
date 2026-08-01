@@ -467,8 +467,41 @@ public:
         tab_stop = false;
     }
 
+    /* The pane paints its own surface, exactly like the category column and
+     * the documentation pane. The lines are then drawn on top of it, and the
+     * cells no widget of a line covers -- the gap in front of the steppers of
+     * a number, everything past the end of a switch -- are part of that
+     * surface instead of being holes onto the background of the screen.
+     */
+    void render(Buffer &buffer) override
+    {
+        const Theme &theme = Theme::current();
+
+        for (int row = 0; row < height; row++)
+        {
+            for (int col = 0; col < width; col++)
+            {
+                Cell cell;
+                cell.content = " ";
+                cell.fg_color = theme.foreground;
+                cell.bg_color = theme.panel_bg;
+                buffer.set(x + col, y + row, cell);
+            }
+        }
+
+        ScrollableVertical::render(buffer);
+    }
+
     bool on_event(const Event &) override { return false; }
 };
+
+/* The glyphs the frames of the browser are drawn with, and the style they come
+ * from. Both live with the rest of the frame code further down: which set is
+ * used is one decision, taken in one place, on the codeset of the locale.
+ */
+struct FrameGlyphs;
+const FrameGlyphs &frameGlyphs();
+BorderStyle frameStyle();
 
 /* The two panes of the browser, and the only tab stop of the whole screen.
  * ========================================================================
@@ -487,8 +520,18 @@ public:
  * The focus is deliberately not checked: nothing else on this screen can take
  * it, a click on a frame parks it on the root view, and an open dialog is
  * modal and never lets an event down here in the first place.
+ *
+ * It also draws the frame of both panes, because there is only one.
+ * =================================================================
+ *
+ * A frame of its own around each pane put two verticals side by side down the
+ * middle of the screen, which reads as a seam between two windows and not as
+ * the divider of one. The two panes are two columns of the same thing, so they
+ * are one box with one rule between them, joined to the top and bottom edges
+ * with a tee. The titles stay exactly where a frame would have put them, one
+ * over each column, and the column the rule saves goes to the options.
  */
-class MainPanes: public Horizontal
+class MainPanes: public Container
 {
 public:
     MainPanes()
@@ -499,6 +542,32 @@ public:
 
     //Returns true when the screen consumed the event
     std::function<bool(const Event &)> handler;
+
+    //Cells the category column gets, the frame and the rule excluded
+    int leftWidth = 24;
+
+    void setLeftTitle(const std::string &title) { m_leftTitle = title; }
+    void setRightTitle(const std::string &title) { m_rightTitle = title; }
+
+    //Column the shared rule is drawn on, between the two panes
+    int dividerX() const { return x + 1 + leftWidth; }
+
+    void layout() override
+    {
+        if (children_.size() < 2)
+            return;
+
+        //One row of frame above and below, one column on each side, and the
+        //rule between the two panes
+        int inner = std::max(0, height - 2);
+        int left = std::max(0, std::min(leftWidth, width - 4));
+        int right = std::max(0, width - 3 - left);
+
+        place(children_[0], x + 1, y + 1, left, inner);
+        place(children_[1], dividerX() + 1, y + 1, right, inner);
+    }
+
+    void render(Buffer &buffer) override;
 
     bool on_event(const Event &event) override
     {
@@ -511,6 +580,25 @@ public:
 
         return handler(event);
     }
+
+private:
+    void place(const std::shared_ptr<Widget> &child, int px, int py,
+               int pwidth, int pheight)
+    {
+        child->update_responsive();
+        child->x = px;
+        child->y = py;
+        child->width = pwidth;
+        child->height = pheight;
+
+        std::shared_ptr<Container> container =
+                std::dynamic_pointer_cast<Container>(child);
+        if (container)
+            container->layout();
+    }
+
+    std::string m_leftTitle;
+    std::string m_rightTitle;
 };
 
 /* cpptui::Border takes the focus when its title is clicked, which would leave
@@ -690,6 +778,103 @@ BorderStyle frameStyle()
     return style;
 }
 
+/* The same glyphs cpptui::Border draws its box with, plus the two tees it has
+ * no use for: the shared rule of the option panes has to meet the top and the
+ * bottom edge of their frame.
+ */
+struct FrameGlyphs
+{
+    const char *horizontal;
+    const char *vertical;
+    const char *topLeft;
+    const char *topRight;
+    const char *bottomLeft;
+    const char *bottomRight;
+    const char *teeDown;
+    const char *teeUp;
+};
+
+const FrameGlyphs &frameGlyphs()
+{
+    //Escaped, so that the file itself stays ASCII like the rest of the source
+    static const FrameGlyphs unicode = {
+        "\u2500", "\u2502", "\u250C", "\u2510",
+        "\u2514", "\u2518", "\u252C", "\u2534"
+    };
+
+    //A tee is a plus, like every corner of the ASCII box of the library
+    static const FrameGlyphs ascii = { "-", "|", "+", "+", "+", "+", "+", "+" };
+
+    return frameStyle() == BorderStyle::Single? unicode: ascii;
+}
+
+void MainPanes::render(Buffer &buffer)
+{
+    //Four columns of frame and rule, and a row of frame above and below
+    if (width < 5 || height < 3)
+        return;
+
+    const Theme &theme = Theme::current();
+    const FrameGlyphs &glyphs = frameGlyphs();
+
+    Color fg = theme.border;
+    Color bg = theme.background;
+
+    int divider = dividerX();
+    int bottom = y + height - 1;
+
+    Cell cell;
+    cell.fg_color = fg;
+    cell.bg_color = bg;
+
+    for (int col = 0; col < width; col++)
+    {
+        const char *top = glyphs.horizontal;
+        const char *low = glyphs.horizontal;
+
+        if (col == 0)
+        {
+            top = glyphs.topLeft;
+            low = glyphs.bottomLeft;
+        }
+        else if (col == width - 1)
+        {
+            top = glyphs.topRight;
+            low = glyphs.bottomRight;
+        }
+        else if (x + col == divider)
+        {
+            top = glyphs.teeDown;
+            low = glyphs.teeUp;
+        }
+
+        cell.content = top;
+        buffer.set(x + col, y, cell);
+        cell.content = low;
+        buffer.set(x + col, bottom, cell);
+    }
+
+    for (int row = y + 1; row < bottom; row++)
+    {
+        cell.content = glyphs.vertical;
+        buffer.set(x, row, cell);
+        buffer.set(divider, row, cell);
+        buffer.set(x + width - 1, row, cell);
+    }
+
+    /* Two cells in from the corner and from the rule, and cut two cells before
+     * the next one: exactly where cpptui::Border puts the title of a box, so
+     * that the two columns are titled the way every other frame of the browser
+     * is.
+     */
+    render_utf8_text(buffer, m_leftTitle, x + 2, y, divider - x - 3,
+                     fg, bg, false, false, false);
+    render_utf8_text(buffer, m_rightTitle, divider + 2, y,
+                     x + width - divider - 4, fg, bg, false, false, false);
+
+    Container::render(buffer);
+}
+
 //A frame around a widget
 std::shared_ptr<TuiBorder> framed(const std::string &title, std::shared_ptr<Widget> child)
 {
@@ -780,6 +965,7 @@ private:
     void rebuildCategories();
     void rebuildRows();
     void refreshRows(ConfigRow *typing);
+    void updateValueColumn();
     void updateTitle();
     void updateDoc();
     void updateStatusBar();
@@ -836,8 +1022,6 @@ private:
     std::shared_ptr<MainPanes> m_panes;
     std::shared_ptr<SelectList> m_categories;
     std::shared_ptr<RowsPane> m_rowsPane;
-    std::shared_ptr<TuiBorder> m_categoriesBorder;
-    std::shared_ptr<TuiBorder> m_rowsBorder;
     std::shared_ptr<TuiBorder> m_docBorder;
     std::shared_ptr<TextPane> m_doc;
 
@@ -1082,6 +1266,10 @@ void ConfigTuiScreen::stopEdit(bool cancel)
     }
 
     m_editing = false;
+
+    //The value that was just committed may be longer than the ones the column
+    //was sized for. Here and not while it was being typed.
+    updateValueColumn();
 
     updateShortcutState();
     updateDoc();
@@ -1582,6 +1770,7 @@ void ConfigTuiScreen::rebuildRows()
         m_pane = Pane::Categories;
 
     refreshCursor();
+    updateValueColumn();
 
     std::string title;
     if (m_category >= 0 && m_category < (int)m_visibleCategories.size())
@@ -1590,10 +1779,33 @@ void ConfigTuiScreen::rebuildRows()
     if (rows.empty())
         title += std::string(" - ") + _("no option matches");
 
-    m_rowsBorder->set_title(title, Alignment::Left);
+    m_panes->setRightTitle(title);
 
     updateDoc();
     updateStatusBar();
+}
+
+/* One value column for the whole category.
+ *
+ * Every line asks for the room its own value needs, the widest of them wins,
+ * and each line is given that same number: the values start on the same column
+ * and the "(default)" markers that follow them do too, whether the line holds
+ * a port, a path or a switch. What is left of the pane stays empty rather than
+ * pushing the markers against the frame, a screen away from the value they
+ * qualify -- and a line too narrow for the column simply clamps it, which is
+ * what happens to every line at once at 80 columns.
+ *
+ * Not called while a value is being typed: a column that grew under the cursor
+ * would move the line the user is reading.
+ */
+void ConfigTuiScreen::updateValueColumn()
+{
+    int column = 0;
+    for (size_t i = 0; i < m_rows.size(); i++)
+        column = std::max(column, m_rows[i]->naturalValueWidth());
+
+    for (size_t i = 0; i < m_rows.size(); i++)
+        m_rows[i]->setValueColumn(column);
 }
 
 void ConfigTuiScreen::refreshRows(ConfigRow *typing)
@@ -1606,6 +1818,9 @@ void ConfigTuiScreen::refreshRows(ConfigRow *typing)
 
         m_rows[i]->refresh(*row, m_rows[i].get() != typing);
     }
+
+    if (!typing)
+        updateValueColumn();
 }
 
 void ConfigTuiScreen::ensureRowVisible(ConfigRow *row)
@@ -2650,16 +2865,16 @@ void ConfigTuiScreen::buildUi()
     m_doc->focusable = false;
     m_doc->tab_stop = false;
 
-    m_categoriesBorder = framed(_("Categories"), m_categories);
-    m_categoriesBorder->fixed_width = 26;
-
-    m_rowsBorder = framed("", m_rowsPane);
     m_docBorder = framed(_("Documentation"), m_doc);
     m_docBorder->fixed_height = 8;
 
+    //One frame for the two panes, with one rule between them: MainPanes draws
+    //it itself, see the note on the class
     m_panes = std::make_shared<MainPanes>();
-    m_panes->add(m_categoriesBorder);
-    m_panes->add(m_rowsBorder);
+    m_panes->leftWidth = 24;
+    m_panes->setLeftTitle(_("Categories"));
+    m_panes->add(m_categories);
+    m_panes->add(m_rowsPane);
 
     std::shared_ptr<Widget> middle = m_panes;
 

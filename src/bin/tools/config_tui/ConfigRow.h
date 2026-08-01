@@ -65,6 +65,74 @@ public:
     bool on_event(const cpptui::Event &event) override;
 };
 
+/* Text of one of the three fixed columns of a line: the cursor marker, the
+ * name of the option and the "(default)" marker after its value.
+ *
+ * cpptui::Label cannot do it: its render() resolves one colour for the whole
+ * widget and drops every attribute of the StyledText it was given, so the bold
+ * of the selected line and the dim of the marker would both be lost. It also
+ * leaves its background transparent, which is what made every line of the pane
+ * a patchwork of painted and unpainted cells.
+ */
+class RowLabel: public cpptui::Widget
+{
+public:
+    std::string text;
+    bool bold = false;
+    //Left default for the colour of the theme, i.e. no colour at all in
+    //monochrome mode
+    cpptui::Color color;
+    /* Cells of the column the text may not use, on its right. One on the name
+     * of an option, so that a label too long for its column is cut one cell
+     * early instead of touching the value that follows it.
+     */
+    int gutter = 0;
+
+    RowLabel();
+
+    void render(cpptui::Buffer &buffer) override;
+    //Decoration: the option pane owns the keyboard and the mouse of its lines
+    bool on_event(const cpptui::Event &) override { return false; }
+};
+
+/* The line itself, and the one place that decides how wide each of its columns
+ * is.
+ *
+ * A plain Horizontal would give the editor every cell the fixed columns leave,
+ * i.e. a value area as wide as the pane and a "(default)" marker pushed against
+ * the frame, a screen away from the value it qualifies. The value column is
+ * therefore sized here, from the same number for every line of the pane
+ * (valueColumn, the widest value the category holds), so that the values and
+ * the markers of a category line up whatever each line contains.
+ */
+class ConfigRowLine: public cpptui::Horizontal
+{
+public:
+    //Width the option pane asks for the value column, in cells. Clamped to
+    //what the line really has: the pane is what it is at 80 columns.
+    int valueColumn = 0;
+
+    std::shared_ptr<cpptui::Widget> nameWidget;
+    std::shared_ptr<cpptui::Widget> valueWidget;
+    std::shared_ptr<cpptui::Widget> suffixWidget;
+
+    void layout() override;
+};
+
+/* List of an enumerated option. cpptui::Dropdown indents the value it shows by
+ * one cell and paints its arrow two cells before its right edge, which puts the
+ * one list of a category out of line with every other value of the column. Only
+ * render() is replaced: the widget itself, and the way the pane drives it, are
+ * the ones of the library.
+ */
+class TuiDropdown: public cpptui::Dropdown
+{
+public:
+    using cpptui::Dropdown::Dropdown;
+
+    void render(cpptui::Buffer &buffer) override;
+};
+
 /* cpptui::Button resolves its colours through Color::contrast_color(), which
  * returns a real RGB value even when every colour of the theme is the
  * terminal default: a plain Button emits truecolor escapes on a monochrome
@@ -137,6 +205,13 @@ public:
     //The whole line, to be added to the option pane
     std::shared_ptr<cpptui::Widget> widget() const { return m_line; }
 
+    /* Width the value of this line would need to be shown whole, steppers and
+     * list arrow included. The pane takes the widest of its lines and gives it
+     * back to every one of them through setValueColumn().
+     */
+    int naturalValueWidth() const { return m_naturalValue; }
+    void setValueColumn(int width) { m_line->valueColumn = width; }
+
     /* Pushes the state of the model row back into the widgets. updateEditor is
      * false for the line being typed into: writing the value back would move
      * the cursor to the end of the field at every keystroke.
@@ -204,6 +279,17 @@ private:
     void buildToggle(const ConfigModel::Row &row);
     void buildDropdown(const ConfigModel::Row &row);
 
+    /* Paints the field of the line, or stops painting it. Only the value being
+     * edited has a background of its own: on every other line the value area
+     * is the surface of the pane, so that the column reads as one column
+     * whatever widget draws each cell of it.
+     */
+    void setFieldEdited(bool edited);
+    //Recomputes what naturalValueWidth() answers, from the value on screen
+    void updateNaturalWidth();
+    //Shows the value from its first character again, see the definition
+    void rewindField();
+
     //Sends a value to the model, and reports the refusal in the doc pane
     void submit(const std::string &value);
     //Value the editor should show for this row, empty when the key is unset
@@ -235,10 +321,13 @@ private:
     //the key is not set: what is typed is what will be written.
     std::string m_modelValue;
 
-    std::shared_ptr<cpptui::Horizontal> m_line;
-    std::shared_ptr<cpptui::Label> m_marker;
-    std::shared_ptr<cpptui::Label> m_name;
-    std::shared_ptr<cpptui::Label> m_suffix;
+    //Cells the value of this line would like, see naturalValueWidth()
+    int m_naturalValue = 0;
+
+    std::shared_ptr<ConfigRowLine> m_line;
+    std::shared_ptr<RowLabel> m_marker;
+    std::shared_ptr<RowLabel> m_name;
+    std::shared_ptr<RowLabel> m_suffix;
 
     //The widget that carries the focus of the line, whatever its type
     std::shared_ptr<cpptui::Widget> m_editor;

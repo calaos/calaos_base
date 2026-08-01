@@ -23,12 +23,108 @@
 
 #include <Utils.h>
 
+#include <algorithm>
+
 using namespace Calaos;
 using namespace cpptui;
+
+namespace
+{
+
+//Width of the fixed columns of a line, in cells
+const int MARKER_WIDTH = 2;
+const int NAME_WIDTH = 24;
+//What the name is allowed to shrink to before the value gives way instead
+const int NAME_MIN = 14;
+//Enough for a port, an address or a switch: the floor of the value column
+const int VALUE_MIN = 12;
+
+/* Width of the " * (default)" column, the cell that keeps it off a value as
+ * wide as its own column included. Computed rather than hardcoded: the two
+ * markers are translated, and a language whose word for "default" is longer
+ * than the English one would see them cut in half.
+ */
+int suffixWidth()
+{
+    static const int width = 3 + std::max(TextHelper::utf8_display_width(_("(default)")),
+                                          TextHelper::utf8_display_width(_("(unset)")));
+
+    return width;
+}
+
+}
 
 //---------------------------------------------------------------------------
 // Widget helpers
 //---------------------------------------------------------------------------
+
+RowLabel::RowLabel()
+{
+    /* Never focusable, so that a click on it does not steal the focus from the
+     * editors and confuse the shortcut handling, and one cell high like every
+     * other column of a line.
+     */
+    focusable = false;
+    tab_stop = false;
+    fixed_height = 1;
+}
+
+void RowLabel::render(Buffer &buffer)
+{
+    if (width < 1 || height < 1)
+        return;
+
+    const Theme &theme = Theme::current();
+    Color fg = color.resolve(theme.foreground);
+    Color bg = theme.panel_bg;
+
+    for (int i = 0; i < width; i++)
+    {
+        Cell cell;
+        cell.content = " ";
+        cell.fg_color = fg;
+        cell.bg_color = bg;
+        buffer.set(x + i, y, cell);
+    }
+
+    //Truncated, never wrapped: a line of the pane is one line
+    int room = width - gutter;
+    if (room > 0)
+        render_utf8_text(buffer, text, x, y, room, fg, bg, bold, false, false);
+}
+
+void ConfigRowLine::layout()
+{
+    if (nameWidget && valueWidget && suffixWidget && width > 0)
+    {
+        int suffix = suffixWidth();
+        //What the name and the value share
+        int room = width - MARKER_WIDTH - suffix;
+
+        int name = NAME_WIDTH;
+        int value = std::max(valueColumn, VALUE_MIN);
+
+        if (name + value > room)
+        {
+            //The value takes what the name leaves, and only once it is down to
+            //nothing readable does the name start giving way in its turn
+            value = room - name;
+            if (value < VALUE_MIN)
+            {
+                value = std::max(1, std::min(VALUE_MIN, room - NAME_MIN));
+                name = room - value;
+            }
+        }
+
+        //A window this narrow is refused by RootView, but layout() still runs
+        //on the way there
+        nameWidget->fixed_width = std::max(1, name);
+        valueWidget->fixed_width = std::max(1, value);
+        suffixWidget->fixed_width = suffix;
+    }
+
+    Horizontal::layout();
+}
 
 bool TuiInput::on_event(const Event &event)
 {
@@ -87,6 +183,44 @@ bool TuiInput::on_event(const Event &event)
     return Input::on_event(event);
 }
 
+void TuiDropdown::render(Buffer &buffer)
+{
+    if (width < 1 || height < 1)
+        return;
+
+    const Theme &theme = Theme::current();
+
+    //Same rule as everywhere else on a line: the colours come from the theme,
+    //so a monochrome theme emits nothing at all
+    Color bg = bg_color.resolve(theme.input_bg);
+    Color fg = has_focus()? theme.primary.resolve(theme.foreground):
+                            fg_color.resolve(theme.input_fg);
+
+    for (int i = 0; i < width; i++)
+    {
+        Cell cell;
+        cell.content = " ";
+        cell.fg_color = fg;
+        cell.bg_color = bg;
+        buffer.set(x + i, y, cell);
+    }
+
+    std::string text = selected_index >= 0 && selected_index < (int)options.size()?
+                       options[selected_index].plain_text():
+                       placeholder.plain_text();
+
+    /* The value starts where every other value of the column starts, and the
+     * arrow that says it is a list sits on the right edge of the column, where
+     * a number keeps its steppers. render_utf8_text() takes a width of zero
+     * for "no limit at all", hence the guard.
+     */
+    int room = width - 2;
+    if (room > 0)
+        render_utf8_text(buffer, text, x, y, room, fg, bg, false, false, false);
+
+    render_utf8_text(buffer, "v", x + width - 1, y, 1, fg, bg, false, false, false);
+}
+
 void MonoButton::render(Buffer &buffer)
 {
     if (width < 1 || height < 1)
@@ -129,20 +263,12 @@ void MonoButton::render(Buffer &buffer)
 namespace
 {
 
-//Width of the two fixed columns of a line, in cells
-const int NAME_WIDTH = 24;
-const int SUFFIX_WIDTH = 11;
-
-//A label of the option pane: never focusable, so that a click on it does not
-//steal the focus from the editors and confuse the shortcut handling
-std::shared_ptr<Label> plainLabel(const StyledText &text, int fixedWidth)
+//A column of a line. Its width is set at every layout by ConfigRowLine.
+std::shared_ptr<RowLabel> plainLabel(const std::string &text, int fixedWidth)
 {
-    std::shared_ptr<Label> label = std::make_shared<Label>(text);
-    label->focusable = false;
-    label->selectable = false;
-    label->fixed_height = 1;
-    if (fixedWidth > 0)
-        label->fixed_width = fixedWidth;
+    std::shared_ptr<RowLabel> label = std::make_shared<RowLabel>();
+    label->text = text;
+    label->fixed_width = fixedWidth;
 
     return label;
 }
@@ -183,13 +309,22 @@ ConfigRow::ConfigRow(App &app, ConfigRowHost &host, const ConfigModel::Row &row,
     m_isDefault(row.isDefault),
     m_dirty(row.dirty)
 {
-    m_line = std::make_shared<Horizontal>();
+    m_line = std::make_shared<ConfigRowLine>();
     m_line->fixed_height = 1;
     makePassive(m_line);
 
-    m_marker = plainLabel(" ", 2);
+    m_marker = plainLabel(" ", MARKER_WIDTH);
     m_name = plainLabel(" ", NAME_WIDTH);
-    m_suffix = plainLabel(" ", SUFFIX_WIDTH);
+    m_suffix = plainLabel(" ", suffixWidth());
+
+    //A name as long as its column must not touch the value next to it
+    m_name->gutter = 1;
+
+    /* Secondary to the value it qualifies: the eye has to find the value
+     * first. Dim in colour, and in monochrome the parentheses do the same job
+     * on their own.
+     */
+    m_suffix->color = Theme::current().input_placeholder;
 
     /* An undocumented key gets a plain text field with no validation at all:
      * the registry knows nothing about it, and refusing what another program
@@ -229,7 +364,64 @@ ConfigRow::ConfigRow(App &app, ConfigRowHost &host, const ConfigModel::Row &row,
     m_line->add(m_editor);
     m_line->add(m_suffix);
 
+    m_line->nameWidget = m_name;
+    m_line->valueWidget = m_editor;
+    m_line->suffixWidget = m_suffix;
+
+    //Nothing is being edited yet: the value area is the surface of the pane
+    setFieldEdited(false);
+
     refresh(row);
+}
+
+/* Only the field being edited is painted.
+ * =======================================
+ *
+ * Every editor of the library paints its own background, and they disagree
+ * about how much of the line they cover: an Input fills its whole width, a
+ * ToggleSwitch stops after "[ No  ]" and a NumberInput leaves a hole before its
+ * steppers. Down a column of lines that reads as a sawtooth, and it says
+ * nothing: every line is painted the same whether it is being edited or not.
+ *
+ * So the surface of the pane is painted by the pane, the editors are given that
+ * same surface as their background, and the one field the keyboard is typing
+ * into is the only thing that gets a colour of its own. Theme::hover rather
+ * than Theme::selection, which stays free for a text selection inside the field
+ * being edited. In monochrome every colour of the theme is the terminal
+ * default, so nothing here emits anything at all.
+ */
+void ConfigRow::setFieldEdited(bool edited)
+{
+    const Theme &theme = Theme::current();
+    Color background = edited? theme.hover: theme.panel_bg;
+
+    if (m_input)
+        m_input->bg_color = background;
+
+    if (m_dropdown)
+        m_dropdown->bg_color = background;
+}
+
+/* Puts the view of the field back on the beginning of the value.
+ *
+ * cpptui::Input scrolls its content sideways to follow the cursor, and keeps
+ * that offset once it stops being edited: a value typed to the edge of its
+ * column would go on being shown from its middle, first characters missing,
+ * for as long as the line lives. Home is the way in from the outside -- the
+ * offset follows the cursor at the next render -- and it has to be sent while
+ * the widget still believes it has the focus, i.e. before on_blur().
+ */
+void ConfigRow::rewindField()
+{
+    if (!m_input)
+        return;
+
+    Event home;
+    home.type = EventType::Key;
+    //The library has no name for its key codes, see Event::is_nav_home()
+    home.key = 1003;
+
+    m_input->on_event(home);
 }
 
 std::shared_ptr<Widget> ConfigRow::editWidget() const
@@ -466,7 +658,7 @@ void ConfigRow::buildDropdown(const ConfigModel::Row &row)
         return;
     }
 
-    std::shared_ptr<Dropdown> dropdown = std::make_shared<Dropdown>(&m_app);
+    std::shared_ptr<TuiDropdown> dropdown = std::make_shared<TuiDropdown>(&m_app);
 
     m_dropdown = dropdown;
     m_editor = dropdown;
@@ -534,19 +726,15 @@ void ConfigRow::setSelected(bool selected, bool active)
      * cursor sits on while the keyboard is driving the other pane, same as the
      * category column.
      */
-    m_marker->set_text(StyledText(selected? (active? "> ": "* "): "  "));
+    m_marker->text = selected? (active? "> ": "* "): "  ";
+    m_marker->bold = selected;
 
     if (selected != m_selected)
     {
         m_selected = selected;
 
-        StyledText styled;
-        std::string name = m_option? m_option->label(): m_key;
-        if (m_dirty || m_selected)
-            styled.bold(name);
-        else
-            styled.add(name);
-        m_name->set_text(styled);
+        m_name->text = m_option? m_option->label(): m_key;
+        m_name->bold = m_dirty || m_selected;
     }
 }
 
@@ -596,6 +784,7 @@ void ConfigRow::beginEdit()
         return;
 
     m_editing = true;
+    setFieldEdited(true);
 
     /* on_focus() is the only public way in: it makes the widget draw itself
      * focused and answer to the keyboard, without moving the focus the library
@@ -643,6 +832,8 @@ bool ConfigRow::endEdit(bool cancel)
     }
 
     m_editing = false;
+    setFieldEdited(false);
+    rewindField();
 
     std::shared_ptr<Widget> widget = editWidget();
     if (widget)
@@ -711,6 +902,7 @@ void ConfigRow::detach()
     if (m_editing)
     {
         m_editing = false;
+        setFieldEdited(false);
         std::shared_ptr<Widget> widget = editWidget();
         if (widget)
             widget->on_blur();
@@ -771,15 +963,12 @@ void ConfigRow::refresh(const ConfigModel::Row &row, bool updateEditor)
             m_dropdown->selected_index = m_enumIndex;
     }
 
-    std::string name = m_option? m_option->label(): m_key;
-    StyledText styled;
-    if (m_dirty || m_selected)
-        styled.bold(name);
-    else
-        styled.add(name);
-    m_name->set_text(styled);
+    m_name->text = m_option? m_option->label(): m_key;
+    m_name->bold = m_dirty || m_selected;
 
-    std::string suffix;
+    //Opens with a space: a value that fills its whole column, i.e. one that had
+    //to be cut, must not end up glued to the marker that follows it
+    std::string suffix = " ";
     if (m_dirty)
         suffix += "*";
     if (!m_isSet && m_isDefault)
@@ -787,7 +976,56 @@ void ConfigRow::refresh(const ConfigModel::Row &row, bool updateEditor)
     else if (!m_isSet)
         suffix += std::string(" ") + _("(unset)");
 
-    m_suffix->set_text(StyledText(suffix));
+    m_suffix->text = suffix;
+
+    updateNaturalWidth();
 
     m_updating = false;
+}
+
+void ConfigRow::updateNaturalWidth()
+{
+    int width = VALUE_MIN;
+
+    switch (m_kind)
+    {
+    case Kind::Bool:
+        width = std::max(TextHelper::utf8_display_width(m_toggle->on_label),
+                         TextHelper::utf8_display_width(m_toggle->off_label));
+        break;
+
+    case Kind::Enum:
+    {
+        //The list shows whichever value is picked, and keeps a cell for its
+        //arrow and one in front of it
+        for (size_t i = 0; i < m_enumValues.size(); i++)
+        {
+            int label = TextHelper::utf8_display_width(
+                        m_option->valueLabel(m_enumValues[i]));
+            width = std::max(width, label + 2);
+        }
+        break;
+    }
+
+    default:
+    {
+        /* The value the line is showing: what the model holds, or the default
+         * the empty field shows as a placeholder. One cell more, for the
+         * cursor that sits after the last character while it is being typed.
+         */
+        std::string shown = m_modelValue;
+        if (shown.empty() && m_input)
+            shown = m_input->placeholder;
+
+        width = TextHelper::utf8_display_width(shown) + 1;
+
+        //The steppers are part of the value column, not of the value
+        if (m_number && m_number->btn_up)
+            width += 7;
+
+        break;
+    }
+    }
+
+    m_naturalValue = std::max(VALUE_MIN, width);
 }
