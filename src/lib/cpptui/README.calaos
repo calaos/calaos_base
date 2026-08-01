@@ -11,9 +11,9 @@ License     : MIT (see LICENSE, kept verbatim from upstream)
 Files
 -----
 
-  cpptui.hpp   18119 lines, 571283 bytes, sha256
-               393c2b727bc0d2061b07b9ba3b6c013313d0a635f7f6b7b6739dcc459bce88fd
-               (as shipped here, i.e. upstream + the local patch below)
+  cpptui.hpp   18124 lines, 571613 bytes, sha256
+               08b89081ad69751f9fe5c1174a245c631f8c99cddfeb2aff32e17f32324fa890
+               (as shipped here, i.e. upstream + the local patches below)
 
                pristine upstream at the commit above is 18106 lines,
                570572 bytes, sha256
@@ -26,8 +26,8 @@ Files
 Local patches
 -------------
 
-There is exactly **one** local modification, kept in patches/ so it can be
-replayed after every upstream update. LICENSE is unmodified.
+There are exactly **two** local modifications, kept in patches/ so they can be
+replayed, in numeric order, after every upstream update. LICENSE is unmodified.
 
   patches/0001-allow-ctrl-c-interception-to-be-disabled.patch
 
@@ -46,8 +46,33 @@ replayed after every upstream update. LICENSE is unmodified.
     both modes.
 
     Upstream status: proposed, not yet merged. patches/UPSTREAM.md holds the
-    ready-to-send issue/PR text. Drop the patch — and that file — as soon as an
-    equivalent knob is released upstream.
+    ready-to-send issue/PR text. Drop the patch as soon as an equivalent knob
+    is released upstream.
+
+  patches/0002-copy-registered-key-before-invoking-callback.patch
+
+    What: in step "1.7 Registered Key Events" of App::run(), copies the
+    RegisteredKey out of key_events_ before calling it, and reads `consume`
+    from that copy instead of from the map node. Three added lines plus a
+    comment; dispatch order and consume semantics are unchanged.
+
+    Why: upstream calls the callback through the unordered_map iterator
+    (it->second.callback()) and then re-reads it->second.consume. A callback
+    that calls unregister_key() on its own key erases that node, so the
+    std::function is destroyed while its operator() is still on the stack and
+    the consume read afterwards touches freed memory; register_key() from a
+    callback is the same hazard via a rehash. Our own TUI hits it: the '?',
+    'i', 'v', 'q' and 's' callbacks of calaos_config go through openDialog()
+    -> updateShortcutState(), which unregisters those very letters. Both
+    faults are reproducible under -fsanitize=address against the pristine
+    header and silent with this patch.
+
+    Upstream status: proposed, not yet merged. patches/UPSTREAM.md holds the
+    ready-to-send issue text. Drop the patch as soon as the fix is released
+    upstream.
+
+Delete patches/UPSTREAM.md only once *both* patches are gone; until then, drop
+just the section of it that belongs to the patch that was accepted.
 
 The build uses the patched cpptui.hpp directly; there is no build-time patching
 step. Do not "fix" the header any further without adding a numbered patch here:
@@ -57,10 +82,14 @@ Updating
 --------
 
 Run from this directory. It re-fetches upstream and re-applies every local
-patch, and stops loudly if a patch no longer applies — which means the patch
-must be rebased, or dropped because upstream fixed it.
+patch, in numeric order (0001 then 0002 — later patches are written against
+the tree as the earlier ones left it), and stops loudly at the first one that
+no longer applies — which means that patch must be rebased, or dropped because
+upstream fixed it. Never let the loop continue past a failure: a half-patched
+header compiles.
 
     set -e
+    export LC_ALL=C   # so the patch glob sorts numerically
     SHA=$(curl -s https://api.github.com/repos/jonoton/cpp-tui/commits/main \
           | sed -n 's/.*"sha": "\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
     curl -fL -o cpptui.hpp https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/cpptui.hpp

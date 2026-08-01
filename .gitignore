@@ -54,6 +54,10 @@ calaos-*.tar.xz
 /data/theme/default/default.edj
 /config.h.in
 *.patch
+# The local patches carried against the vendored cpp-tui are part of the
+# sources: without them a fresh clone cannot replay them onto an upstream
+# update, and src/lib/cpptui/README.calaos documents a recipe that needs them.
+!src/lib/cpptui/patches/*.patch
 config.rpath
 *.po
 Makefile.am.user

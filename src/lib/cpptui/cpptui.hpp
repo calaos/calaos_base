@@ -16656,8 +16656,13 @@ class App {
           KeyBinding kv = {event.key, event.ctrl, event.alt, event.shift};
           auto it = key_events_.find(kv);
           if (it != key_events_.end()) {
-            it->second.callback();
-            if (it->second.consume) {
+            // The callback may register or unregister keys, including its own,
+            // which erases this node or rehashes the map: that would destroy
+            // the std::function while it runs and leave `it` dangling for the
+            // consume read below. Work on a copy.
+            RegisteredKey binding = it->second;
+            binding.callback();
+            if (binding.consume) {
               needs_render = true;
               continue;  // Consumed, skip subsequent dispatch steps
             }

@@ -1,0 +1,99 @@
+From: Calaos <https://github.com/calaos/calaos_base>
+Subject: [PATCH] cpptui: do not invoke a registered key callback through the map node
+
+Local patch carried by Calaos against the vendored copy of jonoton/cpp-tui
+(upstream commit 9543ee3c056583eea1fc44491c6c240f0df0b570). Applies on top of
+0001-allow-ctrl-c-interception-to-be-disabled.patch.
+
+Why
+---
+Step "1.7 Registered Key Events" of App::run() invokes the callback through the
+unordered_map iterator and then re-reads the same node:
+
+    auto it = key_events_.find(kv);
+    if (it != key_events_.end()) {
+      it->second.callback();
+      if (it->second.consume) {
+
+key_events_ is an unordered_map and unregister_key() erases from it, so a
+callback that unregisters its own key destroys the very node it is running
+from. Two separate undefined behaviours follow:
+
+  a) the node owns the std::function, so the closure is freed while its
+     operator() is still on the stack — anything the lambda touches after the
+     unregister call, including its own captures, is a use-after-free;
+  b) `it->second.consume` is then read from the freed node.
+
+register_key() from inside a callback is the same hazard by another route: an
+insert may rehash the table and invalidate `it` even when nothing is erased.
+
+This is not theoretical. calaos_config's TUI calls updateShortcutState() from
+inside its '?', 'i', 'v', 'q' and 's' callbacks (via openDialog()), and that
+unregisters exactly those letter shortcuts — the callback erases itself on
+every one of those keypresses. It has never crashed observably, which is the
+usual luck of freed-but-not-yet-reused memory. Built against the pristine
+upstream header, a minimal app whose callback calls unregister_key() on its own
+key reports both faults under -fsanitize=address:
+
+    ERROR: AddressSanitizer: heap-use-after-free
+    READ of size 1 ... in cpptui::App::run(...) cpptui.hpp:16650
+    freed by ... cpptui::App::unregister_key(int, bool, bool, bool) cpptui.hpp:16201
+
+What
+----
+Copy the RegisteredKey out of the map before invoking it, and read consume from
+the copy. RegisteredKey is { std::function<void()>; bool; } — copyable, and the
+copy keeps the closure alive for the duration of the call no matter what the
+callback does to key_events_.
+
+Behaviour is otherwise unchanged: the same callback runs at the same point in
+the dispatch order with the same consume semantics. The only cost is one
+std::function copy per handled keypress, which is noise at human typing rates.
+
+The copy is taken before the call on purpose. Copying only the callback and
+reading consume afterwards would still touch the dead node, and re-doing the
+find() after the call would look up an entry the callback may have just
+removed or replaced.
+
+Upstream status
+---------------
+Proposed upstream, see patches/UPSTREAM.md for the submission text. Drop this
+patch as soon as the fix is released upstream.
+
+Applying
+--------
+From the top of the calaos_base tree, after 0001 has been applied:
+
+    patch -p1 < src/lib/cpptui/patches/0002-copy-registered-key-before-invoking-callback.patch
+    # or
+    git apply src/lib/cpptui/patches/0002-copy-registered-key-before-invoking-callback.patch
+---
+diff --git a/src/lib/cpptui/cpptui.hpp b/src/lib/cpptui/cpptui.hpp
+--- a/src/lib/cpptui/cpptui.hpp
++++ b/src/lib/cpptui/cpptui.hpp
+@@ -16651,18 +16651,23 @@ class App {
+           }
+         }
+ 
+         // 1.7 Registered Key Events
+         if (event.is_key_event()) {
+           KeyBinding kv = {event.key, event.ctrl, event.alt, event.shift};
+           auto it = key_events_.find(kv);
+           if (it != key_events_.end()) {
+-            it->second.callback();
+-            if (it->second.consume) {
++            // The callback may register or unregister keys, including its own,
++            // which erases this node or rehashes the map: that would destroy
++            // the std::function while it runs and leave `it` dangling for the
++            // consume read below. Work on a copy.
++            RegisteredKey binding = it->second;
++            binding.callback();
++            if (binding.consume) {
+               needs_render = true;
+               continue;  // Consumed, skip subsequent dispatch steps
+             }
+             needs_render = true;
+           }
+         }
+ 
+         // 2. Focused Widget Dispatch (Keys only)
