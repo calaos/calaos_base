@@ -29,9 +29,25 @@
 #include <termios.h>
 #include <unistd.h>
 
+#if defined(__has_include)
+    #if __has_include(<langinfo.h>)
+        #define CALAOS_HAVE_LANGINFO 1
+    #endif
+#elif defined(__unix__) || defined(__APPLE__)
+    #define CALAOS_HAVE_LANGINFO 1
+#endif
+
+#ifdef CALAOS_HAVE_LANGINFO
+    #include <langinfo.h>
+#endif
+
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <memory>
+#include <string>
 
 /* Full screen browser of local_config.xml.
  * ========================================
@@ -67,11 +83,17 @@
  *   async-signal-safe handler that writes the restore sequence itself before
  *   letting the default action kill the process.
  *
- * - Monochrome. The library has no reverse video and emits colours in
- *   truecolor only, so with the default theme (every colour "terminal
- *   default") nothing would show the focus. Bold, a "> " marker on the line
- *   each cursor sits on ("* " when the other pane has the keyboard) and ASCII
- *   borders carry that job instead.
+ * - Monochrome. The library has no reverse video, so with the default theme
+ *   (every colour "terminal default") nothing would show the focus. Bold and
+ *   a "> " marker on the line each cursor sits on ("* " when the other pane
+ *   has the keyboard) carry that job instead.
+ *
+ * - Terminal capabilities. Two independent questions, decided in two
+ *   different places and on two different signals: which glyphs the frames
+ *   are made of depends on the codeset of the locale (frameStyle()), and
+ *   whether anything is coloured depends on the terminal (runConfigTui()). A
+ *   UTF-8 terminal with no colour still gets real box drawing, and a colour
+ *   terminal in a C locale still gets ASCII frames.
  */
 
 using namespace Calaos;
@@ -601,11 +623,77 @@ private:
     std::vector<bool> m_wanted;
 };
 
-//A frame around a widget, ASCII so that it survives a terminal without any
-//box drawing character
+//---------------------------------------------------------------------------
+// Frame glyphs
+//---------------------------------------------------------------------------
+
+//True when the name of a codeset or of a locale designates UTF-8
+bool namesUtf8(const std::string &name)
+{
+    std::string lower;
+    lower.reserve(name.size());
+    for (char c: name)
+        lower += (char)std::tolower((unsigned char)c);
+
+    return lower.find("utf-8") != std::string::npos ||
+           lower.find("utf8") != std::string::npos;
+}
+
+/* Whether the terminal can show a box drawing character. This is a question
+ * about the character encoding and about nothing else: colour has no say in
+ * it, and neither has TERM.
+ *
+ * calaos_config runs setlocale(LC_ALL, "") before anything else, so
+ * nl_langinfo(CODESET) answers for the locale actually in effect. The
+ * environment is looked at as well, because setlocale() falls back to the C
+ * locale when the requested locale is not installed on the machine: the user
+ * asked for a UTF-8 environment and the terminal is sending and expecting
+ * UTF-8, whether or not the locale files were generated. The variables are
+ * read in the order POSIX gives them, first one set wins, so LC_ALL=C means
+ * ASCII even under LANG=en_US.UTF-8.
+ */
+bool localeIsUtf8()
+{
+#ifdef CALAOS_HAVE_LANGINFO
+    const char *codeset = nl_langinfo(CODESET);
+    if (codeset && namesUtf8(codeset))
+        return true;
+#endif
+
+    const char *vars[] = { "LC_ALL", "LC_CTYPE", "LANG" };
+    for (const char *var: vars)
+    {
+        const char *value = getenv(var);
+        if (value && value[0] != '\0')
+            return namesUtf8(value);
+    }
+
+    return false;
+}
+
+/* The border style of every frame of the browser, panes and dialogs alike.
+ *
+ * Single line rather than Rounded or Double: the four rounded corners are
+ * absent from the fonts of the framebuffer consoles (they are not part of the
+ * CP437 repertoire those fonts descend from) while the single line set is in
+ * every one of them, and Double is heavier than the rest of the screen. It is
+ * also the style the library pins its own Dropdown popup to, so a stray popup
+ * could not look out of place.
+ *
+ * Computed once: the locale does not change under a running browser.
+ */
+BorderStyle frameStyle()
+{
+    static const BorderStyle style = localeIsUtf8()? BorderStyle::Single:
+                                                    BorderStyle::ASCII;
+
+    return style;
+}
+
+//A frame around a widget
 std::shared_ptr<TuiBorder> framed(const std::string &title, std::shared_ptr<Widget> child)
 {
-    std::shared_ptr<TuiBorder> border = std::make_shared<TuiBorder>(BorderStyle::ASCII);
+    std::shared_ptr<TuiBorder> border = std::make_shared<TuiBorder>(frameStyle());
     border->focusable = false;
     border->set_title(title, Alignment::Left);
     border->add(child);
@@ -1437,8 +1525,8 @@ std::string ConfigTuiScreen::searchPrompt() const
         prompt += "(" + std::to_string(m_match + 1) + "/" +
                   std::to_string((int)m_matches.size()) + ")";
 
-    //ASCII, like every other bar: the arrow glyphs would be mojibake on the
-    //terminals the monochrome mode exists for
+    //ASCII, like every other bar: the arrow glyphs would be mojibake in a
+    //locale that is not UTF-8, and the words work everywhere
     prompt += std::string("   ") + _("Enter go  Esc Esc cancel  Up/Down next match");
 
     return prompt;
@@ -1875,8 +1963,8 @@ void ConfigTuiScreen::updateStatusBar()
     }
 
     /* One bar per state, so that the keys the bar names are the keys that
-     * work. Plain ASCII: the arrow glyphs would be mojibake on the terminals
-     * the monochrome mode exists for.
+     * work. Plain ASCII: the arrow glyphs would be mojibake in a locale that
+     * is not UTF-8, and the words work everywhere.
      */
     std::string shortcuts;
 
@@ -1984,10 +2072,13 @@ std::shared_ptr<Dialog> ConfigTuiScreen::makeDialog(const std::string &title,
                                                     const std::vector<DialogButton> &buttons,
                                                     int width, int height, bool focusText)
 {
-    std::shared_ptr<Dialog> dialog = std::make_shared<Dialog>(&m_app, BorderStyle::ASCII);
+    std::shared_ptr<Dialog> dialog = std::make_shared<Dialog>(&m_app, frameStyle());
 
-    //The shadow of the library darkens real RGB values, which a terminal
-    //without truecolor cannot show
+    /* The shadow of the library darkens real RGB values, which a terminal
+     * without truecolor cannot show. It is off in colour mode too: the
+     * browser now runs in colour on 256 colour terminals, where the darkened
+     * cells would be approximated to something unrelated.
+     */
     dialog->shadow = false;
     dialog->modal = true;
     dialog->set_title(title, Alignment::Left);
@@ -2701,6 +2792,65 @@ int ConfigTuiScreen::run()
     return ret;
 }
 
+//---------------------------------------------------------------------------
+// Colour capability
+//---------------------------------------------------------------------------
+
+/* Whether the terminal is plausibly able to show colours, TERM being the only
+ * thing there is to go on once COLORTERM is absent.
+ *
+ * The list is a whitelist of families rather than a blacklist, so an unknown
+ * TERM stays monochrome; the browser is still perfectly usable there, since
+ * the focus is carried by the "> " and "* " cursors and by bold, never by a
+ * colour.
+ *
+ * Colour is preferred as soon as the family is known, even though the library
+ * emits truecolor SGR (ESC[38;2;r;g;b m) and nothing else. That is on purpose
+ * and must not be tightened again: a terminal that only understands 256
+ * colours either approximates those sequences or drops them, and in both
+ * cases the escape is a well formed CSI ... m whose parameters are consumed
+ * silently. Nothing is left on the screen, no cell is corrupted, and the
+ * layout is untouched. Refusing colour to every terminal that does not
+ * announce COLORTERM is what made the browser look like a 1990 installer on
+ * the ordinary xterm-256color of a normal console.
+ */
+bool terminalHasColor(const char *term)
+{
+    //COLORTERM is proof, when it is there at all
+    const char *colorTerm = getenv("COLORTERM");
+    if (colorTerm && (std::string(colorTerm) == "truecolor" ||
+                      std::string(colorTerm) == "24bit"))
+        return true;
+
+    //No TERM at all: nothing says this is a terminal, stay on the safe side
+    if (!term || term[0] == '\0')
+        return false;
+
+    std::string name(term);
+
+    //Any -256color, -88color or -color variant announces what it can do
+    if (name.find("256color") != std::string::npos ||
+        name.find("88color") != std::string::npos ||
+        name.find("-color") != std::string::npos)
+        return true;
+
+    /* Families that have been in colour for decades. vt100, vt220, ansi,
+     * cons25 and everything unknown are deliberately not here.
+     */
+    const char *families[] = {
+        "xterm", "screen", "tmux", "rxvt", "linux", "alacritty", "kitty",
+        "foot", "vte", "konsole", "st-", "wezterm", "contour", "ghostty"
+    };
+
+    for (const char *family: families)
+    {
+        if (name.compare(0, strlen(family), family) == 0)
+            return true;
+    }
+
+    return false;
+}
+
 }
 
 int Calaos::runConfigTui(const std::string &configFile, TuiColorMode color)
@@ -2718,21 +2868,20 @@ int Calaos::runConfigTui(const std::string &configFile, TuiColorMode color)
         return 1;
     }
 
-    /* The library only knows how to emit truecolor. Without it the themed
-     * colours turn into mush, so the default is decided the same way the CLI
-     * decides its own colours, plus the truecolor check.
+    /* Colour unless the terminal is plausibly unable to show it, and never
+     * mind the frames: which glyphs they are drawn with is decided from the
+     * codeset of the locale, in frameStyle(), and has nothing to do with the
+     * question asked here. --color=never and NO_COLOR are the escape hatches,
+     * and they leave a screen with no colour escape at all.
      */
     bool mono = true;
 
     if (color == TuiColorMode::Always)
         mono = false;
-    else if (color == TuiColorMode::Auto)
-    {
-        const char *colorTerm = getenv("COLORTERM");
-        mono = getenv("NO_COLOR") != nullptr ||
-               !colorTerm ||
-               (std::string(colorTerm) != "truecolor" && std::string(colorTerm) != "24bit");
-    }
+    else if (color == TuiColorMode::Never)
+        mono = true;
+    else
+        mono = getenv("NO_COLOR") != nullptr || !terminalHasColor(term);
 
     ConfigTuiScreen screen(configFile, mono);
 
