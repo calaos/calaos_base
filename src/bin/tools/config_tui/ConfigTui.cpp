@@ -93,7 +93,10 @@
  *   are made of depends on the codeset of the locale (frameStyle()), and
  *   whether anything is coloured depends on the terminal (runConfigTui()). A
  *   UTF-8 terminal with no colour still gets real box drawing, and a colour
- *   terminal in a C locale still gets ASCII frames.
+ *   terminal in a C locale still gets ASCII frames. Each question has its own
+ *   escape hatch, --frames and --color, and they stay independent: the locale
+ *   does not always reach the process ("podman exec -it" sets TERM and nothing
+ *   else), so automatic detection has to be overridable on its own.
  */
 
 using namespace Calaos;
@@ -497,7 +500,8 @@ public:
 
 /* The glyphs the frames of the browser are drawn with, and the style they come
  * from. Both live with the rest of the frame code further down: which set is
- * used is one decision, taken in one place, on the codeset of the locale.
+ * used is one decision, taken in one place, on --frames or, failing that, on
+ * the codeset of the locale.
  */
 struct FrameGlyphs;
 const FrameGlyphs &frameGlyphs();
@@ -768,14 +772,27 @@ bool localeIsUtf8()
  * also the style the library pins its own Dropdown popup to, so a stray popup
  * could not look out of place.
  *
- * Computed once: the locale does not change under a running browser.
+ * Resolved once, by resolveFrameStyle() at the top of runConfigTui(), before a
+ * single widget exists: the locale does not change under a running browser, and
+ * neither does --frames. A function-local static in frameStyle() would cache
+ * whatever the first caller happened to see, so the answer is stored here
+ * instead and every reader is a plain read.
  */
+BorderStyle g_frameStyle = BorderStyle::ASCII;
+
+void resolveFrameStyle(TuiFrameMode mode)
+{
+    if (mode == TuiFrameMode::Unicode)
+        g_frameStyle = BorderStyle::Single;
+    else if (mode == TuiFrameMode::Ascii)
+        g_frameStyle = BorderStyle::ASCII;
+    else
+        g_frameStyle = localeIsUtf8()? BorderStyle::Single: BorderStyle::ASCII;
+}
+
 BorderStyle frameStyle()
 {
-    static const BorderStyle style = localeIsUtf8()? BorderStyle::Single:
-                                                    BorderStyle::ASCII;
-
-    return style;
+    return g_frameStyle;
 }
 
 /* The same glyphs cpptui::Border draws its box with, plus the two tees it has
@@ -2789,6 +2806,13 @@ void ConfigTuiScreen::actionHelp()
         N_("The letter shortcuts are off while an editor or the search prompt is "
            "open, so that typing an s in a path does not save."),
         N_(""),
+        N_("The frames are drawn with box drawing characters when the locale says "
+           "UTF-8, and with ASCII otherwise. Start calaos_config with "
+           "--frames=unicode or --frames=ascii to decide it yourself, which is what "
+           "is needed when the locale does not reach the tool: docker exec and "
+           "podman exec forward no LANG. --color=always and --color=never do the "
+           "same for the colours, the two are independent."),
+        N_(""),
         N_("The same registry is available without a terminal:"),
         N_("  calaos_config options          every option"),
         N_("  calaos_config describe <key>   one option"),
@@ -3068,8 +3092,13 @@ bool terminalHasColor(const char *term)
 
 }
 
-int Calaos::runConfigTui(const std::string &configFile, TuiColorMode color)
+int Calaos::runConfigTui(const std::string &configFile, TuiColorMode color, TuiFrameMode frames)
 {
+    /* First thing done here, before any widget is built and therefore before
+     * anything can ask for a frame glyph.
+     */
+    resolveFrameStyle(frames);
+
     const char *term = getenv("TERM");
 
     //cpp-tui speaks ANSI and nothing else: there is no point opening a full
@@ -3084,10 +3113,10 @@ int Calaos::runConfigTui(const std::string &configFile, TuiColorMode color)
     }
 
     /* Colour unless the terminal is plausibly unable to show it, and never
-     * mind the frames: which glyphs they are drawn with is decided from the
-     * codeset of the locale, in frameStyle(), and has nothing to do with the
-     * question asked here. --color=never and NO_COLOR are the escape hatches,
-     * and they leave a screen with no colour escape at all.
+     * mind the frames: which glyphs they are drawn with is decided just above,
+     * in resolveFrameStyle(), and has nothing to do with the question asked
+     * here. --color=never and NO_COLOR are the escape hatches, and they leave a
+     * screen with no colour escape at all.
      */
     bool mono = true;
 

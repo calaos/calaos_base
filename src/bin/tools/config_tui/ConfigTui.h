@@ -38,6 +38,15 @@ namespace Calaos
 //Mirrors ConfigCli::ColorMode, so that this header stays free of any include
 enum class TuiColorMode { Auto, Always, Never };
 
+/* Which glyphs the frames are drawn with, the second and independent half of
+ * "what can this terminal show". Auto reads the codeset of the locale, the two
+ * others answer the question outright: the locale is the only signal there is,
+ * and it does not always reach the process. "podman exec -it" allocates a
+ * terminal, and therefore sets TERM, but forwards no LANG/LC_*, so a browser
+ * started that way sees no locale at all whatever the terminal is doing.
+ */
+enum class TuiFrameMode { Auto, Unicode, Ascii };
+
 /* Runs the browser until the user leaves it and returns the exit code of
  * calaos_config: 0 when it ran, 1 when the terminal cannot host it.
  *
@@ -48,7 +57,7 @@ enum class TuiColorMode { Auto, Always, Never };
  * The terminal is restored on every way out of this call: normal exit,
  * exception, and SIGTERM/SIGINT/SIGHUP.
  */
-int runConfigTui(const std::string &configFile, TuiColorMode color);
+int runConfigTui(const std::string &configFile, TuiColorMode color, TuiFrameMode frames);
 
 }
 

@@ -56,6 +56,10 @@ struct CliArgs
     char *cacheDir = nullptr;
     ConfigCli::ColorMode color = ConfigCli::ColorMode::Auto;
 
+    //Frames of the interactive browser only: no other action draws a box, and
+    //none of them may change a byte because of this option.
+    TuiFrameMode frames = TuiFrameMode::Auto;
+
     bool all = false;
     bool json = false;
     bool markdown = false;
@@ -77,6 +81,9 @@ void printUsage(std::ostream &out)
     out << _("\t--config <dir>\t\tDirectory holding local_config.xml") << std::endl;
     out << _("\t--cache <dir>\t\tDirectory holding the cache files") << std::endl;
     out << _("\t--color=<when>\t\tColorize the output: auto (default), always or never") << std::endl;
+    out << _("\t--frames=<what>\t\tFrames of the interactive browser: auto (default),") << std::endl;
+    out << _("\t\t\t\tunicode or ascii. auto follows the locale, which is not") << std::endl;
+    out << _("\t\t\t\tforwarded by docker exec and podman exec") << std::endl;
     out << _("\t-h, --help\t\tDisplay this help") << std::endl;
     out << _("\t--version\t\tDisplay the version") << std::endl << std::endl;
 
@@ -110,6 +117,16 @@ bool parseColorMode(const std::string &value, ConfigCli::ColorMode &mode)
     if (value == "auto") mode = ConfigCli::ColorMode::Auto;
     else if (value == "always" || value == "yes" || value == "force") mode = ConfigCli::ColorMode::Always;
     else if (value == "never" || value == "no" || value == "none") mode = ConfigCli::ColorMode::Never;
+    else return false;
+
+    return true;
+}
+
+bool parseFrameMode(const std::string &value, TuiFrameMode &mode)
+{
+    if (value == "auto") mode = TuiFrameMode::Auto;
+    else if (value == "unicode" || value == "utf8" || value == "utf-8") mode = TuiFrameMode::Unicode;
+    else if (value == "ascii") mode = TuiFrameMode::Ascii;
     else return false;
 
     return true;
@@ -178,6 +195,27 @@ bool parseArgs(int argc, char **argv, CliArgs &args)
             if (!parseColorMode(arg.substr(8), args.color))
             {
                 std::cerr << _("Expected --color=auto, --color=always or --color=never") << std::endl;
+                return false;
+            }
+            continue;
+        }
+
+        if (arg == "--frames")
+        {
+            if (i + 1 >= argc || !parseFrameMode(argv[i + 1], args.frames))
+            {
+                std::cerr << _("Expected --frames=auto, --frames=unicode or --frames=ascii") << std::endl;
+                return false;
+            }
+            i++;
+            continue;
+        }
+
+        if (arg.compare(0, 9, "--frames=") == 0)
+        {
+            if (!parseFrameMode(arg.substr(9), args.frames))
+            {
+                std::cerr << _("Expected --frames=auto, --frames=unicode or --frames=ascii") << std::endl;
                 return false;
             }
             continue;
@@ -611,7 +649,7 @@ int actionTui(const CliArgs &args)
         color = TuiColorMode::Never;
 
     //Empty path: the browser asks Utils for the file it already resolved
-    return runConfigTui(std::string(), color);
+    return runConfigTui(std::string(), color, args.frames);
 }
 
 }

@@ -2,6 +2,13 @@
 FROM debian:12-slim as dev
 ENV DEBIAN_FRONTEND noninteractive
 
+# Default locale of the image. Do not remove: a caller that does not forward a
+# locale (podman exec / docker exec pass TERM but no LANG/LC_*) would leave the
+# tools with no locale at all, and calaos_config then falls back to ASCII
+# frames. C.UTF-8 is built into glibc and shipped by libc-bin, nothing has to be
+# generated and the "locales" package is not needed.
+ENV LANG=C.UTF-8
+
 ARG APP_VERSION
 LABEL version=$APP_VERSION
 
@@ -42,6 +49,12 @@ RUN git clone https://github.com/calaos/calaos_base.git && \
     make install-strip
 
 FROM debian:12-slim as runner
+
+# Same reason as in the dev stage, and this is the image the tools ship in:
+# calaos_config is started through "podman exec -it calaos-server
+# /opt/bin/calaos_config", which sets TERM but forwards no LANG/LC_*. Without
+# this variable the browser draws its frames in ASCII on a UTF-8 terminal.
+ENV LANG=C.UTF-8
 
 RUN apt -y update && \
     apt -y upgrade && \
