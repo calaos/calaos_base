@@ -743,6 +743,9 @@ bool namesUtf8(const std::string &name)
  * UTF-8, whether or not the locale files were generated. The variables are
  * read in the order POSIX gives them, first one set wins, so LC_ALL=C means
  * ASCII even under LANG=en_US.UTF-8.
+ *
+ * Only an explicit statement selects ASCII. Saying nothing selects UTF-8:
+ * see the comment on the last return below.
  */
 bool localeIsUtf8()
 {
@@ -760,7 +763,15 @@ bool localeIsUtf8()
             return namesUtf8(value);
     }
 
-    return false;
+    /* Nothing said anything at all. That is not a terminal declaring itself
+     * ASCII, it is the absence of information -- and it is common: docker exec
+     * and podman exec give the process a TERM but no locale, so this is exactly
+     * what the tools see inside the Calaos container. Assume UTF-8, which every
+     * terminal these users reach the box with speaks. A terminal that really
+     * cannot render box drawing is a misconfiguration nothing here can detect,
+     * and --frames=ascii is the answer for it.
+     */
+    return true;
 }
 
 /* The border style of every frame of the browser, panes and dialogs alike.
@@ -2806,11 +2817,12 @@ void ConfigTuiScreen::actionHelp()
         N_("The letter shortcuts are off while an editor or the search prompt is "
            "open, so that typing an s in a path does not save."),
         N_(""),
-        N_("The frames are drawn with box drawing characters when the locale says "
-           "UTF-8, and with ASCII otherwise. Start calaos_config with "
-           "--frames=unicode or --frames=ascii to decide it yourself, which is what "
-           "is needed when the locale does not reach the tool: docker exec and "
-           "podman exec forward no LANG. --color=always and --color=never do the "
+        N_("The frames are drawn with box drawing characters unless the locale says "
+           "the terminal is not UTF-8. Saying nothing at all counts as UTF-8: "
+           "docker exec and podman exec forward no LANG, so a missing locale means "
+           "the information never arrived, not that the terminal is limited. Start "
+           "calaos_config with --frames=ascii to decide otherwise, or "
+           "--frames=unicode to force it. --color=always and --color=never do the "
            "same for the colours, the two are independent."),
         N_(""),
         N_("The same registry is available without a terminal:"),

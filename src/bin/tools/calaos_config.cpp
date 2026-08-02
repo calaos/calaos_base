@@ -82,8 +82,8 @@ void printUsage(std::ostream &out)
     out << _("\t--cache <dir>\t\tDirectory holding the cache files") << std::endl;
     out << _("\t--color=<when>\t\tColorize the output: auto (default), always or never") << std::endl;
     out << _("\t--frames=<what>\t\tFrames of the interactive browser: auto (default),") << std::endl;
-    out << _("\t\t\t\tunicode or ascii. auto follows the locale, which is not") << std::endl;
-    out << _("\t\t\t\tforwarded by docker exec and podman exec") << std::endl;
+    out << _("\t\t\t\tunicode or ascii. auto draws box drawing characters unless") << std::endl;
+    out << _("\t\t\t\tthe locale says the terminal is not UTF-8") << std::endl;
     out << _("\t-h, --help\t\tDisplay this help") << std::endl;
     out << _("\t--version\t\tDisplay the version") << std::endl << std::endl;
 
