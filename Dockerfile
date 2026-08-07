@@ -26,11 +26,12 @@ RUN apt-get update -qq && \
         unzip zip cmake automake autoconf libtool autopoint gettext  \
         tar gzip python3 python3-pip python3-colorama libssl-dev
 
-ARG WEBAPP_VERSION=3.1.0
-RUN curl -fL https://github.com/calaos/calaos-web-app/releases/download/${WEBAPP_VERSION}/calaos-web-app-${WEBAPP_VERSION}.tar.gz --output webapp.tar.gz && \
-    mkdir -p /opt/share/calaos/app && \
-    tar xzf webapp.tar.gz -C /opt/share/calaos/app && \
-    rm -f webapp.tar.gz
+# The web app is NOT embedded in the image. It ships as the calaos-web-app
+# Debian package, and calaos-server.service bind-mounts it over this
+# directory (-v /usr/share/calaos/webapp:/opt/share/calaos/app:ro).
+# Standalone container users must provide their own mount on
+# /opt/share/calaos/app; the empty directory only marks the mount point.
+RUN mkdir -p /opt/share/calaos/app
 
 RUN pip install roonapi --break-system-packages
 RUN pip install reolink-aio --break-system-packages
