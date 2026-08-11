@@ -3,6 +3,10 @@
 // externally observable properties: UUID format + uniqueness across many
 // draws (not clock-correlated), and that temp-file creation goes through the
 // O_CREAT|O_EXCL primitive that refuses to follow a pre-planted symlink.
+//
+// createRandomUuid() now delegates to sole (already vendored, already used by
+// ActionPush) instead of carrying its own generator, so the tests also pin the
+// shape callers rely on: a 36 character, RFC 4122 version 4 uuid.
 
 #include "Utils.h"
 #include "FileUtils.h"
@@ -28,6 +32,21 @@ TEST(CreateRandomUuid, MatchesUuidFormat)
     {
         std::string uuid = Utils::createRandomUuid();
         EXPECT_TRUE(std::regex_match(uuid, uuidRe)) << "uuid=" << uuid;
+    }
+}
+
+TEST(CreateRandomUuid, IsAVersion4Uuid)
+{
+    // sole::uuid4() sets the version and variant nibbles, which the hand
+    // rolled generator did not. Everything that stores those uuids only needs
+    // 36 characters, so this is the shape not to lose.
+    for (int i = 0; i < 50; i++)
+    {
+        std::string uuid = Utils::createRandomUuid();
+        ASSERT_EQ(uuid.size(), 36u) << "uuid=" << uuid;
+        EXPECT_EQ(uuid[14], '4') << "not a version 4 uuid: " << uuid;
+        EXPECT_NE(std::string("89ab").find(uuid[19]), std::string::npos)
+            << "wrong variant nibble: " << uuid;
     }
 }
 

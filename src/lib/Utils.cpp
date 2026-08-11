@@ -25,8 +25,8 @@
 
 #include <mutex>
 #include <sys/file.h>
-#include <random>
-#include <array>
+
+#include "sole.hpp"
 
 using namespace Utils;
 
@@ -1296,32 +1296,12 @@ unsigned int Utils::getUptime()
 
 string Utils::createRandomUuid()
 {
-    //std::random_device is backed by the OS CSPRNG (getrandom()/ /dev/urandom
-    //on Linux). The generator is seeded once per thread (via a proper
-    //std::seed_seq spanning its full state, not a single truncated word) and
-    //is never reseeded on later calls: unlike the old srand(clock())/rand()
-    //pair, this touches no shared global state and cannot repeat because of a
-    //coarse clock.
-    static thread_local std::mt19937_64 gen = []()
-    {
-        std::random_device rd;
-        std::array<std::random_device::result_type, 16> seedData;
-        std::generate(seedData.begin(), seedData.end(), std::ref(rd));
-        std::seed_seq seq(seedData.begin(), seedData.end());
-        return std::mt19937_64(seq);
-    }();
-    std::uniform_int_distribution<uint32_t> dist(0, 0xffff);
-
-    stringstream ssUuid;
-
-    ssUuid << std::hex << std::setfill('0') ;
-    ssUuid << std::setw(4) << dist(gen) << std::setw(4) << dist(gen) << "-";
-    ssUuid << std::setw(4) << dist(gen) << "-";
-    ssUuid << std::setw(4) << dist(gen) << "-";
-    ssUuid << std::setw(4) << dist(gen) << "-";
-    ssUuid << std::setw(4) << dist(gen) << std::setw(4) << dist(gen)<< std::setw(4) << dist(gen);
-
-    return ssUuid.str();
+    //sole is already vendored in the tree and used for the very same need
+    //elsewhere (ActionPush). It draws its 122 random bits from
+    //std::random_device, the OS CSPRNG on linux, and unlike the generator that
+    //used to live here it returns a real RFC 4122 v4 uuid: version and variant
+    //nibbles are set, so the value is not mistaken for another uuid flavour.
+    return sole::uuid4().str();
 }
 
 string Utils::str_to_lower(std::string s)
@@ -1467,7 +1447,10 @@ string Utils::getTmpFilename(const string &ext, const string &prefix)
     int fd = mkstemps(buf.data(), suffixLen);
     if (fd < 0)
     {
-        cErrorDom("system") << "getTmpFilename: mkstemps() failed: " << strerror(errno);
+        //Callers have to cope with the empty string: /tmp being full, read only
+        //or missing is not something they can guess otherwise
+        cErrorDom("system") << "getTmpFilename: mkstemps(" << tmpl << ") failed: "
+                            << strerror(errno) << " (errno " << errno << ")";
         return "";
     }
     close(fd);
