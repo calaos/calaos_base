@@ -48,7 +48,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T0.4](T0.4.md) | 0 | C++20 switch + configure cleanup | infra | — | ✅ |
 | [T0.5](T0.5.md) | 0 | clang-format + CI check (diff only) | infra | T0.2 | ✅ |
 | [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | ✅ |
-| [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | 📋 |
+| [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | ✅ |
 | [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 📋 |
 | [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 📋 |
 | [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | 📋 |
@@ -60,12 +60,12 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.10](T1.10.md) | 1 | RemoteUI WebSocket/OTA lifecycle | fix | Phase 0 | 📋 |
 | [T1.11](T1.11.md) | 1 | IOBase/IOFactory id integrity | fix | Phase 0 | 📋 |
 | [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | ✅ |
-| [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | 📋 |
+| [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | ✅ |
 | [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
 | [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | 📋 |
 | [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 📋 |
 | [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 📋 |
-| [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | 📋 |
+| [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
 | [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | 📋 |
 | [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | 📋 |
 | [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | 📋 |
@@ -76,6 +76,8 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.7](T2.7.md) | 2 | ~~NTPClock timer lifetime~~ (resolved by deletion, see plan step 2) | fix | Phase 1, T2.1 | ✅ |
 | [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 📋 |
 | [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
+| [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | 📋 |
+| [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | Thin IO subclasses — MySensors | refactor | Phase 2 | 📋 |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |
 | [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 📋 |
