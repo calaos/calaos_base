@@ -39,19 +39,26 @@ quickmaillight_LDADD = libquickmaillight.la
 
 
 
-check_PROGRAMS = test_quickmail test_quickmaillight
-
-test_quickmail_SOURCES = test_quickmail.c
-test_quickmail_LDADD = libquickmail.la
+# test_quickmail / test_quickmaillight are upstream libquickmail demo
+# programs, not automated tests: main() unconditionally calls
+# quickmail_send() against a hardcoded bogus SMTP host
+# ("smtp.mydomain.com:25"), so running them under `make check` attempts a
+# live outbound SMTP connection and hangs/fails offline or in CI. They are
+# intentionally not wired into check_PROGRAMS/TESTS.
+#
+#check_PROGRAMS = test_quickmail test_quickmaillight
+#
+#test_quickmail_SOURCES = test_quickmail.c
+#test_quickmail_LDADD = libquickmail.la
 #test_quickmail_LDFLAGS = -static
 #test_quickmail_LDFLAGS = -lquickmail
-
-test_quickmaillight_SOURCES = test_quickmail.c
-test_quickmaillight_LDADD = libquickmaillight.la
+#
+#test_quickmaillight_SOURCES = test_quickmail.c
+#test_quickmaillight_LDADD = libquickmaillight.la
 #test_quickmaillight_LDFLAGS = -static
 #test_quickmaillight_LDFLAGS = -lquickmaillight
-
-TESTS = test_quickmail test_quickmaillight
+#
+#TESTS = test_quickmail test_quickmaillight
 
 
 

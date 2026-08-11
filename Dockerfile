@@ -41,9 +41,10 @@ ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
 FROM dev as builder
 
-RUN git clone https://github.com/calaos/calaos_base.git && \
-    cd calaos_base && ./autogen.sh && \
-    sed -i 's/^#define\s+PKG_VERSION_STR\s+"\w+"/#define PKG_VERSION_STR "'$APP_VERSION'"/g' src/bin/calaos_server/version.h && \
+COPY . /calaos_base
+
+RUN cd /calaos_base && ./autogen.sh && \
+    sed -E -i 's/^#define[[:space:]]+PKG_VERSION_STR[[:space:]]+"[^"]+"/#define PKG_VERSION_STR "'"$APP_VERSION"'"/' src/bin/calaos_server/version.h && \
     echo $APP_VERSION > version && \
     ./configure --prefix=/opt CPPFLAGS=-I/opt/include LDFLAGS=-L/opt/lib && \
     make -j$(nproc) && \

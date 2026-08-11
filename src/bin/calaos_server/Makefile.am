@@ -5,7 +5,6 @@ AM_CPPFLAGS =                                                 \
         -DOTA_FIRMWARE_PATH=\"$(datadir)/calaos/firmwares\"   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
-        -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\"            \
@@ -21,7 +20,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink      \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
@@ -35,7 +33,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/lib                               \
         -I$(top_srcdir)/src/lib/LuaScript                     \
         -I$(top_srcdir)/src/lib/TinyXML                       \
-        -I$(top_srcdir)/src/lib/cJSON                         \
         -I$(top_srcdir)/src/lib/llhttp/include                \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
