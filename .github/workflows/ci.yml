@@ -1,0 +1,49 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+              build-essential pkg-config \
+              autoconf automake libtool autopoint gettext \
+              libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev \
+              libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
+              libgtest-dev \
+              git
+
+      - name: Build
+        run: |
+          ./autogen.sh
+          ./configure
+          make -j$(nproc)
+
+      - name: Run tests (make check)
+        run: make check
+
+      - name: Show test logs on failure
+        if: failure()
+        run: |
+          echo "### tests/test-suite.log ###"
+          cat tests/test-suite.log 2>/dev/null || echo "(no test-suite.log found)"
+          echo
+          echo "### individual test .log files ###"
+          for f in tests/*.log; do
+            [ -f "$f" ] || continue
+            echo "--- $f ---"
+            cat "$f"
+            echo
+          done
