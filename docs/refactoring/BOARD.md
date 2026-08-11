@@ -53,12 +53,12 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | ✅ |
 | [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | ✅ |
 | [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | ✅ |
-| [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 📋 |
+| [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 🔨 |
 | [T1.7](T1.7.md) | 1 | MCP token CSPRNG (F1) | fix (sec) | Phase 0 | ✅ |
 | [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 📋 |
-| [T1.9](T1.9.md) | 1 | ExternProc framing (F13 + sockfd) | fix | Phase 0 | 📋 |
+| [T1.9](T1.9.md) | 1 | ExternProc framing (F13 + sockfd) | fix | Phase 0 | 🔨 |
 | [T1.10](T1.10.md) | 1 | RemoteUI WebSocket/OTA lifecycle | fix | Phase 0 | 📋 |
-| [T1.11](T1.11.md) | 1 | IOBase/IOFactory id integrity | fix | Phase 0 | 📋 |
+| [T1.11](T1.11.md) | 1 | IOBase/IOFactory id integrity | fix | Phase 0 | 🔨 |
 | [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | ✅ |
 | [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | ✅ |
 | [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
