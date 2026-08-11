@@ -43,7 +43,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | ID | Phase | Title | Type | Depends on | Status |
 |---|---|---|---|---|---|
 | [T0.1](T0.1.md) | 0 | CI build + `make check` | infra | — | ✅ |
-| [T0.2](T0.2.md) | 0 | Build & artifact cleanup (tests) | infra | T0.1 | 📋 |
+| [T0.2](T0.2.md) | 0 | Build & artifact cleanup (tests) | infra | T0.1 | ✅ |
 | [T0.3](T0.3.md) | 0 | Core test scaffolding | infra | T0.1 | 📋 |
 | [T0.4](T0.4.md) | 0 | C++20 switch + configure cleanup | infra | — | ✅ |
 | [T0.5](T0.5.md) | 0 | clang-format + CI check (diff only) | infra | T0.2 | 📋 |
