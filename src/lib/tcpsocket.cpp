@@ -333,7 +333,6 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             }
         }
 
-        memset(buf, '\0', sizeof(buf));
         ret = Recv(&buf, sizeof(buf));
 
         if (ret <= 0)
@@ -342,7 +341,11 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             return false;
         }
 
-        Message += buf;
+        //Append exactly the bytes recv() returned. buf is not guaranteed to
+        //be NUL-terminated (a full read fills all of it, so treating it as a
+        //C-string reads past the array) and treating it as one truncates any
+        //payload with an embedded NUL, silently dropping the remainder.
+        Message.append(buf, ret);
     }
 
     return true;

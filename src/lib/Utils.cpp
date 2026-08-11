@@ -25,6 +25,8 @@
 
 #include <mutex>
 #include <sys/file.h>
+#include <random>
+#include <array>
 
 using namespace Utils;
 
@@ -383,8 +385,11 @@ string Utils::getConfigPath()
     }
     else
     {
+        //getpwuid() returns NULL if the uid has no passwd entry (e.g.
+        //containers/chroots with a bare /etc/passwd); fall back to /tmp
+        //rather than dereferencing a null pointer.
         struct passwd *pw = getpwuid(getuid());
-        home = pw->pw_dir;
+        home = pw ? pw->pw_dir : "/tmp";
     }
 
     list<string> confDirs;
@@ -433,8 +438,9 @@ string Utils::getCachePath()
         }
         else
         {
+            //See getConfigPath() above: getpwuid() can return NULL.
             struct passwd *pw = getpwuid(getuid());
-            home = pw->pw_dir;
+            home = pw ? pw->pw_dir : "/tmp";
         }
 
         //force the creation of .cache/calaos
@@ -476,8 +482,9 @@ string Utils::getCacheFile(const char *cacheFile)
         }
         else
         {
+            //See getConfigPath() above: getpwuid() can return NULL.
             struct passwd *pw = getpwuid(getuid());
-            home = pw->pw_dir;
+            home = pw ? pw->pw_dir : "/tmp";
         }
 
         //force the creation of .cache/calaos
@@ -1234,6 +1241,11 @@ string Utils::getFileContent(const char *filename)
     ifstream::pos_type filesize = ifs.tellg();
     ifs.seekg(0, ios::beg);
 
+    //filesize can be 0 (empty file) or -1 (tellg() failure); &buff[0] on an
+    //empty vector is undefined behaviour, so bail out before indexing.
+    if (filesize <= 0)
+        return "";
+
     vector<char> buff(filesize);
     ifs.read(&buff[0], filesize);
 
@@ -1247,6 +1259,10 @@ string Utils::getFileContentBase64(const char *filename)
 
     ifstream::pos_type filesize = ifs.tellg();
     ifs.seekg(0, ios::beg);
+
+    //Same empty/negative-size guard as getFileContent() above.
+    if (filesize <= 0)
+        return "";
 
     vector<char> buff(filesize);
     ifs.read(&buff[0], filesize);
@@ -1280,17 +1296,30 @@ unsigned int Utils::getUptime()
 
 string Utils::createRandomUuid()
 {
-    struct timeval t1;
-    gettimeofday(&t1, NULL);
-    srand(t1.tv_usec * t1.tv_sec); //use a more accurate seed for srand.
+    //std::random_device is backed by the OS CSPRNG (getrandom()/ /dev/urandom
+    //on Linux). The generator is seeded once per thread (via a proper
+    //std::seed_seq spanning its full state, not a single truncated word) and
+    //is never reseeded on later calls: unlike the old srand(clock())/rand()
+    //pair, this touches no shared global state and cannot repeat because of a
+    //coarse clock.
+    static thread_local std::mt19937_64 gen = []()
+    {
+        std::random_device rd;
+        std::array<std::random_device::result_type, 16> seedData;
+        std::generate(seedData.begin(), seedData.end(), std::ref(rd));
+        std::seed_seq seq(seedData.begin(), seedData.end());
+        return std::mt19937_64(seq);
+    }();
+    std::uniform_int_distribution<uint32_t> dist(0, 0xffff);
+
     stringstream ssUuid;
 
     ssUuid << std::hex << std::setfill('0') ;
-    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << "-";
-    ssUuid << std::setw(4) << (rand() & 0xffff) << std::setw(4) << (rand() & 0xffff)<< std::setw(4) << (rand() & 0xffff);
+    ssUuid << std::setw(4) << dist(gen) << std::setw(4) << dist(gen) << "-";
+    ssUuid << std::setw(4) << dist(gen) << "-";
+    ssUuid << std::setw(4) << dist(gen) << "-";
+    ssUuid << std::setw(4) << dist(gen) << "-";
+    ssUuid << std::setw(4) << dist(gen) << std::setw(4) << dist(gen)<< std::setw(4) << dist(gen);
 
     return ssUuid.str();
 }
@@ -1426,16 +1455,24 @@ std::string CStrArray::toString()
 
 string Utils::getTmpFilename(const string &ext, const string &prefix)
 {
-    string tempfname;
-    int cpt = rand();
-    do
-    {
-        tempfname = "/tmp/calaos" + prefix + "_" + Utils::to_string(cpt) + "." + ext;
-        cpt++;
-    }
-    while (FileUtils::exists(tempfname));
+    //The previous rand()-guessed name + exists()-then-open loop left a
+    //TOCTOU/symlink window between the check and the caller's open().
+    //mkstemp()'s O_EXCL creation is atomic: the name is reserved for us by
+    //the time it returns, and it refuses to follow a pre-planted symlink.
+    string tmpl = "/tmp/calaos" + prefix + "_XXXXXX." + ext;
+    vector<char> buf(tmpl.begin(), tmpl.end());
+    buf.push_back('\0');
 
-    return tempfname;
+    int suffixLen = static_cast<int>(ext.size()) + 1; //+1 for the '.'
+    int fd = mkstemps(buf.data(), suffixLen);
+    if (fd < 0)
+    {
+        cErrorDom("system") << "getTmpFilename: mkstemps() failed: " << strerror(errno);
+        return "";
+    }
+    close(fd);
+
+    return string(buf.data());
 }
 
 double Utils::getMainLoopTime()

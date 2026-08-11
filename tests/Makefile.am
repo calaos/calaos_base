@@ -177,5 +177,24 @@ ConfigModel_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 
+# T1.12
+TESTS += Utils_rand_test
+check_PROGRAMS += Utils_rand_test
+Utils_rand_test_SOURCES = Utils_rand_test.cpp
+Utils_rand_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += TcpSocket_test
+check_PROGRAMS += TcpSocket_test
+TcpSocket_test_SOURCES = TcpSocket_test.cpp
+#Needs std::thread (accept() runs on a background thread while the test
+#connects from the main thread over loopback).
+TcpSocket_test_CPPFLAGS = $(AM_CPPFLAGS) @PTHREAD_CFLAGS@
+TcpSocket_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main \
+                  @PTHREAD_LIBS@ -lpthread
+
 endif
 
