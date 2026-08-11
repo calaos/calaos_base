@@ -42,12 +42,12 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 
 | ID | Phase | Title | Type | Depends on | Status |
 |---|---|---|---|---|---|
-| [T0.1](T0.1.md) | 0 | CI build + `make check` | infra | — | 📋 |
+| [T0.1](T0.1.md) | 0 | CI build + `make check` | infra | — | ✅ |
 | [T0.2](T0.2.md) | 0 | Build & artifact cleanup (tests) | infra | T0.1 | 📋 |
 | [T0.3](T0.3.md) | 0 | Core test scaffolding | infra | T0.1 | 📋 |
-| [T0.4](T0.4.md) | 0 | C++20 switch + configure cleanup | infra | — | 📋 |
+| [T0.4](T0.4.md) | 0 | C++20 switch + configure cleanup | infra | — | ✅ |
 | [T0.5](T0.5.md) | 0 | clang-format + CI check (diff only) | infra | T0.2 | 📋 |
-| [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | 📋 |
+| [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | ✅ |
 | [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | 📋 |
 | [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 📋 |
 | [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 📋 |

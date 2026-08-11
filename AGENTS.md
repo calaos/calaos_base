@@ -53,11 +53,12 @@ sudo make install
 # Run tests (requires gtest to be installed)
 make check
 
-# Build with optional hardware support
-./configure --with-owfs --with-knx --with-mqtt --with-ola
+# Optional hardware support (OneWire/KNX/MQTT/OLA) is autodetected:
+# install the dev packages (owfs, knxd/eibclient, libmosquitto, libola)
+# before running ./configure
 ```
 
-The project uses GNU Autotools. If dependencies are missing, check `configure.ac` for the optional `--with-*` flags.
+The project uses GNU Autotools. Optional hardware drivers are enabled by autodetection at configure time (`AC_CHECK_HEADERS`/`PKG_CHECK_MODULES`), not by `--with-*` flags — check the "Hardware support" lines in the configure summary.
 
 ---
 
@@ -197,16 +198,16 @@ Tests live in `tests/` and use Google Test. Built and run with `make check` (onl
 
 ## Key Dependencies
 
-**Required:** `gcc >= 7` (C++17), `libuv > 1.10`, `jansson > 2.5`, `libcurl > 7.20`, `luajit`, `sigc++ > 2.4`, `sqlite3`
+**Required:** `gcc` with C++20 support (Debian 12 / GCC 12 or newer), `libuv > 1.10`, `jansson > 2.5`, `libcurl > 7.20`, `luajit`, `sigc++ > 2.4`, `sqlite3`
 
-**Optional** (enabled via `./configure --with-<name>`):
+**Optional** (autodetected at configure time if the dev package is present):
 
-| Flag | Library | Enables |
-|---|---|---|
-| `--with-owfs` | owfs | 1-Wire sensors (OneWire driver) |
-| `--with-knx` | knxd | KNX bus (KNX driver) |
-| `--with-mqtt` | libmosquitto | MQTT broker (MQTT driver) |
-| `--with-ola` | OLA | DMX512 lighting (OLA driver) |
+| Library | Enables |
+|---|---|
+| owfs (`owcapi.h`) | 1-Wire sensors (OneWire driver) |
+| knxd (`eibclient.h`) | KNX bus (KNX driver) |
+| libmosquitto (`mosquitto.h`) | MQTT broker (MQTT driver) |
+| libola (pkg-config) | DMX512 lighting (OLA driver) |
 
 **Python drivers** (installed separately): `reolink_aio` (Reolink), `roonapi` (Roon), `colorama` (logging)
 
