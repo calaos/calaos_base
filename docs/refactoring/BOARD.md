@@ -3,6 +3,10 @@
 Tracking board for distributing refactoring tickets to autonomous dev sub-agents.
 Each ticket is a file `docs/refactoring/<ID>.md`.
 
+> **Reprendre le travail ?** Commencer par [`ORCHESTRATION.md`](ORCHESTRATION.md) (état + prochaine
+> action + protocoles), puis [`DECISIONS.md`](DECISIONS.md) (choix utilisateur) et
+> [`FINDINGS.md`](FINDINGS.md) (backlog de découvertes hors-périmètre).
+
 **Status:** `📋 Backlog` · `🔨 In Progress` · `👀 Review` · `✅ Done` · `⛔ Blocked`
 
 **Anti-conflict rule:** within a single wave, every ticket owns an **exclusive** set of files. Two tickets in the same wave never modify the same file. Cross-phase edits to the same file are allowed only when serialized into different waves (see the graph).
