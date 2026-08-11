@@ -51,6 +51,15 @@ protected:
 
     bool execInProgress = false;
 
+    //Number of executions still running for the current signal: the
+    //synchronous walk of ExecuteRuleSignal() counts for one, each async script
+    //condition started by it for one more. execInProgress is cleared by
+    //releaseExecution() when this drops back to zero.
+    int execRefCount = 0;
+
+    //Drop one outstanding execution and unlock when the last one is done
+    void releaseExecution();
+
     ListeRule()
     { }
 

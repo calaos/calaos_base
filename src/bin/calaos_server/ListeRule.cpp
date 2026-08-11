@@ -22,6 +22,72 @@
 
 using namespace Calaos;
 
+namespace
+{
+
+/* Does `condition` keep a pointer to `obj` ?
+ *
+ * Every Condition subclass that stores an IOBase* must be handled here: a
+ * missing one means RemoveRule() keeps a rule alive with a dangling IOBase*
+ * after the IO has been deleted (use after free at the next evaluation or at
+ * the next SaveConfigRule()).
+ * ConditionStart holds no IO, and ConditionStd::params_var only holds ids that
+ * are resolved against ListeRoom at each evaluation (getVarIds()), so neither
+ * can dangle.
+ */
+bool conditionUsesIO(Calaos::Condition *condition, Calaos::IOBase *obj)
+{
+    if (!condition || !obj) return false;
+
+    if (ConditionStd *cond = dynamic_cast<ConditionStd *>(condition))
+    {
+        for (int i = 0;i < cond->get_size();i++)
+        {
+            IOBase *in = cond->get_input(i);
+            if (in && (in == obj || in->get_param("id") == obj->get_param("id")))
+                return true;
+        }
+        return false;
+    }
+
+    if (ConditionOutput *cond = dynamic_cast<ConditionOutput *>(condition))
+    {
+        IOBase *out = cond->getOutput();
+        return out && (out == obj || out->get_param("id") == obj->get_param("id"));
+    }
+
+    if (ConditionScript *cond = dynamic_cast<ConditionScript *>(condition))
+    {
+        //in_event is keyed by pointer and private, containsTriggerIO() is the
+        //only way to look into it
+        return cond->containsTriggerIO(obj);
+    }
+
+    return false;
+}
+
+/* Same for actions. Only ActionStd stores IOBase*, ActionMail/ActionPush/
+ * ActionScript/ActionTouchscreen keep plain strings.
+ */
+bool actionUsesIO(Calaos::Action *action, Calaos::IOBase *obj)
+{
+    if (!action || !obj) return false;
+
+    if (ActionStd *act = dynamic_cast<ActionStd *>(action))
+    {
+        for (int i = 0;i < act->get_size();i++)
+        {
+            IOBase *out = act->get_output(i);
+            if (out && (out == obj || out->get_param("id") == obj->get_param("id")))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+}
+
 ListeRule &ListeRule::Instance()
 {
     static ListeRule inst;
@@ -107,6 +173,14 @@ void ListeRule::ExecuteRuleSignal(std::string id)
 
     execInProgress = true;
 
+    //The synchronous walk below counts as one outstanding execution. Every
+    //async script execution started on the way takes its own reference, so
+    //execInProgress is only released once the last one has completed and the
+    //deferral guard above really serializes the executions.
+    //Taking a reference for the synchronous part is what makes a callback
+    //fired synchronously (Rule::CheckConditionsAsync() short path) harmless.
+    execRefCount = 1;
+
     cDebugDom("rule") << "Received signal for id " << id;
 
     unordered_map<Rule *, bool> execRules;
@@ -155,13 +229,14 @@ void ListeRule::ExecuteRuleSignal(std::string id)
             if (script_cond &&
                 script_cond->containsTriggerIO(ListeRoom::Instance().get_io(id)))
             {
+                //Keep the execution locked until this script has completed
+                execRefCount++;
+
                 rule->CheckConditionsAsync([=](bool check)
                 {
-                    if (!check) return;
-                    //lock execution and execute rule
-                    execInProgress = true;
-                    rule->ExecuteActions();
-                    execInProgress = false;
+                    if (check)
+                        rule->ExecuteActions();
+                    releaseExecution();
                 }, id);
             }
 
@@ -182,44 +257,46 @@ void ListeRule::ExecuteRuleSignal(std::string id)
         it.first->ExecuteActions();
     }
 
-    execInProgress = false;
+    //Drop the reference taken for the synchronous part. If script conditions
+    //are still running, execInProgress stays true until their last callback.
+    releaseExecution();
+}
+
+void ListeRule::releaseExecution()
+{
+    if (execRefCount > 0)
+        execRefCount--;
+
+    if (execRefCount == 0)
+        execInProgress = false;
 }
 
 void ListeRule::RemoveRule(IOBase *obj)
 {
-    //delete all rules using "output"
-    for (uint i = 0;i < rules.size();i++)
+    if (!obj) return;
+
+    //Delete every rule referencing obj, whatever the condition/action type it
+    //is referenced from. Anything left behind would keep a dangling IOBase*.
+    for (uint i = 0;i < rules.size();)
     {
-        Rule *rule = get_rule(i);
-        Rule *rule_to_del = nullptr;
-        for (int j = 0;j < rule->get_size_conds();j++)
-        {
-            ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(j));
-            if (!cond) continue;
-            for (int k = 0;k < cond->get_size();k++)
-            {
-                if (obj->get_param("id") ==
-                    cond->get_input(k)->get_param("id"))
-                    rule_to_del = rule;
-            }
-        }
+        Rule *rule = rules[i];
+        bool used = false;
 
-        for (int j = 0;j < rule->get_size_actions();j++)
-        {
-            ActionStd *action = dynamic_cast<ActionStd *>(rule->get_action(j));
-            if (!action) continue;
-            for (int k = 0;k < action->get_size();k++)
-            {
-                if (obj->get_param("id") == action->get_output(k)->get_param("id"))
-                    rule_to_del = rule;
-            }
-        }
+        for (int j = 0;!used && j < rule->get_size_conds();j++)
+            used = conditionUsesIO(rule->get_condition(j), obj);
 
-        if (rule_to_del)
+        for (int j = 0;!used && j < rule->get_size_actions();j++)
+            used = actionUsesIO(rule->get_action(j), obj);
+
+        if (used)
         {
-            Remove(rule_to_del);
-            i--;
+            //Remove() erases the entry, the next rule now sits at index i
+            cDebugDom("rule") << "Removing rule " << rule->get_name()
+                              << ", it uses deleted IO " << obj->get_param("id");
+            Remove(rule);
         }
+        else
+            i++;
     }
 }
 

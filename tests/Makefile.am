@@ -198,3 +198,18 @@ TcpSocket_test_LDADD = @CALAOS_SERVER_LIBS@ \
 
 endif
 
+
+# T1.1
+#Rule/IO lifecycle tests. Own HAVE_GTEST block so that this stays a pure
+#append at the end of the file (several tickets add their block here).
+if HAVE_GTEST
+TESTS += core/RuleLifecycle_test
+check_PROGRAMS += core/RuleLifecycle_test
+core_RuleLifecycle_test_SOURCES = core/RuleLifecycle_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleLifecycle_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RuleLifecycle_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

@@ -76,6 +76,15 @@ private:
     list<IOBase *> getRuleRealActions(Rule *rule);
     void createRuleStepEnd();
 
+    //True for the IOs driving the scenario itself (step, timer, is_active,
+    //the scenario IO and the schedule flag). Those are never reported as user
+    //actions of a step. A null IO is reported as internal too.
+    bool isScenarioInternalIO(IOBase *io);
+    //Count/get the user actions of a rule, both using the same skip list so
+    //that an index returned by the first is always resolvable by the second
+    int countRealActions(Rule *rule);
+    ScenarioAction getRealAction(Rule *rule, int action);
+
 public:
     AutoScenario(IOBase *input);
     ~AutoScenario();

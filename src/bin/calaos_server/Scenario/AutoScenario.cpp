@@ -167,7 +167,7 @@ bool AutoScenario::checkCondition(Rule *rule, IOBase *input, string oper, string
     bool ret = false;
     for (int i = 0;i < rule->get_size_conds() && !ret;i++)
     {
-        ConditionStd *cond = reinterpret_cast<ConditionStd *>(rule->get_condition(i));
+        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
         if (!cond) continue;
         if (cond->get_size() != 1) continue;
         if (cond->get_input(0) != input) continue;
@@ -185,7 +185,7 @@ bool AutoScenario::checkAction(Rule *rule, IOBase *output, string value)
     bool ret = false;
     for (int i = 0;i < rule->get_size_actions() && !ret;i++)
     {
-        ActionStd *act = reinterpret_cast<ActionStd *>(rule->get_action(i));
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
         if (!act) continue;
         if (act->get_size() != 1) continue;
         if (act->get_output(0) != output) continue;
@@ -220,7 +220,7 @@ void AutoScenario::setRuleCondition(Rule *rule, IOBase *input, string oper, stri
 {
     for (int i = 0;i < rule->get_size_conds();i++)
     {
-        ConditionStd *cond = reinterpret_cast<ConditionStd *>(rule->get_condition(i));
+        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
         if (!cond) continue;
         if (cond->get_size() != 1) continue;
         if (cond->get_input(0) != input) continue;
@@ -235,7 +235,7 @@ void AutoScenario::setRuleAction(Rule *rule, IOBase *output, string value)
 {
     for (int i = 0;i < rule->get_size_actions();i++)
     {
-        ActionStd *act = reinterpret_cast<ActionStd *>(rule->get_action(i));
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
         if (!act) continue;
         if (act->get_size() != 1) continue;
         if (act->get_output(0) != output) continue;
@@ -251,7 +251,7 @@ string AutoScenario::getRuleConditionValue(Rule *rule, IOBase *input, string ope
 
     for (int i = 0;i < rule->get_size_conds();i++)
     {
-        ConditionStd *cond = reinterpret_cast<ConditionStd *>(rule->get_condition(i));
+        ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(i));
         if (!cond) continue;
         if (cond->get_size() != 1) continue;
         if (cond->get_input(0) != input) continue;
@@ -271,7 +271,7 @@ string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
 
     for (int i = 0;i < rule->get_size_actions();i++)
     {
-        ActionStd *act = reinterpret_cast<ActionStd *>(rule->get_action(i));
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
         if (!act) continue;
         if (act->get_size() != 1) continue;
         if (act->get_output(0) != output) continue;
@@ -585,78 +585,92 @@ double AutoScenario::getStepPause(int s)
     return pause;
 }
 
+bool AutoScenario::isScenarioInternalIO(IOBase *io)
+{
+    //A null IO is skipped like an internal one, it can never be a user action
+    if (!io) return true;
+
+    return io == ioStep ||
+           io == ioTimer ||
+           io == ioIsActive ||
+           io == ioScenario ||
+           io == ioScheduleEnabled;
+}
+
+/* Count the "real" (user visible) actions of a rule: the ones that are not
+ * part of the scenario machinery. Counting instead of subtracting a fixed
+ * number is what keeps countRealActions() and getRealAction() in sync: a rule
+ * whose user action happens to target one of the scenario IOs used to be
+ * counted here but skipped there, and getRealAction() then returned an empty
+ * ScenarioAction whose null `io` was dereferenced by the callers.
+ */
+int AutoScenario::countRealActions(Rule *rule)
+{
+    if (!rule) return 0;
+
+    int cpt = 0;
+    for (int i = 0;i < rule->get_size_actions();i++)
+    {
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
+        if (!act) continue;
+        if (act->get_size() != 1) continue;
+        if (isScenarioInternalIO(act->get_output(0))) continue;
+
+        cpt++;
+    }
+
+    return cpt;
+}
+
+ScenarioAction AutoScenario::getRealAction(Rule *rule, int action)
+{
+    ScenarioAction sa;
+
+    if (!rule) return sa;
+
+    int cpt = 0;
+    for (int i = 0;i < rule->get_size_actions();i++)
+    {
+        ActionStd *act = dynamic_cast<ActionStd *>(rule->get_action(i));
+        if (!act) continue;
+        if (act->get_size() != 1) continue;
+        if (isScenarioInternalIO(act->get_output(0))) continue;
+
+        if (cpt == action)
+        {
+            sa.io = act->get_output(0);
+            sa.action = act->get_params().get_param(sa.io->get_param("id"));
+
+            return sa;
+        }
+        cpt++;
+    }
+
+    return sa;
+}
+
 int AutoScenario::getStepActionCount(int s)
 {
     if (s >= (int)ruleSteps.size() || s < 0) return 0;
 
-    Rule *step = ruleSteps[s];
-    return step->get_size_actions() - 3;
+    return countRealActions(ruleSteps[s]);
 }
 
 ScenarioAction AutoScenario::getStepAction(int s, int action)
 {
     if (s >= (int)ruleSteps.size() || s < 0) return ScenarioAction();
 
-    Rule *step = ruleSteps[s];
-    ScenarioAction sa;
-
-    int cpt = 0;
-    for (int i = 0;i < step->get_size_actions();i++)
-    {
-        ActionStd *act = reinterpret_cast<ActionStd *>(step->get_action(i));
-        if (!act) continue;
-        if (act->get_size() != 1) continue;
-        if (act->get_output(0) == ioStep) continue;
-        if (act->get_output(0) == ioTimer) continue;
-        if (act->get_output(0) == ioIsActive) continue;
-        if (act->get_output(0) == ioScenario) continue;
-        if (act->get_output(0) == ioScheduleEnabled) continue;
-
-        if (cpt == action)
-        {
-            sa.io = act->get_output(0);
-            sa.action = act->get_params().get_param(sa.io->get_param("id"));
-
-            return sa;
-        }
-        cpt++;
-    }
-
-    return sa;
+    return getRealAction(ruleSteps[s], action);
 }
 
 int AutoScenario::getEndStepActionCount()
 {
-    return ruleStepEnd->get_size_actions() - 1;
+    return countRealActions(ruleStepEnd);
 }
 
 ScenarioAction AutoScenario::getEndStepAction(int action)
 {
-    ScenarioAction sa;
-
-    int cpt = 0;
-    for (int i = 0;i < ruleStepEnd->get_size_actions();i++)
-    {
-        ActionStd *act = reinterpret_cast<ActionStd *>(ruleStepEnd->get_action(i));
-        if (!act) continue;
-        if (act->get_size() != 1) continue;
-        if (act->get_output(0) == ioStep) continue;
-        if (act->get_output(0) == ioTimer) continue;
-        if (act->get_output(0) == ioIsActive) continue;
-        if (act->get_output(0) == ioScenario) continue;
-        if (act->get_output(0) == ioScheduleEnabled) continue;
-
-        if (cpt == action)
-        {
-            sa.io = act->get_output(0);
-            sa.action = act->get_params().get_param(sa.io->get_param("id"));
-
-            return sa;
-        }
-        cpt++;
-    }
-
-    return sa;
+    return getRealAction(ruleStepEnd, action);
 }
 
 struct SCCategory
@@ -681,6 +695,10 @@ string AutoScenario::getCategory()
         for (int j = 0;j < getStepActionCount(i);j++)
         {
             ScenarioAction sa = getStepAction(i, j);
+
+            //Defensive: getStepAction() returns an empty action when the index
+            //does not resolve, there is nothing to categorize then
+            if (!sa.io) continue;
 
             if (sa.io->get_param("gui_type") == "light" ||
                 sa.io->get_param("gui_type") == "light_dimmer" ||
