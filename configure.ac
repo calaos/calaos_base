@@ -41,7 +41,7 @@ AC_CANONICAL_HOST
 AC_PROG_CXX
 AC_PROG_CC
 AM_PROG_CC_C_O
-AX_CXX_COMPILE_STDCXX_17([noext],[mandatory])
+AX_CXX_COMPILE_STDCXX_20([noext],[mandatory])
 
 # pkg-config
 PKG_PROG_PKG_CONFIG
@@ -142,16 +142,6 @@ then
      GTEST_INFO="make check"
 else
      GTEST_INFO="install gtest to run this test"
-fi
-
-#check for autobahn test suite
-AC_CHECK_PROG(HAVE_AUTOBAHN, wstest, yes)
-AM_CONDITIONAL([HAVE_AUTOBAHN], [test "x${HAVE_AUTOBAHN}" = "xyes"])
-if test "x${HAVE_AUTOBAHN}" == "xyes"
-then
-     WS_INFO="make check"
-else
-     WS_INFO="install autobahn testsuite to run this test"
 fi
 
 # Check for Python and dependencies
@@ -277,7 +267,6 @@ echo "  LDFLAGS..............................: $LDFLAGS"
 echo
 echo "Test Suite:"
 echo "  gtest library........................: $GTEST_INFO"
-echo "  Autobahn Websocket test suite........: $WS_INFO"
 echo
 echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"
 echo "  prefix...............................: $prefix"
