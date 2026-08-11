@@ -62,7 +62,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | ✅ |
 | [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | ✅ |
 | [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
-| [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | 🔨 |
+| [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | ✅ |
 | [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 📋 |
 | [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 📋 |
 | [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
