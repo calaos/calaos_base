@@ -49,10 +49,10 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T0.5](T0.5.md) | 0 | clang-format + CI check (diff only) | infra | T0.2 | ✅ |
 | [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | ✅ |
 | [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | ✅ |
-| [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 📋 |
-| [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 📋 |
-| [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | 📋 |
-| [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | 📋 |
+| [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 🔨 |
+| [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 🔨 |
+| [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | 🔨 |
+| [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | 🔨 |
 | [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 📋 |
 | [T1.7](T1.7.md) | 1 | MCP token CSPRNG (F1) | fix (sec) | Phase 0 | ✅ |
 | [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 📋 |
@@ -62,7 +62,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | ✅ |
 | [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | ✅ |
 | [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
-| [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | 📋 |
+| [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | 🔨 |
 | [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 📋 |
 | [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 📋 |
 | [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
