@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "HttpServer.h"
 #include "WebSocket.h"
+#include "McpProxyHandler.h"
 #include "libuvw.h"
 
 HttpServer::HttpServer(int p):
@@ -67,6 +68,30 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
     cDebugDom("network")
             << "Got a new connection from address "
             << ipAddr;
+
+    //Refuse the connection instead of accumulating clients until the server
+    //runs out of file descriptors or memory. Nothing is evicted: an opened
+    //connection may be an authenticated websocket receiving events, it is not
+    //this code's place to decide it matters less than the new one.
+    if (connections.size() >= TransportLimits::MaxConnections)
+    {
+        cWarningDom("network")
+                << "Refusing connection from address " << ipAddr << ", "
+                << connections.size() << " connections are already opened";
+
+        client->once<uvw::WriteEvent>([](const uvw::WriteEvent &, auto &h)
+        {
+            h.close();
+        });
+        client->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &h)
+        {
+            h.close();
+        });
+
+        Calaos::McpProxyHandler::sendError(client, 503, "Too many connections\n");
+
+        return;
+    }
 
     WebSocket *conn = new WebSocket(client);
     connections.push_back(conn);

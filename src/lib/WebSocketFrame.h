@@ -26,6 +26,16 @@
 class WebSocketFrame
 {
 public:
+    /* Biggest frame accepted from a client. The largest payload measured on
+     * the real clients is ~215 KiB (calaos_installer pushing io.xml and
+     * rules.xml at once), so this leaves a x20 margin while keeping a wrong
+     * or hostile length from making the server allocate gigabytes.
+     * The server side limits (whole websocket message, http body, connection
+     * count, header timeout) are in HttpClient.h: src/lib cannot include a
+     * calaos_server header, so they cannot all live in the same place.
+     */
+    static constexpr uint64_t MAX_FRAME_SIZE_IN_BYTES = 4 * 1024 * 1024;
+
     WebSocketFrame();
 
     int getCloseCode() const { return closeCode; }

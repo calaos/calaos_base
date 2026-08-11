@@ -20,8 +20,6 @@
  ******************************************************************************/
 #include "WebSocketFrame.h"
 
-const uint64_t MAX_FRAME_SIZE_IN_BYTES = INT_MAX - 1;
-
 WebSocketFrame::WebSocketFrame()
 {
     clear();
@@ -160,10 +158,10 @@ bool WebSocketFrame::processFrameData(string &data)
                         (uint64_t(uint8_t(data[1])) << 48) |
                         (uint64_t(uint8_t(data[2])) << 40) |
                         (uint64_t(uint8_t(data[3])) << 32) |
-                        (uint8_t(data[4]) << 24) |
-                        (uint8_t(data[5]) << 16) |
-                        (uint8_t(data[6]) << 8) |
-                        uint8_t(data[7]);
+                        (uint64_t(uint8_t(data[4])) << 24) |
+                        (uint64_t(uint8_t(data[5])) << 16) |
+                        (uint64_t(uint8_t(data[6])) << 8) |
+                        uint64_t(uint8_t(data[7]));
                 data.erase(0, 8);
 
                 uint64_t v = 1;
@@ -179,6 +177,16 @@ bool WebSocketFrame::processFrameData(string &data)
                 {
                     closeCode = CloseCodeProtocolError;
                     closeReason = "Frame smaller than 65536 (2^16) must be expressed as 2 bytes";
+                    isvalid = false;
+                    finished = true;
+                    state = StateReadHeader;
+                }
+                else if (payload_length > MAX_FRAME_SIZE_IN_BYTES)
+                {
+                    //Refused on the announced length: not one payload byte of a
+                    //frame that will never be accepted is buffered
+                    closeCode = CloseCodeTooMuchData;
+                    closeReason = "Maximum framesize exceeded";
                     isvalid = false;
                     finished = true;
                     state = StateReadHeader;

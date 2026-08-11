@@ -33,7 +33,6 @@ using Json = nlohmann::json;
 
 using namespace Calaos;
 
-const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
 const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
 
 WebSocket::WebSocket(const std::shared_ptr<uvw::TcpHandle> &client):
@@ -118,6 +117,13 @@ void WebSocket::ProcessData(string data)
             cInfoDom("mcp") << "routing TCP connection to MCP sidecar";
             std::string buffered;
             buffered.swap(mcpSniffBuf);
+
+            //From here the connection is a raw tunnel: the http request read
+            //timeout does not apply to it anymore, and neither does the http
+            //body limit (bytes never reach the http parser). The sidecar has
+            //its own pre-connection buffer bound in McpProxyHandler.
+            cancelReadTimeout();
+
             mcpProxy = new McpProxyHandler(client_conn, buffered);
             mcpState = McpRouteState::Proxied;
             return;
@@ -169,6 +175,7 @@ void WebSocket::ProcessData(string data)
         else if (status == WSOpened ||
             status == WSClosing) //Waiting for the closing handshake
         processFrame(data);
+        break;
     }
     case HTTP_PROCESS_MOREDATA:
     case HTTP_PROCESS_DONE:
@@ -459,6 +466,7 @@ void WebSocket::processFrame(const string &data)
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
+                    break;
                 }
                 if (isfragmented && currentFrame.isDataFrame() && !currentFrame.isContinuationFrame())
                 {
@@ -468,6 +476,7 @@ void WebSocket::processFrame(const string &data)
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
+                    break;
                 }
 
                 if (!currentFrame.isContinuationFrame())
@@ -476,15 +485,16 @@ void WebSocket::processFrame(const string &data)
                     isfragmented = !currentFrame.isFinalFrame();
                 }
 
-                if (currentData.size() + currentFrame.getPayload().size() > MAX_MESSAGE_SIZE_IN_BYTES)
+                if (currentData.size() + currentFrame.getPayload().size() > TransportLimits::MaxWebsocketMessageSize)
                 {
                     reset();
                     stringstream err;
-                    err << "Message exceeds size of " << MAX_MESSAGE_SIZE_IN_BYTES << " bytes";
+                    err << "Message exceeds size of " << TransportLimits::MaxWebsocketMessageSize << " bytes";
                     cWarningDom("websocket") << err.str();
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeTooMuchData, err.str());
+                    break;
                 }
 
                 currentData.append(currentFrame.getPayload());

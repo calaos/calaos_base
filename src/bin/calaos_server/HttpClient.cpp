@@ -30,6 +30,18 @@
 
 using namespace Calaos;
 
+//Only used here, to refuse a request body bigger than
+//TransportLimits::MaxHttpBodySize
+#define HTTP_413 "HTTP/1.0 413 Payload Too Large"
+#define HTTP_413_BODY "<html><head>" \
+    "<title>413 Payload Too Large</title>" \
+    "</head>" \
+    "<body>" \
+    "<h1>Calaos Server - Payload Too Large</h1>" \
+    "<p>The request body is bigger than what the server accepts.</p>" \
+    "</body>" \
+    "</html>"
+
 #ifndef json_array_foreach
 #define json_array_foreach(array, index, value) \
     for(index = 0; \
@@ -99,6 +111,14 @@ int _parser_headers_complete(llhttp_t *parser)
         client->hvalue.clear();
     }
 
+    //An announced body over the limit is refused here, before a single byte of
+    //it has been read from the socket
+    if (parser->content_length > TransportLimits::MaxHttpBodySize)
+    {
+        client->bodyTooLarge = true;
+        return -1;
+    }
+
     return 0;
 }
 
@@ -124,6 +144,14 @@ int _parser_message_complete(llhttp_t *parser)
 int _parser_body_complete(llhttp_t* parser, const char *at, size_t length)
 {
     HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
+
+    //A chunked body announces no length, so accumulation is what has to be
+    //stopped here
+    if (client->bodymessage.size() + length > TransportLimits::MaxHttpBodySize)
+    {
+        client->bodyTooLarge = true;
+        return HPE_USER;
+    }
 
     client->bodymessage.append(at, length);
 
@@ -157,6 +185,19 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
 
         this->CloseConnection();
     });
+
+    //A client that opens a connection and then says nothing (or sends its
+    //headers one byte at a time) holds a slot forever, and slots are capped.
+    //It is cancelled as soon as a complete request has been read.
+    readTimeout = new Timer(TransportLimits::RequestReadTimeout, [this]()
+    {
+        cWarningDom("network")
+                << "No complete request after "
+                << TransportLimits::RequestReadTimeout
+                << "s, closing connection";
+
+        this->CloseConnection();
+    });
 }
 
 HttpClient::~HttpClient()
@@ -166,13 +207,41 @@ HttpClient::~HttpClient()
     delete otaHandler;
     free(parser);
     DELETE_NULL(closeTimer);
+    DELETE_NULL(readTimeout);
 
     cDebugDom("network") << this;
+}
+
+void HttpClient::cancelReadTimeout()
+{
+    DELETE_NULL(readTimeout);
+}
+
+void HttpClient::sendRequestTooLarge()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_413, headers, HTTP_413_BODY);
+    sendToClient(res);
 }
 
 int HttpClient::processHeaders(const string &request)
 {
     enum llhttp_errno err = llhttp_execute(parser, request.c_str(), request.size());
+
+    if (bodyTooLarge)
+    {
+        bodyTooLarge = false;
+
+        cWarningDom("network") << "Request body is bigger than "
+                << TransportLimits::MaxHttpBodySize << " bytes, rejecting it";
+
+        cancelReadTimeout();
+        sendRequestTooLarge();
+
+        return HTTP_PROCESS_DONE;
+    }
 
     if (err != HPE_OK &&
         err != HPE_PAUSED &&
@@ -190,6 +259,8 @@ int HttpClient::processHeaders(const string &request)
 
     if (!parse_done)
         return HTTP_PROCESS_MOREDATA;
+
+    cancelReadTimeout();
 
     //Finally parsing of request is done, we can search for
     //a response for the requested path
@@ -383,31 +454,6 @@ int HttpClient::processHeaders(const string &request)
     if (req_url.getPath() == "/api.php" ||
         req_url.getPath() == "/api")
         proto_ver = API_HTTP;
-
-    //Handle CORS here
-    if (request_headers.find("Origin") != request_headers.end())
-    {
-        resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
-        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    }
-
-    if (request_method == HTTP_OPTIONS)
-    {
-        if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-        if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Headers", request_headers["Access-Control-Request-Headers"]);
-
-        resHeaders.Add("Connection", "Close");
-        resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
-        resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-        resHeaders.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, resHeaders, "");
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
 
     return HTTP_PROCESS_HTTP;
 }

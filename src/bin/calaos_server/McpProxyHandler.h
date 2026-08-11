@@ -68,8 +68,10 @@ public:
     // Invoked when the client TCP connection closes (either side).
     void onClientClose();
 
-    // Send an in-band HTTP error to the client before tearing down. Used by
-    // the routing layer to reply 400/502 without bringing the sidecar in.
+    // Send an in-band HTTP error to a raw client connection before tearing it
+    // down. Used by the routing layer to reply 400/502 without bringing the
+    // sidecar in, and by HttpServer to reply 503 when the connection limit is
+    // reached. Does not close the handle, the caller decides when to.
     static void sendError(std::shared_ptr<uvw::TcpHandle> client,
                           int status,
                           const std::string &message);
@@ -89,6 +91,14 @@ private:
     std::string pendingToSidecar;
     bool sidecarReady = false;
     bool closed = false;
+
+    /* The sidecar pipe callbacks below outlive this object: closing the client
+     * connection makes HttpServer delete the WebSocket, which deletes this
+     * handler synchronously, while the pipe may still have events queued in
+     * the loop. Every callback holds a weak reference on this token and gives
+     * up when it has expired, which happens when the handler is destroyed.
+     */
+    std::shared_ptr<bool> aliveToken = std::make_shared<bool>(true);
 };
 
 }

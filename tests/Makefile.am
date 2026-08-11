@@ -304,3 +304,15 @@ core_JsonApiHardening_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiHardening_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+# T1.5
+#WebSocket frame parsing: 64 bits payload length and frame size cap.
+#WebSocketFrame lives in src/lib and parses a byte buffer, so it needs
+#nothing more than libcalaos_common (no event loop, no server object).
+if HAVE_GTEST
+TESTS += WebSocketFrame_test
+check_PROGRAMS += WebSocketFrame_test
+WebSocketFrame_test_SOURCES = WebSocketFrame_test.cpp
+WebSocketFrame_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

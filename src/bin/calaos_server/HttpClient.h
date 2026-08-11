@@ -41,6 +41,41 @@ class RemoteUIProvisioningHandler;
 class OtaHttpHandler;
 }
 
+/* Transport limits of the http/websocket port, shared by HttpClient,
+ * WebSocket and HttpServer.
+ *
+ * The biggest legitimate payload a Calaos client sends is ~215 KiB
+ * (calaos_installer pushing io.xml and rules.xml in one request), every other
+ * client stays far below that. The caps here keep a x20 margin and stop an
+ * unauthenticated client from making the server allocate until it dies.
+ *
+ * The websocket frame cap is WebSocketFrame::MAX_FRAME_SIZE_IN_BYTES and has
+ * the same value: it lives in src/lib, which cannot include a calaos_server
+ * header.
+ */
+namespace TransportLimits
+{
+//Biggest http request body accepted. Checked on Content-Length as soon as the
+//headers are parsed, and again on every body chunk for the requests that
+//announce no length (chunked). Refused with a 413.
+static constexpr uint64_t MaxHttpBodySize = 4 * 1024 * 1024;
+
+//Biggest websocket message accepted, fragments included. Refused with a 1009
+//close frame.
+static constexpr uint64_t MaxWebsocketMessageSize = 4 * 1024 * 1024;
+
+//Simultaneous connections accepted on the port. Above that, a connection is
+//answered 503 and closed right away.
+static constexpr std::size_t MaxConnections = 100;
+
+//Delay a connection is given to send a complete request. It only covers the
+//time before the first request is parsed, so it never applies to an opened
+//websocket (which has its own ping keepalive), nor to a long poll or a mjpeg
+//stream (their request is parsed long before the delay expires), only to a
+//client that connects and then sends nothing or dribbles headers.
+static constexpr double RequestReadTimeout = 30.0;
+}
+
 class HttpClient: public sigc::trackable
 {
 protected:
@@ -77,6 +112,13 @@ protected:
     //timer to close the connection after data has been written
     Timer *closeTimer = nullptr;
 
+    //timer closing a connection that never sends a complete request
+    Timer *readTimeout = nullptr;
+
+    //set when a request body goes over MaxHttpBodySize, the request is then
+    //refused with a 413 instead of being buffered
+    bool bodyTooLarge = false;
+
     bool isClosing = false;
 
     bool isWebsocket = false;
@@ -97,6 +139,11 @@ protected:
     int processHeaders(const string &request);
 
     void handleJsonRequest(uint8_t method);
+
+    //stops the request read timeout: the connection has said what it wants
+    void cancelReadTimeout();
+
+    void sendRequestTooLarge();
 
     string getMimeType(const string &file_ext);
 

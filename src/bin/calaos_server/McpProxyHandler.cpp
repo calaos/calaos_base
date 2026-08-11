@@ -212,21 +212,27 @@ void McpProxyHandler::connectToSidecar(const std::string &path)
     auto loop = uvw::Loop::getDefault();
     sidecar = loop->resource<uvw::PipeHandle>();
 
-    sidecar->once<uvw::ConnectEvent>([this](const auto &, auto &)
+    std::weak_ptr<bool> alive = aliveToken;
+
+    sidecar->once<uvw::ConnectEvent>([this, alive](const auto &, auto &)
     {
+        if (alive.expired()) return;
         onSidecarConnected();
     });
-    sidecar->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+    sidecar->on<uvw::DataEvent>([this, alive](uvw::DataEvent &ev, auto &)
     {
+        if (alive.expired()) return;
         writeToClient(std::string(ev.data.get(), ev.length));
     });
-    sidecar->once<uvw::EndEvent>([this](const auto &, auto &)
+    sidecar->once<uvw::EndEvent>([this, alive](const auto &, auto &)
     {
+        if (alive.expired()) return;
         cDebugDom("mcp") << "sidecar pipe EOF";
         teardown();
     });
-    sidecar->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
+    sidecar->once<uvw::ErrorEvent>([this, alive](const uvw::ErrorEvent &ev, auto &)
     {
+        if (alive.expired()) return;
         cWarningDom("mcp") << "sidecar pipe error: " << ev.what();
         if (!sidecarReady)
             sendError(client, 502, "MCP sidecar unavailable\n");
