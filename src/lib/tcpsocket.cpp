@@ -34,6 +34,52 @@
 #  define MSG_NOSIGNAL 0
 #endif
 
+namespace
+{
+
+/* select() restarted on EINTR, which the server gets routinely (SIGCHLD from
+ * every spawned process). The callers used to test `!select(...)`, so a -1
+ * return was read as "an fd is ready" and they went on inspecting an fd_set
+ * that select() leaves unspecified after a failure.
+ * `readfds` (and the timeout, which Linux rewrites with the time left) is
+ * restored before each retry, so an interruption restarts the wait with the
+ * full timeout instead of a truncated or garbage one: simpler than tracking a
+ * deadline, and erring on the side of waiting a bit longer rather than
+ * reporting a timeout that did not happen.
+ * Returns the number of ready fds, 0 on timeout, -1 on a real error (errno).
+ */
+int selectRetryEintr(int nfds, fd_set *readfds, struct timeval *timeout)
+{
+    fd_set savedFds = *readfds;
+    struct timeval savedTimeout;
+
+    if (timeout)
+        savedTimeout = *timeout;
+
+    for (;;)
+    {
+        int ret = select(nfds, readfds, NULL, NULL, timeout);
+
+        if (ret >= 0)
+            return ret;
+
+        if (errno != EINTR)
+            return -1;
+
+        *readfds = savedFds;
+        if (timeout)
+            *timeout = savedTimeout;
+    }
+}
+
+//Highest of the watched descriptors, +1, as select() expects it
+int selectNfds(int fd, int fdpipe)
+{
+    return ((fdpipe > fd) ? fdpipe : fd) + 1;
+}
+
+}
+
 TCPSocket::TCPSocket()
 {
     newfd = 0;
@@ -229,7 +275,15 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
         tv.tv_sec = timeout / 1000;
         tv.tv_usec = (timeout - tv.tv_sec * 1000) * 1000;
 
-        if (!select(sockfd + 1, &events, NULL, NULL, &tv))
+        int ready = selectRetryEintr(sockfd + 1, &events, &tv);
+
+        if (ready < 0)
+        {
+            cErrorDom("network") << "select: " << strerror(errno);
+            return -1;
+        }
+
+        if (ready == 0)
         {
             //timeout !
             cDebugDom("network") << "Timeout!";
@@ -316,7 +370,18 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             tv.tv_sec = timeout / 1000;
             tv.tv_usec = (timeout - tv.tv_sec * 1000) * 1000;
 
-            if (!select(fd + 1, &events, NULL, NULL, &tv))
+            //fdpipe is watched too, it has to be counted in nfds: with a pipe
+            //descriptor above the socket one, select() never looked at it and
+            //the abort pipe could not interrupt the wait.
+            int ready = selectRetryEintr(selectNfds(fd, fdpipe), &events, &tv);
+
+            if (ready < 0)
+            {
+                cErrorDom("network") << "select: " << strerror(errno);
+                return false;
+            }
+
+            if (ready == 0)
             {
                 //timeout !
                 cDebugDom("network") << "Timeout!";
@@ -487,9 +552,11 @@ bool TCPSocket::Accept(int fdpipe)
     FD_SET(sockfd, &events);
     if (fdpipe > 0) FD_SET(fdpipe, &events);
 
-    if (!select(sockfd + 1, &events, NULL, NULL, NULL))
+    //Same as Recv(): fdpipe is watched, so it drives nfds when it is the
+    //highest descriptor, and a -1 return is an error, not a ready descriptor
+    if (selectRetryEintr(selectNfds(sockfd, fdpipe), &events, NULL) < 0)
     {
-        cDebugDom("network") << "Terminating.";
+        cErrorDom("network") << "select: " << strerror(errno);
         return false;
     }
 

@@ -10,7 +10,12 @@
 #include <gtest/gtest.h>
 
 #include <thread>
+#include <chrono>
 #include <string>
+#include <csignal>
+#include <cstring>
+#include <pthread.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -104,6 +109,135 @@ TEST(TcpSocketRecv, FullBufferReadHasNoTrailingGarbage)
 
     EXPECT_EQ(received, payload);
     EXPECT_EQ(received.size(), payload.size());
+
+    server.Close();
+    client.Close();
+}
+
+// The abort pipe of Recv()/Accept() is watched by select() but was not counted
+// in its nfds: with a pipe descriptor above the socket one -- which is what
+// happens as soon as the pipe is created after the socket, i.e. always -- the
+// pipe bit was outside of the range select() looks at, and writing to the pipe
+// never woke the wait up. The Recv() below only returns before its timeout if
+// the pipe is really watched.
+// The same select() calls also treated -1 as "a descriptor is ready", so an
+// EINTR (SIGCHLD is routine in the server) sent them reading an fd_set that
+// select() leaves unspecified on failure.
+
+namespace
+{
+
+// A connected socket pair whose descriptors are guaranteed to sit *below* the
+// abort pipe: the pipe is created last, so it gets the higher fd, which is the
+// nfds bug.
+struct AbortPipe
+{
+    int fds[2] = { -1, -1 };
+
+    AbortPipe() { pipe(fds); }
+    ~AbortPipe()
+    {
+        if (fds[0] >= 0) ::close(fds[0]);
+        if (fds[1] >= 0) ::close(fds[1]);
+    }
+
+    void wake() { ssize_t r = ::write(fds[1], "s", 1); (void)r; }
+};
+
+} // namespace
+
+TEST(TcpSocketRecv, AbortPipeAboveTheSocketFdStopsTheWait)
+{
+    TCPSocket server;
+    int port = bindEphemeral(server);
+    ASSERT_GT(port, 0);
+
+    bool acceptOk = false;
+    std::thread acceptThread([&]() { acceptOk = server.Accept(); });
+
+    TCPSocket client;
+    ASSERT_TRUE(client.Create());
+    char host[] = "127.0.0.1";
+    ASSERT_TRUE(client.Connect(port, host));
+
+    acceptThread.join();
+    ASSERT_TRUE(acceptOk);
+
+    AbortPipe abort;
+    ASSERT_GE(abort.fds[0], 0);
+    ASSERT_GT(abort.fds[0], server.get_sockfd())
+        << "the pipe has to be the highest descriptor for this test to mean anything";
+
+    // Nothing is ever sent on the socket: only the pipe can end the wait before
+    // the (long) timeout expires.
+    abort.wake();
+
+    auto start = std::chrono::steady_clock::now();
+    std::string received;
+    bool ret = server.Recv(received, 10000, abort.fds[0]);
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_FALSE(ret) << "Recv() must report the abort, not a message";
+    EXPECT_LT(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(), 5000)
+        << "the abort pipe did not wake select() up";
+    EXPECT_TRUE(received.empty());
+
+    server.Close();
+    client.Close();
+}
+
+// A signal delivered while Recv() waits (SIGCHLD when a spawned process exits)
+// makes select() fail with EINTR. It has to be retried, not read as "the socket
+// is ready" (the recv() that followed then failed) nor as an abort.
+TEST(TcpSocketRecv, InterruptedSelectIsRetried)
+{
+    static volatile sig_atomic_t signalCount = 0;
+    struct sigaction sa, old;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = [](int) { signalCount = signalCount + 1; };
+    // No SA_RESTART on purpose: this is what the server gets from libuv's
+    // SIGCHLD handling, and what select() reports as EINTR.
+    ASSERT_EQ(0, sigaction(SIGUSR1, &sa, &old));
+
+    TCPSocket server;
+    int port = bindEphemeral(server);
+    ASSERT_GT(port, 0);
+
+    bool acceptOk = false;
+    std::thread acceptThread([&]() { acceptOk = server.Accept(); });
+
+    TCPSocket client;
+    ASSERT_TRUE(client.Create());
+    char host[] = "127.0.0.1";
+    ASSERT_TRUE(client.Connect(port, host));
+
+    acceptThread.join();
+    ASSERT_TRUE(acceptOk);
+
+    pthread_t receiver = pthread_self();
+
+    // Interrupt the wait a few times, then let the real message through
+    std::thread signaler([&]()
+    {
+        for (int i = 0;i < 3;i++)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            pthread_kill(receiver, SIGUSR1);
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        client.Send(std::string("interrupted\n"));
+    });
+
+    std::string received;
+    bool ret = server.Recv(received, 10000);
+
+    signaler.join();
+    sigaction(SIGUSR1, &old, NULL);
+
+    EXPECT_GT(signalCount, 0) << "the wait was never interrupted, the test proves nothing";
+    EXPECT_TRUE(ret) << "an interrupted select() was not retried";
+    EXPECT_EQ(received, "interrupted\n");
 
     server.Close();
     client.Close();
