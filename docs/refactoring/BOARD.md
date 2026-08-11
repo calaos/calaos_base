@@ -52,7 +52,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | ✅ |
 | [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | ✅ |
 | [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | ✅ |
-| [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | 🔨 |
+| [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | ✅ |
 | [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 📋 |
 | [T1.7](T1.7.md) | 1 | MCP token CSPRNG (F1) | fix (sec) | Phase 0 | ✅ |
 | [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 📋 |
@@ -78,6 +78,8 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
 | [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | 📋 |
 | [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | 📋 |
+| [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | 📋 |
+| [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | Thin IO subclasses — MySensors | refactor | Phase 2 | 📋 |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |
 | [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 📋 |
