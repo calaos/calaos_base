@@ -41,9 +41,22 @@ protected:
 
     bool auto_sc_mark; //true if rule is used by an auto_scenario
 
+    /* Lifetime token for the asynchronous evaluation of the script conditions.
+     * Those callbacks are plain std::function held by a detached ScriptExec
+     * process: there is no connection to disconnect and no way to cancel them,
+     * while the rule is deleted from under them as soon as one of the IOs it
+     * uses goes away (ListeRule::RemoveRule()). Whoever starts an asynchronous
+     * evaluation captures a weak_ptr on this token next to the Rule*, and drops
+     * the callback when it has expired.
+     */
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
+
 public:
     Rule(string _type, string _name);
     virtual ~Rule();
+
+    //See `alive`. Expires when the rule is destroyed.
+    std::weak_ptr<bool> aliveToken() const { return alive; }
 
     void AddCondition(Condition *p);
     void AddAction(Action *p);

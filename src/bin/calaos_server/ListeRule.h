@@ -21,6 +21,8 @@
 #ifndef S_LISTERULE_H
 #define S_LISTERULE_H
 
+#include <deque>
+
 #include "Calaos.h"
 #include "Rule.h"
 #include "ConditionStd.h"
@@ -49,16 +51,48 @@ protected:
 
     bool loop = false;
 
+    /* True while a march over the rule list is running on the stack.
+     * It only covers the synchronous part of an execution: the actions of a
+     * rule set IOs, which signal back into ExecuteRuleSignal(), and such a
+     * nested march would iterate the rules while the first one is still using
+     * them. Asynchronous script conditions are deliberately *not* covered:
+     * holding the lock for the whole lifetime of a detached process wedged
+     * every other rule until the script came back, forever when it never did.
+     * What the async side needs is per rule protection, which is the lifetime
+     * token of Rule (see Rule::aliveToken()), not a global lock.
+     */
     bool execInProgress = false;
 
-    //Number of executions still running for the current signal: the
-    //synchronous walk of ExecuteRuleSignal() counts for one, each async script
-    //condition started by it for one more. execInProgress is cleared by
-    //releaseExecution() when this drops back to zero.
-    int execRefCount = 0;
+    //Trigger ids signalled while a march was running. They are executed by the
+    //outermost march when it releases the lock: no idler, so no busy wait, and
+    //nothing is executed on top of a running march.
+    std::deque<std::string> pendingTriggers;
 
-    //Drop one outstanding execution and unlock when the last one is done
-    void releaseExecution();
+    //One march over the rule list for a single trigger id
+    void executeTrigger(const std::string &id);
+
+    //Execute the triggers deferred by a nested ExecuteRuleSignal(), including
+    //those deferred while draining
+    void drainPendingTriggers();
+
+    //Run the actions of a rule while holding the execution lock
+    void executeActionsLocked(Rule *rule);
+
+    /* Start the asynchronous evaluation of the script conditions of `rule` for
+     * the trigger `id`, and run its actions when they all pass.
+     * Virtual so that a test can observe the dispatch without spawning a lua
+     * process for real (no libuv loop runs there).
+     */
+    virtual void dispatchAsyncRule(Rule *rule, const std::string &id);
+
+    /* Completion of the evaluation started by dispatchAsyncRule(). `rule` is
+     * only dereferenced when `token` is still valid: the rule can have been
+     * deleted while its scripts were running, and nothing cancels a running
+     * ScriptExec callback.
+     * A function of its own so that a test can replay a callback landing after
+     * the deletion, which is the case that used to be a use after free.
+     */
+    void asyncConditionsChecked(Rule *rule, const std::weak_ptr<bool> &token, bool check);
 
     ListeRule()
     { }
@@ -94,6 +128,25 @@ public:
     //Execute all rules where the input 'input_id' is used
     //The function is called only when a signal is emited from inputs
     virtual void ExecuteRuleSignal(std::string id);
+
+    /* Rules triggered by the IO `id`, split by the way their conditions have to
+     * be evaluated: `syncRules` are the ones whose conditions are already known
+     * to pass, `asyncRules` the ones holding at least one script condition
+     * triggered by `id`, which needs a detached process to be evaluated.
+     * A rule appears at most once in each list, whatever the number of its
+     * conditions matching `id`.
+     * Evaluates conditions but changes nothing, which is what makes the
+     * dispatch observable from a test.
+     */
+    void collectTriggeredRules(const std::string &id,
+                               std::vector<Rule *> &syncRules,
+                               std::vector<Rule *> &asyncRules);
+
+    //True while a march is running. A pending script condition does not hold it
+    bool isExecutionLocked() const { return execInProgress; }
+
+    //Triggers signalled during the current march, waiting for it to end
+    size_t pendingTriggerCount() const { return pendingTriggers.size(); }
 
     /* This executes all rules at program startup. All rules with ConditionStart
                  * will be evaluated and executed (only once)

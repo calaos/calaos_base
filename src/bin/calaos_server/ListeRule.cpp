@@ -157,118 +157,166 @@ void ListeRule::StopLoop()
     loop = false;
 }
 
-void ListeRule::ExecuteRuleSignal(std::string id)
+void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRules, vector<Rule *> &asyncRules)
+{
+    IOBase *triggerIO = ListeRoom::Instance().get_io(id);
+
+    for (Rule *rule: rules)
+    {
+        bool syncTriggered = false;
+        bool asyncTriggered = false;
+
+        for (int j = 0;j < rule->get_size_conds();j++)
+        {
+            Condition *condition = rule->get_condition(j);
+
+            ConditionStd *cond = dynamic_cast<ConditionStd *>(condition);
+            if (cond)
+            {
+                bool matched = false;
+
+                for (int k = 0;k < cond->get_size();k++)
+                {
+                    IOBase *in = cond->get_input(k);
+                    if (in && in->get_param("id") == id)
+                    {
+                        if (!syncTriggered && cond->useForTrigger() && rule->CheckConditions())
+                            syncTriggered = true;
+                        matched = true;
+                    }
+                }
+
+                if (!matched)
+                {
+                    vector<IOBase *> list;
+                    cond->getVarIds(list);
+
+                    for (uint k = 0;k < list.size();k++)
+                    {
+                        if (list[k] && list[k]->get_param("id") == id &&
+                            !syncTriggered && cond->useForTrigger() && rule->CheckConditions())
+                            syncTriggered = true;
+                    }
+                }
+            }
+
+            ConditionScript *script_cond = dynamic_cast<ConditionScript *>(condition);
+            if (!asyncTriggered && script_cond && triggerIO &&
+                script_cond->containsTriggerIO(triggerIO))
+            {
+                //Once per rule, not once per matching condition: the
+                //asynchronous evaluation runs *every* script condition of the
+                //rule anyway, so dispatching it again would spawn the same
+                //scripts a second time and execute the actions twice.
+                asyncTriggered = true;
+            }
+
+            ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(condition);
+            if (!syncTriggered && ocond && ocond->getOutput() &&
+                ocond->getOutput()->get_param("id") == id &&
+                ocond->useForTrigger() && rule->CheckConditions())
+                syncTriggered = true;
+        }
+
+        if (syncTriggered)
+            syncRules.push_back(rule);
+        if (asyncTriggered)
+            asyncRules.push_back(rule);
+    }
+}
+
+void ListeRule::executeTrigger(const string &id)
+{
+    cDebugDom("rule") << "Received signal for id " << id;
+
+    vector<Rule *> syncRules;
+    vector<Rule *> asyncRules;
+
+    collectTriggeredRules(id, syncRules, asyncRules);
+
+    for (Rule *rule: syncRules)
+        rule->ExecuteActions();
+
+    for (Rule *rule: asyncRules)
+        dispatchAsyncRule(rule, id);
+}
+
+void ListeRule::dispatchAsyncRule(Rule *rule, const string &id)
+{
+    /* The script conditions are evaluated by detached processes: the callback
+     * lands long after this returns, and the rule can be deleted in between
+     * (an IO it uses is removed, config reload). Nothing cancels a running
+     * ScriptExec callback, so it is the callback that has to check whether its
+     * rule is still there, through the token that dies with it.
+     */
+    rule->CheckConditionsAsync([this, rule, token = rule->aliveToken()](bool check)
+    {
+        asyncConditionsChecked(rule, token, check);
+    }, id);
+}
+
+void ListeRule::asyncConditionsChecked(Rule *rule, const std::weak_ptr<bool> &token, bool check)
+{
+    if (token.expired())
+    {
+        //The rule was deleted while its scripts were running: `rule` points to
+        //freed memory, nothing here may touch it
+        cDebugDom("rule") << "Script conditions completed for a deleted rule, skipping";
+        return;
+    }
+
+    if (check)
+        executeActionsLocked(rule);
+}
+
+void ListeRule::executeActionsLocked(Rule *rule)
 {
     if (execInProgress)
     {
-        //We can't execute rules for now. Do it later.
-        Idler::singleIdler([=]()
-        {
-            ListeRule::Instance().ExecuteRuleSignal(id);
-        });
-
-        cDebugDom("rule") << "Mutex locked, execute rule later for input " << id;
+        //A march is already on the stack (a script condition that completed
+        //synchronously): run the actions inline, that march drains whatever
+        //they signal back.
+        rule->ExecuteActions();
         return;
     }
 
     execInProgress = true;
-
-    //The synchronous walk below counts as one outstanding execution. Every
-    //async script execution started on the way takes its own reference, so
-    //execInProgress is only released once the last one has completed and the
-    //deferral guard above really serializes the executions.
-    //Taking a reference for the synchronous part is what makes a callback
-    //fired synchronously (Rule::CheckConditionsAsync() short path) harmless.
-    execRefCount = 1;
-
-    cDebugDom("rule") << "Received signal for id " << id;
-
-    unordered_map<Rule *, bool> execRules;
-
-    for (Rule *rule: rules)
-    {
-        for (int j = 0;j < rule->get_size_conds();j++)
-        {
-            ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(j));
-            bool exec = false;
-            for (int k = 0;cond && k < cond->get_size();k++)
-            {
-                if (cond->get_input(k)->get_param("id") == id)
-                {
-                    if (cond->useForTrigger() &&
-                        rule->CheckConditions())
-                    {
-                        //Add only rules once to the exec list
-                        if (execRules.find(rule) == execRules.end())
-                            execRules[rule] = true;
-                    }
-                    exec = true;
-                }
-            }
-            if (!exec && cond)
-            {
-                vector<IOBase *> list;
-                cond->getVarIds(list);
-
-                for (uint k = 0;k < list.size();k++)
-                {
-                    if (list[k]->get_param("id") == id)
-                    {
-                        if (cond->useForTrigger() &&
-                            rule->CheckConditions())
-                        {
-                            if (execRules.find(rule) == execRules.end())
-                                execRules[rule] = true;
-                        }
-                        exec = true;
-                    }
-                }
-            }
-
-            ConditionScript *script_cond = dynamic_cast<ConditionScript *>(rule->get_condition(j));
-            if (script_cond &&
-                script_cond->containsTriggerIO(ListeRoom::Instance().get_io(id)))
-            {
-                //Keep the execution locked until this script has completed
-                execRefCount++;
-
-                rule->CheckConditionsAsync([=](bool check)
-                {
-                    if (check)
-                        rule->ExecuteActions();
-                    releaseExecution();
-                }, id);
-            }
-
-            ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(rule->get_condition(j));
-            if (ocond && ocond->getOutput()->get_param("id") == id &&
-                ocond->useForTrigger() &&
-                rule->CheckConditions())
-            {
-                if (execRules.find(rule) == execRules.end())
-                    execRules[rule] = true;
-            }
-        }
-    }
-
-    //Execute all rules actions now
-    for (auto it: execRules)
-    {
-        it.first->ExecuteActions();
-    }
-
-    //Drop the reference taken for the synchronous part. If script conditions
-    //are still running, execInProgress stays true until their last callback.
-    releaseExecution();
+    rule->ExecuteActions();
+    drainPendingTriggers();
+    execInProgress = false;
 }
 
-void ListeRule::releaseExecution()
+void ListeRule::drainPendingTriggers()
 {
-    if (execRefCount > 0)
-        execRefCount--;
+    while (!pendingTriggers.empty())
+    {
+        string id = pendingTriggers.front();
+        pendingTriggers.pop_front();
 
-    if (execRefCount == 0)
-        execInProgress = false;
+        executeTrigger(id);
+    }
+}
+
+void ListeRule::ExecuteRuleSignal(std::string id)
+{
+    if (execInProgress)
+    {
+        /* A march is running on the stack: an action changed an IO, which
+         * signalled back into us. Queue the trigger instead of executing it
+         * here, the march below runs it as soon as it is done.
+         * The old code re-armed an Idler for every deferred signal, which
+         * spun the event loop at 100% cpu for as long as the lock was held.
+         */
+        pendingTriggers.push_back(id);
+
+        cDebugDom("rule") << "Execution in progress, deferring input " << id;
+        return;
+    }
+
+    execInProgress = true;
+    executeTrigger(id);
+    drainPendingTriggers();
+    execInProgress = false;
 }
 
 void ListeRule::RemoveRule(IOBase *obj)

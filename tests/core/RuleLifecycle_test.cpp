@@ -79,15 +79,22 @@ std::string outputConditionRuleXml(const std::string &name,
 std::string scriptConditionRuleXml(const std::string &name,
                                    const std::string &triggerId,
                                    const std::string &actionId,
-                                   const std::string &actionValue)
+                                   const std::string &actionValue,
+                                   int conditionCount = 1)
 {
     std::ostringstream ss;
-    ss << "<calaos:rule name=\"" << name << "\" type=\"rule\">\n"
-       << "  <calaos:condition type=\"script\">\n"
-       << "    <calaos:input id=\"" << triggerId << "\" />\n"
-       << "    <calaos:script type=\"lua\">return true</calaos:script>\n"
-       << "  </calaos:condition>\n"
-       << "  <calaos:action type=\"standard\">\n"
+    ss << "<calaos:rule name=\"" << name << "\" type=\"rule\">\n";
+
+    //Several script conditions of the same rule can watch the same IO
+    for (int i = 0;i < conditionCount;i++)
+    {
+        ss << "  <calaos:condition type=\"script\">\n"
+           << "    <calaos:input id=\"" << triggerId << "\" />\n"
+           << "    <calaos:script type=\"lua\">return true</calaos:script>\n"
+           << "  </calaos:condition>\n";
+    }
+
+    ss << "  <calaos:action type=\"standard\">\n"
        << "    <calaos:output id=\"" << actionId << "\" val=\"" << actionValue << "\" />\n"
        << "  </calaos:action>\n"
        << "</calaos:rule>\n";
@@ -392,4 +399,266 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDropsTheStepRule)
     //AutoScenario::ruleSteps still holds the freed pointer, look the rule up by
     //name in ListeRule instead
     EXPECT_EQ(findRule("sc_del_step"), nullptr);
+}
+
+/******************************************************************************
+ * ListeRule execution: dispatch of the script conditions, execution lock
+ ******************************************************************************/
+
+/* ExecuteRuleSignal() cannot be observed through the singleton here: script
+ * conditions are evaluated by detached lua processes and no libuv loop runs in
+ * the tests (see CalaosCoreFixture.h). This subclass drives the very same code
+ * on its own rule list and replaces the dispatch by a counter, which is exactly
+ * where what is covered below happens: how many asynchronous evaluations a
+ * single event starts, and in which state the execution lock is left once the
+ * march is over.
+ */
+class ProbeListeRule: public ListeRule
+{
+public:
+    //One entry per asynchronous evaluation started, in dispatch order
+    std::vector<Rule *> dispatched;
+
+    //Called from the middle of a march, when a rule is dispatched
+    std::function<void ()> onDispatch;
+
+    //Replays the completion of an asynchronous evaluation
+    using ListeRule::asyncConditionsChecked;
+
+protected:
+    void dispatchAsyncRule(Rule *rule, const std::string &id) override
+    {
+        VAR_UNUSED(id);
+
+        dispatched.push_back(rule);
+
+        if (onDispatch)
+            onDispatch();
+    }
+};
+
+namespace
+{
+
+//Same sequence as Config::LoadConfigRule(), but the rule is added to `list`
+//instead of the singleton (which owns and deletes it)
+Rule *addRuleTo(ListeRule &list, const std::string &ruleXml)
+{
+    TiXmlDocument document;
+    document.Parse(ruleXml.c_str());
+
+    if (document.Error())
+        return nullptr;
+
+    TiXmlElement *node = document.RootElement();
+    if (!node || node->ValueStr() != "calaos:rule" ||
+        !node->Attribute("name") || !node->Attribute("type"))
+        return nullptr;
+
+    Rule *rule = new Rule(node->Attribute("type"), node->Attribute("name"));
+    rule->LoadFromXml(node);
+    list.Add(rule);
+
+    return rule;
+}
+
+}
+
+class RuleDispatchTest: public CoreFixture
+{
+protected:
+    void SetUp() override
+    {
+        CoreFixture::SetUp();
+
+        //The tests below read the output IO to tell whether the actions ran, and
+        //Config caches the value another test left there (see CalaosCoreFixture.h)
+        forgetIOState(ID_BOOL_OUT);
+
+        loadConfig(minimalIoXml(), rulesXmlDocument(""));
+    }
+};
+
+//The asynchronous evaluation runs *every* script condition of the rule, so one
+//dispatch per rule and per event is enough. Dispatching once per matching
+//condition spawned the scripts N times and executed the actions N times.
+TEST_F(RuleDispatchTest, ARuleWithSeveralScriptConditionsIsDispatchedOnce)
+{
+    ProbeListeRule rules;
+
+    ASSERT_NE(addRuleTo(rules, scriptConditionRuleXml("TwoScripts", ID_INT,
+                                                      ID_BOOL_OUT, "true", 2)), nullptr);
+    ASSERT_EQ(rules.get_rule(0)->get_size_conds(), 2);
+
+    rules.ExecuteRuleSignal(ID_INT);
+
+    EXPECT_EQ(rules.dispatched.size(), 1u)
+        << "one asynchronous evaluation per matching condition instead of per rule";
+}
+
+//Same, from the collect side: a rule appears once in each list whatever the
+//number of its conditions matching the trigger.
+TEST_F(RuleDispatchTest, CollectReportsEachRuleOnce)
+{
+    ProbeListeRule rules;
+
+    Rule *scriptRule = addRuleTo(rules, scriptConditionRuleXml("Scripts", ID_INT,
+                                                               ID_BOOL_OUT, "true", 3));
+    ASSERT_NE(scriptRule, nullptr);
+
+    std::vector<Rule *> syncRules, asyncRules;
+    rules.collectTriggeredRules(ID_INT, syncRules, asyncRules);
+
+    EXPECT_TRUE(syncRules.empty());
+    ASSERT_EQ(asyncRules.size(), 1u);
+    EXPECT_EQ(asyncRules[0], scriptRule);
+
+    //An unrelated IO triggers nothing
+    syncRules.clear();
+    asyncRules.clear();
+    rules.collectTriggeredRules(ID_STRING, syncRules, asyncRules);
+    EXPECT_TRUE(syncRules.empty());
+    EXPECT_TRUE(asyncRules.empty());
+}
+
+//Every rule watching the IO gets its own dispatch
+TEST_F(RuleDispatchTest, EveryScriptRuleWatchingTheIoIsDispatched)
+{
+    ProbeListeRule rules;
+
+    Rule *first = addRuleTo(rules, scriptConditionRuleXml("First", ID_INT,
+                                                          ID_BOOL_OUT, "true", 2));
+    Rule *second = addRuleTo(rules, scriptConditionRuleXml("Second", ID_INT,
+                                                           ID_BOOL_OUT, "false"));
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    //Watches another IO
+    ASSERT_NE(addRuleTo(rules, scriptConditionRuleXml("Other", ID_STRING,
+                                                      ID_BOOL_OUT, "true")), nullptr);
+
+    rules.ExecuteRuleSignal(ID_INT);
+
+    ASSERT_EQ(rules.dispatched.size(), 2u);
+    EXPECT_EQ(rules.dispatched[0], first);
+    EXPECT_EQ(rules.dispatched[1], second);
+}
+
+//The core of the wedge: the lock used to be held until the last script callback
+//came back. A script that never completes (spawn failure, hung process) then
+//locked the engine for good, and every signal received meanwhile re-armed an
+//idler that re-scheduled itself at every loop iteration.
+TEST_F(RuleDispatchTest, APendingScriptDoesNotHoldTheExecutionLock)
+{
+    ProbeListeRule rules;
+
+    ASSERT_NE(addRuleTo(rules, scriptConditionRuleXml("Script", ID_INT,
+                                                      ID_BOOL_OUT, "true")), nullptr);
+
+    rules.ExecuteRuleSignal(ID_INT);
+
+    ASSERT_EQ(rules.dispatched.size(), 1u);
+    EXPECT_FALSE(rules.isExecutionLocked())
+        << "the engine stays locked until a script that may never answer comes back";
+    EXPECT_EQ(rules.pendingTriggerCount(), 0u);
+
+    //And the next events are executed, not deferred to an idler
+    rules.ExecuteRuleSignal(ID_INT);
+    rules.ExecuteRuleSignal(ID_INT);
+
+    EXPECT_EQ(rules.dispatched.size(), 3u);
+    EXPECT_FALSE(rules.isExecutionLocked());
+}
+
+//Re-entrancy is still refused: a signal received while a march is running is
+//queued, not executed on top of it. It is then executed by the running march,
+//without any idler in between.
+TEST_F(RuleDispatchTest, ATriggerSignalledDuringAMarchIsDeferredThenExecuted)
+{
+    ProbeListeRule rules;
+
+    Rule *first = addRuleTo(rules, scriptConditionRuleXml("First", ID_INT,
+                                                          ID_BOOL_OUT, "true"));
+    Rule *second = addRuleTo(rules, scriptConditionRuleXml("Second", ID_STRING,
+                                                           ID_BOOL_OUT, "true"));
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+
+    bool reentered = false;
+    size_t pendingSeen = 0;
+    bool lockedSeen = false;
+
+    rules.onDispatch = [&]()
+    {
+        if (reentered)
+            return;
+        reentered = true;
+
+        //An action of the running march changed an IO, which signals back here
+        rules.ExecuteRuleSignal(ID_STRING);
+
+        lockedSeen = rules.isExecutionLocked();
+        pendingSeen = rules.pendingTriggerCount();
+    };
+
+    rules.ExecuteRuleSignal(ID_INT);
+
+    EXPECT_TRUE(lockedSeen) << "the nested signal was executed on top of the running march";
+    EXPECT_EQ(pendingSeen, 1u);
+
+    ASSERT_EQ(rules.dispatched.size(), 2u);
+    EXPECT_EQ(rules.dispatched[0], first);
+    EXPECT_EQ(rules.dispatched[1], second) << "the deferred trigger was never executed";
+
+    EXPECT_EQ(rules.pendingTriggerCount(), 0u);
+    EXPECT_FALSE(rules.isExecutionLocked());
+}
+
+//The rule can be deleted while its scripts are still running: RemoveRule() is
+//called for every IO deletion and nothing cancels a ScriptExec callback. The
+//callback used to run rule->ExecuteActions() on freed memory (heap use after
+//free under ASan).
+TEST_F(RuleDispatchTest, ScriptCompletionOnADeletedRuleIsIgnored)
+{
+    Rule *rule = addRuleFromXml(scriptConditionRuleXml("Async", ID_INT,
+                                                       ID_BOOL_OUT, "true"));
+    ASSERT_NE(rule, nullptr);
+
+    std::weak_ptr<bool> token = rule->aliveToken();
+    EXPECT_FALSE(token.expired());
+
+    //Deleting the IO the script watches deletes the rule with it
+    ASSERT_TRUE(deleteIO(io(ID_INT)));
+    ASSERT_EQ(ListeRule::Instance().size(), 0);
+    EXPECT_TRUE(token.expired());
+
+    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    //The detached script finally answers: `rule` is dangling, the callback must
+    //not touch it nor execute anything
+    ProbeListeRule rules;
+    rules.asyncConditionsChecked(rule, token, true);
+
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool())
+        << "the actions of a deleted rule were executed";
+    EXPECT_FALSE(rules.isExecutionLocked());
+}
+
+//A rule that is still there runs its actions when its scripts pass
+TEST_F(RuleDispatchTest, ScriptCompletionOnALiveRuleExecutesTheActions)
+{
+    ProbeListeRule rules;
+
+    Rule *rule = addRuleTo(rules, scriptConditionRuleXml("Async", ID_INT,
+                                                         ID_BOOL_OUT, "true"));
+    ASSERT_NE(rule, nullptr);
+    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    rules.asyncConditionsChecked(rule, rule->aliveToken(), false);
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool()) << "conditions failed, actions ran anyway";
+
+    rules.asyncConditionsChecked(rule, rule->aliveToken(), true);
+    EXPECT_TRUE(io(ID_BOOL_OUT)->get_value_bool());
+
+    //The lock is released again, whatever the path
+    EXPECT_FALSE(rules.isExecutionLocked());
 }
