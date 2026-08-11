@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "ConditionOutput.h"
+#include "ConditionStd.h"
 #include "ListeRoom.h"
 
 using namespace Calaos;
@@ -36,8 +37,8 @@ ConditionOutput::~ConditionOutput()
 bool ConditionOutput::Evaluate()
 {
     string sval, oper;
-    bool bval;
-    double dval;
+    bool bval = false;
+    double dval = 0.0;
     bool ret = false;
 
     bool ovar = false;
@@ -156,109 +157,17 @@ bool ConditionOutput::Evaluate()
 
 bool ConditionOutput::eval(bool val1, std::string oper, bool val2)
 {
-    if (oper != "!=" && oper != "==")
-    {
-        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
-        return false;
-    }
-
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.output");
 }
 
 bool ConditionOutput::eval(double val1, std::string oper, double val2)
 {
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "SUP")
-    {
-        if (val1 > val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "SUP=")
-    {
-        if (val1 >= val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "INF")
-    {
-        if (val1 < val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "INF=")
-    {
-        if (val1 <= val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2);
 }
 
 bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
 {
-    if (oper != "!=" && oper != "==")
-    {
-        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
-        return false;
-    }
-
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.output");
 }
 
 bool ConditionOutput::eval(IOBase *out, string oper, string val)

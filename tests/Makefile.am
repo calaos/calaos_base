@@ -274,3 +274,19 @@ core_ListeRoomRobustness_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ListeRoomRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T1.2
+#ConditionStd/ConditionOutput semantics: multi-input conjunction and
+#ConditionStd/ConditionOutput eval() parity. Own HAVE_GTEST block, same
+#reason as T1.1's above.
+if HAVE_GTEST
+TESTS += core/ConditionEval_test
+check_PROGRAMS += core/ConditionEval_test
+core_ConditionEval_test_SOURCES = core/ConditionEval_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConditionEval_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ConditionEval_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ConditionEval_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

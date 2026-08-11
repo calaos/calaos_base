@@ -61,7 +61,7 @@ bool ConditionStd::Evaluate()
     std::string sval, oper;
     bool bval = false;
     double dval = 0.0;
-    bool ret = false;
+    bool ret = true;
 
     for (uint i = 0;i < inputs.size();i++)
     {
@@ -100,11 +100,7 @@ bool ConditionStd::Evaluate()
             if (!changed)
             {
                 oper = ops[inputs[i]->get_param("id")];
-                ret = eval(inputs[i]->get_value_bool(), oper, bval);
-            }
-            else
-            {
-                ret = true;
+                ret = ret && eval(inputs[i]->get_value_bool(), oper, bval);
             }
             break;
         case TINT:
@@ -136,11 +132,7 @@ bool ConditionStd::Evaluate()
                 if (!changed)
                 {
                     oper = ops[inputs[i]->get_param("id")];
-                    ret = eval(inputs[i]->get_value_double(), oper, dval);
-                }
-                else
-                {
-                    ret = true;
+                    ret = ret && eval(inputs[i]->get_value_double(), oper, dval);
                 }
             }
             else
@@ -166,11 +158,7 @@ bool ConditionStd::Evaluate()
             if (!changed)
             {
                 oper = ops[inputs[i]->get_param("id")];
-                ret = eval(inputs[i]->get_value_string(), oper, sval);
-            }
-            else
-            {
-                ret = true;
+                ret = ret && eval(inputs[i]->get_value_string(), oper, sval);
             }
             break;
         default: break;
@@ -199,11 +187,16 @@ void ConditionStd::Assign(int i, IOBase *obj)
     inputs[i] = obj;
 }
 
-bool ConditionStd::eval(bool val1, std::string oper, bool val2)
+namespace Calaos
+{
+namespace ConditionEval
+{
+
+bool evalOperator(bool val1, std::string oper, bool val2, const char *logDomain)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.standard") <<  "Invalid operator (" << oper << ")";
+        cErrorDom(logDomain) <<  "Invalid operator (" << oper << ")";
         return false;
     }
 
@@ -226,7 +219,7 @@ bool ConditionStd::eval(bool val1, std::string oper, bool val2)
     return false;
 }
 
-bool ConditionStd::eval(double val1, std::string oper, double val2)
+bool evalOperator(double val1, std::string oper, double val2)
 {
     if (oper == "==")
     {
@@ -279,11 +272,11 @@ bool ConditionStd::eval(double val1, std::string oper, double val2)
     return false;
 }
 
-bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
+bool evalOperator(std::string val1, std::string oper, std::string val2, const char *logDomain)
 {
     if (oper != "!=" && oper != "==")
     {
-        cErrorDom("rule.condition.standard") <<  "Invalid operator (" << oper << ")";
+        cErrorDom(logDomain) <<  "Invalid operator (" << oper << ")";
         return false;
     }
 
@@ -304,6 +297,24 @@ bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
     }
 
     return false;
+}
+
+}
+}
+
+bool ConditionStd::eval(bool val1, std::string oper, bool val2)
+{
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.standard");
+}
+
+bool ConditionStd::eval(double val1, std::string oper, double val2)
+{
+    return ConditionEval::evalOperator(val1, oper, val2);
+}
+
+bool ConditionStd::eval(std::string val1, std::string oper, std::string val2)
+{
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.standard");
 }
 
 bool ConditionStd::LoadFromXml(TiXmlElement *node)

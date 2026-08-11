@@ -28,6 +28,17 @@
 namespace Calaos
 {
 
+//Operator-evaluation helper shared by ConditionStd and ConditionOutput (their
+//eval(bool/double/string) overloads were duplicated otherwise). Defined once
+//in ConditionStd.cpp, used by both .cpp files. logDomain is only needed by
+//the overloads that can reject an unknown operator.
+namespace ConditionEval
+{
+    bool evalOperator(bool val1, std::string oper, bool val2, const char *logDomain);
+    bool evalOperator(double val1, std::string oper, double val2);
+    bool evalOperator(std::string val1, std::string oper, std::string val2, const char *logDomain);
+}
+
 class ConditionStd: public Condition
 {
 protected:
