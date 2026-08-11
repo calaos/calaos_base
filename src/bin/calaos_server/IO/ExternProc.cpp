@@ -160,6 +160,16 @@ void ExternProcServer::processData(const string &data)
             currentFrame.clear();
         }
     }
+
+    if (currentFrame.hasError())
+    {
+        //framing violation: the stream cannot be trusted anymore
+        cErrorDom("process") << "Framing error from external process, closing connection";
+        currentFrame.clear();
+        recv_buffer.clear();
+        if (client)
+            client->close();
+    }
 }
 
 void ExternProcServer::startProcess(const string &process, const string &name, const string &args)
@@ -289,6 +299,7 @@ void ExternProcMessage::clear()
     payload.clear();
     payload_length = 0;
     isvalid = false;
+    has_error = false;
     opcode = TypeUnkown;
     state = StateReadHeader;
 }
@@ -303,29 +314,46 @@ bool ExternProcMessage::processFrameData(string &data)
         {
         case StateReadHeader:
         {
-            if (data.size() >= 3)
+            //full header needed: 1 byte opcode + 4 bytes big endian length
+            if (data.size() >= 5)
             {
                 //read header
                 opcode = uint8_t(data[0]);
-                //read length
+                //read length, big endian
                 payload_length =
-                        (uint8_t(data[1]) << 24) |
-                        (uint8_t(data[2]) << 16) |
-                        (uint8_t(data[3]) << 8) |
-                        uint8_t(data[4]);
+                        (uint32_t(uint8_t(data[1])) << 24) |
+                        (uint32_t(uint8_t(data[2])) << 16) |
+                        (uint32_t(uint8_t(data[3])) << 8) |
+                        uint32_t(uint8_t(data[4]));
 
                 data.erase(0, 5);
 
-                if (opcode == TypeMessage)
-                {
-                    isvalid = true;
-                    state = StateReadPayload;
-                }
-                else
+                if (opcode != TypeMessage)
                 {
                     isvalid = false;
                     finished = false;
                     state = StateReadHeader;
+                }
+                else if (payload_length > MaxPayloadLength)
+                {
+                    //An announced length above the cap means a broken or
+                    //hostile peer. Drop the buffered data and flag the error
+                    //so that callers close the connection instead of
+                    //buffering an unbounded amount of memory.
+                    cErrorDom("process") << "Framing error: announced payload length "
+                                         << payload_length << " exceeds maximum "
+                                         << MaxPayloadLength;
+                    isvalid = false;
+                    has_error = true;
+                    payload_length = 0;
+                    data.clear();
+                    state = StateReadHeader;
+                    return false;
+                }
+                else
+                {
+                    isvalid = true;
+                    state = StateReadPayload;
                 }
             }
             else
@@ -416,6 +444,16 @@ bool ExternProcClient::connectSocket()
     }
 
     struct sockaddr_un remote;
+
+    //reject a path that does not fit in sun_path (with its NUL terminator):
+    //silently truncating would make us connect to a wrong path
+    if (sockpath.length() >= sizeof(remote.sun_path))
+    {
+        cError() << "Socket path too long (" << sockpath.length()
+                 << " bytes, max " << sizeof(remote.sun_path) - 1 << "): " << sockpath;
+        return false;
+    }
+
     if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
     {
         perror("socket");
@@ -425,7 +463,8 @@ bool ExternProcClient::connectSocket()
     cDebug() << "Trying to connect to calaos_server...";
 
     remote.sun_family = AF_UNIX;
-    strcpy(remote.sun_path, sockpath.c_str());
+    strncpy(remote.sun_path, sockpath.c_str(), sizeof(remote.sun_path) - 1);
+    remote.sun_path[sizeof(remote.sun_path) - 1] = '\0';
     int len = strlen(remote.sun_path) + sizeof(remote.sun_family);
     if (connect(sockfd, (struct sockaddr *)&remote, len) == -1)
     {
@@ -462,6 +501,15 @@ bool ExternProcClient::processSocketRecv()
 
             currentFrame.clear();
         }
+    }
+
+    if (currentFrame.hasError())
+    {
+        //framing violation: the stream cannot be trusted anymore
+        cError() << "Framing error from server, closing connection";
+        currentFrame.clear();
+        recv_buffer.clear();
+        return false;
     }
 
     return true;

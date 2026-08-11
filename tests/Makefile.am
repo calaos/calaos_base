@@ -316,3 +316,24 @@ WebSocketFrame_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T1.9
+#ExternProc framing parser: 5 byte header guard (no OOB read on short
+#buffers), big endian length decoding, payload length cap with recovery.
+#ExternProcMessage is built into the calaos_server program, so its object is
+#reused directly, the same way LuaSandbox_test does above. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ExternProcFraming_test
+check_PROGRAMS += ExternProcFraming_test
+ExternProcFraming_test_SOURCES = ExternProcFraming_test.cpp
+ExternProcFraming_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ExternProcFraming_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+ExternProcFraming_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

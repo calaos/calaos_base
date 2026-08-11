@@ -35,13 +35,13 @@ class ProcessHandle;
 
 /*
  * Small framing for messages
- * +-------+--------------+-------+------------+
- * | START | TYPE         | SIZE  | DATA ..... |
- * | 0x2   | 0x1 reserved | 2bytes|            |
- * +-------+--------------+-------+------------+
+ * +--------+----------------------+------------+
+ * | OPCODE | LENGTH               | DATA ..... |
+ * | 1 byte | 4 bytes (big endian) |            |
+ * +--------+----------------------+------------+
  *
- * type is not used for now
- * size of data is max: 2 bytes : 65536 bytes of data
+ * opcode: TypeMessage (0x21), any other value invalidates the frame
+ * length: payload size in bytes, big endian, capped at MaxPayloadLength
  */
 
 class ExternProcMessage
@@ -50,8 +50,18 @@ public:
     ExternProcMessage();
     ExternProcMessage(string data);
 
+    //Maximum accepted payload length announced in a frame header. The peer is
+    //a local spawned process, but a compromised/faulty one could announce up
+    //to 4 GiB and make us buffer it all. 4 MiB is far above any legitimate
+    //IPC message and aligned with the websocket transport frame cap.
+    static constexpr uint32_t MaxPayloadLength = 4 * 1024 * 1024;
+
     bool isValid() const { return isvalid; }
     string getPayload() const { return payload; }
+
+    //true when the framing was violated (oversized announced length).
+    //The stream is not trustable anymore, callers should drop the connection.
+    bool hasError() const { return has_error; }
 
     void clear();
 
@@ -77,6 +87,7 @@ private:
     uint32_t payload_length;
     string payload;
     bool isvalid;
+    bool has_error = false;
 };
 
 class ExternProcServer: public sigc::trackable
@@ -149,7 +160,9 @@ protected:
 private:
     string sockpath;
     string name;
-    int sockfd;
+    //-1 so that a destruction before connectSocket() assigns it does not
+    //close an arbitrary file descriptor
+    int sockfd = -1;
 
     string recv_buffer;
 
