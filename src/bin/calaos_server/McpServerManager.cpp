@@ -24,8 +24,12 @@
 #include "Timer.h"
 
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <openssl/rand.h>
 
 namespace Calaos
 {
@@ -37,20 +41,29 @@ constexpr const char *MCP_SERVICE_TOKEN_KEY = "mcp_service_token";
 constexpr const char *MCP_LISTEN_PORT_KEY = "port_api";
 constexpr unsigned short DEFAULT_JSONAPI_PORT = 5454;
 
-// Generate a 64-hex-char token (256 bits) by concatenating two random
-// UUIDs and stripping the dashes. Utils::createRandomUuid relies on
-// gettimeofday + rand which is not cryptographically strong but is
-// the same source already used elsewhere in calaos_server. For a
-// stronger source we would have to plumb a /dev/urandom reader; this
-// is good enough for an MVP token that is rotatable.
+// Generate a 64-hex-char token (256 bits) from a cryptographically secure
+// random source (OpenSSL RAND_bytes), matching the token format/length
+// already documented in AGENTS.md and used elsewhere in calaos_server
+// (RemoteUIProvisioningHandler::generateAuthToken, HMACAuthenticator::
+// generateNonce). Deliberately does NOT use Utils::createRandomUuid, which
+// seeds rand() from the clock on every call (weak, and can even collide
+// within the same microsecond).
 std::string generateToken()
 {
-    auto strip = [](std::string s)
+    constexpr size_t TOKEN_BYTES = 32; // 256 bits -> 64 hex chars
+
+    unsigned char buffer[TOKEN_BYTES];
+    if (RAND_bytes(buffer, sizeof(buffer)) != 1)
     {
-        s.erase(std::remove(s.begin(), s.end(), '-'), s.end());
-        return s;
-    };
-    return strip(Utils::createRandomUuid()) + strip(Utils::createRandomUuid());
+        cErrorDom("mcp") << "generateToken: RAND_bytes failed to generate cryptographically secure random data";
+        return "";
+    }
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < sizeof(buffer); ++i)
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
+
+    return oss.str();
 }
 
 unsigned short jsonApiPort()
@@ -93,17 +106,33 @@ void McpServerManager::ensureTokens()
     mcpToken = Utils::get_config_option(MCP_TOKEN_KEY, true);
     if (mcpToken.empty())
     {
-        mcpToken = generateToken();
-        Utils::set_config_option(MCP_TOKEN_KEY, mcpToken);
-        cInfoDom("mcp") << "generated new mcp_token, persisted to local_config.xml";
+        std::string generated = generateToken();
+        if (generated.empty())
+        {
+            cErrorDom("mcp") << "failed to generate mcp_token (CSPRNG unavailable), MCP proxy will reject all requests";
+        }
+        else
+        {
+            mcpToken = generated;
+            Utils::set_config_option(MCP_TOKEN_KEY, mcpToken);
+            cInfoDom("mcp") << "generated new mcp_token, persisted to local_config.xml";
+        }
     }
 
     serviceToken = Utils::get_config_option(MCP_SERVICE_TOKEN_KEY, true);
     if (serviceToken.empty())
     {
-        serviceToken = generateToken();
-        Utils::set_config_option(MCP_SERVICE_TOKEN_KEY, serviceToken);
-        cInfoDom("mcp") << "generated new mcp_service_token, persisted to local_config.xml";
+        std::string generated = generateToken();
+        if (generated.empty())
+        {
+            cErrorDom("mcp") << "failed to generate mcp_service_token (CSPRNG unavailable), MCP sidecar will not be able to authenticate";
+        }
+        else
+        {
+            serviceToken = generated;
+            Utils::set_config_option(MCP_SERVICE_TOKEN_KEY, serviceToken);
+            cInfoDom("mcp") << "generated new mcp_service_token, persisted to local_config.xml";
+        }
     }
 }
 
