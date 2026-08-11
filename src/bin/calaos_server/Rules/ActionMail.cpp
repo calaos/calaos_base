@@ -19,8 +19,7 @@
  **
  ******************************************************************************/
 #include "ActionMail.h"
-#include "ListeRoom.h"
-#include "IPCam.h"
+#include "ActionCameraDownload.h"
 #include "NotifManager.h"
 
 using namespace Calaos;
@@ -28,7 +27,8 @@ using namespace Calaos;
 static const char *TAG = "rule.action.mail";
 
 ActionMail::ActionMail():
-    Action(ACTION_MAIL)
+    Action(ACTION_MAIL),
+    camDownload(std::make_unique<ActionCameraDownload>())
 {
     cDebugDom(TAG) <<  "New Mail action";
 }
@@ -39,35 +39,29 @@ ActionMail::~ActionMail()
 
 bool ActionMail::Execute()
 {
-    IPCam *camera = NULL;
-
-    if (mail_attachment != "")
-        camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(mail_attachment));
+    IPCam *camera = ActionCameraDownload::findCamera(mail_attachment);
 
     if (camera)
     {
-        cInfoDom(TAG) <<  "Need to download camera ("
-                                      << camera->get_param("name")
-                                      << ") attachment";
-
         //Get a temporary filename
         mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
 
-        cDebugDom() << "DL URL: " << camera->getPictureUrl();
+        //The completion slot is owned by camDownload, destroying this action
+        //disconnects it before the captured `this` can go stale.
+        if (camDownload->start(camera, mail_attachment_tfile,
+                               [this](bool success)
+                               {
+                                   if (!success)
+                                       mail_attachment_tfile.clear();
+                                   sendMail();
+                               }))
+            return true;
 
-        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
-        dl->m_signalComplete.connect([this](int status)
-        {
-            if (status < 20 || status >= 300)
-                mail_attachment_tfile.clear();
-            this->sendMail();
-        });
-        dl->httpGet(mail_attachment_tfile);
+        //Download could not be started, send the mail without attachment
+        mail_attachment_tfile.clear();
     }
-    else
-    {
-        sendMail();
-    }
+
+    sendMail();
 
     return true;
 }

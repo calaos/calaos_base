@@ -27,6 +27,8 @@
 namespace Calaos
 {
 
+class ActionCameraDownload;
+
 class ActionMail: public Action
 {
 private:
@@ -36,6 +38,13 @@ private:
     string mail_attachment;
     string mail_message;
     string mail_attachment_tfile;
+
+    /* Owns the completion slot of a running camera attachment download.
+     * Destroying the action destroys it, which disconnects the slot: a download
+     * still in flight can never call back into a freed action.
+     * See ActionCameraDownload.h
+     */
+    std::unique_ptr<ActionCameraDownload> camDownload;
 
     void sendMail();
 

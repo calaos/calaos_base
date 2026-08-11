@@ -339,6 +339,7 @@ calaos_server_SOURCES = \
         Rule.h                                          \
         Rules/Action.cpp                                \
         Rules/Action.h                                  \
+        Rules/ActionCameraDownload.h                    \
         Rules/ActionMail.cpp                            \
         Rules/ActionMail.h                              \
         Rules/ActionScript.cpp                          \

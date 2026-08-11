@@ -27,6 +27,8 @@
 namespace Calaos
 {
 
+class ActionCameraDownload;
+
 class ActionPush: public Action
 {
 private:
@@ -34,6 +36,20 @@ private:
     string notif_message;
     string notif_attachment_tfile;
     string notif_pic_uid;
+
+    /* Owns the completion slot of a running camera attachment download.
+     * Destroying the action destroys it, which disconnects the slot: a download
+     * still in flight can never call back into a freed action.
+     * See ActionCameraDownload.h
+     */
+    std::unique_ptr<ActionCameraDownload> camDownload;
+
+    /* Lifetime token for the asynchronous "push sent" callback, which is a
+     * plain std::function owned by NotifManager and offers no connection to
+     * disconnect. The callback holds a weak_ptr on it: when the action dies the
+     * token expires and the callback becomes a no-op.
+     */
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     void sendNotif();
 

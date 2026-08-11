@@ -19,11 +19,9 @@
  **
  ******************************************************************************/
 #include "ActionPush.h"
-#include "ListeRoom.h"
-#include "IPCam.h"
+#include "ActionCameraDownload.h"
 #include "Prefix.h"
 #include "libuvw.h"
-#include "UrlDownloader.h"
 #include "sole.hpp"
 #include "HistLogger.h"
 #include "EventManager.h"
@@ -34,13 +32,15 @@ using namespace Calaos;
 static const char *TAG = "rule.action.push";
 
 ActionPush::ActionPush():
-    Action(ACTION_PUSH)
+    Action(ACTION_PUSH),
+    camDownload(std::make_unique<ActionCameraDownload>())
 {
     cDebugDom(TAG) <<  "New Push Notification action";
 }
 
 ActionPush::ActionPush(const string &message, const string &attachement):
-    Action(ACTION_PUSH)
+    Action(ACTION_PUSH),
+    camDownload(std::make_unique<ActionCameraDownload>())
 {
     cDebugDom(TAG) <<  "New Push Notification action with message/attachment";
     notif_message = message;
@@ -53,17 +53,10 @@ ActionPush::~ActionPush()
 
 bool ActionPush::Execute()
 {
-    IPCam *camera = NULL;
-
-    if (notif_attachment != "")
-        camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(notif_attachment));
+    IPCam *camera = ActionCameraDownload::findCamera(notif_attachment);
 
     if (camera)
     {
-        cInfoDom(TAG) << "Need to download camera ("
-                      << camera->get_param("name")
-                      << ") attachment";
-
         sole::uuid u4 = sole::uuid4();
         notif_pic_uid = u4.str();
 
@@ -72,24 +65,25 @@ bool ActionPush::Execute()
         mkdir(notif_attachment_tfile.c_str(), S_IRWXU);
         notif_attachment_tfile = notif_attachment_tfile + "/" + notif_pic_uid + ".jpg";
 
-        cDebugDom(TAG) << "DL URL: " << camera->getPictureUrl();
+        //The completion slot is owned by camDownload, destroying this action
+        //disconnects it before the captured `this` can go stale.
+        if (camDownload->start(camera, notif_attachment_tfile,
+                               [this](bool success)
+                               {
+                                   if (!success)
+                                       notif_attachment_tfile.clear();
+                                   sendNotif();
+                               }))
+            return true;
 
-        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
-        dl->m_signalComplete.connect([this](int status)
-        {
-            if (status < 20 || status >= 300)
-                notif_attachment_tfile.clear();
-            this->sendNotif();
-        });
-        dl->httpGet(notif_attachment_tfile);
+        //Download could not be started, send the notification without picture
+        notif_attachment_tfile.clear();
     }
-    else
-    {
-        notif_pic_uid.clear();
-        sendNotif();
 
-        cInfoDom(TAG) <<  "Ok, Push Notif sent";
-    }
+    notif_pic_uid.clear();
+    sendNotif();
+
+    cInfoDom(TAG) <<  "Ok, Push Notif sent";
 
     return true;
 }
@@ -115,10 +109,16 @@ void ActionPush::sendNotif()
 
     HistLogger::Instance().appendEvent(e);
 
+    //The callback is called back asynchronously (push tokens are read from the
+    //history database first), and this action may well be destroyed before that
+    //happens. Guard it with the lifetime token instead of a raw `this`.
     NotifManager::Instance().sendPushNotification(
         nmsg, notif_pic_uuid,
-        [this]()
+        [this, token = std::weak_ptr<bool>(alive)]()
         {
+            if (token.expired())
+                return; //action destroyed while the push was in flight
+
             cDebugDom(TAG) << "Push notif sent";
             notifSent.emit();
         }
