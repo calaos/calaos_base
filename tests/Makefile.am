@@ -235,3 +235,26 @@ core_RuleLifecycle_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RuleLifecycle_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+
+# T1.15
+#Lua sandbox and execution watchdog. ScriptManager.cpp/ScriptBindings.cpp are
+#only built into calaos_script (a program, like calaos_server), so their objects
+#are reused directly the same way the core tests reuse the server ones. Own
+#HAVE_GTEST block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LuaSandbox_test
+check_PROGRAMS += LuaSandbox_test
+LuaSandbox_test_SOURCES = LuaSandbox_test.cpp
+LuaSandbox_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+LuaSandbox_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT)   \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)             \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+LuaSandbox_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

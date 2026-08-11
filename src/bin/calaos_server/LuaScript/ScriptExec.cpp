@@ -34,6 +34,15 @@ enum
 };
 static unordered_map<ExternProcServer *, int> processStatus;
 
+/* Second line of defense behind the in script watchdog (SCRIPT_MAX_EXEC_TIME):
+ * that one can only break a script that is running lua code, it cannot do
+ * anything for a child wedged inside a binding or one that never answers at
+ * all. The bound is deliberately far above SCRIPT_MAX_EXEC_TIME because
+ * calaos:waitForIO() legitimately parks a script for as long as the IO it waits
+ * for takes to change.
+ */
+#define SCRIPT_PROCESS_MAX_LIFETIME 3600.0
+
 ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::function<void(bool ret)> cb, Params env)
 {
     ExternProcServer *process = new ExternProcServer("lua");
@@ -41,6 +50,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
 
     JsonApi *jsonApi = new JsonApi();
     sigc::connection *evcon = new sigc::connection;
+    Timer **lifetime = new Timer *(nullptr);
 
     processStatus[process] = ProcessNone;
 
@@ -109,6 +119,9 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         evcon->disconnect();
         delete evcon;
 
+        delete *lifetime;
+        delete lifetime;
+
         if (processStatus[process] != ProcessFinished) //the callback was never called, force the call here
             cb(false);
         processStatus[process] = ProcessNone;
@@ -125,6 +138,17 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
     process->processConnected.connect([=]()
     {
         processStatus[process] = ProcessStarted;
+
+        *lifetime = new Timer(SCRIPT_PROCESS_MAX_LIFETIME, [=]()
+        {
+            if (processStatus.find(process) == processStatus.end() ||
+                processStatus[process] != ProcessStarted)
+                return;
+
+            cErrorDom("lua") << "LUA script is still running after " << SCRIPT_PROCESS_MAX_LIFETIME
+                             << " sec., killing process. (" << process << ")";
+            process->terminate();
+        });
 
         cDebug() << "Process connected. process:" << process;
         Params p = {{ "msg", "execute" },

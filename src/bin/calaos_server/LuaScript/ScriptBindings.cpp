@@ -89,19 +89,18 @@ int Calaos::Lua_print(lua_State *L)
 
 void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
 {
+    double elapsed;
+
+    if (ScriptManager::watchdogExpired(elapsed))
+    {
+        string err = "Aborting script, takes too much time to execute (";
+        err += Utils::to_string(elapsed) + " sec.)";
+
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
     ScriptManager::Instance().LuaDebugHook(L, ar);
-//    double time;
-//
-//    time = Utils::getMainLoopTime();
-//
-//    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
-//    {
-//        string err = "Aborting script, takes too much time to execute (";
-//        err += Utils::to_string(time - ScriptManager::start_time) + " sec.)";
-//
-//        lua_pushstring(L, err.c_str());
-//        lua_error(L);
-//    }
 }
 
 Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
@@ -311,7 +310,10 @@ int Lua_Calaos::waitForIO(lua_State *L)
         {
             //loop until io has reveived a change event
             //it doesnt actually loop, but the process is doing a blocking select
-            while (!waitForIOChanged.emit(id) && !abort) ;
+            {
+                ScriptWatchdogPause pause;
+                while (!waitForIOChanged.emit(id) && !abort) ;
+            }
 
             if (abort)
             {
@@ -344,6 +346,7 @@ int Lua_Calaos::requestUrl(lua_State *L)
 
         //we are in an extern process here, so run a loop to do the download
         //it will be stopped when the download is finished
+        ScriptWatchdogPause pause;
         uvw::Loop::getDefault()->run();
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
@@ -354,6 +357,7 @@ int Lua_Calaos::requestUrl(lua_State *L)
         UrlDownloader *dl = new UrlDownloader(url, true);
         dl->httpPost(string(), post_data);
 
+        ScriptWatchdogPause pause;
         uvw::Loop::getDefault()->run();
     }
     else
