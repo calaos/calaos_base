@@ -30,17 +30,24 @@ namespace Calaos
 {
 
 /*
- * Camera snapshot download, shared by ActionMail and ActionPush.
+ * Camera snapshot downloads, shared by ActionMail and ActionPush.
  *
- * The download runs asynchronously: UrlDownloader spawns curl and emits
+ * A download runs asynchronously: UrlDownloader spawns curl and emits
  * m_signalComplete from the event loop, then deletes itself through an Idler.
  * The action that started it can be destroyed at any point in between (config
  * reload, IO deletion), so a completion slot capturing the action's `this`
  * would dereference freed memory.
  *
- * The slot is therefore owned by this object, which actions keep as a member:
- * destroying the action destroys the guard, the guard disconnects the slot, and
- * the callback can never run on a dead action.
+ * Each start() therefore builds its own context, owned by this object, which
+ * the actions keep as a member: destroying the action destroys every context,
+ * each context disconnects its slot, and no callback can run on a dead action.
+ * Contexts are independent, so a rule re-triggering while a first snapshot is
+ * still downloading no longer cancels it - both notifications are sent, each
+ * with its own picture.
+ *
+ * A context that is destroyed before its transfer completed also unlinks the
+ * file the transfer was writing to: nobody will ever consume it, and on an
+ * embedded tmpfs those half written snapshots pile up.
  *
  * The transfer itself is not aborted. UrlDownloader has no cancel API, and
  * deleting it from the outside would race with the autodelete Idler it queues
@@ -51,7 +58,7 @@ class ActionCameraDownload
 {
 public:
     ActionCameraDownload() = default;
-    ~ActionCameraDownload() { cancel(); }
+    ~ActionCameraDownload() { cancelAll(); }
 
     ActionCameraDownload(const ActionCameraDownload &) = delete;
     ActionCameraDownload &operator =(const ActionCameraDownload &) = delete;
@@ -65,15 +72,23 @@ public:
     }
 
     /* Downloads the current picture of camera into destFile.
-     * cb(success) is called when the transfer completes, success being true
-     * when the http status is in the 2xx band.
+     * cb(success, destFile) is called when the transfer completes, success
+     * being true when the http status is in the 2xx band. The file is handed
+     * over to the callback, which owns it from then on.
      * Returns false when the transfer could not even be started, cb is then
-     * never called.
+     * never called and destFile has been unlinked.
      */
-    bool start(IPCam *camera, const string &destFile, std::function<void(bool)> cb)
+    bool start(IPCam *camera, const string &destFile, std::function<void(bool, const string &)> cb)
     {
         if (!camera)
             return false;
+
+        if (destFile.empty())
+        {
+            cWarningDom("rule.action") << "No destination file for the snapshot of "
+                                       << camera->get_param("name");
+            return false;
+        }
 
         cInfoDom("rule.action") << "Need to download camera ("
                                 << camera->get_param("name")
@@ -81,33 +96,72 @@ public:
         cDebugDom("rule.action") << "DL URL: " << camera->getPictureUrl()
                                  << " to " << destFile;
 
-        //Never keep more than one pending download per action
-        cancel();
+        auto dl = std::make_shared<Download>();
+        dl->destFile = destFile;
+        downloads.push_back(dl);
 
-        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
-        m_conn = dl->m_signalComplete.connect([cb](int status)
+        std::weak_ptr<Download> weakDl = dl;
+
+        UrlDownloader *downloader = new UrlDownloader(camera->getPictureUrl(), true);
+        dl->conn = downloader->m_signalComplete.connect([this, weakDl, cb](int status)
         {
+            auto ctx = weakDl.lock();
+            if (!ctx)
+                return; //context dropped, the connection is severed anyway
+
+            //Copies: forgetting the context below releases the slot this
+            //lambda lives in
+            auto callback = cb;
+            string file = ctx->destFile;
+
+            //The file now belongs to the callback, the context must not
+            //unlink it on its way out
+            ctx->destFile.clear();
+            forget(ctx);
+
             //http success band is [200, 300)
-            cb(status >= 200 && status < 300);
+            callback(status >= 200 && status < 300, file);
         });
 
-        if (!dl->httpGet(destFile))
+        if (!downloader->httpGet(destFile))
         {
             cWarningDom("rule.action") << "Failed to start camera download for "
                                        << camera->get_param("name");
-            cancel();
-            dl->Destroy();
+            forget(dl);
+            downloader->Destroy();
             return false;
         }
 
         return true;
     }
 
-    //Severs the pending completion callback, if any
-    void cancel() { m_conn.disconnect(); }
+    //Severs every pending completion callback and drops the files they were
+    //downloading to
+    void cancelAll() { downloads.clear(); }
 
 private:
-    sigc::connection m_conn;
+    struct Download
+    {
+        sigc::connection conn;
+        string destFile;
+
+        ~Download()
+        {
+            //Still pending: the action is gone or the transfer never started.
+            //Sever the callback and drop the file nobody will read.
+            conn.disconnect();
+
+            if (!destFile.empty())
+                FileUtils::unlink(destFile);
+        }
+    };
+
+    void forget(const std::shared_ptr<Download> &dl)
+    {
+        downloads.erase(std::remove(downloads.begin(), downloads.end(), dl), downloads.end());
+    }
+
+    std::vector<std::shared_ptr<Download>> downloads;
 };
 
 }

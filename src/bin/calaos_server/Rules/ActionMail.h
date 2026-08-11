@@ -28,6 +28,7 @@ namespace Calaos
 {
 
 class ActionCameraDownload;
+class IPCam;
 
 class ActionMail: public Action
 {
@@ -37,7 +38,6 @@ private:
     string mail_subject;
     string mail_attachment;
     string mail_message;
-    string mail_attachment_tfile;
 
     /* Owns the completion slot of a running camera attachment download.
      * Destroying the action destroys it, which disconnects the slot: a download
@@ -46,7 +46,13 @@ private:
      */
     std::unique_ptr<ActionCameraDownload> camDownload;
 
-    void sendMail();
+    /* Starts the download of the camera snapshot to attach. Returns false when
+     * the mail has to be sent right away, without any attachment.
+     */
+    bool startAttachmentDownload(IPCam *camera);
+
+    //attachmentFile is empty when there is nothing to attach
+    void sendMail(const string &attachmentFile);
 
 public:
     ActionMail();

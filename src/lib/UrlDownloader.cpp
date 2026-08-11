@@ -71,6 +71,16 @@ bool UrlDownloader::start()
     }
     tmpHeader = Utils::getTmpFilename("tmp", "_dlheader");
 
+    if (tmpHeader.empty())
+    {
+        //getTmpFilename() already logged the errno. Handing "" to curl would
+        //make it write its headers to a file literally named "" in the current
+        //directory, and the status code would never be parsed back.
+        cErrorDom("urlutils") << "No temporary file for the response headers, aborting " << m_url;
+        m_isRunning = false;
+        return false;
+    }
+
     //Default curl parameters
     //silent --> no progress bar
     //insecure --> do not check for insecure ssl certificates, needed for local https
@@ -137,6 +147,16 @@ bool UrlDownloader::start()
     if (!m_bodyData.empty())
     {
         tempFilename = Utils::getTmpFilename();
+
+        if (tempFilename.empty())
+        {
+            //Same as the header file above: the request body has to live in a
+            //real file, curl reads it from there
+            cErrorDom("urlutils") << "No temporary file for the request body, aborting " << m_url;
+            m_isRunning = false;
+            return false;
+        }
+
         std::ofstream ofs;
         ofs.open(tempFilename, ios::out | ios::trunc | ios::binary);
         ofs << m_bodyData;

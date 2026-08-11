@@ -41,6 +41,28 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
     //Get a temporary filename
     string tmpFile = Utils::getTmpFilename("tmp", "_mail_body");
 
+    /* calaos_mail is spawned with --delete below, so it is the one unlinking
+     * the body file and the attachment once the mail is out: this function
+     * takes ownership of both. Every path leaving without spawning it has to
+     * drop them, or they stay in /tmp forever (a tmpfs on the box).
+     */
+    auto dropTempFiles = [&tmpFile, &attachmentFile]()
+    {
+        if (!tmpFile.empty())
+            FileUtils::unlink(tmpFile);
+        if (!attachmentFile.empty())
+            FileUtils::unlink(attachmentFile);
+    };
+
+    if (tmpFile.empty())
+    {
+        //getTmpFilename() already logged why. calaos_mail reads the body from a
+        //file, there is nothing to send without it.
+        cCriticalDom(TAG) << "No temporary file for the mail body, cannot send mail !";
+        dropTempFiles();
+        return;
+    }
+
     //Write body message to a temp file
     std::ofstream ofs;
     ofs.open(tmpFile.c_str(), std::ofstream::trunc);
@@ -71,6 +93,7 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
         if (mail_recipients.empty())
         {
             cCriticalDom(TAG) << "No recipient email configured, cannot send mail !";
+            dropTempFiles();
             return; // Cannot send mail without recipient
         }
     }
@@ -101,9 +124,15 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
 
     auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe->once<uvw::ExitEvent>([exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
-    exe->once<uvw::ErrorEvent>([exe](const uvw::ErrorEvent &ev, auto &)
+    exe->once<uvw::ErrorEvent>([exe, tmpFile, attachmentFile = string(attachmentFile)](const uvw::ErrorEvent &ev, auto &)
     {
         cWarningDom(TAG) << "Process error: " << ev.what();
+
+        //calaos_mail never ran, nobody else will delete its files
+        FileUtils::unlink(tmpFile);
+        if (!attachmentFile.empty())
+            FileUtils::unlink(attachmentFile);
+
         exe->close();
     });
 

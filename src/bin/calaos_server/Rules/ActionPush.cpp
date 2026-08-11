@@ -55,44 +55,53 @@ bool ActionPush::Execute()
 {
     IPCam *camera = ActionCameraDownload::findCamera(notif_attachment);
 
-    if (camera)
-    {
-        sole::uuid u4 = sole::uuid4();
-        notif_pic_uid = u4.str();
+    if (camera && startPictureDownload(camera))
+        return true;
 
-        //Get a filename
-        notif_attachment_tfile = Utils::getCacheFile("push_pictures");
-        mkdir(notif_attachment_tfile.c_str(), S_IRWXU);
-        notif_attachment_tfile = notif_attachment_tfile + "/" + notif_pic_uid + ".jpg";
-
-        //The completion slot is owned by camDownload, destroying this action
-        //disconnects it before the captured `this` can go stale.
-        if (camDownload->start(camera, notif_attachment_tfile,
-                               [this](bool success)
-                               {
-                                   if (!success)
-                                       notif_attachment_tfile.clear();
-                                   sendNotif();
-                               }))
-            return true;
-
-        //Download could not be started, send the notification without picture
-        notif_attachment_tfile.clear();
-    }
-
-    notif_pic_uid.clear();
-    sendNotif();
+    sendNotif("");
 
     cInfoDom(TAG) <<  "Ok, Push Notif sent";
 
     return true;
 }
 
-void ActionPush::sendNotif()
+bool ActionPush::startPictureDownload(IPCam *camera)
+{
+    //The picture is served to the mobile clients by its uid, which is also what
+    //names it on disk
+    string picUid = sole::uuid4().str();
+
+    string dir = Utils::getCacheFile("push_pictures");
+    mkdir(dir.c_str(), S_IRWXU);
+
+    /* The completion slot is owned by camDownload: destroying this action
+     * disconnects it before the captured `this` can go stale, and unlinks the
+     * picture of a transfer nobody is waiting for anymore.
+     * Every call gets its own uid, its own file and its own slot, so a rule
+     * triggering again while a first snapshot is still downloading sends both
+     * notifications, each with its own picture.
+     */
+    return camDownload->start(camera, dir + "/" + picUid + ".jpg",
+                              [this, picUid](bool success, const string &file)
+    {
+        if (!success)
+        {
+            //Whatever curl left in there is unusable, drop it and send the
+            //notification without a picture
+            FileUtils::unlink(file);
+            sendNotif("");
+            return;
+        }
+
+        sendNotif(picUid);
+    });
+}
+
+void ActionPush::sendNotif(const string &picUid)
 {
     //Append history event
     HistEvent e = HistEvent::create();
-    e.pic_uid = notif_pic_uid;
+    e.pic_uid = picUid;
     e.event_type = CalaosEvent::EventPushNotification;
 
     auto nmsg = notif_message;
@@ -101,11 +110,11 @@ void ActionPush::sendNotif()
 
     Json data = {
         { "message", nmsg},
-        { "pic_uid", notif_pic_uid }
+        { "pic_uid", picUid }
     };
     e.event_raw = data.dump();
 
-    auto notif_pic_uuid = notif_pic_uid.empty() ? "" : e.uuid;
+    auto notif_pic_uuid = picUid.empty() ? "" : e.uuid;
 
     HistLogger::Instance().appendEvent(e);
 

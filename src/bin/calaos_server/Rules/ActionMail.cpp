@@ -41,38 +41,56 @@ bool ActionMail::Execute()
 {
     IPCam *camera = ActionCameraDownload::findCamera(mail_attachment);
 
-    if (camera)
-    {
-        //Get a temporary filename
-        mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
+    if (camera && startAttachmentDownload(camera))
+        return true;
 
-        //The completion slot is owned by camDownload, destroying this action
-        //disconnects it before the captured `this` can go stale.
-        if (camDownload->start(camera, mail_attachment_tfile,
-                               [this](bool success)
-                               {
-                                   if (!success)
-                                       mail_attachment_tfile.clear();
-                                   sendMail();
-                               }))
-            return true;
-
-        //Download could not be started, send the mail without attachment
-        mail_attachment_tfile.clear();
-    }
-
-    sendMail();
+    sendMail("");
 
     return true;
 }
 
-void ActionMail::sendMail()
+bool ActionMail::startAttachmentDownload(IPCam *camera)
+{
+    //Get a temporary filename
+    string tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
+
+    if (tfile.empty())
+    {
+        //getTmpFilename() already logged why. The mail is worth more than its
+        //attachment, so it goes out without one instead of being dropped.
+        cWarningDom(TAG) << "No temporary file available, sending the mail without its attachment";
+        return false;
+    }
+
+    /* The completion slot is owned by camDownload: destroying this action
+     * disconnects it before the captured `this` can go stale, and unlinks the
+     * temp file of a transfer nobody is waiting for anymore.
+     * Every call gets its own file and its own slot, so a rule triggering
+     * again while a first snapshot is downloading sends both mails.
+     */
+    return camDownload->start(camera, tfile, [this](bool success, const string &file)
+    {
+        if (!success)
+        {
+            //Whatever curl left in there is unusable, drop it
+            FileUtils::unlink(file);
+            sendMail("");
+            return;
+        }
+
+        //calaos_mail is spawned with --delete: it unlinks the attachment once
+        //the mail has been sent
+        sendMail(file);
+    });
+}
+
+void ActionMail::sendMail(const string &attachmentFile)
 {
     NotifManager::Instance().sendMailNotification(mail_subject,
                                                   mail_message,
                                                   mail_recipients,
                                                   mail_sender,
-                                                  mail_attachment_tfile);
+                                                  attachmentFile);
 }
 
 bool ActionMail::LoadFromXml(TiXmlElement *pnode)

@@ -28,14 +28,13 @@ namespace Calaos
 {
 
 class ActionCameraDownload;
+class IPCam;
 
 class ActionPush: public Action
 {
 private:
     string notif_attachment;
     string notif_message;
-    string notif_attachment_tfile;
-    string notif_pic_uid;
 
     /* Owns the completion slot of a running camera attachment download.
      * Destroying the action destroys it, which disconnects the slot: a download
@@ -51,7 +50,13 @@ private:
      */
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
-    void sendNotif();
+    /* Starts the download of the camera snapshot to attach. Returns false when
+     * the notification has to be sent right away, without any picture.
+     */
+    bool startPictureDownload(IPCam *camera);
+
+    //picUid is empty when the notification carries no picture
+    void sendNotif(const string &picUid);
 
 public:
     ActionPush();
