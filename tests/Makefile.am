@@ -195,6 +195,28 @@ TcpSocket_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main \
                   @PTHREAD_LIBS@ -lpthread
+# T1.13
+#LAN (PingInputSwitch, WOLOutputBool) and Hue (HueOutputLightRGB) IOs. Same
+#core objects as the smoke test, plus the four object files of those IOs and
+#of their two base classes. Those are the only hardware IOs linked into a
+#test: they need nothing more than libuv (the ping subprocess is spawned by
+#the IO itself, and no libuv loop runs here), no curl/mbus/lua extra.
+TESTS += core/LanHue_test
+check_PROGRAMS += core/LanHue_test
+core_LanHue_test_SOURCES = core/LanHue_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_LanHue_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/LAN \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+core_LanHue_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/PingInputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/WOLOutputBool.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_LanHue_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 
 endif
 

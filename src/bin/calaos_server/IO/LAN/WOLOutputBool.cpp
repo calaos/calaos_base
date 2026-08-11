@@ -46,6 +46,8 @@ WOLOutputBool::WOLOutputBool(Params &p):
 
 WOLOutputBool::~WOLOutputBool()
 {
+    //The timer holds a slot bound to this object, it must not outlive it
+    DELETE_NULL(timerState);
 }
 
 bool WOLOutputBool::set_value(bool val)
@@ -63,43 +65,52 @@ bool WOLOutputBool::set_value(string val)
     return set_value(val == "true");
 }
 
-void WOLOutputBool::doWakeOnLan()
+bool WOLOutputBool::parseMacAddress(const string &macAddress, vector<uint8_t> &address)
 {
-    //Decode MAC address
-
-    auto parseHex = [](char c)
+    auto parseHex = [](char c) -> int
     {
-        int h = -1;
-        if (c >= '0' && c <= '9') h = c - '0';
-        if (c >= 'a' && c <= 'f') h = c - 'a' + 10;
-        return h;
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
     };
 
-    string addr = get_param("address");
+    string addr = macAddress;
     Utils::replace_str(addr, ":", "");
     Utils::replace_str(addr, "-", "");
     Utils::replace_str(addr, ".", "");
 
-    bool err = false;
-    for (uint i = 0;i < addr.length();i++)
-    {
-        char c = addr[i];
-        if (c >= '0' && c <= '9') continue;
-        if (c >= 'a' && c <= 'f') continue;
+    if (addr.length() != 12)
+        return false;
 
-        err = true;
-        break;
+    vector<uint8_t> parsed;
+    parsed.reserve(6);
+    for (string::size_type i = 0;i < addr.length();i += 2)
+    {
+        int high = parseHex(addr[i]);
+        int low = parseHex(addr[i + 1]);
+
+        if (high < 0 || low < 0)
+            return false;
+
+        parsed.push_back(uint8_t((high << 4) | low));
     }
 
-    if (addr.length() != 12 || err)
+    address = std::move(parsed);
+
+    return true;
+}
+
+void WOLOutputBool::doWakeOnLan()
+{
+    //Decode MAC address. Both cases are accepted, as well as the ':', '-'
+    //and '.' separators.
+    vector<uint8_t> address;
+    if (!parseMacAddress(get_param("address"), address))
     {
-        cErrorDom("output") << "WakeOnLan: Wrong MAC address: " << addr;
+        cErrorDom("output") << "WakeOnLan: Wrong MAC address: " << get_param("address");
         return;
     }
-
-    vector<uint8_t> address;
-    for (int i = 0;i < 12;i += 2)
-        address.push_back((parseHex(addr[i]) << 4) | uint8_t(parseHex(addr[i + 1])));
 
     vector<uint8_t> magicPacket;
     magicPacket.reserve(6 + 6 * 16);

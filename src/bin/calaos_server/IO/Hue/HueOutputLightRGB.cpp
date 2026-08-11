@@ -105,6 +105,9 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
 
 HueOutputLightRGB::~HueOutputLightRGB()
 {
+    //Stops and destroys the polling timer. Its lambda captures this, it must
+    //not be able to fire once this object is gone.
+    DELETE_NULL(m_timer);
 }
 
 void HueOutputLightRGB::setColorReal(const ColorValue &c, bool s)
