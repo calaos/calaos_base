@@ -69,8 +69,6 @@ IOBase *IOFactory::CreateIO(TiXmlElement *node)
 
 void IOFactory::genDocIO(string docPath)
 {
-    Params p;
-
     json_t *j = json_object();
 
     string mdPath = docPath + "/io_doc.md";
@@ -79,21 +77,37 @@ void IOFactory::genDocIO(string docPath)
     ofstream mdFile(mdPath, ofstream::out);
     ofstream jsonFile(jsonPath, ofstream::out);
 
+    //The doc IOs below are throwaways sharing id="doc": keep them out of
+    //ListeRoom's live io_table (they used to be inserted there, shadowing
+    //or colliding with real IOs, and were never deleted).
+    IOBase::ScopedDocGen docScope;
+
     map<string, function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
     for ( auto it = list.begin(); it != list.end(); ++it )
     {
+        //fresh Params each iteration: params must not accumulate from one
+        //IO type to the next
+        Params p;
         p.Add("type", origNameMap[it->first]);
         p.Add("id", "doc");
         auto io =  CreateIO(it->first, p);
+        if (!io) continue;
         IODoc *doc = io->getDoc();
         if (doc && !doc->isAlias(it->first.c_str()))
         {
             json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
             mdFile << doc->genDocMd(origNameMap[it->first]);
         }
+        delete io;
     }
 
-    jsonFile << json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
+    char *jdump = json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
+    if (jdump)
+    {
+        jsonFile << jdump;
+        free(jdump);
+    }
+    json_decref(j);
     jsonFile.close();
     mdFile.close();
 }

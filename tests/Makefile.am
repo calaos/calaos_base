@@ -355,3 +355,19 @@ RemoteUIHmac_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T1.11
+#IOBase/IOFactory id integrity: "id" immutable via set_param/del_param,
+#REGISTER_IO collision keeps the first registration, genDoc does not pollute
+#the live io_table, battery status contract. Own HAVE_GTEST block so that
+#this stays a pure append at the end of the file (same reasoning as T1.1).
+if HAVE_GTEST
+TESTS += core/IOIdIntegrity_test
+check_PROGRAMS += core/IOIdIntegrity_test
+core_IOIdIntegrity_test_SOURCES = core/IOIdIntegrity_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IOIdIntegrity_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_IOIdIntegrity_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_IOIdIntegrity_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

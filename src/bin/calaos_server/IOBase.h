@@ -51,6 +51,7 @@ protected:
     struct StatusInfo
     {
         double battery_level = 0.0; // Battery level in percentage
+        bool battery_level_set = false; // True once a battery level has been reported (0% is a valid reading)
         StatusConnected connected = StatusConnected::STATUS_NONE; // True if the device is connected
         double wireless_signal = 0.0; // Wireless signal strength in percentage
         uint64_t uptime = 0; // Uptime in seconds
@@ -65,6 +66,15 @@ private:
     AutoScenario *ascenario = nullptr;
 
     int io_type = IO_UNKNOWN;
+
+    //True when the constructor registered this IO into ListeRoom's io_table:
+    //only then may the destructor (or renameId()) touch the table.
+    bool hashRegistered = false;
+
+    //When true, newly constructed IOBase objects are NOT registered into
+    //ListeRoom's io_table. Only ever set through ScopedDocGen (single
+    //threaded, not reentrant), used by IOFactory doc generation.
+    static bool docGenerationMode;
 
 public:
 
@@ -94,11 +104,39 @@ public:
 
     virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
 
-    virtual void set_param(std::string opt, std::string val) { param.Add(opt, val); }
+    /* "id" is the key of ListeRoom's io_table hash. Changing it through the
+     * generic setter would leave the table keyed on the old id (stale lookup,
+     * dangling entry on delete -> potential use-after-free), so set_param()
+     * refuses to change an existing "id" and del_param() refuses to delete
+     * it. Renaming an IO must go through renameId(), which keeps the
+     * io_table consistent.
+     * Note: get_params() still hands out a mutable Params reference, callers
+     * must not use it to change "id" (a full read-only API is out of scope
+     * of T1.11). */
+    virtual void set_param(std::string opt, std::string val);
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }
     virtual bool param_exists(std::string opt) { return param.Exists(opt); }
-    virtual void del_param(std::string opt) { param.Delete(opt); }
+    virtual void del_param(std::string opt);
+
+    /* Controlled rename hook: atomically changes the "id" param AND the
+     * io_table key (unregister/re-register through ListeRoom). Fails (and
+     * changes nothing) when newId is empty or already taken by another IO.
+     * This is the only supported way to change an IO id after creation. */
+    bool renameId(const std::string &newId);
+
+    /* RAII guard used by IOFactory::genDocIO(): while alive, constructed
+     * IOBase objects stay out of the live io_table (they are documentation
+     * throwaways sharing id="doc", they must neither shadow nor collide
+     * with real IOs). Not reentrant, single threaded use only. */
+    class ScopedDocGen
+    {
+    public:
+        ScopedDocGen();
+        ~ScopedDocGen();
+        ScopedDocGen(const ScopedDocGen &) = delete;
+        ScopedDocGen &operator=(const ScopedDocGen &) = delete;
+    };
 
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
@@ -153,7 +191,7 @@ public:
 
     bool hasStatusInfo() const
     {
-        return status_info.battery_level != 0.0 ||
+        return status_info.battery_level_set ||
                status_info.connected != StatusConnected::STATUS_NONE ||
                status_info.wireless_signal != 0.0 ||
                status_info.uptime != 0 ||

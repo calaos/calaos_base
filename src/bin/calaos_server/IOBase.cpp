@@ -31,6 +31,18 @@ using namespace Calaos;
 //Default timer value before value is considered bad (4 hours)
 double const IOBase::TimerChangedWarning = 60 * 60 * 4;
 
+bool IOBase::docGenerationMode = false;
+
+IOBase::ScopedDocGen::ScopedDocGen()
+{
+    IOBase::docGenerationMode = true;
+}
+
+IOBase::ScopedDocGen::~ScopedDocGen()
+{
+    IOBase::docGenerationMode = false;
+}
+
 IOBase::IOBase(Params &p, int iotype):
     param(p),
     auto_sc_mark(false),
@@ -51,13 +63,96 @@ IOBase::IOBase(Params &p, int iotype):
 
     param.Add("io_type", io_type == IO_INPUT?"input":io_type == IO_OUTPUT?"output":"inout");
 
-    ListeRoom::Instance().addIOHash(this);
+    //Documentation throwaway IOs (IOFactory::genDocIO()) must not enter the
+    //live io_table: they all share id="doc" and are deleted right away.
+    if (!docGenerationMode)
+    {
+        ListeRoom::Instance().addIOHash(this);
+        hashRegistered = true;
+    }
 }
 
 IOBase::~IOBase()
 {
-    ListeRoom::Instance().delIOHash(this);
+    if (hashRegistered)
+        ListeRoom::Instance().delIOHash(this);
     delete ioDoc;
+}
+
+void IOBase::set_param(std::string opt, std::string val)
+{
+    if (opt == "id")
+    {
+        if (param.Exists("id"))
+        {
+            if (param["id"] == val)
+                return; //no-op, not an error
+
+            //Refuse: io_table is keyed on "id", changing it here would
+            //leave a stale hash entry (lookups by the new id fail, and the
+            //destructor could no longer unregister -> dangling pointer).
+            //This is reachable from the JSON API "setparam" call.
+            cErrorDom("iobase") << "set_param(): refusing to change id '"
+                                << param["id"] << "' to '" << val
+                                << "', the IO id is immutable once created "
+                                << "(use renameId() to rename an IO)";
+            return;
+        }
+
+        //id set for the first time after construction (unusual: all the
+        //normal creation paths put "id" in the constructor Params). Go
+        //through renameId() so the io_table entry follows the key change.
+        renameId(val);
+        return;
+    }
+
+    param.Add(opt, val);
+}
+
+void IOBase::del_param(std::string opt)
+{
+    if (opt == "id")
+    {
+        cErrorDom("iobase") << "del_param(): refusing to delete the id '"
+                            << param["id"] << "', the IO id is immutable "
+                            << "(io_table is keyed on it)";
+        return;
+    }
+
+    param.Delete(opt);
+}
+
+bool IOBase::renameId(const std::string &newId)
+{
+    string oldId = param["id"];
+
+    if (newId == oldId)
+        return true; //no-op
+
+    if (newId.empty())
+    {
+        cErrorDom("iobase") << "renameId(): refusing to rename '" << oldId
+                            << "' to an empty id";
+        return false;
+    }
+
+    if (hashRegistered && ListeRoom::Instance().get_io(newId))
+    {
+        cErrorDom("iobase") << "renameId(): refusing to rename '" << oldId
+                            << "' to '" << newId
+                            << "', an IO with this id already exists";
+        return false;
+    }
+
+    if (hashRegistered)
+        ListeRoom::Instance().delIOHash(this);
+
+    param.Add("id", newId);
+
+    if (hashRegistered)
+        ListeRoom::Instance().addIOHash(this);
+
+    return true;
 }
 
 void IOBase::EmitSignalIO()
@@ -98,9 +193,28 @@ void IOBase::setStatusInfo(StatusType type, double value)
     {
         case StatusType::BatteryLevel:
         {
+            //0% is a valid reading: record it and report it (getStatusInfo()
+            //keys on battery_level_set, not on the value being non-zero).
             status_info.battery_level = value;
+            status_info.battery_level_set = true;
 
             // If battery level is less than 30%, we send a notification if enabled
+
+            //global notification settings
+            bool g_notif_mail_enabled = Utils::get_config_option("notif/battery_mail_enabled") == "true";
+            bool g_notif_push_enabled = Utils::get_config_option("notif/battery_push_enabled") == "true";
+
+            //IO specific notification settings
+            bool io_notif_enabled = get_param("notif_battery") == "true";
+
+            //Nothing to do unless the battery is low, this IO opted in, and
+            //at least one channel can actually send. In particular the
+            //throttle timestamp below must never be recorded when no
+            //notification is sent, otherwise enabling a channel later
+            //swallows the first real notification for up to 24h.
+            if (value >= 30.0 || !io_notif_enabled ||
+                (!g_notif_mail_enabled && !g_notif_push_enabled))
+                break;
 
             //get last time the notification was sent
             string id = get_param("id") + "_" + get_param("type");
@@ -126,14 +240,7 @@ void IOBase::setStatusInfo(StatusType type, double value)
             // Check if 24 hours (86400 seconds) have passed
             bool enough_time_passed = (current_time - last_notif_time) >= 86400;
 
-            //global notification settings
-            bool g_notif_mail_enabled = Utils::get_config_option("notif/battery_mail_enabled") == "true";
-            bool g_notif_push_enabled = Utils::get_config_option("notif/battery_push_enabled") == "true";
-
-            //IO specific notification settings
-            bool io_notif_enabled = get_param("notif_battery") == "true";
-
-            if (value < 30.0 && io_notif_enabled && enough_time_passed)
+            if (enough_time_passed)
             {
                 if (g_notif_mail_enabled)
                 {
@@ -151,7 +258,12 @@ void IOBase::setStatusInfo(StatusType type, double value)
                     );
                 }
 
-                cachedParams["last_battery_notif_time"] = Utils::to_string(current_time);
+                //A channel sent (or at least attempted): record the time.
+                //Params::operator[] is read-only (returns by value), so the
+                //previous `cachedParams[...] = ...` assigned into a
+                //temporary and the throttle timestamp was NEVER stored:
+                //Add() is the correct way, and makes the 24h throttle work.
+                cachedParams.Add("last_battery_notif_time", Utils::to_string(current_time));
                 Config::Instance().SaveValueParams(id, cachedParams, false);
             }
 
@@ -242,7 +354,10 @@ void IOBase::setStatusInfo(StatusType type, uint64_t value)
 Params IOBase::getStatusInfo() const
 {
     Params status;
-    if (status_info.battery_level > 0.0) status.Add("battery_level", Utils::to_string(status_info.battery_level));
+    //battery_level_set and not a >0.0 check: 0% is a valid reading and must
+    //be reported (consistent with the low-battery notification, which fires
+    //for any reading below 30%).
+    if (status_info.battery_level_set) status.Add("battery_level", Utils::to_string(status_info.battery_level));
     if (status_info.connected != StatusConnected::STATUS_NONE)
         status.Add("connected", status_info.connected == StatusConnected::STATUS_CONNECTED ? "true" : "false");
     if (status_info.wireless_signal > 0.0) status.Add("wireless_signal", Utils::to_string(status_info.wireless_signal));

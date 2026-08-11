@@ -62,6 +62,22 @@ public:
     {
         string orig = type;
         std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+
+        //Duplicate REGISTER_IO (same name, or names differing only in
+        //case) used to silently overwrite the previous registration.
+        //First registration wins, the collision is only logged: this runs
+        //from static initializers, an exception/abort here would kill the
+        //process before main().
+        auto it = ioFunctionRegistry.find(type);
+        if (it != ioFunctionRegistry.end())
+        {
+            cErrorDom("core") << "IOFactory: duplicate IO type registration '"
+                              << orig << "' collides with already registered '"
+                              << origNameMap[type]
+                              << "', keeping the first registration";
+            return;
+        }
+
         origNameMap[type] = orig;
         ioFunctionRegistry[type] = classFunc;
     }
