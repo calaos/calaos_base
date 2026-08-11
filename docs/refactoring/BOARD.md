@@ -50,7 +50,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T0.6](T0.6.md) | 0 | Docker/build hardening + dead scripts | infra | — | ✅ |
 | [T1.1](T1.1.md) | 1 | Rule/IO lifecycle (C1, C2 + scenario) | fix | Phase 0 | ✅ |
 | [T1.2](T1.2.md) | 1 | Condition semantics (M1, M7) | fix | Phase 0 | 🔨 |
-| [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | 🔨 |
+| [T1.3](T1.3.md) | 1 | ListeRoom robustness (M6, m9, m10) | fix | Phase 0 | ✅ |
 | [T1.4](T1.4.md) | 1 | JsonApi hardening (F6, F7, F3, F4, F2, F11 + cover) | fix (sec) | Phase 0 | 🔨 |
 | [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | 🔨 |
 | [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | 📋 |
