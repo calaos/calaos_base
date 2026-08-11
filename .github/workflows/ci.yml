@@ -47,3 +47,72 @@ jobs:
             cat "$f"
             echo
           done
+
+  format-check:
+    name: Format check (changed lines)
+    runs-on: ubuntu-latest
+    container: debian:12
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang-format git
+
+      - name: clang-format-diff on changed lines only
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+          # Only the lines this PR actually touches are checked, not whole
+          # files. This matters because several legacy files carry
+          # pre-existing formatting debt; the goal is to enforce style on
+          # new/modified code without forcing unrelated reformatting of
+          # everything else in a file a PR happens to touch.
+          #
+          # Diff against the PR's base branch only (three-dot: changes on
+          # this branch since it diverged from base), not the whole tree.
+          # Bundled third-party sources under src/lib are excluded: they
+          # keep their own upstream formatting and are not ours to reformat.
+          diff=$(git diff -U0 --no-color "origin/${{ github.base_ref }}...HEAD" -- '*.cpp' '*.h' \
+            ':(exclude)src/lib/TinyXML' \
+            ':(exclude)src/lib/libquickmail' \
+            ':(exclude)src/lib/uvw' \
+            ':(exclude)src/lib/llhttp' \
+            ':(exclude)src/lib/exprtk' \
+            ':(exclude)src/lib/sole' \
+            ':(exclude)src/lib/sqlite_modern_cpp' \
+            ':(exclude)src/lib/uri_parser' \
+            ':(exclude)src/lib/cpptui' \
+            ':(exclude)src/lib/json.hpp')
+
+          if [ -z "$diff" ]; then
+            echo "No non-vendored .cpp/.h changes in this PR; skipping format check."
+            exit 0
+          fi
+
+          # -p1 strips the a/ b/ prefixes git diff puts on paths, so
+          # clang-format-diff resolves them relative to $GITHUB_WORKSPACE.
+          # No -style is passed: clang-format-diff simply omits the flag
+          # when passing it through to clang-format, whose own default is
+          # "file" style discovery, i.e. it walks up from each changed
+          # file's directory to find our .clang-format at the repo root.
+          format_diff=$(echo "$diff" | clang-format-diff-14 -p1)
+
+          if [ -n "$format_diff" ]; then
+            echo "Formatting issues found in changed lines:"
+            echo "$format_diff"
+            echo
+            echo "Only the lines this PR changed are checked (pre-existing"
+            echo "formatting debt elsewhere in a file is not your problem)."
+            echo "Fix the lines above, e.g. by running clang-format on them,"
+            echo "and push again."
+            exit 1
+          fi
+
+          echo "No formatting issues in changed lines."

@@ -1,0 +1,33 @@
+# EditorConfig helps developers define and maintain consistent
+# coding styles between different editors and IDEs
+# https://editorconfig.org
+#
+# See also .clang-format for the authoritative C/C++ formatting rules
+# (this file only covers whitespace/charset basics that clang-format
+# does not, and gives non-clang-format tooling/editors the same hints).
+#
+# Note: data/debug/ is a separate (JS-based) sub-project and already
+# ships its own `root = true` .editorconfig, so it is unaffected by
+# this one.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown uses trailing double-spaces to force a line break; don't strip it.
+[*.md]
+trim_trailing_whitespace = false
+
+# Automake/Make require literal tabs for recipe lines.
+[{Makefile,Makefile.am,Makefile.in,GNUmakefile,makefile}]
+indent_style = tab
+
+[*.py]
+indent_style = space
+indent_size = 4
