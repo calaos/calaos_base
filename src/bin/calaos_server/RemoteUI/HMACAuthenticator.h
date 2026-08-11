@@ -24,7 +24,11 @@
 #include "Utils.h"
 #include "AuthFailureReason.h"
 #include "RemoteUIManager.h"
+#include <openssl/crypto.h>
+#include <algorithm>
+#include <cctype>
 #include <map>
+#include <vector>
 
 using namespace Utils;
 
@@ -67,9 +71,80 @@ public:
     static bool validateTimestamp(const string &timestamp);
     static string generateNonce();
 
+    /* --- Shared helpers -----------------------------------------------
+     * Defined inline in the header on purpose: the unit tests exercise
+     * them without linking HMACAuthenticator.o, which would drag in
+     * RemoteUIManager and the whole server core.
+     */
+
+    /* Case-insensitive HTTP header lookup, shared by the WebSocket and
+     * HTTP auth paths (was duplicated as two identical lambdas before).
+     */
+    static string findHeader(const std::map<string, string> &headers, const string &key)
+    {
+        // Try different case variations
+        auto it = headers.find(key);
+        if (it != headers.end())
+            return it->second;
+
+        string lower_key = key;
+        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), ::tolower);
+        it = headers.find(lower_key);
+        if (it != headers.end())
+            return it->second;
+
+        return "";
+    }
+
+    /* Decode a hex string to raw bytes. Returns false on odd length or any
+     * non-hex character. Accepts upper and lower case digits.
+     */
+    static bool hexDecode(const string &hex, std::vector<unsigned char> &out)
+    {
+        out.clear();
+        if (hex.length() % 2 != 0)
+            return false;
+        out.reserve(hex.length() / 2);
+        for (size_t i = 0; i < hex.length(); i += 2)
+        {
+            int hi = hexNibble(hex[i]);
+            int lo = hexNibble(hex[i + 1]);
+            if (hi < 0 || lo < 0)
+                return false;
+            out.push_back(static_cast<unsigned char>((hi << 4) | lo));
+        }
+        return true;
+    }
+
+    /* Constant-time comparison of a client-supplied hex-encoded MAC against
+     * the locally computed raw MAC. The length is guarded first
+     * (CRYPTO_memcmp is only constant-time over equal-length buffers, and
+     * the MAC length is public knowledge anyway), then the raw bytes are
+     * compared with CRYPTO_memcmp so the comparison time does not depend on
+     * how many leading bytes of the supplied MAC are correct.
+     */
+    static bool constantTimeHexEquals(const string &supplied_hex,
+                                      const unsigned char *computed, size_t computed_len)
+    {
+        std::vector<unsigned char> supplied;
+        if (!hexDecode(supplied_hex, supplied))
+            return false;
+        if (computed_len == 0 || supplied.size() != computed_len)
+            return false;
+        return CRYPTO_memcmp(supplied.data(), computed, computed_len) == 0;
+    }
+
 private:
     // Use TIMESTAMP_TOLERANCE_SECONDS from RemoteUIManager.h
     // (No local definition - prevents duplication and inconsistency)
+
+    static int hexNibble(char c)
+    {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    }
 };
 
 }

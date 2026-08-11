@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "RemoteUIManager.h"
 #include "RemoteUIWebSocketHandler.h"
+#include "WebSocketFrame.h"
 #include "IO/RemoteUI/RemoteUI.h"
 #include "ListeRoom.h"
 #include "EventManager.h"
@@ -126,88 +127,13 @@ bool RemoteUIManager::validateAuthentication(const string &token, const string &
                                            const string &nonce, const string &hmac,
                                            const string &ip_address)
 {
-    // Check rate limiting
-    if (!checkRateLimit(ip_address))
-    {
-        cWarningDom(TAG) << "RemoteUIManager: Rate limit exceeded for IP " << ip_address;
-        return false;
-    }
-
-    // Check if nonce was already used
-    if (isNonceUsed(nonce))
-    {
-        cWarningDom(TAG) << "RemoteUIManager: Nonce reuse attempt from IP " << ip_address;
-        return false;
-    }
-
-    // Validate nonce length (must be 64 hex characters = 32 bytes)
-    // Prevents birthday paradox collision attacks with weak nonces
-    if (nonce.length() != 64)
-    {
-        cWarningDom(TAG) << "RemoteUIManager: Invalid nonce length ("
-                          << nonce.length() << ", expected 64) from IP " << ip_address;
-        return false;
-    }
-
-    auto now = std::chrono::system_clock::now();
-    auto now_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
-        now.time_since_epoch()
-    ).count();
-
-    cDebugDom(TAG) << "isTimestampValid: Server time: " << now_timestamp
-                   << ", client timestamp: " << timestamp
-                   << ", tolerance: " << TIMESTAMP_TOLERANCE_SECONDS << "s";
-
-    try
-    {
-        auto timestamp_val = std::stoull(timestamp);
-
-        // SECURITY: Reject obviously invalid timestamps (defense in depth)
-        // Valid range: [now - tolerance, now + tolerance]
-        // This prevents integer overflow attacks and catches clock errors
-        const int64_t MIN_VALID_TIMESTAMP = now_timestamp - TIMESTAMP_TOLERANCE_SECONDS;
-        const int64_t MAX_VALID_TIMESTAMP = now_timestamp + TIMESTAMP_TOLERANCE_SECONDS;
-
-        cDebugDom(TAG) << "isTimestampValid: Valid range: ["
-                       << MIN_VALID_TIMESTAMP << " - " << MAX_VALID_TIMESTAMP << "]";
-
-        if (static_cast<int64_t>(timestamp_val) < MIN_VALID_TIMESTAMP ||
-            static_cast<int64_t>(timestamp_val) > MAX_VALID_TIMESTAMP)
-        {
-            int64_t diff = static_cast<int64_t>(timestamp_val) - now_timestamp;
-            cWarningDom(TAG) << "RemoteUIManager: Timestamp out of valid range ("
-                              << timestamp_val << ") from IP " << ip_address
-                              << ", server_time=" << now_timestamp
-                              << ", diff=" << diff << "s (tolerance: ±" << TIMESTAMP_TOLERANCE_SECONDS << "s)"
-                              << " - check server/client time synchronization";
-            return false;
-        }
-    }
-    catch (const std::exception &e)
-    {
-        cWarningDom(TAG) << "RemoteUIManager: Invalid timestamp format from IP " << ip_address;
-        return false;
-    }
-
-    // Get RemoteUI and validate HMAC
-    RemoteUI *remote_ui = getRemoteUIByToken(token);
-    if (!remote_ui)
-    {
-        cWarningDom(TAG) << "RemoteUIManager: Unknown token from IP " << ip_address;
-        return false;
-    }
-
-    if (!remote_ui->validateHMAC(token, timestamp, nonce, hmac))
-    {
-        cWarningDom(TAG) << "RemoteUIManager: HMAC validation failed for " << remote_ui->get_param("id");
-        return false;
-    }
-
-    // Add nonce to prevent replay
-    addNonce(nonce, ip_address);
-
-    cDebugDom(TAG) << "RemoteUIManager: Authentication successful for " << remote_ui->get_param("id");
-    return true;
+    // Single implementation lives in validateAuthenticationWithReason(): the
+    // two functions used to be near-identical copies, which risked the
+    // security checks drifting apart. Delegating keeps the check ordering
+    // (rate-limit -> nonce replay -> nonce length -> time window -> HMAC)
+    // defined in exactly one place.
+    return validateAuthenticationWithReason(token, timestamp, nonce, hmac, ip_address)
+           == AuthFailureReason::Success;
 }
 
 AuthFailureReason RemoteUIManager::validateAuthenticationWithReason(const string &token, const string &timestamp,
@@ -459,7 +385,17 @@ void RemoteUIManager::addWebSocketHandler(const string &remote_ui_id, RemoteUIWe
     if (it != connected_handlers.end() && it->second != handler)
     {
         cWarningDom(TAG) << "RemoteUIManager: Replacing existing handler for " << remote_ui_id
-                         << " (device reconnected while old connection still open)";
+                         << " (device reconnected while old connection still open), closing old connection";
+
+        // Properly close the old websocket instead of leaving it dangling:
+        // without this the stale connection stayed open (until TCP timeout)
+        // while no longer being reachable through connected_handlers.
+        // closeConnection triggers WebSocket::sendCloseFrame which is
+        // asynchronous: the old handler is destroyed later together with its
+        // HttpClient, and its removeWebSocketHandler(this) call is then
+        // ignored by the pointer identity check in removeWebSocketHandler().
+        it->second->closeConnection.emit(WebSocketFrame::CloseCodeNormal,
+                                         "replaced by new connection");
     }
     connected_handlers[remote_ui_id] = handler;
     RemoteUI *remote_ui = getRemoteUI(remote_ui_id);

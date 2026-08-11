@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "RemoteUI.h"
 #include "IOFactory.h"
+#include "RemoteUI/HMACAuthenticator.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
 #include "RemoteUIManager.h"
 #include <openssl/evp.h>
@@ -367,13 +368,12 @@ bool RemoteUI::validateHMAC(const string &token, const string &timestamp, const 
          reinterpret_cast<const unsigned char*>(message.c_str()), message.length(),
          result, &result_len);
 
-    std::ostringstream oss;
-    for (unsigned int i = 0; i < result_len; ++i)
-    {
-        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(result[i]);
-    }
-
-    return oss.str() == hmac;
+    //Constant-time comparison of the supplied MAC against the computed raw
+    //bytes: the previous std::string operator== short-circuited on the first
+    //differing byte, leaking through timing how many leading characters of an
+    //attacker-supplied MAC were correct. Length is guarded first, then
+    //CRYPTO_memcmp is used over the raw HMAC bytes.
+    return HMACAuthenticator::constantTimeHexEquals(hmac, result, result_len);
 }
 
 void RemoteUI::extractReferencedIOs()

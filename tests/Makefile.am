@@ -337,3 +337,21 @@ ExternProcFraming_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 ExternProcFraming_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+# T1.6
+#RemoteUI HMAC constant-time comparison and dedup'd auth helpers. The helpers
+#(constantTimeHexEquals, hexDecode, findHeader) are header-inline in
+#HMACAuthenticator.h, so only openssl (via @CALAOS_SERVER_LIBS@) is needed at
+#link time, no server objects. CORE_TEST_CPPFLAGS brings the libuv/openssl
+#include paths pulled transitively by the RemoteUI headers. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += RemoteUIHmac_test
+check_PROGRAMS += RemoteUIHmac_test
+RemoteUIHmac_test_SOURCES = RemoteUIHmac_test.cpp
+RemoteUIHmac_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+RemoteUIHmac_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
