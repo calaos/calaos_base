@@ -258,3 +258,19 @@ LuaSandbox_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 LuaSandbox_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T1.3
+#ListeRoom robustness tests: default name, EventIOAdded only on success, and
+#duplicate id handling in io_table. Own HAVE_GTEST block, same reasoning as
+#T1.1: keeps this a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomRobustness_test
+check_PROGRAMS += core/ListeRoomRobustness_test
+core_ListeRoomRobustness_test_SOURCES = core/ListeRoomRobustness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomRobustness_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ListeRoomRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

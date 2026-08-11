@@ -48,7 +48,18 @@ void ListeRoom::addIOHash(IOBase *io)
 {
     if (!io) return;
 
-    io_table[io->get_param("id")] = io;
+    string id = io->get_param("id");
+
+    auto it = io_table.find(id);
+    if (it != io_table.end() && it->second != io)
+    {
+        cErrorDom("root") << "addIOHash(): duplicate IO id '" << id
+                          << "', an IO with this id is already registered, "
+                          << "rejecting the new one to keep the existing one authoritative";
+        return;
+    }
+
+    io_table[id] = io;
 
     if (io->get_param("gui_type") == "camera" &&
         find(cameraCache.begin(), cameraCache.end(), io) == cameraCache.end())
@@ -62,7 +73,13 @@ void ListeRoom::delIOHash(IOBase *io)
 {
     if (!io) return;
 
-    io_table.erase(io->get_param("id"));
+    //Only erase the io_table entry if it still points to this exact IO.
+    //An IO whose id collided at addIOHash() time was never inserted, so
+    //erasing by id alone here would silently drop the entry of the other,
+    //still-alive IO that legitimately owns that id.
+    auto entryIt = io_table.find(io->get_param("id"));
+    if (entryIt != io_table.end() && entryIt->second == io)
+        io_table.erase(entryIt);
 
     if (io->get_param("gui_type") == "camera")
     {
@@ -272,19 +289,37 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
 {
     IOBase *io = nullptr;
 
-    if (!param.Exists("name")) param.Add("<No Name>", "Input");
+    if (!param.Exists("name")) param.Add("name", "<No Name>");
     if (!param.Exists("type")) return nullptr;
     if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("io_"));
 
     std::string type = param["type"];
+    std::string id = param["id"];
+
     io = IOFactory::Instance().CreateIO(type, param);
+
+    if (io && get_io(id) != io)
+    {
+        //addIOHash() rejected this IO because its id collided with an
+        //already registered one. The object was still fully built by
+        //IOFactory, so it must not be left half-added: never attach it to
+        //room, and destroy it so it isn't reachable from anywhere while
+        //being absent from io_table.
+        cErrorDom("root") << "createIO(): discarding IO '" << id
+                          << "', duplicate id was rejected by addIOHash()";
+        delete io;
+        io = nullptr;
+    }
+
     if (io)
+    {
         room->AddIO(io);
 
-    EventManager::create(CalaosEvent::EventIOAdded,
-                         { { "id", param["id"] },
-                           { "room_name", room->get_name() },
-                           { "room_type", room->get_type() } });
+        EventManager::create(CalaosEvent::EventIOAdded,
+                             { { "id", id },
+                               { "room_name", room->get_name() },
+                               { "room_type", room->get_type() } });
+    }
 
     return io;
 }
