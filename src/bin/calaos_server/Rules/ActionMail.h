@@ -39,9 +39,10 @@ private:
     string mail_attachment;
     string mail_message;
 
-    /* Owns the completion slot of a running camera attachment download.
-     * Destroying the action destroys it, which disconnects the slot: a download
-     * still in flight can never call back into a freed action.
+    /* Owns the completion slots of the camera attachment downloads still in
+     * flight. Destroying the action destroys them, which disconnects the slots
+     * and drops the files they were writing to: a transfer still running can
+     * never call back into a freed action.
      * See ActionCameraDownload.h
      */
     std::unique_ptr<ActionCameraDownload> camDownload;
