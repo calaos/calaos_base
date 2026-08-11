@@ -46,8 +46,26 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
         exe_thumb->close();
     }
 
-    delete cameraDl;
+    releaseCameraDl();
     FileUtils::unlink(tempfname);
+}
+
+string JsonApiHandlerHttp::clientIp() const
+{
+    if (!httpClient)
+        return "unknown";
+
+    return httpClient->getClientIp();
+}
+
+void JsonApiHandlerHttp::sendLoginFailed()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
+    sendData.emit(res);
+    closeConnection.emit(0, string());
 }
 
 void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
@@ -72,39 +90,20 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
     }
     else
     {
-        char *d = json_dumps(jroot, JSON_INDENT(4));
-        if (d)
-        {
-            cDebugDom("network") << d;
-            free(d);
-        }
+        cDebugDom("network") << dumpJsonRedacted(jroot);
 
         //decode the json root object into jsonParam
         jansson_decode_object(jroot, jsonParam);
     }
 
+    const string ip = clientIp();
+    const double now = Utils::getMainLoopTime();
 
-    //check if username/password matches
-    string user = Utils::get_config_option("calaos_user");
-    string pass = Utils::get_config_option("calaos_password");
-
-    if (Utils::get_config_option("cn_user") != "" &&
-        Utils::get_config_option("cn_pass") != "")
+    if (LoginThrottle::isBlocked(ip, now))
     {
-        user = Utils::get_config_option("cn_user");
-        pass = Utils::get_config_option("cn_pass");
-    }
+        cWarningDom("network") << "Too many failed logins from " << ip << ", request refused";
 
-    if (user != jsonParam["cn_user"] || pass != jsonParam["cn_pass"])
-    {
-        cDebugDom("network") << "Login failed!";
-
-        Params headers;
-        headers.Add("Connection", "close");
-        headers.Add("Content-Type", "text/html");
-        string res = httpClient->buildHttpResponse(HTTP_400, headers, HTTP_400_BODY);
-        sendData.emit(res);
-        closeConnection.emit(0, string());
+        sendLoginFailed();
 
         if (jroot)
         {
@@ -114,6 +113,26 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
         return;
     }
+
+    //check if username/password matches
+    if (!checkCredentials(jsonParam["cn_user"], jsonParam["cn_pass"]))
+    {
+        LoginThrottle::registerFailure(ip, now);
+
+        cDebugDom("network") << "Login failed!";
+
+        sendLoginFailed();
+
+        if (jroot)
+        {
+            json_decref(jroot);
+            jroot = nullptr;
+        }
+
+        return;
+    }
+
+    LoginThrottle::registerSuccess(ip);
 
     //check action now
     if (jsonParam["action"] == "get_home")
@@ -423,8 +442,24 @@ void JsonApiHandlerHttp::processGetCover()
 
     string rotate;
     if (jsonParam.Exists("rotate"))
-    player->get_album_cover([=](AudioPlayerData data)
+        rotate = jsonParam["rotate"];
+
+    if (!checkPictureParams(width, rotate))
     {
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string("false"));
+        json_object_set_new(jret, "error_str", json_string("invalid width or rotate parameter"));
+        sendJson(jret);
+        return;
+    }
+
+    std::weak_ptr<bool> alive = handlerAlive;
+
+    player->get_album_cover([this, alive, width, rotate](AudioPlayerData data)
+    {
+        if (alive.expired())
+            return;
+
         //do not start another exe if one is running already
         if (data.svalue == "" || exe_thumb_running)
         {
@@ -435,24 +470,22 @@ void JsonApiHandlerHttp::processGetCover()
             return;
         }
 
-        string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + data.svalue + " " + tempfname;
-        if (!width.empty())
-            cmd += " -w " + width;
-
         exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
         exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
         {
             h.close();
+            exe_thumb_running = false;
             this->exeFinished(ev.status);
         });
         exe_thumb->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
         {
             cDebugDom("process") << "Process error: " << ev.what();
             h.close();
+            exe_thumb_running = false;
             this->exeFinished(1);
         });
 
-        Utils::CStrArray arr(cmd);
+        Utils::CStrArray arr(buildPictureCommand(data.svalue, width, rotate));
         cInfoDom("network") << "Executing command: " << arr.toString();
         exe_thumb->spawn(arr.at(0), arr.data());
         exe_thumb_running = true;
@@ -479,12 +512,14 @@ void JsonApiHandlerHttp::processGetCameraPic()
     if (jsonParam.Exists("rotate"))
         rotate = jsonParam["rotate"];
 
-    string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + camera->getPictureUrl() + " " + tempfname;
-    if (!width.empty())
-        cmd += " -w " + width;
-
-    if (!rotate.empty())
-        cmd += " -r " + rotate;
+    if (!checkPictureParams(width, rotate))
+    {
+        json_t *jret = json_object();
+        json_object_set_new(jret, "success", json_string("false"));
+        json_object_set_new(jret, "error_str", json_string("invalid width or rotate parameter"));
+        sendJson(jret);
+        return;
+    }
 
     exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
@@ -501,10 +536,38 @@ void JsonApiHandlerHttp::processGetCameraPic()
         this->exeFinished(1);
     });
 
-    Utils::CStrArray arr(cmd);
+    Utils::CStrArray arr(buildPictureCommand(camera->getPictureUrl(), width, rotate));
     cInfoDom("network") << "Executing command: " << arr.toString();
     exe_thumb->spawn(arr.at(0), arr.data());
     exe_thumb_running = true;
+}
+
+bool JsonApiHandlerHttp::checkPictureParams(const string &width, const string &rotate)
+{
+    return (width.empty() || isValidIntParam(width, 1, 10000)) &&
+           (rotate.empty() || isValidIntParam(rotate, -360, 360));
+}
+
+vector<string> JsonApiHandlerHttp::buildPictureCommand(const string &url, const string &width, const string &rotate)
+{
+    //The arguments are given to spawn() one by one, never through a string
+    //split on spaces: an url or a parameter cannot inject an extra argument
+    vector<string> args =
+    { Prefix::Instance().binDirectoryGet() + "/calaos_picture", url, tempfname };
+
+    if (!width.empty())
+    {
+        args.push_back("-w");
+        args.push_back(width);
+    }
+
+    if (!rotate.empty())
+    {
+        args.push_back("-r");
+        args.push_back(rotate);
+    }
+
+    return args;
 }
 
 void JsonApiHandlerHttp::exeFinished(int exit_code)
@@ -655,9 +718,22 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
             return;
         }
 
-        player->get_album_cover([=](AudioPlayerData data)
+        std::weak_ptr<bool> alive = handlerAlive;
+
+        player->get_album_cover([this, alive](AudioPlayerData data)
         {
-            string cmd = Prefix::Instance().binDirectoryGet() + "/calaos_picture " + data.svalue + " " + tempfname;
+            if (alive.expired())
+                return;
+
+            if (data.svalue == "" || exe_thumb_running)
+            {
+                json_t *jret = json_object();
+                json_object_set_new(jret, "success", json_string("false"));
+                json_object_set_new(jret, "error_str", json_string("unable to get url"));
+                sendJson(jret);
+                return;
+            }
+
             exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
             exe_thumb->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
             {
@@ -687,7 +763,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
                 this->exeFinished(1);
             });
 
-            Utils::CStrArray arr(cmd);
+            Utils::CStrArray arr(buildPictureCommand(data.svalue, string(), string()));
             cInfoDom("network") << "Executing command: " << arr.toString();
             exe_thumb->spawn(arr.at(0), arr.data());
             exe_thumb_running = true;
@@ -863,14 +939,16 @@ void JsonApiHandlerHttp::processCamera()
                 camHeaderSent = true;
             }
 
-            downloadCameraPicture(camera);
+            downloadCameraPicture(jsonParam["id"]);
         }
         else
         {
             //send mjpeg stream
 
+            releaseCameraDl();
+
             cameraDl = new UrlDownloader(camera->getVideoUrl(), true);
-            cameraDl->m_signalData.connect([=](int size, const char *data)
+            camConnData = cameraDl->m_signalData.connect([this](int size, const char *data)
             {
                 if (!camHeaderSent)
                 {
@@ -895,20 +973,52 @@ void JsonApiHandlerHttp::processCamera()
                 sendData.emit(string((char *)data, size));
             });
 
-            cameraDl->m_signalComplete.connect([=](int)
+            camConnComplete = cameraDl->m_signalComplete.connect([this](int)
             {
-                closeConnection.emit(0, string());
+                //The downloader deletes itself right after this signal
+                camConnData.disconnect();
+                camConnComplete.disconnect();
                 cameraDl = nullptr;
+
+                closeConnection.emit(0, string());
             });
             cameraDl->httpGet();
         }
     }
 }
 
-void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
+void JsonApiHandlerHttp::releaseCameraDl()
 {
-    camera->downloadSnapshot([=](const string &downloadedData)
+    if (!cameraDl)
+        return;
+
+    /* The downloader is left running and frees itself once curl exits: it has
+     * no cancel api, and deleting it from here would leave its still open stdio
+     * pipe calling back into freed memory. Only the callbacks into this handler
+     * are severed, so nothing touches it once it is gone.
+     */
+    camConnData.disconnect();
+    camConnComplete.disconnect();
+    cameraDl = nullptr;
+}
+
+void JsonApiHandlerHttp::downloadCameraPicture(const string &cameraId)
+{
+    IPCam *camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(cameraId));
+    if (!camera)
+        return;
+
+    /* The snapshot callback is kept by the camera and the re-arm goes through a
+     * timer: both outlive this handler when the client closes the connection in
+     * the middle of the stream. The token tells them the handler is gone.
+     */
+    std::weak_ptr<bool> alive = handlerAlive;
+
+    camera->downloadSnapshot([this, alive, cameraId](const string &downloadedData)
     {
+        if (alive.expired())
+            return;
+
         sendData.emit(HTTP_CAMERA_STREAM_BOUNDARY);
         if (!downloadedData.empty())
         {
@@ -922,21 +1032,23 @@ void JsonApiHandlerHttp::downloadCameraPicture(IPCam *camera)
             sendData.emit(bodypic);
         }
 
-        Timer::singleShot(0, [=]()
+        Timer::singleShot(0, [this, alive, cameraId]()
         {
-            downloadCameraPicture(camera);
+            if (alive.expired())
+                return;
+
+            downloadCameraPicture(cameraId);
         });
     });
 }
 
 void JsonApiHandlerHttp::processEventPicture()
 {
-    string pic_uid = jsonParam["pic_uid"];
-    string file = Utils::getCacheFile("push_pictures") + "/" + pic_uid + ".jpg";
+    string file;
 
-    if (!FileUtils::exists(file))
+    if (!resolveEventPicture(jsonParam["pic_uid"], file))
     {
-        cDebugDom("network") << "Picture " << file << " not found";
+        cDebugDom("network") << "Picture " << jsonParam["pic_uid"] << " not found";
 
         Params headers;
         headers.Add("Connection", "close");

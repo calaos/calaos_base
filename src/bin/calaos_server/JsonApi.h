@@ -31,6 +31,57 @@ using namespace Calaos;
 
 class HttpClient;
 
+/*
+ * Login brute force protection, per source address.
+ *
+ * Every failed login grows a backoff window for the source address (1s, 2s,
+ * 4s... capped at 60s). While that window is open, logins from the address are
+ * refused without even looking at the credentials. There is no hard lockout: a
+ * legitimate user is only slowed down, and the window is cleared as soon as one
+ * login succeeds.
+ *
+ * Nothing here ever sleeps. calaos_server runs everything on a single libuv
+ * loop, so delaying an answer by blocking would stall the whole server. Only
+ * timestamps are compared, the caller passes the current loop time.
+ *
+ * The table is bounded and quiet entries expire, so an attacker spoofing source
+ * addresses cannot grow it indefinitely.
+ */
+class LoginThrottle
+{
+public:
+    //Delay of the first backoff window, doubled at each subsequent failure
+    static constexpr double BaseDelay = 1.0;
+    //Longest backoff window
+    static constexpr double MaxDelay = 60.0;
+    //An address not seen for that long is forgotten
+    static constexpr double EntryTimeout = 900.0;
+    //Highest number of tracked addresses, oldest one is evicted above that
+    static constexpr int MaxEntries = 1024;
+
+    //True when ip is inside its backoff window and must not be allowed to login
+    static bool isBlocked(const string &ip, double now);
+
+    static void registerFailure(const string &ip, double now);
+    static void registerSuccess(const string &ip);
+
+    //Number of tracked addresses, and full reset. Both for the tests.
+    static int trackedCount();
+    static void clear();
+
+private:
+    struct Entry
+    {
+        int failures = 0;
+        double blockedUntil = 0.0;
+        double lastSeen = 0.0;
+    };
+
+    static map<string, Entry> entries;
+
+    static void purge(double now);
+};
+
 class JsonApi: public sigc::trackable
 {
 public:
@@ -42,6 +93,36 @@ public:
 
     sigc::signal<void, const string &> sendData;
     sigc::signal<void, int, const string &> closeConnection;
+
+    /* Security helpers, shared by every transport */
+
+    /* Compares two secrets in constant time. Both are hashed first, so neither
+     * the content nor the length of the expected secret leaks through the time
+     * taken by the comparison.
+     */
+    static bool secureCompare(const string &expected, const string &received);
+
+    /* Single implementation of the credential check: reads the configured
+     * user/password (cn_user/cn_pass when set, calaos_user/calaos_password
+     * otherwise) and compares them with secureCompare().
+     */
+    static bool checkCredentials(const string &user, const string &pass);
+
+    /* True when value is a decimal integer inside [minValue, maxValue]. Used to
+     * validate every parameter given to an external command.
+     */
+    static bool isValidIntParam(const string &value, int minValue, int maxValue);
+
+    /* Resolves the picture of a push event to a path inside the push_pictures
+     * cache directory. False when picUid tries to escape the directory or when
+     * the file does not exist, and the caller must then answer a 404.
+     */
+    static bool resolveEventPicture(const string &picUid, string &outPath);
+
+    /* json dump for the logs, with the value of every credential field replaced
+     * by ***. Never log a request before it has gone through this.
+     */
+    static string dumpJsonRedacted(json_t *jroot);
 
 
 

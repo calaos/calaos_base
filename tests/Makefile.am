@@ -290,3 +290,17 @@ core_ConditionEval_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ConditionEval_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+# T1.4
+#Hardening of the json api: security helpers and login throttle. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiHardening_test
+check_PROGRAMS += core/JsonApiHardening_test
+core_JsonApiHardening_test_SOURCES = core/JsonApiHardening_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiHardening_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_JsonApiHardening_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiHardening_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

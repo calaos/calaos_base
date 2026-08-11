@@ -42,6 +42,14 @@ JsonApiHandlerWS::~JsonApiHandlerWS()
     evcon.disconnect();
 }
 
+string JsonApiHandlerWS::clientIp() const
+{
+    if (!httpClient)
+        return "unknown";
+
+    return httpClient->getClientIp();
+}
+
 void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
 {
     if (!loggedin)
@@ -94,12 +102,7 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         return;
     }
 
-    char *d = json_dumps(jroot, JSON_INDENT(4));
-    if (d)
-    {
-        cDebugDom("network") << d;
-        free(d);
-    }
+    cDebugDom("network") << dumpJsonRedacted(jroot);
 
     //decode the json root object into Params
     jansson_decode_object(jroot, jsonRoot);
@@ -112,20 +115,21 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
 
     if (jsonRoot["msg"] == "login")
     {
-        //check if username/password matches
-        string user = Utils::get_config_option("calaos_user");
-        string pass = Utils::get_config_option("calaos_password");
+        const string ip = clientIp();
+        const double now = Utils::getMainLoopTime();
 
-        if (Utils::get_config_option("cn_user") != "" &&
-            Utils::get_config_option("cn_pass") != "")
+        if (LoginThrottle::isBlocked(ip, now))
         {
-            user = Utils::get_config_option("cn_user");
-            pass = Utils::get_config_option("cn_pass");
+            cWarningDom("network") << "Too many failed logins from " << ip << ", login refused";
+
+            sendJson("login", {{ "success", "false" }}, jsonRoot["msg_id"]);
+            closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login failed!");
         }
-
         //Not logged in, need to wait for a correct login
-        if (user != jsonData["cn_user"] || pass != jsonData["cn_pass"])
+        else if (!checkCredentials(jsonData["cn_user"], jsonData["cn_pass"]))
         {
+            LoginThrottle::registerFailure(ip, now);
+
             cDebugDom("network") << "Login failed!";
 
             json_t *jret = json_object();
@@ -138,6 +142,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         }
         else
         {
+            LoginThrottle::registerSuccess(ip);
+
             sendJson("login", {{ "success", "true" }}, jsonRoot["msg_id"]);
 
             loggedin = true;
@@ -525,19 +531,29 @@ void JsonApiHandlerWS::processLoginService(const Params &jsonData, const string 
     const string &expected = McpServerManager::Instance().getServiceToken();
     const string &received = jsonData["token"];
 
-    // Constant-time comparison — tokens are 64 hex chars (256-bit).
-    bool ok = (expected.size() == received.size()) &&
-              !expected.empty() &&
-              std::equal(expected.begin(), expected.end(), received.begin(),
-                         [](char a, char b){ return a == b; });
+    const string ip = clientIp();
+    const double now = Utils::getMainLoopTime();
 
-    if (!ok)
+    if (LoginThrottle::isBlocked(ip, now))
     {
+        cWarningDom("mcp") << "login_service: too many failed logins from " << ip;
+        sendJson("login_service", {{ "success", "false" }, { "error", "invalid token" }}, client_id);
+        closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login_service failed");
+        return;
+    }
+
+    //An unset token never grants access, whatever the client sends
+    if (expected.empty() || !secureCompare(expected, received))
+    {
+        LoginThrottle::registerFailure(ip, now);
+
         cWarningDom("mcp") << "login_service: invalid service token";
         sendJson("login_service", {{ "success", "false" }, { "error", "invalid token" }}, client_id);
         closeConnection.emit(WebSocketFrame::CloseCodeNormal, "login_service failed");
         return;
     }
+
+    LoginThrottle::registerSuccess(ip);
 
     loggedin = true;
     serviceScope = true;

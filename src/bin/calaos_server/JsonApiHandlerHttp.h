@@ -53,10 +53,29 @@ private:
     Params jsonParam;
 
     UrlDownloader *cameraDl = nullptr;
+    sigc::connection camConnData;
+    sigc::connection camConnComplete;
     bool camHeaderSent = false;
+
+    /* Alive token for the asynchronous callbacks kept outside of this object
+     * (camera snapshots, timers, album cover): they capture a weak_ptr on it
+     * and bail out when the handler has been destroyed in the meantime.
+     */
+    std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
 
     void sendJson(json_t *json);
     void sendJson(const Json &json);
+    void sendLoginFailed();
+
+    //Source address of the client, "unknown" when there is no connection
+    string clientIp() const;
+
+    //Rejects width/rotate when they are not plain integers of a sane range
+    static bool checkPictureParams(const string &width, const string &rotate);
+    //argv of calaos_picture, built argument by argument
+    vector<string> buildPictureCommand(const string &url, const string &width, const string &rotate);
+
+    void releaseCameraDl();
 
     //processing functions
     void processGetHome();
@@ -88,7 +107,7 @@ private:
 
     void exeFinished(int exit_code);
 
-    void downloadCameraPicture(IPCam *camera);
+    void downloadCameraPicture(const string &cameraId);
 };
 
 #endif // JSONAPIV2_H

@@ -46,6 +46,9 @@ protected:
     bool serviceScope = false;
 
 private:
+    //Source address of the client, "unknown" when there is no connection
+    string clientIp() const;
+
     void processLoginService(const Params &jsonData, const string &client_id = string());
     sigc::connection evcon;
 

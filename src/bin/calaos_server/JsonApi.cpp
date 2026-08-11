@@ -26,6 +26,220 @@
 #include "CalaosConfig.h"
 #include "HistLogger.h"
 
+#include <openssl/evp.h>
+#include <openssl/crypto.h>
+
+map<string, LoginThrottle::Entry> LoginThrottle::entries;
+
+void LoginThrottle::purge(double now)
+{
+    for (auto it = entries.begin();it != entries.end();)
+    {
+        if (now - it->second.lastSeen > EntryTimeout)
+            it = entries.erase(it);
+        else
+            ++it;
+    }
+}
+
+bool LoginThrottle::isBlocked(const string &ip, double now)
+{
+    auto it = entries.find(ip);
+    if (it == entries.end())
+        return false;
+
+    if (now - it->second.lastSeen > EntryTimeout)
+    {
+        entries.erase(it);
+        return false;
+    }
+
+    return now < it->second.blockedUntil;
+}
+
+void LoginThrottle::registerFailure(const string &ip, double now)
+{
+    purge(now);
+
+    auto it = entries.find(ip);
+    if (it == entries.end())
+    {
+        if ((int)entries.size() >= MaxEntries)
+        {
+            //Table is full, forget the address not seen for the longest time
+            auto oldest = entries.begin();
+            for (auto e = entries.begin();e != entries.end();++e)
+            {
+                if (e->second.lastSeen < oldest->second.lastSeen)
+                    oldest = e;
+            }
+            entries.erase(oldest);
+        }
+
+        it = entries.insert({ ip, Entry() }).first;
+    }
+
+    Entry &entry = it->second;
+    if (entry.failures < 1000)
+        entry.failures++;
+
+    double delay = BaseDelay;
+    for (int i = 1;i < entry.failures && delay < MaxDelay;i++)
+        delay *= 2.0;
+    if (delay > MaxDelay)
+        delay = MaxDelay;
+
+    entry.lastSeen = now;
+    entry.blockedUntil = now + delay;
+}
+
+void LoginThrottle::registerSuccess(const string &ip)
+{
+    entries.erase(ip);
+}
+
+int LoginThrottle::trackedCount()
+{
+    return (int)entries.size();
+}
+
+void LoginThrottle::clear()
+{
+    entries.clear();
+}
+
+bool JsonApi::secureCompare(const string &expected, const string &received)
+{
+    unsigned char de[EVP_MAX_MD_SIZE], dr[EVP_MAX_MD_SIZE];
+    unsigned int lene = 0, lenr = 0;
+
+    if (EVP_Digest(expected.data(), expected.size(), de, &lene, EVP_sha256(), nullptr) != 1 ||
+        EVP_Digest(received.data(), received.size(), dr, &lenr, EVP_sha256(), nullptr) != 1 ||
+        lene != lenr)
+        return false;
+
+    return CRYPTO_memcmp(de, dr, lene) == 0;
+}
+
+bool JsonApi::checkCredentials(const string &user, const string &pass)
+{
+    string confUser = Utils::get_config_option("calaos_user");
+    string confPass = Utils::get_config_option("calaos_password");
+
+    if (Utils::get_config_option("cn_user") != "" &&
+        Utils::get_config_option("cn_pass") != "")
+    {
+        confUser = Utils::get_config_option("cn_user");
+        confPass = Utils::get_config_option("cn_pass");
+    }
+
+    //Both comparisons are always done, a wrong user must not answer faster
+    bool userOk = secureCompare(confUser, user);
+    bool passOk = secureCompare(confPass, pass);
+
+    return userOk && passOk;
+}
+
+bool JsonApi::isValidIntParam(const string &value, int minValue, int maxValue)
+{
+    if (value.empty() || value.size() > 11)
+        return false;
+
+    string::size_type i = 0;
+    if (value[0] == '-')
+    {
+        if (value.size() == 1)
+            return false;
+        i = 1;
+    }
+
+    for (;i < value.size();i++)
+    {
+        if (!isdigit((unsigned char)value[i]))
+            return false;
+    }
+
+    long v = 0;
+    try
+    {
+        v = std::stol(value);
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    return v >= minValue && v <= maxValue;
+}
+
+bool JsonApi::resolveEventPicture(const string &picUid, string &outPath)
+{
+    outPath.clear();
+
+    if (picUid.empty())
+        return false;
+
+    return FileUtils::resolveSafePath(Utils::getCacheFile("push_pictures"),
+                                      picUid + ".jpg",
+                                      outPath);
+}
+
+string JsonApi::dumpJsonRedacted(json_t *jroot)
+{
+    static const vector<string> sensitive =
+    { "cn_pass", "password", "passwd", "pass", "token", "old_pw", "new_pw",
+      "old_password", "new_password", "secret", "authorization" };
+
+    if (!jroot)
+        return string();
+
+    json_t *copy = json_deep_copy(jroot);
+    if (!copy)
+        return string();
+
+    std::function<void(json_t *)> redact = [&](json_t *j)
+    {
+        if (json_is_array(j))
+        {
+            uint idx;
+            json_t *value;
+            json_array_foreach(j, idx, value)
+                redact(value);
+            return;
+        }
+
+        if (!json_is_object(j))
+            return;
+
+        vector<string> keys;
+        const char *key;
+        json_t *value;
+        json_object_foreach(j, key, value)
+        {
+            if (std::find(sensitive.begin(), sensitive.end(), Utils::str_to_lower(key)) != sensitive.end())
+                keys.push_back(key);
+            else
+                redact(value);
+        }
+
+        for (const string &k: keys)
+            json_object_set_new(j, k.c_str(), json_string("***"));
+    };
+
+    redact(copy);
+
+    char *d = json_dumps(copy, JSON_INDENT(4));
+    json_decref(copy);
+
+    if (!d)
+        return string();
+
+    string ret(d);
+    free(d);
+
+    return ret;
+}
+
 JsonApi::JsonApi(HttpClient *client):
     httpClient(client)
 {
@@ -1674,18 +1888,7 @@ bool JsonApi::registerPushToken(const Params &jParam)
 
 bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, string newpass)
 {
-    //get actual user/pass
-    string user = Utils::get_config_option("calaos_user");
-    string pass = Utils::get_config_option("calaos_password");
-
-    if (Utils::get_config_option("cn_user") != "" &&
-        Utils::get_config_option("cn_pass") != "")
-    {
-        user = Utils::get_config_option("cn_user");
-        pass = Utils::get_config_option("cn_pass");
-    }
-
-    if (user != olduser || pass != oldpass)
+    if (!checkCredentials(olduser, oldpass))
         return false; //wrong old user/pass
 
     //change user/pass
