@@ -95,12 +95,15 @@ calaos.includes
 po/remove-potcdate.sed
 Makefile.am.user*
 *.swp
-tests/ColorValue_test
-tests/WebSocketClient_test
+tests/*_test
 tests/*.log
 tests/*.trs
 test-driver
 tests/websockets/reports/
+
+# Configure-generated wrapper scripts (built from the matching .in file)
+src/bin/calaos_server/IO/Reolink/calaos_reolink
+src/bin/calaos_mcp/calaos_mcp
 GPATH
 GRTAGS
 GTAGS
