@@ -52,7 +52,35 @@ private:
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
 public:
-    GpioCtrl(int _gpionum, double _debounce_time = 0.05);
+    //Fallback (the historical hardcoded value) and upper sanity bound
+    //for the configurable input debounce time, in seconds.
+    static constexpr double DEBOUNCE_TIME_DEFAULT = 0.05;
+    static constexpr double DEBOUNCE_TIME_MAX = 5.0;
+
+    //True when v is a usable debounce time: > 0 and <= DEBOUNCE_TIME_MAX
+    //seconds. NaN fails both comparisons and is rejected too.
+    static bool debounceTimeValid(double v)
+    {
+        return v > 0.0 && v <= DEBOUNCE_TIME_MAX;
+    }
+
+    /* Non-throwing bounded parse of a debounce_time config value
+     * (pattern: parseGridDimension, T1.10).
+     * Beware: Utils::from_string("") returns true with a zero-filled
+     * dest, so an absent param surfaces as 0 here and is caught by the
+     * range check, like any other invalid value.
+     * Header-inline so it can be unit-tested without linking server
+     * objects. */
+    static double parseDebounceTime(const std::string &value,
+                                    double fallback = DEBOUNCE_TIME_DEFAULT)
+    {
+        double v = 0.0;
+        if (!Utils::from_string(value, v))
+            return fallback;
+        return debounceTimeValid(v)? v : fallback;
+    }
+
+    GpioCtrl(int _gpionum, double _debounce_time = DEBOUNCE_TIME_DEFAULT);
     ~GpioCtrl();
     bool exportGpio();
     bool unexportGpio();
@@ -61,7 +89,6 @@ public:
     bool setActiveLow(bool active_low);
     bool setVal(bool value);
     bool getVal(bool &value);
-    int getFd(void);
     void closeFd(void);
     int getGpioNum(void);
     bool setValueChanged(sigc::slot<void> slot);

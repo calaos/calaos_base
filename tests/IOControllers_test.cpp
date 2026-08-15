@@ -23,13 +23,19 @@
 // The GpioCtrl destructor fd-leak fix (inverted close() guard) is not unit
 // tested here: the fd is only ever opened through the hardcoded
 // /sys/class/gpio/... paths, which do not exist off-target.
+//
+// T2.13 — GpioCtrl::parseDebounceTime/debounceTimeValid: the debounce_time
+// config value is now honored, with a bounded non-throwing parse (fallback
+// 0.05 s). Helpers are header-inline, no GpioCtrl.o linked here.
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <string>
 
+#include "GpioCtrl.h"
 #include "WebCtrl.h"
 
 using namespace Calaos;
@@ -90,6 +96,64 @@ TEST_F(WebCtrlTextTest, NonNumericLineNumberReturnsEmptyValue)
 TEST_F(WebCtrlTextTest, MissingFileReturnsEmptyValue)
 {
     EXPECT_EQ("", ctrl.getValueText("1/1/,", "/nonexistent/calaos_t119"));
+}
+
+TEST(GpioDebounceTimeTest, NominalValueIsParsed)
+{
+    EXPECT_DOUBLE_EQ(0.2, GpioCtrl::parseDebounceTime("0.2"));
+    EXPECT_DOUBLE_EQ(1.0, GpioCtrl::parseDebounceTime("1"));
+}
+
+TEST(GpioDebounceTimeTest, DefaultValueRoundTrips)
+{
+    EXPECT_DOUBLE_EQ(GpioCtrl::DEBOUNCE_TIME_DEFAULT,
+                     GpioCtrl::parseDebounceTime("0.05"));
+}
+
+TEST(GpioDebounceTimeTest, UpperBoundIsInclusive)
+{
+    EXPECT_DOUBLE_EQ(5.0, GpioCtrl::parseDebounceTime("5.0"));
+}
+
+TEST(GpioDebounceTimeTest, EmptyValueFallsBack)
+{
+    //Regression guard for the Utils::from_string("") == true footgun:
+    //an absent param must not become a 0 s debounce
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime(""));
+}
+
+TEST(GpioDebounceTimeTest, GarbageFallsBack)
+{
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("abc"));
+    //from_string() requires eof: trailing garbage is not a valid number
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("0.2xx"));
+}
+
+TEST(GpioDebounceTimeTest, ZeroAndNegativeFallBack)
+{
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("0"));
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("-1"));
+}
+
+TEST(GpioDebounceTimeTest, AberrantValueFallsBack)
+{
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("5.1"));
+    EXPECT_DOUBLE_EQ(0.05, GpioCtrl::parseDebounceTime("1e10"));
+}
+
+TEST(GpioDebounceTimeTest, CustomFallbackIsHonored)
+{
+    EXPECT_DOUBLE_EQ(0.1, GpioCtrl::parseDebounceTime("", 0.1));
+}
+
+TEST(GpioDebounceTimeTest, ValidityPredicateBounds)
+{
+    EXPECT_TRUE(GpioCtrl::debounceTimeValid(0.05));
+    EXPECT_TRUE(GpioCtrl::debounceTimeValid(5.0));
+    EXPECT_FALSE(GpioCtrl::debounceTimeValid(0.0));
+    EXPECT_FALSE(GpioCtrl::debounceTimeValid(-0.5));
+    EXPECT_FALSE(GpioCtrl::debounceTimeValid(5.0001));
+    EXPECT_FALSE(GpioCtrl::debounceTimeValid(std::nan("")));
 }
 
 } //namespace
