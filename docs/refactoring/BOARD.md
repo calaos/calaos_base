@@ -78,8 +78,8 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.5](T2.5.md) | 2 | UrlDownloader → libcurl | refactor | Phase 1 | ✅ |
 | [T2.6](T2.6.md) | 2 | Common-lib correctness (ThreadedQueue/ColorUtils/Calendar/Params) | fix | Phase 1 | ✅ |
 | [T2.7](T2.7.md) | 2 | ~~NTPClock timer lifetime~~ (resolved by deletion, see plan step 2) | fix | Phase 1, T2.1 | ✅ |
-| [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 📋 |
-| [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
+| [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 🔨 |
+| [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 🔨 |
 | [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | ✅ |
 | [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | ✅ |
 | [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | ✅ |
@@ -92,13 +92,13 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | 📋 |
 | [T2.18](T2.18.md) | 2 | createIO null-guard audit (JsonApi/AutoScenario) | fix | T1.11 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |
-| [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |
-| [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 📋 |
-| [T3.2e](T3.2e.md) | 3 | Thin IO subclasses — Wago | refactor | Phase 2 | 📋 |
-| [T3.2f](T3.2f.md) | 3 | Thin IO subclasses — Gpio | refactor | Phase 2 | 📋 |
-| [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | 📋 |
-| [T3.4](T3.4.md) | 3 | base64 hardening | fix | Phase 2, T2.2 | 📋 |
-| [T3.5](T3.5.md) | 3 | Squeezebox correctness & lifetime | fix | Phase 2 | 📋 |
+| [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 🔨 |
+| [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 🔨 |
+| [T3.2e](T3.2e.md) | 3 | Thin IO subclasses — Wago | refactor | Phase 2 | 🔨 |
+| [T3.2f](T3.2f.md) | 3 | Thin IO subclasses — Gpio | refactor | Phase 2 | 🔨 |
+| [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | 🔨 |
+| [T3.4](T3.4.md) | 3 | base64 hardening | fix | Phase 2, T2.2 | 🔨 |
+| [T3.5](T3.5.md) | 3 | Squeezebox correctness & lifetime | fix | Phase 2 | 🔨 |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3, E4.3 | 📋 |
 | [E4.3](E4.3.md) | 4 | Test coverage | epic | T0.3 | 📋 |

@@ -14,15 +14,16 @@
   Utils en 6 unités — Constants.h, MemMacros.h, LogSetup, StringUtils, ConfigStore,
   SystemInfo — pattern agrégateur, Utils.h ré-inclut tout ; 31/31 tests). **Rien en vol.**
   **Pas poussé** (origin = `9d8d37b5`). Les follow-ups T2.14-T2.18 restent 📋 en backlog.
-- **WAVE 6 PRÉPARÉE, NON LANCÉE** (checkpoint limite d'usage 2026-08-15) : les 9 worktrees
-  existent (`/tmp/claude-1000/calaos-wave6/t3.{1,2a,2c,2d,2e,2f,3,4,5}`, branches
-  `refactor/t3.*`, base `82887cc0`) mais **AUCUN agent d'implémentation n'a été lancé** —
-  les branches sont vides (= master). À la reprise : lancer les 9 subagents en parallèle.
-  Briefs : périmètres exacts + corrections de specs périmées dans la matrice ci-dessous ;
-  contraintes clés : **T3.2a garde son abstraction DANS IO/KNX/** (11 sous-classes, pas 13) ;
-  T3.2c/d/f font leur dédup LOCAL sans attendre T3.2a ; T3.5 lignes décalées
-  (`requestTimeout_cb` à :468, `buffer_notif` :209-212) ; T3.3 Syno à :185 ;
-  T3.4 = base64.{cpp,h} + wrapper `StringUtils` (post-split). Suite de référence : 31/31.
+- **WAVE 6 EN VOL** (lancée 2026-08-15) : 9 tickets Phase 3 en parallèle — T3.1, T3.2a,
+  T3.2c, T3.2d, T3.2e, T3.2f, T3.3, T3.4, T3.5. Worktrees
+  `/tmp/claude-1000/calaos-wave6/t3.X`, branches `refactor/t3.*`, base `82887cc0`.
+  Contraintes de brief : **T3.2a garde son abstraction DANS IO/KNX/** (11 sous-classes, pas
+  13) ; T3.2c/d/e/f = dédup LOCAL sans dépendre de T3.2a ; types XML (REGISTER_IO*) et ioDoc
+  invariants ; T3.5 lignes recalées (`requestTimeout_cb` :468, `buffer_notif` :209-212) ;
+  T3.3 Syno à :185, option conservatrice sur les items « policy » + flag validation ;
+  T3.4 = base64.{cpp,h} + wrappers `StringUtils` SANS casser les signatures (pas d'édition
+  de call sites). Suite de référence : 31/31. À la reprise : branches avec commits →
+  revue (subagent) → merge (subagent, sérialisé) → board ✅ ; branches vides → relancer.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
