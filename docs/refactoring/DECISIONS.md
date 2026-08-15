@@ -120,3 +120,10 @@ E4.4d (cœur parse/serialize, ABI config) → E4.4e (suppression du vendored).
 == 0) là où TinyXML1 renvoyait NULL → un portage naïf réécrit la config de chaque IO ;
 (2) reformat intégral des XML à la première sauvegarde (flags `save()` à caler au plus près) ;
 (3) parsing plus strict → des configs tolérées avant pourraient être rejetées.
+
+## 2026-08-15 — T3.12 (CVE TinyXML) ABANDONNÉ
+**Décision utilisateur** : ne pas perdre de temps à patcher les CVE de TinyXML puisqu'il va être
+remplacé — priorité **totale** à la migration pugixml (E4.4).
+**Conséquence à connaître** : l'exposition (abort/boucle infinie depuis un endpoint HTTP hostile
+via `WebCtrl::getValue()`) dure jusqu'à **E4.4b**, qui sort le parsing NON FIABLE de TinyXML —
+et non jusqu'à E4.4e. E4.4b est donc l'étape à prioriser juste après E4.4a.
