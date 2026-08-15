@@ -70,8 +70,18 @@
   T2.19 réappliqué en fin de fichier après le bloc T2.15, 30/30 if/endif, câblage
   python intact) ; JsonApiHandlerHttp.cpp : la version T2.19 `camera->tlsInsecure()`
   supplante la ligne T2.17 ; 42/42 tests dont le nouveau TlsInsecureDefault_test ;
-  ff-only ; worktree t2.19 nettoyé). 1 autre worktree wave 7 encore en vol sous
-  `/tmp/claude-1000/calaos-wave7/` (t2.18).
+  ff-only ; worktree t2.19 nettoyé). **T2.18 ✅ mergé** (2026-08-15, `62739380`,
+  audit null-guard des call sites createIO()/IOFactory::CreateIO() : un échec de
+  factory (type inconnu, id interne squatté, room manquante) finit en erreur loggée
+  + réponse API `{"error"}`, jamais en déréférencement null — JsonApi.cpp,
+  ListeRoom.cpp, Scenario/AutoScenario.{cpp,h} + nouveau
+  tests/core/ScenarioNullGuard_test.cpp ; rebase sur master avec 1 conflit
+  tests/Makefile.am EOF (bloc T2.18 réappliqué après le bloc T2.19, 31/31 if/endif,
+  câblage python intact) ; 43/43 tests ; ff-only ; worktree t2.18 nettoyé).
+  **WAVE 7 TERMINÉE — Phase 2 backlog + Phase 3 étendue INTÉGRALEMENT vidés
+  (T2.14-T2.19, T3.6-T3.8 tous ✅) ; rien en vol ; restent uniquement les epics E4.x
+  + follow-ups mineurs FINDINGS ; tâche EXTERNE calaos_installer (option
+  insecure=false nouveaux devices).**
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
