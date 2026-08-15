@@ -65,7 +65,7 @@ namespace TransportLimits
 static constexpr uint64_t DefaultMaxHttpBodySize = 4 * 1024 * 1024;
 static constexpr uint64_t DefaultMaxWebsocketMessageSize = 4 * 1024 * 1024;
 static constexpr uint64_t DefaultMaxConnections = 100;
-static constexpr uint64_t DefaultMaxConnectionsPerIp = 20;
+static constexpr uint64_t DefaultMaxConnectionsPerIp = 50;
 static constexpr double DefaultRequestReadTimeout = 30.0;
 
 //Total bytes accepted for the request line + headers of one request. Refused

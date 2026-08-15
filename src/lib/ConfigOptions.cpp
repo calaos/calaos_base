@@ -555,7 +555,7 @@ std::vector<ConfigOption> buildTable()
                 "calaos_server saw), or the TCP peer address on a direct connection. "
                 "A value that is not a plain number between 1 and 10000 falls back to "
                 "the default."))
-        .def("20")
+        .def("50")
         .range(1, 10000)
         .advanced()
         .restartRequired()

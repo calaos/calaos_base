@@ -177,6 +177,8 @@ TEST(TransportLimitsParse, DefaultsAreUnchangedFromT15)
     EXPECT_EQ(4u * 1024 * 1024, TransportLimits::DefaultMaxWebsocketMessageSize);
     EXPECT_EQ(100u, TransportLimits::DefaultMaxConnections);
     EXPECT_EQ(30.0, TransportLimits::DefaultRequestReadTimeout);
+    //New limit of T2.11; default raised from 20 to 50 by user decision
+    EXPECT_EQ(50u, TransportLimits::DefaultMaxConnectionsPerIp);
 }
 
 //--- 3. Client identity behind haproxy --------------------------------------
