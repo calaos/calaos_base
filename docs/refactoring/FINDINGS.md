@@ -89,8 +89,10 @@
 - **[LATENT] Asymétrie d'inversion volume Denon/Marantz** : `setVolume` fait `v = 99 - v`
   mais le parse `MV` ne l'inverse pas — sémantique visiblement incohérente, pré-existante.
   → à investiguer avant fix (peut-être voulu selon l'échelle device).
-- **[DESIGN] `ThinIo.h` (IO/KNX/)** : template générique driver-agnostique prêt à être promu
-  dans `IO/` (git mv) — ticket d'harmonisation pour rebaser T3.2c/d/e/f dessus.
+- **[RÉSOLU — T3.10] `ThinIo.h` promu dans `IO/`** : le template générique driver-agnostique a
+  été déplacé de `IO/KNX/` vers `IO/` (git mv), et les mixins Mqtt/Web/Gpio ont été rebasés
+  dessus. Wago a délibérément **non** été rebasé : son entrelacement alias/link ne rentre pas
+  dans le contrat ThinIo sans en dénaturer la sémantique.
 - **[DÉCISION UTILISATEUR EN ATTENTE] Gadspot conservé** (T3.3, choix conservateur) : le
   supprimer casserait le chargement des io.xml existants qui référencent le type. Garder ou
   supprimer (avec échec propre type-inconnu, comme MySensors) ?
