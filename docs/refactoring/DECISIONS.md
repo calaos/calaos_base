@@ -108,3 +108,15 @@ en JSON ; les clients comparant des chaînes brutes devront s'adapter.
 voir PHASE4.md). Sérialisée : revue + merge de chaque étape avant la suivante.
 **E4.4 (TinyXML2)** : en attente — l'utilisateur a demandé les alternatives (bloqueur XPath
 dans WebCtrl). Investigation en cours avant décision.
+
+## 2026-08-15 — E4.4 : migration vers **pugixml** (pas TinyXML2)
+**Décision utilisateur** : remplacer TinyXML 2.5.3 + TinyXPath par **pugixml**.
+**Pourquoi c'est le bon choix** : pugixml embarque **XPath 1.0 nativement** → le bloqueur
+`WebCtrl.cpp` (seul consommateur de TinyXPath) devient un simple portage au lieu d'une
+réécriture ; lib maintenue, MIT, API DOM proche.
+**Découpage** : E4.4a (build seul) → E4.4b (XPath WebCtrl) → E4.4c (sweep signatures) →
+E4.4d (cœur parse/serialize, ABI config) → E4.4e (suppression du vendored).
+**Vigilance imposée aux tickets** : (1) `attribute()` pugixml renvoie un objet vide (`as_int()`
+== 0) là où TinyXML1 renvoyait NULL → un portage naïf réécrit la config de chaque IO ;
+(2) reformat intégral des XML à la première sauvegarde (flags `save()` à caler au plus près) ;
+(3) parsing plus strict → des configs tolérées avant pourraient être rejetées.

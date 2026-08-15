@@ -112,7 +112,12 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | 🔨 |
 | [E4.3](E4.3.md) | 4 | Test coverage | epic | T0.3 | 📋 |
-| [E4.4](E4.4.md) | 4 | TinyXML 2.5.3 → TinyXML2 | epic | Phase 3, E4.3, T2.4 | 📋 |
+| [E4.4](E4.4.md) | 4 | ~~TinyXML 2.5.3 → TinyXML2~~ → **pugixml** (user decision) | epic | Phase 3 | 🔨 |
+| [E4.4a](E4.4a.md) | 4 | Introduce pugixml (build only) | infra | — | 📋 |
+| [E4.4b](E4.4b.md) | 4 | WebCtrl: TinyXPath → pugixml XPath | refactor | E4.4a | 📋 |
+| [E4.4c](E4.4c.md) | 4 | Signature sweep TiXmlElement* → pugi::xml_node | refactor | E4.4b | 📋 |
+| [E4.4d](E4.4d.md) | 4 | Parse/serialize core on pugixml | refactor | E4.4c | 📋 |
+| [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | 📋 |
 
 ---
 
