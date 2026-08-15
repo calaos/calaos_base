@@ -60,8 +60,18 @@
   `tests/run-python-tests.sh` + section TESTS en tête de tests/Makefile.am ;
   rebase propre sur master post-T2.15/T2.16/T2.17 + wave-7 T3.x, aucun conflit,
   29/29 if/endif ; 41/41 tests dont run-python-tests.sh PASS ; ff-only ; worktree
-  t2.14 nettoyé). 1 autre worktree wave 7 encore en vol sous
-  `/tmp/claude-1000/calaos-wave7/` (t2.19).
+  t2.14 nettoyé). **T2.19 ✅ mergé** (2026-08-15, `41184973`, TLS insecure PAR DÉFAUT
+  pour toutes les URLs configurées par l'utilisateur — politique corrective décidée par
+  l'utilisateur, supplante le défaut T2.17 sur ces chemins : `insecure` absent/vide/autre
+  → insecure, exactement `"false"` → vérifié (`UrlDownloader::insecureParamEnabled` +
+  `setInsecureFromParam`) ; appliqué à IPCam/Hue/Web/Lua requestUrl/DataLogger/
+  Squeezebox/AVRRose/ActionCameraDownload/mjpeg relay ; les services calaos.fr codés
+  en dur restent vérifiés ; rebase sur master avec 1 conflit tests/Makefile.am (bloc
+  T2.19 réappliqué en fin de fichier après le bloc T2.15, 30/30 if/endif, câblage
+  python intact) ; JsonApiHandlerHttp.cpp : la version T2.19 `camera->tlsInsecure()`
+  supplante la ligne T2.17 ; 42/42 tests dont le nouveau TlsInsecureDefault_test ;
+  ff-only ; worktree t2.19 nettoyé). 1 autre worktree wave 7 encore en vol sous
+  `/tmp/claude-1000/calaos-wave7/` (t2.18).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
