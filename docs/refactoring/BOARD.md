@@ -71,20 +71,20 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | ✅ |
 | [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
 | [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | ✅ |
-| [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | 📋 |
+| [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | 🔨 |
 | [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | 📋 |
-| [T2.3](T2.3.md) | 2 | SHA1 → OpenSSL | refactor | Phase 1 | 📋 |
-| [T2.4](T2.4.md) | 2 | Config robustness (m1–m6 + cache) | fix | Phase 1 | 📋 |
+| [T2.3](T2.3.md) | 2 | SHA1 → OpenSSL | refactor | Phase 1 | 🔨 |
+| [T2.4](T2.4.md) | 2 | Config robustness (m1–m6 + cache) | fix | Phase 1 | 🔨 |
 | [T2.5](T2.5.md) | 2 | UrlDownloader → libcurl | refactor | Phase 1 | 📋 |
-| [T2.6](T2.6.md) | 2 | Common-lib correctness (ThreadedQueue/ColorUtils/Calendar/Params) | fix | Phase 1 | 📋 |
+| [T2.6](T2.6.md) | 2 | Common-lib correctness (ThreadedQueue/ColorUtils/Calendar/Params) | fix | Phase 1 | 🔨 |
 | [T2.7](T2.7.md) | 2 | ~~NTPClock timer lifetime~~ (resolved by deletion, see plan step 2) | fix | Phase 1, T2.1 | ✅ |
 | [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 📋 |
 | [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
-| [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | 📋 |
-| [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | 📋 |
-| [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | 📋 |
+| [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | 🔨 |
+| [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | 🔨 |
+| [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | 🔨 |
 | [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | 📋 |
-| [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | 📋 |
+| [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | 🔨 |
 | [T2.13](T2.13.md) | 2 | GPIO: honor `debounce_time` from config | fix | T1.19 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |

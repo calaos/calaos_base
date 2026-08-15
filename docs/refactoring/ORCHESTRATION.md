@@ -8,19 +8,22 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **PHASE 1 COMPLÈTE (19/19)** — wave 4 terminée le 2026-08-15. Master local : `10898405`
-  (25/25 tests `make check`). **Pas encore poussé** (dernier push origin = `9d8d37b5`) —
-  demander à l'utilisateur avant tout push.
-- **Rien en vol** : aucun worktree, aucune branche `refactor/*`.
-- **Prochaines actions candidates** (au choix de l'utilisateur) :
-  1. **Phase 2** : T2.1 (timer lifetime), T2.2 (Utils split), T2.3 (SHA1→OpenSSL), T2.4 (config),
-     T2.5 (UrlDownloader→libcurl), T2.6 (common-lib), T2.8 (quarantaine ASan exprtk),
-     T2.9, T2.10, T2.11 — voir BOARD.md pour les dépendances.
-  2. **Ticket infra court** : câbler les suites pytest `tests/python/` dans `make check`
-     (voir FINDINGS "INFRA TESTS").
-  3. **Ticket transverse prioritaire** : UAF `JsonApi.cpp buildJsonState` audio-player
-     (voir FINDINGS wave 4 — touche tous les WS handlers).
-  4. Triage des **13 alertes Dependabot** (9 high, 4 moderate) signalées au push.
+- **Phase 1 complète (19/19).** **WAVE 5 EN VOL** (lancée 2026-08-15) : 8 tickets Phase 2 en
+  parallèle — T2.1, T2.3, T2.4, T2.6, T2.8, T2.9, T2.10, T2.12. Worktrees
+  `/tmp/claude-1000/calaos-wave5/t2.X`, branches `refactor/t2.X`, base `4808e23b`
+  (master local, 25/25 tests). **Pas poussé** (origin = `9d8d37b5`).
+- **File d'attente sérialisée après la wave** : T2.13 (après T2.12 — même fichier de test),
+  T2.11 (après T2.1+T2.3 — WebSocket.cpp + pattern Timer), T2.5 (après T2.10 — ses tests
+  contraignent la réécriture libcurl), puis **T2.2 en wave EXCLUSIVE** (split Utils, balaie 63 TU).
+- **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
+  (supprimé par T2.12) NI Gpio (T2.13) NI WebSocket/Http* (T2.11) et ne modifie aucun call-site
+  singleShot ; T2.9 = dead-code seulement (option usesIO-virtual différée) ; T2.8 évite
+  src/lib/Makefile.am (T2.3 l'édite) — quarantaine par attribut no_sanitize de préférence.
+- **À la reprise si les agents ont fini** : pour chaque branche `refactor/t2.*` avec commit
+  au-dessus de `4808e23b` → revue (subagent) → merge (subagent, sérialisé, procédure ci-dessous)
+  → board ✅. Branches vides → relancer.
+- **Aussi en backlog** : câblage pytest dans make check ; UAF JsonApi buildJsonState (FINDINGS) ;
+  13 alertes Dependabot.
 - **Décisions récentes** (détail dans DECISIONS.md) : Wago = respawn infini backoff ≤5 s ;
   MQTT non-UTF8 = '?' ; OneWire = hex majuscules ; clamp OTA 30 j validé ; GPIO
   `debounce_time` à câbler (T2.13) ; **MySensors = code mort à supprimer entièrement (T2.12,
