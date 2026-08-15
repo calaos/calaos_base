@@ -221,6 +221,62 @@ public:
     void dataGetCon(string &msg);
     void dataGetNotif(string &msg);
     void processMessage(bool status, string msg);
+
+    /* Protocol helpers. Static and header-inline so they are unit-testable
+     * without linking the server binary (T3.5). */
+
+    //Reassemble a raw CLI chunk with the pending fragment buffer into
+    //complete messages. Returns false when the chunk carries no line
+    //terminator yet: it is appended to buffer and no message is produced.
+    //On true, tokens receives the complete messages and buffer is consumed.
+    static bool reassembleMessages(string &buffer, string msg, vector<string> &tokens)
+    {
+        if (msg.find('\n') == string::npos &&
+            msg.find('\r') == string::npos)
+        {
+            //We have not a complete paquet yet, buffurize it.
+            buffer += msg;
+            return false;
+        }
+
+        if (!buffer.empty())
+        {
+            //Prepend the pending fragment to the chunk that completes it.
+            //(the previous code overwrote msg with the buffer, discarding
+            //the just-arrived chunk carrying the terminating newline)
+            msg = buffer + msg;
+            buffer.clear();
+        }
+
+        //Trim trailing line terminators. Bounds check comes first:
+        //an all-newline msg used to read msg[-1].
+        int i = (int)msg.length() - 1;
+        while (i >= 0 && (msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0')) i--;
+        msg.erase(i + 1);
+
+        Utils::replace_str(msg, "\r\n", "\n");
+        Utils::replace_str(msg, "\r", "\n");
+
+        Utils::split(msg, tokens, "\n");
+
+        return true;
+    }
+
+    //Build the cover art URL for a track. An empty artwork id falls back to
+    //the current-song cover, which needs the playerid query parameter.
+    //(the previous code defaulted aid before testing it, so the ?playerid=
+    //branch was unreachable)
+    static string coverArtUrl(const string &host, int port_web, string aid, const string &playerid)
+    {
+        bool useCurrent = aid.empty();
+        if (useCurrent) aid = "current";
+
+        string aurl = "http://" + host + ":" + Utils::to_string(port_web) +
+                      "/music/" + aid + "/cover.jpg";
+        if (useCurrent) aurl += "?playerid=" + playerid;
+
+        return aurl;
+    }
 };
 
 }

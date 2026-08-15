@@ -579,3 +579,22 @@ IPCamUrl_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 IPCamUrl_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.5
+#Squeezebox protocol helpers: CLI chunk reassembly (the buffered-fragment
+#path used to discard the chunk carrying the terminating newline, and an
+#all-newline chunk read msg[-1] in the trailing trim) and cover-art URL
+#building (the ?playerid= current-song fallback branch was unreachable).
+#Both helpers are static header-inline in Squeezebox.h, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += Squeezebox_test
+check_PROGRAMS += Squeezebox_test
+Squeezebox_test_SOURCES = Squeezebox_test.cpp
+Squeezebox_test_CPPFLAGS = $(AM_CPPFLAGS)
+Squeezebox_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

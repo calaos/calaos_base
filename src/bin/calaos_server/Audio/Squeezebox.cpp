@@ -97,6 +97,12 @@ Squeezebox::~Squeezebox()
         conHandle->close();
     }
 
+    if (timer_timeout)
+    {
+        delete timer_timeout;
+        timer_timeout = NULL;
+    }
+
     delete database;
 }
 
@@ -159,15 +165,28 @@ void Squeezebox::timerConnReconnect()
     conHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
     conHandle->connect(host, port_cli);
 
-    conHandle->once<uvw::ConnectEvent>([](auto &, auto &h)
+    conHandle->once<uvw::ConnectEvent>([this](auto &, auto &h)
     {
         cDebugDom("squeezebox") << "main connection established";
         h.read();
+
+        //the CLI accepts commands as soon as the main connection is up
+        isConnected = true;
+
+        //A command may have been marked in-progress while disconnected
+        //(or lost with the previous connection): re-drive it now instead
+        //of waiting for its timeout.
+        if (!squeeze_commands.empty())
+        {
+            squeeze_commands.front().inProgress = false;
+            _sendRequest();
+        }
     });
 
     conHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
     {
         cErrorDom("squeezebox") << "main connection error: " << ev.what();
+        isConnected = false;
         h.close();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
@@ -179,6 +198,7 @@ void Squeezebox::timerConnReconnect()
     {
         cWarningDom("squeezebox") << "Main Connection closed !";
         cWarningDom("squeezebox") << "Trying to reconnect...";
+        isConnected = false;
         h.close();
         h.once<uvw::CloseEvent>([this](auto &, auto &)
         {
@@ -195,32 +215,14 @@ void Squeezebox::timerConnReconnect()
 
 void Squeezebox::dataGetNotif(string &msg)
 {
-    if (msg.find('\n') == string::npos &&
-        msg.find('\r') == string::npos)
-    {
-        //We have not a complete paquet yet, buffurize it.
-        buffer_notif += msg;
+    vector<string> tokens;
 
+    if (!reassembleMessages(buffer_notif, msg, tokens))
+    {
         cDebugDom("squeezebox") <<  "Bufferize data.";
 
         return;
     }
-
-    if (!buffer_notif.empty())
-    {
-        msg = buffer_notif;
-        buffer_notif.clear();
-    }
-
-    //Clean data string
-    int i = msg.length() - 1;
-    while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
-
-    replace_str(msg, "\r\n", "\n");
-    replace_str(msg, "\r", "\n");
-
-    vector<string> tokens;
-    split(msg, tokens, "\n");
 
     isConnected = true;
     cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
@@ -231,32 +233,14 @@ void Squeezebox::dataGetNotif(string &msg)
 
 void Squeezebox::dataGetCon(string &msg)
 {
-    if (msg.find('\n') == string::npos &&
-        msg.find('\r') == string::npos)
-    {
-        //We have not a complete paquet yet, buffurize it.
-        buffer_main += msg;
+    vector<string> tokens;
 
+    if (!reassembleMessages(buffer_main, msg, tokens))
+    {
         cDebugDom("squeezebox") <<  "Bufferize data.";
 
         return;
     }
-
-    if (!buffer_main.empty())
-    {
-        msg = buffer_main;
-        buffer_main.clear();
-    }
-
-    //Clean data string
-    int i = msg.length() - 1;
-    while ((msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0') && i >= 0) i--;
-
-    replace_str(msg, "\r\n", "\n");
-    replace_str(msg, "\r", "\n");
-
-    vector<string> tokens;
-    split(msg, tokens, "\n");
 
     cDebugDom("squeezebox") <<  "Got " << tokens.size() << " messages.";
 
@@ -377,12 +361,32 @@ void Squeezebox::processMessage(bool status, string msg)
     else
     {
         cDebugDom("squeezebox") <<  "sending failed !";
-        conHandle->stop();
-        conHandle->close();
-        notifHandle->stop();
-        notifHandle->close();
 
-        return;
+        //The connection is most probably dead: close both handles and
+        //schedule a reconnection ourselves (close() alone never fires the
+        //reconnect logic, which is hooked on Error/End events only).
+        isConnected = false;
+
+        if (conHandle)
+        {
+            if (conHandle->active())
+                conHandle->stop();
+            conHandle->close();
+        }
+        if (notifHandle)
+        {
+            if (notifHandle->active())
+                notifHandle->stop();
+            notifHandle->close();
+        }
+
+        Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerConnReconnect));
+        Timer::singleShot(SQ_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &Squeezebox::timerNotificationReconnect));
+
+        //Do NOT return here: fall through so the front command is failed
+        //and popped, the timeout timer freed and the queue re-driven.
+        //The old early return left front().inProgress set forever, which
+        //stalled the whole command queue after a single request timeout.
     }
 
     if (timer_timeout)
@@ -673,7 +677,7 @@ void Squeezebox::get_artist(AudioRequest_cb callback, AudioPlayerData user_data)
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title_cb), data);
+    sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_artist_cb), data);
 }
 void Squeezebox::get_artist_cb(bool status, string request, string result, AudioPlayerData data)
 {
@@ -686,7 +690,7 @@ void Squeezebox::get_artist_cb(bool status, string request, string result, Audio
     else
         cmd = id + " title ?";
 
-    sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_title2_cb), data);
+    sendRequest(cmd, sigc::mem_fun(*this, &Squeezebox::get_artist2_cb), data);
 }
 void Squeezebox::get_artist2_cb(bool status, string request, string result, AudioPlayerData data)
 {
@@ -768,8 +772,6 @@ void Squeezebox::get_album_cover_json_cb(const string &result, int status, void 
         json_error_t jerr;
         json_t *json = json_loads(result.c_str(), 0, &jerr);
 
-        cDebug() << json_dumps(json, JSON_INDENT(4));
-
         if (!json)
         {
             cDebugDom("squeezebox") <<  "JSON - Error loading json : " << jerr.text;
@@ -777,6 +779,13 @@ void Squeezebox::get_album_cover_json_cb(const string &result, int status, void 
             get_album_cover_std(adata);
 
             return;
+        }
+
+        char *jdump = json_dumps(json, JSON_INDENT(4));
+        if (jdump)
+        {
+            cDebug() << jdump;
+            free(jdump);
         }
 
         json_t *remoteMeta = NULL, *artwork_url = NULL, *jresult = NULL;
@@ -798,10 +807,10 @@ void Squeezebox::get_album_cover_json_cb(const string &result, int status, void 
 
                         aurl = json_string_value(artwork_url);
 
-                        if (artwork_url) json_decref(artwork_url);
-                        if (remoteMeta) json_decref(remoteMeta);
-                        if (jresult) json_decref(jresult);
-                        if (json) json_decref(json);
+                        //jresult/remoteMeta/artwork_url are borrowed
+                        //json_object_get references: only the json_loads
+                        //root is owned and must be decref'ed.
+                        json_decref(json);
 
                         if (aurl.compare(0, 4, "http") == 0)
                         {
@@ -838,9 +847,8 @@ void Squeezebox::get_album_cover_json_cb(const string &result, int status, void 
             }
         }
 
-        if (remoteMeta) json_decref(remoteMeta);
-        if (artwork_url) json_decref(artwork_url);
-        if (json) json_decref(json);
+        //Only the json_loads root is owned (see above)
+        json_decref(json);
 
         get_album_cover_std(adata);
     }
@@ -884,12 +892,7 @@ void Squeezebox::get_album_cover_std2_cb(bool status, string request, string res
         if (tk[0] == "id" && aid == "") aid = tk[1];
     }
 
-    stringstream aurl;
-    if (aid == "") aid = "current";
-    aurl << "http://" << host << ":" << port_web << "/music/" << aid << "/cover.jpg";
-    if (aid == "") aurl << "?playerid=" << id;
-
-    data.get_chain_data().svalue = aurl.str();
+    data.get_chain_data().svalue = coverArtUrl(host, port_web, aid, id);
 
     AudioRequest_signal sig;
     sig.connect(data.callback);
