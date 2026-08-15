@@ -36,6 +36,12 @@
 //   throttle of T1.8), never by a client supplied entry, and falls back to
 //   the TCP peer without the header.
 //
+//4. T2.16 — HttpParsing::RequestState: the llhttp callbacks (production
+//   wiring, header-inline in HttpClient.h) wipe every bit of per-request
+//   state on message begin, so the headers of request N never leak into
+//   request N+1 of the same keep-alive connection (a stale Origin used to
+//   keep triggering CORS for the whole connection).
+//
 //Only header-inline helpers of HttpClient.h and libcalaos_common code are
 //exercised: nothing of the calaos_server binary is linked.
 #include "WebSocketFrame.h"
@@ -223,4 +229,125 @@ TEST(EffectiveClientIp, Ipv6EntrySurvives)
     EXPECT_EQ("2001:db8::2",
               TransportLimits::effectiveClientIp("1.1.1.1, 2001:db8::2",
                                                  "127.0.0.1"));
+}
+
+//--- 4. T2.16: no header leak between requests of a keep-alive connection ---
+
+//Drives llhttp with the exact production callbacks
+//(HttpParsing::initParserSettings) against a bare RequestState, the way
+//HttpClient wires them, minus the socket.
+namespace
+{
+struct KeepAliveParser
+{
+    HttpParsing::RequestState state;
+    llhttp_settings_t settings;
+    llhttp_t parser;
+
+    KeepAliveParser()
+    {
+        HttpParsing::initParserSettings(settings);
+        llhttp_init(&parser, HTTP_REQUEST, &settings);
+        parser.data = static_cast<HttpParsing::RequestState *>(&state);
+    }
+
+    llhttp_errno feed(const std::string &data)
+    {
+        return llhttp_execute(&parser, data.c_str(), data.size());
+    }
+};
+}
+
+TEST(KeepAliveRequestReset, HeadersDoNotLeakIntoNextRequest)
+{
+    KeepAliveParser p;
+
+    //Request N carries per-request headers with security meaning
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "Origin: http://attacker.example\r\n"
+                             "X-Forwarded-For: 1.2.3.4\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    ASSERT_EQ(1u, p.state.request_headers.count("origin"));
+    ASSERT_EQ(1u, p.state.request_headers.count("x-forwarded-for"));
+
+    //Request N+1 on the same connection sends none of them: it must not see
+    //them either. Before T2.16 request_headers was never reset, so the stale
+    //Origin kept triggering CORS and the stale X-Forwarded-For polluted the
+    //per-IP client identity for the rest of the connection.
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_EQ(0u, p.state.request_headers.count("origin"));
+    EXPECT_EQ(0u, p.state.request_headers.count("x-forwarded-for"));
+    EXPECT_EQ(1u, p.state.request_headers.count("host"));
+    EXPECT_EQ("calaos", p.state.request_headers["host"]);
+}
+
+TEST(KeepAliveRequestReset, PipelinedRequestsInOneBufferAreResetToo)
+{
+    //Both requests arrive in a single TCP read: on_message_begin of the
+    //second one must wipe the first one's headers all the same
+    KeepAliveParser p;
+
+    ASSERT_EQ(HPE_OK, p.feed("GET /a HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "Origin: http://attacker.example\r\n"
+                             "\r\n"
+                             "GET /b HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_EQ("/b", p.state.parse_url);
+    EXPECT_EQ(0u, p.state.request_headers.count("origin"));
+    EXPECT_EQ(1u, p.state.request_headers.count("host"));
+}
+
+TEST(KeepAliveRequestReset, StaleResponseCorsHeadersAreDropped)
+{
+    //The CORS echo of request N's Origin lands in resHeaders; request N+1
+    //must start from an empty response header set or the stale
+    //Access-Control-Allow-Origin would be sent again
+    KeepAliveParser p;
+
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "Origin: http://attacker.example\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    //what HttpClient::processHeaders does on seeing Origin
+    p.state.resHeaders.Add("Access-Control-Allow-Origin",
+                           p.state.request_headers["origin"]);
+
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_FALSE(p.state.resHeaders.Exists("Access-Control-Allow-Origin"));
+}
+
+TEST(KeepAliveRequestReset, BodyAndUrlAreResetBetweenRequests)
+{
+    //The rest of the per-request state must not survive either
+    KeepAliveParser p;
+
+    ASSERT_EQ(HPE_OK, p.feed("POST /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "Content-Length: 5\r\n"
+                             "\r\n"
+                             "hello"));
+    ASSERT_TRUE(p.state.parse_done);
+    ASSERT_EQ("hello", p.state.bodymessage);
+    ASSERT_EQ("/api", p.state.parse_url);
+    ASSERT_EQ(HTTP_POST, p.state.request_method);
+
+    ASSERT_EQ(HPE_OK, p.feed("GET /other HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_TRUE(p.state.bodymessage.empty());
+    EXPECT_EQ("/other", p.state.parse_url);
+    EXPECT_EQ(HTTP_GET, p.state.request_method);
 }

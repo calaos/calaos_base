@@ -159,7 +159,219 @@ inline std::string effectiveClientIp(const std::string &xffLastLine,
 }
 }
 
-class HttpClient: public sigc::trackable
+/* Per-request parsing state of one http connection, and the llhttp callbacks
+ * filling it. Everything here describes THE REQUEST BEING PARSED, never the
+ * connection: beginNewRequest() wipes all of it on every on_message_begin, so
+ * nothing of request N can leak into request N+1 of a keep-alive connection
+ * (T2.16: a stale Origin kept triggering CORS, a stale X-Forwarded-For
+ * polluted the client identity of the per-IP cap).
+ *
+ * Connection-scoped state (conn_close, data_size, isWebsocket, the ip
+ * tracking...) stays in HttpClient. The split is header-inline so
+ * tests/TransportHardening_test.cpp can drive the exact production callbacks
+ * without linking the calaos_server binary.
+ */
+namespace HttpParsing
+{
+struct RequestState
+{
+    //request line + headers, filled by the callbacks below
+    bool parse_done = false;
+    unsigned char request_method = 0;
+    unordered_map<string, string> request_headers;
+
+    //parsing scratch state
+    bool has_field = false, has_value = false;
+    string hfield, hvalue;
+    string bodymessage;
+    string parse_url;
+
+    //bytes of request line + headers accumulated for the request being
+    //parsed
+    std::size_t headersSize = 0;
+
+    //set when headersSize goes over TransportLimits::MaxHeadersSize, the
+    //request is then refused with a 431 instead of being accumulated
+    bool headersTooLarge = false;
+
+    //set when the request body goes over maxBodySize, the request is then
+    //refused with a 413 instead of being buffered
+    bool bodyTooLarge = false;
+
+    //body cap checked by the callbacks. Set once from
+    //TransportLimits::maxHttpBodySize() by HttpClient (kept as a plain value
+    //here so the config accessor does not have to be linked in tests).
+    uint64_t maxBodySize = TransportLimits::DefaultMaxHttpBodySize;
+
+    //headers of the response to the request being parsed (CORS echoes of
+    //this request's Origin land here)
+    Params resHeaders;
+
+    //Forgets everything about the previous request of the connection.
+    //Called on llhttp's on_message_begin, i.e. once per request of a
+    //keep-alive connection.
+    void beginNewRequest()
+    {
+        parse_done = false;
+        request_method = 0;
+        request_headers.clear();
+        has_field = false;
+        has_value = false;
+        hfield.clear();
+        hvalue.clear();
+        bodymessage.clear();
+        parse_url.clear();
+        headersSize = 0;
+        headersTooLarge = false;
+        bodyTooLarge = false;
+        resHeaders.clear();
+    }
+};
+
+inline int _parser_begin(llhttp_t *parser)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    //reset per-request state to parse another request on the same connection
+    state->beginNewRequest();
+
+    return 0;
+}
+
+//Accounts length more bytes of request line/headers. llhttp itself puts no
+//bound on them, so without this a client dribbling an endless header would
+//make hvalue grow until the read timeout fires (30 s of free allocation).
+//Refused with a 431 as soon as the cap is crossed, nothing more accumulated.
+inline int _check_headers_size(RequestState *state, size_t length)
+{
+    state->headersSize += length;
+    if (state->headersSize > TransportLimits::MaxHeadersSize)
+    {
+        state->headersTooLarge = true;
+        return HPE_USER;
+    }
+    return 0;
+}
+
+inline int _parser_header_field(llhttp_t *parser, const char *at, size_t length)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    if (int err = _check_headers_size(state, length))
+        return err;
+
+    if (state->has_field && state->has_value)
+    {
+        state->request_headers[Utils::str_to_lower(state->hfield)] = state->hvalue;
+        state->has_field = false;
+        state->has_value = false;
+        state->hfield.clear();
+        state->hvalue.clear();
+    }
+
+    if (!state->has_field)
+        state->has_field = true;
+
+    state->hfield.append(at, length);
+
+    return 0;
+}
+
+inline int _parser_header_value(llhttp_t *parser, const char *at, size_t length)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    if (int err = _check_headers_size(state, length))
+        return err;
+
+    if (!state->has_value)
+        state->has_value = true;
+
+    state->hvalue.append(at, length);
+
+    return 0;
+}
+
+inline int _parser_headers_complete(llhttp_t *parser)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    if (state->has_field && state->has_value)
+    {
+        state->request_headers[Utils::str_to_lower(state->hfield)] = state->hvalue;
+        state->has_field = false;
+        state->has_value = false;
+        state->hfield.clear();
+        state->hvalue.clear();
+    }
+
+    //An announced body over the limit is refused here, before a single byte of
+    //it has been read from the socket
+    if (parser->content_length > state->maxBodySize)
+    {
+        state->bodyTooLarge = true;
+        return -1;
+    }
+
+    return 0;
+}
+
+inline int _parser_url(llhttp_t *parser, const char *at, size_t length)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    if (int err = _check_headers_size(state, length))
+        return err;
+
+    state->parse_url.append(at, length);
+
+    return 0;
+}
+
+inline int _parser_message_complete(llhttp_t *parser)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    state->parse_done = true;
+    state->request_method = parser->method;
+
+    return 0;
+}
+
+inline int _parser_body_complete(llhttp_t *parser, const char *at, size_t length)
+{
+    RequestState *state = static_cast<RequestState *>(parser->data);
+
+    //A chunked body announces no length, so accumulation is what has to be
+    //stopped here
+    if (state->bodymessage.size() + length > state->maxBodySize)
+    {
+        state->bodyTooLarge = true;
+        return HPE_USER;
+    }
+
+    state->bodymessage.append(at, length);
+
+    return 0;
+}
+
+//The exact callback wiring HttpClient uses in production, shared with the
+//tests so they cannot drift apart.
+inline void initParserSettings(llhttp_settings_t &settings)
+{
+    llhttp_settings_init(&settings);
+
+    settings.on_message_begin = _parser_begin;
+    settings.on_url = _parser_url;
+    settings.on_header_field = _parser_header_field;
+    settings.on_header_value = _parser_header_value;
+    settings.on_headers_complete = _parser_headers_complete;
+    settings.on_body = _parser_body_complete;
+    settings.on_message_complete = _parser_message_complete;
+}
+}
+
+class HttpClient: public sigc::trackable, protected HttpParsing::RequestState
 {
 protected:
 
@@ -168,22 +380,9 @@ protected:
     llhttp_settings_t parser_settings;
     llhttp_t *parser;
 
-    bool parse_done = false;
-    unsigned char request_method;
-    unordered_map<string, string> request_headers;
-
     int proto_ver;
 
     void CloseConnection();
-
-    //for parsing purposes
-    bool has_field = false, has_value = false;
-    string hfield, hvalue;
-    string bodymessage;
-    string parse_url;
-
-    //headers to send back
-    Params resHeaders;
 
     //set to true if connection need to be closed after data has been sent
     bool conn_close = false; //by default we keep-alive connection unless client asks us to close it
@@ -197,18 +396,6 @@ protected:
 
     //timer closing a connection that never sends a complete request
     Timer *readTimeout = nullptr;
-
-    //set when a request body goes over maxHttpBodySize(), the request is then
-    //refused with a 413 instead of being buffered
-    bool bodyTooLarge = false;
-
-    //bytes of request line + headers accumulated for the request being
-    //parsed, reset on every new request of a keep-alive connection
-    std::size_t headersSize = 0;
-
-    //set when headersSize goes over TransportLimits::MaxHeadersSize, the
-    //request is then refused with a 431 instead of being accumulated
-    bool headersTooLarge = false;
 
     //client identity counted in HttpServer's per-IP connection map. Counted
     //once per connection, on its first parsed request, released by the
@@ -256,15 +443,6 @@ protected:
     bool trackPerIpCap();
 
     string getMimeType(const string &file_ext);
-
-    friend int _parser_begin(llhttp_t *parser);
-    friend int _parser_header_field(llhttp_t *parser, const char *at, size_t length);
-    friend int _parser_header_value(llhttp_t *parser, const char *at, size_t length);
-    friend int _parser_headers_complete(llhttp_t *parser);
-    friend int _parser_message_complete(llhttp_t *parser);
-    friend int _parser_url(llhttp_t *parser, const char *at, size_t length);
-    friend int _parser_body_complete(llhttp_t* parser, const char *at, size_t length);
-    friend int _check_headers_size(HttpClient *client, size_t length);
 
 public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);

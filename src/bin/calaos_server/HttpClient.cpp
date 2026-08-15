@@ -115,157 +115,19 @@ double TransportLimits::requestReadTimeout()
     index++)
 #endif
 
-int _parser_begin(llhttp_t *parser)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    //reset status flags to parse another request on the same connection
-    client->parse_done = false;
-    client->has_field = false;
-    client->has_value = false;
-    client->hfield.clear();
-    client->hvalue.clear();
-    client->bodymessage.clear();
-    client->parse_url.clear();
-    client->headersSize = 0;
-
-    return 0;
-}
-
-//Accounts length more bytes of request line/headers. llhttp itself puts no
-//bound on them, so without this a client dribbling an endless header would
-//make hvalue grow until the read timeout fires (30 s of free allocation).
-//Refused with a 431 as soon as the cap is crossed, nothing more accumulated.
-int _check_headers_size(HttpClient *client, size_t length)
-{
-    client->headersSize += length;
-    if (client->headersSize > TransportLimits::MaxHeadersSize)
-    {
-        client->headersTooLarge = true;
-        return HPE_USER;
-    }
-    return 0;
-}
-
-int _parser_header_field(llhttp_t *parser, const char *at, size_t length)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (int err = _check_headers_size(client, length))
-        return err;
-
-    if (client->has_field && client->has_value)
-    {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
-    }
-
-    if (!client->has_field)
-        client->has_field = true;
-
-    client->hfield.append(at, length);
-
-    return 0;
-}
-
-int _parser_header_value(llhttp_t *parser, const char *at, size_t length)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (int err = _check_headers_size(client, length))
-        return err;
-
-    if (!client->has_value)
-        client->has_value = true;
-
-    client->hvalue.append(at, length);
-
-    return 0;
-}
-
-int _parser_headers_complete(llhttp_t *parser)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (client->has_field && client->has_value)
-    {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
-    }
-
-    //An announced body over the limit is refused here, before a single byte of
-    //it has been read from the socket
-    if (parser->content_length > TransportLimits::maxHttpBodySize())
-    {
-        client->bodyTooLarge = true;
-        return -1;
-    }
-
-    return 0;
-}
-
-int _parser_url(llhttp_t *parser, const char *at, size_t length)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (int err = _check_headers_size(client, length))
-        return err;
-
-    client->parse_url.append(at, length);
-
-    return 0;
-}
-
-int _parser_message_complete(llhttp_t *parser)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    client->parse_done = true;
-    client->request_method = parser->method;
-
-    return 0;
-}
-
-int _parser_body_complete(llhttp_t* parser, const char *at, size_t length)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    //A chunked body announces no length, so accumulation is what has to be
-    //stopped here
-    if (client->bodymessage.size() + length > TransportLimits::maxHttpBodySize())
-    {
-        client->bodyTooLarge = true;
-        return HPE_USER;
-    }
-
-    client->bodymessage.append(at, length);
-
-    return 0;
-}
-
 HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     client_conn(client)
 {
-    llhttp_settings_init(&parser_settings);
+    //The llhttp callbacks live header-inline in HttpParsing (HttpClient.h)
+    //and only ever see the RequestState part of this object: per-request
+    //state, wiped by _parser_begin on every request of the connection
+    HttpParsing::initParserSettings(parser_settings);
 
-    //set up callbacks for the parser
-    parser_settings.on_message_begin = _parser_begin;
-    parser_settings.on_url = _parser_url;
-    parser_settings.on_header_field = _parser_header_field;
-    parser_settings.on_header_value = _parser_header_value;
-    parser_settings.on_headers_complete = _parser_headers_complete;
-    parser_settings.on_body = _parser_body_complete;
-    parser_settings.on_message_complete = _parser_message_complete;
+    maxBodySize = TransportLimits::maxHttpBodySize();
 
     parser = (llhttp_t *)calloc(1, sizeof(llhttp_t));
     llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-    parser->data = this;
+    parser->data = static_cast<HttpParsing::RequestState *>(this);
 
     cDebugDom("network") << this;
 
