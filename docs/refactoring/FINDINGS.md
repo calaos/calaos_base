@@ -42,6 +42,72 @@
   `renameId()` (pas de rehash de la map id→IO). Aucun appelant de ce type aujourd'hui
   (vérifié grep). → envisager const ref ou mutateur dédié.
 
+## Wave 4 — transverse, à traiter en priorité
+
+- **[SÉCURITÉ/UAF, tous handlers WS] `JsonApi.cpp:450-537` `buildJsonState`** : les lambdas
+  internes audio-player capturent `this`/`jio`/`jplayer` sans garde — UAF si le client se
+  déconnecte pendant une requête audio, AVANT le completion guardé ajouté par T1.10 ; de plus
+  `json_object_set(jio, id, jplayer)` fuit `jplayer` (set, pas set_new). Confirmé par revue.
+  → ticket dédié (touche tous les WS handlers).
+- **[LIFETIME] `HttpClient.cpp:578` `sendToClient`** : enregistre un `once<uvw::WriteEvent>` par
+  appel capturant `this` brut — dangling si le client est détruit avec des writes en vol.
+- **[FOOTGUN] `Utils::from_string("")` retourne true** avec dest zéro-initialisée
+  (`iss.eof()` vrai sur entrée vide) — `src/lib/Utils.h:308-315`. Chaque appelant doit se
+  défendre par un range-check (cf. `parseGridDimension` T1.10).
+- **[INFRA TESTS] Les suites Python (tests/python/, 42+ tests T1.8+T1.16) ne sont PAS câblées
+  dans `make check`** — délibéré en wave 4 (le format Makefile.am est gtest-only, le câblage
+  pytest demande configure.ac). → petit ticket d'infra.
+
+## Wave 4 — par sous-système (hors périmètre, non corrigés)
+
+**MCP/Roon (T1.16)** :
+- `client.py:45` — le `_task` de `connect()` n'est jamais annulé ; l'annuler au shutdown du
+  lifespan server.py = changement de comportement (validation requise).
+- `config.py:31` — `@lru_cache` sur `get_config()` rend tests/reloads collants.
+- `ExternProcRoon_main.py:171` — `subscribe` peut ajouter deux fois la même zone ; `:181` —
+  `"next"` dupliqué dans l'alternation d'actions (bénin).
+
+**Sidecar auth / calaos-python (T1.8)** :
+- `McpProxyHandler.cpp` forwarde les octets client tels quels : pourrait injecter/normaliser
+  `X-Forwarded-For` lui-même (défense en profondeur).
+- `message.py` (Python) n'a **aucune borne** sur `payload_length` entrant (le C++ cape à 4 MiB) —
+  une longueur corrompue peut buffériser jusqu'à 4 GiB.
+- `extern_proc.py` `run()` : `select` sur fd fermé lève et ne fait que logger — pas de reconnexion.
+- `logger.py:9` — `colorama.init(strip=False)` en side effect d'import.
+
+**RemoteUI OTA/WS (T1.10)** :
+- OTA : pas de vrai backpressure (l'image entière transite une fois par la write-queue libuv) —
+  le vrai fix demande HttpClient.
+- Clamp haut 30 jours sur l'intervalle de rescan OTA : seul changement visible utilisateur non
+  strictement mandaté par le spec — à faire valider.
+
+**IO controllers (T1.19)** :
+- `GpioCtrl.cpp:~185` — debounce codé en dur 0.05 s, ignore le `debounce_time` passé par
+  `GpioInputSwitch.cpp:50` depuis la config. Le câbler = changement de comportement → validation.
+- MySensors : messages **droppés avec warning** quand la gateway est déconnectée (avant : crash).
+  Le spec permettait drop OU queue — passer à une queue est une option à valider.
+- `GpioCtrl.h:60` — `getFd()` déclaré jamais défini (erreur de link si utilisé).
+- `MySensorsController.cpp:287` — ids node/sensor vides depuis des lignes malformées créent des
+  entrées junk dans `hashSensors`.
+- `MySensors.cpp:23` — `DataType2String` tombe en fin de fonction sans return pour types
+  inconnus (UB).
+
+**Extern-proc mains (T1.17)** :
+- `KNXExternProc_main.cpp` partage probablement le pattern argv hors-bornes (non possédé par
+  T1.17 — à vérifier sous T3.2* ou follow-up).
+- `MqttCtrl.cpp` (côté serveur) tronque toujours les payloads à NUL embarqué
+  (`json_string_value` vers Params C-string).
+- `McpServerManager.cpp:281` — table de backoff quasi-dupliquée de celle de WagoMap.
+
+**Reolink (T1.14)** :
+- Le désenregistrement C++ ne dit PAS au process Python d'arrêter de surveiller la caméra
+  (aucune action `unregister` dans le protocole) — events droppés côté C++ en attendant ;
+  follow-up protocolaire raisonnable, pas une faille.
+- `ExternProcReolink_main.py:~773` — `background_tasks` mélange `concurrent.futures.Future` et
+  tâches asyncio ; `cancel()` peu fiable sur coroutine en cours.
+- `ReolinkCtrl` singleton + son `ExternProcServer *process` jamais détruits/arrêtés au shutdown.
+- `ReolinkCtrl.cpp:84` — log debug du payload d'event complet (verbeux, sans credentials).
+
 ## RemoteUI (T1.6)
 
 - `RemoteUI::getProvisioningResponse` hardcode `ws://localhost:5454/api/v3/remote_ui/ws` comme

@@ -8,17 +8,22 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **État master** : `9d8d37b5` poussé sur origin (docs d'orchestration). Dernier merge code : T1.11.
-- **Phase 1** : 13/19 faits. **WAVE 4 EN VOL** : les 6 derniers tickets (T1.8, T1.10, T1.14,
-  T1.16, T1.17, T1.19) sont en cours d'implémentation par des subagents.
-- **Worktrees wave 4** : `/tmp/claude-1000/calaos-wave4/tX.Y`, branches `refactor/tX.Y`,
-  base `9d8d37b5`. Ownership : T1.8 = calaos_mcp `auth.py`+`pyproject.toml`+`calaos-python/` ;
-  T1.16 = calaos_mcp `client/config/server/tools` + Roon (fichiers disjoints de T1.8, même dossier).
-- **À la reprise si les agents ont fini** : pour chaque branche `refactor/*` existante avec un
-  commit au-dessus de `9d8d37b5` → revue (subagent) → merge (subagent, procédure ci-dessous) →
-  board ✅. Si une branche est vide/absente, relancer l'implémentation du ticket.
-- **Ensuite** : T2.8 (quarantaine ASan exprtk — voir FINDINGS) et triage des **13 alertes
-  Dependabot** (9 high, 4 moderate) signalées au push.
+- **PHASE 1 COMPLÈTE (19/19)** — wave 4 terminée le 2026-08-15. Master local : `10898405`
+  (25/25 tests `make check`). **Pas encore poussé** (dernier push origin = `9d8d37b5`) —
+  demander à l'utilisateur avant tout push.
+- **Rien en vol** : aucun worktree, aucune branche `refactor/*`.
+- **Prochaines actions candidates** (au choix de l'utilisateur) :
+  1. **Phase 2** : T2.1 (timer lifetime), T2.2 (Utils split), T2.3 (SHA1→OpenSSL), T2.4 (config),
+     T2.5 (UrlDownloader→libcurl), T2.6 (common-lib), T2.8 (quarantaine ASan exprtk),
+     T2.9, T2.10, T2.11 — voir BOARD.md pour les dépendances.
+  2. **Ticket infra court** : câbler les suites pytest `tests/python/` dans `make check`
+     (voir FINDINGS "INFRA TESTS").
+  3. **Ticket transverse prioritaire** : UAF `JsonApi.cpp buildJsonState` audio-player
+     (voir FINDINGS wave 4 — touche tous les WS handlers).
+  4. Triage des **13 alertes Dependabot** (9 high, 4 moderate) signalées au push.
+- **Décisions récentes** (détail dans DECISIONS.md) : Wago = respawn infini backoff ≤5 s ;
+  MQTT non-UTF8 = '?' ; OneWire = hex majuscules. **Reste à faire valider** : clamp 30 j rescan
+  OTA (T1.10), câblage `debounce_time` GPIO, queue-vs-drop MySensors (voir FINDINGS).
 
 ---
 

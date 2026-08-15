@@ -4,6 +4,25 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-15 — Wago : respawn infini, backoff court
+**Décision** : le respawn du process externe Wago ne doit **jamais** abandonner, et le backoff
+doit rester **court** (rampe 1,2,3 puis plafond 5 s).
+**Pourquoi** : le Wago est la pièce maîtresse de l'installation. En cas de maintenance ou de
+coupure réseau temporaire par l'installateur, la reprise doit être immédiate — pas d'attente
+d'un long backoff, pas de redémarrage de calaos requis.
+**Comment l'appliquer** : implémenté dans `WagoMap` (T1.17). Toute logique de reconnexion
+future sur le chemin Wago suit le même principe : retry perpétuel, délai plafonné bas,
+log d'erreur périodique (pas de silence, pas de flood).
+
+## 2026-08-15 — MQTT : payloads non-UTF8 délivrés avec '?'
+**Décision** : les payloads MQTT non-UTF8, auparavant supprimés silencieusement du JSON,
+sont délivrés avec les octets invalides remplacés par `?`. Validé tel quel.
+
+## 2026-08-15 — OneWire : filtre device hex MAJUSCULES, bornes corrigées
+**Décision** : le filtre OWFS reste hex majuscules uniquement (pas `isxdigit`, qui classerait
+les dossiers virtuels `alarm/`, `bus.0/` comme devices), avec les bornes 0/9/A/F corrigées.
+Des capteurs jusque-là invisibles (familles 0x0*, 0x9*, 0xA*, 0xF*) peuvent apparaître — assumé.
+
 ## 2026-08 — Throttle de login derrière haproxy
 **Décision** : `calaos_server` est **toujours** derrière haproxy dans calaos-os.
 **Pourquoi** : sans lecture du proxy, tous les clients partagent une seule IP → un seul bucket de
