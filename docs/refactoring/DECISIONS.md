@@ -99,3 +99,12 @@ DataLogger/influx, Squeezebox, AVRRose…) → insecure par défaut, param par-d
 (repo externe) ajoutera une option écrivant `insecure="false"` pour les NOUVEAUX devices,
 existants inchangés. Suggestion ouverte : matérialiser l'implicite en explicite à la
 sauvegarde installer pour permettre un futur flip du défaut code.
+
+## 2026-08-15 — Phase 4 : arbitrages
+**E4.1 (JSON unique)** : migrer vers `nlohmann::json` **standard** (clés triées). Le changement
+d'ordre des clés dans les réponses de l'API 5454 est **assumé** — l'ordre n'est pas sémantique
+en JSON ; les clients comparant des chaînes brutes devront s'adapter.
+**E4.2 (ownership)** : série des 6 sous-tickets **lancée** (prérequis « filet de tests » levé,
+voir PHASE4.md). Sérialisée : revue + merge de chaque étape avant la suivante.
+**E4.4 (TinyXML2)** : en attente — l'utilisateur a demandé les alternatives (bloqueur XPath
+dans WebCtrl). Investigation en cours avant décision.
