@@ -16,19 +16,14 @@
   `JsonApi::secureCompare` existe et peut être réutilisé. → ticket : comparaison constant-time
   du token RemoteUI.
 
-## exprtk ASan (tracké T2.8)
+## exprtk ASan (tracké T2.8 — CORRIGÉ, analyse initiale invalidée)
 
-- **stack-use-after-scope `exprtk.hpp:15688`** — dans l'opérateur d'égalité de chaînes
-  `eq_op::process(const std::string&, const std::string&)`, déclenché par des conditions de règle
-  du type `value == 'connected'`. C'est **interne à exprtk** ; notre `value_str`
-  (`ExpressionEvaluator.cpp:134`) est vivant jusqu'à `expr.value()` (l.165).
-  - **Version vendored = déjà la dernière upstream** (Author 1999-2024, version = décimales de *e*
-    `2.71828…`). Un bump ne corrige **pas**.
-  - **Impact prod : nul** (ASan-only ; builds release non concernés ; le résultat calculé est
-    correct, suite non-ASan verte). Bloque seulement un `make check` **sous ASan**.
-  - **Reco T2.8** : suppression ASan ciblée sur la frame exprtk, **ou**
-    `__attribute__((no_sanitize("address")))` sur `evaluateExpressionBool`, **ou** compiler la TU
-    exprtk en `-fno-sanitize=address`. Priorité basse, non bloquant.
+- **stack-use-after-scope** : ce n'était **ni interne à exprtk, ni bénin** — c'était un vrai UB
+  release dans **notre** code. `value_str` était déclaré dans un bloc interne de
+  `evaluateExpressionBool`, lié **par référence** dans la `symbol_table` d'exprtk (qui stocke un
+  pointeur brut — `exprtk.hpp:10164`), puis déréférencé **après la sortie du bloc** à
+  `expr.value()`. Corrigé par hoisting de la variable au scope fonction (T2.8, mergé).
+  Aucune quarantaine n'a été nécessaire ; ASan reste entièrement actif.
 
 ## Qualité / design
 
