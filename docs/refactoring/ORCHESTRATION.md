@@ -48,9 +48,15 @@
   (json_object_set vs _new) + lookup de token RemoteUI en temps constant ;
   rebase propre sur master post-T2.17 (aucun conflit, le bloc tests/Makefile.am
   s'est appliqué seul, 29/29 if/endif) ; 40/40 tests dont le nouveau
-  core/JsonApiAudioState_test ; ff-only ; worktree t2.15 nettoyé). 3 autres
-  worktrees wave 7 encore en vol sous `/tmp/claude-1000/calaos-wave7/`
-  (t2.14, t2.16, t2.19).
+  core/JsonApiAudioState_test ; ff-only ; worktree t2.15 nettoyé). **T2.16 ✅ mergé**
+  (2026-08-15, `1735460c`, reset de l'état per-request entre requêtes keep-alive
+  (request_headers/body/url ne fuient plus d'une requête à la suivante, headers CORS
+  périmés droppés) + contrat bindParser corrigé aux sites de réinit de WebSocket.cpp
+  (parser->data pointait sur l'owner au lieu du sous-objet state → bug d'offset) ;
+  rebase propre sur master post-T2.17/T2.15, aucun conflit ; 40/40 tests dont
+  TransportHardening_test 22/22 (17 antérieurs + 5 KeepAliveRequestReset) ; ff-only ;
+  worktree t2.16 nettoyé). 2 autres worktrees wave 7 encore en vol sous
+  `/tmp/claude-1000/calaos-wave7/` (t2.14, t2.19).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
