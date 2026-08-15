@@ -948,10 +948,11 @@ void JsonApiHandlerHttp::processCamera()
             releaseCameraDl();
 
             cameraDl = new UrlDownloader(camera->getVideoUrl(), true);
-            //T2.17 (user decision): camera-URL consumer, local cameras
-            //commonly serve self-signed HTTPS — same device class as the
-            //snapshot path in IPCam::downloadSnapshot()
-            cameraDl->setInsecure();
+            //T2.19: honor the camera's per-device insecure param (default
+            //true), same policy as the snapshot path in
+            //IPCam::downloadSnapshot()
+            if (camera->tlsInsecure())
+                cameraDl->setInsecure();
             //T2.10: the mjpeg frames are relayed live through m_signalData,
             //the downloader's internal accumulation is dead weight here, keep
             //its bound minimal

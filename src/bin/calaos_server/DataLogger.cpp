@@ -51,7 +51,12 @@ void DataLogger::initInfluxDBv2()
     }
 
     m_influxdb_apiurl += "/api/v2";
+    //T2.19: user-configured influxdb URL, insecure by default (policy). No
+    //natural per-item config exists (influxdb_* are flat local_config
+    //options and we do not add a new global option), so this stays a plain
+    //insecure default like pre-T2.17.
     UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/authorizations", true);
+    query->setInsecure();
     query->setHeader("Authorization", "Token " + m_influxdb_token);
     query->httpGet();
     query->m_signalCompleteData.connect([=](const string &data, int status)
@@ -94,6 +99,7 @@ void DataLogger::initInfluxDBv1()
 
     cInfoDom("datalogger") << "Create database  " << m_influxdb_database << " on host " << m_influxdb_host;
     UrlDownloader *query = new UrlDownloader(m_influxdb_apiurl + "/query", true);
+    query->setInsecure(); //T2.19: user-configured influxdb URL, insecure by default
 
     string postData = "q=CREATE DATABASE " + m_influxdb_database;
 
@@ -194,6 +200,7 @@ void DataLogger::log(IOBase *io)
     }
 
     UrlDownloader *query = new UrlDownloader(url, true);
+    query->setInsecure(); //T2.19: user-configured influxdb URL, insecure by default
 
     stringstream postData;
     uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();

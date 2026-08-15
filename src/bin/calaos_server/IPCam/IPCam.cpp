@@ -34,6 +34,9 @@ IPCam::IPCam(Params &p):
 
     ioDoc->paramAdd("width", _("Width of the image, if this parameter is set, video will be resized to fit the given width. Let parameter empty to keep the original size."), IODoc::TYPE_INT, false, "");
     ioDoc->paramAdd("rotate", _("Rotate the image. Set a value between. The value is in degrees. Example : -90 for  Counter Clock Wise rotation, 90 for Clock Wise rotationCW."), IODoc::TYPE_INT, false, "");
+    //T2.19: insecure by default (user decision) — most cameras serve
+    //self-signed HTTPS, existing configs have no insecure param
+    ioDoc->paramAdd("insecure", _("Skip TLS certificate verification when connecting to the camera. Default to true (most cameras use self-signed certificates). Set to false to only allow a verified HTTPS connection."), IODoc::TYPE_BOOL, false, "true");
 
     //Add again to cache, because gui_type has changed
     //Special case for Camera
@@ -101,9 +104,9 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
     if (!cameraSnapDl)
     {
         cameraSnapDl = new UrlDownloader(getPictureUrl(), false);
-        //T2.17: local cameras commonly serve self-signed HTTPS, keep them
-        //working now that certificate verification is the default
-        cameraSnapDl->setInsecure();
+        //T2.19: insecure unless the device opts in to hardening with
+        //insecure="false" (local cameras commonly serve self-signed HTTPS)
+        cameraSnapDl->setInsecureFromParam(get_param("insecure"));
         cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
         {
             lastSnapshot = downloadedData;

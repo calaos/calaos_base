@@ -70,6 +70,23 @@ public:
 
     virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
 
+    //T2.19: effective TLS policy of this camera. insecure param defaults to
+    //true (self-signed HTTPS cameras, grandfathered configs), insecure="false"
+    //is the per-device hardening opt-in. EVERY transfer to a camera URL
+    //(snapshot, PTZ, mjpeg relay, rule attachment download) must honor it.
+    bool tlsInsecure() { return UrlDownloader::insecureParamEnabled(get_param("insecure")); }
+
+    //T2.19: fire-and-forget GET to a camera URL honoring the per-device
+    //insecure param (replaces the unconditional UrlDownloader::insecureGet
+    //calls of the camera drivers)
+    void camGet(const string &url)
+    {
+        if (tlsInsecure())
+            UrlDownloader::insecureGet(url);
+        else
+            UrlDownloader::get(url);
+    }
+
     //T3.3: mask credentials embedded in a camera URL so it can be logged
     //safely. Handles userinfo passwords (http://user:secret@host/...) and the
     //values of known credential query parameters (Foscam usr/pwd, Synology

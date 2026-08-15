@@ -778,3 +778,21 @@ core_JsonApiAudioState_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiAudioState_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T2.19
+#TLS insecure by DEFAULT for user-configured URLs (user decision, supersedes
+#the T2.17 default on those paths): UrlDownloader::insecureParamEnabled maps
+#a device `insecure` param to the effective policy (absent/empty/anything ->
+#insecure, exact "false" -> verified) and setInsecureFromParam applies it.
+#Pins the grandfathering contract (configs without any insecure param behave
+#exactly like pre-T2.17) and that a plain downloader stays verified for the
+#hardcoded calaos.fr services. Only libcalaos_common code is exercised. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += TlsInsecureDefault_test
+check_PROGRAMS += TlsInsecureDefault_test
+TlsInsecureDefault_test_SOURCES = TlsInsecureDefault_test.cpp
+TlsInsecureDefault_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

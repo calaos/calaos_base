@@ -135,11 +135,28 @@ public:
     bool isRunning() { return m_isRunning; }
 
     /* T2.17: disable TLS certificate verification for THIS transfer only
-     * (explicit per-call opt-in, no global switch). Needed for local devices
-     * serving self-signed certificates: IP cameras, Hue bridge. Everything
-     * else verifies against the system CA bundle by default. */
+     * (explicit per-call opt-in, no global switch). Everything else verifies
+     * against the system CA bundle by default. */
     void setInsecure() { m_insecure = true; }
     bool isInsecure() const { return m_insecure; }
+
+    /* T2.19 (user decision, SUPERSEDES the T2.17 default for user URLs):
+     * every URL configured by the user (cameras, Hue bridge, Web IOs, Lua
+     * scripts, influxdb, audio devices...) skips certificate verification by
+     * DEFAULT — the installed base is self-signed HTTPS on the LAN, a
+     * verified default would break every existing installation. Hardening is
+     * a per-device opt-in with insecure="false". Only the hardcoded calaos.fr
+     * service URLs (NotifManager push...) keep verified transfers, by NOT
+     * going through these helpers.
+     *
+     * insecureParamEnabled() maps a device `insecure` parameter value to the
+     * effective policy, bounded and non-throwing: ONLY the exact string
+     * "false" hardens the device, anything else (absent/empty parameter
+     * included: grandfathered pre-T2.17 configs) means insecure. */
+    static bool insecureParamEnabled(const std::string &paramValue)
+    { return paramValue != "false"; }
+    void setInsecureFromParam(const std::string &paramValue)
+    { if (insecureParamEnabled(paramValue)) setInsecure(); }
 
     /* Interrupts the transfer: aborts the libcurl transfer (the connection
      * drops), disconnects every signal. No callback fires after this returns.

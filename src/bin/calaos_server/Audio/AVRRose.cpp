@@ -409,6 +409,9 @@ void AVRRose::postRequest(string urlPath, string data, std::function<void(const 
     cDebugDom("hifirose") << "POST " << url << " data: " << data;
 
     UrlDownloader *dl = new UrlDownloader(url, true);
+    //T2.19: user-configured LAN device URL (self-signed HTTPS), insecure by
+    //default (policy)
+    dl->setInsecure();
     dl->setHeader("Content-Type", "application/json;charset=utf-8");
     dl->httpPost({}, data);
 
@@ -432,6 +435,9 @@ void AVRRose::getRequest(string urlPath, std::function<void(const string &)> dat
     cDebugDom("hifirose") << "GET " << url;
 
     UrlDownloader *dl = new UrlDownloader(url, true);
+    //T2.19: user-configured LAN device URL (self-signed HTTPS), insecure by
+    //default (policy)
+    dl->setInsecure();
     dl->httpGet();
 
     dl->m_signalCompleteData.connect([dataCb, urlPath](const string &dataRes, int status)

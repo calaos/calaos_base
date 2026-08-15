@@ -68,5 +68,11 @@ void WebDocBase::initDoc(IODoc *ioDoc, bool postDoc)
                                  "If the path is 2/4/, the value returne wil be 20.3\n"),
                         IODoc::TYPE_STRING, true);
     }
+
+    //T2.19: insecure by default (user decision) — Web IOs point at LAN
+    //devices commonly serving self-signed HTTPS, existing configs have no
+    //insecure param. m_parameters is keyed by name, so the GetAndPost flavor
+    //calling initDoc() twice documents this entry only once.
+    ioDoc->paramAdd("insecure", _("Skip TLS certificate verification when connecting to the url. Default to true (LAN devices commonly use self-signed certificates). Set to false to only allow a verified HTTPS connection."), IODoc::TYPE_BOOL, false, "true");
 }
 

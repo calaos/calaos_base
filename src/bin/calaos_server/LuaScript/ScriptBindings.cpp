@@ -342,6 +342,10 @@ int Lua_Calaos::requestUrl(lua_State *L)
         string url = lua_tostring(L, 1);
 
         UrlDownloader *dl = new UrlDownloader(url, true);
+        //T2.19: user-scripted URL, insecure by default (policy). No natural
+        //per-item config exists here: the URL comes from the Lua code at
+        //runtime, there is no device param to opt in to verification.
+        dl->setInsecure();
         dl->httpGet();
 
         //we are in an extern process here, so run a loop to do the download
@@ -355,6 +359,8 @@ int Lua_Calaos::requestUrl(lua_State *L)
         string post_data = lua_tostring(L, 2);
 
         UrlDownloader *dl = new UrlDownloader(url, true);
+        //T2.19: user-scripted URL, insecure by default (policy), see above
+        dl->setInsecure();
         dl->httpPost(string(), post_data);
 
         ScriptWatchdogPause pause;

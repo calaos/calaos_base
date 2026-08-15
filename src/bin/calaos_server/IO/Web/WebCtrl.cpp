@@ -121,6 +121,9 @@ void WebCtrl::launchDownload()
         Utils::strStartsWith(u, "https://"))
     {
         UrlDownloader *dl = new UrlDownloader(param.get_param("url"), true);
+        //T2.19: user-configured URL — insecure unless the IO opts in to
+        //hardening with insecure="false"
+        dl->setInsecureFromParam(param.get_param("insecure"));
         dl->httpGet(filename);
         dl->m_signalComplete.connect([=](int status)
         {
@@ -383,6 +386,9 @@ void WebCtrl::setValue(string value)
     }
 
     UrlDownloader *fdownloader = new UrlDownloader(url, true);
+    //T2.19: user-configured URL — insecure unless the IO opts in to
+    //hardening with insecure="false"
+    fdownloader->setInsecureFromParam(param.get_param("insecure"));
     fdownloader->setHeader("Content-Type", data_type);
     fdownloader->httpPost(string(), data);
 

@@ -104,7 +104,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         url += "?cmd=" + valcmd;
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
-        UrlDownloader::insecureGet(url);
+        camGet(url);
 
         urlStop = "http://" + param["host"] + ":" + param["port"];
         urlStop += "/cgi-bin/CGIProxy.fcgi";
@@ -118,9 +118,16 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         int zstep = 0;
         Utils::from_string(param["zoom_step"], zstep);
         float moveDelay = 0.100 * (1 + zstep);
+        //T2.19: resolve the TLS policy now — the delayed lambda must not
+        //capture `this` (the camera may be gone when the timer fires, the
+        //old static insecureGet call had no lifetime dependency either)
+        bool insecure = tlsInsecure();
         Timer::singleShot(moveDelay, [=]()
         {
-            UrlDownloader::insecureGet(urlStop);
+            if (insecure)
+                UrlDownloader::insecureGet(urlStop);
+            else
+                UrlDownloader::get(urlStop);
         });
     }
 }

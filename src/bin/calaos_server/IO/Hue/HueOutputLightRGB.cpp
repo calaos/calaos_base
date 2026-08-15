@@ -38,6 +38,9 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     ioDoc->paramAdd("host", _("Hue bridge IP address"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("api", _("API key return by Hue bridge when assciation has been made. Use Hue Wizard in calaos_installer to get this value automatically."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("id_hue", _("Unique ID describing the Hue Light. This value is returned by the Hue Wizard."), IODoc::TYPE_STRING, true);
+    //T2.19: insecure by default (user decision) — the Hue bridge serves a
+    //self-signed certificate, existing configs have no insecure param
+    ioDoc->paramAdd("insecure", _("Skip TLS certificate verification when connecting to the Hue bridge. Default to true (the bridge uses a self-signed certificate). Set to false to only allow a verified HTTPS connection."), IODoc::TYPE_BOOL, false, "true");
 
     m_host = get_param("host");
     m_api = get_param("api");
@@ -47,7 +50,7 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     {
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
-        dl->setInsecure(); //T2.17: local self-signed HTTPS device
+        dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
         dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
         {
             if (status)
@@ -139,7 +142,7 @@ void HueOutputLightRGB::setOff()
 {
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecure(); //T2.17: local self-signed HTTPS device
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
     dl->bodyDataSet("{\"on\":false}");
     dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
@@ -154,7 +157,7 @@ void HueOutputLightRGB::setColor(const ColorValue &c)
 {
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecure(); //T2.17: local self-signed HTTPS device
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
     string ccolor = "{\"on\":true,"
                    "\"sat\":"  + Utils::to_string((int)(c.getHSVSaturation() * 255.0 / 100.0)) +
                    ",\"bri\":" + Utils::to_string((int)(c.getHSLLightness() * 255.0 / 100.0)) +

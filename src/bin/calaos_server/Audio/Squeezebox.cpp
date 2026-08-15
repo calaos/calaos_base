@@ -746,6 +746,8 @@ void Squeezebox::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
     data->callback = callback;
 
     UrlDownloader *downloader = new UrlDownloader(url, true);
+    //T2.19: user-configured LMS server URL, insecure by default (policy)
+    downloader->setInsecure();
     downloader->setHeader("Content-Type", "application/json");
     downloader->httpPost(string(), postData);
     downloader->m_signalCompleteData.connect([this, data](const string &urldata, int status)

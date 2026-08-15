@@ -173,7 +173,7 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
         url += "&profileType=" + Utils::url_encode(get_param("camera_profile"));
 
     UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecure(); //T2.17: local self-signed HTTPS device
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
 
     dl->m_signalCompleteData.connect([=](const string &data, int status)
     {
@@ -208,7 +208,7 @@ void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
     url += "&passwd=" + Utils::url_encode(get_param("password"));
 
     UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecure(); //T2.17: local self-signed HTTPS device
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
 
     dl->m_signalCompleteData.connect([=](const string &data, int status)
     {
@@ -241,7 +241,7 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
     Utils::replace_str(url, "%1", get_param("url"));
     Utils::replace_str(url, "%2", api);
     UrlDownloader *dl = new UrlDownloader(url, true);
-    dl->setInsecure(); //T2.17: local self-signed HTTPS device
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
 
     dl->m_signalCompleteData.connect([=](const string &data, int status)
     {
