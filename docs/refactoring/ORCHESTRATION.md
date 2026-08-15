@@ -8,13 +8,17 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **État master** : à jour, poussé sur origin. Dernier jalon : T1.11 mergé (`8a4d59bf`).
-- **Phase 1** : 13/19 tickets faits. Reste 6 en backlog (voir tableau ci-dessous).
-- **Rien en vol** : aucun worktree ouvert, aucune branche `refactor/*` en cours.
-- **Prochaine action au choix de l'utilisateur** :
-  1. Lancer **wave 4** sur les 6 tickets Phase-1 restants (Python/drivers), ou
-  2. Traiter **T2.8** (quarantaine ASan exprtk — voir FINDINGS/décision), ou
-  3. Trier les **12 alertes Dependabot** (8 high, 4 moderate) signalées au push.
+- **État master** : `9d8d37b5` poussé sur origin (docs d'orchestration). Dernier merge code : T1.11.
+- **Phase 1** : 13/19 faits. **WAVE 4 EN VOL** : les 6 derniers tickets (T1.8, T1.10, T1.14,
+  T1.16, T1.17, T1.19) sont en cours d'implémentation par des subagents.
+- **Worktrees wave 4** : `/tmp/claude-1000/calaos-wave4/tX.Y`, branches `refactor/tX.Y`,
+  base `9d8d37b5`. Ownership : T1.8 = calaos_mcp `auth.py`+`pyproject.toml`+`calaos-python/` ;
+  T1.16 = calaos_mcp `client/config/server/tools` + Roon (fichiers disjoints de T1.8, même dossier).
+- **À la reprise si les agents ont fini** : pour chaque branche `refactor/*` existante avec un
+  commit au-dessus de `9d8d37b5` → revue (subagent) → merge (subagent, procédure ci-dessous) →
+  board ✅. Si une branche est vide/absente, relancer l'implémentation du ticket.
+- **Ensuite** : T2.8 (quarantaine ASan exprtk — voir FINDINGS) et triage des **13 alertes
+  Dependabot** (9 high, 4 moderate) signalées au push.
 
 ---
 
@@ -80,18 +84,18 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 | T1.5 | Transport & WS framing limits (F9, F10, F12 +) | ✅ |
 | T1.6 | RemoteUI HMAC constant-time + dedup | ✅ |
 | T1.7 | MCP token CSPRNG (F1) | ✅ |
-| **T1.8** | **Python sidecar auth & quality (F5)** | 📋 |
+| T1.8 | Python sidecar auth & quality (F5) | 🔨 |
 | T1.9 | ExternProc framing (F13 + sockfd) | ✅ |
-| **T1.10** | **RemoteUI WebSocket/OTA lifecycle** | 📋 |
+| T1.10 | RemoteUI WebSocket/OTA lifecycle | 🔨 |
 | T1.11 | IOBase/IOFactory id integrity | ✅ |
 | T1.12 | Utils CSPRNG/safety + tcpsocket | ✅ |
 | T1.13 | LAN & Hue memory safety | ✅ |
-| **T1.14** | **Reolink driver lifecycle & log hygiene** | 📋 |
+| T1.14 | Reolink driver lifecycle & log hygiene | 🔨 |
 | T1.15 | Lua sandbox + exec watchdog | ✅ |
-| **T1.16** | **MCP client + Roon Python robustness** | 📋 |
-| **T1.17** | **Extern-proc driver mains (Wago/OLA/OneWire/Mqtt)** | 📋 |
+| T1.16 | MCP client + Roon Python robustness | 🔨 |
+| T1.17 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | 🔨 |
 | T1.18 | ActionMail/ActionPush dangling-this | ✅ |
-| **T1.19** | **IO controllers (MySensors/Gpio/Web)** | 📋 |
+| T1.19 | IO controllers (MySensors/Gpio/Web) | 🔨 |
 
 Backlog wave 4 (candidats) : **T1.8, T1.10, T1.14, T1.16, T1.17, T1.19** — majoritairement
 Python / drivers, donc largement file-disjoints.

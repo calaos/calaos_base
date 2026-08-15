@@ -59,18 +59,18 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.5](T1.5.md) | 1 | Transport & WS framing limits (F9, F10, F12 +) | fix (sec) | Phase 0 | ✅ |
 | [T1.6](T1.6.md) | 1 | RemoteUI HMAC constant-time + dedup | fix (sec) | Phase 0 | ✅ |
 | [T1.7](T1.7.md) | 1 | MCP token CSPRNG (F1) | fix (sec) | Phase 0 | ✅ |
-| [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 📋 |
+| [T1.8](T1.8.md) | 1 | Python sidecar auth & quality (F5) | fix (sec) | Phase 0 | 🔨 |
 | [T1.9](T1.9.md) | 1 | ExternProc framing (F13 + sockfd) | fix | Phase 0 | ✅ |
-| [T1.10](T1.10.md) | 1 | RemoteUI WebSocket/OTA lifecycle | fix | Phase 0 | 📋 |
+| [T1.10](T1.10.md) | 1 | RemoteUI WebSocket/OTA lifecycle | fix | Phase 0 | 🔨 |
 | [T1.11](T1.11.md) | 1 | IOBase/IOFactory id integrity | fix | Phase 0 | ✅ |
 | [T1.12](T1.12.md) | 1 | Utils CSPRNG/safety + tcpsocket | fix (sec) | Phase 0 | ✅ |
 | [T1.13](T1.13.md) | 1 | LAN & Hue memory safety | fix | Phase 0 | ✅ |
-| [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 📋 |
+| [T1.14](T1.14.md) | 1 | Reolink driver lifecycle & log hygiene | fix | Phase 0 | 🔨 |
 | [T1.15](T1.15.md) | 1 | Lua sandbox + exec watchdog | fix (sec) | Phase 0 | ✅ |
-| [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 📋 |
-| [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 📋 |
+| [T1.16](T1.16.md) | 1 | MCP client + Roon Python robustness | fix | Phase 0 | 🔨 |
+| [T1.17](T1.17.md) | 1 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | fix | Phase 0 | 🔨 |
 | [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
-| [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | 📋 |
+| [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | 🔨 |
 | [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | 📋 |
 | [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | 📋 |
 | [T2.3](T2.3.md) | 2 | SHA1 → OpenSSL | refactor | Phase 1 | 📋 |
