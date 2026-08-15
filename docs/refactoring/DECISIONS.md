@@ -80,3 +80,9 @@ identifiants par défaut. Le durcissement auth reste optionnel/non-bloquant.
 
 ## 2026-08-15 — Push différé
 Le push des ~74 commits (Phases 1+2+3-core) est explicitement différé par l'utilisateur.
+
+## 2026-08-15 — TLS UrlDownloader (T2.17)
+**Décisions** : (1) URLs utilisateur Web/Lua : vérifiées par défaut, avec option par-IO
+`insecure="true"` à ajouter (ticket T2.19). (2) Politique caméra insecure étendue à TOUS les
+consommateurs d'URLs caméra : MJPEG relay + pièces jointes mail/push (ActionCameraDownload) —
+cohérence avec les snapshots, comportement pré-T2.17 conservé pour les caméras auto-signées.

@@ -91,6 +91,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.16](T2.16.md) | 2 | HttpClient keep-alive request_headers leak | fix (sec) | T2.11 | 🔨 |
 | [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | 🔨 |
 | [T2.18](T2.18.md) | 2 | createIO null-guard audit (JsonApi/AutoScenario) | fix | T1.11 | 📋 |
+| [T2.19](T2.19.md) | 2 | Per-IO `insecure` option for Web/Lua (user decision) | feature | T2.17 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | ✅ |
 | [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | ✅ |
