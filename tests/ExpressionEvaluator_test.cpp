@@ -55,6 +55,11 @@ TEST_F(ExpressionEvaluatorTest, evaluateExpressionBool)
     EXPECT_FALSE(failed);
     EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("value == 'online'", "online", failed));
     EXPECT_FALSE(failed);
+    // T2.8: string path with surrounding whitespace (Utils::trim) — the exact
+    // code path that used to bind a block-scoped string into the exprtk
+    // symbol table (stack-use-after-scope under ASan).
+    EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("value == 'connected'", "  connected \n", failed));
+    EXPECT_FALSE(failed);
     EXPECT_FALSE(ExpressionEvaluator::evaluateExpressionBool("value == 'disconnected'", "connected", failed));
     EXPECT_FALSE(failed);
     EXPECT_TRUE(ExpressionEvaluator::evaluateExpressionBool("x > 5 and x < 15", "10", failed));

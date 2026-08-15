@@ -113,6 +113,15 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
     bool is_numeric = parse_double(rawValue, value_num);
 
     symbol_table_t symbol_table;
+
+    // value_str must outlive expr.value() below: symbol_table.add_stringvar()
+    // stores a *reference* to it that exprtk dereferences during evaluation.
+    // It used to be declared inside the else block, which caused a genuine
+    // stack-use-after-scope (read of a dead stack slot at evaluation time),
+    // reported by ASan in exprtk's eq_op::process on rule conditions like
+    // `value == 'connected'` (T2.8).
+    std::string value_str;
+
     if (is_numeric)
     {
         // only numeric
@@ -131,7 +140,7 @@ bool ExpressionEvaluator::evaluateExpressionBool(const std::string &expression, 
     else
     {
         // only string
-        std::string value_str = Utils::trim(rawValue);
+        value_str = Utils::trim(rawValue);
         if (!symbol_table.add_stringvar("x",     value_str))
         {
             cWarningDom("expr") << "Failed to add string variable 'x'";
