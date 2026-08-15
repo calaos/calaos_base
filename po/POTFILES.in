@@ -95,7 +95,6 @@
 ./src/bin/calaos_server/IO/KNX/KNXExternProc_main.h
 ./src/bin/calaos_server/IO/KNX/KNXIo.cpp
 ./src/bin/calaos_server/IO/KNX/KNXIo.h
-./src/bin/calaos_server/IO/KNX/ThinIo.h
 ./src/bin/calaos_server/IO/LAN/PingInputSwitch.cpp
 ./src/bin/calaos_server/IO/LAN/PingInputSwitch.h
 ./src/bin/calaos_server/IO/LAN/WOLOutputBool.cpp
@@ -155,6 +154,7 @@
 ./src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.h
 ./src/bin/calaos_server/IO/Scenario.cpp
 ./src/bin/calaos_server/IO/Scenario.h
+./src/bin/calaos_server/IO/ThinIo.h
 ./src/bin/calaos_server/IO/Wago/libmbus/mbus.c
 ./src/bin/calaos_server/IO/Wago/libmbus/mbus_cmd.c
 ./src/bin/calaos_server/IO/Wago/libmbus/mbus_conf.h

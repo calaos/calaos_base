@@ -41,12 +41,20 @@ namespace Calaos
 //The header is deliberately self-contained and driver-agnostic: it only uses
 //the IOBase/IODoc API and knows nothing about any protocol.
 //
-//Ordering contract: friendlyName then description then extraDoc, all before
-//the driver mixin's own paramAdd calls. That order is what keeps the
-//generated documentation (--gendoc) byte-identical to the hand-written
-//constructors this template replaced. A driver whose preamble does not fit
-//that shape must keep its own constructor rather than reorder its ioDoc
-//calls.
+//What the generated documentation (--gendoc) depends on is the *set* of
+//friendlyNameSet/descriptionSet/paramAdd/aliasAdd/linkAdd calls and their
+//arguments, not the order they are made in: the first two write scalar
+//members and IODoc keeps its parameters in an unordered_map (IODoc.h).
+//Adopting this template is therefore doc-neutral as long as no call is
+//added, dropped, or given different arguments -- that is the contract to
+//respect, and it is the invariant the byte-identical --gendoc diff checks.
+//
+//The order the template does impose -- friendlyName, description, extraDoc,
+//then the driver mixin's own params -- is a readability convention, kept
+//identical to the hand-written constructors it replaced. A driver whose
+//preamble does not fit that shape (Wago interleaves aliasAdd between name
+//and description) is free to keep its own constructor rather than shuffle
+//its ioDoc calls for uniformity's sake.
 template <typename Base>
 class ThinIo: public Base
 {
