@@ -523,3 +523,22 @@ core_CalaosConfigRobustness_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_CalaosConfigRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T2.11
+#Transport hardening: WebSocketFrame condemns an invalid header (oversized or
+#fragmented control frame, RSV bits) at the header without buffering the
+#payload of a refused frame; TransportLimits::parseLimit clamps broken config
+#overrides back to the built-in defaults; effectiveClientIp identifies a
+#client by the last entry of the last X-Forwarded-For line (trusted haproxy
+#hop, T1.8 rule) with TCP-peer fallback. Only libcalaos_common code and
+#header-inline helpers of HttpClient.h are exercised, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += TransportHardening_test
+check_PROGRAMS += TransportHardening_test
+TransportHardening_test_SOURCES = TransportHardening_test.cpp
+TransportHardening_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

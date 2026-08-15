@@ -73,7 +73,7 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
     //runs out of file descriptors or memory. Nothing is evicted: an opened
     //connection may be an authenticated websocket receiving events, it is not
     //this code's place to decide it matters less than the new one.
-    if (connections.size() >= TransportLimits::MaxConnections)
+    if (connections.size() >= TransportLimits::maxConnections())
     {
         cWarningDom("network")
                 << "Refusing connection from address " << ipAddr << ", "
@@ -112,8 +112,13 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
         delete conn;
     });
 
-    client->on<uvw::DataEvent>([ipAddr, conn](const uvw::DataEvent &ev, auto &)
+    //conn is guarded by its alive token: the handle can still deliver a
+    //buffered DataEvent after the CloseEvent above deleted conn, and the raw
+    //pointer would dangle (was relying on libuv delivery order).
+    client->on<uvw::DataEvent>([ipAddr, conn, token = conn->aliveToken()](const uvw::DataEvent &ev, auto &)
     {
+        if (token.expired()) return;
+
         cDebugDom("network")
                 << "Got data from client at address "
                 << ipAddr;
@@ -121,6 +126,27 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
     });
 
     client->read();
+}
+
+bool HttpServer::trackClientIp(const string &ip)
+{
+    auto it = ipConnections.find(ip);
+    if (it != ipConnections.end() &&
+        it->second >= TransportLimits::maxConnectionsPerIp())
+        return false;
+
+    ipConnections[ip]++;
+    return true;
+}
+
+void HttpServer::releaseClientIp(const string &ip)
+{
+    auto it = ipConnections.find(ip);
+    if (it == ipConnections.end())
+        return;
+
+    if (--it->second == 0)
+        ipConnections.erase(it);
 }
 
 void HttpServer::disconnectAll()

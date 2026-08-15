@@ -505,6 +505,75 @@ std::vector<ConfigOption> buildTable()
         .def("0.0.0.0")
         .restartRequired());
 
+    add(ConfigOption("max_http_body_size", C::Network, T::Int)
+        .label(N_("Maximum HTTP body size"))
+        .doc(N_("Biggest HTTP request body accepted on the API port, in bytes. A "
+                "request announcing or sending more is refused with a 413 answer. The "
+                "biggest legitimate payload a Calaos client sends is around 215 KiB "
+                "(calaos_installer pushing io.xml and rules.xml), the default keeps a "
+                "large margin above it. A value that is not a plain number between "
+                "4096 and 1073741824 falls back to the default."))
+        .def("4194304")
+        .range(4096, 1073741824)
+        .advanced()
+        .restartRequired()
+        .seeAlso("max_websocket_message_size"));
+
+    add(ConfigOption("max_websocket_message_size", C::Network, T::Int)
+        .label(N_("Maximum websocket message size"))
+        .doc(N_("Biggest websocket message accepted on the API port, fragments "
+                "included, in bytes. A bigger message is refused with a 1009 close "
+                "frame. A single websocket frame stays capped at 4 MiB whatever this "
+                "value, so raising it above that only takes effect on fragmented "
+                "messages. A value that is not a plain number between 4096 and "
+                "1073741824 falls back to the default."))
+        .def("4194304")
+        .range(4096, 1073741824)
+        .advanced()
+        .restartRequired()
+        .seeAlso("max_http_body_size"));
+
+    add(ConfigOption("max_connections", C::Network, T::Int)
+        .label(N_("Maximum connections"))
+        .doc(N_("Simultaneous connections accepted on the API port, all clients "
+                "together. Above it a new connection is answered 503 and closed right "
+                "away, nothing already opened is evicted. A value that is not a plain "
+                "number between 1 and 10000 falls back to the default."))
+        .def("100")
+        .range(1, 10000)
+        .advanced()
+        .restartRequired()
+        .seeAlso("max_connections_per_ip"));
+
+    add(ConfigOption("max_connections_per_ip", C::Network, T::Int)
+        .label(N_("Maximum connections per client"))
+        .doc(N_("Simultaneous connections accepted from one client address, so that a "
+                "single client cannot occupy every max_connections slot and evict "
+                "everybody else. Above it a request is answered 429 and its connection "
+                "closed. The client address is the last entry of the last "
+                "X-Forwarded-For header line (the address the haproxy in front of "
+                "calaos_server saw), or the TCP peer address on a direct connection. "
+                "A value that is not a plain number between 1 and 10000 falls back to "
+                "the default."))
+        .def("20")
+        .range(1, 10000)
+        .advanced()
+        .restartRequired()
+        .seeAlso("max_connections"));
+
+    add(ConfigOption("request_read_timeout", C::Network, T::Int)
+        .label(N_("Request read timeout"))
+        .doc(N_("Delay, in seconds, a new connection is given to send one complete "
+                "HTTP request before being closed. It only covers the time before the "
+                "first request is parsed, so it never applies to an opened websocket, "
+                "a long poll or a camera stream, only to a client that connects and "
+                "then sends nothing or dribbles its headers. A value that is not a "
+                "plain number between 1 and 600 falls back to the default."))
+        .def("30")
+        .range(1, 600)
+        .advanced()
+        .restartRequired());
+
     add(ConfigOption("wwwroot", C::Network, T::Path)
         .label(N_("Web interface directory"))
         .doc(N_("Directory served under /app/ for the main web interface. Leave it empty to "

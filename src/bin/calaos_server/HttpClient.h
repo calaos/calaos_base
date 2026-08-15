@@ -52,28 +52,111 @@ class OtaHttpHandler;
  * The websocket frame cap is WebSocketFrame::MAX_FRAME_SIZE_IN_BYTES and has
  * the same value: it lives in src/lib, which cannot include a calaos_server
  * header.
+ *
+ * Every limit but the header cap can be overridden from local_config.xml
+ * (keys of the same name in snake_case, see docs/16_config_options.md). The
+ * accessors read the config once, on first use, and fall back to the default
+ * on an empty, non numeric or out of range value: a broken config must never
+ * turn a hardening limit off.
  */
 namespace TransportLimits
 {
+//Defaults, unchanged from when the limits were hard wired.
+static constexpr uint64_t DefaultMaxHttpBodySize = 4 * 1024 * 1024;
+static constexpr uint64_t DefaultMaxWebsocketMessageSize = 4 * 1024 * 1024;
+static constexpr uint64_t DefaultMaxConnections = 100;
+static constexpr uint64_t DefaultMaxConnectionsPerIp = 20;
+static constexpr double DefaultRequestReadTimeout = 30.0;
+
+//Total bytes accepted for the request line + headers of one request. Refused
+//with a 431. Not configurable on purpose: haproxy sits in front of
+//calaos_server in calaos-os and cannot forward more than tune.bufsize
+//(16 KiB by default) of headers anyway, so 32 KiB never rejects a request
+//that went through it.
+static constexpr std::size_t MaxHeadersSize = 32 * 1024;
+
 //Biggest http request body accepted. Checked on Content-Length as soon as the
 //headers are parsed, and again on every body chunk for the requests that
 //announce no length (chunked). Refused with a 413.
-static constexpr uint64_t MaxHttpBodySize = 4 * 1024 * 1024;
+uint64_t maxHttpBodySize();
 
 //Biggest websocket message accepted, fragments included. Refused with a 1009
-//close frame.
-static constexpr uint64_t MaxWebsocketMessageSize = 4 * 1024 * 1024;
+//close frame. A value above WebSocketFrame::MAX_FRAME_SIZE_IN_BYTES only
+//takes effect on fragmented messages: a single frame stays capped at 4 MiB.
+uint64_t maxWebsocketMessageSize();
 
 //Simultaneous connections accepted on the port. Above that, a connection is
 //answered 503 and closed right away.
-static constexpr std::size_t MaxConnections = 100;
+std::size_t maxConnections();
+
+//Simultaneous connections accepted from one client. Above that, the request
+//is answered 429 and the connection closed, so that one client cannot occupy
+//every maxConnections() slot and evict everybody else. The client is the
+//address haproxy saw (X-Forwarded-For), not the TCP peer: every connection
+//shares the proxy address, see effectiveClientIp() below.
+std::size_t maxConnectionsPerIp();
 
 //Delay a connection is given to send a complete request. It only covers the
 //time before the first request is parsed, so it never applies to an opened
 //websocket (which has its own ping keepalive), nor to a long poll or a mjpeg
 //stream (their request is parsed long before the delay expires), only to a
 //client that connects and then sends nothing or dribbles headers.
-static constexpr double RequestReadTimeout = 30.0;
+double requestReadTimeout();
+
+//Parses a config override for one of the limits above. def is returned when
+//value is empty (key not set), not a plain positive number, or outside
+//[minValue, maxValue]. Pure, unit tested in tests/TransportHardening_test.cpp.
+inline uint64_t parseLimit(const std::string &value, uint64_t def,
+                           uint64_t minValue, uint64_t maxValue)
+{
+    if (value.empty())
+        return def;
+
+    uint64_t v = 0;
+    std::size_t pos = 0;
+    try
+    {
+        if (value.find_first_not_of("0123456789") != std::string::npos)
+            return def;
+        v = std::stoull(value, &pos);
+    }
+    catch (...)
+    {
+        return def;
+    }
+
+    if (pos != value.size() || v < minValue || v > maxValue)
+        return def;
+
+    return v;
+}
+
+//The client identity of a proxied connection. calaos_server always sits
+//behind haproxy in calaos-os, so the TCP peer is the proxy: without this,
+//every client collapses into one per-IP bucket. haproxy APPENDS its own
+//X-Forwarded-For header line after any client supplied one; the header map
+//keeps the last parsed line, and this helper takes the last comma entry of
+//that line: the address the trusted proxy hop saw. Everything before it is
+//client supplied and can be rotated at will, so it is ignored (same rule as
+//the MCP sidecar throttle, T1.8). Falls back to the TCP peer address when the
+//header is absent or empty (direct connection, no proxy).
+//Pure, unit tested in tests/TransportHardening_test.cpp.
+inline std::string effectiveClientIp(const std::string &xffLastLine,
+                                     const std::string &peerIp)
+{
+    std::string::size_type pos = xffLastLine.rfind(',');
+    std::string last = (pos == std::string::npos)?
+                       xffLastLine:
+                       xffLastLine.substr(pos + 1);
+
+    std::string::size_type b = last.find_first_not_of(" \t");
+    if (b == std::string::npos)
+        return peerIp;
+    std::string::size_type e = last.find_last_not_of(" \t");
+    last = last.substr(b, e - b + 1);
+
+    return last.empty()? peerIp:last;
+}
 }
 
 class HttpClient: public sigc::trackable
@@ -115,9 +198,30 @@ protected:
     //timer closing a connection that never sends a complete request
     Timer *readTimeout = nullptr;
 
-    //set when a request body goes over MaxHttpBodySize, the request is then
+    //set when a request body goes over maxHttpBodySize(), the request is then
     //refused with a 413 instead of being buffered
     bool bodyTooLarge = false;
+
+    //bytes of request line + headers accumulated for the request being
+    //parsed, reset on every new request of a keep-alive connection
+    std::size_t headersSize = 0;
+
+    //set when headersSize goes over TransportLimits::MaxHeadersSize, the
+    //request is then refused with a 431 instead of being accumulated
+    bool headersTooLarge = false;
+
+    //client identity counted in HttpServer's per-IP connection map. Counted
+    //once per connection, on its first parsed request, released by the
+    //destructor.
+    bool ipTracked = false;
+    std::string trackedIp;
+
+    //Lifetime token for the uvw callbacks of this connection (WriteEvent,
+    //ErrorEvent, DataEvent...). uvw handles outlive the HttpClient that fed
+    //them, so a callback must never touch a raw `this` without first checking
+    //this token: the destructor releases it, expiring every weak_ptr taken
+    //from it. Same pattern as McpProxyHandler/Rule.
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     bool isClosing = false;
 
@@ -144,6 +248,12 @@ protected:
     void cancelReadTimeout();
 
     void sendRequestTooLarge();
+    void sendRequestHeadersTooLarge();
+
+    //Counts this connection in the per-IP cap on its first parsed request.
+    //Returns false when the client is over maxConnectionsPerIp(): the caller
+    //answers 429 and closes.
+    bool trackPerIpCap();
 
     string getMimeType(const string &file_ext);
 
@@ -154,6 +264,7 @@ protected:
     friend int _parser_message_complete(llhttp_t *parser);
     friend int _parser_url(llhttp_t *parser, const char *at, size_t length);
     friend int _parser_body_complete(llhttp_t* parser, const char *at, size_t length);
+    friend int _check_headers_size(HttpClient *client, size_t length);
 
 public:
     HttpClient(const std::shared_ptr<uvw::TcpHandle> &client);
@@ -173,6 +284,10 @@ public:
 
     // Expose request headers for handlers that need authentication
     const unordered_map<string, string> &getRequestHeaders() const { return request_headers; }
+
+    //Lifetime token for async callbacks capturing this connection: check
+    //expired() before touching the object (see the `alive` member).
+    std::weak_ptr<bool> aliveToken() const { return alive; }
 };
 
 #endif

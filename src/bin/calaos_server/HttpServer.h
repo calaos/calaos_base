@@ -24,6 +24,7 @@
 #include "Calaos.h"
 #include "WebSocket.h"
 #include "HttpClient.h"
+#include <unordered_map>
 
 using namespace std;
 
@@ -42,6 +43,12 @@ private:
 
     list<WebSocket *> connections;
 
+    //Connections opened per client identity (X-Forwarded-For through haproxy,
+    //TCP peer otherwise, see TransportLimits::effectiveClientIp). Entries only
+    //exist while at least one connection of that client is opened, so the map
+    //is bounded by TransportLimits::maxConnections().
+    unordered_map<string, size_t> ipConnections;
+
     HttpServer(int port); //port to listen
 
     void addConnection(const std::shared_ptr<uvw::TcpHandle> &client);
@@ -56,5 +63,12 @@ public:
     ~HttpServer();
 
     void disconnectAll();
+
+    //Per-client connection cap (TransportLimits::maxConnectionsPerIp).
+    //trackClientIp() counts one more connection for ip and returns false when
+    //the cap is reached (nothing counted then). Every successful call must be
+    //balanced by one releaseClientIp() with the same ip (HttpClient does both).
+    bool trackClientIp(const string &ip);
+    void releaseClientIp(const string &ip);
 };
 #endif

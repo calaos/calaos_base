@@ -230,8 +230,9 @@ void WebSocket::processHandshake()
     currentFrame.clear();
 
     //Connect to the ErrorEvent and reset the state
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    client_conn->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
     {
+        if (token.expired()) return;
         status = WSClosed;
     });
 
@@ -485,11 +486,11 @@ void WebSocket::processFrame(const string &data)
                     isfragmented = !currentFrame.isFinalFrame();
                 }
 
-                if (currentData.size() + currentFrame.getPayload().size() > TransportLimits::MaxWebsocketMessageSize)
+                if (currentData.size() + currentFrame.getPayload().size() > TransportLimits::maxWebsocketMessageSize())
                 {
                     reset();
                     stringstream err;
-                    err << "Message exceeds size of " << TransportLimits::MaxWebsocketMessageSize << " bytes";
+                    err << "Message exceeds size of " << TransportLimits::maxWebsocketMessageSize() << " bytes";
                     cWarningDom("websocket") << err.str();
 
                     //Send close frame and close connection
@@ -577,13 +578,21 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     data_size += frame.size();
     uint frameSize = frame.size();
 
-    client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize](const auto &, auto &)
+    //alive token: the WebSocket can be deleted with this write in flight
+    //(peer closes right away), the completion must not touch a dead `this`
+    client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
     {
+        if (token.expired()) return;
+
         this->DataWritten(frameSize);
 
         //start a timeout to wait for a close frame from the client
         if (!closeReceived && !forceClose)
         {
+            //DELETE_NULL(closeTimeout) from inside the timer's own callback
+            //is safe since T2.1: the uvw callback only holds a weak tag on
+            //the Timer, a deleted Timer is never dereferenced afterwards.
+            DELETE_NULL(closeTimeout);
             closeTimeout = new Timer(10.0, [=]()
             {
                 cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
@@ -751,8 +760,10 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
         std::copy(frame.begin(), frame.end(), dataWrite.get());
         client_conn->write(std::move(dataWrite), dataSize);
-        client_conn->once<uvw::WriteEvent>([this, n](const auto &, auto &)
+        //alive token: same in-flight write hazard as HttpClient::sendToClient
+        client_conn->once<uvw::WriteEvent>([this, n, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
         {
+            if (token.expired()) return;
             this->DataWritten(n);
         });
 

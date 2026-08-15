@@ -114,6 +114,22 @@ bool WebSocketFrame::processFrameData(string &data)
 
                 checkValid();
 
+                //An invalid header (RSV bits, reserved opcode, fragmented or
+                //oversized control frame) is fatal: the connection is closed
+                //with closeCode anyway, so stop here instead of keeping on
+                //parsing (and buffering the payload) of a frame already
+                //refused. Note that testing the 7 bit length code against
+                //125 in checkValid() is correct even before the extended
+                //length is read: codes 126/127 announce an extended length,
+                //which is > 125 by construction, and any other code IS the
+                //real length (audit of T2.11 item 4).
+                if (haserror)
+                {
+                    finished = true;
+                    state = StateReadHeader;
+                    break;
+                }
+
                 //Handle 0 length payload here for client
                 if (state == StateReadPayload && payload_length == 0)
                 {
