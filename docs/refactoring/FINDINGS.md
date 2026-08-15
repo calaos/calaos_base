@@ -37,6 +37,24 @@
   `renameId()` (pas de rehash de la map id→IO). Aucun appelant de ce type aujourd'hui
   (vérifié grep). → envisager const ref ou mutateur dédié.
 
+## Wave 7 — follow-ups mineurs (hors périmètre, non corrigés)
+
+- **[T2.18 revue] `buildAutoscenarioModify`** : `deleteRules()` + `addStep()` s'exécutent
+  AVANT le guard `checkScenarioRules()` — sur un scénario aux IOs internes null (config
+  squattée qui survit désormais au boot grâce à T2.18), déref null avant le guard.
+  Strictement une amélioration vs le crash au boot pré-fix, mais remonter le guard avant
+  `deleteRules()` serait plus propre. Aussi : `createInput` marque encore un IO étranger
+  squatté avec `setAutoScenario(true)`.
+- **[T2.19 revue] `WebCtrl` singleton par URL** : deux IOs Web partageant une URL avec des
+  params `insecure` différents → first-instance-wins (direction d'échec = reste insecure,
+  conforme à la politique). Pré-existant au design singleton.
+- **[T2.19 doc] `insecure="false"` est sensible à la casse** (`"False"` reste insecure —
+  direction sûre) ; cohérent avec les bools existants de calaos, mais l'ioDoc pourrait le
+  préciser.
+- **[TÂCHE EXTERNE — calaos_installer]** : ajouter l'option écrivant `insecure="false"` pour
+  les NOUVEAUX devices (décision 2026-08-15) ; suggestion : matérialiser l'implicite
+  `insecure="true"` à la sauvegarde pour permettre un futur flip du défaut code.
+
 ## Wave 6 — follow-ups (hors périmètre, non corrigés)
 
 - **[MÊME CLASSE que T3.7] `McpServerManager.cpp:166` et `JsonApiHandlerHttp.cpp:45`** :
