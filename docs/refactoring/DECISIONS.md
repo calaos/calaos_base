@@ -4,6 +4,15 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-15 — Config corrompue (T2.4) : restore + préservation + notification
+**Décision** : sur io.xml/rules.xml corrompu, restauration automatique en remontant les
+backups du plus récent au plus ancien ; le fichier corrompu est **préservé** dans
+`<config>/backups/corrupt/<nom>.<timestamp>` (jamais écrasé silencieusement) ; et **une seule**
+notification agrégée mail+push (via NotifManager, inconditionnelle, ~30 s après le boot)
+rapporte fichier / chemin préservé / backup restauré-ou-config-vide.
+**Limitation connue** : local_config.xml non couvert (parsing dans Utils.cpp) — à replier
+dans T2.2 (split Utils).
+
 ## 2026-08-15 — MySensors : suppression complète (code mort)
 **Décision** : MySensors n'est plus utilisé par personne — supprimer tout le support de la
 codebase (ticket T2.12). Rend T3.2b obsolète.
