@@ -34,8 +34,10 @@
   — uv_kill(0) SIGTERMait le process group après un uv_spawn échoué ; API uvw vérifiée
   (pid() = uv_process_t.pid, reste 0 si spawn échoue) ; 39/39 tests, ff-only, worktree
   t3.7 nettoyé. Restent non gardés, en FINDINGS : McpServerManager.cpp:166,
-  JsonApiHandlerHttp.cpp:45). 5 autres worktrees wave 7
-  encore en vol sous `/tmp/claude-1000/calaos-wave7/`.
+  JsonApiHandlerHttp.cpp:45). **T3.8 ✅ mergé** (2026-08-15, `a22db7c4`, gardes
+  aliveTag sur les callbacks async d'AVRRose.cpp + AVRRoseNotifServer.{cpp,h} ;
+  39/39 tests, ff-only, worktree t3.8 nettoyé). 4 autres worktrees wave 7
+  encore en vol sous `/tmp/claude-1000/calaos-wave7/` (t2.14–t2.17).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
