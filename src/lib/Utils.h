@@ -113,7 +113,6 @@ using Json = nlohmann::json;
 #endif
 
 //-----------------------------------------------------------------------------
-using namespace std;
 
 #ifndef uint
 typedef unsigned int uint;
@@ -136,16 +135,16 @@ namespace Utils
 double roundValue(double value, int precision);
 
 //Parse a result string into an array of Params.
-void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
+void parseParamsItemList(std::string l, std::vector<Params> &res, int start_at = 0);
 
 //Parse command line options
 bool argvOptionCheck(char **begin, char **end, const std::string &option);
 char *argvOptionParam(char **begin, char **end, const std::string &option);
 
-string getFileContent(const char *filename);
-string getFileContentBase64(const char *filename);
+std::string getFileContent(const char *filename);
+std::string getFileContentBase64(const char *filename);
 
-string getTmpFilename(const string &ext = "tmp", const string &prefix = "_tmp");
+std::string getTmpFilename(const std::string &ext = "tmp", const std::string &prefix = "_tmp");
 
 double getMainLoopTime();
 
