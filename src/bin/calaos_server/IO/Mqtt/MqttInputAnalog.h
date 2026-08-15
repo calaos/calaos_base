@@ -22,16 +22,13 @@
 #define __MQTT_INPUT_ANALOG_H__
 
 #include "InputAnalog.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttInputAnalog : public InputAnalog
+class MqttInputAnalog : public MqttIOBase<InputAnalog>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     virtual void readValue() override;
 

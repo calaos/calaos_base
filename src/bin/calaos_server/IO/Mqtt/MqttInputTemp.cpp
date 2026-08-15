@@ -22,11 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "MqttInputTemp.h"
-#include "MqttBrokersList.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 #include "AnalogIO.h"
 
@@ -35,21 +31,9 @@ using namespace Calaos;
 REGISTER_IO(MqttInputTemp)
 
 MqttInputTemp::MqttInputTemp(Params &p):
-    InputTemp(p)
+    MqttIOBase(p, "MqttInputTemp", _("Temperature read from a mqtt broker"))
 {
-    ioDoc->friendlyNameSet("MqttInputTemp");
-    ioDoc->descriptionSet(_("Temperature read from a mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
-    cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
-
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("input") << "MqttInputTemp::MqttInputTemp()";
 }

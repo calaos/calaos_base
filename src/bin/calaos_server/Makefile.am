@@ -172,6 +172,7 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttBrokerslist.cpp                     \
         IO/Mqtt/MqttCtrl.h                              \
         IO/Mqtt/MqttCtrl.cpp                            \
+        IO/Mqtt/MqttIOBase.h                            \
         IO/Mqtt/MqttInputAnalog.h                       \
         IO/Mqtt/MqttInputAnalog.cpp                     \
         IO/Mqtt/MqttInputString.h                       \

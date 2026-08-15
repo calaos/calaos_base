@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "MqttOutputAnalog.h"
-#include "MqttBrokersList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -27,24 +26,13 @@ using namespace Calaos;
 REGISTER_IO(MqttOutputAnalog)
 
 MqttOutputAnalog::MqttOutputAnalog(Params &p):
-    OutputAnalog(p)
+    MqttIOBase(p, "MqttOutputAnalog", _("Control analog output through mqtt broker"))
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("MqttOutputAnalog");
-    ioDoc->descriptionSet(_("Control analog output through mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
     ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
                               "with the state (float value) to be sent."),
                     IODoc::TYPE_STRING, true);
 
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("output") << "MqttOutputAnalog::MqttOutputAnalog()";
 }

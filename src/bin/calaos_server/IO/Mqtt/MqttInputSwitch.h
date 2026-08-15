@@ -22,16 +22,13 @@
 #define __MQTT_INPUT_SWITCH_H__
 
 #include "InputSwitch.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttInputSwitch : public InputSwitch
+class MqttInputSwitch : public MqttIOBase<InputSwitch>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     virtual bool readValue() override;
 

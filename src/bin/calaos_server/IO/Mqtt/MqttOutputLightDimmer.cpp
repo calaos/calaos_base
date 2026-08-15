@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "MqttOutputLightDimmer.h"
-#include "MqttBrokersList.h"
 #include "IOFactory.h"
 #include <ExpressionEvaluator.h>
 
@@ -28,15 +27,10 @@ using namespace Calaos;
 REGISTER_IO(MqttOutputLightDimmer)
 
 MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
-    OutputLightDimmer(p)
+    MqttIOBase(p, "MqttOutputLightDimmer", _("Control lights through mqtt broker"))
 {
     // We use real state for this IO: only emit change when the value really changes
     useRealState = true;
-
-    // Define IO documentation
-    ioDoc->friendlyNameSet("MqttOutputLightDimmer");
-    ioDoc->descriptionSet(_("Control lights through mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
 
     ioDoc->paramAdd("data", _("The data sent when publishing to topic. The __##VALUE##__ contained in data is substituted "
                               "with the state (integer value) to be sent."),
@@ -46,13 +40,7 @@ MqttOutputLightDimmer::MqttOutputLightDimmer(Params &p):
     ioDoc->paramAdd("out_expr", _("Use a mathematical expression to convert the value of the percentage into a raw value. The variable `x` is replaced with the percent value. For example, if you want to convert a percent value of 0-100 to a brightness of 0-254, you can use `x * 2.54`."),
                  IODoc::TYPE_STRING, false);
 
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("output") << "MqttOutputLightDimmer::MqttOutputLightDimmer()";
 }

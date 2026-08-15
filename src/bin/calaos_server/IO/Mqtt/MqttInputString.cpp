@@ -22,11 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "MqttInputString.h"
-#include "MqttBrokersList.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -34,20 +30,13 @@ using namespace Calaos;
 REGISTER_IO(MqttInputString)
 
 MqttInputString::MqttInputString(Params &p):
-    InputString(p)
+    MqttIOBase(p, "MqttInputString", _("String value read from a mqtt broker"))
 {
-    ioDoc->friendlyNameSet("MqttInputString");
-    ioDoc->descriptionSet(_("String value read from a mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
+    subscribeTopicSub([this]()
     {
         cDebugDom("mqtt") << "Read Value";
         readValue();
     });
-
-    ctrl->subscribeStatusTopics(this);
 
     cInfoDom("input") << "MqttInputString::MqttInputString()";
 }

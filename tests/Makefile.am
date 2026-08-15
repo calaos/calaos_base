@@ -655,3 +655,21 @@ core_WebIO_test_LDADD = $(CORE_TEST_LDADD) \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_WebIO_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+# T3.2c
+#Mqtt thin IO subclasses: MqttOutputLightRGB color+state feedback fix. The
+#on/off + last-known-color decision is the header-inline static
+#MqttOutputLightRGB::stateFromColor() (pure ColorValue logic), so no Mqtt
+#object nor extern process is linked, only libcalaos_common for ColorValue
+#(same approach as ExternProcDrivers_test). Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += MqttIO_test
+check_PROGRAMS += MqttIO_test
+MqttIO_test_SOURCES = MqttIO_test.cpp
+MqttIO_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MqttIO_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

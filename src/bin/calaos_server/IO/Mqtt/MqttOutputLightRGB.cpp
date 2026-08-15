@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "MqttOutputLightRGB.h"
-#include "MqttBrokersList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -27,15 +26,15 @@ using namespace Calaos;
 REGISTER_IO(MqttOutputLightRGB)
 
 MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
-    OutputLightRGB(p)
+    MqttIOBase(p, "MqttOutputLightRGB", _("Control RGB lights through mqtt broker"))
 {
-    // We use real state for this IO: only emit change when the value really changes
-    //useRealState = true;
-
-    // Define IO documentation
-    ioDoc->friendlyNameSet("MqttOutputLightRGB");
-    ioDoc->descriptionSet(_("Control RGB lights through mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
+    //T3.2c fix: broker feedback used to be ignored (dead readValue() with a
+    //blocking TODO) while setColor() emitted events unconditionally. Now the
+    //IO uses the real state: the change event is emitted when the broker
+    //confirms the new color/state on topic_sub, like MqttOutputLight does.
+    //Known limitation: the payload has no separate on/off state, so OFF is
+    //inferred from a black color feedback (see stateFromColor()).
+    useRealState = true;
 
     ioDoc->paramAdd("data", _("The data sent when publishing color to topic. The __##VALUE_R##__  __##VALUE_G##__  __##VALUE_B##__ or __##VALUE_HEX##__ or __##VALUE_X##__ __##VALUE_Y##__ __##VALUE_BRIGHTNESS##__ contained in data is substituted "
                               "with the color (integer value or #RRGGBB string value) to be sent."),
@@ -44,27 +43,21 @@ MqttOutputLightRGB::MqttOutputLightRGB(Params &p):
     ioDoc->paramAdd("path_y", _("The path where to found the Y (X/Y Color space) value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example color/y, try to read the x value from the color object."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("path_brightness", _("The path where to found the brightness value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example 'brightness'"), IODoc::TYPE_STRING, true);
 
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("output") << "MqttOutputLightRGB::MqttOutputLightRGB()";
 }
 
 void MqttOutputLightRGB::readValue()
 {
-    [[maybe_unused]] bool err;
-    [[maybe_unused]] auto c = ctrl->getValueColor(get_params(), err);
+    bool err;
+    ColorValue c = ctrl->getValueColor(get_params(), err);
 
-    //TODO: it does not work for now. We need to refactor the way it handle color+state in all
-    //RGB class and also add better state/color/brightness control in calaos
+    if (err)
+        return;
 
-    //if (!err)
-        //stateUpdated(c, c != ColorValue(0, 0, 0));
+    auto [newColor, newState] = stateFromColor(c, color);
+    stateUpdated(newColor, newState);
 }
 
 void MqttOutputLightRGB::setColorReal(const ColorValue &c, bool _state)

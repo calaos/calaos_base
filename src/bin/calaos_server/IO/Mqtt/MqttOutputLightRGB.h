@@ -20,23 +20,38 @@
  ******************************************************************************/
 #pragma once
 
+#include <utility>
+
 #include "OutputLightRGB.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttOutputLightRGB : public OutputLightRGB
+class MqttOutputLightRGB : public MqttIOBase<OutputLightRGB>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     void readValue();
     virtual void setColorReal(const ColorValue &color, bool state) override;
 
 public:
     MqttOutputLightRGB(Params &p);
+
+    //T3.2c: pure decision logic for the color+state broker feedback,
+    //header-inline so it is unit testable without linking MqttCtrl.
+    //The MQTT payload carries no separate on/off state (only
+    //path_x/path_y/path_brightness), and setColorReal() publishes black
+    //for OFF; so black feedback means OFF, and it must NOT clobber the
+    //last known color (set_value("on") re-sends the stored color: a
+    //black stored color would keep the light off forever).
+    //Returns {color to store, on/off state}.
+    static std::pair<ColorValue, bool> stateFromColor(const ColorValue &incoming,
+                                                      const ColorValue &current)
+    {
+        if (incoming == ColorValue(0, 0, 0))
+            return { current, false };
+        return { incoming, true };
+    }
 };
 
 }

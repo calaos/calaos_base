@@ -22,15 +22,18 @@
 #define __MQTT_OUTPUT_SHUTTER_H__
 
 #include "OutputShutter.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttOutputShutter : public OutputShutter
+class MqttOutputShutter : public MqttIOBase<OutputShutter>
 {
 private:
-    MqttCtrl *ctrl;
+    //Publish get_param(payloadParam), or defaultPayload when unset, on topic_pub
+    void publishCommand(const string &payloadParam, const string &defaultPayload);
+    //Apply an externally reported end state (open or closed)
+    void applyExternalState(bool open);
 
 protected:
     void readValue();

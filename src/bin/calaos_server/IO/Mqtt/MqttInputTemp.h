@@ -22,16 +22,13 @@
 #define __MQTT_INPUT_TEMP_H__
 
 #include "InputTemp.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttInputTemp : public InputTemp
+class MqttInputTemp : public MqttIOBase<InputTemp>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     virtual void readValue() override;
 

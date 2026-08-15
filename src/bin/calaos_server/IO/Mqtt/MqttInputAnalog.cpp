@@ -22,11 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "MqttInputAnalog.h"
-#include "MqttBrokersList.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 #include "AnalogIO.h"
 
@@ -35,19 +31,9 @@ using namespace Calaos;
 REGISTER_IO(MqttInputAnalog)
 
 MqttInputAnalog::MqttInputAnalog(Params &p):
-    InputAnalog(p)
+    MqttIOBase(p, "MqttInputAnalog", _("Analog value read from a mqtt broker"))
 {
-    ioDoc->friendlyNameSet("MqttInputAnalog");
-    ioDoc->descriptionSet(_("Analog value read from a mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
 }
@@ -55,8 +41,7 @@ MqttInputAnalog::MqttInputAnalog(Params &p):
 void MqttInputAnalog::readValue()
 {
     bool err;
-    double v;
-    v = ctrl->getValueDouble(get_params(), err);
+    double v = ctrl->getValueDouble(get_params(), err);
     if (!err && v != value)
     {
         value = AnalogIO::convertValue(get_params(), v);
