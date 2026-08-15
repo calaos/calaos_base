@@ -104,14 +104,6 @@ then
      AC_DEFINE([HAVE_LIBKNX], [1], [libknx])
 fi
 
-AC_CHECK_PROG(HAVE_CURLBIN, [curl], ["yes"])
-if test "x${HAVE_CURLBIN}" == "xyes"
-then
-    CURLBIN_INFO="yes"
-else
-    CURLBIN_INFO="No, install curl binary before running calaos_server"
-fi
-
 AC_CHECK_PROG(HAVE_CONVERT, [convert], ["yes"])
 if test "x${HAVE_CONVERT}" == "xyes"
 then
@@ -272,7 +264,6 @@ echo "Installation...........................: make install (as root if needed, 
 echo "  prefix...............................: $prefix"
 echo
 echo "Dependencies:"
-echo "  UrlDownloader curl support...........: $(colorOut $CURLBIN_INFO)"
 echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
 echo
 echo "Hardware support:"

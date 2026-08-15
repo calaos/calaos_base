@@ -150,14 +150,6 @@ Parsing et construction de frames WebSocket (RFC 6455). Utilisé par `WebSocket`
 
 ---
 
-## SHA1
-
-**Fichier :** [src/lib/SHA1.h](../src/lib/SHA1.h)
-
-Implémentation SHA-1 pour le handshake WebSocket.
-
----
-
 ## base64
 
 **Fichier :** [src/lib/base64.h](../src/lib/base64.h)

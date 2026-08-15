@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # data/debug is the developer-only debug web page.
+  # Its runtime assets are pre-built and committed under data/debug/dist/, so the
+  # npm build toolchain (gulp, browser-sync and their transitive dependencies)
+  # never ships: it only runs on a developer machine to regenerate that bundle.
+  # Vulnerabilities in those devDependencies are not exploitable in any deployed
+  # Calaos artifact, and the resulting alert churn is pure noise.
+  #
+  # "dependency-type: production" restricts Dependabot to the packages declared in
+  # "dependencies" (bootstrap, jquery, highlight.js) — those DO end up in dist/ and
+  # remain tracked. Everything under "devDependencies" is left alone.
+  - package-ecosystem: "npm"
+    directory: "/data/debug"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-type: "production"

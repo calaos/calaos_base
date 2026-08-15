@@ -352,8 +352,6 @@
 ./src/lib/Params.h
 ./src/lib/Prefix.cpp
 ./src/lib/Prefix.h
-./src/lib/SHA1.cpp
-./src/lib/SHA1.h
 ./src/lib/sigc_fix_functor.h
 ./src/lib/sole/sole.cpp
 ./src/lib/sqlite_modern_cpp/hdr/sqlite_modern_cpp/errors.h
