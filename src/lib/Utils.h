@@ -133,6 +133,7 @@ typedef unsigned int uint;
 #include "MemMacros.h"
 #include "LogSetup.h"
 #include "StringUtils.h"
+#include "ConfigStore.h"
 
 //-----------------------------------------------------------------------------
 
@@ -146,22 +147,6 @@ double roundValue(double value, int precision);
 //Parse a result string into an array of Params.
 void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 
-void initConfigOptions(char *configdir = NULL, char *cachedir = NULL, bool quiet = false);
-
-string getConfigPath();
-string getCachePath();
-string getConfigFile(const char *configFile);
-string getCacheFile(const char *cacheFile);
-
-string get_config_option(string key, bool no_logger_out = false);
-bool set_config_option(string key, string value);
-bool del_config_option(string key);
-bool get_config_options(Params &options);
-//Batched update: every key of toSet is created or updated and every key of
-//toDelete is removed, in a single load/modify/atomic write cycle. The file is
-//reloaded at call time under the lock, so the keys that are in neither list
-//keep the value another process may have given them in the meantime.
-bool set_config_options(const Params &toSet, const std::vector<std::string> &toDelete = {});
 void Watchdog(std::string fname);
 
 string createRandomUuid();

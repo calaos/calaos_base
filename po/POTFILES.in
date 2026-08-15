@@ -318,6 +318,8 @@
 ./src/lib/ColorUtils.h
 ./src/lib/ConfigOptions.cpp
 ./src/lib/ConfigOptions.h
+./src/lib/ConfigStore.cpp
+./src/lib/ConfigStore.h
 ./src/lib/Constants.h
 ./src/lib/ExpressionEvaluator.cpp
 ./src/lib/ExpressionEvaluator.h
