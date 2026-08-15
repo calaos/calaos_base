@@ -1,10 +1,9 @@
 import logging
 import os
-import subprocess
 import sys
 import colorama
 from logging import Logger, LogRecord
-from typing import Dict, Optional
+from typing import Dict
 
 colorama.init(strip=False)
 
@@ -52,16 +51,43 @@ class CalaosFormatter(logging.Formatter):
             f"{record.getMessage()}{reset}"
         )
 
+# Calaos debug levels (0-4, higher = more verbose) mapped to Python logging
+# levels (10-50, higher = more severe). Level N shows messages of the mapped
+# severity and above.
+_CALAOS_TO_PYTHON_LEVEL = {
+    0: logging.CRITICAL,
+    1: logging.ERROR,
+    2: logging.WARNING,
+    3: logging.INFO,
+    4: logging.DEBUG,
+}
+
+def _calaos_to_python_level(calaos_level: int) -> int:
+    return _CALAOS_TO_PYTHON_LEVEL.get(max(0, min(4, calaos_level)), logging.DEBUG)
+
 class CalaosLogger(Logger):
+    # Minimum Python logging level per domain (from CALAOS_LOG_DOMAINS)
     DOMAIN_LEVELS: Dict[str, int] = {}
-    DEFAULT_LEVEL = logging.INFO
+    DEFAULT_LEVEL = logging.DEBUG
 
     def __init__(self, name: str):
         super().__init__(name, logging.DEBUG)
 
+    @classmethod
+    def domain_min_level(cls, domain: str) -> int:
+        return cls.DOMAIN_LEVELS.get(domain, cls.DEFAULT_LEVEL)
+
     def should_log(self, level: int) -> bool:
-        domain_level = self.DOMAIN_LEVELS.get(self.name.split('.')[-1], self.DEFAULT_LEVEL)
-        return level >= domain_level
+        domain = self.name.split('.')[-1] if '.' in self.name else 'default'
+        return level >= self.domain_min_level(domain)
+
+class _DomainLevelFilter(logging.Filter):
+    """Enforces per-domain levels (CALAOS_LOG_DOMAINS) on the handler."""
+
+    def filter(self, record: LogRecord) -> bool:
+        parts = record.name.split('.')
+        domain = parts[-1] if len(parts) > 1 else 'default'
+        return record.levelno >= CalaosLogger.domain_min_level(domain)
 
 def get_debug_level() -> int:
     try:
@@ -79,13 +105,16 @@ def configure_logger():
     debug_level = get_debug_level()
     domains_config = os.environ.get('CALAOS_LOG_DOMAINS', '')
 
-    CalaosLogger.DEFAULT_LEVEL = debug_level
+    # Calaos levels (0-4) are converted to Python logging levels here so the
+    # filter compares like units (was: raw 0-4 compared to 10-50).
+    CalaosLogger.DEFAULT_LEVEL = _calaos_to_python_level(debug_level)
     for part in domains_config.split(','):
         if ':' in part:
             try:
                 domain, level = part.split(':', 1)
                 if level.strip().isdigit():
-                    CalaosLogger.DOMAIN_LEVELS[domain.strip()] = int(level)
+                    CalaosLogger.DOMAIN_LEVELS[domain.strip()] = \
+                        _calaos_to_python_level(int(level))
             except (ValueError, TypeError):
                 continue
 
@@ -94,9 +123,10 @@ def configure_logger():
     # Clear any existing handlers
     root_logger.handlers.clear()
 
-    # Add our console handler
+    # Add our console handler with per-domain filtering
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(CalaosFormatter())
+    handler.addFilter(_DomainLevelFilter())
 
     logging.setLoggerClass(CalaosLogger)
     root_logger.addHandler(handler)

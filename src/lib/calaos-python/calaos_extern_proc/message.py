@@ -15,7 +15,9 @@ class ExternProcMessage:
         self.clear()
         if data is not None:
             self.payload = data
-            self.payload_length = len(data)
+            # Frame length is in BYTES on the wire (the C++ side counts
+            # bytes): use the UTF-8 encoding length, not str characters.
+            self.payload_length = len(data.encode('utf-8'))
             self.isvalid = True
             self.opcode = MessageType.TypeMessage
 

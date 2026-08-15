@@ -21,6 +21,7 @@ class ExternProcClient:
         self.name = "extern_process"
         self.sockpath = ""
         self._send_lock = threading.Lock()
+        self._running = False
 
         #Calaos config/cache paths passed to process by environment variables
         self.cachePath = os.environ.get('CALAOS_CACHE_PATH', ".")
@@ -87,12 +88,15 @@ class ExternProcClient:
             return False
 
     def run(self, timeout_ms):
-        quit_loop = False
+        self._running = True
 
-        while not quit_loop:
+        while self._running:
             read_list = [self.sockfd] + self.user_fds
             try:
                 readable, _, _ = select.select(read_list, [], [], timeout_ms/1000.0)
+
+                if not self._running:
+                    break
 
                 if not readable:
                     self.read_timeout()
@@ -101,16 +105,16 @@ class ExternProcClient:
                 for fd in readable:
                     if fd == self.sockfd:
                         if not self.process_socket_recv():
-                            quit_loop = True
+                            self._running = False
                             break
                     else:
                         if not self.handle_fd_set(fd):
-                            quit_loop = True
+                            self._running = False
                             break
 
             except Exception as e:
                 cCriticalDom("ExternProcClient")(f"Error in run loop: {str(e)}")
-                quit_loop = True
+                self._running = False
 
     def stop(self):
         self._running = False
@@ -120,7 +124,9 @@ class ExternProcClient:
         frame = msg.get_raw_data()
         with self._send_lock:
             try:
-                self.sockfd.send(frame)
+                # sendall: send() may write partially and silently truncate
+                # frames under load
+                self.sockfd.sendall(frame)
             except Exception as e:
                 cErrorDom("ExternProcClient")(f"Error writing to socket: {str(e)}")
 

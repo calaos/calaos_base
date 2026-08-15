@@ -1,0 +1,33 @@
+# T1.8 — reproducible install for the calaos_mcp sidecar.
+# All runtime dependencies pinned (the sidecar is security-sensitive: it
+# fronts the Calaos API behind bearer auth — no floating versions).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calaos-mcp"
+version = "1.0.0"
+description = "Calaos MCP sidecar: exposes the Calaos home-automation API via the Model Context Protocol"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Calaos", email = "team@calaos.fr" }]
+requires-python = ">=3.11"
+dependencies = [
+    "mcp==1.16.0",
+    "fastapi==0.115.12",
+    "uvicorn==0.34.2",
+    "websockets==15.0.1",
+    "pydantic==2.11.4",
+    "starlette==0.46.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/calaos/calaos_base"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["calaos_mcp*"]
+
+[tool.setuptools.package-dir]
+"" = "python"
