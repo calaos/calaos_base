@@ -113,7 +113,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | 🔨 |
 | [E4.3](E4.3.md) | 4 | ~~Test coverage~~ (atteint à 99%: 40 binaires/411 cas — voir PHASE4.md) | epic | T0.3 | ✅ |
-| [E4.3ab](E4.3ab.md) | 4 | Coverage gaps: TimeRange/InPlageHoraire + XML round-trip | tests | — | 🔨 |
+| [E4.3ab](E4.3ab.md) | 4 | Coverage gaps: TimeRange/InPlageHoraire + XML round-trip | tests | — | ✅ |
 | [E4.4](E4.4.md) | 4 | ~~TinyXML 2.5.3 → TinyXML2~~ → **pugixml** (user decision) | epic | Phase 3 | 🔨 |
 | [T3.12](T3.12.md) | 3 | ~~Patch 2 TinyXML CVEs~~ (abandoned: superseded by pugixml migration) | fix (sec) | — | ⛔ |
 | [E4.4a](E4.4a.md) | 4 | Introduce pugixml (Debian pkg, XPath on) | infra | — | ✅ |

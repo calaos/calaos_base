@@ -212,3 +212,39 @@
 - `ExternProcServer` binde un socket à préfixe prévisible dans `/tmp` monde-inscriptible
   (`/tmp/calaos_proc_<uuid>_…`) — l'uuid limite le squatting mais un runtime dir privé serait plus propre.
 - `sendMessage` (client) ignore les écritures `send()` courtes (seules les erreurs sont vérifiées).
+
+## E4.3ab — bugs révélés par les nouveaux tests
+
+Remontés par `tests/TimeRangeCalendar_test.cpp` et `tests/core/ConfigRoundTrip_test.cpp`,
+**non corrigés** (le ticket était test-only, zéro fichier de production touché).
+
+- `src/lib/TimeRange.h` n'a **aucun include guard** → l'inclure directement *et* via
+  `InPlageHoraire.h` est une erreur dure `redefinition of class TimeRange`. Le test doit passer par
+  exactement un chemin d'inclusion (contourné par un commentaire dans le test, pas corrigé).
+- **UB atteignable** : `TimeRange::getStartTimeSec()`/`getEndTimeSec()`
+  (`TimeRange.cpp:100-104,142-146`) déclarent `int h, m, s;` et **ignorent la valeur de retour** de
+  `from_string()`. Une chaîne proto tronquée (`split()` complète la liste avec des `""`) les laisse
+  non initialisés → secondes-du-jour aberrantes (`-1858848627` observé). Atteignable depuis le
+  chemin proto/JSON. `TimeRangeTest.EmptyProtoDoesNotReadOutOfBounds` épingle seulement que la
+  construction reste dans les bornes, jamais la valeur : c'est de l'UB, pas un contrat.
+- **Nettoyage `ListeRule::in_event` couplé à une liste blanche de `gui_type`** (⚠️ correction d'une
+  suspicion initiale de UAF : `ListeRule::Remove(IOBase *)` **est bien appelé**, depuis
+  `ListeRoom::deleteIO()` `ListeRoom.cpp:359`, et `~Room()` y passe — il n'y a donc **pas** de UAF
+  vivant aujourd'hui). Le problème réel est la fragilité du couplage : le désenregistrement est
+  conditionné à `get_param("gui_type")` ∈ {`time`, `temp`, `analog_in`, `time_range`, `timer`}, et
+  non à qui s'est réellement enregistré. Les 3 seuls appelants de `ListeRule::Instance().Add(this)`
+  (`InPlageHoraire` `time_range`, `InputTime` `time`, `InputAnalog` `analog_in`, + `InputTemp`
+  `temp`) sont couverts par chance ; **tout futur IO qui s'enregistre avec un autre `gui_type`
+  laissera un pointeur pendant déréférencé par `RunEventLoop()` (`ListeRule.cpp:148`)**. À traiter
+  par le ticket de la série E4.2 qui possède `ListeRule` (symétrie Add/Remove plutôt que liste
+  blanche de chaînes).
+- Cosmétique : `InPlageHoraire.cpp:220` — `LoadRange()` concatène l'offset de fin dans `sstart` au
+  lieu de `sstop` (log de debug uniquement).
+- Cosmétique : `CalaosConfig.cpp:365-368` — un `rules.xml` vide mais valide logue « `<calaos:rules>`
+  node not found » parce que le test porte sur le **premier enfant**, pas sur le nœud lui-même ; or
+  `LoadConfigRule()` crée exactement ce fichier puis s'en plaint.
+- **Ambiguïté produit épinglée par un test** : une plage inversée (fin < début, ex. 23:00→01:00 —
+  la façon naturelle d'écrire « à cheval sur minuit ») est aujourd'hui une plage **vide** qui ne
+  matche à **aucun** moment (`hasChanged()` teste `cur >= start && cur <= end`, sans wrap).
+  `InPlageHoraireEvalTest.InvertedRangeNeverMatches` épingle le comportement actuel pour qu'un futur
+  correctif de wrap-around le casse **délibérément**. **En attente d'une décision utilisateur.**

@@ -144,7 +144,30 @@
   ⚠️ **Contrainte propagée dans les fiches E4.4b/c/d** : Debian 12 fournit pugixml **1.13**, la copie
   vendored est en **1.14**, et le plancher déclaré est **>= 1.10** — tout code consommateur doit
   rester sur la surface d'API de la 1.10, sinon la voie système casse là où la vendored fonctionne).
-  En vol : E4.2b, E4.3ab. Prochain de la série : E4.4b.
+  En vol : E4.2b. Prochain de la série : E4.4b.
+- **E4.3ab ✅ mergé** (2026-08-16, `9d2f5605`, test-only, **zéro fichier de production touché** —
+  c'était la règle dure du ticket). Ferme les 2 derniers trous de couverture laissés par E4.3 :
+  `tests/TimeRangeCalendar_test.cpp` (35 cas — premiers tests de `src/lib/TimeRange.h` et de
+  l'évaluation de `IO/InPlageHoraire.cpp`, qui n'avaient aucune référence de test, plus les coins
+  de `Calendar` non couverts par `CommonLib_test`) et `tests/core/ConfigRoundTrip_test.cpp`
+  (10 cas — config → save → reload → égalité **sémantique** du modèle en mémoire). Les deux
+  suites sont écrites pour **survivre à E4.4d** : rien ne regarde le XML, les horaires passent par
+  l'API publique `AddMonday()/…` et le verdict se lit par `get_value_bool()` ; le round-trip compare
+  `ListeRoom`/`ListeRule` en mémoire, jamais les octets des fichiers — c'est justement ce qui en fait
+  l'arbitre de la reformattage légitime de `io.xml`/`rules.xml` par pugixml. Payloads volontairement
+  hostiles : UTF-8 accentué, les 5 spéciaux XML, références numériques, valeurs vides.
+  ⚠️ **Risque flakiness traité** : `InPlageHoraire::hasChanged()` lit l'horloge murale
+  (`time(NULL)`/`localtime()`) sans aucun seam d'injection. Les cas qui dépendent de « maintenant »
+  tournent dans une *fenêtre stable* (seconde-du-jour lue avant **et** après l'appel, réessai si
+  l'horloge a tick, `GTEST_SKIP` après 50 tentatives) — encadrement correct car la grandeur mesurée
+  est monotone dans la journée. Vérifié : **10 exécutions × 2 binaires = 0 échec, 0 skip**, plus un
+  balayage 5 fuseaux (Kiritimati/Midway/UTC/New_York/Sydney) couvrant deux jours de semaine
+  différents — aucune dépendance au jour ni au mois. Base : branche partie de `3d8e8b3f`, rebasée ;
+  conflit unique et attendu en fin de `tests/Makefile.am` (patron regenerate : fichier master +
+  les 2 blocs `HAVE_GTEST` de la branche en EOF), 35/35 `if`/`endif` équilibrés. Master a bougé
+  pendant le build (docs E4.4a) → rebase rejoué, commit docs-only donc build conservé.
+  Build d'intégration : **47/47**. ff-only, worktree e4.3ab nettoyé.
+  5 bugs + 1 ambiguïté produit remontés (non corrigés) dans FINDINGS.md.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
