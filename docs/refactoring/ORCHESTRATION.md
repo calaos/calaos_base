@@ -84,7 +84,7 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 | T1.5 | Transport & WS framing limits (F9, F10, F12 +) | ✅ |
 | T1.6 | RemoteUI HMAC constant-time + dedup | ✅ |
 | T1.7 | MCP token CSPRNG (F1) | ✅ |
-| T1.8 | Python sidecar auth & quality (F5) | 🔨 |
+| T1.8 | Python sidecar auth & quality (F5) | ✅ |
 | T1.9 | ExternProc framing (F13 + sockfd) | ✅ |
 | T1.10 | RemoteUI WebSocket/OTA lifecycle | 🔨 |
 | T1.11 | IOBase/IOFactory id integrity | ✅ |
