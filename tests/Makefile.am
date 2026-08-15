@@ -470,3 +470,19 @@ CommonLib_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T2.1
+#Timer lifetime: singleShot rewritten as a true one-shot with deferred
+#handle destruction, weak alive-tag making delete-from-inside-the-callback
+#and destruction-with-pending-callback safe. Pure src/lib code, so only
+#libcalaos_common is linked and the test runs the default uvw loop itself
+#(every wait is wall-clock bounded, no fixture needed). Own HAVE_GTEST
+#block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/Timer_test
+check_PROGRAMS += core/Timer_test
+core_Timer_test_SOURCES = core/Timer_test.cpp
+core_Timer_test_CPPFLAGS = $(AM_CPPFLAGS)
+core_Timer_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

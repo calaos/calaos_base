@@ -86,6 +86,10 @@ WagoMap::~WagoMap()
 
     delete heartbeat_timer;
     delete mbus_heartbeat_timer;
+
+    //udp command timers are only created on demand, they were leaked before
+    DELETE_NULL(udp_timer);
+    DELETE_NULL(udp_timeout_timer);
 }
 
 WagoMap &WagoMap::Instance(std::string h, int p)

@@ -89,6 +89,7 @@ Internal::Internal(Params &p):
 
 Internal::~Internal()
 {
+    DELETE_NULL(timer);
 }
 
 bool Internal::set_value(bool val)

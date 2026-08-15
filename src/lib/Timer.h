@@ -22,6 +22,7 @@
 #define CALAOS_TIMER_H
 
 #include "Utils.h"
+#include <memory>
 #include <sigc++/sigc++.h>
 
 using namespace Utils;
@@ -48,6 +49,11 @@ private:
 
     void *data = nullptr;
 
+    //Lifetime tag: the uvw callback only holds a weak_ptr to it, so a
+    //Timer deleted while an event is pending (or from inside its own
+    //callback) is never dereferenced afterwards.
+    std::shared_ptr<bool> aliveTag;
+
     void create();
 
 public:
@@ -69,6 +75,9 @@ class Idler
 {
 private:
     std::shared_ptr<uvw::IdleHandle> handleIdler;
+
+    //Same lifetime guard as Timer::aliveTag
+    std::shared_ptr<bool> aliveTag;
 
     void createIdler();
 public:

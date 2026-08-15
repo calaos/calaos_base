@@ -40,12 +40,21 @@ Timer::Timer(double in, sigc::slot<void> slot):
 
 void Timer::create()
 {
+    aliveTag = std::make_shared<bool>(true);
+
     auto loop = uvw::Loop::getDefault();
     handleTimer = loop->resource<uvw::TimerHandle>();
 
-    handleTimer->on<uvw::TimerEvent>([this](const auto &, auto &)
+    handleTimer->on<uvw::TimerEvent>(
+        [this, wtag = std::weak_ptr<bool>(aliveTag)](const auto &, auto &)
     {
+        //The Timer object may already be destroyed while the uvw handle is
+        //still dispatching (close is asynchronous): bail out without
+        //touching `this` in that case.
+        if (wtag.expired()) return;
         this->Tick();
+        //Careful: the slot may have deleted this Timer (delete from its own
+        //callback is allowed), so `this` must not be used past this point.
     });
 
     handleTimer->start(uvw::TimerHandle::Time{time},
@@ -54,7 +63,14 @@ void Timer::create()
 
 Timer::~Timer()
 {
+    //Invalidate the tag first: any event already queued for dispatch will
+    //see an expired weak_ptr and won't touch this object anymore.
+    aliveTag.reset();
+
     handleTimer->stop();
+    //close() is asynchronous: uvw keeps the handle alive (self shared_ptr)
+    //until the close callback runs from the loop, so the handle itself is
+    //never destroyed in the middle of a dispatch.
     handleTimer->close();
 
     //disconnect the sigc slot
@@ -86,16 +102,24 @@ void Timer::Tick()
 
 void Timer::singleShot(double time, sigc::slot<void> slot)
 {
-    Timer *timer = new Timer(time, [=](void *_data)
+    //True one-shot timer (repeat = 0), no Timer object involved at all.
+    //The uvw handle keeps itself alive (internal self shared_ptr) until
+    //close() completes: destruction happens in the loop's close callback,
+    //never in the middle of the timer dispatch.
+    auto loop = uvw::Loop::getDefault();
+    auto handle = loop->resource<uvw::TimerHandle>();
+
+    handle->on<uvw::TimerEvent>([slot](const auto &, auto &h)
     {
-      Timer *t = reinterpret_cast<Timer *>(_data);
-        if (t)
-        {
-            slot();
-            delete t;
-        }
-    }, nullptr);
-    timer->data = timer;
+        //Close before running the slot so the handle is always released,
+        //whatever the slot does (including starting new timers).
+        h.stop();
+        h.close();
+        slot();
+    });
+
+    handle->start(uvw::TimerHandle::Time{static_cast<uint64_t>(time * 1000.0)},
+                  uvw::TimerHandle::Time{0});
 }
 
 Idler::Idler(sigc::slot<void> slot)
@@ -111,18 +135,27 @@ Idler::Idler()
 
 Idler::~Idler()
 {
+    //Same lifetime scheme as ~Timer()
+    aliveTag.reset();
+
     handleIdler->stop();
     handleIdler->close();
 }
 
 void Idler::createIdler()
 {
+    aliveTag = std::make_shared<bool>(true);
+
     auto loop = uvw::Loop::getDefault();
     handleIdler = loop->resource<uvw::IdleHandle>();
 
-    handleIdler->on<uvw::IdleEvent>([this](const auto &, auto &)
+    handleIdler->on<uvw::IdleEvent>(
+        [this, wtag = std::weak_ptr<bool>(aliveTag)](const auto &, auto &)
     {
+        if (wtag.expired()) return;
         idlerCallback.emit();
+        //Careful: the slot may have deleted this Idler, `this` must not be
+        //used past this point.
     });
 
     handleIdler->start();
@@ -130,10 +163,19 @@ void Idler::createIdler()
 
 void Idler::singleIdler(sigc::slot<void> slot)
 {
-    Idler *o = new Idler();
-    o->idlerCallback.connect([=]()
+    //One-shot idler without any Idler object: stop and close the handle
+    //before running the slot (an idle handle fires on every loop iteration,
+    //stopping first also protects against the slot re-entering the loop).
+    //uvw defers the handle destruction to the close callback.
+    auto loop = uvw::Loop::getDefault();
+    auto handle = loop->resource<uvw::IdleHandle>();
+
+    handle->on<uvw::IdleEvent>([slot](const auto &, auto &h)
     {
+        h.stop();
+        h.close();
         slot();
-        delete o;
     });
+
+    handle->start();
 }

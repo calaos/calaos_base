@@ -62,6 +62,7 @@ InputTimer::InputTimer(Params &p):
 
 InputTimer::~InputTimer()
 {
+    DELETE_NULL(timer);
 }
 
 bool InputTimer::set_value(string command)

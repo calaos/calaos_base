@@ -83,6 +83,7 @@ InputAnalog::InputAnalog(Params &p):
 
 InputAnalog::~InputAnalog()
 {
+    DELETE_NULL(timerChanged);
 }
 
 void InputAnalog::readConfig()
