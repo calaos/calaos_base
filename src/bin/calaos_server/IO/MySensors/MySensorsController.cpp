@@ -48,6 +48,13 @@ MySensorsController::MySensorsController(const Params &p):
 
 MySensorsController::~MySensorsController()
 {
+    //Cancel a pending "open serial later" timer, it captures this
+    if (timer)
+    {
+        delete timer;
+        timer = nullptr;
+    }
+
     if (svrHandle && svrHandle->active())
     {
         svrHandle->stop();
@@ -152,14 +159,20 @@ void MySensorsController::openSerial()
         });
 
         //When connection is closed
-        serialHandle->once<uvw::CloseEvent>([this](const uvw::CloseEvent &, auto &)
+        //CloseEvent is delivered asynchronously by the loop: guard with the
+        //lifetime token, the controller may be deleted before it fires.
+        serialHandle->once<uvw::CloseEvent>([this, token = std::weak_ptr<bool>(alive)](const uvw::CloseEvent &, auto &)
         {
+            if (token.expired())
+                return; //controller deleted
             this->closeSerial();
             this->openSerialLater();
         });
 
-        serialHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+        serialHandle->on<uvw::DataEvent>([this, token = std::weak_ptr<bool>(alive)](const uvw::DataEvent &ev, auto &)
         {
+            if (token.expired())
+                return; //controller deleted
             string d((char *)ev.data.get(), ev.length);
             this->readNewData(d);
         });
@@ -182,12 +195,24 @@ void MySensorsController::openSerial()
 
 void MySensorsController::closeSerial()
 {
-    if (serialfd == 0) return;
-
-    if (serialHandle && serialHandle->active())
+    if (serialHandle)
     {
-        serialHandle->stop();
-        serialHandle->close();
+        if (serialHandle->active())
+        {
+            serialHandle->stop();
+            serialHandle->close();
+        }
+        //Drop our reference: sendMessage() uses a null handle as the
+        //"transport is down" marker. uvw keeps the handle alive internally
+        //until the close callback has run.
+        serialHandle.reset();
+    }
+
+    //serialfd is -1 when open() failed, 0 when never opened/already closed
+    if (serialfd <= 0)
+    {
+        serialfd = 0;
+        return;
     }
 
     ::tcdrain(serialfd); //flush
@@ -228,29 +253,48 @@ void MySensorsController::timerConnReconnect()
         h.read();
     });
 
-    svrHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
+    //All the handlers below can fire after the controller has been deleted
+    //(close events and reconnect timers are delivered asynchronously by the
+    //loop), so they are guarded with the lifetime token.
+    svrHandle->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive)](auto &ev, uvw::TcpHandle &h)
     {
         cErrorDom("mysensors") << "main connection error: " << ev.what();
         h.close();
-        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        h.once<uvw::CloseEvent>([this, token](auto &, auto &)
         {
-            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+            if (token.expired())
+                return; //controller deleted
+            Timer::singleShot(5.0, [this, token]()
+            {
+                if (token.expired())
+                    return; //controller deleted
+                timerConnReconnect();
+            });
         });
     });
 
-    svrHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
+    svrHandle->once<uvw::EndEvent>([this, token = std::weak_ptr<bool>(alive)](auto &, uvw::TcpHandle &h)
     {
         cWarningDom("mysensors") << "Main Connection closed !";
         cWarningDom("mysensors") << "Trying to reconnect...";
         h.close();
-        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        h.once<uvw::CloseEvent>([this, token](auto &, auto &)
         {
-            Timer::singleShot(5.0, (sigc::slot<void>)sigc::mem_fun(*this, &MySensorsController::timerConnReconnect));
+            if (token.expired())
+                return; //controller deleted
+            Timer::singleShot(5.0, [this, token]()
+            {
+                if (token.expired())
+                    return; //controller deleted
+                timerConnReconnect();
+            });
         });
     });
 
-    svrHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+    svrHandle->on<uvw::DataEvent>([this, token = std::weak_ptr<bool>(alive)](const uvw::DataEvent &ev, auto &)
     {
+        if (token.expired())
+            return; //controller deleted
         string d((char *)ev.data.get(), ev.length);
         this->readNewData(d);
     });
@@ -475,6 +519,14 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
 
     if (param["gateway"] == "serial")
     {
+        //The handle is null before the port is opened and while
+        //reconnecting: drop the message instead of crashing.
+        if (!serialHandle || serialHandle->closing())
+        {
+            cWarningDom("mysensors") << "Serial gateway is not connected, dropping message: " << data.str();
+            return;
+        }
+
         string msg = data.str();
         int dataSize = msg.length();
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
@@ -483,6 +535,14 @@ void MySensorsController::sendMessage(string node_id, string sensor_id, int msgT
     }
     else if (param["gateway"] == "tcp")
     {
+        //Same guard for the TCP gateway: the handle is null before
+        //openTCP() ran and closing/closed while waiting for a reconnect.
+        if (!svrHandle || svrHandle->closing())
+        {
+            cWarningDom("mysensors") << "TCP gateway is not connected, dropping message: " << data.str();
+            return;
+        }
+
         string msg = data.str();
         int dataSize = msg.length();
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);

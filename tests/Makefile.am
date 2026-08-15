@@ -390,3 +390,23 @@ RemoteUIOtaLifecycle_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T1.19
+#IO controller regressions: WebCtrl::getValueText empty-path guard and
+#MySensorsController::sendMessage null-transport guard. Links the controller
+#objects from the server build plus the core closure (ListeRoom & co are
+#referenced by MySensorsController). Own HAVE_GTEST block so that this stays
+#a pure append at the end of the file (same reasoning as T1.1).
+if HAVE_GTEST
+TESTS += IOControllers_test
+check_PROGRAMS += IOControllers_test
+IOControllers_test_SOURCES = IOControllers_test.cpp
+IOControllers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/MySensors
+IOControllers_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/MySensors/MySensorsController.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/MySensors/MySensors.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+IOControllers_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

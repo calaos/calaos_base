@@ -86,6 +86,10 @@ private:
     //tcp connection
     std::shared_ptr<uvw::TcpHandle> svrHandle;
 
+    //Lifetime token: async callbacks (uvw close events, reconnect timers)
+    //capture a weak_ptr to it and bail out if the controller was deleted.
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
+
     void timerConnReconnect();
 
     void openSerial();

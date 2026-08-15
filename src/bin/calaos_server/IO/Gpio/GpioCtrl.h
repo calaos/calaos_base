@@ -47,6 +47,10 @@ private:
     bool debounce;
     double debounce_time;
 
+    //Lifetime token: async callbacks (debounce timer) capture a weak_ptr
+    //to it and bail out if the GpioCtrl was deleted in the meantime.
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
+
 public:
     GpioCtrl(int _gpionum, double _debounce_time = 0.05);
     ~GpioCtrl();

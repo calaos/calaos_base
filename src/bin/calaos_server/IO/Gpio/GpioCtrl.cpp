@@ -43,9 +43,9 @@ GpioCtrl::~GpioCtrl()
     }
 
     //unexportGpio();
-    if (fd == -1)
-        close(fd);
-    fd = -1;
+    //(the guard was inverted here and leaked the fd: close() only ran
+    // when fd was already -1. closeFd() has the correct check.)
+    closeFd();
     cDebugDom("input") << "Delete GpioCtrl";
 }
 
@@ -175,7 +175,12 @@ void GpioCtrl::emitChange()
     {
         debounce = true;
 
-        Timer::singleShot(0.05, [=](){
+        //Guard with the lifetime token: the GpioCtrl can be deleted
+        //(io reconfiguration) while the debounce timer is in flight.
+        Timer::singleShot(0.05, [this, token = std::weak_ptr<bool>(alive)]()
+        {
+            if (token.expired())
+                return; //GpioCtrl deleted while debouncing
             cDebugDom("input") << "Debounce finished";
             debounce = false;
             event_signal.emit();

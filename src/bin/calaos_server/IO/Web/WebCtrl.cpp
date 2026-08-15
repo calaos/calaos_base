@@ -31,7 +31,11 @@ unordered_map<string, WebCtrl> WebCtrl::hash;
 
 WebCtrl::WebCtrl()
 {
-
+    //Keep members sane: a default constructed WebCtrl (unordered_map
+    //value type) would otherwise delete an uninitialized timer pointer.
+    timer = NULL;
+    frequency = 0.0;
+    file_type = UNKNOWN;
 }
 
 WebCtrl::WebCtrl(Params &p, int _file_type)
@@ -273,8 +277,8 @@ string WebCtrl::getValueText(string path, string filename)
     string value;
     vector<string> tokens;
     vector<string> items;
-    int line_nb;
-    unsigned int item_nb;
+    int line_nb = 0;
+    unsigned int item_nb = 0;
     ifstream file(filename);
     string line;
     int i;
@@ -286,6 +290,13 @@ string WebCtrl::getValueText(string path, string filename)
     }
 
     Utils::split(path, tokens, "/");
+    //split() with max=0 does not pad: an empty or delimiter-only path
+    //yields an empty vector, and tokens[0] would be out of range.
+    if (tokens.empty())
+    {
+        cError() << "Error, empty path not allowed";
+        return "";
+    }
     Utils::from_string(tokens[0], line_nb);
     for (i = 0; i < line_nb; i++)
     {
