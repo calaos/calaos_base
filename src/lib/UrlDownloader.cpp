@@ -133,7 +133,8 @@ public:
 
         if (!addNow(conn))
         {
-            live.erase(conn);
+            //Full disposal: easy handle, slist, destination file, conn
+            disposeConn(conn);
             return false;
         }
         return true;
@@ -227,6 +228,8 @@ private:
     void disposeConn(UrlDownloaderCurlConn *conn)
     {
         live.erase(conn);
+        /* Harmless no-op (CURLM_BAD_EASY_HANDLE) when the easy handle was
+         * never added to the multi, i.e. the add-failure paths. */
         curl_multi_remove_handle(multi, conn->easy);
         curl_easy_cleanup(conn->easy);
         if (conn->headerList)
@@ -584,7 +587,8 @@ bool UrlDownloader::start()
 
     if (!manager.startTransfer(conn))
     {
-        //conn is already disposed of by the manager
+        //startTransfer() fully disposed of conn (easy handle, header list,
+        //destination file) on failure, nothing to clean up here
         return false;
     }
 
