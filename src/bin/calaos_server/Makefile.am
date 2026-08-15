@@ -142,7 +142,6 @@ calaos_server_SOURCES = \
         IO/KNX/KNXCtrl.cpp                              \
         IO/KNX/KNXBase.cpp                              \
         IO/KNX/KNXBase.h                                \
-        IO/KNX/ThinIo.h                                 \
         IO/KNX/KNXIo.h                                  \
         IO/KNX/KNXIo.cpp                                \
         IO/LAN/PingInputSwitch.cpp                      \
@@ -204,6 +203,7 @@ calaos_server_SOURCES = \
         IO/OutputString.h                               \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
+        IO/ThinIo.h                                     \
         IO/Wago/WIAnalog.cpp                            \
         IO/Wago/WIAnalog.h                              \
         IO/Wago/WIDigitalBP.cpp                         \

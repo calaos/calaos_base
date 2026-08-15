@@ -28,18 +28,25 @@
 namespace Calaos
 {
 
-//Generic skeleton for "thin" driver IO subclasses (T3.2a).
+//Generic skeleton for "thin" driver IO subclasses (T3.2a, promoted to IO/
+//by T3.10).
 //
-//Every hardware driver family (KNX, ...) repeats the same constructor
-//preamble in each of its thin subclasses: set the ioDoc friendly name and
-//description, then add the driver-specific documentation parameters. This
-//template factors that preamble while leaving the actual driver logic to a
-//driver-side mixin layered on top of it (see KNXIo.h).
+//Every hardware driver family (KNX, Mqtt, Web, Gpio, ...) repeats the same
+//constructor preamble in each of its thin subclasses: set the ioDoc friendly
+//name and description, then add the driver-specific documentation
+//parameters. This template factors that preamble while leaving the actual
+//driver logic to a driver-side mixin layered on top of it (KNXIo.h,
+//MqttIOBase.h, WebDocBase.h, GpioInputBase.h, GpioOutputShutterBase.h).
 //
-//This header is deliberately self-contained and driver-agnostic (it only
-//uses the IOBase/IODoc API): it currently lives in IO/KNX/ because T3.2a
-//owns only this directory, but it can be promoted as-is to IO/ by a later
-//harmonization ticket so the other driver families can share it.
+//The header is deliberately self-contained and driver-agnostic: it only uses
+//the IOBase/IODoc API and knows nothing about any protocol.
+//
+//Ordering contract: friendlyName then description then extraDoc, all before
+//the driver mixin's own paramAdd calls. That order is what keeps the
+//generated documentation (--gendoc) byte-identical to the hand-written
+//constructors this template replaced. A driver whose preamble does not fit
+//that shape must keep its own constructor rather than reorder its ioDoc
+//calls.
 template <typename Base>
 class ThinIo: public Base
 {

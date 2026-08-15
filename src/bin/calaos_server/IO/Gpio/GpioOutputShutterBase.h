@@ -24,6 +24,7 @@
 #include <Utils.h>
 #include <Params.h>
 #include <IODoc.h>
+#include "ThinIo.h"
 #include "GpioCtrl.h"
 
 namespace Calaos
@@ -32,8 +33,11 @@ namespace Calaos
 //Shared skeleton for the two Gpio shutter subclasses (T3.2f): common ioDoc,
 //param parsing and up/down GpioCtrl setup. BaseT is OutputShutter or
 //OutputShutterSmart.
+//
+//T3.10: the friendlyName/description preamble comes from the shared ThinIo
+//template (IO/ThinIo.h); the description is the same for both shutters.
 template<typename BaseT>
-class GpioOutputShutterBase : public BaseT
+class GpioOutputShutterBase : public ThinIo<BaseT>
 {
 private:
     GpioCtrl *gpioctrl_up = nullptr, *gpioctrl_down = nullptr;
@@ -50,11 +54,9 @@ private:
 
 protected:
     GpioOutputShutterBase(Params &p, const char *friendlyName, const char *logLabel):
-        BaseT(p)
+        ThinIo<BaseT>(p, friendlyName, _("Shutter with 2 GPIOs"))
     {
         // Define IO documentation
-        this->ioDoc->friendlyNameSet(friendlyName);
-        this->ioDoc->descriptionSet(_("Shutter with 2 GPIOs"));
         this->ioDoc->paramAddInt("gpio_up", _("GPIO ID for opening on your hardware"), 0, 65535, true);
         this->ioDoc->paramAddInt("gpio_down", _("GPIO ID for closing on your hardware"), 0, 65535, true);
         this->ioDoc->paramAdd("active_low_up", _("Set this if your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");

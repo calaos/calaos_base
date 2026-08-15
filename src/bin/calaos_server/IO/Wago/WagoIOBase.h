@@ -43,7 +43,16 @@ namespace Calaos
  * The _() literals unique to one subclass (description, wiki link, var
  * doc) stay in the subclass .cpp files, which are the ones listed in
  * po/POTFILES.in; the host/port literals below are also extracted from
- * the other Wago .cpp files that still carry them. */
+ * the other Wago .cpp files that still carry them.
+ *
+ * T3.10 deliberately did NOT rebase these two on the shared ThinIo
+ * template (IO/ThinIo.h), unlike Mqtt/Web/Gpio:
+ *  - WIDigitalBase documents itself as friendlyName, aliasAdd..., then
+ *    description, then linkAdd; ThinIo's contract is friendlyName then
+ *    description, so adopting it would reorder the ioDoc calls of the
+ *    only Wago IOs that carry aliases, to save two lines,
+ *  - WOVoletBase performs no ioDoc setup at all (WOVolet/WOVoletSmart
+ *    document themselves), so there is no preamble to factor out. */
 
 //Common host/port/var ioDoc entries shared by every Wago digital input
 inline void wagoDocCommon(IODoc *doc, const std::string &varDesc)

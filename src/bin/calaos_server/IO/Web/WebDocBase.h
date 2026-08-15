@@ -24,6 +24,7 @@
 
 #include "Calaos.h"
 #include "IODoc.h"
+#include "ThinIo.h"
 #include "WebCtrl.h"
 #include "AnalogIO.h"
 
@@ -43,19 +44,18 @@ enum class WebDoc { Get, Post, GetAndPost };
 
 //Shared skeleton of the thin Web IO subclasses: ioDoc friendlyName,
 //description, the common WebDocBase parameters, and the usual
-//construction log line.
+//construction log line. The friendlyName/description preamble is the shared
+//ThinIo one (IO/ThinIo.h, T3.10); only the Web-specific part stays here.
 template<class IOBaseT>
-class WebIOBase : public IOBaseT
+class WebIOBase : public ThinIo<IOBaseT>
 {
 protected:
     WebDocBase docBase;
 
     WebIOBase(Params &p, const char *name, const string &desc,
               WebDoc doc, const char *logDomain):
-        IOBaseT(p)
+        ThinIo<IOBaseT>(p, name, desc)
     {
-        this->ioDoc->friendlyNameSet(name);
-        this->ioDoc->descriptionSet(desc);
         if (doc != WebDoc::Post)
             docBase.initDoc(this->ioDoc);
         if (doc != WebDoc::Get)

@@ -23,6 +23,7 @@
 
 #include <functional>
 
+#include "ThinIo.h"
 #include "MqttCtrl.h"
 #include "MqttBrokersList.h"
 
@@ -39,19 +40,17 @@ namespace Calaos
 //invoked later from the event loop, never re-entrantly, so capturing `this`
 //from the constructor body is safe once the object members are initialized.
 //
-//This is a local dedup inside IO/Mqtt only; a later ticket harmonizes the
-//per-family IO abstractions across protocols.
+//T3.10: the friendlyName/description preamble now comes from the shared
+//ThinIo template (IO/ThinIo.h); only the Mqtt-specific part stays here.
 template<typename IoBaseT>
-class MqttIOBase : public IoBaseT
+class MqttIOBase : public ThinIo<IoBaseT>
 {
 protected:
     MqttCtrl *ctrl;
 
     MqttIOBase(Params &p, const char *friendlyName, const string &description):
-        IoBaseT(p)
+        ThinIo<IoBaseT>(p, friendlyName, description)
     {
-        this->ioDoc->friendlyNameSet(friendlyName);
-        this->ioDoc->descriptionSet(description);
         MqttCtrl::commonDoc(this->ioDoc);
 
         ctrl = MqttBrokersList::Instance().get_ctrl(this->get_params());

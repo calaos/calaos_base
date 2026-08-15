@@ -24,6 +24,7 @@
 #include <Utils.h>
 #include <Params.h>
 #include <IODoc.h>
+#include "ThinIo.h"
 #include "GpioCtrl.h"
 
 namespace Calaos
@@ -32,8 +33,11 @@ namespace Calaos
 //Shared skeleton for the thin Gpio input subclasses (T3.2f): common ioDoc,
 //param parsing, GpioCtrl setup and value plumbing. BaseT is one of
 //InputSwitch / InputSwitchLongPress / InputSwitchTriple.
+//
+//T3.10: the friendlyName/description preamble comes from the shared ThinIo
+//template (IO/ThinIo.h); the description is the same for the three inputs.
 template<typename BaseT>
-class GpioInputBase : public BaseT
+class GpioInputBase : public ThinIo<BaseT>
 {
 private:
     GpioCtrl *gpioctrl = nullptr;
@@ -42,11 +46,9 @@ protected:
     bool val = false;
 
     GpioInputBase(Params &p, const char *friendlyName):
-        BaseT(p)
+        ThinIo<BaseT>(p, friendlyName, _("Input switch with a GPIO"))
     {
         // Define IO documentation
-        this->ioDoc->friendlyNameSet(friendlyName);
-        this->ioDoc->descriptionSet(_("Input switch with a GPIO"));
         this->ioDoc->paramAddInt("gpio", _("GPIO ID on your hardware"), 0, 65535, true);
         this->ioDoc->paramAdd("active_low", _("Set this if your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
         this->ioDoc->paramAddFloat("debounce", _("Debounce time in seconds. Values changing faster than this are filtered out"),
