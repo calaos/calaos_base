@@ -815,3 +815,26 @@ core_ScenarioNullGuard_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ScenarioNullGuard_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.2a
+#By-id resolution accessors of ListeRoom (findIO/hasIO/findIOAs<T>/
+#findIOByIndex/findRoomOfIO), first step of the E4.2 ownership series. Pins the
+#accessor contract (unknown id, empty id, duplicate id, out of range -> nullptr,
+#and a miss never inserts into io_table) plus the three invariants the next
+#steps must not break: the room-by-room IO iteration order, the
+#getCameraList()/getAudioList() signatures and contents, and the
+#delete_io(io, del) ownership-transfer semantics.
+#Links the plain core objects only (ListeRoom.o is already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomIdResolution_test
+check_PROGRAMS += core/ListeRoomIdResolution_test
+core_ListeRoomIdResolution_test_SOURCES = core/ListeRoomIdResolution_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomIdResolution_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomIdResolution_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ListeRoomIdResolution_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

@@ -50,6 +50,10 @@ void ListeRoom::addIOHash(IOBase *io)
 
     string id = io->get_param("id");
 
+    //Deliberately NOT routed through findIO(): this check must keep working
+    //for the degenerate "" key that a malformed io.xml can produce (findIO()
+    //refuses to resolve it), otherwise a second id-less IO would silently
+    //overwrite the entry of the first one.
     auto it = io_table.find(id);
     if (it != io_table.end() && it->second != io)
     {
@@ -104,6 +108,16 @@ void ListeRoom::Add(Room *p)
 
 void ListeRoom::Remove(int pos)
 {
+    //An out of range index used to walk the iterator past end() and delete
+    //rooms[pos] out of bounds. Same guard style as the resolution accessors:
+    //a miss is a no-op, never an unchecked access.
+    if (pos < 0 || (uint)pos >= rooms.size())
+    {
+        cErrorDom("root") << "Remove(): no room at index " << pos
+                          << " (" << rooms.size() << " rooms), ignoring";
+        return;
+    }
+
     vector<Room *>::iterator iter = rooms.begin();
     for (int i = 0;i < pos;iter++, i++) ;
     delete rooms[pos];
@@ -114,24 +128,49 @@ void ListeRoom::Remove(int pos)
 
 Room *ListeRoom::operator[] (int i) const
 {
+    if (i < 0 || (uint)i >= rooms.size())
+        return nullptr;
+
     return rooms[i];
 }
 
 Room *ListeRoom::get_room(int i)
 {
+    if (i < 0 || (uint)i >= rooms.size())
+        return nullptr;
+
     return rooms[i];
 }
 
-IOBase *ListeRoom::get_io(std::string id)
+//See the contract documented on the declaration in ListeRoom.h.
+IOBase *ListeRoom::findIO(const std::string &id) const
 {
-    if (io_table.find(id) != io_table.end())
-        return io_table[id];
+    //An empty id is not an identity, never resolve it (see the header).
+    if (id.empty())
+        return nullptr;
 
-    return nullptr;
+    //Single lookup, and const_iterator: operator[] on a missing key would
+    //default-insert a null entry into io_table and inflate get_io_count().
+    auto it = io_table.find(id);
+    if (it == io_table.end())
+        return nullptr;
+
+    return it->second;
 }
 
-IOBase *ListeRoom::get_io(int i)
+bool ListeRoom::hasIO(const std::string &id) const
 {
+    return findIO(id) != nullptr;
+}
+
+//Positional resolution. The nesting order (rooms in declaration order, then
+//IOs in their in-room order) is the server-wide IO iteration order: it drives
+//the order in which rules see their inputs. Do not reorder.
+IOBase *ListeRoom::findIOByIndex(int index)
+{
+    if (index < 0)
+        return nullptr;
+
     int cpt = 0;
 
     for (uint j = 0;j < rooms.size();j++)
@@ -139,7 +178,7 @@ IOBase *ListeRoom::get_io(int i)
         for (int m = 0;m < rooms[j]->get_size();m++)
         {
             IOBase *io = rooms[j]->get_io(m);
-            if (cpt == i)
+            if (cpt == index)
                 return io;
 
             cpt++;
@@ -147,6 +186,27 @@ IOBase *ListeRoom::get_io(int i)
     }
 
     return nullptr;
+}
+
+Room *ListeRoom::findRoomOfIO(const std::string &id)
+{
+    //Guarded composition: an unknown id must not reach getRoomByIO(), where a
+    //null needle could match a null slot of some room's IO list.
+    IOBase *io = findIO(id);
+    if (!io)
+        return nullptr;
+
+    return getRoomByIO(io);
+}
+
+IOBase *ListeRoom::get_io(std::string id)
+{
+    return findIO(id);
+}
+
+IOBase *ListeRoom::get_io(int i)
+{
+    return findIOByIndex(i);
 }
 
 bool ListeRoom::delete_io(IOBase *io, bool del)
@@ -180,6 +240,9 @@ IOBase *ListeRoom::get_chauffage_var(std::string &chauff_id, ChauffType type)
         for (int m = 0;m < rooms[j]->get_size();m++)
         {
             IOBase *io = rooms[j]->get_io(m);
+            //Lookup result, never dereferenced unguarded (T2.18 style).
+            if (!io) continue;
+
             if (io->get_param("chauffage_id") == chauff_id)
             {
                 switch (type)
@@ -254,6 +317,10 @@ Room * ListeRoom::searchRoomByNameAndType(string name, string type)
 
 Room *ListeRoom::getRoomByIO(IOBase *o)
 {
+    //A null needle is not "the room of no IO": refuse it up front rather than
+    //let it match a null slot of some room's IO list.
+    if (!o) return nullptr;
+
     Room *r = NULL;
 
     for (uint j = 0;j < rooms.size() && !r;j++)
@@ -270,6 +337,15 @@ Room *ListeRoom::getRoomByIO(IOBase *o)
 
 bool ListeRoom::deleteIO(IOBase *io, bool modify)
 {
+    //Most callers pass a resolution result straight in (get_io()/findIO(),
+    //often through a dynamic_cast). A miss must be a plain false, not a
+    //dereference of nullptr in the gui_type test below.
+    if (!io)
+    {
+        cErrorDom("root") << "deleteIO(): called with no IO, nothing to delete";
+        return false;
+    }
+
     //first delete all rules using "input"
     if (!modify) //only deletes if modify is not set
         ListeRule::Instance().RemoveRule(io);
@@ -307,7 +383,11 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
 
     io = IOFactory::Instance().CreateIO(type, param);
 
-    if (io && get_io(id) != io)
+    //E4.2b note: an explicitly empty id is let through here exactly as before
+    //(findIO() would refuse to resolve it and the IO would be destroyed as a
+    //false duplicate). Rejecting id-less IOs at creation is a semantic change
+    //that belongs with the ownership move, not with this preparation ticket.
+    if (io && !id.empty() && findIO(id) != io)
     {
         //addIOHash() rejected this IO because its id collided with an
         //already registered one. The object was still fully built by

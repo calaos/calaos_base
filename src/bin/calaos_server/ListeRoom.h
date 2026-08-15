@@ -56,6 +56,51 @@ public:
     Room *get_room(int i);
     Room *operator[] (int i) const;
 
+    /* -------------------------------------------------------------------
+     * Resolution accessors (E4.2a)
+     *
+     * Single entry point for every "give me the IO whose id is X" question.
+     * The contract, which the rest of the tree may rely on:
+     *   - the returned pointer is NON-OWNING. The IO is owned by its Room;
+     *     the pointer is only valid until that IO is destroyed. Holding it
+     *     across a delete/reload is what E4.2 is about, and is still the
+     *     caller's problem at this stage.
+     *   - an unknown id yields nullptr, explicitly. The lookup never inserts
+     *     into io_table (no operator[] on a missing key) and never
+     *     dereferences what it found.
+     *   - an empty id is not an identity: it always resolves to nullptr,
+     *     even in the degenerate case of a malformed io.xml having pushed an
+     *     id-less IO into io_table under the "" key. That accidental entry
+     *     stays correctly book-kept by addIOHash()/delIOHash(), it is simply
+     *     not addressable.
+     *   - resolution is by id only: it never scans the rooms, so an IO that
+     *     addIOHash() rejected as a duplicate is invisible here (by design,
+     *     the first registered IO stays authoritative).
+     * ---------------------------------------------------------------- */
+    IOBase *findIO(const std::string &id) const;
+
+    /* Presence test that never hands out a pointer, for call sites that only
+       need to know whether an id is taken. */
+    bool hasIO(const std::string &id) const;
+
+    /* findIO() + dynamic_cast, i.e. the pattern spelled out by hand at ~13
+       call sites (JsonApi, AutoScenario, Rules/…). nullptr both when the id
+       is unknown and when the IO exists but is not a T: a miss is never
+       distinguishable from a type mismatch, and neither is dereferenced. */
+    template<typename T>
+    T *findIOAs(const std::string &id) const { return dynamic_cast<T *>(findIO(id)); }
+
+    /* Positional resolution over the rooms, in room order then in-room order.
+       That order is the IO iteration order of the whole server and MUST NOT
+       change. Out of range yields nullptr. */
+    IOBase *findIOByIndex(int index);
+
+    /* Room owning the IO with this id, or nullptr if either is unknown.
+       Composition of findIO() and getRoomByIO(), with no deref in between. */
+    Room *findRoomOfIO(const std::string &id);
+
+    /* Historical names, kept so the ~60 existing call sites are untouched.
+       Thin forwarders to the accessors above. */
     IOBase *get_io(std::string id);
     IOBase *get_io(int i);
     bool delete_io(IOBase *io, bool del = true);
