@@ -79,14 +79,24 @@ void Room::RemoveIO(int pos, bool del)
                            { "room_name", get_name() },
                            { "room_type", get_type() } });
 
+    //Take the owner OUT of the vector before anything can be destroyed, the
+    //same way ListeRoom::Remove() does for a Room. Destroying inside erase()
+    //would run ~IOBase() while `ios` is mid-shuffle: vector::erase
+    //move-assigns the tail down and unique_ptr::operator= is
+    //reset(u.release()), so the destructor would see a container of unchanged
+    //size whose slot `pos` already holds the NEXT IO and whose last slot is
+    //null. Nothing in the tree walks Room::ios from an IO destructor today,
+    //but the whole point of this ticket is that the window should not exist.
+    std::unique_ptr<IOBase> owned = std::move(ios[pos]);
+    ios.erase(ios.begin() + pos);
+
     //del == false is an ownership TRANSFER to the caller, not a discreet
     //removal: the caller goes on using the IO and becomes responsible for
-    //destroying it. release() hands the pointer over and leaves an empty
-    //unique_ptr behind, so the erase() below destroys nothing.
+    //destroying it, so let the pointer go instead of destroying it.
+    //Otherwise `owned` destroys the IO at the end of this scope, with `ios`
+    //already fully consistent.
     if (!del)
-        (void)ios[pos].release();
-
-    ios.erase(ios.begin() + pos);
+        (void)owned.release();
 }
 
 void Room::RemoveIOFromRoom(IOBase *io)
@@ -177,6 +187,13 @@ bool Room::SaveToXml(TiXmlElement *node)
     for (int i = 0;i < get_size();i++)
     {
         IOBase *io = get_io(i);
+        //Kept deliberately. It is NOT a workaround for a transient null slot
+        //during RemoveIO() — that window no longer exists, the IO is moved
+        //out of the vector before being destroyed. It is the plain T2.18 rule
+        //applied to what is now a documented-nullable accessor: get_io() may
+        //return nullptr, and this is the only place in this file that
+        //dereferences its result. In range it cannot fire (AddIO() refuses
+        //null and no slot is ever empty), so it costs one predictable test.
         if (!io) continue;
 
         io->SaveToXml(room_node);
