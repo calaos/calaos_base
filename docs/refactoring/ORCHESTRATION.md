@@ -90,7 +90,7 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 | T1.11 | IOBase/IOFactory id integrity | ✅ |
 | T1.12 | Utils CSPRNG/safety + tcpsocket | ✅ |
 | T1.13 | LAN & Hue memory safety | ✅ |
-| T1.14 | Reolink driver lifecycle & log hygiene | 🔨 |
+| T1.14 | Reolink driver lifecycle & log hygiene | ✅ |
 | T1.15 | Lua sandbox + exec watchdog | ✅ |
 | T1.16 | MCP client + Roon Python robustness | ✅ |
 | T1.17 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | 🔨 |
