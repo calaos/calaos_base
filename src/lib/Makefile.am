@@ -104,6 +104,8 @@ libcalaos_common_la_SOURCES = \
         TinyXML/xpath_syntax.h                  \
         UrlDownloader.cpp                       \
         UrlDownloader.h                         \
+        Constants.h                             \
+        MemMacros.h                             \
         Utils.cpp                               \
         Utils.h                                 \
         WebSocketFrame.cpp                      \

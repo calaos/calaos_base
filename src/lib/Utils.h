@@ -129,61 +129,8 @@ using namespace std;
 typedef unsigned int uint;
 #endif
 
-//-----------------------------------------------------------------------------
-// Some common defines
-//-----------------------------------------------------------------------------
-#define PREFIX_CONFIG_PATH      ETC_DIR"/calaos"
-#define ETC_CONFIG_PATH         "/etc/calaos"
-#define HOME_CONFIG_PATH        ".config/calaos"
-#define HOME_CACHE_PATH         ".cache/calaos"
-
-#define LOCAL_CONFIG            "local_config.xml"
-#define IO_CONFIG               "io.xml"
-#define RULES_CONFIG            "rules.xml"
-#define WIDGET_CONFIG           "widgets.xml"
-
-#define DEFAULT_URL             "http://update.calaos.fr/fwupdate.xml"
-#define CALAOS_NETWORK_URL      "https://www.calaos.fr/calaos_network"
-#define CALAOS_WEBSITE_URL      "http://www.calaos.fr"
-#define CALAOS_CONTACT_EMAIL    "contact@calaos.fr"
-#define CALAOS_COPYRIGHT_TEXT   "Copyright (c) 2006-2026, Calaos. All Rights Reserved."
-#define ZONETAB                 "/usr/share/zoneinfo/zone.tab"
-#define CURRENT_ZONE            "/etc/timezone"
-#define LOCALTIME               "/etc/localtime"
-#define ZONEPATH                "/usr/share/zoneinfo/"
-
-// The size of the window. For now The Calaos touchscreen gui is only designed
-// to fit a screen of 1024x768 pixels.
-#define WIDTH   1024
-#define HEIGHT   768
-//-----------------------------------------------------------------------------
-#define PI 3.14159265358979323846
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-#define RED "\x1b[31;01m"
-#define DARKRED "\x1b[31;06m"
-#define RESET "\x1b[0m"
-#define GREEN "\x1b[32;06m"
-#define YELLOW "\x1b[33;06m"
-
-#define WAGO_LISTEN_PORT        4646
-#define BCAST_UDP_PORT          4545
-#define JSONAPI_PORT            5454
-
-#define WAGO_KNX_START_ADDRESS          6144
-#define WAGO_841_START_ADDRESS          4096
-
-/* These macros are usefull to delete/free/... an object and set it to NULL */
-#define DELETE_NULL(p) \
-    if (p) { delete p; p = NULL; }
-
-#define FREE_NULL(p) \
-    if (p) { free(p); p = NULL; }
-
-#define DELETE_NULL_FUNC(fn, p) \
-    if (p) { fn(p); p = NULL; }
-
-#define VAR_UNUSED(x) (void)x;
+#include "Constants.h"
+#include "MemMacros.h"
 
 //-----------------------------------------------------------------------------
 

@@ -318,6 +318,7 @@
 ./src/lib/ColorUtils.h
 ./src/lib/ConfigOptions.cpp
 ./src/lib/ConfigOptions.h
+./src/lib/Constants.h
 ./src/lib/ExpressionEvaluator.cpp
 ./src/lib/ExpressionEvaluator.h
 ./src/lib/exprtk/exprtk_benchmark.cpp
@@ -363,6 +364,7 @@
 ./src/lib/llhttp/src/llhttp.c
 ./src/lib/Logger.cpp
 ./src/lib/Logger.h
+./src/lib/MemMacros.h
 ./src/lib/Params.cpp
 ./src/lib/Params.h
 ./src/lib/Prefix.cpp
