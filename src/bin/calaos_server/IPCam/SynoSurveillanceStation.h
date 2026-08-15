@@ -34,6 +34,22 @@ public:
 
     virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
 
+    //T3.3: pure decision helper for getSnapshot(). The snapshot payload is
+    //accepted only for a HTTP 200 response with an image/jpeg body; anything
+    //else (error status, JSON error body) maps to an empty payload. Keeping
+    //the decision pure and calling the completion callback with its result
+    //guarantees the callback fires exactly once whatever the response looks
+    //like — the previous inline check was missing a return and fired the
+    //callback twice on an error/JSON body, corrupting isRunning/lastSnapshot.
+    //Header-inline so tests exercise it without linking this object file.
+    static string snapshotPayload(int status, const string &contentType,
+                                  const string &data)
+    {
+        if (status != 200 || contentType != "image/jpeg")
+            return {};
+        return data;
+    }
+
 private:
     bool isRunning = false;
 

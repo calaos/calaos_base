@@ -23,6 +23,12 @@
 
 using namespace Calaos;
 
+//T3.3 decision: Gadspot is a legacy MJPEG driver for vintage hardware
+//(hardcoded CGI paths, fixed 640x480 resolution) that is no longer sold or
+//maintained. It is KEPT on purpose: unregistering the "Gadspot" type would
+//break loading of existing io.xml configs that still reference it (unknown
+//type on the installer side, cf. project TODO). Revisit removal only
+//together with a config migration path for unknown IO types.
 REGISTER_IO(Gadspot)
 
 Gadspot::Gadspot(Params &p):

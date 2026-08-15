@@ -561,3 +561,21 @@ Base64_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.3
+#IPCam cleanup + Synology snapshot fix. IPCam::maskUrlCredentials (defined in
+#IPCam.cpp, whose object is already part of CORE_SERVER_OBJECTS) masks camera
+#credentials before URLs reach the logs; SynoSurveillanceStation::
+#snapshotPayload is a header-inline pure helper guaranteeing the snapshot
+#completion callback fires exactly once (the old inline check was missing a
+#return and fired it twice on an error/JSON body). Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += IPCamUrl_test
+check_PROGRAMS += IPCamUrl_test
+IPCamUrl_test_SOURCES = IPCamUrl_test.cpp
+IPCamUrl_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+IPCamUrl_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+IPCamUrl_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

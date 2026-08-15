@@ -70,6 +70,13 @@ public:
 
     virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
 
+    //T3.3: mask credentials embedded in a camera URL so it can be logged
+    //safely. Handles userinfo passwords (http://user:secret@host/...) and the
+    //values of known credential query parameters (Foscam usr/pwd, Synology
+    //account/passwd/_sid, generic user/username/password/loginuse/loginpas).
+    //Any URL a camera driver hands to a log statement must go through this.
+    static std::string maskUrlCredentials(const std::string &url);
+
     virtual bool SaveToXml(TiXmlElement *node);
 };
 

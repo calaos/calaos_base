@@ -28,6 +28,14 @@ REGISTER_IO(Foscam)
 Foscam::Foscam(Params &p):
     IPCam(p)
 {
+    //T3.3 security note: the Foscam CGI API only authenticates through
+    //&usr=…&pwd=… query parameters over plain HTTP, so the credentials
+    //travel in cleartext on the wire — this is a camera firmware limitation,
+    //not something calaos can fix. Deploy these cameras on a trusted/isolated
+    //network segment or behind an HTTPS reverse proxy. On the calaos side,
+    //never log these URLs without IPCam::maskUrlCredentials().
+    //(The user-visible ioDoc description is left untouched on purpose: the
+    //string is translated in po/, which this ticket does not own.)
     ioDoc->descriptionBaseSet(_("Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
     ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
     ioDoc->paramAdd("zoom_step", "", IODoc::TYPE_STRING, false,"1");

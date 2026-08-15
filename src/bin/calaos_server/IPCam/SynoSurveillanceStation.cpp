@@ -178,23 +178,23 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
     {
         cDebugDom("syno.ss") << "getSnapshot done, status: " << status;
 
+        string contentType;
         if (status == 200)
         {
             auto headers = dl->getResponseHeaders();
-            cDebugDom("syno.ss") << "Headers Content-Type: " << headers["Content-Type"];
-            if (headers["Content-Type"] != "image/jpeg")
-            {
+            contentType = headers["Content-Type"];
+            cDebugDom("syno.ss") << "Headers Content-Type: " << contentType;
+            if (contentType != "image/jpeg")
                 cWarning() << "GetSnapshot failed: " << data;
-                cb({});
-            }
-
-            cb(data);
         }
         else
         {
             cWarning() << "HTTP error: " << status;
-            cb({});
         }
+
+        //T3.3: single call site — the completion callback must fire exactly
+        //once (the old code fell through after cb({}) and called cb(data) too)
+        cb(snapshotPayload(status, contentType, data));
     });
     dl->httpGet();
 }
