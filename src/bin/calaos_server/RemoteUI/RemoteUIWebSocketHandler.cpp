@@ -41,6 +41,10 @@ RemoteUIWebSocketHandler::RemoteUIWebSocketHandler(HttpClient *client):
 
 RemoteUIWebSocketHandler::~RemoteUIWebSocketHandler()
 {
+    //Invalidate the alive token: async callbacks (post-auth timer,
+    //buildJsonState completion) captured a weak_ptr on it and will no-op
+    *handlerAlive = false;
+
     if (authenticated_remote_ui)
     {
         // Unregister this handler from RemoteUIManager
@@ -86,8 +90,14 @@ bool RemoteUIWebSocketHandler::authenticateConnection(const std::map<string, str
                << authenticated_remote_ui->get_param("id");
 
         // Send config first, then initial IO states, then check for OTA updates
-        Timer::singleShot(0.1, [this]()
+        // Timer::singleShot fires unconditionally: guard with the alive token,
+        // the handler may be deleted (device disconnect) before the timer fires
+        Timer::singleShot(0.1, [this, alive = std::weak_ptr<bool>(handlerAlive)]()
         {
+            auto token = alive.lock();
+            if (!token || !*token)
+                return; //handler was destroyed in the meantime
+
             sendConfigUpdate();
             sendInitialIOStates();
 
@@ -220,10 +230,21 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
     // Convert set to vector for buildJsonState
     vector<string> iolist(referenced_ios.begin(), referenced_ios.end());
 
-    buildJsonState(iolist, [this, iolist](json_t *jret)
+    // buildJsonState may defer the callback through async audio-player
+    // queries: guard with the alive token, the handler may be deleted
+    // (device disconnect) before the result comes back
+    buildJsonState(iolist, [this, iolist, alive = std::weak_ptr<bool>(handlerAlive)](json_t *jret)
     {
+        auto token = alive.lock();
+        if (!token || !*token)
+        {
+            json_decref(jret); //we own the result, avoid leaking it
+            return;
+        }
+
         // Convert jansson json_t to nlohmann::json
         char *json_str = json_dumps(jret, JSON_COMPACT);
+        json_decref(jret); //buildJsonState hands us the ownership
         if (json_str)
         {
             Json data = Json::parse(json_str);
@@ -244,8 +265,10 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     Json data;
     data["name"] = authenticated_remote_ui->get_param("name");
     data["brightness"] = authenticated_remote_ui->getBrightness();
-    data["grid_height"] = std::stoi(authenticated_remote_ui->get_param("grid_h"));
-    data["grid_width"] = std::stoi(authenticated_remote_ui->get_param("grid_w"));
+    //Non-throwing parse: a malformed device-supplied value must not throw
+    //out of the timer callback into the event loop (default grid is 3x3)
+    data["grid_height"] = parseGridDimension(authenticated_remote_ui->get_param("grid_h"), 3);
+    data["grid_width"] = parseGridDimension(authenticated_remote_ui->get_param("grid_w"), 3);
     data["screensaver_timeout"] = authenticated_remote_ui->get_param("screensaver_timeout");
     data["screensaver_dimming"] = authenticated_remote_ui->get_param("screensaver_dimming");
     data["screensaver_mode"] = authenticated_remote_ui->get_param("screensaver_mode");

@@ -371,3 +371,22 @@ core_IOIdIntegrity_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_IOIdIntegrity_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T1.10
+#RemoteUI WebSocket/OTA lifecycle helpers: non-throwing grid dimension
+#parsing (parseGridDimension) and 64-bit clamped OTA rescan interval
+#(computeRescanIntervalMs). Both helpers are header-inline in the RemoteUI
+#headers, so only the libs are needed at link time, no server objects (same
+#setup as RemoteUIHmac_test above). Own HAVE_GTEST block so that this stays
+#a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += RemoteUIOtaLifecycle_test
+check_PROGRAMS += RemoteUIOtaLifecycle_test
+RemoteUIOtaLifecycle_test_SOURCES = RemoteUIOtaLifecycle_test.cpp
+RemoteUIOtaLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI
+RemoteUIOtaLifecycle_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

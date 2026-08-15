@@ -24,6 +24,7 @@
 #include "Utils.h"
 #include "libuvw.h"
 #include "FirmwareManifest.h"
+#include <cstdint>
 #include <map>
 #include <memory>
 
@@ -90,6 +91,23 @@ public:
 
     // Check if OTA is enabled
     bool isEnabled() const { return enabled; }
+
+    /* Rescan period in milliseconds, computed in 64-bit and clamped.
+     * minutes * 60 * 1000 in int overflows (UB) above ~35791 minutes and
+     * would yield a wrong (possibly tiny) timer period.
+     * Clamped to [1 minute, 30 days].
+     * Header-inline so it can be unit-tested without linking server objects.
+     */
+    static uint64_t computeRescanIntervalMs(int minutes)
+    {
+        static const uint64_t maxMs = 30ull * 24 * 60 * 60 * 1000; //30 days
+        if (minutes < 1)
+            minutes = 1;
+        uint64_t ms = static_cast<uint64_t>(minutes) * 60ull * 1000ull;
+        if (ms > maxMs)
+            ms = maxMs;
+        return ms;
+    }
 
     // Get the firmware path
     const string &getFirmwarePath() const { return firmwarePath; }

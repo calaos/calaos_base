@@ -109,8 +109,9 @@ void OtaFirmwareManager::setupPeriodicRescan()
         rescan();
     });
 
-    // Convert minutes to milliseconds
-    unsigned int intervalMs = rescanIntervalMinutes * 60 * 1000;
+    // Convert minutes to milliseconds (64-bit, clamped: the naive signed
+    // multiply overflows above ~35791 minutes)
+    uint64_t intervalMs = computeRescanIntervalMs(rescanIntervalMinutes);
     rescanTimer->start(uvw::TimerHandle::Time{intervalMs}, uvw::TimerHandle::Time{intervalMs});
 }
 

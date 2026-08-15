@@ -39,6 +39,14 @@ private:
     RemoteUI *authenticated_remote_ui;
     AuthFailureReason last_auth_failure;
 
+    /* Alive token for asynchronous callbacks kept outside of this object
+     * (post-auth timer, buildJsonState completion): they capture a weak_ptr
+     * on it and bail out when the handler has been destroyed in the
+     * meantime (device dropping the connection right after authenticating).
+     * Same pattern as JsonApiHandlerHttp::handlerAlive.
+     */
+    std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
+
 public:
     RemoteUIWebSocketHandler(HttpClient *client);
     virtual ~RemoteUIWebSocketHandler();
@@ -61,6 +69,22 @@ public:
     // Send RemoteUI-specific messages
     void sendInitialIOStates();
     void sendConfigUpdate();
+
+    /* Non-throwing parse of a client-supplied grid dimension.
+     * std::stoi would throw out of timer callbacks into the event loop on
+     * malformed values; this returns fallback instead when the value is not
+     * a plain integer in [1, 1000].
+     * Header-inline so it can be unit-tested without linking server objects.
+     */
+    static int parseGridDimension(const std::string &value, int fallback)
+    {
+        int v = 0;
+        if (!Utils::from_string(value, v))
+            return fallback;
+        if (v < 1 || v > 1000)
+            return fallback;
+        return v;
+    }
 
     // Expose sendJson for RemoteUIManager to send notifications
     using JsonApiHandlerWS::sendJson;

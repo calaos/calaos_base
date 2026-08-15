@@ -24,7 +24,9 @@
 #include "HMACAuthenticator.h"
 #include "IO/RemoteUI/RemoteUI.h"
 #include "FileUtils.h"
+#include <algorithm>
 #include <fstream>
+#include <vector>
 
 static const char *TAG = "ota";
 
@@ -216,15 +218,6 @@ void OtaHttpHandler::sendFirmwareFile(const string &filePath, const string &chec
     std::streamsize fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    // Read file content
-    std::vector<char> buffer(fileSize);
-    if (!file.read(buffer.data(), fileSize))
-    {
-        sendErrorResponse("FILE_READ_ERROR", "Failed to read firmware file", 500);
-        return;
-    }
-    file.close();
-
     // Build HTTP response headers
     std::ostringstream response;
     response << "HTTP/1.1 200 OK\r\n";
@@ -235,11 +228,28 @@ void OtaHttpHandler::sendFirmwareFile(const string &filePath, const string &chec
     response << "Connection: close\r\n";
     response << "\r\n";
 
-    string headers = response.str();
+    httpClient->sendToClient(response.str());
 
-    // Send headers + body
-    string fullResponse = headers + string(buffer.begin(), buffer.end());
-    httpClient->sendToClient(fullResponse);
+    // Stream the body in fixed-size chunks instead of materializing the
+    // whole firmware (plus a concatenated copy) in memory
+    static const std::streamsize chunkSize = 64 * 1024;
+    std::vector<char> buffer(chunkSize);
+    std::streamsize remaining = fileSize;
+    while (remaining > 0)
+    {
+        std::streamsize toRead = std::min(remaining, chunkSize);
+        if (!file.read(buffer.data(), toRead))
+        {
+            // Headers already sent: we cannot switch to an error response.
+            // Connection: close + short body lets the client detect the
+            // truncation against Content-Length (checksum also fails).
+            cErrorDom(TAG) << "OtaHttpHandler: Read error while streaming firmware file, "
+                           << remaining << " bytes were not sent";
+            return;
+        }
+        httpClient->sendToClient(string(buffer.data(), toRead));
+        remaining -= toRead;
+    }
 
     cInfoDom(TAG) << "OtaHttpHandler: Sent firmware file (" << fileSize << " bytes)";
 }
