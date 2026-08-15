@@ -322,55 +322,6 @@ void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
         res.push_back(item);
 }
 
-static bool calaosLogShuttingDown = false;
-static string default_domain;
-static std::unordered_map<std::string, Logger *> logger_hash;
-static Logger defaultCoutLogger;
-
-Logger *Utils::calaosLogger(const char *domain)
-{
-    if (calaosLogShuttingDown)
-        return &defaultCoutLogger;
-
-    string d = default_domain;
-
-    if (domain)
-      d = domain;
-
-    Logger *logger = nullptr;
-    auto it = logger_hash.find(d);
-    if (it == logger_hash.end())
-    {
-        logger = new Logger(d);
-        logger_hash[d] = logger;
-    }
-    else
-        logger = it->second;
-
-    return logger;
-}
-
-void Utils::initLogger(const char *d)
-{
-    //We are actually shutting down everything, do not allocate memory
-    if (calaosLogShuttingDown)
-        return;
-
-    default_domain = d;
-    logger_hash[default_domain] = new Logger(default_domain);
-}
-
-void Utils::freeLoggers()
-{
-    for (auto &kv: logger_hash)
-    {
-        delete kv.second;
-    }
-    logger_hash.clear();
-
-    calaosLogShuttingDown = true;
-}
-
 static string _configBase;
 static string _cacheBase;
 

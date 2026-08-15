@@ -364,6 +364,8 @@
 ./src/lib/llhttp/src/llhttp.c
 ./src/lib/Logger.cpp
 ./src/lib/Logger.h
+./src/lib/LogSetup.cpp
+./src/lib/LogSetup.h
 ./src/lib/MemMacros.h
 ./src/lib/Params.cpp
 ./src/lib/Params.h

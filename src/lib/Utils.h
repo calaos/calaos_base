@@ -131,29 +131,13 @@ typedef unsigned int uint;
 
 #include "Constants.h"
 #include "MemMacros.h"
+#include "LogSetup.h"
 
 //-----------------------------------------------------------------------------
-
-//Log macros
-#define cDebug() LoggerDebug(Utils::calaosLogger())
-#define cInfo() LoggerInfo(Utils::calaosLogger())
-#define cWarning() LoggerWarning(Utils::calaosLogger())
-#define cError() LoggerError(Utils::calaosLogger())
-#define cCritical() LoggerCritical(Utils::calaosLogger())
-
-#define cDebugDom(domain) LoggerDebug(Utils::calaosLogger(domain))
-#define cInfoDom(domain) LoggerInfo(Utils::calaosLogger(domain))
-#define cWarningDom(domain) LoggerWarning(Utils::calaosLogger(domain))
-#define cErrorDom(domain) LoggerError(Utils::calaosLogger(domain))
-#define cCriticalDom(domain) LoggerCritical(Utils::calaosLogger(domain))
 
 //-----------------------------------------------------------------------------
 namespace Utils
 {
-void initLogger(const char *default_domain);
-void freeLoggers();
-Logger *calaosLogger(const char *domain = nullptr);
-
 string url_encode(string str);
 string url_decode(string str);
 std::string url_decode2(std::string str); //decode 2 times
