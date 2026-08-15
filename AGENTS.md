@@ -125,7 +125,7 @@ Manages embedded devices (ESP32-S3 wall panels, etc.) that connect via WebSocket
 `AudioPlayer` subclasses: `Squeezebox` (Logitech Media Server), `RoonPlayer` (Python ExternProc). AV receivers (`AVReceiver` subclasses): Denon, Marantz, Onkyo, Pioneer, Rose, Yamaha. See `docs/05_audio.md`.
 
 ### IP Cameras (`src/bin/calaos_server/IPCam/`)
-`IPCam` base class with implementations for Axis, Foscam, Gadspot, Planet, StandardMjpeg, SynoSurveillanceStation. See `docs/06_ipcam.md`.
+`IPCam` base class with implementations for Axis, Foscam, Planet, StandardMjpeg, SynoSurveillanceStation. See `docs/06_ipcam.md`.
 
 ### Lua Scripting (`src/bin/calaos_server/LuaScript/`)
 Scripts run in an isolated subprocess (`ScriptExtern_main.cpp` via ExternProc). `ScriptManager` sends the script text to the subprocess; `Lua_Calaos` (via Lunar) exposes `calaos:get_io()`, `calaos:set_io()`, etc. See `docs/09_lua_scripting.md`.

@@ -210,8 +210,6 @@
 ./src/bin/calaos_server/IPCam/Axis.h
 ./src/bin/calaos_server/IPCam/Foscam.cpp
 ./src/bin/calaos_server/IPCam/Foscam.h
-./src/bin/calaos_server/IPCam/Gadspot.cpp
-./src/bin/calaos_server/IPCam/Gadspot.h
 ./src/bin/calaos_server/IPCam/IPCam.cpp
 ./src/bin/calaos_server/IPCam/IPCam.h
 ./src/bin/calaos_server/IPCam/Planet.cpp

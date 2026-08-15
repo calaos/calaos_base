@@ -1953,12 +1953,6 @@ msgstr ""
 msgid "IP Address"
 msgstr ""
 
-#: src/bin/calaos_server/IPCam/Gadspot.cpp:31
-msgid ""
-"Gadspot IP Camera. Camera can be viewed directly inside calaos and used in "
-"rules."
-msgstr ""
-
 #: src/bin/calaos_server/IPCam/IPCam.cpp:35
 msgid ""
 "Width of the image, if this parameter is set, video will be resized to fit "

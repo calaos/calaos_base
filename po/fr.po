@@ -2326,14 +2326,6 @@ msgstr "Adresse IP"
 msgid "Port number"
 msgstr "Numéro de port"
 
-#: src/bin/calaos_server/IPCam/Gadspot.cpp:31
-msgid ""
-"Gadspot IP Camera. Camera can be viewed directly inside calaos and used in "
-"rules."
-msgstr ""
-"Camera IP Gadspot. La camèra peut être directement vue dans calaos et "
-"utilisée dans les règles."
-
 #: src/bin/calaos_server/IPCam/IPCam.cpp:35
 msgid ""
 "Width of the image, if this parameter is set, video will be resized to fit "

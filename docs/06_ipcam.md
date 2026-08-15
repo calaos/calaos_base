@@ -46,7 +46,6 @@ public:
 |---|---|---|
 | `Axis` | Caméras Axis | `IPCamAxis` |
 | `Foscam` | Foscam IP cameras | `IPCamFoscam` |
-| `Gadspot` | Gadspot | `IPCamGadspot` |
 | `Planet` | Planet cameras | `IPCamPlanet` |
 | `StandardMjpeg` | Tout flux MJPEG standard | `IPCamMJPEG` |
 | `SynoSurveillanceStation` | Synology Surveillance Station | `IPCamSyno` |

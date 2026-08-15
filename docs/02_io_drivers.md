@@ -20,7 +20,7 @@ IOBase
   ├── OutputShutterSmart    → WagoOutputShutterSmart, KNXOutputShutterSmart, GpioOutputShutterSmart…
   ├── OutputAnalog          → WagoOutputAnalog, KNXOutputAnalog, MqttOutputAnalog…
   ├── AudioPlayer           → Squeezebox, RoonPlayer
-  └── IPCam                 → Axis, Foscam, Gadspot, Planet, StandardMjpeg, SynoSurveillanceStation
+  └── IPCam                 → Axis, Foscam, Planet, StandardMjpeg, SynoSurveillanceStation
 ```
 
 ---

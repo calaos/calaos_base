@@ -262,8 +262,6 @@ calaos_server_SOURCES = \
         IPCam/Axis.h                                    \
         IPCam/Foscam.cpp                                \
         IPCam/Foscam.h                                  \
-        IPCam/Gadspot.cpp                               \
-        IPCam/Gadspot.h                                 \
         IPCam/IPCam.cpp                                 \
         IPCam/IPCam.h                                   \
         IPCam/Planet.cpp                                \
