@@ -4,6 +4,16 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-15 — Transport (T2.11) : cap connexions par client, header cap fixe
+**Décision** : cap de connexions **par client** basé sur l'identité X-Forwarded-For (dernière
+entrée de la dernière ligne XFF — hop haproxy de confiance, règle T1.8) avec fallback pair TCP ;
+défaut **50** connexions, configurable via `max_connections_per_ip`. Le cap de taille des
+headers HTTP est **fixe à 32 KiB, non configurable** (aligné sur le rationale haproxy
+`tune.bufsize` : une limite compile-time saine, pas un bouton de config).
+**Pourquoi** : 50 couvre les UI multiples derrière un même NAT/proxy sans laisser un client
+épuiser le serveur ; un header cap configurable n'a pas de cas d'usage légitime.
+**Appliquer** : ne pas re-demander ces valeurs ; ne pas exposer le header cap dans la config.
+
 ## 2026-08-15 — Config corrompue (T2.4) : restore + préservation + notification
 **Décision** : sur io.xml/rules.xml corrompu, restauration automatique en remontant les
 backups du plus récent au plus ancien ; le fichier corrompu est **préservé** dans
