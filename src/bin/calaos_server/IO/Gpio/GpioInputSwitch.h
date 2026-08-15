@@ -22,25 +22,15 @@
 #define S_GpioInputSwitch_H
 
 #include <InputSwitch.h>
-#include <WagoMap.h>
-#include "GpioCtrl.h"
+#include "GpioInputBase.h"
 
 namespace Calaos
 {
 
-class GpioInputSwitch : public InputSwitch
+class GpioInputSwitch : public GpioInputBase<InputSwitch>
 {
-private:
-    GpioCtrl *gpioctrl;
-
-protected:
-    bool val;
-    virtual bool readValue();
-
 public:
     GpioInputSwitch(Params &p);
-    virtual ~GpioInputSwitch();
-
 };
 
 }

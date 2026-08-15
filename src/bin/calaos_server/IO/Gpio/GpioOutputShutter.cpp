@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <IOFactory.h>
-#include "GpioCtrl.h"
 
 #include "GpioOutputShutter.h"
 
@@ -28,53 +27,6 @@ using namespace Calaos;
 REGISTER_IO(GpioOutputShutter)
 
 GpioOutputShutter::GpioOutputShutter(Params &p):
-    OutputShutter(p)
+    GpioOutputShutterBase<OutputShutter>(p, "GpioOutputShutter", "Shutter output")
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("GpioOutputShutter");
-    ioDoc->descriptionSet(_("Shutter with 2 GPIOs"));
-    ioDoc->paramAddInt("gpio_up", _("GPIO ID for opening on your hardware"), 0, 65535, true);
-    ioDoc->paramAddInt("gpio_down", _("GPIO ID for closing on your hardware"), 0, 65535, true);
-    ioDoc->paramAdd("active_low_up", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
-    ioDoc->paramAdd("active_low_down", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
-
-    if (!param_exists("active_low_up")) set_param("active_low_up", "false");
-    if (!param_exists("active_low_down")) set_param("active_low_down", "false");
-
-    int gpio_up_nb, gpio_down_nb;
-    bool active_low_up, active_low_down;
-
-    Utils::from_string(get_param("gpio_up"), gpio_up_nb);
-    Utils::from_string(get_param("gpio_down"), gpio_down_nb);
-
-    Utils::from_string(get_param("active_low_up"), active_low_up);
-    Utils::from_string(get_param("active_low_down"), active_low_down);
-
-    gpioctrl_up = new GpioCtrl(gpio_up_nb);
-    gpioctrl_up->setDirection("out");
-    gpioctrl_up->setActiveLow(active_low_up);
-
-
-    gpioctrl_down = new GpioCtrl(gpio_down_nb);
-    gpioctrl_down->setDirection("out");
-    gpioctrl_down->setActiveLow(active_low_down);
-
-    cInfoDom("Input") << "Create Shutter output" << " gpio up " << gpio_up_nb << " active_low_up : " << active_low_up
-                                                 << " gpio down " << gpio_down_nb << " active_low_down : " << active_low_down;
-}
-
-GpioOutputShutter::~GpioOutputShutter()
-{
-    delete gpioctrl_up;
-    delete gpioctrl_down;
-}
-
-void GpioOutputShutter::setOutputUp(bool enable)
-{
-    gpioctrl_up->setVal(enable);
-}
-
-void GpioOutputShutter::setOutputDown(bool enable)
-{
-    gpioctrl_down->setVal(enable);
 }

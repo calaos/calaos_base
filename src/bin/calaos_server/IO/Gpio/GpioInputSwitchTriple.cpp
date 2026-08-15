@@ -18,7 +18,6 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <Utils.h>
 #include <IOFactory.h>
 
 #include "GpioInputSwitchTriple.h"
@@ -28,43 +27,6 @@ using namespace Calaos;
 REGISTER_IO(GpioInputSwitchTriple)
 
 GpioInputSwitchTriple::GpioInputSwitchTriple(Params &p):
-    InputSwitchTriple(p),
-    gpioctrl(NULL)
+    GpioInputBase<InputSwitchTriple>(p, "GpioInputSwitchTriple")
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("GpioInputSwitchTriple");
-    ioDoc->descriptionSet(_("Input switch with a GPIO"));
-    ioDoc->paramAddInt("gpio", _("GPIO ID on your hardware"), 0, 65535, true);
-    ioDoc->paramAdd("active_low", _("Set this is your GPIO has an inverted level"), IODoc::TYPE_BOOL, false, "false");
-
-    int gpio_nb;
-    bool active_low;
-
-    if (!param_exists("active_low")) set_param("active_low", "false");
-
-    Utils::from_string(get_param("gpio"), gpio_nb);
-    Utils::from_string(get_param("active_low"), active_low);
-
-    gpioctrl = new GpioCtrl(gpio_nb);
-    gpioctrl->setDirection("in");
-    gpioctrl->setActiveLow(active_low);
-
-    gpioctrl->setValueChanged([=] {
-            gpioctrl->getVal(val);
-            hasChanged();
-            cInfoDom("Input") << "Input value changed, new value : " << val;
-        });
-
-    cInfoDom("Input") << "Create gpio input for gpio " << gpio_nb << " active_low : " << active_low;
-}
-
-GpioInputSwitchTriple::~GpioInputSwitchTriple()
-{
-    delete gpioctrl;
-}
-
-bool GpioInputSwitchTriple::readValue()
-{
-    cInfoDom("Input") << "Read Value : " << val;
-    return val;
 }

@@ -22,24 +22,15 @@
 #define S_GpioOutputShutterSmart_H
 
 #include <OutputShutterSmart.h>
-#include <WagoMap.h>
+#include "GpioOutputShutterBase.h"
 
 namespace Calaos
 {
 
-class GpioCtrl;
-
-class GpioOutputShutterSmart : public OutputShutterSmart
+class GpioOutputShutterSmart : public GpioOutputShutterBase<OutputShutterSmart>
 {
-private:
-    GpioCtrl *gpioctrl_up, *gpioctrl_down;
-
-    virtual void setOutputUp(bool enable);
-    virtual void setOutputDown(bool enable);
-
 public:
     GpioOutputShutterSmart(Params &p);
-    ~GpioOutputShutterSmart();
 };
 
 }

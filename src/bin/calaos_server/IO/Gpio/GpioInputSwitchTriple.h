@@ -22,25 +22,15 @@
 #define S_GpioInputSwitchTriple_H
 
 #include <InputSwitchTriple.h>
-#include <WagoMap.h>
-#include "GpioCtrl.h"
+#include "GpioInputBase.h"
 
 namespace Calaos
 {
 
-class GpioInputSwitchTriple : public InputSwitchTriple
+class GpioInputSwitchTriple : public GpioInputBase<InputSwitchTriple>
 {
-private:
-    GpioCtrl *gpioctrl;
-
-protected:
-    bool val;
-    virtual bool readValue();
-
 public:
     GpioInputSwitchTriple(Params &p);
-    virtual ~GpioInputSwitchTriple();
-
 };
 
 }

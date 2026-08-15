@@ -156,4 +156,22 @@ TEST(GpioDebounceTimeTest, ValidityPredicateBounds)
     EXPECT_FALSE(GpioCtrl::debounceTimeValid(std::nan("")));
 }
 
+// T3.2f — the thin Gpio input subclasses (GpioInputBase) wire the "debounce"
+// io.xml param through GpioCtrl::parseDebounceTime. The call site detects an
+// invalid/absent value with a negative sentinel fallback in order to log a
+// warning before using the default: guard that pattern here so a helper
+// change cannot silently break the warning path.
+TEST(GpioDebounceTimeTest, NegativeSentinelFallbackDetectsInvalidParam)
+{
+    //invalid or absent values surface the sentinel
+    EXPECT_LT(GpioCtrl::parseDebounceTime("abc", -1.0), 0.0);
+    EXPECT_LT(GpioCtrl::parseDebounceTime("", -1.0), 0.0);
+    EXPECT_LT(GpioCtrl::parseDebounceTime("9.9", -1.0), 0.0);
+    EXPECT_LT(GpioCtrl::parseDebounceTime("-0.2", -1.0), 0.0);
+
+    //valid values never do
+    EXPECT_DOUBLE_EQ(0.2, GpioCtrl::parseDebounceTime("0.2", -1.0));
+    EXPECT_DOUBLE_EQ(5.0, GpioCtrl::parseDebounceTime("5.0", -1.0));
+}
+
 } //namespace

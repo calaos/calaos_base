@@ -98,6 +98,7 @@ calaos_server_SOURCES = \
         IO/ExternProc.h                                 \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
+        IO/Gpio/GpioInputBase.h                         \
         IO/Gpio/GpioInputSwitch.cpp                     \
         IO/Gpio/GpioInputSwitch.h                       \
         IO/Gpio/GpioInputSwitchLongPress.cpp            \
@@ -106,6 +107,7 @@ calaos_server_SOURCES = \
         IO/Gpio/GpioInputSwitchTriple.h                 \
         IO/Gpio/GpioOutputShutter.cpp                   \
         IO/Gpio/GpioOutputShutter.h                     \
+        IO/Gpio/GpioOutputShutterBase.h                     \
         IO/Gpio/GpioOutputShutterSmart.cpp              \
         IO/Gpio/GpioOutputShutterSmart.h                \
         IO/Gpio/GpioOutputSwitch.cpp                    \
