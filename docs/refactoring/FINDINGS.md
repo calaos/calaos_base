@@ -37,6 +37,27 @@
   `renameId()` (pas de rehash de la map id→IO). Aucun appelant de ce type aujourd'hui
   (vérifié grep). → envisager const ref ou mutateur dédié.
 
+## Wave 5 — follow-ups (hors périmètre, non corrigés)
+
+- **[SÉCURITÉ, spec T2.5 différé] UrlDownloader garde `VERIFYPEER/VERIFYHOST=0` globalement** —
+  l'item d'acceptation de T2.5.md (TLS vérifié par défaut, insecure opt-in) a été volontairement
+  différé pour préserver l'iso-comportement pendant la réécriture libcurl. → ticket dédié
+  (activer la vérification TLS par défaut + option insecure explicite ; impact : caméras
+  locales en HTTPS auto-signé).
+- **[CORRECTNESS, confirmé par revue] `HttpClient::_parser_begin` ne vide pas `request_headers`
+  entre deux requêtes keep-alive** (`HttpClient.cpp:118-133`) — les en-têtes de la requête N
+  fuient dans la requête N+1 (ex : un `origin` périmé continue de déclencher CORS). → follow-up.
+- **[DOC] Paramètre GPIO réellement nommé `debounce`** (pas `debounce_time`), lu par
+  `GpioInputSwitch.cpp:47`, absent de ioDoc. Le helper `GpioCtrl::parseDebounceTime` est prêt
+  pour ce call site (les chaînes garbage arrivent aujourd'hui en 0.0 → fallback silencieux).
+  → mini-ticket : appeler le helper depuis GpioInputSwitch + entrée ioDoc.
+- **[HYGIÈNE T2.4]** `backups/corrupt/` non borné (boots corrompus répétés) ; délai de notif
+  30 s = heuristique, pas un vrai événement « loop démarré ». Acceptés en l'état.
+- **[DÉPLOIEMENT T2.5]** une libcurl compilée sans AsynchDNS/c-ares bloquerait la loop à chaque
+  résolution (l'image de référence a AsynchDNS) — à mentionner dans la doc de déploiement.
+- **[NETTOYAGE]** `configure.ac` : check `AC_CHECK_PROG` du binaire curl désormais obsolète
+  (plus de subprocess) ; `docs/13_utility_lib.md` référence encore SHA1.{cpp,h} supprimés (T2.3).
+
 ## Wave 4 — transverse, à traiter en priorité
 
 - **[SÉCURITÉ/UAF, tous handlers WS] `JsonApi.cpp:450-537` `buildJsonState`** : les lambdas
