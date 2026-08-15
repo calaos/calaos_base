@@ -89,7 +89,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.14](T2.14.md) | 2 | Wire pytest suites into `make check` | infra | T0.3 | 🔨 |
 | [T2.15](T2.15.md) | 2 | JsonApi audio-state UAF/leak + RemoteUI token constant-time | fix (sec) | T1.4 | 🔨 |
 | [T2.16](T2.16.md) | 2 | HttpClient keep-alive request_headers leak | fix (sec) | T2.11 | 🔨 |
-| [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | 🔨 |
+| [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | ✅ |
 | [T2.18](T2.18.md) | 2 | createIO null-guard audit (JsonApi/AutoScenario) | fix | T1.11 | 📋 |
 | [T2.19](T2.19.md) | 2 | Per-IO `insecure` option for Web/Lua (user decision) | feature | T2.17 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |

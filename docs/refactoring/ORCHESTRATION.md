@@ -36,8 +36,14 @@
   t3.7 nettoyé. Restent non gardés, en FINDINGS : McpServerManager.cpp:166,
   JsonApiHandlerHttp.cpp:45). **T3.8 ✅ mergé** (2026-08-15, `a22db7c4`, gardes
   aliveTag sur les callbacks async d'AVRRose.cpp + AVRRoseNotifServer.{cpp,h} ;
-  39/39 tests, ff-only, worktree t3.8 nettoyé). 4 autres worktrees wave 7
-  encore en vol sous `/tmp/claude-1000/calaos-wave7/` (t2.14–t2.17).
+  39/39 tests, ff-only, worktree t3.8 nettoyé). **T2.17 ✅ mergé** (2026-08-15,
+  `7bf503ad`, TLS vérifié par défaut dans UrlDownloader + opt-in `insecure` par appel
+  (IPCam/Hue/mjpeg relay/ActionCameraDownload) + masquage des credentials d'URL dans
+  les logs (StringUtils) ; rebase propre ×2 (master avait avancé de 2 commits docs-only :
+  décision « insecure par défaut » qui sera appliquée par T2.19 rescopé), aucun conflit,
+  ff-only ; 39/39 tests dont UrlDownloader_test 10/10 et IPCamUrl_test 16/16 ; worktree
+  t2.17 nettoyé). 3 autres worktrees wave 7
+  encore en vol sous `/tmp/claude-1000/calaos-wave7/` (t2.14–t2.16).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
