@@ -77,35 +77,33 @@ std::string Utils::url_decode2(std::string str)
     return url_decode(url_decode(str));
 }
 
+//T3.4: invalid base64 (bad chars, broken padding, non-canonical input) now
+//yields an empty string instead of a silently truncated one. Signatures kept
+//source-compatible; a signature-breaking std::optional API would require
+//touching every caller (WebSocket.cpp handshake, Utils.cpp file encode).
 std::string Utils::Base64_decode(std::string &str)
 {
-    std::string ret;
-    ret = base64_decode(str);
-
-    return ret;
+    return base64_decode_checked(str).value_or(std::string());
 }
 
 std::string Utils::Base64_decode_data(std::string &str)
 {
-    string ret = base64_decode(str);
-
-    return ret;
+    return base64_decode_checked(str).value_or(std::string());
 }
 
 std::string Utils::Base64_encode(std::string &str)
 {
-    std::string ret;
-    ret = base64_encode(reinterpret_cast<const unsigned char*>(str.c_str()), str.length());
-
-    return ret;
+    return base64_encode(reinterpret_cast<const unsigned char *>(str.data()), str.size());
 }
 
 std::string Utils::Base64_encode(void *data, int size)
 {
-    std::string ret;
-    ret = base64_encode(reinterpret_cast<const unsigned char*>(data), size);
+    //negative size used to be converted to a huge unsigned length → OOB read
+    if (!data || size <= 0)
+        return {};
 
-    return ret;
+    return base64_encode(reinterpret_cast<const unsigned char *>(data),
+                         static_cast<size_t>(size));
 }
 
 int Utils::htoi(char *s)

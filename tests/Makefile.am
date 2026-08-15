@@ -542,3 +542,22 @@ TransportHardening_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.4
+#base64 hardening: the vendored decoder (base64.cpp) now strictly validates
+#RFC 4648 input — out-of-alphabet chars (whitespace, NUL, high bytes),
+#misplaced/broken '=' padding, impossible 4k+1 lengths and non-canonical
+#trailing bits are rejected (std::nullopt via base64_decode_checked) instead
+#of silently truncating; the legacy base64_decode()/Utils::Base64_* entry
+#points keep their signatures and map rejection to "". Also covers the
+#Utils::Base64_encode(void*, int) negative-size OOB guard and RFC 4648 §10
+#round-trip vectors. Only libcalaos_common code is exercised. Own HAVE_GTEST
+#block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += Base64_test
+check_PROGRAMS += Base64_test
+Base64_test_SOURCES = Base64_test.cpp
+Base64_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
