@@ -29,7 +29,12 @@
   revue (subagent) → merge (subagent, sérialisé) → board ✅ ; branches vides → relancer.
 - **Wave 7 en cours** : **T3.6 ✅ mergé** (2026-08-15, `47badd28`, suppression Gadspot :
   Gadspot.{cpp,h}, Makefile.am, POTFILES.in, pot + 7 .po, docs ; 39/39 tests, ff-only,
-  worktree `/tmp/claude-1000/calaos-wave7/t3.6` nettoyé). 6 autres worktrees wave 7
+  worktree `/tmp/claude-1000/calaos-wave7/t3.6` nettoyé). **T3.7 ✅ mergé**
+  (2026-08-15, `340bf7cb`, garde pid > 0 sur les deux kill(SIGTERM) d'ExternProc.cpp
+  — uv_kill(0) SIGTERMait le process group après un uv_spawn échoué ; API uvw vérifiée
+  (pid() = uv_process_t.pid, reste 0 si spawn échoue) ; 39/39 tests, ff-only, worktree
+  t3.7 nettoyé. Restent non gardés, en FINDINGS : McpServerManager.cpp:166,
+  JsonApiHandlerHttp.cpp:45). 5 autres worktrees wave 7
   encore en vol sous `/tmp/claude-1000/calaos-wave7/`.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
