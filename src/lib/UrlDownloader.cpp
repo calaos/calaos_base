@@ -22,7 +22,405 @@
 #include <Timer.h>
 #include "libuvw.h"
 
+#include <curl/curl.h>
+
 #include <algorithm>
+#include <fstream>
+#include <set>
+#include <sstream>
+
+/* T2.5: libcurl-multi backend, driven by the libuv loop.
+ *
+ * UrlDownloader used to fork the `curl` binary and read its stdout through a
+ * pipe, with two temporary files (response headers, request body). It now
+ * uses the canonical curl_multi_socket_action integration: libcurl tells us
+ * which sockets to watch (one uvw::PollHandle each) and when its next
+ * internal timeout is (one shared uvw::TimerHandle); we feed the events back
+ * with curl_multi_socket_action. No subprocess, no thread, no temp file.
+ *
+ * The CLI flags of the old backend map to easy options:
+ *   --silent       -> CURLOPT_NOPROGRESS (libcurl default, nothing to do)
+ *   --insecure     -> CURLOPT_SSL_VERIFYPEER/VERIFYHOST = 0 (kept as-is)
+ *   --location     -> CURLOPT_FOLLOWLOCATION (+ MAXREDIRS 50, the CLI default)
+ *   --dump-header  -> CURLOPT_HEADERFUNCTION into an in-memory buffer
+ *   --request X    -> CURLOPT_CUSTOMREQUEST
+ *   --header       -> CURLOPT_HTTPHEADER
+ *   --anyauth      -> CURLOPT_HTTPAUTH = CURLAUTH_ANY
+ *   --user u:p     -> CURLOPT_USERPWD (no longer visible in ps/procfs)
+ *   --data-binary @file -> CURLOPT_COPYPOSTFIELDS (no temp file)
+ *   --output file  -> write callback streaming into the destination file
+ * Proxy environment variables (http_proxy, ...) are honored by libcurl just
+ * like the CLI did. CURLOPT_FORBID_REUSE keeps the one-connection-per-
+ * transfer behavior of the old one-process-per-transfer backend, so no
+ * cached connection can outlive a transfer (fd accounting stays flat).
+ *
+ * Lifecycle: each transfer lives in a UrlDownloaderCurlConn owned by the
+ * manager, not by the UrlDownloader. cancel()/delete only *detach* the
+ * connection (owner pointer cleared, abort requested); the manager then tears
+ * it down either immediately or, when we sit inside a libcurl callback where
+ * curl_multi_* calls are forbidden, from the write callback return value and
+ * an Idler sweep. This is what makes cancel()/delete safe at any point,
+ * including from within a m_signalData handler. */
+
+class UrlDownloaderCurlConn
+{
+public:
+    CURL *easy = nullptr;
+    struct curl_slist *headerList = nullptr;
+
+    /* Owner downloader. Cleared when the downloader cancels the transfer or
+     * dies: the connection then only survives to be torn down. */
+    UrlDownloader *owner = nullptr;
+    std::weak_ptr<bool> ownerAlive;
+
+    std::string headerBuf; //accumulated raw response headers (--dump-header)
+
+    bool toFile = false;
+    std::ofstream destFile;
+
+    /* Set when the transfer must die: write/header callbacks return an error
+     * to make libcurl abort, and the manager sweeps the connection up. */
+    bool abortRequested = false;
+    //True while our write callback dispatches into user code
+    bool inCallback = false;
+
+    //Guards against pointer reuse in deferred sweeps
+    uint64_t serial = 0;
+
+    char errorBuf[CURL_ERROR_SIZE] = {0};
+};
+
+class UrlDownloaderCurlManager
+{
+public:
+    static UrlDownloaderCurlManager &instance()
+    {
+        /* Intentionally leaked: handles tied to the default loop must not be
+         * destroyed from a static destructor after the loop is gone. */
+        static UrlDownloaderCurlManager *mgr = new UrlDownloaderCurlManager();
+        return *mgr;
+    }
+
+    //Register the connection and hand its easy handle to libcurl.
+    //On failure the connection is disposed of and false is returned.
+    bool startTransfer(UrlDownloaderCurlConn *conn)
+    {
+        conn->serial = ++serialCounter;
+        live.insert(conn);
+
+        if (dispatchDepth > 0)
+        {
+            /* We're inside a libcurl callback (a m_signalData consumer starts
+             * a new download): curl_multi_add_handle is forbidden here, defer
+             * it to the next loop iteration. */
+            uint64_t serial = conn->serial;
+            Idler::singleIdler([this, conn, serial]()
+            {
+                if (!isLive(conn, serial))
+                    return; //cancelled before the add even happened
+                if (!addNow(conn))
+                {
+                    //Report the failure like a failed transfer
+                    UrlDownloader *owner = conn->owner;
+                    auto aliveToken = conn->ownerAlive;
+                    disposeConn(conn);
+                    if (owner && !aliveToken.expired())
+                        owner->transferDone(0, std::string());
+                }
+            });
+            return true;
+        }
+
+        if (!addNow(conn))
+        {
+            live.erase(conn);
+            return false;
+        }
+        return true;
+    }
+
+    /* Detach the connection from its owner and abort the transfer. Safe to
+     * call from anywhere, including from within our own write callback (the
+     * owner is being cancelled or deleted from a m_signalData handler). The
+     * UrlDownloader must forget the pointer right after this call. */
+    void abortTransfer(UrlDownloaderCurlConn *conn)
+    {
+        if (!live.count(conn))
+            return;
+
+        conn->owner = nullptr;
+        conn->ownerAlive.reset();
+        conn->abortRequested = true;
+
+        if (dispatchDepth > 0 || conn->inCallback)
+        {
+            /* Inside libcurl's stack: multi functions are off-limits. The
+             * callbacks now return errors (abortRequested), which makes
+             * libcurl fail the transfer; the DONE handling tears it down.
+             * The Idler below is a safety net in case no callback runs
+             * anymore for that connection (e.g. a stalled server). */
+            uint64_t serial = conn->serial;
+            Idler::singleIdler([this, conn, serial]()
+            {
+                if (isLive(conn, serial))
+                    disposeConn(conn);
+            });
+            return;
+        }
+
+        disposeConn(conn);
+    }
+
+    //Shim for the C write callback: relays body data to the downloader's
+    //private dataCb (this class is a friend, the free callback is not)
+    static void dispatchData(UrlDownloader *owner, const char *data, int size)
+    {
+        owner->dataCb(data, size);
+    }
+
+private:
+    UrlDownloaderCurlManager()
+    {
+        curl_global_init(CURL_GLOBAL_ALL); //refcounted, libquickmail also calls it
+
+        multi = curl_multi_init();
+        curl_multi_setopt(multi, CURLMOPT_SOCKETFUNCTION, sSocketCb);
+        curl_multi_setopt(multi, CURLMOPT_SOCKETDATA, this);
+        curl_multi_setopt(multi, CURLMOPT_TIMERFUNCTION, sTimerCb);
+        curl_multi_setopt(multi, CURLMOPT_TIMERDATA, this);
+
+        timer = uvw::Loop::getDefault()->resource<uvw::TimerHandle>();
+        timer->on<uvw::TimerEvent>([this](const uvw::TimerEvent &, auto &)
+        {
+            int running = 0;
+            dispatchDepth++;
+            curl_multi_socket_action(multi, CURL_SOCKET_TIMEOUT, 0, &running);
+            dispatchDepth--;
+            checkMultiInfo();
+        });
+    }
+
+    //Per-socket context handed to libcurl through curl_multi_assign()
+    struct SockCtx
+    {
+        std::shared_ptr<uvw::PollHandle> poll;
+    };
+
+    bool isLive(UrlDownloaderCurlConn *conn, uint64_t serial) const
+    {
+        return live.count(conn) && conn->serial == serial;
+    }
+
+    bool addNow(UrlDownloaderCurlConn *conn)
+    {
+        CURLMcode rc = curl_multi_add_handle(multi, conn->easy);
+        if (rc != CURLM_OK)
+        {
+            cErrorDom("urlutils") << "curl_multi_add_handle failed: " << curl_multi_strerror(rc);
+            return false;
+        }
+        return true;
+    }
+
+    //Tear a connection down completely (multi removal + easy cleanup).
+    //Must not be called from inside a libcurl callback.
+    void disposeConn(UrlDownloaderCurlConn *conn)
+    {
+        live.erase(conn);
+        curl_multi_remove_handle(multi, conn->easy);
+        curl_easy_cleanup(conn->easy);
+        if (conn->headerList)
+            curl_slist_free_all(conn->headerList);
+        if (conn->destFile.is_open())
+            conn->destFile.close();
+        delete conn;
+    }
+
+    void onSocketEvent(curl_socket_t fd, int flags)
+    {
+        int running = 0;
+        dispatchDepth++;
+        curl_multi_socket_action(multi, fd, flags, &running);
+        dispatchDepth--;
+        checkMultiInfo();
+    }
+
+    /* Collect finished transfers. Runs after curl_multi_socket_action
+     * returned, i.e. outside any libcurl callback: all libcurl state of the
+     * finished transfer is disposed of *before* user code runs, so completion
+     * handlers can freely start new transfers, cancel or delete objects. */
+    void checkMultiInfo()
+    {
+        CURLMsg *msg;
+        int pending = 0;
+        while ((msg = curl_multi_info_read(multi, &pending)))
+        {
+            if (msg->msg != CURLMSG_DONE)
+                continue;
+
+            CURL *easy = msg->easy_handle;
+            CURLcode result = msg->data.result;
+
+            UrlDownloaderCurlConn *conn = nullptr;
+            curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
+
+            long code = 0;
+            curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &code);
+
+            UrlDownloader *owner = conn->owner;
+            auto aliveToken = conn->ownerAlive;
+            std::string headers = std::move(conn->headerBuf);
+
+            if (result != CURLE_OK && !conn->abortRequested)
+                cWarningDom("urlutils") << "Transfer failed: " << curl_easy_strerror(result)
+                                        << (conn->errorBuf[0]? string(" (") + conn->errorBuf + ")": string());
+
+            disposeConn(conn);
+
+            if (owner && !aliveToken.expired())
+                owner->transferDone(static_cast<int>(code), std::move(headers));
+        }
+    }
+
+    static int sTimerCb(CURLM *, long timeoutMs, void *userp)
+    {
+        auto *self = static_cast<UrlDownloaderCurlManager *>(userp);
+        if (timeoutMs < 0)
+            self->timer->stop();
+        else
+            self->timer->start(uvw::TimerHandle::Time{static_cast<uint64_t>(timeoutMs)},
+                               uvw::TimerHandle::Time{0});
+        return 0;
+    }
+
+    static int sSocketCb(CURL *, curl_socket_t s, int what, void *userp, void *socketp)
+    {
+        auto *self = static_cast<UrlDownloaderCurlManager *>(userp);
+        auto *ctx = static_cast<SockCtx *>(socketp);
+
+        if (what == CURL_POLL_REMOVE)
+        {
+            if (ctx)
+            {
+                ctx->poll->stop();
+                ctx->poll->close();
+                curl_multi_assign(self->multi, s, nullptr);
+                delete ctx;
+            }
+            return 0;
+        }
+
+        if (!ctx)
+        {
+            ctx = new SockCtx;
+            ctx->poll = uvw::Loop::getDefault()->resource<uvw::PollHandle>(uvw::OSSocketHandle{s});
+            curl_multi_assign(self->multi, s, ctx);
+
+            curl_socket_t fd = s;
+            ctx->poll->on<uvw::PollEvent>([self, fd](const uvw::PollEvent &ev, auto &)
+            {
+                int flags = 0;
+                if (ev.flags & uvw::PollHandle::Event::READABLE)
+                    flags |= CURL_CSELECT_IN;
+                if (ev.flags & uvw::PollHandle::Event::WRITABLE)
+                    flags |= CURL_CSELECT_OUT;
+                self->onSocketEvent(fd, flags);
+            });
+            ctx->poll->on<uvw::ErrorEvent>([self, fd](const uvw::ErrorEvent &, auto &)
+            {
+                /* POLLERR. Typical on loopback: the peer closed with our
+                 * request still unread (RST) while the response sits in the
+                 * kernel buffer. Hand curl a readable event so it read()s the
+                 * pending data and discovers the EOF/reset by itself, exactly
+                 * like the curl CLI did; CURL_CSELECT_ERR would make it drop
+                 * the buffered response and fail the transfer. */
+                self->onSocketEvent(fd, CURL_CSELECT_IN);
+            });
+        }
+
+        uvw::Flags<uvw::PollHandle::Event> events;
+        if (what == CURL_POLL_IN)
+            events = uvw::PollHandle::Event::READABLE;
+        else if (what == CURL_POLL_OUT)
+            events = uvw::PollHandle::Event::WRITABLE;
+        else //CURL_POLL_INOUT
+            events = uvw::Flags<uvw::PollHandle::Event>(uvw::PollHandle::Event::READABLE) |
+                     uvw::PollHandle::Event::WRITABLE;
+        ctx->poll->start(events);
+
+        return 0;
+    }
+
+    CURLM *multi = nullptr;
+    std::shared_ptr<uvw::TimerHandle> timer;
+
+    //Connections currently owned by the manager, with a serial number to make
+    //deferred sweeps immune to pointer reuse
+    std::set<UrlDownloaderCurlConn *> live;
+    uint64_t serialCounter = 0;
+
+    /* >0 while curl_multi_socket_action runs (libcurl may call back into
+     * user code from there): multi functions must then be deferred. */
+    int dispatchDepth = 0;
+};
+
+//libcurl body callback: stream to destination file, or dispatch to the
+//downloader (accumulation + m_signalData). Returning something != len makes
+//libcurl abort the transfer with CURLE_WRITE_ERROR.
+size_t urlDownloaderWriteCb(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    auto *conn = static_cast<UrlDownloaderCurlConn *>(userdata);
+    size_t len = size * nmemb;
+
+    if (conn->abortRequested)
+        return len + 1; //cancelled/deleted: abort the transfer
+
+    if (conn->toFile)
+    {
+        conn->destFile.write(ptr, len);
+        if (!conn->destFile)
+        {
+            cErrorDom("urlutils") << "Write to destination file failed";
+            return len + 1;
+        }
+        return len;
+    }
+
+    UrlDownloader *owner = conn->owner;
+    if (!owner || conn->ownerAlive.expired())
+        return len + 1; //nobody listens anymore
+
+    /* The dispatch can call cancel() or delete the downloader: the manager
+     * then only *marks* the connection (inCallback prevents an immediate
+     * teardown under our feet), and we abort through the return value. Only
+     * conn may be touched after the dispatch. */
+    conn->inCallback = true;
+    UrlDownloaderCurlManager::dispatchData(owner, ptr, static_cast<int>(len));
+    conn->inCallback = false;
+
+    if (conn->abortRequested)
+        return len + 1;
+    return len;
+}
+
+namespace
+{
+
+//libcurl header callback: accumulate the raw header lines of every response
+//(redirects included), the equivalent of the old --dump-header temp file
+size_t headerCb(char *buffer, size_t size, size_t nitems, void *userdata)
+{
+    auto *conn = static_cast<UrlDownloaderCurlConn *>(userdata);
+    size_t len = size * nitems;
+
+    if (conn->abortRequested)
+        return len + 1;
+
+    conn->headerBuf.append(buffer, len);
+    return len;
+}
+
+} // namespace
 
 UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
@@ -33,42 +431,23 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
 
 UrlDownloader::~UrlDownloader()
 {
-    /* Expire the alive token before anything else: every uvw callback checks
-     * it, so whatever fires from here on (even synchronously from kill/close
-     * below) only cleans its own handle up and never touches this object. */
+    /* Expire the alive token before anything else: every async callback
+     * checks it, so whatever fires from here on never touches this object. */
     alive.reset();
 
     closeHandles();
-
-    FileUtils::unlink(tempFilename);
-    FileUtils::unlink(tmpHeader);
 
     cDebugDom("urlutils") << "UrlDownloader(" << this << ") destroyed";
 }
 
 void UrlDownloader::closeHandles()
 {
-    if (pipe)
+    if (m_conn)
     {
-        if (!pipe->closing())
-        {
-            pipe->stop();
-            pipe->close();
-        }
-        pipeClosed = true;
-        pipe.reset();
-    }
-
-    if (exeCurl)
-    {
-        /* Terminate curl, but leave the ProcessHandle itself open on purpose:
-         * its ExitEvent handler (alive-token guarded, never touching this
-         * object once it is gone) closes the handle, which is what lets libuv
-         * reap the child. Closing the handle here instead would leave a
-         * zombie process behind for the daemon's whole lifetime. */
-        if (!exeCurl->closing())
-            exeCurl->kill(SIGTERM);
-        exeCurl.reset();
+        /* Detach + abort: the manager owns the connection from now on and
+         * tears it down (the remote peer sees the connection drop). */
+        UrlDownloaderCurlManager::instance().abortTransfer(m_conn);
+        m_conn = nullptr;
     }
 }
 
@@ -104,7 +483,7 @@ bool UrlDownloader::start()
         return false;
     }
 
-    if (exeCurl && exeCurl->active())
+    if (m_conn)
     {
         cWarningDom("urlutils") << "A download is already in progress...";
         return false;
@@ -116,207 +495,101 @@ bool UrlDownloader::start()
         return false;
     }
 
-    m_isRunning = true;
+    //Make sure curl_global_init ran before any easy handle is created
+    UrlDownloaderCurlManager &manager = UrlDownloaderCurlManager::instance();
 
-    if (!tempFilename.empty())
-    {
-        FileUtils::unlink(tempFilename);
-        tempFilename.clear();
-    }
-    if (!tmpHeader.empty())
-    {
-        FileUtils::unlink(tmpHeader);
-        tmpHeader.clear();
-    }
-    tmpHeader = Utils::getTmpFilename("tmp", "_dlheader");
+    m_downloadedData.clear();
+    m_headerData.clear();
+    statusCode = 0;
 
-    if (tmpHeader.empty())
+    auto conn = new UrlDownloaderCurlConn;
+    conn->easy = curl_easy_init();
+    if (!conn->easy)
     {
-        //getTmpFilename() already logged the errno. Handing "" to curl would
-        //make it write its headers to a file literally named "" in the current
-        //directory, and the status code would never be parsed back.
-        cErrorDom("urlutils") << "No temporary file for the response headers, aborting " << m_url;
-        m_isRunning = false;
+        cErrorDom("urlutils") << "curl_easy_init() failed, aborting " << m_url;
+        delete conn;
         return false;
     }
 
-    //Default curl parameters
-    //silent --> no progress bar
-    //insecure --> do not check for insecure ssl certificates, needed for local https
-    //location --> follow redirect
+    conn->owner = this;
+    conn->ownerAlive = alive;
 
-    vector<string> req;
-    req.push_back("curl");
-    req.push_back(m_url);
-    req.push_back("--silent");
-    req.push_back("--insecure");
-    req.push_back("--location");
-    req.push_back("--dump-header");
-    req.push_back(tmpHeader);
-
-    for (const string &s: headersRequest)
+    downloadToFile = !m_destination.empty();
+    conn->toFile = downloadToFile;
+    if (downloadToFile)
     {
-        req.push_back("--header");
-        req.push_back(s);
+        conn->destFile.open(m_destination, ios::out | ios::trunc | ios::binary);
+        if (!conn->destFile.is_open())
+        {
+            cErrorDom("urlutils") << "Cannot open destination file " << m_destination
+                                  << ", aborting " << m_url;
+            curl_easy_cleanup(conn->easy);
+            delete conn;
+            return false;
+        }
     }
 
-    req.push_back("--request");
+    CURL *e = conn->easy;
 
+    //Same defaults as the old curl CLI invocation:
+    //silent --> no progress meter (libcurl default)
+    //insecure --> do not check ssl certificates, needed for local https
+    //location --> follow redirects
+    curl_easy_setopt(e, CURLOPT_URL, m_url.c_str());
+    curl_easy_setopt(e, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(e, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(e, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(e, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(e, CURLOPT_MAXREDIRS, 50L); //curl CLI default
+    curl_easy_setopt(e, CURLOPT_FORBID_REUSE, 1L); //one connection per transfer, like the old subprocess
+    curl_easy_setopt(e, CURLOPT_PRIVATE, conn);
+    curl_easy_setopt(e, CURLOPT_WRITEFUNCTION, urlDownloaderWriteCb);
+    curl_easy_setopt(e, CURLOPT_WRITEDATA, conn);
+    curl_easy_setopt(e, CURLOPT_HEADERFUNCTION, headerCb);
+    curl_easy_setopt(e, CURLOPT_HEADERDATA, conn);
+    curl_easy_setopt(e, CURLOPT_ERRORBUFFER, conn->errorBuf);
+
+    const char *method = "GET";
     switch (m_requestType)
     {
-    case HTTP_POST:
-        req.push_back("POST");
-        break;
-    case HTTP_GET:
-        req.push_back("GET");
-        break;
-    case HTTP_PUT:
-        req.push_back("PUT");
-        break;
-    case HTTP_DELETE:
-        req.push_back("DELETE");
-        break;
-    default:
-        cErrorDom("urlutils") << "Request type error, you should not be there !";
-        return false;
+    case HTTP_POST:   method = "POST"; break;
+    case HTTP_GET:    method = "GET"; break;
+    case HTTP_PUT:    method = "PUT"; break;
+    case HTTP_DELETE: method = "DELETE"; break;
     }
+    curl_easy_setopt(e, CURLOPT_CUSTOMREQUEST, method);
 
-    //output to a file
-    if (!m_destination.empty())
-    {
-        req.push_back("--output");
-        req.push_back(m_destination);
-        downloadToFile = true;
-    }
-    else
-        downloadToFile = false;
-    m_downloadedData.clear();
+    for (const string &s: headersRequest)
+        conn->headerList = curl_slist_append(conn->headerList, s.c_str());
+    if (conn->headerList)
+        curl_easy_setopt(e, CURLOPT_HTTPHEADER, conn->headerList);
 
     if (m_auth)
     {
-        req.push_back("--anyauth");
-        req.push_back("--user");
-
+        curl_easy_setopt(e, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
         string u = m_user;
         if (!m_password.empty())
             u += ":" + m_password;
-        req.push_back(u);
+        curl_easy_setopt(e, CURLOPT_USERPWD, u.c_str()); //copied by libcurl
     }
 
     if (!m_bodyData.empty())
     {
-        tempFilename = Utils::getTmpFilename();
-
-        if (tempFilename.empty())
-        {
-            //Same as the header file above: the request body has to live in a
-            //real file, curl reads it from there
-            cErrorDom("urlutils") << "No temporary file for the request body, aborting " << m_url;
-            m_isRunning = false;
-            return false;
-        }
-
-        std::ofstream ofs;
-        ofs.open(tempFilename, ios::out | ios::trunc | ios::binary);
-        ofs << m_bodyData;
-        ofs.close();
-
-        req.push_back("--data-binary");
-        req.push_back("@" + tempFilename);
+        //Size first so COPYPOSTFIELDS copies binary data correctly
+        curl_easy_setopt(e, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(m_bodyData.size()));
+        curl_easy_setopt(e, CURLOPT_COPYPOSTFIELDS, m_bodyData.data());
     }
 
-    isStarted = false;
-    hasFailedStarting = false;
+    cDebugDom("urlutils") << "Starting transfer: " << method << " " << m_url;
 
-    /* Handlers only do handle-local cleanup before checking the alive token:
-     * once it expired (object destroyed) or the transfer got cancelled, they
-     * must not reach the signals anymore. */
-    std::weak_ptr<bool> aliveToken = alive;
-
-    exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exeCurl->once<uvw::ExitEvent>([this, aliveToken](const uvw::ExitEvent &ev, auto &h)
+    if (!manager.startTransfer(conn))
     {
-        cDebugDom("urlutils") << "curl exited: " << ev.status;
-        h.close();
-        if (aliveToken.expired())
-            return; //downloader destroyed while curl was still running
-        exeCurl.reset();
-        m_isRunning = false;
-        if (m_cancelled)
-            return;
-        completeCb();
-    });
-    exeCurl->once<uvw::ErrorEvent>([this, aliveToken](const uvw::ErrorEvent &ev, auto &h)
-    {
-        cCriticalDom("urlutils") << "Process error: " << ev.what();
-        h.close();
-        if (aliveToken.expired())
-            return;
-        if (!isStarted) hasFailedStarting = true;
-        exeCurl.reset();
-        if (pipe)
-        {
-            if (!pipe->closing())
-            {
-                pipe->stop();
-                pipe->close();
-            }
-            //Nothing will ever come out of that pipe: unblock completeCb()
-            pipeClosed = true;
-            pipe.reset();
-        }
-        m_isRunning = false;
-        if (m_cancelled)
-            return;
-        completeCb();
-    });
-
-    if (!downloadToFile)
-    {
-        cDebugDom("urlutils") << "Setup stdio pipes";
-        pipe = uvw::Loop::getDefault()->resource<uvw::PipeHandle>();
-        exeCurl->stdio(static_cast<uvw::FileHandle>(0), uvw::ProcessHandle::StdIO::IGNORE_STREAM);
-
-        uv_stdio_flags f = (uv_stdio_flags)(UV_CREATE_PIPE | UV_WRITABLE_PIPE);
-        uvw::Flags<uvw::ProcessHandle::StdIO> ff(f);
-        exeCurl->stdio(*pipe, ff);
-
-        //When pipe is closed, remove it and close it
-        pipe->once<uvw::EndEvent>([this, aliveToken](const uvw::EndEvent &, auto &cl)
-        {
-            cl.close();
-            if (aliveToken.expired())
-                return;
-            pipeClosed = true;
-            pipe.reset();
-            if (m_cancelled)
-                return;
-            completeCb();
-        });
-        pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
-        pipe->on<uvw::DataEvent>([this, aliveToken](uvw::DataEvent &ev, auto &)
-        {
-            if (aliveToken.expired())
-                return;
-            if (m_cancelled)
-                return;
-            cDebugDom("urlutils") << "UrlDownloader(" << this << ") Stdio data received: " << ev.length;
-            dataCb(ev.data.get(), ev.length);
-        });
-
-        pipeClosed = false;
+        //conn is already disposed of by the manager
+        return false;
     }
 
-    Utils::CStrArray arr(req);
-    cDebugDom("urlutils") << "Executing command: " << arr.toString();
-    exeCurl->spawn(arr.at(0), arr.data());
-
-    if (!downloadToFile)
-    {
-        //The start of read() for the pipe has be to done _after_ spawning the process or it crashes
-        if (!hasFailedStarting)
-            pipe->read();
-    }
+    m_conn = conn;
+    m_isRunning = true;
 
     return true;
 }
@@ -361,35 +634,41 @@ bool UrlDownloader::httpDelete(string destination, string bodyData)
     return start();
 }
 
+void UrlDownloader::transferDone(int code, std::string responseHeaders)
+{
+    //All libcurl state of the transfer is already disposed of at this point
+    m_conn = nullptr;
+    m_isRunning = false;
+
+    if (m_cancelled)
+        return; //cancel() detached the transfer, nothing may fire anymore
+
+    m_headerData = std::move(responseHeaders);
+    getResponseHeaders(); //sets statusCode from the parsed status line
+    if (statusCode == 0)
+        statusCode = code; //fall back to libcurl's own view
+
+    completeCb();
+}
+
 void UrlDownloader::completeCb()
 {
     cDebugDom("urlutils") << "Finished with status code: " << statusCode;
 
     if (downloadToFile)
     {
-        getResponseHeaders();
-
         m_signalComplete.emit(statusCode);
-
-        if (m_autodelete)
-            Destroy();
     }
     else
     {
-        //we need to wait for pipe closing
-        if (pipeClosed && !m_isRunning)
-        {
-            getResponseHeaders();
+        cDebugDom("urlutils") << "Response data: " << m_downloadedData;
 
-            cDebugDom("urlutils") << "Response data: " << m_downloadedData;
-
-            m_signalCompleteData.emit(m_downloadedData, statusCode);
-            m_signalComplete.emit(statusCode);
-
-            if (m_autodelete)
-                Destroy();
-        }
+        m_signalCompleteData.emit(m_downloadedData, statusCode);
+        m_signalComplete.emit(statusCode);
     }
+
+    if (m_autodelete)
+        Destroy();
 }
 
 void UrlDownloader::dataCb(const char *data, int size)
@@ -431,57 +710,22 @@ Params UrlDownloader::getResponseHeaders()
 {
     Params headers;
 
-    //Parse headers
-    /*
-HTTP/1.1 404 Not Found
-Server: nginx/1.10.2
-Date: Tue, 17 Jan 2017 15:19:43 GMT
-Content-Type: text/html
-Content-Length: 169
-     */
-
-    //Can also be mutliple with redirect:
+    //Parse the raw headers accumulated during the transfer. Multiple blocks
+    //when redirected, e.g.:
     /*
 HTTP/2 302
 date: Fri, 08 Feb 2019 12:13:15 GMT
-content-type: text/plain; charset=utf-8
-content-length: 0
-access-control-allow-origin: *
-cache-control: no-cache, no-store, must-revalidate
 location: /640/480/?image=743
-vary: Accept
-x-beluga-cache-status: Miss
-x-beluga-document: 134517132967552875205061749237587549195
-x-beluga-node: 32
-x-beluga-record: f5c531b4640ffd773650c0975b4c67a3a7a45f25
-x-beluga-response-time: 155 ms
-x-beluga-status: 000
-x-beluga-trace: 05c27b98-df54-41ec-9914-fe921d868fc2
-x-powered-by: Express
-server: BelugaCDN/v2.44.11
-x-beluga-response-time-x: 0.157 sec
 
 HTTP/2 200
 date: Fri, 08 Feb 2019 12:13:16 GMT
 content-type: image/jpeg
 content-length: 49219
-access-control-allow-origin: *
-cache-control: public, max-age=604800
-etag: W/"BiWNpbjT/do55p+JUMKZhg=="
-x-beluga-cache-status: Hit (1)
-x-beluga-node: 32
-x-beluga-record: 9e416b65adaa83757fb3d79be36ca6bf6011d202
-x-beluga-response-time: 1 ms
-x-beluga-status: 003
-x-beluga-trace: 1c4887b9-db41-433d-9f2a-dc60b3f47b32
-x-powered-by: Express
-server: BelugaCDN/v2.44.11
-x-beluga-response-time-x: 0.002 sec
-
      */
+    //Only the last block is kept, like the old --dump-header parsing did.
 
     statusCode = 0;
-    std::ifstream infile(tmpHeader);
+    std::istringstream infile(m_headerData);
     string line;
 
     cDebugDom("urlutils") << "Response headers:";
