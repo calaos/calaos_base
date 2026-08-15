@@ -247,8 +247,7 @@ struct KeepAliveParser
     KeepAliveParser()
     {
         HttpParsing::initParserSettings(settings);
-        llhttp_init(&parser, HTTP_REQUEST, &settings);
-        parser.data = static_cast<HttpParsing::RequestState *>(&state);
+        HttpParsing::bindParser(&parser, settings, state);
     }
 
     llhttp_errno feed(const std::string &data)
@@ -350,4 +349,58 @@ TEST(KeepAliveRequestReset, BodyAndUrlAreResetBetweenRequests)
     EXPECT_TRUE(p.state.bodymessage.empty());
     EXPECT_EQ("/other", p.state.parse_url);
     EXPECT_EQ(HTTP_GET, p.state.request_method);
+}
+
+TEST(KeepAliveRequestReset, BindParserTargetsTheStateSubobjectNotTheOwner)
+{
+    //HttpClient does NOT keep its RequestState at offset 0: a vptr and the
+    //sigc::trackable base sit in front of it. parser->data must therefore
+    //hold the adjusted RequestState subobject pointer — storing the raw
+    //owner pointer (the reviewed WebSocket re-init bug: `parser->data =
+    //this;`) makes every callback read/write 16 bytes off and clobber the
+    //vptr region. This owner reproduces the nonzero offset and runs two
+    //pipelined requests through the production binding
+    //(HttpParsing::bindParser); the sentinels canary the offset-0 region.
+    struct Pad
+    {
+        void *sentinel1 = nullptr;
+        void *sentinel2 = nullptr;
+    };
+    struct PaddedOwner : Pad, HttpParsing::RequestState {};
+
+    PaddedOwner owner;
+    owner.sentinel1 = &owner;
+    owner.sentinel2 = &owner;
+
+    //the test only means something if the state really is at a nonzero
+    //offset, like in HttpClient
+    ASSERT_NE(static_cast<void *>(&owner),
+              static_cast<void *>(
+                  static_cast<HttpParsing::RequestState *>(&owner)));
+
+    llhttp_settings_t settings;
+    HttpParsing::initParserSettings(settings);
+    llhttp_t parser;
+    //bindParser takes the state by reference: passing the derived owner
+    //performs the derived-to-base adjustment at the call site, which is the
+    //whole point of the helper
+    HttpParsing::bindParser(&parser, settings, owner);
+
+    std::string reqs = "GET /a HTTP/1.1\r\n"
+                       "Host: calaos\r\n"
+                       "Origin: http://attacker.example\r\n"
+                       "\r\n"
+                       "GET /b HTTP/1.1\r\n"
+                       "Host: calaos\r\n"
+                       "\r\n";
+    ASSERT_EQ(HPE_OK, llhttp_execute(&parser, reqs.c_str(), reqs.size()));
+
+    EXPECT_TRUE(owner.parse_done);
+    EXPECT_EQ("/b", owner.parse_url);
+    EXPECT_EQ(0u, owner.request_headers.count("origin"));
+    EXPECT_EQ(1u, owner.request_headers.count("host"));
+
+    //the offset-0 region was never touched by the callbacks
+    EXPECT_EQ(static_cast<void *>(&owner), owner.sentinel1);
+    EXPECT_EQ(static_cast<void *>(&owner), owner.sentinel2);
 }

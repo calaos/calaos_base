@@ -126,8 +126,7 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     maxBodySize = TransportLimits::maxHttpBodySize();
 
     parser = (llhttp_t *)calloc(1, sizeof(llhttp_t));
-    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-    parser->data = static_cast<HttpParsing::RequestState *>(this);
+    reinitParser();
 
     cDebugDom("network") << this;
 

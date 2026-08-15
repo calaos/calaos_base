@@ -369,6 +369,24 @@ inline void initParserSettings(llhttp_settings_t &settings)
     settings.on_body = _parser_body_complete;
     settings.on_message_complete = _parser_message_complete;
 }
+
+//THE one place that binds a parser to the RequestState its callbacks fill.
+//
+//CONTRACT: parser->data must hold the RequestState SUBOBJECT pointer, never
+//the owning object, because every callback above static_casts parser->data
+//straight back to RequestState*. RequestState is NOT at offset 0 inside
+//HttpClient (a vptr and the sigc::trackable base sit in front of it), so a
+//raw `this` stored in parser->data would put every callback read/write 16
+//bytes off, silently corrupting the object. Taking the state by reference
+//here makes the call site perform the derived-to-base adjustment implicitly:
+//never assign parser->data by hand, always go through this helper (or
+//HttpClient::reinitParser()).
+inline void bindParser(llhttp_t *parser, llhttp_settings_t &settings,
+                       RequestState &state)
+{
+    llhttp_init(parser, HTTP_REQUEST, &settings);
+    parser->data = &state;
+}
 }
 
 class HttpClient: public sigc::trackable, protected HttpParsing::RequestState
@@ -379,6 +397,16 @@ protected:
 
     llhttp_settings_t parser_settings;
     llhttp_t *parser;
+
+    //(Re)initializes the llhttp parser for the next request of this
+    //connection. The parser->data contract (RequestState subobject pointer,
+    //see HttpParsing::bindParser) lives there and only there: used by the
+    //constructor and by WebSocket after every handled http request, never
+    //hand-rolled at a call site.
+    void reinitParser()
+    {
+        HttpParsing::bindParser(parser, parser_settings, *this);
+    }
 
     int proto_ver;
 

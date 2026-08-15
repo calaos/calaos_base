@@ -86,8 +86,7 @@ void WebSocket::ProcessData(string data)
                 if (processHeaders(buffered) == HTTP_PROCESS_HTTP && parse_done)
                 {
                     auto method = parser->method;
-                    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-                    parser->data = this;
+                    reinitParser();
                     handleJsonRequest(method);
                 }
             }
@@ -101,8 +100,7 @@ void WebSocket::ProcessData(string data)
             if (hs == HTTP_PROCESS_HTTP && parse_done)
             {
                 auto method = parser->method;
-                llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-                parser->data = this;
+                reinitParser();
                 handleJsonRequest(method);
             }
             else if (hs == HTTP_PROCESS_WEBSOCKET)
@@ -160,8 +158,7 @@ void WebSocket::ProcessData(string data)
             auto method = parser->method;
 
             //init parser again
-            llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-            parser->data = this;
+            reinitParser();
 
             handleJsonRequest(method);
         }
