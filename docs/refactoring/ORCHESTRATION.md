@@ -9,7 +9,7 @@
 ## 🔁 REPRISE — lire en premier
 
 - **Phase 1 complète (19/19).** **WAVE 5 EN VOL** (lancée 2026-08-15) : 8 tickets Phase 2 en
-  parallèle — T2.1, T2.4, T2.6, T2.8, T2.10, T2.12 (T2.9, T2.3 ✅ mergés). Worktrees
+  parallèle — T2.1, T2.4, T2.6, T2.8, T2.10 (T2.9, T2.3, T2.12 ✅ mergés). Worktrees
   `/tmp/claude-1000/calaos-wave5/t2.X`, branches `refactor/t2.X`, base `4808e23b`
   (master local, 25/25 tests). **Pas poussé** (origin = `9d8d37b5`).
 - **File d'attente sérialisée après la wave** : T2.13 (après T2.12 — même fichier de test),
