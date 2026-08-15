@@ -47,6 +47,11 @@ private:
     std::shared_ptr<uvw::TcpHandle> listenHandle;
     list<AVRRose *> receivers;
 
+    //Lifetime tag: the uvw callbacks only hold a weak_ptr to it, so a server
+    //deleted while accept/data events are pending is never dereferenced
+    //afterwards (same pattern as AVReceiver::aliveTag, T3.1).
+    std::shared_ptr<bool> aliveTag;
+
     void handleClientData(const string &remoteIP, const string &rawData);
     void processHttpRequest(const string &remoteIP, const string &method,
                             const string &path, const string &body);

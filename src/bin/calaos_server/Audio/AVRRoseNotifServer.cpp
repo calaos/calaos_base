@@ -26,13 +26,21 @@ using namespace Calaos;
 
 AVRRoseNotifServer::AVRRoseNotifServer()
 {
+    aliveTag = std::make_shared<bool>(true);
+
     auto loop = uvw::Loop::getDefault();
     listenHandle = loop->resource<uvw::TcpHandle>();
     listenHandle->bind("0.0.0.0", NOTIF_PORT);
     listenHandle->listen();
 
-    listenHandle->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TcpHandle &srv)
+    //The server may be deleted while uvw still holds these callbacks
+    //(close is asynchronous): every callback touching `this` checks the
+    //alive tag first (T3.1 pattern).
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    listenHandle->on<uvw::ListenEvent>([this, wtag](const uvw::ListenEvent &, uvw::TcpHandle &srv)
     {
+        if (wtag.expired()) return;
+
         auto client = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
         srv.accept(*client);
 
@@ -42,8 +50,15 @@ AVRRoseNotifServer::AVRRoseNotifServer()
         // Accumulate data in a shared buffer
         auto buffer = std::make_shared<string>();
 
-        client->on<uvw::DataEvent>([this, remoteIP, buffer](const uvw::DataEvent &ev, uvw::TcpHandle &h)
+        client->on<uvw::DataEvent>([this, wtag, remoteIP, buffer](const uvw::DataEvent &ev, uvw::TcpHandle &h)
         {
+            if (wtag.expired())
+            {
+                //Server is gone: drop the connection, don't touch `this`
+                h.close();
+                return;
+            }
+
             buffer->append(ev.data.get(), ev.length);
 
             // Check if we have a complete HTTP request (headers + body)
@@ -127,6 +142,10 @@ AVRRoseNotifServer::AVRRoseNotifServer()
 
 AVRRoseNotifServer::~AVRRoseNotifServer()
 {
+    //Invalidate the tag first: any callback already queued for dispatch will
+    //see an expired weak_ptr and won't touch this object anymore.
+    aliveTag.reset();
+
     if (listenHandle)
     {
         listenHandle->stop();

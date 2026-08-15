@@ -60,9 +60,13 @@ AVRRose::AVRRose(Params &p):
     // Register with the device so it sends us push notifications
     registerDevice();
 
-    // Start fallback polling timer
-    pollTimer = new Timer(POLL_INTERVAL, [this]()
+    // Start fallback polling timer.
+    // The callback checks the inherited aliveTag (T3.1 pattern) so a tick
+    // already queued for dispatch when the object dies never touches `this`.
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    pollTimer = new Timer(POLL_INTERVAL, [this, wtag]()
     {
+        if (wtag.expired()) return;
         pollStatus();
     });
 
@@ -72,6 +76,11 @@ AVRRose::AVRRose(Params &p):
 
 AVRRose::~AVRRose()
 {
+    //Invalidate the tag first (same as ~AVReceiver, which resets it again —
+    //harmless): any callback already queued (HTTP responses, retry timer,
+    //poll timer) sees an expired weak_ptr and won't touch this object.
+    aliveTag.reset();
+
     delete pollTimer;
     pollTimer = nullptr;
 
@@ -99,8 +108,12 @@ void AVRRose::registerDevice()
         { "connectIP", localIP }
     };
 
-    postRequest("device_connected", d.dump(), [this](const string &data)
+    //The HTTP response and the retry timer may fire after destruction:
+    //both check the alive tag before touching `this`.
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    postRequest("device_connected", d.dump(), [this, wtag](const string &data)
     {
+        if (wtag.expired()) return;
         try
         {
             Json jdoc = Json::parse(data);
@@ -116,8 +129,9 @@ void AVRRose::registerDevice()
         {
             cWarningDom("hifirose") << "Failed to parse device_connected response: " << e.what();
             // Retry registration after a delay
-            Timer::singleShot(10.0, [this]()
+            Timer::singleShot(10.0, [this, wtag]()
             {
+                if (wtag.expired()) return;
                 registerDevice();
             });
         }
@@ -139,8 +153,11 @@ void AVRRose::reregisterIfNeeded()
 
 void AVRRose::Power(bool on, int zone)
 {
-    pollStatus([on, this]()
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    pollStatus([on, this, wtag]()
     {
+        if (wtag.expired()) return;
+
         // Only toggle if the current state differs from the desired state
         if ((on && power_main) ||
             (!on && !power_main))
@@ -151,8 +168,9 @@ void AVRRose::Power(bool on, int zone)
             { "value", -1 }
         };
 
-        postRequest("remote_bar_order", d.dump(), [this](const string &)
+        postRequest("remote_bar_order", d.dump(), [this, wtag](const string &)
         {
+            if (wtag.expired()) return;
             pollStatus();
         });
     });
@@ -165,8 +183,10 @@ void AVRRose::setVolume(int volume, int zone)
         { "volumeValue", volume }
     };
 
-    postRequest("volume", d.dump(), [this](const string &)
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    postRequest("volume", d.dump(), [this, wtag](const string &)
     {
+        if (wtag.expired()) return;
         // POST /volume returns an empty body, refresh state via get_control_info
         pollStatus();
     });
@@ -178,20 +198,22 @@ void AVRRose::selectInputSource(int source, int zone)
 
 void AVRRose::sendCustomCommand(string command)
 {
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+
     if (command == "play" || command == "pause")
     {
         Json d = { { "currentPlayState", 17 } }; // Play/Pause toggle
-        postRequest("current_play_state", d.dump(), [this](const string &) { pollStatus(); });
+        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "next")
     {
         Json d = { { "currentPlayState", 18 } }; // Next track
-        postRequest("current_play_state", d.dump(), [this](const string &) { pollStatus(); });
+        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "prev")
     {
         Json d = { { "currentPlayState", 19 } }; // Previous track
-        postRequest("current_play_state", d.dump(), [this](const string &) { pollStatus(); });
+        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "repeat")
     {
@@ -209,7 +231,7 @@ void AVRRose::sendCustomCommand(string command)
             { "barControl", "remote_bar_order.mute" },
             { "value", -1 }
         };
-        postRequest("remote_bar_order", d.dump(), [this](const string &) { pollStatus(); });
+        postRequest("remote_bar_order", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else
     {
@@ -271,8 +293,14 @@ void AVRRose::handleNotification(const Json &msg)
 
 void AVRRose::pollStatus(std::function<void()> nextCb)
 {
-    postRequest("get_current_state", {}, [this, nextCb](const string &data)
+    //Each step of the poll chain is an async HTTP response that may arrive
+    //after destruction: check the alive tag before touching `this`.
+    //nextCb is not invoked either — its captures may be dead too.
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    postRequest("get_current_state", {}, [this, wtag, nextCb](const string &data)
     {
+        if (wtag.expired()) return;
+
         Json jdoc;
         try
         {
@@ -330,8 +358,10 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
         }
 
         // Device is awake — get volume via GET /get_control_info
-        getRequest("get_control_info", [this, nextCb](const string &dataRes)
+        getRequest("get_control_info", [this, wtag, nextCb](const string &dataRes)
         {
+            if (wtag.expired()) return;
+
             try
             {
                 Json jctrl = Json::parse(dataRes);
@@ -347,8 +377,10 @@ void AVRRose::pollStatus(std::function<void()> nextCb)
             }
 
             // Get mute state
-            postRequest("mute.state.get", {}, [this, nextCb](const string &muteRes)
+            postRequest("mute.state.get", {}, [this, wtag, nextCb](const string &muteRes)
             {
+                if (wtag.expired()) return;
+
                 try
                 {
                     Json jmute = Json::parse(muteRes);
