@@ -104,23 +104,28 @@ TEST(WagoRespawnBackoff, DelaysGrowMonotonically)
     EXPECT_GT(WagoMap::respawnDelay(1), WagoMap::respawnDelay(0));
 }
 
-TEST(WagoRespawnBackoff, DelayIsCapped)
+TEST(WagoRespawnBackoff, DelayCapIsLowForFastRecovery)
 {
+    //The Wago is the centerpiece of the installation: recovery after a
+    //maintenance network cut must never wait out a long backoff. Cap at 5s.
     for (int i = 0;i < 100;i++)
-        EXPECT_LE(WagoMap::respawnDelay(i), 60.0);
+        EXPECT_LE(WagoMap::respawnDelay(i), 5.0);
+}
 
-    //delay saturates: far attempts all hit the cap
-    EXPECT_DOUBLE_EQ(WagoMap::respawnDelay(50), WagoMap::respawnDelay(1000));
+TEST(WagoRespawnBackoff, NeverGivesUp)
+{
+    //No retry limit: the delay saturates at the cap and stays there forever
+    EXPECT_DOUBLE_EQ(WagoMap::respawnDelay(1000), WagoMap::respawnDelay(10));
+    EXPECT_GT(WagoMap::respawnDelay(1000000), 0.0);
 }
 
 TEST(WagoRespawnBackoff, OutOfRangeAttemptsAreSafe)
 {
     EXPECT_DOUBLE_EQ(WagoMap::respawnDelay(-1), WagoMap::respawnDelay(0));
-    EXPECT_GT(WagoMap::respawnDelay(1000000), 0.0);
 }
 
-TEST(WagoRespawnBackoff, RetryCountIsBounded)
+TEST(WagoRespawnBackoff, FailureLoggingPeriodIsSane)
 {
-    EXPECT_GT(WagoMap::RESPAWN_MAX_ATTEMPTS, 0);
-    EXPECT_LE(WagoMap::RESPAWN_MAX_ATTEMPTS, 100);
+    EXPECT_GT(WagoMap::RESPAWN_LOG_EVERY, 0);
+    EXPECT_LE(WagoMap::RESPAWN_LOG_EVERY, 100);
 }

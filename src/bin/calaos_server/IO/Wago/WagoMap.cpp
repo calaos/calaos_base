@@ -111,20 +111,18 @@ void WagoMap::scheduleProcessRespawn()
     if (respawn_timer)
         return; //a respawn is already scheduled
 
-    if (respawn_attempts >= RESPAWN_MAX_ATTEMPTS)
-    {
-        cErrorDom("process") << "wago process failed " << respawn_attempts
-                             << " times in a row, giving up. Check " << exe
-                             << " and the PLC at " << host << ":" << port;
-        return;
-    }
-
     double delay = respawnDelay(respawn_attempts);
     respawn_attempts++;
 
+    //never stop retrying (the Wago is the centerpiece of the installation),
+    //but keep reminding loudly that something is wrong
+    if (respawn_attempts % RESPAWN_LOG_EVERY == 0)
+        cErrorDom("process") << "wago process still failing after "
+                             << respawn_attempts << " attempts. Check " << exe
+                             << " and the PLC at " << host << ":" << port;
+
     cWarningDom("process") << "process exited, restarting in " << delay
-                           << "s (attempt " << respawn_attempts
-                           << "/" << RESPAWN_MAX_ATTEMPTS << ")";
+                           << "s (attempt " << respawn_attempts << ")";
 
     respawn_timer = new Timer(delay, [this]()
     {

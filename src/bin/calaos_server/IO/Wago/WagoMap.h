@@ -158,15 +158,18 @@ protected:
 public:
     ~WagoMap();
 
-    //Consecutive respawns allowed before giving up on a subprocess that
-    //keeps failing (counter resets on a successful connection)
-    static constexpr int RESPAWN_MAX_ATTEMPTS = 10;
+    //Log a "still failing" error every N consecutive respawn attempts
+    //(retries themselves never stop)
+    static constexpr int RESPAWN_LOG_EVERY = 10;
 
-    //Exponential backoff delay in seconds before respawning the subprocess.
+    //Backoff delay in seconds before respawning the subprocess. The Wago is
+    //the centerpiece of the installation, so we retry FOREVER: a short ramp
+    //avoids a tight spawn loop, but the cap stays low (5s) so recovery is
+    //fast once the PLC/network is back (e.g. after maintenance cut it).
     //attempt is the 0-based count of consecutive failures so far.
     static double respawnDelay(int attempt)
     {
-        static const double delays[] = { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 60.0 };
+        static const double delays[] = { 1.0, 2.0, 3.0, 5.0 };
         constexpr int ndelays = sizeof(delays) / sizeof(delays[0]);
         if (attempt < 0) attempt = 0;
         if (attempt >= ndelays) attempt = ndelays - 1;
