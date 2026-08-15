@@ -94,7 +94,7 @@ public:
         cInfoDom("rule.action") << "Need to download camera ("
                                 << camera->get_param("name")
                                 << ") attachment";
-        cDebugDom("rule.action") << "DL URL: " << camera->getPictureUrl()
+        cDebugDom("rule.action") << "DL URL: " << Utils::maskUrlCredentials(camera->getPictureUrl())
                                  << " to " << destFile;
 
         auto dl = std::make_shared<Download>();
@@ -104,6 +104,9 @@ public:
         std::weak_ptr<Download> weakDl = dl;
 
         UrlDownloader *downloader = new UrlDownloader(camera->getPictureUrl(), true);
+        //T2.17 (user decision): camera-URL consumer, local cameras commonly
+        //serve self-signed HTTPS
+        downloader->setInsecure();
         dl->downloader = downloader;
         dl->conn = downloader->m_signalComplete.connect([this, weakDl, cb](int status)
         {
