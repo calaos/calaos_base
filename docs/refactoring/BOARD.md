@@ -86,10 +86,10 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | ✅ |
 | [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | ✅ |
 | [T2.13](T2.13.md) | 2 | GPIO: honor `debounce_time` from config | fix | T1.19 | ✅ |
-| [T2.14](T2.14.md) | 2 | Wire pytest suites into `make check` | infra | T0.3 | 📋 |
-| [T2.15](T2.15.md) | 2 | JsonApi audio-state UAF/leak + RemoteUI token constant-time | fix (sec) | T1.4 | 📋 |
-| [T2.16](T2.16.md) | 2 | HttpClient keep-alive request_headers leak | fix (sec) | T2.11 | 📋 |
-| [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | 📋 |
+| [T2.14](T2.14.md) | 2 | Wire pytest suites into `make check` | infra | T0.3 | 🔨 |
+| [T2.15](T2.15.md) | 2 | JsonApi audio-state UAF/leak + RemoteUI token constant-time | fix (sec) | T1.4 | 🔨 |
+| [T2.16](T2.16.md) | 2 | HttpClient keep-alive request_headers leak | fix (sec) | T2.11 | 🔨 |
+| [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | 🔨 |
 | [T2.18](T2.18.md) | 2 | createIO null-guard audit (JsonApi/AutoScenario) | fix | T1.11 | 📋 |
 | [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | ✅ |
@@ -99,9 +99,9 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | ✅ |
 | [T3.4](T3.4.md) | 3 | base64 hardening | fix | Phase 2, T2.2 | ✅ |
 | [T3.5](T3.5.md) | 3 | Squeezebox correctness & lifetime | fix | Phase 2 | ✅ |
-| [T3.6](T3.6.md) | 3 | Remove Gadspot driver (dead code, user decision) | removal | T3.3 | 📋 |
-| [T3.7](T3.7.md) | 3 | ExternProc pid-0 group-kill guard | fix | — | 📋 |
-| [T3.8](T3.8.md) | 3 | AVRRose/NotifServer async lifetimes | fix | T3.1 | 📋 |
+| [T3.6](T3.6.md) | 3 | Remove Gadspot driver (dead code, user decision) | removal | T3.3 | 🔨 |
+| [T3.7](T3.7.md) | 3 | ExternProc pid-0 group-kill guard | fix | — | 🔨 |
+| [T3.8](T3.8.md) | 3 | AVRRose/NotifServer async lifetimes | fix | T3.1 | 🔨 |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3, E4.3 | 📋 |
 | [E4.3](E4.3.md) | 4 | Test coverage | epic | T0.3 | 📋 |
