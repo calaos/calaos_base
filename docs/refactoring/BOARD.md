@@ -82,7 +82,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 📋 |
 | [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | 🔨 |
 | [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | ✅ |
-| [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | 🔨 |
+| [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | ✅ |
 | [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | 📋 |
 | [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | ✅ |
 | [T2.13](T2.13.md) | 2 | GPIO: honor `debounce_time` from config | fix | T1.19 | 📋 |
