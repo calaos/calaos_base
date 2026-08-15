@@ -96,7 +96,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 🔨 |
 | [T3.2e](T3.2e.md) | 3 | Thin IO subclasses — Wago | refactor | Phase 2 | 🔨 |
 | [T3.2f](T3.2f.md) | 3 | Thin IO subclasses — Gpio | refactor | Phase 2 | ✅ |
-| [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | 🔨 |
+| [T3.3](T3.3.md) | 3 | IPCam cleanup + Synology snapshot fix | fix+refactor | Phase 2 | ✅ |
 | [T3.4](T3.4.md) | 3 | base64 hardening | fix | Phase 2, T2.2 | ✅ |
 | [T3.5](T3.5.md) | 3 | Squeezebox correctness & lifetime | fix | Phase 2 | 🔨 |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
