@@ -95,7 +95,7 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 | T1.16 | MCP client + Roon Python robustness | ✅ |
 | T1.17 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | 🔨 |
 | T1.18 | ActionMail/ActionPush dangling-this | ✅ |
-| T1.19 | IO controllers (MySensors/Gpio/Web) | 🔨 |
+| T1.19 | IO controllers (MySensors/Gpio/Web) | ✅ |
 
 Backlog wave 4 (candidats) : **T1.8, T1.10, T1.14, T1.16, T1.17, T1.19** — majoritairement
 Python / drivers, donc largement file-disjoints.
