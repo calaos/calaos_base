@@ -39,7 +39,11 @@
 
 ## Wave 6 — follow-ups (hors périmètre, non corrigés)
 
-- **[DANGEREUX] `ExternProc.cpp:100-104,120-121` — kill de groupe sur pid 0** : après un
+- **[MÊME CLASSE que T3.7] `McpServerManager.cpp:166` et `JsonApiHandlerHttp.cpp:45`** :
+  `ProcessHandle::kill()` gardé seulement par `referenced()` — même défaut pid-0 que T3.7
+  (chemins shutdown/destructeur). Découvert par le grep de T3.7. → mini-ticket, même garde
+  `pid > 0`.
+- **[DANGEREUX — corrigé par T3.7] `ExternProc.cpp:100-104,120-121` — kill de groupe sur pid 0** : après un
   `uv_spawn` raté, `~ExternProcServer` fait `process_exe->kill(SIGTERM)` gardé seulement par
   `referenced()` ; pid resté à 0 → `kill(0, SIGTERM)` = SIGTERM à **tout le groupe de
   processus** (a tué le harness automake pendant les tests T3.2a). Même classe que le vieux
