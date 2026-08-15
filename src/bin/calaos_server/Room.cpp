@@ -35,37 +35,70 @@ Room::Room(string _name, string _type, int _hits):
 
 Room::~Room()
 {
-    while (ios.size() > 0)
-        ListeRoom::Instance().deleteIO(ios[0]);
-
-    ios.clear();
+    //E4.2b: the room owns its IOs, so destroying it destroys them. The rule
+    //bookkeeping that ListeRoom::deleteIO() used to run on our behalf still
+    //has to happen, and in the same order (rules dropped first, then the
+    //EventIODeleted, then the object). It is done here directly instead of
+    //through ListeRoom::deleteIO(), because that round trip needed ListeRoom
+    //to locate *this* room in its rooms vector: a destructor cannot rely on
+    //still being reachable from there, and when it was not, the old loop
+    //never shrank `ios` and spun forever.
+    while (!ios.empty())
+    {
+        ListeRoom::Instance().detachIOFromRules(ios[0].get());
+        RemoveIO(0, true);
+    }
 }
 
 void Room::AddIO(IOBase *io)
 {
-    ios.push_back(io);
+    //Ownership transfer in. A null IO used to be pushed into the list and
+    //then dereferenced right below.
+    if (!io)
+    {
+        cErrorDom("room") << "AddIO(): ignoring a null IO";
+        return;
+    }
+
+    ios.emplace_back(io);
 
     cDebugDom("room") << "(" << io->get_param("id") << "): Ok";
 }
 
 void Room::RemoveIO(int pos, bool del)
 {
+    if (pos < 0 || (size_t)pos >= ios.size())
+    {
+        cErrorDom("room") << "RemoveIO(): no IO at index " << pos
+                          << " (" << ios.size() << " IOs), ignoring";
+        return;
+    }
+
     EventManager::create(CalaosEvent::EventIODeleted,
                          { { "id", ios[pos]->get_param("id") },
                            { "room_name", get_name() },
                            { "room_type", get_type() } });
 
-    vector<IOBase *>::iterator iter = ios.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    if (del) delete ios[pos];
-    ios.erase(iter);
+    //del == false is an ownership TRANSFER to the caller, not a discreet
+    //removal: the caller goes on using the IO and becomes responsible for
+    //destroying it. release() hands the pointer over and leaves an empty
+    //unique_ptr behind, so the erase() below destroys nothing.
+    if (!del)
+        (void)ios[pos].release();
+
+    ios.erase(ios.begin() + pos);
 }
 
 void Room::RemoveIOFromRoom(IOBase *io)
 {
-    vector<IOBase *>::iterator it = find(ios.begin(), ios.end(), io);
+    auto it = find_if(ios.begin(), ios.end(),
+                      [io](const std::unique_ptr<IOBase> &p) { return p.get() == io; });
     if (it != ios.end())
     {
+        //Ownership transfer as well (see the header): the caller re-attaches
+        //the IO to another room with AddIO(). release(), not a plain erase of
+        //a live pointer.
+        (void)it->release();
         ios.erase(it);
 
         EventManager::create(CalaosEvent::EventRoomChanged,
@@ -119,8 +152,14 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
             node->ValueStr() == "calaos:audio" ||
             node->ValueStr() == "calaos:remote_ui")
         {
-            IOBase *io = IOFactory::Instance().CreateIO(node);
-            if (io) AddIO(io);
+            //CreateIO() returns a raw OWNING pointer (see IOFactory.h): park
+            //it in a unique_ptr so it cannot leak between here and AddIO(),
+            //which takes the ownership over.
+            std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO(node));
+            //Note: an IO whose id addIOHash() rejected as a duplicate is still
+            //added to the room, exactly as before (ListeRoomRobustness pins
+            //it): only ListeRoom::createIO() refuses half-added IOs.
+            if (io) AddIO(io.release());
         }
     }
 
@@ -138,6 +177,7 @@ bool Room::SaveToXml(TiXmlElement *node)
     for (int i = 0;i < get_size();i++)
     {
         IOBase *io = get_io(i);
+        if (!io) continue;
 
         io->SaveToXml(room_node);
     }

@@ -21,6 +21,8 @@
 #ifndef S_IOFactory_H
 #define S_IOFactory_H
 
+#include <memory>
+
 #include <Calaos.h>
 #include <IOBase.h>
 #include <AudioPlayer.h>
@@ -55,6 +57,21 @@ public:
 
     void readParams(TiXmlElement *node, Params &p);
 
+    /* -------------------------------------------------------------------
+     * Ownership (E4.2b)
+     *
+     * Both overloads return a raw pointer that the caller OWNS, or nullptr
+     * when the type is unknown. It is deliberately not a unique_ptr:
+     *   - the registry it delegates to is `function<IOBase *(Params &)>`,
+     *     materialized by the REGISTER_IO macro in ~60 driver files, and
+     *   - the factory is the entry point of the ownership chain, not a
+     *     holder: the only two in-tree callers (ListeRoom::createIO() and
+     *     Room::LoadFromXml()) park the result in a unique_ptr on the spot
+     *     and hand it over to the Room that becomes its single owner.
+     * A freshly created IO has already registered itself in ListeRoom's
+     * io_table (IOBase's constructor), so dropping it means `delete`, which
+     * unregisters it again.
+     * ---------------------------------------------------------------- */
     IOBase *CreateIO(string type, Params &params);
     IOBase *CreateIO(TiXmlElement *node);
 

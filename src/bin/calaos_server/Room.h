@@ -23,7 +23,9 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
+#include <memory>
 #include <type_traits>
+#include <vector>
 
 using namespace std;
 
@@ -37,10 +39,31 @@ protected:
     string type;
     int hits;
 
-    vector<IOBase *> ios;
+    /* -------------------------------------------------------------------
+     * Ownership (E4.2b)
+     *
+     * A Room is the ONE owner of the IOs it holds. The vector expresses it:
+     * destroying the Room destroys its IOs, and no other container in the
+     * tree may delete them. ListeRoom's io_table/cameraCache/audioCache are
+     * non-owning indexes maintained by IOBase itself (its constructor calls
+     * addIOHash(), its destructor delIOHash()).
+     *
+     * Every hand-out of a raw IOBase* below is therefore a NON-OWNING
+     * observation, with two explicit exceptions that are ownership
+     * *transfers* out of the room, and are release() (never reset()):
+     *   - RemoveIO(pos, del=false), and
+     *   - RemoveIOFromRoom(io).
+     * ---------------------------------------------------------------- */
+    vector<std::unique_ptr<IOBase>> ios;
 
 public:
     Room(string _name, string _type, int _hits = 0);
+
+    /* Destroys the IOs it owns, after unlinking them from the rules exactly
+       like ListeRoom::deleteIO() does. Does not require the Room to be
+       registered in ListeRoom (it used to: the old body asked ListeRoom to
+       find this very room, which only worked while it was still in the
+       rooms vector). */
     ~Room();
 
     string &get_name() { return name; }
@@ -53,14 +76,32 @@ public:
 
     void set_hits(int h);
 
+    /* TAKES OWNERSHIP of p. A null p is ignored (it used to be pushed into
+       the list and then dereferenced by the debug log). */
     void AddIO(IOBase *p);
+
+    /* del = true  : destroys the IO (the room was its owner).
+       del = false : TRANSFERS ownership to the caller — the IO survives,
+                     detached from the room, and the caller must delete it.
+                     Implemented with release(), never with a destructive
+                     erase, or the pointer the caller keeps using would die
+                     under its feet. Out of range is a logged no-op. */
     void RemoveIO(int i, bool del = true);
 
+    /* TRANSFERS ownership of io out of the room without destroying it (the
+       JsonApi "move an IO to another room" path re-attaches it with AddIO()
+       right after). A no-op when io is not in this room. */
     void RemoveIOFromRoom(IOBase *io);
 
-    IOBase *get_io(int i) { return ios[i]; }
+    /* Non-owning observation. nullptr when out of range. */
+    IOBase *get_io(int i)
+    {
+        if (i < 0 || (size_t)i >= ios.size())
+            return nullptr;
+        return ios[i].get();
+    }
 
-    int get_size() { return ios.size(); }
+    int get_size() { return (int)ios.size(); }
 
     bool LoadFromXml(TiXmlElement *node);
     bool SaveToXml(TiXmlElement *node);

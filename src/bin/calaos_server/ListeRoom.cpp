@@ -37,11 +37,23 @@ ListeRoom::ListeRoom()
 
 ListeRoom::~ListeRoom()
 {
-    while (rooms.size() > 0)
+    //Front to back, as before. The room is moved out of the vector *first*
+    //so that its destructor (which cascades into its IOs, and from there
+    //into the event manager and the rule list) never runs on an element
+    //that is still half-present in `rooms`.
+    while (!rooms.empty())
     {
-        delete rooms[0];
+        std::unique_ptr<Room> room = std::move(rooms.front());
         rooms.erase(rooms.begin());
     }
+}
+
+bool ListeRoom::isHashRegistered(IOBase *io) const
+{
+    if (!io) return false;
+
+    auto it = io_table.find(io->get_param("id"));
+    return it != io_table.end() && it->second == io;
 }
 
 void ListeRoom::addIOHash(IOBase *io)
@@ -101,7 +113,14 @@ void ListeRoom::delIOHash(IOBase *io)
 
 void ListeRoom::Add(Room *p)
 {
-    rooms.push_back(p);
+    //Ownership transfer in.
+    if (!p)
+    {
+        cErrorDom("room") << "Add(): ignoring a null room";
+        return;
+    }
+
+    rooms.emplace_back(p);
 
     cDebugDom("room") << p->get_name() << "," << p->get_type();
 }
@@ -118,10 +137,11 @@ void ListeRoom::Remove(int pos)
         return;
     }
 
-    vector<Room *>::iterator iter = rooms.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    delete rooms[pos];
-    rooms.erase(iter);
+    //Same care as in the destructor: take the room out of the vector before
+    //destroying it, so nothing it triggers on its way out (EventIODeleted
+    //handlers, rule cleanup) can observe a half-erased rooms vector.
+    std::unique_ptr<Room> room = std::move(rooms[pos]);
+    rooms.erase(rooms.begin() + pos);
 
     cDebugDom("room");
 }
@@ -131,7 +151,7 @@ Room *ListeRoom::operator[] (int i) const
     if (i < 0 || (uint)i >= rooms.size())
         return nullptr;
 
-    return rooms[i];
+    return rooms[i].get();
 }
 
 Room *ListeRoom::get_room(int i)
@@ -139,7 +159,7 @@ Room *ListeRoom::get_room(int i)
     if (i < 0 || (uint)i >= rooms.size())
         return nullptr;
 
-    return rooms[i];
+    return rooms[i].get();
 }
 
 //See the contract documented on the declaration in ListeRoom.h.
@@ -177,6 +197,7 @@ IOBase *ListeRoom::findIOByIndex(int index)
     {
         for (int m = 0;m < rooms[j]->get_size();m++)
         {
+            //Non-owning observation, the room keeps the ownership.
             IOBase *io = rooms[j]->get_io(m);
             if (cpt == index)
                 return io;
@@ -209,8 +230,13 @@ IOBase *ListeRoom::get_io(int i)
     return findIOByIndex(i);
 }
 
+//See the contract on the declaration: del = false is an ownership TRANSFER.
 bool ListeRoom::delete_io(IOBase *io, bool del)
 {
+    //A null needle must not be looked for: a room slot never holds null, but
+    //answering "not found" up front keeps the intent explicit.
+    if (!io) return false;
+
     bool done = false;
     for (uint j = 0;!done && j < rooms.size();j++)
     {
@@ -219,12 +245,16 @@ bool ListeRoom::delete_io(IOBase *io, bool del)
             IOBase *delio = get_room(j)->get_io(m);
             if (delio == io)
             {
+                //Room::RemoveIO() is where the two ownership outcomes live:
+                //destroy (del) or release to the caller (!del).
                 get_room(j)->RemoveIO(m, del);
                 done = true;
             }
         }
     }
 
+    //false means "no room owns this IO", and nothing was destroyed: a second
+    //call on an already removed IO is a harmless no-op, never a double free.
     return done;
 }
 
@@ -306,11 +336,10 @@ void ListeRoom::checkAutoScenario()
 Room * ListeRoom::searchRoomByNameAndType(string name, string type)
 {
     Room *r = NULL;
-    vector<Room *>::iterator itRoom;
 
-    for(itRoom = rooms.begin(); itRoom != rooms.end() && !r; itRoom++)
+    for (auto itRoom = rooms.begin(); itRoom != rooms.end() && !r; itRoom++)
         if( (*itRoom)->get_name() == name && (*itRoom)->get_type() == type)
-            r = *itRoom;
+            r = itRoom->get();
 
     return r;
 }
@@ -328,11 +357,31 @@ Room *ListeRoom::getRoomByIO(IOBase *o)
         for (int m = 0;m < rooms[j]->get_size() && !r;m++)
         {
             if (rooms[j]->get_io(m) == o)
-                r = rooms[j];
+                r = rooms[j].get();
         }
     }
 
     return r;
+}
+
+//Rule-side cleanup only, no ownership change. Split out of deleteIO() so that
+//Room's destructor can run exactly the same unlinking on the IOs it is about
+//to destroy, without asking ListeRoom to locate a room that is dying.
+void ListeRoom::detachIOFromRules(IOBase *io, bool modify)
+{
+    if (!io) return;
+
+    //first delete all rules using "input"
+    if (!modify) //only deletes if modify is not set
+        ListeRule::Instance().RemoveRule(io);
+
+    //Remove input from polling list
+    if (io->get_param("gui_type") == "time"
+        || io->get_param("gui_type") == "temp"
+        || io->get_param("gui_type") == "analog_in"
+        || io->get_param("gui_type") == "time_range"
+        || io->get_param("gui_type") == "timer")
+        ListeRule::Instance().Remove(io);
 }
 
 bool ListeRoom::deleteIO(IOBase *io, bool modify)
@@ -346,25 +395,15 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify)
         return false;
     }
 
-    //first delete all rules using "input"
-    if (!modify) //only deletes if modify is not set
-        ListeRule::Instance().RemoveRule(io);
+    detachIOFromRules(io, modify);
 
-    //Remove input from polling list
-    if (io->get_param("gui_type") == "time"
-        || io->get_param("gui_type") == "temp"
-        || io->get_param("gui_type") == "analog_in"
-        || io->get_param("gui_type") == "time_range"
-        || io->get_param("gui_type") == "timer")
-        ListeRule::Instance().Remove(io);
-
-    return ListeRoom::Instance().delete_io(io);
+    //Destroys the IO through its owning room. false when no room owns it,
+    //and then nothing was destroyed (the caller still holds a live IO).
+    return delete_io(io);
 }
 
 IOBase* ListeRoom::createIO(Params param, Room *room)
 {
-    IOBase *io = nullptr;
-
     //A null room used to crash below on room->AddIO(). It happens when an
     //auto scenario IO is not attached to any room (getRoomByIO() miss).
     if (!room)
@@ -381,13 +420,23 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
     std::string type = param["type"];
     std::string id = param["id"];
 
-    io = IOFactory::Instance().CreateIO(type, param);
+    //Sole owner until the room takes over, so no path out of this function
+    //can leak the object (there is no `delete` left here).
+    std::unique_ptr<IOBase> io(IOFactory::Instance().CreateIO(type, param));
 
-    //E4.2b note: an explicitly empty id is let through here exactly as before
-    //(findIO() would refuse to resolve it and the IO would be destroyed as a
-    //false duplicate). Rejecting id-less IOs at creation is a semantic change
-    //that belongs with the ownership move, not with this preparation ticket.
-    if (io && !id.empty() && findIO(id) != io)
+    //E4.2b: the test is "did addIOHash() accept this IO", asked directly of
+    //io_table, and no longer "is it resolvable by id". The E4.2a `!id.empty()`
+    //clause is gone: it claimed to reproduce the historical behavior but did
+    //the opposite. findIO() refuses to resolve an empty id by design, so with
+    //an id-less IO the old test `findIO(id) != io` was always true, and the
+    //clause was needed to stop the FIRST id-less IO from being destroyed
+    //although addIOHash() had accepted it under the "" key. The price was
+    //that a SECOND id-less IO — which addIOHash() does reject — was kept and
+    //attached to the room while absent from io_table, i.e. exactly the
+    //half-added state the comment below forbids (and, before E4.2a, it was
+    //destroyed as a duplicate). Asking io_table directly answers both cases
+    //correctly and needs no special case at all.
+    if (io && !isHashRegistered(io.get()))
     {
         //addIOHash() rejected this IO because its id collided with an
         //already registered one. The object was still fully built by
@@ -396,19 +445,23 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
         //being absent from io_table.
         cErrorDom("root") << "createIO(): discarding IO '" << id
                           << "', duplicate id was rejected by addIOHash()";
-        delete io;
-        io = nullptr;
+        io.reset();
     }
 
     if (io)
     {
-        room->AddIO(io);
+        //Ownership transfer: from here on the room is the owner, and the
+        //pointer we return is a plain non-owning observation.
+        IOBase *added = io.release();
+        room->AddIO(added);
 
         EventManager::create(CalaosEvent::EventIOAdded,
                              { { "id", id },
                                { "room_name", room->get_name() },
                                { "room_type", room->get_type() } });
+
+        return added;
     }
 
-    return io;
+    return nullptr;
 }

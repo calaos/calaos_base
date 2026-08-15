@@ -60,11 +60,13 @@ IOBase *IOFactory::CreateIO(TiXmlElement *node)
     Params p;
     readParams(node, p);
 
-    IOBase *io = CreateIO(p["type"], p);
+    //Owning while we configure it, so a throw out of LoadFromXml() cannot
+    //leak the IO; released to the caller, which owns it (see the header).
+    std::unique_ptr<IOBase> io(CreateIO(p["type"], p));
     if (io)
         io->LoadFromXml(node);
 
-    return io;
+    return io.release();
 }
 
 void IOFactory::genDocIO(string docPath)
@@ -90,7 +92,10 @@ void IOFactory::genDocIO(string docPath)
         Params p;
         p.Add("type", origNameMap[it->first]);
         p.Add("id", "doc");
-        auto io =  CreateIO(it->first, p);
+        //These throwaways belong to nobody else: hold them and let the scope
+        //destroy them (the `delete` here was the last manual one of the IO
+        //creation path, and it was skipped by the `continue` above).
+        std::unique_ptr<IOBase> io(CreateIO(it->first, p));
         if (!io) continue;
         IODoc *doc = io->getDoc();
         if (doc && !doc->isAlias(it->first.c_str()))
@@ -98,7 +103,6 @@ void IOFactory::genDocIO(string docPath)
             json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
             mdFile << doc->genDocMd(origNameMap[it->first]);
         }
-        delete io;
     }
 
     char *jdump = json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));

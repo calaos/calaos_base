@@ -900,3 +900,27 @@ core_ConfigRoundTrip_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ConfigRoundTrip_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.2b
+#Explicit and unique ownership of the IOs (step 2/6 of the E4.2 series): a Room
+#owns its IOs through unique_ptr, ListeRoom's io_table/cameraCache/audioCache
+#are non-owning indexes, and there is no manual delete left on the IO path.
+#Pins the two ownership TRANSFERS out of a room (delete_io(io, del=false) and
+#RemoveIOFromRoom(), which must be release() and not a destructive erase), that
+#removing an IO twice is a no-op rather than a double free, and that destroying
+#a Room - registered in ListeRoom or not - destroys every IO it owns and leaks
+#none. Also covers the E4.2a createIO() carry-over (no half-added IO).
+#Links the plain core objects only (ListeRoom.o and Room.o are already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomOwnership_test
+check_PROGRAMS += core/ListeRoomOwnership_test
+core_ListeRoomOwnership_test_SOURCES = core/ListeRoomOwnership_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomOwnership_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ListeRoomOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
