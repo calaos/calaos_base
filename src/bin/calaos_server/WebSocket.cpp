@@ -21,7 +21,7 @@
 #include "WebSocket.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
-#include "SHA1.h"
+#include <openssl/evp.h>
 #include "hef_uri_syntax.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "RemoteUI/AuthFailureReason.h"
@@ -399,19 +399,19 @@ bool WebSocket::checkHandshakeRequest()
 
     //calculate key
     string key = request_headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    CSHA1 sha1;
-    sha1.Update((const unsigned char *)key.c_str(), key.length());
-    sha1.Final();
-
-    string s;
-    sha1.ReportHashStl(s);
-    uint8_t message_digest[20];
-    sha1.GetHash(message_digest);
+    uint8_t message_digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
+    if (EVP_Digest(key.data(), key.size(), message_digest, &digest_len,
+                   EVP_sha1(), nullptr) != 1 ||
+        digest_len != 20)
+    {
+        cWarningDom("websocket") << "SHA1 digest computation failed";
+        return false;
+    }
 
     cDebugDom("websocket") << "key : " << key;
-    cDebugDom("websocket") << "SHA1 : " << s;
 
-    string encoded_key = Utils::Base64_encode(message_digest, 20);
+    string encoded_key = Utils::Base64_encode(message_digest, digest_len);
     cDebugDom("websocket") << "Sec-Websocket-Accept : " << encoded_key;
     headers.Add("Sec-Websocket-Accept", encoded_key);
 

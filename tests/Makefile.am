@@ -443,3 +443,18 @@ ExternProcDrivers_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T2.3
+#WebSocket Sec-WebSocket-Accept regression after swapping the bundled CSHA1
+#for OpenSSL EVP_Digest in WebSocket.cpp: RFC 6455 known-answer vector
+#(base64(SHA1(key+GUID))) via the same EVP + Utils::Base64_encode pipeline.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WebSocketAccept_test
+check_PROGRAMS += WebSocketAccept_test
+WebSocketAccept_test_SOURCES = WebSocketAccept_test.cpp
+WebSocketAccept_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+WebSocketAccept_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

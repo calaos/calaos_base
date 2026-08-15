@@ -67,8 +67,6 @@ libcalaos_common_la_SOURCES = \
         Params.h                                \
         Prefix.cpp                              \
         Prefix.h                                \
-        SHA1.cpp                                \
-        SHA1.h                                  \
         TimeRange.cpp                           \
         TimeRange.h                             \
         TinyXML/action_store.cpp                \
