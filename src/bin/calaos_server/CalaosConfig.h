@@ -32,15 +32,10 @@
 namespace Calaos
 {
 
-#define CONFIG_STATES_CACHE_VERSION     1
-
 class Config
 {
 private:
     Config();
-
-    void loadStateCache();
-    void saveStateCache();
 
     unordered_map<string, string> cache_states;
     unordered_map<string, Params> cache_params;
@@ -59,6 +54,13 @@ public:
 
     void SaveConfigIO();
     void SaveConfigRule();
+
+    //Reload/flush the IO state cache from/to disk. loadStateCache() is
+    //called by the constructor, saveStateCache() by a 60s timer, by the
+    //destructor and by SaveValue*(..., save = true). Public so the shutdown
+    //path can force a flush (and for tests).
+    void loadStateCache();
+    void saveStateCache();
 
     void SaveValueIO(string id, string value, bool save = true);
     void SaveValueParams(string id, Params value, bool save = true);

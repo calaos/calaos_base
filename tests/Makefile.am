@@ -504,3 +504,22 @@ UrlDownloader_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T2.4
+#CalaosConfig robustness: corrupt io.xml/rules.xml no longer exit(-1) the
+#daemon (backup restore fallback), atomic tmp+rename saves, state cache
+#deserialization guarded against malformed JSON, and the ~Config() shutdown
+#flush of pending states. Reuses the T0.3 core fixture (config/cache dirs,
+#singleton cleanup) and the CORE_SERVER_OBJECTS closure that already carries
+#CalaosConfig.o. Own HAVE_GTEST block so this stays a pure append at the end
+#of the file.
+if HAVE_GTEST
+TESTS += core/CalaosConfigRobustness_test
+check_PROGRAMS += core/CalaosConfigRobustness_test
+core_CalaosConfigRobustness_test_SOURCES = core/CalaosConfigRobustness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_CalaosConfigRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_CalaosConfigRobustness_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_CalaosConfigRobustness_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

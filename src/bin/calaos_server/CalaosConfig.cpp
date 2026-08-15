@@ -21,9 +21,91 @@
 #include "CalaosConfig.h"
 #include <iomanip>
 #include <ctime>
+#include <cerrno>
+#include <cstring>
+#include <filesystem>
 #include "FileUtils.h"
 
 using namespace Calaos;
+
+namespace
+{
+
+//Most recent backup copy of configName under <config>/backups (as written by
+//Config::BackupFiles()), empty string when none exists.
+string findLatestBackup(const string &configName)
+{
+    namespace fs = std::filesystem;
+
+    string backupRoot = Utils::getConfigFile("backups");
+    string result;
+    fs::file_time_type latest {};
+
+    std::error_code ec;
+    fs::recursive_directory_iterator it(backupRoot,
+                                        fs::directory_options::skip_permission_denied,
+                                        ec), end;
+    for (;!ec && it != end;it.increment(ec))
+    {
+        std::error_code fec;
+        if (!it->is_regular_file(fec) || fec)
+            continue;
+        if (it->path().filename() != configName)
+            continue;
+
+        auto t = fs::last_write_time(it->path(), fec);
+        if (fec)
+            continue;
+
+        if (result.empty() || t > latest)
+        {
+            latest = t;
+            result = it->path().string();
+        }
+    }
+
+    return result;
+}
+
+//Load file into document. On a parse error, log it and try to restore the
+//most recent backup of configName, then parse again. Returns false when
+//nothing loadable is available. Never exits: a corrupt config must not kill
+//the daemon.
+bool loadXmlDocument(TiXmlDocument &document, const string &file, const string &configName)
+{
+    if (document.LoadFile())
+        return true;
+
+    cError() << "There was a parse error in " << file;
+    cError() << document.ErrorDesc();
+    cError() << "In file " << file << " At line " << document.ErrorRow();
+
+    string backup = findLatestBackup(configName);
+    if (backup.empty())
+    {
+        cError() << "No backup found for " << configName << ", config not loaded";
+        return false;
+    }
+
+    cWarning() << "Trying to restore " << file << " from backup " << backup;
+    if (!FileUtils::copyFile(backup, file))
+    {
+        cError() << "Unable to restore backup " << backup << ", config not loaded";
+        return false;
+    }
+
+    if (!document.LoadFile())
+    {
+        cError() << "Backup " << backup << " has a parse error too ("
+                 << document.ErrorDesc() << "), config not loaded";
+        return false;
+    }
+
+    cInfo() << configName << " restored from backup " << backup;
+    return true;
+}
+
+}
 
 Config::Config()
 {
@@ -34,6 +116,10 @@ Config::Config()
 
 Config::~Config()
 {
+    //Flush state changes recorded with save=false that the 60s timer did not
+    //persist yet: without this, up to 60s of IO states are lost on shutdown.
+    saveCacheTimer.reset();
+    saveStateCache();
 }
 
 void Config::LoadConfigIO()
@@ -52,14 +138,8 @@ void Config::LoadConfigIO()
 
     TiXmlDocument document(file);
 
-    if (!document.LoadFile())
-    {
-        cError() <<  "There was a parse error";
-        cError() <<  document.ErrorDesc();
-        cError() <<  "In file " << file << " At line " << document.ErrorRow();
-
-        exit(-1);
-    }
+    if (!loadXmlDocument(document, file, IO_CONFIG))
+        return;
 
     TiXmlHandle docHandle(&document);
 
@@ -110,10 +190,18 @@ void Config::SaveConfigIO()
         room->SaveToXml(node);
     }
 
-    if (document.SaveFile(tmp))
+    if (!document.SaveFile(tmp))
     {
-        unlink(file.c_str());
-        rename(tmp.c_str(), file.c_str());
+        cError() << "Unable to save " << file << ": writing " << tmp << " failed";
+        return;
+    }
+
+    //rename() alone is atomic, an unlink() first would open a window where
+    //no config file exists at all
+    if (::rename(tmp.c_str(), file.c_str()) != 0)
+    {
+        cError() << "Unable to move " << tmp << " to " << file << ": " << strerror(errno);
+        return;
     }
 
     cInfo() <<  "Done.";
@@ -134,14 +222,8 @@ void Config::LoadConfigRule()
 
     TiXmlDocument document(file);
 
-    if (!document.LoadFile())
-    {
-        cError() <<  "There was a parse error in " << file;
-        cError() <<  document.ErrorDesc();
-        cError() <<  "In file " << file << " At line " << document.ErrorRow();
-
-        exit(-1);
-    }
+    if (!loadXmlDocument(document, file, RULES_CONFIG))
+        return;
 
     TiXmlHandle docHandle(&document);
 
@@ -193,10 +275,18 @@ void Config::SaveConfigRule()
         rule->SaveToXml(rulesnode);
     }
 
-    if (document.SaveFile(tmp))
+    if (!document.SaveFile(tmp))
     {
-        unlink(file.c_str());
-        rename(tmp.c_str(), file.c_str());
+        cError() << "Unable to save " << file << ": writing " << tmp << " failed";
+        return;
+    }
+
+    //rename() alone is atomic, an unlink() first would open a window where
+    //no config file exists at all
+    if (::rename(tmp.c_str(), file.c_str()) != 0)
+    {
+        cError() << "Unable to move " << tmp << " to " << file << ": " << strerror(errno);
+        return;
     }
 
     cInfo() <<  "Done.";
@@ -206,6 +296,7 @@ void Config::loadStateCache()
 {
     string file = Utils::getCacheFile("iostates.cache");
     cache_states.clear();
+    cache_params.clear();
 
     std::ifstream cacheStream;
     cacheStream.open(file);
@@ -215,35 +306,35 @@ void Config::loadStateCache()
         return;
     }
 
-    Json jcache;
+    //The whole deserialization runs inside the try: a cache that parses as
+    //JSON but does not have the expected shape (e.g. non string state values)
+    //throws too, and must not abort the daemon at startup.
     try
     {
-        jcache = Json::parse(cacheStream);
+        Json jcache = Json::parse(cacheStream);
         if (!jcache.is_object())
             throw (invalid_argument(string("Json cache is not an object")));
+
+        Json jstates = jcache["iostates"];
+        Json jparams = jcache["ioparams"];
+
+        for (Json::iterator it = jstates.begin(); it != jstates.end(); ++it)
+        {
+            cache_states[it.key()] = it.value();
+        }
+
+        for (Json::iterator it = jparams.begin(); it != jparams.end(); ++it)
+        {
+            cache_params[it.key()] = Params::fromNJson(it.value());
+        }
     }
     catch (const std::exception &e)
     {
-        cWarning() << "Error parsing " << file << ":" << e.what();
+        cWarning() << "Error parsing " << file << ": " << e.what()
+                   << " - starting with an empty state cache";
+        cache_states.clear();
+        cache_params.clear();
         return;
-    }
-
-    if (!jcache.is_object())
-    {
-        cWarning() << "Failed to read, not an object. " << file;
-        return;
-    }
-    Json jstates = jcache["iostates"];
-    Json jparams = jcache["ioparams"];
-
-    for (Json::iterator it = jstates.begin(); it != jstates.end(); ++it)
-    {
-        cache_states[it.key()] = it.value();
-    }
-
-    for (Json::iterator it = jparams.begin(); it != jparams.end(); ++it)
-    {
-        cache_params[it.key()] = Params::fromNJson(it.value());
     }
 
     cInfo() <<  "States cache read successfully.";
@@ -266,15 +357,28 @@ void Config::saveStateCache()
     fout.open(tmp, std::ofstream::out | std::ofstream::trunc);
     if (!fout.is_open())
     {
-        cWarning() <<  "Could not open iostates.cache for write !";
+        cError() <<  "Could not open " << tmp << " for write !";
         return;
     }
 
-    fout << jcache.dump(4);
+    //error_handler_t::replace: a non UTF-8 state value coming from hardware
+    //must not make dump() throw and lose the whole cache
+    fout << jcache.dump(4, ' ', false, Json::error_handler_t::replace);
     fout.close();
+    if (!fout)
+    {
+        cError() << "Failed to write state cache to " << tmp;
+        FileUtils::unlink(tmp);
+        return;
+    }
 
-    FileUtils::unlink(file);
-    FileUtils::rename(tmp, file);
+    //rename() alone is atomic, an unlink() first would open a window where
+    //no cache file exists at all
+    if (!FileUtils::rename(tmp, file))
+    {
+        cError() << "Unable to move " << tmp << " to " << file;
+        return;
+    }
 
     cInfo() <<  "State cache file written successfully (" << file << ")";
 }
@@ -317,7 +421,9 @@ bool Config::ReadValueParams(string id, Params &value)
 
 void Config::BackupFiles()
 {
-    string backFolder = Utils::getConfigPath() + "/backups";
+    //getConfigFile() so backups land next to the config files actually in
+    //use (getConfigPath() ignores the CALAOS_CONFIG override)
+    string backFolder = Utils::getConfigFile("backups");
 
     std::time_t t = std::time(nullptr);
     std::tm tm = *std::localtime(&t);
@@ -344,16 +450,16 @@ void Config::BackupFiles()
 
     if (!FileUtils::copyFile(Utils::getConfigFile(IO_CONFIG), folder + "/" + IO_CONFIG))
     {
-        cError() << "Unable to backup file io.xml";
+        cError() << "Unable to backup file " << IO_CONFIG;
     }
 
     if (!FileUtils::copyFile(Utils::getConfigFile(RULES_CONFIG), folder + "/" + RULES_CONFIG))
     {
-        cError() << "Unable to backup file rules.xml";
+        cError() << "Unable to backup file " << RULES_CONFIG;
     }
 
     if (!FileUtils::copyFile(Utils::getConfigFile(LOCAL_CONFIG), folder + "/" + LOCAL_CONFIG))
     {
-        cError() << "Unable to backup file rules.xml";
+        cError() << "Unable to backup file " << LOCAL_CONFIG;
     }
 }
