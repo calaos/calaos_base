@@ -48,6 +48,8 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
 {
     cDebugDom("output") << params["id"];
 
+    aliveTag = std::make_shared<bool>(true);
+
     if (!params.Exists("visible")) params.Add("visible", "false");
 
     host = params["host"];
@@ -62,7 +64,11 @@ AVReceiver::AVReceiver(Params &p, int default_port, int _connection_type):
 
 AVReceiver::~AVReceiver()
 {
-    if (conHandle && conHandle->active())
+    //Invalidate the tag first: any callback already queued for dispatch will
+    //see an expired weak_ptr and won't touch this object anymore.
+    aliveTag.reset();
+
+    if (conHandle && !conHandle->closing())
     {
         conHandle->stop();
         conHandle->close();
@@ -76,8 +82,23 @@ void AVReceiver::timerConnReconnect()
     conHandle = uvw::Loop::getDefault()->resource<uvw::TcpHandle>();
     conHandle->connect(host, port);
 
-    conHandle->once<uvw::ConnectEvent>([this](auto &, uvw::TcpHandle &h)
+    //The AVReceiver may be deleted while uvw still holds these callbacks
+    //(close/connect are asynchronous): every one of them checks the alive
+    //tag before touching `this`, and the reconnect timer does the same.
+    auto wtag = std::weak_ptr<bool>(aliveTag);
+    auto reconnectLater = [this, wtag]()
     {
+        Timer::singleShot(AVR_RECONNECT, [this, wtag]()
+        {
+            if (wtag.expired()) return;
+            this->timerConnReconnect();
+        });
+    };
+
+    conHandle->once<uvw::ConnectEvent>([this, wtag](auto &, uvw::TcpHandle &h)
+    {
+        if (wtag.expired()) return;
+
         cDebugDom("output") << "connection established";
         h.read();
 
@@ -85,30 +106,39 @@ void AVReceiver::timerConnReconnect()
         this->connectionEstablished();
     });
 
-    conHandle->once<uvw::ErrorEvent>([this](auto &ev, uvw::TcpHandle &h)
+    conHandle->once<uvw::ErrorEvent>([this, wtag, reconnectLater](auto &ev, uvw::TcpHandle &h)
     {
-        cErrorDom("squeezebox") << "Notif connection error: " << ev.what();
-        h.close();
-        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        cErrorDom("output") << "Connection error: " << ev.what();
+        if (!h.closing()) h.close();
+
+        if (wtag.expired()) return;
+        isConnected = false;
+        h.once<uvw::CloseEvent>([wtag, reconnectLater](auto &, auto &)
         {
-            Timer::singleShot(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+            if (wtag.expired()) return;
+            reconnectLater();
         });
     });
 
-    conHandle->once<uvw::EndEvent>([this](auto &, uvw::TcpHandle &h)
+    conHandle->once<uvw::EndEvent>([this, wtag, reconnectLater](auto &, uvw::TcpHandle &h)
     {
         cWarningDom("output") << "Main Connection closed !";
         cWarningDom("output") << "Trying to reconnect...";
-        h.close();
+        if (!h.closing()) h.close();
+
+        if (wtag.expired()) return;
         isConnected = false;
-        h.once<uvw::CloseEvent>([this](auto &, auto &)
+        h.once<uvw::CloseEvent>([wtag, reconnectLater](auto &, auto &)
         {
-            Timer::singleShot(AVR_RECONNECT, (sigc::slot<void>)sigc::mem_fun(*this, &AVReceiver::timerConnReconnect));
+            if (wtag.expired()) return;
+            reconnectLater();
         });
     });
 
-    conHandle->on<uvw::DataEvent>([this](const uvw::DataEvent &ev, auto &)
+    conHandle->on<uvw::DataEvent>([this, wtag](const uvw::DataEvent &ev, auto &)
     {
+        if (wtag.expired()) return;
+
         if (connection_type == AVR_CON_CHAR)
         {
             string msg((char *)ev.data.get(), ev.length);

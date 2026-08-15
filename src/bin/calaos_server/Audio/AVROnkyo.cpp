@@ -22,6 +22,19 @@
 
 using namespace Calaos;
 
+namespace
+{
+//Onkyo volume levels are hexadecimal: is_of_type<int>() (decimal) would
+//silently drop any level containing hex letters (0x0A, 0x1A, ...)
+bool isHexNumber(const string &s)
+{
+    if (s.empty()) return false;
+    for (char c: s)
+        if (!isxdigit((unsigned char)c)) return false;
+    return true;
+}
+}
+
 AVROnkyo::AVROnkyo(Params &p):
     AVReceiver(p, 60128, AVR_CON_BYTES)
 {
@@ -134,7 +147,7 @@ void AVROnkyo::processMessage(vector<char> data)
     if (!brecv_buffer.empty())
     {
         //Put last data in buffer
-        brecv_buffer.insert(data.end(), data.begin(), data.end());
+        brecv_buffer.insert(brecv_buffer.end(), data.begin(), data.end());
         data = brecv_buffer;
         brecv_buffer.clear();
     }
@@ -175,7 +188,7 @@ void AVROnkyo::processMessage(vector<char> data)
     if (!data.empty())
     {
         //We don't have a complete paquet yet, buffurize it.
-        brecv_buffer.insert(data.end(), data.begin(), data.end());
+        brecv_buffer.insert(brecv_buffer.end(), data.begin(), data.end());
 
         cDebugDom("output") << "Bufferize data.";
     }
@@ -188,7 +201,7 @@ void AVROnkyo::processMessage(string msg)
     if (msg.substr(0, 3) == "MVL") //master volume changed
     {
         msg.erase(0, 3);
-        if (is_of_type<int>(msg))
+        if (isHexNumber(msg))
         {
             istringstream iss(msg);
             iss >> hex >> volume_main;
@@ -199,7 +212,7 @@ void AVROnkyo::processMessage(string msg)
     else if (msg.substr(0, 3) == "ZVL") //zone2 volume changed
     {
         msg.erase(0, 3);
-        if (is_of_type<int>(msg))
+        if (isHexNumber(msg))
         {
             istringstream iss(msg);
             iss >> hex >> volume_zone2;
@@ -210,7 +223,7 @@ void AVROnkyo::processMessage(string msg)
     else if (msg.substr(0, 3) == "VL3") //zone3 volume changed
     {
         msg.erase(0, 3);
-        if (is_of_type<int>(msg))
+        if (isHexNumber(msg))
         {
             istringstream iss(msg);
             iss >> hex >> volume_zone3;
@@ -263,7 +276,7 @@ void AVROnkyo::processMessage(string msg)
         if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
         {
             source_zone2 = inputFromString(msg);
-            state_changed_2.emit("input_source", Utils::to_string(source_main));
+            state_changed_2.emit("input_source", Utils::to_string(source_zone2));
         }
     }
     else if (msg.substr(0, 3) == "SL3") //zone 3 input source changed
@@ -272,7 +285,7 @@ void AVROnkyo::processMessage(string msg)
         if (inputFromString(msg) != AVReceiver::AVR_UNKNOWN) //this is an input source change
         {
             source_zone3 = inputFromString(msg);
-            state_changed_3.emit("input_source", Utils::to_string(source_main));
+            state_changed_3.emit("input_source", Utils::to_string(source_zone3));
         }
     }
 
@@ -351,13 +364,17 @@ string AVROnkyo::inputToString(int source)
 void AVROnkyo::setVolume(int volume, int zone)
 {
     stringstream ss;
+
+    if (zone == 1) ss << "MVL";
+    else if (zone == 2) ss << "ZVL";
+    else if (zone == 3) ss << "VL3";
+    else return;
+
+    //width()/fill() only apply to the next insertion: set them right before
+    //the value so the hex volume is the thing that gets zero-padded
     ss.width(2);
     ss.fill('0');
-
-    if (zone == 1) ss << "MVL" << uppercase << hex << volume;
-    else if (zone == 2) ss << "ZVL" << uppercase << hex << volume;
-    else if (zone == 3) ss << "VL3" << uppercase << hex << volume;
-    else return;
+    ss << uppercase << hex << volume;
 
     sendCustomCommand(ss.str());
 }

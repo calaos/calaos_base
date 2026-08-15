@@ -673,3 +673,34 @@ MqttIO_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.1
+#AVReceiver correctness: Onkyo eISCP reassembly no longer inserts with an
+#iterator of another vector (UB), zone-2/3 input-source and Pioneer zone-3
+#volume land on their own signals, Onkyo hex volumes with letters are parsed,
+#Denon/Marantz/Onkyo setVolume commands are really zero-padded, and
+#AVRManager::Delete(NULL) is a no-op. The AVR driver objects of calaos_server
+#are reused as they are (same approach and reasoning as CORE_SERVER_OBJECTS),
+#no loop is ever run and sendRequest() is overridden, so no network I/O.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+AVR_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)
+
+TESTS += AVReceiver_test
+check_PROGRAMS += AVReceiver_test
+AVReceiver_test_SOURCES = AVReceiver_test.cpp
+AVReceiver_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+AVReceiver_test_LDADD = $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+AVReceiver_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

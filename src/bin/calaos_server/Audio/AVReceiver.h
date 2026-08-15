@@ -60,6 +60,11 @@ protected:
 
     string command_suffix;
 
+    //Lifetime tag: the uvw/timer callbacks only hold a weak_ptr to it, so an
+    //AVReceiver deleted while a connect/reconnect event is pending is never
+    //dereferenced afterwards (same pattern as Timer::aliveTag).
+    std::shared_ptr<bool> aliveTag;
+
     enum
     {
         AVR_CON_CHAR = 0,
@@ -72,8 +77,9 @@ protected:
     virtual void processMessage(string msg);
     virtual void processMessage(vector<char> msg);
 
-    void sendRequest(string request);
-    void sendRequest(vector<char> request);
+    //virtual so tests (or custom transports) can capture the outgoing protocol
+    virtual void sendRequest(string request);
+    virtual void sendRequest(vector<char> request);
 
     virtual void connectionEstablished() {}
 

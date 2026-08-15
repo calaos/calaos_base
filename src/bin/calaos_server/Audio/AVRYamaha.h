@@ -27,7 +27,7 @@
 namespace Calaos
 {
 
-//Manage Denon AV devices
+//Manage Yamaha AV devices
 class AVRYamaha: public AVReceiver
 {
 protected:

@@ -264,13 +264,17 @@ void AVRMarantz::setVolume(int volume, int zone)
     int v = volume * 99 / 100;
     v = 99 - v;
     stringstream ss;
+
+    if (zone == 1) ss << "MV";
+    else if (zone == 2) ss << "Z2";
+    else if (zone == 3) ss << "Z3";
+    else return;
+
+    //width()/fill() only apply to the next insertion: set them right before
+    //the value so the volume is the thing that gets zero-padded
     ss.width(2);
     ss.fill('0');
-
-    if (zone == 1) ss << "MV" << v;
-    else if (zone == 2) ss << "Z2" << v;
-    else if (zone == 3) ss << "Z3" << v;
-    else return;
+    ss << v;
 
     sendRequest(ss.str());
 }

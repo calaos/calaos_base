@@ -79,6 +79,10 @@ AVReceiver *AVRManager::Create(Params &p)
 
 void AVRManager::Delete(AVReceiver *obj)
 {
+    //Create() returns NULL for an unknown model and IOAVReceiver's dtor
+    //calls Delete() unconditionally: NULL must be a no-op here.
+    if (!obj) return;
+
     bool found = false;
     for (unsigned int i = 0;i < avrs.size() && !found;i++)
     {
@@ -89,7 +93,7 @@ void AVRManager::Delete(AVReceiver *obj)
         }
     }
 
-    if (obj->ref_count <= 0)
+    if (found && obj->ref_count <= 0)
     {
         avrs.erase(std::remove(avrs.begin(), avrs.end(), obj), avrs.end());
         delete obj;

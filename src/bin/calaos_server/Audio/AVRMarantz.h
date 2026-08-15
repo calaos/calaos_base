@@ -27,7 +27,7 @@
 namespace Calaos
 {
 
-//Manage Denon AV devices
+//Manage Marantz AV devices
 class AVRMarantz: public AVReceiver
 {
 protected:
