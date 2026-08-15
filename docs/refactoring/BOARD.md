@@ -78,7 +78,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.5](T2.5.md) | 2 | UrlDownloader → libcurl | refactor | Phase 1 | ✅ |
 | [T2.6](T2.6.md) | 2 | Common-lib correctness (ThreadedQueue/ColorUtils/Calendar/Params) | fix | Phase 1 | ✅ |
 | [T2.7](T2.7.md) | 2 | ~~NTPClock timer lifetime~~ (resolved by deletion, see plan step 2) | fix | Phase 1, T2.1 | ✅ |
-| [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | 🔨 |
+| [T3.1](T3.1.md) | 3 | AVReceiver correctness & dedup | fix+refactor | Phase 2 | ✅ |
 | [T3.2a](T3.2a.md) | 3 | Thin IO subclasses — KNX | refactor | Phase 2 | 🔨 |
 | [T2.8](T2.8.md) | 2 | exprtk stack-use-after-scope (ASan, préexistant) | fix | Phase 1 | ✅ |
 | [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | ✅ |
