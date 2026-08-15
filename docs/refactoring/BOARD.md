@@ -72,7 +72,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T1.18](T1.18.md) | 1 | ActionMail/ActionPush dangling-this | fix | Phase 0 | ✅ |
 | [T1.19](T1.19.md) | 1 | IO controllers (MySensors/Gpio/Web) | fix | Phase 0 | ✅ |
 | [T2.1](T2.1.md) | 2 | Timer lifetime | refactor | Phase 1 | ✅ |
-| [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | 📋 |
+| [T2.2](T2.2.md) | 2 | Utils god-object split | refactor | Phase 1, T1.12 | ✅ |
 | [T2.3](T2.3.md) | 2 | SHA1 → OpenSSL | refactor | Phase 1 | ✅ |
 | [T2.4](T2.4.md) | 2 | Config robustness (m1–m6 + cache) | fix | Phase 1 | ✅ |
 | [T2.5](T2.5.md) | 2 | UrlDownloader → libcurl | refactor | Phase 1 | ✅ |

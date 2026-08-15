@@ -8,15 +8,17 @@
 
 ## 🔁 REPRISE — lire en premier
 
-- **Phase 1 complète (19/19).** **WAVE 5 TERMINÉE** (2026-08-15) : 8 tickets Phase 2 en
-  parallèle — T2.9, T2.3, T2.12, T2.6, T2.1, T2.10, T2.8, T2.4 tous ✅ mergés. Worktrees
-  `/tmp/claude-1000/calaos-wave5/t2.X`, branches `refactor/t2.X`, base `4808e23b`
-  (master local, 25/25 tests). **Pas poussé** (origin = `9d8d37b5`).
-- **File d'attente sérialisée après la wave** : T2.13 ✅ mergé (2026-08-15, GPIO debounce_time),
-  T2.11 ✅ mergé (2026-08-15, transport hardening : cap 50 conn/IP, headers 32 KiB, 31/31 tests),
-  T2.5 ✅ mergé (2026-08-15, UrlDownloader → libcurl multi_socket/libuv, plus de subprocess
-  curl, 31/31 tests dont UrlDownloader_test 7/7). Reste : **T2.2 en wave EXCLUSIVE**
-  (split Utils, balaie 63 TU).
+- **PHASE 2 COMPLÈTE (13/13, incl. T2.7 mergé antérieurement).** Phase 1 complète (19/19).
+  Wave 5 terminée (2026-08-15) : T2.9, T2.3, T2.12, T2.6, T2.1, T2.10, T2.8, T2.4 ✅, puis
+  file sérialisée T2.13 ✅, T2.11 ✅, T2.5 ✅, et enfin **T2.2 ✅ mergé** (2026-08-15, split
+  Utils en 6 unités — Constants.h, MemMacros.h, LogSetup, StringUtils, ConfigStore,
+  SystemInfo — pattern agrégateur, Utils.h ré-inclut tout ; 31/31 tests). **Rien en vol.**
+  **Pas poussé** (origin = `9d8d37b5`). Les follow-ups T2.14-T2.18 restent 📋 en backlog.
+- **Prochaine étape = wave A Phase 3** : T3.1, T3.2a/c/d/e/f, T3.3, T3.5 en parallèle
+  (T3.2a contraint à garder son abstraction dans IO/KNX/) + **T3.4 (base64) désormais
+  débloqué** (dépendait de T2.2).
+- **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
+  désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
   (supprimé par T2.12) NI Gpio (T2.13) NI WebSocket/Http* (T2.11) et ne modifie aucun call-site
   singleShot ; T2.9 = dead-code seulement (option usesIO-virtual différée) ; T2.8 évite
