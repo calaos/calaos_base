@@ -3,6 +3,8 @@
 Tracking board for distributing refactoring tickets to autonomous dev sub-agents.
 Each ticket is a file `docs/refactoring/<ID>.md`.
 
+> **Phase 4 ?** Lire [`PHASE4.md`](PHASE4.md) (cartographie + découpage en sous-tickets).
+>
 > **Reprendre le travail ?** Commencer par [`ORCHESTRATION.md`](ORCHESTRATION.md) (état + prochaine
 > action + protocoles), puis [`DECISIONS.md`](DECISIONS.md) (choix utilisateur) et
 > [`FINDINGS.md`](FINDINGS.md) (backlog de découvertes hors-périmètre).
