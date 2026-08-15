@@ -169,12 +169,13 @@ nb_obsolete=`wc -l <"$tmpdir/obsolete.keys" | tr -d ' '`
 #                     `const std::string NAME = "..."` definitions of the same
 #                     file. An identifier that resolves to nothing is a hard
 #                     failure unless it is in DYNAMIC KEY EXCEPTIONS below.
-# Rule C  src/lib/Utils.cpp
+# Rule C  src/lib/ConfigStore.cpp
 #                     Utils::initConfigOptions() seeds the defaults through a
 #                     `{ "key", "value" }` initialiser list and completes an
 #                     existing file through Params::Exists("key") /
 #                     Params::Add("key", ...). Those three patterns appear
-#                     nowhere else in Utils.cpp, so the whole file is scanned.
+#                     nowhere else in ConfigStore.cpp, so the whole file is
+#                     scanned.
 # Rule D  src/lib/TimeRange.cpp
 #                     TimeRange reads latitude/longitude out of the options map
 #                     with Params::Exists("key"). Only Exists() is scanned here:
@@ -195,12 +196,13 @@ nb_obsolete=`wc -l <"$tmpdir/obsolete.keys" | tr -d ' '`
 # First-argument expressions that are legitimately not a config key. Matched on
 # the exact text, whitespace squeezed. Every entry must say why it is here.
 #
-#   "string key", "string _key"
+#   "string key", "string _key", "std::string key"
 #         the definitions and declarations of Utils::{get,set,del}_config_option
-#         themselves (src/lib/Utils.cpp, src/lib/Utils.h) -- not call sites.
+#         themselves (src/lib/ConfigStore.cpp, src/lib/ConfigStore.h) -- not
+#         call sites.
 #   "_key"
-#         src/lib/Utils.cpp, those same functions forwarding their own parameter
-#         to the unlocked doGetConfigOption() helper.
+#         src/lib/ConfigStore.cpp, those same functions forwarding their own
+#         parameter to the unlocked doGetConfigOption() helper.
 #   "key"
 #         src/bin/tools/calaos_config.cpp `set` action: the key comes from argv.
 #         The CLI validates it against the registry at run time instead.
@@ -210,7 +212,7 @@ nb_obsolete=`wc -l <"$tmpdir/obsolete.keys" | tr -d ' '`
 is_dynamic_key_exception()
 {
     case "$1" in
-        "string key"|"string _key"|"_key"|"key"|"args.params[0]") return 0 ;;
+        "string key"|"string _key"|"std::string key"|"_key"|"key"|"args.params[0]") return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -262,14 +264,14 @@ while IFS='|' read -r file line match; do
     esac
 done
 
-# Rule C -- src/lib/Utils.cpp
-utils_cpp="$SRCDIR/lib/Utils.cpp"
-if [ -f "$utils_cpp" ]; then
+# Rule C -- src/lib/ConfigStore.cpp
+configstore_cpp="$SRCDIR/lib/ConfigStore.cpp"
+if [ -f "$configstore_cpp" ]; then
     grep -noE '\{[[:space:]]*"[^"]*"[[:space:]]*,[[:space:]]*"[^"]*"[[:space:]]*\}|\.(Exists|Add)[[:space:]]*\([[:space:]]*"[^"]*"' \
-         "$utils_cpp" |
-    sed 's|^\([0-9]*\):[^"]*"\([^"]*\)".*$|\2\t'"$utils_cpp"':\1|' >>"$tmpdir/used.keys"
+         "$configstore_cpp" |
+    sed 's|^\([0-9]*\):[^"]*"\([^"]*\)".*$|\2\t'"$configstore_cpp"':\1|' >>"$tmpdir/used.keys"
 else
-    fail "$utils_cpp not found: scan rule C is dead"
+    fail "$configstore_cpp not found: scan rule C is dead"
 fi
 
 # Rule D -- src/lib/TimeRange.cpp
