@@ -1640,7 +1640,31 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
     params.Add("type", "scenario");
     IOBase *in = ListeRoom::Instance().createIO(params, room);
     Scenario *scenario = dynamic_cast<Scenario *>(in);
-    scenario->getAutoScenario()->checkScenarioRules();
+    if (!scenario || !scenario->getAutoScenario())
+    {
+        //createIO() returns null on an IO factory miss, and the dynamic_cast
+        //rejects anything else than a Scenario: answer an error instead of
+        //crashing on the null pointer
+        cErrorDom("network") << "Scenario creation failed: "
+                             << (in? "created IO is not a scenario": "IO factory returned null");
+        if (in)
+            ListeRoom::Instance().deleteIO(in);
+
+        Params perr = {{ "error", "scenario creation failed" }};
+        return perr.toJson();
+    }
+
+    if (!scenario->getAutoScenario()->checkScenarioRules())
+    {
+        //The internal IOs of the scenario could not be created: roll the
+        //half-created scenario back and answer an error
+        cErrorDom("network") << "Scenario creation failed: unable to create the scenario rules";
+        scenario->getAutoScenario()->deleteAll();
+        ListeRoom::Instance().deleteIO(scenario);
+
+        Params perr = {{ "error", "scenario creation failed" }};
+        return perr.toJson();
+    }
 
     size_t idx;
     json_t *value;
@@ -1819,7 +1843,14 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
             scenario->getAutoScenario()->setDisabled(false);
     }
 
-    scenario->getAutoScenario()->checkScenarioRules();
+    if (!scenario->getAutoScenario()->checkScenarioRules())
+    {
+        //One of the internal scenario IOs disappeared or was replaced: the
+        //rules cannot be rebuilt, answer an error instead of crashing
+        cErrorDom("network") << "Scenario modification failed: unable to rebuild the scenario rules";
+        Params perr = {{ "error", "scenario modification failed" }};
+        return perr.toJson();
+    }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
                          { { "id", scenario->get_param("id") } });

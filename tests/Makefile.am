@@ -796,3 +796,22 @@ TlsInsecureDefault_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T2.18
+#Null-guard audit of the createIO()/IOFactory::CreateIO() call sites: a
+#factory miss (unknown type, squatted internal id, missing room) must end in
+#a logged error and an {"error"} API answer, never in a null dereference.
+#Links the plain core objects only (JsonApi.o, Scenario.o and AutoScenario.o
+#are already in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioNullGuard_test
+check_PROGRAMS += core/ScenarioNullGuard_test
+core_ScenarioNullGuard_test_SOURCES = core/ScenarioNullGuard_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioNullGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ScenarioNullGuard_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ScenarioNullGuard_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

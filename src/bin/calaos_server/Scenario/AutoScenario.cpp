@@ -157,7 +157,13 @@ IOBase *AutoScenario::createInput(string type, string id)
         in = ListeRoom::Instance().createIO(params, roomContainer);
     }
 
-    in->setAutoScenario(true);
+    //createIO() returns null on an IO factory miss or when no room can hold
+    //the IO: propagate the null, the caller has to abort cleanly
+    if (in)
+        in->setAutoScenario(true);
+    else
+        cErrorDom("scenario") << "createInput(" << type << ", " << id
+                              << "): creation failed";
 
     return in;
 }
@@ -283,7 +289,7 @@ string AutoScenario::getRuleActionValue(Rule *rule, IOBase *output)
     return ret;
 }
 
-void AutoScenario::checkScenarioRules()
+bool AutoScenario::checkScenarioRules()
 {
     /* get/create needed IOs for rules */
 
@@ -309,6 +315,18 @@ void AutoScenario::checkScenarioRules()
     if (!ioTimer)
         ioTimer = dynamic_cast<InputTimer *>(createInput("InputTimer", scenario_id + "_timer"));
 
+    //Every rule below dereferences these three IOs: without them the rules
+    //cannot be built, abort instead of crashing. createInput() returns null
+    //on a factory/room miss, and the dynamic_cast rejects an existing IO of
+    //the wrong type using one of the internal ids.
+    if (!ioIsActive || !ioStep || !ioTimer)
+    {
+        cErrorDom("scenario") << "AutoScenario (" << scenario_id
+                              << "): unable to create the internal scenario IOs, "
+                              << "aborting rules creation";
+        return false;
+    }
+
     //Get the PlageHoraire input if the scenario is scheduled
     ioTimeRange = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(scenario_id + "_schedule"));
     if (ioTimeRange)
@@ -317,6 +335,14 @@ void AutoScenario::checkScenarioRules()
 
         if (!ioScheduleEnabled)
             ioScheduleEnabled = dynamic_cast<Internal *>(createInput("InternalBool", scenario_id + "_is_schedule_enabled"));
+
+        if (!ioScheduleEnabled)
+        {
+            cErrorDom("scenario") << "AutoScenario (" << scenario_id
+                                  << "): unable to create the schedule enable IO, "
+                                  << "aborting rules creation";
+            return false;
+        }
 
         ioScheduleEnabled->set_value(!disabled); // scenario scheduling is enabled by default
         ioScheduleEnabled->set_param("save", "true"); //Save the value on disk
@@ -521,6 +547,8 @@ void AutoScenario::checkScenarioRules()
             setRuleAction(rule, ioStep, Utils::to_string(i + 1));
         }
     }
+
+    return true;
 }
 
 void AutoScenario::addStep(double pause)
@@ -759,6 +787,15 @@ void AutoScenario::createRuleStepEnd()
 {
     if (!ruleStepEnd)
     {
+        //The internal IOs are null until checkScenarioRules() succeeded once:
+        //a rule cannot be built over them yet
+        if (!ioIsActive || !ioStep || !ioTimer)
+        {
+            cErrorDom("scenario") << "AutoScenario (" << scenario_id
+                                  << "): missing internal IOs, cannot create the step_end rule";
+            return;
+        }
+
         ruleStepEnd = new Rule("AutoScenario", scenario_id + "_step_end");
         ruleStepEnd->set_param("auto_scenario", scenario_id);
         ruleStepEnd->set_param("auto_scenario_type", "step_end");

@@ -289,6 +289,15 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
 {
     IOBase *io = nullptr;
 
+    //A null room used to crash below on room->AddIO(). It happens when an
+    //auto scenario IO is not attached to any room (getRoomByIO() miss).
+    if (!room)
+    {
+        cErrorDom("root") << "createIO(): no room to attach IO '"
+                          << param["id"] << "' to, creation aborted";
+        return nullptr;
+    }
+
     if (!param.Exists("name")) param.Add("name", "<No Name>");
     if (!param.Exists("type")) return nullptr;
     if (!param.Exists("id")) param.Add("id", Calaos::get_new_id("io_"));

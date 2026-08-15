@@ -91,7 +91,10 @@ public:
 
     static const int END_STEP = 0xFEDC1234;
 
-    void checkScenarioRules();
+    //False when one of the internal scenario IOs could not be created (IO
+    //factory miss, or an existing IO of the wrong type using one of the
+    //internal ids): the rules build is aborted and nothing was created.
+    bool checkScenarioRules();
     void deleteAll();
     void deleteRules();
 
