@@ -23,23 +23,41 @@
 #include <ctime>
 #include <cerrno>
 #include <cstring>
+#include <algorithm>
+#include <sstream>
+#include <utility>
 #include <filesystem>
 #include "FileUtils.h"
+#include "NotifManager.h"
 
 using namespace Calaos;
 
 namespace
 {
 
-//Most recent backup copy of configName under <config>/backups (as written by
-//Config::BackupFiles()), empty string when none exists.
-string findLatestBackup(const string &configName)
+//Wait for the server to be fully up (event loop running, network and
+//notification infrastructure usable) before sending a corruption alert
+constexpr double CONFIG_ALERT_DELAY_SEC = 30.0;
+
+//Outcome of loading one XML config file, also feeds the corruption alert
+struct XmlLoadResult
+{
+    bool loaded = false;      //document is usable
+    bool wasCorrupt = false;  //the file on disk failed to parse
+    string corruptCopy;       //where the corrupt file was preserved
+    string restoredFrom;      //backup restored over file, empty if none
+};
+
+//All backup copies of configName under <config>/backups (as written by
+//Config::BackupFiles()), sorted newest first by file modification time.
+//The preserved corrupt copies live under backups/corrupt/ with a timestamp
+//suffix in the file name, so they never match configName here.
+vector<string> findBackupsNewestFirst(const string &configName)
 {
     namespace fs = std::filesystem;
 
     string backupRoot = Utils::getConfigFile("backups");
-    string result;
-    fs::file_time_type latest {};
+    vector<std::pair<fs::file_time_type, string>> found;
 
     std::error_code ec;
     fs::recursive_directory_iterator it(backupRoot,
@@ -57,52 +75,121 @@ string findLatestBackup(const string &configName)
         if (fec)
             continue;
 
-        if (result.empty() || t > latest)
-        {
-            latest = t;
-            result = it->path().string();
-        }
+        found.emplace_back(t, it->path().string());
     }
 
+    std::sort(found.begin(), found.end(),
+              [](const auto &a, const auto &b) { return a.first > b.first; });
+
+    vector<string> result;
+    result.reserve(found.size());
+    for (auto &f: found)
+        result.push_back(std::move(f.second));
     return result;
 }
 
-//Load file into document. On a parse error, log it and try to restore the
-//most recent backup of configName, then parse again. Returns false when
-//nothing loadable is available. Never exits: a corrupt config must not kill
-//the daemon.
-bool loadXmlDocument(TiXmlDocument &document, const string &file, const string &configName)
+//Preserve a corrupt config file for later inspection, before a backup gets
+//restored over it (or before a later save overwrites it when the server had
+//to start with an empty config). Returns the preserved path, empty on error.
+string preserveCorruptFile(const string &file, const string &configName)
 {
-    if (document.LoadFile())
-        return true;
+    string dir = Utils::getConfigFile("backups") + "/corrupt";
+    if (!FileUtils::mkpath(dir))
+    {
+        cError() << "Unable to create " << dir << ", corrupt " << configName << " not preserved";
+        return {};
+    }
 
+    std::time_t t = std::time(nullptr);
+    std::tm tm = *std::localtime(&t);
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y%m%d-%H%M%S");
+    string dest = dir + "/" + configName + "." + ss.str();
+
+    if (!FileUtils::copyFile(file, dest))
+    {
+        cError() << "Unable to copy corrupt " << file << " to " << dest;
+        return {};
+    }
+
+    cWarning() << "Corrupt " << configName << " preserved at " << dest << " for inspection";
+    return dest;
+}
+
+//Load file into document. On a parse error, log it, preserve the corrupt
+//file, then walk the backups newest to oldest and restore the first one
+//that parses. loaded stays false only when no backup is usable (the server
+//then starts with an empty config). Never exits: a corrupt config must not
+//kill the daemon.
+XmlLoadResult loadXmlDocument(TiXmlDocument &document, const string &file, const string &configName)
+{
+    XmlLoadResult res;
+
+    if (document.LoadFile())
+    {
+        res.loaded = true;
+        return res;
+    }
+
+    res.wasCorrupt = true;
     cError() << "There was a parse error in " << file;
     cError() << document.ErrorDesc();
     cError() << "In file " << file << " At line " << document.ErrorRow();
 
-    string backup = findLatestBackup(configName);
-    if (backup.empty())
+    res.corruptCopy = preserveCorruptFile(file, configName);
+
+    for (const string &backup: findBackupsNewestFirst(configName))
     {
-        cError() << "No backup found for " << configName << ", config not loaded";
-        return false;
+        //Parse the candidate in place first: a corrupt backup must not be
+        //copied over the live file
+        TiXmlDocument candidate(backup);
+        if (!candidate.LoadFile())
+        {
+            cWarning() << "Backup " << backup << " has a parse error too ("
+                       << candidate.ErrorDesc() << "), trying an older one";
+            continue;
+        }
+
+        if (!FileUtils::copyFile(backup, file))
+        {
+            cError() << "Unable to restore backup " << backup << ", trying an older one";
+            continue;
+        }
+
+        if (!document.LoadFile())
+        {
+            //candidate parsed above, so this should never happen
+            cError() << "Restored " << backup << " but reloading " << file
+                     << " failed, trying an older one";
+            continue;
+        }
+
+        cInfo() << configName << " restored from backup " << backup;
+        res.loaded = true;
+        res.restoredFrom = backup;
+        return res;
     }
 
-    cWarning() << "Trying to restore " << file << " from backup " << backup;
-    if (!FileUtils::copyFile(backup, file))
-    {
-        cError() << "Unable to restore backup " << backup << ", config not loaded";
-        return false;
-    }
+    cError() << "No usable backup found for " << configName << ", config not loaded";
+    return res;
+}
 
-    if (!document.LoadFile())
-    {
-        cError() << "Backup " << backup << " has a parse error too ("
-                 << document.ErrorDesc() << "), config not loaded";
-        return false;
-    }
+//Human readable report of one recovery, used for the mail/push notification
+string configAlertMessage(const string &configName, const XmlLoadResult &res)
+{
+    string msg = "The configuration file " + configName + " was corrupt and could not be parsed.";
 
-    cInfo() << configName << " restored from backup " << backup;
-    return true;
+    if (!res.corruptCopy.empty())
+        msg += "\nThe corrupt file was preserved at: " + res.corruptCopy;
+    else
+        msg += "\nThe corrupt file could not be preserved (see server logs).";
+
+    if (!res.restoredFrom.empty())
+        msg += "\nThe configuration was automatically restored from backup: " + res.restoredFrom;
+    else
+        msg += "\nNo usable backup was found: the server started with an EMPTY " + configName + " configuration.";
+
+    return msg;
 }
 
 }
@@ -122,6 +209,46 @@ Config::~Config()
     saveStateCache();
 }
 
+void Config::scheduleConfigAlert(const string &message)
+{
+    configAlerts.push_back(message);
+
+    if (configAlertScheduled)
+        return;
+    configAlertScheduled = true;
+
+    //LoadConfigIO/LoadConfigRule run from main() before the event loop is
+    //started: defer the notification until the server is fully up (loop
+    //running, network and notification infrastructure usable). Config is an
+    //eternal singleton, capturing this is safe.
+    Timer::singleShot(CONFIG_ALERT_DELAY_SEC, [this]() { sendConfigAlerts(); });
+}
+
+void Config::sendConfigAlerts()
+{
+    if (configAlerts.empty())
+    {
+        configAlertScheduled = false;
+        return;
+    }
+
+    string body = "The Calaos server detected corrupt configuration files at startup:\n\n";
+    for (const string &m: configAlerts)
+        body += m + "\n\n";
+
+    cWarning() << "Sending config corruption notification (mail + push)";
+
+    //Same mechanism/settings as the IO alerts (battery, connected status):
+    //NotifManager reads the mail/push configuration from local_config.xml
+    NotifManager::Instance().sendMailNotification("Calaos: corrupt configuration detected", body);
+    NotifManager::Instance().sendPushNotification(
+        "Calaos: a corrupt configuration file was detected and recovered at startup. "
+        "Check your mailbox or the server logs for details.");
+
+    configAlerts.clear();
+    configAlertScheduled = false;
+}
+
 void Config::LoadConfigIO()
 {
     std::string file = Utils::getConfigFile(IO_CONFIG);
@@ -138,7 +265,10 @@ void Config::LoadConfigIO()
 
     TiXmlDocument document(file);
 
-    if (!loadXmlDocument(document, file, IO_CONFIG))
+    XmlLoadResult xmlres = loadXmlDocument(document, file, IO_CONFIG);
+    if (xmlres.wasCorrupt)
+        scheduleConfigAlert(configAlertMessage(IO_CONFIG, xmlres));
+    if (!xmlres.loaded)
         return;
 
     TiXmlHandle docHandle(&document);
@@ -193,6 +323,7 @@ void Config::SaveConfigIO()
     if (!document.SaveFile(tmp))
     {
         cError() << "Unable to save " << file << ": writing " << tmp << " failed";
+        FileUtils::unlink(tmp); //do not leave a partial tmp file behind
         return;
     }
 
@@ -222,7 +353,10 @@ void Config::LoadConfigRule()
 
     TiXmlDocument document(file);
 
-    if (!loadXmlDocument(document, file, RULES_CONFIG))
+    XmlLoadResult xmlres = loadXmlDocument(document, file, RULES_CONFIG);
+    if (xmlres.wasCorrupt)
+        scheduleConfigAlert(configAlertMessage(RULES_CONFIG, xmlres));
+    if (!xmlres.loaded)
         return;
 
     TiXmlHandle docHandle(&document);
@@ -278,6 +412,7 @@ void Config::SaveConfigRule()
     if (!document.SaveFile(tmp))
     {
         cError() << "Unable to save " << file << ": writing " << tmp << " failed";
+        FileUtils::unlink(tmp); //do not leave a partial tmp file behind
         return;
     }
 

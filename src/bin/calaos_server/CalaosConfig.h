@@ -41,6 +41,15 @@ private:
     unordered_map<string, Params> cache_params;
     std::shared_ptr<Timer> saveCacheTimer;
 
+    //Corrupt-config alerts: messages queued at load time by LoadConfigIO()/
+    //LoadConfigRule() when a corrupt file was recovered (or not), sent later
+    //by mail+push (NotifManager) once the server is up and the event loop
+    //runs (Timer::singleShot).
+    vector<string> configAlerts;
+    bool configAlertScheduled = false;
+    void scheduleConfigAlert(const string &message);
+    void sendConfigAlerts();
+
 public:
     static Config &Instance()
     {
@@ -68,6 +77,10 @@ public:
     bool ReadValueParams(string id, Params &value);
 
     void BackupFiles();
+
+    //Corruption alert messages queued for the deferred mail/push
+    //notification (visible for tests; cleared once sent)
+    const vector<string> &getConfigAlerts() const { return configAlerts; }
 };
 
 }

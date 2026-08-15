@@ -18,8 +18,14 @@
 // T2.4 — Config robustness regressions (CalaosConfig.cpp m1-m6 + state cache).
 //
 // - m1: a parse error in io.xml/rules.xml used to exit(-1) the whole daemon.
-//   Now: log, restore the most recent backup (Config::BackupFiles() tree) and
-//   parse again; give up gracefully (empty config) when no backup works.
+//   Now: log, preserve the corrupt file under backups/corrupt/, walk the
+//   backups (Config::BackupFiles() tree) newest to oldest and restore the
+//   first one that parses; give up gracefully (empty config) when none works.
+//   Every corruption queues an alert message (getConfigAlerts()) that is
+//   later sent by mail+push through NotifManager (same mechanism as the
+//   battery/connected IO alerts) via Timer::singleShot. The send itself
+//   needs a live event loop + notification config, so it is tested here at
+//   the queued-message-content level only.
 // - m3: config/cache writes go through SaveFile(tmp)+rename(tmp, file) with
 //   no unlink() first, so a file always exists (asserted here via the absence
 //   of a leftover tmp and content stability on failed save).
@@ -36,11 +42,15 @@
 #include "CalaosConfig.h"
 #include "FileUtils.h"
 
+#include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 using namespace Calaos;
@@ -68,6 +78,30 @@ protected:
     std::string ioXmlPath() const { return configDir() + "/" IO_CONFIG; }
     std::string rulesXmlPath() const { return configDir() + "/" RULES_CONFIG; }
     std::string cachePath() const { return cacheDir() + "/iostates.cache"; }
+    std::string corruptDir() const { return configDir() + "/backups/corrupt"; }
+
+    static void setMTime(const std::string &path, time_t t)
+    {
+        struct timeval tv[2];
+        tv[0].tv_sec = t; tv[0].tv_usec = 0;
+        tv[1].tv_sec = t; tv[1].tv_usec = 0;
+        ASSERT_EQ(0, ::utimes(path.c_str(), tv)) << path;
+    }
+
+    //Preserved corrupt copies of configName ("<name>.<timestamp>" files)
+    std::vector<std::string> corruptCopiesOf(const std::string &configName) const
+    {
+        std::vector<std::string> found;
+        std::error_code ec;
+        std::filesystem::directory_iterator it(corruptDir(), ec), end;
+        for (;!ec && it != end;it.increment(ec))
+        {
+            std::string name = it->path().filename().string();
+            if (name.rfind(configName + ".", 0) == 0)
+                found.push_back(it->path().string());
+        }
+        return found;
+    }
 };
 
 /******************************************************************************
@@ -76,14 +110,29 @@ protected:
 
 TEST_F(ConfigRobustnessTest, CorruptIoXmlWithoutBackupDoesNotKillTheProcess)
 {
-    writeConfig("<?xml version=\"1.0\"?>\n<calaos:ioconfig BROKEN",
-                CalaosTest::rulesXmlDocument(""));
+    const std::string corrupt = "<?xml version=\"1.0\"?>\n<calaos:ioconfig BROKEN";
+    writeConfig(corrupt, CalaosTest::rulesXmlDocument(""));
+
+    size_t alertsBefore = Config::Instance().getConfigAlerts().size();
 
     //Used to exit(-1) right here, killing the whole test binary
     Config::Instance().LoadConfigIO();
 
     EXPECT_EQ(0, ListeRoom::Instance().size());
     EXPECT_EQ(nullptr, io(ID_BOOL_IN));
+
+    //The corrupt file was preserved verbatim for inspection
+    std::vector<std::string> copies = corruptCopiesOf(IO_CONFIG);
+    ASSERT_EQ(1u, copies.size());
+    EXPECT_EQ(corrupt, getFile(copies[0]));
+
+    //An alert was queued for the deferred mail/push notification,
+    //reporting the empty-config fallback and the preserved path
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alertsBefore + 1, alerts.size());
+    EXPECT_NE(std::string::npos, alerts.back().find(IO_CONFIG));
+    EXPECT_NE(std::string::npos, alerts.back().find(copies[0]));
+    EXPECT_NE(std::string::npos, alerts.back().find("EMPTY"));
 }
 
 TEST_F(ConfigRobustnessTest, CorruptRulesXmlWithoutBackupDoesNotKillTheProcess)
@@ -104,7 +153,10 @@ TEST_F(ConfigRobustnessTest, CorruptIoXmlIsRestoredFromBackup)
     Config::Instance().BackupFiles();
     clearCoreState();
 
-    putFile(ioXmlPath(), "garbage, definitely not xml <<<");
+    const std::string corrupt = "garbage, definitely not xml <<<";
+    putFile(ioXmlPath(), corrupt);
+
+    size_t alertsBefore = Config::Instance().getConfigAlerts().size();
     Config::Instance().LoadConfigIO();
 
     //Config recovered from the backup: IOs are back...
@@ -114,6 +166,49 @@ TEST_F(ConfigRobustnessTest, CorruptIoXmlIsRestoredFromBackup)
     //...and the file on disk is parsable again
     TiXmlDocument doc(ioXmlPath());
     EXPECT_TRUE(doc.LoadFile()) << doc.ErrorDesc();
+
+    //The corrupt bytes were preserved verbatim before the restore
+    std::vector<std::string> copies = corruptCopiesOf(IO_CONFIG);
+    ASSERT_EQ(1u, copies.size());
+    EXPECT_EQ(corrupt, getFile(copies[0]));
+
+    //Queued alert reports the preserved copy and the restored backup
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alertsBefore + 1, alerts.size());
+    EXPECT_NE(std::string::npos, alerts.back().find(copies[0]));
+    EXPECT_NE(std::string::npos, alerts.back().find("restored from backup"));
+}
+
+TEST_F(ConfigRobustnessTest, BackupWalkSkipsCorruptNewestAndRestoresOlderOne)
+{
+    loadConfig();
+    std::string good = getFile(ioXmlPath());
+    ASSERT_FALSE(good.empty());
+
+    //Two handmade backups: the older one is good, the newer one is corrupt
+    //itself. Explicit mtimes make the newest-first ordering deterministic.
+    std::string olderDir = configDir() + "/backups/older";
+    std::string newerDir = configDir() + "/backups/newer";
+    ASSERT_TRUE(FileUtils::mkpath(olderDir));
+    ASSERT_TRUE(FileUtils::mkpath(newerDir));
+    putFile(olderDir + "/" IO_CONFIG, good);
+    putFile(newerDir + "/" IO_CONFIG, "corrupt backup too <<<");
+    setMTime(olderDir + "/" IO_CONFIG, ::time(nullptr) - 100);
+    setMTime(newerDir + "/" IO_CONFIG, ::time(nullptr) - 50);
+
+    clearCoreState();
+    putFile(ioXmlPath(), "live file garbage <<<");
+
+    size_t alertsBefore = Config::Instance().getConfigAlerts().size();
+    Config::Instance().LoadConfigIO();
+
+    //The newer (corrupt) backup was skipped, the older good one restored
+    EXPECT_NE(nullptr, io(ID_BOOL_IN));
+    EXPECT_EQ(good, getFile(ioXmlPath()));
+
+    const std::vector<std::string> &alerts = Config::Instance().getConfigAlerts();
+    ASSERT_EQ(alertsBefore + 1, alerts.size());
+    EXPECT_NE(std::string::npos, alerts.back().find(olderDir + "/" IO_CONFIG));
 }
 
 TEST_F(ConfigRobustnessTest, CorruptRulesXmlIsRestoredFromBackup)
