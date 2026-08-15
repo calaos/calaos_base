@@ -22,27 +22,15 @@
 #define S_WOVolet_H
 
 #include <OutputShutter.h>
-#include <WagoMap.h>
+#include <WagoIOBase.h>
 
 namespace Calaos
 {
 
-class WOVolet : public OutputShutter
+class WOVolet : public WOVoletBase<OutputShutter>
 {
-private:
-    int up_address, down_address;
-    std::string host;
-    int port;
-
-    virtual void setOutputUp(bool enable);
-    virtual void setOutputDown(bool enable);
-
-    void readConfig();
-    void WagoWriteCallback(bool status, UWord address, bool value);
-
 public:
     WOVolet(Params &p);
-    ~WOVolet();
 };
 
 }

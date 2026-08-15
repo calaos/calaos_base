@@ -598,3 +598,21 @@ Squeezebox_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.2e
+#Wago thin IO subclasses: the WIDigitalBP/Long/Triple and WOVolet(Smart)
+#skeletons are factored into WIDigitalBase<>/WOVoletBase<> (WagoIOBase.h);
+#the numeric config values (modbus address, port) now go through
+#WagoConfigParse, a bounded non-throwing parse following the
+#GpioCtrl::parseDebounceTime pattern (T2.13). Only the header-inline
+#WagoConfigParse helpers are exercised here (std + libcalaos_common),
+#nothing of the calaos_server binary is linked. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoConfigParse_test
+check_PROGRAMS += WagoConfigParse_test
+WagoConfigParse_test_SOURCES = WagoConfigParse_test.cpp
+WagoConfigParse_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

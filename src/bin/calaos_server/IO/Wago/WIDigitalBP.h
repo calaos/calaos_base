@@ -22,32 +22,15 @@
 #define S_WIDigitalBP_H
 
 #include <InputSwitch.h>
-#include <WagoMap.h>
+#include <WagoIOBase.h>
 
 namespace Calaos
 {
 
-class WIDigitalBP : public InputSwitch, public sigc::trackable
+class WIDigitalBP : public WIDigitalBase<InputSwitch>
 {
-protected:
-    type_signal_wago::iterator iter;
-
-    int address;
-    std::string host;
-    int port;
-
-    bool udp_value;
-    bool initial;
-
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-    virtual bool readValue();
-
 public:
     WIDigitalBP(Params &p);
-    virtual ~WIDigitalBP();
-
-    virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 
 }

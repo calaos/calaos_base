@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <WOVoletSmart.h>
-#include <WagoMap.h>
 #include <IOFactory.h>
 
 using namespace Calaos;
@@ -28,8 +27,7 @@ REGISTER_IO(WOVoletSmart)
 REGISTER_IO_USERTYPE(WagoOutputShutterSmart, WOVoletSmart)
 
 WOVoletSmart::WOVoletSmart(Params &p):
-    OutputShutterSmart(p),
-    port(502)
+    WOVoletBase<OutputShutterSmart>(p)
 {
     // Define IO documentation
     ioDoc->friendlyNameSet("WOVoletSmart");
@@ -43,56 +41,5 @@ WOVoletSmart::WOVoletSmart(Params &p):
     ioDoc->paramAdd("wago_841", _("Should be false if PLC is 750-842, true otherwise"), IODoc::TYPE_BOOL, true, "true");
     ioDoc->paramAdd("knx", _("Set to true if output is a KNX device (only for 750-849 with KNX/TP1 module)"), IODoc::TYPE_BOOL, false);
 
-    readConfig();
-    WagoMap::Instance(host, port);
-
-    cDebugDom("output") << get_param("id") << ": Ok";
-}
-
-WOVoletSmart::~WOVoletSmart()
-{
-}
-
-void WOVoletSmart::readConfig()
-{
-    host = get_param("host");
-    if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
-    Utils::from_string(get_param("var_up"), up_address);
-    Utils::from_string(get_param("var_down"), down_address);
-
-    //handle knx and 841/849
-    if (get_param("knx") == "true")
-    {
-        up_address += WAGO_KNX_START_ADDRESS;
-        down_address += WAGO_KNX_START_ADDRESS;
-    }
-    if (get_param("wago_841") == "true" && get_param("knx") != "true")
-    {
-        up_address += WAGO_841_START_ADDRESS;
-        down_address += WAGO_841_START_ADDRESS;
-    }
-
-    OutputShutterSmart::readConfig();
-}
-
-void WOVoletSmart::setOutputUp(bool enable)
-{
-    readConfig();
-    WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVoletSmart::WagoWriteCallback));
-}
-
-void WOVoletSmart::setOutputDown(bool enable)
-{
-    readConfig();
-    WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVoletSmart::WagoWriteCallback));
-}
-
-void WOVoletSmart::WagoWriteCallback(bool status, UWord address, bool value)
-{
-    if (!status)
-    {
-        cErrorDom("output") << get_param("id") << ": Failed to write value";
-        return;
-    }
+    voletInit();
 }

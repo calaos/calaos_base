@@ -22,28 +22,22 @@
 #define S_WOVoletSmart_H
 
 #include <OutputShutterSmart.h>
-#include <WagoMap.h>
+#include <WagoIOBase.h>
 
 namespace Calaos
 {
 
-class WOVoletSmart : public OutputShutterSmart
+class WOVoletSmart : public WOVoletBase<OutputShutterSmart>
 {
-private:
-    std::string host;
-    int port;
-    int up_address, down_address;
-
-    virtual void readConfig();
-
-    virtual void setOutputUp(bool enable);
-    virtual void setOutputDown(bool enable);
-
-    void WagoWriteCallback(bool status, UWord address, bool value);
+protected:
+    //Chain up to the position/time config parse of OutputShutterSmart
+    virtual void readConfigExtra() override
+    {
+        OutputShutterSmart::readConfig();
+    }
 
 public:
     WOVoletSmart(Params &p);
-    ~WOVoletSmart();
 };
 
 }

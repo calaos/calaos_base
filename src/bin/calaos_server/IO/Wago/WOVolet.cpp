@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include <WOVolet.h>
-#include <WagoMap.h>
 #include <IOFactory.h>
 
 using namespace Calaos;
@@ -28,8 +27,7 @@ REGISTER_IO(WOVolet)
 REGISTER_IO_USERTYPE(WagoOutputShutter, WOVolet)
 
 WOVolet::WOVolet(Params &p):
-    OutputShutter(p),
-    port(502)
+    WOVoletBase<OutputShutter>(p)
 {
     // Define IO documentation
     ioDoc->friendlyNameSet("WOVolet");
@@ -43,54 +41,5 @@ WOVolet::WOVolet(Params &p):
     ioDoc->paramAdd("wago_841", _("Should be false if PLC is 750-842, true otherwise"), IODoc::TYPE_BOOL, true, "true");
     ioDoc->paramAdd("knx", _("Set to true if output is a KNX device (only for 750-849 with KNX/TP1 module)"), IODoc::TYPE_BOOL, false);
 
-    readConfig();
-    WagoMap::Instance(host, port);
-
-    cDebugDom("output") << get_param("id") << ": Ok";
-}
-
-WOVolet::~WOVolet()
-{
-}
-
-void WOVolet::readConfig()
-{
-    host = get_param("host");
-    if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
-    Utils::from_string(get_param("var_up"), up_address);
-    Utils::from_string(get_param("var_down"), down_address);
-
-    //handle knx and 841/849
-    if (get_param("knx") == "true")
-    {
-        up_address += WAGO_KNX_START_ADDRESS;
-        down_address += WAGO_KNX_START_ADDRESS;
-    }
-    if (get_param("wago_841") == "true" && get_param("knx") != "true")
-    {
-        up_address += WAGO_841_START_ADDRESS;
-        down_address += WAGO_841_START_ADDRESS;
-    }
-}
-
-void WOVolet::setOutputUp(bool enable)
-{
-    readConfig();
-    WagoMap::Instance(host, port).write_single_bit((UWord)up_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
-}
-
-void WOVolet::setOutputDown(bool enable)
-{
-    readConfig();
-    WagoMap::Instance(host, port).write_single_bit((UWord)down_address, enable, sigc::mem_fun(*this, &WOVolet::WagoWriteCallback));
-}
-
-void WOVolet::WagoWriteCallback(bool status, UWord address, bool value)
-{
-    if (!status)
-    {
-        cErrorDom("output") << get_param("id") << ": Failed to write value";
-        return;
-    }
+    voletInit();
 }

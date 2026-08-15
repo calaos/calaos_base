@@ -244,9 +244,11 @@ calaos_server_SOURCES = \
         IO/Wago/WOVolet.h                               \
         IO/Wago/WOVoletSmart.cpp                        \
         IO/Wago/WOVoletSmart.h                          \
+        IO/Wago/WagoConfigParse.h                       \
         IO/Wago/WagoCtrl.cpp                            \
         IO/Wago/WagoCtrl.h                              \
         IO/Wago/WagoMap.cpp                             \
+        IO/Wago/WagoIOBase.h                            \
         IO/Wago/WagoMap.h                               \
         IO/Wago/libmbus/mbus.c                          \
         IO/Wago/libmbus/mbus.h                          \
