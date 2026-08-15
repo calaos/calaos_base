@@ -87,13 +87,25 @@ ReolinkInputSwitch::ReolinkInputSwitch(Params &p):
 
     cDebugDom("reolink") << "Registering camera " << hostname << " for event " << event_type;
 
-    ctrl->registerCamera(hostname, username, password, event_type,
-                        [=](string host, string evt_type, string evt_data)
+    // The callback is stored in the long-lived ReolinkCtrl singleton: guard
+    // it with the alive token (belt) and remove it in the destructor (braces)
+    registrationId = ctrl->registerCamera(hostname, username, password, event_type,
+                        [this, weakAlive = std::weak_ptr<bool>(alive)](const string &host, const string &evt_type, const string &evt_data)
                         {
+                            if (weakAlive.expired())
+                                return; //IO deleted, stale callback
                             eventReceivedCallback(host, evt_type, evt_data);
                         });
 
     cInfoDom("input") << "ReolinkInputSwitch created for camera " << hostname << " event " << event_type;
+}
+
+ReolinkInputSwitch::~ReolinkInputSwitch()
+{
+    // Remove our callback from the ReolinkCtrl singleton, otherwise it
+    // dangles and fires on freed memory at the next camera event
+    if (ctrl && registrationId != ReolinkEventRegistry::INVALID_ID)
+        ctrl->unregisterCamera(registrationId);
 }
 
 void ReolinkInputSwitch::eventReceivedCallback(string hostname, string event_type, string event_data)
@@ -106,8 +118,14 @@ void ReolinkInputSwitch::eventReceivedCallback(string hostname, string event_typ
     // Trigger value change detection
     hasChanged();
 
-    // Reset the value to false after a short delay
-    Timer::singleShot(0.250, [=]() { value = false; });
+    // Reset the value to false after a short delay.
+    // Guard with the alive token: the timer may fire after this IO is deleted
+    Timer::singleShot(0.250, [this, weakAlive = std::weak_ptr<bool>(alive)]()
+    {
+        if (weakAlive.expired())
+            return; //IO deleted before the timer fired
+        value = false;
+    });
 }
 
 bool ReolinkInputSwitch::readValue()

@@ -810,8 +810,9 @@ class ReolinkClient(ExternProcClient):
             task2 = asyncio.run_coroutine_threadsafe(self.monitor_connections(), self.event_loop)
             task3 = asyncio.run_coroutine_threadsafe(self.health_check(), self.event_loop)
             task4 = asyncio.run_coroutine_threadsafe(self.cleanup_executor_tasks(), self.event_loop)
+            task5 = asyncio.run_coroutine_threadsafe(self.heartbeat_monitor(), self.event_loop)
 
-            self.background_tasks.extend([task1, task2, task3, task4])
+            self.background_tasks.extend([task1, task2, task3, task4, task5])
 
             cDebugDom("reolink")("All background tasks started successfully (including executor cleanup)")
 
@@ -833,10 +834,13 @@ class ReolinkClient(ExternProcClient):
                 self.last_health_check = current_time
 
                 # Check if we need to clean up completed reconnection tasks
-                completed_tasks = [hostname for hostname, task in self.reconnect_tasks.items()
-                                 if task and task.done()]
+                # (reconnect_tasks is also touched from other threads: lock)
+                with self._cameras_lock:
+                    completed_tasks = [hostname for hostname, task in self.reconnect_tasks.items()
+                                     if task and task.done()]
+                    for hostname in completed_tasks:
+                        del self.reconnect_tasks[hostname]
                 for hostname in completed_tasks:
-                    del self.reconnect_tasks[hostname]
                     cDebugDom("reolink")(f"Cleaned up completed reconnection task for {hostname}")
 
             except Exception as e:
@@ -1590,13 +1594,22 @@ class ReolinkClient(ExternProcClient):
                 await asyncio.sleep(30)
 
     def message_received(self, message):
-        cDebugDom("reolink")(f"Received message: {message}")
-
         # Parse the JSON message
         try:
             msg_data = json.loads(message)
         except Exception as e:
-            cErrorDom("reolink")("Failed to parse JSON message: %s", str(e))
+            # Never log the raw message: it may carry credentials
+            cErrorDom("reolink")(f"Failed to parse JSON message ({len(message)} bytes): {e}")
+            return
+
+        # Log with credentials redacted: the "register" action carries
+        # username/password in cleartext, they must never reach the logs
+        if isinstance(msg_data, dict):
+            redacted = {k: ("<redacted>" if k in ("username", "password") else v)
+                        for k, v in msg_data.items()}
+            cDebugDom("reolink")(f"Received message: {json.dumps(redacted)}")
+        else:
+            cDebugDom("reolink")("Received non-object JSON message")
             return
 
         if msg_data.get("action") == "register":

@@ -410,3 +410,21 @@ IOControllers_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 IOControllers_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+# T1.14
+#Reolink event registry: register/unregister bookkeeping + reentrant-safe
+#dispatch (UAF regression: ReolinkInputSwitch callbacks stored in the
+#ReolinkCtrl singleton had no unregister path). The registry is a pure-std
+#header (no process, no event loop), listed in _SOURCES so it also lands in
+#the dist tarball. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += ReolinkRegistry_test
+check_PROGRAMS += ReolinkRegistry_test
+ReolinkRegistry_test_SOURCES = ReolinkRegistry_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Reolink/ReolinkEventRegistry.h
+ReolinkRegistry_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+ReolinkRegistry_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

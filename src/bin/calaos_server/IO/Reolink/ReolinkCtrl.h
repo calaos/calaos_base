@@ -30,12 +30,14 @@
 #include "Calaos.h"
 #include "ExternProc.h"
 #include "IOBase.h"
+#include "ReolinkEventRegistry.h"
 #include "Timer.h"
 
 class ReolinkCtrl : public sigc::trackable
 {
 public:
-    typedef sigc::slot<void, string, string, string> EventReceivedSignal;
+    using RegistrationId = ReolinkEventRegistry::RegistrationId;
+    using EventReceivedSignal = ReolinkEventRegistry::EventCallback;
 
 private:
     ReolinkCtrl();
@@ -44,26 +46,22 @@ private:
     ExternProcServer *process;
     string exe;
 
-    unordered_map<string, vector<EventReceivedSignal>> eventCallbacks;
+    // Callback bookkeeping + camera registrations (recovery after crash)
+    ReolinkEventRegistry registry;
+
+    // Cameras whose registration has been sent to the external process
     unordered_map<string, string> registeredCameras;
 
     bool connected = false;
 
-    // Store all camera registrations for recovery after crash
-    struct CameraRegistration {
-        string hostname;
-        string username;
-        string password;
-        string event_type;
-    };
-    unordered_map<string, CameraRegistration> allRegistrations;
-
-    string generateCameraKey(const string &hostname, const string &event_type);
     void doRegisterCamera(const string &hostname, const string &username, const string &password, const string &event_type);
     void registerAllCameras();
 
 public:
-    void registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback);
+    // Returns an id that MUST be passed to unregisterCamera() before the
+    // callback's owner is destroyed, otherwise the stored callback dangles.
+    RegistrationId registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback);
+    void unregisterCamera(RegistrationId id);
 
     bool isConnected() const { return connected; }
 

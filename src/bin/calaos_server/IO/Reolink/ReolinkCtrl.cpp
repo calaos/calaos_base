@@ -51,8 +51,6 @@ ReolinkCtrl::ReolinkCtrl()
         if (!jroot)
         {
             cWarningDom("reolink") << "Error parsing json: " << jerr.text;
-            if (jroot)
-                json_decref(jroot);
             return;
         }
 
@@ -79,18 +77,10 @@ ReolinkCtrl::ReolinkCtrl()
             string hostname = p["hostname"];
             string event_type = p["event_type"];
             string event_data = p["event"];
-            string camera_key = generateCameraKey(hostname, event_type);
 
             cDebugDom("reolink") << "Event received from " << hostname << " type: " << event_type << " data: " << event_data;
 
-            auto it = eventCallbacks.find(camera_key);
-            if (it != eventCallbacks.end())
-            {
-                for (auto &callback : it->second)
-                {
-                    callback(hostname, event_type, event_data);
-                }
-            }
+            registry.dispatch(hostname, event_type, event_data);
         }
 
         json_decref(jroot);
@@ -104,25 +94,20 @@ ReolinkCtrl::~ReolinkCtrl()
 {
 }
 
-void ReolinkCtrl::registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback)
+ReolinkCtrl::RegistrationId ReolinkCtrl::registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback)
 {
-    string camera_key = generateCameraKey(hostname, event_type);
+    string camera_key = ReolinkEventRegistry::cameraKey(hostname, event_type);
 
     cDebugDom("reolink") << "Registering camera: " << hostname << " for event: " << event_type;
 
-    // Add callback to the list
-    auto v = eventCallbacks[camera_key];
-    v.push_back(callback);
-    eventCallbacks[camera_key] = v;
-
-    // Store registration info for recovery after crashes
-    allRegistrations[camera_key] = {hostname, username, password, event_type};
+    // Add callback + store registration info for recovery after crashes
+    RegistrationId id = registry.add({hostname, username, password, event_type}, std::move(callback));
 
     // Check if camera is already registered for this event type
     if (registeredCameras.find(camera_key) != registeredCameras.end())
     {
         cDebugDom("reolink") << "Camera " << hostname << " already registered for event " << event_type;
-        return;
+        return id;
     }
 
     // Send registration if connected, otherwise wait for connection
@@ -134,11 +119,26 @@ void ReolinkCtrl::registerCamera(const string hostname, const string username, c
     {
         cDebugDom("reolink") << "Process not connected, camera will be registered when process connects";
     }
+
+    return id;
+}
+
+void ReolinkCtrl::unregisterCamera(RegistrationId id)
+{
+    string camera_key;
+    if (registry.remove(id, &camera_key))
+    {
+        // Last callback for this camera/event gone: forget the protocol-side
+        // registration so a future registerCamera() re-sends it. The external
+        // process keeps watching until it restarts, which is harmless.
+        registeredCameras.erase(camera_key);
+        cDebugDom("reolink") << "Last callback removed for camera " << camera_key;
+    }
 }
 
 void ReolinkCtrl::doRegisterCamera(const string &hostname, const string &username, const string &password, const string &event_type)
 {
-    string camera_key = generateCameraKey(hostname, event_type);
+    string camera_key = ReolinkEventRegistry::cameraKey(hostname, event_type);
 
     // Register camera with the external process
     json_t *jroot = json_object();
@@ -160,24 +160,18 @@ void ReolinkCtrl::doRegisterCamera(const string &hostname, const string &usernam
 
 void ReolinkCtrl::registerAllCameras()
 {
-    if (allRegistrations.empty())
+    if (registry.empty())
     {
         cDebugDom("reolink") << "No cameras to register";
         return;
     }
 
-    cInfoDom("reolink") << "Registering " << allRegistrations.size() << " cameras to process";
+    cInfoDom("reolink") << "Registering " << registry.cameraCount() << " cameras to process";
 
-    for (auto &pair : allRegistrations)
+    registry.forEachRegistration([this](const ReolinkEventRegistry::CameraRegistration &reg)
     {
-        const CameraRegistration &reg = pair.second;
         cDebugDom("reolink") << "Registering camera: " << reg.hostname << " for event: " << reg.event_type;
         doRegisterCamera(reg.hostname, reg.username, reg.password, reg.event_type);
-    }
-}
-
-string ReolinkCtrl::generateCameraKey(const string &hostname, const string &event_type)
-{
-    return hostname + "_" + event_type;
+    });
 }
 
