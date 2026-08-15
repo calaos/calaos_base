@@ -13,10 +13,11 @@ automation agent that bursts many tool calls:
 
 Client identity (F5): in calaos-os, calaos_server always sits behind haproxy,
 and the C++ Unix-socket proxy forwards the request bytes as-is. haproxy
-APPENDS the real client IP as the LAST entry of X-Forwarded-For; any earlier
-entries are attacker-controlled and must not be trusted. We therefore key the
-rate-limiter/ban-list on the LAST X-Forwarded-For entry (the trusted proxy
-hop), never the first. Without the header, all requests share one bucket
+(`option forwardfor`) APPENDS the real client IP as a NEW X-Forwarded-For
+header LINE after any client-supplied ones; every earlier line/entry is
+attacker-controlled and must not be trusted. We therefore key the
+rate-limiter/ban-list on the last entry of the LAST X-Forwarded-For header
+line (the trusted proxy hop), never the first. Without the header, all requests share one bucket
 (direct Unix-socket access has no per-client identity to offer anyway).
 
 The per-IP state is bounded (MAX_TRACKED_IPS) and periodically pruned so a
@@ -62,12 +63,15 @@ def _reset_state() -> None:
 
 
 def _source_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        # Trust only the LAST entry: it is appended by the nearest trusted
-        # proxy hop (haproxy in calaos-os). Earlier entries are supplied by
-        # the client and can be rotated per request to evade throttling.
-        last = forwarded.rsplit(",", 1)[-1].strip()
+    # haproxy (`option forwardfor`) APPENDS A NEW X-Forwarded-For HEADER
+    # LINE — it does not merge into a client-supplied header. headers.get()
+    # returns the FIRST line, which is fully attacker-controlled, so take
+    # the LAST header line (appended by the trusted haproxy hop), then the
+    # LAST comma-entry of that line. All earlier lines/entries are supplied
+    # by the client and can be rotated per request to evade throttling.
+    lines = request.headers.getlist("x-forwarded-for")
+    if lines:
+        last = lines[-1].rsplit(",", 1)[-1].strip()
         if last:
             return last
     return request.client.host if request.client else "unknown"

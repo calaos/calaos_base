@@ -118,6 +118,47 @@ def test_state_dicts_are_bounded():
     assert len(auth._ban_until) <= auth.MAX_TRACKED_IPS
 
 
+def test_throttle_keys_on_last_xff_header_line_not_first():
+    """REAL haproxy threat model: `option forwardfor` APPENDS A NEW
+    X-Forwarded-For HEADER LINE after any client-supplied ones — it does not
+    merge. headers.get() would return the first (attacker-controlled) line;
+    the throttle must key on the LAST line instead.
+    """
+    c = make_client(rate_limit=3)
+
+    def dup_hdr(spoof):
+        # duplicate header lines: rotating attacker line first, fixed
+        # haproxy-appended line last
+        return [("Authorization", f"Bearer {TOKEN}"),
+                ("X-Forwarded-For", spoof),
+                ("X-Forwarded-For", REAL_IP)]
+
+    for i in range(3):
+        assert c.get("/data", headers=dup_hdr(f"10.44.{i}.1")).status_code == 200
+    # 4th request with a fresh spoofed first line must still trip the limit
+    assert c.get("/data", headers=dup_hdr("10.99.99.99")).status_code == 429
+    # State must be keyed only on the trusted IP, not the spoofed ones
+    assert REAL_IP in auth._req_counts
+    assert not any(ip.startswith("10.") for ip in auth._req_counts)
+
+
+def test_ban_keys_on_last_xff_header_line():
+    """Same duplicate-header threat model, applied to the ban list."""
+    c = make_client(ban_failures=3, ban_seconds=120)
+
+    def dup_hdr(spoof, token):
+        return [("Authorization", f"Bearer {token}"),
+                ("X-Forwarded-For", spoof),
+                ("X-Forwarded-For", REAL_IP)]
+
+    for i in range(3):
+        assert c.get("/data", headers=dup_hdr(f"10.55.{i}.1", "bad")).status_code == 401
+    # Banned now — rotating the first header line must not evade it
+    assert c.get("/data", headers=dup_hdr("10.77.0.1", "bad")).status_code == 429
+    assert c.get("/data", headers=dup_hdr("10.88.0.1", TOKEN)).status_code == 429
+    assert set(auth._ban_until) == {REAL_IP}
+
+
 def test_rate_limit_zero_disables_throttling():
     """rate_limit <= 0 means disabled (config.py normalizes it upstream)."""
     c = make_client(rate_limit=0)
