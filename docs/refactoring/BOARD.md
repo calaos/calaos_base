@@ -86,7 +86,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | ✅ |
 | [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | ✅ |
 | [T2.13](T2.13.md) | 2 | GPIO: honor `debounce_time` from config | fix | T1.19 | ✅ |
-| [T2.14](T2.14.md) | 2 | Wire pytest suites into `make check` | infra | T0.3 | 🔨 |
+| [T2.14](T2.14.md) | 2 | Wire pytest suites into `make check` | infra | T0.3 | ✅ |
 | [T2.15](T2.15.md) | 2 | JsonApi audio-state UAF/leak + RemoteUI token constant-time | fix (sec) | T1.4 | ✅ |
 | [T2.16](T2.16.md) | 2 | HttpClient keep-alive request_headers leak | fix (sec) | T2.11 | ✅ |
 | [T2.17](T2.17.md) | 2 | UrlDownloader TLS verification by default | fix (sec) | T2.5 | ✅ |

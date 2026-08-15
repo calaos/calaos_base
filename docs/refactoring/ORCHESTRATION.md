@@ -55,8 +55,13 @@
   (parser->data pointait sur l'owner au lieu du sous-objet state → bug d'offset) ;
   rebase propre sur master post-T2.17/T2.15, aucun conflit ; 40/40 tests dont
   TransportHardening_test 22/22 (17 antérieurs + 5 KeepAliveRequestReset) ; ff-only ;
-  worktree t2.16 nettoyé). 2 autres worktrees wave 7 encore en vol sous
-  `/tmp/claude-1000/calaos-wave7/` (t2.14, t2.19).
+  worktree t2.16 nettoyé). **T2.14 ✅ mergé** (2026-08-15, `ce6d91b9`, câblage des
+  suites tests/python/ dans `make check` via le nouveau wrapper
+  `tests/run-python-tests.sh` + section TESTS en tête de tests/Makefile.am ;
+  rebase propre sur master post-T2.15/T2.16/T2.17 + wave-7 T3.x, aucun conflit,
+  29/29 if/endif ; 41/41 tests dont run-python-tests.sh PASS ; ff-only ; worktree
+  t2.14 nettoyé). 1 autre worktree wave 7 encore en vol sous
+  `/tmp/claude-1000/calaos-wave7/` (t2.19).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
