@@ -25,6 +25,81 @@
 #include "Params.h"
 #include "Utils.h"
 
+namespace
+{
+
+//Replace every byte that is not part of a valid UTF-8 sequence with '?'.
+//Kept deliberately strict on structure only (jansson rejects the rest, see
+//fallback in payloadToJsonString()).
+string sanitizeUtf8(const char *data, size_t len)
+{
+    string out;
+    out.reserve(len);
+    size_t i = 0;
+    while (i < len)
+    {
+        unsigned char c = static_cast<unsigned char>(data[i]);
+        size_t seqlen = 0;
+        if (c < 0x80) seqlen = 1;
+        else if ((c & 0xE0) == 0xC0) seqlen = 2;
+        else if ((c & 0xF0) == 0xE0) seqlen = 3;
+        else if ((c & 0xF8) == 0xF0) seqlen = 4;
+
+        bool valid = seqlen > 0 && i + seqlen <= len;
+        for (size_t j = 1;valid && j < seqlen;j++)
+        {
+            if ((static_cast<unsigned char>(data[i + j]) & 0xC0) != 0x80)
+                valid = false;
+        }
+
+        if (valid)
+        {
+            out.append(data + i, seqlen);
+            i += seqlen;
+        }
+        else
+        {
+            out.push_back('?');
+            i++;
+        }
+    }
+    return out;
+}
+
+//Build a json string from a raw MQTT payload. The payload is not a
+//C-string: it can be empty (NULL), contain embedded NUL bytes or arbitrary
+//binary data. Using json_string() on it truncated at the first NUL and
+//silently dropped the whole field for non-UTF8 payloads. Never returns
+//NULL: binary payloads are transported with invalid bytes replaced by '?'.
+json_t *payloadToJsonString(const void *payload, int payloadlen)
+{
+    const char *data = static_cast<const char *>(payload);
+    size_t len = (data && payloadlen > 0)?static_cast<size_t>(payloadlen):0;
+
+    json_t *jstr = json_stringn(data?data:"", len);
+    if (jstr)
+        return jstr;
+
+    //payload is not valid UTF-8 (binary payload): sanitize it instead of
+    //silently dropping the message
+    cWarningDom("mqtt") << "Binary (non UTF-8) payload received, invalid bytes are replaced with '?'";
+    string sane = sanitizeUtf8(data, len);
+    jstr = json_stringn(sane.c_str(), sane.size());
+    if (jstr)
+        return jstr;
+
+    //still rejected by jansson (overlong/surrogate encodings): keep only
+    //ASCII so the field is guaranteed to be present
+    for (char &c: sane)
+    {
+        if (static_cast<unsigned char>(c) > 0x7F)
+            c = '?';
+    }
+    return json_stringn(sane.c_str(), sane.size());
+}
+
+} //namespace
+
 
 class MqttClient : public mosqpp::mosquittopp
 {
@@ -140,9 +215,11 @@ void MqttProcess::messageReceived(const string &msg)
     json_error_t jerr;
     json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
 
-    if (!jroot)
+    if (!jroot || !json_is_object(jroot))
     {
         cWarningDom("mqtt") << "Error parsing json from sub process: " << jerr.text;
+        if (jroot)
+            json_decref(jroot);
         return;
     }
 
@@ -233,12 +310,15 @@ bool MqttProcess::setup(int &argc, char **&argv)
 
     m_client->messageRcv([=](const struct mosquitto_message *m)
     {
-
         json_t *root = json_object();
         json_object_set_new(root, "topic", json_string(m->topic));
-        json_object_set_new(root, "payload", json_string((const char*)m->payload));
-        // cDebugDom("mqtt") << "Send : " << json_dumps(root, 0);
-        sendMessage(json_dumps(root, 0));
+        json_object_set_new(root, "payload", payloadToJsonString(m->payload, m->payloadlen));
+        char *s = json_dumps(root, 0);
+        if (s)
+        {
+            sendMessage(s);
+            free(s);
+        }
         json_decref(root);
     });
 

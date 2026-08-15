@@ -91,7 +91,7 @@ void WagoProcess::messageReceived(const string &msg)
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_bits(address, count, values_bits))
+            if (!wago->read_bits(address + offset, count, values_bits))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -195,7 +195,7 @@ void WagoProcess::messageReceived(const string &msg)
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_words(address, count, values_words))
+            if (!wago->read_words(address + offset, count, values_words))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
@@ -296,10 +296,12 @@ bool WagoProcess::setup(int &argc, char **&argv)
         return false;
     }
 
-    if (argc >= 1)
+    //argv[N] is only valid when argc > N, otherwise we would dereference
+    //the NULL terminator of argv (or read past it)
+    if (argc > 1)
         wago_host = argv[1];
 
-    if (argc >= 2)
+    if (argc > 2)
         Utils::from_string(argv[2], wago_port);
 
     cDebug() << "Wago host: " << wago_host << ":" << wago_port;

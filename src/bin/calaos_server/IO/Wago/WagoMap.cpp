@@ -49,8 +49,8 @@ WagoMap::WagoMap(std::string h, int p):
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_wago";
 
-    string args = host;
-    args += " " + Utils::to_string(port);
+    process_args = host;
+    process_args += " " + Utils::to_string(port);
 
     process->messageReceived.connect(sigc::mem_fun(*this, &WagoMap::processNewMessage));
 
@@ -58,15 +58,17 @@ WagoMap::WagoMap(std::string h, int p):
     {
         onWagoDisconnected.emit();
 
-        //restart process when stopped
-        cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "wago", args);
+        //restart process when stopped, with backoff so a driver failing
+        //at startup does not respawn in a tight loop
+        scheduleProcessRespawn();
     });
 
-    process->startProcess(exe, "wago", args);
+    process->startProcess(exe, "wago", process_args);
 
     process->processConnected.connect([=]()
     {
+        //process is up and connected again: reset the respawn backoff
+        respawn_attempts = 0;
         onWagoConnected.emit();
     });
 
@@ -75,6 +77,8 @@ WagoMap::WagoMap(std::string h, int p):
 
 WagoMap::~WagoMap()
 {
+    DELETE_NULL(respawn_timer);
+
     delete process;
 
     handleSrv->stop();
@@ -100,6 +104,33 @@ WagoMap &WagoMap::Instance(std::string h, int p)
     wagomaps.maps.push_back(mwago);
 
     return *wagomaps.maps[wagomaps.maps.size() - 1];
+}
+
+void WagoMap::scheduleProcessRespawn()
+{
+    if (respawn_timer)
+        return; //a respawn is already scheduled
+
+    if (respawn_attempts >= RESPAWN_MAX_ATTEMPTS)
+    {
+        cErrorDom("process") << "wago process failed " << respawn_attempts
+                             << " times in a row, giving up. Check " << exe
+                             << " and the PLC at " << host << ":" << port;
+        return;
+    }
+
+    double delay = respawnDelay(respawn_attempts);
+    respawn_attempts++;
+
+    cWarningDom("process") << "process exited, restarting in " << delay
+                           << "s (attempt " << respawn_attempts
+                           << "/" << RESPAWN_MAX_ATTEMPTS << ")";
+
+    respawn_timer = new Timer(delay, [this]()
+    {
+        DELETE_NULL(respawn_timer);
+        process->startProcess(exe, "wago", process_args);
+    });
 }
 
 void WagoMap::stopAllWagoMaps()

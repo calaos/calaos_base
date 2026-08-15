@@ -428,3 +428,18 @@ ReolinkRegistry_test_LDADD = @CALAOS_SERVER_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T1.17
+#Extern-proc driver mains: OWFS scan filter boundary-hex regression
+#(OWFSUtils.h) and Wago subprocess respawn backoff bounds (WagoMap.h static
+#helper). Header-only logic under test, so no driver objects are linked.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ExternProcDrivers_test
+check_PROGRAMS += ExternProcDrivers_test
+ExternProcDrivers_test_SOURCES = ExternProcDrivers_test.cpp
+ExternProcDrivers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ExternProcDrivers_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

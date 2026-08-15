@@ -110,6 +110,15 @@ protected:
 
     ExternProcServer *process;
     string exe;
+    string process_args;
+
+    //T1.17: subprocess auto-restart backoff. Without it a driver failing at
+    //startup respawns in a tight loop. Counter is reset when the process
+    //connects successfully.
+    Timer *respawn_timer = nullptr;
+    int respawn_attempts = 0;
+
+    void scheduleProcessRespawn();
 
     vector<bool> input_bits;
     vector<bool> output_bits;
@@ -148,6 +157,21 @@ protected:
 
 public:
     ~WagoMap();
+
+    //Consecutive respawns allowed before giving up on a subprocess that
+    //keeps failing (counter resets on a successful connection)
+    static constexpr int RESPAWN_MAX_ATTEMPTS = 10;
+
+    //Exponential backoff delay in seconds before respawning the subprocess.
+    //attempt is the 0-based count of consecutive failures so far.
+    static double respawnDelay(int attempt)
+    {
+        static const double delays[] = { 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 60.0 };
+        constexpr int ndelays = sizeof(delays) / sizeof(delays[0]);
+        if (attempt < 0) attempt = 0;
+        if (attempt >= ndelays) attempt = ndelays - 1;
+        return delays[attempt];
+    }
 
     //Singleton
     static WagoMap &Instance(std::string host, int port);

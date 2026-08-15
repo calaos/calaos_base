@@ -94,7 +94,9 @@ bool OLAProcess::setup(int &argc, char **&argv)
         return false;
     }
 
-    if (argc >= 1)
+    //argv[1] is only valid when argc > 1, otherwise we would dereference
+    //the NULL terminator of argv
+    if (argc > 1)
         Utils::from_string(argv[1], universe);
 
     cDebug() << "Universe: " << universe;

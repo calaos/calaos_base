@@ -23,6 +23,7 @@
 #endif
 
 #include "ExternProc.h"
+#include "OWFSUtils.h"
 
 #if HAVE_LIBOWCAPI
 # include <owcapi.h>
@@ -181,14 +182,8 @@ list<string> OWProcess::scanDevices()
 
     for (const string &s: tok)
     {
-        if ((s[0] > '0' && s[0] < '9') ||
-            (s[0] > 'A' && s[0] < 'F'))
-        {
-            if (s[s.length() - 1] == '/') //remove trailing /
-                listDevices.push_back(s.substr(0, s.length() - 1));
-            else
-                listDevices.push_back(s);
-        }
+        if (OWFSUtils::entryIsDevice(s))
+            listDevices.push_back(OWFSUtils::entryToDeviceName(s));
     }
 
     return listDevices;
