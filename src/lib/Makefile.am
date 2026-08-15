@@ -152,3 +152,24 @@ EXTRA_DIST = \
         cpptui/README.calaos
 
 MAINTAINERCLEANFILES = Makefile.in
+
+# E4.4a
+#pugixml (MIT, https://pugixml.org/) -- XML DOM + XPath 1.0. configure prefers
+#the distro package; when it is absent it points PUGIXML_CFLAGS at the vendored
+#copy below and the three upstream files are compiled straight into
+#libcalaos_common. Both branches reach consumers through @CALAOS_COMMON_CFLAGS@ /
+#@CALAOS_COMMON_LIBS@ (and their CALAOS_SERVER twins), set in configure.ac.
+#Upstream sources are kept verbatim, licence header included: do not edit them.
+if HAVE_PUGIXML_SYSTEM
+EXTRA_DIST += \
+        pugixml/pugiconfig.hpp                  \
+        pugixml/pugixml.hpp                     \
+        pugixml/pugixml.cpp
+else
+libcalaos_common_la_SOURCES += \
+        pugixml/pugiconfig.hpp                  \
+        pugixml/pugixml.hpp                     \
+        pugixml/pugixml.cpp
+endif
+
+EXTRA_DIST += pugixml/LICENSE.md

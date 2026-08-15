@@ -74,6 +74,41 @@ AC_SUBST([lt_enable_auto_import])
 
 EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wno-unused-parameter -Wshadow -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
 
+### pugixml (E4.4): XML DOM with native XPath 1.0, successor of TinyXML/TinyXPath.
+#The distro package is the default path (debian: libpugixml-dev, arch: pugixml,
+#both ship pugixml.pc with XPath enabled). When it is missing, the vendored copy
+#in src/lib/pugixml is compiled into libcalaos_common instead, so the build never
+#depends on the host having the package installed.
+#This block sits after EFL_CHECK_COMPILER_FLAGS on purpose: the vendored branch
+#puts a literal $(top_srcdir) into CALAOS_COMMON_CFLAGS, and that must not reach
+#a macro which feeds those flags back to the compiler from the shell.
+have_pugixml_system="no"
+PKG_CHECK_MODULES([PUGIXML], [pugixml >= 1.10],
+                  [have_pugixml_system="yes"],
+                  [have_pugixml_system="no"])
+if test "x${have_pugixml_system}" = "xyes"
+then
+    requirements_calaos_common="${requirements_calaos_common} pugixml >= 1.10"
+    requirements_calaos_server="${requirements_calaos_server} pugixml >= 1.10"
+    PUGIXML_INFO="system $(${PKG_CONFIG} --modversion pugixml) (pkg-config)"
+else
+    #Single quotes: $(top_srcdir) must survive configure and be expanded by make.
+    PUGIXML_CFLAGS='-I$(top_srcdir)/src/lib/pugixml'
+    PUGIXML_LIBS=""
+    PUGIXML_INFO="vendored src/lib/pugixml (install libpugixml-dev to use the system one)"
+fi
+AM_CONDITIONAL([HAVE_PUGIXML_SYSTEM], [test "x${have_pugixml_system}" = "xyes"])
+AC_SUBST([PUGIXML_CFLAGS])
+AC_SUBST([PUGIXML_LIBS])
+
+#Same requirement sets as the other common libs: every consumer of
+#@CALAOS_COMMON_*@ / @CALAOS_SERVER_*@ (libcalaos_common, calaos_server, tests)
+#gets pugixml for free.
+CALAOS_COMMON_CFLAGS="${CALAOS_COMMON_CFLAGS} ${PUGIXML_CFLAGS}"
+CALAOS_COMMON_LIBS="${CALAOS_COMMON_LIBS} ${PUGIXML_LIBS}"
+CALAOS_SERVER_CFLAGS="${CALAOS_SERVER_CFLAGS} ${PUGIXML_CFLAGS}"
+CALAOS_SERVER_LIBS="${CALAOS_SERVER_LIBS} ${PUGIXML_LIBS}"
+
 ### Checks for header files
 AC_HEADER_ASSERT
 AC_CHECK_HEADERS([unistd.h])
@@ -265,6 +300,7 @@ echo "  prefix...............................: $prefix"
 echo
 echo "Dependencies:"
 echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
+echo "  pugixml (XML + XPath 1.0)............: $PUGIXML_INFO"
 echo
 echo "Hardware support:"
 echo "  One Wire support.....................: $(colorOut $have_owcapi)"

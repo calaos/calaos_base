@@ -838,3 +838,19 @@ core_ListeRoomIdResolution_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ListeRoomIdResolution_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.4a
+#pugixml availability smoke test. Build contract, not calaos behaviour: it
+#proves the header is reachable, the library links, and -- the point of the
+#whole E4.4 series -- that XPath 1.0 is compiled in. select_node()/
+#select_nodes()/xpath_query do not exist in a PUGIXML_NO_XPATH build, so
+#PugiXml_test.cpp cannot compile against one. Nothing here touches TinyXML.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += PugiXml_test
+check_PROGRAMS += PugiXml_test
+PugiXml_test_SOURCES = PugiXml_test.cpp
+PugiXml_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
