@@ -23,8 +23,6 @@
 #include <tcpsocket.h>
 #include "libuvw.h"
 
-#include "sole.hpp"
-
 using namespace Utils;
 
 double Utils::roundValue(double value, int precision)
@@ -58,23 +56,6 @@ void Utils::parseParamsItemList(string l, vector<Params> &res, int start_at)
 
     if (item.size() > 0)
         res.push_back(item);
-}
-
-void Utils::Watchdog(std::string fname)
-{
-    std::string file = "/tmp/wd_" + fname;
-
-    std::ifstream f(file.c_str());
-
-    if (f.fail())
-    {
-        std::ofstream of(file.c_str());
-
-        of << "wd_" << fname;
-        of.close();
-    }
-
-    f.close();
 }
 
 bool Utils::argvOptionCheck(char **begin, char **end, const std::string &option)
@@ -125,40 +106,6 @@ string Utils::getFileContentBase64(const char *filename)
     ifs.read(&buff[0], filesize);
 
     return Utils::Base64_encode(&buff[0], filesize);
-}
-
-unsigned int Utils::getUptime()
-{
-#if defined(__linux__) || defined(__linux) || defined(linux)
-    struct sysinfo info;
-    if (sysinfo(&info) != 0)
-        return -1;
-    return info.uptime;
-#elif defined(macintosh) || defined(__APPLE__) || defined(__APPLE_CC__)
-    struct timeval boottime;
-    size_t len = sizeof(boottime);
-    int mib[2] = { CTL_KERN, KERN_BOOTTIME };
-    if (sysctl(mib, 2, &boottime, &len, NULL, 0) < 0)
-        return -1;
-    return time(NULL) - boottime.tv_sec;
-#elif (defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)) && defined(CLOCK_UPTIME)
-    struct timespec ts;
-    if (clock_gettime(CLOCK_UPTIME, &ts) != 0)
-        return -1;
-    return ts.tv_sec;
-#else
-    return 0;
-#endif
-}
-
-string Utils::createRandomUuid()
-{
-    //sole is already vendored in the tree and used for the very same need
-    //elsewhere (ActionPush). It draws its 122 random bits from
-    //std::random_device, the OS CSPRNG on linux, and unlike the generator that
-    //used to live here it returns a real RFC 4122 v4 uuid: version and variant
-    //nibbles are set, so the value is not mistaken for another uuid flavour.
-    return sole::uuid4().str();
 }
 
 string Utils::getTmpFilename(const string &ext, const string &prefix)

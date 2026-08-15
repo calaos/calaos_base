@@ -112,6 +112,8 @@ libcalaos_common_la_SOURCES = \
         StringUtils.h                           \
         ConfigStore.cpp                         \
         ConfigStore.h                           \
+        SystemInfo.cpp                          \
+        SystemInfo.h                            \
         Utils.cpp                               \
         Utils.h                                 \
         WebSocketFrame.cpp                      \

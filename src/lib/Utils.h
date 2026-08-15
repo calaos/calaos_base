@@ -76,16 +76,6 @@
 #include "json.hpp"
 using Json = nlohmann::json;
 
-#if defined(__linux__) || defined(__linux) || defined(linux)
-#include <sys/sysinfo.h>
-#elif defined(macintosh) || defined(__APPLE__) || defined(__APPLE_CC__)
-#include <time.h>
-#include <errno.h>
-#include <sys/sysctl.h>
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
-#include <time.h>
-#endif
-
 #ifdef EAPI
 # undef EAPI
 #endif /* ifdef EAPI */
@@ -134,6 +124,7 @@ typedef unsigned int uint;
 #include "LogSetup.h"
 #include "StringUtils.h"
 #include "ConfigStore.h"
+#include "SystemInfo.h"
 
 //-----------------------------------------------------------------------------
 
@@ -147,17 +138,12 @@ double roundValue(double value, int precision);
 //Parse a result string into an array of Params.
 void parseParamsItemList(string l, vector<Params> &res, int start_at = 0);
 
-void Watchdog(std::string fname);
-
-string createRandomUuid();
-
 //Parse command line options
 bool argvOptionCheck(char **begin, char **end, const std::string &option);
 char *argvOptionParam(char **begin, char **end, const std::string &option);
 
 string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
-unsigned int getUptime();
 
 string getTmpFilename(const string &ext = "tmp", const string &prefix = "_tmp");
 

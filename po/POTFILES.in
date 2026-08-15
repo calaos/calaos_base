@@ -390,6 +390,8 @@
 ./src/lib/StringUtils.h
 ./src/lib/sunset.c
 ./src/lib/sunset.h
+./src/lib/SystemInfo.cpp
+./src/lib/SystemInfo.h
 ./src/lib/tcpsocket.cpp
 ./src/lib/tcpsocket.h
 ./src/lib/ThreadedQueue.h
