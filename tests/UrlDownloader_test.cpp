@@ -491,3 +491,82 @@ TEST(UrlDownloaderLifecycle, CancelBeforeStartMakesObjectInert)
     EXPECT_FALSE(dl.httpGet()) << "a cancelled downloader must not restart";
     drainLoop(50);
 }
+
+// ---------------------------------------------------------------------------
+// # T2.17 — TLS verified by default (setInsecure() opt-in) + credential-masked
+// URL logging. The masking helper moved from IPCam (server binary) into
+// src/lib (Utils::maskUrlCredentials) so UrlDownloader can mask every URL it
+// logs; IPCam::maskUrlCredentials delegates to it (contract pinned by
+// IPCamUrl_test). The loopback peer of the tests above is plain HTTP: the TLS
+// default change must not affect it.
+
+#include "StringUtils.h"
+
+TEST(UrlDownloaderTls, VerifiedByDefaultInsecureIsOptIn)
+{
+    UrlDownloader dl("https://example.invalid/", false);
+    EXPECT_FALSE(dl.isInsecure()) << "TLS verification must be the default";
+    dl.setInsecure();
+    EXPECT_TRUE(dl.isInsecure());
+}
+
+TEST(UrlDownloaderTls, PlainHttpUnaffectedByTlsDefaults)
+{
+    REQUIRE_CURL();
+
+    //Verified-by-default downloader over plain HTTP: completes as before
+    {
+        StreamServer srv("verified default", 0);
+        UrlDownloader dl(srv.url(), false);
+        std::string body;
+        bool done = false;
+        dl.m_signalCompleteData.connect([&](const std::string &d, int s)
+        {
+            body = d;
+            done = (s == 200);
+        });
+        ASSERT_TRUE(dl.httpGet());
+        ASSERT_TRUE(runLoopUntil([&]() { return done; }, 15000));
+        EXPECT_EQ(body, "verified default");
+    }
+
+    //setInsecure() over plain HTTP: no-op, still completes
+    {
+        StreamServer srv("insecure optin", 0);
+        UrlDownloader dl(srv.url(), false);
+        dl.setInsecure();
+        std::string body;
+        bool done = false;
+        dl.m_signalCompleteData.connect([&](const std::string &d, int s)
+        {
+            body = d;
+            done = (s == 200);
+        });
+        ASSERT_TRUE(dl.httpGet());
+        ASSERT_TRUE(runLoopUntil([&]() { return done; }, 15000));
+        EXPECT_EQ(body, "insecure optin");
+    }
+
+    drainLoop();
+}
+
+TEST(MaskUrlCredentialsLib, HelperLivesInLibAndMasksCredentials)
+{
+    //Userinfo password: user kept, password masked
+    EXPECT_EQ("http://admin:*****@10.0.0.1:80/img.cgi?q=30",
+              Utils::maskUrlCredentials("http://admin:s3cret@10.0.0.1:80/img.cgi?q=30"));
+
+    //Credential-bearing query parameters, case-insensitive keys
+    EXPECT_EQ("http://cam:88/x?cmd=snap&usr=*****&pwd=*****",
+              Utils::maskUrlCredentials("http://cam:88/x?cmd=snap&usr=admin&pwd=s3cret"));
+    EXPECT_EQ("https://nas:5001/snap.cgi?id=3&_sid=*****&profileType=1",
+              Utils::maskUrlCredentials("https://nas:5001/snap.cgi?id=3&_sid=AbC123&profileType=1"));
+    EXPECT_EQ("http://cam/x?PWD=*****&Usr=*****",
+              Utils::maskUrlCredentials("http://cam/x?PWD=a&Usr=b"));
+
+    //No credentials: untouched (host:port colon is not a password)
+    const std::string plain = "http://10.0.0.2:8080/Jpeg/CamImg.jpg?res=640x480";
+    EXPECT_EQ(plain, Utils::maskUrlCredentials(plain));
+    EXPECT_EQ("", Utils::maskUrlCredentials(""));
+    EXPECT_EQ("not a url", Utils::maskUrlCredentials("not a url"));
+}

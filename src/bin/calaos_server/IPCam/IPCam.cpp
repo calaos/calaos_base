@@ -91,69 +91,9 @@ bool IPCam::SaveToXml(TiXmlElement *node)
 
 std::string IPCam::maskUrlCredentials(const std::string &url)
 {
-    static const string mask = "*****";
-    string masked = url;
-
-    //userinfo password: scheme://user:secret@host/... → keep user, mask secret
-    auto schemeEnd = masked.find("://");
-    if (schemeEnd != string::npos)
-    {
-        auto authStart = schemeEnd + 3;
-        auto authEnd = masked.find('/', authStart);
-        auto at = masked.find('@', authStart);
-        if (at != string::npos && (authEnd == string::npos || at < authEnd))
-        {
-            auto colon = masked.find(':', authStart);
-            if (colon != string::npos && colon < at)
-                masked.replace(colon + 1, at - colon - 1, mask);
-        }
-    }
-
-    //values of credential-bearing query parameters
-    static const char *const credKeys[] =
-    {
-        "usr", "pwd", "user", "username", "password",
-        "passwd", "account", "loginuse", "loginpas", "_sid",
-    };
-
-    auto q = masked.find('?');
-    if (q == string::npos)
-        return masked;
-
-    string out = masked.substr(0, q + 1);
-    const string query = masked.substr(q + 1);
-
-    size_t pos = 0;
-    for (;;)
-    {
-        auto amp = query.find('&', pos);
-        string tok = (amp == string::npos)?
-                     query.substr(pos):
-                     query.substr(pos, amp - pos);
-
-        auto eq = tok.find('=');
-        if (eq != string::npos)
-        {
-            const string key = tok.substr(0, eq);
-            const string lkey = Utils::str_to_lower(key);
-            for (const char *ck: credKeys)
-            {
-                if (lkey == ck)
-                {
-                    tok = key + '=' + mask;
-                    break;
-                }
-            }
-        }
-
-        out += tok;
-        if (amp == string::npos)
-            break;
-        out += '&';
-        pos = amp + 1;
-    }
-
-    return out;
+    //T2.17: implementation moved to src/lib (Utils::maskUrlCredentials) so
+    //UrlDownloader can mask the URLs it logs too; contract unchanged
+    return Utils::maskUrlCredentials(url);
 }
 
 void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
@@ -161,6 +101,9 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
     if (!cameraSnapDl)
     {
         cameraSnapDl = new UrlDownloader(getPictureUrl(), false);
+        //T2.17: local cameras commonly serve self-signed HTTPS, keep them
+        //working now that certificate verification is the default
+        cameraSnapDl->setInsecure();
         cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
         {
             lastSnapshot = downloadedData;

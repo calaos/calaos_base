@@ -47,6 +47,7 @@ HueOutputLightRGB::HueOutputLightRGB(Params &p):
     {
         string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue;
         UrlDownloader *dl = new UrlDownloader(url, true);
+        dl->setInsecure(); //T2.17: local self-signed HTTPS device
         dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
         {
             if (status)
@@ -138,6 +139,7 @@ void HueOutputLightRGB::setOff()
 {
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
+    dl->setInsecure(); //T2.17: local self-signed HTTPS device
     dl->bodyDataSet("{\"on\":false}");
     dl->m_signalCompleteData.connect([&](const string &downloadedData, int status)
     {
@@ -152,6 +154,7 @@ void HueOutputLightRGB::setColor(const ColorValue &c)
 {
     string url = "http://" + m_host + "/api/" + m_api + "/lights/" + m_idHue + "/state";
     UrlDownloader *dl = new UrlDownloader(url, true);
+    dl->setInsecure(); //T2.17: local self-signed HTTPS device
     string ccolor = "{\"on\":true,"
                    "\"sat\":"  + Utils::to_string((int)(c.getHSVSaturation() * 255.0 / 100.0)) +
                    ",\"bri\":" + Utils::to_string((int)(c.getHSLLightness() * 255.0 / 100.0)) +

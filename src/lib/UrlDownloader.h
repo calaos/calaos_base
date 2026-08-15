@@ -88,6 +88,11 @@ private:
     bool m_cancelled = false;
     bool destroyScheduled = false;
 
+    /* T2.17: TLS certificates are verified by default (libcurl defaults,
+     * system CA bundle). Local devices with self-signed certificates (IP
+     * cameras, Hue bridge) opt out per call with setInsecure(). */
+    bool m_insecure = false;
+
     /* Cap on the internally accumulated response body (m_downloadedData).
      * Streaming consumers (MJPEG) get every byte live through m_signalData,
      * but the internal copy kept for m_signalCompleteData stops growing at
@@ -129,6 +134,13 @@ public:
 
     bool isRunning() { return m_isRunning; }
 
+    /* T2.17: disable TLS certificate verification for THIS transfer only
+     * (explicit per-call opt-in, no global switch). Needed for local devices
+     * serving self-signed certificates: IP cameras, Hue bridge. Everything
+     * else verifies against the system CA bundle by default. */
+    void setInsecure() { m_insecure = true; }
+    bool isInsecure() const { return m_insecure; }
+
     /* Interrupts the transfer: aborts the libcurl transfer (the connection
      * drops), disconnects every signal. No callback fires after this returns.
      * Autodelete objects free themselves, non-autodelete ones become inert (a
@@ -151,6 +163,9 @@ public:
 
     static void get(string url, string get_data = "");
     static void post(string url, string post_data = "");
+    //T2.17: fire-and-forget GET without certificate verification, for local
+    //self-signed devices (camera PTZ commands). Explicit per-call opt-in.
+    static void insecureGet(string url, string get_data = "");
 
     ~UrlDownloader();
 

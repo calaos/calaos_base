@@ -414,3 +414,73 @@ std::string CStrArray::toString()
 {
     return m_tostring;
 }
+
+/* T2.17: moved from IPCam::maskUrlCredentials (which now delegates here) so
+ * UrlDownloader can mask every URL it logs. Contract pinned by IPCamUrl_test
+ * and UrlDownloader_test. */
+std::string Utils::maskUrlCredentials(const std::string &url)
+{
+    static const string mask = "*****";
+    string masked = url;
+
+    //userinfo password: scheme://user:secret@host/... → keep user, mask secret
+    auto schemeEnd = masked.find("://");
+    if (schemeEnd != string::npos)
+    {
+        auto authStart = schemeEnd + 3;
+        auto authEnd = masked.find('/', authStart);
+        auto at = masked.find('@', authStart);
+        if (at != string::npos && (authEnd == string::npos || at < authEnd))
+        {
+            auto colon = masked.find(':', authStart);
+            if (colon != string::npos && colon < at)
+                masked.replace(colon + 1, at - colon - 1, mask);
+        }
+    }
+
+    //values of credential-bearing query parameters
+    static const char *const credKeys[] =
+    {
+        "usr", "pwd", "user", "username", "password",
+        "passwd", "account", "loginuse", "loginpas", "_sid",
+    };
+
+    auto q = masked.find('?');
+    if (q == string::npos)
+        return masked;
+
+    string out = masked.substr(0, q + 1);
+    const string query = masked.substr(q + 1);
+
+    size_t pos = 0;
+    for (;;)
+    {
+        auto amp = query.find('&', pos);
+        string tok = (amp == string::npos)?
+                     query.substr(pos):
+                     query.substr(pos, amp - pos);
+
+        auto eq = tok.find('=');
+        if (eq != string::npos)
+        {
+            const string key = tok.substr(0, eq);
+            const string lkey = Utils::str_to_lower(key);
+            for (const char *ck: credKeys)
+            {
+                if (lkey == ck)
+                {
+                    tok = key + '=' + mask;
+                    break;
+                }
+            }
+        }
+
+        out += tok;
+        if (amp == string::npos)
+            break;
+        out += '&';
+        pos = amp + 1;
+    }
+
+    return out;
+}

@@ -45,6 +45,14 @@ void trim_right(std::string &source, const std::string &t);
 void trim_left(std::string &source, const std::string &t);
 std::string trim(const std::string &str);
 std::string escape_quotes(const std::string &s);
+
+/* T2.17: mask credentials embedded in a URL before it reaches a log.
+ * Handles the userinfo password (scheme://user:secret@host/ -> user kept,
+ * secret masked) and the values of credential-bearing query parameters
+ * (usr/pwd/user/username/password/passwd/account/loginuse/loginpas/_sid,
+ * case-insensitive). Moved from IPCam (which now delegates here) so
+ * UrlDownloader can mask every URL it logs. */
+std::string maskUrlCredentials(const std::string &url);
 std::string escape_space(const std::string &s);
 
 enum CaseSensitivity { CaseInsensitive, CaseSensitive };

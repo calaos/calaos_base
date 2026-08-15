@@ -40,7 +40,9 @@
  *
  * The CLI flags of the old backend map to easy options:
  *   --silent       -> CURLOPT_NOPROGRESS (libcurl default, nothing to do)
- *   --insecure     -> CURLOPT_SSL_VERIFYPEER/VERIFYHOST = 0 (kept as-is)
+ *   --insecure     -> T2.17: no longer global. Certificates are verified by
+ *                     default (libcurl defaults, system CA bundle); local
+ *                     self-signed devices opt out per call with setInsecure()
  *   --location     -> CURLOPT_FOLLOWLOCATION (+ MAXREDIRS 50, the CLI default)
  *   --dump-header  -> CURLOPT_HEADERFUNCTION into an in-memory buffer
  *   --request X    -> CURLOPT_CUSTOMREQUEST
@@ -77,6 +79,9 @@ public:
 
     bool toFile = false;
     std::ofstream destFile;
+
+    //Credential-masked URL for log statements (T2.17)
+    std::string logUrl;
 
     /* Set when the transfer must die: write/header callbacks return an error
      * to make libcurl abort, and the manager sweeps the connection up. */
@@ -275,8 +280,17 @@ private:
             std::string headers = std::move(conn->headerBuf);
 
             if (result != CURLE_OK && !conn->abortRequested)
-                cWarningDom("urlutils") << "Transfer failed: " << curl_easy_strerror(result)
+            {
+                cWarningDom("urlutils") << "Transfer failed for " << conn->logUrl << ": "
+                                        << curl_easy_strerror(result)
                                         << (conn->errorBuf[0]? string(" (") + conn->errorBuf + ")": string());
+                if (result == CURLE_PEER_FAILED_VERIFICATION)
+                    cWarningDom("urlutils") << "TLS certificate verification failed: the remote certificate "
+                                               "is not trusted by the system CA bundle (self-signed?). "
+                                               "Certificates are now verified by default; local devices with "
+                                               "self-signed certificates (IP cameras, Hue bridge) must use "
+                                               "the insecure opt-in (UrlDownloader::setInsecure()).";
+            }
 
             disposeConn(conn);
 
@@ -429,7 +443,7 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
 {
-    cInfoDom("urlutils") << "UrlDownloader: " << url;
+    cInfoDom("urlutils") << "UrlDownloader: " << Utils::maskUrlCredentials(url);
 }
 
 UrlDownloader::~UrlDownloader()
@@ -460,7 +474,7 @@ void UrlDownloader::cancel()
         return;
     m_cancelled = true;
 
-    cDebugDom("urlutils") << "UrlDownloader(" << this << ") cancel " << m_url;
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") cancel " << Utils::maskUrlCredentials(m_url);
 
     //The consumer asked out: nothing must fire after this point
     m_signalComplete.clear();
@@ -505,14 +519,17 @@ bool UrlDownloader::start()
     m_headerData.clear();
     statusCode = 0;
 
+    const string logUrl = Utils::maskUrlCredentials(m_url);
+
     auto conn = new UrlDownloaderCurlConn;
     conn->easy = curl_easy_init();
     if (!conn->easy)
     {
-        cErrorDom("urlutils") << "curl_easy_init() failed, aborting " << m_url;
+        cErrorDom("urlutils") << "curl_easy_init() failed, aborting " << logUrl;
         delete conn;
         return false;
     }
+    conn->logUrl = logUrl;
 
     conn->owner = this;
     conn->ownerAlive = alive;
@@ -525,7 +542,7 @@ bool UrlDownloader::start()
         if (!conn->destFile.is_open())
         {
             cErrorDom("urlutils") << "Cannot open destination file " << m_destination
-                                  << ", aborting " << m_url;
+                                  << ", aborting " << logUrl;
             curl_easy_cleanup(conn->easy);
             delete conn;
             return false;
@@ -534,14 +551,20 @@ bool UrlDownloader::start()
 
     CURL *e = conn->easy;
 
-    //Same defaults as the old curl CLI invocation:
+    //Same defaults as the old curl CLI invocation (minus --insecure):
     //silent --> no progress meter (libcurl default)
-    //insecure --> do not check ssl certificates, needed for local https
     //location --> follow redirects
     curl_easy_setopt(e, CURLOPT_URL, m_url.c_str());
     curl_easy_setopt(e, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(e, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(e, CURLOPT_SSL_VERIFYHOST, 0L);
+    if (m_insecure)
+    {
+        /* T2.17: explicit per-call opt-out of certificate checks for local
+         * devices serving self-signed HTTPS (IP cameras, Hue bridge). The
+         * default is now the libcurl default: VERIFYPEER=1 / VERIFYHOST=2
+         * against the system CA bundle. */
+        curl_easy_setopt(e, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(e, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
     curl_easy_setopt(e, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(e, CURLOPT_MAXREDIRS, 50L); //curl CLI default
     curl_easy_setopt(e, CURLOPT_FORBID_REUSE, 1L); //one connection per transfer, like the old subprocess
@@ -583,7 +606,8 @@ bool UrlDownloader::start()
         curl_easy_setopt(e, CURLOPT_COPYPOSTFIELDS, m_bodyData.data());
     }
 
-    cDebugDom("urlutils") << "Starting transfer: " << method << " " << m_url;
+    cDebugDom("urlutils") << "Starting transfer: " << method << " " << logUrl
+                          << (m_insecure? " (insecure: certificate checks disabled)": "");
 
     if (!manager.startTransfer(conn))
     {
@@ -691,7 +715,7 @@ void UrlDownloader::dataCb(const char *data, int size)
         m_downloadedData.append(data, std::min(static_cast<size_t>(size), room));
         if (m_downloadedData.size() >= m_bufferMaxSize)
             cWarningDom("urlutils") << "Download buffer cap (" << m_bufferMaxSize
-                                    << " bytes) reached for " << m_url
+                                    << " bytes) reached for " << Utils::maskUrlCredentials(m_url)
                                     << ", data is streamed but no longer accumulated";
     }
 
@@ -706,7 +730,7 @@ void UrlDownloader::Destroy()
         return;
     destroyScheduled = true;
 
-    cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << m_url;
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << Utils::maskUrlCredentials(m_url);
     Idler::singleIdler([=]() { delete this; });
 }
 
@@ -766,6 +790,14 @@ void UrlDownloader::post(string url, string post_data)
 {
     UrlDownloader *downloader = new UrlDownloader(url, true);
     downloader->httpPost(string(), post_data);
+}
+
+void UrlDownloader::insecureGet(string url, string get_data)
+{
+    //T2.17: fire-and-forget GET for local self-signed devices (camera PTZ)
+    UrlDownloader *downloader = new UrlDownloader(url, true);
+    downloader->setInsecure();
+    downloader->httpGet(string(), get_data);
 }
 
 void UrlDownloader::setHeader(string header, string value)

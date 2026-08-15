@@ -104,7 +104,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         url += "?cmd=" + valcmd;
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
-        UrlDownloader::get(url);
+        UrlDownloader::insecureGet(url);
 
         urlStop = "http://" + param["host"] + ":" + param["port"];
         urlStop += "/cgi-bin/CGIProxy.fcgi";
@@ -120,7 +120,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         float moveDelay = 0.100 * (1 + zstep);
         Timer::singleShot(moveDelay, [=]()
         {
-            UrlDownloader::get(urlStop);
+            UrlDownloader::insecureGet(urlStop);
         });
     }
 }
