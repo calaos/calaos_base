@@ -12,6 +12,13 @@ from functools import lru_cache
 from dataclasses import dataclass
 
 
+# Sentinel used when mcp_rate_limit<=0: the auth middleware compares
+# `len(window) >= rate_limit`, so 0 would 429 every request instead of
+# disabling the limit. A practically-unreachable ceiling disables it
+# without requiring a change in auth.py (owned by another ticket).
+RATE_LIMIT_DISABLED = 1_000_000_000
+
+
 @dataclass(frozen=True)
 class Config:
     mcp_token: str
@@ -19,8 +26,9 @@ class Config:
     socket_path: str
     api_url: str
     log_level: str
-    # Per-IP auth rate-limit tuning (read from local_config.xml). 0 disables
-    # banning entirely.
+    # Per-IP auth rate-limit tuning (read from local_config.xml).
+    # mcp_ban_failures=0 disables banning; mcp_rate_limit<=0 disables
+    # rate limiting (normalised to RATE_LIMIT_DISABLED, see get_config).
     rate_limit: int = 300
     ban_failures: int = 20
     ban_seconds: int = 120
@@ -76,6 +84,9 @@ def get_config() -> Config:
             return default
 
     rate_limit = _opt_int("mcp_rate_limit", 300)
+    if rate_limit <= 0:
+        # Explicit 0 (or negative) means "no rate limit", not "block everything".
+        rate_limit = RATE_LIMIT_DISABLED
     ban_failures = _opt_int("mcp_ban_failures", 20)
     ban_seconds = _opt_int("mcp_ban_seconds", 120)
 

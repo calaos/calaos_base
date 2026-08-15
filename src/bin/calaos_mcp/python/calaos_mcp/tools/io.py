@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 from calaos_mcp import safety
@@ -26,9 +27,15 @@ def _validate_value(value: str, io: dict) -> str:
         return _normalise_bool(value)
     if var_type in ("float", "int", "double"):
         try:
-            float(value)
+            num = float(value)
         except ValueError:
             raise ValueError(f"Expected a number for IO {io.get('id')!r}, got {value!r}")
+        # float() accepts 'inf', 'nan', '1e999' (overflows to inf) — none of
+        # which are valid IO states to forward to calaos_server.
+        if not math.isfinite(num):
+            raise ValueError(f"Expected a finite number for IO {io.get('id')!r}, got {value!r}")
+        if var_type == "int" and not num.is_integer():
+            raise ValueError(f"Expected an integer for IO {io.get('id')!r}, got {value!r}")
         return value
     # string: sanitise
     if not re.match(r'^[\x20-\x7E\x80-\xFF]*$', value):
