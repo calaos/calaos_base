@@ -102,7 +102,17 @@
   `.github/dependabot.yml` limitant Dependabot à `/data/debug` npm avec
   `allow: dependency-type: production` (le toolchain gulp/browser-sync ne ship jamais).
   Aucun `src/**` touché ; rebase propre sur master, autogen OK après l'édition configure.ac,
-  43/43 tests, ff-only, worktree t3.11 nettoyé). En vol : T3.10, E4.2a.
+  43/43 tests, ff-only, worktree t3.11 nettoyé). **E4.2a ✅ mergé** (2026-08-15, `fa0dace2`,
+  étape 1/6 de la série ownership E4.2, préparatoire et SANS changement de propriété : accesseurs
+  de résolution par id sur ListeRoom — `findIO`/`hasIO`/`findIOAs<T>`/`findIOByIndex`/`findRoomOfIO`
+  — plus `tests/core/ListeRoomIdResolution_test.cpp` (484 l.) qui épingle le contrat des accesseurs
+  (id inconnu, id vide, id dupliqué, index hors bornes → nullptr ; un miss n'insère jamais dans
+  `io_table`) et les trois invariants que les étapes 2-6 ne doivent pas casser : l'ordre d'itération
+  des IO pièce par pièce, les signatures/contenus de `getCameraList()`/`getAudioList()`, et la
+  sémantique de transfert de propriété de `delete_io(io, del)`. Périmètre exact : `ListeRoom.{h,cpp}`,
+  le nouveau test, `tests/Makefile.am` (bloc `HAVE_GTEST` propre en fin de fichier, 32/32 équilibré) ;
+  rebase sans conflit sur master, 44/44 tests, ff-only, worktree e4.2a nettoyé. Deux carry-overs
+  consignés dans FINDINGS pour E4.2b). En vol : T3.10.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

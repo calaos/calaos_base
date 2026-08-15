@@ -37,6 +37,19 @@
   `renameId()` (pas de rehash de la map id→IO). Aucun appelant de ce type aujourd'hui
   (vérifié grep). → envisager const ref ou mutateur dédié.
 
+## Série E4.2 — carry-overs (ownership ListeRoom)
+
+- **[E4.2a revue → à traiter en E4.2b] `ListeRoom::createIO`, clause `!id.empty()`** : le
+  commentaire affirme reproduire le comportement « exactement comme avant », ce qui est inexact.
+  L'ancien code détruisait un second IO sans id comme doublon ; le nouveau le conserve attaché à
+  la pièce mais absent de `io_table` — précisément l'état « à moitié ajouté » que le commentaire
+  environnant interdit. Inatteignable en production (aucun appelant ne produit ce cas), mais il
+  faut soit corriger le commentaire, soit supprimer la clause.
+- **[E4.2a revue → contrainte pour E4.2b] `delete_io(io, del=false)` est un TRANSFERT de
+  propriété**, pas une simple suppression du conteneur : quand les conteneurs passeront aux
+  smart pointers, ce chemin doit devenir `release()` et non `reset()`, sinon l'IO rendu à
+  l'appelant est détruit sous ses pieds.
+
 ## Wave 7 — follow-ups mineurs (hors périmètre, non corrigés)
 
 - **[T2.18 revue] `buildAutoscenarioModify`** : `deleteRules()` + `addStep()` s'exécutent
