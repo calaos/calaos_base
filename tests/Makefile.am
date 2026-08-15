@@ -7,7 +7,8 @@ check_PROGRAMS =
 #variables, and fall back on their own path when run by hand.
 AM_TESTS_ENVIRONMENT = \
               abs_top_srcdir='$(abs_top_srcdir)'; export abs_top_srcdir;     \
-              abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir;
+              abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir; \
+              PYTHON='$(PYTHON)'; export PYTHON;
 
 #check-config-options.sh: every config key used by the sources must be in the
 #ConfigOptions registry, no registry entry may be orphaned, no obsolete key may
@@ -16,6 +17,22 @@ AM_TESTS_ENVIRONMENT = \
 #"calaos_config options --markdown".
 TESTS += check-config-options.sh check-config-docs.sh
 dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
+
+# T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
+# check through a wrapper. It runs pytest when available, falls back to the
+# stdlib "unittest discover" for the test_t116_*.py suites, and exits 77
+# (automake SKIP) when no usable python3 exists. PYTHON comes from
+# AM_PATH_PYTHON via AM_TESTS_ENVIRONMENT above.
+TESTS += run-python-tests.sh
+dist_check_SCRIPTS += run-python-tests.sh
+EXTRA_DIST = \
+              python/conftest.py             \
+              python/test_auth.py            \
+              python/test_extern_proc.py     \
+              python/test_logger.py          \
+              python/test_t116_mcp_client.py \
+              python/test_t116_mcp_config_io.py \
+              python/test_t116_roon.py
 
 if HAVE_GTEST
 AM_CPPFLAGS = \
