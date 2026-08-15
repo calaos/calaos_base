@@ -27,6 +27,10 @@
   T3.4 = base64.{cpp,h} + wrappers `StringUtils` SANS casser les signatures (pas d'édition
   de call sites). Suite de référence : 31/31. À la reprise : branches avec commits →
   revue (subagent) → merge (subagent, sérialisé) → board ✅ ; branches vides → relancer.
+- **Wave 7 en cours** : **T3.6 ✅ mergé** (2026-08-15, `47badd28`, suppression Gadspot :
+  Gadspot.{cpp,h}, Makefile.am, POTFILES.in, pot + 7 .po, docs ; 39/39 tests, ff-only,
+  worktree `/tmp/claude-1000/calaos-wave7/t3.6` nettoyé). 6 autres worktrees wave 7
+  encore en vol sous `/tmp/claude-1000/calaos-wave7/`.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
