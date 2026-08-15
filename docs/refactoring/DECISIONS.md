@@ -86,3 +86,16 @@ Le push des ~74 commits (Phases 1+2+3-core) est explicitement différé par l'ut
 `insecure="true"` à ajouter (ticket T2.19). (2) Politique caméra insecure étendue à TOUS les
 consommateurs d'URLs caméra : MJPEG relay + pièces jointes mail/push (ActionCameraDownload) —
 cohérence avec les snapshots, comportement pré-T2.17 conservé pour les caméras auto-signées.
+
+## 2026-08-15 — TLS : insecure par DÉFAUT (SUPERSÈDE la décision T2.17 précédente)
+**Décision utilisateur** : `insecure` doit être **true par défaut** — la majorité des caméras
+sont en HTTPS auto-signé et les devices WebIO sont sur le LAN ; un défaut « vérifié » casse
+toutes les installations existantes.
+**Politique** : toute URL **configurée par l'utilisateur** (caméras, Hue, Web IOs, Lua,
+DataLogger/influx, Squeezebox, AVRRose…) → insecure par défaut, param par-device
+`insecure="false"` pour opt-in au TLS vérifié (T2.19, défaut true). Seuls les services
+**codés en dur** (push.calaos.fr, calaos.fr — vrais certificats) restent vérifiés.
+**Migration** : configs existantes sans l'option → true (grandfathering). calaos_installer
+(repo externe) ajoutera une option écrivant `insecure="false"` pour les NOUVEAUX devices,
+existants inchangés. Suggestion ouverte : matérialiser l'implicite en explicite à la
+sauvegarde installer pour permettre un futur flip du défaut code.
