@@ -8,7 +8,7 @@ Documentation technique du projet `calaos_base` pour agents LLM.
 |---|---|
 | [00_overview.md](00_overview.md) | Architecture globale, arborescence, dépendances, conventions |
 | [01_core_data_model.md](01_core_data_model.md) | IOBase, Room, ListeRoom, IOFactory, Params |
-| [02_io_drivers.md](02_io_drivers.md) | Tous les drivers IO : Wago, KNX, MQTT, GPIO, Hue, MySensors… |
+| [02_io_drivers.md](02_io_drivers.md) | Tous les drivers IO : Wago, KNX, MQTT, GPIO, Hue… |
 | [03_rules_engine.md](03_rules_engine.md) | Règles, Conditions, Actions — moteur d'automatisation |
 | [04_scenarios.md](04_scenarios.md) | AutoScenario, plages horaires, InputTimer |
 | [05_audio.md](05_audio.md) | AudioPlayer (Squeezebox, Roon), AVReceiver (Denon, Yamaha…) |

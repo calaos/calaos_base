@@ -175,14 +175,6 @@ Entrées/sorties GPIO Linux via le sous-système sysfs ou gpiod. Géré par `Gpi
 
 ---
 
-## Driver MySensors
-
-**Dossier :** [src/bin/calaos_server/IO/MySensors/](../src/bin/calaos_server/IO/MySensors/)
-
-Réseau de capteurs sans-fil MySensors (RF24, etc.). Géré par `MySensorsController` et `MySensorsControllerList`.
-
----
-
 ## Driver OneWire
 
 **Dossier :** [src/bin/calaos_server/IO/OneWire/](../src/bin/calaos_server/IO/OneWire/)

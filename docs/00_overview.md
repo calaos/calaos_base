@@ -21,7 +21,6 @@ src/
         KNX/               # Bus KNX (via knxd)
         LAN/               # Ping / Wake-On-LAN
         Mqtt/              # MQTT (via process externe)
-        MySensors/         # Réseau MySensors
         OLA/               # Open Lighting Architecture (DMX)
         OneWire/           # Bus 1-Wire (via owfs)
         RemoteUI/          # IOs pour appareils embarqués RemoteUI

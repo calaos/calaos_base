@@ -15,13 +15,10 @@
  **
  ******************************************************************************/
 
-// T1.19 — IO controllers (MySensors/Gpio/Web) regression tests.
+// T1.19 — IO controllers (Gpio/Web) regression tests (trimmed by T2.12).
 //
 // - WebCtrl::getValueText: an empty or delimiter-only path used to index
 //   tokens[0] on an empty vector (Utils::split with max=0 does not pad).
-// - MySensorsController::sendMessage: used to dereference a null
-//   serial/TCP handle when the transport is down (before it is opened or
-//   while reconnecting).
 //
 // The GpioCtrl destructor fd-leak fix (inverted close() guard) is not unit
 // tested here: the fd is only ever opened through the hardcoded
@@ -34,7 +31,6 @@
 #include <string>
 
 #include "WebCtrl.h"
-#include "MySensorsController.h"
 
 using namespace Calaos;
 
@@ -94,37 +90,6 @@ TEST_F(WebCtrlTextTest, NonNumericLineNumberReturnsEmptyValue)
 TEST_F(WebCtrlTextTest, MissingFileReturnsEmptyValue)
 {
     EXPECT_EQ("", ctrl.getValueText("1/1/,", "/nonexistent/calaos_t119"));
-}
-
-TEST(MySensorsControllerTest, SendOnSerialGatewayWithoutTransportDoesNotCrash)
-{
-    Params p;
-    p.Add("gateway", "serial");
-    p.Add("port", "/nonexistent/calaos_t119_tty");
-
-    //The serial port cannot be opened: serialHandle stays null and a
-    //retry timer is armed. Sending a message in that state used to
-    //dereference the null handle and crash.
-    MySensorsController ctrl(p);
-    ctrl.setValue("12", "1", 2, "42");
-
-    //Cache is still functional and empty
-    EXPECT_EQ("", ctrl.getValue("12", "1"));
-}
-
-TEST(MySensorsControllerTest, SendOnTcpGatewayWhileDisconnectedDoesNotCrash)
-{
-    Params p;
-    p.Add("gateway", "tcp");
-    p.Add("host", "invalid host name");
-    p.Add("port", "5003");
-
-    //The connect fails (invalid address): the handle is closing/closed
-    //while waiting for the reconnect timer. Sending must not crash.
-    MySensorsController ctrl(p);
-    ctrl.setValue("12", "1", 2, "42");
-
-    EXPECT_EQ("", ctrl.getValue("12", "1"));
 }
 
 } //namespace

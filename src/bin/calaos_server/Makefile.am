@@ -192,38 +192,6 @@ calaos_server_SOURCES = \
         IO/Reolink/ReolinkCtrl.cpp                      \
         IO/Reolink/ReolinkInputSwitch.h                 \
         IO/Reolink/ReolinkInputSwitch.cpp               \
-        IO/MySensors/MySensors.h                        \
-        IO/MySensors/MySensors.cpp                      \
-        IO/MySensors/MySensorsControllerList.cpp        \
-        IO/MySensors/MySensorsControllerList.h          \
-        IO/MySensors/MySensorsController.cpp            \
-        IO/MySensors/MySensorsController.h              \
-        IO/MySensors/MySensorsInputAnalog.h             \
-        IO/MySensors/MySensorsInputAnalog.cpp           \
-        IO/MySensors/MySensorsOutputLight.h             \
-        IO/MySensors/MySensorsOutputLight.cpp           \
-        IO/MySensors/MySensorsInputString.h             \
-        IO/MySensors/MySensorsInputString.cpp           \
-        IO/MySensors/MySensorsOutputString.h            \
-        IO/MySensors/MySensorsOutputString.cpp          \
-        IO/MySensors/MySensorsInputSwitch.h             \
-        IO/MySensors/MySensorsInputSwitch.cpp           \
-        IO/MySensors/MySensorsInputSwitchLongPress.h    \
-        IO/MySensors/MySensorsInputSwitchLongPress.cpp  \
-        IO/MySensors/MySensorsInputSwitchTriple.h       \
-        IO/MySensors/MySensorsInputSwitchTriple.cpp     \
-        IO/MySensors/MySensorsInputTemp.h               \
-        IO/MySensors/MySensorsInputTemp.cpp             \
-        IO/MySensors/MySensorsOutputAnalog.h            \
-        IO/MySensors/MySensorsOutputAnalog.cpp          \
-        IO/MySensors/MySensorsOutputDimmer.h            \
-        IO/MySensors/MySensorsOutputDimmer.cpp          \
-        IO/MySensors/MySensorsOutputLightRGB.h          \
-        IO/MySensors/MySensorsOutputLightRGB.cpp        \
-        IO/MySensors/MySensorsOutputShutter.h           \
-        IO/MySensors/MySensorsOutputShutter.cpp         \
-        IO/MySensors/MySensorsOutputShutterSmart.h      \
-        IO/MySensors/MySensorsOutputShutterSmart.cpp    \
         IO/OLA/OLACtrl.cpp                              \
         IO/OLA/OLACtrl.h                                \
         IO/OLA/OLAOutputLightDimmer.cpp                 \

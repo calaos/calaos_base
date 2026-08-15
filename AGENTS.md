@@ -10,7 +10,7 @@ Detailed technical documentation for each subsystem is in [`docs/`](docs/README.
 |---|---|
 | [docs/00_overview.md](docs/00_overview.md) | Global architecture, startup flow, dependencies |
 | [docs/01_core_data_model.md](docs/01_core_data_model.md) | IOBase, Room, ListeRoom, IOFactory, Params |
-| [docs/02_io_drivers.md](docs/02_io_drivers.md) | All IO drivers: Wago, KNX, MQTT, GPIO, Hue, MySensors… |
+| [docs/02_io_drivers.md](docs/02_io_drivers.md) | All IO drivers: Wago, KNX, MQTT, GPIO, Hue… |
 | [docs/03_rules_engine.md](docs/03_rules_engine.md) | Rules, Conditions, Actions |
 | [docs/04_scenarios.md](docs/04_scenarios.md) | AutoScenario, time ranges, timers |
 | [docs/05_audio.md](docs/05_audio.md) | AudioPlayer (Squeezebox, Roon), AVReceiver (Denon, Yamaha…) |
@@ -93,7 +93,6 @@ REGISTER_IO_USERTYPE("WagoOutputLight", WODigital)  // XML type name differs fro
 | `IO/Gpio/` | Linux GPIO sysfs |
 | `IO/Hue/` | Philips Hue REST API |
 | `IO/LAN/` | Ping / Wake-On-LAN |
-| `IO/MySensors/` | MySensors RF network |
 | `IO/OLA/` | DMX512 via OLA — ExternProc |
 | `IO/OneWire/` | 1-Wire via owfs — ExternProc |
 | `IO/RemoteUI/` | IOs hosted on embedded RemoteUI devices |
