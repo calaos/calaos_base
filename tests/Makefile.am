@@ -704,3 +704,38 @@ AVReceiver_test_LDADD = $(AVR_TEST_OBJECTS) \
 #Built elsewhere, do not let automake turn them into prerequisites
 AVReceiver_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.2a
+#Thin KNX IO subclasses collapsed into KNXIo<Base> (IO/KNX/KNXIo.cpp). The
+#eleven registered XML type names are the ABI to existing io.xml configs:
+#each must stay registered in IOFactory and instanciable through the real
+#ListeRoom::createIO() path. Same linking approach as core/LanHue_test: the
+#core objects plus the KNX objects and the base classes of the eleven thin
+#subclasses. No libuv loop runs here; the calaos_knx helper spawned by
+#KNXCtrl does not exist next to the test binary, so uv_spawn fails cleanly.
+if HAVE_GTEST
+TESTS += core/KnxIo_test
+check_PROGRAMS += core/KnxIo_test
+core_KnxIo_test_SOURCES = core/KnxIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_KnxIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+core_KnxIo_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
+core_KnxIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

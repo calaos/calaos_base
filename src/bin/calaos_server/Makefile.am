@@ -142,28 +142,9 @@ calaos_server_SOURCES = \
         IO/KNX/KNXCtrl.cpp                              \
         IO/KNX/KNXBase.cpp                              \
         IO/KNX/KNXBase.h                                \
-        IO/KNX/KNXInputAnalog.h                         \
-        IO/KNX/KNXInputAnalog.cpp                       \
-        IO/KNX/KNXInputSwitch.h                         \
-        IO/KNX/KNXInputSwitch.cpp                       \
-        IO/KNX/KNXInputSwitchLongPress.h                \
-        IO/KNX/KNXInputSwitchLongPress.cpp              \
-        IO/KNX/KNXInputSwitchTriple.h                   \
-        IO/KNX/KNXInputSwitchTriple.cpp                 \
-        IO/KNX/KNXInputTemp.h                           \
-        IO/KNX/KNXInputTemp.cpp                         \
-        IO/KNX/KNXOutputAnalog.h                        \
-        IO/KNX/KNXOutputAnalog.cpp                      \
-        IO/KNX/KNXOutputLight.h                         \
-        IO/KNX/KNXOutputLight.cpp                       \
-        IO/KNX/KNXOutputLightDimmer.h                   \
-        IO/KNX/KNXOutputLightDimmer.cpp                 \
-        IO/KNX/KNXOutputLightRGB.h                      \
-        IO/KNX/KNXOutputLightRGB.cpp                    \
-        IO/KNX/KNXOutputShutter.h                       \
-        IO/KNX/KNXOutputShutter.cpp                     \
-        IO/KNX/KNXOutputShutterSmart.h                  \
-        IO/KNX/KNXOutputShutterSmart.cpp                \
+        IO/KNX/ThinIo.h                                 \
+        IO/KNX/KNXIo.h                                  \
+        IO/KNX/KNXIo.cpp                                \
         IO/LAN/PingInputSwitch.cpp                      \
         IO/LAN/PingInputSwitch.h                        \
         IO/LAN/WOLOutputBool.cpp                        \
