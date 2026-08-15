@@ -15,7 +15,7 @@
   SystemInfo — pattern agrégateur, Utils.h ré-inclut tout ; 31/31 tests). **Rien en vol.**
   **Pas poussé** (origin = `9d8d37b5`). Les follow-ups T2.14-T2.18 restent 📋 en backlog.
 - **WAVE 6 EN VOL** (lancée 2026-08-15) : 9 tickets Phase 3 en parallèle — T3.1, T3.2a,
-  T3.2c, T3.2d, T3.2e, T3.2f, T3.3, T3.4, T3.5 (✅ mergés : T3.4, T3.2f, T3.3, T3.5, T3.2e). Worktrees
+  T3.2c, T3.2d, T3.2e, T3.2f, T3.3, T3.4, T3.5 (✅ mergés : T3.4, T3.2f, T3.3, T3.5, T3.2e, T3.2d). Worktrees
   `/tmp/claude-1000/calaos-wave6/t3.X`, branches `refactor/t3.*`, base `82887cc0`.
   Contraintes de brief : **T3.2a garde son abstraction DANS IO/KNX/** (11 sous-classes, pas
   13) ; T3.2c/d/e/f = dédup LOCAL sans dépendre de T3.2a ; types XML (REGISTER_IO*) et ioDoc
