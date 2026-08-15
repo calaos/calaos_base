@@ -73,3 +73,10 @@ identifiants par défaut. Le durcissement auth reste optionnel/non-bloquant.
 - **Ne jamais push sans demander** — chaque push brûle du crédit CI. Commit librement.
 - **Demander validation** sur tout changement de comportement / d'API.
 - Implémentation, revue, merge, investigations → **toujours en subagent** (orchestrateur pur).
+
+## 2026-08-15 — Gadspot : suppression (code mort)
+**Décision** : supprimer le driver Gadspot (T3.6) — caméra obsolète, plus d'utilisateurs.
+Échec propre des configs qui le référencent (chemin null-guard IOFactory, précédent MySensors).
+
+## 2026-08-15 — Push différé
+Le push des ~74 commits (Phases 1+2+3-core) est explicitement différé par l'utilisateur.
