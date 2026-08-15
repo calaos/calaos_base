@@ -160,7 +160,9 @@ void McpServerManager::stop()
     shuttingDown = true;
     started = false;
 
-    if (processExe && processExe->referenced())
+    //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
+    //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
+    if (processExe && processExe->referenced() && processExe->pid() > 0)
     {
         cInfoDom("mcp") << "stopping MCP sidecar";
         processExe->kill(SIGTERM);

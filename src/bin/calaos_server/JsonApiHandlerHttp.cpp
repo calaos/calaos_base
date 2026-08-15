@@ -40,7 +40,9 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
-    if (exe_thumb && exe_thumb->referenced())
+    //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
+    //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
+    if (exe_thumb && exe_thumb->referenced() && exe_thumb->pid() > 0)
     {
         exe_thumb->kill(SIGTERM);
         exe_thumb->close();
