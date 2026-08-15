@@ -384,6 +384,8 @@
 ./src/lib/sqlite_modern_cpp/hdr/sqlite_modern_cpp/utility/uncaught_exceptions.h
 ./src/lib/sqlite_modern_cpp/hdr/sqlite_modern_cpp/utility/utf16_utf8.h
 ./src/lib/sqlite_modern_cpp/hdr/sqlite_modern_cpp/utility/variant.h
+./src/lib/StringUtils.cpp
+./src/lib/StringUtils.h
 ./src/lib/sunset.c
 ./src/lib/sunset.h
 ./src/lib/tcpsocket.cpp

@@ -108,6 +108,8 @@ libcalaos_common_la_SOURCES = \
         MemMacros.h                             \
         LogSetup.cpp                            \
         LogSetup.h                              \
+        StringUtils.cpp                         \
+        StringUtils.h                           \
         Utils.cpp                               \
         Utils.h                                 \
         WebSocketFrame.cpp                      \

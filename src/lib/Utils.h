@@ -132,32 +132,13 @@ typedef unsigned int uint;
 #include "Constants.h"
 #include "MemMacros.h"
 #include "LogSetup.h"
+#include "StringUtils.h"
 
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
 namespace Utils
 {
-string url_encode(string str);
-string url_decode(string str);
-std::string url_decode2(std::string str); //decode 2 times
-int htoi(char *s);
-string time2string(long s, long ms = 0);
-string time2string_digit(long s, long ms = 0);
-
-/* usefull string utilities */
-void split(const string &str, vector<string> &tokens, const string &delimiters = " ", int max = 0);
-void remove_tag(string &source, const string begin_tag, const string end_tag);
-void replace_str(string &source, const string searchstr, const string replacestr);
-void trim_right(std::string &source, const std::string &t);
-void trim_left(std::string &source, const std::string &t);
-string trim(const string &str);
-string escape_quotes(const string &s);
-string escape_space(const string &s);
-
-enum CaseSensitivity { CaseInsensitive, CaseSensitive };
-bool strContains(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
-bool strStartsWith(const string &str, const string &needle, Utils::CaseSensitivity cs = Utils::CaseSensitive);
 
 // Return a value rounded to precision decimal after the dot
 double roundValue(double value, int precision);
@@ -189,13 +170,6 @@ string createRandomUuid();
 bool argvOptionCheck(char **begin, char **end, const std::string &option);
 char *argvOptionParam(char **begin, char **end, const std::string &option);
 
-//!decode a BASE64 string
-std::string Base64_decode(std::string &str);
-std::string Base64_decode_data(std::string &str);
-//!encode a BASE64 string
-std::string Base64_encode(std::string &str);
-std::string Base64_encode(void *data, int size);
-
 string getFileContent(const char *filename);
 string getFileContentBase64(const char *filename);
 unsigned int getUptime();
@@ -204,67 +178,12 @@ string getTmpFilename(const string &ext = "tmp", const string &prefix = "_tmp");
 
 double getMainLoopTime();
 
-class CStrArray
-{
-public:
-    CStrArray() {}
-    CStrArray(const string &str_split);
-    CStrArray(const vector<string> &lst);
-    ~CStrArray();
-
-    const char *at(std::size_t pos) { return m_strings.at(pos).c_str(); }
-    void set(const vector<string> &lst);
-    std::size_t count() const { return m_strings.size(); }
-    const char **constData() const { return m_data; }
-    char **data() { return (char **)m_data; }
-
-    std::string toString();
-
-private:
-    vector<string> m_strings;
-    string m_tostring;
-    const char **m_data = nullptr;
-    void updateNative();
-};
-
-//-----------------------------------------------------------------------------
-template<typename T>
-bool is_of_type(const std::string &str)
-{
-    std::istringstream iss(str);
-    T tmp;
-    iss >> tmp;
-    return iss.eof();
-}
-template<typename T>
-bool from_string(const std::string &str, T &dest)
-{
-    std::istringstream iss(str);
-    iss.imbue(std::locale("C")); //use the C locale when parsing
-    iss >> dest;
-    return iss.eof();
-}
-template<typename T>
-std::string to_string( const T & Value )
-{
-    std::ostringstream oss;
-    oss << Value;
-    return oss.str();
-}
-
 inline bool fileExists(const std::string &filename)
 {
     std::ifstream file(filename);
     return file.good();
 }
 //Some usefull fonctors
-struct UrlDecode
-{
-    template <class T> void operator ()(T &str) const
-    {
-        str = Utils::url_decode2(str);
-    }
-};
 struct Delete
 {
     template <class T> void operator ()(T *&p) const
@@ -272,25 +191,6 @@ struct Delete
         DELETE_NULL(p)
     }
 };
-class to_lower
-{
-public:
-    char operator() (char c) const
-    {
-        return tolower(c);
-    }
-};
-class to_upper
-{
-public:
-    char operator() (char c) const
-    {
-        return toupper(c);
-    }
-};
-
-std::string str_to_lower(std::string s);
-std::string str_to_upper(std::string s);
 
 class DeletorBase
 {
