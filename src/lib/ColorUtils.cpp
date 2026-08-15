@@ -130,7 +130,13 @@ void ColorValue::setString(const string &str)
         bool needalpha = s[3] == 'a';
         Utils::replace_str(s, "rgb(", "");
         Utils::replace_str(s, "rgba(", "");
-        s.erase(s.find_last_of(')'));
+        string::size_type closing = s.find_last_of(')');
+        if (closing == string::npos)
+        {
+            cDebug() << "Invalid color string: " << str;
+            return;
+        }
+        s.erase(closing);
         Utils::replace_str(s, " ", ""); //remove any spaces
 
         vector<string> values;
@@ -160,7 +166,13 @@ void ColorValue::setString(const string &str)
         bool needalpha = s[3] == 'a';
         Utils::replace_str(s, "hsl(", "");
         Utils::replace_str(s, "hsla(", "");
-        s.erase(s.find_last_of(')'));
+        string::size_type closing = s.find_last_of(')');
+        if (closing == string::npos)
+        {
+            cDebug() << "Invalid color string: " << str;
+            return;
+        }
+        s.erase(closing);
         Utils::replace_str(s, " ", ""); //remove any spaces
         Utils::replace_str(s, "%", ""); //remove any %
 
@@ -191,7 +203,13 @@ void ColorValue::setString(const string &str)
         bool needalpha = s[3] == 'a';
         Utils::replace_str(s, "hsv(", "");
         Utils::replace_str(s, "hsva(", "");
-        s.erase(s.find_last_of(')'));
+        string::size_type closing = s.find_last_of(')');
+        if (closing == string::npos)
+        {
+            cDebug() << "Invalid color string: " << str;
+            return;
+        }
+        s.erase(closing);
         Utils::replace_str(s, " ", ""); //remove any spaces
         Utils::replace_str(s, "%", ""); //remove any %
 

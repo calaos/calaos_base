@@ -46,6 +46,7 @@ public:
         }
 
         item = std::move(queue.front());
+        queue.pop();
 
         return true;
     }

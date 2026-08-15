@@ -78,7 +78,7 @@ void Params::Parse(string str)
 
     while (str.length() > 0)
     {
-        if (isspace(str[i]))
+        if (isspace(static_cast<unsigned char>(str[i])))
         {
             string sid, val = str.substr(0, i);
             stringstream id;
@@ -86,7 +86,7 @@ void Params::Parse(string str)
             sid = id.str();
             Add(sid, val);
 
-            while (isspace(str[i]))
+            while (isspace(static_cast<unsigned char>(str[i])))
             {
                 i++;
                 if (i >= str.length())

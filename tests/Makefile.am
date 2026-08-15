@@ -454,3 +454,19 @@ WebSocketAccept_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T2.6
+#Common-lib correctness regressions: ThreadedQueue::tryPop drains the queue,
+#ColorValue::setString rejects malformed strings without throwing, Calendar
+#month/day roll-over (monthDown Jan->Dec, dayDown commits the day), and
+#Params::Parse is safe on high (non-ASCII) bytes. Everything under test lives
+#in libcalaos_common, so nothing more is linked. Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += CommonLib_test
+check_PROGRAMS += CommonLib_test
+CommonLib_test_SOURCES = CommonLib_test.cpp
+CommonLib_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
