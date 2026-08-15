@@ -89,7 +89,20 @@
   intactes ; grep tree-wide : les 5 sites kill() sont désormais tous gardés (ExternProc ×2,
   PingInputSwitch ×1 via `pingRunning`, ces 2) et Calendar.cpp/NotifManager.cpp possèdent
   des ProcessHandle sans jamais appeler kill() ; rebase propre sur master docs-only,
-  43/43 tests, ff-only, worktree t3.9 nettoyé). En vol : T3.10, T3.11, E4.2a.
+  43/43 tests, ff-only, worktree t3.9 nettoyé). **T3.11 ✅ mergé** (2026-08-15, `8db87507`,
+  hygiène : `docs/13_utility_lib.md` + `po/POTFILES.in` purgés des entrées `src/lib/SHA1.{cpp,h}`
+  supprimées par T2.3 — les mentions SHA1 restantes sont l'usage OpenSSL EVP légitime dans
+  WebSocket.cpp et son test ; `configure.ac` : `AC_CHECK_PROG(HAVE_CURLBIN)` + sa ligne de résumé
+  retirées, obsolètes depuis T2.5 (UrlDownloader linke libcurl) — grep tree-wide : plus aucun
+  usage de HAVE_CURLBIN/CURLBIN_INFO, et libcurl reste une dépendance dure via pkg-config dans
+  `requirements_calaos_common` et `requirements_calaos_server` ; `data/debug/package-lock.json`
+  rafraîchi (npm update + audit fix, 11 → 3 advisories toutes enracinées dans `immutable`,
+  devDependency only ; `npm ci` revérifié en conteneur node:20-slim = 438 paquets, lockfileVersion 3,
+  resolved+integrity partout, package.json inchangé, `data/debug/dist/` non rebuildé) ; nouveau
+  `.github/dependabot.yml` limitant Dependabot à `/data/debug` npm avec
+  `allow: dependency-type: production` (le toolchain gulp/browser-sync ne ship jamais).
+  Aucun `src/**` touché ; rebase propre sur master, autogen OK après l'édition configure.ac,
+  43/43 tests, ff-only, worktree t3.11 nettoyé). En vol : T3.10, E4.2a.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
