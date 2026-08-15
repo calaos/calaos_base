@@ -22,14 +22,6 @@
 
 using namespace Calaos;
 
-WebDocBase::WebDocBase()
-{
-}
-
-WebDocBase::~WebDocBase()
-{
-}
-
 void WebDocBase::initDoc(IODoc *ioDoc, bool postDoc)
 {
     if (postDoc)

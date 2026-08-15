@@ -22,10 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebOutputAnalog.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -33,18 +30,10 @@ using namespace Calaos;
 REGISTER_IO(WebOutputAnalog)
 
 WebOutputAnalog::WebOutputAnalog(Params &p):
-    OutputAnalog(p)
+    WebIOBase(p, "WebOutputAnalog", _("Analog output in a web request"),
+              WebDoc::Get, "output")
 {
-    ioDoc->friendlyNameSet("WebOutputAnalog");
-    ioDoc->descriptionSet(_("Analog output in a web request"));
-    docBase.initDoc(ioDoc);
-
-    cInfoDom("input") << "WebOutputAnalog::WebOutputAnalog()";
-    Calaos::StartReadRules::Instance().addIO();
-}
-
-WebOutputAnalog::~WebOutputAnalog()
-{
+    StartReadRules::Instance().addIO();
 }
 
 void WebOutputAnalog::readValue()
@@ -61,5 +50,3 @@ void WebOutputAnalog::set_value_real(double val)
     cInfoDom("output") << "Set new double value " << val;
     WebCtrl::Instance(get_params()).setValue(Utils::to_string(val));
 }
-
-

@@ -19,29 +19,25 @@
  **
  ******************************************************************************/
 
-#ifndef WEBINPUTANALOG_H
-#define WEBINPUTANALOG_H
+#ifndef WEBOUTPUTANALOG_H
+#define WEBOUTPUTANALOG_H
 
-#include "Calaos.h"
 #include "OutputAnalog.h"
 #include "WebDocBase.h"
 
 namespace Calaos
 {
 
-class WebOutputAnalog : public OutputAnalog
+class WebOutputAnalog : public WebIOBase<OutputAnalog>
 {
 protected:
     virtual void readValue();
-    virtual void set_value_real(double val);
-
-    WebDocBase docBase;
+    void set_value_real(double val) override;
 
 public:
     WebOutputAnalog(Params &p);
-    virtual ~WebOutputAnalog();
 };
 
 }
 
-#endif // WEBINPUTANALOG_H
+#endif // WEBOUTPUTANALOG_H

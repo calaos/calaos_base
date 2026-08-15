@@ -22,54 +22,15 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebInputTemp.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
-#include "AnalogIO.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebInputTemp)
 
 WebInputTemp::WebInputTemp(Params &p):
-    InputTemp(p)
+    WebInputBase(p, "WebInputTemp", _("Temperature input read from a web document"))
 {
-
-    ioDoc->friendlyNameSet("WebInputTemp");
-    ioDoc->descriptionSet(_("Temperature input read from a web document"));
-    docBase.initDoc(ioDoc);
-
-    cInfoDom("input") << "WebInputTemp::WebInputTemp()";
-    Calaos::StartReadRules::Instance().addIO();
-
-    if (!get_param("path").empty())
-    {
-        // Add input to WebCtrl instance
-        WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
-        {
-            readValue();
-            Calaos::StartReadRules::Instance().ioRead();
-        });
-    }
-}
-
-WebInputTemp::~WebInputTemp()
-{
-    WebCtrl::Instance(get_params()).Del(get_param("path"));
-}
-
-void WebInputTemp::readValue()
-{
-    if (!get_param("path").empty())
-    {
-        // Read the value
-        double v = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
-        if (v != value)
-        {
-            value = AnalogIO::convertValue(get_params(), v);
-            emitChange();
-        }
-    }
+    webRegisterPolling();
 }

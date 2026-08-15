@@ -22,34 +22,17 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebOutputLight.h"
-#include "WebCtrl.h"
-#include "jansson.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebOutputLight)
 
 WebOutputLight::WebOutputLight(Params &p):
-    OutputLight(p)
+    WebIOBase(p, "WebOutputLight", _("Bool output written to a web document or URL"),
+              WebDoc::Post, "output")
 {
-    ioDoc->friendlyNameSet("WebOutputLight");
-    ioDoc->descriptionSet(_("Bool output written to a web document or URL"));
-    docBase.initDoc(ioDoc, true);
-
-    cInfoDom("output") << "WebOutputLight::WebOutputLight()";
-}
-
-WebOutputLight::~WebOutputLight()
-{
-}
-
-
-void WebOutputLight::readValue()
-{
-  // Read the value
-
 }
 
 bool WebOutputLight::set_value_real(bool val)
@@ -63,9 +46,7 @@ bool WebOutputLight::set_value_real(bool val)
     if (get_params().Exists("off_value"))
         off_value = get_param("off_value");
 
-
-    val ? WebCtrl::Instance(get_params()).setValue(on_value) :
-        WebCtrl::Instance(get_params()).setValue(off_value);
+    WebCtrl::Instance(get_params()).setValue(val ? on_value : off_value);
 
     return true;
 }

@@ -22,24 +22,20 @@
 #ifndef WEBOUTPUTLIGHTRGB_H
 #define WEBOUTPUTLIGHTRGB_H
 
-#include "Calaos.h"
 #include "OutputLightRGB.h"
 #include "WebDocBase.h"
 
 namespace Calaos
 {
 
-class WebOutputLightRGB : public OutputLightRGB
+class WebOutputLightRGB : public WebIOBase<OutputLightRGB>
 {
 protected:
-    virtual void readValue();
-    virtual void setColorReal(const ColorValue &color, bool state);
-
-    WebDocBase docBase;
+    virtual void readValue() {}
+    void setColorReal(const ColorValue &color, bool state) override;
 
 public:
     WebOutputLightRGB(Params &p);
-    ~WebOutputLightRGB();
 };
 
 }

@@ -616,3 +616,42 @@ WagoConfigParse_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# T3.2d
+#Thin Web IO subclasses: the seven Web types (WebInput{Analog,String,Temp},
+#WebOutput{Analog,Light,LightRGB,String}) share their constructor skeleton
+#through the WebIOBase/WebInputBase mixins of WebDocBase.h. The test pins
+#what must not change: IOFactory registration under the XML type names,
+#instantiation from an io.xml document, the per-type WebDocBase ioDoc
+#parameters (--gendoc content), the synchronous first read from a local
+#file:// url and the create/delete cycle. Links the Web IO objects plus
+#their base classes on top of the core closure. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WebIO_test
+check_PROGRAMS += core/WebIO_test
+core_WebIO_test_SOURCES = core/WebIO_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WebIO_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WebIO_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputString.$(OBJEXT)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_WebIO_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
