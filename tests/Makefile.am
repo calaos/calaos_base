@@ -854,3 +854,49 @@ PugiXml_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+
+# E4.3a
+#First tests for src/lib/TimeRange.h and for the evaluation of
+#IO/InPlageHoraire.cpp (both had zero test reference). Everything is asserted
+#on observable behaviour - the schedules are built through the public
+#AddMonday()/... API and read back through get_value_bool() - so the suite
+#survives the tinyxml -> pugixml port of InPlageHoraire (E4.4d) untouched.
+#Also covers the Calendar corners tests/CommonLib_test.cpp does not (leap year,
+#day clamping, hour/minute/second wrap).
+#Lives in tests/ but links like a core test: InPlageHoraire needs IOBase,
+#ListeRoom, ListeRule and the config singleton. InPlageHoraire.o is already
+#part of CORE_SERVER_OBJECTS. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += TimeRangeCalendar_test
+check_PROGRAMS += TimeRangeCalendar_test
+TimeRangeCalendar_test_SOURCES = TimeRangeCalendar_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+TimeRangeCalendar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+TimeRangeCalendar_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+TimeRangeCalendar_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.3b
+#The config round trip referee: config -> save -> reload -> the in-memory model
+#must be identical (rooms, IO ids, IO parameters, InPlageHoraire schedules,
+#rules with their inputs/operators/values), with accented UTF-8, XML entities,
+#numeric character references and empty values in the payload. The comparison
+#is SEMANTIC on purpose, never byte for byte: E4.4d (pugixml) will legitimately
+#reformat io.xml/rules.xml and this suite is what says the content survived.
+#Links the plain core objects only (InPlageHoraire.o is already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ConfigRoundTrip_test
+check_PROGRAMS += core/ConfigRoundTrip_test
+core_ConfigRoundTrip_test_SOURCES = core/ConfigRoundTrip_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConfigRoundTrip_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ConfigRoundTrip_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ConfigRoundTrip_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
