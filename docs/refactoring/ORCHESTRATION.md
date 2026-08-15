@@ -82,6 +82,14 @@
   (T2.14-T2.19, T3.6-T3.8 tous ✅) ; rien en vol ; restent uniquement les epics E4.x
   + follow-ups mineurs FINDINGS ; tâche EXTERNE calaos_installer (option
   insecure=false nouveaux devices).**
+- **Wave 8 en cours** : **T3.9 ✅ mergé** (2026-08-15, `e2e054e2`, garde `pid() > 0` sur les
+  deux derniers kill(SIGTERM) de ProcessHandle — `McpServerManager::stop()` et
+  `~JsonApiHandlerHttp()` — même forme que la référence T3.7 dans ExternProc.cpp,
+  commentaire de contrainte inclus ; +6/-2, aucun header touché, lignes TLS T2.17/T2.19
+  intactes ; grep tree-wide : les 5 sites kill() sont désormais tous gardés (ExternProc ×2,
+  PingInputSwitch ×1 via `pingRunning`, ces 2) et Calendar.cpp/NotifManager.cpp possèdent
+  des ProcessHandle sans jamais appeler kill() ; rebase propre sur master docs-only,
+  43/43 tests, ff-only, worktree t3.9 nettoyé). En vol : T3.10, T3.11, E4.2a.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
