@@ -14,9 +14,15 @@
   Utils en 6 unités — Constants.h, MemMacros.h, LogSetup, StringUtils, ConfigStore,
   SystemInfo — pattern agrégateur, Utils.h ré-inclut tout ; 31/31 tests). **Rien en vol.**
   **Pas poussé** (origin = `9d8d37b5`). Les follow-ups T2.14-T2.18 restent 📋 en backlog.
-- **Prochaine étape = wave A Phase 3** : T3.1, T3.2a/c/d/e/f, T3.3, T3.5 en parallèle
-  (T3.2a contraint à garder son abstraction dans IO/KNX/) + **T3.4 (base64) désormais
-  débloqué** (dépendait de T2.2).
+- **WAVE 6 PRÉPARÉE, NON LANCÉE** (checkpoint limite d'usage 2026-08-15) : les 9 worktrees
+  existent (`/tmp/claude-1000/calaos-wave6/t3.{1,2a,2c,2d,2e,2f,3,4,5}`, branches
+  `refactor/t3.*`, base `82887cc0`) mais **AUCUN agent d'implémentation n'a été lancé** —
+  les branches sont vides (= master). À la reprise : lancer les 9 subagents en parallèle.
+  Briefs : périmètres exacts + corrections de specs périmées dans la matrice ci-dessous ;
+  contraintes clés : **T3.2a garde son abstraction DANS IO/KNX/** (11 sous-classes, pas 13) ;
+  T3.2c/d/f font leur dédup LOCAL sans attendre T3.2a ; T3.5 lignes décalées
+  (`requestTimeout_cb` à :468, `buffer_notif` :209-212) ; T3.3 Syno à :185 ;
+  T3.4 = base64.{cpp,h} + wrapper `StringUtils` (post-split). Suite de référence : 31/31.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
