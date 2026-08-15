@@ -49,10 +49,11 @@ namespace Calaos
  * file the transfer was writing to: nobody will ever consume it, and on an
  * embedded tmpfs those half written snapshots pile up.
  *
- * The transfer itself is not aborted. UrlDownloader has no cancel API, and
- * deleting it from the outside would race with the autodelete Idler it queues
- * on completion (double delete), so the transfer is left to finish and free
- * itself; only the callback into the action is severed.
+ * T2.10: a context destroyed while its transfer is still pending now calls
+ * UrlDownloader::cancel(), which really aborts the transfer (curl is
+ * terminated, the pipe closed, the signals cleared) and lets the autodelete
+ * object free itself safely. An autodelete downloader must still never be
+ * deleted from the outside, cancel() is the only external control.
  */
 class ActionCameraDownload
 {
@@ -103,6 +104,7 @@ public:
         std::weak_ptr<Download> weakDl = dl;
 
         UrlDownloader *downloader = new UrlDownloader(camera->getPictureUrl(), true);
+        dl->downloader = downloader;
         dl->conn = downloader->m_signalComplete.connect([this, weakDl, cb](int status)
         {
             auto ctx = weakDl.lock();
@@ -113,6 +115,10 @@ public:
             //lambda lives in
             auto callback = cb;
             string file = ctx->destFile;
+
+            //The transfer is done: the context must not cancel() a downloader
+            //that is already freeing itself
+            ctx->downloader = nullptr;
 
             //The file now belongs to the callback, the context must not
             //unlink it on its way out
@@ -127,8 +133,9 @@ public:
         {
             cWarningDom("rule.action") << "Failed to start camera download for "
                                        << camera->get_param("name");
+            //~Download cancels the transfer and the autodelete object frees
+            //itself
             forget(dl);
-            downloader->Destroy();
             return false;
         }
 
@@ -144,12 +151,18 @@ private:
     {
         sigc::connection conn;
         string destFile;
+        UrlDownloader *downloader = nullptr; //pending transfer, nulled on completion
 
         ~Download()
         {
             //Still pending: the action is gone or the transfer never started.
             //Sever the callback and drop the file nobody will read.
             conn.disconnect();
+
+            //T2.10: really abort the transfer, the autodelete object then
+            //frees itself safely
+            if (downloader)
+                downloader->cancel();
 
             if (!destFile.empty())
                 FileUtils::unlink(destFile);

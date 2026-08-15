@@ -486,3 +486,21 @@ core_Timer_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif
+# T2.10
+#UrlDownloader lifecycle: cancel() really interrupts the transfer, no callback
+#fires after cancel/destroy (alive-token), autodelete objects free themselves
+#safely on cancel, the accumulated response body is bounded, and no temp
+#file/fd leaks across lifecycles. Behavioral only (local HTTP peer over
+#loopback, no subprocess assertions) so the planned libcurl backend swap
+#(T2.5) must keep it green. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloader_test
+check_PROGRAMS += UrlDownloader_test
+UrlDownloader_test_SOURCES = UrlDownloader_test.cpp
+UrlDownloader_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloader_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif

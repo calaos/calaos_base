@@ -22,6 +22,8 @@
 #include <Timer.h>
 #include "libuvw.h"
 
+#include <algorithm>
+
 UrlDownloader::UrlDownloader(string url, bool autodelete) :
     m_url(url),
     m_autodelete(autodelete)
@@ -31,11 +33,12 @@ UrlDownloader::UrlDownloader(string url, bool autodelete) :
 
 UrlDownloader::~UrlDownloader()
 {
-    if (exeCurl && exeCurl->referenced())
-    {
-        exeCurl->kill(SIGTERM);
-        exeCurl->close();
-    }
+    /* Expire the alive token before anything else: every uvw callback checks
+     * it, so whatever fires from here on (even synchronously from kill/close
+     * below) only cleans its own handle up and never touches this object. */
+    alive.reset();
+
+    closeHandles();
 
     FileUtils::unlink(tempFilename);
     FileUtils::unlink(tmpHeader);
@@ -43,8 +46,64 @@ UrlDownloader::~UrlDownloader()
     cDebugDom("urlutils") << "UrlDownloader(" << this << ") destroyed";
 }
 
+void UrlDownloader::closeHandles()
+{
+    if (pipe)
+    {
+        if (!pipe->closing())
+        {
+            pipe->stop();
+            pipe->close();
+        }
+        pipeClosed = true;
+        pipe.reset();
+    }
+
+    if (exeCurl)
+    {
+        /* Terminate curl, but leave the ProcessHandle itself open on purpose:
+         * its ExitEvent handler (alive-token guarded, never touching this
+         * object once it is gone) closes the handle, which is what lets libuv
+         * reap the child. Closing the handle here instead would leave a
+         * zombie process behind for the daemon's whole lifetime. */
+        if (!exeCurl->closing())
+            exeCurl->kill(SIGTERM);
+        exeCurl.reset();
+    }
+}
+
+void UrlDownloader::cancel()
+{
+    if (m_cancelled)
+        return;
+    m_cancelled = true;
+
+    cDebugDom("urlutils") << "UrlDownloader(" << this << ") cancel " << m_url;
+
+    //The consumer asked out: nothing must fire after this point
+    m_signalComplete.clear();
+    m_signalCompleteData.clear();
+    m_signalData.clear();
+
+    closeHandles();
+
+    m_isRunning = false;
+
+    /* An autodelete object must never be deleted from outside (that would
+     * race the completion Idler), so cancel() is its only exit: free it
+     * ourselves. Destroy() is idempotent in case completion already went by. */
+    if (m_autodelete)
+        Destroy();
+}
+
 bool UrlDownloader::start()
 {
+    if (m_cancelled)
+    {
+        cWarningDom("urlutils") << "Downloader was cancelled, it cannot be restarted";
+        return false;
+    }
+
     if (exeCurl && exeCurl->active())
     {
         cWarningDom("urlutils") << "A download is already in progress...";
@@ -169,26 +228,47 @@ bool UrlDownloader::start()
     isStarted = false;
     hasFailedStarting = false;
 
+    /* Handlers only do handle-local cleanup before checking the alive token:
+     * once it expired (object destroyed) or the transfer got cancelled, they
+     * must not reach the signals anymore. */
+    std::weak_ptr<bool> aliveToken = alive;
+
     exeCurl = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exeCurl->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &h)
+    exeCurl->once<uvw::ExitEvent>([this, aliveToken](const uvw::ExitEvent &ev, auto &h)
     {
         cDebugDom("urlutils") << "curl exited: " << ev.status;
         h.close();
-        this->m_isRunning = false;
-        this->completeCb();
+        if (aliveToken.expired())
+            return; //downloader destroyed while curl was still running
+        exeCurl.reset();
+        m_isRunning = false;
+        if (m_cancelled)
+            return;
+        completeCb();
     });
-    exeCurl->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &h)
+    exeCurl->once<uvw::ErrorEvent>([this, aliveToken](const uvw::ErrorEvent &ev, auto &h)
     {
-        if (!isStarted) hasFailedStarting = true;
         cCriticalDom("urlutils") << "Process error: " << ev.what();
         h.close();
-        if (!downloadToFile)
+        if (aliveToken.expired())
+            return;
+        if (!isStarted) hasFailedStarting = true;
+        exeCurl.reset();
+        if (pipe)
         {
-            pipe->stop();
-            pipe->close();
+            if (!pipe->closing())
+            {
+                pipe->stop();
+                pipe->close();
+            }
+            //Nothing will ever come out of that pipe: unblock completeCb()
+            pipeClosed = true;
+            pipe.reset();
         }
-        this->m_isRunning = false;
-        this->completeCb();
+        m_isRunning = false;
+        if (m_cancelled)
+            return;
+        completeCb();
     });
 
     if (!downloadToFile)
@@ -202,17 +282,26 @@ bool UrlDownloader::start()
         exeCurl->stdio(*pipe, ff);
 
         //When pipe is closed, remove it and close it
-        pipe->once<uvw::EndEvent>([this](const uvw::EndEvent &, auto &cl)
+        pipe->once<uvw::EndEvent>([this, aliveToken](const uvw::EndEvent &, auto &cl)
         {
-            this->pipeClosed = true;
             cl.close();
-            this->completeCb();
+            if (aliveToken.expired())
+                return;
+            pipeClosed = true;
+            pipe.reset();
+            if (m_cancelled)
+                return;
+            completeCb();
         });
         pipe->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &cl) { cl.stop(); });
-        pipe->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+        pipe->on<uvw::DataEvent>([this, aliveToken](uvw::DataEvent &ev, auto &)
         {
+            if (aliveToken.expired())
+                return;
+            if (m_cancelled)
+                return;
             cDebugDom("urlutils") << "UrlDownloader(" << this << ") Stdio data received: " << ev.length;
-            this->dataCb(ev.data.get(), ev.length);
+            dataCb(ev.data.get(), ev.length);
         });
 
         pipeClosed = false;
@@ -305,12 +394,35 @@ void UrlDownloader::completeCb()
 
 void UrlDownloader::dataCb(const char *data, int size)
 {
-    m_downloadedData.append(data, size);
+    if (size <= 0)
+        return;
+
+    /* Bounded accumulation: streaming consumers (MJPEG) get every byte live
+     * through m_signalData below, the internal copy only serves
+     * m_signalCompleteData at the end and must not grow without limit when
+     * the stream never ends. Beyond the cap the data is streamed but no
+     * longer accumulated. */
+    if (m_downloadedData.size() < m_bufferMaxSize)
+    {
+        size_t room = m_bufferMaxSize - m_downloadedData.size();
+        m_downloadedData.append(data, std::min(static_cast<size_t>(size), room));
+        if (m_downloadedData.size() >= m_bufferMaxSize)
+            cWarningDom("urlutils") << "Download buffer cap (" << m_bufferMaxSize
+                                    << " bytes) reached for " << m_url
+                                    << ", data is streamed but no longer accumulated";
+    }
+
     m_signalData.emit(size, data);
 }
 
 void UrlDownloader::Destroy()
 {
+    /* Idempotent: completion and cancel() can both end up here, only one
+     * Idler must ever be queued or the object would be freed twice. */
+    if (destroyScheduled)
+        return;
+    destroyScheduled = true;
+
     cDebugDom("urlutils") << "UrlDownloader(" << this << ") Launch idler to destroy " << m_url;
     Idler::singleIdler([=]() { delete this; });
 }

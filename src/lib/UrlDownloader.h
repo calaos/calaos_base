@@ -32,6 +32,19 @@ class PipeHandle;
 }
 
 //Url Downloader class
+//
+//Lifecycle contract (T2.10):
+// - cancel() interrupts a transfer at any point: the stdio pipe is closed, the
+//   curl process is terminated, every signal is disconnected and no callback
+//   fires afterwards. A non-autodelete object is then safe to delete (or to
+//   keep around, its destructor cleans the temp files). An autodelete object
+//   frees itself after cancel().
+// - An autodelete object must NEVER be deleted from outside: it destroys
+//   itself (through an Idler) once the transfer completes or is cancelled, an
+//   external delete would race that. cancel() is the only external control.
+// - Deleting a non-autodelete object mid-transfer is safe: the destructor
+//   detaches every pending uvw callback (alive-token) before returning, so
+//   nothing can call back into freed memory.
 class UrlDownloader: public sigc::trackable
 {
 private:
@@ -39,6 +52,12 @@ private:
 
     std::shared_ptr<uvw::ProcessHandle> exeCurl;
     std::shared_ptr<uvw::PipeHandle> pipe;
+
+    /* Alive token for uvw callbacks: handlers capture a weak_ptr and never
+     * touch this object once it expired (same pattern as
+     * JsonApiHandlerHttp::handlerAlive). The destructor expires it first
+     * thing, before closing any handle. */
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     RequestType m_requestType = HTTP_POST;
 
@@ -67,9 +86,21 @@ private:
     bool m_isRunning = false;
     int exitStatus = 0;
     bool pipeClosed = false;
+    bool m_cancelled = false;
+    bool destroyScheduled = false;
+
+    /* Cap on the internally accumulated response body (m_downloadedData).
+     * Streaming consumers (MJPEG) get every byte live through m_signalData,
+     * but the internal copy kept for m_signalCompleteData stops growing at
+     * this bound so an endless stream cannot eat the RAM. */
+    size_t m_bufferMaxSize = defaultBufferMaxSize;
 
     //Common function for starting download of url
     bool start();
+
+    //Close the stdio pipe and terminate the curl process (handles detach
+    //themselves, guarded by the alive token)
+    void closeHandles();
 
     bool m_autodelete;
     bool downloadToFile = false;
@@ -79,6 +110,8 @@ private:
     void dataCb(const char *data, int size);
 
 public:
+    static constexpr size_t defaultBufferMaxSize = 16 * 1024 * 1024;
+
     // Constructor
     UrlDownloader(string url, bool autodelete = false);
 
@@ -90,6 +123,19 @@ public:
     void authUnSet() {m_auth = false;}
 
     bool isRunning() { return m_isRunning; }
+
+    /* Interrupts the transfer: terminates curl, closes the pipe, disconnects
+     * every signal. No callback fires after this returns. Autodelete objects
+     * free themselves, non-autodelete ones become inert (a cancelled object
+     * cannot be restarted) and safe to delete. Idempotent. */
+    void cancel();
+
+    bool isCancelled() const { return m_cancelled; }
+
+    /* Bound for the internally accumulated response data handed to
+     * m_signalCompleteData. m_signalData always receives the full stream. */
+    void bufferMaxSizeSet(size_t max) { m_bufferMaxSize = max; }
+    size_t bufferMaxSizeGet() const { return m_bufferMaxSize; }
 
     Params getResponseHeaders();
 

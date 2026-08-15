@@ -948,6 +948,10 @@ void JsonApiHandlerHttp::processCamera()
             releaseCameraDl();
 
             cameraDl = new UrlDownloader(camera->getVideoUrl(), true);
+            //T2.10: the mjpeg frames are relayed live through m_signalData,
+            //the downloader's internal accumulation is dead weight here, keep
+            //its bound minimal
+            cameraDl->bufferMaxSizeSet(64 * 1024);
             camConnData = cameraDl->m_signalData.connect([this](int size, const char *data)
             {
                 if (!camHeaderSent)
@@ -992,13 +996,14 @@ void JsonApiHandlerHttp::releaseCameraDl()
     if (!cameraDl)
         return;
 
-    /* The downloader is left running and frees itself once curl exits: it has
-     * no cancel api, and deleting it from here would leave its still open stdio
-     * pipe calling back into freed memory. Only the callbacks into this handler
-     * are severed, so nothing touches it once it is gone.
+    /* T2.10: cancel() really interrupts the transfer (terminates curl, closes
+     * the stdio pipe, disconnects every signal) and the autodelete object then
+     * frees itself safely. Our connections are disconnected first so the slots
+     * are dead even before cancel() clears the signals.
      */
     camConnData.disconnect();
     camConnComplete.disconnect();
+    cameraDl->cancel();
     cameraDl = nullptr;
 }
 
