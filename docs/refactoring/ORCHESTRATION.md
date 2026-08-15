@@ -123,7 +123,28 @@
   rebasée avant merge, donc aucune régression des lignes de board wave-8 ni des fiches
   T3.9/T3.11/T3.12 (vérifié après rebase). Master a bougé deux fois pendant l'intégration
   (E4.2a code, puis E4.2b docs) : build rejoué sur la base E4.2a, 44/44 tests, ff-only,
-  worktree t3.10 nettoyé). En vol : E4.2b, E4.4a.
+  worktree t3.10 nettoyé). **E4.4a ✅ mergé** (2026-08-16, `7cbdcda8`, ticket d'entrée de la
+  migration pugixml : pugixml est désormais disponible et lié, sans qu'aucun consommateur ne soit
+  touché. `configure.ac` préfère le paquet distro (`pkg-config pugixml >= 1.10`) et retombe sur la
+  copie vendored `src/lib/pugixml/` (1.14, MIT, 4 fichiers dont LICENSE.md) quand il est absent ;
+  les deux voies débouchent sur les mêmes `PUGIXML_CFLAGS/LIBS` propagés via `CALAOS_COMMON_CFLAGS`.
+  `tests/PugiXml_test.cpp` est un smoke test de contrat de build : il prouve que l'en-tête est
+  atteignable, que la bibliothèque link, et surtout que **XPath 1.0 est compilé** (`select_node()`/
+  `select_nodes()`/`xpath_query` n'existent pas dans un build `PUGIXML_NO_XPATH`, donc le test ne
+  compilerait pas contre un tel build). Dockerfile (stages dev + runtime), `.devcontainer/Dockerfile`
+  et `.github/workflows/ci.yml` ajoutent `libpugixml-dev` pour que la voie système soit celle
+  exercée en CI. Périmètre exact : `configure.ac`, `src/lib/Makefile.am`, `src/lib/pugixml/**`,
+  `tests/PugiXml_test.cpp`, `tests/Makefile.am`, les 3 fichiers Docker/CI — aucun fichier TinyXML,
+  aucun WebCtrl, aucun consommateur. Attention base : la branche partait de `f27c98ed`, rebasée sur
+  master avant merge ; conflit unique et attendu en fin de `tests/Makefile.am` (E4.2a et E4.4a
+  ajoutent chacun leur bloc `HAVE_GTEST` en EOF), résolu en gardant les deux blocs à la suite,
+  33/33 `if`/`endif` équilibrés. Build d'intégration : 45/45 tests (44 de master + `PugiXml_test`),
+  et comme l'image de dev ne contient pas encore `libpugixml-dev`, c'est **la voie vendored** qui a
+  été exercée — la voie système reste couverte par la CI. ff-only, worktree e4.4a nettoyé.
+  ⚠️ **Contrainte propagée dans les fiches E4.4b/c/d** : Debian 12 fournit pugixml **1.13**, la copie
+  vendored est en **1.14**, et le plancher déclaré est **>= 1.10** — tout code consommateur doit
+  rester sur la surface d'API de la 1.10, sinon la voie système casse là où la vendored fonctionne).
+  En vol : E4.2b, E4.3ab. Prochain de la série : E4.4b.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
