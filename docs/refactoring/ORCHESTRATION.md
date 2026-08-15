@@ -12,7 +12,7 @@
   parallèle — T2.9, T2.3, T2.12, T2.6, T2.1, T2.10, T2.8, T2.4 tous ✅ mergés. Worktrees
   `/tmp/claude-1000/calaos-wave5/t2.X`, branches `refactor/t2.X`, base `4808e23b`
   (master local, 25/25 tests). **Pas poussé** (origin = `9d8d37b5`).
-- **File d'attente sérialisée après la wave** : T2.13 (après T2.12 — même fichier de test),
+- **File d'attente sérialisée après la wave** : T2.13 ✅ mergé (2026-08-15, GPIO debounce_time),
   T2.11 (après T2.1+T2.3 — WebSocket.cpp + pattern Timer), T2.5 (après T2.10 — ses tests
   contraignent la réécriture libcurl), puis **T2.2 en wave EXCLUSIVE** (split Utils, balaie 63 TU).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
@@ -26,7 +26,7 @@
   13 alertes Dependabot.
 - **Décisions récentes** (détail dans DECISIONS.md) : Wago = respawn infini backoff ≤5 s ;
   MQTT non-UTF8 = '?' ; OneWire = hex majuscules ; clamp OTA 30 j validé ; GPIO
-  `debounce_time` à câbler (T2.13) ; **MySensors = code mort à supprimer entièrement (T2.12,
+  `debounce_time` câblé (T2.13 ✅) ; **MySensors = code mort à supprimer entièrement (T2.12,
   rend T3.2b obsolète)**. Plus aucune validation en attente.
 
 ---
