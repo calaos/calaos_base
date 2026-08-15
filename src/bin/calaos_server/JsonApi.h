@@ -201,6 +201,14 @@ protected:
 
     map<string, int> playerCounts;
 
+    /* Destruction guard for the async audio-player callbacks of
+     * buildJsonState(): they capture a weak_ptr on it and no-op once the
+     * JsonApi is gone (client disconnected while a squeezebox answer was in
+     * flight). Same pattern as JsonApiHandlerHttp::handlerAlive, but here it
+     * covers every transport going through buildJsonState().
+     */
+    std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
+
     bool changeCredentials(string olduser, string oldpass, string newuser, string newpass);
 };
 

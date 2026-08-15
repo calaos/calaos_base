@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "RemoteUIManager.h"
+#include "JsonApi.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "WebSocketFrame.h"
 #include "IO/RemoteUI/RemoteUI.h"
@@ -89,7 +90,10 @@ RemoteUI *RemoteUIManager::getRemoteUIByToken(const string &token)
             if (io->get_param("type") == "RemoteUI" ||
                 io->get_param("type") == "remote_ui_output")
             {
-                if (io->get_param("auth_token") == token)
+                //Constant-time comparison: the auth token is a secret, a
+                //string == would leak how many leading bytes match through
+                //the response time.
+                if (JsonApi::secureCompare(io->get_param("auth_token"), token))
                 {
                     return dynamic_cast<RemoteUI*>(io);
                 }

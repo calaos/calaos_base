@@ -739,3 +739,25 @@ core_KnxIo_test_LDADD = $(CORE_TEST_LDADD) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
 core_KnxIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T2.15
+#Async audio-player chain of JsonApi::buildJsonState(): destruction of the
+#JsonApi (client disconnect) or of the AudioPlayer IO while squeezebox answers
+#are in flight must not be a use-after-free, the answer must still go out when
+#a player dies mid-chain, and the per-player json object must not leak a
+#reference (json_object_set vs _new). A FakeAudioPlayer subclass queues the
+#callbacks so the tests deliver every answer by hand: no loop, no network.
+#Links the plain core objects only (JsonApi.o and Audio/AudioPlayer.o are
+#already in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiAudioState_test
+check_PROGRAMS += core/JsonApiAudioState_test
+core_JsonApiAudioState_test_SOURCES = core/JsonApiAudioState_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiAudioState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_JsonApiAudioState_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiAudioState_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
