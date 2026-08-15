@@ -93,7 +93,7 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 | T1.14 | Reolink driver lifecycle & log hygiene | ✅ |
 | T1.15 | Lua sandbox + exec watchdog | ✅ |
 | T1.16 | MCP client + Roon Python robustness | ✅ |
-| T1.17 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | 🔨 |
+| T1.17 | Extern-proc driver mains (Wago/OLA/OneWire/Mqtt) | ✅ |
 | T1.18 | ActionMail/ActionPush dangling-this | ✅ |
 | T1.19 | IO controllers (MySensors/Gpio/Web) | ✅ |
 
