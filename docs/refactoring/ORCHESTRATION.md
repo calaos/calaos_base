@@ -42,8 +42,15 @@
   les logs (StringUtils) ; rebase propre ×2 (master avait avancé de 2 commits docs-only :
   décision « insecure par défaut » qui sera appliquée par T2.19 rescopé), aucun conflit,
   ff-only ; 39/39 tests dont UrlDownloader_test 10/10 et IPCamUrl_test 16/16 ; worktree
-  t2.17 nettoyé). 3 autres worktrees wave 7
-  encore en vol sous `/tmp/claude-1000/calaos-wave7/` (t2.14–t2.16).
+  t2.17 nettoyé). **T2.15 ✅ mergé** (2026-08-15, `01089187`, garde du chain async
+  audio de JsonApi::buildJsonState() contre UAF (destruction du JsonApi ou d'un
+  AudioPlayer pendant les réponses squeezebox en vol) + fuite de ref json
+  (json_object_set vs _new) + lookup de token RemoteUI en temps constant ;
+  rebase propre sur master post-T2.17 (aucun conflit, le bloc tests/Makefile.am
+  s'est appliqué seul, 29/29 if/endif) ; 40/40 tests dont le nouveau
+  core/JsonApiAudioState_test ; ff-only ; worktree t2.15 nettoyé). 3 autres
+  worktrees wave 7 encore en vol sous `/tmp/claude-1000/calaos-wave7/`
+  (t2.14, t2.16, t2.19).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
