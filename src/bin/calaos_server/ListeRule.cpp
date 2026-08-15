@@ -348,42 +348,6 @@ void ListeRule::RemoveRule(IOBase *obj)
     }
 }
 
-void ListeRule::updateAllRulesToInput(IOBase *oldio, IOBase *newio)
-{
-    for (uint i = 0;i < rules.size();i++)
-    {
-        Rule *rule = get_rule(i);
-        for (int j = 0;j < rule->get_size_conds();j++)
-        {
-            ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(j));
-            if (!cond) continue;
-            for (int k = 0;k < cond->get_size();k++)
-            {
-                if (cond->get_input(k) == oldio)
-                    cond->Assign(k, newio);
-            }
-        }
-    }
-}
-
-void ListeRule::updateAllRulesToOutput(IOBase *oldio, IOBase *newio)
-{
-    for (uint i = 0;i < rules.size();i++)
-    {
-        Rule *rule = get_rule(i);
-        for (int j = 0;j < rule->get_size_actions();j++)
-        {
-            ActionStd *action = dynamic_cast<ActionStd *>(rule->get_action(j));
-            if (!action) continue;
-            for (int k = 0;k < action->get_size();k++)
-            {
-                if (action->get_output(k) == oldio)
-                    action->Assign(k, newio);
-            }
-        }
-    }
-}
-
 void ListeRule::ExecuteStartRules()
 {
     for (uint i = 0;i < rules.size();i++)

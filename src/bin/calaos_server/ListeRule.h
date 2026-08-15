@@ -110,9 +110,6 @@ public:
         rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj), rules_scenarios.end()); delete obj; }
     void RemoveRule(IOBase *obj); //remove all rules containing obj
 
-    void updateAllRulesToInput(IOBase *oldio, IOBase *newio);
-    void updateAllRulesToOutput(IOBase *oldio, IOBase *newio);
-
     Rule *get_rule(int i);
     Rule *operator[] (int i) const;
 
