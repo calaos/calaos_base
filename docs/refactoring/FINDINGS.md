@@ -37,6 +37,32 @@
   `renameId()` (pas de rehash de la map id→IO). Aucun appelant de ce type aujourd'hui
   (vérifié grep). → envisager const ref ou mutateur dédié.
 
+## Wave 6 — follow-ups (hors périmètre, non corrigés)
+
+- **[DANGEREUX] `ExternProc.cpp:100-104,120-121` — kill de groupe sur pid 0** : après un
+  `uv_spawn` raté, `~ExternProcServer` fait `process_exe->kill(SIGTERM)` gardé seulement par
+  `referenced()` ; pid resté à 0 → `kill(0, SIGTERM)` = SIGTERM à **tout le groupe de
+  processus** (a tué le harness automake pendant les tests T3.2a). Même classe que le vieux
+  bug ping. → ticket prioritaire : garde `pid > 0`.
+- **[SÉCURITÉ] `UrlDownloader.cpp:432,463,512,586,709` loggent l'URL complète** (`m_url`) —
+  les credentials caméra (`pwd=` Foscam, `passwd=`/`_sid=` Syno) fuient dans les logs malgré
+  le masquage T3.3 côté IPCam ; `JsonApiHandlerHttp.cpp:950` idem (URLs vidéo). → ticket :
+  déplacer/réutiliser `IPCam::maskUrlCredentials` au niveau UrlDownloader.
+- **[LIFETIME] `AVRRose.cpp` pollTimer/postRequest + retry `Timer::singleShot(10.0,[this])`
+  et `AVRRoseNotifServer.cpp` captures uvw `[this]`** — non gardés (non touchés par T3.1,
+  hors scope déclaré). → étendre le pattern aliveTag.
+- **[LATENT] Asymétrie d'inversion volume Denon/Marantz** : `setVolume` fait `v = 99 - v`
+  mais le parse `MV` ne l'inverse pas — sémantique visiblement incohérente, pré-existante.
+  → à investiguer avant fix (peut-être voulu selon l'échelle device).
+- **[DESIGN] `ThinIo.h` (IO/KNX/)** : template générique driver-agnostique prêt à être promu
+  dans `IO/` (git mv) — ticket d'harmonisation pour rebaser T3.2c/d/e/f dessus.
+- **[DÉCISION UTILISATEUR EN ATTENTE] Gadspot conservé** (T3.3, choix conservateur) : le
+  supprimer casserait le chargement des io.xml existants qui référencent le type. Garder ou
+  supprimer (avec échec propre type-inconnu, comme MySensors) ?
+- **[MINEUR] Foscam user/password non URL-encodés** dans les URLs construites (caractères
+  spéciaux cassent l'auth) — double-encodage risqué pour les configs pré-encodées, décision
+  à prendre.
+
 ## Wave 5 — follow-ups (hors périmètre, non corrigés)
 
 - **[SÉCURITÉ, spec T2.5 différé] UrlDownloader garde `VERIFYPEER/VERIFYHOST=0` globalement** —
