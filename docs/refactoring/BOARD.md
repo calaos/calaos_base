@@ -103,6 +103,9 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.6](T3.6.md) | 3 | Remove Gadspot driver (dead code, user decision) | removal | T3.3 | ✅ |
 | [T3.7](T3.7.md) | 3 | ExternProc pid-0 group-kill guard | fix | — | ✅ |
 | [T3.8](T3.8.md) | 3 | AVRRose/NotifServer async lifetimes | fix | T3.1 | ✅ |
+| [T3.9](T3.9.md) | 3 | pid-0 kill guard: remaining sites | fix | T3.7 | 🔨 |
+| [T3.10](T3.10.md) | 3 | Promote ThinIo + harmonize driver mixins | refactor | T3.2a-f | 🔨 |
+| [T3.11](T3.11.md) | 3 | Hygiene: SHA1/curl residue, npm lockfile | cleanup | T2.3, T2.5 | 🔨 |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3, E4.3 | 📋 |
 | [E4.3](E4.3.md) | 4 | Test coverage | epic | T0.3 | 📋 |
