@@ -97,7 +97,10 @@ ExternProcServer::~ExternProcServer()
         client->close();
     }
 
-    if (process_exe && process_exe->referenced())
+    //Only signal a process that really spawned: after a failed uv_spawn the
+    //handle keeps pid 0, and uv_kill(0, SIGTERM) signals our whole process
+    //group (this killed the make check harness, see KnxIo_test.cpp).
+    if (process_exe && process_exe->referenced() && process_exe->pid() > 0)
     {
         process_exe->kill(SIGTERM);
         process_exe->close();
@@ -117,7 +120,9 @@ void ExternProcServer::terminate()
     if (client)
         client->stop();
 
-    if (process_exe && process_exe->referenced())
+    //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
+    //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
+    if (process_exe && process_exe->referenced() && process_exe->pid() > 0)
         process_exe->kill(SIGTERM);
 
     if (pipe && pipe->referenced())
