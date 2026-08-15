@@ -4,6 +4,19 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-15 — MySensors : suppression complète (code mort)
+**Décision** : MySensors n'est plus utilisé par personne — supprimer tout le support de la
+codebase (ticket T2.12). Rend T3.2b obsolète.
+**Comment l'appliquer** : ne plus investir aucun effort dans le code MySensors (fix, revue,
+refactor) ; toute découverte le concernant pointe vers T2.12.
+
+## 2026-08-15 — GPIO : honorer `debounce_time` de la config
+**Décision** : câbler le paramètre `debounce_time` (aujourd'hui décoratif, 0.05 s codé en dur).
+Fallback 0.05 s si absent/invalide. Ticket T2.13.
+
+## 2026-08-15 — OTA : clamp de l'intervalle de rescan validé
+**Décision** : le clamp [1 min, 30 jours] introduit par T1.10 est validé tel quel.
+
 ## 2026-08-15 — Wago : respawn infini, backoff court
 **Décision** : le respawn du process externe Wago ne doit **jamais** abandonner, et le backoff
 doit rester **court** (rampe 1,2,3 puis plafond 5 s).

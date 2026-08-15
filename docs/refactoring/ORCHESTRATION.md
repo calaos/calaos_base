@@ -22,8 +22,9 @@
      (voir FINDINGS wave 4 — touche tous les WS handlers).
   4. Triage des **13 alertes Dependabot** (9 high, 4 moderate) signalées au push.
 - **Décisions récentes** (détail dans DECISIONS.md) : Wago = respawn infini backoff ≤5 s ;
-  MQTT non-UTF8 = '?' ; OneWire = hex majuscules. **Reste à faire valider** : clamp 30 j rescan
-  OTA (T1.10), câblage `debounce_time` GPIO, queue-vs-drop MySensors (voir FINDINGS).
+  MQTT non-UTF8 = '?' ; OneWire = hex majuscules ; clamp OTA 30 j validé ; GPIO
+  `debounce_time` à câbler (T2.13) ; **MySensors = code mort à supprimer entièrement (T2.12,
+  rend T3.2b obsolète)**. Plus aucune validation en attente.
 
 ---
 

@@ -84,7 +84,9 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T2.9](T2.9.md) | 2 | ListeRule dead code updateAllRulesTo* | refactor | T1.1 | 📋 |
 | [T2.10](T2.10.md) | 2 | UrlDownloader lifecycle (cancel, pipe, buffering) | fix (sec) | T1.4 | 📋 |
 | [T2.11](T2.11.md) | 2 | Transport hardening compléments (431, cap/IP, config) | fix (sec) | T1.5 | 📋 |
-| [T3.2b](T3.2b.md) | 3 | Thin IO subclasses — MySensors | refactor | Phase 2 | 📋 |
+| [T2.12](T2.12.md) | 2 | Remove MySensors entirely (dead code, user decision) | removal | Phase 1 | 📋 |
+| [T2.13](T2.13.md) | 2 | GPIO: honor `debounce_time` from config | fix | T1.19 | 📋 |
+| [T3.2b](T3.2b.md) | 3 | ~~Thin IO subclasses — MySensors~~ (obsolete: removal via T2.12) | refactor | T2.12 | ⛔ |
 | [T3.2c](T3.2c.md) | 3 | Thin IO subclasses — Mqtt | refactor | Phase 2 | 📋 |
 | [T3.2d](T3.2d.md) | 3 | Thin IO subclasses — Web | refactor | Phase 2 | 📋 |
 | [T3.2e](T3.2e.md) | 3 | Thin IO subclasses — Wago | refactor | Phase 2 | 📋 |
