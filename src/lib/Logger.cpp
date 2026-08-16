@@ -82,9 +82,25 @@ bool LogStream::isTerminal()
  *
  */
 
+/* T3.14 - immortal static, see the long comment in LogSetup.cpp.
+ *
+ * This cache used to be a plain function local static. Built during main(), it
+ * was therefore the FIRST thing destroyed in the atexit chain; ~_Hashtable
+ * resets the element count, so the empty() test below became true again and
+ * the whole initialisation block re-ran from a static destructor. It called
+ * Utils::get_config_option() on a config path whose own static had already
+ * been destroyed, and calaos_server printed a parse error on a corrupted path
+ * at every single shutdown. Never destroying the cache removes the re-entry.
+ */
+static std::unordered_map<std::string, int> &loggerDomains()
+{
+    static std::unordered_map<std::string, int> *d = new std::unordered_map<std::string, int>();
+    return *d;
+}
+
 static int maxLevelPrintable(string domain)
 {
-    static std::unordered_map<std::string, int> logger_domains;
+    std::unordered_map<std::string, int> &logger_domains = loggerDomains();
 
     if (logger_domains.empty())
     {

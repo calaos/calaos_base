@@ -96,6 +96,7 @@ po/remove-potcdate.sed
 Makefile.am.user*
 *.swp
 tests/*_test
+tests/*_helper
 tests/core/*_test
 tests/core/*.log
 tests/core/*.trs

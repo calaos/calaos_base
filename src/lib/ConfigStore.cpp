@@ -57,8 +57,31 @@ namespace XmlUtils = Calaos::XmlUtils;
 
 static const char* ENV_CONFIG = "CALAOS_CONFIG";
 
-static string _configBase;
-static string _cacheBase;
+/* T3.14 - immortal statics, see the long comment in LogSetup.cpp.
+ *
+ * getConfigFile() is called from the atexit chain (a static destructor that
+ * logs makes the logger read its own level, which reads local_config.xml), and
+ * these two used to be plain namespace scope statics. Read after their own
+ * destructor had run, "_configBase + "/" + configType" concatenated a freed
+ * buffer: the first bytes were the allocator's tcache metadata, the tail was
+ * what was left of the real path, and TinyXML - now pugixml - reported a parse
+ * error on a path full of binary garbage at every shutdown.
+ *
+ * Allocated once and never destroyed, they stay valid for the whole atexit
+ * chain. They remain reachable from static storage, so LeakSanitizer scans
+ * them as roots and reports nothing.
+ */
+static string &configBase()
+{
+    static string *b = new string();
+    return *b;
+}
+
+static string &cacheBase()
+{
+    static string *b = new string();
+    return *b;
+}
 
 string Utils::getConfigPath()
 {
@@ -115,7 +138,7 @@ string Utils::getConfigPath()
 
 string Utils::getCachePath()
 {
-    if (_cacheBase.empty())
+    if (cacheBase().empty())
     {
         string home;
         if (getenv("HOME"))
@@ -133,33 +156,33 @@ string Utils::getCachePath()
         mkdir(string(home + "/.cache").c_str(), S_IRWXU);
         mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
 
-        _cacheBase = home + "/.cache/calaos";
+        cacheBase() = home + "/.cache/calaos";
     }
 
-    return _cacheBase;
+    return cacheBase();
 }
 
 string Utils::getConfigFile(const char *configType)
 {
-    if (_configBase.empty())
+    if (configBase().empty())
     {
         const char* envConfig = getenv(ENV_CONFIG);
 
         if (envConfig) {
-            _configBase = envConfig;
+            configBase() = envConfig;
         }
         else
         {
-            _configBase = getConfigPath();
+            configBase() = getConfigPath();
         }
     }
 
-    return _configBase + "/" + configType;
+    return configBase() + "/" + configType;
 }
 
 string Utils::getCacheFile(const char *cacheFile)
 {
-    if (_cacheBase.empty())
+    if (cacheBase().empty())
     {
         string home;
         if (getenv("HOME"))
@@ -177,10 +200,10 @@ string Utils::getCacheFile(const char *cacheFile)
         mkdir(string(home + "/.cache").c_str(), S_IRWXU);
         mkdir(string(home + "/.cache/calaos").c_str(), S_IRWXU);
 
-        _cacheBase = home + "/.cache/calaos";
+        cacheBase() = home + "/.cache/calaos";
     }
 
-    return _cacheBase + "/" + cacheFile;
+    return cacheBase() + "/" + cacheFile;
 }
 
 /* Config options storage (local_config.xml)
@@ -215,8 +238,17 @@ string Utils::getCacheFile(const char *cacheFile)
  * logging from inside the locked section would re-enter it and deadlock.
  */
 
-//A global mutex for get/set config options threadsafely
-static std::mutex configMutex;
+/* A global mutex for get/set config options threadsafely.
+ *
+ * T3.14 - immortal static, same reason as configBase() above: get_config_option()
+ * is reached from the atexit chain and used to lock this mutex after its own
+ * destructor had run.
+ */
+static std::mutex &configMutex()
+{
+    static std::mutex *m = new std::mutex();
+    return *m;
+}
 
 namespace
 {
@@ -728,11 +760,11 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
 {
     if (configdir)
     {
-        _configBase = configdir;
+        configBase() = configdir;
         setenv(ENV_CONFIG, configdir, 1);
     }
 
-    if (cachedir) _cacheBase = cachedir;
+    if (cachedir) cacheBase() = cachedir;
 
     string file = getConfigFile(LOCAL_CONFIG);
 
@@ -754,7 +786,7 @@ void Utils::initConfigOptions(char *configdir, char *cachedir, bool quiet)
         //The locks are taken once here and the unlocked helpers are used:
         //calling the public functions would take them a second time and
         //deadlock, see the deadlock rule above.
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_EX, errors);
 
         if (fileLock.canProceed())
@@ -832,7 +864,7 @@ string Utils::get_config_option(string _key, bool no_logger_out)
     ConfigErrors errors;
 
     {
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_SH, errors);
 
         if (fileLock.canProceed())
@@ -850,7 +882,7 @@ bool Utils::get_config_options(Params &options)
     ConfigErrors errors;
 
     {
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_SH, errors);
 
         if (fileLock.canProceed())
@@ -873,7 +905,7 @@ bool Utils::set_config_option(string key, string value)
     ConfigErrors errors;
 
     {
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_EX, errors);
 
         if (fileLock.canProceed())
@@ -891,7 +923,7 @@ bool Utils::del_config_option(string key)
     ConfigErrors errors;
 
     {
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_EX, errors);
 
         if (fileLock.canProceed())
@@ -909,7 +941,7 @@ bool Utils::set_config_options(const Params &toSet, const std::vector<string> &t
     ConfigErrors errors;
 
     {
-        std::lock_guard<std::mutex> lock{configMutex};
+        std::lock_guard<std::mutex> lock{configMutex()};
         ConfigFileLock fileLock(LOCK_EX, errors);
 
         if (fileLock.canProceed())

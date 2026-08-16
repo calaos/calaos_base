@@ -1056,3 +1056,24 @@ core_RuleDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RuleDisabledMissingIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# T3.14
+#Objects used after their own static destructor ran. StaticLogShutdown_helper
+#is a repro program, not a test: it reproduces the pattern (a translation unit
+#static of the PROGRAM whose destructor logs, linked against
+#libcalaos_common), which cannot be observed from inside a gtest binary since
+#the interesting moment is after main() returned. It is listed in
+#check_PROGRAMS so that "make check" builds it, and NOT in TESTS.
+#StaticLogShutdown_test runs it and inspects its output; it needs no calaos
+#library of its own, which also keeps its own statics out of the picture. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += StaticLogShutdown_test
+check_PROGRAMS += StaticLogShutdown_test StaticLogShutdown_helper
+StaticLogShutdown_test_SOURCES = StaticLogShutdown_test.cpp
+StaticLogShutdown_test_LDADD = -lgtest -lgtest_main
+
+StaticLogShutdown_helper_SOURCES = StaticLogShutdown_helper.cpp
+StaticLogShutdown_helper_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
