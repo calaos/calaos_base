@@ -44,6 +44,10 @@ protected:
     void LoadRange(TiXmlElement *node, vector<TimeRange> &plage);
     void SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage);
 
+    vector<TimeRange> *getRangesForWeekday(int wday);
+    static bool isInRanges(vector<TimeRange> *plage, long cur,
+                           const struct tm &date, bool previousDay);
+
 public:
     InPlageHoraire(Params &p);
     ~InPlageHoraire();

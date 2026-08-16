@@ -31,8 +31,9 @@
  *    the offsets, equality, the proto/Params serialization round trip and the
  *    day-of-week bitset.
  *  - InPlageHoraire: the *observable* result of hasChanged() - inclusive
- *    bounds, empty schedule, inverted (end < start) range, weekday selection,
- *    month mask, disabled IO, union of several ranges.
+ *    bounds, empty schedule, inverted (end < start) range wrapping over
+ *    midnight into the next day, weekday selection, month mask, disabled IO,
+ *    union of several ranges.
  *  - Calendar: only what tests/CommonLib_test.cpp does NOT already cover
  *    (it owns monthUp/monthDown/dayDown/getDayIdFromDate). Here: the leap-year
  *    rule, the day clamping done by setMonth()/setYear(), the dayUp() wrap and
@@ -70,9 +71,9 @@
 #include "Calendar.h"
 #include "Utils.h"
 
-//NOTE: src/lib/TimeRange.h has no include guard, so it must be reached through
-//exactly one path. InPlageHoraire.h already includes it; including it directly
-//as well is a redefinition error.
+//InPlageHoraire.h pulls src/lib/TimeRange.h in. Since T3.13 that header has an
+//include guard, so reaching it through both paths is fine.
+#include "TimeRange.h"
 #include "InPlageHoraire.h"
 
 #include "core/CalaosCoreFixture.h"
@@ -181,7 +182,7 @@ TEST(TimeRangeTest, InvertedRangeKeepsBothBoundsAsIs)
 {
     //end < start. TimeRange itself does not normalize anything, it is the
     //consumer that decides what an inverted range means (see
-    //InPlageHoraireEvalTest.InvertedRangeNeverMatches).
+    //InPlageHoraireEvalTest.InvertedRangeWrapsOverMidnight).
     TimeRange h = normalRange(23 * 3600, 1 * 3600);
 
     EXPECT_EQ(23 * 3600, h.getStartTimeSec(2025, 6, 15));
@@ -225,13 +226,12 @@ TEST(TimeRangeTest, EmptyProtoDoesNotReadOutOfBounds)
      * proto string does not index past the end of the vector: every missing
      * field simply ends up empty.
      *
-     * BUG, reported not fixed (E4.3a): getStartTimeSec()/getEndTimeSec() then
-     * feed those empty strings to from_string() into *uninitialized* locals
-     * (`int h, m, s;`) and ignore its return value, so the seconds-of-day of a
-     * range built from a truncated proto string is garbage - it was observed
-     * negative here. Nothing below asserts that value: it is undefined
-     * behaviour, not a contract. What is pinned is only that the construction
-     * itself stays in bounds and that the typed fields keep sane values.
+     * Before T3.13, getStartTimeSec()/getEndTimeSec() fed those empty strings
+     * to from_string() into *uninitialized* locals and ignored its return
+     * value, so the seconds-of-day of such a range was garbage (a negative
+     * value was observed). It is now defined: an unparsable bound is reported
+     * in the log, counted as 00:00:00, and isValid() says the range must be
+     * ignored altogether.
      */
     TimeRange h("");
 
@@ -244,12 +244,45 @@ TEST(TimeRangeTest, EmptyProtoDoesNotReadOutOfBounds)
     EXPECT_EQ(1, h.start_offset);
     EXPECT_EQ(1, h.end_offset);
 
+    EXPECT_FALSE(h.isValid());
+    EXPECT_EQ(0, h.getStartTimeSec(2025, 6, 15));
+    EXPECT_EQ(0, h.getEndTimeSec(2025, 6, 15));
+
     //a short proto string is padded the same way
     TimeRange truncated("1:8:30");
     EXPECT_EQ("8", truncated.shour);
     EXPECT_EQ("30", truncated.smin);
     EXPECT_EQ("", truncated.ssec);
     EXPECT_EQ(TimeRange::HTYPE_NORMAL, truncated.end_type);
+
+    //the start bound is truncated too ("" seconds), so the whole range is out
+    EXPECT_FALSE(truncated.isValid());
+    EXPECT_EQ(0, truncated.getStartTimeSec(2025, 6, 15));
+}
+
+TEST(TimeRangeTest, IsValidRejectsBoundsThatAreNotNumbers)
+{
+    TimeRange h = normalRange(8 * 3600, 20 * 3600);
+    EXPECT_TRUE(h.isValid());
+
+    TimeRange empty = normalRange(8 * 3600, 20 * 3600);
+    empty.emin = "";
+    EXPECT_FALSE(empty.isValid());
+    EXPECT_EQ(0, empty.getEndTimeSec(2025, 6, 15)); //documented fallback
+
+    TimeRange garbage = normalRange(8 * 3600, 20 * 3600);
+    garbage.shour = "eight";
+    EXPECT_FALSE(garbage.isValid());
+    EXPECT_EQ(0, garbage.getStartTimeSec(2025, 6, 15));
+
+    TimeRange trailing = normalRange(8 * 3600, 20 * 3600);
+    trailing.ssec = "15s";
+    EXPECT_FALSE(trailing.isValid());
+
+    //a sunrise bound without offset never parses the strings as a time
+    TimeRange sun;
+    sun.start_type = TimeRange::HTYPE_SUNRISE;
+    EXPECT_TRUE(sun.isValid());
 }
 
 TEST(TimeRangeTest, OffsetsAreNormalizedToPlusOrMinusOne)
@@ -411,6 +444,10 @@ protected:
 
     void addForToday(TimeRange h) { addForWeekday(localNow().wday, h); }
 
+    //The weekday of the day before today, ie the day an overnight range must
+    //be attached to for its tail to be seen this morning.
+    void addForYesterday(TimeRange h) { addForWeekday((localNow().wday + 6) % 7, h); }
+
     /* Evaluate a schedule that is expressed relative to the current second.
      * `build` receives the current second-of-day and fills the schedule;
      * `check` receives that same second and the resulting boolean value.
@@ -474,20 +511,124 @@ TEST_F(InPlageHoraireEvalTest, FullDayRangeOnAnotherWeekdayIsFalse)
     EXPECT_TRUE(plage->get_value_bool());
 }
 
-TEST_F(InPlageHoraireEvalTest, InvertedRangeNeverMatches)
+TEST_F(InPlageHoraireEvalTest, InvertedRangeWrapsOverMidnight)
 {
-    /* CHARACTERIZING the current behaviour, not a documented contract:
-     * hasChanged() tests `cur >= start && cur <= end`, so a range whose end is
+    /* CONTRACT (T3.13, user decision). This test used to be
+     * InvertedRangeNeverMatches and pinned the opposite: a range whose end was
      * before its start (23:00 -> 01:00, the natural way of writing "over
-     * midnight") can never be satisfied, at any time of the day. It is an
-     * empty range, it does NOT wrap around midnight. This assertion holds
-     * whatever the clock says, which is exactly why it is worth pinning: a
-     * later "fix" adding midnight wrapping would break it on purpose.
+     * midnight") was an empty range that never matched. It now wraps.
+     *
+     * The range is attached to *today* only, and an overnight range belongs to
+     * the evening of the day it is attached to: it covers [23:00, end of day]
+     * today and would cover [00:00, 01:00] tomorrow. So at any moment before
+     * 23:00 - this morning included - it is false; the 00:00 -> 01:00 tail
+     * seen this morning belongs to yesterday's copy of the range, see
+     * PreviousDayOvernightRangeSpillsIntoThisMorning.
      */
-    addForToday(normalRange(23 * 3600, 1 * 3600));
+    evalInStableWindow(
+        [this](long) { addForToday(normalRange(23 * 3600, 1 * 3600)); },
+        [](long cur, bool value) { EXPECT_EQ(cur >= 23 * 3600, value); });
+}
+
+TEST_F(InPlageHoraireEvalTest, OvernightRangeIsFalseInTheGapBetweenEndAndStart)
+{
+    //An overnight range [start, end] with end < start is false exactly on
+    //(end, start): here the hole is centered on the current second.
+    evalInStableWindow(
+        [this](long cur)
+        {
+            if (cur < 1 || cur > SECONDS_PER_DAY - 2) return;
+            addForToday(normalRange(cur + 1, cur - 1));
+        },
+        [](long cur, bool value)
+        {
+            if (cur < 1 || cur > SECONDS_PER_DAY - 2) return;
+            EXPECT_FALSE(value);
+        });
+}
+
+TEST_F(InPlageHoraireEvalTest, OvernightRangeDoesNotMatchTheMorningOfItsOwnDay)
+{
+    /* The weekday half of the decision: "monday 23:00 -> 01:00" means monday
+     * 23:00 up to tuesday 01:00 (continuity of monday night). It is NOT read
+     * as "monday 00:00 -> 01:00 plus monday 23:00 -> 24:00", so the tail must
+     * not be visible on the morning of the very day the range is attached to.
+     */
+    evalInStableWindow(
+        [this](long cur)
+        {
+            if (cur >= SECONDS_PER_DAY - 1) return;
+            //ends now, but starts at the last second of the day
+            addForToday(normalRange(SECONDS_PER_DAY - 1, cur));
+        },
+        [](long cur, bool value)
+        {
+            if (cur >= SECONDS_PER_DAY - 1) return;
+            EXPECT_FALSE(value);
+        });
+}
+
+TEST_F(InPlageHoraireEvalTest, PreviousDayOvernightRangeSpillsIntoThisMorning)
+{
+    //Same range as above, attached to yesterday: its tail is what covers the
+    //current second.
+    evalInStableWindow(
+        [this](long cur)
+        {
+            if (cur >= SECONDS_PER_DAY - 1) return;
+            addForYesterday(normalRange(SECONDS_PER_DAY - 1, cur));
+        },
+        [](long cur, bool value)
+        {
+            if (cur >= SECONDS_PER_DAY - 1) return;
+            EXPECT_TRUE(value);
+        });
+}
+
+TEST_F(InPlageHoraireEvalTest, PreviousDayOvernightRangeStopsAtItsEnd)
+{
+    //...and it stops at its end: one second earlier and this morning is out.
+    evalInStableWindow(
+        [this](long cur)
+        {
+            if (cur < 1 || cur >= SECONDS_PER_DAY - 1) return;
+            addForYesterday(normalRange(SECONDS_PER_DAY - 1, cur - 1));
+        },
+        [](long cur, bool value)
+        {
+            if (cur < 1 || cur >= SECONDS_PER_DAY - 1) return;
+            EXPECT_FALSE(value);
+        });
+}
+
+TEST_F(InPlageHoraireEvalTest, PreviousDayPlainRangeDoesNotSpill)
+{
+    //Only an overnight (end < start) range crosses midnight. A plain range of
+    //the previous day stays in the previous day, even a full day one.
+    addForYesterday(normalRange(0, SECONDS_PER_DAY - 1));
 
     plage->hasChanged();
     EXPECT_FALSE(plage->get_value_bool());
+}
+
+TEST_F(InPlageHoraireEvalTest, RangeWithAnUnparsableBoundIsIgnored)
+{
+    /* A bound that does not parse falls back to 00:00:00 (see
+     * TimeRangeTest.IsValidRejectsBoundsThatAreNotNumbers). Evaluating it
+     * anyway would turn a full day range into an inverted one and make it wrap
+     * for no reason, so such a range is skipped entirely.
+     */
+    TimeRange broken = normalRange(0, SECONDS_PER_DAY - 1);
+    broken.emin = ""; //as a truncated proto command would leave it
+
+    addForToday(broken);
+    plage->hasChanged();
+    EXPECT_FALSE(plage->get_value_bool());
+
+    //and a valid range next to it is still evaluated
+    addForToday(normalRange(0, SECONDS_PER_DAY - 1));
+    plage->hasChanged();
+    EXPECT_TRUE(plage->get_value_bool());
 }
 
 TEST_F(InPlageHoraireEvalTest, BoundsAreInclusive)
@@ -539,11 +680,12 @@ TEST_F(InPlageHoraireEvalTest, MidnightOnlyRangeMatchesOnlyAtMidnight)
 
 TEST_F(InPlageHoraireEvalTest, SeveralRangesAreUnioned)
 {
-    //One range that cannot match plus one that covers the whole day
+    //One overnight range, true only late in the evening, plus one that covers
+    //the whole day: the value is the union, true at any hour.
     evalInStableWindow(
         [this](long)
         {
-            addForToday(normalRange(23 * 3600, 1 * 3600)); //inverted, never true
+            addForToday(normalRange(23 * 3600, 1 * 3600)); //overnight
             addForToday(normalRange(0, SECONDS_PER_DAY - 1));
         },
         [](long, bool value) { EXPECT_TRUE(value); });

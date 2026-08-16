@@ -34,7 +34,9 @@ InPlageHoraire::InPlageHoraire(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("TimeRange");
     ioDoc->aliasAdd("InPlageHoraire");
-    ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months."));
+    ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months. "
+                            "A range whose end is before its start wraps over midnight: it starts on the weekday it is attached to and ends the next morning. "
+                            "For example a range 23:00 -> 01:00 set on monday is true from monday 23:00 to tuesday 01:00, and never on monday between 00:00 and 01:00."));
     ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
     ioDoc->conditionAdd("true", _("Event triggered when entering the range"));
@@ -65,49 +67,98 @@ void InPlageHoraire::clear()
     plg_sunday.clear();
 }
 
-void InPlageHoraire::hasChanged()
+vector<TimeRange> *InPlageHoraire::getRangesForWeekday(int wday)
 {
-    if (!isEnabled()) return;
-
-    bool val = false;
-    vector<TimeRange> *plage = NULL;
-
-    struct tm *ctime = NULL;
-    tzset(); //Force reload of timezone data
-    time_t t = time(NULL);
-    ctime = localtime(&t);
-
-    switch (ctime->tm_wday)
+    switch (wday)
     {
-    case TimeRange::MONDAY: plage = &plg_monday; break;
-    case TimeRange::TUESDAY: plage = &plg_tuesday; break;
-    case TimeRange::WEDNESDAY: plage = &plg_wednesday; break;
-    case TimeRange::THURSDAY: plage = &plg_thursday; break;
-    case TimeRange::FRIDAY: plage = &plg_friday; break;
-    case TimeRange::SATURDAY: plage = &plg_saturday; break;
-    case TimeRange::SUNDAY: plage = &plg_sunday; break;
-    default: break;
+    case TimeRange::MONDAY: return &plg_monday;
+    case TimeRange::TUESDAY: return &plg_tuesday;
+    case TimeRange::WEDNESDAY: return &plg_wednesday;
+    case TimeRange::THURSDAY: return &plg_thursday;
+    case TimeRange::FRIDAY: return &plg_friday;
+    case TimeRange::SATURDAY: return &plg_saturday;
+    case TimeRange::SUNDAY: return &plg_sunday;
+    default: return NULL;
     }
+}
 
-    if (!plage)
-        return;
+/* Is `cur` (a second of day of the *current* day) inside the ranges scheduled
+ * for the day described by `date`?
+ *
+ * A range whose end is before its start wraps over midnight: it is the natural
+ * way of writing an overnight period (23:00 -> 01:00). Such a range belongs to
+ * the day it is attached to and runs until the next morning: "monday
+ * 23:00 -> 01:00" means monday 23:00 up to tuesday 01:00, it does NOT also
+ * match monday between 00:00 and 01:00.
+ *
+ * That is why it is evaluated twice: once with previousDay == false, where it
+ * covers [start, end of day] of its own day, and once the next day with
+ * previousDay == true, where it covers [start of day, end].
+ */
+bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
+                                const struct tm &date, bool previousDay)
+{
+    if (!plage) return false;
 
     for (uint i = 0;i < plage->size();i++)
     {
         TimeRange &h = (*plage)[i];
 
-        long start_time = h.getStartTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
-        long end_time = h.getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
-        long cur = ctime->tm_hour * 3600 +
-                   ctime->tm_min * 60 +
-                   ctime->tm_sec;
+        //a range with an unparsable bound is not evaluated at all, its bounds
+        //would silently fall back to 00:00:00
+        if (!h.isValid())
+            continue;
 
-        if (cur >= start_time && cur <= end_time)
-            val = true;
+        long start_time = h.getStartTimeSec(date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
+        long end_time = h.getEndTimeSec(date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
 
-        //If the month is not set, force the time_range to false
-        if (!months.test(ctime->tm_mon))
-            val = false;
+        if (start_time <= end_time)
+        {
+            //a plain range lives entirely inside its own day
+            if (!previousDay && cur >= start_time && cur <= end_time)
+                return true;
+        }
+        else if (previousDay)
+        {
+            //tail of yesterday's overnight range, [00:00, end]
+            if (cur <= end_time)
+                return true;
+        }
+        else
+        {
+            //head of today's overnight range, [start, end of day]
+            if (cur >= start_time)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void InPlageHoraire::hasChanged()
+{
+    if (!isEnabled()) return;
+
+    bool val = false;
+
+    tzset(); //Force reload of timezone data
+    time_t t = time(NULL);
+    //copy, localtime() returns a pointer to a shared buffer
+    struct tm today = *localtime(&t);
+
+    //If the month is not set, the time_range is always false
+    if (months.test(today.tm_mon))
+    {
+        long cur = today.tm_hour * 3600 +
+                   today.tm_min * 60 +
+                   today.tm_sec;
+
+        //ranges of today, plus the ranges of yesterday that run over midnight
+        time_t t_yesterday = t - 24 * 3600;
+        struct tm yesterday = *localtime(&t_yesterday);
+
+        val = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false) ||
+              isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
     }
 
     if (val != value)

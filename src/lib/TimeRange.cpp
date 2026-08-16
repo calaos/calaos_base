@@ -72,6 +72,45 @@ TimeRange::TimeRange(const Params &p)
     if (end_offset >= 0) end_offset = 1;
 }
 
+bool TimeRange::parseHms(const string &h, const string &m, const string &s, long &sec)
+{
+    int hi = 0, mi = 0, si = 0;
+
+    /* from_string() returns istringstream::eof(), which is also true for an
+     * empty string (the value is then zero initialized), so the empty case is
+     * rejected explicitly. Anything else that does not consume the whole
+     * string ("12abc", "abc"...) is rejected by from_string() itself.
+     */
+    if (h.empty() || m.empty() || s.empty())
+        return false;
+    if (!from_string(h, hi) || !from_string(m, mi) || !from_string(s, si))
+        return false;
+
+    sec = (long)hi * 3600 + (long)mi * 60 + (long)si;
+
+    return true;
+}
+
+void TimeRange::logBadBound(const string &which)
+{
+    if (bad_bound_logged) return;
+    bad_bound_logged = true;
+
+    cError() << "Horaire: unparsable " << which << " bound ["
+             << shour << ":" << smin << ":" << ssec << "] ===> ["
+             << ehour << ":" << emin << ":" << esec
+             << "], counting it as 00:00:00. The time range is invalid and "
+                "should be ignored.";
+}
+
+bool TimeRange::isValid() const
+{
+    long v = 0;
+
+    return parseHms(shour, smin, ssec, v) &&
+           parseHms(ehour, emin, esec, v);
+}
+
 bool TimeRange::operator==(const TimeRange &other) const
 {
     return (start_type == other.start_type &&
@@ -97,11 +136,11 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
 
     if (start_type == HTYPE_NORMAL)
     {
-        int h, m, s;
-        from_string(shour, h);
-        from_string(smin, m);
-        from_string(ssec, s);
-        v = h * 3600 + m * 60 + s;
+        if (!parseHms(shour, smin, ssec, v))
+        {
+            logBadBound("start");
+            v = 0;
+        }
     }
     else if (start_type == HTYPE_SUNRISE ||
              start_type == HTYPE_SUNSET ||
@@ -122,11 +161,13 @@ long TimeRange::getStartTimeSec(int year, int month, int day)
         if (shour != "0" || smin != "0" || ssec != "0")
         {
             //there is an offset
-            int h, m, s;
-            from_string(shour, h);
-            from_string(smin, m);
-            from_string(ssec, s);
-            v = v + start_offset * (h * 3600 + m * 60 + s);
+            long off = 0;
+            if (!parseHms(shour, smin, ssec, off))
+            {
+                logBadBound("start offset");
+                off = 0;
+            }
+            v = v + start_offset * off;
         }
     }
 
@@ -139,11 +180,11 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
 
     if (end_type == HTYPE_NORMAL)
     {
-        int h, m, s;
-        from_string(ehour, h);
-        from_string(emin, m);
-        from_string(esec, s);
-        v = h * 3600 + m * 60 + s;
+        if (!parseHms(ehour, emin, esec, v))
+        {
+            logBadBound("end");
+            v = 0;
+        }
     }
     else if (end_type == HTYPE_SUNRISE ||
              end_type == HTYPE_SUNSET ||
@@ -164,11 +205,13 @@ long TimeRange::getEndTimeSec(int year, int month, int day)
         if (ehour != "0" || emin != "0" || esec != "0")
         {
             //there is an offset
-            int h, m, s;
-            from_string(ehour, h);
-            from_string(emin, m);
-            from_string(esec, s);
-            v = v + end_offset * (h * 3600 + m * 60 + s);
+            long off = 0;
+            if (!parseHms(ehour, emin, esec, off))
+            {
+                logBadBound("end offset");
+                off = 0;
+            }
+            v = v + end_offset * off;
         }
     }
 
