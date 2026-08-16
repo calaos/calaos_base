@@ -647,3 +647,18 @@ supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transform
 
 Backlog wave 4 (candidats) : **T1.8, T1.10, T1.14, T1.16, T1.17, T1.19** — majoritairement
 Python / drivers, donc largement file-disjoints.
+
+## Règle — ne pas commiter sur master pendant une fenêtre de merge
+
+Constat du merge E4.2f+E4.0a (2026-08-16) : l'orchestrateur a commité 3 commits de docs
+(`d10457b7`, `262293d8`, `337ea975`) **pendant** que l'agent de merge buildait. Celui-ci a dû
+rebaser deux fois. Aucun conflit — les commits étaient documentaires et hors de ses périmètres —
+et il a rebasé plutôt que forcer, ce qui est le bon réflexe. Mais la consigne « master ne doit
+jamais être manipulé par deux opérations concurrentes » que l'orchestrateur donne lui-même à ses
+agents n'était pas respectée **par l'orchestrateur**.
+
+**Règle** : tant qu'un agent de merge est en vol, l'orchestrateur ne commite rien sur master.
+Les décisions utilisateur et mises à jour de board se mettent en attente et partent en un seul
+commit après le rapport de merge. Si une décision doit absolument être consignée immédiatement,
+elle va dans un fichier qu'aucun agent de merge n'écrit (jamais `BOARD.md`, `FINDINGS.md`,
+`RELEASE_NOTES.md` ni `ORCHESTRATION.md`), et on l'assume explicitement.
