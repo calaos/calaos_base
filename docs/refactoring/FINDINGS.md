@@ -480,3 +480,24 @@ d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir au
   `AutoScenario` lui-même et chacun annule le membre juste après ; il n'existe aucune API JSON
   de suppression d'IO générique. Les convertir = ~40 sites réécrits pour zéro danger réel.
   Consigné pour qu'un futur passage ne « complète » pas la conversion par symétrie.
+
+## E4.0 — inventaire de l'API JSON (mesures)
+
+- **`docs/08_http_api.md` est faux, pas seulement incomplet** : il couvre 6 opérations sur 57,
+  **décrit une enveloppe d'event qui n'est pas celle du code**, documente un `push_notification`
+  qui n'existe pas, et annonce `get_mcp_info` en WebSocket alors qu'il est HTTP-only.
+  → **ne peut pas servir d'oracle** pour les tests de caractérisation. À reprendre depuis le code
+  (prévu en fin de série E4.0).
+- **Divergences HTTP/WS à geler telles quelles** (ce sont des bugs, mais les figer d'abord) :
+  `audio_db` attend `get_albums` en HTTP et `get_album` en WS — incompatibilité silencieuse ;
+  `autoscenario` avec un `type` inconnu **ne répond rien du tout** ; `buildQuery()` teste
+  `Exists("id")` mais lit `jParam["input_id"]`.
+- **Tout part en chaîne** : 32 `json_string` et **zéro** `json_real`/`json_integer` dans
+  `JsonApi.cpp`. Seule exception, `eventlog` (déjà en nlohmann) émet 4 entiers JSON. Bonne
+  nouvelle pour la migration : le piège du formatage numérique (`.0` final) est presque sans
+  objet. `buildJsonIO` **omet** une clé absente au lieu d'émettre `null`.
+- **Le piège `_DEPENDENCIES` mord actuellement dans l'arbre de travail local** (27 occurrences) :
+  `JsonApi.o` daté du 28/05 pour un source du 11/08, et le `tests/Makefile` généré ne connaît que
+  3 des 20 tests `core/`. ⚠️ **Cela n'invalide aucun build de merge** — tous passent par
+  `make distclean` dans le conteneur, qui efface les `.o`. C'est un artefact de l'arbre local.
+- **4 types d'events sont morts** : 24 constantes d'enum, 23 types réels, 19 réellement poussés.
