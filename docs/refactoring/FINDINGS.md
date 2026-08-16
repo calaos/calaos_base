@@ -351,3 +351,19 @@ Deux nits relevés à la revue, **non bloquants**, laissés en l'état :
   par `|| echo`, et l'upload est `if: always()` avec `if-no-files-found: warn` — chaque mode
   d'échec produit donc un rapport vide plutôt qu'une CI cassée. La première exécution réelle sur
   GitHub sera la vraie validation.
+
+## E4.4cd — suites
+
+- **Régression de diagnosticabilité (mineure)** : les erreurs de parsing loggent désormais un
+  **offset en octets** au lieu d'un **numéro de ligne**. Pour un opérateur qui débogue une config
+  cassée, la ligne est bien plus utile. Follow-up simple : calculer la ligne à partir de l'offset
+  (compter les `\n` jusqu'à `result.offset`) et logger les deux.
+
+- `XmlUtils::setAttribute` ne touche que la première occurrence si un fichier source contient un
+  attribut **réellement dupliqué** (TinyXML dédoublonnait au parsing). Inoffensif aujourd'hui :
+  chaque sauvegarde reconstruit depuis `Params` (`std::map`) et aucun nœud chargé n'est
+  re-sérialisé tel quel.
+
+- Divergences `hits` hors des six cas testés, atteignables seulement en éditant le XML à la
+  main : `"0x10"` → TinyXML 0 / pugixml 16 ; `"999999999999"` → TinyXML −727379969 (UB de
+  `sscanf`) / pugixml 2147483647. pugixml est strictement meilleur.

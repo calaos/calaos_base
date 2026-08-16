@@ -267,6 +267,24 @@
   libasan. **Faux positif de propreté d'arbre** — après `make distclean`, build par défaut
   **50/50** tout vert. ff-only, worktree e4.3cd nettoyé. 2 nits cosmétiques de revue consignés
   dans FINDINGS.md (validation de `--enable-asan=<valeur>`, lcov CI non exercé).
+- **E4.4cd ✅ mergé** (2026-08-16, `3d606eab`, **l'étape critique pour l'ABI de configuration** :
+  tout le lecteur/écrivain de config passe de TinyXML à pugixml, 50 fichiers, +585/−475.
+  Deux commits : step 0 (`override` explicite partout, aucune autre modification) puis le port.
+  Périmètre exact vérifié après rebase : `src/bin/calaos_server/**` (43), `src/lib/{Makefile.am,
+  Utils.h,XmlUtils.h}` (3, dont le nouveau `XmlUtils.h`), `tests/core/**` (4) — **rien** sous
+  `configure.ac`, `.github/` ou `docs/`. Rebase sur master post-T3.14/T3.15 **sans aucun
+  conflit** (pas de conflit EOF sur `tests/Makefile.am` cette fois : la branche n'y touche pas).
+  Build d'intégration par défaut **50/50** tout vert, aucun résidu ASan.
+  ⚠️ **`ConfigStore.cpp` est délibérément différé à E4.4d-bis** : il reste sur TinyXML, donc
+  E4.4e (suppression du vendored TinyXML) est bloqué tant que E4.4d-bis n'est pas fait.
+  Le **chemin pugixml vendored** est celui qui a été exercé par ce build (pas le paquet Debian).
+  **Census `override`** (step 0) : **26** déclarations dérivées de `LoadFromXml`/`SaveToXml`,
+  **toutes** prenant un `pugi::xml_node`, **toutes** désormais marquées `override` — c'est ce qui
+  a rendu le changement de signature détectable à la compilation plutôt que silencieux.
+  Deux réparations de fidélité de données visibles utilisateur (CDATA +18 caractères, perte de
+  données sur `]]>`) consignées dans RELEASE_NOTES.md ; 3 suites de revue dans FINDINGS.md
+  (offset en octets au lieu du numéro de ligne, `setAttribute` sur attribut dupliqué,
+  divergences `hits` hors des six cas testés). ff-only, worktree e4.4cd nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

@@ -126,7 +126,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.4a](E4.4a.md) | 4 | Introduce pugixml (Debian pkg, XPath on) | infra | — | ✅ |
 | [E4.4b](E4.4b.md) | 4 | WebCtrl: TinyXPath → pugixml XPath | refactor | E4.4a | ✅ |
 | [E4.2e](E4.2e.md) | 4 | Rule with a missing dependency is disabled (user decision) | fix | E4.2c | 📋 |
-| [E4.4cd](E4.4cd.md) | 4 | XML port on pugixml (sweep + core, atomic) | refactor | E4.4b | 🔨 |
+| [E4.4cd](E4.4cd.md) | 4 | XML port on pugixml (sweep + core, atomic) | refactor | E4.4b | ✅ |
 | [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | 📋 |
 
 ---

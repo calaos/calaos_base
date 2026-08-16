@@ -25,6 +25,19 @@ se mettre à fonctionner :
   commentaire) faisait **planter le serveur** — c'était un déni de service à distance depuis une
   URL configurée par l'utilisateur.
 
+### Fichiers de configuration — deux pertes de fidélité corrigées (E4.4cd)
+Le lecteur/écrivain de configuration passe de TinyXML à pugixml. Deux défauts de fidélité des
+données, présents de longue date, disparaissent :
+- **Blocs CDATA (scripts Lua, messages de notification) : +18 caractères d'espacement parasites.**
+  L'imprimeur TinyXML mettait le CDATA sur sa propre ligne, si bien qu'un corps de script de
+  21 octets se relisait à 39 depuis un fichier écrit par le serveur. **Non cumulatif**
+  (3 générations de sauvegarde restent à +18) et **Calaos relisait proprement** — le préjudice
+  était pour les consommateurs conformes au standard : calaos_installer (QDomDocument), XSLT,
+  outils tiers. Corrigé : le corps est désormais restitué à l'octet près.
+- **Perte de données sur `]]>` dans un script.** Un corps contenant la séquence `]]>` était écrit
+  puis relu tronqué (170 octets écrits → 89 relus) et produisait un fichier XML invalide.
+  Corrigé : aller-retour intégral.
+
 ### Plages horaires — les plages nocturnes fonctionnent (T3.13)
 Une plage inversée (`23:00 → 01:00`, la façon naturelle d'écrire « la nuit ») était **vide et ne
 se déclenchait jamais**. Elle **wrappe désormais sur minuit**. Avec un jour de semaine :
