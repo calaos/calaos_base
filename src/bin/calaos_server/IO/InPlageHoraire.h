@@ -97,8 +97,8 @@ public:
 
     virtual void hasChanged();
 
-    virtual bool LoadFromXml(TiXmlElement *node);
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node) override;
+    virtual bool SaveToXml(TiXmlElement *node) override;
 };
 
 }

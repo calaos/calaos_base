@@ -43,8 +43,8 @@ public:
 
     virtual bool Evaluate();
 
-    virtual bool LoadFromXml(TiXmlElement *node);
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node) override;
+    virtual bool SaveToXml(TiXmlElement *node) override;
 };
 
 }

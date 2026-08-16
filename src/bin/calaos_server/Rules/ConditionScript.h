@@ -54,8 +54,8 @@ public:
     virtual bool Evaluate();
     void EvaluateAsync(std::function<void(bool eval)> cb, string triggerId);
 
-    virtual bool LoadFromXml(TiXmlElement *node);
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(TiXmlElement *node) override;
+    virtual bool SaveToXml(TiXmlElement *node) override;
 
     //Declares `io`/`id` as a trigger of this condition. A null IO or an empty
     //id is refused and logged; adding the same id twice is a no-op.

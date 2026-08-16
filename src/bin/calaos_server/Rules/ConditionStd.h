@@ -111,8 +111,8 @@ public:
 
     int get_size() { return inputIds.size(); }
 
-    bool LoadFromXml(TiXmlElement *node);
-    bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node) override;
+    bool SaveToXml(TiXmlElement *node) override;
 };
 
 }

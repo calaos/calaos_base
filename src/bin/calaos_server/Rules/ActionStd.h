@@ -76,8 +76,8 @@ public:
 
     int get_size() { return outputIds.size(); }
 
-    bool LoadFromXml(TiXmlElement *node);
-    bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(TiXmlElement *node) override;
+    bool SaveToXml(TiXmlElement *node) override;
 };
 
 }

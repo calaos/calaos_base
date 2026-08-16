@@ -109,7 +109,7 @@ public:
 
     virtual bool set_value(std::string val);
 
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool SaveToXml(TiXmlElement *node) override;
 };
 
 }
