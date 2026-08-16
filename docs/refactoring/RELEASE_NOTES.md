@@ -40,6 +40,22 @@ se mettre à fonctionner :
   commentaire) faisait **planter le serveur** — c'était un déni de service à distance depuis une
   URL configurée par l'utilisateur.
 
+### Scénarios — plus de plantage après suppression d'un scénario utilisé par un autre (E4.2f)
+Supprimer un scénario B dont l'équipement servait d'action d'étape à un scénario A détruisait les
+règles d'étape de A **sans prévenir A** : le scénario A gardait une étape pointant sur de la
+mémoire libérée. Le **premier affichage de la liste des scénarios** ensuite (`get_scenarios` /
+`get_scenario`, c'est-à-dire l'ouverture de l'écran Scénarios dans l'application ou l'installeur)
+relisait cette mémoire — soit un plantage du serveur, soit, pire, un nombre d'étapes et des durées
+de pause fantaisistes affichés à l'utilisateur. Le défaut était **atteignable depuis l'API JSON**,
+sans manipulation particulière : deux actions ordinaires de l'interface suffisaient, et le
+redémarrage du serveur était le seul moyen de retrouver un état sain.
+
+Désormais un scénario **oublie automatiquement** les étapes dont la règle a disparu : la liste
+renvoyée à l'interface ne contient plus que les étapes réellement vivantes. Rien à changer dans
+les configurations existantes ; un scénario amputé de cette façon affiche simplement moins
+d'étapes qu'avant la suppression (le traitement complet de ce cas — désactiver le scénario amputé
+plutôt que le raccourcir — est l'objet d'un ticket dédié, T3.18).
+
 ### Fichiers de configuration — deux pertes de fidélité corrigées (E4.4cd)
 Le lecteur/écrivain de configuration passe de TinyXML à pugixml. Deux défauts de fidélité des
 données, présents de longue date, disparaissent :

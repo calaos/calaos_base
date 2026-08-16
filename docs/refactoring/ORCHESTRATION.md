@@ -432,6 +432,44 @@
   affichée en `LogSetup.cpp:101-103` ; premier log tardif encore capable d'écrire brut sur `cout`
   si le cache est froid ; fuite préexistante sur double `initLogger()`, désormais invisible à
   LSan). ff-only, worktree t3.14 nettoyé.
+- **E4.2f ✅ mergé** (2026-08-16, `faa952ea`) — **6/6, la série ownership E4.2 est CLOSE** (E4.2g
+  ayant été abandonné après re-cadrage : 0/21 sites dangereux). Le dernier maillon tombe : les
+  back-pointers bruts `Rule *` d'`AutoScenario` (`ruleStart`, `ruleStop`, `ruleStepEnd`,
+  `rulePlageStart`, `rulePlageStop`, `vector<Rule *> ruleSteps`) passent par un `RuleRef` =
+  `Rule *` + `weak_ptr<bool>` sur `Rule::aliveToken()`, **le jeton de vie qui existait déjà**
+  (`Rule.h:111`, créé pour les callbacks de conditions script) — donc aucune nouvelle plomberie de
+  durée de vie. E4.2d avait supprimé le **double-free** (`Remove(Rule*)` refuse de détruire ce
+  qu'il ne possède pas) mais **pas le pointeur pendant** : `ListeRoom::deleteIO()` →
+  `detachIOFromRules()` → `ListeRule::RemoveRule(io)` détruit **toute** règle citant cet id, y
+  compris une règle d'étape dont l'IO cible avait été choisi via `addStepAction()`, sans annuler
+  aucun back-pointer et sans relancer `checkScenarioRules()` (appelé **une seule fois**, au
+  démarrage, `main.cpp:196`). Le `heap-use-after-free` était donc **atteignable depuis l'API
+  JSON** : `scenario_del` d'un scénario B, puis le premier `get_scenarios`/`get_scenario`
+  (`buildAutoscenarioList`, `JsonApi.cpp:1592-1598`) lisait en mémoire libérée via
+  `Scenario::toJson()` → `getRuleSteps()`/`getStepPause()`. Le commentaire d'aveu de
+  `RuleLifecycle_test.cpp:399-401` (« AutoScenario::ruleSteps still holds the freed pointer ») est
+  devenu une assertion. Traité au passage : `IOBase.h:66` `AutoScenario *ascenario`, posé sur le
+  seul `ioTimeRange` et **jamais remis à null**, relu en `JsonApi.cpp:1578,1581`. Périmètre exact,
+  **5 fichiers** : `Scenario/AutoScenario.{h,cpp}`, `IOBase.h` (commentaire seul),
+  `IO/Scenario.cpp` (2 gardes), `tests/core/RuleLifecycle_test.cpp` — **`tests/Makefile.am`
+  intact**, **aucun binaire de test ajouté** (les cas nouveaux entrent dans le
+  `core/RuleLifecycle_test` existant), et **aucune ligne** de `ListeRule.*`, `Rule.*`, `Room.*`,
+  `ListeRoom.*`, `JsonApi.*`. Les back-pointers **mesurés inoffensifs** (`ioScenario`,
+  `ioIsActive`, `ioScheduleEnabled`, `ioStep`, `ioTimer`, `ioTimeRange`, `roomContainer`,
+  `ScenarioAction::io`, `Scenario::auto_scenario`) sont **délibérément non convertis** — cf. le
+  finding de cadrage, pour qu'un futur passage ne « complète » pas la conversion par symétrie.
+  **Aucun conflit** au rebase, ni sur `tests/Makefile.am` ni sur `docs/` ; l'artefact d'écart de
+  base ne s'est pas matérialisé (94 fichiers de `docs/refactoring/` intacts). Rebasé **deux fois** :
+  la branche partait de `a3334697`, master avait pris 3 commits de docs T3.18, puis un 4e
+  (`262293d8`) est tombé **pendant** le build d'intégration — le second rebase ne ramène que des
+  docs (`BOARD.md`, `T3.18.md`), l'arbre hors `docs/` étant **byte-identique** à celui validé.
+  Build d'intégration distclean : **54/54 PASS**, compte inchangé comme attendu ; le build dépasse
+  600 s, attendu par `docker wait` sur le conteneur retrouvé par son **mount exact**, **sans
+  relance**. Consigné dans RELEASE_NOTES.md (plantage atteignable depuis l'API, section
+  « comportements qui changent ») ; **2 suites non bloquantes** dans FINDINGS.md (`getRuleSteps()`
+  purge **et** alloue, appelé dans la **condition de boucle** de `Scenario::toJson()` → O(n²),
+  motif préexistant légèrement aggravé, cosmétique ; le `purgeDeadSteps()` d'`addStep()` est du
+  **code mort** aujourd'hui, gardé en défense en profondeur). ff-only, worktree e4.2f nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

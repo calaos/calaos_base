@@ -540,3 +540,28 @@ Aucune ne remet en cause le correctif : les deux UB visés sont bien supprimés.
   désormais **invisible à LSan** (le hash lui-même n'étant plus détruit, tout son contenu est
   atteignable à la sortie, donc classé « still reachable » et non « definitely lost »). À traiter
   comme une dette propre si `initLogger()` devient ré-appelable.
+
+## E4.2f — suites
+
+Deux réserves **non bloquantes** relevées par la revue (mesures reproduites indépendamment).
+Aucune ne remet en cause le correctif : l'UAF atteignable depuis l'API JSON est bien supprimé.
+
+- **`getRuleSteps()` purge *et* alloue un vecteur neuf, et il est appelé dans la condition de
+  boucle** : `Scenario::toJson()` écrit `for (uint i = 0; i < auto_scenario->getRuleSteps().size(); i++)`
+  (`IO/Scenario.cpp:99`), donc chaque itération refait un `purgeDeadSteps()` **et** une allocation
+  de `vector<Rule *>` — O(n²) purges + O(n²) allocations par sérialisation d'un scénario. Le motif
+  d'appel dans la condition de boucle est **préexistant** ; E4.2f l'aggrave légèrement en ajoutant
+  la purge au corps de l'accesseur (avant, `getRuleSteps()` ne faisait que copier). Purement
+  **cosmétique** aux tailles réelles (quelques dizaines d'étapes) : la correction est de
+  *snapshoter* l'appel une fois hors de la boucle, ce que le commentaire d'`AutoScenario.cpp:40-48`
+  demande déjà à tout futur appelant capable de détruire une `Rule` en cours d'itération.
+
+- **Le `purgeDeadSteps()` d'`addStep()` est du code mort aujourd'hui** (`AutoScenario.cpp:636`).
+  Les deux appelants de production (`JsonApi.cpp:1680` et `:1773`) n'appellent `addStep()` qu'après
+  un `deleteRules()` ou sur un scénario neuf : la liste n'est jamais trouée à cet endroit et la
+  purge n'a jamais rien à retirer. Elle est **gardée comme défense en profondeur** — et ce n'est
+  pas l'équivalent de `checkScenarioRules()`, qui *renumérote* les étapes survivantes alors
+  qu'`addStep()` ne numérote que la nouvelle ; sur une liste trouée, purger ne suffirait pas, il
+  faudrait renuméroter. Le commentaire en place (`AutoScenario.cpp:620-635`) dit exactement cela,
+  pour qu'un futur appelant qui casse la séquence ne construise pas silencieusement la collision
+  de numéros d'étape.
