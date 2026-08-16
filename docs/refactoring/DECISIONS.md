@@ -4,6 +4,23 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-16 — E4.1 (JSON) : caractérisation AVANT migration, jansson supprimé à terme
+**Décision** : l'objectif final est la **suppression totale de jansson**, `nlohmann::json` seul.
+Mais la migration ne démarre **qu'après** l'écriture d'une série de tests de caractérisation qui
+valident les entrées/sorties de l'API JSON **actuelle**. On écrit les tests sur le comportement
+existant, *puis* on migre sous ce filet. Cette série préalable devient **E4.0**, dépendance dure
+de E4.1.
+**Pourquoi** : sans comportement de référence enregistré, un payload qui change après migration
+est indiscernable d'un payload qui a toujours été comme ça — on ne saurait pas distinguer une
+régression d'un comportement d'origine. Le prérequis « filet de tests » qu'E4.1 invoquait
+pointait sur E4.3, fermé en ✅ mais dont la couverture (règles, XML, lifecycle IO,
+WebSocketFrame, tcpsocket, ExternProc, Timer, base64, Calendar, Params, Lua) **ne contient pas
+`JsonApi`** : le prérequis était coché pour un autre périmètre que celui dont E4.1 a besoin.
+**Appliquer** : ne pas lancer un seul sous-ticket E4.1 tant que E4.0 n'est pas livré. Les tests
+de caractérisation comparent les payloads **sémantiquement** (arbre JSON parsé), **jamais octet
+à octet** — l'ordre des clés change par décision assumée (voir l'entrée « nlohmann standard »
+plus bas), un test byte-exact échouerait à la bascule pour une raison déjà acceptée.
+
 ## 2026-08-15 — Transport (T2.11) : cap connexions par client, header cap fixe
 **Décision** : cap de connexions **par client** basé sur l'identité X-Forwarded-For (dernière
 entrée de la dernière ligne XFF — hop haproxy de confiance, règle T1.8) avec fallback pair TCP ;
