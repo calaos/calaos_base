@@ -1,0 +1,75 @@
+{
+  "audio": [],
+  "cameras": [],
+  "home": [
+    {
+      "hits": "3",
+      "items": [
+        {
+          "gui_type": "var_bool",
+          "id": "e40_bool_in",
+          "io_type": "inout",
+          "name": "Bool input",
+          "rw": "false",
+          "state": "false",
+          "type": "InternalBool",
+          "var_type": "bool",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_bool",
+          "id": "e40_bool_out",
+          "io_type": "inout",
+          "name": "Bool output",
+          "rw": "false",
+          "state": "false",
+          "type": "InternalBool",
+          "var_type": "bool",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_int",
+          "id": "e40_int",
+          "io_type": "inout",
+          "name": "Int value",
+          "rw": "false",
+          "state": "0",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_string",
+          "id": "e40_string",
+          "io_type": "inout",
+          "name": "String value",
+          "rw": "false",
+          "state": "",
+          "type": "InternalString",
+          "var_type": "string",
+          "visible": "true"
+        }
+      ],
+      "name": "Salon",
+      "type": "salon"
+    },
+    {
+      "hits": "0",
+      "items": [
+        {
+          "gui_type": "var_string",
+          "id": "e40_accented",
+          "io_type": "inout",
+          "name": "Éclairage café",
+          "rw": "false",
+          "state": "",
+          "type": "InternalString",
+          "var_type": "string",
+          "visible": "true"
+        }
+      ],
+      "name": "Cuisine",
+      "type": "cuisine"
+    }
+  ]
+}
