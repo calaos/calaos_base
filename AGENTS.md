@@ -60,6 +60,19 @@ make check
 
 The project uses GNU Autotools. Optional hardware drivers are enabled by autodetection at configure time (`AC_CHECK_HEADERS`/`PKG_CHECK_MODULES`), not by `--with-*` flags — check the "Hardware support" lines in the configure summary.
 
+### AddressSanitizer build (`--enable-asan`)
+
+```bash
+./autogen.sh
+./configure --enable-asan
+make -j$(nproc)
+ASAN_OPTIONS=detect_leaks=0 make check
+```
+
+`--enable-asan` appends `-fsanitize=address -fno-omit-frame-pointer -g -O1` to `CFLAGS`, `CXXFLAGS` **and** `LDFLAGS`. It is off by default and a plain `./configure` is bit-for-bit unaffected. The configure summary reports its state on the "AddressSanitizer" line.
+
+`ASAN_OPTIONS=detect_leaks=0` disables LeakSanitizer: the server intentionally never frees a number of process-lifetime singletons, so the leak checker is pure noise here. The memory-error detection (use-after-free, buffer overflow, use-after-scope) — the part that validates the ownership refactoring — stays on. Use a dedicated build tree (`--enable-asan` is not meant to be mixed with a release build) and never ship an ASan binary.
+
 ---
 
 ## Code Architecture

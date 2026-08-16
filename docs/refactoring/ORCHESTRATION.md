@@ -288,9 +288,17 @@ Règles dures :
     vsc-calaos_base-12022039c4b5f0e1b3db46145edacf81b99ac88513f5f47e81e91e6919b1be26:latest \
     bash -c "./autogen.sh && ./configure && make -j12 && make check"
   ```
-- ASan : `CXXFLAGS="-g -O1 -fsanitize=address" LDFLAGS="-fsanitize=address"`,
-  `ASAN_OPTIONS=detect_leaks=0`. **Échec pré-existant à IGNORER** : stack-use-after-scope
-  `exprtk.hpp:15688` (tracké en T2.8 — voir FINDINGS).
+- ASan : depuis E4.3c, plus de `CXXFLAGS` bricolés — utiliser l'option de configure.
+  ```
+  ./autogen.sh && ./configure --enable-asan && make -j12 && \
+    ASAN_OPTIONS=detect_leaks=0 make check
+  ```
+  `--enable-asan` ajoute `-fsanitize=address -fno-omit-frame-pointer -g -O1` à
+  CFLAGS/CXXFLAGS/LDFLAGS ; désactivée par défaut (un `./configure` nu est inchangé).
+  `detect_leaks=0` coupe LeakSanitizer (singletons process-lifetime jamais libérés = bruit) ;
+  la détection use-after-free / overflow / use-after-scope reste active.
+  L'échec historique stack-use-after-scope `exprtk.hpp:15688` a été corrigé par T2.8 : la suite
+  doit être verte sous ASan, tout échec est une vraie trouvaille à rapporter.
 
 ## Validation sur configs réelles (acquis 2026-08-16)
 

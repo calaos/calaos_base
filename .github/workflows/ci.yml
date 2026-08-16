@@ -49,6 +49,106 @@ jobs:
             echo
           done
 
+  coverage:
+    name: Coverage report (informational)
+    runs-on: ubuntu-latest
+    container: debian:12
+    # Non-blocking on purpose: the point is to publish the measurement, not to
+    # gate a PR on an arbitrary percentage. A broken coverage run must never
+    # hold back a change whose build & tests are green in build-and-test.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+              build-essential pkg-config \
+              autoconf automake libtool autopoint gettext \
+              libsigc++-2.0-dev libjansson-dev libcurl4-openssl-dev \
+              libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
+              libpugixml-dev \
+              libgtest-dev \
+              lcov \
+              git
+
+      - name: Build with gcov instrumentation
+        run: |
+          ./autogen.sh
+          # --coverage on both compile and link flags; -O0 keeps the line
+          # mapping honest, -fprofile-update=atomic avoids counter races in
+          # the threaded parts of the suite.
+          ./configure \
+            CFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
+            CXXFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
+            LDFLAGS="--coverage"
+          make -j$(nproc)
+
+      - name: Capture baseline (zero) counters
+        run: |
+          lcov --directory . --zerocounters
+          # Baseline over the whole tree so files that no test ever touches
+          # still appear (at 0%) instead of silently vanishing from the report.
+          # --ignore-errors is limited to the categories lcov 1.16 (the version
+          # in debian:12) knows about; the lcov 2.x names are rejected outright.
+          lcov --directory . --capture --initial \
+               --output-file coverage-base.info \
+               --ignore-errors gcov,source,graph
+
+      - name: Run tests (make check)
+        # Never fail the coverage job on a test failure: build-and-test is the
+        # job that owns that verdict. Here we still want a report for whatever
+        # did run.
+        run: make check || echo "make check reported failures; see the build-and-test job"
+
+      - name: Generate lcov report
+        run: |
+          lcov --directory . --capture --output-file coverage-run.info \
+               --ignore-errors gcov,source,graph
+          lcov --add-tracefile coverage-base.info \
+               --add-tracefile coverage-run.info \
+               --output-file coverage-all.info
+
+          # Keep only our own code: system headers, the test sources
+          # themselves and the bundled third-party trees would drown the
+          # signal we actually care about.
+          lcov --remove coverage-all.info \
+               '/usr/*' \
+               '*/tests/*' \
+               '*/src/lib/TinyXML/*' \
+               '*/src/lib/libquickmail/*' \
+               '*/src/lib/uvw/*' \
+               '*/src/lib/llhttp/*' \
+               '*/src/lib/exprtk/*' \
+               '*/src/lib/sole/*' \
+               '*/src/lib/sqlite_modern_cpp/*' \
+               '*/src/lib/uri_parser/*' \
+               '*/src/lib/cpptui/*' \
+               '*/src/lib/pugixml/*' \
+               '*/src/lib/json.hpp' \
+               --output-file coverage.info
+
+          genhtml coverage.info --output-directory coverage-html \
+                  --legend --title "calaos_base coverage" \
+                  --ignore-errors source
+
+      - name: Coverage summary
+        run: lcov --summary coverage.info
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            coverage.info
+            coverage-html
+          if-no-files-found: warn
+          retention-days: 14
+
   format-check:
     name: Format check (changed lines)
     runs-on: ubuntu-latest

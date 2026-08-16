@@ -237,6 +237,39 @@ AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_MCP], [test "x$have_python_mcp" = "xyes"])
 
+### AddressSanitizer (--enable-asan)
+#Off by default: a plain ./configure must produce byte-for-byte the same flags
+#as before this option existed, so nothing here runs unless it is asked for.
+#
+#This block sits deliberately at the very end, after every configure-time
+#compile/link probe (AC_CHECK_LIB, PKG_CHECK_MODULES, EFL_CHECK_COMPILER_FLAGS,
+#AX_CXX_COMPILE_STDCXX_20, ACX_PTHREAD...): appending -fsanitize=address to
+#CFLAGS/CXXFLAGS/LDFLAGS earlier would make each of those probes compile and
+#link against libasan, which can change their outcome (and would leak the
+#sanitizer into the pkg-config/compiler-flag detection results cached in
+#config.log). Only the flags handed to make need the sanitizer.
+have_asan="no"
+ASAN_HINT=""
+AC_ARG_ENABLE([asan],
+    AS_HELP_STRING([--enable-asan],
+                   [build with AddressSanitizer (-fsanitize=address), for debugging only @<:@default=no@:>@]),
+    [enable_asan=$enableval],
+    [enable_asan=no])
+
+if test "x${enable_asan}" = "xyes"
+then
+    have_asan="yes"
+    #-O1 + frame pointers: ASan needs readable stack traces, and -O0 makes the
+    #test suite crawl. -g is repeated here on purpose so the option works even
+    #if the caller overrode CFLAGS/CXXFLAGS without it.
+    ASAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1"
+    CFLAGS="${CFLAGS} ${ASAN_FLAGS}"
+    CXXFLAGS="${CXXFLAGS} ${ASAN_FLAGS}"
+    LDFLAGS="${LDFLAGS} ${ASAN_FLAGS}"
+    ASAN_HINT="-- run the suite as: ASAN_OPTIONS=detect_leaks=0 make check"
+    AC_MSG_NOTICE([AddressSanitizer enabled: ${ASAN_FLAGS}])
+fi
+
 AC_CONFIG_FILES([
 Makefile
 tests/Makefile
@@ -294,6 +327,7 @@ echo "  LDFLAGS..............................: $LDFLAGS"
 echo
 echo "Test Suite:"
 echo "  gtest library........................: $GTEST_INFO"
+echo "  AddressSanitizer (--enable-asan).....: $(colorOut $have_asan) $ASAN_HINT"
 echo
 echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"
 echo "  prefix...............................: $prefix"
