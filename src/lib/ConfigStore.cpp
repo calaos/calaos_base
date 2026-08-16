@@ -48,7 +48,9 @@
 using namespace Utils;
 using namespace std;
 
-//The four pugixml-vs-TinyXML behaviours live in Calaos::XmlUtils (E4.4cd).
+//The four behaviours the old TinyXML 1 reader had and pugixml does not live
+//in Calaos::XmlUtils (E4.4cd). TinyXML itself was removed in E4.4e; the TiXml*
+//names quoted below are that former API, kept as the reason for the code.
 //Aliased rather than "using namespace Calaos", this file has no other business
 //in that namespace.
 namespace XmlUtils = Calaos::XmlUtils;

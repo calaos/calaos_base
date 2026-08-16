@@ -135,8 +135,9 @@ XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, 
     res.wasCorrupt = true;
     cError() << "There was a parse error in " << file;
     cError() << parsed.description();
-    //pugixml reports a byte offset where TinyXML reported a row; the offset is
-    //what it has, and it points at the same place in the file.
+    //pugixml reports a byte offset where the old TinyXML 1 reader (removed in
+    //E4.4e) reported a row; the offset is what it has, and it points at the
+    //same place in the file.
     cError() << "In file " << file << " At offset " << parsed.offset;
 
     res.corruptCopy = preserveCorruptFile(file, configName);

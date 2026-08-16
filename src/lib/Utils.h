@@ -66,7 +66,7 @@
 
 //E4.4cd + E4.4d-bis: the whole config reader/writer (CalaosConfig, Room, Rule,
 //the IOs, the rule conditions/actions and ConfigStore/local_config.xml) runs on
-//pugixml. No TinyXML include is left in the tree; E4.4e drops src/lib/TinyXML.
+//pugixml. E4.4e removed the vendored TinyXML 2.5.3 + TinyXPath it replaced.
 #include "XmlUtils.h"
 #include <sigc++/sigc++.h>
 

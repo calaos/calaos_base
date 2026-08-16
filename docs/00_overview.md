@@ -80,7 +80,7 @@ main()
 | jansson / nlohmann-json | Sérialisation JSON |
 | sigc++ | Signaux/slots (connexions entre objets) |
 | libcurl | Téléchargements HTTP (UrlDownloader) |
-| TinyXML | Parsing/écriture XML (config) |
+| pugixml | Parsing/écriture XML + XPath 1.0 (config) |
 | LuaJIT | Moteur de scripts |
 | libmbus | Protocole Modbus TCP (Wago) |
 | libmosquitto | Broker MQTT (ExternProc) |

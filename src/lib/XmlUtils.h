@@ -20,12 +20,15 @@
  ******************************************************************************/
 
 /******************************************************************************
- * E4.4cd — the four TinyXML behaviours pugixml does not have out of the box.
+ * E4.4cd — the four behaviours of the old TinyXML 1 reader that pugixml does
+ * not have out of the box.
  *
  * The port of the config reader/writer is otherwise a 1:1 rewrite; everything
  * that is NOT a mechanical rename lives here, so the semantics that used to be
  * implicit in TinyXML are visible and shared instead of being re-derived (or
- * forgotten) at each of the ~30 call sites.
+ * forgotten) at each of the ~30 call sites. The TiXml* names quoted below are
+ * that old API: the vendored TinyXML 2.5.3 + TinyXPath tree is gone since
+ * E4.4e, and they are kept only to say WHY each helper exists.
  *
  * Only pugixml >= 1.10 API is used (see configure.ac): no set_value(ptr, len).
  ******************************************************************************/

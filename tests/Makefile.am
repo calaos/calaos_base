@@ -42,7 +42,6 @@ AM_CPPFLAGS = \
               -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
               -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
               -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
-              -DTIXML_USE_STL                                       \
               -I$(top_srcdir)/src/bin/calaos_server/Audio           \
               -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
               -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
@@ -58,7 +57,6 @@ AM_CPPFLAGS = \
               -I$(top_srcdir)/src/bin/tools/config_tui              \
               -I$(top_srcdir)/src/lib                               \
               -I$(top_srcdir)/src/lib/LuaScript                     \
-              -I$(top_srcdir)/src/lib/TinyXML                       \
               -I$(top_srcdir)/src/lib/llhttp/include                \
               -I$(top_srcdir)/src/lib/libquickmail                  \
               -I$(top_srcdir)/src/lib/uri_parser                    \
@@ -844,7 +842,7 @@ endif
 #proves the header is reachable, the library links, and -- the point of the
 #whole E4.4 series -- that XPath 1.0 is compiled in. select_node()/
 #select_nodes()/xpath_query do not exist in a PUGIXML_NO_XPATH build, so
-#PugiXml_test.cpp cannot compile against one. Nothing here touches TinyXML.
+#PugiXml_test.cpp cannot compile against one.
 #Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += PugiXml_test

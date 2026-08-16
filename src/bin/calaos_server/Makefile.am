@@ -8,7 +8,6 @@ AM_CPPFLAGS =                                                 \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\"            \
-        -DTIXML_USE_STL                                       \
         -DLUA_USE_DLOPEN                                      \
         -DXPLLIB_NOSOCK                                       \
         -DXPLLIB_NOLOG                                        \
@@ -32,7 +31,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server                 \
         -I$(top_srcdir)/src/lib                               \
         -I$(top_srcdir)/src/lib/LuaScript                     \
-        -I$(top_srcdir)/src/lib/TinyXML                       \
         -I$(top_srcdir)/src/lib/llhttp/include                \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \

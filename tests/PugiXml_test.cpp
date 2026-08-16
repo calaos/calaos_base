@@ -56,14 +56,15 @@ TEST(PugiXml, ParsesStringAndReadsAttribute)
     EXPECT_STREQ("root", root.name());
     EXPECT_STREQ("calaos", root.attribute("name").value());
 
-    //Typed attribute access, the TinyXML QueryIntAttribute() equivalent.
+    //Typed attribute access, the equivalent of the old TinyXML 1
+    //QueryIntAttribute() (that library left the tree in E4.4e).
     const pugi::xml_node firstB = root.child("a").child("b");
     ASSERT_TRUE(firstB);
     EXPECT_EQ(1, firstB.attribute("x").as_int());
     EXPECT_STREQ("first", firstB.attribute("id").value());
 
     //A missing attribute must be falsy, not a crash: this is the contract the
-    //TinyXML call sites rely on today.
+    //ported call sites rely on.
     EXPECT_FALSE(firstB.attribute("nope"));
     EXPECT_EQ(42, firstB.attribute("nope").as_int(42));
 }

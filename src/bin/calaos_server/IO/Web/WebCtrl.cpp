@@ -25,7 +25,8 @@
 //only place in calaos that parses *untrusted* XML -- getValue() feeds it a
 //document downloaded from a user-configured URL -- so it is the site that had
 //to leave TinyXML 2.5.3 first (assert()-on-malformed-input, and an infinite
-//loop on truncated UTF-8). WebCtrl no longer references TinyXML at all.
+//loop on truncated UTF-8). TinyXML/TinyXPath were then removed from the tree
+//entirely in E4.4e; the names below describe the engine this code replaced.
 #include <pugixml.hpp>
 
 //E4.4a pinned the floor at pugixml >= 1.10 (Debian 12 ships 1.13, the vendored

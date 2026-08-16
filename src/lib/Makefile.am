@@ -7,7 +7,6 @@ AM_CXXFLAGS = \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\" \
         -DPACKAGE_LIB_DIR=\"$(libdir)\" \
         -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\" \
-        -DTIXML_USE_STL \
         -I$(top_srcdir)/src/bin/calaos_server \
         -I$(top_srcdir)/src/bin/calaos_server/Audio \
         -I$(top_srcdir)/src/bin/calaos_server/IO \
@@ -69,39 +68,6 @@ libcalaos_common_la_SOURCES = \
         Prefix.h                                \
         TimeRange.cpp                           \
         TimeRange.h                             \
-        TinyXML/action_store.cpp                \
-        TinyXML/action_store.h                  \
-        TinyXML/byte_stream.h                   \
-        TinyXML/lex_token.h                     \
-        TinyXML/lex_util.cpp                    \
-        TinyXML/lex_util.h                      \
-        TinyXML/node_set.cpp                    \
-        TinyXML/node_set.h                      \
-        TinyXML/tinystr.cpp                     \
-        TinyXML/tinystr.h                       \
-        TinyXML/tinystr.h                       \
-        TinyXML/tinyxml.cpp                     \
-        TinyXML/tinyxml.h                       \
-        TinyXML/tinyxml.h                       \
-        TinyXML/tinyxmlerror.cpp                \
-        TinyXML/tinyxmlparser.cpp               \
-        TinyXML/tinyxpath_conf.h                \
-        TinyXML/tokenlist.cpp                   \
-        TinyXML/tokenlist.h                     \
-        TinyXML/xml_util.cpp                    \
-        TinyXML/xml_util.h                      \
-        TinyXML/xpath_expression.cpp            \
-        TinyXML/xpath_expression.h              \
-        TinyXML/xpath_processor.cpp             \
-        TinyXML/xpath_processor.h               \
-        TinyXML/xpath_stack.cpp                 \
-        TinyXML/xpath_stack.h                   \
-        TinyXML/xpath_static.cpp                \
-        TinyXML/xpath_static.h                  \
-        TinyXML/xpath_stream.cpp                \
-        TinyXML/xpath_stream.h                  \
-        TinyXML/xpath_syntax.cpp                \
-        TinyXML/xpath_syntax.h                  \
         UrlDownloader.cpp                       \
         UrlDownloader.h                         \
         Constants.h                             \

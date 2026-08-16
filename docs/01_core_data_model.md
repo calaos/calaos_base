@@ -32,8 +32,8 @@ virtual bool set_value(bool val);
 virtual bool set_value(double val);
 virtual bool set_value(string val);
 virtual void hasChanged();               // appelé quand la valeur change
-virtual bool LoadFromXml(TiXmlElement*);
-virtual bool SaveToXml(TiXmlElement*);
+virtual bool LoadFromXml(pugi::xml_node);
+virtual bool SaveToXml(pugi::xml_node);
 ```
 
 ### DATA_TYPE

@@ -74,7 +74,8 @@ AC_SUBST([lt_enable_auto_import])
 
 EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wno-unused-parameter -Wshadow -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
 
-### pugixml (E4.4): XML DOM with native XPath 1.0, successor of TinyXML/TinyXPath.
+### pugixml (E4.4): XML DOM with native XPath 1.0. It replaced the vendored
+#TinyXML 2.5.3 + TinyXPath, removed from the tree in E4.4e.
 #The distro package is the default path (debian: libpugixml-dev, arch: pugixml,
 #both ship pugixml.pc with XPath enabled). When it is missing, the vendored copy
 #in src/lib/pugixml is compiled into libcalaos_common instead, so the build never

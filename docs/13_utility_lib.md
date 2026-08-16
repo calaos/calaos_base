@@ -10,7 +10,7 @@ Le dossier `src/lib/` contient les utilitaires partagés entre le serveur et les
 
 **Fichier :** [src/lib/Utils.h](../src/lib/Utils.h)
 
-Header principal qui inclut toutes les dépendances standard. Inclure `<Utils.h>` suffit pour accéder à std, sigc++, TinyXML, JSON, Logger.
+Header principal qui inclut toutes les dépendances standard. Inclure `<Utils.h>` suffit pour accéder à std, sigc++, pugixml, JSON, Logger.
 
 ### Fonctions utilitaires
 
@@ -227,7 +227,7 @@ File d'attente thread-safe. Utilisée pour passer des données entre threads si 
 
 | Bibliothèque | Emplacement | Usage |
 |---|---|---|
-| `TinyXML` + TinyXPath | `src/lib/TinyXML/` | Parsing/écriture XML |
+| `pugixml` | `src/lib/pugixml/` | Parsing/écriture XML + XPath 1.0 (repli quand le paquet distro est absent) |
 | `exprtk` | `src/lib/exprtk/` | Évaluation expressions mathématiques |
 | `libquickmail` | `src/lib/libquickmail/` | Envoi d'e-mails SMTP |
 | `llhttp` | `src/lib/llhttp/` | Parsing HTTP (headers) |
