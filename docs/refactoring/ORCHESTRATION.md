@@ -223,6 +223,27 @@
   d'intégration : **49/49**. ff-only, worktree t3.13 nettoyé. 2 suites non bloquantes
   consignées dans FINDINGS.md (`time2string_digit` sur durées négatives, cache `sun_rise_set`
   non peuplé au chemin d'échec polaire).
+- **E4.2c ✅ mergé** (2026-08-16, `ff6c51c7`, étape **3/6** de la série ownership E4.2) :
+  plus rien dans `Rules/` ne stocke un `IOBase*` — `Condition{Std,Output,Script}` et `ActionStd`
+  ne gardent qu'un **id** et résolvent via les accesseurs E4.2a au point d'usage. Un IO manquant
+  n'est plus un pointeur pendant : la condition vaut **false**, l'action est **sautée**, les deux
+  sont loguées, et **la sauvegarde conserve l'id** (le rejet au chargement reste inchangé). La
+  désinscription `in_event` est désormais pilotée par l'**enregistrement réel** au lieu d'une
+  liste blanche de `gui_type`. Effet de bord corrigé au passage et consigné dans RELEASE_NOTES :
+  les déclencheurs d'une `ConditionScript` étaient sérialisés dans l'**ordre de hash des
+  pointeurs** (ASLR), d'où des `rules.xml` qui diffèrent entre deux sauvegardes d'une config
+  inchangée ; l'ordre est maintenant celui du document. Périmètre exact : `Rules/Condition*.
+  {h,cpp}`, `Rules/Action*.{h,cpp}`, `Rules/RulesFactory.cpp`, `ListeRule.{h,cpp}`,
+  `ListeRoom.cpp`, `tests/core/RuleIoReference_test.cpp` (nouveau), `tests/Makefile.am` — rien
+  d'autre. Base : branche partie de `838850a0`, rebasée sur master (T3.13 + docs-only) ; conflit
+  unique et attendu en fin de `tests/Makefile.am` (patron regenerate : fichier master + le bloc
+  `HAVE_GTEST` E4.2c en EOF), **38/38 `if`/`endif`** équilibrés, docs/refactoring intact côté
+  master. Build d'intégration : **50/50** (49 de master + `core/RuleIoReference_test`). ff-only,
+  worktree e4.2c nettoyé. 3 suites remontées par la revue (non corrigées) dans FINDINGS.md :
+  la formulation « survit au save/reload » à corriger au ticket, `ConditionStd::getVarIds(vector
+  <IOBase*>&)` devenu code mort, et le chemin de compat legacy audio/caméra de
+  `ConditionStd::LoadFromXml` qui ne réaligne pas `id` (params/ops vides à l'évaluation).
+  Prochain de la série : E4.2d.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

@@ -75,3 +75,8 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
 - **Amplis Denon/Marantz/Onkyo** : les commandes de volume sont désormais correctement remplies
   à deux chiffres (`MV05` au lieu de `MV5`), conformément aux protocoles constructeurs.
 - **OTA RemoteUI** : l'intervalle de re-scan est borné à 30 jours maximum.
+- **Conditions script — fin des diffs fantômes dans `rules.xml`** : les déclencheurs d'une
+  condition script étaient sérialisés dans l'ordre de hash des **pointeurs** (dépendant de
+  l'ASLR), donc deux sauvegardes successives d'une configuration inchangée produisaient des
+  `rules.xml` différents dès qu'une condition script avait ≥2 déclencheurs. L'ordre est
+  désormais celui du document, stable. (Corrigé au passage par E4.2c.)

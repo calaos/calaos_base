@@ -310,3 +310,21 @@ par le ticket) :
   court-circuite plus, *toutes* les plages solaires d'un `InPlageHoraire` paient ce coût à chaque
   tick (10 Hz) et non plus seulement la première qui matchait. **Inatteignable aux latitudes
   françaises** ; à corriger en peuplant le cache (ou un marqueur d'échec) sur ce chemin aussi.
+
+## E4.2c — suites
+
+Vérifié par la revue, **non corrigé** :
+
+- **Formulation à corriger dans le ticket/board** : « une règle survit au save/reload » est trop
+  fort — l'id survit à la **SAUVEGARDE** ; au **RECHARGEMENT** la condition/action est toujours
+  rejetée (contrat de chargement figé par `CoreSmoke_test.RuleWithUnknownIoIsDropped`), donc la
+  règle revient avec 0 condition et l'id est perdu à la sauvegarde **suivante**. Le vrai gain est
+  quand l'IO réapparaît **avant** le rechargement.
+
+- `ConditionStd::getVarIds(vector<IOBase*>&)` n'a **plus aucun appelant** — code mort à supprimer.
+
+- **Pré-existant, comportement préservé mais désormais visible** : le chemin de compat legacy
+  audio/caméra de `ConditionStd::LoadFromXml` fait `in = io;` sans mettre à jour `id` vers le
+  nouvel id, alors qu'`ActionStd::LoadFromXml` fait correctement `id = out->get_param("id")`.
+  Résultat : `params`/`ops` restent clés sur l'ancien `iid`/`oid` tandis que l'évaluation utilise
+  le nouveau — ces conditions s'évaluent contre des params vides. Candidat correctif d'une ligne.
