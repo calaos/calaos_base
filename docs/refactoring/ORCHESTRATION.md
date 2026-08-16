@@ -285,6 +285,31 @@
   données sur `]]>`) consignées dans RELEASE_NOTES.md ; 3 suites de revue dans FINDINGS.md
   (offset en octets au lieu du numéro de ligne, `setAttribute` sur attribut dupliqué,
   divergences `hits` hors des six cas testés). ff-only, worktree e4.4cd nettoyé.
+- **T3.15 ✅ mergé** (2026-08-16, `60793bb1`, **bug de fidélité de données visible utilisateur** :
+  `RemoteUI::SaveToXml()` accrochait `<calaos:device_info>` au nœud qu'on lui passe — c'est-à-dire
+  l'élément **pièce** (`Room::SaveToXml()` donne son propre élément à chaque IO qu'elle possède) —
+  alors que `LoadFromXml()` l'a toujours lu **à l'intérieur** de `<calaos:remote_ui>`, ce que le
+  format documente aussi (`RemoteUI/remote-ui.md`, « Structure in io.xml », l.534). Écrivain et
+  lecteur ne se sont donc jamais rencontrés : ce qui était sauvé n'était jamais relu. E4.4cd avait
+  reproduit le bug **verbatim et volontairement** ; T3.15 le corrige.
+  **Migration : récupération plutôt qu'acceptation de la perte.** L'ancien écrivain déposait
+  l'élément juste **avant** le `<calaos:remote_ui>` qu'il décrivait, `Room::LoadFromXml()` ignore
+  les éléments inconnus (donc les orphelins sont toujours là), et rien d'autre dans le format
+  n'écrit jamais un `<calaos:device_info>` sous une pièce : l'élément précédent le plus proche
+  identifie l'ancien **sans ambiguïté**, y compris dans une pièce à plusieurs devices. ~15 lignes,
+  one-shot (la valeur est réécrite au bon endroit et l'orphelin disparaît à la sauvegarde suivante).
+  Périmètre exact après rebase : `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp`,
+  `tests/core/RemoteUIDeviceInfo_test.cpp`, `tests/Makefile.am`, `RELEASE_NOTES.md` — **rien** sous
+  `src/lib/` (`ConfigStore.cpp` appartient à E4.4dbis, concurrent). Rebase sur master (qui avait
+  pris le commit board de lancement) **sans aucun conflit** — pas de conflit EOF sur
+  `tests/Makefile.am` cette fois. Build d'intégration par défaut **51/51** tout vert.
+  Tests via `Config`/`Room`/`IOFactory` (pas de nœuds fabriqués à la main) : round-trip identique
+  valeur par valeur et deux fois de suite, adoption puis réécriture de la forme legacy, un device
+  ne peut pas adopter l'orphelin de son voisin, un `device_info` vide n'écrit pas d'élément.
+  ⚠️ La revue a d'abord rendu un **faux vert** en red-before-green à cause des surcharges
+  `_DEPENDENCIES` de `tests/Makefile.am` (le binaire de test ne se relinke pas quand l'objet de
+  production change) — piège méthodologique consigné dans FINDINGS.md. ff-only, worktree t3.15
+  nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

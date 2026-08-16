@@ -367,3 +367,21 @@ Deux nits relevés à la revue, **non bloquants**, laissés en l'état :
 - Divergences `hits` hors des six cas testés, atteignables seulement en éditant le XML à la
   main : `"0x10"` → TinyXML 0 / pugixml 16 ; `"999999999999"` → TinyXML −727379969 (UB de
   `sscanf`) / pugixml 2147483647. pugixml est strictement meilleur.
+
+## ⚠️ Piège méthodologique — `_DEPENDENCIES` et faux verts en red-before-green
+
+Plusieurs binaires de test surchargent `<name>_DEPENDENCIES` dans `tests/Makefile.am` (convention
+héritée de `JsonApiHardening_test`) **pour éviter qu'automake ne fasse des objets construits
+ailleurs des prérequis**. Effet de bord : le binaire de test **ne se relinke pas** quand l'objet de
+production qu'il teste change. Conséquence directe sur notre méthode : une vérification
+« red-before-green » qui se contente de restaurer l'ancien source et de relancer `make` peut
+**exécuter l'ancien binaire et rendre un faux vert**. Constaté 2× (revue E4.2c, revue T3.15 — cette
+dernière a d'abord conclu à tort que le test passait sur le code pré-fix). **Règle** : pour toute
+preuve red-before-green, supprimer explicitement le `.o` de production ET le binaire de test avant
+de reconstruire, puis vérifier que la reconstruction a bien eu lieu. Candidat follow-up : revoir la
+nécessité de ces surcharges `_DEPENDENCIES`.
+
+- `remote-ui.md` documente le **contenu** de `device_info` sous forme d'enfants
+  `<calaos:param name/value>` alors que le lecteur **et** l'écrivain utilisent des **attributs** —
+  divergence doc/code préexistante. En revanche l'**emplacement** documenté (l.534, à l'intérieur
+  de `<calaos:remote_ui>`) est correct et c'est bien ce que T3.15 implémente.
