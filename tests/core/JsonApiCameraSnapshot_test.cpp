@@ -315,3 +315,136 @@ TEST_F(JsonApiCameraSnapshotTest, LateSnapshotStillReachesTheClient)
     EXPECT_EQ("image/jpeg", req.header("Content-Type"));
     EXPECT_EQ(SNAPSHOT_BYTES, req.body());
 }
+
+/*******************************************************************************
+ * LIFETIME - what T3.17d actually fixes.
+ *
+ * The snapshot round trip outlives processApi(), and the callback is held by
+ * the IPCam, not by the handler. Two things can die in between, and the T3.17
+ * parent ticket expects BOTH to be a use-after-free here, as they were on the
+ * playlist chain of T3.17a. MEASURED, and only one of them is:
+ *
+ *  - the handler (the client disconnected, HttpClient.cpp:162 deletes the
+ *    whole JsonApi object, derived part included). REAL: the late callback
+ *    formats its response through httpClient and emits it on sendData, both
+ *    freed. ClientGoneBeforeTheSnapshotIsIgnored below is a heap-use-after-free
+ *    without the guard.
+ *
+ *  - the IPCam itself (deleted through the API while the transfer runs). NOT a
+ *    use-after-free at this site, and the reason is in the code, not in luck:
+ *    the lambda captures `camera` through [=] but never dereferences it, and
+ *    ~IPCam() deletes the UrlDownloader that owns the callback (IPCam.cpp:48),
+ *    so a deleted camera simply never calls back. That is why this branch
+ *    keeps the pointer and does NOT need the by-id re-lookup T3.17a had to
+ *    introduce for AudioPlayer. CameraDeletedMidTransferStillAnswers pins the
+ *    behaviour a detached callback would have, so a future refactor that makes
+ *    the callback outlive the camera cannot silently reintroduce the question.
+ ******************************************************************************/
+
+/* The client hangs up while the camera is still sending. The late answer must
+ * not touch the dead handler at all.
+ *
+ * Without the guard this is, under ASan, a heap-use-after-free in
+ * HttpClient::buildHttpResponse() reached from the snapshot callback. It does
+ * not crash a plain build, which is exactly why the case exists.
+ */
+TEST_F(JsonApiCameraSnapshotTest, ClientGoneBeforeTheSnapshotIsIgnored)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID));
+
+        //Still downloading: nothing was answered, and the callback the camera
+        //holds is the one that will run on a dead handler.
+        ASSERT_EQ(0u, req.count());
+        ASSERT_EQ(1u, camera->pendingCount());
+        //req dies here, exactly as when the client disconnects
+    }
+
+    //The camera answers to nobody. The guard has to swallow this one.
+    EXPECT_TRUE(camera->fireNext());
+    EXPECT_EQ(0u, camera->pendingCount());
+    //One request, one download, and nothing re-armed by the dead handler
+    EXPECT_EQ(1, camera->downloadCount);
+}
+
+/* Same, on the empty-download branch: the fallback picture is read and sent by
+ * a different code path (buildHttpResponseFromFile), so it needs the guard as
+ * much as the nominal one - a single check at the top covers both, and this
+ * case is what proves it.
+ */
+TEST_F(JsonApiCameraSnapshotTest, ClientGoneBeforeAnEmptySnapshotIsIgnored)
+{
+    FakeSnapshotCamera *camera = addCamera(std::string());
+    camera->deferred = true;
+
+    {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID));
+        ASSERT_EQ(1u, camera->pendingCount());
+    }
+
+    EXPECT_TRUE(camera->fireNext());
+    EXPECT_EQ(1, camera->downloadCount);
+}
+
+/* The camera IO is deleted through the API while the transfer runs, and the
+ * answer is fired from a callback that was detached from it beforehand - the
+ * only way this site can be reached with a dead camera at all.
+ *
+ * The client is still connected, so it MUST get its picture (T3.17 invariant:
+ * no silent disappearance). It does: the guard keys on the handler, and the
+ * handler is alive. A guard that had keyed on the camera instead would turn
+ * this into a request that never answers.
+ */
+TEST_F(JsonApiCameraSnapshotTest, CameraDeletedMidTransferStillAnswers)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID));
+    ASSERT_EQ(1u, camera->pendingCount());
+
+    std::function<void()> lateAnswer = camera->takeNext();
+    ASSERT_TRUE((bool)lateAnswer);
+    ASSERT_TRUE(deleteIO(camera));
+    camera = nullptr;
+
+    EXPECT_EQ(0u, req.count());
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+}
+
+/* Both gone: the camera first, then the client, and the answer arrives last.
+ * The guard is the only thing standing between that callback and two freed
+ * objects.
+ */
+TEST_F(JsonApiCameraSnapshotTest, ClientAndCameraGoneIsIgnored)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    std::function<void()> lateAnswer;
+    {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID));
+        ASSERT_EQ(1u, camera->pendingCount());
+
+        lateAnswer = camera->takeNext();
+        ASSERT_TRUE((bool)lateAnswer);
+        ASSERT_TRUE(deleteIO(camera));
+        camera = nullptr;
+    }
+
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+}

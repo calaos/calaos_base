@@ -908,8 +908,34 @@ void JsonApiHandlerHttp::processCamera()
 
     if (jsonParam["type"] == "get_picture")
     {
-        camera->downloadSnapshot([=](const string &downloadedData)
+        /* T3.17d: the snapshot is a real HTTP round trip to the camera, and
+         * IPCam parks this callback in a member of its own until the transfer
+         * completes (IPCam.cpp:130). The client can hang up in between, and
+         * that deletes the whole handler - HttpClient::~HttpClient() does
+         * `delete jsonApi` (HttpClient.cpp:162). A late answer would then
+         * format its response through a freed httpClient and emit it on a
+         * freed sendData. The token says the handler is gone; the invalidation
+         * is implicit, handlerAlive simply dies with the object.
+         *
+         * Nothing to answer when it fires: the connection object it would be
+         * written to is exactly what no longer exists. This is the same bare
+         * return as the three guarded callbacks already in this file
+         * (processGetCover() :458, the get_cover branch :723,
+         * downloadCameraPicture() :1027), and no json is in flight here to
+         * release.
+         *
+         * The camera needs no by-id re-lookup, unlike the audio chains of
+         * T3.17a-c: this callback never dereferences `camera`, and ~IPCam()
+         * deletes the downloader that owns the callback, so a camera deleted
+         * mid-transfer cannot call us back at all.
+         */
+        std::weak_ptr<bool> alive = handlerAlive;
+
+        camera->downloadSnapshot([this, alive](const string &downloadedData)
         {
+            if (alive.expired())
+                return;
+
             if (downloadedData.empty())
             {
                 Params headers;
