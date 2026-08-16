@@ -127,3 +127,11 @@ remplacé — priorité **totale** à la migration pugixml (E4.4).
 **Conséquence à connaître** : l'exposition (abort/boucle infinie depuis un endpoint HTTP hostile
 via `WebCtrl::getValue()`) dure jusqu'à **E4.4b**, qui sort le parsing NON FIABLE de TinyXML —
 et non jusqu'à E4.4e. E4.4b est donc l'étape à prioriser juste après E4.4a.
+
+## 2026-08-16 — Plages horaires : wrap sur minuit
+**Décision** : une plage inversée (fin < début, ex. `23:00 → 01:00`) doit **wrapper sur minuit**
+et matcher de 23h à 1h du matin. Aujourd'hui elle est vide et ne matche jamais — l'utilisateur
+qui programme un scénario nocturne n'obtient rien, silencieusement.
+**Conséquence** : le test caractérisant `InvertedRangeNeverMatches` (E4.3ab) doit être RÉÉCRIT
+pour le nouveau contrat. Avec masque de jours : `23:00→01:00 le lundi` = lundi 23h → mardi 1h
+(continuité de la nuit), à documenter en ioDoc. Ticket T3.13.
