@@ -1126,8 +1126,46 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    /* Destruction guard, shared by the fifteen audioDbGet* music-database
+     * methods below. This JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object included,
+     * HttpClient.cpp:162) while a database answer is still in flight, and the
+     * callback then touches TWO freed objects.
+     *
+     * The FIRST is `result_lambda`. It is captured by value into the [=]
+     * lambda, and that std::function IS the handler's own lambda, holding the
+     * handler's `this`; calling it after the handler died sends to freed
+     * memory. This one is present in ALL FIFTEEN methods and is the one the
+     * ASan traces land on.
+     *
+     * The SECOND is `this`: fourteen of the fifteen call processDbResult(), a
+     * member of this very JsonApi, from inside the callback. This file emits 17
+     * -Wdeprecated implicit-capture warnings in all - 14 for this family and 3
+     * for the recursive playlist chain of T3.17a further up - and those 14
+     * point here.
+     *
+     * DO NOT USE THE WARNING AS THE CRITERION FOR "NEEDS A GUARD". It
+     * undercounts by construction: it only sees the second object. The
+     * fifteenth method, audioDbGetTrackInfos(), calls no member and raises no
+     * warning, yet it produces the same heap-use-after-free through the
+     * captured std::function alone - measured under ASan, see
+     * JsonApiMusicDb_test.cpp. All fifteen would need this guard even if
+     * processDbResult() did not exist.
+     *
+     * Same pattern as buildJsonState() (T2.15), the playlist chain (T3.17a) and
+     * the five single-shot player-state methods above (T3.17b).
+     *
+     * One check is enough here, as in T3.17b: these are single shot, one round
+     * trip and one answer, no recursion. And nothing is allocated before the
+     * check, so the guarded branch has nothing to release - processDbResult()
+     * builds its json AFTER it, from the answer the database just gave.
+     */
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1159,8 +1197,12 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getArtistsAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, artist_id);
 }
@@ -1192,8 +1234,12 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getYearsAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, year);
 }
@@ -1225,8 +1271,12 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getGenresArtists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, genre);
 }
@@ -1258,8 +1308,12 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getAlbumsTitles([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, album_id);
 }
@@ -1291,8 +1345,12 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getPlaylistsTracks([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, pl_id);
 }
@@ -1323,8 +1381,12 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getArtists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1355,8 +1417,12 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getYears([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1387,8 +1453,12 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getGenres([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1419,8 +1489,12 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getPlaylists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1452,8 +1526,12 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getMusicFolder([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, folder_id);
 }
@@ -1485,8 +1563,12 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getSearch([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, search);
 }
@@ -1517,8 +1599,12 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getRadios([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
@@ -1553,8 +1639,12 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     string item_id = jansson_string_get(jdata, "item_id");
     string search = jansson_string_get(jdata, "search");
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getRadiosItems([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, radio_id, item_id, search);
 }
@@ -1573,8 +1663,12 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
 
     string trackid = jansson_string_get(jdata, "track_id");
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getTrackInfos([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(data.params.toJson());
     }, trackid);
 }

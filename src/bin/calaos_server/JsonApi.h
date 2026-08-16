@@ -216,8 +216,10 @@ protected:
      * Guarded so far: buildJsonState() (T2.15), the recursive playlist chain
      * decodeGetPlaylist()/getNextPlaylistItem() (T3.17a) and the five
      * single-shot player-state methods audioGetDbStats()/audioGetPlaylistSize()
-     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b). The
-     * 15 audioDbGet* music-database methods are still bare - T3.17c.
+     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b) and
+     * the 15 audioDbGet* music-database methods (T3.17c). Every async callback
+     * of this file is guarded now; the remaining T3.17 work is the WS transport
+     * audit (T3.17e).
      */
     std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
 

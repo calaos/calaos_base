@@ -799,3 +799,151 @@ TEST_F(JsonApiMusicDbTest, DeferredTrackInfosAnswerStillReachesALiveClient)
  * also cover "the database the request was issued to is gone".
  ******************************************************************************/
 
+
+/*******************************************************************************
+ * LIFETIME - what T3.17c actually fixes. ADDED WITH THE GUARD, NOT BEFORE.
+ *
+ * The round trip is real: the request goes out, the JsonApi hands the answer's
+ * continuation to the player's database connection, and the answer comes back
+ * later. In between, the client can disconnect - and HttpClient::~HttpClient()
+ * (HttpClient.cpp:162) deletes the handler, JsonApi base sub-object included.
+ * The late answer then calls processDbResult(), a MEMBER of the destroyed
+ * JsonApi (this is the `this` the fourteen -Wdeprecated implicit-capture
+ * warnings of JsonApi.cpp point at), and then result_lambda, which is the
+ * handler's own lambda capturing `this` too, so sendJson() dereferences a freed
+ * object.
+ *
+ * These cases live in the SECOND commit of T3.17c, unlike everything above,
+ * because on an unguarded tree they do not fail, they take the process down:
+ * measured SIGSEGV in WsClientGoneBeforeAnswerIsIgnored, and under ASan the
+ * heap-use-after-free quoted in the commit message. A characterization commit
+ * has to be green. Same split as T3.17b.
+ *
+ * THE FIFTEENTH METHOD. audioDbGetTrackInfos does NOT call processDbResult()
+ * and so raises no -Wdeprecated warning - the reason the file has 14 of them
+ * and not 15. It needs the guard just the same, for the second of the two
+ * reasons above: `result_lambda` is captured by value into its [=] lambda, and
+ * that std::function IS the handler's lambda holding the handler's `this`.
+ * MEASURED both ways: ApiGoneBeforeGetTrackInfosAnswer below fails on an
+ * unguarded tree exactly like the other fourteen, and
+ * WsClientGoneBeforeTrackInfosAnswerIsIgnored reports the same
+ * heap-use-after-free under ASan. "No implicit this capture" is NOT the same
+ * property as "no use-after-free".
+ *
+ * The cases come in two shapes:
+ *   - fifteen on a bare JsonApi (ApiGoneBefore<Name>Answer), whose result
+ *     lambda writes into a test local. They observe the guard directly: the
+ *     answer must NOT fire. Being on a bare JsonApi and not on a handler, they
+ *     FAIL rather than crash without the guard, which is what makes them a
+ *     regression net rather than an ASan-only net.
+ *   - the three at the end, through a real WS session, which is where the
+ *     use-after-free actually lives. They assert nothing beyond "it ran"; ASan
+ *     is the oracle.
+ ******************************************************************************/
+
+//Drives one method on a bare JsonApi that dies before the answer comes back.
+//Fails when the result lambda fired anyway - i.e. when the answer was sent to
+//a destroyed object.
+#define DB_GUARD_CASE(Name, apiMethod, extraFn)                                \
+TEST_F(JsonApiMusicDbTest, ApiGoneBefore##Name##Answer)                        \
+{                                                                              \
+    addPlayer();                                                               \
+    queue.deferred = true;                                                     \
+                                                                               \
+    json_t *jdata = bareRequest(extraFn());                                    \
+    bool answered = false;                                                     \
+                                                                               \
+    {                                                                          \
+        JsonApi api;                                                           \
+        api.apiMethod(jdata, [&](json_t *jret)                                 \
+        {                                                                      \
+            answered = true;                                                   \
+            json_decref(jret);                                                 \
+        });                                                                    \
+        ASSERT_EQ(1u, queue.count());                                          \
+        /* api dies here, exactly as when the client disconnects */            \
+    }                                                                          \
+                                                                               \
+    ASSERT_TRUE(queue.fireNext());                                             \
+    EXPECT_FALSE(answered);                                                    \
+                                                                               \
+    json_decref(jdata);                                                        \
+}
+
+DB_GUARD_CASE(GetAlbums,         audioDbGetAlbums,          E_PLAIN)
+DB_GUARD_CASE(GetArtistAlbum,    audioDbGetAlbumArtistItem, E_ARTIST)
+DB_GUARD_CASE(GetYearAlbums,     audioDbGetYearAlbums,      E_YEAR)
+DB_GUARD_CASE(GetGenreArtists,   audioDbGetGenreArtists,    E_GENRE)
+DB_GUARD_CASE(GetAlbumTitles,    audioDbGetAlbumTitles,     E_ALBUM)
+DB_GUARD_CASE(GetPlaylistTitles, audioDbGetPlaylistTitles,  E_PLAYLIST)
+DB_GUARD_CASE(GetArtists,        audioDbGetArtists,         E_PLAIN)
+DB_GUARD_CASE(GetYears,          audioDbGetYears,           E_PLAIN)
+DB_GUARD_CASE(GetGenres,         audioDbGetGenres,          E_PLAIN)
+DB_GUARD_CASE(GetPlaylists,      audioDbGetPlaylists,       E_PLAIN)
+DB_GUARD_CASE(GetMusicFolder,    audioDbGetMusicFolder,     E_FOLDER)
+DB_GUARD_CASE(GetSearch,         audioDbGetSearch,          E_SEARCH)
+DB_GUARD_CASE(GetRadios,         audioDbGetRadios,          E_PLAIN)
+DB_GUARD_CASE(GetRadioItems,     audioDbGetRadioItems,      E_RADIOITEMS)
+DB_GUARD_CASE(GetTrackInfos,     audioDbGetTrackInfos,      E_TRACK)
+
+/* The real thing: a websocket client that leaves while its answer is in
+ * flight. Without the guard this is the heap-use-after-free quoted in the
+ * commit message - and, without ASan, a plain SIGSEGV.
+ */
+TEST_F(JsonApiMusicDbTest, WsClientGoneBeforeAnswerIsIgnored)
+{
+    addPlayer();
+    queue.deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("get_album", PLAYER_ID, E_PLAIN()));
+        ASSERT_EQ(1u, queue.count());
+        //ws dies here, exactly as when the client disconnects
+    }
+
+    //The database answer arrives afterwards and must touch nothing
+    EXPECT_TRUE(queue.fireNext());
+}
+
+/* The fifteenth method, which reaches result_lambda without going through
+ * processDbResult() - the one the warning count does not point at.
+ */
+TEST_F(JsonApiMusicDbTest, WsClientGoneBeforeTrackInfosAnswerIsIgnored)
+{
+    addPlayer();
+    queue.deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("get_track_infos", PLAYER_ID, E_TRACK()));
+        ASSERT_EQ(1u, queue.count());
+    }
+
+    EXPECT_TRUE(queue.fireNext());
+}
+
+/* Both deaths at once: the client leaves AND the IO is deleted before the
+ * answer comes back. The apiAlive check is what stops the chain; nothing here
+ * needs the player, so there is no second dereference to guard (see the
+ * PlayerDeletedMidFlight section above).
+ */
+TEST_F(JsonApiMusicDbTest, ClientAndPlayerBothGoneBeforeAnswer)
+{
+    FakeMusicPlayer *player = addPlayer();
+    queue.deferred = true;
+
+    std::function<void()> lateAnswer;
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("get_search", PLAYER_ID, E_SEARCH()));
+        lateAnswer = queue.takeNext();
+        ASSERT_TRUE((bool)lateAnswer);
+    }
+    ASSERT_TRUE(deleteIO(player));
+    player = nullptr;
+    db = nullptr;
+
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+}
