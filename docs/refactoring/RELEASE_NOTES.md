@@ -7,6 +7,21 @@
 
 ## ⚠️ Comportements qui changent sur une installation existante
 
+### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)
+Jusqu'ici, si un IO référencé par une règle était supprimé ou renommé, la condition qui le visait
+était **rejetée au chargement** et la règle continuait de tourner **amputée**, donc plus
+permissive — `si absence ET après 22h → tout éteindre` devenait `si après 22h → tout éteindre`,
+se déclenchant tous les soirs.
+
+Désormais une règle dont au moins une condition ou action référence un équipement introuvable est
+**entièrement désactivée**. Elle reste **visible et intacte** dans la configuration (rien n'est
+perdu à la sauvegarde), est **journalisée** avec son nom et les ids manquants, et **redevient
+active d'elle-même** dès que l'équipement réapparaît. Une **notification mail + push** (le canal
+déjà utilisé pour les configurations corrompues) le signale au démarrage.
+
+Vérifié : les configurations réelles testées n'ont aucune référence orpheline, donc aucune règle
+n'y est désactivée.
+
 ### IOs Web — les expressions XPath renvoient enfin les bonnes valeurs (E4.4b)
 Le moteur XPath (TinyXPath, non maintenu) est remplacé par pugixml. TinyXPath violait XPath 1.0
 sur plusieurs points ; les configurations concernées étaient **silencieusement cassées** et vont

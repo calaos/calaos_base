@@ -442,3 +442,20 @@ refactoring **échouerait**.
 
 **Correctif prévu** : une passe `clang-format` dédiée sur ces fichiers. À lancer **après le merge
 d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir aussi sans conflit.
+
+## E4.2e — suites
+
+- **[LATENT, désormais inatteignable par ce chemin] `Params::operator[]` renvoie `""` pour une
+  clé absente** : le chemin de compatibilité audio/caméra de `ConditionStd::LoadFromXml`
+  (`io->get_param("iid") == id`) faisait donc **correspondre le premier IO audio/caméra de la
+  config** à une entrée sans id. E4.2e traite l'id vide avant résolution, ce qui rend ce chemin
+  inatteignable — mais le comportement de `Params::operator[]` reste un piège (voir aussi le
+  finding « `operator[]` renvoie par VALEUR »).
+
+- `RemoveCondition`/`RemoveAction` ne recalculent pas `missingIoIds` : une règle resterait
+  désactivée après suppression de la condition fautive. Aucun appelant de production aujourd'hui.
+
+- `Rule::get_condition(i)`/`Rule::get_action(i)` indexent sans garde de bornes
+  (`Rule.h:128-129`). Tous les appelants de production sont des boucles bornées et il n'existe
+  aucune API JSON exposant les règles ; seul du code de test avec un index littéral peut y
+  tomber. → petite garde à ajouter.

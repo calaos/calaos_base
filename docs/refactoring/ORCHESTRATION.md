@@ -376,6 +376,27 @@
   FINDINGS.md — il ne bloque pas les push (`format-check` est `pull_request`-only) et une PR de
   taille normale ne voit que ses propres lignes. Pas de build d'intégration (aucune entrée de
   build touchée). Rebase sur master : **aucun conflit**. ff-only, worktree t3.16 nettoyé.
+- **E4.2e ✅ mergé** (2026-08-16, `e33cbbd5` + `fd2aba67`) — **décision utilisateur** : une règle
+  qui référence un IO introuvable est **entièrement désactivée** au lieu de tourner **amputée**.
+  L'ancien comportement rejetait la seule condition fautive et laissait la règle s'exécuter avec
+  des critères incomplets, donc **plus permissifs** (`si absence ET après 22h` → `si après 22h`,
+  déclenché tous les soirs). La règle reste **visible et intacte** en configuration (sauvegarde
+  fidèle), est journalisée avec son nom et les ids manquants, **redevient active d'elle-même**
+  quand l'IO réapparaît, et une **notification mail + push** (canal des configurations corrompues,
+  plomberie `CalaosConfig.cpp`) le signale au démarrage. Le commit de suivi de revue traite l'**id
+  vide** comme une dépendance manquante lui aussi — ce qui neutralise au passage le chemin de
+  compatibilité audio/caméra qui appariait le **premier IO audio/caméra de la config** à une
+  entrée sans id (cause : `Params::operator[]` renvoie `""` pour une clé absente). Nouveau binaire
+  `tests/core/RuleDisabledMissingIo_test` (**21/21**) → build d'intégration distclean **53/53
+  PASS** (52 + le nouveau). Périmètre : `Rules/**`, `Rule.{h,cpp}`, `ListeRule.{h,cpp}`,
+  `CalaosConfig.cpp` (plomberie d'alerte), `tests/core/**`, `tests/Makefile.am` — **aucun
+  `src/lib/**`** (T3.14 en vol) ni `.github/` (T3.16). Rebase sur master : **aucun conflit** (le
+  conflit EOF redouté sur `tests/Makefile.am` ne s'est, là encore, pas matérialisé). Vérifié : les
+  configurations réelles testées n'ont **aucune référence orpheline**, donc aucune règle n'y est
+  désactivée. Consigné dans RELEASE_NOTES.md ; 3 suites non bloquantes dans FINDINGS.md
+  (`Params::operator[]` latent, `RemoveCondition/RemoveAction` ne recalculent pas `missingIoIds`,
+  `get_condition/get_action` sans garde de bornes). **Débloque** la passe `clang-format` de dette
+  T3.16, qui attendait la libération de `ListeRule.cpp`. ff-only, worktree e4.2e nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
