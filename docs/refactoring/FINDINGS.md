@@ -410,3 +410,35 @@ Deux constats **non bloquants** relevés par la revue du passage de `Rule`/`List
   indéterminée** (le pointeur a été détruit par le premier `Remove`) : c'est de l'UB formel au
   sens du standard, même si tout compilateur réel se contente d'une comparaison de bits. Le point
   est commenté dans le test lui-même.
+
+## T3.16 — dette de formatage restante
+
+Une fois `src/lib/pugixml` exclu du pathspec de `format-check` (T3.16), une PR **simulée
+contenant tous les commits du refactoring** (163 commits, `origin/master...HEAD`) fait encore
+remonter **~5 087 lignes réparties sur 122 fichiers de notre propre code** — mesuré en
+`debian:12` avec clang-format 14.0.6, la version exacte du job.
+
+Principaux contributeurs :
+
+| Lignes | Fichier |
+|---|---|
+| 361 | `tests/UrlDownloader_test.cpp` |
+| 236 | `tests/TimeRangeCalendar_test.cpp` |
+| 217 | `src/lib/StringUtils.cpp` |
+| 209 | `src/lib/ConfigStore.cpp` |
+| 208 | `tests/core/Timer_test.cpp` |
+| 145 | `src/bin/calaos_server/IO/KNX/KNXIo.cpp` |
+| 141 | `tests/core/JsonApiAudioState_test.cpp` |
+| 139 | `src/bin/calaos_server/HttpClient.cpp` |
+| 138 | `src/bin/calaos_server/JsonApi.cpp` |
+| 135 | `src/lib/ConfigOptions.cpp` |
+
+(longue traîne ensuite)
+
+**Portée réelle du problème** : ce chiffre est un **pire cas théorique**. `format-check` est
+`pull_request`-only, donc il **ne bloque pas les push sur master**, et une PR de taille normale
+ne voit que **ses propres lignes touchées**. En revanche, une PR qui porterait l'intégralité du
+refactoring **échouerait**.
+
+**Correctif prévu** : une passe `clang-format` dédiée sur ces fichiers. À lancer **après le merge
+d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir aussi sans conflit.

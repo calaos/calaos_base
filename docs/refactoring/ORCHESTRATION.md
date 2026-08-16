@@ -359,6 +359,23 @@
   indéterminée dans un test) consignés dans FINDINGS.md. **Renumérotation** : les items 5 et 6 du
   plan E4.2 d'origine deviennent **E4.2f** et **E4.2g** (E4.2e était déjà pris par un ticket de
   décision utilisateur hors plan initial). ff-only, worktree e4.2d nettoyé.
+- **T3.16 ✅ mergé** (2026-08-16, `23e6e2f8`) — **CI `format-check` réparé**, un seul fichier
+  touché (`.github/workflows/ci.yml`, zéro C++). Deux défauts : (1) `src/lib/pugixml` manquait
+  dans la liste d'exclusions du pathspec `git diff` alors que tous les autres tiers de
+  `src/lib/**` y étaient — le tree pugixml importé par E4.4a était donc soumis à notre
+  `.clang-format` ; (2) l'étape apt était **après** `actions/checkout@v4`, or l'image `debian:12`
+  ne fournit pas `git` (vérifié : `docker run --rm debian:12 command -v git` ne renvoie rien) et
+  l'action ne construit un vrai dépôt que si `git >= 2.18` est sur le PATH — sinon elle télécharge
+  le tarball REST, ne laisse aucun `.git`, et le `git diff origin/<base>...HEAD` de l'étape
+  suivante mourait en « not a git repository ». Corrigé en déplaçant l'apt (renommé « Install git
+  and clang-format ») **avant** le checkout, `fetch-depth: 0` conservé ; `build-and-test` et
+  `coverage` intouchés (ordre inchangé, mais ces jobs n'invoquent jamais git ensuite). Re-run
+  local indépendant en `debian:12` (clang-format 14.0.6, même ligne de commande) : **31 329 →
+  5 087 lignes**, 122 fichiers, **zéro ligne sous `src/lib/pugixml`** (delta 26 242 exactement
+  attribuable à l'exclusion). Le reliquat est **notre propre dette de formatage**, consigné dans
+  FINDINGS.md — il ne bloque pas les push (`format-check` est `pull_request`-only) et une PR de
+  taille normale ne voit que ses propres lignes. Pas de build d'intégration (aucune entrée de
+  build touchée). Rebase sur master : **aucun conflit**. ff-only, worktree t3.16 nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
