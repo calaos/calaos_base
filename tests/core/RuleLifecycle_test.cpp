@@ -396,9 +396,92 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDropsTheStepRule)
     ASSERT_TRUE(deleteIO(io(ID_BOOL_OUT)));
 
     EXPECT_EQ(ListeRule::Instance().size(), rulesBefore - 1);
-    //AutoScenario::ruleSteps still holds the freed pointer, look the rule up by
-    //name in ListeRule instead
     EXPECT_EQ(findRule("sc_del_step"), nullptr);
+
+    /* E4.2f: the step rule is owned by ListeRule and died under AutoScenario,
+     * which kept a raw Rule* on it. Every one of the reads below used to land
+     * in freed memory (heap-use-after-free under ASan) on the very next
+     * get_scenario of the UI. The back-pointer must report the rule as gone,
+     * exactly like the next checkScenarioRules() would.
+     */
+    EXPECT_TRUE(as->getRuleSteps().empty())
+        << "AutoScenario still hands out the freed step rule";
+    EXPECT_EQ(as->getStepPause(0), 0.0);
+    EXPECT_EQ(as->getStepActionCount(0), 0);
+    EXPECT_EQ(as->getStepAction(0, 0).io, nullptr);
+    EXPECT_EQ(as->getCategory(), "");
+
+    //Writing through the same index must not touch the freed rule either
+    as->setStepPause(0, 2.0);
+    as->addStepAction(0, io(ID_INT), "5");
+}
+
+//The banal exploit of the dangling step: scenario B is used as the action of a
+//step of scenario A, then B is deleted (scenario_del). Deleting B's IO drops
+//A's step rule, and the first get_scenarios reads A through Scenario::toJson().
+TEST_F(AutoScenarioLifecycleTest, DeletingAScenarioUsedAsAStepActionIsSafeToSerialize)
+{
+    AutoScenario *as = makeScenario("sc_a");
+    ASSERT_NE(as, nullptr);
+
+    Scenario *scA = dynamic_cast<Scenario *>(io("io_sc_a"));
+    ASSERT_NE(scA, nullptr);
+
+    //Scenario B, the one the user will delete
+    Params pb = { { "type", "Scenario" },
+                  { "id", "io_sc_b" },
+                  { "name", "Scenario sc_b" },
+                  { "auto_scenario", "sc_b" } };
+    Scenario *scB = dynamic_cast<Scenario *>(createIO(pb));
+    ASSERT_NE(scB, nullptr);
+    ASSERT_NE(scB->getAutoScenario(), nullptr);
+    ASSERT_TRUE(scB->getAutoScenario()->checkScenarioRules());
+
+    //A step of A starts B
+    as->addStep(1.0);
+    as->addStepAction(0, scB, "true");
+    ASSERT_EQ(as->getRuleSteps().size(), 1u);
+    ASSERT_EQ(as->getStepActionCount(0), 1);
+
+    //scenario_del on B: its IO goes away and every rule citing it is destroyed,
+    //including A's step rule
+    ASSERT_TRUE(deleteIO(io("io_sc_b")));
+    EXPECT_EQ(findRule("sc_a_step"), nullptr);
+
+    //get_scenarios on the survivor
+    EXPECT_EQ(as->getRuleSteps().size(), 0u);
+
+    json_t *jret = scA->toJson();
+    ASSERT_NE(jret, nullptr);
+    json_t *jsteps = json_object_get(jret, "steps");
+    ASSERT_NE(jsteps, nullptr);
+    //Only the end step is left
+    EXPECT_EQ(json_array_size(jsteps), 1u);
+    EXPECT_STREQ(json_string_value(json_object_get(jret, "steps_count")), "0");
+    json_decref(jret);
+}
+
+//The other dangling back-pointer of the pair: IOBase::ascenario is set on the
+//_schedule IO only, and the schedule IO outlives the scenario it points to
+//(deleting the scenario IO does not delete the schedule IO). JsonApi reads it
+//for every IO it serializes.
+TEST_F(AutoScenarioLifecycleTest, DeletingAScheduledScenarioClearsTheScheduleBackPointer)
+{
+    AutoScenario *as = makeScenario("sc_sched");
+    ASSERT_NE(as, nullptr);
+
+    as->addSchedule();
+    ASSERT_NE(as->getIOTimeRange(), nullptr);
+    ASSERT_EQ(io("sc_sched_schedule"), as->getIOTimeRange());
+    EXPECT_EQ(as->getIOTimeRange()->getAutoScenarioPtr(), as);
+
+    //Deleting the scenario IO destroys the Scenario, hence the AutoScenario
+    ASSERT_TRUE(deleteIO(io("io_sc_sched")));
+
+    IOBase *schedule = io("sc_sched_schedule");
+    ASSERT_NE(schedule, nullptr) << "the schedule IO went away with the scenario";
+    EXPECT_EQ(schedule->getAutoScenarioPtr(), nullptr)
+        << "the destroyed AutoScenario is still reachable from the schedule IO";
 }
 
 /******************************************************************************

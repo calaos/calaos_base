@@ -106,6 +106,11 @@ json_t *Scenario::toJson()
         for (int j = 0;j < auto_scenario->getStepActionCount(i);j++)
         {
             ScenarioAction sa = auto_scenario->getStepAction(i, j);
+
+            //Defensive, same guard as AutoScenario::getCategory(): an index
+            //that does not resolve gives back an empty action
+            if (!sa.io) continue;
+
             json_t *jact = json_object();
             json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
             json_object_set_new(jact, "action", json_string(sa.action.c_str()));
@@ -126,6 +131,9 @@ json_t *Scenario::toJson()
         for (int j = 0;j < auto_scenario->getEndStepActionCount();j++)
         {
             ScenarioAction sa = auto_scenario->getEndStepAction(j);
+
+            if (!sa.io) continue;
+
             json_t *jact = json_object();
             json_object_set_new(jact, "id", json_string(sa.io->get_param("id").c_str()));
             json_object_set_new(jact, "action", json_string(sa.action.c_str()));

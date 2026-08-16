@@ -63,6 +63,12 @@ protected:
 
 private:
     bool auto_sc_mark;
+
+    /* NON-OWNING back-pointer, set on the "<scenario>_schedule" IO only
+     * (AutoScenario::checkScenarioRules()). The schedule IO outlives the
+     * scenario whose IO is deleted, so ~AutoScenario() nulls it back (E4.2f);
+     * before that it stayed dangling and JsonApi read it for every IO.
+     */
     AutoScenario *ascenario = nullptr;
 
     int io_type = IO_UNKNOWN;

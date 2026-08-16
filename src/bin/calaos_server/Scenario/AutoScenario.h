@@ -43,6 +43,50 @@ public:
     string action;
 };
 
+/* NON-OWNING reference to a Rule owned by ListeRule.
+ *
+ * AutoScenario does not own a single one of the rules it points at: they all
+ * belong to ListeRule (E4.2d), which destroys them on its own initiative. The
+ * path that matters is not even reachable from here:
+ * ListeRoom::deleteIO() -> detachIOFromRules() -> ListeRule::RemoveRule(io)
+ * destroys *every* rule citing that IO id, and a step rule cites the IO the
+ * user picked with addStepAction(). Nothing nulls the back-pointer and nothing
+ * re-runs checkScenarioRules() (ListeRoom::checkAutoScenario() only runs once,
+ * at startup), so the next get_scenario of the UI read freed memory.
+ *
+ * The token is Rule::aliveToken(), the very same one the asynchronous script
+ * conditions use: a weak_ptr held by value, expiring when the Rule is
+ * destroyed. get() answers null from that moment on, which is exactly what the
+ * next checkScenarioRules() would produce for a rule that no longer exists.
+ */
+class RuleRef
+{
+public:
+    RuleRef() = default;
+    RuleRef(Rule *r) { *this = r; }
+
+    RuleRef &operator=(Rule *r)
+    {
+        rule = r;
+        if (r)
+            token = r->aliveToken();
+        else
+            token.reset();
+        return *this;
+    }
+
+    //Null as soon as the rule has been destroyed (a default-constructed
+    //weak_ptr is expired, so a null rule resolves to null too)
+    Rule *get() const { return token.expired()?nullptr:rule; }
+    explicit operator bool() const { return get() != nullptr; }
+
+    void reset() { rule = nullptr; token.reset(); }
+
+private:
+    Rule *rule = nullptr;
+    std::weak_ptr<bool> token;
+};
+
 class AutoScenario
 {
 private:
@@ -60,9 +104,19 @@ private:
 
     Room *roomContainer;
 
-    Rule *ruleStart, *ruleStop, *ruleStepEnd;
-    Rule *rulePlageStart, *rulePlageStop;
-    vector<Rule *> ruleSteps;
+    //NON-OWNING, see RuleRef: ListeRule owns and may destroy them at any time
+    RuleRef ruleStart, ruleStop, ruleStepEnd;
+    RuleRef rulePlageStart, rulePlageStop;
+    vector<RuleRef> ruleSteps;
+
+    /* Drop the steps whose rule has been destroyed, keeping the order of the
+     * survivors. Called by everything that indexes ruleSteps, because that
+     * index IS the step number of the API: a stale size is half the bug (the
+     * UI asks for step N, gets the actions of another one, or of nothing).
+     */
+    void purgeDeadSteps();
+    //The step rule at the (compacted) index s, null when s is out of range
+    Rule *stepRule(int s);
 
     IOBase *createInput(string type, string id);
     bool checkCondition(Rule *rule, IOBase *input, string oper, string value);
@@ -118,12 +172,16 @@ public:
 
     Room *getRoomContainer() { return roomContainer; }
 
-    Rule *getRuleStart() { return ruleStart; }
-    Rule *getRuleStop() { return ruleStop; }
-    Rule *getRuleStepEnd() { return ruleStepEnd; }
-    Rule *getRulePlageStart() { return rulePlageStart; }
-    Rule *getRulePlageStop() { return rulePlageStop; }
-    vector<Rule *> getRuleSteps() { return ruleSteps; }
+    /* Same signatures as ever: no caller has to change. They now answer the
+     * *resolution* of the back-pointer, so null (or a compacted list) once
+     * ListeRule has destroyed the rule under us.
+     */
+    Rule *getRuleStart() { return ruleStart.get(); }
+    Rule *getRuleStop() { return ruleStop.get(); }
+    Rule *getRuleStepEnd() { return ruleStepEnd.get(); }
+    Rule *getRulePlageStart() { return rulePlageStart.get(); }
+    Rule *getRulePlageStop() { return rulePlageStop.get(); }
+    vector<Rule *> getRuleSteps();
 
     void addStep(double pause);
     void setStepPause(int step, double pause);
