@@ -397,6 +397,41 @@
   (`Params::operator[]` latent, `RemoveCondition/RemoveAction` ne recalculent pas `missingIoIds`,
   `get_condition/get_action` sans garde de bornes). **Débloque** la passe `clang-format` de dette
   T3.16, qui attendait la libération de `ListeRule.cpp`. ff-only, worktree e4.2e nettoyé.
+- **T3.14 ✅ mergé** (2026-08-16, `813943f7`) — **statiques immortels** : c'est l'option 1 du
+  ticket qui a été retenue, celle qui supprime la **classe** de bugs au lieu d'un chemin. Les
+  statiques de `libcalaos_common` réutilisés après leur propre destructeur (`_configBase`,
+  `_cacheBase`, `configMutex`, `logger_domains`, `logger_hash`, `default_domain`) passent en
+  singletons alloués sur le tas et **jamais détruits** — politique déjà écrite en `AGENTS.md:74`
+  (« the server intentionally never frees a number of process-lifetime singletons »). Les **deux**
+  instances tombent d'un coup : (1) la lecture pendante sur `_configBase` qui produisait à chaque
+  arrêt `Parse error… <octets illisibles>/local_config.xml`, réamorcée par le `~_Hashtable` du
+  cache de niveaux local à `maxLevelPrintable()` (vidé → `.empty()` vrai → tout le bloc d'init se
+  ré-exécute), plus le `configMutex` verrouillé post-destruction ; (2) l'UAF ASan (`heap-use-after-free`,
+  READ 8) sur `calaosLogger()` (`LogSetup.cpp:48`) atteint depuis `~ExternProcServer` ←
+  `~WagoMap` ← `~WagoMapManager`, masqué en production par le seul `Utils::freeLoggers()` de
+  `main.cpp:240`. Bilan mémoire **strictement meilleur** qu'avant : une fuite préexistante de
+  **32 octets** disparaît. Nouveau binaire `tests/StaticLogShutdown_test` + son programme repro
+  `StaticLogShutdown_helper` (`check_PROGRAMS` mais **pas** dans `TESTS` : l'instant intéressant
+  est *après* le retour de `main()`, donc inobservable depuis un binaire gtest). Périmètre exact,
+  7 fichiers : `src/lib/{ConfigStore,LogSetup,Logger}.cpp`, `tests/Makefile.am`, les 2 nouveaux
+  tests, `.gitignore` — **aucun fichier E4.2e** (`Rules/**`, `Rule.*`, `ListeRule.*`,
+  `CalaosConfig.cpp`) ni `.github/`. ⚠️ **Attention base** : la branche partait de `652e08a5` et
+  master avait avancé de **11 commits** (E4.2e + toute la vague documentaire E4.0/E4.2f/E4.2g/
+  T3.17) — rebasée avant merge. Conflit **unique et attendu** en fin de `tests/Makefile.am`
+  (E4.2e et T3.14 ajoutent chacun leur bloc `HAVE_GTEST` en EOF), résolu **par régénération** :
+  fichier complet de master + append du bloc `# T3.14` verbatim, aucun bloc existant touché,
+  aucun réordonnancement → **42/42** `if HAVE_GTEST`/`endif` équilibrés (41/41 avant), et le
+  préfixe de 1058 lignes vérifié identique à celui de master. Aucun conflit sur `docs/` et aucune
+  fausse suppression de doc (les 93 fichiers de `docs/refactoring/` vérifiés identiques à master
+  après rebase — l'artefact d'écart de base ne s'est pas matérialisé). Build d'intégration
+  distclean : **54/54 PASS** (53 de master + `StaticLogShutdown_test`) ; le build dépasse 600 s,
+  attendu par `docker wait` sur le conteneur retrouvé par son mount exact, **sans relance**.
+  Consigné dans RELEASE_NOTES.md (plantage/sortie corrompue à l'arrêt = visible utilisateur) ;
+  **4 suites non bloquantes** dans FINDINGS.md (garde-fou de l'instance 2 qui ne mord que sous
+  `--enable-asan` ; `defaultCoutLogger()` qui peut allouer pendant atexit, contre l'intention
+  affichée en `LogSetup.cpp:101-103` ; premier log tardif encore capable d'écrire brut sur `cout`
+  si le cache est froid ; fuite préexistante sur double `initLogger()`, désormais invisible à
+  LSan). ff-only, worktree t3.14 nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

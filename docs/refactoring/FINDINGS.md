@@ -501,3 +501,42 @@ d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir au
   3 des 20 tests `core/`. ⚠️ **Cela n'invalide aucun build de merge** — tous passent par
   `make distclean` dans le conteneur, qui efface les `.o`. C'est un artefact de l'arbre local.
 - **4 types d'events sont morts** : 24 constantes d'enum, 23 types réels, 19 réellement poussés.
+
+## T3.14 — suites
+
+Quatre réserves **non bloquantes** relevées par la revue (mesures reproduites indépendamment).
+Aucune ne remet en cause le correctif : les deux UB visés sont bien supprimés.
+
+- **Le garde-fou anti-régression de l'instance 2 ne mord que sous `--enable-asan`**
+  (`tests/StaticLogShutdown_test.cpp:150`). Mesuré : sur un build **plain** contre la lib **non
+  corrigée**, `StaticDestructorStillReachesTheLogger` **passe** — seul `NoParasiteOutputAtShutdown`
+  échoue. L'UAF sur `calaosLogger()` (le `logger_hash` détruit avant le `WagoMapManager` statique)
+  est un accès mémoire silencieux qui ne change pas la sortie observable ; il ne devient un échec
+  de test que sous ASan, **qui n'est pas la configuration CI par défaut**. Autrement dit, une
+  régression de l'instance 2 seule repasserait verte en CI. Le test reste utile (il fixe le motif),
+  mais ne le créditer que du red-before-green de l'instance 1.
+
+- **`defaultCoutLogger()` peut allouer *pendant* la chaîne atexit** (`src/lib/LogSetup.cpp:71-75`).
+  Le singleton est construit **paresseusement**, donc son `new Logger()` s'exécute au premier
+  appel — y compris si ce premier appel vient d'un destructeur statique. Cela contredit
+  l'intention affichée en `LogSetup.cpp:101-103` (« do not allocate memory »). **Inoffensif** en
+  pratique (l'objet n'est jamais détruit, il n'y a donc pas d'ordre à violer), mais l'invariant
+  écrit et le code divergent. Correctif d'une ligne si on veut les réaligner : appeler
+  `defaultCoutLogger();` dans `freeLoggers()` **avant** de poser le drapeau, ce qui force la
+  construction pendant que `main()` tourne encore et supprime toute allocation à l'extinction.
+
+- **Un premier log tardif peut encore écrire en brut sur `cout`** (`src/lib/Logger.cpp:101`). Si le
+  cache de niveaux est **froid**, le tout premier log — même émis depuis un destructeur statique —
+  déclenche encore `get_config_option()`, donc une lecture de `local_config.xml`, et peut produire
+  « Parse error… / local_config.xml » directement sur `cout`. C'est désormais **memory-safe** (plus
+  de lecture pendante : c'est exactement ce que T3.14 corrige), mais le critère d'acceptation
+  « plus aucun message parasite » ne tient que parce que `main()` logge en premier et réchauffe le
+  cache. Un binaire qui ne loggerait qu'à l'extinction reverrait le message — propre, mais parasite.
+
+- **[PRÉEXISTANT — non introduit par T3.14] Fuite vraie sur double `initLogger()`**
+  (`src/lib/LogSetup.cpp:106-107`). `initLogger()` écrase `loggerHash()[defaultDomain()]` **sans
+  détruire le `Logger` précédent du même domaine** : appelé deux fois, le premier `Logger` est
+  définitivement perdu. C'était déjà le cas avant ce ticket ; ce qui change, c'est que la fuite est
+  désormais **invisible à LSan** (le hash lui-même n'étant plus détruit, tout son contenu est
+  atteignable à la sortie, donc classé « still reachable » et non « definitely lost »). À traiter
+  comme une dette propre si `initLogger()` devient ré-appelable.

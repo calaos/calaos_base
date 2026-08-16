@@ -53,6 +53,25 @@ données, présents de longue date, disparaissent :
   puis relu tronqué (170 octets écrits → 89 relus) et produisait un fichier XML invalide.
   Corrigé : aller-retour intégral.
 
+### Arrêt du serveur — plus de plantage ni de sortie corrompue à l'extinction (T3.14)
+À chaque arrêt de `calaos_server`, un message parasite s'affichait, avec un **chemin corrompu**
+(octets binaires suivis de la fin lisible du vrai chemin) :
+`Parse error: Error document empty. In file <octets illisibles>/local_config.xml`.
+La cause était de l'**UB** : des objets statiques (le chemin de configuration, le mutex de
+configuration, le cache de niveaux de log, la table des loggers) étaient **réutilisés après que
+leur propre destructeur a tourné**. Le message n'était que la partie visible — selon l'ordre de
+destruction et les pilotes liés, le même défaut pouvait faire **planter le processus à l'arrêt**
+(confirmé par AddressSanitizer sur configurations réelles, via le pilote Wago). Concrètement, un
+arrêt ou un redémarrage pouvait se solder par une unité systemd en échec et des lignes illisibles
+en fin de journal.
+
+Désormais ces singletons de log et de configuration ne sont **plus jamais détruits** : ils vivent
+jusqu'à la fin du processus, donc plus aucun code ne peut les lire après coup. C'est la politique
+déjà en vigueur dans le projet (`AGENTS.md:74` : « the server intentionally never frees a number
+of process-lifetime singletons »). Ce choix **n'ajoute aucune fuite** : le bilan LeakSanitizer est
+**strictement meilleur qu'avant**, une fuite préexistante de 32 octets disparaissant au passage.
+Aucun changement de configuration n'est requis.
+
 ### Plages horaires — les plages nocturnes fonctionnent (T3.13)
 Une plage inversée (`23:00 → 01:00`, la façon naturelle d'écrire « la nuit ») était **vide et ne
 se déclenchait jamais**. Elle **wrappe désormais sur minuit**. Avec un jour de semaine :
