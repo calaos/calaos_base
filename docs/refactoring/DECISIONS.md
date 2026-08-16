@@ -4,6 +4,22 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-16 — Scénario amputé : désactiver le scénario entier (cohérent avec E4.2e)
+**Décision** : quand un IO utilisé par une **étape de scénario** est supprimé, le scénario ne doit
+plus être **amputé silencieusement** et continuer à tourner en séquence plus courte. Il doit être
+**désactivé entièrement**, comme une règle dont une dépendance manque.
+**Pourquoi** : c'est exactement la même classe de danger que les règles amputées, déjà tranchée le
+2026-08-15. Un scénario qui perd une étape reste actif et exécute une séquence *différente* de
+celle que l'utilisateur a écrite — silencieusement. Mieux vaut qu'il ne fasse rien de visible que
+quelque chose de faux : l'utilisateur constate la panne et corrige, au lieu de subir un
+comportement altéré sans le savoir.
+**Portée** : l'amputation elle-même est faite par `ListeRoom::detachIOFromRules` /
+`ListeRule::RemoveRule`, **hors périmètre E4.2f** (qui n'a fait que rendre la lecture mémoire-sûre)
+et **pré-existante** : la règle d'étape est détruite puis `SaveConfigRule()` est appelé deux lignes
+plus bas (`JsonApi.cpp:1726-1733`), donc la perte est déjà persistée sur disque.
+**Appliquer** : voir **T3.18**. Ne pas re-demander. Réutiliser autant que possible le mécanisme
+d'E4.2e (référence conservée verbatim + trace du manquant) plutôt que d'en inventer un second.
+
 ## 2026-08-16 — E4.1 (JSON) : caractérisation AVANT migration, jansson supprimé à terme
 **Décision** : l'objectif final est la **suppression totale de jansson**, `nlohmann::json` seul.
 Mais la migration ne démarre **qu'après** l'écriture d'une série de tests de caractérisation qui
