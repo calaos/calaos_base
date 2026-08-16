@@ -1,0 +1,13 @@
+{
+  "data": {
+    "data": {
+      "id": "e40d_extra",
+      "room_name": "Cuisine",
+      "room_type": "cuisine"
+    },
+    "event_raw": "io_added id:e40d_extra room_name:Cuisine room_type:cuisine",
+    "type": "1",
+    "type_str": "io_added"
+  },
+  "msg": "event"
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "data": {
+      "new_room_hits": "7",
+      "old_room_hits": "3",
+      "room_name": "Salon",
+      "room_type": "salon"
+    },
+    "event_raw": "room_changed new_room_hits:7 old_room_hits:3 room_name:Salon room_type:salon",
+    "type": "7",
+    "type_str": "room_changed"
+  },
+  {
+    "data": {
+      "new_room_type": "sejour",
+      "old_room_type": "salon",
+      "room_name": "Salon"
+    },
+    "event_raw": "room_changed new_room_type:sejour old_room_type:salon room_name:Salon",
+    "type": "7",
+    "type_str": "room_changed"
+  },
+  {
+    "data": {
+      "new_room_name": "Grand salon",
+      "old_room_name": "Salon",
+      "room_type": "sejour"
+    },
+    "event_raw": "room_changed new_room_name:Grand%20salon old_room_name:Salon room_type:sejour",
+    "type": "7",
+    "type_str": "room_changed"
+  },
+  {
+    "data": {
+      "input_id_deleted": "e40_bool_in",
+      "room_name": "Grand salon",
+      "room_type": "sejour"
+    },
+    "event_raw": "room_changed input_id_deleted:e40_bool_in room_name:Grand%20salon room_type:sejour",
+    "type": "7",
+    "type_str": "room_changed"
+  }
+]

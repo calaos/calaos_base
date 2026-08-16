@@ -1,0 +1,225 @@
+[
+  {
+    "data": {
+      "data": {
+        "id": "e40_bool_in",
+        "room_name": "Salon",
+        "room_type": "salon"
+      },
+      "event_raw": "io_added id:e40_bool_in room_name:Salon room_type:salon",
+      "type": "1",
+      "type_str": "io_added"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40_bool_in",
+        "room_name": "Salon",
+        "room_type": "salon"
+      },
+      "event_raw": "io_deleted id:e40_bool_in room_name:Salon room_type:salon",
+      "type": "2",
+      "type_str": "io_deleted"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40_bool_out",
+        "state": "true"
+      },
+      "event_raw": "io_changed id:e40_bool_out state:true",
+      "type": "3",
+      "type_str": "io_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40_string",
+        "param": "io_style"
+      },
+      "event_raw": "io_prop_deleted id:e40_string param:io_style",
+      "type": "4",
+      "type_str": "io_prop_deleted"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "new_room_name": "Grand salon",
+        "old_room_name": "Salon",
+        "room_type": "salon"
+      },
+      "event_raw": "room_changed new_room_name:Grand%20salon old_room_name:Salon room_type:salon",
+      "type": "7",
+      "type_str": "room_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40d_plage"
+      },
+      "event_raw": "timerange_changed id:e40d_plage",
+      "type": "9",
+      "type_str": "timerange_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40d_scenario"
+      },
+      "event_raw": "scenario_added id:e40d_scenario",
+      "type": "10",
+      "type_str": "scenario_added"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40d_scenario"
+      },
+      "event_raw": "scenario_deleted id:e40d_scenario",
+      "type": "11",
+      "type_str": "scenario_deleted"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40d_scenario"
+      },
+      "event_raw": "scenario_changed id:e40d_scenario",
+      "type": "12",
+      "type_str": "scenario_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player"
+      },
+      "event_raw": "audio_song_changed player_id:e40_player",
+      "type": "13",
+      "type_str": "audio_song_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player"
+      },
+      "event_raw": "playlist_tracks_added player_id:e40_player",
+      "type": "14",
+      "type_str": "playlist_tracks_added"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player",
+        "position": "2"
+      },
+      "event_raw": "playlist_tracks_deleted player_id:e40_player position:2",
+      "type": "15",
+      "type_str": "playlist_tracks_deleted"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "from": "1",
+        "player_id": "e40_player",
+        "to": "4"
+      },
+      "event_raw": "playlist_tracks_moved from:1 player_id:e40_player to:4",
+      "type": "16",
+      "type_str": "playlist_tracks_moved"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player"
+      },
+      "event_raw": "playlist_reload player_id:e40_player",
+      "type": "17",
+      "type_str": "playlist_reload"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player"
+      },
+      "event_raw": "playlist_cleared player_id:e40_player",
+      "type": "18",
+      "type_str": "playlist_cleared"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player",
+        "state": "pause"
+      },
+      "event_raw": "audio_status_changed player_id:e40_player state:pause",
+      "type": "19",
+      "type_str": "audio_status_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "player_id": "e40_player",
+        "volume": "42"
+      },
+      "event_raw": "audio_volume_changed player_id:e40_player volume:42",
+      "type": "20",
+      "type_str": "audio_volume_changed"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "id": "e40_cam_ptz"
+      },
+      "event_raw": "touchscreen_camera_request id:e40_cam_ptz",
+      "type": "21",
+      "type_str": "touchscreen_camera_request"
+    },
+    "msg": "event"
+  },
+  {
+    "data": {
+      "data": {
+        "battery_level": "87",
+        "id": "e40_int"
+      },
+      "event_raw": "io_status_changed battery_level:87 id:e40_int",
+      "type": "23",
+      "type_str": "io_status_changed"
+    },
+    "msg": "event"
+  }
+]

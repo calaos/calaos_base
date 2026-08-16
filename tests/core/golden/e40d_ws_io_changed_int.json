@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_int",
+      "state": "21.5"
+    },
+    "event_raw": "io_changed id:e40_int state:21%2E5",
+    "type": "3",
+    "type_str": "io_changed"
+  },
+  "msg": "event"
+}

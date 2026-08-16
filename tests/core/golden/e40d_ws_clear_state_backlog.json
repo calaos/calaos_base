@@ -1,0 +1,82 @@
+[
+  {
+    "data": {
+      "id": "e40_bool_in",
+      "room_name": "Salon",
+      "room_type": "salon"
+    },
+    "event_raw": "io_deleted id:e40_bool_in room_name:Salon room_type:salon",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_bool_out",
+      "room_name": "Salon",
+      "room_type": "salon"
+    },
+    "event_raw": "io_deleted id:e40_bool_out room_name:Salon room_type:salon",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_int",
+      "room_name": "Salon",
+      "room_type": "salon"
+    },
+    "event_raw": "io_deleted id:e40_int room_name:Salon room_type:salon",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_string",
+      "room_name": "Salon",
+      "room_type": "salon"
+    },
+    "event_raw": "io_deleted id:e40_string room_name:Salon room_type:salon",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_accented",
+      "room_name": "Cuisine",
+      "room_type": "cuisine"
+    },
+    "event_raw": "io_deleted id:e40_accented room_name:Cuisine room_type:cuisine",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_cam_ptz",
+      "room_name": "Technique",
+      "room_type": "technique"
+    },
+    "event_raw": "io_deleted id:e40_cam_ptz room_name:Technique room_type:technique",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_cam_plain",
+      "room_name": "Technique",
+      "room_type": "technique"
+    },
+    "event_raw": "io_deleted id:e40_cam_plain room_name:Technique room_type:technique",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  {
+    "data": {
+      "id": "e40_player",
+      "room_name": "Technique",
+      "room_type": "technique"
+    },
+    "event_raw": "io_deleted id:e40_player room_name:Technique room_type:technique",
+    "type": "2",
+    "type_str": "io_deleted"
+  }
+]

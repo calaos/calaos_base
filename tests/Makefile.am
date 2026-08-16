@@ -1481,3 +1481,70 @@ core_JsonApiWsTransport_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiWsTransport_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.0d
+#Characterization of the REAL TIME EVENTS of the JSON API - the surface with
+#zero tests before this file: the 23 strings of CalaosEvent::typeToString(),
+#the enum numbering that travels on the wire as "type", the WS "event"
+#envelope with its nested data.data, the !loggedin gating, the asynchronous
+#delivery through the EventManager idler, and the HTTP equivalent poll_listen
+#with its three sub-actions. Fourth sub-ticket of the E4.0 series, built on the
+#E4.0a harness (core/JsonApiCharacterization.{h,cpp}).
+#Same link closure as core/JsonApiHome_test, and for the same measured reasons:
+#JsonApiHandlerHttp.o needs the REAL HttpClient::buildHttpResponse(), and the
+#reference house of the harness carries two real cameras (IPCam/StandardMjpeg.o)
+#and one real audio player (Audio/RoonPlayer.o). PollListenner.o is what makes
+#poll_listen testable in process.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiEvents_test
+check_PROGRAMS += core/JsonApiEvents_test
+core_JsonApiEvents_test_SOURCES = core/JsonApiEvents_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiEvents_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiEvents_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiEvents_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40d_ws_event_envelope.json \
+                  core/golden/e40d_ws_event_accented.json \
+                  core/golden/e40d_ws_event_catalog.json \
+                  core/golden/e40d_ws_clear_state_backlog.json \
+                  core/golden/e40d_ws_io_added.json \
+                  core/golden/e40d_ws_io_deleted.json \
+                  core/golden/e40d_ws_io_changed_bool.json \
+                  core/golden/e40d_ws_io_changed_int.json \
+                  core/golden/e40d_ws_io_changed_string.json \
+                  core/golden/e40d_ws_io_changed_setparam.json \
+                  core/golden/e40d_ws_io_prop_deleted.json \
+                  core/golden/e40d_ws_room_changed.json \
+                  core/golden/e40d_ws_timerange_changed.json \
+                  core/golden/e40d_ws_touchscreen_camera.json \
+                  core/golden/e40d_http_poll_get.json
+endif

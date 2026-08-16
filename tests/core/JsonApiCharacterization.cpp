@@ -644,8 +644,20 @@ void JsonApiCharacterizationTest::TearDown()
 {
     LoginThrottle::clear();
 
-    //Drain whatever a case left in the EventManager idler so it cannot be
-    //delivered to the sessions of the next case.
+    //Drain whatever the CASE ITSELF left in the EventManager idler.
+    //
+    //CORRECTED IN E4.0d: this used to claim it stopped anything from reaching
+    //the next case. IT DOES NOT, AND CANNOT WHERE IT STANDS. The rooms are
+    //destroyed by CoreFixture::TearDown() BELOW, and ~Room() raises one
+    //EventIODeleted per IO (Room.cpp:77) - eight for the reference house. Those
+    //are queued after this pump has already run, so they survive into the next
+    //case and are delivered to its first session.
+    //
+    //Moving the pump after CoreFixture::TearDown() is the real fix, and it is
+    //ticketed separately: three sub-tickets are in flight on this harness and
+    //silently changing the semantics under them would be worse than the bug.
+    //Until then, a fixture that pins the absence of a message must pump once
+    //more at the end of its own SetUp() - see JsonApiEvents_test.cpp.
     pumpEventLoop();
 
     CoreFixture::TearDown();
@@ -738,13 +750,26 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
 
     loadConfig(ioXmlDocument(ios), rulesXmlDocument(rules));
 
-    //MEASURED, and it bites: loading the house raises one EventIOAdded per IO
-    //(5 here). They stay in the EventManager queue until something pumps the
-    //loop, and are then delivered to EVERY session alive at that moment - even
-    //to a session created after the load, since the signal is emitted at flush
-    //time, not at queue time. A case that pins the ABSENCE of a message would
-    //fail on that backlog. Drain it here so the house is a clean starting
-    //point; raise your own events after this call.
+    //CORRECTED IN E4.0d. This used to say the load raises one EventIOAdded per
+    //IO, "5 here". BOTH HALVES WERE WRONG: the load raises NOTHING AT ALL, and
+    //the house holds EIGHT IOs. EventIOAdded has exactly one call site,
+    //ListeRoom::createIO() (ListeRoom.cpp:466), which is the RUNTIME path of
+    //the JSON API; config loading goes through Room::LoadFromXml()
+    //(Room.cpp:152-175), which builds and attaches the IOs silently. A client
+    //connected while the server boots sees nothing of the house being built.
+    //Pinned by JsonApiEvents_test.cpp:LoadingAHouseFromConfigRaisesNoEventAtAll.
+    //
+    //The drain below IS still needed, for the other end of the lifecycle: the
+    //previous case's teardown destroyed its rooms and ~Room() raised one
+    //EventIODeleted per IO (Room.cpp:77) AFTER TearDown() had already pumped,
+    //so they are still queued when this function runs. They would be delivered
+    //to every session alive at the next flush - even one created after this
+    //call, since newEvent is emitted at FLUSH time, not at QUEUE time - and
+    //any case pinning the ABSENCE of a message would trip over them.
+    //
+    //Draining here is NOT enough on its own: a case that opens its session
+    //BEFORE calling loadReferenceHouse() is still exposed. Pump once more at
+    //the end of your own SetUp() (see JsonApiEvents_test.cpp).
     pumpEventLoop();
 }
 

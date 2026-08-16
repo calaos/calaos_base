@@ -296,6 +296,43 @@ std::string goldenFilePath(const std::string &goldenName);
 bool goldenUpdateModeEnabled();
 
 /*******************************************************************************
+ * Total accessors - USE THESE, NEVER operator[] ON A CAPTURED PAYLOAD
+ *
+ * RULE OF THE SERIES, promoted from E4.0d after being measured there.
+ * nlohmann's CONST operator[] does not answer null on a missing key: it fires
+ * an assert() and ABORTS THE WHOLE BINARY. A renamed key therefore kills the
+ * run at the first case that reads it, and every later case is simply never
+ * executed - so the report says "5 failures" when the truth is 33, and says
+ * nothing at all about WHICH keys moved.
+ *
+ * That is exactly the shape of the E4.1 migration: keys move, and the value of
+ * this whole series is a readable list of which ones. Measured on E4.0d's own
+ * counter mutation: reading through operator[] aborted at the 5th case;
+ * reading through these two reported 33 and 21 clean failures with the paths.
+ *
+ *      member(env, "data")             -> the member, or a null Json
+ *      member(member(env,"data"), "x") -> nests safely, null all the way down
+ *      str(ev, "type_str")             -> the string, or "" if absent/not a string
+ *
+ * Neither ever throws, asserts or aborts. `str()` on a non-string member
+ * answers "" rather than the JSON text of it, on purpose: a case that needs to
+ * know the type must ask member(...).is_string() and say so.
+ ******************************************************************************/
+inline Json member(const Json &j, const char *key)
+{
+    if (!j.is_object())
+        return Json();
+    const auto it = j.find(key);
+    return it == j.end()? Json(): *it;
+}
+
+inline std::string str(const Json &j, const char *key)
+{
+    const Json m = member(j, key);
+    return m.is_string()? m.get<std::string>(): std::string();
+}
+
+/*******************************************************************************
  * Websocket session
  *
  * Drives JsonApiHandlerWS::processApi() in process, with no socket and no
@@ -418,6 +455,24 @@ class JsonApiCharacterizationTest: public CoreFixture
 {
 protected:
     void SetUp() override;
+
+    /* WARNING, MEASURED IN E4.0d: THIS TEARDOWN DOES NOT DRAIN EVERYTHING.
+     * It pumps the loop BEFORE calling CoreFixture::TearDown(), and it is that
+     * parent call which destroys the rooms - so the EventIODeleted that
+     * ~Room() raises for every IO (Room.cpp:77, eight of them for the
+     * reference house) are queued AFTER the last pump and survive into the
+     * NEXT case, where they are delivered to its first session.
+     *
+     * A case that pins the ABSENCE of a message therefore passes alone and
+     * fails in a full run, and only under some orderings - run your suite with
+     * --gtest_shuffle on a few seeds, it is the control that catches this.
+     *
+     * Until the ordering is fixed for good (ticketed separately; moving the
+     * pump here would change the semantics under three sub-tickets currently
+     * in flight), a fixture that cares should pump once more at the END of its
+     * own SetUp(), after CoreFixture::SetUp() has cleared the state.
+     * JsonApiEvents_test.cpp does exactly that and says why.
+     */
     void TearDown() override;
 
     //Credentials the API is configured with. Use authenticated() to stamp them
@@ -477,9 +532,22 @@ protected:
      * false branch reachable from configuration.
      *
      * It also carries one simple rule (HOUSE_RULE_NAME) so the rule side is
-     * not empty, and it DRAINS the EventIOAdded backlog the load raises (see
-     * the comment in loadReferenceHouse()) - without that, any case pinning
-     * the absence of a message would trip over five queued events.
+     * not empty, and it DRAINS the event queue before handing the house over.
+     *
+     * CORRECTED IN E4.0d, THIS PARAGRAPH USED TO BE WRONG. It claimed the load
+     * raises one EventIOAdded per IO ("five queued events"). MEASURED: the
+     * load raises NOTHING, and the house holds EIGHT IOs, not five.
+     * EventIOAdded has a single call site, ListeRoom::createIO()
+     * (ListeRoom.cpp:466), which is the runtime path of the JSON API; config
+     * loading goes through Room::LoadFromXml() (Room.cpp:152-175), which
+     * builds and attaches the IOs without raising anything.
+     *
+     * What the drain is REALLY for: the events queued by the PREVIOUS case.
+     * CoreFixture::TearDown() destroys the rooms, ~Room() calls RemoveIO() per
+     * IO, and each one raises EventIODeleted (Room.cpp:77) - eight of them for
+     * this house. Read the warning on TearDown() below: those land AFTER the
+     * fixture pumped, so they survive into the next case and are delivered to
+     * its first session.
      *
      * Ids are prefixed e40_ and used nowhere else: Config's IO state cache is
      * process wide and never cleared (see CalaosCoreFixture.h), so sharing ids

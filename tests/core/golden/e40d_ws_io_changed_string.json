@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_string",
+      "state": "café prêt"
+    },
+    "event_raw": "io_changed id:e40_string state:caf%C3%A9%20pr%C3%AAt",
+    "type": "3",
+    "type_str": "io_changed"
+  },
+  "msg": "event"
+}
