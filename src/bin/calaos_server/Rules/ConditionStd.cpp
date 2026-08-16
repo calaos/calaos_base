@@ -428,6 +428,29 @@ bool ConditionStd::LoadFromXml(pugi::xml_node node)
             if (node.attribute("val")) val = node.attribute("val").as_string();
             if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
+            if (id.empty())
+            {
+                /* No id at all (absent attribute or id=""). Handled BEFORE
+                 * anything tries to resolve it, for two reasons:
+                 *   - findIO("") never resolves, but the compatibility lookup
+                 *     right below compares against get_param("iid"), which
+                 *     answers "" for an IO that has no such param - so an empty
+                 *     id would match the first audio/camera IO of the config,
+                 *   - Add("") is a no-op, so letting this fall through left the
+                 *     condition with ZERO input and no missing flag, and a
+                 *     ConditionStd with zero input evaluates to TRUE. That is
+                 *     the very "amputated conjunction" this ticket forbids.
+                 * It is a missing dependency like any other: the rule is
+                 * disabled (recorded under Condition::MISSING_IO_EMPTY).
+                 */
+                cErrorDom("rule.condition.standard")
+                        << "An input of this condition has no id: the reference "
+                        << "is unusable and the rule using this condition will "
+                        << "be disabled";
+                addMissingIo(id);
+                continue;
+            }
+
             IOBase *in = ListeRoom::Instance().findIO(id);
 
             if (!in)

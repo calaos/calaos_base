@@ -276,6 +276,21 @@ bool ActionStd::LoadFromXml(pugi::xml_node node)
             if (node.attribute("val")) val = node.attribute("val").as_string();
             if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
+            if (id.empty())
+            {
+                //No id at all (absent attribute or id=""): same reasoning as in
+                //ConditionStd::LoadFromXml(), see the long comment there. It is
+                //handled before the compatibility lookup, which would match the
+                //first audio/camera IO having no "iid"/"oid" param, and before
+                //Add("") silently drops it and leaves the action with zero
+                //output and no missing flag.
+                cErrorDom("rule.action.standard")
+                        << "An output of this action has no id: the reference is "
+                        << "unusable and the rule using this action will be disabled";
+                addMissingIo(id);
+                continue;
+            }
+
             IOBase *out = ListeRoom::Instance().findIO(id);
 
             if (!out)

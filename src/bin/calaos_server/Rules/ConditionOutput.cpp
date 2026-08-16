@@ -234,6 +234,20 @@ bool ConditionOutput::LoadFromXml(pugi::xml_node node)
             if (node.attribute("val")) val = node.attribute("val").as_string();
             if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
+            if (id.empty())
+            {
+                //No id at all (absent attribute or id=""): a missing dependency
+                //like any other, recorded under Condition::MISSING_IO_EMPTY so
+                //the rule is disabled instead of being left with a reference
+                //that can never resolve. See ConditionStd::LoadFromXml().
+                cErrorDom("rule.condition.output")
+                        << "The output of this condition has no id: the reference "
+                        << "is unusable and the rule using this condition will be "
+                        << "disabled";
+                addMissingIo(id);
+                continue;
+            }
+
             IOBase *out = ListeRoom::Instance().findIO(id);
             if (out)
                 setOutput(out);

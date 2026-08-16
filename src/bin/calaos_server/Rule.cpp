@@ -53,9 +53,17 @@ void Rule::AddCondition(Condition *cond)
     //Ownership transfer in
     conds.emplace_back(cond);
 
-    //E4.2e: an unresolvable reference disables the whole rule. Done here and
-    //not only in LoadFromXml() so that every construction path (the XML
-    //factory, the JSON API, AutoScenario) goes through the same gate.
+    /* E4.2e: an unresolvable reference disables the whole rule. Done here and
+     * not only in LoadFromXml() so that every construction path (the XML
+     * factory, the JSON API, AutoScenario) goes through the same gate.
+     *
+     * This is a SNAPSHOT taken at add time, not a live view: a condition
+     * populated AFTER being added to the rule is not re-read. Harmless for the
+     * two call sites of the tree - RulesFactory hands over a fully loaded
+     * condition, and AutoScenario does add-then-populate but only ever with
+     * IOs it has just created, so it can never carry a missing one - but a
+     * future add-then-fill-from-config call site would have to re-run this.
+     */
     if (cond)
         collectMissingIo(cond->getMissingIoIds());
 

@@ -319,7 +319,189 @@ TEST_F(RuleDisabledMissingIoTest, AMalformedNodeDropsTheNodeButDoesNotDisableThe
     EXPECT_TRUE(io(ID_BOOL_OUT)->get_value_bool());
 }
 
-//An action, a ConditionOutput and a script trigger reach the same verdict.
+/******************************************************************************
+ * 3bis. The empty/absent id - the last door left open
+ ******************************************************************************/
+
+/* A hand written `<calaos:input id="" />`, or one with no `id` attribute at
+ * all, used to slip through every net: findIO("") does not resolve,
+ * addMissingIo("") was skipped as an empty id, Add("") was refused as an empty
+ * id... so the condition survived with ZERO input and NO missing flag - and a
+ * ConditionStd with zero input evaluates to TRUE. The rule stayed enabled and
+ * ran on strictly fewer criteria than the user wrote: the exact danger of this
+ * ticket, reached through the one door the first version left open.
+ * An id-less reference is now a missing dependency like any other. */
+TEST_F(RuleDisabledMissingIoTest, AnEmptyInputIdDisablesTheRule)
+{
+    std::ostringstream ss;
+    ss << "  <calaos:rule name=\"EmptyId\" type=\"rule\">\n"
+       << "    <calaos:condition type=\"standard\" trigger=\"true\">\n"
+       << "      <calaos:input id=\"" << ID_BOOL_IN << "\" oper=\"==\" val=\"true\" />\n"
+       << "      <calaos:input id=\"\" oper=\"==\" val=\"true\" />\n"
+       << "    </calaos:condition>\n"
+       << "    <calaos:action type=\"standard\">\n"
+       << "      <calaos:output id=\"" << ID_BOOL_OUT << "\" val=\"true\" />\n"
+       << "    </calaos:action>\n"
+       << "  </calaos:rule>\n";
+
+    loadConfig(minimalIoXml(), rulesXmlDocument(ss.str()));
+
+    Rule *rule = findRule("EmptyId");
+    ASSERT_NE(rule, nullptr);
+    ASSERT_EQ(rule->get_size_conds(), 1);
+
+    /* The condition kept only the resolvable input: an empty id is not a
+     * reference and cannot be stored, so this WOULD be the amputated
+     * conjunction. The flag is what stops it. */
+    ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(0));
+    ASSERT_NE(cond, nullptr);
+    EXPECT_EQ(cond->get_size(), 1);
+    EXPECT_TRUE(cond->hasMissingIo());
+
+    EXPECT_TRUE(rule->isDisabled());
+    ASSERT_EQ(rule->getMissingIoIds().size(), 1u);
+    EXPECT_EQ(rule->getMissingIoIds()[0], Condition::MISSING_IO_EMPTY);
+
+    //And it does not fire on its surviving half
+    ASSERT_TRUE(io(ID_BOOL_IN)->set_value(true));
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool())
+        << "the rule fired with one of its inputs silently dropped";
+}
+
+//The same with no `id` attribute at all, on a condition that then holds NO
+//input whatsoever - the degenerate case where Evaluate() answers true for zero
+//term and the actions used to run unconditionally.
+TEST_F(RuleDisabledMissingIoTest, AnAbsentInputIdDisablesTheRule)
+{
+    std::ostringstream ss;
+    ss << "  <calaos:rule name=\"NoId\" type=\"rule\">\n"
+       << "    <calaos:condition type=\"standard\" trigger=\"true\">\n"
+       << "      <calaos:input oper=\"==\" val=\"true\" />\n"
+       << "    </calaos:condition>\n"
+       << "    <calaos:action type=\"standard\">\n"
+       << "      <calaos:output id=\"" << ID_BOOL_OUT << "\" val=\"true\" />\n"
+       << "    </calaos:action>\n"
+       << "  </calaos:rule>\n";
+
+    loadConfig(minimalIoXml(), rulesXmlDocument(ss.str()));
+
+    Rule *rule = findRule("NoId");
+    ASSERT_NE(rule, nullptr);
+    ASSERT_EQ(rule->get_size_conds(), 1);
+
+    ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(0));
+    ASSERT_NE(cond, nullptr);
+    EXPECT_EQ(cond->get_size(), 0);
+    //Zero input evaluates to TRUE: without the flag this is a permanently
+    //satisfied rule
+    EXPECT_TRUE(cond->Evaluate());
+
+    EXPECT_TRUE(rule->isDisabled());
+    EXPECT_EQ(rule->getMissingIoDescription(), Condition::MISSING_IO_EMPTY);
+    EXPECT_FALSE(rule->CheckConditions());
+    EXPECT_FALSE(rule->Execute());
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+}
+
+//The same door on the action side...
+TEST_F(RuleDisabledMissingIoTest, AnEmptyActionOutputIdDisablesTheRule)
+{
+    std::ostringstream ss;
+    ss << "  <calaos:rule name=\"EmptyOut\" type=\"rule\">\n"
+       << "    <calaos:condition type=\"standard\" trigger=\"true\">\n"
+       << "      <calaos:input id=\"" << ID_BOOL_IN << "\" oper=\"==\" val=\"true\" />\n"
+       << "    </calaos:condition>\n"
+       << "    <calaos:action type=\"standard\">\n"
+       << "      <calaos:output id=\"\" val=\"true\" />\n"
+       << "      <calaos:output id=\"" << ID_BOOL_OUT << "\" val=\"true\" />\n"
+       << "    </calaos:action>\n"
+       << "  </calaos:rule>\n";
+
+    loadConfig(minimalIoXml(), rulesXmlDocument(ss.str()));
+
+    Rule *rule = findRule("EmptyOut");
+    ASSERT_NE(rule, nullptr);
+    ASSERT_EQ(rule->get_size_actions(), 1);
+    EXPECT_TRUE(rule->get_action(0)->hasMissingIo());
+
+    EXPECT_TRUE(rule->isDisabled());
+    ASSERT_EQ(rule->getMissingIoIds().size(), 1u);
+    EXPECT_EQ(rule->getMissingIoIds()[0], Action::MISSING_IO_EMPTY);
+
+    //The surviving output is perfectly valid: a per-output skip would have
+    //written it
+    ASSERT_TRUE(io(ID_BOOL_IN)->set_value(true));
+    EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+}
+
+//...and on ConditionOutput.
+TEST_F(RuleDisabledMissingIoTest, AnEmptyConditionOutputIdDisablesTheRule)
+{
+    std::ostringstream ss;
+    ss << "  <calaos:rule name=\"EmptyCondOut\" type=\"rule\">\n"
+       << "    <calaos:condition type=\"output\" trigger=\"true\">\n"
+       << "      <calaos:output oper=\"==\" val=\"true\" />\n"
+       << "    </calaos:condition>\n"
+       << "    <calaos:action type=\"standard\">\n"
+       << "      <calaos:output id=\"" << ID_BOOL_OUT << "\" val=\"true\" />\n"
+       << "    </calaos:action>\n"
+       << "  </calaos:rule>\n";
+
+    loadConfig(minimalIoXml(), rulesXmlDocument(ss.str()));
+
+    Rule *rule = findRule("EmptyCondOut");
+    ASSERT_NE(rule, nullptr);
+    ASSERT_EQ(rule->get_size_conds(), 1);
+    EXPECT_TRUE(rule->get_condition(0)->hasMissingIo());
+    EXPECT_TRUE(rule->isDisabled());
+    EXPECT_EQ(rule->getMissingIoDescription(), Condition::MISSING_IO_EMPTY);
+}
+
+/* An empty id must not become a reference through the back door either. The
+ * old AudioPlayer/Camera compatibility lookup compares against
+ * get_param("iid"), and Params answers "" for a param an IO does not have, so
+ * an id-less input reaching that lookup would bind itself to the first
+ * audio/camera IO of the configuration. The empty id is now handled BEFORE the
+ * lookup runs.
+ * Honest scope: this binary links the internal IOs only (see
+ * CalaosCoreFixture.h), so there is no audio/camera IO here to be adopted -
+ * what this pins is the observable half, that an id-less input/output stores
+ * no reference at all and still disables the rule. The ordering itself is
+ * pinned by reading ConditionStd::LoadFromXml(). */
+TEST_F(RuleDisabledMissingIoTest, AnEmptyIdIsNotAdoptedByTheAudioCameraCompatLookup)
+{
+    std::ostringstream ss;
+    ss << "  <calaos:rule name=\"NoIdNoAdoption\" type=\"rule\">\n"
+       << "    <calaos:condition type=\"standard\" trigger=\"true\">\n"
+       << "      <calaos:input id=\"\" oper=\"==\" val=\"true\" />\n"
+       << "    </calaos:condition>\n"
+       << "    <calaos:action type=\"standard\">\n"
+       << "      <calaos:output id=\"\" val=\"true\" />\n"
+       << "    </calaos:action>\n"
+       << "  </calaos:rule>\n";
+
+    loadConfig(minimalIoXml(), rulesXmlDocument(ss.str()));
+
+    Rule *rule = findRule("NoIdNoAdoption");
+    ASSERT_NE(rule, nullptr);
+    ASSERT_EQ(rule->get_size_conds(), 1);
+    ASSERT_EQ(rule->get_size_actions(), 1);
+
+    ConditionStd *cond = dynamic_cast<ConditionStd *>(rule->get_condition(0));
+    ASSERT_NE(cond, nullptr);
+    ActionStd *action = dynamic_cast<ActionStd *>(rule->get_action(0));
+    ASSERT_NE(action, nullptr);
+
+    //Nothing was adopted, and no empty id was stored as a reference
+    EXPECT_EQ(cond->get_size(), 0);
+    EXPECT_EQ(action->get_size(), 0);
+    EXPECT_TRUE(rule->isDisabled());
+}
+
+/******************************************************************************
+ * 3ter. The same verdict from an action, a ConditionOutput and a script trigger
+ ******************************************************************************/
+
 TEST_F(RuleDisabledMissingIoTest, AMissingActionOutputDisablesTheRule)
 {
     loadConfig(minimalIoXml(),

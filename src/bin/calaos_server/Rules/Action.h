@@ -60,13 +60,20 @@ protected:
 
     void addMissingIo(const string &id)
     {
-        if (id.empty()) return;
-        if (std::find(missingIoIds.begin(), missingIoIds.end(), id) != missingIoIds.end())
+        string key = id.empty()? MISSING_IO_EMPTY: id;
+
+        if (std::find(missingIoIds.begin(), missingIoIds.end(), key) != missingIoIds.end())
             return;
-        missingIoIds.push_back(id);
+        missingIoIds.push_back(key);
     }
 
 public:
+    /* Same sentinel as Condition::MISSING_IO_EMPTY, see the long comment
+     * there: an empty/absent id is a missing dependency, not something to
+     * skip. Skipping it left the action with ZERO output and NO flag, so the
+     * rule stayed enabled while doing less than what the user wrote. */
+    static constexpr const char *MISSING_IO_EMPTY = "<no id>";
+
     Action(int type);
     virtual ~Action();
 

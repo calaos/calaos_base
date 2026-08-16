@@ -71,13 +71,25 @@ protected:
 
     void addMissingIo(const string &id)
     {
-        if (id.empty()) return;
-        if (std::find(missingIoIds.begin(), missingIoIds.end(), id) != missingIoIds.end())
+        string key = id.empty()? MISSING_IO_EMPTY: id;
+
+        if (std::find(missingIoIds.begin(), missingIoIds.end(), key) != missingIoIds.end())
             return;
-        missingIoIds.push_back(id);
+        missingIoIds.push_back(key);
     }
 
 public:
+    /* An EMPTY id is a missing dependency too, and it is recorded under this
+     * sentinel instead of being skipped. Skipping it left the condition with
+     * ZERO input and NO flag - and ConditionStd::Evaluate() answers true for
+     * zero input, which is exactly the "an amputated conjunction is a more
+     * permissive rule" hole this ticket exists to close. It is reachable from
+     * a hand-written rules.xml with `id=""` or with no `id` attribute at all.
+     * There is no legitimate id-less reference here: ConditionStd and
+     * ConditionOutput always name an IO, and ConditionStart - the only
+     * condition naming none - never records anything. */
+    static constexpr const char *MISSING_IO_EMPTY = "<no id>";
+
     Condition(int type);
     virtual ~Condition();
 
