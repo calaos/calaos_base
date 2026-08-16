@@ -135,3 +135,10 @@ qui programme un scénario nocturne n'obtient rien, silencieusement.
 **Conséquence** : le test caractérisant `InvertedRangeNeverMatches` (E4.3ab) doit être RÉÉCRIT
 pour le nouveau contrat. Avec masque de jours : `23:00→01:00 le lundi` = lundi 23h → mardi 1h
 (continuité de la nuit), à documenter en ioDoc. Ticket T3.13.
+
+## 2026-08-16 — RemoteUI `device_info` : à corriger
+**Décision** : `device_info` doit faire l'aller-retour. `SaveToXml` l'écrit sous le nœud `room`
+alors que `LoadFromXml` le cherche dans `<calaos:remote_ui>` — il n'est donc jamais relu.
+Ticket T3.15, **sérialisé après E4.4cd** (le portage pugixml retype ces mêmes fonctions).
+Point ouvert à trancher dans le ticket : récupérer les `device_info` orphelins des configs
+existantes, ou assumer leur abandon et le documenter.
