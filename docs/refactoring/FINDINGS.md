@@ -1037,3 +1037,103 @@ relecteur indépendant (verdict **MERGE AVEC RÉSERVES**, réserve **fermée et 
   le relecteur a fait **segfauter le binaire** en retirant la garde de portée d'`eventlog` : session
   détruite avec le callback `HistLogger` **en vol**. Ce n'est plus une lecture de code, c'est un
   crash observé.
+
+## E4.0f — audio, doc d'API et décomptes corrigés
+
+Dernier sous-ticket de **caractérisation** de la série E4.0 (E4.0g, correctif structurel du
+harnais, reste ouvert). 24 cas, 20 goldens, **zéro ligne de `src/`**. Ce ticket réécrit en outre
+`docs/08_http_api.md` (298 → 915 l.) et `docs/10_events_notifications.md` (153 → 465 l.) contre
+le code : chaque exemple de payload y est marqué **capturé** (tracé jusqu'à un golden) ou
+**dérivé** (tracé jusqu'à un builder), et rien d'autre n'est autorisé.
+
+### Trois corrections de fait apportées à `E4.0.md`
+
+Ce ne sont pas des changements de comportement : ce sont des affirmations du document de cadrage
+qui étaient **fausses**, mesurées ici et corrigées à la source. Elles sont listées pour que
+personne ne les « recorrige » dans l'autre sens.
+
+- **18 types d'events émis, pas 19.** `EventAudioPlaylistCleared` est **inatteignable** :
+  `Audio/Squeezebox.cpp:290` teste `p["2"] == "loadtracks" || p["2"] == "clear" || p["2"] == "play"
+  || p["2"] == "load"` et émet `EventAudioPlaylistReload` ; la branche `else if (p["2"] == "clear")`
+  de `:306`/`:311`, qui seule émettrait `playlist_cleared`, est **masquée par la chaîne `else if`
+  antérieure** — code mort. Nuance à conserver : `EventPushNotification` n'est pas non plus poussé
+  en temps réel, mais pour une **autre raison** — il ne passe **jamais** par `EventManager::create()`.
+  `Rules/ActionPush.cpp:105` écrit un `HistEvent` **directement en base**
+  (`e.event_type = EventPushNotification`, `e.event_raw = data.dump()` `:111-115`). Son `type_str`
+  est donc bien observable par un client, mais **uniquement via `eventlog`**.
+  Recoupe : 23 types réels − 3 morts − `playlist_cleared` − `push_notification` = **18**.
+
+- **4 opérations renvoient des octets bruts, pas 6.** `get_cover` **de premier niveau** et
+  `get_camera_pic` ne renvoient **pas** d'octets : les deux finissent dans
+  `JsonApiHandlerHttp::exeFinished()` (`JsonApiHandlerHttp.cpp:574-591`), qui répond un **objet
+  JSON** `{"success":"true","contenttype":"image/jpeg","encoding":"base64","data":…}`. Octets bruts
+  `image/jpeg` uniquement pour : `audio/get_cover` (sous-action), `camera/get_picture`,
+  `camera/get_video`, `event_picture`.
+
+- **`items[0]` n'est PAS toujours `{"count":"N"}`.** `processDbResult()` (`JsonApi.cpp:984-1006`)
+  ne réordonne **jamais** ce que lui remet la couche audio, et cette couche place le marqueur où
+  ça l'arrange : `SqueezeboxDB::getAlbums_cb()` (`Audio/SqueezeboxDB.cpp:66-73`) traite `count:`
+  comme un **séparateur d'enregistrement**, exactement comme `id:` — il peut donc tomber
+  n'importe où dans la liste ; et `getRandoms()` (`:750-776`) l'ajoute **en dernier**
+  (`p.Add("count", …); result.push_back(p);` après les quatre entrées). L'affirmation générale
+  « le premier élément porte le compte » ne doit pas être réintroduite. Le contrat réellement
+  gelé est : **le dernier marqueur rencontré gagne**, la ligne porteuse **conserve ses autres
+  clés**, et l'absence totale de marqueur signifie **absence de la clé `total_count`**.
+
+### Divergences et bugs gelés (non corrigés)
+
+- **[BUG] `time_elapsed` perd de la précision sur le fil.** `Utils::to_string()`
+  (`src/lib/StringUtils.h:112-118`) est un `std::ostringstream` **nu** : aucun `setprecision`,
+  aucun `fixed`. Sur un `double` cela donne les **6 chiffres significatifs** par défaut, puis la
+  **notation scientifique**. Conséquences mesurées, épinglées par deux goldens
+  (`e40f_ws_audio_time_six_significant_digits.json`,
+  `e40f_ws_audio_time_large_value_goes_scientific.json`) :
+  `1234.56789` part sur le fil en `"1234.57"` — **3 décimales perdues** ; et `123456789.0` part en
+  `"1.23457e+08"`, qu'un `parseInt` naïf côté client lit **`1`**. C'est un comportement livré
+  aujourd'hui ; il est **gelé, pas réparé** (invariant de la série).
+
+- **[BUG] `/api/v2` et `/api/v3*` passent le filtre de chemin sans handler.**
+  `HttpClient.cpp:458-461` laisse passer `/api`, `/api.php`, `/api/v2` et tout ce qui commence par
+  `/api/v3` ; mais plus bas, `:653-659`, seul `proto_ver == API_HTTP` instancie un
+  `JsonApiHandlerHttp` — l'`else` se contente de
+  `cWarningDom("network") << "API version not implemented"; return;`. Le serveur **n'envoie donc
+  rien du tout** : pas de 404, pas de 501, pas de fermeture. La connexion est **laissée en
+  suspens** jusqu'au timeout du client.
+
+### Pièges pour les clients (documentés dans les deux documents réécrits)
+
+- **[PIÈGE CLIENT] `event_raw` porte trois formes incompatibles sous le même nom de clé.** Un
+  client qui écrit un seul parseur pour cette clé se casse :
+  1. **chaîne plate url-encodée** — events temps réel, `EventManager.cpp:190`
+     (`"event_raw", toString().c_str()` dans le `json_pack`) ; ce n'est **pas** du JSON ;
+  2. **objet JSON imbriqué** — `eventlog`, `HistLogger.cpp:93-100` fait
+     `j["event_raw"] = Json::parse(event_raw)` (et retombe sur `Json::object()` si le parse échoue) ;
+  3. **`{message, pic_uid}`** — `Rules/ActionPush.cpp:111-115` ; sous-cas du second : c'est le
+     contenu **stocké** par `ActionPush`, ressorti tel quel par le conteneur d'`eventlog`.
+
+- **[PIÈGE CLIENT] `steps_count` ≠ longueur du tableau `steps`.** `IO/Scenario.cpp:95` émet
+  `getRuleSteps().size()`, c'est-à-dire **les seules étapes réelles**, tandis que l'étape
+  synthétique `step_type:"end"` est ajoutée **hors de la boucle** (`:125-142`).
+  **Invariant : `len(steps) == steps_count + 1`, toujours.** Un client qui dimensionne son tableau
+  sur `steps_count` **tronque silencieusement les actions de sortie** du scénario.
+  ⚠️ **Contraste à garder en tête** : dans `get_playlist`, `count` **est** bien la longueur du
+  tableau ; et le `total_count` d'`audio_db` est un compte **fourni par la base**, sans rapport
+  garanti avec la longueur de `items`. **Trois champs de comptage, trois sémantiques.**
+
+### Fixture pauvre trouvée par la revue
+
+Les 7 cas `processDbResult()` amorçaient **tous** un marqueur de count, chacun à un endroit
+différent — de sorte que remplacer `if (!scount.empty())` par `if (true)` dans le builder laissait
+la suite **62/62 verte**. Le contrat « aucun `count` nulle part → **aucune** clé `total_count` »
+n'était donc épinglé par rien, alors qu'il est **publié aux clients** dans `08_http_api.md`.
+Comblé par `NoCountAnywhereMeansNoTotalCountKeyAtAll`, plus les deux cas de rejet croisé
+`get_albums`/`get_album` (chaque transport rejette l'orthographe de l'autre, dans les deux sens).
+Leçon générale : **une fixture qui amorce toujours la précondition ne teste jamais son absence.**
+
+### L'ancien `10_events_notifications.md` était factuellement faux
+
+- **Configuration mail inventée.** Les vraies clés sont `notif/mail_sender`,
+  `notif/mail_recipients` et `smtp_debug`, consommées par le binaire **hors-processus**
+  `calaos_mail` — pas par `calaos_server`. Le document décrivait d'autres clés.
+- **L'exemple XML d'`ActionPush` était inventé** : il ne correspondait à aucune forme que le
+  parseur de règles accepte. Remplacé par une forme tracée au code.

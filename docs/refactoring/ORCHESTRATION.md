@@ -1116,6 +1116,93 @@
   Merge **ff-only** (historique linéaire, pas de commit de merge), worktree `e4.0e` nettoyé par son
   **chemin exact** + `git worktree prune`, branche `refactor/e4.0e` supprimée, **rien n'a été
   poussé**.
+- **E4.0f ✅ mergé** (2026-08-17, `5c4c5f3f`) — **dernier sous-ticket de caractérisation de la
+  série E4.0**. Deux moitiés : **24 cas / 20 goldens** sur le payload audio
+  (`tests/core/JsonApiAudioPayload_test.cpp`) **et la réécriture de deux documents d'API** —
+  `docs/08_http_api.md` (298 → 915 l.) et `docs/10_events_notifications.md` (153 → 465 l.),
+  chaque exemple de payload marqué **capturé** (tracé à un golden) ou **dérivé** (tracé à un
+  builder). **Zéro ligne de `src/`**, vérifié sur le commit (`git show --name-only` : 2 docs,
+  `tests/Makefile.am`, 1 `.cpp`, 20 goldens = 24 fichiers, aucun `src/`).
+  **Relu par un relecteur indépendant** : ~50 affirmations de la doc échantillonnées, **29
+  revérifiées au source, zéro fausse** ; les 4 défauts trouvés étaient tous des **goldens cités
+  infidèlement**, corrigés avant merge. Verdict MERGE AVEC RÉSERVES, **réserves fermées**.
+  **Rebase obligatoire** : la branche était basée sur `6b534cd8`, master avait pris T3.17c **et**
+  E4.0e depuis. Rebase → **un seul conflit**, `tests/Makefile.am` en fin de fichier
+  (**septième occurrence du même pattern** : corps `LDADD` fusionnés, seuls les en-têtes en
+  conflit, hunks entrelacés). Résolu en **« régénérer »** : fichier complet de master
+  (**1618 l.**) + append **verbatim** du bloc `#E4.0f` (**4916 o.**), vérifié **octet à octet dans
+  les deux sens** (`résultat == master + bloc`, `résultat[:len(master)] == master`,
+  `résultat[len(master):] == bloc`). Équilibre **`if HAVE_GTEST` 53 == `endif` 53**.
+  **Le bloc `member()`/`str()` a bien disparu du diff au rebase**, comme prévu : l'agent l'avait
+  écrit **octet-identique** à celui d'E4.0d, au même ancrage, précisément pour que le rebase le
+  résolve en no-op. Vérifié après merge : **une seule** `inline Json member(` et **une seule**
+  `inline std::string str(const Json &j, const char *key)` dans `JsonApiCharacterization.h`.
+  **`make distclean` avant tout chiffre** (variante FAUX ROUGE du piège `_DEPENDENCIES`, cf. plus
+  bas), puis `autogen.sh && configure && make -j8 && make check` en conteneur.
+  **Compte de tests : 64 → 65.** Raisonnement, pas comptage naïf : `check_PROGRAMS` passe de 62 à
+  **63 entrées**, dont **1 n'est pas un test** (`StaticLogShutdown_helper`, sur une ligne à deux
+  entrées avec `StaticLogShutdown_test`) → **62 binaires** ; `TESTS` porte ces 62 binaires **plus
+  3 scripts shell** (la ligne `check-config-options.sh check-config-docs.sh` en porte deux, plus
+  `run-python-tests.sh`) → **65**. E4.0f n'ajoute qu'**un** binaire,
+  `core/JsonApiAudioPayload_test`.
+  **`E4.0.md` : quatre décomptes alignés, dont un tranché comme convention.** Le dépôt portait
+  **57/37/19/6** dans `E4.0.md` contre **56/36/18/4** dans les deux documents réécrits.
+  **Trois sont des corrections de fait** (détail en FINDINGS §E4.0f) : **19 → 18 types d'events
+  émis** (`EventAudioPlaylistCleared` inatteignable, masqué par la chaîne `else if` de
+  `Squeezebox.cpp:290` ; nuance conservée : `EventPushNotification` ne passe **jamais** par
+  `create()`, il est écrit en base par `ActionPush.cpp:105` et n'est visible que via `eventlog`) ;
+  **6 → 4 opérations renvoyant des octets bruts** (`get_cover` de premier niveau et
+  `get_camera_pic` finissent dans `exeFinished()`, `JsonApiHandlerHttp.cpp:574-591` → **JSON avec
+  base64**) ; **`items[0]` n'est PAS toujours `{"count":"N"}`** (`processDbResult()` ne réordonne
+  jamais ; `SqueezeboxDB::getAlbums_cb()` `:66-73` traite `count:` comme séparateur
+  d'enregistrement et `getRandoms()` `:750-776` l'ajoute **en dernier**).
+  **Le quatrième, 57 → 56 feuilles (et 37 → 36 sous-actions), est une CONVENTION, pas une
+  erreur — tranchée explicitement dans `E4.0.md` pour que personne ne recorrige dans l'autre
+  sens.** L'écart tient **entièrement** à `get_albums` (HTTP) / `get_album` (WS) : **deux noms de
+  fil pour le même builder** `audioDbGetAlbums()`, ce que `E4.0.md` disait déjà lui-même.
+  **Convention retenue : la colonne « Union » compte par identité de comportement, pas par
+  orthographe de fil** — une opération présente sur les deux transports y est comptée **une
+  fois**, ce qui est déjà le traitement des 17 commandes communes ; compter la paire deux fois
+  ferait remonter dans l'union une **divergence d'orthographe entre transports** que les colonnes
+  HTTP (53) et WS (44) portent déjà, chacune avec la sienne. Les colonnes par transport sont
+  **inchangées**, seule l'union bouge, et tous les dénominateurs du document suivent désormais
+  cette convention (`audio_db` union 17 → **16**, couverture « 2 sur 56 », doc « 6 sur 56 »,
+  livraison « **36 des 56** », recoupée : 56 − 13 `audio_db` redondantes − 4 réponses binaires
+  − 2 réponses base64 − `config/put` = 36).
+  **Documentation** : BOARD (ligne `E4.0f` **créée** en ✅ — elle manquait ; **l'épique `E4.0`
+  reste 📋**, `E4.0g`, correctif structurel du harnais, n'étant pas fait, et la ligne de l'épique
+  le dit maintenant), les **quatre alignements de `E4.0.md`** ci-dessus, une section
+  `## E4.0f — audio, doc d'API et décomptes corrigés` en FINDINGS, ce journal.
+  **Aucune entrée RELEASE_NOTES.md** : **zéro ligne de `src/`**.
+  **FINDINGS** — outre les trois corrections de fait : (1) **[BUG] `time_elapsed` perd de la
+  précision sur le fil** — `Utils::to_string()` (`src/lib/StringUtils.h:112-118`) est un
+  `ostringstream` **nu**, donc 6 chiffres significatifs puis scientifique : `1234.56789` devient
+  `"1234.57"` (**3 décimales perdues**) et `123456789.0` devient `"1.23457e+08"`, qu'un `parseInt`
+  naïf lit **1**. Épinglé par deux goldens, **gelé, pas réparé**. (2) **[BUG] `/api/v2` et
+  `/api/v3*` passent le filtre de chemin sans handler** — `HttpClient.cpp:458-461` les laisse
+  passer, `:653-659` logge « API version not implemented » et **`return` sans rien envoyer** :
+  connexion **laissée en suspens**. (3) **[PIÈGE CLIENT] `event_raw` porte trois formes
+  incompatibles sous le même nom de clé** — chaîne url-encodée plate (events live,
+  `EventManager.cpp:190`), objet JSON imbriqué (`eventlog`, `HistLogger.cpp:93-100`), et
+  `{message,pic_uid}` (`ActionPush.cpp:111-115`, sous-cas du second : contenu **stocké** ressorti
+  par le conteneur d'`eventlog`). (4) **[PIÈGE CLIENT] `steps_count` ≠ longueur du tableau
+  `steps`** — `IO/Scenario.cpp:95` ne compte que les étapes réelles, l'étape `step_type:"end"`
+  synthétique est ajoutée **hors de la boucle** (`:125-142`) ; **invariant : `len(steps) ==
+  steps_count + 1`, toujours** ; un client qui dimensionne sur `steps_count` **tronque les actions
+  de sortie**. Contraste signalé : dans `get_playlist`, `count` **est** la longueur du tableau —
+  **trois champs de comptage, trois sémantiques**. (5) **Fixture pauvre trouvée par la revue** :
+  les 7 cas `processDbResult()` amorçaient **tous** un marqueur de count, si bien que remplacer
+  `if (!scount.empty())` par `if (true)` laissait **62/62 vert** — alors que le contrat « aucun
+  `count` → pas de `total_count` » est **publié aux clients** dans `08_http_api.md`. Comblé par
+  `NoCountAnywhereMeansNoTotalCountKeyAtAll` + les deux cas de rejet croisé
+  `get_albums`/`get_album`. (6) **L'ancien `10_events_notifications.md` était factuellement faux
+  sur la configuration mail** — les vraies clés sont `notif/mail_sender`, `notif/mail_recipients`
+  et `smtp_debug` (`ConfigOptions.cpp:676,686,693`), consommées par le binaire **hors-processus**
+  `calaos_mail` (`NotifManager.cpp:106-117`) — et son exemple XML d'`ActionPush` était **inventé**.
+  Merge **ff-only** (historique linéaire, pas de commit de merge), worktree `e4.0f` nettoyé par son
+  **chemin exact** + `git worktree prune`, branche `refactor/e4.0f` supprimée, **rien n'a été
+  poussé**. Voisin `/tmp/claude-1000/calaos-wave20/t3.17f` **vérifié intact** (worktree et
+  conteneur de build), `docs/refactoring/` toujours à **97 fichiers**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
@@ -1300,3 +1387,31 @@ sain.
 
 **Règle** : **après tout rebase, `make distclean` avant de conclure quoi que ce soit** sur un
 binaire voisin. À répercuter dans les briefs de sous-tickets.
+
+## ⚠️ Outillage — sorties tronquées : `grep` hooké et `docker ps --format` (E4.0f, 2026-08-17)
+
+**`grep` hooké — fiable pour compter, pas pour citer.** Le hook qui réécrit `grep` **tronque les
+lignes longues avec `…` et fusionne/réordonne les résultats entre fichiers**. Les **comptages**
+(`grep -c`, nombre de correspondances) sont **exacts** — comparés à une lecture Python directe du
+fichier, ils coïncident. Mais le **texte** rendu ne l'est pas : une ligne longue revient amputée,
+et l'ordre d'apparition n'est pas celui du fichier. **Conséquence opérationnelle** : pour vérifier
+du **texte exact** — un bloc à recopier verbatim, une ligne de `Makefile.am`, une chaîne à comparer
+octet à octet, une citation de golden — **lire le fichier** (`Read`, ou une lecture Python par
+numéros de ligne). Ne jamais construire une résolution de conflit ni une citation de doc à partir
+d'une sortie de `grep`.
+
+⚠️ **Même famille, même piège, conséquence plus coûteuse** : **`docker ps --format '{{.Mounts}}'`
+tronque le chemin de mount**. Un conteneur **encore en build** peut donc sembler absent de la
+liste — et c'est exactement le mécanisme qui pousse à **relancer un build déjà en cours**, ce qui
+double la charge machine et, si on « nettoie » ensuite, tue des builds voisins.
+**Utiliser `docker inspect` et filtrer sur `Source`** :
+
+```sh
+for c in $(docker ps -q); do
+  echo "$c $(docker inspect -f '{{range .Mounts}}{{.Source}} {{end}}' $c)"
+done
+```
+
+**Règle** : un build qui dépasse le timeout de l'outil n'est **jamais** relancé — on retrouve le
+conteneur par `docker inspect`/`Source` et on attend (`docker wait`). Et on ne filtre **jamais**
+par image ni par ancêtre pour arrêter un conteneur : les worktrees voisins partagent la même image.
