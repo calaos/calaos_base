@@ -1,0 +1,47 @@
+{
+  "data": {
+    "category": "other",
+    "cycle": "false",
+    "enabled": "false",
+    "id": "io_0",
+    "schedule": "false",
+    "steps": [
+      {
+        "actions": [
+          {
+            "action": "true",
+            "id": "e40c_bool"
+          }
+        ],
+        "step_pause": "1.5",
+        "step_type": "standard"
+      },
+      {
+        "actions": [
+          {
+            "action": "true",
+            "id": "e40c_target"
+          },
+          {
+            "action": "42",
+            "id": "e40c_int"
+          }
+        ],
+        "step_pause": "0",
+        "step_type": "standard"
+      },
+      {
+        "actions": [
+          {
+            "action": "done",
+            "id": "e40c_string"
+          }
+        ],
+        "step_type": "end"
+      }
+    ],
+    "steps_count": "2"
+  },
+  "msg": "autoscenario",
+  "msg_id": "e40c-repaired"
+}

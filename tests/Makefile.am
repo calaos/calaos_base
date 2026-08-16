@@ -1368,3 +1368,68 @@ EXTRA_DIST += core/golden/t317b_ws_audio_get_playlist_size.json \
                   core/golden/t317b_ws_audio_db_get_stats_unknown_player.json \
                   core/golden/t317b_ws_audio_get_playlist_item_missing_item.json
 endif
+
+# E4.0c
+#Characterization of the time range and auto scenario commands of the JSON API:
+#get_timerange, set_timerange and the seven autoscenario sub-commands. Third
+#sub-ticket of the E4.0 series, built on the E4.0a harness
+#(core/JsonApiCharacterization.{h,cpp}). It brings its OWN small house
+#(InPlageHoraire + scenarios created through the API) and does not touch the
+#shared reference house, whose deliberate sparseness E4.0b's counter-mutation
+#showed to be load bearing.
+#Same link closure as core/JsonApiHome_test, and for the same measured reason:
+#JsonApiHandlerHttp.o needs the REAL HttpClient::buildHttpResponse(). The
+#camera/audio objects are part of that closure through the shared harness
+#object, which instantiates them for the reference house.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiScenario_test
+check_PROGRAMS += core/JsonApiScenario_test
+core_JsonApiScenario_test_SOURCES = core/JsonApiScenario_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiScenario_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiScenario_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiScenario_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution.
+#The two last ones are the UNHEALTHY scenarios T3.18.md asks for (a broken one
+#and a repaired one waiting for a manual re-enable). T3.18 regenerates all five
+#scenario goldens with CALAOS_GOLDEN_UPDATE=1 when it adds broken /
+#disabled_missing_io / missing_ios to Scenario::toJson().
+EXTRA_DIST += core/golden/e40c_ws_get_timerange.json \
+                  core/golden/e40c_http_get_timerange.json \
+                  core/golden/e40c_ws_autoscenario_list.json \
+                  core/golden/e40c_ws_autoscenario_get.json \
+                  core/golden/e40c_http_autoscenario_get.json \
+                  core/golden/e40c_ws_autoscenario_get_scheduled.json \
+                  core/golden/e40c_ws_autoscenario_get_hot_deleted.json \
+                  core/golden/e40c_ws_autoscenario_get_broken.json \
+                  core/golden/e40c_ws_autoscenario_get_repaired.json
+endif

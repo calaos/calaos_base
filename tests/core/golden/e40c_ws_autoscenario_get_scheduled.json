@@ -1,0 +1,28 @@
+{
+  "data": {
+    "category": "other",
+    "cycle": "true",
+    "enabled": "false",
+    "id": "io_0",
+    "schedule": "scenario_0_schedule",
+    "steps": [
+      {
+        "actions": [
+          {
+            "action": "true",
+            "id": "e40c_bool"
+          }
+        ],
+        "step_pause": "2.5",
+        "step_type": "standard"
+      },
+      {
+        "actions": [],
+        "step_type": "end"
+      }
+    ],
+    "steps_count": "1"
+  },
+  "msg": "autoscenario",
+  "msg_id": "e40c-sched"
+}
