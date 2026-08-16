@@ -396,3 +396,17 @@ si quelqu'un **diffe une config** avant/après migration :
   à la première sauvegarde : pugixml en émet toujours une, TinyXML n'en émettait pas.
 
 - un **BOM UTF-8** était préservé par TinyXML (`useMicrosoftBOM`) ; il est désormais **supprimé**.
+
+## E4.2d — suites
+
+Deux constats **non bloquants** relevés par la revue du passage de `Rule`/`ListeRule` aux
+`unique_ptr`. Aucun des deux n'est une régression introduite par E4.2d :
+
+- `AddCondition`/`AddAction` n'ont **pas** la garde null que `Add(Rule*)` a gagnée. Ce n'est pas
+  une régression : `LoadFromXml` garde déjà en amont, aucun appelant ne peut y passer un pointeur
+  nul aujourd'hui. À harmoniser si un nouvel appelant apparaît.
+
+- le test `RemovingTheSameRuleTwiceIsNotADoubleFree` **compare une valeur de pointeur
+  indéterminée** (le pointeur a été détruit par le premier `Remove`) : c'est de l'UB formel au
+  sens du standard, même si tout compilateur réel se contente d'une comparaison de bits. Le point
+  est commenté dans le test lui-même.

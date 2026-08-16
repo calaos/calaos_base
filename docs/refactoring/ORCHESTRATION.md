@@ -341,6 +341,24 @@
   pour qu'aucune ne pointe vers du code encore présent. `docs/refactoring/**` volontairement
   intouché (trace historique). Rebase sur master : **aucun conflit** (fast-forward direct). Build
   d'intégration distclean **51/51 PASS, 0 SKIP**. ff-only, worktree e4.4e nettoyé.
+- **E4.2d ✅ mergé** (2026-08-16, `ac274657` + `7a400306`) — **4/6 de la série ownership**
+  (E4.2a / E4.2b / E4.2c / E4.2d ✅). `Rule` possède ses `Condition`/`Action` et `ListeRule`
+  possède ses `Rule` en `unique_ptr` ; les `delete` manuels de `Rule.cpp:39,42,132` et
+  `ListeRule.cpp:101,124` disparaissent. Nouveau binaire `tests/core/RuleOwnership_test`
+  → build d'intégration distclean **52/52 PASS, 0 SKIP** (51 + le nouveau). Périmètre strictement
+  limité à `Rule.{h,cpp}`, `ListeRule.{h,cpp}`, `tests/core/RuleOwnership_test.cpp`,
+  `tests/Makefile.am` — **aucun `src/lib/**`**, donc zéro interaction avec la suppression de
+  TinyXML par E4.4e. Rebase sur master : **aucun conflit** (le conflit EOF redouté sur
+  `tests/Makefile.am` ne s'est pas matérialisé).
+  ⚠️ **Double-free latent corrigé au passage** : `RemoveRule(io)` pouvait détruire une règle
+  d'auto-scénario sans annuler les back-pointers (`ruleStart`…) ; le `delete` ultérieur sur ce
+  pointeur périmé dans `deleteAll()` était un **double free** — crash serveur possible en
+  supprimant un IO référencé par un scénario. Le nouveau `Remove(Rule*)` refuse et logge au lieu
+  de détruire un objet qu'il ne possède pas. Consigné dans RELEASE_NOTES.md (Fiabilité).
+  2 non-bloquants de revue (gardes null de `AddCondition`/`AddAction`, comparaison de pointeur
+  indéterminée dans un test) consignés dans FINDINGS.md. **Renumérotation** : les items 5 et 6 du
+  plan E4.2 d'origine deviennent **E4.2f** et **E4.2g** (E4.2e était déjà pris par un ticket de
+  décision utilisateur hors plan initial). ff-only, worktree e4.2d nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

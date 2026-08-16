@@ -104,3 +104,9 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   où le lecteur les cherche, et celles laissées sous la pièce par les versions précédentes sont
   **récupérées automatiquement** au premier chargement puis réécrites au bon endroit — aucune
   action nécessaire.
+- **Suppression d'un IO utilisé par un auto-scénario — plus de plantage** : `RemoveRule(io)`
+  pouvait détruire une règle d'auto-scénario sans annuler les back-pointers (`ruleStart`…), et le
+  `delete` ultérieur sur ce pointeur périmé dans `deleteAll()` était un **double free** — donc un
+  crash du serveur possible en supprimant un IO référencé par un scénario. Corrigé incidemment
+  par E4.2d (le nouveau `Remove(Rule*)` refuse et logge au lieu de détruire un objet qu'il ne
+  possède pas).

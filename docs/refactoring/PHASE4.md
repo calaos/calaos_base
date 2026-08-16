@@ -67,6 +67,27 @@ référencent l'IO **par id** au lieu de `IOBase*` ; (4) `Rule` possède ses Con
 `ListeRule` possède ses `Rule` ; (5) back-pointers Scenario/AutoScenario → ids ou weak_ptr ;
 (6) adaptation des 21 sites `IOBase*` de JsonApi.
 
+**📍 État réel (2026-08-16) et renumérotation.** Les items **1 à 4 sont faits** : ils ont été
+livrés comme **E4.2a** (helpers par id dans ListeRoom), **E4.2b** (`Room` possède ses
+`unique_ptr<IOBase>`), **E4.2c** (Condition/Action référencent l'IO par id) et **E4.2d**
+(`Rule` possède ses Condition/Action, `ListeRule` possède ses `Rule`) — tous ✅ au board.
+
+⚠️ **Le fichier de ticket `E4.2e.md` n'est PAS l'item 5.** C'est un ticket issu d'une **décision
+utilisateur** — « une règle dont une dépendance est manquante est désactivée » — qui ne figurait
+pas dans le plan en 6 items ci-dessus. Pour que la numérotation cesse d'entrer en collision, les
+items 5 et 6 d'origine reçoivent donc les numéros suivants :
+
+- **E4.2f** (ex-item 5) — back-pointers Scenario/AutoScenario → ids ou weak_ptr. **Valeur
+  concrète confirmée** : la revue d'E4.2d a localisé un **double-free latent réel exactement dans
+  cette zone** (`RemoveRule(io)` détruisait une règle d'auto-scénario sans annuler `ruleStart`…,
+  puis `deleteAll()` re-`delete`ait le pointeur périmé). E4.2d a neutralisé le crash côté
+  ownership, mais les back-pointers bruts eux-mêmes subsistent — c'est ce que E4.2f doit traiter.
+
+- **E4.2g** (ex-item 6) — adaptation des sites `IOBase*` de JsonApi. **À re-scoper avant tout
+  lancement** : avec les accesseurs par id désormais en place (E4.2a/E4.2c), la valeur restante
+  est vraisemblablement **cosmétique**. Mesurer ce qui reste réellement avant d'y consacrer un
+  ticket.
+
 **⚠ Risques** : l'ordre de `in_event` pilote l'ordre d'évaluation des règles (un réordonnancement
 change quelle règle part en premier — silencieux) ; `delete_io(io, del=false)` est un transfert
 d'ownership → doit devenir `release()`, pas `reset()` ; `getCameraList()/getAudioList()`
