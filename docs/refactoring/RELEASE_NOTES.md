@@ -93,3 +93,10 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   l'ASLR), donc deux **exécutions** successives du serveur produisaient des
   `rules.xml` différents dès qu'une condition script avait ≥2 déclencheurs. L'ordre est
   désormais celui du document, stable. (Corrigé au passage par E4.2c.)
+- **RemoteUI — le `device_info` n'est plus perdu** : les informations remontées par l'écran lors
+  de la provision (modèle, fabricant, firmware, adresse MAC, capacités) étaient écrites dans
+  `io.xml` sous le nœud **pièce**, alors qu'elles sont relues **à l'intérieur** de
+  `<calaos:remote_ui>` : elles n'étaient donc jamais rechargées. Elles sont désormais écrites là
+  où le lecteur les cherche, et celles laissées sous la pièce par les versions précédentes sont
+  **récupérées automatiquement** au premier chargement puis réécrites au bon endroit — aucune
+  action nécessaire.

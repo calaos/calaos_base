@@ -33,6 +33,54 @@ static const char *TAG = "remote_ui";
 
 using namespace Calaos;
 
+namespace
+{
+
+/*
+ * T3.15 — reading back the <calaos:device_info> of the configs written by the
+ * broken writer.
+ *
+ * Until this ticket SaveToXml() attached the element to the node it received,
+ * which is the ROOM node (Room::SaveToXml() hands its own element to every IO
+ * it owns), and it did so BEFORE appending <calaos:remote_ui>. The element
+ * therefore came out as the immediate PREVIOUS SIBLING of the device it
+ * describes, where LoadFromXml() — which has always looked inside
+ * <calaos:remote_ui>, as the format documents — never found it.
+ *
+ * Room::LoadFromXml() ignores every element whose name it does not know, so
+ * those orphans are still sitting in the io.xml of anyone whose device_info
+ * had ever been read once. Nothing else in the format ever writes a
+ * <calaos:device_info> under a room, so "the element immediately preceding
+ * this <calaos:remote_ui>" identifies its owner with no ambiguity: it works
+ * for a room holding several devices (the writer interleaved them
+ * device_info(A), remote_ui(A), device_info(B), remote_ui(B)), and a
+ * remote_ui preceded by anything else — another IO, or nothing at all —
+ * adopts nothing.
+ *
+ * This is a one shot migration: the value is re-saved in its right place, so
+ * the orphan disappears with the next save (Room::SaveToXml() rebuilds the
+ * room element from the model, it does not patch the old document).
+ */
+pugi::xml_node legacyRoomDeviceInfo(const pugi::xml_node &remote_ui_node)
+{
+    for (pugi::xml_node prev = remote_ui_node.previous_sibling(); prev; prev = prev.previous_sibling())
+    {
+        //Whitespace/comments between two elements are not the predecessor
+        if (prev.type() != pugi::node_element)
+            continue;
+
+        if (string(prev.name()) == "calaos:device_info")
+            return prev;
+
+        //The nearest preceding element is something else: no orphan for us
+        return pugi::xml_node();
+    }
+
+    return pugi::xml_node();
+}
+
+}
+
 REGISTER_IO(RemoteUI)
 
 RemoteUI::RemoteUI(Params &p):
@@ -90,6 +138,18 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
 
     // Load device_info
     pugi::xml_node device_info_elem = node.child("calaos:device_info");
+
+    if (!device_info_elem)
+    {
+        //T3.15: adopt the orphan left under the room node by the writer this
+        //ticket fixes, so the information survives the upgrade instead of
+        //being dropped at the first save.
+        device_info_elem = legacyRoomDeviceInfo(node);
+        if (device_info_elem)
+            cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): migrating a <calaos:device_info> "
+                             "found under the room node, it will be saved inside <calaos:remote_ui>";
+    }
+
     if (device_info_elem)
     {
         device_info = Json::object();
@@ -175,24 +235,6 @@ bool RemoteUI::LoadFromXml(pugi::xml_node node)
 
 bool RemoteUI::SaveToXml(pugi::xml_node node)
 {
-    //The nodes are created in the order TinyXML LINKED them, which is not the
-    //order it built them in: device_info_elem was linked to `node` (the room)
-    //before cnode was, so it comes out as a SIBLING of <calaos:remote_ui>, not
-    //as its child. That is a pre-existing bug -- LoadFromXml() looks for
-    //<calaos:device_info> INSIDE the remote_ui node and therefore never reads
-    //back what SaveToXml() wrote -- and it is reproduced verbatim here: this
-    //ticket is a library port, not a behaviour change. See the report.
-    if (!device_info.empty())
-    {
-        pugi::xml_node device_info_elem = node.append_child("calaos:device_info");
-
-        for (auto it = device_info.begin(); it != device_info.end(); ++it)
-        {
-            if (it.value().is_string())
-                XmlUtils::setAttribute(device_info_elem, it.key(), it.value().get<string>());
-        }
-    }
-
     pugi::xml_node cnode = node.append_child("calaos:remote_ui");
 
     for (int i = 0;i < get_params().size();i++)
@@ -200,6 +242,25 @@ bool RemoteUI::SaveToXml(pugi::xml_node node)
         string key, value;
         get_params().get_item(i, key, value);
         XmlUtils::setAttribute(cnode, key, value);
+    }
+
+    //T3.15: the device_info goes INSIDE <calaos:remote_ui>, next to the pages,
+    //because that is where LoadFromXml() reads it and what the format
+    //documents (RemoteUI/remote-ui.md). It used to be appended to `node` — the
+    //ROOM element — which made it a sibling of the device it describes and
+    //therefore write-only: nothing ever read it back.
+    //Only string values are written, as they always were: the loader turns
+    //every attribute into a string, so this is exactly the closure of what can
+    //be loaded, and the round trip is lossless.
+    if (!device_info.empty())
+    {
+        pugi::xml_node device_info_elem = cnode.append_child("calaos:device_info");
+
+        for (auto it = device_info.begin(); it != device_info.end(); ++it)
+        {
+            if (it.value().is_string())
+                XmlUtils::setAttribute(device_info_elem, it.key(), it.value().get<string>());
+        }
     }
 
     // Save pages
