@@ -56,6 +56,26 @@ les configurations existantes ; un scénario amputé de cette façon affiche sim
 d'étapes qu'avant la suppression (le traitement complet de ce cas — désactiver le scénario amputé
 plutôt que le raccourcir — est l'objet d'un ticket dédié, T3.18).
 
+### Audio — plus de plantage en consultant la playlist d'un lecteur (T3.17a)
+Afficher la playlist d'un lecteur audio (`get_playlist`, c'est-à-dire l'écran Lecteur de
+l'application) interroge le lecteur **piste par piste**, avec un aller-retour réseau entre deux
+pistes. Deux événements ordinaires survenant pendant cette suite d'allers-retours faisaient
+**planter le serveur** :
+- **le client se déconnecte** (fermeture de l'application, perte du Wi-Fi, onglet fermé) alors
+  qu'une réponse du lecteur est encore en vol — la réponse revenait sur une connexion déjà
+  détruite ;
+- **le lecteur audio est supprimé** depuis l'installeur ou l'API pendant la consultation — les
+  pistes suivantes étaient demandées à un équipement qui n'existait plus.
+
+Le défaut était **atteignable depuis l'API JSON** sans manipulation particulière : une playlist un
+peu longue et une déconnexion suffisaient. Il est corrigé dans les deux cas.
+
+**Nouveau comportement observable** : un lecteur supprimé en cours de consultation fait répondre
+`{"success":"false"}` au lieu de planter — exactement ce que `get_playlist` répond déjà pour un id
+inconnu. Aucune forme d'erreur nouvelle n'est introduite, et une playlist **jamais tronquée** :
+soit la liste complète, soit cette réponse d'échec. Une déconnexion en vol n'entraîne, elle,
+aucune réponse — le client n'est plus là pour la recevoir.
+
 ### Fichiers de configuration — deux pertes de fidélité corrigées (E4.4cd)
 Le lecteur/écrivain de configuration passe de TinyXML à pugixml. Deux défauts de fidélité des
 données, présents de longue date, disparaissent :

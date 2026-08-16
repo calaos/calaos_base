@@ -515,6 +515,44 @@
   chercher à couvrir sa branche fausse ; le **backlog de la file d'events fuit d'un cas à l'autre**,
   un test de silence passe seul et échoue en suite complète — le drain de `TearDown()` est aussi
   porteur que celui de `loadReferenceHouse()`). ff-only, worktree e4.0a nettoyé.
+- **T3.17a ✅ mergé** (2026-08-16, `11f7198a` + `98347915` + `1baaffc4`) — **premier sous-ticket
+  de T3.17, et la preuve que la garde alive seule ne suffit pas**. La chaîne récursive
+  `decodeGetPlaylist()`/`getNextPlaylistItem()` mourait de **deux** morts indépendantes, et le
+  correctif traite les deux : (1) le **client se déconnecte** pendant qu'une réponse du lecteur est
+  en vol → `weak_ptr` sur `apiAlive`, **une vérification par étage** (une chaîne de N callbacks
+  demande N vérifications, N étant ici la longueur de la playlist), chaque sortie anticipée
+  `decref`ant `jplayer`/`jplaylist` pour que la garde ne troque pas un UAF contre une fuite ;
+  (2) le **lecteur est supprimé en vol** → l'`AudioPlayer*` brut ne traverse plus **aucune**
+  frontière asynchrone, `getNextPlaylistItem()` prend désormais un `const string &playerId` et
+  **re-résout l'IO par son id à chaque étape**, exactement le motif de `buildJsonState()` (T2.15).
+  Le second UAF a été **confirmé réel par la revue** — adresses de tas distinctes (`0x612…` pour
+  le chunk `AudioPlayer`, `0x60e…` pour le handler) et `WsTestSession` **encore vivante** au
+  moment du crash, donc `apiAlive` **non expiré** : une garde par token seul aurait franchi
+  `expired()` puis déréférencé le player libéré à la ligne suivante. C'est **la** leçon à porter
+  dans T3.17b/c (consignée aussi dans FINDINGS.md). Réponse d'échec **factorisée** dans
+  `playlistNoPlayerAnswer()`, partagée par le point d'entrée et par les étages async : un lecteur
+  disparu en vol rend le **même** `{"success":"false"}` qu'un id inconnu — jamais une playlist
+  silencieusement tronquée, et aucune forme d'erreur nouvelle inventée. Déclaration morte de
+  `getNextPlaylistItem()` supprimée de `JsonApiHandlerHttp.h` au passage.
+  **Discipline en deux commits respectée à la lettre** — c'est le cœur méthodologique du ticket :
+  `11f7198a` pose le test de caractérisation **seul et vert avant toute modification de `src/`**
+  (5 goldens `t317a_*.json`, voies WS et HTTP, playlist vide, id inconnu), `98347915` pose la
+  garde, `1baaffc4` les corrections de revue (R1/R2/R3). Relu par un **relecteur indépendant** qui
+  a reproduit toutes les mesures dans un clone reconstruit de zéro : verdict **MERGE**.
+  ⚠️ **Le worktree avait servi à un build ASan pendant la revue** puis été reconfiguré sans : le
+  `make distclean` en tête de commande n'était pas décoratif (piège des objets ASan périmés,
+  documenté plus haut). Vérifié dans `config.log` que le build de validation est bien un
+  `./configure` **nu** (0 occurrence de `fsanitize`, `CXXFLAGS = -g -O2`). Build d'intégration
+  distclean : **56/56 PASS** (55 de master + le nouveau binaire `core/JsonApiPlaylist_test`) ; le
+  build dépasse 600 s, attendu par `docker wait` sur le conteneur retrouvé par son **mount exact**,
+  **sans relance**. **Aucun rebase nécessaire** : la branche partait déjà de `1b2567a5`, tête de
+  master — donc **aucun conflit `tests/Makefile.am`**, le bloc `# T3.17a` s'ajoutant seul en EOF →
+  **44/44** `if HAVE_GTEST`/`endif` équilibrés (43/43 avant). Aucune fausse suppression de docs :
+  les 94 fichiers de `docs/refactoring/` intacts. Consigné dans RELEASE_NOTES.md (plantage
+  atteignable depuis l'API, section « comportements qui changent ») ; **1 suite + 1 note** dans
+  FINDINGS.md (R4 : fuite préexistante si l'objet de connexion meurt **sans jamais** rappeler,
+  hors périmètre, à traiter au niveau de l'épique ; note T3.17b/c sur la double mort).
+  **T3.17 reste 📋** — ses sous-tickets b/c/d/e ne sont pas faits. ff-only, worktree t3.17a nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

@@ -593,3 +593,27 @@ Aucune ne remet en cause le correctif : l'UAF atteignable depuis l'API JSON est 
   les deux sont structurels, pas des précautions cosmétiques. Tout sous-ticket E4.0b→E4.0f qui
   bâtit sa propre fixture doit reproduire les **deux** drains, et E4.0d — le seul à faire tourner
   la boucle pour de bon — est celui qui en dépend le plus.
+
+## T3.17a — suites
+
+- **R4 — fuite de `jplayer`/`jplaylist` si l'objet de connexion du player meurt sans jamais
+  rappeler (préexistant, hors périmètre).** Les gardes de T3.17a `decref` la paire à chaque
+  sortie anticipée *de callback* ; elles ne peuvent rien pour le cas où le callback n'est
+  **jamais invoqué du tout** — si l'objet de connexion du player est détruit alors qu'il porte
+  encore des callbacks en attente, les `json_t*` capturés par valeur dans la fermeture partent
+  avec elle sans `decref` → fuite. Le défaut est **antérieur à T3.17a et inchangé par lui** : la
+  chaîne fuyait déjà de la même façon avant la garde. **Non observable dans les tests** — le fake
+  tire toujours le callback ou en cède la propriété, donc aucun cas ne laisse une fermeture mourir
+  en attente. À traiter **au niveau de l'épique** (propriétaire des `json_t*` ou politique de
+  destruction des connexions), pas dans un sous-ticket de garde.
+
+- **Note pour T3.17b/c — le second UAF est réel, une garde par token seul ne suffit pas.** Le
+  `AudioPlayer*` brut capturé à travers l'aller-retour asynchrone a été **confirmé réel par la
+  revue**, avec deux preuves indépendantes : (1) les adresses de tas sont **distinctes** — chunk
+  `AudioPlayer` en `0x612…`, handler en `0x60e…`, donc ce sont bien deux objets de durées de vie
+  séparées, et libérer l'un ne dit rien de l'autre ; (2) la `WsTestSession` était **encore vivante**
+  au moment du crash, donc `apiAlive` n'était **pas** expiré. Conséquence directe pour T3.17b/c :
+  une garde qui se contenterait de tester le token franchirait `expired()` sans broncher puis
+  **déréférencerait le player déjà libéré à la ligne suivante**. Les deux morts sont indépendantes
+  et demandent **deux** protections — le token pour la mort du client, la **re-résolution de l'IO
+  par son id** pour la mort du player.
