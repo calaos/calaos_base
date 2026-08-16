@@ -126,7 +126,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.12](T3.12.md) | 3 | ~~Patch 2 TinyXML CVEs~~ (abandoned: superseded by pugixml migration) | fix (sec) | — | ⛔ |
 | [E4.4a](E4.4a.md) | 4 | Introduce pugixml (Debian pkg, XPath on) | infra | — | ✅ |
 | [E4.4b](E4.4b.md) | 4 | WebCtrl: TinyXPath → pugixml XPath | refactor | E4.4a | ✅ |
-| [E4.2e](E4.2e.md) | 4 | Rule with a missing dependency is disabled (user decision) | fix | E4.2c | 📋 |
+| [E4.2e](E4.2e.md) | 4 | Rule with a missing dependency is disabled (user decision) | fix | E4.2c | 🔨 |
 | [E4.4cd](E4.4cd.md) | 4 | XML port on pugixml (sweep + core, atomic) | refactor | E4.4b | ✅ |
 | [E4.4dbis](E4.4dbis.md) | 4 | Port ConfigStore.cpp (last TinyXML consumer) | refactor | E4.4cd | ✅ |
 | [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | ✅ |
