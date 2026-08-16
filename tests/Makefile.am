@@ -1790,3 +1790,61 @@ EXTRA_DIST += core/golden/e40f_ws_db_count_marker_in_the_middle.json \
                   core/golden/e40f_http_audio_ws_shaped_request.json \
                   core/golden/e40f_http_audio_db_ws_shaped_arguments.json
 endif
+
+#T3.17f: eventlog - the last unguarded async chain of JsonApi.cpp
+#(buildJsonEventLog(), the 26th and only std::function<void(Json &)> method of
+#JsonApi.h, found by the T3.17e audit). Characterizes both of its callbacks - the
+#uuid one and the paginated one - on both transports, then pins the lifetime
+#guard: the JsonApi/handler destroyed while the sqlite worker thread is still
+#running the query.
+#Drives HistLogger like core/JsonApiSession_test (E4.0e) does: the history
+#database is built ONCE, before the first CoreFixture::SetUp(), in a directory
+#that lives as long as the process - a singleton born inside a case would point
+#at a per-case cache directory that TearDown() rm -rf's, and the worker would
+#then throw sqlite cantopen OUTSIDE its try block (HistLogger.cpp:190) and
+#std::terminate the binary. Different directory template from E4.0e's so the two
+#binaries can never share a database.
+#HistLogger.$(OBJEXT) is already part of CORE_SERVER_OBJECTS, so the link closure
+#is the same as core/JsonApiCharacterization_test, and so is -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiEventLog_test
+check_PROGRAMS += core/JsonApiEventLog_test
+core_JsonApiEventLog_test_SOURCES = core/JsonApiEventLog_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiEventLog_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiEventLog_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiEventLog_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317f_ws_eventlog_page_out_of_range.json \
+                  core/golden/t317f_ws_eventlog_uuid_not_found.json \
+                  core/golden/t317f_http_eventlog_uuid_not_found.json
+endif
