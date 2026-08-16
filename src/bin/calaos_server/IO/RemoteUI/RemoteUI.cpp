@@ -83,35 +83,31 @@ void RemoteUI::readConfig()
     is_provisioned = !get_param("device_secret").empty() && !get_param("auth_token").empty();
 }
 
-bool RemoteUI::LoadFromXml(TiXmlElement *node)
+bool RemoteUI::LoadFromXml(pugi::xml_node node)
 {
     if (!IOBase::LoadFromXml(node))
         return false;
 
     // Load device_info
-    TiXmlElement *device_info_elem = node->FirstChildElement("calaos:device_info");
+    pugi::xml_node device_info_elem = node.child("calaos:device_info");
     if (device_info_elem)
     {
         device_info = Json::object();
 
-        TiXmlAttribute *attr = device_info_elem->FirstAttribute();
-        while (attr)
-        {
-            device_info[attr->Name()] = attr->ValueStr();
-            attr = attr->Next();
-        }
+        for (pugi::xml_attribute attr: device_info_elem.attributes())
+            device_info[attr.name()] = string(attr.value());
     }
 
     // Load pages
-    TiXmlElement *pages_elem = node->FirstChildElement("calaos:pages");
+    pugi::xml_node pages_elem = node.child("calaos:pages");
     if (pages_elem)
     {
         pages = Json::array();
 
         size_t page_count = 0;
-        for (TiXmlElement *page_elem = pages_elem->FirstChildElement("calaos:page");
+        for (pugi::xml_node page_elem = pages_elem.child("calaos:page");
              page_elem;
-             page_elem = page_elem->NextSiblingElement("calaos:page"))
+             page_elem = page_elem.next_sibling("calaos:page"))
         {
             // Check max pages limit
             if (page_count >= RemoteUISecurityLimits::MAX_PAGES_PER_REMOTEUI)
@@ -125,19 +121,15 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
             Json page = Json::object();
 
-            TiXmlAttribute *attr = page_elem->FirstAttribute();
-            while (attr)
-            {
-                page[attr->Name()] = attr->ValueStr();
-                attr = attr->Next();
-            }
+            for (pugi::xml_attribute attr: page_elem.attributes())
+                page[attr.name()] = string(attr.value());
 
             // Load widgets for this page
             Json widgets = Json::array();
             size_t widget_count = 0;
-            for (TiXmlElement *widget_elem = page_elem->FirstChildElement("calaos:widget");
+            for (pugi::xml_node widget_elem = page_elem.child("calaos:widget");
                  widget_elem;
-                 widget_elem = widget_elem->NextSiblingElement("calaos:widget"))
+                 widget_elem = widget_elem.next_sibling("calaos:widget"))
             {
                 // Check max widgets per page limit
                 if (widget_count >= RemoteUISecurityLimits::MAX_WIDGETS_PER_PAGE)
@@ -151,19 +143,16 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
                 Json widget = Json::object();
 
-                attr = widget_elem->FirstAttribute();
-                while (attr)
+                for (pugi::xml_attribute attr: widget_elem.attributes())
                 {
                     // Convert numeric attributes
-                    string attr_name = attr->Name();
-                    string attr_value = attr->ValueStr();
+                    string attr_name = attr.name();
+                    string attr_value = attr.value();
 
                     if (attr_name == "x" || attr_name == "y")
                         widget[attr_name] = std::stoi(attr_value);
                     else
                         widget[attr_name] = attr_value;
-
-                    attr = attr->Next();
                 }
 
                 //Only add widget if it has a type and x/y positions
@@ -184,39 +173,43 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool RemoteUI::SaveToXml(TiXmlElement *node)
+bool RemoteUI::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:remote_ui");
+    //The nodes are created in the order TinyXML LINKED them, which is not the
+    //order it built them in: device_info_elem was linked to `node` (the room)
+    //before cnode was, so it comes out as a SIBLING of <calaos:remote_ui>, not
+    //as its child. That is a pre-existing bug -- LoadFromXml() looks for
+    //<calaos:device_info> INSIDE the remote_ui node and therefore never reads
+    //back what SaveToXml() wrote -- and it is reproduced verbatim here: this
+    //ticket is a library port, not a behaviour change. See the report.
+    if (!device_info.empty())
+    {
+        pugi::xml_node device_info_elem = node.append_child("calaos:device_info");
+
+        for (auto it = device_info.begin(); it != device_info.end(); ++it)
+        {
+            if (it.value().is_string())
+                XmlUtils::setAttribute(device_info_elem, it.key(), it.value().get<string>());
+        }
+    }
+
+    pugi::xml_node cnode = node.append_child("calaos:remote_ui");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
-        cnode->SetAttribute(key, value);
-    }
-
-    // Save device_info
-    if (!device_info.empty())
-    {
-        TiXmlElement *device_info_elem = new TiXmlElement("calaos:device_info");
-
-        for (auto it = device_info.begin(); it != device_info.end(); ++it)
-        {
-            if (it.value().is_string())
-                device_info_elem->SetAttribute(it.key(), it.value().get<string>());
-        }
-
-        node->LinkEndChild(device_info_elem);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     // Save pages
     if (!pages.empty() && pages.is_array())
     {
-        TiXmlElement *pages_elem = new TiXmlElement("calaos:pages");
+        pugi::xml_node pages_elem = cnode.append_child("calaos:pages");
 
         for (const auto &page : pages)
         {
-            TiXmlElement *page_elem = new TiXmlElement("calaos:page");
+            pugi::xml_node page_elem = pages_elem.append_child("calaos:page");
 
             for (auto it = page.begin(); it != page.end(); ++it)
             {
@@ -224,7 +217,7 @@ bool RemoteUI::SaveToXml(TiXmlElement *node)
                     continue;
 
                 if (it.value().is_string())
-                    page_elem->SetAttribute(it.key(), it.value().get<string>());
+                    XmlUtils::setAttribute(page_elem, it.key(), it.value().get<string>());
             }
 
             // Save widgets
@@ -232,27 +225,19 @@ bool RemoteUI::SaveToXml(TiXmlElement *node)
             {
                 for (const auto &widget : page["widgets"])
                 {
-                    TiXmlElement *widget_elem = new TiXmlElement("calaos:widget");
+                    pugi::xml_node widget_elem = page_elem.append_child("calaos:widget");
 
                     for (auto it = widget.begin(); it != widget.end(); ++it)
                     {
                         if (it.value().is_string())
-                            widget_elem->SetAttribute(it.key(), it.value().get<string>());
+                            XmlUtils::setAttribute(widget_elem, it.key(), it.value().get<string>());
                         else if (it.value().is_number_integer())
-                            widget_elem->SetAttribute(it.key(), std::to_string(it.value().get<int>()));
+                            XmlUtils::setAttribute(widget_elem, it.key(), std::to_string(it.value().get<int>()));
                     }
-
-                    page_elem->LinkEndChild(widget_elem);
                 }
             }
-
-            pages_elem->LinkEndChild(page_elem);
         }
-
-        cnode->LinkEndChild(pages_elem);
     }
-
-    node->LinkEndChild(cnode);
 
     return true;
 }

@@ -77,8 +77,8 @@ public:
     void set_operator(string p) { ops = p; }
     void set_param_var(string p) { params_var = p; }
 
-    bool LoadFromXml(TiXmlElement *node) override;
-    bool SaveToXml(TiXmlElement *node) override;
+    bool LoadFromXml(pugi::xml_node node) override;
+    bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

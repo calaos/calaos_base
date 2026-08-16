@@ -41,38 +41,32 @@ bool ActionScript::Execute()
     return true;
 }
 
-bool ActionScript::LoadFromXml(TiXmlElement *pnode)
+bool ActionScript::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlElement *sc_node = pnode->FirstChildElement("calaos:script");
+    pugi::xml_node sc_node = pnode.child("calaos:script");
     if (!sc_node) return false;
 
     string type = "";
-    if (sc_node->Attribute("type"))
-        type = sc_node->Attribute("type");
+    if (sc_node.attribute("type"))
+        type = sc_node.attribute("type").as_string();
     if (type == "lua")
     {
-        TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
-
-        if (tnode)
-            script = tnode->ValueStr();
+        if (XmlUtils::hasText(sc_node))
+            script = XmlUtils::text(sc_node);
     }
 
     return true;
 }
 
-bool ActionScript::SaveToXml(TiXmlElement *node)
+bool ActionScript::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "script");
-    node->LinkEndChild(action_node);
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "script");
 
-    TiXmlElement *sc_node = new TiXmlElement("calaos:script");
-    sc_node->SetAttribute("type", "lua");
-    action_node->LinkEndChild(sc_node);
+    pugi::xml_node sc_node = action_node.append_child("calaos:script");
+    XmlUtils::setAttribute(sc_node, "type", "lua");
 
-    TiXmlText *txt_node = new TiXmlText(script);
-    txt_node->SetCDATA(true);
-    sc_node->LinkEndChild(txt_node);
+    XmlUtils::appendCData(sc_node, script);
 
     return true;
 }

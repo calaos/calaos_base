@@ -209,30 +209,30 @@ bool ConditionOutput::eval(IOBase *out, string oper, string val)
     return out->check_condition_value(val, oper == "==");
 }
 
-bool ConditionOutput::LoadFromXml(TiXmlElement *node)
+bool ConditionOutput::LoadFromXml(pugi::xml_node node)
 {
-    if (node->Attribute("trigger"))
+    if (node.attribute("trigger"))
     {
-        if (node->Attribute("trigger") == string("true"))
+        if (string(node.attribute("trigger").as_string()) == "true")
             trigger = true;
-        else if (node->Attribute("trigger") == string("false"))
+        else if (string(node.attribute("trigger").as_string()) == "false")
             trigger = false;
     }
 
     cDebugDom("rule.condition.output") << "trigger: " << (trigger?"true":"false");
 
-    node = node->FirstChildElement();
+    node = XmlUtils::firstChildElement(node);
 
-    for (; node; node = node->NextSiblingElement())
+    for (; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:output")
+        if (string(node.name()) == "calaos:output")
         {
             string id = "", oper = "", val = "", val_var = "";
 
-            if (node->Attribute("id")) id = node->Attribute("id");
-            if (node->Attribute("oper")) oper = node->Attribute("oper");
-            if (node->Attribute("val")) val = node->Attribute("val");
-            if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
+            if (node.attribute("id")) id = node.attribute("id").as_string();
+            if (node.attribute("oper")) oper = node.attribute("oper").as_string();
+            if (node.attribute("val")) val = node.attribute("val").as_string();
+            if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
             IOBase *out = ListeRoom::Instance().findIO(id);
             if (out)
@@ -257,23 +257,20 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool ConditionOutput::SaveToXml(TiXmlElement *node)
+bool ConditionOutput::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-    cond_node->SetAttribute("type", "output");
-    cond_node->SetAttribute("trigger", trigger?"true":"false");
-    node->LinkEndChild(cond_node);
+    pugi::xml_node cond_node = node.append_child("calaos:condition");
+    XmlUtils::setAttribute(cond_node, "type", "output");
+    XmlUtils::setAttribute(cond_node, "trigger", trigger?"true":"false");
 
-    TiXmlElement *cnode = new TiXmlElement("calaos:output");
+    pugi::xml_node cnode = cond_node.append_child("calaos:output");
     //The id IS the reference: saving resolves nothing, so a condition whose IO
     //disappeared is written back unchanged instead of dereferencing it.
-    cnode->SetAttribute("id", outputId);
-    cnode->SetAttribute("oper", ops);
-    cnode->SetAttribute("val", params);
+    XmlUtils::setAttribute(cnode, "id", outputId);
+    XmlUtils::setAttribute(cnode, "oper", ops);
+    XmlUtils::setAttribute(cnode, "val", params);
     if (params_var != "")
-        cnode->SetAttribute("val_var", params_var);
-
-    cond_node->LinkEndChild(cnode);
+        XmlUtils::setAttribute(cnode, "val_var", params_var);
 
     return true;
 }

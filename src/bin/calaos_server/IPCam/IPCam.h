@@ -94,7 +94,7 @@ public:
     //Any URL a camera driver hands to a log statement must go through this.
     static std::string maskUrlCredentials(const std::string &url);
 
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

@@ -262,19 +262,19 @@ void ActionStd::Assign(int i, const std::string &id)
     outputIds[i] = id;
 }
 
-bool ActionStd::LoadFromXml(TiXmlElement *node)
+bool ActionStd::LoadFromXml(pugi::xml_node node)
 {
-    node = node->FirstChildElement();
+    node = XmlUtils::firstChildElement(node);
 
-    for (; node; node = node->NextSiblingElement())
+    for (; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:output")
+        if (string(node.name()) == "calaos:output")
         {
             string id = "", val = "", val_var = "";
 
-            if (node->Attribute("id")) id = node->Attribute("id");
-            if (node->Attribute("val")) val = node->Attribute("val");
-            if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
+            if (node.attribute("id")) id = node.attribute("id").as_string();
+            if (node.attribute("val")) val = node.attribute("val").as_string();
+            if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
             IOBase *out = ListeRoom::Instance().findIO(id);
 
@@ -327,11 +327,10 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool ActionStd::SaveToXml(TiXmlElement *node)
+bool ActionStd::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "standard");
-    node->LinkEndChild(action_node);
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "standard");
 
     //The id IS the reference: saving resolves nothing, so an action whose IO
     //disappeared is written back unchanged instead of dereferencing it.
@@ -339,14 +338,12 @@ bool ActionStd::SaveToXml(TiXmlElement *node)
     {
         const std::string &out_id = outputIds[i];
 
-        TiXmlElement *cnode = new TiXmlElement("calaos:output");
+        pugi::xml_node cnode = action_node.append_child("calaos:output");
 
-        cnode->SetAttribute("id", out_id);
-        cnode->SetAttribute("val", params[out_id]);
+        XmlUtils::setAttribute(cnode, "id", out_id);
+        XmlUtils::setAttribute(cnode, "val", params[out_id]);
         if (params_var[out_id] != "")
-            cnode->SetAttribute("val_var", params_var[out_id]);
-
-        action_node->LinkEndChild(cnode);
+            XmlUtils::setAttribute(cnode, "val_var", params_var[out_id]);
     }
 
     return true;

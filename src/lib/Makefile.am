@@ -116,6 +116,7 @@ libcalaos_common_la_SOURCES = \
         SystemInfo.h                            \
         Utils.cpp                               \
         Utils.h                                 \
+        XmlUtils.h                              \
         WebSocketFrame.cpp                      \
         WebSocketFrame.h                        \
         base64.cpp                              \

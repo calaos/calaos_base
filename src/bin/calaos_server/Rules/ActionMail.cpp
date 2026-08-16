@@ -93,43 +93,37 @@ void ActionMail::sendMail(const string &attachmentFile)
                                                   attachmentFile);
 }
 
-bool ActionMail::LoadFromXml(TiXmlElement *pnode)
+bool ActionMail::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlElement *mail_node = pnode->FirstChildElement("calaos:mail");
+    pugi::xml_node mail_node = pnode.child("calaos:mail");
     if (!mail_node) return false;
 
-    if (mail_node->Attribute("sender")) mail_sender = mail_node->Attribute("sender");
-    if (mail_node->Attribute("recipients")) mail_recipients = mail_node->Attribute("recipients");
-    if (mail_node->Attribute("subject")) mail_subject = mail_node->Attribute("subject");
-    if (mail_node->Attribute("attachment")) mail_attachment = mail_node->Attribute("attachment");
+    if (mail_node.attribute("sender")) mail_sender = mail_node.attribute("sender").as_string();
+    if (mail_node.attribute("recipients")) mail_recipients = mail_node.attribute("recipients").as_string();
+    if (mail_node.attribute("subject")) mail_subject = mail_node.attribute("subject").as_string();
+    if (mail_node.attribute("attachment")) mail_attachment = mail_node.attribute("attachment").as_string();
 
     //remove spaces
     replace_str(mail_recipients, " ", "");
 
-    TiXmlText *tnode = dynamic_cast<TiXmlText *>(mail_node->FirstChild());
-
-    if (tnode)
-        mail_message = tnode->ValueStr();
+    if (XmlUtils::hasText(mail_node))
+        mail_message = XmlUtils::text(mail_node);
 
     return true;
 }
 
-bool ActionMail::SaveToXml(TiXmlElement *node)
+bool ActionMail::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "mail");
-    node->LinkEndChild(action_node);
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "mail");
 
-    TiXmlElement *mail_node = new TiXmlElement("calaos:mail");
-    mail_node->SetAttribute("sender", mail_sender);
-    mail_node->SetAttribute("recipients", mail_recipients);
-    mail_node->SetAttribute("subject", mail_subject);
-    mail_node->SetAttribute("attachment", mail_attachment);
-    action_node->LinkEndChild(mail_node);
+    pugi::xml_node mail_node = action_node.append_child("calaos:mail");
+    XmlUtils::setAttribute(mail_node, "sender", mail_sender);
+    XmlUtils::setAttribute(mail_node, "recipients", mail_recipients);
+    XmlUtils::setAttribute(mail_node, "subject", mail_subject);
+    XmlUtils::setAttribute(mail_node, "attachment", mail_attachment);
 
-    TiXmlText *txt_node = new TiXmlText(mail_message);
-    txt_node->SetCDATA(true);
-    mail_node->LinkEndChild(txt_node);
+    XmlUtils::appendCData(mail_node, mail_message);
 
     return true;
 }

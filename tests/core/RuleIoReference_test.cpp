@@ -386,22 +386,22 @@ TEST_F(RuleIoReferenceTest, AnIdUnknownAtLoadTimeStillRejectsTheCondition)
     ConditionStd cond;
     ActionStd act;
 
-    TiXmlElement cnode("calaos:condition");
-    TiXmlElement *cin = new TiXmlElement("calaos:input");
-    cin->SetAttribute("id", "e42c_never_existed");
-    cin->SetAttribute("oper", "==");
-    cin->SetAttribute("val", "true");
-    cnode.LinkEndChild(cin);
+    pugi::xml_document cdoc;
+    pugi::xml_node cnode = cdoc.append_child("calaos:condition");
+    pugi::xml_node cin = cnode.append_child("calaos:input");
+    cin.append_attribute("id").set_value("e42c_never_existed");
+    cin.append_attribute("oper").set_value("==");
+    cin.append_attribute("val").set_value("true");
 
-    EXPECT_FALSE(cond.LoadFromXml(&cnode));
+    EXPECT_FALSE(cond.LoadFromXml(cnode));
 
-    TiXmlElement anode("calaos:action");
-    TiXmlElement *aout = new TiXmlElement("calaos:output");
-    aout->SetAttribute("id", "e42c_never_existed");
-    aout->SetAttribute("val", "true");
-    anode.LinkEndChild(aout);
+    pugi::xml_document adoc;
+    pugi::xml_node anode = adoc.append_child("calaos:action");
+    pugi::xml_node aout = anode.append_child("calaos:output");
+    aout.append_attribute("id").set_value("e42c_never_existed");
+    aout.append_attribute("val").set_value("true");
 
-    EXPECT_FALSE(act.LoadFromXml(&anode));
+    EXPECT_FALSE(act.LoadFromXml(anode));
 }
 
 //ConditionScript compares its triggers by id as well, so RemoveRule() and the

@@ -134,34 +134,28 @@ void ActionPush::sendNotif(const string &picUid)
     );
 }
 
-bool ActionPush::LoadFromXml(TiXmlElement *pnode)
+bool ActionPush::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlElement *notif_node = pnode->FirstChildElement("calaos:push");
+    pugi::xml_node notif_node = pnode.child("calaos:push");
     if (!notif_node) return false;
 
-    if (notif_node->Attribute("attachment")) notif_attachment = notif_node->Attribute("attachment");
+    if (notif_node.attribute("attachment")) notif_attachment = notif_node.attribute("attachment").as_string();
 
-    TiXmlText *tnode = dynamic_cast<TiXmlText *>(notif_node->FirstChild());
-
-    if (tnode)
-        notif_message = tnode->ValueStr();
+    if (XmlUtils::hasText(notif_node))
+        notif_message = XmlUtils::text(notif_node);
 
     return true;
 }
 
-bool ActionPush::SaveToXml(TiXmlElement *node)
+bool ActionPush::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "push");
-    node->LinkEndChild(action_node);
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "push");
 
-    TiXmlElement *notif_node = new TiXmlElement("calaos:push");
-    notif_node->SetAttribute("attachment", notif_attachment);
-    action_node->LinkEndChild(notif_node);
+    pugi::xml_node notif_node = action_node.append_child("calaos:push");
+    XmlUtils::setAttribute(notif_node, "attachment", notif_attachment);
 
-    TiXmlText *txt_node = new TiXmlText(notif_message);
-    txt_node->SetCDATA(true);
-    notif_node->LinkEndChild(txt_node);
+    XmlUtils::appendCData(notif_node, notif_message);
 
     return true;
 }

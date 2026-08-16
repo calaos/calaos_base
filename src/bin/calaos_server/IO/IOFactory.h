@@ -55,7 +55,7 @@ private:
 
 public:
 
-    void readParams(TiXmlElement *node, Params &p);
+    void readParams(pugi::xml_node node, Params &p);
 
     /* -------------------------------------------------------------------
      * Ownership (E4.2b)
@@ -73,7 +73,7 @@ public:
      * unregisters it again.
      * ---------------------------------------------------------------- */
     IOBase *CreateIO(string type, Params &params);
-    IOBase *CreateIO(TiXmlElement *node);
+    IOBase *CreateIO(pugi::xml_node node);
 
     void RegisterClass(string type, function<IOBase *(Params &)> classFunc)
     {

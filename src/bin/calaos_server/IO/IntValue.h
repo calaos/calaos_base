@@ -66,7 +66,7 @@ public:
     virtual bool set_value(double val);
     virtual bool set_value(string val);
 
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

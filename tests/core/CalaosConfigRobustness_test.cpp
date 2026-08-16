@@ -164,8 +164,9 @@ TEST_F(ConfigRobustnessTest, CorruptIoXmlIsRestoredFromBackup)
     EXPECT_NE(nullptr, io(ID_STRING));
 
     //...and the file on disk is parsable again
-    TiXmlDocument doc(ioXmlPath());
-    EXPECT_TRUE(doc.LoadFile()) << doc.ErrorDesc();
+    pugi::xml_document doc;
+    pugi::xml_parse_result parsed = doc.load_file(ioXmlPath().c_str());
+    EXPECT_TRUE(parsed) << parsed.description();
 
     //The corrupt bytes were preserved verbatim before the restore
     std::vector<std::string> copies = corruptCopiesOf(IO_CONFIG);
@@ -223,8 +224,9 @@ TEST_F(ConfigRobustnessTest, CorruptRulesXmlIsRestoredFromBackup)
 
     EXPECT_NE(nullptr, findRule(RULE_NAME));
 
-    TiXmlDocument doc(rulesXmlPath());
-    EXPECT_TRUE(doc.LoadFile()) << doc.ErrorDesc();
+    pugi::xml_document doc;
+    pugi::xml_parse_result parsed = doc.load_file(rulesXmlPath().c_str());
+    EXPECT_TRUE(parsed) << parsed.description();
 }
 
 /******************************************************************************

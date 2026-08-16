@@ -22,14 +22,14 @@
 
 using namespace Calaos;
 
-Condition *RulesFactory::CreateCondition(TiXmlElement *node)
+Condition *RulesFactory::CreateCondition(pugi::xml_node node)
 {
     Condition *condition = NULL;
 
     /* read type */
     string type = "";
-    if (node->Attribute("type"))
-        type = node->Attribute("type");
+    if (node.attribute("type"))
+        type = node.attribute("type").as_string();
 
     /* Standard condition */
     if (type == "standard" || type == "")
@@ -68,14 +68,14 @@ Condition *RulesFactory::CreateCondition(TiXmlElement *node)
 }
 
 
-Action *RulesFactory::CreateAction(TiXmlElement *node)
+Action *RulesFactory::CreateAction(pugi::xml_node node)
 {
     Action *action = NULL;
 
     /* read type */
     string type = "";
-    if (node->Attribute("type"))
-        type = node->Attribute("type");
+    if (node.attribute("type"))
+        type = node.attribute("type").as_string();
 
     /* Standard action */
     if (type == "standard" || type == "")

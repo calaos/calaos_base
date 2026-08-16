@@ -41,8 +41,8 @@ protected:
     vector<TimeRange> plg_saturday;
     vector<TimeRange> plg_sunday;
 
-    void LoadRange(TiXmlElement *node, vector<TimeRange> &plage);
-    void SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage);
+    void LoadRange(pugi::xml_node node, vector<TimeRange> &plage);
+    void SaveRange(pugi::xml_node node, string day, vector<TimeRange> &plage);
 
     vector<TimeRange> *getRangesForWeekday(int wday);
 
@@ -97,8 +97,8 @@ public:
 
     virtual void hasChanged();
 
-    virtual bool LoadFromXml(TiXmlElement *node) override;
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool LoadFromXml(pugi::xml_node node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

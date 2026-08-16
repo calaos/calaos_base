@@ -313,16 +313,13 @@ std::string CoreFixture::dumpRules()
 
     //Serializing through the real SaveToXml() covers the conditions and the
     //actions of every rule type without duplicating their internals here.
-    TiXmlElement root("calaos:rules");
+    pugi::xml_document doc;
+    pugi::xml_node root = doc.append_child("calaos:rules");
     ListeRule &rules = ListeRule::Instance();
     for (int i = 0;i < rules.size();i++)
-        rules.get_rule(i)->SaveToXml(&root);
+        rules.get_rule(i)->SaveToXml(root);
 
-    TiXmlPrinter printer;
-    printer.SetIndent("  ");
-    root.Accept(&printer);
-
-    ss << printer.Str();
+    root.print(ss, "  ");
     return ss.str();
 }
 
@@ -496,19 +493,17 @@ Rule *CoreFixture::addSimpleRule(const std::string &name,
 
 Rule *CoreFixture::addRuleFromXml(const std::string &ruleXml)
 {
-    TiXmlDocument document;
-    document.Parse(ruleXml.c_str());
-
-    if (document.Error())
+    pugi::xml_document document;
+    if (!document.load_string(ruleXml.c_str()))
         return nullptr;
 
-    TiXmlElement *node = document.RootElement();
-    if (!node || node->ValueStr() != "calaos:rule" ||
-        !node->Attribute("name") || !node->Attribute("type"))
+    pugi::xml_node node = document.document_element();
+    if (!node || std::string(node.name()) != "calaos:rule" ||
+        !node.attribute("name") || !node.attribute("type"))
         return nullptr;
 
     //Same sequence as Config::LoadConfigRule()
-    Rule *rule = new Rule(node->Attribute("type"), node->Attribute("name"));
+    Rule *rule = new Rule(node.attribute("type").as_string(), node.attribute("name").as_string());
     rule->LoadFromXml(node);
     ListeRule::Instance().Add(rule);
 

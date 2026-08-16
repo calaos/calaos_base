@@ -54,8 +54,8 @@ public:
 
     int getType() { return action_type; }
 
-    virtual bool LoadFromXml(TiXmlElement *node) { return true; }
-    virtual bool SaveToXml(TiXmlElement *node) { return true; }
+    virtual bool LoadFromXml(pugi::xml_node node) { return true; }
+    virtual bool SaveToXml(pugi::xml_node node) { return true; }
 };
 
 }

@@ -56,8 +56,8 @@ public:
     RemoteUI(Params &p);
     virtual ~RemoteUI();
 
-    virtual bool LoadFromXml(TiXmlElement *node) override;
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool LoadFromXml(pugi::xml_node node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 
     // State management
     bool isOnline() const { return is_online; }

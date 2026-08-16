@@ -77,16 +77,15 @@ bool IPCam::set_value(std::string val)
     return true;
 }
 
-bool IPCam::SaveToXml(TiXmlElement *node)
+bool IPCam::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:camera");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:camera");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         param.get_item(i, key, value);
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;

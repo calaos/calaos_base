@@ -103,8 +103,8 @@ public:
 
     int get_size() { return (int)ios.size(); }
 
-    bool LoadFromXml(TiXmlElement *node);
-    bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(pugi::xml_node node);
+    bool SaveToXml(pugi::xml_node node);
 };
 
 }

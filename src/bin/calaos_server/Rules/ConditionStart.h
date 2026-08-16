@@ -43,8 +43,8 @@ public:
 
     virtual bool Evaluate();
 
-    virtual bool LoadFromXml(TiXmlElement *node) override;
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool LoadFromXml(pugi::xml_node node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

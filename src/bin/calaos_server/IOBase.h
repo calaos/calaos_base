@@ -138,8 +138,8 @@ public:
         ScopedDocGen &operator=(const ScopedDocGen &) = delete;
     };
 
-    virtual bool LoadFromXml(TiXmlElement *node);
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool LoadFromXml(pugi::xml_node node);
+    virtual bool SaveToXml(pugi::xml_node node);
 
     bool isAutoScenario() { return auto_sc_mark; }
     void setAutoScenario(bool m) { auto_sc_mark = m; }

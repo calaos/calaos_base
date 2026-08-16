@@ -414,17 +414,16 @@ void Internal::LoadFromConfig()
     }
 }
 
-bool Internal::SaveToXml(TiXmlElement *node)
+bool Internal::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:internal");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:internal");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
         if (key == "value" && get_param("save") != "true") continue;
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;

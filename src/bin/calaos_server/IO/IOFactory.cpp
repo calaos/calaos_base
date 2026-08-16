@@ -27,13 +27,11 @@ Registrar::Registrar(string type, function<IOBase *(Params &)> classFunc)
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
-void IOFactory::readParams(TiXmlElement *node, Params &p)
+void IOFactory::readParams(pugi::xml_node node, Params &p)
 {
-    TiXmlAttribute *attr = node->ToElement()->FirstAttribute();
-
-    for (; attr; attr = attr->Next())
+    for (pugi::xml_attribute attr: node.attributes())
     {
-        p.Add(attr->Name(), attr->ValueStr());
+        p.Add(attr.name(), attr.value());
     }
 }
 
@@ -55,7 +53,7 @@ IOBase *IOFactory::CreateIO(std::string type, Params &params)
     return obj;
 }
 
-IOBase *IOFactory::CreateIO(TiXmlElement *node)
+IOBase *IOFactory::CreateIO(pugi::xml_node node)
 {
     Params p;
     readParams(node, p);

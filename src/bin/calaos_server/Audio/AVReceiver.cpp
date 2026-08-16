@@ -356,16 +356,15 @@ bool IOAVReceiver::set_value(string val)
     return true;
 }
 
-bool IOAVReceiver::SaveToXml(TiXmlElement *node)
+bool IOAVReceiver::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:avr");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:avr");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;

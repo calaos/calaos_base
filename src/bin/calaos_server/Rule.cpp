@@ -176,27 +176,25 @@ void Rule::RemoveAction(int pos)
     cDebugDom("rule");
 }
 
-bool Rule::LoadFromXml(TiXmlElement *node)
+bool Rule::LoadFromXml(pugi::xml_node node)
 {
-    TiXmlAttribute *attr = node->ToElement()->FirstAttribute();
-
-    for (; attr; attr = attr->Next())
+    for (pugi::xml_attribute attr: node.attributes())
     {
-        if (string(attr->Name()) != "name" && string(attr->Name()) != "type")
-            params.Add(attr->Name(), attr->ValueStr());
+        if (string(attr.name()) != "name" && string(attr.name()) != "type")
+            params.Add(attr.name(), attr.value());
     }
 
-    TiXmlElement *cnode = node->FirstChildElement();
+    pugi::xml_node cnode = XmlUtils::firstChildElement(node);
 
-    for (; cnode; cnode = cnode->NextSiblingElement())
+    for (; cnode; cnode = XmlUtils::nextSiblingElement(cnode))
     {
-        if (cnode->ValueStr() == "calaos:condition")
+        if (string(cnode.name()) == "calaos:condition")
         {
             Condition *cond = RulesFactory::CreateCondition(cnode);
             if (cond)
                 AddCondition(cond);
         }
-        else if (cnode->ValueStr() == "calaos:action")
+        else if (string(cnode.name()) == "calaos:action")
         {
             Action *action = RulesFactory::CreateAction(cnode);
             if (action)
@@ -207,18 +205,16 @@ bool Rule::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool Rule::SaveToXml(TiXmlElement *node)
+bool Rule::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *rule_node = new TiXmlElement("calaos:rule");
+    pugi::xml_node rule_node = node.append_child("calaos:rule");
 
     for (int i = 0;i < params.size();i++)
     {
         string key, value;
         params.get_item(i, key, value);
-        rule_node->SetAttribute(key, value);
+        XmlUtils::setAttribute(rule_node, key, value);
     }
-
-    node->LinkEndChild(rule_node);
 
     for (uint i = 0;i < conds.size();i++)
     {

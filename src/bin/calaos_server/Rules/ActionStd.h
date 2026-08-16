@@ -76,8 +76,8 @@ public:
 
     int get_size() { return outputIds.size(); }
 
-    bool LoadFromXml(TiXmlElement *node) override;
-    bool SaveToXml(TiXmlElement *node) override;
+    bool LoadFromXml(pugi::xml_node node) override;
+    bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

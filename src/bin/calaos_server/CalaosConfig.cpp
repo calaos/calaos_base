@@ -121,11 +121,12 @@ string preserveCorruptFile(const string &file, const string &configName)
 //that parses. loaded stays false only when no backup is usable (the server
 //then starts with an empty config). Never exits: a corrupt config must not
 //kill the daemon.
-XmlLoadResult loadXmlDocument(TiXmlDocument &document, const string &file, const string &configName)
+XmlLoadResult loadXmlDocument(pugi::xml_document &document, const string &file, const string &configName)
 {
     XmlLoadResult res;
 
-    if (document.LoadFile())
+    pugi::xml_parse_result parsed = document.load_file(file.c_str());
+    if (parsed)
     {
         res.loaded = true;
         return res;
@@ -133,8 +134,10 @@ XmlLoadResult loadXmlDocument(TiXmlDocument &document, const string &file, const
 
     res.wasCorrupt = true;
     cError() << "There was a parse error in " << file;
-    cError() << document.ErrorDesc();
-    cError() << "In file " << file << " At line " << document.ErrorRow();
+    cError() << parsed.description();
+    //pugixml reports a byte offset where TinyXML reported a row; the offset is
+    //what it has, and it points at the same place in the file.
+    cError() << "In file " << file << " At offset " << parsed.offset;
 
     res.corruptCopy = preserveCorruptFile(file, configName);
 
@@ -142,11 +145,12 @@ XmlLoadResult loadXmlDocument(TiXmlDocument &document, const string &file, const
     {
         //Parse the candidate in place first: a corrupt backup must not be
         //copied over the live file
-        TiXmlDocument candidate(backup);
-        if (!candidate.LoadFile())
+        pugi::xml_document candidate;
+        pugi::xml_parse_result candidateParsed = candidate.load_file(backup.c_str());
+        if (!candidateParsed)
         {
             cWarning() << "Backup " << backup << " has a parse error too ("
-                       << candidate.ErrorDesc() << "), trying an older one";
+                       << candidateParsed.description() << "), trying an older one";
             continue;
         }
 
@@ -156,7 +160,7 @@ XmlLoadResult loadXmlDocument(TiXmlDocument &document, const string &file, const
             continue;
         }
 
-        if (!document.LoadFile())
+        if (!document.load_file(file.c_str()))
         {
             //candidate parsed above, so this should never happen
             cError() << "Restored " << backup << " but reloading " << file
@@ -263,7 +267,7 @@ void Config::LoadConfigIO()
         conf.close();
     }
 
-    TiXmlDocument document(file);
+    pugi::xml_document document;
 
     XmlLoadResult xmlres = loadXmlDocument(document, file, IO_CONFIG);
     if (xmlres.wasCorrupt)
@@ -271,22 +275,27 @@ void Config::LoadConfigIO()
     if (!xmlres.loaded)
         return;
 
-    TiXmlHandle docHandle(&document);
-
-    TiXmlElement *room_node = docHandle.FirstChildElement("calaos:ioconfig").FirstChildElement("calaos:home").FirstChildElement().ToElement();
-    for(; room_node; room_node = room_node->NextSiblingElement())
+    pugi::xml_node room_node = XmlUtils::firstChildElement(
+                document.child("calaos:ioconfig").child("calaos:home"));
+    for(; room_node; room_node = XmlUtils::nextSiblingElement(room_node))
     {
-        if (room_node->ValueStr() == "calaos:room" &&
-            room_node->Attribute("name") &&
-            room_node->Attribute("type"))
+        if (string(room_node.name()) == "calaos:room" &&
+            room_node.attribute("name") &&
+            room_node.attribute("type"))
         {
             string name, type;
-            int hits = 0;
 
-            name = room_node->Attribute("name");
-            type = room_node->Attribute("type");
-            if (room_node->Attribute("hits"))
-                room_node->Attribute("hits", &hits);
+            name = room_node.attribute("name").as_string();
+            type = room_node.attribute("type").as_string();
+
+            //E4.4cd: the only out-parameter read of the whole tree.
+            //TiXmlElement::Attribute("hits", &hits) left hits UNTOUCHED both
+            //when the attribute was absent and when its value did not parse;
+            //hits starts at 0, so as_int(0) reproduces "present but empty" and
+            //"present but garbage" landing on 0, and the guard keeps "absent"
+            //a distinct, equally-0 case rather than an implicit one.
+            pugi::xml_attribute hitsAttr = room_node.attribute("hits");
+            int hits = hitsAttr ? hitsAttr.as_int(0) : 0;
 
             Room *room = new Room(name, type, hits);
             ListeRoom::Instance().Add(room);
@@ -305,14 +314,11 @@ void Config::SaveConfigIO()
 
     cInfo() <<  "Saving " << file << "...";
 
-    TiXmlDocument document;
-    TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
-    TiXmlElement *ionode = new TiXmlElement("calaos:ioconfig");
-    ionode->SetAttribute("xmlns:calaos", "http://www.calaos.fr");
-    document.LinkEndChild(decl);
-    document.LinkEndChild(ionode);
-    TiXmlElement *node = new TiXmlElement("calaos:home");
-    ionode->LinkEndChild(node);
+    pugi::xml_document document;
+    XmlUtils::appendDeclaration(document);
+    pugi::xml_node ionode = document.append_child("calaos:ioconfig");
+    XmlUtils::setAttribute(ionode, "xmlns:calaos", "http://www.calaos.fr");
+    pugi::xml_node node = ionode.append_child("calaos:home");
 
     for (int i = 0;i < ListeRoom::Instance().size();i++)
     {
@@ -320,7 +326,7 @@ void Config::SaveConfigIO()
         room->SaveToXml(node);
     }
 
-    if (!document.SaveFile(tmp))
+    if (!document.save_file(tmp.c_str(), XmlUtils::CONFIG_INDENT))
     {
         cError() << "Unable to save " << file << ": writing " << tmp << " failed";
         FileUtils::unlink(tmp); //do not leave a partial tmp file behind
@@ -351,7 +357,7 @@ void Config::LoadConfigRule()
         conf.close();
     }
 
-    TiXmlDocument document(file);
+    pugi::xml_document document;
 
     XmlLoadResult xmlres = loadXmlDocument(document, file, RULES_CONFIG);
     if (xmlres.wasCorrupt)
@@ -359,25 +365,23 @@ void Config::LoadConfigRule()
     if (!xmlres.loaded)
         return;
 
-    TiXmlHandle docHandle(&document);
-
-    TiXmlElement *rule_node = docHandle.FirstChildElement("calaos:rules").FirstChildElement().ToElement();
+    pugi::xml_node rule_node = XmlUtils::firstChildElement(document.child("calaos:rules"));
 
     if (!rule_node)
     {
         cError() <<  "Error, <calaos:rules> node not found in file " << file;
     }
 
-    for(; rule_node; rule_node = rule_node->NextSiblingElement())
+    for(; rule_node; rule_node = XmlUtils::nextSiblingElement(rule_node))
     {
-        if (rule_node->ValueStr() == "calaos:rule" &&
-            rule_node->Attribute("name") &&
-            rule_node->Attribute("type"))
+        if (string(rule_node.name()) == "calaos:rule" &&
+            rule_node.attribute("name") &&
+            rule_node.attribute("type"))
         {
             string name, type;
 
-            name = rule_node->Attribute("name");
-            type = rule_node->Attribute("type");
+            name = rule_node.attribute("name").as_string();
+            type = rule_node.attribute("type").as_string();
 
             Rule *rule = new Rule(type, name);
             rule->LoadFromXml(rule_node);
@@ -396,12 +400,10 @@ void Config::SaveConfigRule()
 
     cInfo() <<  "Saving " << file << "...";
 
-    TiXmlDocument document;
-    TiXmlDeclaration *decl = new TiXmlDeclaration("1.0", "UTF-8", "");
-    TiXmlElement *rulesnode = new TiXmlElement("calaos:rules");
-    rulesnode->SetAttribute("xmlns:calaos", "http://www.calaos.fr");
-    document.LinkEndChild(decl);
-    document.LinkEndChild(rulesnode);
+    pugi::xml_document document;
+    XmlUtils::appendDeclaration(document);
+    pugi::xml_node rulesnode = document.append_child("calaos:rules");
+    XmlUtils::setAttribute(rulesnode, "xmlns:calaos", "http://www.calaos.fr");
 
     for (int i = 0;i < ListeRule::Instance().size();i++)
     {
@@ -409,7 +411,7 @@ void Config::SaveConfigRule()
         rule->SaveToXml(rulesnode);
     }
 
-    if (!document.SaveFile(tmp))
+    if (!document.save_file(tmp.c_str(), XmlUtils::CONFIG_INDENT))
     {
         cError() << "Unable to save " << file << ": writing " << tmp << " failed";
         FileUtils::unlink(tmp); //do not leave a partial tmp file behind

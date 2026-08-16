@@ -50,16 +50,15 @@ bool ConditionStart::Evaluate()
     return false;
 }
 
-bool ConditionStart::LoadFromXml(TiXmlElement *node)
+bool ConditionStart::LoadFromXml(pugi::xml_node node)
 {
     return true;
 }
 
-bool ConditionStart::SaveToXml(TiXmlElement *node)
+bool ConditionStart::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-    cond_node->SetAttribute("type", "start");
-    node->LinkEndChild(cond_node);
+    pugi::xml_node cond_node = node.append_child("calaos:condition");
+    XmlUtils::setAttribute(cond_node, "type", "start");
 
     return true;
 }

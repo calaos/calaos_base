@@ -162,26 +162,21 @@ void IOBase::EmitSignalIO()
     DataLogger::Instance().log(this);
 }
 
-bool IOBase::LoadFromXml(TiXmlElement *node)
+bool IOBase::LoadFromXml(pugi::xml_node node)
 {
     VAR_UNUSED(node);
     return true;
 }
 
-bool IOBase::SaveToXml(TiXmlElement *node)
+bool IOBase::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode;
-    if (isInput())
-        cnode = new TiXmlElement("calaos:input");
-    else
-        cnode = new TiXmlElement("calaos:output");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child(isInput()?"calaos:input":"calaos:output");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;

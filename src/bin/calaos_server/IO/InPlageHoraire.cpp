@@ -229,44 +229,46 @@ void InPlageHoraire::hasChanged()
     }
 }
 
-void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
+void InPlageHoraire::LoadRange(pugi::xml_node node, vector<TimeRange> &plage)
 {
-    TiXmlHandle docHandle(node);
-    TiXmlElement *cnode = docHandle.FirstChildElement().ToElement();
-    for(; cnode; cnode = cnode->NextSiblingElement())
+    //Element-only traversal on purpose: unlike every other loop of the port
+    //this one reads the attributes of EVERY child without checking its name,
+    //so a non-element child would be turned into an empty TimeRange.
+    pugi::xml_node cnode = XmlUtils::firstChildElement(node);
+    for(; cnode; cnode = XmlUtils::nextSiblingElement(cnode))
     {
         TimeRange h;
-        if (cnode->Attribute("start_type"))
+        if (cnode.attribute("start_type"))
         {
-            from_string(string(cnode->Attribute("start_type")), h.start_type);
+            from_string(string(cnode.attribute("start_type").as_string()), h.start_type);
             if (h.start_type < 0 || h.start_type > 3)
                 h.start_type = TimeRange::HTYPE_NORMAL;
         }
-        if (cnode->Attribute("start_offset"))
+        if (cnode.attribute("start_offset"))
         {
-            from_string(string(cnode->Attribute("start_offset")), h.start_offset);
+            from_string(string(cnode.attribute("start_offset").as_string()), h.start_offset);
             if (h.start_offset < 0) h.start_offset = -1;
             if (h.start_offset > 0) h.start_offset = 1;
         }
-        if (cnode->Attribute("start_hour")) h.shour = cnode->Attribute("start_hour");
-        if (cnode->Attribute("start_min")) h.smin = cnode->Attribute("start_min");
-        if (cnode->Attribute("start_sec")) h.ssec = cnode->Attribute("start_sec");
+        if (cnode.attribute("start_hour")) h.shour = cnode.attribute("start_hour").as_string();
+        if (cnode.attribute("start_min")) h.smin = cnode.attribute("start_min").as_string();
+        if (cnode.attribute("start_sec")) h.ssec = cnode.attribute("start_sec").as_string();
 
-        if (cnode->Attribute("end_type"))
+        if (cnode.attribute("end_type"))
         {
-            from_string(string(cnode->Attribute("end_type")), h.end_type);
+            from_string(string(cnode.attribute("end_type").as_string()), h.end_type);
             if (h.end_type < 0 || h.end_type > 3)
                 h.end_type = TimeRange::HTYPE_NORMAL;
         }
-        if (cnode->Attribute("end_offset"))
+        if (cnode.attribute("end_offset"))
         {
-            from_string(string(cnode->Attribute("end_offset")), h.end_offset);
+            from_string(string(cnode.attribute("end_offset").as_string()), h.end_offset);
             if (h.end_offset < 0) h.end_offset = -1;
             if (h.end_offset > 0) h.end_offset = 1;
         }
-        if (cnode->Attribute("end_hour")) h.ehour = cnode->Attribute("end_hour");
-        if (cnode->Attribute("end_min")) h.emin = cnode->Attribute("end_min");
-        if (cnode->Attribute("end_sec")) h.esec = cnode->Attribute("end_sec");
+        if (cnode.attribute("end_hour")) h.ehour = cnode.attribute("end_hour").as_string();
+        if (cnode.attribute("end_min")) h.emin = cnode.attribute("end_min").as_string();
+        if (cnode.attribute("end_sec")) h.esec = cnode.attribute("end_sec").as_string();
 
         stringstream sstart, sstop;
         if (h.start_type == TimeRange::HTYPE_NORMAL)
@@ -358,17 +360,16 @@ void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
     }
 }
 
-bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
+bool InPlageHoraire::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlHandle docHandle(pnode);
-    TiXmlElement *node = docHandle.FirstChildElement().ToElement();
+    pugi::xml_node node = XmlUtils::firstChildElement(pnode);
 
     cDebugDom("input") << "InPlageHoraire::LoadFromXml(): Loading plage content";
 
     //try to load months
-    if (pnode->Attribute("months"))
+    if (pnode.attribute("months"))
     {
-        string m = pnode->Attribute("months");
+        string m = pnode.attribute("months").as_string();
         //reverse to have a left to right months representation
         std::reverse(m.begin(), m.end());
 
@@ -386,47 +387,46 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
         }
     }
 
-    for(; node; node = node->NextSiblingElement())
+    for(; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:lundi")
+        const string nodeName = node.name();
+        if (nodeName == "calaos:lundi")
             LoadRange(node, plg_monday);
-        else if (node->ValueStr() == "calaos:mardi")
+        else if (nodeName == "calaos:mardi")
             LoadRange(node, plg_tuesday);
-        else if (node->ValueStr() == "calaos:mercredi")
+        else if (nodeName == "calaos:mercredi")
             LoadRange(node, plg_wednesday);
-        else if (node->ValueStr() == "calaos:jeudi")
+        else if (nodeName == "calaos:jeudi")
             LoadRange(node, plg_thursday);
-        else if (node->ValueStr() == "calaos:vendredi")
+        else if (nodeName == "calaos:vendredi")
             LoadRange(node, plg_friday);
-        else if (node->ValueStr() == "calaos:samedi")
+        else if (nodeName == "calaos:samedi")
             LoadRange(node, plg_saturday);
-        else if (node->ValueStr() == "calaos:dimanche")
+        else if (nodeName == "calaos:dimanche")
             LoadRange(node, plg_sunday);
     }
 
     return true;
 }
 
-void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage)
+void InPlageHoraire::SaveRange(pugi::xml_node node, string day, vector<TimeRange> &plage)
 {
     if (plage.size() <= 0) return; //don't create node if empty
 
-    TiXmlElement *day_node = new TiXmlElement(string("calaos:") + day);
-    node->LinkEndChild(day_node);
+    pugi::xml_node day_node = node.append_child((string("calaos:") + day).c_str());
 
     for (uint i = 0;i < plage.size();i++)
     {
-        TiXmlElement *period_node = new TiXmlElement("calaos:plage");
-        day_node->LinkEndChild(period_node);
+        pugi::xml_node period_node = day_node.append_child("calaos:plage");
 
         TimeRange &h = plage[i];
 
-        period_node->SetAttribute("start_type", Utils::to_string(h.start_type));
+        XmlUtils::setAttribute(period_node, "start_type", Utils::to_string(h.start_type));
         if (h.start_type == TimeRange::HTYPE_NORMAL)
         {
-            period_node->SetAttribute("start_hour", h.shour);
-            period_node->SetAttribute("start_min", h.smin);
-            period_node->SetAttribute("start_sec", h.ssec);
+            XmlUtils::setAttribute(period_node, "start_hour", h.shour);
+            XmlUtils::setAttribute(period_node, "start_min", h.smin);
+            XmlUtils::setAttribute(period_node, "start_sec", h.ssec);
         }
         else if (h.start_type == TimeRange::HTYPE_SUNRISE ||
                  h.start_type == TimeRange::HTYPE_SUNSET ||
@@ -434,19 +434,19 @@ void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange>
         {
             if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
             {
-                period_node->SetAttribute("start_hour", h.shour);
-                period_node->SetAttribute("start_min", h.smin);
-                period_node->SetAttribute("start_sec", h.ssec);
-                period_node->SetAttribute("start_offset", h.start_offset);
+                XmlUtils::setAttribute(period_node, "start_hour", h.shour);
+                XmlUtils::setAttribute(period_node, "start_min", h.smin);
+                XmlUtils::setAttribute(period_node, "start_sec", h.ssec);
+                XmlUtils::setAttribute(period_node, "start_offset", h.start_offset);
             }
         }
 
-        period_node->SetAttribute("end_type", Utils::to_string(h.end_type));
+        XmlUtils::setAttribute(period_node, "end_type", Utils::to_string(h.end_type));
         if (h.end_type == TimeRange::HTYPE_NORMAL)
         {
-            period_node->SetAttribute("end_hour", h.ehour);
-            period_node->SetAttribute("end_min", h.emin);
-            period_node->SetAttribute("end_sec", h.esec);
+            XmlUtils::setAttribute(period_node, "end_hour", h.ehour);
+            XmlUtils::setAttribute(period_node, "end_min", h.emin);
+            XmlUtils::setAttribute(period_node, "end_sec", h.esec);
         }
         else if (h.end_type == TimeRange::HTYPE_SUNRISE ||
                  h.end_type == TimeRange::HTYPE_SUNSET ||
@@ -454,25 +454,24 @@ void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange>
         {
             if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
             {
-                period_node->SetAttribute("end_hour", h.ehour);
-                period_node->SetAttribute("end_min", h.emin);
-                period_node->SetAttribute("end_sec", h.esec);
-                period_node->SetAttribute("end_offset", h.end_offset);
+                XmlUtils::setAttribute(period_node, "end_hour", h.ehour);
+                XmlUtils::setAttribute(period_node, "end_min", h.emin);
+                XmlUtils::setAttribute(period_node, "end_sec", h.esec);
+                XmlUtils::setAttribute(period_node, "end_offset", h.end_offset);
             }
         }
     }
 }
 
-bool InPlageHoraire::SaveToXml(TiXmlElement *node)
+bool InPlageHoraire::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:input");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:input");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, val;
         get_params().get_item(i, key, val);
-        cnode->SetAttribute(key, val);
+        XmlUtils::setAttribute(cnode, key, val);
     }
 
     //Save months
@@ -481,7 +480,10 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
-    cnode->SetAttribute("months", str);
+    //setAttribute(), not append: "months" is already in the parameter map
+    //(IOFactory::readParams() puts every attribute of the node there at load
+    //time), so appending would emit it twice.
+    XmlUtils::setAttribute(cnode, "months", str);
 
     SaveRange(cnode, "lundi", plg_monday);
     SaveRange(cnode, "mardi", plg_tuesday);

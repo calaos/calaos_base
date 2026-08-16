@@ -444,18 +444,16 @@ namespace
 //instead of the singleton (which owns and deletes it)
 Rule *addRuleTo(ListeRule &list, const std::string &ruleXml)
 {
-    TiXmlDocument document;
-    document.Parse(ruleXml.c_str());
-
-    if (document.Error())
+    pugi::xml_document document;
+    if (!document.load_string(ruleXml.c_str()))
         return nullptr;
 
-    TiXmlElement *node = document.RootElement();
-    if (!node || node->ValueStr() != "calaos:rule" ||
-        !node->Attribute("name") || !node->Attribute("type"))
+    pugi::xml_node node = document.document_element();
+    if (!node || std::string(node.name()) != "calaos:rule" ||
+        !node.attribute("name") || !node.attribute("type"))
         return nullptr;
 
-    Rule *rule = new Rule(node->Attribute("type"), node->Attribute("name"));
+    Rule *rule = new Rule(node.attribute("type").as_string(), node.attribute("name").as_string());
     rule->LoadFromXml(node);
     list.Add(rule);
 

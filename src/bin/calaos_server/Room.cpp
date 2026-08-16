@@ -149,18 +149,19 @@ void Room::set_hits(int h)
     hits = h;
 }
 
-bool Room::LoadFromXml(TiXmlElement *room_node)
+bool Room::LoadFromXml(pugi::xml_node room_node)
 {
-    TiXmlElement *node = room_node->FirstChildElement();
-    for(; node; node = node->NextSiblingElement())
+    pugi::xml_node node = XmlUtils::firstChildElement(room_node);
+    for(; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:input" ||
-            node->ValueStr() == "calaos:output" ||
-            node->ValueStr() == "calaos:internal" ||
-            node->ValueStr() == "calaos:avr" ||
-            node->ValueStr() == "calaos:camera" ||
-            node->ValueStr() == "calaos:audio" ||
-            node->ValueStr() == "calaos:remote_ui")
+        const string nodeName = node.name();
+        if (nodeName == "calaos:input" ||
+            nodeName == "calaos:output" ||
+            nodeName == "calaos:internal" ||
+            nodeName == "calaos:avr" ||
+            nodeName == "calaos:camera" ||
+            nodeName == "calaos:audio" ||
+            nodeName == "calaos:remote_ui")
         {
             //CreateIO() returns a raw OWNING pointer (see IOFactory.h): park
             //it in a unique_ptr so it cannot leak between here and AddIO(),
@@ -176,13 +177,12 @@ bool Room::LoadFromXml(TiXmlElement *room_node)
     return true;
 }
 
-bool Room::SaveToXml(TiXmlElement *node)
+bool Room::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *room_node = new TiXmlElement("calaos:room");
-    room_node->SetAttribute("name", name);
-    room_node->SetAttribute("type", type);
-    room_node->SetAttribute("hits", Utils::to_string(hits));
-    node->LinkEndChild(room_node);
+    pugi::xml_node room_node = node.append_child("calaos:room");
+    XmlUtils::setAttribute(room_node, "name", name);
+    XmlUtils::setAttribute(room_node, "type", type);
+    XmlUtils::setAttribute(room_node, "hits", Utils::to_string(hits));
 
     for (int i = 0;i < get_size();i++)
     {

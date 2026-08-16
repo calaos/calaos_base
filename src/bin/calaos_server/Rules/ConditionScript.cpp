@@ -97,30 +97,28 @@ const std::string &ConditionScript::getTriggerId(int i) const
     return inEventIds[i];
 }
 
-bool ConditionScript::LoadFromXml(TiXmlElement *node)
+bool ConditionScript::LoadFromXml(pugi::xml_node node)
 {
-    TiXmlElement *sc_node = node->FirstChildElement();
+    pugi::xml_node sc_node = XmlUtils::firstChildElement(node);
     if (!sc_node) return false;
 
-    for (;sc_node;sc_node = sc_node->NextSiblingElement())
+    for (;sc_node;sc_node = XmlUtils::nextSiblingElement(sc_node))
     {
-        if (sc_node->ValueStr() == "calaos:script")
+        if (string(sc_node.name()) == "calaos:script")
         {
             string type = "";
-            if (sc_node->Attribute("type"))
-                type = sc_node->Attribute("type");
+            if (sc_node.attribute("type"))
+                type = sc_node.attribute("type").as_string();
             if (type == "lua")
             {
-                TiXmlText *tnode = dynamic_cast<TiXmlText *>(sc_node->FirstChild());
-
-                if (tnode)
-                    script = tnode->ValueStr();
+                if (XmlUtils::hasText(sc_node))
+                    script = XmlUtils::text(sc_node);
             }
         }
-        else if (sc_node->ValueStr() == "calaos:input" &&
-                 sc_node->Attribute("id"))
+        else if (string(sc_node.name()) == "calaos:input" &&
+                 sc_node.attribute("id"))
         {
-            string id = sc_node->Attribute("id");
+            string id = sc_node.attribute("id").as_string();
             //Load-time contract, unchanged: an id that resolves is kept, one
             //that does not is dropped here (this condition type never made the
             //whole load fail). What changes is that the kept reference is the
@@ -137,26 +135,21 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool ConditionScript::SaveToXml(TiXmlElement *node)
+bool ConditionScript::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-    cond_node->SetAttribute("type", "script");
-    node->LinkEndChild(cond_node);
+    pugi::xml_node cond_node = node.append_child("calaos:condition");
+    XmlUtils::setAttribute(cond_node, "type", "script");
 
     for (const std::string &id: inEventIds)
     {
-        TiXmlElement *in_node = new TiXmlElement("calaos:input");
-        in_node->SetAttribute("id", id);
-        cond_node->LinkEndChild(in_node);
+        pugi::xml_node in_node = cond_node.append_child("calaos:input");
+        XmlUtils::setAttribute(in_node, "id", id);
     }
 
-    TiXmlElement *sc_node = new TiXmlElement("calaos:script");
-    sc_node->SetAttribute("type", "lua");
-    cond_node->LinkEndChild(sc_node);
+    pugi::xml_node sc_node = cond_node.append_child("calaos:script");
+    XmlUtils::setAttribute(sc_node, "type", "lua");
 
-    TiXmlText *txt_node = new TiXmlText(script);
-    txt_node->SetCDATA(true);
-    sc_node->LinkEndChild(txt_node);
+    XmlUtils::appendCData(sc_node, script);
 
     return true;
 }
