@@ -103,9 +103,11 @@ public:
      * as wrapping over midnight (its end is before its start). A sun relative
      * bound moves with the season, so the very same configuration can start to
      * wrap at some times of the year: without this the behaviour change is
-     * invisible in the log.
+     * invisible in the log. `owner` names the schedule the range belongs to: a
+     * pair of bounds alone does not tell which IO is wrapping on a box that
+     * has several of them.
      */
-    void logWrapOnce(long start_sec, long end_sec);
+    void logWrapOnce(const string &owner, long start_sec, long end_sec);
 
     bool isSameStartEnd();
 

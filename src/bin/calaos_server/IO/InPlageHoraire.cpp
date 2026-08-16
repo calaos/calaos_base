@@ -69,6 +69,21 @@ void InPlageHoraire::clear()
     plg_sunday.clear();
 }
 
+static const char *weekdayName(int wday)
+{
+    switch (wday)
+    {
+    case TimeRange::MONDAY: return "monday";
+    case TimeRange::TUESDAY: return "tuesday";
+    case TimeRange::WEDNESDAY: return "wednesday";
+    case TimeRange::THURSDAY: return "thursday";
+    case TimeRange::FRIDAY: return "friday";
+    case TimeRange::SATURDAY: return "saturday";
+    case TimeRange::SUNDAY: return "sunday";
+    default: return "unknown day";
+    }
+}
+
 vector<TimeRange> *InPlageHoraire::getRangesForWeekday(int wday)
 {
     switch (wday)
@@ -149,7 +164,10 @@ bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
         }
         else
         {
-            h.logWrapOnce(start_time, end_time);
+            //name the schedule and the weekday the range is attached to, the
+            //bounds alone do not identify it
+            h.logWrapOnce(get_param("id") + " (" + weekdayName(date.tm_wday) + ")",
+                          start_time, end_time);
 
             if (previousDay)
             {

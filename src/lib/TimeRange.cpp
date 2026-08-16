@@ -103,15 +103,29 @@ void TimeRange::logBadBound(const string &which)
                 "should be ignored.";
 }
 
-void TimeRange::logWrapOnce(long start_sec, long end_sec)
+/* time2string_digit() formats a duration and mangles a negative value (-3600
+ * comes out as "00:00", -1800 as "-30:00"), which a computed bound can be:
+ * sunrise minus a large offset lands before midnight. Clamping it there would
+ * change the output of every one of its callers, so the raw second count is
+ * printed here instead when the value is negative.
+ */
+static string timeToLogString(long sec)
+{
+    if (sec < 0)
+        return Utils::to_string(sec) + "s (before midnight)";
+
+    return time2string_digit(sec);
+}
+
+void TimeRange::logWrapOnce(const string &owner, long start_sec, long end_sec)
 {
     if (wrap_logged) return;
     wrap_logged = true;
 
-    cInfo() << "Horaire: time range " << time2string_digit(start_sec) << " ===> "
-            << time2string_digit(end_sec)
+    cInfo() << "Horaire: " << owner << ": time range " << timeToLogString(start_sec)
+            << " ===> " << timeToLogString(end_sec)
             << " ends before it starts: it wraps over midnight and runs until "
-            << time2string_digit(end_sec) << " of the next day"
+            << timeToLogString(end_sec) << " of the next day"
             << " (a sunrise/sunset bound moves with the season and can start to wrap)";
 }
 

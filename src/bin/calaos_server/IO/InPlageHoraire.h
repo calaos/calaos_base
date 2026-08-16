@@ -45,8 +45,10 @@ protected:
     void SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage);
 
     vector<TimeRange> *getRangesForWeekday(int wday);
-    static bool isInRanges(vector<TimeRange> *plage, long cur,
-                           const struct tm &date, bool previousDay);
+
+    //not static: a wrapping range is logged with the id of the IO that owns it
+    bool isInRanges(vector<TimeRange> *plage, long cur,
+                    const struct tm &date, bool previousDay);
 
 public:
     /* The calendar day before `day`, as a struct tm normalized by mktime()
