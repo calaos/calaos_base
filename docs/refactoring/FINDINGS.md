@@ -982,3 +982,58 @@ merge) et bizarrerie gelée rencontrée en caractérisant les 15 `audioDbGet*`.
   (`Audio/SqueezeboxDB.cpp:66-73`), sa position dépend donc du flux renvoyé par le serveur ; et
   `getRandoms()` ajoute le marqueur **en dernier** (`Audio/SqueezeboxDB.cpp:774-775`). **Ne pas
   réécrire cette entrée sous la forme « `items[0]` vaut toujours `{"count":"N"}` » : c'est faux.**
+
+## E4.0e — session et chemins d'erreur
+
+Caractérisation de tout ce qui n'est pas un payload de données : login, `login_service`,
+`settings/change_cred`, `register_push`, `get_mcp_info`, `eventlog`, `config/get`, et **tous** les
+chemins d'erreur des deux transports. **102 cas, 29 goldens, zéro ligne de `src/`.** Relu par un
+relecteur indépendant (verdict **MERGE AVEC RÉSERVES**, réserve **fermée et prouvée par mutation**).
+
+- **[CRASH — mérite son ticket] SIGFPE distant sur `eventlog`, déclenchable par tout client
+  authentifié, sur les deux transports.** `JsonApi.cpp:2010` initialise `perPage = 100`, puis
+  `:2013` appelle `Utils::from_string()` **dont le code de retour est ignoré**
+  (`StringUtils.h:105-111`). Sémantique C++11 vérifiée empiriquement, et elle n'est pas celle qu'on
+  suppose : chaîne **vide** → le sentry de l'`istream` échoue **avant** `num_get`, la valeur 100
+  survit ; **non numérique** (`"abc"`, `"1,5"`, `"true"`) ou **`"0"`** → `num_get` s'exécute, échoue
+  et **écrit 0** dans la destination ; **très grand** → **sature à `INT_MAX`**, donc inoffensif.
+  `HistLogger::getEvents()` ne clampe pas, et `HistLogger.cpp:268` calcule
+  `rowcount / ac->per_page` **dans le thread worker sqlite** → **division entière par zéro, SIGFPE,
+  processus mort**. Le `try` de `:257` n'attrape rien : **un signal n'est pas une exception**.
+  Requête suffisante : `?action=eventlog&per_page=0`. **Non exercé délibérément** — le signal
+  tuerait le binaire de test ; le mécanisme sous-jacent est épinglé par
+  `FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDivideByZero`.
+- **[PLAN FAUX — corrigé] La ligne UTF-8 de `E4.0.md` était fausse dans ses DEUX colonnes.** Elle
+  annonçait « `json_dumps` renvoie `NULL` → HTTP **500** + fermeture » et, côté WS, « chaîne vide ».
+  Les deux branches sont **du code mort** : jansson refuse les octets **à la construction**
+  (`json_string()` → `NULL`, `json_object_set_new()` → `-1` sur valeur nulle **et** sur clé
+  invalide) et **aucun de ces codes de retour n'est testé** (`JsonApi.cpp`, `Params::toJson()` en
+  `src/lib/Params.cpp:134-147`) ; la paire est **silencieusement supprimée**, le conteneur reste
+  bien formé et le dump réussit. Le comportement réel est donc **200 OK tronqué** sur HTTP et, sur
+  WS, **une enveloppe parfaitement formée à laquelle il manque un membre** — plus insidieux que la
+  chaîne vide annoncée, car **rien ne signale l'absence**. À la bascule, **l'inverse et pire** :
+  nlohmann accepte ces octets dans l'arbre et **lève `type_error.316` depuis `dump()`**, les deux
+  `sendJson` dumpent à nu et **aucun des deux fichiers de handler ne contient un seul `try` ou
+  `catch`** → **`std::terminate` sur une connexion vivante**. Le canal d'injection est trivial :
+  `HfURISyntax::getQuery()` percent-**décode** (`hef_uri_syntax.cpp:363-368`) **avant** le découpage
+  de `HttpClient.cpp:340-347`, donc `?param=%ff%80x` met des octets arbitraires en **clé** via
+  `buildJsonGetParam()`. Détail complet et arbitrage attendu de E4.1 : voir la ligne corrigée du
+  tableau des pièges de bascule de [`E4.0.md`](E4.0.md).
+- **[FIXTURE PAUVRE — trouvée par la revue, corrigée dans ce ticket] `id` et `created_at` de
+  `HistEvent::toJson()` n'étaient assérés que par `is_string()`.** Les deux sont des chaînes non
+  déterministes, donc **interchangeables** : la revue a **échangé les deux valeurs** et la suite est
+  restée **102/102 verte** — alors que `HistEvent::toJson()` est **réécrit en bloc par E4.1**.
+  Corrigé par **rétention des uuids semés** puis assertion **dans les deux sens** : `id` porte l'un
+  des uuids, `created_at` n'en porte aucun, et seul `created_at` a la forme d'un timestamp sqlite.
+  L'échange produit désormais **6 assertions rouges nommées**.
+- **[PIÈGE DE HARNAIS] Le singleton `HistLogger` capture son chemin de base dans son constructeur et
+  ouvre le fichier dans un thread worker.** `Utils::getCacheFile("events.db")` est figé à la
+  construction, et `sqlite::database db(dbname)` (`HistLogger.cpp:190`) est **hors** du `try` de
+  `:192` : un `cantopen` est donc un **throw non rattrapé dans un thread** → `std::terminate`.
+  Résolu par `ensureHistLogger()` : répertoire à **durée de vie processus** créé **avant** `SetUp()`,
+  avec un aller-retour synchrone qui **prouve** que le worker a ouvert la base **avant** que le
+  chemin de cache ne change.
+- **[CORROBORATION DE T3.17f] L'UAF de T3.17f reproduit en crash vivant.** En montant ses mutations,
+  le relecteur a fait **segfauter le binaire** en retirant la garde de portée d'`eventlog` : session
+  détruite avec le callback `HistLogger` **en vol**. Ce n'est plus une lecture de code, c'est un
+  crash observé.

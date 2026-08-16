@@ -1014,6 +1014,108 @@
   Merge **ff-only** (historique linéaire, pas de commit de merge), worktree `t3.17c` nettoyé par
   son **chemin exact** + `git worktree prune`, branche `refactor/t3.17c` supprimée, **rien n'a été
   poussé**.
+- **E4.0e ✅ mergé** (2026-08-17, `31a4372c`) — **session, enveloppes et chemins d'erreur de l'API
+  JSON**, le sous-ticket qui porte le **risque le plus concret** de la migration jansson →
+  `nlohmann::json`. **102 cas, 29 goldens, zéro ligne de `src/`** (vérifié **sur le commit** : les
+  31 fichiers sont sous `tests/`). Relu par un relecteur indépendant (verdict **MERGE AVEC
+  RÉSERVES**, réserve **fermée et prouvée par mutation**).
+  **LA correction de ce merge — la ligne la plus dangereuse du plan était fausse dans ses DEUX
+  colonnes.** `E4.0.md` annonçait, sur l'UTF-8 invalide, « `json_dumps` renvoie `NULL` → HTTP
+  **500** + fermeture » et, côté WS, « `jansson_to_string` rend une **chaîne vide** ». **Les deux
+  branches sont du code mort**, pour la même raison : jansson refuse les octets **à la
+  construction**, pas au dump — `json_string()` rend `NULL`, `json_object_set_new()` rend `-1` (sur
+  valeur nulle **comme** sur clé invalide), et **aucun de ces codes de retour n'est testé**, ni dans
+  `JsonApi.cpp` ni dans `Params::toJson()` (`src/lib/Params.cpp:134-147`). La paire est donc
+  **silencieusement supprimée**, le conteneur reste bien formé et `json_dumps` **réussit** : **200 OK
+  tronqué** sur HTTP, et sur WS **une enveloppe parfaitement formée à laquelle il manque un membre**
+  — **plus insidieux** que la chaîne vide annoncée, rien ne signale l'absence. Audit exhaustif à
+  l'appui : toute racine passée à `sendJson` est un `json_object()`, un `json_array()` ou le
+  `json_pack` de `JsonApiHandlerHttp.cpp:271` dont les trois emplacements rendent inconditionnellement
+  des tableaux ; `json_real()` n'est **jamais construit** dans tout `src/` ; l'unique `return nullptr`
+  des 2110 lignes de `JsonApi.cpp` (`:2094`) est null-testé par son seul appelant (`:294-296`).
+  **Ce qui arrivera à la bascule est l'INVERSE et plus grave** : nlohmann **accepte** ces octets dans
+  l'arbre et **lève `type_error.316` depuis `dump()`** ; les deux `sendJson` dumpent **à nu** et
+  **aucun des deux fichiers de handler ne contient un seul `try` ou `catch`** (vérifié : l'unique
+  occurrence de `try` dans `JsonApiHandlerHttp.cpp` est le mot « trying » **dans une chaîne de
+  log**, `:83`) → **`std::terminate` sur une connexion vivante**. On passe d'une réponse tronquée à
+  un **abort de processus**, et **le canal d'injection est trivial** : `HfURISyntax::getQuery()`
+  percent-**décode** (`hef_uri_syntax.cpp:363-368`) **avant** que `HttpClient.cpp:340-347` ne
+  découpe, donc `?param=%ff%80x` met des octets arbitraires dans `paramsGET`,
+  `JsonApiHandlerHttp.cpp:81-92` les recopie dans `jsonParam` et `buildJsonGetParam()` met le nom
+  **fourni par le client** en **clé**. ⚠️ **Emplacements réellement corrigés** (le fichier avait été
+  amendé plusieurs fois, les numéros de la consigne étaient à re-mesurer — ils tombaient juste ici) :
+  **`E4.0.md:308`**, ligne « UTF-8 invalide » du tableau des pièges de bascule, **les deux colonnes
+  réécrites** + l'arbitrage attendu de E4.1 (`error_handler_t::replace`/`ignore` **ou** `try/catch`
+  sur tout dump de données influencées par le client, et choix explicite entre **« drop comme
+  aujourd'hui »** et **U+FFFD**), avec renvoi au test
+  `Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops` qui met les deux bibliothèques **côte à côte sur les
+  mêmes octets** et épingle **le code 316 exactement** ; et **`E4.0.md:349`**, ligne du tableau de
+  découpage E4.0e, où **« les 8 refus `scopeDenied` » devient SEPT** — `JsonApiHandlerWS.cpp:177,
+  182, 195, 202, 209, 214, 219`, le **8ᵉ résultat de grep étant la définition de la lambda**
+  (`:159`) ; **`docs/08_http_api.md:276-278` listait déjà les sept bons, c'était le plan qui avait le
+  compte faux**, la doc n'a pas été touchée. La mention « **le 500 sur UTF-8 invalide** » de cette
+  même ligne 349 est corrigée dans la foulée.
+  **Rebase obligatoire** : la branche était basée sur `d68e59f1`, master avait pris T3.17c depuis
+  (`14a9b2fb` + `ae5260e1` + `1aa940fc`). Rebasée `494f2493` → `31a4372c`, puis `make distclean`
+  réglementaire (piège `_DEPENDENCIES` / faux rouge neutralisé).
+  **Conflit `tests/Makefile.am`** (fin de fichier) — **sixième fois de suite**, même signature : git
+  fusionne les corps `LDADD` identiques et ne laisse en conflit que les **en-têtes**, en hunks
+  entrelacés. Résolu **en régénérant**, jamais en recousant des fragments : fichier complet de master
+  (**1646 l.**, 95022 o.) + append **verbatim** du bloc `#E4.0e` (**78 l.**, 5429 o.), vérifié
+  **octet à octet dans les deux sens** (le résultat **commence** par le master verbatim, **finit**
+  par le bloc verbatim, et `résultat == master + bloc` exactement) → **1724 l.**, **52/52**
+  `if HAVE_GTEST`/`endif` équilibrés (51/51 avant), zéro marqueur de conflit.
+  Build d'intégration distclean : **64/64 PASS**, 0 FAIL / 0 ERROR / 0 SKIP — compte **déduit avant
+  le build** puis confirmé : côté `check_PROGRAMS`, **62 entrées − 1** (`StaticLogShutdown_helper`,
+  qui n'est pas un test et partage sa ligne avec `StaticLogShutdown_test`) = **61 binaires**, **+ 3
+  entrées de scripts** (`check-config-options.sh`, `check-config-docs.sh` — ces deux-là sur une seule
+  ligne — et `run-python-tests.sh`) = **64**, recoupé côté `TESTS` : **64 entrées** exactement. Soit
+  les **63** de master **+ le seul nouveau binaire** `core/JsonApiSession_test`.
+  Build > 600 s : attendu par `docker wait` sur le conteneur retrouvé par son **mount exact**
+  (`docker inspect` sur chaque conteneur, filtre `Source == /tmp/claude-1000/calaos-wave18/e4.0e`),
+  **sans relance**, **sans jamais filtrer par image ni par ancêtre** ; les conteneurs voisins
+  (`calaos-wave19/e4.0f`, `calaos-wave20/t3.17f`, et un conteneur de scratchpad tiers) n'ont pas été
+  touchés.
+  Aucune fausse suppression de docs : les **97** fichiers de `docs/refactoring/` intacts (dont
+  `E4.0.md`, `E4.0g.md`, `T3.17.md`, `T3.17f.md`, `T3.18.md`, `T3.19.md`, `BOARD.md`, `FINDINGS.md`,
+  `DECISIONS.md`, `RELEASE_NOTES.md`, `ORCHESTRATION.md`) ; worktrees voisins vérifiés intacts
+  (`calaos-wave19/e4.0f` et `calaos-wave20/t3.17f` présents, en cours de build par leurs agents
+  pendant ce merge).
+  **Documentation : la branche n'en livrait AUCUNE**, comblée dans ce merge — BOARD (ligne `E4.0e`
+  **créée** en ✅ sous `E4.0d` ; **l'épique `E4.0` reste 📋**, f et g n'étant pas mergés), les **deux
+  corrections de `E4.0.md`** ci-dessus, une section `## E4.0e — session et chemins d'erreur` en
+  FINDINGS (**5 suites**), ce journal. **Aucune entrée RELEASE_NOTES.md** : **zéro ligne de `src/`**,
+  rien de ce que voit un utilisateur ne change.
+  **Cinq suites en FINDINGS.** (1) **[CRASH, mérite son ticket] SIGFPE distant sur `eventlog`** :
+  `JsonApi.cpp:2010` initialise `perPage = 100`, `:2013` appelle `Utils::from_string()` **dont le
+  code de retour est ignoré** (`StringUtils.h:105-111`). Sémantique C++11 **vérifiée
+  empiriquement** : chaîne **vide** → le sentry échoue **avant** `num_get`, 100 survit ; **non
+  numérique** (`"abc"`, `"1,5"`, `"true"`) ou **`"0"`** → `num_get` s'exécute, échoue et **écrit
+  0** ; **très grand** → **sature à `INT_MAX`**, inoffensif. `HistLogger::getEvents()` ne clampe pas
+  et `HistLogger.cpp:268` fait `rowcount / ac->per_page` **dans le thread worker sqlite** →
+  **SIGFPE, processus mort** ; le `try` de `:257` n'attrape rien, **un signal n'est pas une
+  exception**. Déclenchable par `?action=eventlog&per_page=0` depuis **n'importe quel client
+  authentifié, sur les deux transports**. **Non exercé délibérément** — le signal tuerait le binaire
+  de test ; le mécanisme est épinglé par
+  `FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDivideByZero`. (2) **La ligne UTF-8 du plan
+  était fausse dans ses deux colonnes** (résumé + renvoi vers la correction de `E4.0.md:308`).
+  (3) **Fixture pauvre trouvée par la revue** : `id` et `created_at` de `HistEvent::toJson()` sont
+  deux chaînes non déterministes et n'étaient assérées que par `is_string()`, donc
+  **interchangeables** — **les échanger laissait 102/102 vert**, alors que `HistEvent::toJson()` est
+  **réécrit en bloc par E4.1**. Corrigé par **rétention des uuids semés** et assertion **dans les
+  deux sens** ; l'échange produit désormais **6 assertions rouges nommées**. (4) **Piège de harnais
+  `HistLogger`** : le singleton capture `Utils::getCacheFile("events.db")` **dans son constructeur**
+  et ouvre le fichier **dans un thread worker**, et `sqlite::database db(dbname)`
+  (`HistLogger.cpp:190`) est **hors** du `try` de `:192` — un `cantopen` est un **throw non rattrapé
+  dans un thread** → `std::terminate`. Résolu par `ensureHistLogger()` : répertoire à **durée de vie
+  processus** créé **avant** `SetUp()`, avec un aller-retour synchrone qui **prouve** que le worker a
+  ouvert la base **avant** que le chemin de cache ne change. (5) **Corroboration de T3.17f** : en
+  montant ses mutations, le relecteur a **fait segfauter le binaire** en retirant la garde de portée
+  d'`eventlog` — session détruite avec le callback `HistLogger` **en vol**. **L'UAF de T3.17f,
+  reproduit en crash vivant**, ce n'est plus une lecture de code.
+  Merge **ff-only** (historique linéaire, pas de commit de merge), worktree `e4.0e` nettoyé par son
+  **chemin exact** + `git worktree prune`, branche `refactor/e4.0e` supprimée, **rien n'a été
+  poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
