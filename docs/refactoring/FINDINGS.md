@@ -385,3 +385,14 @@ nécessité de ces surcharges `_DEPENDENCIES`.
   `<calaos:param name/value>` alors que le lecteur **et** l'écrivain utilisent des **attributs** —
   divergence doc/code préexistante. En revanche l'**emplacement** documenté (l.534, à l'intérieur
   de `<calaos:remote_ui>`) est correct et c'est bien ce que T3.15 implémente.
+
+## E4.4dbis — suites
+
+Deux divergences **cosmétiques** vérifiées par la revue du port de `ConfigStore.cpp` vers pugixml.
+Non bloquantes — la sortie produite est strictement mieux formée qu'avant — mais bonnes à connaître
+si quelqu'un **diffe une config** avant/après migration :
+
+- un `local_config.xml` **édité à la main sans déclaration XML** gagne un `<?xml version="1.0"?>`
+  à la première sauvegarde : pugixml en émet toujours une, TinyXML n'en émettait pas.
+
+- un **BOM UTF-8** était préservé par TinyXML (`useMicrosoftBOM`) ; il est désormais **supprimé**.

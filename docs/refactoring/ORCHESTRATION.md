@@ -310,6 +310,21 @@
   `_DEPENDENCIES` de `tests/Makefile.am` (le binaire de test ne se relinke pas quand l'objet de
   production change) — piège méthodologique consigné dans FINDINGS.md. ff-only, worktree t3.15
   nettoyé.
+- **E4.4dbis ✅ mergé** (2026-08-16, `1357ef7f`, **le dernier consommateur TinyXML** :
+  `ConfigStore.cpp` / `local_config.xml` passe de TinyXML à pugixml. Périmètre exact après rebase :
+  `src/lib/ConfigStore.cpp`, `src/lib/Utils.h`, `src/lib/XmlUtils.h` — **rien** sous
+  `src/bin/calaos_server/IO/RemoteUI/**` (T3.15, concurrent, mergé entre-temps), rien sous
+  `configure.ac`, `.github/` ou `docs/`. Rebasée **deux fois** (master a pris T3.15 puis le commit
+  board de lancement d'E4.2d pendant le build) — **aucun conflit** aux deux passes. Build
+  d'intégration par défaut **51/51** tout vert.
+  ⚠️ **Conséquence majeure : TinyXML n'a plus AUCUN consommateur de code.** `grep -rn
+  'TiXml\|TinyXPath' src/ --include='*.cpp' --include='*.h'` hors `src/lib/TinyXML/` ne rend plus
+  que des **commentaires de prose** (15 lignes dans `ConfigStore.cpp`, `XmlUtils.h`,
+  `CalaosConfig.cpp`, `WebCtrl.cpp` — elles documentent l'ancien comportement TinyXML pour
+  justifier l'équivalent pugixml, aucune ne compile). **E4.4e (suppression du vendored
+  TinyXML + TinyXPath) est donc débloqué.**
+  2 divergences cosmétiques de revue (déclaration XML, BOM UTF-8) consignées dans FINDINGS.md —
+  non bloquantes, sortie strictement mieux formée. ff-only, worktree e4.4dbis nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
