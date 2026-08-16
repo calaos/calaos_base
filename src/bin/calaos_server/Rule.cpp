@@ -35,23 +35,29 @@ Rule::Rule(string type, string name):
 
 Rule::~Rule()
 {
-    for (uint i = 0;i < conds.size();i++)
-        delete conds[i];
-
-    for (uint i = 0;i < actions.size();i++)
-        delete actions[i];
+    /* The conditions and the actions are owned by the vectors now, so this
+     * body only exists to pin the ORDER the old one had: conditions first,
+     * front to back, then actions. Left to the implicit destruction of the
+     * members, actions would go first (members are destroyed in reverse
+     * declaration order). Nothing observable depends on it today, but this
+     * is the destruction order the tree has always had.
+     */
+    conds.clear();
+    actions.clear();
 }
 
 void Rule::AddCondition(Condition *cond)
 {
-    conds.push_back(cond);
+    //Ownership transfer in
+    conds.emplace_back(cond);
 
     cDebugDom("rule");
 }
 
 void Rule::AddAction(Action *act)
 {
-    actions.push_back(act);
+    //Ownership transfer in
+    actions.emplace_back(act);
 
     cDebugDom("rule");
 }
@@ -70,7 +76,7 @@ bool Rule::CheckConditions()
 {
     bool ret = true;
 
-    for (Condition *condition: conds)
+    for (const std::unique_ptr<Condition> &condition: conds)
     {
         if (!condition->Evaluate())
             ret = false;
@@ -92,9 +98,9 @@ void Rule::CheckConditionsAsync(std::function<void (bool check)> cb, string trig
 
     list<ConditionScript *> cond_scripts;
 
-    for (Condition *condition: conds)
+    for (const std::unique_ptr<Condition> &condition: conds)
     {
-        ConditionScript *script_cond = dynamic_cast<ConditionScript *>(condition);
+        ConditionScript *script_cond = dynamic_cast<ConditionScript *>(condition.get());
 
         if (script_cond)
             cond_scripts.push_back(script_cond);
@@ -143,7 +149,7 @@ bool Rule::ExecuteActions()
     cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
                      << "): Starting execution (" << actions.size() << " actions)";
 
-    for (Action *action: actions)
+    for (const std::unique_ptr<Action> &action: actions)
     {
         if (!action->Execute())
             ret = false;
@@ -160,18 +166,42 @@ bool Rule::ExecuteActions()
 
 void Rule::RemoveCondition(int pos)
 {
-    vector<Condition *>::iterator iter = conds.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    conds.erase(iter);
+    if (pos < 0 || (size_t)pos >= conds.size())
+    {
+        cErrorDom("rule") << "RemoveCondition(): no condition at index " << pos
+                          << " (" << conds.size() << " conditions), ignoring";
+        return;
+    }
+
+    /* Take the owner OUT of the vector before anything can be destroyed
+     * (E4.2b lesson, same as Room::RemoveIO()): vector::erase move-assigns
+     * the tail down and unique_ptr::operator= is reset(u.release()), so a
+     * destructor running inside erase() would see a container of unchanged
+     * size whose slot `pos` already holds the NEXT condition and whose last
+     * slot is null.
+     * The condition is destroyed here, it is never handed back: nothing in
+     * the tree takes a Condition out of a Rule (this used to erase the raw
+     * pointer without deleting it, i.e. leak it - there is no caller, so the
+     * fix is unobservable).
+     */
+    std::unique_ptr<Condition> owned = std::move(conds[pos]);
+    conds.erase(conds.begin() + pos);
 
     cDebugDom("rule");
 }
 
 void Rule::RemoveAction(int pos)
 {
-    vector<Action *>::iterator iter = actions.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    actions.erase(iter);
+    if (pos < 0 || (size_t)pos >= actions.size())
+    {
+        cErrorDom("rule") << "RemoveAction(): no action at index " << pos
+                          << " (" << actions.size() << " actions), ignoring";
+        return;
+    }
+
+    //Same as RemoveCondition(): out of the vector first, then destroyed
+    std::unique_ptr<Action> owned = std::move(actions[pos]);
+    actions.erase(actions.begin() + pos);
 
     cDebugDom("rule");
 }
@@ -217,16 +247,10 @@ bool Rule::SaveToXml(pugi::xml_node node)
     }
 
     for (uint i = 0;i < conds.size();i++)
-    {
-        Condition *cond = conds[i];
-        cond->SaveToXml(rule_node);
-    }
+        conds[i]->SaveToXml(rule_node);
 
     for (uint i = 0;i < actions.size();i++)
-    {
-        Action *action = actions[i];
-        action->SaveToXml(rule_node);
-    }
+        actions[i]->SaveToXml(rule_node);
 
     return true;
 }

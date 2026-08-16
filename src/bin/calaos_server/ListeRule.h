@@ -22,6 +22,7 @@
 #define S_LISTERULE_H
 
 #include <deque>
+#include <memory>
 
 #include "Calaos.h"
 #include "Rule.h"
@@ -41,12 +42,32 @@ namespace Calaos
 class ListeRule: public sigc::trackable
 {
 protected:
-    std::vector<Rule *> rules;
+    /* -------------------------------------------------------------------
+     * Ownership (E4.2d)
+     *
+     * ListeRule owns the Rules; a Rule owns its Conditions and Actions
+     * (see Rule.h). Nothing else in the tree may delete a Rule, and there is
+     * no `delete` left here.
+     *
+     * `rules` is and stays a plain vector appended to by Add(): its ORDER is
+     * the rule evaluation order (collectTriggeredRules(), ExecuteStartRules()
+     * and RemoveRule() all march it front to back), and changing it changes
+     * which rule fires first. Removals keep the relative order of the rest.
+     *
+     * `rules_scenarios` is a NON-OWNING index over the very same Rules, kept
+     * in sync by Add()/Remove(): a Rule appears in both containers, so only
+     * one of them can own it. getRuleAutoScenario() hands out those same
+     * non-owning pointers.
+     *
+     * `in_event` is a non-owning list of IOs owned by their Room (E4.2b),
+     * registered by the IO itself (see Add(IOBase*)/Remove(IOBase*)).
+     * ---------------------------------------------------------------- */
+    std::vector<std::unique_ptr<Rule>> rules;
 
     //these input's events are detected in the RunEventLoop() function
     std::vector<IOBase *> in_event;
 
-    //Rules for autoscenario
+    //Rules for autoscenario. NON-OWNING view over `rules`.
     list<Rule *> rules_scenarios;
 
     bool loop = false;
@@ -103,13 +124,21 @@ public:
 
     ~ListeRule();
 
+    /* TAKES OWNERSHIP of p (a null p is ignored). Appended at the end: the
+       rule evaluation order is the insertion order. */
     void Add(Rule *p);
+    /* Destroy the rule at index i, and with it its conditions and actions.
+       Out of range is a logged no-op. */
     void Remove(int i);
-    void Remove(Rule *obj)
-    { rules.erase(std::remove(rules.begin(), rules.end(), obj), rules.end());
-        rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj), rules_scenarios.end()); delete obj; }
+    /* Same, by pointer. `obj` must be a rule this list owns - the only thing
+       ListeRule may destroy is what it owns, so a rule it does not hold is a
+       logged no-op instead of the unconditional `delete obj` of the raw
+       pointer era (no caller ever relied on it, every Rule of the tree is
+       Add()ed to this list right after being built). */
+    void Remove(Rule *obj);
     void RemoveRule(IOBase *obj); //remove all rules containing obj
 
+    //NON-OWNING. Valid while this list holds the rule.
     Rule *get_rule(int i);
     Rule *operator[] (int i) const;
 
@@ -164,6 +193,7 @@ public:
                  */
     void ExecuteStartRules();
 
+    //NON-OWNING pointers into `rules`, in rules_scenarios order.
     list<Rule *> getRuleAutoScenario(string auto_scenario);
 };
 

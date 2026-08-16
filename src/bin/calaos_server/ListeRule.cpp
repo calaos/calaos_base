@@ -18,6 +18,9 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include <algorithm>
+#include <memory>
+
 #include <ListeRule.h>
 
 using namespace Calaos;
@@ -87,16 +90,33 @@ ListeRule &ListeRule::Instance()
 
 ListeRule::~ListeRule()
 {
-    for (uint i = 0;i < rules.size();i++)
-        delete rules[i];
+    //The non-owning index goes first, so that nothing can observe it pointing
+    //at a rule that is being destroyed.
+    rules_scenarios.clear();
 
-    rules.clear();
+    //Front to back, as before. The rule is moved out of the vector *first* so
+    //that its destructor (which cascades into its conditions and actions)
+    //never runs on an element that is still half-present in `rules`.
+    while (!rules.empty())
+    {
+        std::unique_ptr<Rule> rule = std::move(rules.front());
+        rules.erase(rules.begin());
+    }
 }
 
 void ListeRule::Add(Rule *r)
 {
-    rules.push_back(r);
+    //Ownership transfer in. A null rule used to be pushed into the list and
+    //then dereferenced right below.
+    if (!r)
+    {
+        cErrorDom("rule") << "Add(): ignoring a null rule";
+        return;
+    }
 
+    rules.emplace_back(r);
+
+    //Non-owning index, same pointer, kept in sync by Remove()
     if (r->param_exists("auto_scenario"))
         rules_scenarios.push_back(r);
 
@@ -105,26 +125,72 @@ void ListeRule::Add(Rule *r)
 
 void ListeRule::Remove(int pos)
 {
-    vector<Rule *>::iterator iter = rules.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
+    if (pos < 0 || (size_t)pos >= rules.size())
+    {
+        cErrorDom("rule") << "Remove(): no rule at index " << pos
+                          << " (" << rules.size() << " rules), ignoring";
+        return;
+    }
 
-    if (rules[pos]->param_exists("auto_scenario"))
-        rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), rules[pos]), rules_scenarios.end());
+    Rule *rule = rules[pos].get();
 
-    delete rules[pos];
-    rules.erase(iter);
+    //Drop the non-owning index entry before the rule can be destroyed
+    if (rule->param_exists("auto_scenario"))
+        rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), rule),
+                              rules_scenarios.end());
+
+    /* Take the owner OUT of the vector before anything can be destroyed
+     * (E4.2b lesson, same as Room::RemoveIO()): vector::erase move-assigns
+     * the tail down and unique_ptr::operator= is reset(u.release()), so
+     * ~Rule() running inside erase() would see a container of unchanged size
+     * whose slot `pos` already holds the NEXT rule and whose last slot is
+     * null. `owned` destroys the rule at the end of this scope, with `rules`
+     * already fully consistent. Removals keep the order of the rest.
+     */
+    std::unique_ptr<Rule> owned = std::move(rules[pos]);
+    rules.erase(rules.begin() + pos);
 
     cDebugDom("rule");
 }
 
+void ListeRule::Remove(Rule *obj)
+{
+    if (!obj) return;
+
+    //Non-owning index first, unconditionally (as before: an erase-remove is a
+    //no-op for a rule that is not in it)
+    rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), obj),
+                          rules_scenarios.end());
+
+    //Two owners of the same Rule cannot exist, so there is at most one match
+    auto it = std::find_if(rules.begin(), rules.end(),
+                           [obj](const std::unique_ptr<Rule> &p) { return p.get() == obj; });
+    if (it == rules.end())
+    {
+        /* Not ours. The raw pointer version did `delete obj` here whatever
+         * happened; under explicit ownership only the owner may destroy, and
+         * we are not it. No caller reaches this: every `new Rule` of the tree
+         * (AutoScenario x6, Config::LoadConfigRule, the test fixtures) is
+         * handed to Add() before any Remove(), and AutoScenario nulls its
+         * back-pointers right after removing.
+         */
+        cWarningDom("rule") << "Remove(): rule not owned by this list, ignoring";
+        return;
+    }
+
+    //Out of the vector before it is destroyed, see Remove(int)
+    std::unique_ptr<Rule> owned = std::move(*it);
+    rules.erase(it);
+}
+
 Rule *ListeRule::operator[] (int i) const
 {
-    return rules[i];
+    return rules[i].get();
 }
 
 Rule *ListeRule::get_rule(int i)
 {
-    return rules[i];
+    return rules[i].get();
 }
 
 void ListeRule::RunEventLoop()
@@ -151,8 +217,10 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
 {
     IOBase *triggerIO = ListeRoom::Instance().get_io(id);
 
-    for (Rule *rule: rules)
+    //Front to back, insertion order: this is the rule evaluation order
+    for (const std::unique_ptr<Rule> &owned: rules)
     {
+        Rule *rule = owned.get();
         bool syncTriggered = false;
         bool asyncTriggered = false;
 
@@ -331,7 +399,7 @@ void ListeRule::RemoveRule(IOBase *obj)
     //it is referenced from.
     for (uint i = 0;i < rules.size();)
     {
-        Rule *rule = rules[i];
+        Rule *rule = rules[i].get();
         bool used = false;
 
         for (int j = 0;!used && j < rule->get_size_conds();j++)

@@ -21,6 +21,8 @@
 #ifndef S_RULE_H
 #define S_RULE_H
 
+#include <memory>
+
 #include "Calaos.h"
 #include "Condition.h"
 #include "Action.h"
@@ -34,8 +36,27 @@ namespace Calaos
 class Rule
 {
 protected:
-    vector<Condition *> conds;
-    vector<Action *> actions;
+    /* -------------------------------------------------------------------
+     * Ownership (E4.2d)
+     *
+     * A Rule is the ONE owner of its Conditions and its Actions. The
+     * vectors express it: destroying the Rule destroys them, and nothing
+     * else in the tree may delete a Condition or an Action. Both base
+     * classes have a virtual destructor, so the derived object (ConditionStd,
+     * ActionMail...) is the one that runs.
+     *
+     * Every hand-out below (get_condition(), get_action()) is a NON-OWNING
+     * observation, valid as long as this Rule holds the object. There is no
+     * hand-back path here: unlike Room::RemoveIO(pos, del=false) in E4.2b,
+     * nothing in the tree ever takes a Condition or an Action back out of a
+     * Rule, so no release() is needed - see RemoveCondition()/RemoveAction().
+     *
+     * Iteration order is the insertion order and is load bearing (it decides
+     * the order conditions are evaluated and actions executed): both
+     * containers stay plain vectors appended to by AddCondition()/AddAction().
+     * ---------------------------------------------------------------- */
+    vector<std::unique_ptr<Condition>> conds;
+    vector<std::unique_ptr<Action>> actions;
 
     Params params;
 
@@ -58,17 +79,23 @@ public:
     //See `alive`. Expires when the rule is destroyed.
     std::weak_ptr<bool> aliveToken() const { return alive; }
 
+    /* TAKE OWNERSHIP of p, appended at the end (the evaluation/execution
+       order is the insertion order). */
     void AddCondition(Condition *p);
     void AddAction(Action *p);
     bool Execute();
     bool CheckConditions();
     void CheckConditionsAsync(std::function<void (bool check)> cb, string triggerId);
     bool ExecuteActions();
+    /* Destroy the condition/action at index i. Out of range is a logged
+       no-op (it used to walk the iterator past end()). This is NOT a
+       hand-back: the object is destroyed, not returned. */
     void RemoveCondition(int i);
     void RemoveAction(int i);
 
-    Condition *get_condition(int i) { return conds[i]; }
-    Action *get_action(int i) { return actions[i]; }
+    //NON-OWNING. Valid while this Rule holds the object.
+    Condition *get_condition(int i) { return conds[i].get(); }
+    Action *get_action(int i) { return actions[i].get(); }
 
     int get_size_conds() { return conds.size(); }
     int get_size_actions() { return actions.size(); }

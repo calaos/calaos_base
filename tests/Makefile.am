@@ -1007,3 +1007,28 @@ core_RemoteUIDeviceInfo_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RemoteUIDeviceInfo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.2d
+#Explicit and unique ownership of the rules (step 4/6 of the E4.2 series, the
+#rule-side counterpart of E4.2b): a Rule owns its Conditions/Actions through
+#unique_ptr, ListeRule owns its Rules, rules_scenarios is a non-owning index,
+#and there is no manual delete left on the rule path. Pins that every accessor
+#hands out a NON-OWNING pointer (there is no hand-back path here, unlike
+#delete_io(io, del=false) in E4.2b), that a removal destroys exactly once and
+#never twice, that ListeRule only destroys what it owns, and - the invariant of
+#the series - that a removal leaves the ORDER of the remaining rules and of the
+#remaining conditions/actions untouched, since that order is the evaluation
+#order. Links the plain core objects only (Rule.o and ListeRule.o are already
+#in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
+if HAVE_GTEST
+TESTS += core/RuleOwnership_test
+check_PROGRAMS += core/RuleOwnership_test
+core_RuleOwnership_test_SOURCES = core/RuleOwnership_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleOwnership_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RuleOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
