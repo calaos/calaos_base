@@ -113,6 +113,8 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.0](E4.0.md) | 4 | Caractérisation de l'API JSON (préalable dur à E4.1) | epic | — | 📋 |
 | [E4.0a](E4.0.md) | 4 | Fondation du filet de caractérisation (harnais in-process, oracle sémantique, goldens) | tests | — | ✅ |
 | [E4.0b](E4.0.md) | 4 | Caractérisation du modèle et de l'état (9 commandes × 2 transports) | tests | E4.0a | ✅ |
+| [E4.0c](E4.0.md) | 4 | Caractérisation des plages horaires et autoscénarios (9 opérations, 52 cas, 9 goldens) | tests | E4.0a | ✅ |
+| [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) | tests | E4.0d, E4.0e, E4.0f | 📋 |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | **E4.0** | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |

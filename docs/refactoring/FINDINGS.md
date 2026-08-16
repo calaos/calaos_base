@@ -733,3 +733,78 @@ et pas seulement dans l'en-tête du fichier de test.
    `"empty player id"` — correctement orthographié, épinglé par
    `t317b_ws_audio_empty_player_id.json`. Les deux messages sont différents ; un correctif de la
    faute de frappe ne doit pas les fusionner.
+
+## E4.0c — divergences gelées
+
+Découvertes en caractérisant `get_timerange`, `set_timerange` et les **sept sous-commandes
+`autoscenario`** (`tests/core/JsonApiScenario_test.cpp`, 52 cas, 9 goldens). **Aucune n'est
+corrigée** : E4.0c est de la caractérisation pure, **zéro ligne de `src/`**. Les sept divergences
+ci-dessous ont toutes été **confirmées au source par la revue indépendante**. La politique du
+harnais (`tests/core/JsonApiCharacterization.h:159-169`) exige qu'une divergence gelée soit
+consignée ici, et pas seulement dans l'en-tête du fichier de test.
+
+1. **[API, contrat cassé] Le payload de `autoscenario get` n'est pas ré-injectable dans
+   `modify`.** `buildAutoscenarioModify()` (`JsonApi.cpp:1834`) lit `disabled` (défaut
+   **`"true"`**), `name` (défaut **`_("New unnamed scenario")`**), `visible` (défaut `"false"`),
+   `room_name` et `room_type`. Or `Scenario::toJson()` (`IO/Scenario.cpp:81-150`) n'émet **aucun**
+   de ces cinq champs : il émet `id`, `cycle`, **`enabled`** (la négation de `disabled`, sous un
+   autre nom), `schedule`, `category`, `steps_count`, `steps`. Un client qui **renvoie tel quel ce
+   qu'il vient de recevoir** renomme donc le scénario en « New unnamed scenario », le rend
+   invisible et le désactive — **avec `success:true`**. Ce n'est pas un aller-retour, c'est une
+   réinitialisation silencieuse. Gelé tel quel ; le corriger est un changement de contrat visible
+   client, donc un ticket dédié avec entrée de notes de version.
+2. **[API, perte de données silencieuse] L'index du tableau JSON sert de numéro d'étape.**
+   `index_act = idx` dans `buildAutoscenarioCreate()` **et** dans `buildAutoscenarioModify()` : le
+   numéro d'étape passé à `addStepAction()` est la position dans le tableau `steps` reçu, alors
+   que `addStep()` n'est appelé **que** pour les steps `standard`. Un step `end` placé ailleurs
+   qu'en **dernier** décale donc tout ce qui suit : les actions des steps standard suivants sont
+   attachées à des indices qui n'existent pas et **disparaissent sans erreur**. Le client reçoit
+   `success:true`.
+3. **[SEC/API] `autoscenario` n'est pas soumis au `serviceScope`.** `JsonApiHandlerWS.cpp:177-219`
+   pose `scopeDenied()` sur `set_param`, `del_param`, `audio_db`, **`set_timerange`**, `eventlog`,
+   `register_push` et `settings` — mais **pas** sur `autoscenario`, qui **crée, modifie et
+   supprime** des scénarios ainsi que leurs règles associées (`deleteRules()`). Une session de
+   scope service, à qui l'on refuse d'écrire une plage horaire, peut donc **détruire des
+   scénarios**. L'asymétrie est mesurée, pas déduite.
+4. **[API] Silence total sur un `type` d'autoscénario inconnu ou absent, sur les deux
+   transports.** La chaîne de `if/else if` n'a **pas d'`else`** (WS `:474-491`, HTTP `:883-896`).
+   Côté HTTP c'est pire que côté WS : **aucune réponse et aucune fermeture** — la socket est
+   laissée ouverte, le client attend indéfiniment. Le silence est ici un comportement observable
+   et il est épinglé comme tel.
+5. **[API] Asymétrie WS/HTTP confirmée sur un troisième périmètre** (après `audio_db` et `audio`
+   inventoriés par E4.0) : les arguments se lisent **sous `data` en WS et à la racine en HTTP**.
+   Pour `autoscenario`, l'argument ainsi déplacé est le **`type` lui-même**, c'est-à-dire le
+   sélecteur de sous-commande. La migration jansson → `nlohmann::json` doit préserver les **deux**
+   emplacements.
+6. **[API] `set_timerange` — trois comportements destructeurs ou permissifs, gelés.**
+   (a) **`ranges` absent ⇒ toutes les plages sont effacées** : `o->clear()` est appelé **avant**
+   la lecture (`JsonApi.cpp:1629`), et `json_array_foreach` sur un `nullptr` itère zéro fois. Une
+   requête qui ne voulait changer que les `months` vide donc l'agenda.
+   (b) **`months` plus court que 12 est accepté sans erreur** (zéro-extension implicite), ce qui
+   éteint silencieusement les mois manquants.
+   (c) **Un `day` hors 1..7 est silencieusement perdu** : sept `if` indépendants, aucun `else`,
+   aucune erreur. La plage est simplement ignorée et le client reçoit un succès.
+7. **[Events] `type_str` n'est pas le nom de l'enum.** `EventTimeRangeChanged` se sérialise en
+   **`timerange_changed`** (`EventManager.cpp:155`). C'est la chaîne du fil qui fait contrat, pas
+   l'identifiant C++ ; toute table de correspondance écrite depuis les noms d'enum sera fausse.
+
+**Constat (d) de T3.18, mesuré ici pour la première fois.** `Scenario::toJson()` filtre les
+actions par `if (!sa.io) continue;` — dans la boucle des steps standard **et** dans celle du step
+`end`. Une étape dont l'IO a disparu (supprimée à chaud) est donc rendue **sans son action et sans
+la moindre indication** : elle est **indistinguable d'une étape laissée vide exprès**. Épinglé par
+le contraste entre `e40c_ws_autoscenario_get.json` et
+`e40c_ws_autoscenario_get_hot_deleted.json`. C'est exactement le point (d) que T3.18 annonce
+vouloir traiter en ajoutant `broken` / `disabled_missing_io` / `missing_ios` au payload ; **T3.18
+devra régénérer les goldens de scénario** (`CALAOS_GOLDEN_UPDATE=1`), ce que le bloc `# E4.0c` de
+`tests/Makefile.am` signale déjà.
+
+⚠️ **Réserve de fond de la revue, à ne pas perdre — même mode de défaillance qu'E4.0b.** Le
+relecteur indépendant a démontré **par contre-mutation** que `cycle` et `enabled` n'étaient
+**jamais observés en désaccord** dans la première version : `false/false` dans cinq goldens,
+`true/true` dans le sixième. **Échanger les deux noms de clés laissait 52/52 vert** — le filet ne
+prouvait rien sur cette paire. L'implémenteur a fermé la réserve avec **deux témoins
+indépendants**, puis a **balayé tout `Scenario::toJson()`** avec le même critère : `id`↔`schedule`
+→ **13 rouges**, `category`↔`steps_count` → **15 rouges**, `step_pause`↔`step_type` → **13
+rouges**, action `id`↔`action` → **13 rouges**. **Aucune autre paire aveugle.** Toute évolution
+future de ces goldens doit conserver le **désaccord** entre clés symétriques : c'est lui, et non
+leur présence, qui épingle le contrat.

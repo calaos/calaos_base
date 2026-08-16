@@ -695,6 +695,71 @@
   vérifié pre/post), et l'inventaire d'origine « 22 méthodes sans garde » a reçu un encadré de
   péremption avec les 15 définitions remesurées. **T3.17 reste 📋** — c et e ne sont pas mergés.
   ff-only, worktree t3.17b nettoyé, **rien n'a été poussé**.
+- **E4.0c ✅ mergé** (2026-08-16, `fa75299a`) — **plages horaires et autoscénarios sous filet** :
+  `get_timerange`, `set_timerange` et les **sept sous-commandes `autoscenario`** → **9 opérations,
+  52 cas, 9 goldens**, troisième sous-ticket de la série E4.0 qui doit précéder la migration
+  jansson → `nlohmann::json`. **Caractérisation pure : zéro ligne de `src/`**, vérifié **sur le
+  commit** (`git show --name-only`) et pas seulement sur l'arbre — les 11 fichiers touchés sont
+  tous sous `tests/`. Nouveau `tests/core/JsonApiScenario_test.cpp` (2004 l.), 9 goldens
+  `e40c_*.json`, append sur `tests/Makefile.am`. **Aucun golden existant régénéré.**
+  **La réserve de fond de la revue mérite de survivre au ticket — c'est le mode de défaillance
+  d'E4.0b, à l'identique.** Le relecteur indépendant a démontré **par contre-mutation** que `cycle`
+  et `enabled` n'étaient **jamais observés en désaccord** (`false/false` dans cinq goldens,
+  `true/true` dans le sixième) : **échanger les deux noms de clés laissait 52/52 vert**.
+  L'implémenteur a fermé la réserve avec **deux témoins indépendants**, puis — et c'est le bon
+  réflexe, il ne s'est pas arrêté à la paire signalée — a **balayé tout `Scenario::toJson()`** avec
+  le même critère : `id`↔`schedule` → **13 rouges**, `category`↔`steps_count` → **15 rouges**,
+  `step_pause`↔`step_type` → **13 rouges**, action `id`↔`action` → **13 rouges**. **Aucune autre
+  paire aveugle.** Consigné en FINDINGS.md avec la règle : c'est le **désaccord** entre clés
+  symétriques qui épingle le contrat, pas leur présence — ne pas « harmoniser » les goldens plus
+  tard.
+  **Aucun conflit `tests/Makefile.am`** : la branche était **déjà rebasée sur `97bddbfa`**, qui
+  était encore la tête de master au moment du merge (aucun autre merge n'est passé entre-temps),
+  donc `git merge --ff-only` **sans rebase et sans conflit**. Bloc `# E4.0c` ajouté seul en EOF
+  (append pur de 65 lignes) → **48/48** `if HAVE_GTEST`/`endif` équilibrés (47/47 avant). Le
+  `LDADD` reprend la **même clôture de lien que `core/JsonApiHome_test`** (E4.0b), pour la même
+  raison mesurée : `JsonApiHandlerHttp.o` a besoin du **vrai** `HttpClient::buildHttpResponse()`,
+  et les objets caméra/audio entrent dans la clôture par l'objet de harnais partagé. Ne pas le
+  « nettoyer ».
+  Build d'intégration distclean : **60/60 PASS**, 0 FAIL / 0 ERROR / 0 SKIP — 59 de master **+ le
+  seul nouveau binaire** `core/JsonApiScenario_test` ; compte **déduit avant le build** (`TESTS` =
+  57 `check_PROGRAMS` − 1 helper `StaticLogShutdown_helper` + 3 entrées de scripts = 59, dont la
+  ligne `check-config-options.sh check-config-docs.sh` qui en apporte **deux** à elle seule) puis
+  confirmé. Build > 600 s : attendu par `docker wait` sur le conteneur retrouvé par son **mount
+  exact** (`/home/raoul/repos/calaos/calaos_base`), **sans relance**, sans toucher aux 3 conteneurs
+  voisins (e4.0d, t3.17c, e4.0e). Aucune fausse suppression de docs : les **95** fichiers de
+  `docs/refactoring/` intacts (**96** après ajout d'`E4.0g.md`).
+  **7 divergences gelées** consignées en FINDINGS.md, toutes confirmées au source par la revue.
+  Les trois qui comptent : (i) **le payload d'`autoscenario get` n'est pas ré-injectable dans
+  `modify`** — un client qui renvoie ce qu'il vient de recevoir **renomme, masque et désactive** le
+  scénario, avec `success:true` ; (ii) **l'index du tableau JSON sert de numéro d'étape**
+  (`index_act = idx`), donc un step `end` mal placé fait **disparaître silencieusement** les
+  actions des steps suivants ; (iii) **`autoscenario` échappe au `serviceScope`** alors qu'il
+  **supprime** des scénarios, tandis que `set_timerange`, bien moins destructeur, y est soumis.
+  S'y ajoutent le silence total sur `type` inconnu (socket HTTP **laissée ouverte**), l'asymétrie
+  WS/HTTP sur un **troisième** périmètre (le `type` lui-même sous `data` en WS, à la racine en
+  HTTP), les trois comportements de `set_timerange` (`ranges` absent ⇒ **tout effacé**, `months`
+  court zéro-étendu, `day` hors 1..7 perdu) et `type_str` ≠ nom d'enum (`timerange_changed`).
+  **Le constat (d) de T3.18 est mesuré ici pour la première fois** : une étape dont l'IO a disparu
+  est rendue **sans son action et sans indication**, indistinguable d'une étape vide — épinglé par
+  contraste entre `e40c_ws_autoscenario_get.json` et `e40c_ws_autoscenario_get_hot_deleted.json`.
+  **Pas d'entrée RELEASE_NOTES.md** — zéro ligne de `src/`, aucun comportement utilisateur changé.
+  **Nouveau ticket écrit dans ce merge : [`E4.0g`](E4.0g.md)** (📋 au board, sous l'épique E4.0),
+  issu de la revue d'E4.0d : `JsonApiCharacterization.cpp:645-653` draine **avant**
+  `CoreFixture::TearDown()`, alors que c'est `TearDown()` qui déclenche `clearCoreState()`
+  (`CalaosCoreFixture.cpp:183-185`) et donc `~Room()`, qui lève **un `EventIODeleted` par IO**
+  (`Room.cpp:77`). Ces events-là ne sont **jamais drainés** et fuient dans le cas suivant — d'où la
+  rustine du drain en `SetUp()` **répétée par chaque sous-ticket**. Correctif = déplacer le
+  `pumpEventLoop()` **après** `CoreFixture::TearDown()`, **à faire une fois E4.0d/e/f mergés**
+  (trois agents travaillent sur ce harnais ; changer la sémantique du cycle de vie sous eux les
+  casserait en silence), et à **valider en retirant les drains de `SetUp()` devenus superflus** —
+  s'ils le sont vraiment, c'est la preuve que le correctif mord. ⚠️ Le commentaire du harnais est
+  faux **sur la cause et sur le compte** (« un `EventIOAdded` par IO, 5 here ») : la maison porte
+  **8** IOs, `Room::LoadFromXml()` est **muet**, et `EventIOAdded` n'existe qu'à
+  `ListeRoom.cpp:466` — E4.0d corrige ces commentaires dans sa branche, E4.0g porte le **correctif
+  structurel**, pas la doc.
+  **E4.0 reste 📋** — d/e/f ne sont pas mergés, et g vient d'être ouvert. ff-only, worktree e4.0c
+  nettoyé, **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
