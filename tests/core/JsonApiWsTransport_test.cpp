@@ -288,13 +288,13 @@ protected:
         forgetIOState(PLAYER_ID);
         handlerDestroyCount = 0;
 
+        //No drain here, and none is needed. E4.0g removed the one that used to
+        //sit at the end of this SetUp(): the fixture now pumps AFTER
+        //CoreFixture::TearDown(), so a case starts on an empty queue. Its
+        //comment was wrong on the cause anyway - loading the config raises
+        //NOTHING (Room::LoadFromXml() is silent; EventIOAdded has a single
+        //call site, ListeRoom::createIO(), ListeRoom.cpp:466).
         loadConfig();
-
-        //Loading the config raises one EventIOAdded per IO. They stay in the
-        //EventManager queue until something pumps the loop, and a case that
-        //counts messages would otherwise trip over them. Drain them here,
-        //while no transport is alive to receive them.
-        pumpEventLoop();
     }
 
     static std::shared_ptr<uvw::TcpHandle> newHandle()

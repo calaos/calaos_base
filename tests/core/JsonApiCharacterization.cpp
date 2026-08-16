@@ -644,23 +644,29 @@ void JsonApiCharacterizationTest::TearDown()
 {
     LoginThrottle::clear();
 
-    //Drain whatever the CASE ITSELF left in the EventManager idler.
-    //
-    //CORRECTED IN E4.0d: this used to claim it stopped anything from reaching
-    //the next case. IT DOES NOT, AND CANNOT WHERE IT STANDS. The rooms are
-    //destroyed by CoreFixture::TearDown() BELOW, and ~Room() raises one
-    //EventIODeleted per IO (Room.cpp:77) - eight for the reference house. Those
-    //are queued after this pump has already run, so they survive into the next
-    //case and are delivered to its first session.
-    //
-    //Moving the pump after CoreFixture::TearDown() is the real fix, and it is
-    //ticketed separately: three sub-tickets are in flight on this harness and
-    //silently changing the semantics under them would be worse than the bug.
-    //Until then, a fixture that pins the absence of a message must pump once
-    //more at the end of its own SetUp() - see JsonApiEvents_test.cpp.
-    pumpEventLoop();
-
     CoreFixture::TearDown();
+
+    //DRAIN AFTER THE CORE STATE IS CLEARED, AND THE ORDER IS THE WHOLE POINT
+    //(E4.0g). CoreFixture::TearDown() above starts with clearCoreState()
+    //(CalaosCoreFixture.cpp:184-186), which destroys the rooms; ~Room() calls
+    //RemoveIO() for every IO it still owns and each one raises an
+    //EventIODeleted (Room.cpp:77) - eight of them for the reference house.
+    //Those events are therefore PRODUCED BY THE PARENT TEARDOWN ITSELF.
+    //
+    //Pumping before it (what this fixture used to do, E4.0a..E4.0f) drained
+    //everything EXCEPT them: they stayed in the EventManager idler and were
+    //delivered to the first session of the NEXT case, at its first pump - even
+    //to a session created afterwards, since newEvent is emitted at FLUSH time,
+    //not at QUEUE time. A case pinning the ABSENCE of a message could then
+    //pass alone and fail in a full run, under some orderings only - or crash
+    //the binary outright (uv__finish_close assertion, std::bad_alloc).
+    //
+    //Five workarounds had accumulated against that leak, in the SetUp() of the
+    //sub-tickets and in one case body; E4.0g removed all five in this same
+    //diff, and this function no longer drains anything either (see
+    //loadReferenceHouse()). The control that catches a regression here is
+    //--gtest_shuffle on several seeds, not the default order.
+    pumpEventLoop();
 }
 
 //CalaosCoreFixture only writes <calaos:internal> nodes. Cameras and audio
@@ -758,19 +764,25 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
     //(Room.cpp:152-175), which builds and attaches the IOs silently. A client
     //connected while the server boots sees nothing of the house being built.
     //Pinned by JsonApiEvents_test.cpp:LoadingAHouseFromConfigRaisesNoEventAtAll.
+    //NOTE FOR THAT KIND OF CASE: since this function no longer pumps (below),
+    //a case asserting that the load is SILENT must pump itself, otherwise it
+    //would read zero for the wrong reason - undelivered is not unraised.
     //
-    //The drain below IS still needed, for the other end of the lifecycle: the
-    //previous case's teardown destroyed its rooms and ~Room() raised one
-    //EventIODeleted per IO (Room.cpp:77) AFTER TearDown() had already pumped,
-    //so they are still queued when this function runs. They would be delivered
-    //to every session alive at the next flush - even one created after this
-    //call, since newEvent is emitted at FLUSH time, not at QUEUE time - and
-    //any case pinning the ABSENCE of a message would trip over them.
+    //THERE IS NO DRAIN HERE ANY MORE EITHER, AND ADDING ONE BACK NEEDS A
+    //MEASUREMENT. This function used to end with a pumpEventLoop(). Its real
+    //job was to absorb the PREVIOUS case's backlog - its teardown destroyed
+    //its rooms and ~Room() raised one EventIODeleted per IO (Room.cpp:77)
+    //after TearDown() had already pumped. E4.0g moved that pump after
+    //CoreFixture::TearDown(), so the backlog no longer exists and this drain
+    //became dead code. MEASURED, twice and independently: with it removed,
+    //every binary sharing this harness is green over fifteen --gtest_shuffle
+    //seeds, and no caller of loadReferenceHouse() raises an event before
+    //calling it. Keeping it would have contradicted the rule TearDown() states
+    //for sub-tickets - do not keep a defensive pump nothing exercises - with
+    //the harness exempting itself from its own rule.
     //
-    //Draining here is NOT enough on its own: a case that opens its session
-    //BEFORE calling loadReferenceHouse() is still exposed. Pump once more at
-    //the end of your own SetUp() (see JsonApiEvents_test.cpp).
-    pumpEventLoop();
+    //If a future case DOES raise events before asking for the house, pump in
+    //that case, where the need is visible, and say what you are draining.
 }
 
 } //namespace CalaosTest

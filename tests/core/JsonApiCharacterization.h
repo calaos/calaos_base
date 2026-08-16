@@ -456,22 +456,48 @@ class JsonApiCharacterizationTest: public CoreFixture
 protected:
     void SetUp() override;
 
-    /* WARNING, MEASURED IN E4.0d: THIS TEARDOWN DOES NOT DRAIN EVERYTHING.
-     * It pumps the loop BEFORE calling CoreFixture::TearDown(), and it is that
-     * parent call which destroys the rooms - so the EventIODeleted that
-     * ~Room() raises for every IO (Room.cpp:77, eight of them for the
-     * reference house) are queued AFTER the last pump and survive into the
-     * NEXT case, where they are delivered to its first session.
+    /* THIS TEARDOWN LEAVES THE EVENT QUEUE EMPTY. FIXED IN E4.0g, AND THE
+     * ORDER OF ITS TWO STATEMENTS IS THE FIX - DO NOT SWAP THEM BACK.
      *
-     * A case that pins the ABSENCE of a message therefore passes alone and
-     * fails in a full run, and only under some orderings - run your suite with
-     * --gtest_shuffle on a few seeds, it is the control that catches this.
+     * It calls CoreFixture::TearDown() FIRST and pumps the loop AFTER. The
+     * parent call is what destroys the rooms, and ~Room() raises one
+     * EventIODeleted per IO it still owns (Room.cpp:77, eight of them for the
+     * reference house). Those events are produced BY the parent teardown, so a
+     * pump placed before it drains everything except exactly them: they used
+     * to survive into the NEXT case and be delivered to its first session -
+     * even to a session created after the fact, since newEvent is emitted at
+     * FLUSH time, not at QUEUE time.
      *
-     * Until the ordering is fixed for good (ticketed separately; moving the
-     * pump here would change the semantics under three sub-tickets currently
-     * in flight), a fixture that cares should pump once more at the END of its
-     * own SetUp(), after CoreFixture::SetUp() has cleared the state.
-     * JsonApiEvents_test.cpp does exactly that and says why.
+     * Consequence, now gone: a case pinning the ABSENCE of a message passed
+     * alone and failed in a full run, under some orderings only - and, on some
+     * seeds, crashed outright rather than failing cleanly (uv assertion in
+     * uv__finish_close, or std::bad_alloc, MEASURED in the E4.0g review).
+     *
+     * FIVE workarounds had accumulated against it, in four different shapes,
+     * and E4.0g removed all five in the same diff (plus a sixth drain in
+     * loadReferenceHouse(), see there) - which is how the fix was proven.
+     *
+     * Do NOT read that as "every sub-ticket needed one". MEASURED per
+     * workaround, by restoring the old pump order and shuffling seeds, only
+     * THREE were load-bearing:
+     *   - JsonApiEvents_test, last statement of SetUp()      - red 3/3 seeds
+     *   - JsonApiSession_test, mid-SetUp()                   - red 2/3 seeds
+     *   - JsonApiWsTransport_test, end of SetUp()            - red 14/15 seeds
+     * and TWO never absorbed anything at all, 0 red in 18 seeds each with the
+     * defect present:
+     *   - JsonApiAudioPayload_test, end of SetUp()
+     *   - JsonApiHome_test, head of one case body, not in SetUp() at all
+     *
+     * Those last two were copied from a neighbour, and from an explanation
+     * that was itself false (see the EventIOAdded correction below). Copying a
+     * pump you have not measured is how this file ended up documenting the
+     * wrong cause for six sub-tickets.
+     *
+     * YOU THEREFORE INHERIT AN EMPTY QUEUE. Do not add a defensive pump to
+     * your SetUp(): if you ever need one, you have found a SECOND source of
+     * events surviving TearDown() - name it and write it in FINDINGS.md
+     * instead of papering over it. The control that catches a regression here
+     * is --gtest_shuffle on a few seeds, never the default order.
      */
     void TearDown() override;
 
@@ -532,7 +558,8 @@ protected:
      * false branch reachable from configuration.
      *
      * It also carries one simple rule (HOUSE_RULE_NAME) so the rule side is
-     * not empty, and it DRAINS the event queue before handing the house over.
+     * not empty. It does NOT pump the loop: see the note on the removed drain
+     * below.
      *
      * CORRECTED IN E4.0d, THIS PARAGRAPH USED TO BE WRONG. It claimed the load
      * raises one EventIOAdded per IO ("five queued events"). MEASURED: the
@@ -542,12 +569,17 @@ protected:
      * loading goes through Room::LoadFromXml() (Room.cpp:152-175), which
      * builds and attaches the IOs without raising anything.
      *
-     * What the drain is REALLY for: the events queued by the PREVIOUS case.
-     * CoreFixture::TearDown() destroys the rooms, ~Room() calls RemoveIO() per
-     * IO, and each one raises EventIODeleted (Room.cpp:77) - eight of them for
-     * this house. Read the warning on TearDown() below: those land AFTER the
-     * fixture pumped, so they survive into the next case and are delivered to
-     * its first session.
+     * THE DRAIN THIS FUNCTION USED TO END WITH IS GONE, REMOVED BY E4.0g. What
+     * it really absorbed was the PREVIOUS case's backlog: the EventIODeleted
+     * that ~Room() raises while CoreFixture::TearDown() destroys the rooms.
+     * That backlog no longer exists - the fixture now pumps AFTER the parent
+     * teardown (see TearDown() below), so a case starts on an empty queue and
+     * the drain was dead code. MEASURED as removable, twice and independently:
+     * fifteen --gtest_shuffle seeds green on every binary of this harness
+     * without it, and no caller raises an event before asking for the house.
+     * It was removed rather than kept as a guard, because TearDown() tells
+     * sub-tickets not to keep a defensive pump nothing exercises and the
+     * harness does not get to exempt itself from its own rule.
      *
      * Ids are prefixed e40_ and used nowhere else: Config's IO state cache is
      * process wide and never cleared (see CalaosCoreFixture.h), so sharing ids

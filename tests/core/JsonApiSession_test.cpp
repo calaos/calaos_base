@@ -170,16 +170,14 @@ protected:
 
         JsonApiCharacterizationTest::SetUp();
 
-        //CoreFixture::TearDown() calls clearCoreState(), which raises one
-        //EventIODeleted per IO of the PREVIOUS case and leaves them in the
-        //EventManager idler - nothing pumps after that point. A WsTestSession
-        //is an event sink, so the first pumpEventLoop() of a case pinning the
-        //ABSENCE of a message delivers that backlog and counts it as an answer.
-        //MEASURED: two silence cases failed with ws.count()==8 depending only
-        //on what ran before them, which --gtest_shuffle would have turned into
-        //a random failure. loadReferenceHouse() drains its own backlog the same
-        //way, which is why only the cases NOT loading the house tripped.
-        pumpEventLoop();
+        //NO DRAIN HERE ANY MORE. This SetUp() used to pump once to absorb the
+        //EventIODeleted that the PREVIOUS case's clearCoreState() left in the
+        //idler - two silence cases of this file had been MEASURED failing with
+        //ws.count()==8 depending only on what ran before them. E4.0g moved the
+        //fixture's pump after CoreFixture::TearDown(), so those events are
+        //drained where they are produced and every case starts on an empty
+        //queue. ensureHistLogger() above stays: it solves an unrelated problem
+        //(the HistLogger singleton captures its base path in its constructor).
 
         //Deterministic MCP tokens for get_mcp_info and login_service, whatever
         //order the cases run in (--gtest_shuffle). See ensureMcpTokens().

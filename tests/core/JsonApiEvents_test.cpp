@@ -189,20 +189,22 @@
  *    event: handleEvents() only tests loggedin, never serviceScope, so the
  *    whole scope restriction of the request/response path has no equivalent on
  *    the push path.
- *  - LOADING A CONFIGURATION IS SILENT. JsonApiCharacterization.h:481-483 and
- *    JsonApiCharacterization.cpp:741-748 both state that loading a house
- *    raises one EventIOAdded per IO. MEASURED: it raises NOTHING.
- *    EventIOAdded is emitted by ListeRoom::createIO() (ListeRoom.cpp:466), the
- *    runtime path of the JSON API; Config loading goes through
- *    Room::LoadFromXml() (Room.cpp:152-175), which builds and attaches the IOs
- *    without a word. What DOES fill the queue - and what E4.0a actually saw -
- *    is the OPPOSITE end: clearCoreState() destroys the rooms, ~Room() calls
- *    RemoveIO() per IO, and each one raises EventIODeleted (Room.cpp:77).
- *    Those land in the queue at the very end of a case, after the fixture
- *    pumped, and leak into the next one. Both halves are pinned below
- *    (LoadingAHouseFromConfigRaisesNoEventAtAll,
- *    DroppingTheHouseRaisesOneIoDeletedPerIo) and this fixture drains once
- *    more at the start of SetUp() because of the second.
+ *  - LOADING A CONFIGURATION IS SILENT, against what the harness used to
+ *    claim (corrected in E4.0d). MEASURED: it raises NOTHING. EventIOAdded is
+ *    emitted by ListeRoom::createIO() (ListeRoom.cpp:466), the runtime path of
+ *    the JSON API; Config loading goes through Room::LoadFromXml()
+ *    (Room.cpp:152-175), which builds and attaches the IOs without a word.
+ *    What DOES fill the queue - and what E4.0a actually saw - is the OPPOSITE
+ *    end: clearCoreState() destroys the rooms, ~Room() calls RemoveIO() per
+ *    IO, and each one raises EventIODeleted (Room.cpp:77). Both halves are
+ *    pinned below (LoadingAHouseFromConfigRaisesNoEventAtAll,
+ *    DroppingTheHouseRaisesOneIoDeletedPerIo).
+ *    Those EventIODeleted used to leak into the NEXT case, because the fixture
+ *    pumped BEFORE CoreFixture::TearDown() produced them, and this file worked
+ *    around it with an extra drain at the start of its SetUp(). E4.0g moved
+ *    the pump after the parent teardown and removed the workaround: every case
+ *    here now starts on an empty queue, which is what its silence assertions
+ *    depend on.
  ******************************************************************************/
 
 #include "JsonApiCharacterization.h"
@@ -244,13 +246,15 @@ protected:
         forgetIOState(EV_DOOMED_IO);
         forgetIOState(EV_PLAGE);
 
-        //ORDER INDEPENDENCE, and it is not optional here. CoreFixture's
-        //TearDown() destroys the rooms, ~Room() raises one EventIODeleted per
-        //IO it still owns, and those are queued AFTER the parent TearDown()
-        //already pumped. They would otherwise be delivered to the first
-        //session of the NEXT case - which passes alone and fails under
-        //--gtest_shuffle. Drain the inherited backlog before anything else.
-        pumpEventLoop();
+        //NO DRAIN HERE ANY MORE. This SetUp() used to end with a
+        //pumpEventLoop() to absorb the EventIODeleted that the PREVIOUS case's
+        //teardown queued after its own pump. E4.0g moved the fixture's pump
+        //after CoreFixture::TearDown(), so that backlog is gone at the source
+        //and every case of this binary now starts on an empty queue - which is
+        //exactly what the silence cases below assert. Removing this line is
+        //part of the proof that the fix bites; if it ever has to come back,
+        //something ELSE is surviving TearDown() and must be named, not pumped
+        //away.
     }
 
     void TearDown() override
@@ -957,20 +961,25 @@ TEST_F(JsonApiEventsTest, ASessionOpenedAfterTheEventWasQueuedStillReceivesIt)
 
 TEST_F(JsonApiEventsTest, LoadingAHouseFromConfigRaisesNoEventAtAll)
 {
-    //MEASURED, and it CONTRADICTS THE HARNESS DOCUMENTATION.
-    //JsonApiCharacterization.h:481-483 and the comment of loadReferenceHouse()
-    //(JsonApiCharacterization.cpp:741-748) both state that loading a house
-    //raises one EventIOAdded per IO and that this is why the loader has to
-    //drain the queue. It does not. EventIOAdded lives in
-    //ListeRoom::createIO() (ListeRoom.cpp:466), the path the JSON API takes to
-    //add an IO at runtime. Config loading goes through Room::LoadFromXml()
-    //(Room.cpp:152-175), which calls IOFactory::CreateIO() and AddIO()
-    //directly and says nothing at all. A client connected while the server
-    //boots therefore sees NOTHING of the house being built.
-    //The drain at the end of loadReferenceHouse() is still needed - just for
-    //another reason, pinned by the next case.
+    //MEASURED IN E4.0d, against a harness that used to document the opposite:
+    //loading a house was said to raise one EventIOAdded per IO. It does not.
+    //EventIOAdded lives in ListeRoom::createIO() (ListeRoom.cpp:466), the path
+    //the JSON API takes to add an IO at runtime. Config loading goes through
+    //Room::LoadFromXml() (Room.cpp:152-175), which calls IOFactory::CreateIO()
+    //and AddIO() directly and says nothing at all. A client connected while
+    //the server boots therefore sees NOTHING of the house being built.
+    //
+    //THE PUMP BELOW IS LOAD-BEARING, DO NOT DROP IT. Until E4.0g,
+    //loadReferenceHouse() ended with a pumpEventLoop() of its own and this
+    //case relied on it to flush. E4.0g removed that drain (it was absorbing a
+    //backlog that no longer exists), so without an explicit pump here the
+    //assertion would be vacuous: anything the load raised would simply still
+    //be sitting in the idler, undelivered, and the count would read zero for
+    //the wrong reason. Pumping makes the silence observable rather than
+    //assumed.
     WsTestSession ws;
-    loadReferenceHouse();            //ends with its own pumpEventLoop()
+    loadReferenceHouse();
+    pumpEventLoop();
 
     EXPECT_EQ(0u, ws.count())
             << "config loading is silent; io_added only comes from createIO()";
@@ -981,11 +990,13 @@ TEST_F(JsonApiEventsTest, DroppingTheHouseRaisesOneIoDeletedPerIo)
     //THE REAL SOURCE OF THE BACKLOG. Destroying the rooms - what
     //clearCoreState() does in every SetUp and TearDown - runs ~Room(), which
     //calls RemoveIO() per IO, which raises EventIODeleted (Room.cpp:77). Eight
-    //events land in the queue at the very END of a case, after the fixture has
-    //already pumped, and they wait there for the next case to flush them into
-    //its first session. That is the leak that makes a silence assertion pass
-    //alone and fail in a full run, and it is why this fixture drains once more
-    //at the start of SetUp().
+    //events land in the queue at the very END of a case. Until E4.0g they
+    //landed there AFTER the fixture had pumped and waited for the next case to
+    //flush them into its first session - the leak that made a silence
+    //assertion pass alone and fail in a full run. The fixture now pumps after
+    //CoreFixture::TearDown(), so they are drained where they are produced.
+    //This case pins the production of the events themselves, which is
+    //unchanged: they are real, only their draining point moved.
     loadReferenceHouse();
 
     WsTestSession ws;

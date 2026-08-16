@@ -251,8 +251,10 @@ TEST_F(JsonApiHomeTest, GetHomeOnAnEmptyHouseAnswersThreeEmptyArrays)
 {
     //No rooms at all: the three members are still present, as empty arrays.
     //An absent member would break every client that indexes them blindly.
+    //Loading an empty document raises nothing, and since E4.0g the previous
+    //case leaves nothing either (the fixture pumps after
+    //CoreFixture::TearDown()), so no drain is needed before counting messages.
     loadConfig(ioXmlDocument(std::string()), rulesXmlDocument(std::string()));
-    pumpEventLoop();
 
     WsTestSession ws;
     ws.send(Json{{ "msg", "get_home" }, { "msg_id", "1" }});

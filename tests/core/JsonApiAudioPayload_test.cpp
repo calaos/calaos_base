@@ -247,15 +247,15 @@ protected:
 
         forgetIOState(PLAYER_ID);
 
-        loadConfig();
-
-        /* Loading raises one EventIOAdded per IO. They sit in the EventManager
-         * queue until something pumps the loop, and the harness pumps BEFORE
-         * CoreFixture::TearDown(), so a backlog left here leaks into the next
-         * case. Drain, exactly like loadReferenceHouse() does. (Known harness
-         * defect, ticketed as E4.0g.)
+        /* No drain here, and none is needed. E4.0g removed the one that used
+         * to sit at the end of this SetUp(): the fixture now pumps AFTER
+         * CoreFixture::TearDown(), so the previous case leaves nothing in the
+         * queue. Its comment was wrong on the cause anyway - the load raises
+         * NOTHING (Room::LoadFromXml() is silent; EventIOAdded has a single
+         * call site, ListeRoom::createIO(), ListeRoom.cpp:466, on the runtime
+         * path of the JSON API).
          */
-        pumpEventLoop();
+        loadConfig();
     }
 
     //Registered exactly like a config loaded IO: owned by its room, reachable
