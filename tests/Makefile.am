@@ -1644,3 +1644,81 @@ EXTRA_DIST += core/golden/t317c_ws_get_albums.json \
                   core/golden/t317c_ws_unknown_audio_action.json \
                   core/golden/t317c_http_unknown_audio_action.json
 endif
+
+#E4.0e: session, envelopes and error paths of the JSON API - login,
+#login_service, settings/change_cred, register_push, get_mcp_info, eventlog,
+#config/get, plus every error path of both transports (the seven scope
+#refusals, "unknown action", "unkown audio_action", the silences, the HTTP 400
+#and 404, and the migration traps: invalid UTF-8, empty strings, very large
+#integers, absent members, unexpected types).
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiSession_test
+check_PROGRAMS += core/JsonApiSession_test
+core_JsonApiSession_test_SOURCES = core/JsonApiSession_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiSession_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiSession_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiSession_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40e_http_audio_db_unknown_action.json \
+                  core/golden/e40e_http_camera_unknown_id.json \
+                  core/golden/e40e_http_config_unknown_type.json \
+                  core/golden/e40e_http_get_camera_pic_invalid_width.json \
+                  core/golden/e40e_http_get_camera_pic_unknown_id.json \
+                  core/golden/e40e_http_get_cover_unknown_id.json \
+                  core/golden/e40e_http_get_mcp_info.json \
+                  core/golden/e40e_http_get_param_invalid_utf8_name.json \
+                  core/golden/e40e_http_get_param_invalid_utf8_value.json \
+                  core/golden/e40e_http_poll_listen_get_unknown_uuid.json \
+                  core/golden/e40e_http_poll_listen_unknown_type.json \
+                  core/golden/e40e_http_register_push_success.json \
+                  core/golden/e40e_http_unknown_action.json \
+                  core/golden/e40e_ws_audio_unknown_action.json \
+                  core/golden/e40e_ws_eventlog_last_page_is_empty.json \
+                  core/golden/e40e_ws_eventlog_page_out_of_range.json \
+                  core/golden/e40e_ws_eventlog_uuid_not_found.json \
+                  core/golden/e40e_ws_get_param_no_param_member.json \
+                  core/golden/e40e_ws_get_state_without_data.json \
+                  core/golden/e40e_ws_login_failure.json \
+                  core/golden/e40e_ws_login_service_invalid_token.json \
+                  core/golden/e40e_ws_login_service_success.json \
+                  core/golden/e40e_ws_login_success.json \
+                  core/golden/e40e_ws_login_success_no_msg_id.json \
+                  core/golden/e40e_ws_register_push_refused.json \
+                  core/golden/e40e_ws_register_push_success.json \
+                  core/golden/e40e_ws_scope_denied.json \
+                  core/golden/e40e_ws_settings_change_cred_refused.json \
+                  core/golden/e40e_ws_settings_change_cred_success.json
+endif

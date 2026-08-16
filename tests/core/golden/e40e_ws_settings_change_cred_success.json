@@ -1,0 +1,8 @@
+{
+  "data": {
+    "action": "change_cred",
+    "success": "true"
+  },
+  "msg": "settings",
+  "msg_id": "1"
+}
