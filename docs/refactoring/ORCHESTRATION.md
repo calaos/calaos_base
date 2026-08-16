@@ -244,6 +244,29 @@
   <IOBase*>&)` devenu code mort, et le chemin de compat legacy audio/caméra de
   `ConditionStd::LoadFromXml` qui ne réaligne pas `id` (params/ops vides à l'évaluation).
   Prochain de la série : E4.2d.
+- **E4.3cd ✅ mergé** (2026-08-16, `491a03b2`, infra pure, **aucun `src/**` touché**) :
+  `configure.ac` gagne `--enable-asan` (ajoute `-fsanitize=address -fno-omit-frame-pointer
+  -g -O1` à CFLAGS/CXXFLAGS/LDFLAGS + une ligne de résumé), et `.github/workflows/ci.yml`
+  gagne un job `coverage` **informationnel**. Le bloc ASan est placé **délibérément en toute
+  fin de `configure.ac`**, après chaque sonde compile/link (`AC_CHECK_LIB`,
+  `PKG_CHECK_MODULES`, `EFL_CHECK_COMPILER_FLAGS`, `AX_CXX_COMPILE_STDCXX_20`,
+  `ACX_PTHREAD`) : injecter `-fsanitize=address` plus tôt ferait linker chacune de ces sondes
+  contre libasan et pourrait en changer le verdict. Désactivé par défaut — un `./configure` nu
+  produit exactement les mêmes flags qu'avant. Le job CI est non bloquant **par construction**
+  (`continue-on-error: true`, `make check || echo …`, upload `if: always()`) : son rôle est de
+  publier la mesure, jamais de gater une PR sur un pourcentage. Périmètre exact : `configure.ac`,
+  `.github/workflows/ci.yml`, `AGENTS.md`, `ORCHESTRATION.md` — rien d'autre, et surtout rien
+  sous `src/` (E4.4cd, concurrent, en possède une large part). Base : branche partie de
+  `a6ca2f2e`, rebasée **deux fois** (master a pris E4.4cd board, puis T3.14 + les pièges
+  opérationnels ASan) — **aucun conflit** aux deux passes, y compris sur `ORCHESTRATION.md` :
+  les notes ASan de master vivent dans la nouvelle section « Validation sur configs réelles »,
+  la doc d'invocation de la branche dans « Workflow wave », les deux se complètent.
+  ⚠️ Le worktree portait des objets `.o` d'un build `--enable-asan` antérieur : le premier build
+  d'intégration a échoué au link (`undefined reference to __asan_report_load1` dans
+  `llhttp/src/http.c`) parce que make les jugeait à jour alors que le link se faisait sans
+  libasan. **Faux positif de propreté d'arbre** — après `make distclean`, build par défaut
+  **50/50** tout vert. ff-only, worktree e4.3cd nettoyé. 2 nits cosmétiques de revue consignés
+  dans FINDINGS.md (validation de `--enable-asan=<valeur>`, lcov CI non exercé).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
@@ -288,7 +311,7 @@ Règles dures :
     vsc-calaos_base-12022039c4b5f0e1b3db46145edacf81b99ac88513f5f47e81e91e6919b1be26:latest \
     bash -c "./autogen.sh && ./configure && make -j12 && make check"
   ```
-- ASan : depuis E4.3c, plus de `CXXFLAGS` bricolés — utiliser l'option de configure.
+- ASan : depuis E4.3cd, plus de `CXXFLAGS` bricolés — utiliser l'option de configure.
   ```
   ./autogen.sh && ./configure --enable-asan && make -j12 && \
     ASAN_OPTIONS=detect_leaks=0 make check

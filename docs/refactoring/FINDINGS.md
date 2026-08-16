@@ -328,3 +328,26 @@ Vérifié par la revue, **non corrigé** :
   nouvel id, alors qu'`ActionStd::LoadFromXml` fait correctement `id = out->get_param("id")`.
   Résultat : `params`/`ops` restent clés sur l'ancien `iid`/`oid` tandis que l'évaluation utilise
   le nouveau — ces conditions s'évaluent contre des params vides. Candidat correctif d'une ligne.
+
+## E4.3cd
+
+Deux nits relevés à la revue, **non bloquants**, laissés en l'état :
+
+- **`./configure --enable-asan=<valeur invalide>` désactive silencieusement au lieu d'échouer.**
+  Le bloc teste `test "x${enable_asan}" = "xyes"` : `--enable-asan=garbage` (ou `=1`, ou `=true`)
+  tombe donc dans le `else` implicite et produit un build **sans** sanitizer, sans le moindre
+  avertissement. Seuls `--enable-asan` et `--enable-asan=yes` marchent. Le piège est réel — on
+  croit mesurer sous ASan et on ne mesure rien — mais il reste visible dans le résumé de
+  `configure` (`AddressSanitizer (--enable-asan).....: no`). Correctif propre : un `AS_CASE` sur
+  `yes|no` avec `AC_MSG_ERROR` sur tout le reste.
+
+- **Le comportement lcov de bout en bout du job CI `coverage` n'est vérifié par aucune exécution.**
+  L'image de dev ne contient pas `lcov`, donc la chaîne `--zerocounters` → `--capture --initial`
+  → `--capture` → `--add-tracefile` → `--remove` → `genhtml` n'a jamais tourné ; seules la syntaxe
+  YAML et la cohérence des options ont été relues. En particulier les noms de catégories passés à
+  `--ignore-errors` (`gcov,source,graph`) sont ceux de **lcov 1.16** (debian:12) et seraient
+  rejetés par lcov 2.x, et le filtre `--remove` n'a pas été confronté à de vrais chemins. **Non
+  bloquant par construction** : le job est `continue-on-error: true`, `make check` est neutralisé
+  par `|| echo`, et l'upload est `if: always()` avec `if-no-files-found: warn` — chaque mode
+  d'échec produit donc un rapport vide plutôt qu'une CI cassée. La première exécution réelle sur
+  GitHub sera la vraie validation.
