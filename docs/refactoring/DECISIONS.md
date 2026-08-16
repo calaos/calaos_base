@@ -142,3 +142,13 @@ alors que `LoadFromXml` le cherche dans `<calaos:remote_ui>` — il n'est donc j
 Ticket T3.15, **sérialisé après E4.4cd** (le portage pugixml retype ces mêmes fonctions).
 Point ouvert à trancher dans le ticket : récupérer les `device_info` orphelins des configs
 existantes, ou assumer leur abandon et le documenter.
+
+## 2026-08-16 — ⚠️ Pousser master publie des artefacts (à savoir avant tout push)
+La répétition CI locale a établi que `.github/workflows/docker-publish-dev.yml` se déclenche sur
+**tout push vers master**, **sans `needs:` sur build-and-test** : il incrémente la version, crée
+un **tag git**, publie `ghcr.io/calaos/calaos_base:dev` + un tag versionné, et dispatche un
+`build_deb` vers `calaos/pkgdebs`. Un push n'est donc **pas** une simple validation CI, c'est une
+**publication**. À rappeler à l'utilisateur avant chaque demande de push.
+Validé par ailleurs : `build-and-test` PASSE (première exécution réelle du chemin pugixml
+**système 1.13**, jusque-là jamais construit — tous les builds locaux prenaient le vendored 1.14)
+et le job `coverage` produit un vrai rapport (26,7 % lignes).

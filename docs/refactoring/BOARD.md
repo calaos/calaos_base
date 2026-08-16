@@ -122,6 +122,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.13](T3.13.md) | 3 | TimeRange: include guard, parse UB, midnight-wrap (user decision) | fix | E4.3ab | ✅ |
 | [T3.14](T3.14.md) | 3 | Shutdown dangling read (static destruction order) | fix | — | 📋 |
 | [T3.15](T3.15.md) | 3 | RemoteUI device_info does not round-trip (user decision) | fix | E4.4cd | ✅ |
+| [T3.16](T3.16.md) | 3 | Fix CI format-check (pugixml exclude, git before checkout) | infra | — | 🔨 |
 | [E4.4](E4.4.md) | 4 | ~~TinyXML 2.5.3 → TinyXML2~~ → **pugixml** (user decision) | epic | Phase 3 | 🔨 |
 | [T3.12](T3.12.md) | 3 | ~~Patch 2 TinyXML CVEs~~ (abandoned: superseded by pugixml migration) | fix (sec) | — | ⛔ |
 | [E4.4a](E4.4a.md) | 4 | Introduce pugixml (Debian pkg, XPath on) | infra | — | ✅ |
