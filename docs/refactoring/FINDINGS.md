@@ -617,3 +617,37 @@ Aucune ne remet en cause le correctif : l'UAF atteignable depuis l'API JSON est 
   **déréférencerait le player déjà libéré à la ligne suivante**. Les deux morts sont indépendantes
   et demandent **deux** protections — le token pour la mort du client, la **re-résolution de l'IO
   par son id** pour la mort du player.
+
+## E4.0b — divergences découvertes en caractérisant (non corrigées, gelées telles quelles)
+
+Découvertes en écrivant les 52 cas de `JsonApiHome_test.cpp`. **Aucune n'est corrigée** — la série
+E4.0 gèle le comportement réel, bugs compris. Candidates à des tickets.
+
+1. **[API, sérieux] `get_io` / `get_state` ne lisent pas `items` au même endroit selon le
+   transport.** WS lit `jsonRoot["data"]["items"]` (`JsonApiHandlerWS.cpp:255,314`), HTTP lit
+   `items` **à la racine** (`JsonApiHandlerHttp.cpp:285,349`). Le même document envoyé aux deux
+   transports n'adresse donc pas les mêmes IOs, et le mauvais transport répond `{}` ou l'enveloppe
+   seule — **jamais une erreur**. Documenté dans les deux sens par des tests.
+2. **[API] `set_state` en WS ne répond rien sans `msg_id`** (`JsonApiHandlerWS.cpp:334`) alors que
+   **l'état est bien changé**. En HTTP la réponse est inconditionnelle. Un client qui omet `msg_id`
+   croit sa commande perdue alors qu'elle a été exécutée.
+3. **[MORT] `get_states` et `query` ne renvoient de contenu pour aucune IO d'une maison normale.**
+   `get_all_values_bool/double/string()` et `query_param()` ne sont surchargés que par
+   `IOAVReceiver` (`IOBase.h:103-111` renvoient des maps vides, seul `Audio/AVReceiver.cpp`
+   surcharge). Deux des neuf commandes « cœur » du plan E4.0 sont en pratique sans contenu.
+4. **[API] `get_param` sur un param inconnu n'est pas une erreur** : réponse `{"<param>":""}`.
+   `"wrong io/param"` ne signifie jamais que « io inconnu ». Et **sans membre `param`**, la réponse
+   est `{"":""}` — objet à **clé vide**, valide mais à surveiller à la migration.
+5. **[API] Asymétrie param vide/absent** : `set_param` **refuse** une valeur vide
+   (`JsonApi.cpp:690`) — un param ne peut pas être blanchi, seulement supprimé par `del_param` ;
+   mais `del_param` sur un param **absent** renvoie `{"success":"true"}`.
+
+**Remarque de cadrage sur E4.0.md** : le plan compte `get_states` et `query` parmi les neuf
+opérations « cœur, ce que tout client appelle ». Le point 3 montre que leur valeur de filet est
+celle d'un contrat de **forme vide**, pas d'un payload. Le vrai poids d'E4.0b est sur `get_home`,
+`get_io`, `get_state`, les trois commandes de params et `set_state`.
+
+**Acquis utiles pour E4.1** (le piège numérique n'est pas tout à fait absent) : `get_state` épingle
+`Utils::to_string(double)` sur `"42.5"` et `"1.23457e+06"` — ostream, 6 chiffres significatifs,
+**notation scientifique sur le fil, en chaîne**. Et `del_param` prouve que la clé **disparaît** de
+`get_io` au lieu de passer à `null`.
