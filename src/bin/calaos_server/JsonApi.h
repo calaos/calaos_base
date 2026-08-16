@@ -166,7 +166,12 @@ public:
 
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
+    /* Takes the player by ID, not by pointer: one network round trip happens
+     * between two consecutive items, and the IO can be deleted through the API
+     * in between. The player is looked up again at every step, exactly like
+     * buildJsonState() does (T2.15).
+     */
+    void getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
 
     AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);

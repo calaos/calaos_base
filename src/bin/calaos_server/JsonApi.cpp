@@ -780,29 +780,65 @@ bool JsonApi::decodeSetState(Params &jParam)
     return success;
 }
 
+//The one answer get_playlist gives when it cannot produce a playlist: the
+//requested IO is not (or no longer) an audio player. Shared by the entry point
+//and by the async stages, so a player deleted mid-flight gives the client the
+//SAME answer as an unknown id - never a playlist silently missing its tail.
+static json_t *playlistNoPlayerAnswer()
+{
+    json_t *jret = json_object();
+    json_object_set_new(jret, "success", json_string("false"));
+    return jret;
+}
+
 void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda)
 {
-    IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
+    const string playerId = jParam["id"];
+    IOBase *io = ListeRoom::Instance().get_io(playerId);
     AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
 
     if (!player)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        result_lambda(jret);
+        result_lambda(playlistNoPlayerAnswer());
         return;
     }
+
+    /* Destruction guard: this JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object
+     * included) while player answers may still be in flight. Every async
+     * callback of the chain checks the token before touching this or calling
+     * result_lambda, which captures raw handler pointers. Same pattern as
+     * buildJsonState() (T2.15) and JsonApiHandlerHttp::handlerAlive.
+     */
+    std::weak_ptr<bool> alive = apiAlive;
 
     json_t *jplayer = json_object();
 
     player->get_playlist_current([=](AudioPlayerData data)
     {
+        //jplayer is only reachable from this chain: releasing it here is what
+        //keeps the guard from leaking the partial answer.
+        if (alive.expired()) { json_decref(jplayer); return; }
+
         json_object_set_new(jplayer,
                             "current_track",
                             json_string(Utils::to_string(data.ivalue).c_str()));
 
-        player->get_playlist_size([=](AudioPlayerData data1)
+        //The player IO can be deleted through the API while a request is in
+        //flight: never keep the raw pointer across an async boundary, look it
+        //up again by id at each step instead.
+        AudioPlayer *p1 = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
+        if (!p1)
         {
+            json_decref(jplayer);
+            result_lambda(playlistNoPlayerAnswer());
+            return;
+        }
+
+        p1->get_playlist_size([=](AudioPlayerData data1)
+        {
+            if (alive.expired()) { json_decref(jplayer); return; }
+
             json_object_set_new(jplayer,
                                 "count",
                                 json_string(Utils::to_string(data1.ivalue).c_str()));
@@ -814,15 +850,41 @@ void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>res
                 result_lambda(jplayer);
             }
             else
-                getNextPlaylistItem(player, jplayer, json_array(), 0, it_count, result_lambda);
+                //getNextPlaylistItem() looks the player up itself
+                getNextPlaylistItem(playerId, jplayer, json_array(), 0, it_count, result_lambda);
         });
     });
 }
 
-void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda)
+void JsonApi::getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda)
 {
+    //Entered either from decodeGetPlaylist() or from the recursion below, in
+    //both cases right after an alive check, so this is safe to touch.
+    AudioPlayer *player = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
+    if (!player)
+    {
+        //The IO went away between two items. The client is still there and
+        //must get an answer, but not a truncated playlist.
+        json_decref(jplayer);
+        json_decref(jplaylist);
+        result_lambda(playlistNoPlayerAnswer());
+        return;
+    }
+
+    //One check per stage: a chain of N callbacks needs N checks, not one at
+    //the top. Here N is the length of the playlist.
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_playlist_item(it_current, [=](AudioPlayerData data)
     {
+        if (alive.expired())
+        {
+            //jplaylist is not attached to jplayer yet: release both.
+            json_decref(jplayer);
+            json_decref(jplaylist);
+            return;
+        }
+
         json_t *jtrack = json_object();
         Params &infos = data.params;
         for (int i = 0;i < infos.size();i++)
@@ -848,7 +910,7 @@ void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *
         }
         else
         {
-            getNextPlaylistItem(player, jplayer, jplaylist, idx, it_count, result_lambda);
+            getNextPlaylistItem(playerId, jplayer, jplaylist, idx, it_count, result_lambda);
         }
     });
 }

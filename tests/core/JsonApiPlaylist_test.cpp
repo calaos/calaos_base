@@ -78,7 +78,6 @@ namespace
 {
 
 const char *const PLAYER_ID = "t317a_player";
-const char *const NOT_A_PLAYER_ID = "t317a_not_a_player";
 
 /* An AudioPlayer with a deterministic, arbitrarily long playlist.
  *
@@ -213,7 +212,6 @@ protected:
         JsonApiCharacterizationTest::SetUp();
 
         forgetIOState(PLAYER_ID);
-        forgetIOState(NOT_A_PLAYER_ID);
 
         loadConfig();
     }
@@ -392,4 +390,133 @@ TEST_F(JsonApiPlaylistTest, SingleTrackPlaylistIsAnsweredWhole)
     ASSERT_TRUE(data.is_object());
     EXPECT_JSON_EQ(Json("1"), data.value("count", Json()));
     EXPECT_JSON_EQ(expectedItems(1), data.value("items", Json()));
+}
+
+/*******************************************************************************
+ * LIFETIME - what T3.17a actually fixes.
+ *
+ * Every stage of the chain is a real network round trip. Two things can die in
+ * between: the JsonApi (the client disconnected, HttpClient.cpp:162 deletes the
+ * handler, base sub-object included) and the AudioPlayer IO (deleted through
+ * the API). Before T3.17a the late answers dereferenced both.
+ *
+ * These three cases run clean under ASan; before the guard, each of them is a
+ * heap-use-after-free.
+ ******************************************************************************/
+
+/* Client gone while the answers were in flight. The late answers must not touch
+ * the dead handler, the chain must stop, and result_lambda must never fire.
+ */
+TEST_F(JsonApiPlaylistTest, ClientGoneMidChainIsIgnored)
+{
+    FakePlaylistPlayer *player = addPlayer(3, 0);
+    player->deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest(PLAYER_ID));
+        ASSERT_EQ(1u, player->pendingCount());
+        //ws dies here, exactly as when the client disconnects
+    }
+
+    //Drain everything the connection object still holds. Before T3.17a this
+    //walked the whole recursion and ended on result_lambda, i.e. sendJson() on
+    //the freed handler - ASan reports it as a heap-use-after-free.
+    int fired = 0;
+    while (player->fireNext())
+        fired++;
+
+    //Only the answer that was already in flight ran, and it chained nothing
+    EXPECT_EQ(1, fired);
+    EXPECT_TRUE(player->requestedItems.empty());
+}
+
+/* Same, but the client leaves in the middle of the RECURSION rather than at the
+ * first stage: the guard has to be on every stage, not only on the entry one.
+ */
+TEST_F(JsonApiPlaylistTest, ClientGoneMidRecursionIsIgnored)
+{
+    FakePlaylistPlayer *player = addPlayer(5, 0);
+    player->deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest(PLAYER_ID));
+        ASSERT_TRUE(player->fireNext());     //current track
+        ASSERT_TRUE(player->fireNext());     //playlist size -> item 0 in flight
+        ASSERT_TRUE(player->fireNext());     //item 0        -> item 1 in flight
+        ASSERT_EQ(std::vector<int>({ 0, 1 }), player->requestedItems);
+        ASSERT_EQ(1u, player->pendingCount());
+        //ws dies with two tracks still to fetch
+    }
+
+    int fired = 0;
+    while (player->fireNext())
+        fired++;
+
+    //Item 1 answered to nobody and chained nothing
+    EXPECT_EQ(1, fired);
+    //No further track was requested: the recursion stopped at the guard
+    EXPECT_EQ(std::vector<int>({ 0, 1 }), player->requestedItems);
+}
+
+/* The player IO is deleted through the API while an answer is in flight. The
+ * client is still connected, so it MUST get an answer (T3.17 invariant: no
+ * silent disappearance) - and that answer must NOT be a playlist missing its
+ * tail. It is the same success:false the entry point already answers for an id
+ * that is not a player.
+ */
+TEST_F(JsonApiPlaylistTest, PlayerDeletedMidRecursionAnswersFalse)
+{
+    FakePlaylistPlayer *player = addPlayer(5, 0);
+    player->deferred = true;
+
+    WsTestSession ws;
+    ws.send(wsRequest(PLAYER_ID));
+
+    ASSERT_TRUE(player->fireNext());        //current track
+    ASSERT_TRUE(player->fireNext());        //playlist size -> item 0 in flight
+    ASSERT_TRUE(player->fireNext());        //item 0        -> item 1 in flight
+    ASSERT_EQ(std::vector<int>({ 0, 1 }), player->requestedItems);
+
+    //The connection object owns the pending answer and outlives the IO
+    std::function<void()> lateAnswer = player->takeNext();
+    ASSERT_TRUE((bool)lateAnswer);
+    ASSERT_TRUE(deleteIO(player));
+    player = nullptr;
+
+    EXPECT_EQ(0u, ws.count());
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+
+    ASSERT_EQ(1u, ws.count());
+    const Json data = ws.lastData();
+    ASSERT_TRUE(data.is_object());
+    EXPECT_JSON_EQ(Json("false"), data.value("success", Json()));
+    //A truncated playlist would be the silent failure this ticket is about
+    EXPECT_TRUE(data.find("items") == data.end());
+}
+
+/* The player disappears at the very first stage, before the size is even known.
+ */
+TEST_F(JsonApiPlaylistTest, PlayerDeletedAtFirstStageAnswersFalse)
+{
+    FakePlaylistPlayer *player = addPlayer(3, 0);
+    player->deferred = true;
+
+    WsTestSession ws;
+    ws.send(wsRequest(PLAYER_ID));
+
+    std::function<void()> lateAnswer = player->takeNext();
+    ASSERT_TRUE((bool)lateAnswer);
+    ASSERT_TRUE(deleteIO(player));
+    player = nullptr;
+
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+
+    ASSERT_EQ(1u, ws.count());
+    const Json data = ws.lastData();
+    ASSERT_TRUE(data.is_object());
+    EXPECT_JSON_EQ(Json("false"), data.value("success", Json()));
 }
