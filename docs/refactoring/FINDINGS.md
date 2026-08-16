@@ -808,3 +808,45 @@ indépendants**, puis a **balayé tout `Scenario::toJson()`** avec le même crit
 rouges**, action `id`↔`action` → **13 rouges**. **Aucune autre paire aveugle.** Toute évolution
 future de ces goldens doit conserver le **désaccord** entre clés symétriques : c'est lui, et non
 leur présence, qui épingle le contrat.
+
+## T3.17e — suites
+
+Réserves du relecteur indépendant (verdict **MERGE**, réserves **documentaires uniquement**). Elles
+sont conservées ici parce que **ce sont de vraies informations**, pas des remarques de forme : elles
+corrigent à la baisse ce que l'audit croyait déjà couvert.
+
+- **[PORTÉE DU FILET — le trou de couverture était SOUS-déclaré] `~HttpClient(){ delete jsonApi; }`
+  n'était exercé par AUCUN test, sur AUCUN des deux transports.** L'audit annonçait un trou sur le
+  seul transport WS ; il était **total**. `HttpTestRequest` construit un vrai `HttpClient` mais
+  **n'installe jamais le handler dans `HttpClient::jsonApi`**, et un `grep -rn jsonApi tests/`
+  restreint aux **sources** ne renvoyait, avant T3.17e, **aucune occurrence** (les seules
+  correspondances sont dans des binaires compilés, le symbole entrant par les objets de production
+  liés). Autrement dit : **l'arête de propriété qui porte toute la démonstration de couverture
+  transitive de T3.17** — un propriétaire, une destruction — n'était **prouvée par aucune mesure**,
+  seulement par lecture. Tout raisonnement « couvert transitivement via `apiAlive` » écrit avant
+  T3.17e reposait donc sur cette lecture seule.
+- **[UAF LATENT, inatteignable aujourd'hui — le seul risque propre au niveau de dérivation
+  supplémentaire] Fenêtre d'ordre de destruction : `apiAlive` ne la protège pas.** Le sous-objet
+  `JsonApi` meurt **strictement après** le sous-objet `WebSocket` (`~WebSocket()` puis, par la base,
+  `~HttpClient()` qui fait le `delete jsonApi` de `HttpClient.cpp:162`). Entre les deux, `jsonApi`
+  est **vivant au-dessus d'un transport à moitié détruit**, et le jeton `apiAlive` — encore valide
+  puisque `~JsonApi()` n'a pas commencé — **ne dit rien de cette fenêtre**. Elle est **inatteignable
+  en l'état** : `~JsonApi()` est vide (`JsonApi.cpp:252-254`), `~JsonApiHandlerWS()` ne fait que
+  déconnecter (`JsonApiHandlerWS.cpp:40-43`), et `removeWebSocketHandler` n'émet rien sur le mourant
+  (`RemoteUIManager.cpp:413-431` → `RemoteUI::setOnline`, `RemoteUI.cpp:356-361`, **sans
+  `emitChange()`**). Mais **tout futur `sendData.emit()` depuis un destructeur** y ferait un
+  use-after-free via le slot `[=]{ sendTextMessage(data); }` (`WebSocket.cpp:341-344`), qui capture
+  implicitement le `WebSocket` **déjà détruit**. À relire avant d'ajouter la moindre émission sur un
+  chemin de destruction — c'est une hypothèse de sûreté, pas une propriété garantie.
+- **[ANGLES MORTS non déclarés par l'audit]** Trois, à connaître avant de s'appuyer sur le nouveau
+  binaire : (1) **`RemoteUIWebSocketHandler` n'est exercé par aucun cas** — le troisième niveau de
+  dérivation est raisonné, jamais instancié ; (2) la **branche d'échec d'authentification**
+  (`WebSocket.cpp:331`) est **raisonnée mais non épinglée** — aucun test ne la traverse ; (3)
+  **`closeConnection` n'est pas câblé** par le `WsTransport` de test alors que la production le câble
+  (`WebSocket.cpp:345`) — le filet ne couvre donc que la moitié `sendData` du câblage.
+- **[LIMITE DU TEST — il épingle l'invariant, pas le mécanisme]
+  `EventRaisedBeforeTheTransportDiesIsNeverDelivered` ne distingue pas les deux mécanismes de
+  sûreté.** Retirer le seul `evcon.disconnect()` de `~JsonApiHandlerWS()` **laisserait le cas vert**,
+  `sigc::trackable` prenant le relais. Le test prouve donc « l'événement n'est pas livré », **pas**
+  « c'est la déconnexion explicite qui l'empêche ». C'est acceptable — l'invariant est ce qui compte
+  — mais **ne pas le citer comme preuve que la déconnexion explicite est nécessaire**.

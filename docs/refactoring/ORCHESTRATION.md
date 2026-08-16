@@ -760,6 +760,95 @@
   structurel**, pas la doc.
   **E4.0 reste 📋** — d/e/f ne sont pas mergés, et g vient d'être ouvert. ff-only, worktree e4.0c
   nettoyé, **rien n'a été poussé**.
+- **T3.17e ✅ mergé** (2026-08-16, `0303f323`) — **audit du transport WebSocket : le jeton
+  `apiAlive` hérité suffit, aucun code de production changé.** Question posée par le ticket : le
+  niveau de dérivation supplémentaire (`class WebSocket: public HttpClient`, `WebSocket.h:35`)
+  ouvre-t-il un chemin que le jeton hérité de `JsonApi` ne couvre pas ? **Réponse mesurée : non.**
+  Le handler est **créé** par `WebSocket::checkHandshakeRequest()` (`WebSocket.cpp:279`) mais
+  **détruit par la base**, `~HttpClient()` (`HttpClient.cpp:162`) — `~WebSocket()`
+  (`WebSocket.cpp:50-55`) ne touche pas à `jsonApi`. Propriétaire unique confirmé par grep
+  exhaustif : **3 affectations** (`HttpClient.cpp:654`, `WebSocket.cpp:279`, `:288`) et **un seul
+  `delete`** (`HttpClient.cpp:162`). Périmètre tenu et **littéralement zéro ligne de production** —
+  ni `JsonApi.cpp` ni `JsonApiHandlerHttp.cpp`, **aucun `.reset()`**, **aucun golden**, **aucun
+  `EXTRA_DIST`** : nouveau `tests/core/JsonApiWsTransport_test.cpp` (573 l., **7 cas**, oracle JSON
+  sémantique, ids préfixés `t317e_`) + append de 48 l. sur `tests/Makefile.am`, vérifié **sur le
+  commit**. Revue indépendante (worktree neuf, tout remesuré) : **MERGE, réserves documentaires
+  uniquement**.
+  **Ce que l'audit apporte au dossier T3.17** — c'est la « preuve par site » que l'`## Acceptation`
+  de `T3.17.md` exige, et elle n'existait jusqu'ici que dans un message de commit ; elle est
+  désormais écrite en clair dans `T3.17.md`, § *Acquis T3.17e*. Six points : propriétaire unique ;
+  **branche d'échec d'auth `WebSocket.cpp:331`** (le ticket disait `:330`, **décalé d'une ligne**)
+  où le handler est détruit **sans avoir jamais été rangé dans `jsonApi`** — ni
+  `JsonApiHandlerWS::JsonApiHandlerWS` ni `RemoteUIWebSocketHandler::RemoteUIWebSocketHandler`
+  n'écrivent `client->jsonApi = this`, donc **ni double destruction ni pendouillant** ; **troisième
+  niveau de dérivation** (`RemoteUIWebSocketHandler`) qui a **son propre** `handlerAlive`
+  (`RemoteUIWebSocketHandler.h:48`) et dont les **deux** sites async sont **déjà gardés** (`:95`,
+  `:236`) ; **`JsonApi.h` déclare 26 méthodes à `std::function`, pas 25** — la 26ᵉ est
+  **`buildJsonEventLog` (`JsonApi.h:164`)**, seule à prendre un `std::function<void(Json &)>`, ce
+  qui explique qu'elle ait échappé aux inventaires, isolée en **T3.17f** ; **`buildJsonStates`
+  (`JsonApi.cpp:600`) et `buildQuery` (`:641`) sont SYNCHRONES** — `result_lambda` appelé inline sur
+  **toutes** les branches, **sorties d'erreur `wrong id` comprises** (`:610`/`:638`, `:651`/`:660`)
+  — **rien à garder, un jeton y serait du code mort** ; et **`handleEvents` est sûr par
+  `sigc::trackable`, pas par jeton**, ce qui est **structurellement plus fort ici** : pas de lambda
+  capturant `this` mais un **slot** `sigc::mem_fun` (`JsonApiHandlerWS.cpp:37`), donc le différé est
+  côté **émission** — la liste de slots est consultée **au moment de l'`emit`** et un slot
+  déconnecté n'est **jamais appelé**, là où un jeton n'arrive qu'après ré-entrée. Déconnexion
+  **double** (`evcon.disconnect()`, `JsonApiHandlerWS.cpp:40-43`, + `~sigc::trackable`), boucle
+  monothread : **un jeton y serait redondant**.
+  ⚠️ **Une affirmation du dossier d'audit a été mesurée FAUSSE à ce merge et corrigée, pas
+  recopiée.** La « preuve incidente » annoncée — `~RemoteUIWebSocketHandler` →
+  `removeWebSocketHandler` → `setOnline(false)` **lèverait un `EventIOChanged` pendant la
+  destruction du handler** — n'existe pas : `RemoteUIManager::removeWebSocketHandler` appelle bien
+  `remote_ui->setOnline(false)` (`RemoteUIManager.cpp:422`), mais `RemoteUI::setOnline`
+  (`RemoteUI.cpp:356-361`) **n'émet rien** ; le seul émetteur est `emitChange()`
+  (`RemoteUI.cpp:551-553`), appelé depuis `:516`/`:534`/`:545`, **aucun sur le chemin de
+  destruction**. L'argument de fond tient sans elle — **c'est l'exemple qui était mauvais**. Vérifié
+  deux fois, indépendamment.
+  **Les réserves de la revue sont de vraies informations, versées en FINDINGS** (§ *T3.17e —
+  suites*), et la première **corrige à la baisse** ce que l'audit croyait : **le trou de couverture
+  était SOUS-déclaré**. `HttpTestRequest` construit un vrai `HttpClient` **sans jamais installer le
+  handler dans `HttpClient::jsonApi`**, et un `grep -rn jsonApi tests/` restreint aux **sources** ne
+  renvoyait **rien** avant ce merge — donc **`~HttpClient(){ delete jsonApi; }`, l'arête de
+  propriété qui porte toute la démonstration de couverture transitive de T3.17, n'était exercée par
+  AUCUN test, sur AUCUN des deux transports**, pas seulement sur WS. Trois autres réserves :
+  **fenêtre d'ordre de destruction** — le sous-objet `JsonApi` meurt **strictement après** le
+  sous-objet `WebSocket`, `jsonApi` est donc un instant **vivant au-dessus d'un transport à moitié
+  détruit** et **`apiAlive` ne protège pas cette fenêtre** ; inatteignable aujourd'hui, mais tout
+  futur `sendData.emit()` depuis un destructeur y ferait un **UAF** via le slot
+  `[=]{ sendTextMessage(data); }` (`WebSocket.cpp:341-344`) ; **angles morts non déclarés** —
+  `RemoteUIWebSocketHandler` n'est exercé par aucun cas, la branche `:331` est raisonnée mais non
+  épinglée, `closeConnection` n'est pas câblé par le `WsTransport` de test alors que la production
+  le câble (`WebSocket.cpp:345`) ; et **limite du test sur `handleEvents`** —
+  `EventRaisedBeforeTheTransportDiesIsNeverDelivered` **ne distingue pas les deux mécanismes**,
+  retirer `evcon.disconnect()` seul le laisserait **vert** (`trackable` prend le relais) : il épingle
+  **l'invariant, pas le mécanisme**.
+  **Conflit `tests/Makefile.am` en fin de fichier, résolu par régénération** — quatrième fois de
+  suite, même signature : git fusionne les corps `LDADD` identiques et ne laisse en conflit que les
+  en-têtes, en hunks entrelacés. Résolution = **fichier complet de master (1435 l.) + append verbatim
+  du bloc `# T3.17e` (48 l.)**, vérifiée **octet à octet** dans les deux sens (les 1435 premières
+  lignes identiques à `master:tests/Makefile.am`, les 48 dernières identiques au bloc de la branche)
+  → **1483 lignes**, **49/49** `if HAVE_GTEST`/`endif` équilibrés (48/48 avant). ⚠️ **La branche de
+  travail du relecteur `review/t3.17e-check` a été délibérément ignorée** : elle était rebasée sur
+  `586f9b3b`, donc **antérieure à E4.0c** (`fa75299a`, +65 l. sur `tests/Makefile.am`) — son
+  équilibre annoncé « 48/48 » était juste **sur sa base**, faux sur master. Un rebase propre a été
+  refait ; la vérifier plutôt que lui faire confiance a évité de réintroduire un fichier amputé.
+  Rebase `f957f022` → `0303f323` sur `84279c1a`, suivi du `make distclean` réglementaire (le
+  worktree avait servi à un build **ASan** ; `configure` confirme **`AddressSanitizer
+  (--enable-asan)..... no`**). Build d'intégration distclean : **61/61 PASS**, 0 FAIL / 0 ERROR /
+  0 SKIP — compte **déduit avant le build** puis confirmé : **59 `check_PROGRAMS` − 1 helper
+  (`StaticLogShutdown_helper`, jamais un test) + 3 entrées de scripts** (dont la ligne unique
+  `check-config-options.sh check-config-docs.sh` qui en apporte **deux**) = **61 entrées `TESTS`**,
+  soit les 60 de master **+ le seul nouveau binaire** `core/JsonApiWsTransport_test`. Build > 600 s :
+  attendu par `docker wait` sur le conteneur retrouvé par son **mount exact** (`docker inspect`
+  reconfirmé avant l'attente), **sans relance**, sans toucher aux **6** conteneurs voisins.
+  Aucune fausse suppression de docs : les **97** fichiers de `docs/refactoring/` intacts, et les 4
+  worktrees voisins (e4.0d, t3.17c, e4.0e, e4.0f) vérifiés intacts avant nettoyage.
+  **Documentation : la branche n'en livrait AUCUNE**, comblée dans ce merge — BOARD, section
+  *Acquis T3.17e* dans `T3.17.md`, 4 suites en FINDINGS, ce journal. **Pas d'entrée
+  RELEASE_NOTES.md** — zéro ligne de production, aucun comportement utilisateur changé (le fichier
+  ne liste que le visible utilisateur, les durcissements internes en sont exclus par son propre
+  chapeau). **T3.17 reste 📋** — c et f ne sont pas mergés. ff-only, worktree t3.17e nettoyé,
+  **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
