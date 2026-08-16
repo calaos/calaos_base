@@ -924,3 +924,25 @@ core_ListeRoomOwnership_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_ListeRoomOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.4b
+#WebCtrl::getValueXml() after the TinyXPath -> pugixml XPath 1.0 port. This is
+#the only untrusted XML parse in calaos (the document comes from a
+#user-configured URL) and the only site where the XPath expression is itself
+#user config, so the suite pins both halves: the expression shapes real configs
+#use keep returning what TinyXPath returned, and hostile/malformed input plus an
+#invalid expression fail clean (empty string, no escaped xpath_exception, no
+#abort). Links WebCtrl.o from the server build plus the core closure, exactly
+#like IOControllers_test above. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += WebCtrlXPath_test
+check_PROGRAMS += WebCtrlXPath_test
+WebCtrlXPath_test_SOURCES = WebCtrlXPath_test.cpp
+WebCtrlXPath_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+WebCtrlXPath_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+WebCtrlXPath_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

@@ -21,8 +21,21 @@
 #include "WebCtrl.h"
 #include <jansson.h>
 
-#include <TinyXML/tinyxml.h>
-#include <TinyXML/xpath_processor.h>
+//E4.4b: the XML branch runs on pugixml (DOM + native XPath 1.0). This is the
+//only place in calaos that parses *untrusted* XML -- getValue() feeds it a
+//document downloaded from a user-configured URL -- so it is the site that had
+//to leave TinyXML 2.5.3 first (assert()-on-malformed-input, and an infinite
+//loop on truncated UTF-8). WebCtrl no longer references TinyXML at all.
+#include <pugixml.hpp>
+
+//E4.4a pinned the floor at pugixml >= 1.10 (Debian 12 ships 1.13, the vendored
+//copy is 1.14). Everything used below -- load_file(), document_element(),
+//xpath_query, xpath_query::result(), evaluate_string(), xpath_exception -- is
+//original 1.0 API, but the guard makes a too-old system package a compile
+//error instead of a link-time surprise on the non-vendored build.
+#if defined(PUGIXML_VERSION) && PUGIXML_VERSION < 1100
+#error "pugixml >= 1.10 is required (see configure.ac / docs/refactoring/E4.4b.md)"
+#endif
 
 
 using namespace Calaos;
@@ -240,24 +253,86 @@ string WebCtrl::getValueJson(string path, string filename)
     return value;
 }
 
+/*
+ * `path` is a full XPath expression straight out of the user config
+ * (WebDocBase.cpp advertises it as such, w3schools link included), so
+ * predicates, functions and axes are part of the contract and are all
+ * evaluated natively by pugixml.
+ *
+ * Result stringification follows XPath 1.0 string(): a node-set becomes the
+ * string-value of its first node in document order (empty set -> empty
+ * string), a number/boolean its canonical lexical form. That is what
+ * evaluate_string() does, and it is what TinyXPath's S_compute_xpath()
+ * claimed to do. The three places where TinyXPath actually deviated from the
+ * spec are fixed rather than replicated, because every one of them used to
+ * yield an unusable value:
+ *  - string-value of an *element* returned the tag name ("temperature")
+ *    instead of its text; getValueDouble() turned that into 0,
+ *  - string(), number(), boolean(), local-name() and round() were not
+ *    implemented and silently produced an empty string,
+ *  - a bare relative path resolved to nothing at all.
+ * Text nodes, attributes, predicates, axes, count()/sum()/concat()/
+ * substring()/translate()/normalize-space()/starts-with()/contains(), unions
+ * and comparisons were verified to return byte-identical strings under both
+ * engines, so an expression that used to work keeps working.
+ */
 string WebCtrl::getValueXml(string path, string filename)
 {
-    TiXmlDocument document(filename);
-    string value;
-    string xpath;
+    pugi::xml_document document;
 
-    if (!document.LoadFile())
+    //Default parse options: no DTD, no entity expansion, no network -- the
+    //document is remote and untrusted.
+    const pugi::xml_parse_result parsed = document.load_file(filename.c_str());
+    if (!parsed)
     {
-        cError() << "Error loading file " << filename;
+        cError() << "Error loading file " << filename << " : " << parsed.description();
         // Error loading file
         return "";
     }
 
-    xpath = path;
-    TinyXPath::xpath_processor proc(document.RootElement(), xpath.c_str());
-    value = proc.S_compute_xpath();
+    //Same context node TinyXPath was handed (TiXmlDocument::RootElement()), so
+    //user expressions keep their exact meaning: absolute paths still walk from
+    //the document root, relative ones from the document element.
+    const pugi::xml_node context = document.document_element();
+    if (!context)
+    {
+        //TinyXPath dereferenced this NULL; a document made only of comments is
+        //enough to reach it.
+        cError() << "Error, no root element in file " << filename;
+        return "";
+    }
 
-    return value;
+    //pugi::xpath_query throws xpath_exception on an invalid expression where
+    //TinyXPath returned an error code and an empty string. Nothing may escape
+    //here: the expression is user config, and getValue() is called from the
+    //download callback. Non-throwing parse that logs and fails clean, same
+    //house pattern as parseGridDimension()/parseDebounceTime().
+    try
+    {
+        const pugi::xpath_query query(path.c_str());
+
+        //PUGIXML_NO_EXCEPTIONS builds report the parse error here instead of
+        //throwing, so check it too rather than evaluating a broken query.
+        if (!query)
+        {
+            cError() << "Invalid XPath expression \"" << path << "\" : "
+                     << query.result().description();
+            return "";
+        }
+
+        return query.evaluate_string(context);
+    }
+    catch (const pugi::xpath_exception &e)
+    {
+        cError() << "Invalid XPath expression \"" << path << "\" : " << e.what();
+        return "";
+    }
+    catch (const std::exception &e)
+    {
+        cError() << "Error evaluating XPath expression \"" << path
+                 << "\" on " << filename << " : " << e.what();
+        return "";
+    }
 }
 
 /*
