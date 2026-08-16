@@ -136,6 +136,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.2g](E4.2g.md) | 4 | ~~JsonApi `IOBase*` sites~~ (re-scopé : 0/21 dangereux, abandonné) | refactor | E4.2c | ⛔ |
 | [T3.17](T3.17.md) | 3 | Généraliser la garde alive aux ~42 sites async audio/caméra | fix (sec) | T2.15 | 📋 |
 | [T3.18](T3.18.md) | 3 | Scénario amputé : désactiver le scénario entier (user decision) | fix | E4.2f | 📋 |
+| [T3.18b](T3.18b.md) | 3 | Commande d'API dédiée de réactivation de scénario | feature | T3.17, T3.18 | 📋 |
 
 ---
 
