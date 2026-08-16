@@ -235,6 +235,11 @@ static bool updateModeEnabled()
     return env && *env && std::string(env) != "0";
 }
 
+bool goldenUpdateModeEnabled()
+{
+    return updateModeEnabled();
+}
+
 static bool readWholeFile(const std::string &path, std::string &out)
 {
     std::ifstream f(path.c_str(), std::ios::binary);
@@ -595,6 +600,10 @@ const char *const JsonApiCharacterizationTest::HOUSE_BOOL_OUT = "e40_bool_out";
 const char *const JsonApiCharacterizationTest::HOUSE_INT = "e40_int";
 const char *const JsonApiCharacterizationTest::HOUSE_STRING = "e40_string";
 const char *const JsonApiCharacterizationTest::HOUSE_ACCENTED = "e40_accented";
+const char *const JsonApiCharacterizationTest::HOUSE_ROOM3_NAME = "Technique";
+const char *const JsonApiCharacterizationTest::HOUSE_CAMERA_PTZ = "e40_cam_ptz";
+const char *const JsonApiCharacterizationTest::HOUSE_CAMERA_PLAIN = "e40_cam_plain";
+const char *const JsonApiCharacterizationTest::HOUSE_PLAYER = "e40_player";
 const char *const JsonApiCharacterizationTest::HOUSE_RULE_NAME = "E40 reference rule";
 
 const char *JsonApiCharacterizationTest::apiUser() { return "e40user"; }
@@ -626,6 +635,9 @@ void JsonApiCharacterizationTest::SetUp()
     forgetIOState(HOUSE_INT);
     forgetIOState(HOUSE_STRING);
     forgetIOState(HOUSE_ACCENTED);
+    forgetIOState(HOUSE_CAMERA_PTZ);
+    forgetIOState(HOUSE_CAMERA_PLAIN);
+    forgetIOState(HOUSE_PLAYER);
 }
 
 void JsonApiCharacterizationTest::TearDown()
@@ -637,6 +649,23 @@ void JsonApiCharacterizationTest::TearDown()
     pumpEventLoop();
 
     CoreFixture::TearDown();
+}
+
+//CalaosCoreFixture only writes <calaos:internal> nodes. Cameras and audio
+//players live under <calaos:camera> / <calaos:audio> (Room.cpp:158-164), so the
+//harness writes those itself rather than modifying the shared fixture.
+static std::string typedIoXml(const std::string &nodeName, const std::string &type,
+                              const std::string &id, const std::string &name,
+                              const std::string &extraAttributes = std::string())
+{
+    std::string x = "    <" + nodeName + " type=\"" + type + "\"";
+    x += " id=\"" + id + "\"";
+    x += " name=\"" + name + "\"";
+    x += " enabled=\"true\"";
+    if (!extraAttributes.empty())
+        x += " " + extraAttributes;
+    x += " />\n";
+    return x;
 }
 
 void JsonApiCharacterizationTest::loadReferenceHouse()
@@ -654,9 +683,36 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
     cuisine += internalIoXml("InternalString", HOUSE_ACCENTED,
                              "\xc3\x89" "clairage caf\xc3\xa9");
 
+    //buildJsonCameras() / buildJsonAudio() filter ListeRoom's caches by
+    //dynamic_cast<IPCam*> / <AudioPlayer*>. Empty arrays would leave that
+    //filter, and the whole camera/audio payload, uncharacterized - so the
+    //reference house carries real ones.
+    //StandardMjpeg is the cheapest concrete IPCam: its constructor is pure
+    //parameter and documentation work, no socket, no timer, and it needs no
+    //object beyond IPCam.o which CORE_SERVER_OBJECTS already provides.
+    //Two of them, to cover both branches of the ptz capability.
+    std::string technique;
+    technique += typedIoXml("calaos:camera", "StandardMjpeg", HOUSE_CAMERA_PTZ,
+                            "Camera PTZ",
+                            "url_jpeg=\"http://camera.invalid/snap.jpg\" ptz=\"true\"");
+    technique += typedIoXml("calaos:camera", "StandardMjpeg", HOUSE_CAMERA_PLAIN,
+                            "Camera plain",
+                            "url_jpeg=\"http://camera2.invalid/snap.jpg\"");
+    //RoonPlayer is the cheapest concrete AudioPlayer: unlike Squeezebox it
+    //pulls no AVR/UrlDownloader/SqueezeboxDB closure and links no uv_tcp_connect.
+    //zone_id is left EMPTY ON PURPOSE: RoonPlayer's constructor returns early on
+    //an empty zone (RoonPlayer.cpp), before RoonCtrl::Instance() spawns the Roon
+    //helper process and before its Timer::singleShot fires. That keeps make
+    //check hermetic. It costs one [ERR] line in the log and changes nothing in
+    //the payload, which only reads id/name/type/canPlaylist/canDatabase/amp.
+    //The amp param is set so the OPTIONAL "avr" key is exercised.
+    technique += typedIoXml("calaos:audio", "Roon", HOUSE_PLAYER, "Player",
+                            "zone_id=\"\" amp=\"e40_avr\"");
+
     const std::string ios =
             roomXml(HOUSE_ROOM1_NAME, "salon", salon, 3) +
-            roomXml(HOUSE_ROOM2_NAME, "cuisine", cuisine, 0);
+            roomXml(HOUSE_ROOM2_NAME, "cuisine", cuisine, 0) +
+            roomXml(HOUSE_ROOM3_NAME, "technique", technique, 0);
 
     const std::string rules = simpleRuleXml(HOUSE_RULE_NAME, HOUSE_BOOL_IN, "==",
                                             "true", HOUSE_BOOL_OUT, "true");

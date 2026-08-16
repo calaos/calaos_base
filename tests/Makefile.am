@@ -1090,8 +1090,16 @@ endif
 #Links the same closure as core/RemoteUIDeviceInfo_test: JsonApiHandlerHttp.o
 #needs the REAL HttpClient::buildHttpResponse() (stubbing it would characterize
 #the stub, and that formatting is precisely what E4.0e must pin), and HttpClient
-#drags the HttpServer/WebSocket/RemoteUI side of the server with it. Own
-#HAVE_GTEST block so this stays a pure append at the end of the file.
+#drags the HttpServer/WebSocket/RemoteUI side of the server with it.
+#IPCam/StandardMjpeg.o and Audio/RoonPlayer.o are added so the reference house
+#can hold a REAL camera and a REAL audio player: buildJsonCameras() and
+#buildJsonAudio() filter by dynamic_cast, and on an empty house they answer []
+#and stay uncharacterized. Both were picked by measuring their closure with
+#nm -Cu: each needs only its base class (IPCam.o, Audio/AudioPlayer.o), which
+#CORE_SERVER_OBJECTS already provides, so the cost is ZERO extra objects.
+#Squeezebox was rejected: it drags SqueezeboxDB, UrlDownloader and the nine AVR
+#objects, and links uv_tcp_connect/uv_write - real network in a unit test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
 if HAVE_GTEST
 TESTS += core/JsonApiCharacterization_test
 check_PROGRAMS += core/JsonApiCharacterization_test
@@ -1104,6 +1112,8 @@ core_JsonApiCharacterization_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
                   -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
 core_JsonApiCharacterization_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
                   $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \

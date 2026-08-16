@@ -123,6 +123,39 @@
  *     sees zero messages. E4.0d owns the event cases; the pump is here.
  *
  * ---------------------------------------------------------------------------
+ * TRAPS THIS HARNESS SETS FOR YOU - READ BEFORE DEBUGGING A WEIRD FAILURE
+ * ---------------------------------------------------------------------------
+ * 1. DESTROYING AN HttpTestRequest FLUSHES THE EVENT QUEUE. Its destructor
+ *    calls pumpEventLoop(2) to run the uv close callbacks of the TcpHandle it
+ *    allocated. That also fires the EventManager idler. So an HTTP request
+ *    going out of scope silently delivers every queued event to every live WS
+ *    session. This one is aimed straight at E4.0d: if a case mixes an HTTP
+ *    request with an event expectation, scope the request explicitly, or
+ *    snapshot ws.count() before and after instead of assuming nothing moved.
+ *
+ * 2. AN HttpTestRequest KEPT ALIVE ACROSS A LONG PUMP WILL FIRE A TIMER.
+ *    HttpClient's constructor (HttpClient.cpp:145-153) installs a LIVE read
+ *    timeout Timer whose callback calls CloseConnection() - on a handle that
+ *    was never connected. Harmless today because every case here destroys the
+ *    request long before the timeout, and pumpEventLoop() only runs a handful
+ *    of NOWAIT iterations. A sub-ticket that holds a request across a longer
+ *    or repeated pump will trip it. Keep HttpTestRequest objects short lived.
+ *
+ * 3. PROVING A MUTATION RED REQUIRES DELETING TWO FILES, NOT ONE. Every test
+ *    binary in this tree overrides <name>_DEPENDENCIES, which removes the
+ *    objects of src/bin/calaos_server from its prerequisites. Rebuilding one
+ *    .o therefore does NOT relink the test binary: make answers "is up to
+ *    date" and the OLD binary runs again, green. Measured live on this very
+ *    binary during E4.0a. So:
+ *        rm -f src/bin/calaos_server/<Mutated>.o tests/core/<Your>_test
+ *        make -C src/bin/calaos_server <Mutated>.o
+ *        make -C tests core/<Your>_test        # must print CXXLD, check it
+ *    A mutation proof without both deletions and the CXXLD line in the log is
+ *    not a proof, and review rejects it. The same trap will produce a false
+ *    green during E4.1 itself, which is the catastrophe this series exists to
+ *    prevent.
+ *
+ * ---------------------------------------------------------------------------
  * KNOWN DIVERGENCES - FREEZE THEM, DO NOT FIX THEM
  * ---------------------------------------------------------------------------
  *   - audio_db expects "get_albums" over HTTP and "get_album" over WS.
@@ -255,6 +288,12 @@ template<typename Expected, typename Actual>
 
 //Absolute-ish path of a golden file, exposed for diagnostics only.
 std::string goldenFilePath(const std::string &goldenName);
+
+//True when CALAOS_GOLDEN_UPDATE is set. A case that deliberately feeds a WRONG
+//payload to EXPECT_JSON_GOLDEN (the negative tests of the assertions) must
+//GTEST_SKIP() on this: in update mode the macro WRITES instead of comparing, so
+//it would happily overwrite a real golden with the wrong payload.
+bool goldenUpdateModeEnabled();
 
 /*******************************************************************************
  * Websocket session
@@ -390,16 +429,37 @@ protected:
     static Json authenticated(Json body);
 
     /***************************************************************************
-     * The reference house. Two rooms, five IOs, deliberately including:
+     * The reference house. Three rooms, eight IOs, deliberately including:
      *   - the three variable types (bool, int, string) so var_type and the
      *     stringification of state are exercised,
      *   - a non zero "hits" on the first room,
      *   - an IO whose name carries accented UTF-8. jansson serializes it as
      *     \uXXXX escapes (JSON_ENSURE_ASCII) while nlohmann writes raw UTF-8;
      *     both parse to the same string, which is precisely what the semantic
-     *     oracle has to prove.
+     *     oracle has to prove,
+     *   - TWO REAL CAMERAS and ONE REAL AUDIO PLAYER, so buildJsonCameras() and
+     *     buildJsonAudio() are characterized on non-empty arrays. The two
+     *     cameras cover both branches of the ptz capability, and the player
+     *     carries an "amp" param so the OPTIONAL "avr" key is emitted.
+     *     Concrete classes chosen by measurement (see the note on the
+     *     dynamic_cast filter below).
      * Rooms and IOs are emitted in declaration order, and that order is
      * asserted (arrays are ordered).
+     *
+     * ON THE dynamic_cast FILTER OF buildJsonCameras()/buildJsonAudio(), and a
+     * CORRECTION TO E4.0.md:90-93: the plan asks the goldens to also contain
+     * "an IO that does NOT pass the dynamic_cast". MEASURED: that IO cannot be
+     * built from any configuration. ListeRoom::addIOHash() (ListeRoom.cpp:80-85)
+     * populates cameraCache/audioCache purely on get_param("gui_type") ==
+     * "camera" / "audio_player", and the ONLY code that ever sets those two
+     * values is IPCam's constructor (IPCam.cpp) and AudioPlayer's constructor
+     * (AudioPlayer.cpp) - both of which then call addIOHash() themselves. Every
+     * other IO class overwrites gui_type with its own value (e.g.
+     * IO/IntValue.cpp:83-85 forces var_bool/var_int/var_string), so an XML
+     * attribute cannot smuggle a foreign IO into either cache. The dynamic_cast
+     * is therefore UNREACHABLE DEFENSIVE CODE, not a filter with two outcomes.
+     * Do not spend a sub-ticket trying to cover its false branch: it has no
+     * false branch reachable from configuration.
      *
      * It also carries one simple rule (HOUSE_RULE_NAME) so the rule side is
      * not empty, and it DRAINS the EventIOAdded backlog the load raises (see
@@ -419,6 +479,10 @@ protected:
     static const char *const HOUSE_INT;
     static const char *const HOUSE_STRING;
     static const char *const HOUSE_ACCENTED;
+    static const char *const HOUSE_ROOM3_NAME;
+    static const char *const HOUSE_CAMERA_PTZ;
+    static const char *const HOUSE_CAMERA_PLAIN;
+    static const char *const HOUSE_PLAYER;
     static const char *const HOUSE_RULE_NAME;
 };
 

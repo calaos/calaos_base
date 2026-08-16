@@ -1,7 +1,29 @@
 {
   "data": {
-    "audio": [],
-    "cameras": [],
+    "audio": [
+      {
+        "avr": "e40_avr",
+        "database": "false",
+        "id": "e40_player",
+        "name": "Player",
+        "playlist": "false",
+        "type": "Roon"
+      }
+    ],
+    "cameras": [
+      {
+        "id": "e40_cam_ptz",
+        "name": "Camera PTZ",
+        "ptz": "true",
+        "type": "StandardMjpeg"
+      },
+      {
+        "id": "e40_cam_plain",
+        "name": "Camera plain",
+        "ptz": "false",
+        "type": "StandardMjpeg"
+      }
+    ],
     "home": [
       {
         "hits": "3",
@@ -71,6 +93,43 @@
         ],
         "name": "Cuisine",
         "type": "cuisine"
+      },
+      {
+        "hits": "0",
+        "items": [
+          {
+            "gui_type": "camera",
+            "id": "e40_cam_ptz",
+            "io_type": "inout",
+            "name": "Camera PTZ",
+            "state": "",
+            "type": "StandardMjpeg",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "camera",
+            "id": "e40_cam_plain",
+            "io_type": "inout",
+            "name": "Camera plain",
+            "state": "",
+            "type": "StandardMjpeg",
+            "var_type": "string",
+            "visible": "false"
+          },
+          {
+            "gui_type": "audio_player",
+            "id": "e40_player",
+            "io_type": "inout",
+            "name": "Player",
+            "state": "",
+            "type": "Roon",
+            "var_type": "string",
+            "visible": "false"
+          }
+        ],
+        "name": "Technique",
+        "type": "technique"
       }
     ]
   },

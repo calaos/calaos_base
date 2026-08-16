@@ -49,6 +49,10 @@
 
 #include "EventManager.h"
 
+//EXPECT_NONFATAL_FAILURE. The assertions this harness ships must be proven to
+//FAIL when they should, not only to pass when they should.
+#include "gtest/gtest-spi.h"
+
 using namespace Calaos;
 using namespace CalaosTest;
 
@@ -117,6 +121,107 @@ TEST_F(JsonApiCharacterizationTestSuite, OracleReportsAMissingAndAnExtraKey)
 }
 
 /*******************************************************************************
+ * NEGATIVE tests of the assertions themselves.
+ *
+ * The five cases above exercise firstJsonDifference() directly. That is NOT
+ * enough: what the five sub-tickets will actually write is EXPECT_JSON_EQ and
+ * EXPECT_JSON_GOLDEN, and a misplaced AssertionSuccess() in either wrapper
+ * would leave the whole series green forever - including a mutation run, which
+ * would only be caught if it happened to go through the other wrapper.
+ *
+ * So every macro this harness exports is proven here to FAIL, on the right
+ * input, with the right message. EXPECT_NONFATAL_FAILURE swallows the failure
+ * and asserts that exactly one occurred and that its text contains the given
+ * substring.
+ *
+ * gtest constraint: the statement inside EXPECT_NONFATAL_FAILURE must not
+ * reference local non-static variables, hence the literals everywhere.
+ ******************************************************************************/
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnADifferentValue)
+{
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string(R"({"a":"1"})"), std::string(R"({"a":"2"})")),
+        "/a");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnAStringVersusANumber)
+{
+    //The single most valuable negative: if this ever stops failing, the whole
+    //"everything is stringified" contract stops being pinned.
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string(R"({"type":"3"})"), std::string(R"({"type":3})")),
+        "/type");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnArrayOrder)
+{
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string(R"({"h":[{"n":"A"},{"n":"B"}]})"),
+                       std::string(R"({"h":[{"n":"B"},{"n":"A"}]})")),
+        "/h/0/n");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnAMissingKey)
+{
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string(R"({"a":"1","b":"2"})"), std::string(R"({"a":"1"})")),
+        "key missing from actual");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnAnExtraKey)
+{
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string(R"({"a":"1"})"), std::string(R"({"a":"1","b":"2"})")),
+        "unexpected key in actual");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonEqFailsOnUnparsableInput)
+{
+    //A payload that is not JSON at all must fail loudly, not compare equal to
+    //something by accident.
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_EQ(std::string("{}"), std::string("this is not json")),
+        "is not parsable JSON");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonGoldenFailsOnADivergentPayload)
+{
+    //In update mode the macro WRITES instead of comparing: it would overwrite
+    //ws_get_home.json with this deliberately wrong payload.
+    if (goldenUpdateModeEnabled())
+        GTEST_SKIP() << "negative golden cases would corrupt the goldens in update mode";
+
+    //Against a golden that really exists, so this proves the comparison branch
+    //of goldenCompare() and not just its file handling.
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_GOLDEN("ws_get_home", std::string(R"({"msg":"get_home"})")),
+        "diverges from golden");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonGoldenFailsOnAMissingGoldenFile)
+{
+    if (goldenUpdateModeEnabled())
+        GTEST_SKIP() << "would create a stray golden file in update mode";
+
+    //A sub-ticket that forgets to generate its golden must be told so, not
+    //silently pass.
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_GOLDEN("e40_this_golden_does_not_exist", std::string("{}")),
+        "not found");
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, NegativeExpectJsonGoldenFailsOnUnparsablePayload)
+{
+    if (goldenUpdateModeEnabled())
+        GTEST_SKIP() << "negative golden cases would corrupt the goldens in update mode";
+
+    EXPECT_NONFATAL_FAILURE(
+        EXPECT_JSON_GOLDEN("ws_get_home", std::string("this is not json")),
+        "is not parsable JSON");
+}
+
+/*******************************************************************************
  * A plain command, full payload, against a versioned golden.
  ******************************************************************************/
 
@@ -160,9 +265,10 @@ TEST_F(JsonApiCharacterizationTestSuite, WsGetHomeKeepsRoomAndIoOrder)
     ASSERT_EQ(1u, ws.count());
     const Json home = ws.lastEnvelope()["data"]["home"];
     ASSERT_TRUE(home.is_array());
-    ASSERT_EQ(2u, home.size());
+    ASSERT_EQ(3u, home.size());
     EXPECT_EQ(HOUSE_ROOM1_NAME, home[0].value("name", std::string()));
     EXPECT_EQ(HOUSE_ROOM2_NAME, home[1].value("name", std::string()));
+    EXPECT_EQ(HOUSE_ROOM3_NAME, home[2].value("name", std::string()));
 
     const Json items = home[0]["items"];
     ASSERT_EQ(4u, items.size());
@@ -176,7 +282,8 @@ TEST_F(JsonApiCharacterizationTestSuite, NonAsciiSurvivesTheEscapingDifference)
 {
     //jansson dumps with JSON_ENSURE_ASCII, so the wire carries É escapes;
     //nlohmann writes raw UTF-8. Parsing dissolves the difference, which is why
-    //the oracle can be semantic. This is the case that proves it.
+    //the oracle can be semantic. This is the case that proves it, and it is
+    //migration stable: it asserts the VALUE after parsing, nothing about bytes.
     loadReferenceHouse();
 
     WsTestSession ws;
@@ -184,17 +291,111 @@ TEST_F(JsonApiCharacterizationTestSuite, NonAsciiSurvivesTheEscapingDifference)
 
     ASSERT_EQ(1u, ws.count());
 
-    //the raw wire really does carry the escape, not the UTF-8 bytes (jansson
-    //writes the hex digits in upper case, hence the normalisation)
-    std::string wire = ws.lastMessage();
-    for (char &c: wire)
-        c = (char)::tolower((unsigned char)c);
-    EXPECT_NE(std::string::npos, wire.find("\\u00c9"));
-    EXPECT_EQ(std::string::npos, ws.lastMessage().find("\xc3\x89"));
-
     const Json items = ws.lastEnvelope()["data"]["home"][1]["items"];
     ASSERT_EQ(1u, items.size());
     EXPECT_EQ("\xc3\x89" "clairage caf\xc3\xa9", items[0].value("name", std::string()));
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, WsGetHomeCarriesTheCameraAndAudioArrays)
+{
+    //buildJsonCameras() and buildJsonAudio() filter ListeRoom's caches by
+    //dynamic_cast. With an empty house both answer [] and neither the filter
+    //nor the payload shape gets characterized - which is why the reference
+    //house carries two real cameras and one real player.
+    loadReferenceHouse();
+
+    WsTestSession ws;
+    ws.send(Json{{ "msg", "get_home" }, { "msg_id", "1" }});
+
+    ASSERT_EQ(1u, ws.count());
+    const Json data = ws.lastData();
+
+    const Json cameras = data["cameras"];
+    ASSERT_TRUE(cameras.is_array());
+    ASSERT_EQ(2u, cameras.size());
+    EXPECT_EQ(HOUSE_CAMERA_PTZ, cameras[0].value("id", std::string()));
+    //both branches of the ptz capability, and it is a STRING, not a bool
+    EXPECT_EQ("true", cameras[0].value("ptz", std::string()));
+    EXPECT_EQ(HOUSE_CAMERA_PLAIN, cameras[1].value("id", std::string()));
+    EXPECT_EQ("false", cameras[1].value("ptz", std::string()));
+
+    const Json audio = data["audio"];
+    ASSERT_TRUE(audio.is_array());
+    ASSERT_EQ(1u, audio.size());
+    EXPECT_EQ(HOUSE_PLAYER, audio[0].value("id", std::string()));
+    EXPECT_EQ("false", audio[0].value("playlist", std::string()));
+    EXPECT_EQ("false", audio[0].value("database", std::string()));
+    //"avr" is emitted only when the player has an "amp" param
+    EXPECT_EQ("e40_avr", audio[0].value("avr", std::string()));
+}
+
+TEST_F(JsonApiCharacterizationTestSuite, CamerasAndPlayersAreNotVisibleRoomItems)
+{
+    //IPCam and AudioPlayer force visible=false in their constructors, but they
+    //still appear in their room's items array. Pinned because it is exactly the
+    //kind of thing a migration could shift without anyone noticing.
+    loadReferenceHouse();
+
+    WsTestSession ws;
+    ws.send(Json{{ "msg", "get_home" }, { "msg_id", "1" }});
+
+    ASSERT_EQ(1u, ws.count());
+    const Json items = ws.lastEnvelope()["data"]["home"][2]["items"];
+    ASSERT_EQ(3u, items.size());
+    EXPECT_EQ(HOUSE_CAMERA_PTZ, items[0].value("id", std::string()));
+    EXPECT_EQ("false", items[0].value("visible", std::string()));
+    EXPECT_EQ("camera", items[0].value("gui_type", std::string()));
+    EXPECT_EQ(HOUSE_PLAYER, items[2].value("id", std::string()));
+    EXPECT_EQ("audio_player", items[2].value("gui_type", std::string()));
+}
+
+/*******************************************************************************
+ *  ###  EXPECTED TO GO RED DURING E4.1. DO NOT TREAT AS A REGRESSION.  ###
+ *
+ * This is the ONE case of the whole E4.0 series that looks at raw bytes on the
+ * wire instead of at parsed values, and it is deliberate.
+ *
+ * It pins jansson's JSON_ENSURE_ASCII (Jansson_Addition.h:115): today every non
+ * ASCII character leaves the server as a \uXXXX escape. nlohmann::dump() writes
+ * raw UTF-8 instead. So the day E4.1 swaps the library, THIS CASE TURNS RED
+ * WHILE NOTHING IS BROKEN - the user already accepted the change, and the
+ * semantic test just above proves clients receive the same string either way.
+ *
+ * It exists because the swap must be NOTICED and acknowledged, not slipped in:
+ * anything reading the socket byte-wise (a proxy, a log grepper, a non-UTF8
+ * client) sees a different stream. It is the tripwire, not the contract.
+ *
+ * WHAT E4.1 MUST DO WITH IT: flip the expectation to raw UTF-8 in the same
+ * commit that swaps the library, and say so in the commit message. What E4.1
+ * must NOT do is chase it as a regression, and what E4.0e must NOT do is copy
+ * this pattern - it is the single sanctioned exception.
+ *
+ * This is also the one place where E4.0.md:405-406 ("the E4.0 binaries pass,
+ * assertions and goldens UNCHANGED") does not hold, and that is on purpose.
+ ******************************************************************************/
+TEST_F(JsonApiCharacterizationTestSuite,
+       TRIPWIRE_ExpectedRedInE41_JanssonEnsureAsciiEscapesTheWire)
+{
+    loadReferenceHouse();
+
+    WsTestSession ws;
+    ws.send(Json{{ "msg", "get_home" }, { "msg_id", "1" }});
+
+    ASSERT_EQ(1u, ws.count());
+
+    //jansson writes the hex digits in upper case, hence the normalisation
+    std::string wire = ws.lastMessage();
+    for (char &c: wire)
+        c = (char)::tolower((unsigned char)c);
+
+    EXPECT_NE(std::string::npos, wire.find("\\u00c9"))
+            << "If this failed right after the jansson -> nlohmann swap, it is "
+               "the EXPECTED tripwire, not a regression. Read the comment above "
+               "this test.";
+    EXPECT_EQ(std::string::npos, ws.lastMessage().find("\xc3\x89"))
+            << "If this failed right after the jansson -> nlohmann swap, it is "
+               "the EXPECTED tripwire, not a regression. Read the comment above "
+               "this test.";
 }
 
 /*******************************************************************************
