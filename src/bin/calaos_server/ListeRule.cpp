@@ -134,10 +134,17 @@ void ListeRule::Remove(int pos)
 
     Rule *rule = rules[pos].get();
 
-    //Drop the non-owning index entry before the rule can be destroyed
-    if (rule->param_exists("auto_scenario"))
-        rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), rule),
-                              rules_scenarios.end());
+    /* Drop the non-owning index entry before the rule can be destroyed.
+     * Unconditionally, like the Rule* overload: an erase-remove is a no-op for
+     * a rule that is not indexed, so gating it on param_exists("auto_scenario")
+     * bought nothing and made the index depend on that predicate answering the
+     * same thing at Remove() as it did at Add(). Nothing enforces that today
+     * (Rule exposes no param removal, so it happens to hold), and the day it
+     * stops holding the entry is orphaned and points at a destroyed rule -
+     * exactly the dangling pointer this series exists to make impossible.
+     */
+    rules_scenarios.erase(std::remove(rules_scenarios.begin(), rules_scenarios.end(), rule),
+                          rules_scenarios.end());
 
     /* Take the owner OUT of the vector before anything can be destroyed
      * (E4.2b lesson, same as Room::RemoveIO()): vector::erase move-assigns
