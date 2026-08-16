@@ -164,6 +164,26 @@ inline void appendDeclaration(pugi::xml_document &document)
  */
 constexpr const char *CONFIG_INDENT = "    ";
 
+/*
+ * 6. Parse options for the one load-MODIFY-save document (E4.4d-bis).
+ * io.xml and rules.xml are rebuilt from scratch on every save, so whatever
+ * TinyXML did not put in its DOM was lost there already. local_config.xml is
+ * different: ConfigStore loads it, edits the <calaos:option> it was asked to
+ * edit and writes the SAME document back, so everything TinyXML kept in the
+ * tree survived a set_config_option(). TinyXML parsed the declaration, the
+ * comments, the processing instructions and the doctype into nodes and printed
+ * them back; pugixml's parse_default drops all four. Without these flags the
+ * first write of a hand-edited /etc/calaos/local_config.xml would silently eat
+ * its `encoding="UTF-8"` declaration and its comments.
+ *
+ * All four flags exist since pugixml 1.0, well below the 1.10 floor. The
+ * options that would have been tempting here and are NOT usable are
+ * parse_merge_pcdata (1.11) and parse_trim_pcdata (1.13).
+ */
+constexpr unsigned int CONFIG_PARSE_OPTIONS =
+        pugi::parse_default | pugi::parse_declaration | pugi::parse_comments |
+        pugi::parse_pi | pugi::parse_doctype;
+
 }
 
 }

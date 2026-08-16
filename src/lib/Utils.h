@@ -64,11 +64,9 @@
 #include <Params.h>
 #include <base64.h>
 
-//E4.4cd: the config reader/writer (CalaosConfig, Room, Rule, the IOs and the
-//rule conditions/actions) runs on pugixml. TinyXML is still included here for
-//src/lib/ConfigStore.cpp (local_config.xml), the last consumer left in the
-//tree; E4.4d-bis ports it and E4.4e drops src/lib/TinyXML entirely.
-#include <TinyXML/tinyxml.h>
+//E4.4cd + E4.4d-bis: the whole config reader/writer (CalaosConfig, Room, Rule,
+//the IOs, the rule conditions/actions and ConfigStore/local_config.xml) runs on
+//pugixml. No TinyXML include is left in the tree; E4.4e drops src/lib/TinyXML.
 #include "XmlUtils.h"
 #include <sigc++/sigc++.h>
 

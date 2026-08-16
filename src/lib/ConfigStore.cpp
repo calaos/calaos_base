@@ -24,7 +24,9 @@
 #include "FileUtils.h"
 #include "LogSetup.h"
 
-#include <TinyXML/tinyxml.h>
+#include "XmlUtils.h"
+
+#include <pugixml.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -45,6 +47,11 @@
 
 using namespace Utils;
 using namespace std;
+
+//The four pugixml-vs-TinyXML behaviours live in Calaos::XmlUtils (E4.4cd).
+//Aliased rather than "using namespace Calaos", this file has no other business
+//in that namespace.
+namespace XmlUtils = Calaos::XmlUtils;
 
 static const char* ENV_CONFIG = "CALAOS_CONFIG";
 
@@ -375,7 +382,7 @@ void splitPath(const string &path, string &dir, string &base)
  * Unlocked: the caller must hold the config locks.
  * On any failure the original file is left strictly untouched.
  */
-bool saveConfigDocument(const TiXmlDocument &document, const string &path, ConfigErrors &errors)
+bool saveConfigDocument(const pugi::xml_document &document, const string &path, ConfigErrors &errors)
 {
     char resolved[PATH_MAX];
     string target;
@@ -479,10 +486,23 @@ bool saveConfigDocument(const TiXmlDocument &document, const string &path, Confi
         close(fd);
     }
 
-    if (ok && !document.SaveFile(fp))
+    if (ok)
     {
-        addError(errors, "Unable to write temporary config file " + string(tmpPath.data()));
-        ok = false;
+        //TiXmlDocument::SaveFile(FILE *) printed into an already open stream
+        //and reported the outcome as ferror(fp) == 0. pugixml prints into the
+        //same stream through xml_writer_file but returns void, so the failure
+        //is read back from the stream exactly the same way. Printing into the
+        //descriptor we already own is what keeps the write atomic: save_file()
+        //would want a path and would reopen (and re-create) the file behind
+        //mkstemp()'s back, losing the mode/owner set above.
+        pugi::xml_writer_file writer(fp);
+        document.save(writer, XmlUtils::CONFIG_INDENT);
+
+        if (ferror(fp) != 0)
+        {
+            addError(errors, "Unable to write temporary config file " + string(tmpPath.data()));
+            ok = false;
+        }
     }
 
     //fsync() the data before the rename: without it the rename can be made
@@ -535,16 +555,25 @@ bool saveConfigDocument(const TiXmlDocument &document, const string &path, Confi
     return true;
 }
 
-//Load local_config.xml. Unlocked: the caller must hold the config locks.
-bool loadConfigDocument(TiXmlDocument &document, ConfigErrors &errors)
+/* Load local_config.xml. Unlocked: the caller must hold the config locks.
+ * TiXmlDocument carried its file name and LoadFile() took no argument; a
+ * pugi::xml_document does not, so the path is resolved here, which is also
+ * where the error message needed it.
+ */
+bool loadConfigDocument(pugi::xml_document &document, ConfigErrors &errors)
 {
-    if (document.LoadFile())
+    string file = Utils::getConfigFile(LOCAL_CONFIG);
+    pugi::xml_parse_result parsed = document.load_file(file.c_str(), XmlUtils::CONFIG_PARSE_OPTIONS);
+
+    if (parsed)
         return true;
 
     addError(errors, "There was an exception in XML parsing.");
-    addError(errors, string("Parse error: ") + document.ErrorDesc());
-    addError(errors, "In file " + Utils::getConfigFile(LOCAL_CONFIG) +
-                     " At line " + std::to_string(document.ErrorRow()));
+    addError(errors, string("Parse error: ") + parsed.description());
+    //pugixml reports a byte offset where TinyXML reported a row; the offset is
+    //what it has, and it points at the same place in the file. Same wording as
+    //CalaosConfig::loadXmlDocument() for io.xml/rules.xml.
+    addError(errors, "In file " + file + " At offset " + std::to_string(parsed.offset));
 
     return false;
 }
@@ -553,22 +582,26 @@ bool loadConfigDocument(TiXmlDocument &document, ConfigErrors &errors)
 string doGetConfigOption(const string &key, ConfigErrors &errors)
 {
     string value;
-    TiXmlDocument document(Utils::getConfigFile(LOCAL_CONFIG).c_str());
+    pugi::xml_document document;
 
     if (!loadConfigDocument(document, errors))
         return value;
 
-    TiXmlHandle docHandle(&document);
-
-    TiXmlElement *keyNode = docHandle.FirstChildElement("calaos:config").FirstChildElement().ToElement();
-    for (;keyNode; keyNode = keyNode->NextSiblingElement())
+    pugi::xml_node keyNode = XmlUtils::firstChildElement(document.child("calaos:config"));
+    for (;keyNode; keyNode = XmlUtils::nextSiblingElement(keyNode))
     {
-        if (keyNode->ValueStr() == "calaos:option" &&
-            keyNode->Attribute("name") &&
-            keyNode->Attribute("name") == key &&
-            keyNode->Attribute("value"))
+        //An absent attribute is a false xml_attribute, exactly like the NULL
+        //TiXmlElement::Attribute() returned; an attribute holding an empty
+        //string is true in both, so value="" keeps meaning "set to empty".
+        pugi::xml_attribute nameAttr = keyNode.attribute("name");
+        pugi::xml_attribute valueAttr = keyNode.attribute("value");
+
+        if (string(keyNode.name()) == "calaos:option" &&
+            nameAttr &&
+            nameAttr.value() == key &&
+            valueAttr)
         {
-            value = keyNode->Attribute("value");
+            value = valueAttr.value();
             break;
         }
     }
@@ -579,21 +612,22 @@ string doGetConfigOption(const string &key, ConfigErrors &errors)
 //Unlocked: the caller must hold the config locks.
 bool doGetConfigOptions(Params &options, ConfigErrors &errors)
 {
-    TiXmlDocument document(Utils::getConfigFile(LOCAL_CONFIG).c_str());
+    pugi::xml_document document;
 
     if (!loadConfigDocument(document, errors))
         return false;
 
-    TiXmlHandle docHandle(&document);
-
-    TiXmlElement *keyNode = docHandle.FirstChildElement("calaos:config").FirstChildElement().ToElement();
-    for (;keyNode; keyNode = keyNode->NextSiblingElement())
+    pugi::xml_node keyNode = XmlUtils::firstChildElement(document.child("calaos:config"));
+    for (;keyNode; keyNode = XmlUtils::nextSiblingElement(keyNode))
     {
-        if (keyNode->ValueStr() == "calaos:option" &&
-            keyNode->Attribute("name") &&
-            keyNode->Attribute("value"))
+        pugi::xml_attribute nameAttr = keyNode.attribute("name");
+        pugi::xml_attribute valueAttr = keyNode.attribute("value");
+
+        if (string(keyNode.name()) == "calaos:option" &&
+            nameAttr &&
+            valueAttr)
         {
-            options.Add(keyNode->Attribute("name"), keyNode->Attribute("value"));
+            options.Add(nameAttr.value(), valueAttr.value());
         }
     }
 
@@ -608,14 +642,12 @@ bool doGetConfigOptions(Params &options, ConfigErrors &errors)
 bool doSetConfigOptions(const Params &toSet, const std::vector<string> &toDelete, ConfigErrors &errors)
 {
     string file = Utils::getConfigFile(LOCAL_CONFIG);
-    TiXmlDocument document(file.c_str());
+    pugi::xml_document document;
 
     if (!loadConfigDocument(document, errors))
         return false;
 
-    TiXmlHandle docHandle(&document);
-
-    TiXmlElement *root = docHandle.FirstChildElement("calaos:config").ToElement();
+    pugi::xml_node root = document.child("calaos:config");
     if (!root)
     {
         addError(errors, "No calaos:config root element in " + file);
@@ -626,17 +658,19 @@ bool doSetConfigOptions(const Params &toSet, const std::vector<string> &toDelete
 
     for (const string &key: toDelete)
     {
-        TiXmlElement *next = nullptr;
-        for (TiXmlElement *keyNode = root->FirstChildElement(); keyNode; keyNode = next)
+        pugi::xml_node next;
+        for (pugi::xml_node keyNode = XmlUtils::firstChildElement(root); keyNode; keyNode = next)
         {
-            //RemoveChild() deletes the node, get the next one first
-            next = keyNode->NextSiblingElement();
+            //remove_child() destroys the node, get the next one first
+            next = XmlUtils::nextSiblingElement(keyNode);
 
-            if (keyNode->ValueStr() == "calaos:option" &&
-                keyNode->Attribute("name") &&
-                keyNode->Attribute("name") == key)
+            pugi::xml_attribute nameAttr = keyNode.attribute("name");
+
+            if (string(keyNode.name()) == "calaos:option" &&
+                nameAttr &&
+                nameAttr.value() == key)
             {
-                root->RemoveChild(keyNode);
+                root.remove_child(keyNode);
                 changed = true;
             }
         }
@@ -648,15 +682,21 @@ bool doSetConfigOptions(const Params &toSet, const std::vector<string> &toDelete
         toSet.get_item(i, key, value);
 
         bool found = false;
-        for (TiXmlElement *keyNode = root->FirstChildElement(); keyNode; keyNode = keyNode->NextSiblingElement())
+        for (pugi::xml_node keyNode = XmlUtils::firstChildElement(root); keyNode; keyNode = XmlUtils::nextSiblingElement(keyNode))
         {
-            if (keyNode->ValueStr() == "calaos:option" &&
-                keyNode->Attribute("name") &&
-                keyNode->Attribute("name") == key)
+            pugi::xml_attribute nameAttr = keyNode.attribute("name");
+
+            if (string(keyNode.name()) == "calaos:option" &&
+                nameAttr &&
+                nameAttr.value() == key)
             {
-                if (!keyNode->Attribute("value") || keyNode->Attribute("value") != value)
+                pugi::xml_attribute valueAttr = keyNode.attribute("value");
+
+                if (!valueAttr || valueAttr.value() != value)
                 {
-                    keyNode->SetAttribute("value", value);
+                    //XmlUtils::setAttribute() REPLACES, where a bare
+                    //append_attribute() would emit a second value=
+                    XmlUtils::setAttribute(keyNode, "value", value);
                     changed = true;
                 }
                 found = true;
@@ -666,10 +706,9 @@ bool doSetConfigOptions(const Params &toSet, const std::vector<string> &toDelete
 
         if (!found)
         {
-            TiXmlElement *element = new TiXmlElement("calaos:option");
-            element->SetAttribute("name", key);
-            element->SetAttribute("value", value);
-            root->LinkEndChild(element);
+            pugi::xml_node element = root.append_child("calaos:option");
+            XmlUtils::setAttribute(element, "name", key);
+            XmlUtils::setAttribute(element, "value", value);
             changed = true;
         }
     }
