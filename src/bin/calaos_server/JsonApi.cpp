@@ -948,8 +948,25 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
         return;
     }
 
+    /* Destruction guard, shared by the five single-shot player-state methods
+     * below. This JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object included,
+     * HttpClient.cpp:162) while a player answer is still in flight, and
+     * result_lambda is the handler's own lambda capturing raw handler pointers.
+     * Same pattern as buildJsonState() (T2.15) and the playlist chain (T3.17a).
+     *
+     * One check is enough here, unlike the playlist chain: these are single
+     * shot, one round trip and one answer, no recursion. And nothing is
+     * allocated before the check, so the guarded branch has nothing to release
+     * - the json objects of these methods are all built after it, from the
+     * answer the player just gave.
+     */
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getStats([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
         adata.params.Add("audio_action", "get_stats");
         result_lambda(adata.params.toJson());
     });
@@ -967,8 +984,12 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
         return;
     }
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_playlist_size([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
         adata.params.Add("audio_action", "get_playlist_size");
         Params p = {{"playlist_size", Utils::to_string(adata.ivalue)}};
         result_lambda(p.toJson());
@@ -987,8 +1008,12 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
         return;
     }
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_current_time([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
         adata.params.Add("audio_action", "get_time");
         Params p = {{"time_elapsed", Utils::to_string(adata.dvalue)}};
         result_lambda(p.toJson());
@@ -1018,8 +1043,12 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     int item;
     Utils::from_string(it, item);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_playlist_item(item, [=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(data.params.toJson());
     });
 }
@@ -1036,8 +1065,12 @@ void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>resu
         return;
     }
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_album_cover([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         Params p = {{ "cover", data.svalue }};
         result_lambda(p.toJson());
     });

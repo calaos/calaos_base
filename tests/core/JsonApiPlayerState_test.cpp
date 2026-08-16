@@ -644,3 +644,143 @@ TEST_F(JsonApiPlayerStateTest, DbStatsPlayerDeletedMidFlightStillAnswers)
     ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_GOLDEN("t317b_ws_audio_db_get_stats", ws.lastMessage());
 }
+
+/*******************************************************************************
+ * LIFETIME - what T3.17b actually fixes.
+ *
+ * The round trip of these five methods is real: the request goes out, the
+ * JsonApi hands the answer's continuation to the player connection, and the
+ * answer comes back later. In between, the client can disconnect - and
+ * HttpClient::~HttpClient() (HttpClient.cpp:162) deletes the handler, JsonApi
+ * base sub-object included. The late answer then calls result_lambda, which is
+ * the handler's own lambda capturing `this`, and sendJson() dereferences a
+ * freed object.
+ *
+ * Reproduced under ASan before the guard:
+ *   heap-use-after-free in sigc::signal1::emit
+ *     <- JsonApiHandlerWS::sendJson (JsonApiHandlerWS.cpp:72)
+ *     <- the dispatch lambda (JsonApiHandlerWS.cpp:356)
+ *     <- result_lambda (JsonApi.cpp:972)
+ *
+ * The cases below come in two shapes:
+ *   - five on a bare JsonApi, one per method, whose result lambda writes into a
+ *     test local. They observe the guard directly: the answer must NOT fire.
+ *     These fail (not crash) without the guard, which is what makes them a
+ *     regression net rather than an ASan-only net.
+ *   - two through a real WS session, which is where the use-after-free actually
+ *     lives. They assert nothing beyond "it ran"; ASan is the oracle.
+ ******************************************************************************/
+
+//Drives one method on a bare JsonApi that dies before the answer comes back.
+//Returns true when the result lambda fired anyway - i.e. when the answer was
+//sent to a destroyed object.
+#define EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(call)                            \
+    do {                                                                       \
+        addPlayer();                                                           \
+        queue.deferred = true;                                                 \
+                                                                               \
+        Params p = {{ "id", PLAYER_ID }, { "item", "3" }};                     \
+        json_t *jdata = p.toJson();                                            \
+        bool answered = false;                                                 \
+                                                                               \
+        {                                                                      \
+            JsonApi api;                                                       \
+            api.call(jdata, [&](json_t *jret)                                  \
+            {                                                                  \
+                answered = true;                                               \
+                json_decref(jret);                                             \
+            });                                                                \
+            ASSERT_EQ(1u, queue.count());                                      \
+            /* api dies here, exactly as when the client disconnects */        \
+        }                                                                      \
+                                                                               \
+        ASSERT_TRUE(queue.fireNext());                                         \
+        EXPECT_FALSE(answered);                                                \
+                                                                               \
+        json_decref(jdata);                                                    \
+    } while (0)
+
+TEST_F(JsonApiPlayerStateTest, ApiGoneBeforePlaylistSizeAnswer)
+{
+    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetPlaylistSize);
+}
+
+TEST_F(JsonApiPlayerStateTest, ApiGoneBeforeTimeAnswer)
+{
+    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetTime);
+}
+
+TEST_F(JsonApiPlayerStateTest, ApiGoneBeforePlaylistItemAnswer)
+{
+    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetPlaylistItem);
+}
+
+TEST_F(JsonApiPlayerStateTest, ApiGoneBeforeCoverInfoAnswer)
+{
+    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetCoverInfo);
+}
+
+TEST_F(JsonApiPlayerStateTest, ApiGoneBeforeDbStatsAnswer)
+{
+    EXPECT_ANSWER_DROPPED_AFTER_API_DEATH(audioGetDbStats);
+}
+
+/* The real thing: a websocket client that leaves while its answer is in
+ * flight. Without the guard this is the heap-use-after-free quoted above.
+ */
+TEST_F(JsonApiPlayerStateTest, WsClientGoneBeforeAnswerIsIgnored)
+{
+    addPlayer();
+    queue.deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("audio", "get_playlist_size", PLAYER_ID));
+        ASSERT_EQ(1u, queue.count());
+        //ws dies here, exactly as when the client disconnects
+    }
+
+    //The player answer arrives afterwards and must touch nothing
+    EXPECT_TRUE(queue.fireNext());
+}
+
+/* Same on the audio_db dispatch, whose answer goes out through the other
+ * sendJson overload.
+ */
+TEST_F(JsonApiPlayerStateTest, WsClientGoneBeforeDbStatsAnswerIsIgnored)
+{
+    addPlayer();
+    queue.deferred = true;
+
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("audio_db", "get_stats", PLAYER_ID));
+        ASSERT_EQ(1u, queue.count());
+    }
+
+    EXPECT_TRUE(queue.fireNext());
+}
+
+/* Both deaths at once: the client leaves AND the IO is deleted before the
+ * answer comes back. The apiAlive check is what stops the chain; nothing here
+ * needs the player, so there is no second dereference to guard (see the
+ * PlayerDeletedMidFlight cases above).
+ */
+TEST_F(JsonApiPlayerStateTest, ClientAndPlayerBothGoneBeforeAnswer)
+{
+    FakeStatePlayer *player = addPlayer();
+    queue.deferred = true;
+
+    std::function<void()> lateAnswer;
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("audio", "get_cover_url", PLAYER_ID));
+        lateAnswer = queue.takeNext();
+        ASSERT_TRUE((bool)lateAnswer);
+    }
+    ASSERT_TRUE(deleteIO(player));
+    player = nullptr;
+
+    lateAnswer();
+    lateAnswer = std::function<void()>();
+}

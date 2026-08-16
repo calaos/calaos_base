@@ -213,9 +213,11 @@ protected:
      * is gone (client disconnected while a player answer was in flight). It
      * covers every transport, since both handlers derive from JsonApi and die
      * with it. Same pattern as JsonApiHandlerHttp::handlerAlive.
-     * Guarded so far: buildJsonState() (T2.15) and the recursive playlist
-     * chain decodeGetPlaylist()/getNextPlaylistItem() (T3.17a). The remaining
-     * audio and audio_db chains are still bare - T3.17b/c.
+     * Guarded so far: buildJsonState() (T2.15), the recursive playlist chain
+     * decodeGetPlaylist()/getNextPlaylistItem() (T3.17a) and the five
+     * single-shot player-state methods audioGetDbStats()/audioGetPlaylistSize()
+     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b). The
+     * 15 audioDbGet* music-database methods are still bare - T3.17c.
      */
     std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
 
