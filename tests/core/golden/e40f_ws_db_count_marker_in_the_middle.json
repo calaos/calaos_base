@@ -1,0 +1,22 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "alb_11",
+        "name": "Homogenic",
+        "year": "1997"
+      },
+      {
+        "count": "47"
+      },
+      {
+        "id": "alb_29",
+        "name": "Vespertine",
+        "year": "2001"
+      }
+    ],
+    "total_count": "47"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

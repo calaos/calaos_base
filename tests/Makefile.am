@@ -1722,3 +1722,71 @@ EXTRA_DIST += core/golden/e40e_http_audio_db_unknown_action.json \
                   core/golden/e40e_ws_settings_change_cred_refused.json \
                   core/golden/e40e_ws_settings_change_cred_success.json
 endif
+
+#------------------------------------------------------------------------------
+#E4.0f - the audio surface of the JSON API characterized at VALUE level:
+#processDbResult()'s count-marker contract, the scalar formatting of the audio
+#answers (Utils::to_string(double) is six significant digits), the empty string
+#and non-ASCII rows of the switch table, and the WS/HTTP argument-placement
+#asymmetry. Uses the E4.0a harness unchanged; needs Audio/AudioDB.o for the
+#concrete fake database, like core/JsonApiPlayerState_test. Same link closure
+#and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiAudioPayload_test
+check_PROGRAMS += core/JsonApiAudioPayload_test
+core_JsonApiAudioPayload_test_SOURCES = core/JsonApiAudioPayload_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiAudioPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiAudioPayload_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiAudioPayload_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40f_ws_db_count_marker_in_the_middle.json \
+                  core/golden/e40f_ws_db_no_count_marker_at_all.json \
+                  core/golden/e40f_ws_db_rejects_the_http_spelling.json \
+                  core/golden/e40f_http_db_rejects_the_ws_spelling.json \
+                  core/golden/e40f_http_db_count_marker_in_the_middle.json \
+                  core/golden/e40f_ws_db_last_count_marker_wins.json \
+                  core/golden/e40f_ws_db_count_double_zero_does_not_clear.json \
+                  core/golden/e40f_ws_db_trailing_zero_count_clears.json \
+                  core/golden/e40f_ws_db_count_not_a_number.json \
+                  core/golden/e40f_ws_db_count_marker_row_keeps_its_other_keys.json \
+                  core/golden/e40f_ws_audio_time_six_significant_digits.json \
+                  core/golden/e40f_ws_audio_time_large_value_goes_scientific.json \
+                  core/golden/e40f_ws_audio_playlist_size_negative.json \
+                  core/golden/e40f_ws_audio_cover_url_empty.json \
+                  core/golden/e40f_ws_audio_playlist_item_non_ascii.json \
+                  core/golden/e40f_http_audio_playlist_item_non_ascii.json \
+                  core/golden/e40f_ws_db_track_infos_non_ascii.json \
+                  core/golden/e40f_ws_audio_http_shaped_request.json \
+                  core/golden/e40f_http_audio_ws_shaped_request.json \
+                  core/golden/e40f_http_audio_db_ws_shaped_arguments.json
+endif

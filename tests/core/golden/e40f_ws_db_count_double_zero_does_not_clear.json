@@ -1,0 +1,17 @@
+{
+  "data": {
+    "items": [
+      {
+        "count": "00"
+      },
+      {
+        "id": "alb_11",
+        "name": "Homogenic",
+        "year": "1997"
+      }
+    ],
+    "total_count": "00"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}
