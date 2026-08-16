@@ -76,6 +76,24 @@ inconnu. Aucune forme d'erreur nouvelle n'est introduite, et une playlist **jama
 soit la liste complète, soit cette réponse d'échec. Une déconnexion en vol n'entraîne, elle,
 aucune réponse — le client n'est plus là pour la recevoir.
 
+### Audio — plus de plantage en consultant l'état d'un lecteur au moment de se déconnecter (T3.17b)
+Cinq informations de l'écran Lecteur sont demandées au lecteur audio par un aller-retour réseau :
+la **durée écoulée** (`get_time`, rafraîchie en continu tant que l'écran est ouvert), la **taille de
+la playlist** (`get_playlist_size`), le **détail d'une piste** (`get_playlist_item`), la **pochette**
+(`get_cover_url`) et les **statistiques de la médiathèque** (`get_stats`). Si le client **se
+déconnectait pendant l'un de ces allers-retours** — application fermée, Wi-Fi perdu, écran quitté —
+la réponse revenait sur une connexion déjà détruite et **faisait planter le serveur**.
+
+Le défaut était **atteignable depuis l'API JSON** sans manipulation particulière, et c'est le plus
+facile à déclencher de la série : `get_time` est interrogée à répétition tant que l'écran Lecteur
+est affiché, si bien qu'il suffisait de quitter cet écran — ou de perdre le réseau — au mauvais
+moment. Il est corrigé sur les cinq commandes, et sur les deux transports (WebSocket et HTTP).
+
+**Ce qui ne change pas** : un client **encore connecté** reçoit toujours sa réponse **complète** et
+inchangée. Aucune forme de réponse nouvelle n'est introduite, aucun message d'erreur n'est modifié,
+et aucune réponse existante ne devient une erreur. Seul le client **déjà parti** ne reçoit plus
+rien, ce qui est le comportement attendu puisqu'il n'est plus là pour recevoir.
+
 ### Caméras — plus de plantage en demandant un instantané au moment de se déconnecter (T3.17d)
 Demander l'image d'une caméra (`get_picture`, c'est-à-dire la vignette de caméra dans
 l'application) déclenche un aller-retour vers la caméra. Si le client **se déconnectait pendant cet

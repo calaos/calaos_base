@@ -690,8 +690,8 @@ filet**.
   octet à octet. L'invariant T3.17d « aucune donnée mutilée » n'est prouvé **octet à octet que sur
   la branche nominale** ; sur la branche de repli, le test ne vérifie que la forme.
 - **[NULLPTR, préexistant, atteignable depuis l'API — mérite un ticket, concerne directement
-  T3.17c] `player->get_database()->...` sans contrôle de nullité.** `audioGetStats`
-  (`JsonApi.cpp:951`) **et les 15 `audioDbGet*`** (`JsonApi.cpp:1096…1543`) appellent
+  T3.17c] `player->get_database()->...` sans contrôle de nullité.** `audioGetDbStats`
+  (`JsonApi.cpp:966`) **et les 15 `audioDbGet*`** (`JsonApi.cpp:1129…1576`) appellent
   `player->get_database()->get*(...)` **sans jamais tester le retour**. Or `AudioPlayer::database`
   vaut **`nullptr` par défaut** (`AudioPlayer.cpp:28`) et **aucun des deux handlers ne filtre sur
   `canDatabase()`** : 0 occurrence dans `JsonApiHandlerHttp.cpp` comme dans `JsonApiHandlerWS.cpp`
@@ -701,3 +701,35 @@ filet**.
   données. **Préexistant, non introduit par T3.17b** — mais c'est ce que son implémenteur a heurté
   en écrivant son fake, et **T3.17c va marcher dessus** puisque sa plage est exactement celle des
   `audioDbGet*`. À traiter comme un ticket propre, **pas** en douce dans une garde de durée de vie.
+
+## T3.17b — divergences gelées
+
+Découvertes en caractérisant les cinq méthodes `audio*` mono-coup
+(`tests/core/JsonApiPlayerState_test.cpp`). **Aucune n'est corrigée** — T3.17b est une garde de
+durée de vie, il gèle le comportement observable tel quel (les goldens sont **inchangés entre le
+commit de caractérisation et le commit de garde**, ce qui le prouve). La politique du harnais
+(`tests/core/JsonApiCharacterization.h:159-169`) exige qu'une divergence gelée soit consignée ici
+et pas seulement dans l'en-tête du fichier de test.
+
+1. **[API] `get_playlist_size` et `get_time` avalent `audio_action` ; `get_stats` l'émet.** Les
+   deux premières ajoutent bien `audio_action` aux params **du player**, puis construisent un
+   `Params` **neuf** pour la réponse — si bien que la clé **n'atteint jamais le client**.
+   `audioGetDbStats`, lui, renvoie les params du player et l'émet donc. La même famille de
+   commandes est ainsi **incohérente sur le fil**, sans qu'aucune erreur ne le signale.
+   Épinglé par contraste entre goldens, **et vérifié sur les deux transports** :
+   `t317b_ws_audio_get_playlist_size.json` / `t317b_http_audio_get_playlist_size.json` et
+   `t317b_ws_audio_get_time.json` / `t317b_http_audio_get_time.json` (clé **absente**) contre
+   `t317b_ws_audio_db_get_stats.json` / `t317b_http_audio_db_get_stats.json` (clé **présente**).
+   C'est le contraste *entre goldens du même ticket* qui fait le filet — ne pas « harmoniser »
+   l'un sur l'autre sans ticket dédié.
+2. **[API, cosmétique mais gelé] Faute de frappe de production : `unkown player_id`** (au lieu de
+   `unknown`). C'est le message d'erreur rendu au client pour un `player_id` **inconnu**, et il est
+   **épinglé tel quel dans 3 goldens** — `t317b_ws_audio_unknown_player.json`,
+   `t317b_http_audio_unknown_player.json` et `t317b_ws_audio_db_get_stats_unknown_player.json`
+   (les deux familles `audio` et `audio_db` rendent le même message fautif). Le corriger est un
+   **changement de contrat visible client** : il faut un ticket et une entrée de notes de version,
+   pas une retouche opportuniste. Toute correction future devra régénérer ces 3 goldens.
+   ⚠️ **Ne pas confondre avec le `player_id` vide**, qui suit un chemin distinct et répond
+   `"empty player id"` — correctement orthographié, épinglé par
+   `t317b_ws_audio_empty_player_id.json`. Les deux messages sont différents ; un correctif de la
+   faute de frappe ne doit pas les fusionner.

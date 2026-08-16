@@ -649,6 +649,52 @@
   connecté** reçoit toujours son image complète, y compris si l'IO caméra est supprimé en cours de
   transfert). **T3.17 reste 📋** — b/c/e ne sont pas mergés. ff-only, worktree t3.17d nettoyé,
   **rien n'a été poussé**.
+- **T3.17b ✅ mergé** (2026-08-16, `f87e1489` + `4a844b02`) — **les 5 méthodes `audio*` mono-coup
+  de `JsonApi.cpp` gardées par `apiAlive`** contre la mort du handler pendant l'aller-retour :
+  `audioGetDbStats`, `audioGetPlaylistSize`, `audioGetTime`, `audioGetPlaylistItem`,
+  `audioGetCoverInfo` — couvertes **transitivement sur les 10 sites d'appel** (les 5 méthodes × 2
+  transports, `JsonApiHandlerWS.cpp:354/359/364/369/386` et
+  `JsonApiHandlerHttp.cpp:692/697/702/707/787`). Périmètre tenu : `JsonApi.cpp` **+33**,
+  `JsonApi.h` **+5/−3 (commentaire seulement)**, nouveau `tests/core/JsonApiPlayerState_test.cpp`
+  (786 l.), **15 goldens** `t317b_*.json`, append sur `tests/Makefile.am` — **aucun handler édité**
+  et **aucun `.reset()`** ajouté. Revue indépendante : **MERGE AVEC RÉSERVES, réserves
+  documentaires uniquement, aucune sur le code** ; trace ASan du premier UAF reproduite **à
+  l'adresse près** (`0x60e000000838`), rouge-avant-vert non-ASan reproduit (5
+  `ApiGoneBefore*Answer` rouges puis 30/30), `detect_leaks=1` propre, `--gtest_shuffle` vert sur
+  3 graines, goldens **générés** (régénération à churn nul).
+  **Point de fond validé, à ne pas « corriger » plus tard** : la **re-résolution par id n'a pas été
+  appliquée, et c'est correct**. Aucun des cinq corps de lambda ne nomme `player` ; un `[=]` ne
+  capture que ce qu'il **odr-use**, donc le pointeur n'est même pas dans la closure. Mesuré en
+  remettant la version pré-correctif sous ASan (IO détruite + callback tiré) : **zéro rapport,
+  5/5 PASS**. L'appliquer aurait été du **code mort** *et* aurait transformé une réponse complète
+  en erreur — violation de l'invariant T3.17 « les formes de réponse ne changent pas ».
+  **Conflit `tests/Makefile.am` en fin de fichier, à nouveau résolu par régénération** : comme au
+  merge de T3.17d, git avait fusionné les corps `LDADD` identiques et ne laissait en conflit que
+  les en-têtes, produisant **trois hunks entrelacés** (`1198/1216`, `1240/1247`, `1276/1334`).
+  Résolution = **fichier complet de master (1302 l.) + append verbatim du bloc `# T3.17b`
+  (67 l.)**, vérifiée comme **append pur** (`diff` = +68/−0/~0, aucun bloc existant touché) →
+  **47/47** `if HAVE_GTEST`/`endif` équilibrés (46/46 avant), 1370 lignes.
+  ⚠️ **Le `LDADD` de T3.17b contient légitimement `Audio/AudioDB.$(OBJEXT)` en plus du gabarit** —
+  rendu nécessaire par `AudioPlayer::database = nullptr` ; jugé **inerte** par la revue
+  (`AudioDB.cpp` = ctor + dtor, aucun réseau/timer/process). Ne pas le « nettoyer ».
+  Rebase de `d7b4b70f` vers `7fc4556d` **sans conflit dans `JsonApi.cpp`** (master n'y avait pas
+  touché depuis T3.17a), suivi du `make distclean` réglementaire (variante FAUX ROUGE du piège
+  `_DEPENDENCIES`). Build d'intégration distclean : **59/59 PASS**, 0 FAIL / 0 ERROR / 0 SKIP —
+  58 de master **+ le seul nouveau binaire** `core/JsonApiPlayerState_test` ; compte **déduit avant
+  le build** (`TESTS` = 56 `check_PROGRAMS` − 1 helper `StaticLogShutdown_helper` + 3 entrées de
+  scripts) puis confirmé. Build > 600 s : attendu par `docker wait` sur le conteneur retrouvé par
+  son **mount exact**, **sans relance**, sans toucher aux 3 conteneurs voisins (t3.17e, e4.0c,
+  e4.0d). Aucune fausse suppression de docs : les **94** fichiers de `docs/refactoring/` intacts.
+  **Documentation : la branche n'en livrait aucune** (réserve R2 de la revue), comblée dans ce
+  merge — BOARD, 2 divergences gelées en FINDINGS, entrée RELEASE_NOTES, et **recomptage des
+  lignes de `T3.17.md`** annoncé par le merge précédent : le décalage vaut **exactement +33**, les
+  14 lambdas `audioDbGet*` passent à `1129, 1162, 1195, 1228, 1261, 1294, 1326, 1358, 1390, 1422,
+  1455, 1488, 1520, 1556` et `audioDbGetTrackInfos` (15ᵉ, **n'appelle pas** `processDbResult`) à
+  `:1562` (lambda `:1576`, corps `:1578`). Trois pointeurs **déjà périmés avant ce merge** corrigés
+  au passage : `getAudioPlayer()` était annoncé `:856`, il est à **`:918`** (inchangé par T3.17b,
+  vérifié pre/post), et l'inventaire d'origine « 22 méthodes sans garde » a reçu un encadré de
+  péremption avec les 15 définitions remesurées. **T3.17 reste 📋** — c et e ne sont pas mergés.
+  ff-only, worktree t3.17b nettoyé, **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
@@ -754,6 +800,20 @@ de fichier. Quand deux tickets ajoutent tous deux en fin de fichier, git produit
 supprimer `<<<<<<<`, **remplacer `=======` par `endif`** (rendre au côté HEAD son endif),
 supprimer `>>>>>>>` (le côté entrant a déjà son endif). **Ne pas** transformer `>>>>>>>` en endif
 (→ endif surnuméraire). **Toujours vérifier** après : `grep -c '^if HAVE_GTEST'` == `grep -c '^endif'`.
+
+⚠️ **Variante HUNKS ENTRELACÉS — rencontrée aux merges de T3.17d puis de T3.17b, préférez-lui
+d'emblée la « régénération ».** Quand les deux blocs réutilisent le **même gabarit `LDADD`** (cas
+de tous les tests `core/JsonApi*`), git **fusionne les corps identiques** et ne laisse en conflit
+que les **lignes d'en-tête**, produisant **trois** hunks entrelacés au lieu d'un. Recousus
+fragment par fragment ils donnent un `LDADD` **chimérique** qui compile et linke sans broncher —
+donc le piège ne se voit pas au build.
+
+**Résolution fiable, indépendante de la forme du conflit** : ne pas éditer les marqueurs du tout.
+Reconstruire le fichier = **`git show master:tests/Makefile.am` en entier + append verbatim du
+bloc `# TX.Y` de la branche** (extrait par `git show <sha>:tests/Makefile.am` à partir de sa ligne
+`# TX.Y`). Puis **prouver que c'est un append pur** : `diff master_full.am tests/Makefile.am` doit
+donner **+N/−0/~0** — zéro ligne retirée, zéro ligne modifiée. Enfin l'équilibre
+`^if HAVE_GTEST` == `^endif`. Cette recette ne dépend ni du nombre de hunks ni de leur imbrication.
 
 ## Tickets Phase 1 (miroir compact de BOARD.md)
 
