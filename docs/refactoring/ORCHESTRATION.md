@@ -337,9 +337,13 @@ raoulh 13 pièces / 213 IOs / 125 règles / 177 conditions / 318 actions ; solan
 sémantique. Sous ASan : charge/parcours/évaluation/save/reload/suppression de **chaque** IO
 (684 destructions) et destruction de pièces avec règles vivantes → **zéro** double-free ou UAF.
 
-⚠️ **Pièges opérationnels ASan** : les artefacts dépassent 20 Go — un worktree sous `/tmp`
-(tmpfs 32 Go) a été détruit en plein `make check`. **Faire les runs ASan sur disque réel**
-(ex. `~/repos/calaos/.validate/…`), pas dans `/tmp`.
+⚠️ **Pièges opérationnels ASan** (l'option `--enable-asan` existe depuis E4.3cd) :
+- Les artefacts dépassent 20 Go — un worktree sous `/tmp` (tmpfs 32 Go) a été détruit en plein
+  `make check`. **Faire les runs ASan sur disque réel** (ex. `~/repos/calaos/.validate/…`).
+- **Objets ASan périmés** : après un build `--enable-asan`, un build par défaut dans le même
+  arbre échoue au link (`undefined reference to __asan_report_load1`) en réutilisant des `.o`
+  instrumentés. `git status` dit « clean » (les artefacts sont gitignorés) → piège parfait.
+  **Faire `make distclean` en changeant de configuration**, ne pas se fier à git.
 Pour instancier les vrais types matériels (Wago/OneWire/Mqtt/Reolink/RemoteUI), il faut linker
 **tous** les objets de calaos_server sauf les points d'entrée : les tests `core/` standards ne
 voient que les IOs internes.
