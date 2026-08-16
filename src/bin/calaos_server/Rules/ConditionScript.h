@@ -36,9 +36,16 @@ class ConditionScript: public Condition
 private:
     string script;
 
-    //These are declared inputs that will trigger the rule execution
-    //Most generaly, inputs are those used in the script
-    unordered_map<IOBase *, IOBase *> in_event;
+    /* These are declared inputs that will trigger the rule execution.
+     * Most generaly, inputs are those used in the script.
+     *
+     * E4.2c: ids, not IOBase*. Besides removing the dangling-pointer class,
+     * this makes SaveToXml() deterministic: the previous
+     * unordered_map<IOBase*, IOBase*> serialized the inputs in POINTER HASH
+     * order, i.e. potentially a different order at every run. The vector keeps
+     * the document order of the config (duplicates dropped on insert, as the
+     * map did). */
+    std::vector<std::string> inEventIds;
 
 public:
     ConditionScript();
@@ -50,7 +57,18 @@ public:
     virtual bool LoadFromXml(TiXmlElement *node);
     virtual bool SaveToXml(TiXmlElement *node);
 
+    //Declares `io`/`id` as a trigger of this condition. A null IO or an empty
+    //id is refused and logged; adding the same id twice is a no-op.
+    void addTriggerIO(IOBase *io);
+    void addTriggerId(const std::string &id);
+
+    /* Does this condition list `io` (resp. `id`) among its triggers?
+     * Both work on ids, so neither resolves nor dereferences anything. */
     bool containsTriggerIO(IOBase *io);
+    bool containsTriggerId(const std::string &id) const;
+
+    int getTriggerCount() const { return inEventIds.size(); }
+    const std::string &getTriggerId(int i) const;
 
 };
 

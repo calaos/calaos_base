@@ -25,60 +25,50 @@ using namespace Calaos;
 namespace
 {
 
-/* Does `condition` keep a pointer to `obj` ?
+/* Does `condition` reference the IO `id` ?
  *
- * Every Condition subclass that stores an IOBase* must be handled here: a
- * missing one means RemoveRule() keeps a rule alive with a dangling IOBase*
- * after the IO has been deleted (use after free at the next evaluation or at
- * the next SaveConfigRule()).
+ * E4.2c: this is now a pure id comparison. Conditions store ids, so answering
+ * this question resolves nothing and dereferences nothing - which matters
+ * precisely here, since the caller is about to destroy that IO (and, in the
+ * ~Room path, may be calling us while the IO is already half gone).
  * ConditionStart holds no IO, and ConditionStd::params_var only holds ids that
- * are resolved against ListeRoom at each evaluation (getVarIds()), so neither
- * can dangle.
+ * are resolved at each evaluation, so neither can dangle.
  */
-bool conditionUsesIO(Calaos::Condition *condition, Calaos::IOBase *obj)
+bool conditionUsesIO(Calaos::Condition *condition, const std::string &id)
 {
-    if (!condition || !obj) return false;
+    if (!condition || id.empty()) return false;
 
     if (ConditionStd *cond = dynamic_cast<ConditionStd *>(condition))
     {
         for (int i = 0;i < cond->get_size();i++)
         {
-            IOBase *in = cond->get_input(i);
-            if (in && (in == obj || in->get_param("id") == obj->get_param("id")))
+            if (cond->get_input_id(i) == id)
                 return true;
         }
         return false;
     }
 
     if (ConditionOutput *cond = dynamic_cast<ConditionOutput *>(condition))
-    {
-        IOBase *out = cond->getOutput();
-        return out && (out == obj || out->get_param("id") == obj->get_param("id"));
-    }
+        return cond->getOutputId() == id;
 
     if (ConditionScript *cond = dynamic_cast<ConditionScript *>(condition))
-    {
-        //in_event is keyed by pointer and private, containsTriggerIO() is the
-        //only way to look into it
-        return cond->containsTriggerIO(obj);
-    }
+        return cond->containsTriggerId(id);
 
     return false;
 }
 
-/* Same for actions. Only ActionStd stores IOBase*, ActionMail/ActionPush/
+/* Same for actions. Only ActionStd references IOs, ActionMail/ActionPush/
  * ActionScript/ActionTouchscreen keep plain strings.
  */
-bool actionUsesIO(Calaos::Action *action, Calaos::IOBase *obj)
+bool actionUsesIO(Calaos::Action *action, const std::string &id)
 {
-    if (!action || !obj) return false;
+    if (!action || id.empty()) return false;
 
     if (ActionStd *act = dynamic_cast<ActionStd *>(action))
     {
         for (int i = 0;i < act->get_size();i++)
         {
-            IOBase *out = act->get_output(i);
-            if (out && (out == obj || out->get_param("id") == obj->get_param("id")))
+            if (act->get_output_id(i) == id)
                 return true;
         }
     }
@@ -175,10 +165,15 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
             {
                 bool matched = false;
 
+                /* E4.2c: pure id comparison. This is the hot path - it runs for
+                 * every condition of every rule at every IO change - and it no
+                 * longer resolves anything: before, each input cost a
+                 * get_param("id") (a std::string built from the literal, a map
+                 * lookup and a string copy), now it is a compare against the
+                 * stored id. */
                 for (int k = 0;k < cond->get_size();k++)
                 {
-                    IOBase *in = cond->get_input(k);
-                    if (in && in->get_param("id") == id)
+                    if (cond->get_input_id(k) == id)
                     {
                         if (!syncTriggered && cond->useForTrigger() && rule->CheckConditions())
                             syncTriggered = true;
@@ -188,12 +183,12 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
 
                 if (!matched)
                 {
-                    vector<IOBase *> list;
+                    vector<std::string> list;
                     cond->getVarIds(list);
 
                     for (uint k = 0;k < list.size();k++)
                     {
-                        if (list[k] && list[k]->get_param("id") == id &&
+                        if (list[k] == id &&
                             !syncTriggered && cond->useForTrigger() && rule->CheckConditions())
                             syncTriggered = true;
                     }
@@ -201,8 +196,11 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
             }
 
             ConditionScript *script_cond = dynamic_cast<ConditionScript *>(condition);
+            //`triggerIO` is still required, deliberately: a signal for an id
+            //that resolves to nothing never dispatched a script rule, and that
+            //stays true (the id lookup below would otherwise start matching).
             if (!asyncTriggered && script_cond && triggerIO &&
-                script_cond->containsTriggerIO(triggerIO))
+                script_cond->containsTriggerId(id))
             {
                 //Once per rule, not once per matching condition: the
                 //asynchronous evaluation runs *every* script condition of the
@@ -212,8 +210,10 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
             }
 
             ConditionOutput *ocond = dynamic_cast<ConditionOutput *>(condition);
-            if (!syncTriggered && ocond && ocond->getOutput() &&
-                ocond->getOutput()->get_param("id") == id &&
+            //An empty output id is "no output at all" (it never resolves), so
+            //it must not match an empty trigger id either.
+            if (!syncTriggered && ocond && !ocond->getOutputId().empty() &&
+                ocond->getOutputId() == id &&
                 ocond->useForTrigger() && rule->CheckConditions())
                 syncTriggered = true;
         }
@@ -323,24 +323,28 @@ void ListeRule::RemoveRule(IOBase *obj)
 {
     if (!obj) return;
 
-    //Delete every rule referencing obj, whatever the condition/action type it
-    //is referenced from. Anything left behind would keep a dangling IOBase*.
+    //Read the id once, here: this is the only dereference of `obj` in the whole
+    //removal path now that conditions and actions compare ids.
+    const std::string id = obj->get_param("id");
+
+    //Delete every rule referencing this id, whatever the condition/action type
+    //it is referenced from.
     for (uint i = 0;i < rules.size();)
     {
         Rule *rule = rules[i];
         bool used = false;
 
         for (int j = 0;!used && j < rule->get_size_conds();j++)
-            used = conditionUsesIO(rule->get_condition(j), obj);
+            used = conditionUsesIO(rule->get_condition(j), id);
 
         for (int j = 0;!used && j < rule->get_size_actions();j++)
-            used = actionUsesIO(rule->get_action(j), obj);
+            used = actionUsesIO(rule->get_action(j), id);
 
         if (used)
         {
             //Remove() erases the entry, the next rule now sits at index i
             cDebugDom("rule") << "Removing rule " << rule->get_name()
-                              << ", it uses deleted IO " << obj->get_param("id");
+                              << ", it uses deleted IO " << id;
             Remove(rule);
         }
         else

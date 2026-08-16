@@ -35,24 +35,70 @@ ConditionStd::~ConditionStd()
 
 void ConditionStd::Add(IOBase *in)
 {
-    inputs.push_back(in);
+    if (!in)
+    {
+        cErrorDom("rule.condition.standard") << "Add(): ignoring a null IO";
+        return;
+    }
 
-    cDebugDom("rule.condition.standard") <<  "Input(" << in->get_param("id") << ") added";
+    Add(in->get_param("id"));
+}
+
+void ConditionStd::Add(const std::string &id)
+{
+    if (id.empty())
+    {
+        //An empty id can never be resolved back (findIO() refuses it), so it
+        //would be a permanently false term nobody can diagnose.
+        cErrorDom("rule.condition.standard") << "Add(): ignoring an IO with no id";
+        return;
+    }
+
+    inputIds.push_back(id);
+
+    cDebugDom("rule.condition.standard") <<  "Input(" << id << ") added";
+}
+
+IOBase *ConditionStd::get_input(int i)
+{
+    if (i < 0 || i >= (int)inputIds.size()) return nullptr;
+
+    return ListeRoom::Instance().findIO(inputIds[i]);
+}
+
+const std::string &ConditionStd::get_input_id(int i) const
+{
+    static const std::string empty;
+
+    if (i < 0 || i >= (int)inputIds.size()) return empty;
+
+    return inputIds[i];
 }
 
 void ConditionStd::getVarIds(vector<IOBase *> &list)
 {
-    for (uint i = 0;i < inputs.size();i++)
+    for (uint i = 0;i < inputIds.size();i++)
     {
-        std::string var_id = params_var[inputs[i]->get_param("id")];
+        std::string var_id = params_var[inputIds[i]];
         if (var_id.empty()) continue;
 
-        IOBase *in = ListeRoom::Instance().get_io(var_id);
+        IOBase *in = ListeRoom::Instance().findIO(var_id);
 
         if (in)
         {
             list.push_back(in);
         }
+    }
+}
+
+void ConditionStd::getVarIds(vector<std::string> &list)
+{
+    for (uint i = 0;i < inputIds.size();i++)
+    {
+        std::string var_id = params_var[inputIds[i]];
+        if (var_id.empty()) continue;
+
+        list.push_back(var_id);
     }
 }
 
@@ -63,17 +109,36 @@ bool ConditionStd::Evaluate()
     double dval = 0.0;
     bool ret = true;
 
-    for (uint i = 0;i < inputs.size();i++)
+    for (uint i = 0;i < inputIds.size();i++)
     {
+        const std::string &input_id = inputIds[i];
+
+        //E4.2c: resolve once per input per evaluation. This is THE missing-IO
+        //check: everything below dereferences `input`, and nothing else in this
+        //function may.
+        IOBase *input = ListeRoom::Instance().findIO(input_id);
+
+        if (!input)
+        {
+            //Fail closed and say so. Returning "true" for a term whose IO is
+            //gone would let the rule fire on a condition nobody can read any
+            //more, and skipping the term would do the same silently.
+            cErrorDom("rule.condition.standard")
+                    << "Input '" << input_id << "' does not exist (any more): "
+                    << "condition evaluates to false";
+            ret = false;
+            continue;
+        }
+
         bool ovar = false;
         bool changed = false;
-        switch (inputs[i]->get_type())
+        switch (input->get_type())
         {
         case TBOOL:
-            if (params_var[inputs[i]->get_param("id")] != "")
+            if (params_var[input_id] != "")
             {
-                std::string var_id = params_var[inputs[i]->get_param("id")];
-                IOBase *in = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[input_id];
+                IOBase *in = ListeRoom::Instance().findIO(var_id);
                 if (in && in->get_type() == TBOOL)
                 {
                     bval = in->get_value_bool();
@@ -83,11 +148,11 @@ bool ConditionStd::Evaluate()
 
             if (!ovar)
             {
-                if (params[inputs[i]->get_param("id")] == "true")
+                if (params[input_id] == "true")
                     bval = true;
-                else if (params[inputs[i]->get_param("id")] == "false")
+                else if (params[input_id] == "false")
                     bval = false;
-                else if (params[inputs[i]->get_param("id")] == "changed")
+                else if (params[input_id] == "changed")
                     changed = true;
                 else
                 {
@@ -99,15 +164,15 @@ bool ConditionStd::Evaluate()
 
             if (!changed)
             {
-                oper = ops[inputs[i]->get_param("id")];
-                ret = ret && eval(inputs[i]->get_value_bool(), oper, bval);
+                oper = ops[input_id];
+                ret = ret && eval(input->get_value_bool(), oper, bval);
             }
             break;
         case TINT:
-            if (params_var[inputs[i]->get_param("id")] != "")
+            if (params_var[input_id] != "")
             {
-                std::string var_id = params_var[inputs[i]->get_param("id")];
-                IOBase *in = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[input_id];
+                IOBase *in = ListeRoom::Instance().findIO(var_id);
                 if (in && in->get_type() == TINT)
                 {
                     dval = in->get_value_double();
@@ -117,7 +182,7 @@ bool ConditionStd::Evaluate()
             }
 
             if (!ovar)
-                sval = params[inputs[i]->get_param("id")];
+                sval = params[input_id];
 
             if (sval != "")
             {
@@ -131,18 +196,18 @@ bool ConditionStd::Evaluate()
 
                 if (!changed)
                 {
-                    oper = ops[inputs[i]->get_param("id")];
-                    ret = ret && eval(inputs[i]->get_value_double(), oper, dval);
+                    oper = ops[input_id];
+                    ret = ret && eval(input->get_value_double(), oper, dval);
                 }
             }
             else
                 cWarningDom("rule.condition.standard") <<  "get_value(int) not int !";
             break;
         case TSTRING:
-            if (params_var[inputs[i]->get_param("id")] != "")
+            if (params_var[input_id] != "")
             {
-                std::string var_id = params_var[inputs[i]->get_param("id")];
-                IOBase *in = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[input_id];
+                IOBase *in = ListeRoom::Instance().findIO(var_id);
                 if (in && in->get_type() == TSTRING)
                 {
                     sval = in->get_value_string();
@@ -151,14 +216,14 @@ bool ConditionStd::Evaluate()
             }
             if (!ovar)
             {
-                sval = Utils::url_decode2(params[inputs[i]->get_param("id")]);
+                sval = Utils::url_decode2(params[input_id]);
                 if (sval == "changed") changed = true;
             }
 
             if (!changed)
             {
-                oper = ops[inputs[i]->get_param("id")];
-                ret = ret && eval(inputs[i]->get_value_string(), oper, sval);
+                oper = ops[input_id];
+                ret = ret && eval(input->get_value_string(), oper, sval);
             }
             break;
         default: break;
@@ -175,16 +240,39 @@ bool ConditionStd::Evaluate()
 
 void ConditionStd::Remove(int pos)
 {
-    auto iter = inputs.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    inputs.erase(iter);
+    if (pos < 0 || pos >= (int)inputIds.size())
+    {
+        cErrorDom("rule.condition.standard") << "Remove(): index " << pos
+                                             << " out of range";
+        return;
+    }
+
+    inputIds.erase(inputIds.begin() + pos);
 
     cDebugDom("rule.condition.standard");
 }
 
 void ConditionStd::Assign(int i, IOBase *obj)
 {
-    inputs[i] = obj;
+    if (!obj)
+    {
+        cErrorDom("rule.condition.standard") << "Assign(): ignoring a null IO";
+        return;
+    }
+
+    Assign(i, obj->get_param("id"));
+}
+
+void ConditionStd::Assign(int i, const std::string &id)
+{
+    if (i < 0 || i >= (int)inputIds.size() || id.empty())
+    {
+        cErrorDom("rule.condition.standard") << "Assign(): refusing index " << i
+                                             << " / id '" << id << "'";
+        return;
+    }
+
+    inputIds[i] = id;
 }
 
 namespace Calaos
@@ -340,7 +428,7 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            IOBase *in = ListeRoom::Instance().get_io(id);
+            IOBase *in = ListeRoom::Instance().findIO(id);
 
             if (!in)
             {
@@ -373,6 +461,15 @@ bool ConditionStd::LoadFromXml(TiXmlElement *node)
             }
             else
             {
+                /* LOAD-TIME contract, deliberately unchanged by E4.2c: an id
+                 * that is unknown *at load* is a config that never described
+                 * anything resolvable, and the condition is rejected here (the
+                 * rule survives without it - see CoreSmoke_test). The by-id
+                 * model addresses the other case: an id that resolved at load
+                 * and stopped resolving later, which used to leave a dangling
+                 * IOBase* and now evaluates to false, loudly. */
+                cErrorDom("rule.condition.standard")
+                        << "Input '" << id << "' is unknown, condition rejected";
                 return false;
             }
         }
@@ -388,17 +485,20 @@ bool ConditionStd::SaveToXml(TiXmlElement *node)
     cond_node->SetAttribute("trigger", trigger?"true":"false");
     node->LinkEndChild(cond_node);
 
-    for (uint i = 0;i < inputs.size();i++)
+    //Saving no longer resolves anything: the id IS what gets written, so a
+    //rule whose IO disappeared is serialized unchanged instead of
+    //dereferencing a dead pointer (or silently losing the reference).
+    for (uint i = 0;i < inputIds.size();i++)
     {
-        IOBase *in = inputs[i];
+        const std::string &in_id = inputIds[i];
 
         TiXmlElement *cnode = new TiXmlElement("calaos:input");
 
-        cnode->SetAttribute("id", in->get_param("id"));
-        cnode->SetAttribute("oper", ops[in->get_param("id")]);
-        cnode->SetAttribute("val", params[in->get_param("id")]);
-        if (params_var[in->get_param("id")] != "")
-            cnode->SetAttribute("val_var", params_var[in->get_param("id")]);
+        cnode->SetAttribute("id", in_id);
+        cnode->SetAttribute("oper", ops[in_id]);
+        cnode->SetAttribute("val", params[in_id]);
+        if (params_var[in_id] != "")
+            cnode->SetAttribute("val_var", params_var[in_id]);
 
         cond_node->LinkEndChild(cnode);
     }

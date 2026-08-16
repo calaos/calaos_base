@@ -31,7 +31,11 @@ namespace Calaos
 class ConditionOutput: public Condition
 {
 protected:
-    IOBase *output;
+    /* E4.2c: the output is referenced BY ID, never by IOBase*.
+     * The raw pointer it replaces was also left UNINITIALIZED by the
+     * constructor and dereferenced unguarded by Evaluate()/SaveToXml(): an
+     * unset output is now just an empty (unresolvable) id. */
+    string outputId;
     string params;
     string ops;
     //this is used to do the condition test
@@ -49,10 +53,20 @@ public:
     ConditionOutput();
     ~ConditionOutput();
 
+    /* MISSING IO CONTRACT (E4.2c): an output whose id no longer resolves makes
+     * the condition FALSE, logged as an error. Same rule as ConditionStd. */
     virtual bool Evaluate();
 
-    void setOutput(IOBase *p) { output = p; }
-    IOBase *getOutput() { return output; }
+    //Stores p's id (a null p, or an IO without an id, clears the reference)
+    void setOutput(IOBase *p);
+    void setOutputId(const std::string &id) { outputId = id; }
+
+    /* Resolves through ListeRoom. NON-OWNING, **nullptr when the id is unknown
+     * or was never set** - callers must test it. */
+    IOBase *getOutput();
+
+    //The stored id, for the call sites that only compare ids (no resolution)
+    const std::string &getOutputId() const { return outputId; }
 
     bool useForTrigger() { return trigger; }
 

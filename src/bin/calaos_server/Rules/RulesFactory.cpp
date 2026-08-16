@@ -56,7 +56,13 @@ Condition *RulesFactory::CreateCondition(TiXmlElement *node)
     }
 
     if (condition && !condition->LoadFromXml(node))
+    {
+        //LoadFromXml() refused the node (E4.2c: an id unknown at load time).
+        //The half-built object was leaked here, and the caller only ever sees
+        //the null.
+        delete condition;
         return NULL;
+    }
 
     return condition;
 }
@@ -102,7 +108,11 @@ Action *RulesFactory::CreateAction(TiXmlElement *node)
     }
 
     if (action && !action->LoadFromXml(node))
+    {
+        //Same leak as in CreateCondition()
+        delete action;
         return NULL;
+    }
 
     return action;
 }

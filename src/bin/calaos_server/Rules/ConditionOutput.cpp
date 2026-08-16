@@ -34,12 +34,40 @@ ConditionOutput::~ConditionOutput()
 {
 }
 
+void ConditionOutput::setOutput(IOBase *p)
+{
+    if (!p)
+    {
+        cErrorDom("rule.condition.output") << "setOutput(): clearing, null IO";
+        outputId.clear();
+        return;
+    }
+
+    outputId = p->get_param("id");
+}
+
+IOBase *ConditionOutput::getOutput()
+{
+    return ListeRoom::Instance().findIO(outputId);
+}
+
 bool ConditionOutput::Evaluate()
 {
     string sval, oper;
     bool bval = false;
     double dval = 0.0;
     bool ret = false;
+
+    //E4.2c: single resolution point. Everything below dereferences `output`.
+    IOBase *output = ListeRoom::Instance().findIO(outputId);
+
+    if (!output)
+    {
+        cErrorDom("rule.condition.output")
+                << "Output '" << outputId << "' does not exist (any more): "
+                << "condition evaluates to false";
+        return false;
+    }
 
     bool ovar = false;
     bool changed = false;
@@ -48,7 +76,7 @@ bool ConditionOutput::Evaluate()
     case TBOOL:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TBOOL)
             {
                 bval = out->get_value_bool();
@@ -84,7 +112,7 @@ bool ConditionOutput::Evaluate()
     case TINT:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TINT)
             {
                 dval = out->get_value_double();
@@ -121,7 +149,7 @@ bool ConditionOutput::Evaluate()
     case TSTRING:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TSTRING)
             {
                 sval = out->get_value_string();
@@ -206,7 +234,7 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            IOBase *out = ListeRoom::Instance().get_io(id);
+            IOBase *out = ListeRoom::Instance().findIO(id);
             if (out)
             {
                 setOutput(out);
@@ -217,6 +245,10 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
             }
             else
             {
+                //Load-time contract, unchanged: an id unknown at load rejects
+                //the condition. See the comment in ConditionStd::LoadFromXml().
+                cErrorDom("rule.condition.output")
+                        << "Output '" << id << "' is unknown, condition rejected";
                 return false;
             }
         }
@@ -233,7 +265,9 @@ bool ConditionOutput::SaveToXml(TiXmlElement *node)
     node->LinkEndChild(cond_node);
 
     TiXmlElement *cnode = new TiXmlElement("calaos:output");
-    cnode->SetAttribute("id", output->get_param("id"));
+    //The id IS the reference: saving resolves nothing, so a condition whose IO
+    //disappeared is written back unchanged instead of dereferencing it.
+    cnode->SetAttribute("id", outputId);
     cnode->SetAttribute("oper", ops);
     cnode->SetAttribute("val", params);
     if (params_var != "")

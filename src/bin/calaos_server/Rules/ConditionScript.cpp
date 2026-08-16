@@ -49,10 +49,52 @@ void ConditionScript::EvaluateAsync(std::function<void(bool eval)> cb, string tr
     {{ "trigger_id", triggerId }});
 }
 
+void ConditionScript::addTriggerIO(IOBase *io)
+{
+    if (!io)
+    {
+        cErrorDom("rule.condition.script") << "addTriggerIO(): ignoring a null IO";
+        return;
+    }
+
+    addTriggerId(io->get_param("id"));
+}
+
+void ConditionScript::addTriggerId(const std::string &id)
+{
+    if (id.empty())
+    {
+        cErrorDom("rule.condition.script") << "addTriggerId(): ignoring an empty id";
+        return;
+    }
+
+    //The map this replaces deduplicated by construction, keep that
+    if (containsTriggerId(id)) return;
+
+    inEventIds.push_back(id);
+}
+
 bool ConditionScript::containsTriggerIO(IOBase *io)
 {
-    auto it = in_event.find(io);
-    return it != in_event.end();
+    if (!io) return false;
+
+    return containsTriggerId(io->get_param("id"));
+}
+
+bool ConditionScript::containsTriggerId(const std::string &id) const
+{
+    if (id.empty()) return false;
+
+    return std::find(inEventIds.begin(), inEventIds.end(), id) != inEventIds.end();
+}
+
+const std::string &ConditionScript::getTriggerId(int i) const
+{
+    static const std::string empty;
+
+    if (i < 0 || i >= (int)inEventIds.size()) return empty;
+
+    return inEventIds[i];
 }
 
 bool ConditionScript::LoadFromXml(TiXmlElement *node)
@@ -79,9 +121,16 @@ bool ConditionScript::LoadFromXml(TiXmlElement *node)
                  sc_node->Attribute("id"))
         {
             string id = sc_node->Attribute("id");
-            IOBase *in = ListeRoom::Instance().get_io(id);
+            //Load-time contract, unchanged: an id that resolves is kept, one
+            //that does not is dropped here (this condition type never made the
+            //whole load fail). What changes is that the kept reference is the
+            //id, so it cannot dangle if the IO disappears later.
+            IOBase *in = ListeRoom::Instance().findIO(id);
             if (in)
-                in_event[in] = in;
+                addTriggerIO(in);
+            else
+                cErrorDom("rule.condition.script")
+                        << "Trigger input '" << id << "' is unknown, ignored";
         }
     }
 
@@ -94,11 +143,10 @@ bool ConditionScript::SaveToXml(TiXmlElement *node)
     cond_node->SetAttribute("type", "script");
     node->LinkEndChild(cond_node);
 
-    for (auto it: in_event)
+    for (const std::string &id: inEventIds)
     {
-        IOBase *io = it.first;
         TiXmlElement *in_node = new TiXmlElement("calaos:input");
-        in_node->SetAttribute("id", io->get_param("id"));
+        in_node->SetAttribute("id", id);
         cond_node->LinkEndChild(in_node);
     }
 

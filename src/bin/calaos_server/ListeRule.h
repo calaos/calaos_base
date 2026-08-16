@@ -113,9 +113,23 @@ public:
     Rule *get_rule(int i);
     Rule *operator[] (int i) const;
 
+    /* Event polling list. Registration is done by the IO itself (see
+     * InputTime/InputAnalog/InPlageHoraire), so unregistration must be driven
+     * by membership in THIS list and by nothing else - it used to be gated on
+     * a gui_type whitelist in ListeRoom::detachIOFromRules(), which is not the
+     * same set (E4.2c). Remove() is an erase-remove: a no-op for an IO that
+     * never registered, so it is always safe to call. */
     void Add(IOBase *io) { in_event.push_back(io); }
     void Remove(IOBase *io)
     { in_event.erase(std::remove(in_event.begin(), in_event.end(), io), in_event.end()); }
+
+    /* Is this IO currently in the polling list? RunEventLoop() dereferences
+     * every entry, so "registered" must mean "still alive": this is what a test
+     * asserts on after an IO deletion. */
+    bool isEventRegistered(IOBase *io) const
+    { return std::find(in_event.begin(), in_event.end(), io) != in_event.end(); }
+
+    size_t eventCount() const { return in_event.size(); }
     //Run a loop to detect event from inputs when time or temperature changes
     void RunEventLoop();
     void StopLoop();

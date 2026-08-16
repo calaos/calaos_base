@@ -946,3 +946,23 @@ WebCtrlXPath_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 WebCtrlXPath_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#Conditions/Actions reference their IOs BY ID (step 3/6 of the E4.2 series):
+#nothing in Rules/ stores an IOBase* any more, everything resolves through the
+#E4.2a accessors at the point of use. Pins the model (a reference follows the
+#id, not the object), the missing-IO contract (condition false, action skipped,
+#both logged, save keeps the id, load-time rejection unchanged), the in_event
+#unregistration now driven by registration instead of a gui_type whitelist, the
+#dispatch order, and prints the cost of the model on a 200-rule config.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RuleIoReference_test
+check_PROGRAMS += core/RuleIoReference_test
+core_RuleIoReference_test_SOURCES = core/RuleIoReference_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleIoReference_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleIoReference_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RuleIoReference_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

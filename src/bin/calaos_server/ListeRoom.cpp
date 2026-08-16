@@ -375,13 +375,21 @@ void ListeRoom::detachIOFromRules(IOBase *io, bool modify)
     if (!modify) //only deletes if modify is not set
         ListeRule::Instance().RemoveRule(io);
 
-    //Remove input from polling list
-    if (io->get_param("gui_type") == "time"
-        || io->get_param("gui_type") == "temp"
-        || io->get_param("gui_type") == "analog_in"
-        || io->get_param("gui_type") == "time_range"
-        || io->get_param("gui_type") == "timer")
-        ListeRule::Instance().Remove(io);
+    /* Remove input from the polling list.
+     *
+     * E4.2c: unconditionally, i.e. driven by WHO REGISTERED and not by what
+     * the IO looks like. This used to be gated on a hardcoded gui_type
+     * whitelist ("time", "temp", "analog_in", "time_range", "timer") while
+     * registration is done by the IO itself (ListeRule::Add(this) in
+     * InputTime, InputAnalog, InPlageHoraire...). The two lists only agreed by
+     * luck: any IO registering with a gui_type outside the whitelist - a new
+     * driver, or an existing one whose gui_type is changed - stayed in
+     * `in_event` after being destroyed, and ListeRule::RunEventLoop() then
+     * dereferenced a freed pointer.
+     * ListeRule::Remove(IOBase*) is an erase-remove: it is a no-op for an IO
+     * that never registered, so "unregister always" is exactly "unregister
+     * whoever registered". */
+    ListeRule::Instance().Remove(io);
 }
 
 bool ListeRoom::deleteIO(IOBase *io, bool modify)

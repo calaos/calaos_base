@@ -32,6 +32,12 @@ ActionStd::~ActionStd()
 
 void ActionStd::Add(IOBase *out)
 {
+    if (!out)
+    {
+        cErrorDom("rule.action.standard") << "Add(): ignoring a null IO";
+        return;
+    }
+
     if (!out->isOutput())
     {
         cWarningDom("rule.action.standard") << "Unable to add IO "
@@ -40,9 +46,38 @@ void ActionStd::Add(IOBase *out)
         return;
     }
 
-    outputs.push_back(out);
+    Add(out->get_param("id"));
+}
 
-    cDebugDom("rule.action.standard") <<  "Output(" << out->get_param("id") << ") added";
+void ActionStd::Add(const std::string &id)
+{
+    if (id.empty())
+    {
+        //An empty id never resolves back, it would be a permanently broken
+        //output nobody can diagnose.
+        cErrorDom("rule.action.standard") << "Add(): ignoring an IO with no id";
+        return;
+    }
+
+    outputIds.push_back(id);
+
+    cDebugDom("rule.action.standard") <<  "Output(" << id << ") added";
+}
+
+IOBase *ActionStd::get_output(int i)
+{
+    if (i < 0 || i >= (int)outputIds.size()) return nullptr;
+
+    return ListeRoom::Instance().findIO(outputIds[i]);
+}
+
+const std::string &ActionStd::get_output_id(int i) const
+{
+    static const std::string empty;
+
+    if (i < 0 || i >= (int)outputIds.size()) return empty;
+
+    return outputIds[i];
 }
 
 bool ActionStd::Execute()
@@ -53,17 +88,44 @@ bool ActionStd::Execute()
     bool bval = false;
     double dval = 0;
 
-    for (uint i = 0;i < outputs.size();i++)
+    for (uint i = 0;i < outputIds.size();i++)
     {
+        const std::string &out_id = outputIds[i];
+
+        //E4.2c: resolve once per output per execution. Everything below
+        //dereferences `output`, and nothing else in this function may.
+        IOBase *output = ListeRoom::Instance().findIO(out_id);
+
+        if (!output)
+        {
+            cErrorDom("rule.action.standard")
+                    << "Output '" << out_id << "' does not exist (any more): "
+                    << "action skipped";
+            ret = false;
+            continue;
+        }
+
+        if (!output->isOutput())
+        {
+            //Add() refuses non-outputs, so this only happens when the id was
+            //taken over by another IO after the rule was built. Setting a value
+            //on an input is not something an action may do silently.
+            cErrorDom("rule.action.standard")
+                    << "'" << out_id << "' is not an output (any more): "
+                    << "action skipped";
+            ret = false;
+            continue;
+        }
+
         bool ovar = false;
-        switch (outputs[i]->get_type())
+        switch (output->get_type())
         {
         case TBOOL:
         {
-            if (params_var[outputs[i]->get_param("id")] != "")
+            if (params_var[out_id] != "")
             {
-                std::string var_id = params_var[outputs[i]->get_param("id")];
-                IOBase *out = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[out_id];
+                IOBase *out = ListeRoom::Instance().findIO(var_id);
                 if (out &&
                     (out->get_type() == TBOOL ||
                      out->get_type() == TSTRING))
@@ -75,58 +137,58 @@ bool ActionStd::Execute()
 
             if (ovar)
             {
-                if (!outputs[i]->set_value(bval)) ret = false;
+                if (!output->set_value(bval)) ret = false;
             }
-            else if (params[outputs[i]->get_param("id")] == "true")
+            else if (params[out_id] == "true")
             {
-                if (!outputs[i]->set_value(true)) ret = false;
+                if (!output->set_value(true)) ret = false;
             }
-            else if (params[outputs[i]->get_param("id")] == "false")
+            else if (params[out_id] == "false")
             {
-                if (!outputs[i]->set_value(false)) ret = false;
+                if (!output->set_value(false)) ret = false;
             }
             else
             {
-                if (!outputs[i]->set_value(params[outputs[i]->get_param("id")])) ret = false;
+                if (!output->set_value(params[out_id])) ret = false;
             }
             break;
         }
         case TINT:
         {
-            if (params_var[outputs[i]->get_param("id")] != "")
+            if (params_var[out_id] != "")
             {
-                std::string var_id = params_var[outputs[i]->get_param("id")];
-                IOBase *out = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[out_id];
+                IOBase *out = ListeRoom::Instance().findIO(var_id);
                 if (out && out->get_type() == TINT)
                 {
                     dval = out->get_command_double();
                     ovar = true;
                 }
             }
-            tmp = params[outputs[i]->get_param("id")];
+            tmp = params[out_id];
 
             if (ovar)
             {
-                if (!outputs[i]->set_value(dval)) ret = false;
+                if (!output->set_value(dval)) ret = false;
             }
             else if (is_of_type<double>(tmp))
             {
                 double v;
                 Utils::from_string(tmp, v);
-                if (!outputs[i]->set_value(v)) ret = false;
+                if (!output->set_value(v)) ret = false;
             }
             else
             {
-                if (!outputs[i]->set_value(tmp)) ret = false;
+                if (!output->set_value(tmp)) ret = false;
             }
             break;
         }
         case TSTRING:
         {
-            if (params_var[outputs[i]->get_param("id")] != "")
+            if (params_var[out_id] != "")
             {
-                std::string var_id = params_var[outputs[i]->get_param("id")];
-                IOBase *out = ListeRoom::Instance().get_io(var_id);
+                std::string var_id = params_var[out_id];
+                IOBase *out = ListeRoom::Instance().findIO(var_id);
                 if (out && out->get_type() == TSTRING)
                 {
                     sval = out->get_command_string();
@@ -138,15 +200,15 @@ bool ActionStd::Execute()
                     ovar = true;
                 }
             }
-            tmp = params[outputs[i]->get_param("id")];
+            tmp = params[out_id];
 
             if (ovar)
             {
-                if (!outputs[i]->set_value(sval)) ret = false;
+                if (!output->set_value(sval)) ret = false;
             }
             else if (tmp != "")
             {
-                if (!outputs[i]->set_value(tmp)) ret = false;
+                if (!output->set_value(tmp)) ret = false;
             }
 
             break;
@@ -165,16 +227,39 @@ bool ActionStd::Execute()
 
 void ActionStd::Remove(int pos)
 {
-    auto iter = outputs.begin();
-    for (int i = 0;i < pos;iter++, i++) ;
-    outputs.erase(iter);
+    if (pos < 0 || pos >= (int)outputIds.size())
+    {
+        cErrorDom("rule.action.standard") << "Remove(): index " << pos
+                                          << " out of range";
+        return;
+    }
+
+    outputIds.erase(outputIds.begin() + pos);
 
     cDebugDom("rule.action.standard") <<  "Ok";
 }
 
 void ActionStd::Assign(int i, IOBase *obj)
 {
-    outputs[i] = obj;
+    if (!obj)
+    {
+        cErrorDom("rule.action.standard") << "Assign(): ignoring a null IO";
+        return;
+    }
+
+    Assign(i, obj->get_param("id"));
+}
+
+void ActionStd::Assign(int i, const std::string &id)
+{
+    if (i < 0 || i >= (int)outputIds.size() || id.empty())
+    {
+        cErrorDom("rule.action.standard") << "Assign(): refusing index " << i
+                                          << " / id '" << id << "'";
+        return;
+    }
+
+    outputIds[i] = id;
 }
 
 bool ActionStd::LoadFromXml(TiXmlElement *node)
@@ -191,7 +276,7 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
             if (node->Attribute("val")) val = node->Attribute("val");
             if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
 
-            IOBase *out = ListeRoom::Instance().get_io(id);
+            IOBase *out = ListeRoom::Instance().findIO(id);
 
             if (!out)
             {
@@ -228,6 +313,12 @@ bool ActionStd::LoadFromXml(TiXmlElement *node)
             }
             else
             {
+                //Load-time contract, unchanged: an id unknown at load (or one
+                //that is not an output) rejects the action. See the comment in
+                //ConditionStd::LoadFromXml().
+                cErrorDom("rule.action.standard")
+                        << "Output '" << id << "' is unknown or is not an "
+                        << "output, action rejected";
                 return false;
             }
         }
@@ -242,16 +333,18 @@ bool ActionStd::SaveToXml(TiXmlElement *node)
     action_node->SetAttribute("type", "standard");
     node->LinkEndChild(action_node);
 
-    for (uint i = 0;i < outputs.size();i++)
+    //The id IS the reference: saving resolves nothing, so an action whose IO
+    //disappeared is written back unchanged instead of dereferencing it.
+    for (uint i = 0;i < outputIds.size();i++)
     {
-        IOBase *out = outputs[i];
+        const std::string &out_id = outputIds[i];
 
         TiXmlElement *cnode = new TiXmlElement("calaos:output");
 
-        cnode->SetAttribute("id", out->get_param("id"));
-        cnode->SetAttribute("val", params[out->get_param("id")]);
-        if (params_var[out->get_param("id")] != "")
-            cnode->SetAttribute("val_var", params_var[out->get_param("id")]);
+        cnode->SetAttribute("id", out_id);
+        cnode->SetAttribute("val", params[out_id]);
+        if (params_var[out_id] != "")
+            cnode->SetAttribute("val_var", params_var[out_id]);
 
         action_node->LinkEndChild(cnode);
     }
