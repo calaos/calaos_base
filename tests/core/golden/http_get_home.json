@@ -79,13 +79,20 @@
       "hits": "0",
       "items": [
         {
+          "auto_scenario": "e40_scenario",
+          "chauffage_id": "e40_heater",
           "gui_type": "var_string",
+          "hits": "12",
           "id": "e40_accented",
+          "io_style": "temperature",
           "io_type": "inout",
           "name": "Éclairage café",
           "rw": "false",
           "state": "",
+          "step": "0.5",
           "type": "InternalString",
+          "unit": "°C",
+          "value_warning": "false",
           "var_type": "string",
           "visible": "true"
         }

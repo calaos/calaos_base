@@ -680,8 +680,27 @@ void JsonApiCharacterizationTest::loadReferenceHouse()
     //Accented, non-ASCII name on purpose: jansson serializes it as \uXXXX
     //escapes (JSON_ENSURE_ASCII), nlohmann writes raw UTF-8, and the semantic
     //oracle has to be blind to the difference.
+    //
+    //It is ALSO the only IO of the house carrying every optional param of
+    //buildJsonIO() (JsonApi.cpp:258-262). ADDED IN E4.0b AFTER A REVIEW
+    //COUNTER-MUTATION: without these attributes, six of the sixteen candidate
+    //keys - hits, chauffage_id, auto_scenario, step, io_style, value_warning -
+    //were absent from every golden of the series because NO IO SET THEM, not
+    //because the code chose not to emit them. Renaming any of the six in
+    //buildJsonIO() left the whole suite green, which is exactly the silent
+    //failure E4.0 exists to prevent. They are real production params
+    //(ListeRoom.cpp:276 reads chauffage_id, IO/OutputAnalog.cpp:39 documents
+    //step, IO/InputSwitch.cpp:48 io_style, IO/InputAnalog.cpp:66
+    //value_warning), so one IO now sets them all and the goldens pin them.
+    //Everything else in the house stays sparse ON PURPOSE: the contrast inside
+    //the same golden is what pins the "absent param -> absent key, never null"
+    //contract (JsonApi.cpp:285-286 `continue`).
     cuisine += internalIoXml("InternalString", HOUSE_ACCENTED,
-                             "\xc3\x89" "clairage caf\xc3\xa9");
+                             "\xc3\x89" "clairage caf\xc3\xa9",
+                             "hits=\"12\" chauffage_id=\"e40_heater\" "
+                             "unit=\"\xc2\xb0""C\" auto_scenario=\"e40_scenario\" "
+                             "step=\"0.5\" io_style=\"temperature\" "
+                             "value_warning=\"false\"");
 
     //buildJsonCameras() / buildJsonAudio() filter ListeRoom's caches by
     //dynamic_cast<IPCam*> / <AudioPlayer*>. Empty arrays would leave that

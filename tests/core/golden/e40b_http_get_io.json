@@ -1,0 +1,84 @@
+{
+  "e40_accented": {
+    "auto_scenario": "e40_scenario",
+    "chauffage_id": "e40_heater",
+    "gui_type": "var_string",
+    "hits": "12",
+    "id": "e40_accented",
+    "io_style": "temperature",
+    "io_type": "inout",
+    "name": "Éclairage café",
+    "rw": "false",
+    "state": "",
+    "step": "0.5",
+    "type": "InternalString",
+    "unit": "°C",
+    "value_warning": "false",
+    "var_type": "string",
+    "visible": "true"
+  },
+  "e40_bool_in": {
+    "gui_type": "var_bool",
+    "id": "e40_bool_in",
+    "io_type": "inout",
+    "name": "Bool input",
+    "rw": "false",
+    "state": "false",
+    "type": "InternalBool",
+    "var_type": "bool",
+    "visible": "true"
+  },
+  "e40_bool_out": {
+    "gui_type": "var_bool",
+    "id": "e40_bool_out",
+    "io_type": "inout",
+    "name": "Bool output",
+    "rw": "false",
+    "state": "false",
+    "type": "InternalBool",
+    "var_type": "bool",
+    "visible": "true"
+  },
+  "e40_cam_plain": {
+    "gui_type": "camera",
+    "id": "e40_cam_plain",
+    "io_type": "inout",
+    "name": "Camera plain",
+    "state": "",
+    "type": "StandardMjpeg",
+    "var_type": "string",
+    "visible": "false"
+  },
+  "e40_cam_ptz": {
+    "gui_type": "camera",
+    "id": "e40_cam_ptz",
+    "io_type": "inout",
+    "name": "Camera PTZ",
+    "state": "",
+    "type": "StandardMjpeg",
+    "var_type": "string",
+    "visible": "false"
+  },
+  "e40_int": {
+    "gui_type": "var_int",
+    "id": "e40_int",
+    "io_type": "inout",
+    "name": "Int value",
+    "rw": "false",
+    "state": "0",
+    "type": "InternalInt",
+    "var_type": "float",
+    "visible": "true"
+  },
+  "e40_string": {
+    "gui_type": "var_string",
+    "id": "e40_string",
+    "io_type": "inout",
+    "name": "String value",
+    "rw": "false",
+    "state": "",
+    "type": "InternalString",
+    "var_type": "string",
+    "visible": "true"
+  }
+}

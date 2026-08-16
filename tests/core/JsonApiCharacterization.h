@@ -437,6 +437,21 @@ protected:
      *     \uXXXX escapes (JSON_ENSURE_ASCII) while nlohmann writes raw UTF-8;
      *     both parse to the same string, which is precisely what the semantic
      *     oracle has to prove,
+     *   - that SAME IO (HOUSE_ACCENTED) is also the only one setting every
+     *     OPTIONAL param of buildJsonIO() - hits, chauffage_id, unit,
+     *     auto_scenario, step, io_style, value_warning - so all sixteen
+     *     candidate keys appear at least once in the goldens. ADDED IN E4.0b
+     *     AFTER A REVIEW COUNTER-MUTATION: renaming four of those keys in
+     *     JsonApi.cpp used to leave the ENTIRE suite green, because they were
+     *     missing from every payload for want of an IO setting them, not
+     *     because the code skipped them. Every OTHER IO of the house stays
+     *     sparse ON PURPOSE - the contrast inside one golden is what pins the
+     *     "absent param -> absent key, never null" contract
+     *     (JsonApi.cpp:285-286). Do not spread these params around: you would
+     *     destroy the contrast and the absence side would stop being covered.
+     *     The seventeenth key, status_info, cannot come from configuration at
+     *     all (IOBase::setStatusInfo() is called by drivers); it is covered by
+     *     a runtime case in JsonApiHome_test.cpp,
      *   - TWO REAL CAMERAS and ONE REAL AUDIO PLAYER, so buildJsonCameras() and
      *     buildJsonAudio() are characterized on non-empty arrays. The two
      *     cameras cover both branches of the ptz capability, and the player

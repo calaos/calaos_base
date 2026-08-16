@@ -1,0 +1,13 @@
+{
+  "data": {
+    "e40_accented": "",
+    "e40_bool_in": "false",
+    "e40_bool_out": "false",
+    "e40_cam_plain": "",
+    "e40_cam_ptz": "",
+    "e40_int": "0",
+    "e40_string": ""
+  },
+  "msg": "get_state",
+  "msg_id": "e40b-3"
+}
