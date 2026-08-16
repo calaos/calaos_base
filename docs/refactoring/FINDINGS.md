@@ -677,3 +677,27 @@ filet**.
   (`JsonApiHandlerHttp.cpp:909-999`) : une caméra **connue** avec un `type` non reconnu ne répond
   **rien du tout** — même forme de silence que `autoscenario` à type inconnu. Épinglée par
   `UnknownTypeAnswersNothingAtAll`.
+- **[PORTÉE DU FILET — ce que les tests de T3.17d ne prouvent PAS]** `FakeSnapshotCamera`
+  (`tests/core/JsonApiCameraSnapshot_test.cpp:114`) **surcharge `downloadSnapshot`**. Les deux cas
+  `CameraDeletedMidTransferStillAnswers` et `ClientAndCameraGoneIsIgnored` épinglent donc le
+  contrat du **handler** face à un callback **déjà détaché** de sa caméra — **pas la plomberie
+  réelle d'`IPCam`**. Le fait « la caméra ne rappelle jamais » (raison 2 de T3.17.md, § *le second
+  UAF n'est PAS universel*) repose donc sur la **lecture du code seule, pas sur une mesure** — et
+  le point ci-dessus montre justement qu'il est faux via la branche `isRunning()`.
+- **[PORTÉE DU FILET] `EmptyDownloadAnswersTheFallbackPicture`
+  (`tests/core/JsonApiCameraSnapshot_test.cpp:227-238`) n'assère ni `Content-Length` ni le corps** :
+  `camfail.jpg` est absent de l'arbre de test, donc la branche de repli ne peut pas être comparée
+  octet à octet. L'invariant T3.17d « aucune donnée mutilée » n'est prouvé **octet à octet que sur
+  la branche nominale** ; sur la branche de repli, le test ne vérifie que la forme.
+- **[NULLPTR, préexistant, atteignable depuis l'API — mérite un ticket, concerne directement
+  T3.17c] `player->get_database()->...` sans contrôle de nullité.** `audioGetStats`
+  (`JsonApi.cpp:951`) **et les 15 `audioDbGet*`** (`JsonApi.cpp:1096…1543`) appellent
+  `player->get_database()->get*(...)` **sans jamais tester le retour**. Or `AudioPlayer::database`
+  vaut **`nullptr` par défaut** (`AudioPlayer.cpp:28`) et **aucun des deux handlers ne filtre sur
+  `canDatabase()`** : 0 occurrence dans `JsonApiHandlerHttp.cpp` comme dans `JsonApiHandlerWS.cpp`
+  ; la seule occurrence de `canDatabase()` de tout `JsonApi.cpp` est `:406`, où elle sert
+  uniquement à **publier la capacité** dans `get_home`, jamais à garder un appel. Résultat :
+  **déréférencement de `nullptr` atteignable depuis l'API** sur un lecteur audio sans base de
+  données. **Préexistant, non introduit par T3.17b** — mais c'est ce que son implémenteur a heurté
+  en écrivant son fake, et **T3.17c va marcher dessus** puisque sa plage est exactement celle des
+  `audioDbGet*`. À traiter comme un ticket propre, **pas** en douce dans une garde de durée de vie.

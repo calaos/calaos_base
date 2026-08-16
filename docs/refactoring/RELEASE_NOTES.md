@@ -76,6 +76,20 @@ inconnu. Aucune forme d'erreur nouvelle n'est introduite, et une playlist **jama
 soit la liste complète, soit cette réponse d'échec. Une déconnexion en vol n'entraîne, elle,
 aucune réponse — le client n'est plus là pour la recevoir.
 
+### Caméras — plus de plantage en demandant un instantané au moment de se déconnecter (T3.17d)
+Demander l'image d'une caméra (`get_picture`, c'est-à-dire la vignette de caméra dans
+l'application) déclenche un aller-retour vers la caméra. Si le client **se déconnectait pendant cet
+aller-retour** — application fermée, Wi-Fi perdu, page quittée — l'image revenait sur une connexion
+déjà détruite et **faisait planter le serveur**. Le défaut était **atteignable depuis l'API JSON**
+sans manipulation particulière : une caméra un peu lente à répondre et une déconnexion suffisaient.
+
+**Ce qui ne change pas, et c'est le point important** : un client **encore connecté** reçoit
+toujours son image **complète**. C'est vrai même dans les cas limites — une caméra lente, et même
+un équipement caméra **supprimé pendant le transfert** : l'image déjà en vol est délivrée
+intégralement, jamais tronquée. Seul le client **déjà parti** ne reçoit plus rien, ce qui est le
+comportement attendu puisqu'il n'est plus là pour recevoir. Aucune forme de réponse nouvelle n'est
+introduite.
+
 ### Fichiers de configuration — deux pertes de fidélité corrigées (E4.4cd)
 Le lecteur/écrivain de configuration passe de TinyXML à pugixml. Deux défauts de fidélité des
 données, présents de longue date, disparaissent :

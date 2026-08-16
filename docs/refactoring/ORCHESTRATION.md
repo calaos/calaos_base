@@ -586,6 +586,69 @@
   **94** fichiers de `docs/refactoring/` intacts. **Pas d'entrée RELEASE_NOTES.md** — E4.0b ne
   change aucun comportement utilisateur. **E4.0 reste 📋** — c/d/e/f ne sont pas faits. ff-only,
   worktree e4.0b nettoyé, **rien n'a été poussé**.
+- **T3.17d ✅ mergé** (2026-08-16, `d4aa5970` + `200ac007`) — **l'instantané caméra `get_picture`
+  gardé contre la mort du client**, seul site de la série T3.17 qui vit dans un **handler**
+  (`JsonApiHandlerHttp::processCamera()`) au lieu de `JsonApi.cpp`, donc le seul non couvert
+  transitivement par le token `apiAlive` de la classe de base. Périmètre tenu au cordeau :
+  `src/bin/calaos_server/JsonApiHandlerHttp.cpp` **+27/−1**, nouveau
+  `tests/core/JsonApiCameraSnapshot_test.cpp` (450 l., 9 cas), append sur `tests/Makefile.am` —
+  **zéro ligne de `JsonApi.cpp`** (il appartient à T3.17b/c) et **aucun `.reset()`** ajouté.
+  Revue indépendante (le relecteur a tout reconstruit dans ses propres copies) : **MERGE AVEC
+  RÉSERVES, réserves documentaires uniquement, aucune sur le code**. Trace ASan reproduite
+  (`heap-use-after-free`, READ de 8 octets, **48 octets dans une région de 272** libérée par
+  `~JsonApiHandlerHttp()` `:53`) et **confirmée au gdb** (`sizeof(JsonApiHandlerHttp) = 272`,
+  membre `httpClient` à l'offset 48). Discipline **red-before-green** vérifiée octet à octet : le
+  fichier de test de HEAD commence par les **12242 octets** du commit 1 à l'identique, hunk unique
+  en append — invariant **reconfirmé après rebase**.
+  **Conflit `tests/Makefile.am` en fin de fichier, résolu par régénération** : git avait fusionné
+  les corps `LDADD` identiques et ne laissait en conflit que les lignes d'en-tête, produisant
+  **trois** hunks entrelacés. Recousus ligne à ligne ils auraient donné un `LDADD` chimérique ;
+  résolution appliquée = **fichier complet de master + append verbatim des 51 lignes de la
+  branche** (bloc `# T3.17d`), aucun bloc existant touché, aucun réordonnancement →
+  **46/46** `if HAVE_GTEST`/`endif` équilibrés (45/45 avant).
+  Rebase de `d7b4b70f` vers `60207b4d` suivi du `make distclean` réglementaire (variante FAUX
+  ROUGE du piège `_DEPENDENCIES`). Build d'intégration distclean : **58/58 PASS** — 57 de master
+  (54 binaires + les 3 entrées de scripts `check-config-options.sh`, `check-config-docs.sh`,
+  `run-python-tests.sh`) **+ le seul nouveau binaire** `core/JsonApiCameraSnapshot_test` ; compte
+  **déduit avant le build** puis confirmé. Le build dépasse 600 s : attendu par `docker wait` sur
+  le conteneur retrouvé par son **mount exact**, **sans relance**, sans toucher aux 3 conteneurs
+  voisins (t3.17b, t3.17e, e4.0c). Aucune fausse suppression de docs : les **94** fichiers de
+  `docs/refactoring/` intacts.
+  **Trois corrections documentaires portées dans le même merge, dont deux évitaient d'induire les
+  sous-tickets en vol en erreur** : (1) les lignes citées par la section *Acquis T3.17d* de
+  `T3.17.md` — donnée en **modèle de référence à T3.17e** — étaient celles d'**avant** le patch et
+  décalaient de **+27** ; recalées sur le fichier réellement mergé (fonction `:1043-1081`,
+  re-résolution par id `:1045-1047`, gardes `:1057` et `:1075`) **plus une note invitant à se
+  repérer aux noms de symboles** ; (2) la raison 2 du « second UAF n'est PAS universel » affirmait
+  qu'« une caméra détruite en cours de transfert ne rappelle **jamais** » — vrai sur le chemin
+  nominal, **faux via la branche `isRunning()`** (`IPCam.cpp:124-128`, `Timer::singleShot(0, ...)`
+  non annulable et sans jeton que `~IPCam()` n'annule pas), ce qui contredisait `FINDINGS.md` du
+  même auteur ; **conclusion inchangée**, la raison 1 (la lambda ne nomme jamais `camera`) suffit
+  seule et a été reproduite sous ASan ; (3) le « corollaire mesuré pour T3.17c » disait **15**
+  méthodes appelant `processDbResult()` — c'est **14**, `audioDbGetTrackInfos` (`JsonApi.cpp:1529`)
+  ne l'appelle pas — et surtout concluait que T3.17c était « le candidat le plus probable pour que
+  le second UAF soit de nouveau réel », **ce que le code ne soutient pas** : aucun des 15 corps ne
+  nomme `player`, le `this` capturé est l'UAF n°1 que `apiAlive` corrige. Laissée telle quelle,
+  cette phrase envoyait T3.17c « corriger » 15 méthodes sans raison, transformant des réponses
+  complètes et correctes en erreurs. Bilan par site mis en cohérence.
+  **⚠️ Les lignes `JsonApi.cpp` inscrites dans T3.17.md sont celles de master au merge de T3.17d**
+  (les 14 lambdas à `1096, 1129, 1162, 1195, 1228, 1261, 1293, 1325, 1357, 1389, 1422, 1455, 1487,
+  1523`), **pas** celles du rapport de revue de T3.17b, qui étaient mesurées sur sa branche et
+  décalées de ~+30 par ses propres insertions. Le décompte (14) et les noms de symboles, eux, sont
+  stables ; le merge de T3.17b redécalera ce bloc.
+  FINDINGS.md : 3 suites ajoutées à la section existante `## T3.17d — suites` (portée réelle du
+  filet — `FakeSnapshotCamera` surcharge `downloadSnapshot`, donc les deux cas de mort de caméra
+  épinglent le **handler** et pas la plomberie `IPCam` ; `EmptyDownloadAnswersTheFallbackPicture`
+  n'assère ni `Content-Length` ni le corps, `camfail.jpg` étant absent de l'arbre de test) plus un
+  finding **préexistant** sorti par la revue de T3.17b et qui attend T3.17c sur son chemin :
+  `player->get_database()->...` sans contrôle de nullité en `JsonApi.cpp:951` **et dans les 15
+  `audioDbGet*`**, alors que `AudioPlayer::database` vaut `nullptr` par défaut
+  (`AudioPlayer.cpp:28`) et qu'**aucun** des deux handlers ne filtre sur `canDatabase()`
+  (0 occurrence ; l'unique usage, `JsonApi.cpp:406`, ne fait que publier la capacité).
+  Entrée RELEASE_NOTES.md ajoutée (plantage atteignable depuis l'API ; un client **encore
+  connecté** reçoit toujours son image complète, y compris si l'IO caméra est supprimé en cours de
+  transfert). **T3.17 reste 📋** — b/c/e ne sont pas mergés. ff-only, worktree t3.17d nettoyé,
+  **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
