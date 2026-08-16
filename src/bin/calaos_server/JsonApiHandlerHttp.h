@@ -103,8 +103,6 @@ private:
     void processAudio(json_t *jroot);
     void processAudioDb(json_t *jroot);
 
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
-
     void exeFinished(int exit_code);
 
     void downloadCameraPicture(const string &cameraId);

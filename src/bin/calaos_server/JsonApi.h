@@ -166,12 +166,6 @@ public:
 
     bool decodeSetState(Params &jParam);
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
-    /* Takes the player by ID, not by pointer: one network round trip happens
-     * between two consecutive items, and the IO can be deleted through the API
-     * in between. The player is looked up again at every step, exactly like
-     * buildJsonState() does (T2.15).
-     */
-    void getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
 
     AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
@@ -202,15 +196,26 @@ public:
 
 protected:
 
+    /* Internal stage of decodeGetPlaylist()'s recursion, never called from
+     * outside JsonApi.cpp. Takes the player by ID, not by pointer: one network
+     * round trip happens between two consecutive items, and the IO can be
+     * deleted through the API in between, so the player is looked up again at
+     * every step - exactly like buildJsonState() does (T2.15).
+     */
+    void getNextPlaylistItem(const string &playerId, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
+
     HttpClient *httpClient = nullptr;
 
     map<string, int> playerCounts;
 
-    /* Destruction guard for the async audio-player callbacks of
-     * buildJsonState(): they capture a weak_ptr on it and no-op once the
-     * JsonApi is gone (client disconnected while a squeezebox answer was in
-     * flight). Same pattern as JsonApiHandlerHttp::handlerAlive, but here it
-     * covers every transport going through buildJsonState().
+    /* Destruction guard for the async audio-player callbacks that outlive
+     * their request: they capture a weak_ptr on it and no-op once the JsonApi
+     * is gone (client disconnected while a player answer was in flight). It
+     * covers every transport, since both handlers derive from JsonApi and die
+     * with it. Same pattern as JsonApiHandlerHttp::handlerAlive.
+     * Guarded so far: buildJsonState() (T2.15) and the recursive playlist
+     * chain decodeGetPlaylist()/getNextPlaylistItem() (T3.17a). The remaining
+     * audio and audio_db chains are still bare - T3.17b/c.
      */
     std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
 
