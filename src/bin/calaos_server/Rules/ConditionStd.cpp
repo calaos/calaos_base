@@ -451,27 +451,42 @@ bool ConditionStd::LoadFromXml(pugi::xml_node node)
             }
 
             if (in)
-            {
                 Add(in);
-                params.Add(id, val);
-                ops.Add(id, oper);
-                if (val_var != "")
-                    params_var.Add(id, val_var);
-
-            }
             else
             {
-                /* LOAD-TIME contract, deliberately unchanged by E4.2c: an id
-                 * that is unknown *at load* is a config that never described
-                 * anything resolvable, and the condition is rejected here (the
-                 * rule survives without it - see CoreSmoke_test). The by-id
-                 * model addresses the other case: an id that resolved at load
-                 * and stopped resolving later, which used to leave a dangling
-                 * IOBase* and now evaluates to false, loudly. */
+                /* LOAD-TIME contract, E4.2e: an id that is unknown *at load* no
+                 * longer throws the condition away. It is kept exactly as the
+                 * file describes it - id, operator, value, val_var - and the id
+                 * is recorded as missing.
+                 *
+                 * Two things follow, and both are the point of this ticket:
+                 *   - the rule owning this condition is DISABLED (see
+                 *     Rule::AddCondition()): an amputated rule loses a term of
+                 *     its conjunction and becomes MORE permissive than what the
+                 *     user wrote,
+                 *   - the save stays NON DESTRUCTIVE: SaveToXml() writes this
+                 *     input back untouched, so the user does not lose their
+                 *     rule the first time the config is written. Dropping the
+                 *     condition here was exactly what made the id disappear at
+                 *     the next save.
+                 *
+                 * A malformed node is NOT this case: it still makes the loader
+                 * return false and the condition is dropped as before.
+                 */
                 cErrorDom("rule.condition.standard")
-                        << "Input '" << id << "' is unknown, condition rejected";
-                return false;
+                        << "Input '" << id << "' does not exist: the reference is "
+                        << "kept as it is, and the rule using this condition will "
+                        << "be disabled";
+                addMissingIo(id);
+                Add(id);
             }
+
+            //Unconditional: the parameters belong to the reference, resolvable
+            //or not, and losing them would lose the user's condition.
+            params.Add(id, val);
+            ops.Add(id, oper);
+            if (val_var != "")
+                params_var.Add(id, val_var);
         }
     }
 

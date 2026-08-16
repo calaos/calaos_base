@@ -60,6 +60,34 @@ protected:
 
     Params params;
 
+    /* -------------------------------------------------------------------
+     * Disabled rule (E4.2e) - user decision
+     *
+     * Ids that one of the conditions/actions of this rule references and that
+     * did NOT resolve when the config was read (collected from
+     * Condition::getMissingIoIds()/Action::getMissingIoIds() by AddCondition()
+     * and AddAction()). A non-empty list means the rule is DISABLED.
+     *
+     * WHY the whole rule and not just the term: rejecting the term amputates a
+     * conjunction, and an amputated conjunction is WEAKER. `absent == true AND
+     * hour > 22h -> switch everything off` with the presence IO gone becomes
+     * `hour > 22h -> switch everything off`, i.e. it fires every single night.
+     * Better an inert rule than one acting on incomplete criteria.
+     *
+     * A disabled rule stays LOADED AND VISIBLE - it is still in ListeRule, it
+     * is still serialized by SaveToXml() with all its conditions and actions -
+     * it is only excluded from execution: no trigger (ListeRule skips it), no
+     * evaluation (CheckConditions() answers false), no action (ExecuteActions()
+     * does nothing). Deleting it instead would destroy the user's config as
+     * soon as a driver is unplugged.
+     *
+     * NOT persisted: `disabled` is derived from the config at every load, so
+     * writing it back into rules.xml would turn a diagnosis into a stored
+     * state that survives the IO coming back. Restore the IO, reload, and the
+     * rule runs again.
+     * ---------------------------------------------------------------- */
+    vector<string> missingIoIds;
+
     bool auto_sc_mark; //true if rule is used by an auto_scenario
 
     /* Lifetime token for the asynchronous evaluation of the script conditions.
@@ -71,6 +99,9 @@ protected:
      * the callback when it has expired.
      */
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
+
+    //Merge the unresolved ids of a condition/action into missingIoIds
+    void collectMissingIo(const vector<string> &ids);
 
 public:
     Rule(string _type, string _name);
@@ -108,6 +139,18 @@ public:
 
     bool isAutoScenario() { return auto_sc_mark; }
     void setAutoScenario(bool m) { auto_sc_mark = m; }
+
+    /* E4.2e. True when at least one condition or action of this rule
+     * references an IO that did not exist when the config was read. Such a
+     * rule is never triggered, never evaluated and never executed - see the
+     * comment on missingIoIds above. */
+    bool isDisabled() const { return !missingIoIds.empty(); }
+
+    //The unresolved ids, in the order they were met. Empty for a healthy rule.
+    const vector<string> &getMissingIoIds() const { return missingIoIds; }
+
+    //"io_a, io_b" - for the logs and the config alert
+    string getMissingIoDescription() const;
 
     virtual bool LoadFromXml(pugi::xml_node node);
     virtual bool SaveToXml(pugi::xml_node node);

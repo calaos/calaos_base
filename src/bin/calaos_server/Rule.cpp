@@ -18,6 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include <algorithm>
+
 #include "Rule.h"
 #include "Rules/RulesFactory.h"
 
@@ -51,6 +53,12 @@ void Rule::AddCondition(Condition *cond)
     //Ownership transfer in
     conds.emplace_back(cond);
 
+    //E4.2e: an unresolvable reference disables the whole rule. Done here and
+    //not only in LoadFromXml() so that every construction path (the XML
+    //factory, the JSON API, AutoScenario) goes through the same gate.
+    if (cond)
+        collectMissingIo(cond->getMissingIoIds());
+
     cDebugDom("rule");
 }
 
@@ -59,11 +67,50 @@ void Rule::AddAction(Action *act)
     //Ownership transfer in
     actions.emplace_back(act);
 
+    //Same as AddCondition(): an action pointing at an IO that is not there
+    //disables the rule
+    if (act)
+        collectMissingIo(act->getMissingIoIds());
+
     cDebugDom("rule");
+}
+
+void Rule::collectMissingIo(const vector<string> &ids)
+{
+    for (const string &id: ids)
+    {
+        if (id.empty()) continue;
+        if (std::find(missingIoIds.begin(), missingIoIds.end(), id) != missingIoIds.end())
+            continue;
+        missingIoIds.push_back(id);
+    }
+}
+
+string Rule::getMissingIoDescription() const
+{
+    string desc;
+
+    for (const string &id: missingIoIds)
+    {
+        if (!desc.empty()) desc += ", ";
+        desc += id;
+    }
+
+    return desc;
 }
 
 bool Rule::Execute()
 {
+    //E4.2e: a rule missing one of its IOs does nothing at all. CheckConditions()
+    //already refuses, this is only here to say why in the log.
+    if (isDisabled())
+    {
+        cWarningDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                            << "): DISABLED (missing IO: " << getMissingIoDescription()
+                            << "), not executed";
+        return false;
+    }
+
     cDebugDom("rule") << "Rule(" << get_param("type") << "," << get_param("name") << "): Trying execution...";
 
     if (CheckConditions())
@@ -74,6 +121,19 @@ bool Rule::Execute()
 
 bool Rule::CheckConditions()
 {
+    /* E4.2e: fail closed. This is the entry point every dispatch goes through
+     * (ListeRule::collectTriggeredRules() calls it directly), and answering
+     * "true" for a rule whose criteria are incomplete is precisely the danger
+     * this ticket exists for. Note that a rule whose conditions were ALL
+     * rejected used to answer true here, for zero condition. */
+    if (isDisabled())
+    {
+        cWarningDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                            << "): DISABLED (missing IO: " << getMissingIoDescription()
+                            << "), conditions are not evaluated";
+        return false;
+    }
+
     bool ret = true;
 
     for (const std::unique_ptr<Condition> &condition: conds)
@@ -89,6 +149,16 @@ bool Rule::CheckConditions()
 
 void Rule::CheckConditionsAsync(std::function<void (bool check)> cb, string triggerId)
 {
+    //E4.2e: same gate as CheckConditions(), before any script is spawned
+    if (isDisabled())
+    {
+        cWarningDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                            << "): DISABLED (missing IO: " << getMissingIoDescription()
+                            << "), script conditions are not evaluated";
+        cb(false);
+        return;
+    }
+
     //this works only for scripts because they need
     //to be executed in separate process
 
@@ -144,6 +214,18 @@ void Rule::CheckConditionsAsync(std::function<void (bool check)> cb, string trig
 
 bool Rule::ExecuteActions()
 {
+    /* E4.2e: the last gate, and the one that really matters. ListeRule runs the
+     * actions of an already-collected rule through here without re-checking
+     * anything (executeTrigger(), executeActionsLocked()), so this is what
+     * guarantees a disabled rule cannot act. */
+    if (isDisabled())
+    {
+        cWarningDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
+                            << "): DISABLED (missing IO: " << getMissingIoDescription()
+                            << "), actions are not executed";
+        return false;
+    }
+
     bool ret = true;
 
     cInfoDom("rule") << "Rule(" << get_param("type") << "," << get_param("name")
@@ -230,6 +312,25 @@ bool Rule::LoadFromXml(pugi::xml_node node)
             if (action)
                 AddAction(action);
         }
+    }
+
+    /* E4.2e. The two rejection causes are distinguished here, by construction:
+     *   - RulesFactory returned NULL          -> malformed node or unknown
+     *                                            type, dropped as it always
+     *                                            was, the rule stays enabled,
+     *   - it returned an object flagged with
+     *     hasMissingIo()                      -> the object is kept (so the
+     *                                            save loses nothing) and the
+     *                                            rule is disabled here.
+     */
+    if (isDisabled())
+    {
+        cErrorDom("rule") << "Rule '" << get_name() << "' is DISABLED: it references "
+                          << missingIoIds.size() << " IO(s) that do not exist ("
+                          << getMissingIoDescription() << "). The rule is kept in the "
+                          << "configuration and saved untouched, but it will never be "
+                          << "triggered, evaluated nor executed: running it would act "
+                          << "on incomplete criteria.";
     }
 
     return true;

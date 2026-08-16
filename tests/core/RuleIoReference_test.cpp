@@ -41,8 +41,10 @@
  *       - saving resolves nothing: the id is written back as it stands, so a
  *         rule referencing a vanished IO survives a save/reload instead of
  *         dereferencing freed memory.
- *       - LOAD time is deliberately unchanged: an id unknown when the config
- *         is read still rejects the condition/action (CoreSmoke_test pins it).
+ *       - LOAD time (rewritten by E4.2e): an id unknown when the config is
+ *         read no longer throws the condition/action away. It is kept as the
+ *         file describes it, flagged with hasMissingIo(), and the RULE owning
+ *         it is disabled - see core/RuleDisabledMissingIo_test.
  *
  *  3. THE in_event UNREGISTRATION: an IO is taken out of the event polling
  *     list because it registered in it, not because its gui_type is in a
@@ -378,10 +380,18 @@ TEST_F(RuleIoReferenceTest, SavingARuleWhoseIoVanishedKeepsTheId)
         << "the script trigger lost its reference on save:\n" << rules;
 }
 
-//The other half of the contract, unchanged by this ticket and pinned here next
-//to it: an id that is unknown WHEN THE CONFIG IS READ still rejects the
-//condition (CoreSmoke_test asserts the same from the other end).
-TEST_F(RuleIoReferenceTest, AnIdUnknownAtLoadTimeStillRejectsTheCondition)
+/* The other half of the contract, REWRITTEN BY E4.2e and pinned here next to
+ * it. It used to assert `EXPECT_FALSE(LoadFromXml())` for both, i.e. the node
+ * was refused and the condition/action thrown away. That is exactly what made
+ * a rule come back amputated - and made the reference disappear from the file
+ * at the next save.
+ *
+ * Now the node is ACCEPTED (LoadFromXml answers true), the reference and its
+ * parameters are kept as they stand, and the object says why through
+ * hasMissingIo(). Rule::AddCondition()/AddAction() turn that into a disabled
+ * rule; core/RuleDisabledMissingIo_test covers that end.
+ */
+TEST_F(RuleIoReferenceTest, AnIdUnknownAtLoadTimeIsKeptAndFlagged)
 {
     ConditionStd cond;
     ActionStd act;
@@ -393,7 +403,16 @@ TEST_F(RuleIoReferenceTest, AnIdUnknownAtLoadTimeStillRejectsTheCondition)
     cin.append_attribute("oper").set_value("==");
     cin.append_attribute("val").set_value("true");
 
-    EXPECT_FALSE(cond.LoadFromXml(cnode));
+    EXPECT_TRUE(cond.LoadFromXml(cnode));
+    EXPECT_TRUE(cond.hasMissingIo());
+    ASSERT_EQ(cond.getMissingIoIds().size(), 1u);
+    EXPECT_EQ(cond.getMissingIoIds()[0], "e42c_never_existed");
+    //Kept whole: the id, the operator and the value are still there, so
+    //SaveToXml() can write the user's condition back untouched
+    ASSERT_EQ(cond.get_size(), 1);
+    EXPECT_EQ(cond.get_input_id(0), "e42c_never_existed");
+    EXPECT_EQ(cond.get_params()["e42c_never_existed"], "true");
+    EXPECT_EQ(cond.get_operator()["e42c_never_existed"], "==");
 
     pugi::xml_document adoc;
     pugi::xml_node anode = adoc.append_child("calaos:action");
@@ -401,7 +420,13 @@ TEST_F(RuleIoReferenceTest, AnIdUnknownAtLoadTimeStillRejectsTheCondition)
     aout.append_attribute("id").set_value("e42c_never_existed");
     aout.append_attribute("val").set_value("true");
 
-    EXPECT_FALSE(act.LoadFromXml(anode));
+    EXPECT_TRUE(act.LoadFromXml(anode));
+    EXPECT_TRUE(act.hasMissingIo());
+    ASSERT_EQ(act.getMissingIoIds().size(), 1u);
+    EXPECT_EQ(act.getMissingIoIds()[0], "e42c_never_existed");
+    ASSERT_EQ(act.get_size(), 1);
+    EXPECT_EQ(act.get_output_id(0), "e42c_never_existed");
+    EXPECT_EQ(act.get_params()["e42c_never_existed"], "true");
 }
 
 //ConditionScript compares its triggers by id as well, so RemoveRule() and the

@@ -126,8 +126,23 @@ TEST_F(CoreSmokeTest, LoadsMinimalRules)
     EXPECT_EQ(action->get_output(0), io(ID_BOOL_OUT));
 }
 
-//A rule whose condition references an unknown IO is dropped at load time.
-TEST_F(CoreSmokeTest, RuleWithUnknownIoIsDropped)
+/* A rule whose condition references an unknown IO is DISABLED at load time
+ * (E4.2e, user decision). This test used to be RuleWithUnknownIoIsDropped and
+ * pinned the opposite: the condition was dropped and the rule was loaded
+ * amputated. That was the danger - an amputated conjunction is a MORE
+ * permissive rule, so `presence == false AND hour > 22h` became `hour > 22h`
+ * and fired every single night.
+ *
+ * What changed here:
+ *   - `get_size_conds() == 0` became `== 1`: the condition is KEPT with its
+ *     parameters, which is also what makes the save non destructive,
+ *   - `isDisabled()`/`CheckConditions()` were added: the rule is loaded and
+ *     visible, but inert.
+ * What did NOT change: the rule is still in ListeRule and still found by name.
+ * It was never dropped from the user's configuration, and it still is not.
+ * The full contract is pinned in core/RuleDisabledMissingIo_test.
+ */
+TEST_F(CoreSmokeTest, RuleWithUnknownIoIsDisabled)
 {
     loadConfig(minimalIoXml(),
                rulesXmlDocument(simpleRuleXml("Broken", "io_does_not_exist", "==",
@@ -136,8 +151,16 @@ TEST_F(CoreSmokeTest, RuleWithUnknownIoIsDropped)
     EXPECT_EQ(ListeRule::Instance().size(), 1);
     Rule *rule = findRule("Broken");
     ASSERT_NE(rule, nullptr);
-    //The rule object survives, but the unresolvable condition was not added
-    EXPECT_EQ(rule->get_size_conds(), 0);
+
+    //The condition is kept as the file describes it, nothing is amputated
+    EXPECT_EQ(rule->get_size_conds(), 1);
+    EXPECT_EQ(rule->get_size_actions(), 1);
+
+    //...and the rule never runs
+    EXPECT_TRUE(rule->isDisabled());
+    EXPECT_FALSE(rule->CheckConditions());
+    ASSERT_EQ(rule->getMissingIoIds().size(), 1u);
+    EXPECT_EQ(rule->getMissingIoIds()[0], "io_does_not_exist");
 }
 
 //End to end: changing the input fires the rule, which sets the output. This is

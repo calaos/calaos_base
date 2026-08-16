@@ -305,22 +305,32 @@ bool ActionStd::LoadFromXml(pugi::xml_node node)
             }
 
             if (out && out->isOutput())
-            {
                 Add(out);
-                params.Add(id, val);
-                if (val_var != "")
-                    params_var.Add(id, val_var);
-            }
             else
             {
-                //Load-time contract, unchanged: an id unknown at load (or one
-                //that is not an output) rejects the action. See the comment in
-                //ConditionStd::LoadFromXml().
+                /* Load-time contract, E4.2e: an id that does not resolve (or
+                 * that resolves to something which is not an output, i.e. an
+                 * unusable reference just the same) is KEPT as the file
+                 * describes it and recorded as missing, which disables the rule
+                 * owning this action. See the long comment in
+                 * ConditionStd::LoadFromXml(): dropping the action here is what
+                 * made the user lose it at the next save.
+                 * Note Add(id) is used on purpose, not Add(IOBase*): the latter
+                 * refuses a non-output, and the reference must survive.
+                 */
                 cErrorDom("rule.action.standard")
-                        << "Output '" << id << "' is unknown or is not an "
-                        << "output, action rejected";
-                return false;
+                        << "Output '" << id << "' does not exist or is not an "
+                        << "output: the reference is kept as it is, and the rule "
+                        << "using this action will be disabled";
+                addMissingIo(id);
+                Add(id);
             }
+
+            //Unconditional: the parameters belong to the reference, resolvable
+            //or not, and losing them would lose the user's action.
+            params.Add(id, val);
+            if (val_var != "")
+                params_var.Add(id, val_var);
         }
     }
 

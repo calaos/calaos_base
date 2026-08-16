@@ -21,6 +21,10 @@
 #ifndef S_ACTION_H
 #define S_ACTION_H
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include "Calaos.h"
 
 using namespace std;
@@ -46,6 +50,22 @@ class Action
 protected:
     int action_type;
 
+    /* Load-time diagnosis (E4.2e). Same contract as Condition::missingIoIds,
+     * see the long comment in Condition.h: an id that does not resolve at load
+     * is RECORDED here and KEPT (with its value) so that the save stays non
+     * destructive, while a malformed node still makes LoadFromXml() return
+     * false and the action is dropped as before. Rule::AddAction() reads this
+     * and disables the whole rule. */
+    vector<string> missingIoIds;
+
+    void addMissingIo(const string &id)
+    {
+        if (id.empty()) return;
+        if (std::find(missingIoIds.begin(), missingIoIds.end(), id) != missingIoIds.end())
+            return;
+        missingIoIds.push_back(id);
+    }
+
 public:
     Action(int type);
     virtual ~Action();
@@ -53,6 +73,10 @@ public:
     virtual bool Execute();
 
     int getType() { return action_type; }
+
+    //True when at least one id of this action did not resolve at load time
+    bool hasMissingIo() const { return !missingIoIds.empty(); }
+    const vector<string> &getMissingIoIds() const { return missingIoIds; }
 
     virtual bool LoadFromXml(pugi::xml_node node) { return true; }
     virtual bool SaveToXml(pugi::xml_node node) { return true; }

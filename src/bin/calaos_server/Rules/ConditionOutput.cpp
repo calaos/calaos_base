@@ -236,21 +236,27 @@ bool ConditionOutput::LoadFromXml(pugi::xml_node node)
 
             IOBase *out = ListeRoom::Instance().findIO(id);
             if (out)
-            {
                 setOutput(out);
-                params = val;
-                ops = oper;
-                if (val_var != "")
-                    params_var = val_var;
-            }
             else
             {
-                //Load-time contract, unchanged: an id unknown at load rejects
-                //the condition. See the comment in ConditionStd::LoadFromXml().
+                //Load-time contract, E4.2e: the reference is kept as it stands
+                //(so the save cannot lose it) and recorded as missing, which
+                //disables the rule using this condition. See the long comment
+                //in ConditionStd::LoadFromXml().
                 cErrorDom("rule.condition.output")
-                        << "Output '" << id << "' is unknown, condition rejected";
-                return false;
+                        << "Output '" << id << "' does not exist: the reference is "
+                        << "kept as it is, and the rule using this condition will "
+                        << "be disabled";
+                addMissingIo(id);
+                setOutputId(id);
             }
+
+            //Unconditional: the parameters belong to the reference, resolvable
+            //or not, and losing them would lose the user's condition.
+            params = val;
+            ops = oper;
+            if (val_var != "")
+                params_var = val_var;
         }
     }
 

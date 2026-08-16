@@ -228,6 +228,14 @@ void ListeRule::collectTriggeredRules(const string &id, vector<Rule *> &syncRule
     for (const std::unique_ptr<Rule> &owned: rules)
     {
         Rule *rule = owned.get();
+
+        /* E4.2e: a rule referencing an IO that did not exist at load is never
+         * triggered. Rule::CheckConditions()/ExecuteActions() refuse too, this
+         * is the "no trigger" half of the contract: the rule is not even looked
+         * at, so it cannot be collected and cannot spawn a script condition. */
+        if (rule->isDisabled())
+            continue;
+
         bool syncTriggered = false;
         bool asyncTriggered = false;
 
@@ -432,6 +440,12 @@ void ListeRule::ExecuteStartRules()
     for (uint i = 0;i < rules.size();i++)
     {
         Rule *rule = get_rule(i);
+
+        //E4.2e: a disabled rule does not run at startup either (Execute()
+        //refuses as well, this skips the walk and the log)
+        if (rule->isDisabled())
+            continue;
+
         bool found = false;
 
         for (int j = 0;j < rule->get_size_conds();j++)
@@ -444,6 +458,19 @@ void ListeRule::ExecuteStartRules()
         if (found)
             rule->Execute();
     }
+}
+
+vector<Rule *> ListeRule::getDisabledRules() const
+{
+    vector<Rule *> disabled;
+
+    for (const std::unique_ptr<Rule> &owned: rules)
+    {
+        if (owned && owned->isDisabled())
+            disabled.push_back(owned.get());
+    }
+
+    return disabled;
 }
 
 list<Rule *> ListeRule::getRuleAutoScenario(string auto_scenario)

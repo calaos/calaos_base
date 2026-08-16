@@ -22,6 +22,36 @@
 
 using namespace Calaos;
 
+/******************************************************************************
+ * The two rejection causes (E4.2e)
+ * ===============================
+ * A `<calaos:condition>`/`<calaos:action>` node can be refused for two very
+ * different reasons, and the caller used to get the same undifferentiated NULL
+ * for both:
+ *
+ *  1. THE NODE IS NOT USABLE - unknown `type` attribute, missing mandatory
+ *     child (`<calaos:script>`, `<calaos:mail>`...). This is a corrupt/foreign
+ *     config, it is dropped exactly as it always was: LoadFromXml() answers
+ *     false, this factory destroys the half-built object and returns NULL, and
+ *     Rule::LoadFromXml() simply does not add it. The rule stays ENABLED.
+ *
+ *  2. THE NODE IS FINE BUT AN IO IT NAMES DOES NOT EXIST. This is NOT a broken
+ *     config, it is a config describing an IO that was deleted, renamed, or
+ *     whose driver was removed. Since E4.2e the loaders keep the object with
+ *     its reference and its parameters intact and only flag it
+ *     (Condition/Action::hasMissingIo()), so:
+ *       - the factory returns a NON-NULL object here,
+ *       - Rule::AddCondition()/AddAction() see the flag and DISABLE the whole
+ *         rule (an amputated rule is a more permissive rule),
+ *       - SaveToXml() writes the reference back untouched, so rewriting the
+ *         config does not destroy what the user wrote.
+ *
+ * So the distinction is carried by the returned pointer itself: NULL means
+ * cause 1, non-NULL + hasMissingIo() means cause 2. No signature had to change
+ * and no caller of CreateCondition()/CreateAction() had to learn a new
+ * protocol to keep its old behaviour.
+ ******************************************************************************/
+
 Condition *RulesFactory::CreateCondition(pugi::xml_node node)
 {
     Condition *condition = NULL;
@@ -57,9 +87,9 @@ Condition *RulesFactory::CreateCondition(pugi::xml_node node)
 
     if (condition && !condition->LoadFromXml(node))
     {
-        //LoadFromXml() refused the node (E4.2c: an id unknown at load time).
-        //The half-built object was leaked here, and the caller only ever sees
-        //the null.
+        //Cause 1 only (see the header comment): the node itself is unusable.
+        //A missing IO does NOT come here any more, it comes back as a non-null
+        //condition flagged with hasMissingIo().
         delete condition;
         return NULL;
     }
@@ -109,7 +139,7 @@ Action *RulesFactory::CreateAction(pugi::xml_node node)
 
     if (action && !action->LoadFromXml(node))
     {
-        //Same leak as in CreateCondition()
+        //Same as CreateCondition(): cause 1 only
         delete action;
         return NULL;
     }

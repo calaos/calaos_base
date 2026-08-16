@@ -1032,3 +1032,27 @@ core_RuleOwnership_test_LDADD = $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_RuleOwnership_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.2e
+#A rule whose dependency is missing is DISABLED (user decision). Pins the
+#danger this ticket exists for - an amputated conjunction is a MORE permissive
+#rule - and the four halves of the new contract: the "IO not found" cause is
+#told apart from a malformed node (only the first disables), the rule stays
+#loaded, visible and COMPLETE while being excluded from every execution path
+#(trigger collection, CheckConditions, CheckConditionsAsync, ExecuteActions),
+#the save keeps the unresolvable reference and its parameters across a
+#save/reload/save cycle, and the diagnosis is reachable without the log
+#(ListeRule::getDisabledRules() + the configuration alert). Links the plain
+#core objects only. Own HAVE_GTEST block so this stays a pure append at the end
+#of the file.
+if HAVE_GTEST
+TESTS += core/RuleDisabledMissingIo_test
+check_PROGRAMS += core/RuleDisabledMissingIo_test
+core_RuleDisabledMissingIo_test_SOURCES = core/RuleDisabledMissingIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_RuleDisabledMissingIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif

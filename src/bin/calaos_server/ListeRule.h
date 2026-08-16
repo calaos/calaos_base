@@ -195,6 +195,14 @@ public:
 
     //NON-OWNING pointers into `rules`, in rules_scenarios order.
     list<Rule *> getRuleAutoScenario(string auto_scenario);
+
+    /* E4.2e. The rules that are loaded but never executed because one of their
+     * conditions/actions references an IO that did not exist when the config
+     * was read (Rule::isDisabled()). NON-OWNING, in `rules` order.
+     * This is the programmatic view of the diagnosis: Config::LoadConfigRule()
+     * turns it into the startup report and the mail/push configuration alert,
+     * so a disabled rule is visible without reading the log file. */
+    vector<Rule *> getDisabledRules() const;
 };
 
 }

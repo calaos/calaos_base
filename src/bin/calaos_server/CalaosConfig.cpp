@@ -237,17 +237,19 @@ void Config::sendConfigAlerts()
         return;
     }
 
-    string body = "The Calaos server detected corrupt configuration files at startup:\n\n";
+    //Wording is generic since E4.2e: this channel now carries both the corrupt
+    //file recovery and the rules disabled for a missing IO.
+    string body = "The Calaos server detected configuration problems at startup:\n\n";
     for (const string &m: configAlerts)
         body += m + "\n\n";
 
-    cWarning() << "Sending config corruption notification (mail + push)";
+    cWarning() << "Sending config problem notification (mail + push)";
 
     //Same mechanism/settings as the IO alerts (battery, connected status):
     //NotifManager reads the mail/push configuration from local_config.xml
-    NotifManager::Instance().sendMailNotification("Calaos: corrupt configuration detected", body);
+    NotifManager::Instance().sendMailNotification("Calaos: configuration problem detected", body);
     NotifManager::Instance().sendPushNotification(
-        "Calaos: a corrupt configuration file was detected and recovered at startup. "
+        "Calaos: a configuration problem was detected at startup. "
         "Check your mailbox or the server logs for details.");
 
     configAlerts.clear();
@@ -392,6 +394,31 @@ void Config::LoadConfigRule()
     }
 
     cInfo() <<  "Done. " << ListeRule::Instance().size() << " rules loaded.";
+
+    /* E4.2e. Rules kept but disabled because they reference an IO that is not
+     * in io.xml (deleted, renamed, driver removed). Each one already logged
+     * itself with its missing ids; this is the summary, plus the same alert
+     * channel the corrupt-config recovery uses, so the user does not have to
+     * read the log to learn that one of their rules stopped running.
+     */
+    vector<Rule *> disabled = ListeRule::Instance().getDisabledRules();
+    if (!disabled.empty())
+    {
+        string report = "The following rules were loaded but are DISABLED: they "
+                        "reference IOs that do not exist in " IO_CONFIG ", and a "
+                        "rule missing part of its criteria would run on incomplete "
+                        "conditions.\n";
+
+        for (Rule *rule: disabled)
+            report += "\n- rule '" + rule->get_name() + "': missing IO(s) " +
+                      rule->getMissingIoDescription();
+
+        report += "\n\nThey are kept in your configuration untouched and will run "
+                  "again as soon as the missing IOs are back.";
+
+        cError() << "" << disabled.size() << " rule(s) DISABLED because of missing IOs";
+        scheduleConfigAlert(report);
+    }
 }
 
 void Config::SaveConfigRule()

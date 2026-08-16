@@ -119,16 +119,27 @@ bool ConditionScript::LoadFromXml(pugi::xml_node node)
                  sc_node.attribute("id"))
         {
             string id = sc_node.attribute("id").as_string();
-            //Load-time contract, unchanged: an id that resolves is kept, one
-            //that does not is dropped here (this condition type never made the
-            //whole load fail). What changes is that the kept reference is the
-            //id, so it cannot dangle if the IO disappears later.
+            /* Load-time contract, E4.2e: the id is kept whether it resolves or
+             * not. Dropping it (what this did) silently deleted the trigger
+             * from the user's config at the next save, and SaveToXml() is the
+             * only place that reference exists.
+             * Nothing dereferences these ids - they are compared, never
+             * resolved (containsTriggerId()), and the dispatch already refuses
+             * to match a signal whose id resolves to nothing - so an unknown id
+             * sitting in the list cannot fire anything by itself.
+             */
             IOBase *in = ListeRoom::Instance().findIO(id);
             if (in)
                 addTriggerIO(in);
             else
+            {
                 cErrorDom("rule.condition.script")
-                        << "Trigger input '" << id << "' is unknown, ignored";
+                        << "Trigger input '" << id << "' does not exist: the "
+                        << "reference is kept as it is, and the rule using this "
+                        << "condition will be disabled";
+                addMissingIo(id);
+                addTriggerId(id);
+            }
         }
     }
 
