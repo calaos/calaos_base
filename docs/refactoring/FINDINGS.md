@@ -651,3 +651,16 @@ celle d'un contrat de **forme vide**, pas d'un payload. Le vrai poids d'E4.0b es
 `Utils::to_string(double)` sur `"42.5"` et `"1.23457e+06"` — ostream, 6 chiffres significatifs,
 **notation scientifique sur le fil, en chaîne**. Et `del_param` prouve que la clé **disparaît** de
 `get_io` au lieu de passer à `null`.
+
+## T3.17d — suites
+
+- **[UAF, hors périmètre — mérite un ticket] `IPCam::downloadSnapshot()`, branche `isRunning()`
+  (`IPCam.cpp:124-128`)** : quand un transfert est déjà en cours, le callback de l'appelant est
+  parqué dans `Timer::singleShot(0, [=]() { dataCb(lastSnapshot); })`. Ce `[=]` capture le `this`
+  de l'**IPCam** et lit le membre `lastSnapshot`, et **`~IPCam()` n'annule pas le timer**. C'est un
+  use-after-free au niveau IPCam — et c'est **le seul chemin par lequel un callback de snapshot
+  peut survivre à sa caméra**. T3.17d a couvert le côté handler ; le côté IPCam reste ouvert.
+- **[DIVERGENCE, gelée telle quelle] `processCamera()` n'a pas de branche `else`**
+  (`JsonApiHandlerHttp.cpp:909-999`) : une caméra **connue** avec un `type` non reconnu ne répond
+  **rien du tout** — même forme de silence que `autoscenario` à type inconnu. Épinglée par
+  `UnknownTypeAnswersNothingAtAll`.
