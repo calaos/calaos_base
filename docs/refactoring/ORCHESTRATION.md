@@ -188,6 +188,23 @@
   `JsonApi.cpp:1820`, et la fuite `addIOHash` inconditionnel d'`IPCam`/`AudioPlayer` sous
   `ScopedDocGen`. Étape 3/6 de la série E4.2 : **fiche pas encore découpée** (aucun E4.2c au
   board à ce jour).
+- **E4.4b ✅ mergé** (2026-08-16, `d72377f7`, **l'étape à valeur sécurité** de la migration
+  pugixml) : `WebCtrl::getValueXml()` passe de TinyXPath à `pugi::xpath_query` /
+  `evaluate_string()`. C'est **le seul parse XML non fiable de calaos** (le document vient d'une
+  URL configurée par l'utilisateur) **et** le seul site où l'expression XPath est elle-même de la
+  config — donc le seul chemin où TinyXML 2.5.3 voyait de la donnée hostile. Après ce merge, cette
+  entrée-là ne touche plus TinyXML du tout (le reste du parc TinyXML ne lit que des fichiers de
+  config locaux, traités par E4.4c/d/e). L'expression invalide et le document malformé échouent
+  proprement : chaîne vide, aucune `xpath_exception` qui s'échappe, aucun abort. Périmètre exact :
+  `src/bin/calaos_server/IO/Web/WebCtrl.cpp`, `tests/WebCtrlXPath_test.cpp` (nouveau),
+  `tests/Makefile.am` — rien d'autre. Base : branche partie de `8c227093`, rebasée sur master
+  (qui avait pris E4.2b + des commits docs-only : T3.13.md, RELEASE_NOTES.md, lignes de board) ;
+  conflit unique et attendu en fin de `tests/Makefile.am` (patron regenerate : fichier master +
+  le bloc `HAVE_GTEST` `# E4.4b` en EOF), **37/37 `if`/`endif`** équilibrés, docs/refactoring
+  intact côté master. Build d'intégration : **49/49** (48 de master + `WebCtrlXPath_test`).
+  ff-only, worktree e4.4b nettoyé. **4e classe de divergence** trouvée en revue (arithmétique
+  XPath : TinyXPath tronquait en int et débordait en int32) consignée dans FINDINGS.md — déjà
+  couverte par RELEASE_NOTES.md. Prochain de la série : E4.4c.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

@@ -256,3 +256,31 @@ Remontés par `tests/TimeRangeCalendar_test.cpp` et `tests/core/ConfigRoundTrip_
   matche à **aucun** moment (`hasChanged()` teste `cur >= start && cur <= end`, sans wrap).
   `InPlageHoraireEvalTest.InvertedRangeNeverMatches` épingle le comportement actuel pour qu'un futur
   correctif de wrap-around le casse **délibérément**. **En attente d'une décision utilisateur.**
+
+## E4.4b — divergences XPath TinyXPath→pugixml
+
+Le rapport d'implémentation en listait 3 classes de divergence. La revue en a trouvé une
+**quatrième**, et c'est la plus importante des quatre pour l'utilisateur :
+
+- **L'arithmétique de TinyXPath tronquait en entier et débordait en int32.** pugixml, lui, est
+  conforme XPath 1.0 (tout nombre est un `double` IEEE 754). Observé :
+  - `//temperature/@value + 0` sur `value="21.5"` → TinyXPath **`21`**, pugixml **`21.5`** ;
+  - `1000000 * 1000000` → TinyXPath **`-727379968`** (débordement int32 silencieux), pugixml
+    **`1000000000000`** ;
+  - `-1 div 0` → TinyXPath **`""`** (chaîne vide), pugixml **`-Infinity`**.
+- **C'est la seule classe de divergence où une config qui produisait déjà un nombre exploitable
+  en produit maintenant un autre.** Les trois autres classes ne concernent que des expressions
+  qui échouaient (ou renvoyaient du vide) des deux côtés. Une config qui faisait de
+  l'arithmétique sur une valeur décimale voyait donc jusqu'ici sa partie fractionnaire jetée :
+  le nouveau résultat est **correct**, mais il est différent, et un `WebCtrl` calibré sur
+  l'ancienne troncature (seuils, échelles) doit être revérifié. Déjà consigné côté utilisateur
+  dans `RELEASE_NOTES.md`.
+
+Correction d'exactitude apportée par la revue, sans impact sur le code :
+
+- Le commentaire de `WebCtrl.cpp` autour de la garde `if (!context)` (`WebCtrl.cpp:297`) **surévalue
+  légèrement** sa portée. pugixml rejette les documents vides, réduits à un commentaire ou à une PI
+  **dès le parse**, avec `status_no_document_element` — on n'atteint donc jamais la garde par ces
+  entrées-là, elles sont déjà sorties en amont. La garde reste une **défense en profondeur**
+  légitime sur `document_element()`, mais ce n'est pas elle qui attrape l'ancien SIGSEGV
+  TinyXPath. Inoffensif ; reformulation du commentaire possible plus tard, aucune urgence.

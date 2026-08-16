@@ -121,7 +121,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.4](E4.4.md) | 4 | ~~TinyXML 2.5.3 → TinyXML2~~ → **pugixml** (user decision) | epic | Phase 3 | 🔨 |
 | [T3.12](T3.12.md) | 3 | ~~Patch 2 TinyXML CVEs~~ (abandoned: superseded by pugixml migration) | fix (sec) | — | ⛔ |
 | [E4.4a](E4.4a.md) | 4 | Introduce pugixml (Debian pkg, XPath on) | infra | — | ✅ |
-| [E4.4b](E4.4b.md) | 4 | WebCtrl: TinyXPath → pugixml XPath | refactor | E4.4a | 📋 |
+| [E4.4b](E4.4b.md) | 4 | WebCtrl: TinyXPath → pugixml XPath | refactor | E4.4a | ✅ |
 | [E4.4c](E4.4c.md) | 4 | Signature sweep TiXmlElement* → pugi::xml_node | refactor | E4.4b | 📋 |
 | [E4.4d](E4.4d.md) | 4 | Parse/serialize core on pugixml | refactor | E4.4c | 📋 |
 | [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | 📋 |
