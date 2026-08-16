@@ -470,6 +470,51 @@
   purge **et** alloue, appelé dans la **condition de boucle** de `Scenario::toJson()` → O(n²),
   motif préexistant légèrement aggravé, cosmétique ; le `purgeDeadSteps()` d'`addStep()` est du
   **code mort** aujourd'hui, gardé en défense en profondeur). ff-only, worktree e4.2f nettoyé.
+- **E4.0a ✅ mergé** (2026-08-16, `305b92a5` + `a8ac6c14`) — **la fondation du filet de
+  caractérisation de l'API JSON est posée**, donc le préalable dur à la migration
+  jansson → `nlohmann::json` (E4.1) est débloqué pour ses cinq sous-tickets b→f, qui sont
+  **mutuellement indépendants** et parallélisables. **Zéro ligne de `src/`** : caractérisation
+  pure, 6 fichiers de test + `tests/Makefile.am` + `docs/refactoring/E4.0.md`. Le harnais est
+  **in-process** — oracle **sémantique** (les deux côtés sont parsés avec nlohmann et comparés
+  par `operator==`, **jamais** de comparaison de chaînes sérialisées), goldens versionnés avec
+  mode de mise à jour généré, session WS de test, requête HTTP one-shot sur un **vrai**
+  `HttpClient` posé sur une socket non connectée, maison de référence, et pompage `run<NOWAIT>()`
+  de la boucle uvw sans lequel aucun event n'est délivré. **34 cas**, nouveau binaire
+  `core/JsonApiCharacterization_test`. Trois points ouverts du verdict **tranchés par la mesure**,
+  et l'un contre la recommandation initiale du ticket : (1) **pas de stub** de `getClientIp()` —
+  `JsonApiHandlerHttp.o` réclame trois symboles `HttpClient` dont `buildHttpResponse()`, qui **est**
+  la logique de production que E4.0e doit épingler, donc la stubber reviendrait à caractériser le
+  stub ; on linke la vraie fermeture, celle de `core/RemoteUIDeviceInfo_test` ; (2) la voie
+  `JsonApiHandlerHttp` est couverte pour de vrai ; (3) `IPCam/StandardMjpeg.o` et
+  `Audio/RoonPlayer.o` entrent dans la maison de référence pour **zéro objet de link
+  supplémentaire** (mesuré au `nm -Cu` : chacun ne réclame que sa classe de base, déjà dans
+  `CORE_SERVER_OBJECTS`) — `Squeezebox` écarté car il traîne `SqueezeboxDB`, `UrlDownloader`, les
+  neuf objets AVR et linke `uv_tcp_connect`/`uv_write`, donc du réseau réel dans un test unitaire.
+  Un **tripwire assumé** et **unique dans toute la série** :
+  `TRIPWIRE_ExpectedRedInE41_JanssonEnsureAsciiEscapesTheWire` est le seul cas qui regarde les
+  octets sur le fil ; il passera au rouge à la bascule sans que rien ne soit cassé, et E4.1 doit
+  basculer l'attente **dans le commit même** qui change de bibliothèque. Aucun autre sous-ticket
+  n'a le droit de copier ce motif. ⚠️ **Attention base** : la branche partait de `c10c12c9` et
+  master avait avancé de **8 commits** (T3.14 + sa vague documentaire, T3.18, puis E4.2f et ses
+  docs) — rebasée avant merge, puis **une seconde fois**, un commit de docs `DECISIONS.md`
+  (`337ea975`) étant tombé pendant le build d'intégration ; ce second rebase ne ramène que des
+  docs, l'arbre hors `docs/` étant **byte-identique** à celui validé. Conflit **unique et attendu**
+  en fin de `tests/Makefile.am` (T3.14 déjà dans master et E4.0a ajoutent chacun leur bloc
+  `HAVE_GTEST` en EOF), résolu **par régénération** : fichier complet de master (1079 lignes,
+  préfixe vérifié identique) + append du bloc `# E4.0a` verbatim, aucun bloc existant touché,
+  aucun réordonnancement → **43/43** `if HAVE_GTEST`/`endif` équilibrés (42/42 avant). Aucun
+  conflit sur `docs/` et **aucune fausse suppression** : les 94 fichiers de `docs/refactoring/`
+  intacts, et les **quatre corrections intentionnelles d'`E4.0.md`** ont bien survécu (propriété
+  de fichier — `JsonApiHome_test.cpp` appartient à E4.0b, E4.0a possède
+  `JsonApiCharacterization_test.cpp` ; recommandation de stub renversée ; extension
+  caméras/player ; exception tripwire nommée). Build d'intégration distclean : **55/55 PASS**
+  (54 de master + le nouveau binaire) ; le build dépasse 600 s, attendu par `docker wait` sur le
+  conteneur retrouvé par son **mount exact**, **sans relance**. **Pas d'entrée RELEASE_NOTES.md** :
+  aucun comportement utilisateur ne change. **2 suites** dans FINDINGS.md (le `dynamic_cast` de
+  `buildJsonCameras()`/`buildJsonAudio()` est du **code défensif inatteignable**, E4.0b ne doit pas
+  chercher à couvrir sa branche fausse ; le **backlog de la file d'events fuit d'un cas à l'autre**,
+  un test de silence passe seul et échoue en suite complète — le drain de `TearDown()` est aussi
+  porteur que celui de `loadReferenceHouse()`). ff-only, worktree e4.0a nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

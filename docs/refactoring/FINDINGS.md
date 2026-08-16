@@ -565,3 +565,31 @@ Aucune ne remet en cause le correctif : l'UAF atteignable depuis l'API JSON est 
   faudrait renuméroter. Le commentaire en place (`AutoScenario.cpp:620-635`) dit exactement cela,
   pour qu'un futur appelant qui casse la séquence ne construise pas silencieusement la collision
   de numéros d'étape.
+
+## E4.0a — suites
+
+- **Le `dynamic_cast` de `buildJsonCameras()`/`buildJsonAudio()` est du code défensif
+  INATTEIGNABLE — E4.0b ne doit pas dépenser d'effort à couvrir sa branche fausse.** Mesuré :
+  `ListeRoom::addIOHash()` (`ListeRoom.cpp:80-85`) ne pousse dans `cameraCache`/`audioCache` que
+  si `get_param("gui_type")` vaut exactement `"camera"` ou `"audio_player"` ; les **seuls**
+  endroits qui posent ces deux valeurs sont les constructeurs d'`IPCam` et d'`AudioPlayer`, qui
+  appellent eux-mêmes `addIOHash()` dans la foulée. Toute autre classe d'IO **écrase** `gui_type`
+  avec sa propre valeur (p. ex. `IO/IntValue.cpp:83-85` force `var_bool`/`var_int`/`var_string`),
+  donc **aucun attribut XML ne peut faire entrer un IO étranger dans l'un des deux caches**. Le
+  `dynamic_cast` n'a pas de branche fausse joignable depuis une configuration : la demande
+  initiale du ticket (« mettre au moins un IO qui ne passe pas le `dynamic_cast` ») est
+  **infaisable** et a été retirée d'`E4.0.md`. Ce n'est pas un défaut à corriger — c'est une
+  garde à laisser en place, documentée pour qu'aucun sous-ticket n'aille chercher une couverture
+  qui n'existe pas.
+
+- **Le backlog de la file d'events fuit d'un cas de test à l'autre, pas seulement du chargement
+  vers la session.** `EventManager` empile dans un idler uvw qui n'est jamais dépilé tout seul
+  dans les tests ; on savait déjà que `loadReferenceHouse()` devait drainer les `EventIOAdded`
+  qu'il lève, sinon tout cas épinglant une **absence** de message trébuche sur les événements en
+  attente. La mesure va plus loin : ce qu'un cas laisse dans la file est délivré aux sessions du
+  cas **suivant** — un test de silence **passe seul et échoue dans la suite complète**. Le drain
+  de `TearDown()` (`JsonApiCharacterization.cpp:643-652`, `pumpEventLoop()` après
+  `LoginThrottle::clear()`) est donc **aussi porteur** que celui de `loadReferenceHouse()` :
+  les deux sont structurels, pas des précautions cosmétiques. Tout sous-ticket E4.0b→E4.0f qui
+  bâtit sa propre fixture doit reproduire les **deux** drains, et E4.0d — le seul à faire tourner
+  la boucle pour de bon — est celui qui en dépend le plus.

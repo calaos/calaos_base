@@ -111,6 +111,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.10](T3.10.md) | 3 | Promote ThinIo + harmonize driver mixins | refactor | T3.2a-f | ✅ |
 | [T3.11](T3.11.md) | 3 | Hygiene: SHA1/curl residue, npm lockfile | cleanup | T2.3, T2.5 | ✅ |
 | [E4.0](E4.0.md) | 4 | Caractérisation de l'API JSON (préalable dur à E4.1) | epic | — | 📋 |
+| [E4.0a](E4.0.md) | 4 | Fondation du filet de caractérisation (harnais in-process, oracle sémantique, goldens) | tests | — | ✅ |
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | **E4.0** | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
