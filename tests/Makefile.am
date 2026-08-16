@@ -1139,3 +1139,58 @@ core_JsonApiCharacterization_test_DEPENDENCIES = $(top_builddir)/src/lib/libcala
 EXTRA_DIST += core/golden/ws_get_home.json \
                   core/golden/http_get_home.json
 endif
+
+# T3.17a
+#Characterization + lifetime net for the RECURSIVE playlist chain of JsonApi
+#(decodeGetPlaylist / getNextPlaylistItem). get_playlist is the one common
+#operation of the E4.0 plan that no E4.0 sub-ticket ever covers (E4.0.md:38 vs
+#the coverage lists of E4.0a..f), so T3.17a brings its own net before adding the
+#apiAlive guard to that chain. The cases pin the WHOLE answer - every requested
+#index and every item, in order - because the failure mode of a badly placed
+#guard on a recursion is a silently truncated playlist, not a crash.
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiPlaylist_test
+check_PROGRAMS += core/JsonApiPlaylist_test
+core_JsonApiPlaylist_test_SOURCES = core/JsonApiPlaylist_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiPlaylist_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiPlaylist_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiPlaylist_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317a_ws_get_playlist.json \
+                  core/golden/t317a_http_get_playlist.json \
+                  core/golden/t317a_ws_get_playlist_empty.json \
+                  core/golden/t317a_ws_get_playlist_unknown_player.json \
+                  core/golden/t317a_http_get_playlist_unknown_player.json
+endif

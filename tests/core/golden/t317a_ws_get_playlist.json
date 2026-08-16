@@ -1,0 +1,31 @@
+{
+  "data": {
+    "count": "3",
+    "current_track": "1",
+    "items": [
+      {
+        "album": "Album 0",
+        "artist": "Artist 0",
+        "duration": "100",
+        "id": "track_0",
+        "title": "Title 0"
+      },
+      {
+        "album": "Album 1",
+        "artist": "Artist 1",
+        "duration": "101",
+        "id": "track_1",
+        "title": "Title 1"
+      },
+      {
+        "album": "Album 2",
+        "artist": "Artist 2",
+        "duration": "102",
+        "id": "track_2",
+        "title": "Title 2"
+      }
+    ]
+  },
+  "msg": "get_playlist",
+  "msg_id": "1"
+}
