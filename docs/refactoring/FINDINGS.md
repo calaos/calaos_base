@@ -131,11 +131,16 @@
 
 ## Wave 4 — transverse, à traiter en priorité
 
-- **[SÉCURITÉ/UAF, tous handlers WS] `JsonApi.cpp:450-537` `buildJsonState`** : les lambdas
-  internes audio-player capturent `this`/`jio`/`jplayer` sans garde — UAF si le client se
-  déconnecte pendant une requête audio, AVANT le completion guardé ajouté par T1.10 ; de plus
-  `json_object_set(jio, id, jplayer)` fuit `jplayer` (set, pas set_new). Confirmé par revue.
-  → ticket dédié (touche tous les WS handlers).
+- ~~**[SÉCURITÉ/UAF, tous handlers WS] `JsonApi.cpp:450-537` `buildJsonState`**~~ : **RÉSOLU** par
+  T2.15 (commit `01089187`, board ✅) — le code actuel porte la garde `alive`/`apiAlive` et la
+  re-résolution par `playerById()` que ce finding réclamait, avec un test dédié
+  `core/JsonApiAudioState_test`. Vérifié sur le code de master le 2026-08-16.
+  ⚠️ **La famille de bugs frères, elle, n'est PAS résolue** : ~22 méthodes
+  `audio*`/`audioDb*`/`decodeGetPlaylist`/`getNextPlaylistItem` et ~42 sites d'appel capturent
+  `this`/`AudioPlayer*`/`IPCam*` à travers des I/O réseau asynchrones **sans garde**, alors que
+  le pattern existe dans les mêmes classes et n'est appliqué qu'à 3 sites (`get_cover`,
+  `downloadCameraPicture`). `JsonApiHandlerWS` ne déclare même pas son membre alive-token.
+  → **T3.17**.
 - **[LIFETIME] `HttpClient.cpp:578` `sendToClient`** : enregistre un `once<uvw::WriteEvent>` par
   appel capturant `this` brut — dangling si le client est détruit avec des writes en vol.
 - **[FOOTGUN] `Utils::from_string("")` retourne true** avec dest zéro-initialisée

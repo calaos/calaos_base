@@ -132,7 +132,8 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.4dbis](E4.4dbis.md) | 4 | Port ConfigStore.cpp (last TinyXML consumer) | refactor | E4.4cd | ✅ |
 | [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | ✅ |
 | [E4.2f](E4.2f.md) | 4 | Scenario/AutoScenario back-pointers → ids or weak_ptr | refactor | E4.2d | 📋 |
-| [E4.2g](E4.2g.md) | 4 | JsonApi `IOBase*` sites (re-scope before launching) | refactor | E4.2c | 📋 |
+| [E4.2g](E4.2g.md) | 4 | ~~JsonApi `IOBase*` sites~~ (re-scopé : 0/21 dangereux, abandonné) | refactor | E4.2c | ⛔ |
+| [T3.17](T3.17.md) | 3 | Généraliser la garde alive aux ~42 sites async audio/caméra | fix (sec) | T2.15 | 📋 |
 
 ---
 
