@@ -205,6 +205,24 @@
   ff-only, worktree e4.4b nettoyé. **4e classe de divergence** trouvée en revue (arithmétique
   XPath : TinyXPath tronquait en int et débordait en int32) consignée dans FINDINGS.md — déjà
   couverte par RELEASE_NOTES.md. Prochain de la série : E4.4c.
+- **T3.13 ✅ mergé** (2026-08-16, `462c9fcf`, 3 commits) : garde d'inclusion `TimeRange.h`,
+  bornes invalides **définies** (une borne non parsable rend la plage inerte au lieu de
+  retomber silencieusement sur 00:00:00), et surtout le **wrap de minuit** — une plage dont la
+  fin précède le début (23:00 → 01:00, ou une borne solaire qui se met à croiser minuit au fil
+  des saisons) est désormais évaluée deux fois : tête `[start, fin de journée]` le jour où elle
+  est attachée, queue `[00:00, end]` le lendemain, sans jamais matcher le matin de son propre
+  jour. Le jour précédent est calculé **DST-safe** (`mktime()` normalisé, vérifié sur le
+  2025-03-30 Europe/Paris qui ne saute pas), et l'évaluation ne court-circuite plus (résultat
+  identique, mais une plage qui wrappe est signalée même si une autre a déjà matché). Le log
+  `logWrapOnce()` reste **une fois par plage** pour la durée de vie de l'objet et nomme
+  désormais l'IO propriétaire + le jour d'attache (une queue vue le dimanche matin s'annonce
+  `samedi`, c'est voulu). Périmètre exact : `src/lib/TimeRange.{h,cpp}`,
+  `IO/InPlageHoraire.{cpp,h}`, `tests/TimeRangeCalendar_test.cpp` — **pas de `tests/Makefile.am`**
+  (le binaire existait déjà depuis E4.3ab), donc aucun conflit EOF. Base : branche partie de
+  `8c227093`, rebasée sur master (E4.2b/E4.4b + docs-only) **sans conflit**. Build
+  d'intégration : **49/49**. ff-only, worktree t3.13 nettoyé. 2 suites non bloquantes
+  consignées dans FINDINGS.md (`time2string_digit` sur durées négatives, cache `sun_rise_set`
+  non peuplé au chemin d'échec polaire).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

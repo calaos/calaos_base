@@ -284,3 +284,29 @@ Correction d'exactitude apportée par la revue, sans impact sur le code :
   entrées-là, elles sont déjà sorties en amont. La garde reste une **défense en profondeur**
   légitime sur `document_element()`, mais ce n'est pas elle qui attrape l'ancien SIGSEGV
   TinyXPath. Inoffensif ; reformulation du commentaire possible plus tard, aucune urgence.
+
+## T3.13 — suites
+
+Deux points **non bloquants** relevés à la revue de T3.13, laissés en l'état (aucun n'est causé
+par le ticket) :
+
+- **`Utils::time2string_digit()` (`src/lib/StringUtils.cpp:161`) massacre silencieusement les
+  durées négatives.** La garde `if (hours > 0)` ne sert qu'à omettre le champ heures ; sur une
+  valeur négative elle jette **le signe avec** : `-3600` sort en **`00:00`** (une heure avant
+  minuit affichée comme minuit pile), et `-1800` sort en **`-30:00`** (le signe survit sur le
+  champ minutes, mais la lecture « -30 heures » est fausse). Or une borne *calculée* peut être
+  négative : un lever de soleil moins un offset important tombe avant minuit. `TimeRange::toString()`
+  appelle cette fonction à **4 endroits**, donc une borne négative s'y affiche encore mal. T3.13
+  contourne le problème **localement** (`timeToLogString()` dans `TimeRange.cpp`, qui imprime le
+  compte de secondes brut quand la valeur est négative) plutôt que de toucher la fonction
+  partagée, dont la sortie est épinglée par `CommonLib_test`. Un correctif propre devrait
+  extraire le signe avant le découpage h/min/s et réajuster le test.
+
+- **Chemin d'échec polaire de `sun_rise_set` : le cache n'est jamais peuplé.**
+  `computeSunSetRise()` retourne **avant** d'écrire dans le cache quand `res != 0` (latitude où
+  le soleil ne se lève ou ne se couche pas du jour). Conséquence : chaque appel refait le travail
+  complet — `get_config_options()`, donc mutex + `flock` partagé + re-parse de la config. Le
+  défaut est **pré-existant**, mais T3.13 l'**amplifie** : maintenant que l'évaluation ne
+  court-circuite plus, *toutes* les plages solaires d'un `InPlageHoraire` paient ce coût à chaque
+  tick (10 Hz) et non plus seulement la première qui matchait. **Inatteignable aux latitudes
+  françaises** ; à corriger en peuplant le cache (ou un marqueur d'échec) sur ce chemin aussi.
