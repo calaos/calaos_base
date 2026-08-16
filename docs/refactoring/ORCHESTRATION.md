@@ -553,6 +553,39 @@
   FINDINGS.md (R4 : fuite préexistante si l'objet de connexion meurt **sans jamais** rappeler,
   hors périmètre, à traiter au niveau de l'épique ; note T3.17b/c sur la double mort).
   **T3.17 reste 📋** — ses sous-tickets b/c/d/e ne sont pas faits. ff-only, worktree t3.17a nettoyé.
+- **E4.0b ✅ mergé** (2026-08-16, `c562b084`) — **le modèle et l'état de l'API JSON sous filet** :
+  les **9 commandes × 2 transports** (`get_home`, `get_io`, `get_state`, `get_states`, `query`,
+  `get_param`, `set_param`, `del_param`, `set_state`), deuxième sous-ticket de la série E4.0 qui
+  doit précéder la migration jansson → `nlohmann::json`. **Caractérisation pure : zéro ligne de
+  `src/`**, vérifié **sur le commit** et pas seulement sur l'arbre — les 10 fichiers touchés sont
+  tous sous `tests/`. Nouveau `tests/core/JsonApiHome_test.cpp` (1360 lignes), 4 goldens
+  `e40b_*.json`, et **régénération assumée** des goldens `ws_get_home.json`/`http_get_home.json`
+  d'E4.0a, conséquence directe de l'enrichissement de la maison de référence.
+  **La réserve de fond de la revue mérite de survivre au ticket.** Le relecteur indépendant
+  (verdict **MERGE AVEC RÉSERVES**) a démontré **par contre-mutation** que **6 clés de
+  `buildJsonIO()` n'étaient jamais observées en présence** : la maison ne posait aucun des params
+  optionnels, si bien que leur suppression de la production laissait la suite **verte** (52/52 sur
+  du code muté) — un filet qui ne prouvait rien. L'implémenteur a fermé les réserves en enrichissant
+  `HOUSE_ACCENTED` des **7 params optionnels** (`hits`, `chauffage_id`, `unit`, `auto_scenario`,
+  `step`, `io_style`, `value_warning`) **en laissant les autres IOs volontairement pauvres** : c'est
+  le contraste *à l'intérieur d'un même golden* qui épingle le contrat d'absence. Sous la même
+  mutation la suite donne désormais **3 rouges dont un qui nomme la clé perdue**, et — effet de bord
+  bénéfique — **le binaire d'E4.0a passe au rouge lui aussi** : l'enrichissement renforce le filet
+  des deux tickets. Consigné en FINDINGS.md avec l'interdiction explicite d'« harmoniser » la maison
+  plus tard.
+  **Aucun conflit `tests/Makefile.am`** malgré l'attente : master n'avait pas touché le fichier
+  depuis la base de branche, le bloc `# E4.0b` s'ajoutant seul en EOF (append pur de 55 lignes) →
+  **45/45** `if HAVE_GTEST`/`endif` équilibrés (44/44 avant). Rebase de `41167db7` vers `2f9e3d9f`
+  (3 commits **docs-only** : FINDINGS, ORCHESTRATION, T3.17) **sans conflit**, suivi du
+  `make distclean` réglementaire — la variante FAUX ROUGE du piège `_DEPENDENCIES` documentée
+  plus bas a été rencontrée **sur ce ticket précisément**. Build d'intégration distclean :
+  **57/57 PASS** (56 de master + le nouveau `core/JsonApiHome_test`), `core/JsonApiCharacterization_test`
+  d'E4.0a **toujours vert** sur les goldens régénérés. Le build dépasse 600 s, attendu par
+  `docker wait` sur le conteneur retrouvé par son **mount exact**, **sans relance** et sans toucher
+  aux 3 conteneurs voisins (t3.17b, t3.17d, t3.17e). Aucune fausse suppression de docs : les
+  **94** fichiers de `docs/refactoring/` intacts. **Pas d'entrée RELEASE_NOTES.md** — E4.0b ne
+  change aucun comportement utilisateur. **E4.0 reste 📋** — c/d/e/f ne sont pas faits. ff-only,
+  worktree e4.0b nettoyé, **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

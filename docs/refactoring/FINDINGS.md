@@ -652,6 +652,19 @@ celle d'un contrat de **forme vide**, pas d'un payload. Le vrai poids d'E4.0b es
 **notation scientifique sur le fil, en chaîne**. Et `del_param` prouve que la clé **disparaît** de
 `get_io` au lieu de passer à `null`.
 
+**⚠️ La maison de référence est délibérément asymétrique — ne pas « harmoniser ».** La revue
+indépendante d'E4.0b a démontré **par contre-mutation** que 6 clés de `buildJsonIO()` n'étaient
+jamais observées *en présence* : la maison ne posait aucun des params optionnels, si bien que
+supprimer ces clés de la production laissait la suite **verte** (52/52 sur du code muté). Un golden
+ne prouve l'absence d'une clé que si un autre IO du même golden la porte. Depuis la correction,
+`HOUSE_ACCENTED` porte les **7 params optionnels** (`hits`, `chauffage_id`, `unit`,
+`auto_scenario`, `step`, `io_style`, `value_warning`) et **les autres IOs restent volontairement
+pauvres** : c'est le contraste *à l'intérieur d'un même golden* qui épingle le contrat d'absence.
+Sous la même mutation, la suite donne maintenant **3 rouges dont un qui nomme la clé perdue** — et
+le binaire d'E4.0a passe au rouge lui aussi, l'enrichissement renforçant le filet des deux
+tickets. Enrichir la maison est permis ; **uniformiser les IOs pour « faire propre » détruirait le
+filet**.
+
 ## T3.17d — suites
 
 - **[UAF, hors périmètre — mérite un ticket] `IPCam::downloadSnapshot()`, branche `isRunning()`
