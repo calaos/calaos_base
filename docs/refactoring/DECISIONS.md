@@ -17,8 +17,26 @@ comportement altéré sans le savoir.
 `ListeRule::RemoveRule`, **hors périmètre E4.2f** (qui n'a fait que rendre la lecture mémoire-sûre)
 et **pré-existante** : la règle d'étape est détruite puis `SaveConfigRule()` est appelé deux lignes
 plus bas (`JsonApi.cpp:1726-1733`), donc la perte est déjà persistée sur disque.
-**Appliquer** : voir **T3.18**. Ne pas re-demander. Réutiliser autant que possible le mécanisme
-d'E4.2e (référence conservée verbatim + trace du manquant) plutôt que d'en inventer un second.
+**Précision de l'utilisateur (2026-08-16, après cadrage)** — je lui avais remonté que le sens du
+risque s'inverse par rapport aux règles (une règle amputée agit *plus*, un scénario amputé agit
+*moins*) et que le cadrage concluait à « zéro nouvel état persisté ». **Il maintient et durcit** :
+
+> « On désactive le scénario, on le flag avec **un nouveau paramètre dans la config** pour que ça
+> survive à un reboot, et **un user doit corriger le scénario manuellement en le réactivant**.
+> Si un IO disparaît c'est un problème, on ne peut pas le résoudre sans intervention manuelle,
+> et un IO dans Calaos ne se supprime pas comme ça. »
+
+**Ce que ça tranche, contre la proposition du cadrage** : le ticket avait écarté un drapeau
+persistant en le qualifiant de « piège sans clé de sortie ». **L'objection tombe — la clé de
+sortie est la réactivation manuelle, et elle est voulue.** La désactivation ne doit donc PAS
+s'effacer d'elle-même au rechargement quand l'IO redevient résolvable : elle est **collante**
+jusqu'à action explicite de l'utilisateur. C'est délibéré : la disparition d'un IO est un
+incident, pas un état transitoire à rattraper tout seul.
+
+**Appliquer** : voir **T3.18**, à réviser en conséquence. Nouveau paramètre persisté sur le
+scénario + chemin de réactivation explicite exposé par l'API. Ne pas re-demander. Le mécanisme
+d'E4.2e (référence conservée verbatim + trace du manquant) reste le substrat pour *détecter* le
+manque ; le drapeau persistant s'ajoute par-dessus pour *retenir* la désactivation.
 
 ## 2026-08-16 — E4.1 (JSON) : caractérisation AVANT migration, jansson supprimé à terme
 **Décision** : l'objectif final est la **suppression totale de jansson**, `nlohmann::json` seul.
