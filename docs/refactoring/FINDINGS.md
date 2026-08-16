@@ -947,3 +947,38 @@ consignée ici, et pas seulement dans l'en-tête du fichier de test.
    `push_notif`). `docs/10_events_notifications.md` ne documente, lui, **aucune** enveloppe de
    fil. ⚠️ **Ne pas corriger ces deux documents ici : E4.0f est en train de le faire** — signalé
    pour éviter le double travail et un conflit inutile.
+
+## T3.17c — suites
+
+Réserves du relecteur indépendant (verdict **MERGE AVEC RÉSERVES**, réserves **fermées** avant ce
+merge) et bizarrerie gelée rencontrée en caractérisant les 15 `audioDbGet*`.
+
+- **[FIXTURE PAUVRE — corrigé dans ce ticket ; 78/78 vert ne prouvait presque rien sur la
+  pagination] Le macro `DB_METHOD_CASES` n'assérait pas `db->calls[0].nb`.** Il vérifiait le nom de
+  la méthode de base appelée, `from` et l'id, mais **pas la taille de page**. La revue a mesuré le
+  trou en injectant un **échange de clés** dans le parsing de requête — faire lire `"from"` à
+  `audioDbGetAlbums` là où il doit lire `"count"` — et la suite est restée **78/78 verte**.
+  Conséquence : **13 des 14 méthodes de liste pouvaient paginer avec la mauvaise taille de page**
+  sans qu'un seul test ne bronche. Corrigé par un argument **`expNb`**, assérté **sur les deux
+  transports** (`tests/core/JsonApiMusicDb_test.cpp:468` pour WS, `:485` pour HTTP) — le cas HTTP ne
+  vérifiait jusque-là que le nom de la méthode, or **le parsing de requête est du code par méthode
+  et par transport : un transport ne prouve rien sur l'autre**.
+  ⚠️ **Contrainte de maintenance, à respecter dans toute évolution de la table** : `from` et `count`
+  doivent rester **deux nombres différents** (aujourd'hui `2` et `7`, `tests/core/JsonApiMusicDb_test.cpp:522-535`).
+  Les rendre égaux — par exemple en « harmonisant » la table — ferait passer les deux assertions
+  même avec les deux clés interverties, et **la couverture disparaîtrait en silence**, sans qu'aucun
+  test ne devienne rouge.
+- **[DIVERGENCE GELÉE] `processDbResult()` recopie le `Params` marqueur de `count` dans `items`.**
+  `JsonApi.cpp:1079-1101` parcourt `data.vparams`, retient `scount` quand un `Params` porte la clé
+  `count`, puis fait `json_array_append_new(aret, p.toJson())` **sur tous les `Params`, marqueur
+  compris** — il n'y a **aucune exclusion**. Le marqueur ressort donc **à la fois** comme
+  `total_count` et comme un élément de `items`. Épinglé tel quel par les goldens `t317c_*` ; **non
+  corrigé** : c'est la forme de réponse que les clients reçoivent aujourd'hui, et l'invariant T3.17
+  interdit de la changer dans un ticket de garde.
+  ⚠️ **Nuance mesurée par E4.0f, à ne pas écraser** : `processDbResult()` **ne réordonne jamais** —
+  il préserve l'ordre de `data.vparams`. **`items[0]` n'est donc le marqueur que sur les chemins où
+  la source l'émet en premier**, ce qui n'est pas général. `SqueezeboxDB::parseListAnswer()` traite
+  `count` comme un **séparateur d'enregistrement** au même titre que `id`
+  (`Audio/SqueezeboxDB.cpp:66-73`), sa position dépend donc du flux renvoyé par le serveur ; et
+  `getRandoms()` ajoute le marqueur **en dernier** (`Audio/SqueezeboxDB.cpp:774-775`). **Ne pas
+  réécrire cette entrée sous la forme « `items[0]` vaut toujours `{"count":"N"}` » : c'est faux.**

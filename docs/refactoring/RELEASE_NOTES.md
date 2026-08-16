@@ -94,6 +94,25 @@ inchangée. Aucune forme de réponse nouvelle n'est introduite, aucun message d'
 et aucune réponse existante ne devient une erreur. Seul le client **déjà parti** ne reçoit plus
 rien, ce qui est le comportement attendu puisqu'il n'est plus là pour recevoir.
 
+### Audio — plus de plantage en parcourant la médiathèque au moment de se déconnecter (T3.17c)
+Tout l'écran Médiathèque passe par un aller-retour réseau vers la base musicale du lecteur :
+**albums**, **artistes**, **genres**, **années**, **playlists**, **radios**, **dossiers de
+musique**, **recherche**, **titres d'un album ou d'une playlist**, **détail d'une piste** —
+quinze commandes en tout. Si le client **se déconnectait pendant l'un de ces allers-retours** —
+application fermée, Wi-Fi perdu, écran quitté — la réponse revenait sur une connexion déjà
+détruite et **faisait planter le serveur**.
+
+Le défaut était **atteignable depuis l'API JSON** sans manipulation particulière, et c'est la
+surface la plus large de la série : naviguer dans une médiathèque enchaîne ces commandes, et une
+base un peu lente à répondre suffisait à ouvrir la fenêtre. Il est corrigé sur les **quinze**
+commandes, et sur les deux transports (WebSocket et HTTP).
+
+**Ce qui ne change pas** : un client **encore connecté** reçoit toujours sa réponse **complète** et
+inchangée — mêmes champs, même ordre, même pagination, mêmes messages d'erreur (`unkown player_id`
+et les autres sont intacts). Aucune liste n'est tronquée, aucune réponse existante ne devient une
+erreur. Seul le client **déjà parti** ne reçoit plus rien, ce qui est le comportement attendu
+puisqu'il n'est plus là pour recevoir.
+
 ### Caméras — plus de plantage en demandant un instantané au moment de se déconnecter (T3.17d)
 Demander l'image d'une caméra (`get_picture`, c'est-à-dire la vignette de caméra dans
 l'application) déclenche un aller-retour vers la caméra. Si le client **se déconnectait pendant cet

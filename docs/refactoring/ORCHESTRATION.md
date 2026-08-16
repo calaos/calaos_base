@@ -915,6 +915,105 @@
   avant nettoyage. **Pas d'entrée RELEASE_NOTES.md** — zéro ligne de `src/`.
   **E4.0 reste 📋** — e, f, g ne sont pas mergés. Historique linéaire (cherry-pick sur master,
   pas de commit de merge), worktree e4.0d nettoyé, **rien n'a été poussé**.
+- **T3.17c ✅ mergé** (2026-08-17, `14a9b2fb` + `ae5260e1`) — **les 15 méthodes `audioDbGet*` de la
+  base musicale gardées ; dernier sous-ticket de garde de la série, l'épique T3.17 passe ✅.**
+  Livraison : nouveau `tests/core/JsonApiMusicDb_test.cpp` (**78 cas**), **39 goldens**
+  `core/golden/t317c_*.json`, append de **96 l.** sur `tests/Makefile.am`, `JsonApi.cpp` **+94/−0**
+  (un bloc de commentaire partagé + 15 × `std::weak_ptr<bool> alive = apiAlive;` /
+  `if (alive.expired()) return;`) et `JsonApi.h` **+4/−2 de commentaire seulement**. Périmètre
+  vérifié sur le diff : **aucun handler édité** (`JsonApiHandlerHttp/WS` intacts), **aucun
+  `.reset()` ajouté** (0 occurrence), 15/15 gardes et 15/15 tests d'expiration comptés au commit.
+  Revue indépendante : **MERGE AVEC RÉSERVES**, réserves **fermées** avant ce merge.
+  ⚠️ **Nit connu, délibérément NON corrigé** : le commentaire de `apiAlive` (`JsonApi.h:216-225`)
+  écrit « *the remaining T3.17 work is the WS transport audit (T3.17e)* » — **faux depuis que
+  T3.17e est mergé** (il l'était déjà avant cette branche). Non touché **pour ne pas invalider
+  l'arbre validé par le build 63/63** ; à reprendre dans le prochain ticket qui édite ce fichier
+  (T3.17f est le candidat naturel).
+  **⚠️ Ce merge corrige LE critère de diagnostic de toute la série — il était FAUX.** La série
+  décidait qu'une lambda avait besoin d'une garde en demandant « **est-ce que le corps odr-use
+  `this` ?** », critère matérialisé par les avertissements `-Wdeprecated` de capture implicite.
+  **Il produit des faux négatifs.** `audioDbGetTrackInfos` (corps
+  `result_lambda(data.params.toJson())`) n'odr-use **ni `this` ni `player`**, n'émet donc **aucun**
+  avertissement — et a **exactement le même** heap-use-after-free que les quatorze autres, parce que
+  **`[=]` copie `result_lambda`**, un `std::function` qui **est** la lambda du dispatcher et détient
+  le `this` du handler. Trace ASan reproduite, frame décisive
+  `#6 std::function<void(json_t*)>::operator()` ← `#7 operator()` (`JsonApi.cpp:1578` avant ce
+  merge, `:1671` après). **Corollaire du relecteur** : les 15 auraient le UAF **même sans**
+  `processDbResult()` — la capture de `this` est un **second** objet libéré touché, pas le seul, et
+  le décompte « 14/15 » **sous-compte par construction**. Le critère correct, écrit dans
+  `T3.17.md` : *le danger est tout objet libéré atteignable depuis la closure, `this` **ou** un
+  `std::function` capturé par valeur qui le détient ; l'absence d'avertissement `-Wdeprecated` ne
+  prouve rien.* **Corrigé aux 4 endroits** où il était posé en critère de danger — `T3.17.md:174`
+  (périmètre T3.17e), `:321` (bilan par site), `:336-346` (corollaire T3.17c, encadré neuf) et
+  `:367-377` (sa conclusion) — plus une section dédiée `## 🛑 Correction du critère de diagnostic
+  de la série` (`:386`). ⚠️ **Les numéros annoncés par la consigne de merge (`:208`, `:226`, `:252`)
+  étaient périmés** ; seul `:174` tombait juste. Re-mesurer, ne pas recopier.
+  **Ce qui reste vrai et ne doit PAS être rouvert, vérifié à ce merge et écrit explicitement dans
+  `T3.17.md`** : **aucun sous-ticket n'a blanchi un site sur ce critère.** T3.17b a gardé **les 5**,
+  dont **2 sans capture de `this`** ; T3.17d a **ajouté** sa garde (son « NON » porte sur le second
+  UAF, le pointeur `IPCam*`) ; T3.17e s'appuie sur « **synchrone** » (`buildJsonStates`/`buildQuery`)
+  et sur le **mécanisme de slot `sigc`** (`handleEvents`), pas sur les avertissements. **T3.17b,
+  T3.17d et T3.17e ne sont pas entamés.**
+  **Rebase obligatoire** : la branche était basée sur `d583322c`, master avait pris E4.0d depuis
+  (`d68e59f1` + `6b534cd8`). Rebasée `82568aa1`/`a4e72755` → `14a9b2fb`/`ae5260e1`, puis
+  `make distclean` réglementaire (piège `_DEPENDENCIES` / faux rouge neutralisé).
+  **Conflit `tests/Makefile.am`** (fin de fichier) — **cinquième fois de suite**, même signature :
+  git fusionne les corps `LDADD` identiques et ne laisse en conflit que les **en-têtes**, en hunks
+  entrelacés. Résolu **en régénérant** : fichier complet de master (**1550 l.**) + append
+  **verbatim** du bloc `# T3.17c` (**96 l.**), vérifié **octet à octet** dans les deux sens (diff
+  vs master = `96 0`, et les 96 lignes ajoutées **identiques** au bloc extrait de la branche)
+  → **1646 l.**, **51/51** `if HAVE_GTEST`/`endif` équilibrés (50/50 avant), zéro marqueur.
+  **Aucun conflit sur `JsonApi.cpp`** — E4.0d n'y avait pas touché (vérifié, le commit 2 s'applique
+  proprement).
+  Build d'intégration distclean : **63/63 PASS**, 0 FAIL / 0 ERROR / 0 SKIP — compte **déduit avant
+  le build** puis confirmé : **60 statements `check_PROGRAMS +=` → 61 binaires** (la ligne
+  `tests/Makefile.am:1072`, `StaticLogShutdown_test StaticLogShutdown_helper`, en porte **deux**),
+  **− 1** (`StaticLogShutdown_helper`, jamais un test) **+ 3 entrées de scripts** = **63**, recoupé
+  côté `TESTS` : **62 statements → 63 entrées** (la ligne `check-config-options.sh
+  check-config-docs.sh` en porte deux). Soit les **62** de master **+ le seul nouveau binaire**
+  `core/JsonApiMusicDb_test`. **Sans ASan, vérifié dans `config.log`** : l'invocation est un
+  `$ ./configure` **nu**, et `fsanitize` compte **0** occurrence dans `config.log`, `Makefile` et
+  `tests/Makefile` — l'arbre laissé en configuration ASan par le relecteur avait bien été nettoyé.
+  Build > 600 s : attendu par `docker wait` sur le conteneur retrouvé par son **mount exact**
+  (`docker inspect` sur chaque conteneur, filtre `Source == /tmp/claude-1000/calaos-wave17/t3.17c`),
+  **sans relance**, **sans jamais filtrer par image ni par ancêtre** ; les conteneurs voisins
+  (e4.0e, et un conteneur de scratchpad tiers) n'ont pas été touchés.
+  Aucune fausse suppression de docs : les **97** fichiers de `docs/refactoring/` intacts (dont
+  `E4.0.md`, `E4.0g.md`, `T3.17.md`, `T3.17f.md`, `T3.18.md`, `T3.19.md`, `BOARD.md`,
+  `FINDINGS.md`, `DECISIONS.md`, `RELEASE_NOTES.md`, `ORCHESTRATION.md`) ; worktrees voisins
+  vérifiés intacts (`e4.0e` et `e4.0f` présents et **avancés** par leurs agents pendant ce merge ;
+  `review-e40f` avait déjà été retiré par son propriétaire, pas par ce merge).
+  **Documentation : la branche n'en livrait AUCUNE**, comblée dans ce merge — BOARD (**la ligne
+  `T3.17c` n'existait tout simplement pas**, elle a été **créée** en ✅ à côté de a/b/d/e ; et
+  l'épique **`T3.17` passe 📋 → ✅**, type corrigé en `epic` : son périmètre est **a+b+c+d+e**, les
+  cinq sont mergés — **`T3.17f` est un ticket distinct**, avec sa propre ligne, son propre
+  `T3.17f.md` et une dépendance *sur* T3.17c, ce n'est **pas** un sous-ticket de l'épique ; ceci
+  débloque **T3.18**, qui dépend de `T3.17`), section *Correction du critère* + 4 corrections
+  ponctuelles dans `T3.17.md`, **2 suites** en FINDINGS, **une entrée RELEASE_NOTES.md** (voir
+  ci-dessous), ce journal.
+  **Entrée RELEASE_NOTES.md, contrairement à T3.17e** : ce ticket corrige un **plantage atteignable
+  depuis l'API JSON** sans manipulation particulière — interroger la base musicale pendant que le
+  client se déconnecte. Placée dans « comportements qui changent », **par impact décroissant**,
+  entre T3.17b (déclaré « le plus facile à déclencher ») et T3.17d.
+  **Deux suites en FINDINGS.** (1) **Poche de fixture pauvre trouvée par la revue** : le macro
+  `DB_METHOD_CASES` n'assérait **pas** `db->calls[0].nb` ; un **échange de clés** (`audioDbGetAlbums`
+  lisant `"from"` au lieu de `"count"`) laissait la suite **78/78 verte**, donc **13 des 14 méthodes
+  de liste pouvaient paginer avec la mauvaise taille de page** sans qu'un test ne bronche. Corrigé
+  par un argument **`expNb`** assérté **sur les deux transports** (`:468` WS, `:485` HTTP) — le cas
+  HTTP ne vérifiait que le nom de la méthode, or **le parsing de requête est du code par méthode et
+  par transport, un transport ne prouve rien sur l'autre**. **Contrainte de maintenance consignée** :
+  `from` et `count` doivent rester **deux nombres différents** (`2` et `7`), sinon les deux
+  assertions passent même clés interverties et **la couverture disparaît en silence**.
+  (2) **Bizarrerie gelée** : `processDbResult()` (`JsonApi.cpp:1079-1101`) fait
+  `json_array_append_new(aret, p.toJson())` **sans exclure** le `Params` marqueur, qui ressort donc
+  à la fois en `total_count` et dans `items`. ⚠️ **Nuance mesurée par E4.0f, consignée** : il ne
+  **réordonne jamais**, donc `items[0]` n'est le marqueur **que sur les chemins où la source
+  l'émet en premier** — `SqueezeboxDB::parseListAnswer()` traite `count` comme un **séparateur
+  d'enregistrement** (`Audio/SqueezeboxDB.cpp:66-73`) et `getRandoms()` l'ajoute **en dernier**
+  (`:774-775`). **Ne pas réécrire en « `items[0]` vaut toujours `{"count":"N"}` », c'est faux.**
+  Merge **ff-only** (historique linéaire, pas de commit de merge), worktree `t3.17c` nettoyé par
+  son **chemin exact** + `git worktree prune`, branche `refactor/t3.17c` supprimée, **rien n'a été
+  poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

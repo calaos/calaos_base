@@ -139,11 +139,12 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.4e](E4.4e.md) | 4 | Delete vendored TinyXML + TinyXPath | removal | E4.4d | ✅ |
 | [E4.2f](E4.2f.md) | 4 | Scenario/AutoScenario back-pointers → ids or weak_ptr | refactor | E4.2d | ✅ |
 | [E4.2g](E4.2g.md) | 4 | ~~JsonApi `IOBase*` sites~~ (re-scopé : 0/21 dangereux, abandonné) | refactor | E4.2c | ⛔ |
-| [T3.17](T3.17.md) | 3 | Généraliser la garde alive aux ~42 sites async audio/caméra | fix (sec) | T2.15 | 📋 |
+| [T3.17](T3.17.md) | 3 | Généraliser la garde alive aux ~42 sites async audio/caméra | epic | T2.15 | ✅ |
 | [T3.17f](T3.17f.md) | 3 | `eventlog` : UAF non gardé sur les deux transports | fix (sec) | T3.17c | 📋 |
 | [T3.19](T3.19.md) | 3 | `audio_db` : déréf. `nullptr`, plantage à distance | fix (sec) | T3.17c | 📋 |
 | [T3.17a](T3.17.md) | 3 | Garder la chaîne récursive `get_playlist` (double mort : `apiAlive` + `AudioPlayer*`) | fix (sec) | T2.15 | ✅ |
 | [T3.17b](T3.17.md) | 3 | Garder les 5 méthodes `audio*` mono-coup contre la mort du client (`JsonApi.cpp`) | fix (sec) | T2.15 | ✅ |
+| [T3.17c](T3.17.md) | 3 | Garder les 15 méthodes `audioDbGet*` de la base musicale contre la mort du client (`JsonApi.cpp`) | fix (sec) | T2.15 | ✅ |
 | [T3.17d](T3.17.md) | 3 | Garder l'instantané caméra `get_picture` contre la mort du client (`JsonApiHandlerHttp`) | fix (sec) | T2.15 | ✅ |
 | [T3.17e](T3.17.md) | 3 | Audit du transport WS : le jeton `apiAlive` hérité suffit (aucun code de production changé) | audit | T2.15 | ✅ |
 | [T3.18](T3.18.md) | 3 | Scénario amputé : désactiver le scénario entier (user decision) | fix | E4.2f, **T3.17** | 📋 |
