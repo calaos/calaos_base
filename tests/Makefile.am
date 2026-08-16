@@ -1249,3 +1249,54 @@ EXTRA_DIST += core/golden/e40b_ws_get_io.json \
                   core/golden/e40b_ws_get_state.json \
                   core/golden/e40b_http_get_state.json
 endif
+
+# T3.17d
+#Characterization + lifetime net for the ONE-SHOT CAMERA SNAPSHOT: the
+#get_picture branch of JsonApiHandlerHttp::processCamera(). It is the only site
+#of the T3.17 series that lives in a handler instead of JsonApi.cpp, so it is
+#the only one not covered transitively by the apiAlive token of the base class.
+#Not covered by E4.0 either: E4.0 excludes get_camera_pic and get_cover because
+#they spawn calaos_picture, and get_picture - a different action entirely, which
+#spawns nothing - is in no sub-ticket coverage list.
+#The answer here is image/jpeg, not JSON, so the cases pin the exact bytes of
+#the body; the two error branches are JSON and go through the semantic oracle.
+#Reuses the E4.0a harness verbatim, hence the same link closure and the same
+#-DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test (no golden of its own:
+#a jpeg body is not a golden document).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiCameraSnapshot_test
+check_PROGRAMS += core/JsonApiCameraSnapshot_test
+core_JsonApiCameraSnapshot_test_SOURCES = core/JsonApiCameraSnapshot_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiCameraSnapshot_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiCameraSnapshot_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiCameraSnapshot_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
