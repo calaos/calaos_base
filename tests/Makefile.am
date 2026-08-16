@@ -1548,3 +1548,99 @@ EXTRA_DIST += core/golden/e40d_ws_event_envelope.json \
                   core/golden/e40d_ws_touchscreen_camera.json \
                   core/golden/e40d_http_poll_get.json
 endif
+
+# T3.17c
+#Characterization + lifetime net for the FIFTEEN audioDbGet* music-database
+#methods of JsonApi, before the apiAlive guard is added to them. E4.0f was
+#supposed to cover three of them and to leave the twelve others out by design
+#(E4.0.md:342-350); it is neither delivered nor started, so T3.17c brings its
+#own net for all fifteen - same rule as T3.17a and T3.17b.
+#The failure mode of a badly placed guard on a single shot is a response that
+#never leaves, so every case pins the exact answer document of one method on one
+#transport (thirty goldens for the thirty call sites of the two handlers), the
+#three shapes of processDbResult(), the synchronous error gates, and the
+#deferred path where a live client still gets its answer after the round trip.
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Audio/AudioDB.$(OBJEXT) is needed for the same reason as in T3.17b: the fake
+#music database is a concrete AudioDB subclass, and the reference house's
+#RoonPlayer carries no database at all.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiMusicDb_test
+check_PROGRAMS += core/JsonApiMusicDb_test
+core_JsonApiMusicDb_test_SOURCES = core/JsonApiMusicDb_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiMusicDb_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiMusicDb_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiMusicDb_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317c_ws_get_albums.json \
+                  core/golden/t317c_http_get_albums.json \
+                  core/golden/t317c_ws_get_artist_album.json \
+                  core/golden/t317c_http_get_artist_album.json \
+                  core/golden/t317c_ws_get_year_albums.json \
+                  core/golden/t317c_http_get_year_albums.json \
+                  core/golden/t317c_ws_get_genre_artists.json \
+                  core/golden/t317c_http_get_genre_artists.json \
+                  core/golden/t317c_ws_get_album_titles.json \
+                  core/golden/t317c_http_get_album_titles.json \
+                  core/golden/t317c_ws_get_playlist_titles.json \
+                  core/golden/t317c_http_get_playlist_titles.json \
+                  core/golden/t317c_ws_get_artists.json \
+                  core/golden/t317c_http_get_artists.json \
+                  core/golden/t317c_ws_get_years.json \
+                  core/golden/t317c_http_get_years.json \
+                  core/golden/t317c_ws_get_genres.json \
+                  core/golden/t317c_http_get_genres.json \
+                  core/golden/t317c_ws_get_playlists.json \
+                  core/golden/t317c_http_get_playlists.json \
+                  core/golden/t317c_ws_get_music_folder.json \
+                  core/golden/t317c_http_get_music_folder.json \
+                  core/golden/t317c_ws_get_search.json \
+                  core/golden/t317c_http_get_search.json \
+                  core/golden/t317c_ws_get_radios.json \
+                  core/golden/t317c_http_get_radios.json \
+                  core/golden/t317c_ws_get_radio_items.json \
+                  core/golden/t317c_http_get_radio_items.json \
+                  core/golden/t317c_ws_get_track_infos.json \
+                  core/golden/t317c_http_get_track_infos.json \
+                  core/golden/t317c_ws_zero_count.json \
+                  core/golden/t317c_ws_no_count.json \
+                  core/golden/t317c_ws_unknown_player.json \
+                  core/golden/t317c_http_unknown_player.json \
+                  core/golden/t317c_ws_empty_player_id.json \
+                  core/golden/t317c_ws_wrong_from_count.json \
+                  core/golden/t317c_ws_track_infos_no_track_id.json \
+                  core/golden/t317c_ws_unknown_audio_action.json \
+                  core/golden/t317c_http_unknown_audio_action.json
+endif

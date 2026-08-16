@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "count": "2"
+    },
+    {
+      "id": "radioitem_1",
+      "name": "radioitem number 1"
+    },
+    {
+      "id": "radioitem_2",
+      "name": "radioitem number 2"
+    }
+  ],
+  "total_count": "2"
+}

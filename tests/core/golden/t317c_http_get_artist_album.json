@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "count": "2"
+    },
+    {
+      "id": "artistalbum_1",
+      "name": "artistalbum number 1"
+    },
+    {
+      "id": "artistalbum_2",
+      "name": "artistalbum number 2"
+    }
+  ],
+  "total_count": "2"
+}

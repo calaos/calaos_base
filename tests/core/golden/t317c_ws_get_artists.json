@@ -1,0 +1,20 @@
+{
+  "data": {
+    "items": [
+      {
+        "count": "2"
+      },
+      {
+        "id": "artist_1",
+        "name": "artist number 1"
+      },
+      {
+        "id": "artist_2",
+        "name": "artist number 2"
+      }
+    ],
+    "total_count": "2"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

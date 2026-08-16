@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "count": "2"
+    },
+    {
+      "id": "year_1",
+      "name": "year number 1"
+    },
+    {
+      "id": "year_2",
+      "name": "year number 2"
+    }
+  ],
+  "total_count": "2"
+}

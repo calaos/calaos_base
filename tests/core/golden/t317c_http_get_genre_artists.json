@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "count": "2"
+    },
+    {
+      "id": "genreartist_1",
+      "name": "genreartist number 1"
+    },
+    {
+      "id": "genreartist_2",
+      "name": "genreartist number 2"
+    }
+  ],
+  "total_count": "2"
+}

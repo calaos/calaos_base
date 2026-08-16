@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "count": "2"
+    },
+    {
+      "id": "genre_1",
+      "name": "genre number 1"
+    },
+    {
+      "id": "genre_2",
+      "name": "genre number 2"
+    }
+  ],
+  "total_count": "2"
+}
