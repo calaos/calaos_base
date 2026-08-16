@@ -383,6 +383,10 @@ sémantique. Sous ASan : charge/parcours/évaluation/save/reload/suppression de 
 ⚠️ **Pièges opérationnels ASan** (l'option `--enable-asan` existe depuis E4.3cd) :
 - Les artefacts dépassent 20 Go — un worktree sous `/tmp` (tmpfs 32 Go) a été détruit en plein
   `make check`. **Faire les runs ASan sur disque réel** (ex. `~/repos/calaos/.validate/…`).
+- **Le build dépasse désormais 600 s** (51 binaires de test) : l'appel docker synchrone peut
+  excéder le timeout de l'outil et basculer en arrière-plan. **Ne pas relancer** — attendre le
+  conteneur et lire son code de sortie + le résumé `make check`. Relancer double le temps et
+  peut faire courir deux builds sur le même arbre monté.
 - **Objets ASan périmés** : après un build `--enable-asan`, un build par défaut dans le même
   arbre échoue au link (`undefined reference to __asan_report_load1`) en réutilisant des `.o`
   instrumentés. `git status` dit « clean » (les artefacts sont gitignorés) → piège parfait.
