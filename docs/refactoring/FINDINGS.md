@@ -584,9 +584,12 @@ Aucune ne remet en cause le correctif : l'UAF atteignable depuis l'API JSON est 
 
 - **Le backlog de la file d'events fuit d'un cas de test à l'autre, pas seulement du chargement
   vers la session.** `EventManager` empile dans un idler uvw qui n'est jamais dépilé tout seul
-  dans les tests ; on savait déjà que `loadReferenceHouse()` devait drainer les `EventIOAdded`
+  dans les tests ; on croyait que `loadReferenceHouse()` devait drainer les `EventIOAdded`
   qu'il lève, sinon tout cas épinglant une **absence** de message trébuche sur les événements en
-  attente. La mesure va plus loin : ce qu'un cas laisse dans la file est délivré aux sessions du
+  attente. ⚠️ **Cette cause était fausse et a été corrigée par E4.0d** (voir la section
+  « E4.0d — events » plus bas) : le chargement ne lève **rien du tout**, et le backlog vient de
+  `~Room()` au *teardown du cas précédent*. Le drain reste nécessaire, pour cette autre raison.
+  La mesure va plus loin : ce qu'un cas laisse dans la file est délivré aux sessions du
   cas **suivant** — un test de silence **passe seul et échoue dans la suite complète**. Le drain
   de `TearDown()` (`JsonApiCharacterization.cpp:643-652`, `pumpEventLoop()` après
   `LoginThrottle::clear()`) est donc **aussi porteur** que celui de `loadReferenceHouse()` :
@@ -850,3 +853,97 @@ corrigent à la baisse ce que l'audit croyait déjà couvert.
   `sigc::trackable` prenant le relais. Le test prouve donc « l'événement n'est pas livré », **pas**
   « c'est la déconnexion explicite qui l'empêche ». C'est acceptable — l'invariant est ce qui compte
   — mais **ne pas le citer comme preuve que la déconnexion explicite est nécessaire**.
+
+## E4.0d — events : divergences et types morts
+
+Découvertes en caractérisant les **events temps réel** (`tests/core/JsonApiEvents_test.cpp`,
+57 cas, 15 goldens) — la surface qui n'avait **aucun test** avant ce ticket. **Rien n'est
+corrigé** : E4.0d est de la caractérisation pure, **zéro ligne de `src/`**. La politique du
+harnais (`tests/core/JsonApiCharacterization.h:159-169`) exige qu'une divergence gelée soit
+consignée ici, et pas seulement dans l'en-tête du fichier de test.
+
+1. **[HARNAIS, cause corrigée] Le backlog d'events ne vient PAS du chargement de la maison.**
+   Le commentaire de `loadReferenceHouse()` affirmait depuis E4.0a que le chargement lève un
+   `EventIOAdded` par IO, « 5 here ». **Les deux moitiés étaient fausses**, et cinq sous-tickets
+   avaient lu cette phrase. Mesuré : `EventIOAdded` a **un seul** site d'émission dans tout
+   `src/`, `ListeRoom::createIO()` (`ListeRoom.cpp:466`), qui est le chemin **runtime** de l'API
+   JSON ; le chargement de configuration passe par `Room::LoadFromXml()`
+   (`Room.cpp:152-175`), qui construit et rattache les IOs **en silence**. Un client connecté
+   pendant le boot du serveur ne voit **rien** de la maison qui se construit. De plus la maison de
+   référence porte **8** IOs, pas 5. Le vrai backlog vient de l'autre bout du cycle de vie :
+   `~Room()` → `RemoveIO()` → `Room.cpp:77` lève un `EventIODeleted` **par IO**, et
+   `CoreFixture::TearDown()` détruit les pièces **après** que le fixture a pompé la boucle — ces
+   events survivent donc dans le cas **suivant**, où ils sont délivrés à sa première session.
+   Épinglé par `LoadingAHouseFromConfigRaisesNoEventAtAll`. Correctif structurel (déplacer le
+   `pumpEventLoop()` **après** `CoreFixture::TearDown()`) **ticketé E4.0g**, délibérément non fait
+   ici : trois sous-tickets sont en vol sur ce harnais et en changer la sémantique sous eux serait
+   pire que le bug. Corrections **de commentaires uniquement** dans
+   `JsonApiCharacterization.{h,cpp}` ; le `pumpEventLoop()` n'a **pas** bougé.
+
+2. **[CODE MORT] Cinq des 24 types d'events ne sont jamais émis.** Aucun `EventManager::create()`
+   nulle part pour `EventRoomAdded` (**5**), `EventRoomDeleted` (**6**),
+   `EventRoomPropertyDelete` (**8**) : ils n'existent que dans l'enum et dans `typeToString()`.
+   `EventPushNotification` (**22**) n'existe que comme **étiquette** `HistEvent::event_type`
+   posée en base à `ActionPush.cpp:105` — jamais `create()`, donc **jamais poussé sur le fil**
+   malgré son `type_str` `push_notif`. Le cinquième est plus vicieux :
+   **`EventAudioPlaylistCleared` (**18**) est mort par branche inatteignable.** Son unique site
+   (`Squeezebox.cpp:311`) est dans un `else if (p["2"] == "clear")` à `Squeezebox.cpp:306`, mais
+   `"clear"` est **déjà consommé** par la branche `Squeezebox.cpp:290`
+   (`loadtracks || clear || play || load`), qui émet `EventAudioPlaylistReload`. **Un « playlist
+   clear » rapporte donc `playlist_reload`, jamais `playlist_cleared`.** Gelé tel quel.
+
+3. **[API, piège client] 11 des 23 `type_str` ne se déduisent pas du nom de la constante.**
+   Un client qui génère ses noms depuis l'enum se trompe sur presque la moitié :
+   `EventTimeRangeChanged` → **`timerange_changed`** (pas `time_range_changed`) ; les **cinq**
+   `EventAudioPlaylist*` **perdent le préfixe `audio`** et trois d'entre eux gagnent `tracks_`
+   (`playlist_tracks_added`, `playlist_tracks_deleted`, `playlist_tracks_moved`,
+   `playlist_reload`, `playlist_cleared`) ; `EventTouchScreenCamera` →
+   **`touchscreen_camera_request`** (suffixe ajouté) ; `EventPushNotification` → **`push_notif`**
+   (tronqué) ; les deux `*PropertyDelete` → **`io_prop_deleted`** / **`room_prop_deleted`**
+   (abrégé *et* conjugué) ; et le défaut porte une **faute de frappe** : `EventUnkown` → chaîne
+   **`"unkown"`** (`EventManager.cpp`, branche `default`). La faute est **gelée** : elle est
+   observable par les clients depuis toujours.
+
+4. **[PROTOCOLE] La numérotation de l'enum fait partie du protocole de fil.** L'enveloppe d'event
+   porte `type` avec la **valeur ordinale brute** de l'enum (`"3"` pour `io_changed`), à côté de
+   `type_str`. Or `CalaosEvent::EventType` (`EventManager.h`) n'est numéroté **que** sur son
+   premier membre (`EventUnkown = 0`) : tous les autres sont implicites. **Insérer une valeur au
+   milieu décale silencieusement tout ce qui suit** pour tout client qui lit `type`. Les **24**
+   valeurs (0 à 23) sont donc épinglées une par une par le golden
+   `e40d_ws_event_catalog.json` : toute réorganisation de l'enum casse le test, ce qui est
+   exactement l'intention.
+
+5. **[SÉCURITÉ — gelé, non corrigé, mérite son ticket] Une session `serviceScope` reçoit TOUS les
+   events de la maison.** `JsonApiHandlerWS::handleEvents()` (`JsonApiHandlerWS.cpp:53-60`) ne
+   teste **que** `loggedin` et **jamais** `serviceScope`, alors que ce même drapeau est consulté
+   sur **7** commandes du chemin requête/réponse : `set_param`, `del_param`, `audio_db`,
+   `set_timerange`, `eventlog`, `register_push`, `settings` (`JsonApiHandlerWS.cpp:177-219`). Une
+   session sidecar MCP à qui l'on **refuse** de lire les paramètres, la base audio ou le journal
+   d'événements **reçoit malgré tout le flux temps réel complet** — ids d'IO et valeurs d'état
+   compris, donc l'essentiel de ce que le refus était censé protéger. Le cloisonnement n'est
+   appliqué que sur la moitié requête/réponse de l'API, pas sur la moitié push. **Gelé** :
+   E4.0d est de la caractérisation, et corriger ceci change un comportement visible client.
+
+6. **[LIMITE DE PORTÉE ASSUMÉE] Les payloads audio et `io_status_changed` ne sont PAS
+   opposables.** Rien n'appelle `Squeezebox`, `RoonPlayer` ni `MqttCtrl` dans la suite — ces
+   objets ne sont même pas liés au binaire. Les **8** payloads audio et `io_status_changed` sont
+   donc épinglés depuis des events **fabriqués à la main**, ce qui ne prouve rien de la forme que
+   la production émet réellement. Quatre payloads audio du golden ont d'ailleurs été **corrigés**
+   dans ce ticket parce qu'ils gelaient des formes que la production n'émet pas : les corriger ne
+   les rend **pas** opposables pour autant ; ce que ça achète, c'est que le golden **cesse
+   d'affirmer une forme fausse**. Ce qui **est** opposable : l'enveloppe, la numérotation,
+   l'encodage (UTF-8 accentué) et la stringification pour les **19** types atteignables, et les
+   **formes de payload** pour les **7** types réellement déclenchés par du code de production
+   traversé par la suite.
+
+7. **[ÉCART DOC/CODE] `docs/08_http_api.md` décrit une enveloppe d'event qui n'est jamais
+   émise.** Le bloc `docs/08_http_api.md:210-221` montre un objet **plat**
+   `{"type": "io_changed", "id": ..., "value": ...}`. Le fil porte en réalité
+   `{"msg": "event", "data": {"type": "<ordinal>", "type_str": ..., "event_raw": ...,
+   "data": {...}}}` — **`data` imbriqué dans `data`**, `type` numérique à côté de `type_str`, et
+   ni `id` ni `value` à la racine. La liste `:224-231` contient **14 noms réels + 1 fantôme**
+   (`push_notification`, alors que le code dit `push_notif`) et **omet 9 des 23** types
+   (`io_prop_deleted`, `room_prop_deleted`, les 5 `playlist_*`, `touchscreen_camera_request`,
+   `push_notif`). `docs/10_events_notifications.md` ne documente, lui, **aucune** enveloppe de
+   fil. ⚠️ **Ne pas corriger ces deux documents ici : E4.0f est en train de le faire** — signalé
+   pour éviter le double travail et un conflit inutile.

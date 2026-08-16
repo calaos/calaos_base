@@ -849,6 +849,72 @@
   ne liste que le visible utilisateur, les durcissements internes en sont exclus par son propre
   chapeau). **T3.17 reste 📋** — c et f ne sont pas mergés. ff-only, worktree t3.17e nettoyé,
   **rien n'a été poussé**.
+- **E4.0d ✅ mergé** (2026-08-16, `d68e59f1`) — **caractérisation des events temps réel, la
+  surface qui n'avait AUCUN test.** Quatrième sous-ticket de la série E4.0, sur le harnais E4.0a :
+  nouveau `tests/core/JsonApiEvents_test.cpp` (1668 l., **57 cas**, ids préfixés `e40_`), **15
+  goldens** `core/golden/e40d_*.json`, append de **67 l.** sur `tests/Makefile.am`, et corrections
+  **de commentaires** dans `JsonApiCharacterization.{h,cpp}` + promotion additive de
+  `member()`/`str()`. **Zéro ligne de `src/`, vérifié sur le commit** (`git diff --name-only
+  master..HEAD -- src/` vide). Ce qui est épinglé : l'enveloppe WS (`msg:"event"` avec **`data`
+  imbriqué dans `data`**, `type` ordinal **et** `type_str`, `event_raw`), la **numérotation des 24
+  valeurs** de l'enum, l'encodage UTF-8 accentué, la stringification des 23 `type_str`, le gating
+  `!loggedin`, la livraison **asynchrone** via l'idler `EventManager`, et l'équivalent HTTP
+  `poll_listen` avec ses trois sous-actions. Revue indépendante : **MERGE AVEC RÉSERVES**, réserves
+  **fermées** par l'implémenteur avant ce merge.
+  **Ce ticket a corrigé une erreur du harnais que CINQ sous-tickets avaient lue.** Le commentaire
+  de `loadReferenceHouse()` affirmait qu'un chargement de maison lève un `EventIOAdded` par IO,
+  « 5 here » : **faux sur la cause ET sur le compte**. `EventIOAdded` n'a qu'**un** site,
+  `ListeRoom.cpp:466` (chemin runtime de l'API) ; `Room::LoadFromXml()` est **muet** ; et la maison
+  porte **8** IOs. Le vrai backlog vient de `~Room()` → `RemoveIO()` → `Room.cpp:77`, **après** que
+  le fixture a pompé. Épinglé par `LoadingAHouseFromConfigRaisesNoEventAtAll`. ⚠️ **Le
+  `pumpEventLoop()` n'a PAS bougé** — vérifié à ce merge en diffant `JsonApiCharacterization.cpp`
+  **commentaires retirés** : **0 ligne de code changée**. Le correctif structurel reste
+  [`E4.0g`](E4.0g.md), à faire une fois E4.0d/e/f mergés.
+  **Cinq divergences gelées en FINDINGS** (§ *E4.0d — events*) : **5 types d'events morts** —
+  `EventRoomAdded` (5), `EventRoomDeleted` (6), `EventRoomPropertyDelete` (8) sans aucun
+  `create()`, `EventPushNotification` (22) qui n'existe que comme **tag** `HistEvent::event_type`
+  (`ActionPush.cpp:105`), et surtout **`EventAudioPlaylistCleared` (18), mort par branche
+  inatteignable** : son unique site (`Squeezebox.cpp:311`, sous `else if (p["2"] == "clear")` à
+  `:306`) est **masqué** par `:290` qui consomme déjà `clear` — **un « playlist clear » rapporte
+  donc `playlist_reload`** ; **11 des 23 `type_str` ne se déduisent pas du nom de la constante**
+  (dont la faute `unkown`, gelée) ; **la numérotation de l'enum est du protocole** (`type` part sur
+  le fil comme ordinal brut sur un enum non numéroté au-delà d'`EventUnkown = 0` : insérer une
+  valeur au milieu décale tout pour les clients) ; **[SÉCURITÉ] une session `serviceScope`
+  (sidecar MCP) reçoit TOUS les events** — `handleEvents()` (`JsonApiHandlerWS.cpp:53-60`) ne teste
+  **que** `loggedin` et **jamais** `serviceScope`, alors que celui-ci est consulté sur **7**
+  commandes du chemin requête/réponse (`:177-219`) : une session à qui `set_param`/`del_param`/
+  `audio_db`/`set_timerange`/`eventlog`/`register_push`/`settings` sont refusés **reçoit tout le
+  flux de la maison**, ids et valeurs compris. **Gelé, non corrigé — mérite son ticket.**
+  **Limite de portée assumée, écrite noir sur blanc** : les 8 payloads audio et `io_status_changed`
+  ne sont **pas opposables** (rien n'appelle Squeezebox/RoonPlayer/MqttCtrl dans la suite, les
+  objets ne sont même pas liés) ; **4 payloads audio ont été corrigés** parce qu'ils gelaient des
+  formes que la production n'émet pas — ce que ça achète n'est pas l'opposabilité mais que le
+  golden **cesse d'affirmer une forme fausse**. Opposables : enveloppe, numérotation, encodage,
+  stringification pour les **19** types atteignables ; formes de payload pour les **7** déclenchés
+  par du vrai code de production.
+  **Écart doc/code signalé mais NON corrigé ici** : `docs/08_http_api.md:210-221` décrit une
+  enveloppe **jamais émise**, et sa liste `:224-231` contient 14 noms réels + 1 fantôme
+  (`push_notification`, le code dit `push_notif`) en **omettant 9 types sur 23** ;
+  `docs/10_events_notifications.md` ne documente **aucune** enveloppe de fil. ⚠️ **E4.0f est en
+  train de corriger ces deux documents** — laissé intact pour éviter le double travail et un
+  conflit inutile.
+  **Conflit `tests/Makefile.am`** (fin de fichier, exactement le pattern documenté) : git avait
+  **fusionné les corps `LDADD` identiques** et laissé **trois hunks entrelacés** ne portant que sur
+  les en-têtes. Résolu **en régénérant** — fichier complet de master + append **verbatim** des 67 l.
+  de la branche (vérifié : les 1483 premières lignes **byte-identiques** à master, les 67 dernières
+  **byte-identiques** à la branche), **1550 l., 50/50 `if HAVE_GTEST`/`endif`**, zéro marqueur.
+  Aucun conflit sur `JsonApiCharacterization.{h,cpp}` — master n'y avait pas touché depuis
+  `fa75299a`. **62/62 tests** après `make distclean` + rebuild complet (piège `_DEPENDENCIES`
+  neutralisé) : 61 statements `TESTS +=` mais **62 entrées** (la ligne
+  `check-config-options.sh check-config-docs.sh` en porte deux), recoupé par 60 `check_PROGRAMS`
+  − 1 (`StaticLogShutdown_helper`, pas un test) + 3 scripts = **62**. Les **7 binaires voisins**
+  partageant le harnais revérifiés **verts** : `JsonApiCharacterization`, `JsonApiHome`,
+  `JsonApiScenario`, `JsonApiPlaylist`, `JsonApiPlayerState`, `JsonApiCameraSnapshot`,
+  `JsonApiWsTransport`. Aucune fausse suppression de docs : les **97** fichiers de
+  `docs/refactoring/` intacts ; les 3 worktrees voisins (t3.17c, e4.0e, e4.0f) vérifiés intacts
+  avant nettoyage. **Pas d'entrée RELEASE_NOTES.md** — zéro ligne de `src/`.
+  **E4.0 reste 📋** — e, f, g ne sont pas mergés. Historique linéaire (cherry-pick sur master,
+  pas de commit de merge), worktree e4.0d nettoyé, **rien n'a été poussé**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
