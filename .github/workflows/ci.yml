@@ -155,15 +155,20 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
+      # git must be installed *before* actions/checkout: the action only
+      # creates a real git repository when git >= 2.18 is on the PATH, and the
+      # debian:12 image ships none. Without this step checkout silently falls
+      # back to downloading a REST tarball, leaves no .git directory, and the
+      # git diff below dies with "not a git repository".
+      - name: Install git and clang-format
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang-format git
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Install clang-format
-        run: |
-          apt-get update -qq
-          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang-format git
 
       - name: clang-format-diff on changed lines only
         run: |
@@ -188,6 +193,7 @@ jobs:
             ':(exclude)src/lib/sqlite_modern_cpp' \
             ':(exclude)src/lib/uri_parser' \
             ':(exclude)src/lib/cpptui' \
+            ':(exclude)src/lib/pugixml' \
             ':(exclude)src/lib/json.hpp')
 
           if [ -z "$diff" ]; then
