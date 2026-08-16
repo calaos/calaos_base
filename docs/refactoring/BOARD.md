@@ -111,7 +111,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.1](E4.1.md) | 4 | Single JSON library | epic | Phase 3, E4.3 | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
-| [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | 🔨 |
+| [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
 | [E4.3](E4.3.md) | 4 | ~~Test coverage~~ (atteint à 99%: 40 binaires/411 cas — voir PHASE4.md) | epic | T0.3 | ✅ |
 | [E4.3ab](E4.3ab.md) | 4 | Coverage gaps: TimeRange/InPlageHoraire + XML round-trip | tests | — | ✅ |
 | [T3.13](T3.13.md) | 3 | TimeRange: include guard, parse UB, midnight-wrap (user decision) | fix | E4.3ab | 🔨 |

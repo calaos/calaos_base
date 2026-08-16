@@ -168,6 +168,26 @@
   pendant le build (docs E4.4a) → rebase rejoué, commit docs-only donc build conservé.
   Build d'intégration : **47/47**. ff-only, worktree e4.3ab nettoyé.
   5 bugs + 1 ambiguïté produit remontés (non corrigés) dans FINDINGS.md.
+- **E4.2b ✅ mergé** (2026-08-16, `26977351`, étape **2/6** de la série ownership E4.2).
+  `Room` possède ses IOs via `unique_ptr<IOBase>`, `ListeRoom` possède ses `Room` via
+  `unique_ptr<Room>`, et `io_table`/`cameraCache`/`audioCache` deviennent des index **non
+  possédants** — 5 `delete` manuels supprimés du chemin IO. Deux points de revue corrigés avant
+  merge : `Room::RemoveIO` **sort le `unique_ptr` du vecteur avant l'`erase`**, pour que
+  `~IOBase` (qui se désenregistre de `ListeRoom`) ne tourne jamais au milieu du décalage du
+  vecteur ; et la clause `!id.empty()` de `createIO` (carry-over E4.2a, l'état « à moitié
+  ajouté ») est remplacée par `isHashRegistered()`. Les deux **transferts** de propriété hors
+  d'une pièce (`delete_io(io, del=false)` et `RemoveIOFromRoom()`) sont bien des `release()`,
+  pinnés par le nouveau `tests/core/ListeRoomOwnership_test.cpp`. Périmètre exact :
+  `Room.{h,cpp}`, `ListeRoom.{h,cpp}`, `IO/IOFactory.{h,cpp}`, le test, `tests/Makefile.am` —
+  **`JsonApi.cpp` non touché** (volontaire : le null-deref `old_room` reste en carry-over).
+  Base : branche partie de `e5dbd058`, rebasée sur master ; conflit unique et attendu en fin de
+  `tests/Makefile.am` (patron regenerate : fichier master + le bloc `HAVE_GTEST` `# E4.2b` en
+  EOF), 36/36 `if`/`endif` équilibrés. Build d'intégration : **48/48** (47 de master +
+  `core/ListeRoomOwnership_test`). ff-only, worktree e4.2b nettoyé.
+  2 bugs pré-existants remontés (non corrigés) dans FINDINGS.md : null-deref `old_room` en
+  `JsonApi.cpp:1820`, et la fuite `addIOHash` inconditionnel d'`IPCam`/`AudioPlayer` sous
+  `ScopedDocGen`. Étape 3/6 de la série E4.2 : **fiche pas encore découpée** (aucun E4.2c au
+  board à ce jour).
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

@@ -49,6 +49,14 @@
   propriété**, pas une simple suppression du conteneur : quand les conteneurs passeront aux
   smart pointers, ce chemin doit devenir `release()` et non `reset()`, sinon l'IO rendu à
   l'appelant est détruit sous ses pieds.
+- **[E4.2b revue → non corrigé] `JsonApi.cpp:1820`, transfert d'un IO frère entre pièces** :
+  `old_room` n'est jamais testé contre `nullptr`. Avec `room != nullptr` mais un `getRoomByIO`
+  qui échoue, ce chemin déréférence un pointeur nul. Pré-existant, hors périmètre E4.2b.
+- **[E4.2b revue → non corrigé] Fuite de la génération de doc (pré-existante)** : sous
+  `IOBase::ScopedDocGen`, `IOBase` saute `addIOHash`, mais `IPCam.cpp:43` et
+  `AudioPlayer.cpp:54` appellent `addIOHash(this)` inconditionnellement. Les objets jetables
+  de doc atterrissent donc dans `io_table["doc"]` / `cameraCache` et `~IOBase` ne les
+  désenregistre jamais.
 
 ## Wave 7 — follow-ups mineurs (hors périmètre, non corrigés)
 
