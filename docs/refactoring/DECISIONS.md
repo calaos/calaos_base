@@ -4,6 +4,19 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-16 — T3.18 séquencé APRÈS T3.17 (ergonomie de réactivation complète)
+**Décision** : ne pas livrer T3.18 avec une réactivation par la commande générique
+`set_param disabled_missing_io=false`. On **attend que T3.17 libère** `JsonApi.{h,cpp}` et les deux
+handlers, puis T3.18 intègre directement la commande dédiée `autoscenario reenable`, avec son
+**refus explicite** nommant les ids encore manquants.
+**Pourquoi** : `set_param` ne sait pas refuser. Par cette voie, réactiver un scénario encore cassé
+« réussit » sans rien faire — le scénario ne démarre simplement pas (porte `isBroken()`), avec le
+diagnostic seulement dans les logs et le payload. C'est précisément le défaut que T3.18 existe pour
+supprimer, redéplacé d'un cran vers le haut. L'utilisateur préfère attendre et livrer l'ergonomie
+complète du premier coup.
+**Conséquence** : **T3.18b est annulé** (son contenu réintègre T3.18). T3.17 (5 sous-tickets) passe
+sur le **chemin critique** de T3.18. Ne pas lancer T3.18 avant que T3.17 soit mergé.
+
 ## 2026-08-16 — Scénario amputé : désactiver le scénario entier (cohérent avec E4.2e)
 **Décision** : quand un IO utilisé par une **étape de scénario** est supprimé, le scénario ne doit
 plus être **amputé silencieusement** et continuer à tourner en séquence plus courte. Il doit être
