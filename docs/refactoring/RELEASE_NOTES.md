@@ -61,6 +61,10 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   avertissement dans les logs, le reste de l'installation fonctionne.
 
 ## Sécurité & réseau
+- **TinyXML 2.5.3 (non maintenu, 2 CVE) remplacé par pugixml** — 14 242 lignes de bibliothèque
+  tierce retirées du dépôt. Les deux vulnérabilités (plantage du serveur sur XML malformé,
+  boucle infinie sur UTF-8 tronqué), atteignables depuis une URL configurée par l'utilisateur via
+  les IOs Web, ne sont plus atteignables : le code vulnérable n'existe plus.
 - **Limite de connexions par client** : 50 par défaut (`max_connections_per_ip`), auparavant
   illimité. Le client est identifié via `X-Forwarded-For` (haproxy). Au-delà : `429`.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).

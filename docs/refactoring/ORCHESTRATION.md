@@ -325,6 +325,22 @@
   TinyXML + TinyXPath) est donc débloqué.**
   2 divergences cosmétiques de revue (déclaration XML, BOM UTF-8) consignées dans FINDINGS.md —
   non bloquantes, sortie strictement mieux formée. ff-only, worktree e4.4dbis nettoyé.
+- **E4.4e ✅ mergé** (2026-08-16, `93537ae4`) — **la migration pugixml est COMPLÈTE**
+  (E4.4a / E4.4b / E4.4cd / E4.4dbis / E4.4e tous ✅). `src/lib/TinyXML/` (TinyXML 2.5.3 +
+  TinyXPath) est supprimé : 48 fichiers, **−14 242 lignes** (12 818 LOC + ChangeLog/README/
+  projets MSVC/XML d'exemple), commit 64 fichiers +26/−14 333. Purge des fichiers de build :
+  `src/lib/Makefile.am` (33 entrées `TinyXML/*` + `-DTIXML_USE_STL`), `src/bin/calaos_server/
+  Makefile.am` et `tests/Makefile.am` (`-DTIXML_USE_STL` + `-I$(top_srcdir)/src/lib/TinyXML`),
+  `po/POTFILES.in` (34 entrées), `.github/workflows/ci.yml` (exclusion lcov + `:(exclude)`
+  clang-format), `configure.ac`. Aucun `_LDADD`/`_SOURCES` séparé : ça compilait directement dans
+  `libcalaos_common`. Les +26 lignes sont **uniquement** des commentaires/docs reformulés — aucun
+  changement de code compilé. **CVE-2023-34194 (assert → `abort()` du serveur sur XML malformé) et
+  CVE-2021-42260 (boucle infinie sur UTF-8 tronqué) sont désormais INATTEIGNABLES : le code
+  vulnérable n'existe plus dans le dépôt.** Les 15 commentaires de prose qui citent l'ancienne API
+  TiXml* sont **conservés** (ils justifient le code pugixml actuel), 5 lignes de cadrage reformulées
+  pour qu'aucune ne pointe vers du code encore présent. `docs/refactoring/**` volontairement
+  intouché (trace historique). Rebase sur master : **aucun conflit** (fast-forward direct). Build
+  d'intégration distclean **51/51 PASS, 0 SKIP**. ff-only, worktree e4.4e nettoyé.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
