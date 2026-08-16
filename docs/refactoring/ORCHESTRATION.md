@@ -700,3 +700,26 @@ Les décisions utilisateur et mises à jour de board se mettent en attente et pa
 commit après le rapport de merge. Si une décision doit absolument être consignée immédiatement,
 elle va dans un fichier qu'aucun agent de merge n'écrit (jamais `BOARD.md`, `FINDINGS.md`,
 `RELEASE_NOTES.md` ni `ORCHESTRATION.md`), et on l'assume explicitement.
+
+## ⚠️ Piège `_DEPENDENCIES` — la variante FAUX ROUGE (découverte en E4.0b, 2026-08-16)
+
+Le piège documenté jusqu'ici produisait des **faux verts** : on efface le `.o` de production, le
+binaire de test ne se relinke pas (`<name>_DEPENDENCIES` est écrasé), et l'ancien binaire est
+réexécuté sur du code muté.
+
+**La même mécanique produit aussi des faux ROUGES, et c'est bien plus perfide.** Vécu en E4.0b :
+
+Juste après un rebase, `core/JsonApiPlaylist_test` (T3.17a) **segfaultait de façon reproductible**
+(3 fois sur 3). Le rebase amenait les sources `src/` de T3.17a, mais le `JsonApi.o` de l'arbre
+datait d'**avant** le rebase et `_DEPENDENCIES` empêchait le relink. Le binaire de T3.17a testait
+donc sa propre garde **contre un objet qui ne la contenait pas**. Après `make distclean` + rebuild
+complet : **11/11**. Aucun bug de production.
+
+**Pourquoi c'est pire que le faux vert** : un crash après rebase a toutes les apparences d'une
+régression qu'on vient d'introduire. L'agent a d'abord soupçonné sa propre modification du harnais
+et l'a écartée par mesure (en restaurant le harnais de master à l'identique, le segfault
+persistait) — c'est le bon réflexe, mais ça coûte du temps et ça peut mener à « corriger » un code
+sain.
+
+**Règle** : **après tout rebase, `make distclean` avant de conclure quoi que ce soit** sur un
+binaire voisin. À répercuter dans les briefs de sous-tickets.
