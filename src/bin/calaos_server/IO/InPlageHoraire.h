@@ -49,6 +49,14 @@ protected:
                            const struct tm &date, bool previousDay);
 
 public:
+    /* The calendar day before `day`, as a struct tm normalized by mktime()
+     * (tm_wday included). Subtracting 24h from a time_t would be wrong the
+     * morning after a spring forward, where the previous day is only 23h long
+     * and the subtraction lands on the day before that one.
+     * tm_wday is TimeRange::BADDAY if the date cannot be normalized.
+     */
+    static struct tm previousDay(const struct tm &day);
+
     InPlageHoraire(Params &p);
     ~InPlageHoraire();
 

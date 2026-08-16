@@ -36,7 +36,9 @@ InPlageHoraire::InPlageHoraire(Params &p):
     ioDoc->aliasAdd("InPlageHoraire");
     ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months. "
                             "A range whose end is before its start wraps over midnight: it starts on the weekday it is attached to and ends the next morning. "
-                            "For example a range 23:00 -> 01:00 set on monday is true from monday 23:00 to tuesday 01:00, and never on monday between 00:00 and 01:00."));
+                            "For example a range 23:00 -> 01:00 set on monday is true from monday 23:00 to tuesday 01:00, and never on monday between 00:00 and 01:00. "
+                            "Beware that bounds relative to sunrise/sunset move with the season: a range like sunset -> 23:00 is a normal range most of the year but starts to wrap over midnight when sunset gets later than 23:00. "
+                            "Such a range is reported in the log the first time it is evaluated as wrapping."));
     ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
     ioDoc->conditionAdd("true", _("Event triggered when entering the range"));
@@ -82,6 +84,29 @@ vector<TimeRange> *InPlageHoraire::getRangesForWeekday(int wday)
     }
 }
 
+struct tm InPlageHoraire::previousDay(const struct tm &day)
+{
+    struct tm prev = day;
+
+    prev.tm_mday--;
+    prev.tm_hour = 12; //noon, no DST transition ever lands there
+    prev.tm_min = 0;
+    prev.tm_sec = 0;
+    prev.tm_isdst = -1; //let mktime() find out the DST flag of that day
+
+    //mktime() normalizes the whole structure: month/year rollover, tm_wday...
+    if (mktime(&prev) == (time_t) -1)
+    {
+        cErrorDom("input") << "Failed to compute the day before "
+                           << day.tm_mday << "/" << day.tm_mon + 1 << "/" << day.tm_year + 1900;
+
+        prev = day;
+        prev.tm_wday = TimeRange::BADDAY; //no schedule is attached to it
+    }
+
+    return prev;
+}
+
 /* Is `cur` (a second of day of the *current* day) inside the ranges scheduled
  * for the day described by `date`?
  *
@@ -100,6 +125,10 @@ bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
 {
     if (!plage) return false;
 
+    bool val = false;
+
+    //no early exit: every range is evaluated, so that a wrapping one is
+    //reported in the log even when an earlier range already matched
     for (uint i = 0;i < plage->size();i++)
     {
         TimeRange &h = (*plage)[i];
@@ -116,23 +145,28 @@ bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
         {
             //a plain range lives entirely inside its own day
             if (!previousDay && cur >= start_time && cur <= end_time)
-                return true;
-        }
-        else if (previousDay)
-        {
-            //tail of yesterday's overnight range, [00:00, end]
-            if (cur <= end_time)
-                return true;
+                val = true;
         }
         else
         {
-            //head of today's overnight range, [start, end of day]
-            if (cur >= start_time)
-                return true;
+            h.logWrapOnce(start_time, end_time);
+
+            if (previousDay)
+            {
+                //tail of yesterday's overnight range, [00:00, end]
+                if (cur <= end_time)
+                    val = true;
+            }
+            else
+            {
+                //head of today's overnight range, [start, end of day]
+                if (cur >= start_time)
+                    val = true;
+            }
         }
     }
 
-    return false;
+    return val;
 }
 
 void InPlageHoraire::hasChanged()
@@ -154,11 +188,14 @@ void InPlageHoraire::hasChanged()
                    today.tm_sec;
 
         //ranges of today, plus the ranges of yesterday that run over midnight
-        time_t t_yesterday = t - 24 * 3600;
-        struct tm yesterday = *localtime(&t_yesterday);
+        struct tm yesterday = previousDay(today);
 
-        val = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false) ||
-              isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
+        //both are evaluated, no short circuit, so that a wrapping range of
+        //yesterday is reported even when today already matched
+        bool in_today = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false);
+        bool in_yesterday = isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
+
+        val = in_today || in_yesterday;
     }
 
     if (val != value)

@@ -35,9 +35,10 @@ private:
     int sunset_hour_cache = 0, sunset_min_cache = 0;
     int dst_cache = false; //Daylight saving time
 
-    //true once an unparsable bound has been reported, to keep the event loop
-    //from logging the same broken range every second
+    //true once an unparsable bound / a wrap over midnight has been reported,
+    //to keep the event loop from logging the same range every second
     bool bad_bound_logged = false;
+    bool wrap_logged = false;
 
     long getTimezoneOffset();
     void computeSunSetRise(int year, int month, int day,
@@ -97,6 +98,14 @@ public:
      * evaluating bounds that fell back to 0.
      */
     bool isValid() const;
+
+    /* Report, once for the lifetime of this range, that it has been evaluated
+     * as wrapping over midnight (its end is before its start). A sun relative
+     * bound moves with the season, so the very same configuration can start to
+     * wrap at some times of the year: without this the behaviour change is
+     * invisible in the log.
+     */
+    void logWrapOnce(long start_sec, long end_sec);
 
     bool isSameStartEnd();
 

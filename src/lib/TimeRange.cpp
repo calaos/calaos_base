@@ -103,6 +103,18 @@ void TimeRange::logBadBound(const string &which)
                 "should be ignored.";
 }
 
+void TimeRange::logWrapOnce(long start_sec, long end_sec)
+{
+    if (wrap_logged) return;
+    wrap_logged = true;
+
+    cInfo() << "Horaire: time range " << time2string_digit(start_sec) << " ===> "
+            << time2string_digit(end_sec)
+            << " ends before it starts: it wraps over midnight and runs until "
+            << time2string_digit(end_sec) << " of the next day"
+            << " (a sunrise/sunset bound moves with the season and can start to wrap)";
+}
+
 bool TimeRange::isValid() const
 {
     long v = 0;

@@ -66,6 +66,8 @@
 #include <string>
 #include <vector>
 
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "Calendar.h"
@@ -109,6 +111,47 @@ struct LocalNow
     int mon;        //0 = january, same convention as InPlageHoraire::JANUARY
     long secOfDay;
 };
+
+//Pin the timezone of the process for the duration of a test, and restore it.
+struct ScopedTimezone
+{
+    std::string saved;
+    bool had = false;
+
+    ScopedTimezone(const char *tz)
+    {
+        const char *cur = getenv("TZ");
+        if (cur) { saved = cur; had = true; }
+
+        setenv("TZ", tz, 1);
+        tzset();
+    }
+
+    ~ScopedTimezone()
+    {
+        if (had) setenv("TZ", saved.c_str(), 1);
+        else unsetenv("TZ");
+        tzset();
+    }
+};
+
+//A normalized struct tm for a local date and time, tm_wday included.
+struct tm localDate(int year, int mon, int mday, int hour, int min)
+{
+    struct tm t;
+    memset(&t, 0, sizeof(t));
+
+    t.tm_year = year - 1900;
+    t.tm_mon = mon - 1;
+    t.tm_mday = mday;
+    t.tm_hour = hour;
+    t.tm_min = min;
+    t.tm_isdst = -1;
+
+    mktime(&t); //normalize
+
+    return t;
+}
 
 LocalNow localNow()
 {
@@ -394,6 +437,70 @@ TEST(TimeRangeTest, ToStringDescribesBothBoundTypes)
 
     EXPECT_NE(std::string::npos, ss.find("[Start: sunrise]"));
     EXPECT_NE(std::string::npos, ss.find("[End: sunset]"));
+}
+
+/******************************************************************************
+ * InPlageHoraire - the day before, used to find the overnight ranges of
+ * yesterday that are still running this morning
+ ******************************************************************************/
+
+TEST(InPlageHorairePreviousDayTest, WalksBackOneCalendarDay)
+{
+    ScopedTimezone tz("Europe/Paris");
+
+    struct tm prev = InPlageHoraire::previousDay(localDate(2025, 6, 16, 0, 30));
+
+    EXPECT_EQ(15, prev.tm_mday);
+    EXPECT_EQ(5, prev.tm_mon); //june, 0 based
+    EXPECT_EQ(125, prev.tm_year);
+    EXPECT_EQ((int)TimeRange::SUNDAY, prev.tm_wday);
+}
+
+TEST(InPlageHorairePreviousDayTest, CrossesMonthYearAndLeapDay)
+{
+    ScopedTimezone tz("Europe/Paris");
+
+    struct tm feb = InPlageHoraire::previousDay(localDate(2025, 3, 1, 0, 30));
+    EXPECT_EQ(28, feb.tm_mday);
+    EXPECT_EQ(1, feb.tm_mon);
+
+    struct tm leap = InPlageHoraire::previousDay(localDate(2024, 3, 1, 0, 30));
+    EXPECT_EQ(29, leap.tm_mday);
+    EXPECT_EQ(1, leap.tm_mon);
+
+    struct tm dec = InPlageHoraire::previousDay(localDate(2025, 1, 1, 0, 30));
+    EXPECT_EQ(31, dec.tm_mday);
+    EXPECT_EQ(11, dec.tm_mon);
+    EXPECT_EQ(124, dec.tm_year);
+}
+
+TEST(InPlageHorairePreviousDayTest, IsNotFooledByASpringForward)
+{
+    /* In Europe/Paris, sunday 30 march 2025 is only 23h long (02:00 -> 03:00).
+     * On the monday morning that follows, subtracting 24h from the time_t
+     * lands on saturday the 29th, ie the day *before* yesterday: the overnight
+     * ranges of sunday night would be missed and saturday's applied instead.
+     * That is the whole reason previousDay() goes through struct tm.
+     */
+    ScopedTimezone tz("Europe/Paris");
+
+    struct tm monday = localDate(2025, 3, 31, 0, 30);
+
+    struct tm prev = InPlageHoraire::previousDay(monday);
+    EXPECT_EQ(30, prev.tm_mday);
+    EXPECT_EQ(2, prev.tm_mon);
+    EXPECT_EQ((int)TimeRange::SUNDAY, prev.tm_wday);
+
+    //what the naive time_t arithmetic gives on that very morning
+    struct tm copy = monday;
+    time_t t = mktime(&copy);
+    time_t naive_t = t - 24 * 3600;
+    struct tm naive = *localtime(&naive_t);
+
+    if (naive.tm_mday == 30)
+        GTEST_SKIP() << "no tzdata for Europe/Paris, the DST case cannot be exercised";
+
+    EXPECT_EQ(29, naive.tm_mday); //the bug previousDay() does not have
 }
 
 /******************************************************************************
