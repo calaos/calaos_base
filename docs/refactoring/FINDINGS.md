@@ -459,3 +459,19 @@ d'E4.2e** (qui détient `ListeRule.cpp`), afin que la passe puisse le couvrir au
   (`Rule.h:128-129`). Tous les appelants de production sont des boucles bornées et il n'existe
   aucune API JSON exposant les règles ; seul du code de test avec un index littéral peut y
   tomber. → petite garde à ajouter.
+
+## E4.2f — cadrage (back-pointers AutoScenario)
+
+- **UB latent à l'extinction, hors périmètre E4.2f** : `~Room` appelle `ListeRule::Instance()`.
+  La sûreté de l'arrêt ne tient qu'à `main.cpp:137-142`, qui construit `ListeRule` **avant**
+  `ListeRoom` (commentaire « Ensure calling order of destructors ») — donc `~ListeRoom` court en
+  premier et `~AutoScenario` ne touche plus aucune `Rule`. **Rien ne teste cet invariant** :
+  réordonner ces deux lignes réintroduit un accès à un singleton détruit, silencieusement.
+  À épingler par un test, ou à rendre explicite autrement qu'un ordre de déclaration.
+- **Back-pointers mesurés inoffensifs — NE PAS convertir** : `AutoScenario.h:54-59`
+  (`ioScenario`, `ioIsActive`, `ioScheduleEnabled`, `ioStep`, `ioTimer`, `ioTimeRange`),
+  `AutoScenario.h:61` `roomContainer`, `AutoScenario.h:42` `ScenarioAction::io`,
+  `IO/Scenario.h:38` `auto_scenario`. Les seuls appelants de `deleteIO()` sur ces IOs sont
+  `AutoScenario` lui-même et chacun annule le membre juste après ; il n'existe aucune API JSON
+  de suppression d'IO générique. Les convertir = ~40 sites réécrits pour zéro danger réel.
+  Consigné pour qu'un futur passage ne « complète » pas la conversion par symétrie.
