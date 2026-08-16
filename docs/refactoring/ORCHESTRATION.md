@@ -292,6 +292,27 @@ Règles dures :
   `ASAN_OPTIONS=detect_leaks=0`. **Échec pré-existant à IGNORER** : stack-use-after-scope
   `exprtk.hpp:15688` (tracké en T2.8 — voir FINDINGS).
 
+## Validation sur configs réelles (acquis 2026-08-16)
+
+Deux configs de production sont disponibles hors dépôt :
+`/home/raoul/repos/calaos/configs/{raoulh,solanora}/{io.xml,rules.xml}` (90+85 Ko et 49+43 Ko).
+**Confidentialité** : ce sont de vraies maisons (mots de passe caméra, tokens) — monter en
+`:ro`, copier avant toute écriture, ne **jamais** reproduire une valeur de credential dans un
+rapport (`<redacted>`), ne rien committer.
+
+Résultats de référence (master 2026-08-16, à re-vérifier après un gros portage comme E4.4cd) :
+raoulh 13 pièces / 213 IOs / 125 règles / 177 conditions / 318 actions ; solanora 13 / 129 / 82 /
+101 / 133. **Chargement 1:1, aucun type inconnu, aucune règle amputée**, round-trip sans perte
+sémantique. Sous ASan : charge/parcours/évaluation/save/reload/suppression de **chaque** IO
+(684 destructions) et destruction de pièces avec règles vivantes → **zéro** double-free ou UAF.
+
+⚠️ **Pièges opérationnels ASan** : les artefacts dépassent 20 Go — un worktree sous `/tmp`
+(tmpfs 32 Go) a été détruit en plein `make check`. **Faire les runs ASan sur disque réel**
+(ex. `~/repos/calaos/.validate/…`), pas dans `/tmp`.
+Pour instancier les vrais types matériels (Wago/OneWire/Mqtt/Reolink/RemoteUI), il faut linker
+**tous** les objets de calaos_server sauf les points d'entrée : les tests `core/` standards ne
+voient que les IOs internes.
+
 ## Procédure de merge (déléguée à un subagent)
 
 1. Revue diff → verdict.
