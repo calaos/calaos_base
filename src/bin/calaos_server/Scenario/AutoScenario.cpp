@@ -51,9 +51,17 @@ static bool _sortCompStepRule(const RuleRef &s1, const RuleRef &s2)
  */
 void AutoScenario::purgeDeadSteps()
 {
-    ruleSteps.erase(std::remove_if(ruleSteps.begin(), ruleSteps.end(),
-                                   [](const RuleRef &s) { return s.get() == nullptr; }),
-                    ruleSteps.end());
+    auto dead = std::remove_if(ruleSteps.begin(), ruleSteps.end(),
+                               [](const RuleRef &s) { return s.get() == nullptr; });
+
+    /* T3.18: remember what is about to be dropped, BEFORE dropping it. This
+     * erase is the only trace a destroyed step rule ever leaves, and it is
+     * triggered by plain reads - see stepRuleDestroyed in the header.
+     */
+    if (dead != ruleSteps.end())
+        stepRuleDestroyed = true;
+
+    ruleSteps.erase(dead, ruleSteps.end());
 }
 
 Rule *AutoScenario::stepRule(int s)
@@ -161,12 +169,21 @@ void AutoScenario::setDisabled(bool d)
 
 bool AutoScenario::isBroken() const
 {
-    /* A step whose rule was destroyed under us. Not reachable from the normal
+    /* A step whose rule was destroyed under us. Not reachable from the IO
      * deletion path any more (RuleDetachPolicy::Disable keeps the rule), but it
-     * is still what a Destroy teardown or a ListeRule::Remove() leaves behind,
-     * and getRuleSteps() COMPACTS those away (E4.2f) - so the compacted list
-     * cannot show it and the raw entries have to be read.
+     * is still what a Destroy teardown, ~Room, or the orphan sweep of
+     * ListeRoom::checkAutoScenario() (a plain ListeRule::Remove()) leaves
+     * behind.
+     *
+     * TWO reads, and both are needed. The latch first, because getRuleSteps()
+     * COMPACTS the dead entries away and every read accessor triggers that
+     * compaction - Scenario::toJson() emits "category" before "broken", so by
+     * the time the scan below runs the entry it was meant to find is already
+     * gone. The scan second, because the latch is only set once something has
+     * purged, which need not have happened yet.
      */
+    if (stepRuleDestroyed) return true;
+
     for (const RuleRef &step: ruleSteps)
     {
         if (step.isDangling()) return true;
@@ -538,6 +555,13 @@ bool AutoScenario::checkScenarioRules()
     rulePlageStart.reset();
     rulePlageStop.reset();
     ruleSteps.clear();
+    /* T3.18: the rules are about to be re-collected from ListeRule, so the
+     * "a step rule died under us" latch describes a set of references that no
+     * longer exists. This is the ONE place it is cleared, and it is a rebuild,
+     * not a refresh: whatever is still missing is re-derived below from
+     * Rule::isDisabled(), which no rebuild can hide.
+     */
+    stepRuleDestroyed = false;
     ioIsActive = NULL;
     ioScheduleEnabled = NULL;
     ioStep = NULL;

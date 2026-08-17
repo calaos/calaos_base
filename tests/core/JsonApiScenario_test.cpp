@@ -1268,12 +1268,54 @@ TEST_F(JsonApiScenarioTest, HttpAutoscenarioWithAnUnknownTypeAnswersNothingAtAll
     EXPECT_EQ(0u, unknown.count());
     EXPECT_TRUE(unknown.closes().empty());
 
+    /* T3.18 - the positive half, and it MUST be asserted on this transport too.
+     * Request dispatch is per-transport code (this handler reads the ROOT
+     * object, the WS one reads "data"), so the WS assertion proves nothing
+     * about HTTP: deleting the three lines of the HTTP dispatcher left the
+     * whole suite green until this was added. Same lesson as T3.17c.
+     */
+    HttpTestRequest reenable;
+    reenable.send(authenticated(Json{{ "action", "autoscenario" },
+                                     { "type", "reenable" },
+                                     { "id", "e40c_nope" }}));
+    ASSERT_EQ(1u, reenable.count()) << "the HTTP dispatcher has no `reenable` branch";
+    EXPECT_JSON_EQ(std::string(R"({"error":"wrong input"})"), reenable.bodyJson());
+
     //A WS shaped request sent to HTTP falls in the very same hole: "type" is
     //under "data", the root has none, and the server answers nothing.
     HttpTestRequest wsShaped;
     wsShaped.send(authenticated(Json{{ "action", "autoscenario" },
                                      { "data", {{ "type", "list" }} }}));
     EXPECT_EQ(0u, wsShaped.count());
+}
+
+TEST_F(JsonApiScenarioTest, HttpAutoscenarioReenableRefusesAStillBrokenScenarioWithItsIds)
+{
+    /* And the answer that carries the whole point of the command, on HTTP: it
+     * REFUSES, naming what to repair. `set_param` cannot do that, which is why
+     * T3.18 ships a command rather than reusing it.
+     */
+    const std::string scenarioId = loadScenarioWithAnAmputatedStep();
+    ASSERT_FALSE(scenarioId.empty());
+
+    HttpTestRequest req;
+    req.send(authenticated(Json{{ "action", "autoscenario" },
+                                { "type", "reenable" },
+                                { "id", scenarioId }}));
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_JSON_EQ(std::string(R"({"error":"scenario still references missing IOs: e40c_target"})"),
+                   req.bodyJson());
+
+    //refused means UNCHANGED: the payload still says the scenario is disabled
+    HttpTestRequest get;
+    get.send(authenticated(Json{{ "action", "autoscenario" },
+                                { "type", "get" },
+                                { "id", scenarioId }}));
+    ASSERT_EQ(1u, get.count());
+    const Json sc = get.bodyJson();
+    EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("true", sc.value("broken", std::string()));
 }
 
 /*******************************************************************************

@@ -429,6 +429,88 @@ TEST_F(ScenarioDisabledMissingIoTest, DeletingAScenarioUsedAsAStepActionDisables
     EXPECT_FALSE(targetIsSet(TARGET_3));
 }
 
+TEST_F(ScenarioDisabledMissingIoTest, ARuleDestroyedUnderTheScenarioBreaksItWithNoMissingId)
+{
+    /* The OTHER half of gate 1: a rule that was registered here and has since
+     * been DESTROYED, as opposed to one that survives holding a dead reference.
+     * RuleRef::isDangling() is what tells the two apart, and getRuleSteps()
+     * COMPACTS the dead entries away (E4.2f) - so the compacted list can never
+     * show it and the raw entries have to be read.
+     *
+     * It is reachable in production, and not only defensively:
+     * ListeRoom::checkAutoScenario() sweeps every rule carrying an
+     * `auto_scenario` param that no scenario claimed and calls
+     * ListeRule::Remove() on it - which is exactly what is done here.
+     *
+     * >>> AND THIS IS THE THIRD PAIR OF THE PAYLOAD. <<<
+     * disabled_missing_io is observed disagreeing with broken and with
+     * missing_ios elsewhere in this file, but broken and missing_ios agreed in
+     * every other case - so neutralising either isDangling() call of isBroken()
+     * left all five binaries green. Here broken is TRUE while missing_ios is
+     * EMPTY: a destroyed rule leaves no id behind, there is nothing to name,
+     * and the scenario is broken all the same.
+     */
+    loadHouse();
+    AutoScenario *as = buildReferenceScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_EQ(3u, as->getRuleSteps().size());
+    ASSERT_FALSE(as->isBroken());
+
+    //--- a STEP rule destroyed under us ------------------------------------
+    Rule *step = as->getRuleSteps()[1];
+    ASSERT_NE(step, nullptr);
+    ListeRule::Instance().Remove(step);
+
+    /* THE PAYLOAD IS ASKED FIRST, ON PURPOSE, and this order is the assertion.
+     * Scenario::toJson() emits "category" before "broken", and getCategory()
+     * runs purgeDeadSteps(), which ERASES the dead entry (E4.2f). Gate 1 must
+     * survive that: serializing a scenario must not be able to wipe the
+     * evidence that it is broken. It did, until purgeDeadSteps() started
+     * latching what it drops.
+     */
+    const Json j = toJsonOf();
+    EXPECT_EQ("true", j.value("broken", std::string()))
+            << "reading the payload erased gate 1 before it was asked";
+    EXPECT_EQ("", j.value("missing_ios", std::string()))
+            << "broken and missing_ios must be observed DISAGREEING somewhere";
+
+    //and it is still true afterwards, with the entry now compacted away: the
+    //step count alone cannot tell, only the latch can
+    EXPECT_TRUE(as->isBroken()) << "a destroyed step rule does not break the scenario";
+    //nothing to name: the rule that held the ids is gone with it
+    EXPECT_EQ("", as->getMissingIoDescription());
+    EXPECT_EQ(2u, as->getRuleSteps().size());
+
+    //and the scenario does not start, on gate 1 ALONE - nothing ran the
+    //detection pass here, so the persisted flag is not set
+    EXPECT_FALSE(as->isDisabledMissingIo());
+    EXPECT_EQ(0, runScenario());
+    EXPECT_FALSE(targetIsSet(TARGET_1));
+
+    //--- and a MACHINERY rule destroyed under us ---------------------------
+    /* The second isDangling() call site, the one over ruleStart/ruleStop/
+     * ruleStepEnd/rulePlageStart/rulePlageStop. A null there is NOT a breakage
+     * (they are all null before the first checkScenarioRules(), and the
+     * schedule ones are legitimately absent), which is exactly why get() alone
+     * cannot answer and isDangling() has to.
+     */
+    clearCoreState();
+    loadHouse();
+    as = buildReferenceScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_FALSE(as->isBroken());
+
+    Rule *stepEnd = as->getRuleStepEnd();
+    ASSERT_NE(stepEnd, nullptr);
+    ListeRule::Instance().Remove(stepEnd);
+
+    EXPECT_EQ(nullptr, as->getRuleStepEnd());
+    EXPECT_TRUE(as->isBroken()) << "a destroyed step_end rule does not break the scenario";
+    EXPECT_EQ("", as->getMissingIoDescription());
+    EXPECT_EQ("true", toJsonOf().value("broken", std::string()));
+    EXPECT_EQ(0, runScenario());
+}
+
 /*******************************************************************************
  * Persistence and stickiness - the heart of the user decision
  ******************************************************************************/

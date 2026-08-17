@@ -148,10 +148,27 @@ private:
     RuleRef rulePlageStart, rulePlageStop;
     vector<RuleRef> ruleSteps;
 
+    /* T3.18. "A step rule was destroyed under us since the last rules build."
+     *
+     * It has to be LATCHED here and cannot be scanned off ruleSteps, because
+     * purgeDeadSteps() ERASES the dead entry (E4.2f) and every read accessor
+     * calls it - getCategory(), stepRule(), getRuleSteps(). Concretely:
+     * Scenario::toJson() emits "category" BEFORE "broken", and getCategory()
+     * purges, so a plain isDangling() scan answered FALSE for a scenario whose
+     * step rule had just been destroyed - serializing it had wiped the evidence
+     * one key earlier. Gate 1 must not be erasable by a read.
+     *
+     * Still fully DERIVED and never persisted: checkScenarioRules() re-collects
+     * the rules from ListeRule and clears this, so it lives exactly as long as
+     * the ruleSteps it describes, and no client can write it.
+     */
+    bool stepRuleDestroyed = false;
+
     /* Drop the steps whose rule has been destroyed, keeping the order of the
      * survivors. Called by everything that indexes ruleSteps, because that
      * index IS the step number of the API: a stale size is half the bug (the
      * UI asks for step N, gets the actions of another one, or of nothing).
+     * Latches stepRuleDestroyed for whatever it drops.
      */
     void purgeDeadSteps();
     //The step rule at the (compacted) index s, null when s is out of range

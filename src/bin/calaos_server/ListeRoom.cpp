@@ -425,10 +425,18 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
      * runs AutoScenario::deleteAll() first, which leaves its own rule
      * references dangling until its IO leaves the cache.
      *
+     * `ret` is tested too: delete_io() answers false when no room owns the IO,
+     * and then NOTHING was destroyed - the caller still holds a live IO. The
+     * rules referencing it have already been marked by detachIOFromRules() at
+     * that point, so running the pass would disable a scenario, and PERSIST it,
+     * for an IO that is still there. Practically unreachable (every caller
+     * hands in an IO it just resolved out of a room), which is why it costs one
+     * word here rather than a rollback of the marking.
+     *
      * `modify` is deliberately not tested: with modify=true no rule was
      * touched, so no scenario can have become broken and the pass is a no-op.
      */
-    if (policy == RuleDetachPolicy::Disable)
+    if (ret && policy == RuleDetachPolicy::Disable)
         refreshBrokenScenarios();
 
     return ret;
