@@ -143,15 +143,27 @@ protected:
 
         JsonApiCharacterizationTest::SetUp();
 
-        /* Drain the event backlog of the PREVIOUS case. CoreFixture::TearDown()
-         * pumps BEFORE destroying the rooms, so the EventIODeleted that ~Room()
-         * raises per IO survive into this case and are delivered to its first
-         * session. Known harness defect, ticketed E4.0g; the workaround is
-         * mandatory (JsonApiCharacterization.h, warning on TearDown()).
+        /* NO DRAIN HERE. This SetUp() used to end with a pumpEventLoop(),
+         * described as a mandatory workaround for the harness defect ticketed
+         * E4.0g: the fixture pumped BEFORE CoreFixture::TearDown() destroyed
+         * the rooms, so the EventIODeleted that ~Room() raises per IO
+         * (Room.cpp:77) survived into the next case.
+         *
+         * E4.0g landed and moved that pump AFTER the parent teardown, so the
+         * backlog is gone at the source and this binary inherits an EMPTY
+         * queue - see the contract on JsonApiCharacterizationTest::TearDown().
+         * This file was written while E4.0g was still in review, which is why
+         * it carried the workaround at all; it was the SIXTH of its kind, and
+         * measurement is what retired it: green over --gtest_shuffle seeds
+         * 7, 42, 101 and 20260815 without it.
+         *
+         * If a drain ever becomes necessary here again, a SECOND source of
+         * events is surviving TearDown() - name it in FINDINGS.md rather than
+         * pumping it away.
+         *
          * The eventlog answer is located by its "msg" member below rather than
-         * by position, so a stray event cannot be mistaken for it either.
+         * by position, so a stray event could not be mistaken for it either.
          */
-        pumpEventLoop();
     }
 
     /***************************************************************************
