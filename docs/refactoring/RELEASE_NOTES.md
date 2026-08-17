@@ -40,6 +40,35 @@ se mettre à fonctionner :
   commentaire) faisait **planter le serveur** — c'était un déni de service à distance depuis une
   URL configurée par l'utilisateur.
 
+### Médiathèque et journal d'événements — deux commandes ordinaires tuaient le serveur (T3.19)
+Deux appels parfaitement légitimes de l'API JSON **arrêtaient net `calaos_server`**, sans
+déconnexion, sans course, sans manipulation particulière : il suffisait d'être **authentifié** et
+d'envoyer la commande.
+
+- **Consulter la base musicale d'un lecteur qui n'en a pas.** Toutes les commandes `audio_db`
+  (albums, artistes, genres, années, playlists, radios, dossiers, recherche, titres, détail d'une
+  piste, statistiques — seize en tout) lisaient la base musicale du lecteur **sans vérifier
+  qu'il en avait une**. Un seul type de lecteur en fournit réellement une ; **tous les autres**
+  — dont le lecteur Roon de la configuration de référence — faisaient tomber le serveur dès la
+  première de ces commandes. Ouvrir l'écran Médiathèque sur un tel lecteur suffisait.
+- **Demander une page du journal avec un `per_page` invalide.** `per_page` était utilisé comme
+  diviseur sans être vérifié. Or une valeur illisible (`abc`, `true`) est lue comme **zéro**, tout
+  comme `0` lui-même : division entière par zéro, dans le thread de la base d'historique, **le
+  serveur meurt**. Contre-intuitif, et c'est pourquoi le défaut a survécu si longtemps : une valeur
+  **énorme** était inoffensive, c'est la valeur **absurde** qui était fatale.
+
+Les deux sont désormais **refusés proprement**, avec un message qui **nomme la cause**
+(`no music database`, `per_page is out of range`) — la forme d'erreur que ces mêmes commandes
+produisent déjà pour un `player_id` inconnu ou une plage `from`/`count` invalide. Aucune nouvelle
+forme de réponse n'est introduite.
+
+**Ce qui ne change pas** : un lecteur qui **possède** une base musicale répond exactement comme
+avant, avec les mêmes champs et la même pagination ; le journal d'événements répond exactement
+comme avant pour tout `per_page` qui recevait déjà une réponse — un `per_page` **absent ou vide**
+garde la valeur par défaut de 100, et une valeur trop grande reste plafonnée et échouée comme
+avant. Aucune liste n'est tronquée, et **une base vide reste une base vide** : elle renvoie une
+liste vide, pas une erreur — seule l'**absence** de base est refusée.
+
 ### Scénarios — plus de plantage après suppression d'un scénario utilisé par un autre (E4.2f)
 Supprimer un scénario B dont l'équipement servait d'action d'étape à un scénario A détruisait les
 règles d'étape de A **sans prévenir A** : le scénario A gardait une étape pointant sur de la
@@ -174,6 +203,25 @@ déjà en vigueur dans le projet (`AGENTS.md:74` : « the server intentionally n
 of process-lifetime singletons »). Ce choix **n'ajoute aucune fuite** : le bilan LeakSanitizer est
 **strictement meilleur qu'avant**, une fuite préexistante de 32 octets disparaissant au passage.
 Aucun changement de configuration n'est requis.
+
+### Journal d'événements — un `per_page` négatif est désormais refusé (T3.19)
+**Ceci n'est pas une correction de plantage, c'est un changement de comportement client**, et il
+est déclaré à part pour cette raison : un client qui envoyait un `per_page` **négatif** recevait
+des données, il reçoit maintenant un refus.
+
+Un `per_page` négatif était transmis tel quel au moteur de base de données. Or **un `LIMIT`
+négatif signifie « pas de limite » en SQLite** (vérifié sur SQLite 3.51.2) : la requête renvoyait
+**toutes les lignes** du journal, sous un document qui annonçait pourtant `per_page:-5` — une
+réponse qui mentait sur elle-même. La fenêtre était plus large qu'il n'y paraît : avec
+`per_page:-5`, l'arithmétique entière du contrôle de page laissait passer la requête pour un
+journal de **jusqu'à 9 lignes, sauf exactement 5** ; ce seul cas refusé l'était avec un message
+nommant le **mauvais paramètre** (`page is out of range` alors que c'est `per_page` qui était en
+cause).
+
+Désormais un `per_page` négatif est refusé **par son nom** (`per_page is out of range`),
+immédiatement, sans atteindre la base. **Un client qui envoyait des valeurs négatives verra un
+refus là où il recevait des données** — en pratique, il recevait le journal entier, pas la page
+qu'il croyait demander.
 
 ### Plages horaires — les plages nocturnes fonctionnent (T3.13)
 Une plage inversée (`23:00 → 01:00`, la façon naturelle d'écrire « la nuit ») était **vide et ne

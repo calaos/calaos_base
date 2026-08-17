@@ -1354,3 +1354,97 @@ qui se termine avant de rapporter passe pour vert.
 `JsonApiCharacterization.cpp` est compilé par **12** binaires (11 au moment de la mesure, +
 `JsonApiEventLog_test` arrivé avec T3.17f). **`JsonApiHardening_test` et `JsonApiAudioState_test`
 ne le compilent pas** — ils ne sont pas concernés. Le chiffre de **13** qui a circulé était faux.
+
+## T3.19 — suites
+
+Trois acquis de la double correction (SIGSEGV `audio_db` + SIGFPE `per_page`), tous les trois
+mesurés, et tous les trois portant sur des raisonnements qui *semblaient* évidents et étaient faux.
+
+### `canDatabase()` n'est PAS la précondition — c'est le pointeur
+
+Le réflexe est de filtrer sur la capacité annoncée par le lecteur. Mesure :
+
+- `canDatabase()` est une **constante par classe** (`AudioPlayer.h:101` → `false`,
+  `Squeezebox.h:204` → `true`, `RoonPlayer.h:177` → `false`) ;
+- elle a **un seul lecteur non-commentaire dans tout l'arbre** : `JsonApi.cpp:406`, où elle est
+  **simplement publiée** dans le payload `get_home` — elle ne garde rien, elle décrit ;
+- ce qui est **déréférencé** est le **pointeur** `AudioPlayer::database`, laissé `NULL` par le
+  constructeur de base (`AudioPlayer.cpp:28`), rendu sans garde par `get_database()`
+  (`AudioPlayer.h:105`), et dont **`Squeezebox.cpp:81` est la seule assignation de tout l'arbre**.
+
+Les deux ne coïncident que par accident, et les **deux coins divergents sont épinglés** par la
+suite :
+
+| drapeau `canDatabase()` | pointeur `database` | comportement gelé |
+|---|---|---|
+| **vrai** | **nul** | **refusé** (`no music database`) |
+| **faux** | **valide** | **servi**, avec les arguments transmis |
+
+Un filtre écrit sur `canDatabase()` aurait donc laissé passer le **premier** — la classe annonce
+une base, le déréférencement du `nullptr` a lieu quand même — **et** volé sa réponse au **second**.
+*Généralisable : une capacité déclarée n'est pas une précondition d'exécution. La précondition est
+l'objet effectivement déréférencé.*
+
+### Pourquoi la garde `per_page` teste la VALEUR et non le code de retour de `from_string()`
+
+L'autre réflexe : « `Utils::from_string()` renvoie un booléen, testons-le ». Mesure :
+`Utils::from_string("")` échoue **elle aussi**, au sentry du flux, **avant** `num_get` — donc
+**rien n'est écrit** et la valeur par défaut 100 survit. Or c'est exactement le comportement
+**voulu** pour un `per_page` absent ou vide.
+
+Tester le code de retour aurait donc refusé un cas qui doit être servi. Tester la valeur
+(`perPage <= 0`) est **strictement plus petit** (une comparaison, pas un changement de signature)
+**et strictement plus fidèle** : tout `per_page` qui obtenait une réponse la garde à l'identique —
+vide/absent → 100, parse partiel `"1,5"` → 1, valeur énorme → `INT_MAX` saturé.
+
+Preuve que la prémisse n'a pas bougé :
+`FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDivideByZero`
+(E4.0e) reste **vert sans qu'une seule assertion soit touchée** — `from_string()` écrit
+toujours 0 en échec, et c'est toujours exactement pourquoi cette garde existe.
+
+### `LIMIT` négatif en SQLite = « pas de limite » — la fenêtre était plus large que « petite table »
+
+Vérifié sur **SQLite 3.51.2**. Un `per_page` négatif atteignait le moteur, et un `LIMIT` négatif
+y signifie **aucune limite** : la requête renvoyait **toutes** les lignes sous un document
+annonçant `per_page:-5`.
+
+Le contrôle de page de `HistLogger.cpp:268-273` ne rattrapait pas grand-chose. Avec
+`per_page = -5`, `total_page = rowcount / -5 + ((rowcount % -5) > 0 ? 1 : 0)` en arithmétique
+entière C++ (troncature vers zéro, reste du signe du dividende) :
+
+| `rowcount` | `total_page` calculé | `page=0 > total_page` ? | conséquence |
+|---|---|---|---|
+| 0 | 0 | non | **passe** → toutes les lignes (aucune) |
+| 1 | 0 + 1 = 1 | non | **passe** → toutes les lignes |
+| 2 | 0 + 1 = 1 | non | **passe** → toutes les lignes |
+| 3 | 0 + 1 = 1 | non | **passe** → toutes les lignes |
+| 4 | 0 + 1 = 1 | non | **passe** → toutes les lignes |
+| **5** | **-1 + 0 = -1** | **oui** | refusé — **mais en nommant `page`, pas `per_page`** |
+| 6 | -1 + 1 = 0 | non | **passe** → toutes les lignes |
+
+Re-vérifié au-delà de la plage 0–6 de la revue : le contrôle **passe** aussi pour
+`rowcount` **7, 8 et 9** (`total_page = 0` dans les trois cas) et ne se remet à refuser qu'à partir
+de **10**. La fenêtre exacte pour `per_page = -5` est donc `rowcount ≤ 9`, **sauf 5**.
+
+Autrement dit le refus existant était une **anomalie isolée au milieu de la fenêtre** (`rowcount`
+= 5), et **désignait le mauvais paramètre**. La formulation « sur une table vide » qui avait
+circulé était doublement fausse : la table vide est précisément le cas **inoffensif** (aucune ligne
+à sur-livrer), et la fenêtre couvre bien plus que zéro ligne. La formulation juste est **« une
+table assez petite pour que le contrôle de page passe »** — c'est celle du message de commit, de
+`JsonApiInputGuards_test.cpp` et, depuis ce merge, du commentaire de `JsonApi.cpp`.
+
+### Aucune garde sur `page` — et l'argument de sûreté, écrit dans le source
+
+Le ticket demandait de clamper `per_page` « et vérifier `page` ». Aucune garde `page` n'est ajoutée,
+et c'est **sûr** : `HistLogger.cpp:270-277` refuse `page < 0` et `page > total_page` **avant** que
+`start = page * per_page` (`:269`) ne serve à construire une requête ; les seules valeurs de `page`
+qui atteignent la clause `LIMIT` sont donc déjà dans la plage, et `start` ne peut pas déborder.
+Le comportement est épinglé de l'extérieur par `ANonNumericPageIsStillReadAsPageZero` (un
+`from_string()` en échec écrit 0, qui est aussi le défaut : une `page` illisible est donc
+**indistinguable** de la page 0) et `APageOutOfRangeIsStillHistLoggersOwnRefusal` (le refus reste
+celui de `HistLogger`, asynchrone, avec sa propre formulation).
+
+L'argument est désormais **écrit en commentaire à l'endroit de la garde absente**
+(`JsonApi.cpp`, `buildJsonEventLog()`), parce qu'une lacune documentaire sur une garde **absente**
+est exactement ce qui pousse un lecteur ultérieur à l'ajouter « au cas où » — ou, pire, à retirer
+celle qui existe en aval en la croyant redondante.

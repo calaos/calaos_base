@@ -1326,6 +1326,57 @@
   exact** + `git worktree prune`, branche `refactor/e4.0g` supprimée, **rien n'a été poussé**.
   Voisin `/tmp/claude-1000/calaos-wave22/t3.19` **vérifié intact**, `docs/refactoring/` toujours à
   **97 fichiers**.
+- **T3.19 ✅ mergé** (2026-08-17, `3afc89ad`) — **DEUX PLANTAGES À DISTANCE PRÉEXISTANTS,
+  atteignables par un client AUTHENTIFIÉ sur un appel d'API LÉGITIME**, pliés dans un seul ticket
+  parce que c'est le même fichier et le même défaut (une entrée utilisée sans être validée) :
+  **SIGSEGV** — `AudioPlayer::database` est un pointeur nu laissé `NULL` par le constructeur de
+  base et dont `Squeezebox.cpp:81` est la **seule** assignation de l'arbre, déréférencé aux
+  **16** sites `audio_db` ; **SIGFPE** — `per_page` divisé par zéro dans le **thread sqlite**
+  d'`HistLogger` (`HistLogger.cpp:268`), où le `try` de `:257` n'attrape rien (un signal n'est
+  pas une exception). Deux commits : `7fbba895` (caractérisation, **zéro ligne de `src/`**) et
+  `3afc89ad` (les deux gardes). Suite : **66 → 67** (`core/JsonApiInputGuards_test`, 54 cas),
+  **67/67 vert** après `make distclean` + reconfigure complet (piège `_DEPENDENCIES`, variante
+  faux ROUGE). Recompté à la main dans `tests/Makefile.am` : 67 entrées `TESTS` = 64 binaires
+  gtest (65 `check_PROGRAMS` moins `StaticLogShutdown_helper`, qui n'est pas un test) + 3 scripts
+  shell (`check-config-options.sh`, `check-config-docs.sh`, `run-python-tests.sh`).
+  **AUCUN HANDLER ÉDITÉ, et c'est l'arbitrage du ticket.** Filtrer sur `canDatabase()` dans les
+  transports a été **mesuré et refusé** : ce n'est **pas la précondition** — constante par classe,
+  **un seul lecteur non-commentaire dans tout l'arbre** (`JsonApi.cpp:406`, qui ne fait que la
+  **publier**) — alors que ce qui est déréférencé est **le pointeur**. Les deux coins divergents
+  sont épinglés : drapeau **vrai** / pointeur **nul** → **refusé** ; drapeau **faux** / pointeur
+  **valide** → **servi**. Un filtre sur la capacité aurait laissé passer le premier **et** volé sa
+  réponse au second. Les deux gardes sont posées **immédiatement avant leur consommateur**, jamais
+  en tête : après la porte `from`/`count` pour `audio_db`, après la branche `uuid` pour `per_page`
+  — placements **épinglés par des cas écrits dans le PREMIER commit**, avant que les gardes
+  n'existent.
+  **Revue indépendante : verdict MERGE**, réserves **documentaires uniquement**. Le relecteur a
+  reproduit **les deux** crashs sur des sites **différents** de ceux de l'implémenteur (exit **139**
+  sur `audioDbGetTrackInfos`, exit **136** en affaiblissant la garde **d'un caractère**), monté
+  deux contre-mutations **par échange de valeurs** non testées par l'implémenteur (**4** et **2**
+  échecs), et conclu qu'il n'y a **pas de huitième récidive du fixture pauvre** — la première fois
+  de la série.
+  **Deux corrections de commentaire appliquées au merge, COMMENTAIRES SEULEMENT** (diff vérifié
+  mécaniquement : aucune ligne non-commentaire, build relancé vert après) : (1) le commentaire de
+  la fuite du `LIMIT` négatif disait « *on an empty table* », or **la table vide est précisément le
+  seul cas inoffensif** — réaligné sur « *a table small enough for the page check to pass* », la
+  formulation déjà juste du message de commit et du test ; (2) **l'argument de sûreté de la garde
+  `page` ABSENTE est désormais écrit** — `HistLogger.cpp:270-277` refuse `page < 0` et
+  `page > total_page` **avant** que `start = page * per_page` ne serve, donc `start` ne peut pas
+  déborder ; une lacune documentaire sur une garde absente est exactement ce qui pousse un lecteur
+  ultérieur à l'ajouter « au cas où » ou à retirer celle qui existe en aval.
+  **Documentation** : BOARD (`T3.19` **📋 → ✅**, libellé étendu aux deux crashs), **DEUX** entrées
+  `RELEASE_NOTES.md` — la correction des deux plantages **et, déclaré à part, un changement de
+  comportement client** : un `per_page` **négatif** partait au moteur, et **un `LIMIT` négatif
+  signifie « pas de limite » en SQLite** (vérifié 3.51.2), donc la requête renvoyait **toutes** les
+  lignes sous un document annonçant `per_page:-5` ; l'arithmétique entière de
+  `HistLogger.cpp:268-273` laissait passer **tout `rowcount` ≤ 9 sauf 5** (re-vérifié au merge,
+  au-delà de la plage 0-6 de la revue), et ce seul refus **nommait le mauvais paramètre**. Plus une
+  section `## T3.19 — suites` en FINDINGS (les trois acquis + le tableau `rowcount`) et ce journal.
+  Merge **ff-only** (branche assise directement sur `dd292e98`, **aucun conflit**,
+  `tests/Makefile.am` s'est appliqué seul), **4 goldens `t319_*` en `A`, zéro `M`, zéro `D`**,
+  worktree `/tmp/claude-1000/calaos-wave22/t3.19` nettoyé par son **chemin exact** +
+  `git worktree prune`, branche `refactor/t3.19` supprimée, **rien n'a été poussé**.
+  `docs/refactoring/` toujours à **97 fichiers**.
 
 ### 🏁 Bilan de la série E4.0 (close) — ce que E4.1 doit lire AVANT de démarrer
 
