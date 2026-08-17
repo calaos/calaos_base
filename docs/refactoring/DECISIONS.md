@@ -51,6 +51,25 @@ scénario + chemin de réactivation explicite exposé par l'API. Ne pas re-deman
 d'E4.2e (référence conservée verbatim + trace du manquant) reste le substrat pour *détecter* le
 manque ; le drapeau persistant s'ajoute par-dessus pour *retenir* la désactivation.
 
+## 2026-08-17 — E4.1 : UTF-8 invalide → **remplacé par U+FFFD**
+**Décision** : à la migration, toute sérialisation de données influencées par le client utilise
+`nlohmann::json::error_handler_t::replace`. Une valeur contenant de l'UTF-8 invalide est émise avec
+le caractère de remplacement **U+FFFD**, au lieu d'être supprimée (comportement actuel) ou de faire
+lever une exception (comportement par défaut de nlohmann).
+**Pourquoi** : le comportement actuel est un **silence** — jansson refuse les octets invalides
+**à la construction** (`json_string()` rend `NULL`, `json_object_set_new()` rend `-1`, **aucun des
+deux codes n'est testé**), donc la paire est supprimée et le client reçoit un **200 avec un payload
+amputé**. Mesuré par E4.0e : un IO peut revenir de `get_home` **sans sa clé `name`**, indiscernable
+d'un IO qui n'en a jamais eu. Le remplacement rend le problème **visible** sans casser la réponse.
+**Ce qu'on évite** : `nlohmann::dump()` **lève `type_error.316`** par défaut, et
+`grep -n "try\|catch"` sur les deux handlers **ne renvoie rien** — une exception non attrapée dans
+un callback libuv, c'est `std::terminate` **sur une connexion vivante**. Canal d'injection trivial :
+un paramètre d'URL percent-décodé (`hef_uri_syntax.cpp` décode **avant** que `HttpClient` ne découpe).
+**Appliquer** : `error_handler_t::replace` sur **chaque** `dump()` de données client. Le test
+`Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops` (E4.0e) épingle le code **316** exactement — il
+devra être adapté **en le disant**, pas supprimé. Ne pas ajouter de `try/catch` à la place : le
+handler d'erreur traite la cause, un `catch` ne traiterait que le symptôme.
+
 ## 2026-08-16 — E4.1 (JSON) : caractérisation AVANT migration, jansson supprimé à terme
 **Décision** : l'objectif final est la **suppression totale de jansson**, `nlohmann::json` seul.
 Mais la migration ne démarre **qu'après** l'écriture d'une série de tests de caractérisation qui
