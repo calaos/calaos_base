@@ -1244,3 +1244,113 @@ cas envoient un `per_page` numérique non nul. Le défaut est **hors périmètre
 de durée de vie** — c'est un défaut de **validation d'entrée**, de la même famille que **T3.19**
 (plantage à distance atteignable depuis l'API, aujourd'hui cadré sur le seul `audio_db`). **À
 rattacher à T3.19 ou à ticketer à côté ; ne pas le laisser se perdre ici.**
+
+## E4.0g — clôture du harnais
+
+Dernier maillon de la série E4.0. **Zéro ligne de `src/`** : ce ticket ne corrige aucun défaut de
+production, il change la **sémantique du cycle de vie** du harnais de caractérisation sous les
+binaires qui le partagent. Le contrôle qui l'atteste n'est pas `make check` mais `--gtest_shuffle`.
+
+### La vraie cause, définitivement
+
+`EventIOAdded` n'a **qu'un seul site de création** : `ListeRoom::createIO()`
+(`src/bin/calaos_server/ListeRoom.cpp:466`), le chemin **runtime** de l'API JSON.
+`Room::LoadFromXml()` est **muet** — il construit et attache les IOs sans lever quoi que ce soit.
+**Charger une maison ne produit donc aucun event.**
+
+Le backlog venait de l'**autre bout** du cycle de vie : `CoreFixture::TearDown()` appelle
+`clearCoreState()`, qui détruit les pièces ; `~Room()` appelle `RemoveIO()` par IO et chacun lève
+un `EventIODeleted` (`src/bin/calaos_server/Room.cpp:77`). La maison de référence porte **8** IOs.
+Ces events étaient produits **par le teardown parent lui-même**, donc **après** l'unique drain du
+fixture, qui pompait **avant** d'appeler `CoreFixture::TearDown()`. Ils survivaient dans l'idler de
+l'`EventManager` et étaient livrés à la **première session du cas suivant** — y compris à une
+session créée après coup, `newEvent` étant émis au moment du **flush**, pas de la **mise en file**.
+
+Le correctif tient en l'**ordre de deux instructions** : `CoreFixture::TearDown()` d'abord,
+`pumpEventLoop()` ensuite.
+
+### Finding de série — deux rustines sur cinq n'ont jamais rien absorbé
+
+Cinq rustines s'étaient accumulées contre cette fuite. Mesurées **une par une**, en restaurant
+l'ancien ordre et en faisant varier les graines, seules **trois** portaient quelque chose :
+
+| rustine | emplacement | avec le défaut présent |
+|---|---|---|
+| `JsonApiEvents_test` | fin de `SetUp()` | rouge 3/3 graines |
+| `JsonApiSession_test` | milieu de `SetUp()` | rouge 2/3 graines |
+| `JsonApiWsTransport_test` | fin de `SetUp()` | rouge 14/15 graines |
+| `JsonApiAudioPayload_test` | fin de `SetUp()` | **0 rouge sur 18 graines** |
+| `JsonApiHome_test` | tête d'un corps de cas | **0 rouge sur 18 graines** |
+
+Les deux dernières avaient été ajoutées **par mimétisme**, à partir du diagnostic faux « le
+chargement lève un `EventIOAdded` par IO » que **E4.0d a réfuté**. C'est la **trace visible d'une
+fausse explication ayant circulé six sous-tickets durant** : personne ne les avait mesurées, elles
+ont été recopiées du voisin en même temps que sa justification erronée.
+
+### Une **sixième** rustine, apparue pendant la revue (T3.17f)
+
+`JsonApiEventLog_test` **n'existait pas** à la base de rebase d'E4.0g : **T3.17f l'a créé pendant
+la revue**, contre l'**ancienne** sémantique, et lui a donné un `pumpEventLoop()` en fin de
+`SetUp()` commenté comme **« workaround mandatory »** en **citant E4.0g** comme défaut connu. Après
+merge, ce commentaire était **faux** et le pompage **mort**. Mesuré : **vert 8/8 graines sans lui**
+— inerte, comme `AudioPayload` et `Home`. Retiré dans un commit séparé.
+
+**Le nombre de consommateurs du harnais est donc passé de 11 à 12 pendant la revue**, et le
+douzième est précisément celui que l'implémenteur ne pouvait pas avoir mesuré. C'est le mode de
+défaillance à retenir : *un ticket qui change une sémantique partagée peut voir un nouveau
+consommateur apparaître sous lui pendant sa propre revue.* Vérifier la liste des consommateurs
+**au moment du merge**, pas au moment de la mesure.
+
+### Un vert à vide, découvert en retirant le drain mort — le point le plus instructif
+
+`LoadingAHouseFromConfigRaisesNoEventAtAll` crée sa `WsTestSession` **avant** le chargement et
+s'appuyait sur le pompage interne de `loadReferenceHouse()` pour être vidée. Une fois ce pompage
+retiré — il n'absorbait plus qu'un backlog désormais inexistant — il ne restait **aucun pompage**,
+et `EXPECT_EQ(0u, ws.count())` passait **parce que rien n'était livré, pas parce que rien n'était
+levé**. Le cas serait resté **vert même si le chargement s'était mis à lever des events** : son
+oracle ne mesurait plus rien.
+
+Corrigé par un pompage **explicite dans le cas**, documenté comme porteur. Tous les appelants de
+`loadReferenceHouse()` ont été balayés : **c'est le seul cas avec un puits d'events vivant avant le
+chargement**.
+
+> **Règle générale** : une assertion d'**absence** n'a de valeur que si le canal a été **flushé**.
+> *Non livré n'est pas non levé.* Un `EXPECT_EQ(0, ...)` sans pompage en amont est un oracle mort.
+
+### Le contrat désormais posé dans l'en-tête
+
+Écrit sur `JsonApiCharacterizationTest::TearDown()` (`tests/core/JsonApiCharacterization.h`) :
+
+> **Un sous-ticket hérite d'une file vide.** N'ajoutez pas de pompage défensif à votre `SetUp()`.
+> Si vous croyez en avoir besoin, c'est qu'une **seconde source** d'events survit à `TearDown()` :
+> **nommez-la dans `FINDINGS.md`**, ne la pompez pas.
+
+Le harnais ne s'exempte pas de sa propre règle : c'est pourquoi le drain devenu mort de
+`loadReferenceHouse()` a été **retiré** et non conservé « par prudence ».
+
+### Preuve inverse, re-mesurée sur la révision livrée
+
+Ancien ordre restauré, 8 graines par binaire :
+
+| binaire | cas rouges | code de sortie non nul |
+|---|---|---|
+| `JsonApiEvents_test` | **8/8** | 8/8 |
+| `JsonApiHome_test` | **8/8** | 8/8 |
+| `JsonApiSession_test` | 6/8 | **8/8** |
+| `JsonApiWsTransport_test` | 2/8 | **8/8** |
+| `JsonApiAudioPayload_test` | 0/8 | 0/8 |
+| `JsonApiScenario_test` | 0/8 | 0/8 |
+
+Deux enseignements. D'abord `JsonApiHome_test` passe de **0/18** à **8/8** une fois le drain du
+loader retiré : sa rustine était inerte **parce qu'une autre la couvrait** — retirer deux
+protections redondantes révèle le défaut que chacune masquait seule. Ensuite l'écart entre « cas
+rouges » et « code de sortie non nul » n'est pas du bruit : sur certaines graines le binaire
+**meurt** au lieu d'échouer proprement (assertion `uv__finish_close` de libuv, `std::bad_alloc`).
+**Compter les cas rouges ne suffit pas — il faut surveiller le code de sortie**, sinon un binaire
+qui se termine avant de rapporter passe pour vert.
+
+### Périmètre réel du harnais
+
+`JsonApiCharacterization.cpp` est compilé par **12** binaires (11 au moment de la mesure, +
+`JsonApiEventLog_test` arrivé avec T3.17f). **`JsonApiHardening_test` et `JsonApiAudioState_test`
+ne le compilent pas** — ils ne sont pas concernés. Le chiffre de **13** qui a circulé était faux.

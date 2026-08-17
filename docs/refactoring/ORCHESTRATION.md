@@ -1286,6 +1286,89 @@
   branche `refactor/t3.17f` supprimée, **rien n'a été poussé**. Voisin
   `/tmp/claude-1000/calaos-wave21/e4.0g` **vérifié intact** (worktree et conteneur de build),
   `docs/refactoring/` toujours à **97 fichiers**.
+- **E4.0g ✅ mergé (2026-08-17, `aacf2682`) — DERNIER MAILLON DE LA SÉRIE E4.0 : L'ÉPIQUE PASSE ✅
+  ET E4.1 EST DÉBLOQUÉE.** Deux commits : `476fcaab` (le ticket revu) et `aacf2682` (la sixième
+  rustine, découverte au rebase — voir plus bas). **Zéro ligne de `src/`, aucun golden touché**
+  (vérifié **sur les commits**, pas seulement sur l'arbre) : ce ticket ne corrige **aucun défaut de
+  production**, il change la **sémantique du cycle de vie** du harnais sous les binaires qui le
+  partagent. Suite : **66/66**, **inchangée** — E4.0g n'ajoute **aucun** binaire et ne touche pas
+  `tests/Makefile.am` (`make distclean` + reconfigure complet après rebase, cf. piège
+  `_DEPENDENCIES` variante faux ROUGE).
+  **Le correctif** : `pumpEventLoop()` déplacé **après** `CoreFixture::TearDown()`. C'est ce
+  teardown parent qui déclenche `clearCoreState()` → `~Room()` → `RemoveIO()` → un `EventIODeleted`
+  par IO (`Room.cpp:77`, **8** pour la maison de référence) ; ces events étaient donc **produits
+  après** l'unique drain, fuyaient vers le cas suivant et y étaient livrés à sa première session.
+  **6 rustines retirées** (5 du ticket + 1 trouvée au merge) et le contrat de **file vide** posé
+  dans l'en-tête du harnais.
+  **La validation qui compte n'est PAS `make check`** — un défaut de fuite d'un cas vers le suivant
+  ne se voit qu'en **ordre aléatoire**. Re-vérifié à ce merge : `--gtest_shuffle` sur les **14**
+  binaires `JsonApi*` × graines **7, 42, 101, 20260815** (celles qui exposaient le défaut) = **56
+  runs, 0 échec, 0 code de sortie non nul**, aucun `uv__finish_close` / `bad_alloc` / segfault.
+  ⚠️ **Surveiller le CODE DE SORTIE, pas seulement les cas rouges** : sur certaines graines le
+  binaire **mourait** au lieu d'échouer proprement (`JsonApiSession_test` 6/8 rouge mais **8/8**
+  non nul).
+  ⚠️ **UNE SIXIÈME RUSTINE EST APPARUE PENDANT LA REVUE — mode de défaillance à retenir.**
+  `JsonApiEventLog_test` **n'existait pas** à la base de rebase : **T3.17f l'a créé pendant la revue
+  d'E4.0g**, contre l'**ancienne** sémantique, avec un `pumpEventLoop()` commenté « workaround
+  **mandatory** » **citant E4.0g** comme défaut connu. Après merge ce commentaire était **faux** et
+  le pompage **mort**. Mesuré **vert 8/8 graines sans lui** → retiré (`aacf2682`). **Les
+  consommateurs du harnais sont donc passés de 11 à 12 pendant la revue**, et le douzième est
+  exactement celui que l'implémenteur ne pouvait pas avoir mesuré. **Règle : un ticket qui change
+  une sémantique partagée doit revérifier la liste de ses consommateurs AU MOMENT DU MERGE, pas au
+  moment de la mesure.** (Le chiffre **13** qui a circulé était faux ; `JsonApiHardening_test` et
+  `JsonApiAudioState_test` ne compilent pas le harnais.)
+  **Documentation** : BOARD (`E4.0g` **📋 → ✅** ; **l'épique `E4.0` 📋 → ✅**, a→g tous mergés,
+  vérifié ligne à ligne sur le board ; `E4.1` — dépendance dure **`E4.0` marquée satisfaite**,
+  **statut inchangé 📋**, personne ne l'a commencée), une section `## E4.0g — clôture du harnais`
+  en FINDINGS, ce journal + le bilan de série ci-dessous. **Pas d'entrée RELEASE_NOTES** — zéro
+  ligne de `src/`, aucun comportement utilisateur changé.
+  Merge **ff-only**, worktree `/tmp/claude-1000/calaos-wave21/e4.0g` nettoyé par son **chemin
+  exact** + `git worktree prune`, branche `refactor/e4.0g` supprimée, **rien n'a été poussé**.
+  Voisin `/tmp/claude-1000/calaos-wave22/t3.19` **vérifié intact**, `docs/refactoring/` toujours à
+  **97 fichiers**.
+
+### 🏁 Bilan de la série E4.0 (close) — ce que E4.1 doit lire AVANT de démarrer
+
+**Ce qui est désormais caractérisé** : l'API JSON est tenue par un filet de cas et de goldens sur
+les deux transports (WS et HTTP) — modèle et état, plages horaires et autoscénarios, events temps
+réel (23 `type_str` + numérotation de l'enum + enveloppe WS + `poll_listen`), session, enveloppes
+et chemins d'erreur (7 refus `scopeDenied`, silences, 400/404), payload audio et base musicale. Le
+harnais lui-même est **stable et documenté**, et son contrat de cycle de vie est **prouvé par
+`--gtest_shuffle`**, pas supposé.
+
+**E4.1 (jansson → `nlohmann::json`) doit impérativement lire, dans l'ordre :**
+
+1. ⚠️ **La ligne UTF-8 corrigée du tableau des pièges de bascule — `E4.0.md:355`, LES DEUX
+   COLONNES** (le numéro a glissé, elle était citée `:308`). C'est **le** piège de la migration, et
+   les deux colonnes étaient fausses avant qu'E4.0e ne les corrige. Résumé : jansson refuse les
+   octets invalides **à la construction** et **aucun code de retour n'est testé** → la paire est
+   **silencieusement supprimée**, `json_dumps()` **réussit**, on répond **200 avec un payload
+   tronqué**. nlohmann fait **l'inverse et pire** : il **accepte** les octets dans l'arbre et lève
+   **`type_error.316` depuis `dump()`** ; les deux `sendJson` dument **à nu**, sans le moindre
+   `try`/`catch` → **`std::terminate` sur une connexion vivante**. Le canal d'injection est
+   **trivial et réel** (`?param=%ff%80x`, percent-décodé **avant** découpage, le nom fourni par le
+   client finissant en **clé**). **E4.1 doit trancher explicitement** : `error_handler_t::replace`
+   / `ignore` **ou** `try`/`catch` sur tout dump influencé par le client — **et**, séparément,
+   choisir entre **« drop comme aujourd'hui »** et **U+FFFD**. Le cas
+   `Utf8Trap_NlohmannDumpThrowsWhereJanssonDrops` met les deux bibliothèques côte à côte et épingle
+   le code **316** exactement.
+2. **Le contrat d'oracle sémantique** (posé en E4.0a) : on compare des **documents**, pas des
+   chaînes. Corollaire mesuré en E4.0g : **une assertion d'ABSENCE n'a de valeur que si le canal a
+   été flushé — *non livré n'est pas non levé*.** Un `EXPECT_EQ(0, ...)` sans pompage en amont est
+   un **oracle mort**, et la série en a produit un vrai (`LoadingAHouseFromConfigRaisesNoEventAtAll`,
+   vert même si le chargement s'était mis à lever des events).
+3. **La règle de la contre-mutation PAR ÉCHANGE** : pour prouver qu'un cas mord, on **échange** la
+   valeur produite (page ↔ page suivante, un `type_str` contre un autre), on ne se contente pas de
+   la neutraliser. **Sept récidives du « fixture pauvre »** dans la série — un jeu de données trop
+   pauvre pour distinguer deux champs interchangeables — **toutes trouvées par les relecteurs et
+   jamais par les implémenteurs**. C'est le défaut le plus régulier de la série : **le prévoir dans
+   le brief d'E4.1**, pas dans sa revue.
+4. **Ne pas recopier un pompage qu'on n'a pas mesuré.** Sur 6 rustines accumulées contre la fuite
+   du harnais, **3 n'ont jamais rien absorbé** : elles ont été copiées du voisin **en même temps
+   qu'une explication fausse** (« le chargement lève un `EventIOAdded` par IO ») qui a circulé
+   **six sous-tickets durant** avant qu'E4.0d ne la réfute. Un pompage défensif non mesuré est une
+   dette qui se propage par mimétisme.
+
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

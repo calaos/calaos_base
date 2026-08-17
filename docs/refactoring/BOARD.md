@@ -110,15 +110,15 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.9](T3.9.md) | 3 | pid-0 kill guard: remaining sites | fix | T3.7 | ✅ |
 | [T3.10](T3.10.md) | 3 | Promote ThinIo + harmonize driver mixins | refactor | T3.2a-f | ✅ |
 | [T3.11](T3.11.md) | 3 | Hygiene: SHA1/curl residue, npm lockfile | cleanup | T2.3, T2.5 | ✅ |
-| [E4.0](E4.0.md) | 4 | Caractérisation de l'API JSON (préalable dur à E4.1) — **6/6 sous-tickets de caractérisation livrés (a→f) ; reste E4.0g**, correctif structurel du harnais | epic | — | 📋 |
+| [E4.0](E4.0.md) | 4 | Caractérisation de l'API JSON (préalable dur à E4.1) — **7/7 sous-tickets livrés (a→g)** : 6 de caractérisation + le correctif structurel du harnais. **Épique close, E4.1 débloquée** | epic | — | ✅ |
 | [E4.0a](E4.0.md) | 4 | Fondation du filet de caractérisation (harnais in-process, oracle sémantique, goldens) | tests | — | ✅ |
 | [E4.0b](E4.0.md) | 4 | Caractérisation du modèle et de l'état (9 commandes × 2 transports) | tests | E4.0a | ✅ |
 | [E4.0c](E4.0.md) | 4 | Caractérisation des plages horaires et autoscénarios (9 opérations, 52 cas, 9 goldens) | tests | E4.0a | ✅ |
 | [E4.0d](E4.0.md) | 4 | Caractérisation des events temps réel (23 `type_str`, numérotation de l'enum, enveloppe WS, `poll_listen`, 57 cas, 15 goldens) | tests | E4.0a | ✅ |
 | [E4.0e](E4.0.md) | 4 | Caractérisation de la session, des enveloppes et des chemins d'erreur (7 refus `scopeDenied`, silences, 400/404, pièges de bascule, 102 cas, 29 goldens) | tests | E4.0a | ✅ |
 | [E4.0f](E4.0.md) | 4 | Caractérisation du payload audio et base musicale (contrat de `processDbResult()`, `Utils::to_string(double)`, asymétrie WS/HTTP, 24 cas, 20 goldens) **+ réécriture de `docs/08_http_api.md` et `docs/10_events_notifications.md`** | tests | E4.0a | ✅ |
-| [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) | tests | E4.0d, E4.0e, E4.0f | 📋 |
-| [E4.1](E4.1.md) | 4 | Single JSON library | epic | **E4.0** | 📋 |
+| [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) — 6 rustines retirées, contrat de file vide posé | tests | E4.0d, E4.0e, E4.0f | ✅ |
+| [E4.1](E4.1.md) | 4 | Single JSON library — **prérequis levé**, non démarrée ; lire `ORCHESTRATION.md` (bilan E4.0) avant de commencer | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
