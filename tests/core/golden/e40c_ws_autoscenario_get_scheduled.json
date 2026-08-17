@@ -1,9 +1,12 @@
 {
   "data": {
+    "broken": "false",
     "category": "other",
     "cycle": "true",
+    "disabled_missing_io": "false",
     "enabled": "false",
     "id": "io_0",
+    "missing_ios": "",
     "schedule": "scenario_0_schedule",
     "steps": [
       {

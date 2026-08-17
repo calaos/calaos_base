@@ -136,7 +136,20 @@ public:
        pointer era (no caller ever relied on it, every Rule of the tree is
        Add()ed to this list right after being built). */
     void Remove(Rule *obj);
-    void RemoveRule(IOBase *obj); //remove all rules containing obj
+    /* Deal with every rule referencing `obj`.
+     *
+     * T3.18, user decision. The DEFAULT is RuleDetachPolicy::Disable: the rules
+     * are KEPT - same objects, same order, `rules` and `rules_scenarios`
+     * untouched - and each of them is only told that one of its dependencies is
+     * gone (Rule::markIoMissing()), which disables it exactly like E4.2e
+     * disables a rule loaded with an unresolvable reference. Nothing is erased,
+     * so nothing of the user's configuration is lost and the rule evaluation
+     * order is strictly preserved.
+     *
+     * RuleDetachPolicy::Destroy is the historical body, unchanged, and is what
+     * the teardown sites ask for explicitly (see RuleDetachPolicy in Rule.h).
+     */
+    void RemoveRule(IOBase *obj, RuleDetachPolicy policy = RuleDetachPolicy::Disable);
 
     //NON-OWNING. Valid while this list holds the rule.
     Rule *get_rule(int i);

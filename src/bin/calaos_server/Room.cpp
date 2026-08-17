@@ -45,7 +45,14 @@ Room::~Room()
     //never shrank `ios` and spun forever.
     while (!ios.empty())
     {
-        ListeRoom::Instance().detachIOFromRules(ios[0].get());
+        /* T3.18: Destroy, explicitly - line "Room::~Room -> detachIOFromRules()
+         * / arret du serveur" of the deleteIO() census. The room and every one
+         * of its IOs are going away for good, so there is nobody left to warn
+         * and nothing left to re-enable; keeping the rules would leave them
+         * pointing at IOs that no longer exist anywhere in the tree.
+         */
+        ListeRoom::Instance().detachIOFromRules(ios[0].get(), false,
+                                                RuleDetachPolicy::Destroy);
         RemoveIO(0, true);
     }
 }

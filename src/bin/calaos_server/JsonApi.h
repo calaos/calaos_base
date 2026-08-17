@@ -156,6 +156,12 @@ public:
     json_t *buildAutoscenarioModify(json_t *jdata);
     json_t *buildAutoscenarioAddSchedule(json_t *jdata);
     json_t *buildAutoscenarioDelSchedule(json_t *jdata);
+    /* T3.18. The manual re-enable of a scenario disabled because one of the IOs
+     * one of its steps uses disappeared. A command of its own and not a
+     * set_param on `disabled_missing_io`, because set_param CANNOT REFUSE:
+     * re-enabling a still broken scenario would answer success and change
+     * nothing, which is exactly the silent no-op this ticket removes. */
+    json_t *buildAutoscenarioReenable(json_t *jdata);
 
     json_t *buildJsonGetIO(vector<string> iolist);
 

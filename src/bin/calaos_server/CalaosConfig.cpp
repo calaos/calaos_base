@@ -409,12 +409,39 @@ void Config::LoadConfigRule()
                         "rule missing part of its criteria would run on incomplete "
                         "conditions.\n";
 
+        bool anyScenario = false;
+
         for (Rule *rule: disabled)
-            report += "\n- rule '" + rule->get_name() + "': missing IO(s) " +
-                      rule->getMissingIoDescription();
+        {
+            /* T3.18. A scenario step rule is named "<scenario_id>_step", which
+             * says nothing to anybody: name the SCENARIO instead. Without this
+             * the alert exists but does not tell the user that one of their
+             * scenarios is dead - and a scenario, unlike a plain rule, will NOT
+             * come back on its own once the IO is restored.
+             */
+            if (rule->param_exists("auto_scenario"))
+            {
+                anyScenario = true;
+                report += "\n- step of scenario '" + rule->get_param("auto_scenario") +
+                          "' (rule '" + rule->get_name() + "'): missing IO(s) " +
+                          rule->getMissingIoDescription();
+            }
+            else
+            {
+                report += "\n- rule '" + rule->get_name() + "': missing IO(s) " +
+                          rule->getMissingIoDescription();
+            }
+        }
 
         report += "\n\nThey are kept in your configuration untouched and will run "
                   "again as soon as the missing IOs are back.";
+
+        if (anyScenario)
+        {
+            report += "\n\nA SCENARIO is among them: a scenario disabled this way "
+                      "stays disabled even once the missing IOs are back, and has to "
+                      "be re-enabled explicitly (autoscenario reenable).";
+        }
 
         cError() << "" << disabled.size() << " rule(s) DISABLED because of missing IOs";
         scheduleConfigAlert(report);

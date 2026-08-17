@@ -141,12 +141,15 @@ public:
        a no-op. */
     bool delete_io(IOBase *io, bool del = true);
 
-    /* The rule-side half of deleteIO(): drops the rules that use this IO and
-       takes it out of the polling list, without touching its ownership.
+    /* The rule-side half of deleteIO(): deals with the rules that use this IO
+       and takes it out of the polling list, without touching its ownership.
        Public because Room's destructor has to run it for each IO it is about
-       to destroy. `modify` = true keeps the rules (an IO being edited).
+       to destroy. `modify` = true keeps the rules untouched (an IO being
+       edited). `policy` is handed straight to ListeRule::RemoveRule(): the
+       default DISABLES the rules instead of destroying them (T3.18).
        A null IO is a no-op. */
-    void detachIOFromRules(IOBase *io, bool modify = false);
+    void detachIOFromRules(IOBase *io, bool modify = false,
+                           RuleDetachPolicy policy = RuleDetachPolicy::Disable);
 
     int get_io_count(); //total IO count for all rooms
 
@@ -173,8 +176,26 @@ public:
     Room *getRoomByIO(IOBase *o);
 
     /* detachIOFromRules() + delete_io(io): the full "the user deleted this
-       IO" path used by the JSON API. The IO is destroyed. */
-    bool deleteIO(IOBase *io, bool modify = false);
+       IO" path used by the JSON API. The IO is destroyed.
+       `policy` is handed to detachIOFromRules(); with the default (Disable) the
+       detection pass below runs once the IO is really gone. */
+    bool deleteIO(IOBase *io, bool modify = false,
+                  RuleDetachPolicy policy = RuleDetachPolicy::Disable);
+
+    /* T3.18. Walk the auto scenarios and DISABLE the broken ones: for each one
+       whose AutoScenario::isBroken() answers true, set the persisted
+       `disabled_missing_io` flag and bring a running scenario to a clean stop.
+
+       IT ONLY EVER SETS. Never clearing is not an oversight, it is the user's
+       decision: the disabling is sticky until an explicit re-enable, so putting
+       the IO back does not restart the scenario on its own. A setXxx(false)
+       slipped into this pass would make the whole ticket pointless, and it
+       would only show up after a reboot.
+
+       Two callers, and two only: deleteIO() (hot path, once the IO is gone) and
+       checkAutoScenario() (startup), both of which already call SaveConfigIO()
+       right after - no new save is added anywhere. */
+    void refreshBrokenScenarios();
 
     /* Builds an IO through IOFactory and hands its ownership to `room`.
        Returns a non-owning pointer to it, or nullptr when the creation

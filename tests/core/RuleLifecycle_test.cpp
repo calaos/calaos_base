@@ -117,12 +117,24 @@ protected:
 
 /******************************************************************************
  * ListeRule::RemoveRule(): every condition/action type must be scanned
+ *
+ * T3.18 - THE CONTRACT OF THIS WHOLE SECTION CHANGED (user decision). Deleting
+ * an IO no longer DESTROYS the rules that use it, it DISABLES them: the rule
+ * stays in the list with all its conditions and actions, Rule::isDisabled()
+ * answers true and it is never triggered, evaluated nor executed. Every case
+ * below has been rewritten and renamed accordingly.
+ *
+ * What the section is actually about is UNCHANGED and still covered: every
+ * condition/action type must be SEEN by RemoveRule(). It used to be observed as
+ * "the rule disappeared"; it is now observed as "the rule is disabled and names
+ * the id" - a strictly stronger assertion, since a rule that was not seen would
+ * stay enabled AND keep its reference.
  ******************************************************************************/
 
 //C1: the rule only knows ID_INT through its ConditionOutput. Before the fix
 //RemoveRule() did not see it and the rule stayed in the list with a freed
 //IOBase* in ConditionOutput::output.
-TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionOutputRemovesTheRule)
+TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionOutputDisablesTheRule)
 {
     loadIosOnly();
 
@@ -139,14 +151,17 @@ TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionOutputRemovesTheRule)
 
     ASSERT_TRUE(deleteIO(io(ID_INT)));
 
-    EXPECT_EQ(ListeRule::Instance().size(), 0) << "the rule kept a dangling IOBase*";
-    EXPECT_EQ(findRule("OutputCond"), nullptr);
+    ASSERT_EQ(ListeRule::Instance().size(), 1) << "the rule was destroyed, not disabled";
+    ASSERT_NE(findRule("OutputCond"), nullptr);
+    EXPECT_TRUE(findRule("OutputCond")->isDisabled()) << "RemoveRule() did not see the "
+                                                         "ConditionOutput";
+    EXPECT_EQ(findRule("OutputCond")->getMissingIoDescription(), ID_INT);
     EXPECT_EQ(io(ID_INT), nullptr);
 }
 
 //C1: same through ConditionScript, which keeps its trigger IOs in a map keyed
 //by pointer.
-TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionScriptRemovesTheRule)
+TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionScriptDisablesTheRule)
 {
     loadIosOnly();
 
@@ -161,11 +176,14 @@ TEST_F(RuleLifecycleTest, DeletingAnIoUsedOnlyByAConditionScriptRemovesTheRule)
 
     ASSERT_TRUE(deleteIO(io(ID_INT)));
 
-    EXPECT_EQ(ListeRule::Instance().size(), 0) << "the rule kept a dangling IOBase*";
-    EXPECT_EQ(findRule("ScriptCond"), nullptr);
+    ASSERT_EQ(ListeRule::Instance().size(), 1) << "the rule was destroyed, not disabled";
+    ASSERT_NE(findRule("ScriptCond"), nullptr);
+    EXPECT_TRUE(findRule("ScriptCond")->isDisabled()) << "RemoveRule() did not see the "
+                                                         "ConditionScript";
+    EXPECT_EQ(findRule("ScriptCond")->getMissingIoDescription(), ID_INT);
 }
 
-//Deleting an IO must not take unrelated rules down with it.
+//Deleting an IO must not disable unrelated rules.
 TEST_F(RuleLifecycleTest, DeletingAnIoLeavesTheRulesThatDoNotUseItAlone)
 {
     loadIosOnly();
@@ -181,15 +199,17 @@ TEST_F(RuleLifecycleTest, DeletingAnIoLeavesTheRulesThatDoNotUseItAlone)
 
     ASSERT_TRUE(deleteIO(io(ID_INT)));
 
-    EXPECT_EQ(ListeRule::Instance().size(), 2);
-    EXPECT_EQ(findRule("UsesInt"), nullptr);
-    EXPECT_NE(findRule("UsesString"), nullptr);
-    EXPECT_NE(findRule("UsesBool"), nullptr);
+    //T3.18: nothing is erased any more, so the count does not move at all
+    EXPECT_EQ(ListeRule::Instance().size(), 3);
+    ASSERT_NE(findRule("UsesInt"), nullptr);
+    EXPECT_TRUE(findRule("UsesInt")->isDisabled());
+    EXPECT_FALSE(findRule("UsesString")->isDisabled());
+    EXPECT_FALSE(findRule("UsesBool")->isDisabled());
 }
 
 //Several rules referencing the same IO through different condition types are
-//all dropped in one pass (the removal loop erases while iterating).
-TEST_F(RuleLifecycleTest, DeletingAnIoRemovesEveryRuleUsingItAtOnce)
+//all caught in one pass.
+TEST_F(RuleLifecycleTest, DeletingAnIoDisablesEveryRuleUsingItAtOnce)
 {
     loadIosOnly();
 
@@ -208,12 +228,18 @@ TEST_F(RuleLifecycleTest, DeletingAnIoRemovesEveryRuleUsingItAtOnce)
 
     ASSERT_TRUE(deleteIO(io(ID_INT)));
 
-    ASSERT_EQ(ListeRule::Instance().size(), 1);
-    EXPECT_NE(findRule("Keep"), nullptr);
+    ASSERT_EQ(ListeRule::Instance().size(), 5);
+    for (const char *name: { "Out1", "Script1", "Out2", "Action1" })
+    {
+        ASSERT_NE(findRule(name), nullptr) << name;
+        EXPECT_TRUE(findRule(name)->isDisabled()) << name << " was not disabled";
+    }
+    EXPECT_FALSE(findRule("Keep")->isDisabled());
 }
 
-//The first rule of the list being removed used to rely on an unsigned
-//underflow to keep the iteration correct. Check the head of the list.
+//The head of the list is the index the old destroying loop used to get wrong
+//(it relied on an unsigned underflow). Nothing is erased now, so the check is
+//that the ORDER and the contents are strictly untouched.
 TEST_F(RuleLifecycleTest, DeletingAnIoUsedByTheFirstRuleKeepsTheListConsistent)
 {
     loadIosOnly();
@@ -225,16 +251,26 @@ TEST_F(RuleLifecycleTest, DeletingAnIoUsedByTheFirstRuleKeepsTheListConsistent)
 
     ASSERT_TRUE(deleteIO(io(ID_INT)));
 
-    ASSERT_EQ(ListeRule::Instance().size(), 2);
-    EXPECT_NE(findRule("Second"), nullptr);
-    EXPECT_NE(findRule("Third"), nullptr);
+    ASSERT_EQ(ListeRule::Instance().size(), 3);
+    EXPECT_EQ(ListeRule::Instance().get_rule(0)->get_name(), "First");
+    EXPECT_EQ(ListeRule::Instance().get_rule(1)->get_name(), "Second");
+    EXPECT_EQ(ListeRule::Instance().get_rule(2)->get_name(), "Third");
+    EXPECT_TRUE(ListeRule::Instance().get_rule(0)->isDisabled());
+    EXPECT_FALSE(ListeRule::Instance().get_rule(1)->isDisabled());
+    EXPECT_FALSE(ListeRule::Instance().get_rule(2)->isDisabled());
 }
 
-//The acceptance criterion of the ticket: SaveConfigRule() right after the
-//deletion must be clean. ConditionOutput::SaveToXml() dereferences its output
-//and ConditionScript::SaveToXml() walks its trigger map, both of which used to
-//read freed memory here.
-TEST_F(RuleLifecycleTest, SavingRulesAfterAnIoDeletionIsClean)
+/* SaveConfigRule() right after the deletion must be clean - the acceptance
+ * criterion of T1.1, still met: ConditionOutput::SaveToXml() and
+ * ConditionScript::SaveToXml() used to read freed memory here.
+ *
+ * T3.18 - CONTRACT CHANGED, and the case renamed (it used to be
+ * SavingRulesAfterAnIoDeletionIsClean and asserted that the deleted id was GONE
+ * from rules.xml). The save is now deliberately NON DESTRUCTIVE: the dead id is
+ * written back verbatim, which is what E4.2e's mechanism needs to reproduce the
+ * disabled state at the next load. Losing it would be losing the user's rule.
+ */
+TEST_F(RuleLifecycleTest, SavingRulesAfterAnIoDeletionKeepsTheDeadReferenceAndReloads)
 {
     loadIosOnly();
 
@@ -249,14 +285,20 @@ TEST_F(RuleLifecycleTest, SavingRulesAfterAnIoDeletionIsClean)
     saveConfig();
 
     const std::string rules = rulesXmlOnDisk();
-    EXPECT_EQ(rules.find(ID_INT), std::string::npos)
-        << "the deleted IO is still referenced in rules.xml:\n" << rules;
+    EXPECT_NE(rules.find(ID_INT), std::string::npos)
+        << "the deleted IO was dropped from rules.xml, the user's rule is lost:\n" << rules;
     EXPECT_NE(rules.find("Keep"), std::string::npos);
 
-    //And the saved state still loads
+    //And the saved state still loads - all three rules, the two of them still
+    //disabled because the load path re-detects the very same missing id
     reloadFromDisk();
-    EXPECT_EQ(ListeRule::Instance().size(), 1);
-    EXPECT_NE(findRule("Keep"), nullptr);
+    EXPECT_EQ(ListeRule::Instance().size(), 3);
+    ASSERT_NE(findRule("Keep"), nullptr);
+    EXPECT_FALSE(findRule("Keep")->isDisabled());
+    ASSERT_NE(findRule("OutputCond"), nullptr);
+    EXPECT_TRUE(findRule("OutputCond")->isDisabled());
+    ASSERT_NE(findRule("ScriptCond"), nullptr);
+    EXPECT_TRUE(findRule("ScriptCond")->isDisabled());
 }
 
 //Deleting a whole room cascades into its IOs (Room::~Room -> deleteIO), so the
@@ -380,9 +422,18 @@ TEST_F(AutoScenarioLifecycleTest, GetCategoryDoesNotCrashOnASkipListedAction)
     EXPECT_EQ(as->getCategory(), "other");
 }
 
-//Deleting an IO used by a scenario step must drop that step rule, whatever the
-//condition types the scenario rules are built with.
-TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDropsTheStepRule)
+/* Deleting an IO used by a scenario step KEEPS that step rule and disables the
+ * whole scenario, whatever the condition types the scenario rules are built
+ * with.
+ *
+ * T3.18 - CONTRACT CHANGED (user decision), and the case renamed with it (it
+ * used to be DeletingAnIoUsedByAStepDropsTheStepRule and asserted the step was
+ * destroyed). Amputating a scenario made it run a sequence the user never
+ * wrote, silently; it is now disabled whole, and stays disabled until it is
+ * re-enabled by hand. tests/core/ScenarioDisabledMissingIo_test.cpp is where
+ * that is covered end to end - this case only pins the ListeRule side of it.
+ */
+TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDisablesTheStepRule)
 {
     AutoScenario *as = makeScenario("sc_del");
     ASSERT_NE(as, nullptr);
@@ -395,25 +446,33 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAnIoUsedByAStepDropsTheStepRule)
 
     ASSERT_TRUE(deleteIO(io(ID_BOOL_OUT)));
 
-    EXPECT_EQ(ListeRule::Instance().size(), rulesBefore - 1);
-    EXPECT_EQ(findRule("sc_del_step"), nullptr);
+    //nothing was erased: the step rule and every other rule of the scenario are
+    //still there, in their original order
+    EXPECT_EQ(ListeRule::Instance().size(), rulesBefore);
+    ASSERT_NE(findRule("sc_del_step"), nullptr);
+    EXPECT_TRUE(findRule("sc_del_step")->isDisabled());
+    EXPECT_EQ(findRule("sc_del_step")->getMissingIoDescription(), ID_BOOL_OUT);
 
-    /* E4.2f: the step rule is owned by ListeRule and died under AutoScenario,
-     * which kept a raw Rule* on it. Every one of the reads below used to land
-     * in freed memory (heap-use-after-free under ASan) on the very next
-     * get_scenario of the UI. The back-pointer must report the rule as gone,
-     * exactly like the next checkScenarioRules() would.
-     */
-    EXPECT_TRUE(as->getRuleSteps().empty())
-        << "AutoScenario still hands out the freed step rule";
-    EXPECT_EQ(as->getStepPause(0), 0.0);
+    //the step is still readable, with its pause - it is the SCENARIO that is
+    //disabled, not the description of the step that is destroyed
+    ASSERT_EQ(as->getRuleSteps().size(), 1u);
+    EXPECT_EQ(as->getStepPause(0), 1.0);
+
+    //the action itself no longer resolves, so it is not reported as a user
+    //action any more (isScenarioInternalIO(nullptr) answers true) - unchanged,
+    //that is T3.18.md's constat (d)
     EXPECT_EQ(as->getStepActionCount(0), 0);
     EXPECT_EQ(as->getStepAction(0, 0).io, nullptr);
     EXPECT_EQ(as->getCategory(), "");
 
-    //Writing through the same index must not touch the freed rule either
+    //and the scenario is disabled, live and persisted
+    EXPECT_TRUE(as->isBroken());
+    EXPECT_TRUE(as->isDisabledMissingIo());
+
+    //Writing through the same index still works on the surviving rule
     as->setStepPause(0, 2.0);
     as->addStepAction(0, io(ID_INT), "5");
+    EXPECT_EQ(as->getStepPause(0), 2.0);
 }
 
 //The banal exploit of the dangling step: scenario B is used as the action of a
@@ -443,21 +502,32 @@ TEST_F(AutoScenarioLifecycleTest, DeletingAScenarioUsedAsAStepActionIsSafeToSeri
     ASSERT_EQ(as->getRuleSteps().size(), 1u);
     ASSERT_EQ(as->getStepActionCount(0), 1);
 
-    //scenario_del on B: its IO goes away and every rule citing it is destroyed,
-    //including A's step rule
+    /* scenario_del on B: its IO goes away.
+     * T3.18 - CONTRACT CHANGED. A's step rule used to be DESTROYED with it,
+     * which is what made the serialization of A a use-after-free hazard in the
+     * first place (E4.2f). It is now KEPT and disabled, so the hazard cannot
+     * even arise on this path - and A is disabled whole instead of silently
+     * losing a step. The case still does what it is here for: serialize A
+     * right after B's deletion and check nothing blows up.
+     */
     ASSERT_TRUE(deleteIO(io("io_sc_b")));
-    EXPECT_EQ(findRule("sc_a_step"), nullptr);
+    ASSERT_NE(findRule("sc_a_step"), nullptr);
+    EXPECT_TRUE(findRule("sc_a_step")->isDisabled());
+    EXPECT_TRUE(as->isDisabledMissingIo());
 
     //get_scenarios on the survivor
-    EXPECT_EQ(as->getRuleSteps().size(), 0u);
+    EXPECT_EQ(as->getRuleSteps().size(), 1u);
 
     json_t *jret = scA->toJson();
     ASSERT_NE(jret, nullptr);
     json_t *jsteps = json_object_get(jret, "steps");
     ASSERT_NE(jsteps, nullptr);
-    //Only the end step is left
-    EXPECT_EQ(json_array_size(jsteps), 1u);
-    EXPECT_STREQ(json_string_value(json_object_get(jret, "steps_count")), "0");
+    //The step survives (empty of its dead action) plus the end step
+    EXPECT_EQ(json_array_size(jsteps), 2u);
+    EXPECT_STREQ(json_string_value(json_object_get(jret, "steps_count")), "1");
+    EXPECT_STREQ(json_string_value(json_object_get(jret, "broken")), "true");
+    EXPECT_STREQ(json_string_value(json_object_get(jret, "disabled_missing_io")), "true");
+    EXPECT_STREQ(json_string_value(json_object_get(jret, "missing_ios")), "io_sc_b");
     json_decref(jret);
 }
 
@@ -694,11 +764,18 @@ TEST_F(RuleDispatchTest, ATriggerSignalledDuringAMarchIsDeferredThenExecuted)
     EXPECT_FALSE(rules.isExecutionLocked());
 }
 
-//The rule can be deleted while its scripts are still running: RemoveRule() is
-//called for every IO deletion and nothing cancels a ScriptExec callback. The
-//callback used to run rule->ExecuteActions() on freed memory (heap use after
-//free under ASan).
-TEST_F(RuleDispatchTest, ScriptCompletionOnADeletedRuleIsIgnored)
+/* The rule can be destroyed while its scripts are still running, and nothing
+ * cancels a ScriptExec callback. The callback used to run
+ * rule->ExecuteActions() on freed memory (heap use after free under ASan).
+ *
+ * T3.18 - the WAY the rule is destroyed changed, not what is covered. Deleting
+ * an IO no longer destroys the rules using it (it disables them), so the
+ * destruction is now reached through the room, which is still a Destroy path
+ * (Room::~Room). The dangling-callback hazard is unchanged and still real:
+ * ListeRule::Remove(), room deletion and AutoScenario::deleteRules() all
+ * destroy rules under a running script.
+ */
+TEST_F(RuleDispatchTest, ScriptCompletionOnADestroyedRuleIsIgnored)
 {
     Rule *rule = addRuleFromXml(scriptConditionRuleXml("Async", ID_INT,
                                                        ID_BOOL_OUT, "true"));
@@ -707,20 +784,49 @@ TEST_F(RuleDispatchTest, ScriptCompletionOnADeletedRuleIsIgnored)
     std::weak_ptr<bool> token = rule->aliveToken();
     EXPECT_FALSE(token.expired());
 
-    //Deleting the IO the script watches deletes the rule with it
-    ASSERT_TRUE(deleteIO(io(ID_INT)));
+    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    //Destroying the room destroys its IOs and, with them, the rules using them
+    ListeRoom::Instance().Remove(0);
     ASSERT_EQ(ListeRule::Instance().size(), 0);
     EXPECT_TRUE(token.expired());
-
-    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
 
     //The detached script finally answers: `rule` is dangling, the callback must
     //not touch it nor execute anything
     ProbeListeRule rules;
     rules.asyncConditionsChecked(rule, token, true);
 
+    EXPECT_FALSE(rules.isExecutionLocked());
+}
+
+/* T3.18 - THE NEW HALF of the same hazard. A rule surviving the deletion of one
+ * of its IOs is exactly what this ticket introduces, so a script started before
+ * the deletion now lands on a rule that is ALIVE and DISABLED - a state that
+ * did not exist on this path before. It must not act: executeActionsLocked()
+ * goes through Rule::ExecuteActions(), which refuses for a disabled rule
+ * (E4.2e). Without this case, T3.18 would have opened a way to run the actions
+ * of a rule whose criteria are incomplete.
+ */
+TEST_F(RuleDispatchTest, ScriptCompletionOnARuleDisabledMeanwhileDoesNotAct)
+{
+    Rule *rule = addRuleFromXml(scriptConditionRuleXml("Async", ID_INT,
+                                                       ID_BOOL_OUT, "true"));
+    ASSERT_NE(rule, nullptr);
+
+    std::weak_ptr<bool> token = rule->aliveToken();
+    ASSERT_FALSE(io(ID_BOOL_OUT)->get_value_bool());
+
+    //the IO the script watches goes away while the script is running
+    ASSERT_TRUE(deleteIO(io(ID_INT)));
+    ASSERT_EQ(ListeRule::Instance().size(), 1) << "the rule was destroyed, not disabled";
+    ASSERT_FALSE(token.expired());
+    ASSERT_TRUE(rule->isDisabled());
+
+    ProbeListeRule rules;
+    rules.asyncConditionsChecked(rule, token, true);
+
     EXPECT_FALSE(io(ID_BOOL_OUT)->get_value_bool())
-        << "the actions of a deleted rule were executed";
+        << "the actions of a disabled rule were executed by a late script callback";
     EXPECT_FALSE(rules.isExecutionLocked());
 }
 

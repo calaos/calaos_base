@@ -18,7 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include <algorithm>
+
 #include "AutoScenario.h"
+#include "EventManager.h"
 using namespace Calaos;
 
 static bool _sortCompStepRule(const RuleRef &s1, const RuleRef &s2)
@@ -89,6 +92,24 @@ AutoScenario::AutoScenario(IOBase *input):
     cycle = (input->get_param("cycle") == "true")?true:false;
     disabled = (input->get_param("disabled") == "true")?true:false;
 
+    /* T3.18. READ HERE, with cycle and disabled, and nowhere else: this runs
+     * from IOFactory::CreateIO() while the config is being read, so it is the
+     * only point that is guaranteed to be BEFORE any SaveConfigIO(). The very
+     * first thing the server does after loading is
+     * ListeRoom::checkAutoScenario(), which ends with SaveConfigIO(): a flag
+     * read too late - or not read at all - would be erased from io.xml at the
+     * first startup, silently, with no user action involved. That is the only
+     * erasure vector of this ticket that nobody could notice.
+     */
+    disabledMissingIo = (input->get_param("disabled_missing_io") == "true")?true:false;
+
+    if (disabledMissingIo)
+    {
+        cWarningDom("scenario") << "AutoScenario (" << scenario_id << "): loaded "
+                                << "DISABLED, it referenced a missing IO. It will not "
+                                << "start until it is re-enabled explicitly.";
+    }
+
     ListeRoom::Instance().addScenarioCache(ioScenario);
 }
 
@@ -134,6 +155,157 @@ void AutoScenario::setDisabled(bool d)
         ioScenario->set_param("disabled", "false");
 }
 
+/* -----------------------------------------------------------------------
+ * T3.18 - the two gates, the manual re-enable, the clean stop
+ * -------------------------------------------------------------------- */
+
+bool AutoScenario::isBroken() const
+{
+    /* A step whose rule was destroyed under us. Not reachable from the normal
+     * deletion path any more (RuleDetachPolicy::Disable keeps the rule), but it
+     * is still what a Destroy teardown or a ListeRule::Remove() leaves behind,
+     * and getRuleSteps() COMPACTS those away (E4.2f) - so the compacted list
+     * cannot show it and the raw entries have to be read.
+     */
+    for (const RuleRef &step: ruleSteps)
+    {
+        if (step.isDangling()) return true;
+
+        Rule *rule = step.get();
+        if (rule && rule->isDisabled()) return true;
+    }
+
+    //And every other rule of the scenario. A null one is NOT a breakage: they
+    //are all null until the first checkScenarioRules(), and the schedule ones
+    //are legitimately absent on a scenario without a schedule.
+    const RuleRef *others[] = { &ruleStart, &ruleStop, &ruleStepEnd,
+                                &rulePlageStart, &rulePlageStop };
+
+    for (const RuleRef *ref: others)
+    {
+        if (ref->isDangling()) return true;
+
+        Rule *rule = ref->get();
+        if (rule && rule->isDisabled()) return true;
+    }
+
+    return false;
+}
+
+string AutoScenario::getMissingIoDescription() const
+{
+    vector<string> ids;
+
+    auto collect = [&ids](const RuleRef &ref)
+    {
+        Rule *rule = ref.get();
+        if (!rule) return;
+
+        for (const string &id: rule->getMissingIoIds())
+        {
+            if (std::find(ids.begin(), ids.end(), id) != ids.end()) continue;
+            ids.push_back(id);
+        }
+    };
+
+    for (const RuleRef &step: ruleSteps)
+        collect(step);
+
+    collect(ruleStart);
+    collect(ruleStop);
+    collect(ruleStepEnd);
+    collect(rulePlageStart);
+    collect(rulePlageStop);
+
+    //Same format as Rule::getMissingIoDescription(), which is what the logs and
+    //the configuration alert of E4.2e already print
+    string desc;
+    for (const string &id: ids)
+    {
+        if (!desc.empty()) desc += ", ";
+        desc += id;
+    }
+
+    return desc;
+}
+
+void AutoScenario::setDisabledMissingIo(bool d)
+{
+    if (d == disabledMissingIo) return;
+    disabledMissingIo = d;
+
+    if (!ioScenario) return;
+
+    if (disabledMissingIo)
+    {
+        ioScenario->set_param("disabled_missing_io", "true");
+    }
+    else
+    {
+        /* REMOVED, not set to "false". A healthy scenario must produce exactly
+         * the io.xml it always produced - "the healthy case is strictly
+         * unchanged" is an invariant of this ticket, and a leftover
+         * disabled_missing_io="false" would break it for every scenario that
+         * was repaired once.
+         */
+        ioScenario->del_param("disabled_missing_io");
+    }
+}
+
+bool AutoScenario::tryReenable(string &errorOut)
+{
+    if (isBroken())
+    {
+        /* REFUSED, and the refusal carries the diagnosis. Answering "success"
+         * and letting the next detection pass disable the scenario again would
+         * reproduce, one level up, the very defect this ticket removes: an
+         * action that looks like it worked and did nothing.
+         */
+        errorOut = "scenario still references missing IOs: " + getMissingIoDescription();
+
+        cWarningDom("scenario") << "AutoScenario (" << scenario_id
+                                << "): re-enable REFUSED, " << errorOut;
+        return false;
+    }
+
+    if (!disabledMissingIo)
+    {
+        //Nothing to do, and saying so is not an error: re-enabling a scenario
+        //that is not disabled is idempotent.
+        cInfoDom("scenario") << "AutoScenario (" << scenario_id
+                             << "): re-enable is a no-op, it is not disabled";
+        return true;
+    }
+
+    setDisabledMissingIo(false);
+
+    cInfoDom("scenario") << "AutoScenario (" << scenario_id
+                         << "): re-enabled by the user, it can run again";
+
+    EventManager::create(CalaosEvent::EventScenarioChanged,
+                         { { "id", ioScenario? ioScenario->get_param("id"): scenario_id } });
+
+    return true;
+}
+
+void AutoScenario::stopBrokenRun()
+{
+    if (!ioIsActive || !ioIsActive->get_value_bool()) return;
+
+    cWarningDom("scenario") << "AutoScenario (" << scenario_id << "): broken while "
+                            << "running, forcing a clean stop";
+
+    /* ioIsActive FIRST: with it back to false the step rules and the step_end
+     * rule can no longer pass their conditions, so setting ioStep below cannot
+     * restart anything. Real set_value() calls and not a silent write, so the
+     * UI sees the scenario stop.
+     */
+    ioIsActive->set_value(false);
+
+    if (ioStep) ioStep->set_value(-1.0);
+    if (ioTimer) ioTimer->set_value(string("stop"));
+}
+
 void AutoScenario::deleteAll()
 {
     cInfoDom("scenario") << "AutoScenario::delete(" << ioScenario->get_param("id") << ")";
@@ -155,18 +327,29 @@ void AutoScenario::deleteAll()
         ListeRule::Instance().Remove(ruleSteps[i].get());
     ruleSteps.clear();
 
-    //delete IOs
+    /* delete IOs.
+     *
+     * T3.18: RuleDetachPolicy::Destroy is EXPLICIT on all five, and it is the
+     * right policy here - line "AutoScenario::deleteAll() - IOs internes" of
+     * the deleteIO() census. These are the machinery IOs of the scenario, they
+     * are invisible (visible=false) and no third party can depend on them; the
+     * whole scenario is being torn down, so there is nothing left to disable.
+     * Keeping disabled copies of the rules that drive them would leave rules
+     * nothing ever collects: Rule::setAutoScenario(false) does not exist, so
+     * the auto_scenario sweep of ListeRoom::checkAutoScenario() would miss
+     * them, and the next build would duplicate them.
+     */
     if (ioIsActive)
-        ListeRoom::Instance().deleteIO(ioIsActive);
+        ListeRoom::Instance().deleteIO(ioIsActive, false, RuleDetachPolicy::Destroy);
     ioIsActive = NULL;
     if (ioScheduleEnabled)
-        ListeRoom::Instance().deleteIO(ioScheduleEnabled);
+        ListeRoom::Instance().deleteIO(ioScheduleEnabled, false, RuleDetachPolicy::Destroy);
     ioScheduleEnabled = NULL;
     if (ioStep)
-        ListeRoom::Instance().deleteIO(ioStep);
+        ListeRoom::Instance().deleteIO(ioStep, false, RuleDetachPolicy::Destroy);
     ioStep = NULL;
     if (ioTimer)
-        ListeRoom::Instance().deleteIO(ioTimer);
+        ListeRoom::Instance().deleteIO(ioTimer, false, RuleDetachPolicy::Destroy);
     ioTimer = NULL;
     if (ioTimeRange)
     {
@@ -174,7 +357,7 @@ void AutoScenario::deleteAll()
         //IO it lives on is destroyed
         if (ioTimeRange->getAutoScenarioPtr() == this)
             ioTimeRange->setAutoScenarioPtr(nullptr);
-        ListeRoom::Instance().deleteIO(ioTimeRange);
+        ListeRoom::Instance().deleteIO(ioTimeRange, false, RuleDetachPolicy::Destroy);
     }
     ioTimeRange = NULL;
 }
@@ -410,7 +593,16 @@ bool AutoScenario::checkScenarioRules()
         ioScheduleEnabled = dynamic_cast<Internal *>(ListeRoom::Instance().get_io(scenario_id + "_is_schedule_enabled"));
         if (ioScheduleEnabled)
         {
-            ListeRoom::Instance().deleteIO(ioScheduleEnabled);
+            /* T3.18: Destroy, explicitly - line "_is_schedule_enabled /
+             * deleteSchedule(): demontage REVERSIBLE" of the deleteIO() census.
+             * This id is deterministic and createInput() recreates it
+             * identically the moment a schedule comes back, so the _time_start
+             * / _time_stop rules MUST die here: kept disabled, they would be
+             * duplicated by the next build and nothing would ever collect the
+             * duplicates.
+             */
+            ListeRoom::Instance().deleteIO(ioScheduleEnabled, false,
+                                           RuleDetachPolicy::Destroy);
             ioScheduleEnabled = nullptr;
         }
     }
@@ -868,7 +1060,13 @@ void AutoScenario::deleteSchedule()
         //Symmetric with the setAutoScenarioPtr(this) of checkScenarioRules()
         if (ioTimeRange->getAutoScenarioPtr() == this)
             ioTimeRange->setAutoScenarioPtr(nullptr);
-        ListeRoom::Instance().deleteIO(ioTimeRange);
+        /* T3.18: Destroy, explicitly - same census line as the
+         * _is_schedule_enabled teardown above. deleteSchedule() is reversible
+         * (addSchedule() rebuilds the very same _schedule id) and the
+         * _time_start / _time_stop rules have to go with it, or the next
+         * addSchedule() duplicates them.
+         */
+        ListeRoom::Instance().deleteIO(ioTimeRange, false, RuleDetachPolicy::Destroy);
     }
     ioTimeRange = nullptr;
 

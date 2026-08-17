@@ -2194,6 +2194,37 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
     return p.toJson();
 }
 
+json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
+{
+    string id = jansson_string_get(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    /* T3.18. The refusal is the point of this command: tryReenable() answers
+     * false while the scenario still references IOs that do not resolve, and
+     * fills the message with their ids. Answering success and letting the next
+     * detection pass disable the scenario again would reproduce, one level up,
+     * the silent no-op this ticket removes.
+     */
+    string err;
+    if (!sc->getAutoScenario()->tryReenable(err))
+    {
+        Params perr = {{ "error", err }};
+        return perr.toJson();
+    }
+
+    //The flag lives in io.xml (a param of the Scenario IO), so only that one
+    //has to be rewritten: no rule was touched.
+    Config::Instance().SaveConfigIO();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
+}
+
 void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback)
 {
     int page = 0;

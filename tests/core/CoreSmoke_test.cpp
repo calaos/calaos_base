@@ -251,8 +251,16 @@ TEST_F(CoreSmokeTest, CreateAndDeleteIo)
     EXPECT_EQ(io("io_created"), nullptr);
 }
 
-//Deleting an IO used by a rule drops the rule as well.
-TEST_F(CoreSmokeTest, DeletingAnIoDropsTheRulesUsingIt)
+/* Deleting an IO used by a rule DISABLES the rule, it does not drop it.
+ *
+ * T3.18 - CONTRACT CHANGED (user decision), and the case renamed with it: it
+ * used to be DeletingAnIoDropsTheRulesUsingIt. The rule stays in the list with
+ * all its conditions and actions - so the user's configuration is not silently
+ * destroyed by unplugging a driver - and is only excluded from execution, the
+ * very semantics E4.2e gave to a rule loaded with an unresolvable reference.
+ * Same precedent as E4.2e rewriting CoreSmoke_test.RuleWithUnknownIoIsDropped.
+ */
+TEST_F(CoreSmokeTest, DeletingAnIoDisablesTheRulesUsingIt)
 {
     loadConfig();
 
@@ -260,7 +268,9 @@ TEST_F(CoreSmokeTest, DeletingAnIoDropsTheRulesUsingIt)
     ASSERT_TRUE(deleteIO(io(ID_BOOL_IN)));
 
     EXPECT_EQ(io(ID_BOOL_IN), nullptr);
-    EXPECT_EQ(ListeRule::Instance().size(), 0);
+    ASSERT_EQ(ListeRule::Instance().size(), 1) << "the rule was destroyed, not disabled";
+    EXPECT_TRUE(ListeRule::Instance().get_rule(0)->isDisabled());
+    EXPECT_EQ(ListeRule::Instance().get_rule(0)->getMissingIoDescription(), ID_BOOL_IN);
 }
 
 //A rule built by hand behaves like a loaded one and is serialized identically.

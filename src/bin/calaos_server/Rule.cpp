@@ -94,6 +94,17 @@ void Rule::collectMissingIo(const vector<string> &ids)
     }
 }
 
+void Rule::markIoMissing(const string &id)
+{
+    /* An empty id is a missing dependency too and is recorded under the same
+     * sentinel the load path uses (Condition::MISSING_IO_EMPTY), instead of
+     * being dropped by the `if (id.empty()) continue` of collectMissingIo():
+     * a rule left with zero recorded id would answer isDisabled() == false and
+     * keep running.
+     */
+    collectMissingIo({ id.empty()? string(Condition::MISSING_IO_EMPTY): id });
+}
+
 string Rule::getMissingIoDescription() const
 {
     string desc;

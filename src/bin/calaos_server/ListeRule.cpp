@@ -402,7 +402,7 @@ void ListeRule::ExecuteRuleSignal(std::string id)
     execInProgress = false;
 }
 
-void ListeRule::RemoveRule(IOBase *obj)
+void ListeRule::RemoveRule(IOBase *obj, RuleDetachPolicy policy)
 {
     if (!obj) return;
 
@@ -410,8 +410,8 @@ void ListeRule::RemoveRule(IOBase *obj)
     //removal path now that conditions and actions compare ids.
     const std::string id = obj->get_param("id");
 
-    //Delete every rule referencing this id, whatever the condition/action type
-    //it is referenced from.
+    //Deal with every rule referencing this id, whatever the condition/action
+    //type it is referenced from.
     for (uint i = 0;i < rules.size();)
     {
         Rule *rule = rules[i].get();
@@ -423,15 +423,36 @@ void ListeRule::RemoveRule(IOBase *obj)
         for (int j = 0;!used && j < rule->get_size_actions();j++)
             used = actionUsesIO(rule->get_action(j), id);
 
-        if (used)
+        if (!used)
+        {
+            i++;
+            continue;
+        }
+
+        if (policy == RuleDetachPolicy::Destroy)
         {
             //Remove() erases the entry, the next rule now sits at index i
             cDebugDom("rule") << "Removing rule " << rule->get_name()
                               << ", it uses deleted IO " << id;
             Remove(rule);
+            continue;
         }
-        else
-            i++;
+
+        /* T3.18: KEEP the rule and disable it. No erase, no Remove(): `rules`
+         * and the non-owning `rules_scenarios` index keep both their content
+         * and their order, so the rule evaluation order is strictly untouched
+         * and the rule is still serialized with all its conditions and actions
+         * - including the dead reference, which ActionStd::SaveToXml() writes
+         * back verbatim (E4.2e). That is what lets a save/reload cycle
+         * reproduce the very same disabled state through the load path, with
+         * nothing new stored on the rule side.
+         */
+        rule->markIoMissing(id);
+        cWarningDom("rule") << "Rule '" << rule->get_name() << "' is DISABLED: it "
+                            << "references the deleted IO " << id << ". The rule is "
+                            << "kept in the configuration and saved untouched, but it "
+                            << "will never be triggered, evaluated nor executed.";
+        i++;
     }
 }
 

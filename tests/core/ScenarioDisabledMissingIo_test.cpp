@@ -20,47 +20,66 @@
  ******************************************************************************/
 /*******************************************************************************
  * T3.18 - a scenario whose step lost its IO is DISABLED, and stays disabled
- * until someone re-enables it by hand (user decision, DECISIONS.md
- * "Scenario ampute").
+ * until someone re-enables it by hand.
+ *
+ * USER DECISION, taken against the initial scoping and then hardened
+ * (docs/refactoring/DECISIONS.md, "Scenario ampute"):
+ *
+ *   "On desactive le scenario, on le flag avec un nouveau parametre dans la
+ *    config pour que ca survive a un reboot, et un user doit corriger le
+ *    scenario manuellement en le reactivant. Si un IO disparait c'est un
+ *    probleme, on ne peut pas le resoudre sans intervention manuelle, et un IO
+ *    dans Calaos ne se supprime pas comme ca."
+ *
+ * So the disabling is STICKY: it does NOT clear itself when the IO comes back.
+ * That is what most of this file is about, and it is the one property that
+ * cannot be read off the code - it only shows up across real save/reload
+ * cycles, which is why they are played for real here.
  *
  * ---------------------------------------------------------------------------
- * COMMIT 1 OF 2 - what is in this file RIGHT NOW, and why only that
+ * Two commits, and what went where
  * ---------------------------------------------------------------------------
- * T3.18 CHANGES A BEHAVIOUR, so most of its tests cannot be green before the
- * fix: they assert the new behaviour by construction. Putting them here would
- * mean committing a red suite, which is worse than useless.
+ * T3.18 CHANGES a behaviour, so most of what is below cannot be green before
+ * the fix: it asserts the new behaviour by construction. The first commit
+ * therefore carried only the three cases that were green against an UNTOUCHED
+ * src/, because they pin the pre-existing facts the fix RESTS ON - the four
+ * named keys of buildAutoscenarioModify(), the meaning of the existing
+ * `disabled` param, and the teardown sites that must keep destroying their
+ * rules. All three are still here, unchanged in substance; the modify one was
+ * renamed from ModifyDoesNotClearAnUnknownScenarioParam now that the param has
+ * a name. Everything else came with the fix, in the second commit.
  *
- * What CAN be green before the fix - and is - are the assumptions T3.18 RESTS
- * ON. Each of the three cases below pins a pre-existing fact that the fix does
- * not create but absolutely relies on; every one of them is exactly as
- * meaningful after the fix as before it, and each one is a real trap:
+ * ---------------------------------------------------------------------------
+ * The two gates
+ * ---------------------------------------------------------------------------
+ *      the scenario starts  <=>  !isBroken()  AND  !disabled_missing_io
  *
- *   1. ModifyDoesNotClearAnUnknownScenarioParam
- *      The persisted flag T3.18 adds lives in the Params of the Scenario IO,
- *      the very same Params `autoscenario modify` rewrites. It survives only
- *      because buildAutoscenarioModify() applies four NAMED keys instead of
- *      replacing the params in bulk. That is a fact of implementation, not a
- *      designed guarantee, and the first rewrite of that function would reopen
- *      the hole in silence - a `modify` restarting a broken scenario.
+ *  - gate 1, isBroken(): LIVE, derived from Rule::isDisabled() over the rules
+ *    of the scenario (E4.2e) and from a step rule destroyed under us (E4.2f).
+ *    Stored nowhere, so no client can forge it.
+ *  - gate 2, disabled_missing_io: a PERSISTED param of the Scenario IO, sticky,
+ *    cleared only by AutoScenario::tryReenable().
+ * Neither is redundant: gate 1 alone would clear itself as soon as the IO came
+ * back (refused by the arbitration), gate 2 alone would be forgeable, since
+ * set_param/del_param accept any (io, param) pair without a whitelist.
+ * BothGatesRefuseOnTheirOwn exercises the two directions.
  *
- *   2. TheDisabledParamIsTheSchedulingChoiceAndIsRewrittenByModify
- *      Why the fix must NOT reuse the existing `disabled` param: it is a USER
- *      choice ("do not run this on its schedule"), exposed as "enabled" in the
- *      payload, and REWRITTEN by every modify. Recycling it would let the first
- *      modify of any client put a broken scenario back to work. Pinned here so
- *      the two params are seen doing different things.
- *
- *   3. RemovingAndReAddingAScheduleLeavesNoZombieRule
- *      T3.18 makes "disable the rules" the DEFAULT of the IO detach path and
- *      leaves "destroy them" explicit at the teardown sites. This case pins
- *      what those sites must keep doing: the schedule IOs have deterministic
- *      ids and are recreated identically, so their rules have to die with them
- *      or the next build duplicates them and nothing collects the duplicates.
- *      Without it, the new default is a time bomb.
- *
- * Commit 2 adds the fix and the twelve cases that describe it: the two gates,
- * the persisted sticky flag, the save/reload cycles, the manual re-enable and
- * its refusal, the clean stop, and the four states of the payload.
+ * ---------------------------------------------------------------------------
+ * How a scenario is run here, and why it is not cheating
+ * ---------------------------------------------------------------------------
+ * A scenario is paced by its InputTimer, which is a libuv object; no libuv loop
+ * runs in the core tests (CalaosCoreFixture.h), so the chain never advances on
+ * its own. runScenario() below therefore does two things, and only those two:
+ *   - it presses the button for real - Scenario::set_value(true), the entry
+ *     point of both start paths, the button and the schedule,
+ *   - and, ONLY IF the scenario really started (ioIsActive became true, which
+ *     is the _button_start rule's doing and nothing else), it runs the actions
+ *     of the step rules in order.
+ * Nothing is short circuited: a scenario that does not start runs zero step,
+ * because every step rule needs `ioIsActive == true` to pass its conditions and
+ * the timer is never started either. That is exactly the difference this ticket
+ * is about - DISABLED (nothing runs) versus AMPUTATED (the surviving steps run
+ * a sequence the user never wrote).
  ******************************************************************************/
 
 #include "CalaosCoreFixture.h"
@@ -69,7 +88,9 @@
 #include "JsonApi.h"
 #include "Scenario.h"
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 using namespace Calaos;
 using namespace CalaosTest;
@@ -85,23 +106,26 @@ const char T318_ROOM[] = "T3.18 room";
 const char T318_ROOM_TYPE[] = "salon";
 
 const char TARGET_1[] = "t318_first";
-const char TARGET_2[] = "t318_missing";   //the one that vanishes, in commit 2
+const char TARGET_2[] = "t318_missing";   //the one that vanishes
 const char TARGET_3[] = "t318_third";
 
 const char SC_ID[] = "t318_sc";
 const char SC_IO[] = "io_t318_sc";
 
-//The param T3.18 adds. Spelled out here so that commit 2 cannot rename it
-//without this file noticing.
-const char FLAG[] = "disabled_missing_io";
+//The second scenario, used as the action of a step of the first one: the only
+//"hot" deletion an authenticated client can actually reach today
+const char SC_B_ID[] = "t318_scb";
+const char SC_B_IO[] = "io_t318_scb";
 
-/* buildAutoscenarioModify() is protected. Nothing is overridden: the round trip
- * cases drive the real production function, not a copy of it.
+/* buildAutoscenarioModify() is protected. Nothing else of JsonApi is needed and
+ * nothing is overridden: the round trip test drives the real production
+ * function, not a copy of it.
  */
 class ApiProbe: public JsonApi
 {
 public:
     using JsonApi::buildAutoscenarioModify;
+    using JsonApi::buildAutoscenarioReenable;
 };
 
 } //namespace
@@ -158,9 +182,9 @@ protected:
     }
 
     /* The scenario every case works on: three steps, one action each, the
-     * SECOND one on the IO that is going to disappear in commit 2. Three steps
-     * and not two so that the amputation loses a step in the MIDDLE: losing the
-     * last one would be indistinguishable from a shorter scenario.
+     * SECOND one on the IO that is going to disappear. Three steps and not two
+     * so that the amputation loses a step in the MIDDLE: losing the last one
+     * would be indistinguishable from a shorter scenario.
      */
     AutoScenario *buildReferenceScenario()
     {
@@ -180,51 +204,534 @@ protected:
         return as;
     }
 
-    //The `autoscenario modify` a client sends back. `steps` is empty on
-    //purpose: this is the round trip, not a step edit.
-    static json_t *modifyRequest(const std::string &name, const std::string &cycle,
-                                 const std::string &disabled)
+    /* Amputate one IO element from an io.xml document, the way an installer
+     * deleting a line from the file does. Self-closing elements only, which is
+     * what every internal IO is written as. Same helper as E4.0c.
+     */
+    static bool removeIoFromXml(std::string &xml, const std::string &id)
     {
-        json_t *jreq = json_object();
-        json_object_set_new(jreq, "id", json_string(SC_IO));
-        json_object_set_new(jreq, "name", json_string(name.c_str()));
-        json_object_set_new(jreq, "cycle", json_string(cycle.c_str()));
-        json_object_set_new(jreq, "disabled", json_string(disabled.c_str()));
-        json_object_set_new(jreq, "room_name", json_string(T318_ROOM));
-        json_object_set_new(jreq, "room_type", json_string(T318_ROOM_TYPE));
-        json_object_set_new(jreq, "steps", json_array());
-        return jreq;
+        const size_t at = xml.find("id=\"" + id + "\"");
+        if (at == std::string::npos) return false;
+        const size_t start = xml.rfind('<', at);
+        const size_t end = xml.find('>', at);
+        if (start == std::string::npos || end == std::string::npos) return false;
+        xml.erase(start, end - start + 1);
+        return true;
     }
 
-    //The flag as it really is in io.xml on disk
+    /* Save everything, make `missingId` vanish from io.xml, and load it all
+     * back followed by checkAutoScenario() - i.e. exactly what a reboot does
+     * after somebody removed an IO from the configuration. This is the ONLY
+     * path an installer really takes, and the one E4.2e's detection runs on.
+     */
+    void saveAmputateAndReload(const std::string &missingId)
+    {
+        saveConfig();
+
+        std::string ioXml = ioXmlOnDisk();
+        const std::string rulesXml = rulesXmlOnDisk();
+
+        ASSERT_TRUE(removeIoFromXml(ioXml, missingId))
+                << "the IO to amputate was not found in the saved io.xml";
+        //the rules keep the dead reference verbatim (ActionStd::SaveToXml(),
+        //E4.2e): that is what makes the whole ticket possible
+        ASSERT_NE(std::string::npos, rulesXml.find(missingId));
+
+        clearCoreState();
+        loadConfig(ioXml, rulesXml);
+        ListeRoom::Instance().checkAutoScenario();
+    }
+
+    //Full save/reload cycle of what is currently in memory, plus the startup
+    //pass. No amputation: this is a plain reboot.
+    void saveAndReload()
+    {
+        saveConfig();
+        reloadFromDisk();
+        ListeRoom::Instance().checkAutoScenario();
+    }
+
+    /* Press the button and, if the scenario really started, run its steps.
+     * See the header: nothing is short circuited, ioIsActive is set by the
+     * _button_start rule and by nothing else here.
+     * Answers the number of step rules that executed their actions.
+     */
+    static int runScenario(const std::string &ioId = SC_IO)
+    {
+        Scenario *sc = scenarioIo(ioId);
+        AutoScenario *as = sc? sc->getAutoScenario(): nullptr;
+        if (!sc || !as) return 0;
+
+        sc->set_value(true);
+
+        if (!as->getIOIsActive() || !as->getIOIsActive()->get_value_bool())
+            return 0; //it did not start: no step rule can ever pass its conditions
+
+        int ran = 0;
+        for (Rule *step: as->getRuleSteps())
+        {
+            if (step && step->ExecuteActions())
+                ran++;
+        }
+
+        return ran;
+    }
+
+    static bool targetIsSet(const char *id)
+    {
+        IOBase *o = io(id);
+        return o && o->get_value_bool();
+    }
+
+    //The `disabled_missing_io` attribute as it really is in io.xml on disk
     bool flagIsOnDisk() const
     {
-        return ioXmlOnDisk().find(std::string(FLAG) + "=\"true\"") != std::string::npos;
+        return ioXmlOnDisk().find("disabled_missing_io=\"true\"") != std::string::npos;
+    }
+
+    static Json toJsonOf(const std::string &ioId = SC_IO)
+    {
+        Scenario *sc = scenarioIo(ioId);
+        if (!sc) return Json::object();
+
+        json_t *j = sc->toJson();
+        char *dump = json_dumps(j, JSON_COMPACT);
+        const std::string s = dump? dump: "{}";
+        free(dump);
+        json_decref(j);
+
+        return Json::parse(s, nullptr, false);
     }
 };
 
 /*******************************************************************************
- * 1. The guard rail: `autoscenario modify` must leave an unknown param alone
+ * The control: a healthy scenario is strictly unchanged
  ******************************************************************************/
 
-TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearAnUnknownScenarioParam)
+TEST_F(ScenarioDisabledMissingIoTest, AHealthyScenarioRunsAllItsStepsAndCarriesNoFlag)
 {
-    /* THE guard rail of this ticket, and the reason it is in the first commit:
-     * it is true today and it MUST STILL BE TRUE once the flag exists.
-     * buildAutoscenarioModify() does not replace the params of the Scenario IO
-     * in bulk, it compares and applies four named keys (name, visible, cycle,
-     * disabled) plus the room. An unknown param therefore survives - a FACT OF
-     * IMPLEMENTATION, not a designed guarantee.
+    loadHouse();
+    AutoScenario *as = buildReferenceScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_EQ(3u, as->getRuleSteps().size());
+
+    EXPECT_FALSE(as->isBroken());
+    EXPECT_FALSE(as->isDisabledMissingIo());
+    EXPECT_EQ("", as->getMissingIoDescription());
+
+    EXPECT_EQ(3, runScenario());
+    EXPECT_TRUE(targetIsSet(TARGET_1));
+    EXPECT_TRUE(targetIsSet(TARGET_2));
+    EXPECT_TRUE(targetIsSet(TARGET_3));
+
+    /* The healthy io.xml must be EXACTLY the one it always was: the flag is
+     * ABSENT, never disabled_missing_io="false". A leftover "false" would leak
+     * into every configuration that was repaired once.
+     */
+    saveConfig();
+    EXPECT_EQ(std::string::npos, ioXmlOnDisk().find("disabled_missing_io"))
+            << "a healthy scenario must not carry the param at all";
+}
+
+/*******************************************************************************
+ * The decision itself: disabled, not amputated
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, LosingTheIoOfAStepDisablesTheWholeScenario)
+{
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+
+    saveAmputateAndReload(TARGET_2);
+
+    AutoScenario *as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_EQ(nullptr, io(TARGET_2)) << "the IO really has to be gone";
+
+    //(a) the step rule EXISTS STILL - it was not destroyed
+    const std::vector<Rule *> steps = as->getRuleSteps();
+    ASSERT_EQ(3u, steps.size()) << "the step rule was destroyed instead of disabled";
+    ASSERT_NE(steps[1], nullptr);
+
+    //(b) and it is disabled, naming the right id
+    EXPECT_TRUE(steps[1]->isDisabled());
+    EXPECT_EQ(TARGET_2, steps[1]->getMissingIoDescription());
+    //the two others are untouched: only the guilty rule is disabled
+    EXPECT_FALSE(steps[0]->isDisabled());
+    EXPECT_FALSE(steps[2]->isDisabled());
+
+    //(c) gate 1
+    EXPECT_TRUE(as->isBroken());
+    EXPECT_EQ(TARGET_2, as->getMissingIoDescription());
+
+    //(d) gate 2, set by the startup detection pass
+    EXPECT_TRUE(as->isDisabledMissingIo());
+    EXPECT_EQ("true", scenarioIo()->get_param("disabled_missing_io"));
+
+    /* (e) THE CENTRAL ASSERTION, the one that tells DISABLED from AMPUTATED.
+     * Amputated, the scenario would start and run steps 1 and 3 - a sequence
+     * the user never wrote. Disabled, it runs NOTHING.
+     */
+    EXPECT_EQ(0, runScenario()) << "the scenario ran a shortened sequence";
+    EXPECT_FALSE(as->getIOIsActive()->get_value_bool()) << "the scenario started";
+    EXPECT_FALSE(targetIsSet(TARGET_1)) << "step 1 ran: the scenario is amputated, not disabled";
+    EXPECT_FALSE(targetIsSet(TARGET_3)) << "step 3 ran: the scenario is amputated, not disabled";
+
+    //(f) and stopping still works: cutting set_value(false) would make an
+    //already running scenario impossible to stop (ruleStop goes through it)
+    EXPECT_TRUE(scenarioIo()->set_value(false));
+}
+
+TEST_F(ScenarioDisabledMissingIoTest, DeletingAScenarioUsedAsAStepActionDisablesTheOtherOne)
+{
+    /* The HOT path, and the only deletion of an IO a client can really reach
+     * today: `autoscenario delete` on a scenario that another scenario uses as
+     * a step action. Same outcome as the load path, through
+     * ListeRoom::deleteIO() -> RemoveRule(Disable) -> refreshBrokenScenarios().
+     */
+    loadHouse();
+
+    AutoScenario *asB = createScenario(SC_B_IO, SC_B_ID);
+    ASSERT_NE(asB, nullptr);
+
+    AutoScenario *as = createScenario(SC_IO, SC_ID);
+    ASSERT_NE(as, nullptr);
+    as->addStep(0.0);
+    as->addStepAction(0, io(TARGET_1), "true");
+    as->addStep(0.0);
+    as->addStepAction(1, io(SC_B_IO), "true");   //step 2 starts scenario B
+    as->addStep(0.0);
+    as->addStepAction(2, io(TARGET_3), "true");
+    as->checkScenarioRules();
+    ASSERT_EQ(3u, as->getRuleSteps().size());
+    ASSERT_FALSE(as->isBroken());
+
+    const int rulesBefore = ListeRule::Instance().size();
+
+    //`autoscenario delete` on B, verbatim: deleteAll() then deleteIO()
+    asB->deleteAll();
+    ASSERT_TRUE(ListeRoom::Instance().deleteIO(io(SC_B_IO)));
+
+    //A is still whole: its step rule was kept, only disabled
+    as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_EQ(3u, as->getRuleSteps().size()) << "A lost a step to B's deletion";
+    EXPECT_TRUE(as->getRuleSteps()[1]->isDisabled());
+    EXPECT_EQ(SC_B_IO, as->getMissingIoDescription());
+    EXPECT_TRUE(as->isBroken());
+    EXPECT_TRUE(as->isDisabledMissingIo());
+
+    //B's own rules did go away (Destroy at the teardown sites), A's did not
+    EXPECT_LT(ListeRule::Instance().size(), rulesBefore);
+
+    EXPECT_EQ(0, runScenario());
+    EXPECT_FALSE(targetIsSet(TARGET_1));
+    EXPECT_FALSE(targetIsSet(TARGET_3));
+}
+
+/*******************************************************************************
+ * Persistence and stickiness - the heart of the user decision
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, FlagSurvivesAStartupSaveReloadCycle)
+{
+    /* THE test of the arbitration. checkAutoScenario() ends with
+     * SaveConfigIO(): a flag that was not read back in the AutoScenario
+     * constructor would be wiped from disk at the first startup, silently and
+     * with no user action. And once the IO is back, the flag must STILL be
+     * there - "la desactivation est collante".
      */
     loadHouse();
     ASSERT_NE(buildReferenceScenario(), nullptr);
 
-    Scenario *sc = scenarioIo();
-    ASSERT_NE(sc, nullptr);
-    sc->set_param(FLAG, "true");
-    ASSERT_EQ("true", sc->get_param(FLAG));
+    saveAmputateAndReload(TARGET_2);
+    ASSERT_TRUE(autoScenario()->isDisabledMissingIo());
 
-    json_t *jreq = modifyRequest("Renamed by the client", "true", "false");
+    //--- first cycle: the IO is still missing -------------------------------
+    saveConfig();
+    EXPECT_TRUE(flagIsOnDisk()) << "the flag was not persisted";
+    const std::string rulesAfterFirstSave = rulesXmlOnDisk();
+
+    saveAndReload();
+
+    AutoScenario *as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    EXPECT_TRUE(as->isDisabledMissingIo()) << "the startup SaveConfigIO() erased the flag";
+    EXPECT_TRUE(as->isBroken());
+    ASSERT_EQ(3u, as->getRuleSteps().size()) << "a step was lost across the cycle";
+
+    //the three steps kept their original numbers: nothing was renumbered,
+    //because nothing disappeared
+    for (int i = 0; i < 3; i++)
+        EXPECT_EQ(std::to_string(i), as->getRuleSteps()[i]->get_param("auto_scenario_step"));
+
+    saveConfig();
+    EXPECT_EQ(rulesAfterFirstSave, rulesXmlOnDisk())
+            << "rules.xml is not byte for byte identical across the cycle";
+    EXPECT_TRUE(flagIsOnDisk());
+
+    //--- second cycle: THE IO IS BACK --------------------------------------
+    Params p = {{ "type", "InternalBool" }, { "id", TARGET_2 }, { "name", "Missing" }};
+    ASSERT_NE(createIO(p, firstRoom()), nullptr);
+
+    saveAndReload();
+
+    as = autoScenario();
+    ASSERT_NE(as, nullptr);
+
+    //gate 1 is gone - the reference resolves again, nothing is missing
+    EXPECT_FALSE(as->isBroken()) << "the reload should have cleared the missing io";
+    EXPECT_EQ("", as->getMissingIoDescription());
+
+    //GATE 2 IS STILL THERE. This is the whole decision: the disabling does not
+    //clear itself, it waits for a human.
+    EXPECT_TRUE(as->isDisabledMissingIo())
+            << "the disabling cleared itself when the IO came back";
+    saveConfig();
+    EXPECT_TRUE(flagIsOnDisk());
+
+    //and the scenario still does not run
+    EXPECT_EQ(0, runScenario());
+    EXPECT_FALSE(targetIsSet(TARGET_1));
+    EXPECT_FALSE(targetIsSet(TARGET_2));
+    EXPECT_FALSE(targetIsSet(TARGET_3));
+}
+
+/*******************************************************************************
+ * The manual re-enable
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, ReenableIsRefusedWhileTheIoIsStillMissing)
+{
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+
+    AutoScenario *as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_TRUE(as->isDisabledMissingIo());
+
+    std::string err;
+    EXPECT_FALSE(as->tryReenable(err));
+
+    //the refusal NAMES what to repair: a bare failure would leave the user with
+    //nothing to act on, which is the silence this ticket removes
+    EXPECT_NE(std::string::npos, err.find(TARGET_2)) << err;
+    EXPECT_EQ("scenario still references missing IOs: " + std::string(TARGET_2), err);
+
+    //and the flag is left exactly where it was - a refused re-enable changes
+    //nothing at all
+    EXPECT_TRUE(as->isDisabledMissingIo());
+    EXPECT_EQ(0, runScenario());
+}
+
+TEST_F(ScenarioDisabledMissingIoTest, ReenableClearsTheFlagOnceTheIoIsBackAndTheScenarioRunsAgain)
+{
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+
+    //repair for real: the IO comes back and everything is reloaded
+    Params p = {{ "type", "InternalBool" }, { "id", TARGET_2 }, { "name", "Missing" }};
+    ASSERT_NE(createIO(p, firstRoom()), nullptr);
+    saveAndReload();
+
+    AutoScenario *as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_FALSE(as->isBroken());
+    ASSERT_TRUE(as->isDisabledMissingIo());
+    ASSERT_EQ(0, runScenario()) << "it must not run before the re-enable";
+
+    std::string err;
+    EXPECT_TRUE(as->tryReenable(err));
+    EXPECT_EQ("", err);
+    EXPECT_FALSE(as->isDisabledMissingIo());
+
+    //the param is REMOVED, not set to "false"
+    EXPECT_FALSE(scenarioIo()->param_exists("disabled_missing_io"));
+    saveConfig();
+    EXPECT_EQ(std::string::npos, ioXmlOnDisk().find("disabled_missing_io"));
+
+    //and the three steps run again, in their original order
+    EXPECT_EQ(3, runScenario());
+    EXPECT_TRUE(targetIsSet(TARGET_1));
+    EXPECT_TRUE(targetIsSet(TARGET_2));
+    EXPECT_TRUE(targetIsSet(TARGET_3));
+}
+
+TEST_F(ScenarioDisabledMissingIoTest, ReenableCommandRefusesWithTheIdsAndSucceedsOnceRepaired)
+{
+    /* The same two answers, through the API command T3.18 ships:
+     * `autoscenario reenable`. It exists precisely because set_param CANNOT
+     * refuse - re-enabling a still broken scenario through set_param would
+     * answer success and change nothing, i.e. the silent no-op this ticket
+     * removes, moved one level up.
+     */
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+
+    ApiProbe api;
+
+    json_t *jreq = json_object();
+    json_object_set_new(jreq, "id", json_string(SC_IO));
+
+    json_t *jrefused = api.buildAutoscenarioReenable(jreq);
+    ASSERT_NE(jrefused, nullptr);
+    const std::string refused = jansson_string_get(jrefused, "error");
+    json_decref(jrefused);
+
+    EXPECT_EQ("scenario still references missing IOs: " + std::string(TARGET_2), refused);
+    EXPECT_TRUE(autoScenario()->isDisabledMissingIo());
+
+    //repair, then ask again
+    Params p = {{ "type", "InternalBool" }, { "id", TARGET_2 }, { "name", "Missing" }};
+    ASSERT_NE(createIO(p, firstRoom()), nullptr);
+    saveAndReload();
+    ASSERT_TRUE(autoScenario()->isDisabledMissingIo());
+
+    json_t *jok = api.buildAutoscenarioReenable(jreq);
+    ASSERT_NE(jok, nullptr);
+    const std::string ok = jansson_string_get(jok, "success");
+    json_decref(jok);
+
+    EXPECT_EQ("true", ok);
+    EXPECT_FALSE(autoScenario()->isDisabledMissingIo());
+    EXPECT_EQ(3, runScenario());
+
+    //an unknown id is a plain wrong input, like every other autoscenario command
+    json_t *jbad = json_object();
+    json_object_set_new(jbad, "id", json_string("t318_nope"));
+    json_t *jerr = api.buildAutoscenarioReenable(jbad);
+    ASSERT_NE(jerr, nullptr);
+    EXPECT_EQ("wrong input", jansson_string_get(jerr, "error"));
+    json_decref(jerr);
+    json_decref(jbad);
+
+    json_decref(jreq);
+}
+
+/*******************************************************************************
+ * The two gates, in both directions
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, BothGatesRefuseOnTheirOwn)
+{
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+
+    AutoScenario *as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_TRUE(as->isBroken());
+    ASSERT_TRUE(as->isDisabledMissingIo());
+
+    /* GATE 1 alone. Any authenticated client can del_param the flag
+     * (buildJsonDelParam has no whitelist), which is exactly what is done here
+     * by hand. It buys nothing: the scenario is still broken and gate 1 - which
+     * is derived, never stored, and therefore not forgeable - keeps refusing.
+     */
+    as->setDisabledMissingIo(false);
+    ASSERT_FALSE(as->isDisabledMissingIo());
+    ASSERT_TRUE(as->isBroken());
+
+    EXPECT_EQ(0, runScenario()) << "gate 1 let a broken scenario start";
+    EXPECT_FALSE(targetIsSet(TARGET_1));
+
+    /* GATE 2 alone. A perfectly healthy scenario, flagged by hand: it must
+     * refuse too, otherwise the persisted flag would do nothing on its own and
+     * the whole stickiness would rest on gate 1 - which clears itself.
+     */
+    clearCoreState();
+    loadHouse();
+    AutoScenario *healthy = buildReferenceScenario();
+    ASSERT_NE(healthy, nullptr);
+    ASSERT_FALSE(healthy->isBroken());
+
+    healthy->setDisabledMissingIo(true);
+    EXPECT_EQ(0, runScenario()) << "gate 2 let a flagged scenario start";
+    EXPECT_FALSE(targetIsSet(TARGET_1));
+    EXPECT_FALSE(targetIsSet(TARGET_3));
+
+    //and clearing it gives the scenario straight back
+    healthy->setDisabledMissingIo(false);
+    EXPECT_EQ(3, runScenario());
+    EXPECT_TRUE(targetIsSet(TARGET_1));
+    EXPECT_TRUE(targetIsSet(TARGET_3));
+}
+
+/*******************************************************************************
+ * The clean stop
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, AScenarioBrokenWhileItRunsIsBroughtToACleanStop)
+{
+    /* Without this, the defect E4.2e leaves behind comes straight back: a
+     * scenario stuck "in progress" for ever. ioIsActive would stay true, so
+     * ruleStepEnd (which needs ioStep == -1) would never come and
+     * _button_start (which needs ioIsActive == false) could never restart it.
+     */
+    loadHouse();
+
+    AutoScenario *asB = createScenario(SC_B_IO, SC_B_ID);
+    ASSERT_NE(asB, nullptr);
+
+    AutoScenario *as = createScenario(SC_IO, SC_ID);
+    ASSERT_NE(as, nullptr);
+    as->addStep(0.0);
+    as->addStepAction(0, io(TARGET_1), "true");
+    as->addStep(0.0);
+    as->addStepAction(1, io(SC_B_IO), "true");
+    as->checkScenarioRules();
+
+    //start it for real, and leave it running
+    scenarioIo()->set_value(true);
+    ASSERT_TRUE(as->getIOIsActive()->get_value_bool()) << "the scenario did not start";
+
+    //B disappears WHILE A is running
+    asB->deleteAll();
+    ASSERT_TRUE(ListeRoom::Instance().deleteIO(io(SC_B_IO)));
+
+    as = autoScenario();
+    ASSERT_NE(as, nullptr);
+    ASSERT_TRUE(as->isDisabledMissingIo());
+
+    EXPECT_FALSE(as->getIOIsActive()->get_value_bool()) << "still stuck in progress";
+    EXPECT_EQ(-1, (int)as->getIOStep()->get_value_double());
+}
+
+/*******************************************************************************
+ * Resistance to the client round trip
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearTheDisabledFlag)
+{
+    /* THE guard rail of this ticket. buildAutoscenarioModify() does not replace
+     * the params of the Scenario IO in bulk: it compares and applies four named
+     * keys only (name, visible, cycle, disabled) plus the room. An unknown param
+     * therefore survives - which is a FACT OF IMPLEMENTATION, not a designed
+     * guarantee. Pinned here so that the first rewrite of that function cannot
+     * reopen the hole in silence: without this test, a `modify` restarting a
+     * broken scenario would go unnoticed until it damaged something.
+     */
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+    ASSERT_TRUE(autoScenario()->isDisabledMissingIo());
+
+    //the modify a client sends back: it also flips `disabled`, so the case
+    //shows the two params being treated DIFFERENTLY and not just both ignored
+    ASSERT_EQ("true", scenarioIo()->get_param("disabled"));
+
+    json_t *jreq = json_object();
+    json_object_set_new(jreq, "id", json_string(SC_IO));
+    json_object_set_new(jreq, "name", json_string("Renamed by the client"));
+    json_object_set_new(jreq, "cycle", json_string("true"));
+    json_object_set_new(jreq, "disabled", json_string("false"));
+    json_object_set_new(jreq, "room_name", json_string(T318_ROOM));
+    json_object_set_new(jreq, "room_type", json_string(T318_ROOM_TYPE));
+    json_object_set_new(jreq, "steps", json_array());
+
     ApiProbe api;
     json_t *jret = api.buildAutoscenarioModify(jreq);
     ASSERT_NE(jret, nullptr);
@@ -232,7 +739,7 @@ TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearAnUnknownScenarioParam)
     json_decref(jret);
     json_decref(jreq);
 
-    sc = scenarioIo();
+    Scenario *sc = scenarioIo();
     ASSERT_NE(sc, nullptr);
 
     //what modify DOES own is rewritten...
@@ -240,28 +747,27 @@ TEST_F(ScenarioDisabledMissingIoTest, ModifyDoesNotClearAnUnknownScenarioParam)
     EXPECT_EQ("false", sc->get_param("disabled"));
     EXPECT_TRUE(sc->getAutoScenario()->isCycling());
 
-    //...and what it does not own is left alone. This is the one place where
-    //`disabled` and `disabled_missing_io` - same Params, opposite meanings -
-    //are observed being treated DIFFERENTLY.
-    EXPECT_EQ("true", sc->get_param(FLAG))
-            << "autoscenario modify cleared an unknown param of the Scenario IO";
+    //...and what it does not own is left alone. `disabled` and
+    //`disabled_missing_io` live in the same Params and mean opposite things:
+    //this is the one place where they are observed DISAGREEING.
+    EXPECT_EQ("true", sc->get_param("disabled_missing_io"))
+            << "autoscenario modify cleared the sticky flag";
+    EXPECT_TRUE(sc->getAutoScenario()->isDisabledMissingIo());
 
-    //and it survives the SaveConfigIO() modify does right after
+    //and it survives the save modify does right after
     EXPECT_TRUE(flagIsOnDisk());
 }
 
-/*******************************************************************************
- * 2. Why the existing `disabled` param cannot be recycled
- ******************************************************************************/
-
 TEST_F(ScenarioDisabledMissingIoTest, TheDisabledParamIsTheSchedulingChoiceAndIsRewrittenByModify)
 {
-    /* `disabled` is a USER choice: its only effect is to switch the scheduling
-     * off (ioScheduleEnabled), the scenario stays startable from the button. It
-     * is exposed as "enabled" - NEGATED - in the payload, and it is REWRITTEN
-     * by every modify. That is precisely why T3.18 must not reuse it: the first
-     * `autoscenario modify` any client sends would put a broken scenario back
-     * to work.
+    /* Why the fix does NOT recycle the existing `disabled` param, spelled out
+     * rather than argued. It is a USER choice: its only effect is to switch the
+     * scheduling off, the scenario stays startable from the button. It is
+     * exposed as "enabled" - NEGATED - in the payload, and it is REWRITTEN by
+     * every modify. Recycling it would let the first `autoscenario modify` any
+     * client sends put a broken scenario back to work.
+     * Green before the fix as well (first commit): this is a pre-existing fact
+     * the whole design of the sticky flag depends on.
      */
     loadHouse();
     AutoScenario *as = buildReferenceScenario();
@@ -269,13 +775,20 @@ TEST_F(ScenarioDisabledMissingIoTest, TheDisabledParamIsTheSchedulingChoiceAndIs
     ASSERT_TRUE(as->isDisabled());
 
     //the payload emits the NEGATION, under another name
-    json_t *j = scenarioIo()->toJson();
-    ASSERT_NE(j, nullptr);
-    EXPECT_EQ("false", jansson_string_get(j, "enabled"));
-    json_decref(j);
+    Json j = toJsonOf();
+    EXPECT_EQ("false", j.value("enabled", std::string()));
+    //and the two params are NOT the same thing
+    EXPECT_EQ("false", j.value("disabled_missing_io", std::string()));
 
-    //a modify flips it, without the client ever naming "enabled"
-    json_t *jreq = modifyRequest("Scenario t318_sc", "false", "false");
+    json_t *jreq = json_object();
+    json_object_set_new(jreq, "id", json_string(SC_IO));
+    json_object_set_new(jreq, "name", json_string("Scenario t318_sc"));
+    json_object_set_new(jreq, "cycle", json_string("false"));
+    json_object_set_new(jreq, "disabled", json_string("false"));
+    json_object_set_new(jreq, "room_name", json_string(T318_ROOM));
+    json_object_set_new(jreq, "room_type", json_string(T318_ROOM_TYPE));
+    json_object_set_new(jreq, "steps", json_array());
+
     ApiProbe api;
     json_t *jret = api.buildAutoscenarioModify(jreq);
     ASSERT_NE(jret, nullptr);
@@ -285,26 +798,22 @@ TEST_F(ScenarioDisabledMissingIoTest, TheDisabledParamIsTheSchedulingChoiceAndIs
     as = autoScenario();
     ASSERT_NE(as, nullptr);
     EXPECT_FALSE(as->isDisabled()) << "modify does not own `disabled` any more";
-
-    j = scenarioIo()->toJson();
-    ASSERT_NE(j, nullptr);
-    EXPECT_EQ("true", jansson_string_get(j, "enabled"));
-    json_decref(j);
+    EXPECT_EQ("true", toJsonOf().value("enabled", std::string()));
 }
 
 /*******************************************************************************
- * 3. The teardown sites must keep destroying their rules
+ * Non regression of the teardown paths (the eight explicit Destroy sites)
  ******************************************************************************/
 
 TEST_F(ScenarioDisabledMissingIoTest, RemovingAndReAddingAScheduleLeavesNoZombieRule)
 {
-    /* This is what protects the risky half of commit 2: "disable" becomes the
-     * DEFAULT of the IO detach path, and "destroy" has to stay explicit at the
-     * teardown sites. Those sites destroy IOs whose ids are DETERMINISTIC and
-     * recreated identically right after: kept disabled, their rules would be
+    /* This is what protects the "Destroy is explicit at the teardown sites"
+     * half of the change. Those sites destroy IOs whose ids are DETERMINISTIC
+     * and recreated identically right after: kept disabled, their rules would be
      * duplicated by the next build and nothing would ever collect the
      * duplicates (Rule::setAutoScenario(false) does not exist, so the
      * auto_scenario sweep of checkAutoScenario() misses them).
+     * Without this case the Disable default is a time bomb.
      */
     loadHouse();
     AutoScenario *as = buildReferenceScenario();
@@ -329,15 +838,80 @@ TEST_F(ScenarioDisabledMissingIoTest, RemovingAndReAddingAScheduleLeavesNoZombie
 
     as->deleteSchedule();
     EXPECT_EQ(nullptr, as->getIOTimeRange());
-    EXPECT_EQ(0, countRules("_time_start")) << "a zombie schedule rule was left behind";
-    EXPECT_EQ(0, countRules("_time_stop")) << "a zombie schedule rule was left behind";
+    EXPECT_EQ(0, countRules("_time_start")) << "a disabled zombie was left behind";
+    EXPECT_EQ(0, countRules("_time_stop")) << "a disabled zombie was left behind";
 
     as->addSchedule();
     EXPECT_EQ(1, countRules("_time_start")) << "the schedule rules were duplicated";
     EXPECT_EQ(1, countRules("_time_stop")) << "the schedule rules were duplicated";
 
-    //the same for a full delete: the rules of the scenario must go with it
+    //and none of that flagged the scenario: nothing broke, it was a teardown
+    EXPECT_FALSE(as->isBroken());
+    EXPECT_FALSE(as->isDisabledMissingIo());
+
+    //the same for a full delete: it must not leave the OTHER scenario's rules
+    //behind either
     const int before = ListeRule::Instance().size();
     as->deleteAll();
     EXPECT_LT(ListeRule::Instance().size(), before);
+}
+
+/*******************************************************************************
+ * The payload
+ ******************************************************************************/
+
+TEST_F(ScenarioDisabledMissingIoTest, ThePayloadTellsTheFourStatesApart)
+{
+    /* The four states of the decision, and why THREE keys are needed and not
+     * one. broken and disabled_missing_io diverge on purpose: "repaired,
+     * waiting for a manual re-enable" (false/true) is the state the user asked
+     * for, and with a single key it is indistinguishable from "healthy".
+     * The values are asserted key by key so that SWAPPING the two names in
+     * IO/Scenario.cpp fails here, with the names in the message.
+     */
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+
+    //--- healthy: false / false / "" ---------------------------------------
+    Json j = toJsonOf();
+    ASSERT_TRUE(j.is_object());
+    EXPECT_EQ("false", j.value("broken", std::string()));
+    EXPECT_EQ("false", j.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("", j.value("missing_ios", std::string()));
+
+    //--- broken and freshly disabled: true / true / the id ------------------
+    saveAmputateAndReload(TARGET_2);
+    j = toJsonOf();
+    EXPECT_EQ("true", j.value("broken", std::string()));
+    EXPECT_EQ("true", j.value("disabled_missing_io", std::string()));
+    EXPECT_EQ(TARGET_2, j.value("missing_ios", std::string()));
+
+    //--- repaired, waiting for a re-enable: FALSE / TRUE / "" ---------------
+    //THE state the decision exists for, and the only one where the two boolean
+    //keys DISAGREE
+    Params p = {{ "type", "InternalBool" }, { "id", TARGET_2 }, { "name", "Missing" }};
+    ASSERT_NE(createIO(p, firstRoom()), nullptr);
+    saveAndReload();
+
+    j = toJsonOf();
+    EXPECT_EQ("false", j.value("broken", std::string()));
+    EXPECT_EQ("true", j.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("", j.value("missing_ios", std::string()));
+
+    //--- broken with the flag cleared by hand: TRUE / FALSE / the id --------
+    //the other disagreement, so neither key can hide behind the other
+    clearCoreState();
+    loadHouse();
+    ASSERT_NE(buildReferenceScenario(), nullptr);
+    saveAmputateAndReload(TARGET_2);
+    autoScenario()->setDisabledMissingIo(false);
+
+    j = toJsonOf();
+    EXPECT_EQ("true", j.value("broken", std::string()));
+    EXPECT_EQ("false", j.value("disabled_missing_io", std::string()));
+    EXPECT_EQ(TARGET_2, j.value("missing_ios", std::string()));
+
+    //the key that must NOT move: "enabled" still means the user's schedule
+    //choice, and nothing else
+    EXPECT_EQ("false", j.value("enabled", std::string()));
 }

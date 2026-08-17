@@ -293,6 +293,10 @@ protected:
     static std::vector<std::string> scenarioPayloadKeys()
     {
         return { "id", "cycle", "enabled", "schedule", "category",
+                 //T3.18, the three keys. "broken" is live (Rule::isDisabled()
+                 //over the rules of the scenario), "disabled_missing_io" is the
+                 //persisted sticky flag, and they DIVERGE on purpose.
+                 "broken", "disabled_missing_io", "missing_ios",
                  "steps_count", "steps" };
     }
 
@@ -1052,14 +1056,14 @@ TEST_F(JsonApiScenarioTest, HttpAutoscenarioGet)
     EXPECT_JSON_GOLDEN("e40c_http_autoscenario_get", req.body());
 }
 
-TEST_F(JsonApiScenarioTest, AutoscenarioGetEmitsTheSevenKeysAndTheSyntheticEndStep)
+TEST_F(JsonApiScenarioTest, AutoscenarioGetEmitsTheWholeKeySetAndTheSyntheticEndStep)
 {
     //The structural contract of Scenario::toJson(), spelled out so a rename in
     //production fails HERE with the key name in the message. steps_count
     //counts the STANDARD steps only: the "end" step is appended outside the
-    //loop (IO/Scenario.cpp:125-144) and is not counted.
-    //T3.18: scenarioPayloadKeys() gains three entries, this case needs no
-    //other change.
+    //loop (IO/Scenario.cpp) and is not counted.
+    //T3.18: scenarioPayloadKeys() gained three entries and this case needed no
+    //other change - only its NAME, which said "the seven keys".
     loadScenarioHouse();
 
     WsTestSession ws;
@@ -1078,6 +1082,10 @@ TEST_F(JsonApiScenarioTest, AutoscenarioGetEmitsTheSevenKeysAndTheSyntheticEndSt
     //not scheduled: the literal string "false", not a boolean and not an id
     EXPECT_EQ("false", sc.value("schedule", std::string()));
     EXPECT_EQ("other", sc.value("category", std::string()));
+    //T3.18, the healthy line of the four-state table: false / false / ""
+    EXPECT_EQ("false", sc.value("broken", std::string()));
+    EXPECT_EQ("false", sc.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("", sc.value("missing_ios", std::string()));
     EXPECT_EQ("2", sc.value("steps_count", std::string()));
 
     const Json steps = sc["steps"];
@@ -1217,8 +1225,20 @@ TEST_F(JsonApiScenarioTest, WsAutoscenarioWithAnUnknownOrMissingTypeAnswersNothi
     loadScenarioHouse();
 
     WsTestSession ws;
-    ws.send(wsRequest("autoscenario", Json{{ "type", "reenable" }}));
+    /* T3.18 - the probe was "reenable", which this ticket turned into a REAL
+     * sub-command (it ships the dedicated re-enable rather than falling back on
+     * set_param, which cannot refuse). The probe is now a string that cannot
+     * become a command; the hole itself is unchanged and still frozen here.
+     */
+    ws.send(wsRequest("autoscenario", Json{{ "type", "e40c_not_a_command" }}));
     EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
+
+    //and the brand new sub-command DOES answer, on an unknown id like on any
+    //other autoscenario command: it is not part of the silence
+    ws.send(wsRequest("autoscenario", Json{{ "type", "reenable" }, { "id", "e40c_nope" }}));
+    EXPECT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"wrong input"})"), ws.lastData());
+    ws.clear();
 
     ws.send(wsRequest("autoscenario", Json{{ "type", "" }}));
     EXPECT_EQ(0u, ws.count()) << "expected silence, got: " << ws.lastMessage();
@@ -1241,8 +1261,10 @@ TEST_F(JsonApiScenarioTest, HttpAutoscenarioWithAnUnknownTypeAnswersNothingAtAll
     //left open with no response and no close (JsonApiHandlerHttp.cpp:880-896).
     loadScenarioHouse();
 
+    //T3.18: the probe was "reenable", now a real sub-command. See the WS case.
     HttpTestRequest unknown;
-    unknown.send(authenticated(Json{{ "action", "autoscenario" }, { "type", "reenable" }}));
+    unknown.send(authenticated(Json{{ "action", "autoscenario" },
+                                    { "type", "e40c_not_a_command" }}));
     EXPECT_EQ(0u, unknown.count());
     EXPECT_TRUE(unknown.closes().empty());
 
@@ -1740,8 +1762,17 @@ TEST_F(JsonApiScenarioTest, ABrokenStepSilentlyLosesItsActionFromThePayload)
     for (const std::string &k: scenarioPayloadKeys())
         EXPECT_TRUE(payload.contains(k));
     EXPECT_EQ(scenarioPayloadKeys().size(), payload.size()) << payload.dump();
-    EXPECT_FALSE(mentionsValue(payload, IO_TARGET))
-            << "the dead id is nowhere in the payload: " << payload.dump();
+    /* T3.18 - EXPECTED VALUE FLIPPED. This used to be EXPECT_FALSE: the dead id
+     * was nowhere in the payload, which is the silence the ticket removes. It
+     * is now carried by "missing_ios", and the step is still rendered without
+     * its action - the payload does not gain the action back, it gains the
+     * DIAGNOSIS.
+     */
+    EXPECT_TRUE(mentionsValue(payload, IO_TARGET))
+            << "missing_ios does not name the dead id: " << payload.dump();
+    EXPECT_EQ(IO_TARGET, payload.value("missing_ios", std::string()));
+    EXPECT_EQ("true", payload.value("broken", std::string()));
+    EXPECT_EQ("true", payload.value("disabled_missing_io", std::string()));
 }
 
 TEST_F(JsonApiScenarioTest, ABrokenStepWhoseOnlyActionIsDeadIsAnsweredCompletelyEmpty)
@@ -1886,8 +1917,6 @@ TEST_F(JsonApiScenarioTest, RepairedScenarioIsIndistinguishableFromAHealthyOneUn
             << "the reload should have cleared the missing io of the step rule";
 
     //Rebuild the very same scenario from scratch, never broken, and compare.
-    //THE assertion: the two payloads are equal, which is precisely what makes
-    //"was disabled, waiting for a human" undetectable by a client today.
     clearCoreState();
     loadScenarioHouse();
     WsTestSession fresh;
@@ -1895,19 +1924,46 @@ TEST_F(JsonApiScenarioTest, RepairedScenarioIsIndistinguishableFromAHealthyOneUn
     ASSERT_EQ(scenarioId, healthyId);
     const Json healthy = wsAutoscenario(fresh, Json{{ "type", "get" }, { "id", healthyId }});
 
-    EXPECT_JSON_EQ(healthy, repaired);
+    /* >>> THE ASSERTION T3.18 FLIPPED. <<<
+     * It used to be EXPECT_JSON_EQ(healthy, repaired): the two payloads were
+     * equal node for node, which is precisely what made "was disabled, waiting
+     * for a human" undetectable by a client. They now differ, and they differ
+     * by EXACTLY ONE KEY - the sticky flag.
+     */
+    EXPECT_NE(healthy, repaired)
+            << "the repaired scenario is still indistinguishable from a healthy one";
+
+    //both live rules are healthy, so "broken" agrees on the two sides...
+    EXPECT_EQ("false", healthy.value("broken", std::string()));
+    EXPECT_EQ("false", repaired.value("broken", std::string()));
+    EXPECT_EQ("", healthy.value("missing_ios", std::string()));
+    EXPECT_EQ("", repaired.value("missing_ios", std::string()));
+
+    //...and the ONLY thing that tells them apart is the persisted flag, which
+    //survived the amputation, the repair and the reload. THE state of the
+    //decision: "repaired, waiting for a manual re-enable".
+    EXPECT_EQ("false", healthy.value("disabled_missing_io", std::string()));
+    EXPECT_EQ("true", repaired.value("disabled_missing_io", std::string()));
+
+    Json normalized = repaired;
+    normalized["disabled_missing_io"] = "false";
+    EXPECT_JSON_EQ(healthy, normalized)
+            << "the two payloads differ by more than the sticky flag";
 }
 
-TEST_F(JsonApiScenarioTest, DeletingAnIoUsedByAStepDestroysTheWholeStepRule)
+TEST_F(JsonApiScenarioTest, DeletingAnIoUsedByAStepKeepsTheStepRuleAndDisablesTheScenario)
 {
-    //The HOT path, as opposed to the load path used by the cases above:
-    //ListeRoom::deleteIO() -> detachIOFromRules() -> ListeRule::RemoveRule()
-    //DESTROYS every rule citing the IO (ListeRule.cpp:405-436). The step does
-    //not become empty, it DISAPPEARS, and the following ones are renumbered.
-    //Nothing warns the client and nothing can be undone: the next
-    //SaveConfigRule() writes the shortened scenario.
-    //T3.18: this becomes "keep the rule and disable it", so the expected step
-    //count below goes back to 2 and the payload gains the three keys.
+    /* The HOT path, as opposed to the load path used by the cases above:
+     * ListeRoom::deleteIO() -> detachIOFromRules() -> ListeRule::RemoveRule().
+     *
+     * T3.18 - EXPECTED VALUES FLIPPED, and the case RENAMED with them (it used
+     * to be DeletingAnIoUsedByAStepDestroysTheWholeStepRule). RemoveRule() now
+     * DISABLES instead of destroying: the step rule survives, so the step count
+     * stays at 2, the surviving action of that step (IO_INT) is still rendered,
+     * and the payload names the dead id in "missing_ios" instead of saying
+     * nothing at all. Nothing is renumbered any more, because nothing
+     * disappears.
+     */
     loadScenarioHouse();
 
     WsTestSession ws;
@@ -1925,14 +1981,16 @@ TEST_F(JsonApiScenarioTest, DeletingAnIoUsedByAStepDestroysTheWholeStepRule)
     EXPECT_JSON_GOLDEN("e40c_ws_autoscenario_get_hot_deleted", ws.lastMessage());
 
     const Json sc = ws.lastData();
-    EXPECT_EQ("1", sc.value("steps_count", std::string()))
-            << "the step rule was destroyed, not disabled";
-    ASSERT_EQ(2u, sc["steps"].size());
-    //the surviving standard step is the FIRST one, and the action on IO_INT
-    //that shared the destroyed step is gone with it
+    EXPECT_EQ("2", sc.value("steps_count", std::string()))
+            << "the step rule was destroyed instead of being disabled";
+    ASSERT_EQ(3u, sc["steps"].size());
     EXPECT_EQ("1.5", sc["steps"][0].value("step_pause", std::string()));
-    EXPECT_FALSE(mentionsValue(sc, IO_INT)) << sc.dump();
-    EXPECT_FALSE(mentionsValue(sc, IO_TARGET)) << sc.dump();
+    //the action that SHARED the broken step is not collateral damage any more
+    EXPECT_TRUE(mentionsValue(sc, IO_INT)) << sc.dump();
+    //and the dead id is named, by "missing_ios" and only by it
+    EXPECT_EQ(IO_TARGET, sc.value("missing_ios", std::string())) << sc.dump();
+    EXPECT_EQ("true", sc.value("broken", std::string()));
+    EXPECT_EQ("true", sc.value("disabled_missing_io", std::string()));
 }
 
 TEST_F(JsonApiScenarioTest, ModifyOfABrokenScenarioLosesTheDeadReferenceForever)
@@ -1953,6 +2011,15 @@ TEST_F(JsonApiScenarioTest, ModifyOfABrokenScenarioLosesTheDeadReferenceForever)
 
     WsTestSession ws;
     Json echo = wsAutoscenario(ws, Json{{ "type", "get" }, { "id", scenarioId }});
+    /* T3.18 - EXPECTED VALUE ADDED, the meaning of the case is unchanged. The
+     * round trip still destroys the dead reference (modify is a full
+     * replacement, T3.18 does not fix that), but the payload the client is
+     * about to echo back now SAYS what is at stake instead of hiding it.
+     */
+    EXPECT_EQ(IO_TARGET, echo.value("missing_ios", std::string()));
+    EXPECT_EQ("true", echo.value("broken", std::string()));
+    EXPECT_EQ("true", echo.value("disabled_missing_io", std::string()));
+
     echo["type"] = "modify";
     echo["name"] = "Soir\xc3\xa9""e";
     echo["room_name"] = E40C_ROOM_NAME;
@@ -1979,6 +2046,15 @@ TEST_F(JsonApiScenarioTest, ModifyOfABrokenScenarioLosesTheDeadReferenceForever)
     ASSERT_EQ(2u, steps.size());
     ASSERT_TRUE(steps[1] != nullptr);
     EXPECT_FALSE(steps[1]->isDisabled());
+
+    /* T3.18: gate 1 is gone with the reference, but the STICKY flag is not -
+     * modify does not touch it (ModifyDoesNotClearTheDisabledFlag pins that in
+     * tests/core/ScenarioDisabledMissingIo_test.cpp). The scenario is left in
+     * the "repaired, waiting for a manual re-enable" state, which is the one
+     * this whole payload change exists to make visible.
+     */
+    EXPECT_EQ("false", after.value("broken", std::string()));
+    EXPECT_EQ("true", after.value("disabled_missing_io", std::string()));
 }
 
 TEST_F(JsonApiScenarioTest, ABrokenScenarioIsStillListedAndStillModifiable)

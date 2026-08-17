@@ -21,6 +21,7 @@
 #include "ListeRoom.h"
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
+#include "EventManager.h"
 
 using namespace Calaos;
 
@@ -328,6 +329,13 @@ void ListeRoom::checkAutoScenario()
     for (;itr != to_remove.end();itr++)
         ListeRule::Instance().Remove(*itr);
 
+    /* T3.18. The startup detection pass, AFTER checkScenarioRules() has
+     * adopted the rules (a scenario has no rules to look at before that) and
+     * BEFORE the two Save below, which are the ones that persist the flag.
+     * No new Save is added: this is the whole reason the pass sits here.
+     */
+    refreshBrokenScenarios();
+
     //Resave config, auto scenarios have probably created/deleted ios and rules
     Config::Instance().SaveConfigIO();
     Config::Instance().SaveConfigRule();
@@ -367,13 +375,14 @@ Room *ListeRoom::getRoomByIO(IOBase *o)
 //Rule-side cleanup only, no ownership change. Split out of deleteIO() so that
 //Room's destructor can run exactly the same unlinking on the IOs it is about
 //to destroy, without asking ListeRoom to locate a room that is dying.
-void ListeRoom::detachIOFromRules(IOBase *io, bool modify)
+void ListeRoom::detachIOFromRules(IOBase *io, bool modify, RuleDetachPolicy policy)
 {
     if (!io) return;
 
-    //first delete all rules using "input"
-    if (!modify) //only deletes if modify is not set
-        ListeRule::Instance().RemoveRule(io);
+    //first deal with all rules using "input": disabled by default (T3.18),
+    //destroyed at the teardown sites that ask for it explicitly
+    if (!modify) //only touches the rules if modify is not set
+        ListeRule::Instance().RemoveRule(io, policy);
 
     /* Remove input from the polling list.
      *
@@ -392,7 +401,7 @@ void ListeRoom::detachIOFromRules(IOBase *io, bool modify)
     ListeRule::Instance().Remove(io);
 }
 
-bool ListeRoom::deleteIO(IOBase *io, bool modify)
+bool ListeRoom::deleteIO(IOBase *io, bool modify, RuleDetachPolicy policy)
 {
     //Most callers pass a resolution result straight in (get_io()/findIO(),
     //often through a dynamic_cast). A miss must be a plain false, not a
@@ -403,11 +412,61 @@ bool ListeRoom::deleteIO(IOBase *io, bool modify)
         return false;
     }
 
-    detachIOFromRules(io, modify);
+    detachIOFromRules(io, modify, policy);
 
     //Destroys the IO through its owning room. false when no room owns it,
     //and then nothing was destroyed (the caller still holds a live IO).
-    return delete_io(io);
+    const bool ret = delete_io(io);
+
+    /* T3.18. AFTER the IO is really gone, and only when the rules were kept:
+     * in Destroy mode there is nothing to detect (the rules that could tell are
+     * the ones that have just been erased), and doing it before delete_io()
+     * would flag the scenario that is itself being deleted - the delete path
+     * runs AutoScenario::deleteAll() first, which leaves its own rule
+     * references dangling until its IO leaves the cache.
+     *
+     * `modify` is deliberately not tested: with modify=true no rule was
+     * touched, so no scenario can have become broken and the pass is a no-op.
+     */
+    if (policy == RuleDetachPolicy::Disable)
+        refreshBrokenScenarios();
+
+    return ret;
+}
+
+void ListeRoom::refreshBrokenScenarios()
+{
+    //A copy: setDisabledMissingIo() raises events and stopBrokenRun() sets IOs,
+    //which runs rules - none of them touches the cache today, but iterating the
+    //member list while executing arbitrary rules is not something to rely on.
+    list<Scenario *> scenarios = auto_scenario_cache;
+
+    for (Scenario *sc: scenarios)
+    {
+        if (!sc) continue;
+
+        AutoScenario *as = sc->getAutoScenario();
+        if (!as || !as->isBroken()) continue;
+
+        //ONLY EVER SETS. Already flagged: nothing to do, and above all nothing
+        //to clear - the disabling is sticky until an explicit re-enable.
+        if (as->isDisabledMissingIo()) continue;
+
+        cWarningDom("scenario") << "Scenario '" << sc->get_param("name") << "' ("
+                                << sc->get_param("id") << ") is DISABLED: it "
+                                << "references IO(s) that do not exist ("
+                                << as->getMissingIoDescription() << "). It will not "
+                                << "run until it is re-enabled explicitly.";
+
+        as->setDisabledMissingIo(true);
+
+        //A scenario broken in the middle of a run would stay "in progress" for
+        //ever otherwise
+        as->stopBrokenRun();
+
+        EventManager::create(CalaosEvent::EventScenarioChanged,
+                             { { "id", sc->get_param("id") } });
+    }
 }
 
 IOBase* ListeRoom::createIO(Params param, Room *room)

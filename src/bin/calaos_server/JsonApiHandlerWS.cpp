@@ -488,6 +488,10 @@ void JsonApiHandlerWS::processAutoscenario(json_t *jdata, const string &client_i
         sendJson("autoscenario", buildAutoscenarioAddSchedule(jdata), client_id);
     else if (msg == "del_schedule")
         sendJson("autoscenario", buildAutoscenarioDelSchedule(jdata), client_id);
+    //T3.18: manual re-enable of a scenario disabled by a missing IO. It can
+    //REFUSE, which is why it is a command and not a set_param.
+    else if (msg == "reenable")
+        sendJson("autoscenario", buildAutoscenarioReenable(jdata), client_id);
 }
 
 void JsonApiHandlerWS::processEventLog(const Params &jsonReq, const string &client_id)

@@ -447,9 +447,18 @@ TEST_F(RuleOwnershipTest, RemoveByIndexDropsTheAutoScenarioIndexEntryToo)
  * The singleton path, end to end
  ******************************************************************************/
 
-//RemoveRule(io) drops every rule referencing the IO, destroys them, and leaves
-//the others in their original order.
-TEST_F(RuleOwnershipTest, RemoveRuleByIoDestroysTheRulesAndKeepsTheOthersInOrder)
+/* RemoveRule(io) DISABLES every rule referencing the IO and leaves the whole
+ * list - content AND order - exactly as it was.
+ *
+ * T3.18 - CONTRACT CHANGED, and the case renamed with it (it used to be
+ * RemoveRuleByIoDestroysTheRulesAndKeepsTheOthersInOrder and asserted the rule
+ * was destroyed). The default policy is now RuleDetachPolicy::Disable: nothing
+ * is erased, so the ownership property this file is about is stronger than it
+ * was, not weaker - no Rule is destroyed on this path at all.
+ * NOTE: T3.18.md listed this file under "assertions unchanged". That was wrong;
+ * deleteIO() goes through RemoveRule() and this case reads the outcome directly.
+ */
+TEST_F(RuleOwnershipTest, RemoveRuleByIoDisablesTheRulesAndKeepsTheWholeListInOrder)
 {
     loadConfig(minimalIoXml(), rulesXmlDocument(
                    simpleRuleXml("keep1", ID_INT, "==", "1", ID_BOOL_OUT, "true") +
@@ -459,14 +468,21 @@ TEST_F(RuleOwnershipTest, RemoveRuleByIoDestroysTheRulesAndKeepsTheOthersInOrder
     ListeRule &list = ListeRule::Instance();
     ASSERT_EQ(list.size(), 3);
 
-    Rule *dropped = list.get_rule(1);
-    ASSERT_EQ(dropped->get_name(), "drop");
-    std::weak_ptr<bool> token = dropped->aliveToken();
+    Rule *disabled = list.get_rule(1);
+    ASSERT_EQ(disabled->get_name(), "drop");
+    std::weak_ptr<bool> token = disabled->aliveToken();
 
     ASSERT_TRUE(deleteIO(io(ID_STRING)));
 
-    EXPECT_TRUE(token.expired()) << "the rule using the deleted IO was not destroyed";
-    const std::vector<std::string> expected = { "keep1", "keep2" };
+    EXPECT_FALSE(token.expired()) << "the rule was destroyed instead of disabled";
+    EXPECT_TRUE(list.get_rule(1)->isDisabled());
+    EXPECT_EQ(list.get_rule(1)->getMissingIoDescription(), ID_STRING);
+
+    //the two others are untouched, and the ORDER is strictly preserved: no
+    //erase happens any more, so no index can shift
+    EXPECT_FALSE(list.get_rule(0)->isDisabled());
+    EXPECT_FALSE(list.get_rule(2)->isDisabled());
+    const std::vector<std::string> expected = { "keep1", "drop", "keep2" };
     EXPECT_EQ(ruleOrder(list), expected);
 }
 

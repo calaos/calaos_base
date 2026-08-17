@@ -1,9 +1,12 @@
 {
   "data": {
+    "broken": "true",
     "category": "other",
     "cycle": "false",
+    "disabled_missing_io": "true",
     "enabled": "false",
     "id": "io_0",
+    "missing_ios": "e40c_target",
     "schedule": "false",
     "steps": [
       {
@@ -19,6 +22,16 @@
       {
         "actions": [
           {
+            "action": "42",
+            "id": "e40c_int"
+          }
+        ],
+        "step_pause": "0",
+        "step_type": "standard"
+      },
+      {
+        "actions": [
+          {
             "action": "done",
             "id": "e40c_string"
           }
@@ -26,7 +39,7 @@
         "step_type": "end"
       }
     ],
-    "steps_count": "1"
+    "steps_count": "2"
   },
   "msg": "autoscenario",
   "msg_id": "e40c-hotdel"

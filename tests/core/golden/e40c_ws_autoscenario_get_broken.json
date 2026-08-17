@@ -1,9 +1,12 @@
 {
   "data": {
+    "broken": "true",
     "category": "other",
     "cycle": "false",
+    "disabled_missing_io": "true",
     "enabled": "false",
     "id": "io_0",
+    "missing_ios": "e40c_target",
     "schedule": "false",
     "steps": [
       {

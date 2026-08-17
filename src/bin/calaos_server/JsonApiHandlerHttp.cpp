@@ -894,6 +894,10 @@ void JsonApiHandlerHttp::processAutoscenario(json_t *jroot)
         sendJson(buildAutoscenarioAddSchedule(jroot));
     else if (msg == "del_schedule")
         sendJson(buildAutoscenarioDelSchedule(jroot));
+    //T3.18: manual re-enable of a scenario disabled by a missing IO. It can
+    //REFUSE, which is why it is a command and not a set_param.
+    else if (msg == "reenable")
+        sendJson(buildAutoscenarioReenable(jroot));
 }
 
 void JsonApiHandlerHttp::processCamera()

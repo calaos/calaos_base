@@ -64,6 +64,33 @@ bool Scenario::set_value(bool val)
 {
     if (!isEnabled()) return true;
 
+    /* T3.18 - THE cut, and it closes both ways in: the button/set_state, and
+     * the schedule (rulePlageStart has a single action, ioScenario = "true",
+     * so it comes through here too).
+     *
+     * ONLY on val == true: set_value(false) is the STOP path (ruleStop), and
+     * cutting it would make an already running scenario impossible to stop.
+     *
+     * The two gates. isBroken() is live and derived from Rule::isDisabled(),
+     * so no client can forge it; disabledMissingIo is persisted and sticky, so
+     * it survives the reboot and the IO coming back. Either one refuses.
+     * `return true` is the convention of the isEnabled() guard just above: the
+     * command was accepted and deliberately did nothing.
+     */
+    if (val && auto_scenario &&
+        (auto_scenario->isBroken() || auto_scenario->isDisabledMissingIo()))
+    {
+        cWarningDom("scenario") << "Scenario '" << get_param("name") << "' ("
+                                << get_param("id") << ") did NOT start: "
+                                << (auto_scenario->isBroken()?
+                                        "it references missing IO(s)":
+                                        "it is disabled until it is re-enabled "
+                                        "explicitly (disabled_missing_io)")
+                                << ". Missing IO(s): "
+                                << auto_scenario->getMissingIoDescription();
+        return true;
+    }
+
     value = val;
     EmitSignalIO();
 
@@ -92,6 +119,25 @@ json_t *Scenario::toJson()
                                                           auto_scenario->getIOTimeRange()->get_param("id").c_str():
                                                           "false"));
     json_object_set_new(jret, "category", json_string(auto_scenario->getCategory().c_str()));
+
+    /* T3.18 - three keys, and all three are needed. They are READ ONLY:
+     * buildAutoscenarioModify() does not consume any of them.
+     *
+     * "broken" and "disabled_missing_io" DIVERGE ON PURPOSE. broken=false with
+     * the flag still true is "repaired, waiting for a manual re-enable" - the
+     * state the whole ticket exists for, and the one an UI has to turn into a
+     * "re-enable" button. Emit only one of the two and that state becomes
+     * indistinguishable from a healthy scenario, which is the silence T3.18
+     * removes.
+     * "missing_ios" is what to repair, empty when there is nothing to.
+     */
+    json_object_set_new(jret, "broken",
+                        json_string(auto_scenario->isBroken()?"true":"false"));
+    json_object_set_new(jret, "disabled_missing_io",
+                        json_string(auto_scenario->isDisabledMissingIo()?"true":"false"));
+    json_object_set_new(jret, "missing_ios",
+                        json_string(auto_scenario->getMissingIoDescription().c_str()));
+
     json_object_set_new(jret, "steps_count", json_string(Utils::to_string(auto_scenario->getRuleSteps().size()).c_str()));
 
     json_t *jsteps = json_array();

@@ -33,6 +33,28 @@ using namespace std;
 namespace Calaos
 {
 
+/* What to do with the rules referencing an IO that is being taken away
+ * (ListeRule::RemoveRule(), ListeRoom::detachIOFromRules()/deleteIO()).
+ *
+ * T3.18, user decision. `Disable` is the DEFAULT because it is the semantics of
+ * E4.2e: the rule stays in the list, keeps its conditions and its actions, and
+ * is only marked as referencing a missing IO - which is what Rule::isDisabled()
+ * answers, and what ActionStd::SaveToXml() then writes back verbatim. Nothing
+ * of the user's configuration is lost, and reloading the very same rules.xml
+ * reproduces the same state through the load path.
+ *
+ * `Destroy` is the historical behaviour and must stay EXPLICIT at the teardown
+ * sites (AutoScenario::deleteAll()/deleteSchedule(), the schedule-enable IO of
+ * checkScenarioRules(), Room::~Room). Those sites rebuild the very same rules
+ * right after, and keeping a disabled copy around would produce duplicates that
+ * nothing collects (Rule::setAutoScenario(false) does not exist).
+ *
+ * It lives in Rule.h and not in ListeRule.h because ListeRoom.h and ListeRule.h
+ * include each other: Rule.h is the one header both of them see complete,
+ * whichever of the two is included first.
+ */
+enum class RuleDetachPolicy { Disable, Destroy };
+
 class Rule
 {
 protected:
@@ -148,6 +170,17 @@ public:
 
     //The unresolved ids, in the order they were met. Empty for a healthy rule.
     const vector<string> &getMissingIoIds() const { return missingIoIds; }
+
+    /* T3.18. Record `id` as a dependency of this rule that no longer resolves,
+     * from the HOT path this time: the load path fills missingIoIds through
+     * AddCondition()/AddAction(), but an IO deleted while the server runs never
+     * goes through them. Same storage, same de-duplication, same empty-id
+     * sentinel as Condition::addMissingIo(), so a rule disabled at runtime is
+     * indistinguishable from one disabled at load - which is exactly what makes
+     * the state survive a save/reload cycle without a single new stored field on
+     * the rule side.
+     */
+    void markIoMissing(const string &id);
 
     //"io_a, io_b" - for the logs and the config alert
     string getMissingIoDescription() const;
