@@ -1203,6 +1203,89 @@
   **chemin exact** + `git worktree prune`, branche `refactor/e4.0f` supprimée, **rien n'a été
   poussé**. Voisin `/tmp/claude-1000/calaos-wave20/t3.17f` **vérifié intact** (worktree et
   conteneur de build), `docs/refactoring/` toujours à **97 fichiers**.
+- **T3.17f ✅ mergé** (2026-08-17, `90e8883e`) — **dernier UAF de la série T3.17**, et le seul
+  trouvé par un **audit qui s'était arrêté délibérément** plutôt que de le corriger à moitié
+  (T3.17e). Deux commits : `f08930f6` (caractérisation, **aucun fichier de `src/`**) puis
+  `90e8883e` (garde, **aucun golden**). Périmètre livré exactement comme cadré :
+  `src/bin/calaos_server/JsonApi.cpp` **+30 l. dont 2 gardes**, `JsonApi.h` **commentaire
+  seulement** (les 33 l. du diff sont toutes dans le bloc de commentaire au-dessus d'`apiAlive`),
+  `tests/core/JsonApiEventLog_test.cpp` **20 cas**, **3 goldens** `t317f_*`, append sur
+  `tests/Makefile.am`. **Aucun handler édité, aucun `.reset()` ajouté** (vérifié sur le diff).
+  **Relu par un relecteur indépendant, quatre réserves fermées et prouvées par mutation.**
+  **Pas de conflit à ce merge** : l'implémenteur avait **déjà rebasé** sur le master courant, la
+  branche partait de `f20882cb` = `HEAD` de master → **fast-forward** sans résolution. Le pattern
+  `tests/Makefile.am` a donc été **payé au rebase, pas au merge** ; l'append a tout de même été
+  revérifié **octet à octet dans les deux sens** : résultat (**109 433 o. / 1850 l.**) ==
+  master (**105 367 o. / 1792 l.**) + bloc `#T3.17f` (**4 066 o. / 58 l.**) **verbatim**, et
+  `résultat == branche` à l'octet. Équilibre **`if HAVE_GTEST` 54 == `endif` 54**.
+  **`make distclean` avant tout chiffre** (variante FAUX ROUGE du piège `_DEPENDENCIES`), puis
+  `autogen.sh && configure && make -j8 && make check` en conteneur.
+  **Compte de tests : 65 → 66.** Raisonnement, pas comptage naïf : `check_PROGRAMS` passe à
+  **63 lignes**, dont **une porte deux entrées** (`StaticLogShutdown_test
+  StaticLogShutdown_helper`) → **64 programmes**, moins `StaticLogShutdown_helper` qui **n'est pas
+  un test** → **63 binaires** ; `TESTS` porte ces 63 binaires **plus 3 scripts shell** (la ligne
+  `check-config-options.sh check-config-docs.sh` en porte deux, plus `run-python-tests.sh`) →
+  **66**. T3.17f n'ajoute qu'**un** binaire, `core/JsonApiEventLog_test`.
+  **LA tâche documentaire de ce merge — `T3.17.md`, l'argument le plus solide de la série pour
+  avoir retiré l'ancien critère de diagnostic.** Écrit dans `T3.17.md`, **nouvelle sous-section
+  `### 🔴 L'argument décisif, découvert par T3.17f : le critère ne se taisait pas, il MENTAIT`**,
+  placée **dans** la section `## 🛑 Correction du critère de diagnostic de la série`, juste après
+  le corollaire T3.17c et **avant** `### ⚠️ Ce que cette correction ne remet PAS en cause` (le
+  chapeau de la section, qui disait « à lire […] avant T3.17f », est mis à jour en conséquence).
+  Le fait mesuré : il existe **un seul** avertissement `-Wdeprecated` de capture implicite sur
+  cette famille, à `JsonApiHandlerWS.cpp:495` (la lambda `[=](Json &j)` de `processEventLog`), et
+  **aucun** à `JsonApiHandlerHttp.cpp:877` — dont la capture `[this]` **explicite** est muette,
+  pour une raison de **style d'écriture**, pas de sûreté. **L'ancien critère n'était donc pas
+  seulement aveugle au vrai danger : il désignait le mauvais fichier — le handler et non
+  `JsonApi.cpp`, le seul point qui domine les deux transports — et un seul des deux transports.
+  Le suivre aurait produit exactement le demi-correctif que T3.17e a refusé de faire en
+  connaissance de cause, six tickets plus tôt, et avec l'air d'avoir raison** puisque
+  l'avertissement aurait disparu.
+  **Documentation** : BOARD (ligne `T3.17f` **📋 → ✅** ; l'épique `T3.17` était **déjà** ✅,
+  T3.17f est un ticket distinct avec sa propre ligne), la sous-section de `T3.17.md` ci-dessus,
+  une section `## T3.17f — suites` en FINDINGS, une entrée RELEASE_NOTES, ce journal.
+  **FINDINGS** — quatre acquis, les trois premiers **réutilisables hors du ticket** :
+  (1) **La couverture transitive est MESURÉE, pas raisonnée — première fois de la série.** La
+  trace ASan du chemin **HTTP** montre que le bloc libéré **est l'objet `JsonApiHandlerHttp`
+  lui-même**, libéré par **son propre destructeur** (`JsonApiHandlerHttp.cpp:53`), et que la
+  lecture fautive tombe **à +48 dans ce même bloc** — là où vit `apiAlive`, membre du sous-objet de
+  base. **Une garde écrite uniquement dans `JsonApi.cpp` neutralise donc un UAF dont le site de
+  libération est dans un fichier jamais ouvert.** Ce n'est plus une inférence d'ownership, c'est
+  une coïncidence d'adresses observée — elle ferme la réserve que T3.17e avait ouverte (« l'arête
+  de propriété n'est prouvée par aucune mesure »).
+  (2) **La sentinelle d'ordonnancement, validée sur DEUX étages par la revue.** Sans elle, les cas
+  de durée de vie passeraient **même si le callback n'était jamais tiré**. Elle tient parce que
+  (a) le worker `HistLogger` est un `ThreadedQueue` à **consommateur unique, FIFO strict**, **et**
+  (b) chaque action alloue **son propre** `AsyncHandle` (`HistLogger.cpp:133`, `:150`),
+  `uvw::Loop::resource()` faisant un **`QUEUE_INSERT_TAIL`** à la création, si bien que
+  `uv__async_io` dépêche **dans l'ordre d'insertion** — le handle en vol passe **avant** celui de
+  la sentinelle **même si les deux `send()` tombent dans le même tour de boucle**. C'est le second
+  étage qui est le point non évident : le FIFO du worker seul ne dit rien de l'ordre de livraison.
+  (3) **Septième récidive du « fixture pauvre », comblée.** **Aucune requête ne demandait jamais
+  une page valide ≠ 0** (`page="9"` partait en erreur « page is out of range » avant la
+  construction du document), si bien que figer l'écho `page`, figer l'écho `per_page` **et**
+  annuler l'offset `int start = ac->page * ac->per_page` (`HistLogger.cpp:269`) laissaient
+  **19/19 vert** — les trois mutations à la fois. Comblé par **un seul** cas,
+  `TheSecondPageEchoesItsOwnCoordinatesAndCarriesTheSecondSlice`, qui vérifie la tranche **par
+  provenance**.
+  (4) ⚠️ **Le piège des TROIS jetons — ce n'est PAS un usage hors fichier**, formulation corrigée
+  en revue après vérification : `apiAlive` n'apparaît, dans **tout `src/`**, que dans **deux
+  fichiers** (`JsonApi.h` déclaration, `JsonApi.cpp` **24 méthodes gardées** sur 26, les deux
+  restantes étant synchrones), **zéro usage de production ailleurs**. Le piège pour le prochain
+  lecteur est la **confusion de trois jetons de rôle identique à trois niveaux d'objet** : les 5
+  callbacks gardés de `JsonApiHandlerHttp.cpp` (`:462`, `:727`, `:936`, `:1057`, `:1075`) utilisent
+  le jumeau **`handlerAlive`** (`JsonApiHandlerHttp.h:64`), et `RemoteUIWebSocketHandler` en a un
+  **troisième**. Règle : un callback prend le jeton de **l'objet dont il touchera les membres**.
+  **Non exercé délibérément** : le **SIGFPE `per_page`** (`per_page: "0"` → `rowcount /
+  ac->per_page`, `HistLogger.cpp:268`, division par zéro à distance sur les deux transports) —
+  **il tuerait le binaire de test**, donc tous les cas envoient un `per_page` numérique non nul.
+  C'est un défaut de **validation d'entrée**, même famille que **T3.19** ; consigné en FINDINGS
+  pour rattachement, **à ne pas laisser se perdre**.
+  Merge **ff-only** (historique linéaire, pas de commit de merge), worktree
+  `/tmp/claude-1000/calaos-wave20/t3.17f` nettoyé par son **chemin exact** + `git worktree prune`,
+  branche `refactor/t3.17f` supprimée, **rien n'a été poussé**. Voisin
+  `/tmp/claude-1000/calaos-wave21/e4.0g` **vérifié intact** (worktree et conteneur de build),
+  `docs/refactoring/` toujours à **97 fichiers**.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

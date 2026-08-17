@@ -1137,3 +1137,110 @@ Leçon générale : **une fixture qui amorce toujours la précondition ne teste 
   `calaos_mail` — pas par `calaos_server`. Le document décrivait d'autres clés.
 - **L'exemple XML d'`ActionPush` était inventé** : il ne correspondait à aucune forme que le
   parseur de règles accepte. Remplacé par une forme tracée au code.
+
+## T3.17f — suites
+
+Dernier sous-ticket de la série T3.17 (`eventlog`, UAF non gardé sur les deux transports). Ce qui
+suit est **réutilisable au-delà du ticket** : les trois premiers points sont des acquis de méthode.
+
+### La couverture transitive est MESURÉE, pas raisonnée — première fois de la série
+
+Toute la série T3.17 s'appuyait sur un raisonnement de **propriété** : les deux handlers dérivent de
+`JsonApi`, base unique non virtuelle, un seul propriétaire (`HttpClient::jsonApi`), une seule
+destruction (`HttpClient.cpp:162`) — donc une garde posée dans `JsonApi.cpp` couvre les deux
+transports. T3.17e avait déjà signalé que cette arête de propriété **n'était prouvée par aucune
+mesure**, seulement par lecture (cf. § *T3.17e — suites*, premier point). **T3.17f la mesure.**
+
+La trace ASan du chemin **HTTP** dit, en toutes lettres, que :
+
+- le bloc libéré **est l'objet `JsonApiHandlerHttp` lui-même** ;
+- il est libéré par **son propre destructeur**, `~JsonApiHandlerHttp()` (`JsonApiHandlerHttp.cpp:53`) ;
+- la lecture fautive tombe à **+48 octets dans ce même bloc** — c'est-à-dire **dans le sous-objet de
+  base `JsonApi`**, là où vit `apiAlive`.
+
+**Conséquence à retenir, et c'est la formulation générale de l'acquis : une garde écrite uniquement
+dans `JsonApi.cpp` neutralise un use-after-free dont le site de libération est dans un fichier
+jamais ouvert par le correctif.** Le bloc libéré et le membre qui sert de jeton sont **le même
+bloc** — ce n'est plus une inférence sur l'ownership, c'est une coïncidence d'adresses observée.
+Tout futur ticket de cette famille peut s'appuyer là-dessus **sans réédifier la démonstration**,
+et T3.17f n'a effectivement édité **aucun handler**.
+
+**Corollaire — ce bug valide rétrospectivement la retraite de l'ancien critère de diagnostic.**
+Aucun des deux callbacks de `buildJsonEventLog` n'odr-use `this` : **aucun avertissement
+`-Wdeprecated` n'a jamais pointé ici**, et aucun inventaire de `JsonApi.cpp` fondé sur ces
+avertissements ne pouvait le trouver. Le détail complet — l'unique avertissement de la famille est
+au **mauvais fichier** et ne couvre qu'**un transport sur deux** — est dans
+`T3.17.md`, § *L'argument décisif, découvert par T3.17f*.
+
+### La sentinelle d'ordonnancement — validée sur DEUX étages par la revue
+
+Les cas de durée de vie (« le handler meurt pendant que sqlite travaille ») ont besoin d'une
+certitude que le harnais ne donne pas gratuitement : **le callback en vol a bien été dépêché**.
+Sans elle, un cas « rien n'est émis » passerait **même si le callback n'était jamais tiré** — la
+suite serait verte pour la mauvaise raison, et un correctif retiré ne la ferait pas rougir.
+
+La sentinelle est une **seconde requête**, postée après celle sous test, dont l'arrivée prouve que
+la première a déjà été traitée. Sa validité repose sur **deux mécanismes distincts**, tous deux
+vérifiés :
+
+1. **Côté worker** — `HistLogger` consomme `eventQueue` avec un `ThreadedQueue` à **consommateur
+   unique**, en **FIFO strict** : la requête sous test est exécutée par le thread sqlite **avant**
+   celle de la sentinelle.
+2. **Côté boucle** — chaque action alloue **son propre** `uvw::AsyncHandle`
+   (`HistLogger.cpp:133` et `:150`, `uvw::Loop::getDefault()->resource<uvw::AsyncHandle>()`), et
+   `resource()` fait un **`QUEUE_INSERT_TAIL`** à la création. `uv__async_io` dépêche donc dans
+   **l'ordre d'insertion** : le handle en vol passe **avant** celui de la sentinelle **même si les
+   deux `send()` tombent dans le même tour de boucle**.
+
+C'est le second étage qui est le point non évident, et il est indispensable : le FIFO du worker
+seul ne dit rien de l'ordre de **livraison** côté boucle si les deux réveils se groupent.
+
+### Septième récidive du « fixture pauvre », comblée
+
+Même famille que celles d'E4.0c/E4.0f, et **septième occurrence** : la fixture amorçait toujours la
+même précondition, donc n'en testait jamais la variation. Ici, **aucune requête ne demandait jamais
+une page valide ≠ 0** — le seul cas non nul, `page="9"`, part **en erreur « page is out of range »
+avant même la construction du document**. Mesuré par mutation : figer l'écho `page`, figer l'écho
+`per_page` **et** annuler l'offset `int start = ac->page * ac->per_page;` (`HistLogger.cpp:269`)
+laissaient la suite **19/19 verte**, les trois mutations à la fois.
+
+Comblé par un **seul** cas, `TheSecondPageEchoesItsOwnCoordinatesAndCarriesTheSecondSlice`, qui
+vérifie la tranche **par provenance** (quels événements précisément, pas seulement combien) —
+ce qui tue les trois mutations d'un coup. **Leçon, la même qu'en E4.0f** : une fixture qui n'exerce
+jamais qu'une seule valeur d'un paramètre ne teste pas ce paramètre, elle teste une constante.
+
+### ⚠️ Le piège des TROIS jetons — ce n'est pas un usage hors fichier
+
+Formulation corrigée en revue **après vérification**, à ne pas réécrire dans l'autre sens :
+`apiAlive` n'apparaît, dans **tout `src/`**, que dans **deux fichiers** — `JsonApi.h` (la
+déclaration) et `JsonApi.cpp` (**24 occurrences = 24 méthodes gardées** sur les 26 méthodes
+`std::function` du fichier ; les deux restantes, `buildJsonStates()` et `buildQuery()`, sont
+**synchrones** et n'en ont pas besoin). **Zéro usage de production hors de ces deux fichiers** (le
+symbole n'apparaît ailleurs que dans des commentaires de tests et des binaires compilés). Il n'y a
+donc **aucun** problème de portée à surveiller.
+
+Le vrai piège pour le prochain lecteur est la **confusion de trois jetons homonymes en rôle**,
+appartenant à trois niveaux d'objet :
+
+| jeton | déclaré | utilisé par |
+|---|---|---|
+| `JsonApi::apiAlive` | `JsonApi.h` | les 24 callbacks async de `JsonApi.cpp`, **et rien d'autre** |
+| `JsonApiHandlerHttp::handlerAlive` | `JsonApiHandlerHttp.h:64` | les 5 callbacks gardés de `JsonApiHandlerHttp.cpp` (`:462`, `:727`, `:936`, `:1057`, `:1075` — `get_cover` deux fois, les instantanés caméra, le ré-armement `singleShot`) |
+| celui de `RemoteUIWebSocketHandler` | son propre en-tête | ses propres callbacks |
+
+**Règle** : un callback doit prendre le jeton de **l'objet dont il touchera les membres**, pas
+celui qui est « à portée ». Voir aussi le commentaire de `JsonApi.h` au-dessus d'`apiAlive`, qui
+porte la même mise en garde au point d'usage.
+
+### Non exercé délibérément — SIGFPE sur `per_page` (division par zéro, à distance)
+
+`buildJsonEventLog` lit `per_page` du client (`JsonApi.cpp:2107`) et le passe tel quel à
+`HistLogger`, qui fait `rowcount / ac->per_page` (`HistLogger.cpp:268`) **sans contrôle de
+nullité**. Un client authentifié qui envoie `per_page: "0"` provoque donc un **SIGFPE**, sur les
+deux transports.
+
+**Aucun cas de T3.17f ne l'exerce, et c'est volontaire : il tuerait le binaire de test.** Tous les
+cas envoient un `per_page` numérique non nul. Le défaut est **hors périmètre d'un ticket de garde
+de durée de vie** — c'est un défaut de **validation d'entrée**, de la même famille que **T3.19**
+(plantage à distance atteignable depuis l'API, aujourd'hui cadré sur le seul `audio_db`). **À
+rattacher à T3.19 ou à ticketer à côté ; ne pas le laisser se perdre ici.**

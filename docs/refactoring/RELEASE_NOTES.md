@@ -127,6 +127,22 @@ intégralement, jamais tronquée. Seul le client **déjà parti** ne reçoit plu
 comportement attendu puisqu'il n'est plus là pour recevoir. Aucune forme de réponse nouvelle n'est
 introduite.
 
+### Journal d'événements — plus de plantage en le consultant au moment de se déconnecter (T3.17f)
+Consulter l'historique (`eventlog`, c'est-à-dire l'écran Journal / Historique de l'application, que
+ce soit la **liste paginée** ou le **détail d'un événement**) déclenche une lecture de la base
+d'historique **par un thread séparé**, la réponse revenant au client une fois la requête terminée.
+Si le client **se déconnectait pendant cette lecture** — application fermée, Wi-Fi perdu, écran
+quitté — la réponse revenait sur une connexion déjà détruite et **faisait planter le serveur**.
+
+Le défaut était **atteignable depuis l'API JSON** sans manipulation particulière : un historique
+volumineux, ou simplement une base un peu lente à répondre, suffisait à ouvrir la fenêtre. Il est
+corrigé sur les **deux formes** de la commande et sur les **deux transports** (WebSocket et HTTP).
+
+**Ce qui ne change pas** : un client **encore connecté** reçoit toujours sa réponse **complète** et
+inchangée — même pagination, même tranche d'événements, mêmes messages d'erreur. Aucune liste n'est
+tronquée, aucune réponse existante ne devient une erreur. Seul le client **déjà parti** ne reçoit
+plus rien, ce qui est le comportement attendu puisqu'il n'est plus là pour recevoir.
+
 ### Fichiers de configuration — deux pertes de fidélité corrigées (E4.4cd)
 Le lecteur/écrivain de configuration passe de TinyXML à pugixml. Deux défauts de fidélité des
 données, présents de longue date, disparaissent :
