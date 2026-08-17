@@ -120,7 +120,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) — 6 rustines retirées, contrat de file vide posé | tests | E4.0d, E4.0e, E4.0f | ✅ |
 | [E4.1](E4.1.md) | 4 | Single JSON library — **prérequis levé**, non démarrée ; lire `ORCHESTRATION.md` (bilan E4.0) avant de commencer | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
 | [E4.5](E4.5.md) | 4 | Remettre `docs/*.md` en phase avec le code (user request) | epic (doc) | — | 📋 |
-| [E4.1a](E4.1a.md) | 4 | `Params` : couper le pont dual-API | refactor | E4.0 | 🔨 |
+| [E4.1a](E4.1a.md) | 4 | `Params` : couper le pont dual-API | refactor | E4.0 | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
