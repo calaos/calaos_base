@@ -189,8 +189,13 @@ void setStatusInfo(StatusType type, StatusConnected value);
 void setStatusInfo(StatusType type, uint64_t value);
 ```
 
-`hasStatusInfo()` répond vrai dès qu'un seul champ a été renseigné, `getStatusInfo()` rend le
-tout sous forme de `Params`.
+`hasStatusInfo()` est un OU sur les six champs, `getStatusInfo()` rend le tout sous forme de
+`Params` (dérivé, [IOBase.h:198-208](../src/bin/calaos_server/IOBase.h)).
+
+⚠️ Le test est **le drapeau** pour la batterie, mais **la valeur** pour les autres :
+`wireless_signal == 0.0` et `uptime == 0` sont indistinguables de « jamais renseigné ». C'est
+exactement la confusion que `battery_level_set` a été ajouté pour lever côté batterie, et elle
+subsiste sur les deux autres champs numériques.
 
 ---
 
