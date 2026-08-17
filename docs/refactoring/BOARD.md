@@ -119,6 +119,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.0f](E4.0.md) | 4 | Caractérisation du payload audio et base musicale (contrat de `processDbResult()`, `Utils::to_string(double)`, asymétrie WS/HTTP, 24 cas, 20 goldens) **+ réécriture de `docs/08_http_api.md` et `docs/10_events_notifications.md`** | tests | E4.0a | ✅ |
 | [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) — 6 rustines retirées, contrat de file vide posé | tests | E4.0d, E4.0e, E4.0f | ✅ |
 | [E4.1](E4.1.md) | 4 | Single JSON library — **prérequis levé**, non démarrée ; lire `ORCHESTRATION.md` (bilan E4.0) avant de commencer | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
+| [E4.5](E4.5.md) | 4 | Remettre `docs/*.md` en phase avec le code (user request) | epic (doc) | — | 📋 |
 | [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
