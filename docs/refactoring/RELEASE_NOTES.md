@@ -22,6 +22,44 @@ déjà utilisé pour les configurations corrompues) le signale au démarrage.
 Vérifié : les configurations réelles testées n'ont aucune référence orpheline, donc aucune règle
 n'y est désactivée.
 
+### Un scénario dont une étape a perdu son équipement ne démarre plus du tout (décision utilisateur, T3.18)
+Jusqu'ici, si l'équipement piloté par une étape de scénario était supprimé, l'étape disparaissait
+en silence et le scénario continuait de tourner **en séquence raccourcie** : il s'annonçait avec le
+même nom, se déclenchait aux mêmes horaires, mais **sautait** ce qu'il ne pouvait plus faire. Un
+scénario « départ en vacances » qui fermait les volets puis coupait le chauffage se contentait de
+fermer les volets, sans que rien ne le signale.
+
+Désormais un scénario dont au moins une étape référence un équipement introuvable est
+**entièrement désactivé** : il ne démarre plus, ni à l'heure programmée, ni sur commande. Comme
+pour les règles, il reste **visible et intact** dans la configuration et est **journalisé** avec
+les ids manquants.
+
+**Trois différences avec les règles, et ce sont des choix délibérés :**
+
+- **L'état survit au redémarrage.** La désactivation est enregistrée dans la configuration
+  (paramètre `disabled_missing_io` du scénario) ; redémarrer `calaos_server` ne remet pas le
+  scénario en marche.
+- **Remettre l'équipement ne suffit pas.** Contrairement à une règle, un scénario désactivé ainsi
+  **ne se réactive jamais tout seul**. Recréer l'équipement manquant lève l'obstacle mais **pas la
+  désactivation**.
+- **Il faut une réactivation manuelle explicite**, par la nouvelle commande d'API
+  `autoscenario reenable` (disponible sur les deux transports, WebSocket et HTTP). Une réactivation
+  demandée **trop tôt est refusée**, avec un message qui **nomme les équipements manquants** — le
+  refus est le but de la commande : réactiver un scénario encore amputé le ferait redésactiver au
+  contrôle suivant, ce qui ne serait qu'un no-op silencieux de plus.
+
+Le raisonnement : un équipement qui disparaît d'un scénario est un problème de configuration qui ne
+peut pas être résolu sans intervention humaine. Un scénario qui repartirait tout seul repartirait
+peut-être **incomplet** ; la réactivation manuelle force à constater que la séquence est de nouveau
+celle qu'on croit.
+
+> ⚠️ **Rupture de contrat d'API pour les clients.** Le payload de scénario (`get_scenarios` /
+> `get_scenario`, autoscénarios) gagne **trois clés** : `broken` (une étape référence un équipement
+> introuvable), `disabled_missing_io` (le drapeau persistant décrit ci-dessus) et `missing_ios`
+> (les ids concernés). Tout client qui valide strictement la forme de ce payload, ou qui rejette
+> les clés inconnues, doit être mis à jour. Sept fichiers de référence de l'API ont été
+> régénérés en conséquence.
+
 ### IOs Web — les expressions XPath renvoient enfin les bonnes valeurs (E4.4b)
 Le moteur XPath (TinyXPath, non maintenu) est remplacé par pugixml. TinyXPath violait XPath 1.0
 sur plusieurs points ; les configurations concernées étaient **silencieusement cassées** et vont

@@ -1448,3 +1448,111 @@ L'argument est désormais **écrit en commentaire à l'endroit de la garde absen
 (`JsonApi.cpp`, `buildJsonEventLog()`), parce qu'une lacune documentaire sur une garde **absente**
 est exactement ce qui pousse un lecteur ultérieur à l'ajouter « au cas où » — ou, pire, à retirer
 celle qui existe en aval en la croyant redondante.
+
+---
+
+## T3.18 — suites
+
+### ⭐ La porte 1 était effaçable par une simple **lecture** — parce qu'un accesseur purge
+
+C'est l'acquis le plus instructif du ticket, et il n'a été trouvé qu'au **troisième** commit. La
+réserve R1 de la revue indépendante signalait un `isDangling()` « non couvert ». Ce n'était **pas
+un trou de couverture, c'était un bug**, et il vidait la décision utilisateur de sa substance.
+
+La chaîne :
+
+1. `Scenario::toJson()` émet la clé **`category` avant `broken`**.
+2. `getCategory()` appelle `purgeDeadSteps()`.
+3. `purgeDeadSteps()` **efface l'entrée pendante** (la compaction introduite par E4.2f).
+
+Donc, pour un scénario dont la règle d'étape venait d'être détruite, le scan brut d'`isDangling()`
+répondait **faux** : au moment où la sérialisation atteignait `broken`, la preuve avait déjà été
+détruite **une clé plus tôt**, par la clé précédente du même document. **Sérialiser le scénario
+effaçait la preuve que le scénario était cassé.** Et ce n'était pas propre à `toJson()` : *tous*
+les accesseurs de lecture purgent — `getCategory()`, `stepRule()`, `getRuleSteps()`. La porte 1
+était **neutralisable par n'importe quelle lecture**, y compris celle d'un client qui ne fait
+qu'afficher la liste des scénarios.
+
+Le correctif tient en deux moitiés, **toutes deux nécessaires** : `purgeDeadSteps()` **mémorise**
+ce qu'elle retire (`stepRuleDestroyed`, `AutoScenario.cpp:62`), et `isBroken()` lit la mémoire
+**avant** de lancer le scan (`:185`, le scan est en `:189`). Mémoriser sans lire d'abord, ou lire
+d'abord sans mémoriser, ne corrige rien.
+
+L'état reste **entièrement dérivé et jamais persisté** — `checkScenarioRules()` le remet à zéro en
+re-collectant les règles (`:564`) — et **aucun client ne peut l'écrire** : c'est un membre privé,
+sans accesseur en écriture, absent de la sérialisation comme de la configuration. Il ne faut pas le
+confondre avec `disabled_missing_io`, qui est l'inverse exact : persistant, collant, et volontaire.
+
+> **Leçon générale, indépendante de Calaos : un état dérivé calculé par un accesseur qui mute est
+> un état falsifiable par lecture.** Dès qu'un getter a un effet de bord de compaction, tout
+> prédicat qui recalcule son résultat en scannant la structure compactée est en course avec ses
+> propres lecteurs — et l'ordre des clés d'un document JSON suffit à décider du résultat.
+
+### La **troisième paire** de la trappe d'E4.0c
+
+La trappe d'E4.0c (deux champs qui s'accordent dans tous les cas observés, donc dont le désaccord
+n'est jamais testé) a resservi une troisième fois. Ici la paire est **`broken` / `missing_ios`**.
+
+Le cas divergent est `broken` **vrai** avec `missing_ios` **vide** : une règle d'étape *détruite*
+ne laisse **aucun id à nommer**, contrairement à un IO simplement introuvable. Dans tous les autres
+cas les deux champs bougeaient ensemble, et c'est précisément pourquoi la mutation du relecteur
+neutralisant `isDangling()` laissait **5 binaires verts**. Deux paires sur trois avaient été
+couvertes par les tickets précédents ; celle-ci ne l'était pas.
+
+### ⚠️ Le canari qui devenait une vraie commande
+
+E4.0c utilisait la chaîne littérale **`"reenable"`** comme sonde de « type autoscenario inconnu »,
+pour vérifier que le serveur reste **silencieux**. Livrer la commande `autoscenario reenable`
+**transformait le canari en commande valide** : le test de silence aurait continué de **passer**,
+mais **pour une raison entièrement différente** — et aurait cessé de surveiller quoi que ce soit,
+sans jamais rougir pour le signaler.
+
+La sonde est changée en **`e40c_not_a_command`**, et une assertion **positive** est ajoutée pour
+couvrir le nouveau comportement de `reenable`.
+
+> **Leçon générale : une sonde de test doit être une valeur qui ne peut pas devenir valide.**
+> Un canari choisi dans l'espace des noms réels finit par être implémenté, et il meurt en silence
+> le jour où il est implémenté — c'est-à-dire exactement le jour où on aurait eu besoin de lui.
+
+### R3 — à ouvrir en ticket de suivi : `modify` blanchit un scénario amputé
+
+Après un aller-retour `autoscenario modify`, `deleteRules()` **détruit la référence morte**. Donc
+`isBroken()` devient **faux**, et `tryReenable()` **réussit** sur un scénario qui a silencieusement
+perdu une action d'étape. Le drapeau collant est alors levé **légitimement**, par le mécanisme
+prévu, sur un scénario **amputé** — c'est-à-dire le résultat même que le ticket voulait rendre
+impossible.
+
+**Préexistant** : rien ne le signalait avant T3.18, et `missing_ios` prévient désormais **avant**
+le round-trip. Mais le refus de `tryReenable()` ne peut **rien voir après** : il n'y a plus de
+référence pendante à détecter.
+
+> **Question ouverte pour l'utilisateur** : `autoscenario modify` doit-il **refuser** de
+> reconstruire un scénario dont une étape référence un IO absent ? C'est le seul endroit où
+> l'information existe encore.
+
+Laissé intact sur instruction, à ouvrir en ticket de suivi.
+
+### R5 — hors périmètre : l'asymétrie du drapeau posé à la main
+
+Un client qui pose `disabled_missing_io` à la main sur un scénario **sain** n'affecte **pas** le
+booléen en mémoire : le scénario **continue de tourner** jusqu'au prochain redémarrage, où il se
+retrouve **désactivé**. L'écriture ne prend donc effet qu'au reboot, alors que la lecture est
+immédiate.
+
+Asymétrie **non documentée** ailleurs que dans cette note. Le ticket classe ce sens comme un **déni
+de service par client authentifié**, catégorie déjà assumée par la série. Hors périmètre, laissé
+intact sur instruction.
+
+### Onze tests de contrat modifiés — et la liste du ticket était fausse **dans les deux sens**
+
+Le ticket annonçait **six** tests de contrat à modifier. Il y en a **onze**, et sa liste contenait
+à la fois des tests qui n'avaient pas besoin de bouger et des tests qu'elle omettait. Le décompte
+d'un ticket est une **estimation**, pas un périmètre : ici, s'y tenir aurait laissé des contrats
+non réalignés.
+
+Le cas le plus notable est **`SavingRulesAfterAnIoDeletionIsClean`, dont l'assertion s'inverse** :
+l'id mort devait auparavant **disparaître** de `rules.xml`, il doit désormais y **survivre**. C'est
+la conséquence directe de la décision utilisateur — un scénario désactivé reste **intact** dans la
+configuration, donc la référence morte doit être **conservée**, pas nettoyée. Un test dont
+l'assertion s'inverse est un signal fort : ce n'est plus un ajustement, c'est le contrat qui change
+de sens.

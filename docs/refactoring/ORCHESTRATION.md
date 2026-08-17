@@ -1377,6 +1377,75 @@
   worktree `/tmp/claude-1000/calaos-wave22/t3.19` nettoyé par son **chemin exact** +
   `git worktree prune`, branche `refactor/t3.19` supprimée, **rien n'a été poussé**.
   `docs/refactoring/` toujours à **97 fichiers**.
+- **T3.18 ✅ mergé** (2026-08-17, `3c87a837`) — **dernier ticket de la file**, et le plus large de
+  la série : **15 fichiers de production**. C'est une **décision utilisateur**, maintenue et
+  **durcie** contre l'avis du cadrage initial (« *si un IO disparaît c'est un problème, on ne peut
+  pas le résoudre sans intervention manuelle* ») : un scénario dont une étape a perdu son IO est
+  **entièrement désactivé**, avec un paramètre **persisté et collant** (`disabled_missing_io`) et
+  une **réactivation manuelle explicite** (`autoscenario reenable`, les deux transports). Trois
+  différences assumées avec la désactivation des règles : l'état **survit au redémarrage**, remettre
+  l'IO **ne suffit pas**, et une réactivation prématurée est **refusée en nommant les ids
+  manquants**. Trois commits : `b1f5dcb2` (caractérisation, **zéro ligne de `src/`** — vérifié
+  mécaniquement : 2 fichiers, tous deux sous `tests/`), `f005597f` (la décision) et `3c87a837`
+  (les suites de revue R1/R2/R4).
+  **Revue indépendante : verdict MERGE**, réserves « **mineures, aucune ne touche la décision
+  utilisateur** ». Le relecteur a prouvé **par mutation** que la collance et le refus tiennent :
+  drapeau rendu non collant → **5 cas rouges** ; constructeur ne relisant plus le param → **4 cas
+  rouges**.
+  **⭐ Le troisième commit a transformé une réserve documentaire en correction de fond.** R1
+  signalait un `isDangling()` « non couvert » ; ce n'était **pas un trou de couverture, c'était un
+  bug**, et il **vidait la décision utilisateur de sa substance**. `Scenario::toJson()` émet
+  **`category` avant `broken`**, `getCategory()` appelle `purgeDeadSteps()`, et cette purge
+  **efface l'entrée pendante** (compaction d'E4.2f) : le scan brut d'`isDangling()` répondait donc
+  **faux** pour un scénario dont la règle d'étape venait d'être détruite — **sérialiser le scénario
+  effaçait la preuve une clé plus tôt**. La porte 1 était **neutralisable par une simple lecture**,
+  et *tous* les accesseurs le faisaient (`getCategory()`, `stepRule()`, `getRuleSteps()`).
+  Correctif en **deux moitiés toutes deux nécessaires** : `purgeDeadSteps()` **mémorise** ce qu'elle
+  retire (`stepRuleDestroyed`, `AutoScenario.cpp:62`) et `isBroken()` lit la mémoire **avant** le
+  scan (`:185`, scan en `:189`). L'état reste **entièrement dérivé, jamais persisté**
+  (`checkScenarioRules()` le remet à zéro, `:564`) et **aucun client ne peut l'écrire** — membre
+  privé, ni accesseur en écriture, ni sérialisation. **Racine mesurée** : c'était la **troisième
+  paire** de la trappe d'E4.0c — `broken` vrai avec `missing_ios` **vide** (une règle détruite ne
+  laisse aucun id à nommer), paire qui s'accordait dans **tous** les autres cas, d'où les 5 binaires
+  verts sur la mutation du relecteur.
+  Suite : **67 → 68** (`core/ScenarioDisabledMissingIo_test`, 14 cas), **68/68 vert** après
+  `make distclean` + reconfigure complet (piège `_DEPENDENCIES`, variante **faux ROUGE**).
+  Décompte **recoupé à la main** contre l'attente initiale de 69, qui était fausse : la branche
+  était déjà assise sur `86c3d131` (T3.19 **sous** elle), donc master = **67** et T3.18 ajoute
+  **1 binaire**. Vérifié dans `tests/Makefile.am` : **66 lignes `TESTS +=` = 67 entrées** (la ligne
+  `check-config-options.sh check-config-docs.sh` en porte **deux**), et le diff de T3.18 contient
+  **exactement une** ligne `TESTS +=` ajoutée, **zéro** retirée, en **pur append**.
+  **R3 et R5 laissés intacts sur instruction.** R3 est à **ouvrir en ticket de suivi** et pose une
+  **question ouverte à l'utilisateur** : après un aller-retour `autoscenario modify`,
+  `deleteRules()` **détruit la référence morte**, donc `isBroken()` devient faux et
+  **`tryReenable()` réussit** sur un scénario ayant silencieusement perdu une action d'étape — le
+  drapeau collant est levé **légitimement** sur un scénario **amputé**. Préexistant, et
+  `missing_ios` prévient désormais **avant** le round-trip, mais le refus ne peut **rien voir
+  après** ; `modify` doit-il **refuser** de reconstruire un scénario dont une étape référence un IO
+  absent ? R5 (drapeau posé à la main sur un scénario **sain** : le booléen en mémoire n'est pas
+  affecté, le scénario tourne jusqu'au reboot où il se retrouve désactivé) reste classé **DoS par
+  client authentifié, déjà assumé**.
+  **Deux pièges de test consignés.** (1) **Le canari devenu vraie commande** : E4.0c utilisait la
+  chaîne littérale `"reenable"` comme sonde de « type autoscenario inconnu » ; livrer la commande
+  **transformait le canari en commande valide**, et le test de silence aurait continué de passer
+  **pour une raison entièrement différente**, sans jamais rougir. Sonde changée en
+  `e40c_not_a_command`, plus une assertion positive — *une sonde de test doit être une valeur qui ne
+  peut pas devenir valide*. (2) **Onze** tests de contrat modifiés, pas les six annoncés par le
+  ticket, dont la liste était fausse **dans les deux sens** ; dont
+  `SavingRulesAfterAnIoDeletionIsClean` **dont l'assertion s'inverse** — l'id mort doit désormais
+  **survivre** dans `rules.xml`, conséquence directe du « le scénario reste intact ».
+  **Documentation** : BOARD (`T3.18` **📋 → ✅**, libellé étendu au drapeau persistant et à
+  `autoscenario reenable`), **une** entrée `RELEASE_NOTES.md` placée **en deuxième position** des
+  « comportements qui changent », juste après son jumeau sur les règles (même famille, mais **plus
+  strict** : c'est le seul changement de la série exigeant une **intervention manuelle**), signalant
+  la **rupture de contrat d'API** — le payload de scénario gagne **trois clés** (`broken`,
+  `disabled_missing_io`, `missing_ios`) ; une section `## T3.18 — suites` en FINDINGS (les six
+  acquis, dont R3 en question ouverte) et ce journal.
+  Merge **ff-only** après `git rebase master` (master avait avancé de `d472611c`, **docs seulement**,
+  **aucun conflit**), **7 goldens `e40c_*` en `M`, zéro `A`, zéro `D`** — 145 goldens au total,
+  inchangé. Worktree `/tmp/claude-1000/calaos-wave23/t3.18` nettoyé par son **chemin exact** +
+  `git worktree prune`, branche `refactor/t3.18` supprimée, **rien n'a été poussé**.
+  `docs/refactoring/` à **98 fichiers** (97 + `E4.5.md`, apporté par `d472611c`).
 
 ### 🏁 Bilan de la série E4.0 (close) — ce que E4.1 doit lire AVANT de démarrer
 
