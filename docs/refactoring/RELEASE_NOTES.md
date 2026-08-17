@@ -15,8 +15,12 @@ se déclenchant tous les soirs.
 
 Désormais une règle dont au moins une condition ou action référence un équipement introuvable est
 **entièrement désactivée**. Elle reste **visible et intacte** dans la configuration (rien n'est
-perdu à la sauvegarde), est **journalisée** avec son nom et les ids manquants, et **redevient
-active d'elle-même** dès que l'équipement réapparaît. Une **notification mail + push** (le canal
+perdu à la sauvegarde), est **journalisée** avec son nom et les ids manquants.
+⚠️ **Elle ne se réactive PAS toute seule quand l'équipement réapparaît** : la liste des ids
+manquants est constituée **au chargement** et n'est jamais vidée (`missingIoIds` est
+append-only — vérifié : aucun `clear()` dans tout `src/`). Il faut **recharger la configuration**,
+c'est-à-dire redémarrer le serveur. `Rule.h:106-109` le dit correctement ; cette note affirmait
+l'inverse jusqu'au 2026-08-17. Une **notification mail + push** (le canal
 déjà utilisé pour les configurations corrompues) le signale au démarrage.
 
 Vérifié : les configurations réelles testées n'ont aucune référence orpheline, donc aucune règle
