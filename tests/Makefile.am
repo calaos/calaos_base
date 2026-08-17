@@ -1908,3 +1908,26 @@ EXTRA_DIST += core/golden/t319_ws_audio_db_no_database.json \
                   core/golden/t319_ws_eventlog_per_page_out_of_range.json \
                   core/golden/t319_http_eventlog_per_page_out_of_range.json
 endif
+
+
+# T3.18
+#A scenario whose step lost its IO is DISABLED (user decision), with a
+#persisted, sticky `disabled_missing_io` param and a manual re-enable. Core
+#test: it plays real save/reload cycles, which is the only way the stickiness
+#can be shown, and drives buildAutoscenarioModify()/buildAutoscenarioReenable()
+#directly through a subclass of JsonApi - JsonApi.o is already part of
+#CORE_SERVER_OBJECTS, so no extra link closure is needed here (no WS/HTTP
+#transport is involved).
+#Own HAVE_GTEST block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioDisabledMissingIo_test
+check_PROGRAMS += core/ScenarioDisabledMissingIo_test
+core_ScenarioDisabledMissingIo_test_SOURCES = core/ScenarioDisabledMissingIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_ScenarioDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_ScenarioDisabledMissingIo_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
