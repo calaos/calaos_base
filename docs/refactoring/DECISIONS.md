@@ -93,8 +93,14 @@ codebase (ticket T2.12). Rend T3.2b obsolète.
 **Comment l'appliquer** : ne plus investir aucun effort dans le code MySensors (fix, revue,
 refactor) ; toute découverte le concernant pointe vers T2.12.
 
-## 2026-08-15 — GPIO : honorer `debounce_time` de la config
-**Décision** : câbler le paramètre `debounce_time` (aujourd'hui décoratif, 0.05 s codé en dur).
+## 2026-08-15 — GPIO : honorer le paramètre `debounce` de la config
+⚠️ **Nom de la clé, corrigé le 2026-08-17** : la clé de configuration s'appelle **`debounce`**
+(`GpioInputBase.h:67` `get_param("debounce")`, publiée sous ce nom dans l'ioDoc via
+`paramAddFloat("debounce", …)`). **`debounce_time` est le nom de la variable C++**, pas celui de la
+clé. Cette entrée disait `debounce_time` : une doc écrite d'après elle aurait enseigné une clé
+**sans aucun effet** — la classe de défaut exacte qu'E4.0f a trouvée sur les clés de config mail.
+`RELEASE_NOTES.md` disait déjà `debounce`, correctement.
+**Décision** : câbler le paramètre `debounce` (aujourd'hui décoratif, 0.05 s codé en dur).
 Fallback 0.05 s si absent/invalide. Ticket T2.13.
 
 ## 2026-08-15 — OTA : clamp de l'intervalle de rescan validé
