@@ -1848,3 +1848,58 @@ EXTRA_DIST += core/golden/t317f_ws_eventlog_page_out_of_range.json \
                   core/golden/t317f_ws_eventlog_uuid_not_found.json \
                   core/golden/t317f_http_eventlog_uuid_not_found.json
 endif
+
+#T3.19: the two REMOTE CRASHES of JsonApi.cpp reachable by an authenticated
+#client on a legitimate call - the null AudioPlayer::database dereferenced by
+#the sixteen audio_db actions (SIGSEGV) and the unvalidated per_page divided by
+#in HistLogger's sqlite worker (SIGFPE). One binary because both are the same
+#defect in the same file, and because the eventlog half needs HistLogger brought
+#into the harness anyway.
+#Audio/AudioDB.$(OBJEXT) is needed for the concrete database the "capability
+#says no, pointer says yes" cases install (same need as T3.17c/E4.0f), and the
+#history database is built ONCE before the first CoreFixture::SetUp() against a
+#directory that lives as long as the process - a singleton born inside a case
+#would point at a per-case cache directory TearDown() rm -rf's, and
+#HistLogger.cpp:190 sits OUTSIDE its try, so cantopen would std::terminate the
+#binary. Own directory template (calaos_t319_hist_XXXXXX), so this binary can
+#never share a database with core/JsonApiSession_test or core/JsonApiEventLog_test.
+#HistLogger.$(OBJEXT) is already part of CORE_SERVER_OBJECTS, so the link
+#closure is the same as core/JsonApiMusicDb_test, and so is -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiInputGuards_test
+check_PROGRAMS += core/JsonApiInputGuards_test
+core_JsonApiInputGuards_test_SOURCES = core/JsonApiInputGuards_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiInputGuards_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiInputGuards_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_JsonApiInputGuards_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
