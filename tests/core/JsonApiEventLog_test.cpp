@@ -114,6 +114,7 @@
 #include "EventManager.h"
 #include "HistLogger.h"
 #include "ListeRoom.h"
+#include "JsonApi.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -768,4 +769,205 @@ TEST_F(JsonApiEventLogTest, AnswerIsCompleteAfterEveryIoIsDeleted)
     EXPECT_JSON_EQ(Json(seededEventCount()), member(data, "total_count"));
     EXPECT_EQ(2u, member(data, "events").size())
             << "the answer was mutilated by the deletion of the IOs";
+}
+
+/*******************************************************************************
+ * LIFETIME - WHAT T3.17f ACTUALLY FIXES. ADDED WITH THE GUARD, NOT BEFORE.
+ *
+ * The round trip is real: the request goes into HistLogger's queue, a sqlite
+ * worker THREAD runs the query, and the answer comes back through a
+ * uvw::AsyncHandle owned by the loop. In between, the client can disconnect -
+ * and ~HttpClient() (HttpClient.cpp:162) deletes the handler, JsonApi base
+ * sub-object included. The late answer then calls `callback`, which is the
+ * handler's own lambda holding the handler's `this`, so sendJson() dereferences
+ * a freed object.
+ *
+ * These cases live in the SECOND commit of T3.17f, unlike everything above,
+ * because on an unguarded tree the two transport ones do not fail, they take the
+ * process down: SIGSEGV, exit 139 - the same thing a reviewer hit while
+ * mutating E4.0e, and the same split T3.17b, T3.17c and T3.17d had to make. A
+ * characterization commit has to be green.
+ *
+ * The cases come in two shapes, exactly as in T3.17c:
+ *   - four on a BARE JsonApi (ApiGoneBefore*), whose callback sets a flag. They
+ *     observe the guard directly - the answer must NOT fire - and they FAIL
+ *     rather than crash on an unguarded tree, which makes them a regression net
+ *     rather than an ASan-only net.
+ *   - four through a real WS session / HTTP request, which is where the
+ *     use-after-free actually lives. Three assert nothing beyond "it ran", ASan
+ *     being the oracle there; the fourth is the per-object control.
+ *
+ * THE FLAG IS A shared_ptr, NEVER A STACK LOCAL CAPTURED BY REFERENCE, and that
+ * is the same rule seedEventLog() states above for the same reason. The guard is
+ * precisely what these cases exist to test, so it cannot be assumed to hold: if
+ * it ever regressed AND the delivery slipped past the sentinel, a captured `&`
+ * would write through a dangling pointer into a dead stack frame - undefined
+ * behaviour instead of the clean red this net is supposed to produce. The
+ * callback keeps the flag alive by owning a share of it.
+ *
+ * NO -Wdeprecated WARNING POINTS AT EITHER CALLBACK, and that is the whole
+ * lesson of T3.17c restated: neither body odr-uses `this`, so `[=]` captures no
+ * `this` and the compiler is silent. The freed object travels inside the
+ * captured std::function. "No implicit this capture" is not "no use-after-free".
+ ******************************************************************************/
+
+TEST_F(JsonApiEventLogTest, ApiGoneBeforePaginatedAnswer)
+{
+    seedEventLog();
+
+    auto answered = std::make_shared<bool>(false);
+    {
+        JsonApi api;
+        api.buildJsonEventLog(bareRequest(Json{{ "page", "0" },
+                                               { "per_page", "2" }}),
+                              [answered](Json &) { *answered = true; });
+        //api dies here, exactly as when the client disconnects
+    }
+
+    drainPendingAnswers();
+    EXPECT_FALSE(*answered)
+            << "the pagination answer was handed to a destroyed JsonApi";
+}
+
+TEST_F(JsonApiEventLogTest, ApiGoneBeforeUuidAnswer)
+{
+    //The second callback, on the other branch. One guard per stage: a single
+    //check at the top of buildJsonEventLog() would pass this case and still
+    //leave both callbacks nude, since the object is alive when they are armed.
+    seedEventLog();
+    ASSERT_FALSE(seededUuids().empty());
+
+    auto answered = std::make_shared<bool>(false);
+    {
+        JsonApi api;
+        api.buildJsonEventLog(bareRequest(Json{{ "uuid", seededUuids()[1] }}),
+                              [answered](Json &) { *answered = true; });
+    }
+
+    drainPendingAnswers();
+    EXPECT_FALSE(*answered)
+            << "the uuid answer was handed to a destroyed JsonApi";
+}
+
+TEST_F(JsonApiEventLogTest, ApiGoneBeforeUuidErrorAnswer)
+{
+    //The error branch of the uuid callback runs BEFORE the nominal one and
+    //returns on its own, so a guard placed after the `if (!success)` block
+    //would leave the error path unprotected. An unknown uuid takes that path.
+    auto answered = std::make_shared<bool>(false);
+    {
+        JsonApi api;
+        api.buildJsonEventLog(bareRequest(Json{{ "uuid", "t317f-gone-uuid" }}),
+                              [answered](Json &) { *answered = true; });
+    }
+
+    drainPendingAnswers();
+    EXPECT_FALSE(*answered)
+            << "the \"uuid not found\" error was handed to a destroyed JsonApi";
+}
+
+TEST_F(JsonApiEventLogTest, ApiGoneBeforePageOutOfRangeAnswer)
+{
+    //Same argument on the pagination callback: its error branch also returns on
+    //its own, so it needs the guard to be the FIRST statement of the body.
+    seedEventLog();
+
+    auto answered = std::make_shared<bool>(false);
+    {
+        JsonApi api;
+        api.buildJsonEventLog(bareRequest(Json{{ "page", "9" },
+                                               { "per_page", "2" }}),
+                              [answered](Json &) { *answered = true; });
+    }
+
+    drainPendingAnswers();
+    EXPECT_FALSE(*answered)
+            << "the \"page is out of range\" error was handed to a destroyed "
+               "JsonApi";
+}
+
+/* The real thing on the websocket transport: a client that leaves while its
+ * answer is in flight. Without the guard this is the heap-use-after-free quoted
+ * in the commit message - and, without ASan, a plain SIGSEGV.
+ */
+TEST_F(JsonApiEventLogTest, WsClientGoneBeforePaginatedAnswerIsIgnored)
+{
+    seedEventLog();
+
+    {
+        WsTestSession ws;
+        ws.send(Json{{ "msg", "eventlog" }, { "msg_id", "t317f" },
+                     { "data", Json{{ "page", "0" }, { "per_page", "2" }} }});
+        ASSERT_FALSE(hasEventLogAnswer(ws))
+                << "the answer was synchronous, nothing is in flight";
+        //ws dies here, exactly as when the client disconnects
+    }
+
+    //The database answer arrives afterwards and must touch nothing.
+    drainPendingAnswers();
+}
+
+TEST_F(JsonApiEventLogTest, WsClientGoneBeforeUuidAnswerIsIgnored)
+{
+    seedEventLog();
+
+    {
+        WsTestSession ws;
+        ws.send(Json{{ "msg", "eventlog" }, { "msg_id", "t317f" },
+                     { "data", Json{{ "uuid", seededUuids()[3] }} }});
+        ASSERT_FALSE(hasEventLogAnswer(ws));
+    }
+
+    drainPendingAnswers();
+}
+
+/* The HTTP twin, JsonApiHandlerHttp.cpp:877. Not edited by this ticket, and
+ * that is the point: it is covered by the very same guard, because both
+ * handlers are one object with one destruction. This case is what makes the
+ * claim measurable instead of asserted.
+ *
+ * ~HttpTestRequest() destroys the handler and THEN pumps the loop twice
+ * (harness trap 1), so on an unguarded tree the use-after-free happens inside
+ * the destructor itself.
+ */
+TEST_F(JsonApiEventLogTest, HttpClientGoneBeforeAnswerIsIgnored)
+{
+    seedEventLog();
+
+    {
+        HttpTestRequest req;
+        req.send(authenticated(Json{{ "action", "eventlog" },
+                                    { "page", "0" }, { "per_page", "2" }}));
+        ASSERT_EQ(0u, req.count())
+                << "the answer was synchronous, nothing is in flight";
+    }
+
+    drainPendingAnswers();
+}
+
+/* The guard is per object, not global: one client leaving must not swallow
+ * another client's answer. Without this control, a guard on a shared or static
+ * token would pass every case above and silence the whole server.
+ */
+TEST_F(JsonApiEventLogTest, ASecondClientLeavingDoesNotSwallowTheFirstAnswer)
+{
+    seedEventLog();
+
+    WsTestSession survivor;
+    survivor.send(Json{{ "msg", "eventlog" }, { "msg_id", "t317f" },
+                       { "data", Json{{ "page", "0" }, { "per_page", "2" }} }});
+
+    {
+        WsTestSession leaving;
+        leaving.send(Json{{ "msg", "eventlog" }, { "msg_id", "t317f" },
+                          { "data", Json{{ "page", "0" }, { "per_page", "2" }} }});
+    }
+
+    ASSERT_TRUE(waitUntil([&survivor]() { return hasEventLogAnswer(survivor); }))
+            << "the surviving client never got its answer";
+
+    const Json data = wsEventLogAnswer(survivor);
+    ASSERT_TRUE(data.is_object());
+    EXPECT_JSON_EQ(Json(seededEventCount()), member(data, "total_count"));
+    EXPECT_EQ(2u, member(data, "events").size());
 }

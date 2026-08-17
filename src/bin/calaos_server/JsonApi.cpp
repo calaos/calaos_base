@@ -2106,12 +2106,40 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     Utils::from_string(jParam["page"], page);
     Utils::from_string(jParam["per_page"], perPage);
 
+    /* T3.17f. Both callbacks below are armed here and run MUCH later: HistLogger
+     * queues the query for its sqlite worker thread and wakes the loop back up
+     * through a uvw::AsyncHandle it owns (HistLogger.cpp:128-161). The client
+     * can disconnect in that window, and ~HttpClient() (HttpClient.cpp:162)
+     * then deletes the handler, this JsonApi sub-object included.
+     *
+     * Neither body odr-uses `this`, so `[=]` captures no `this` and the
+     * -Wdeprecated warning the T3.17 series long used as its danger detector is
+     * SILENT here. That criterion is retired (T3.17.md, "Correction du critere
+     * de diagnostic de la serie"): the freed object travels inside `callback`,
+     * a std::function captured by value which IS the handler's own lambda and
+     * holds the handler's `this` - JsonApiHandlerWS::processEventLog() and
+     * JsonApiHandlerHttp::processEventLog(). One guard here therefore covers
+     * both transports, and neither handler needs editing: they are one object
+     * with one owner and one destruction.
+     *
+     * One check per stage, first statement of each body, and nothing is emitted
+     * when it fires: the client is already gone, so there is no one left to
+     * answer and touching any member would be the use-after-free itself.
+     * Nothing to free either - this is the only method of the file that builds
+     * its answer with nlohmann rather than raw json_t*, and it is built after
+     * this point, so a bare return leaks nothing (T3.17a needed json_decref,
+     * T3.17b/c did not).
+     */
+    std::weak_ptr<bool> alive = apiAlive;
+
     if (jParam["uuid"] != "")
     {
         //Only load 1 event
         HistLogger::Instance().getEvent(jParam["uuid"],
                 [=](bool success, string errorMsg, const HistEvent &event)
         {
+            if (alive.expired()) return;
+
             if (!success)
             {
                 Json err = {{ "error", errorMsg }};
@@ -2129,6 +2157,8 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     HistLogger::Instance().getEvents(page, perPage,
             [=](bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)
     {
+        if (alive.expired()) return;
+
         Json jevents = Json::array();
 
         if (!success)

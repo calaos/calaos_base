@@ -213,13 +213,32 @@ protected:
      * is gone (client disconnected while a player answer was in flight). It
      * covers every transport, since both handlers derive from JsonApi and die
      * with it. Same pattern as JsonApiHandlerHttp::handlerAlive.
-     * Guarded so far: buildJsonState() (T2.15), the recursive playlist chain
-     * decodeGetPlaylist()/getNextPlaylistItem() (T3.17a) and the five
-     * single-shot player-state methods audioGetDbStats()/audioGetPlaylistSize()
-     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b) and
-     * the 15 audioDbGet* music-database methods (T3.17c). Every async callback
-     * of this file is guarded now; the remaining T3.17 work is the WS transport
-     * audit (T3.17e).
+     * Guarded: buildJsonState() (T2.15), the recursive playlist chain
+     * decodeGetPlaylist()/getNextPlaylistItem() (T3.17a), the five single-shot
+     * player-state methods audioGetDbStats()/audioGetPlaylistSize()
+     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b), the
+     * 15 audioDbGet* music-database methods (T3.17c) and buildJsonEventLog()
+     * (T3.17f), whose two callbacks wait on HistLogger's sqlite worker thread.
+     * That last one is also the warning to keep: it odr-uses no `this` at all,
+     * so it raises no -Wdeprecated implicit-capture warning and every earlier
+     * inventory of this file walked past it. What it carries is the
+     * std::function of the handler, captured by value. The danger is any freed
+     * object REACHABLE from the closure, not just a captured `this`.
+     * Every async callback of this file is guarded now, and T3.17e measured
+     * that the WS transport needs no token of its own on top of this one.
+     *
+     * SCOPE OF THIS MEMBER, MEASURED - do not confuse it with its sibling.
+     * `apiAlive` is read from JsonApi.cpp and NOWHERE ELSE in the tree: the
+     * whole of src/ mentions it in exactly two files, this header (the
+     * declaration) and JsonApi.cpp (24 guards, one per asynchronous callback of
+     * the 26 std::function methods declared above, the two synchronous ones -
+     * buildJsonStates() and buildQuery() - needing none). The five guarded
+     * callbacks that live in JsonApiHandlerHttp.cpp (:462, :727, :936, :1057,
+     * :1075 - get_cover twice, the camera snapshots, the singleShot re-arm) use
+     * the handler's OWN token, JsonApiHandlerHttp::handlerAlive
+     * (JsonApiHandlerHttp.h:64), never this one; RemoteUIWebSocketHandler has a
+     * third, again its own. Two class levels, two tokens, and a callback must
+     * take the one belonging to the object whose members it will touch.
      */
     std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
 
