@@ -1082,14 +1082,21 @@ TEST_F(JsonApiSessionTest, FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDiv
      *     into the destination. The 100 becomes 0.
      *
      * HistLogger.cpp:268 then computes `rowcount / ac->per_page` in the sqlite
-     * worker thread. per_page:"0" and per_page:"abc" are therefore an
-     * INTEGER DIVISION BY ZERO - a SIGFPE that takes the whole server down,
+     * worker thread. per_page:"0" and per_page:"abc" WERE therefore an
+     * INTEGER DIVISION BY ZERO - a SIGFPE that took the whole server down,
      * reachable by any authenticated client, over both transports.
      *
      * The crash itself is NOT exercised: it would take this binary down with
      * it. The mechanism is pinned here instead so the trace exists in the
      * suite, and every eventlog case below sends an explicit, non zero,
      * numeric per_page.
+     *
+     * T3.19 GUARDED THE CONSUMER, NOT from_string(). buildJsonEventLog() now
+     * refuses a per_page <= 0 before HistLogger is called at all, so the value
+     * never reaches the divisor. THIS CASE IS UNCHANGED AND MUST STAY GREEN:
+     * from_string() still writes 0 on failure, which is precisely why that
+     * guard has to exist. If it ever stops doing so, the guard's reason to
+     * exist has changed and both this case and T3.19's must be re-read.
      */
     //An ABSENT or EMPTY per_page is harmless: the stream sentry fails before
     //num_get is ever called, so the destination keeps its 100.

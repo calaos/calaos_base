@@ -1902,4 +1902,9 @@ core_JsonApiInputGuards_test_LDADD = \
                   $(CORE_TEST_LDADD)
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiInputGuards_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t319_ws_audio_db_no_database.json \
+                  core/golden/t319_http_audio_db_no_database.json \
+                  core/golden/t319_ws_eventlog_per_page_out_of_range.json \
+                  core/golden/t319_http_eventlog_per_page_out_of_range.json
 endif

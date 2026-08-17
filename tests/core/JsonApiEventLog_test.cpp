@@ -83,16 +83,20 @@
  * guarded branch leaks nothing. Measured with detect_leaks=1.
  *
  * ---------------------------------------------------------------------------
- * FROZEN BUG - NOT EXERCISED HERE ON PURPOSE
+ * FROZEN BUG - NOT EXERCISED HERE ON PURPOSE (FIXED SINCE, BY T3.19)
  * ---------------------------------------------------------------------------
  * eventlog with per_page="0", or with ANY non empty non numeric per_page,
- * DIVIDES BY ZERO in the sqlite worker thread (HistLogger.cpp:268,
+ * DIVIDED BY ZERO in the sqlite worker thread (HistLogger.cpp:268,
  * `rowcount / ac->per_page`). Utils::from_string() writes 0 into its destination
- * on a failed non empty extraction, which overwrites the perPage=100 default of
+ * on a failed non empty extraction, which overwrote the perPage=100 default of
  * JsonApi.cpp on the very next line. An ABSENT or EMPTY per_page is harmless.
- * Found and documented by E4.0e; the SIGFPE would take this whole binary down,
- * so every case below sends an explicit, non zero, numeric per_page. Do not
- * "improve" that away.
+ * Found and documented by E4.0e; the SIGFPE would have taken this whole binary
+ * down, so every case below sends an explicit, non zero, numeric per_page.
+ * T3.19 now refuses per_page <= 0 in buildJsonEventLog() before HistLogger is
+ * called; the cases of that guard live in core/JsonApiInputGuards_test. Every
+ * case below is unchanged and still sends a valid per_page - do not "improve"
+ * that away, it is what keeps this file a characterization of the paginated
+ * path rather than of the refusal.
  *
  * ---------------------------------------------------------------------------
  * TWO COMMITS

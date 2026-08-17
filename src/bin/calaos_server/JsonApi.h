@@ -168,6 +168,13 @@ public:
     void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
 
     AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
+    /* T3.19. Answers the refusal and returns true when the player owns no music
+     * database. Called by the sixteen audio_db methods IMMEDIATELY BEFORE their
+     * get_database() dereference, never at the top of the method - see the
+     * comment on the definition in JsonApi.cpp.
+     */
+    bool audioDbUnavailable(AudioPlayer *player,
+                            const std::function<void(json_t *)> &result_lambda);
     void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
     void audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda);

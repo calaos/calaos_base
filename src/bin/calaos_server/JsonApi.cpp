@@ -936,6 +936,54 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
     return player;
 }
 
+/* T3.19. AudioPlayer::database is a RAW POINTER the base constructor leaves
+ * NULL (AudioPlayer.cpp:28), get_database() (AudioPlayer.h:105) hands it back
+ * unguarded, and Squeezebox.cpp:81 is the ONLY assignment in the entire tree.
+ * The sixteen audio_db actions - audioGetDbStats() and the fifteen
+ * audioDbGet* - all dereferenced it with no check, so `audio_db` on any other
+ * concrete player (RoonPlayer, for one) was a SIGSEGV of calaos_server
+ * reachable by any AUTHENTICATED client. Not a malformed request: an UI that
+ * offers music browsing without reading the published capability first took the
+ * whole server down.
+ *
+ * THE TEST IS THE POINTER, NOT canDatabase(). The capability is a per class
+ * constant (AudioPlayer.h:101 false, Squeezebox.h:204 true, RoonPlayer.h:177
+ * false) whose only reader in the tree is buildJsonAudio() (:406), where it is
+ * merely PUBLISHED; the precondition of the dereference is
+ * `database != nullptr`, and the two are only accidentally equal today. Pinned
+ * from both sides in JsonApiInputGuards_test.cpp by a player that announces a
+ * database it does not own and one that owns a database it does not announce.
+ *
+ * NO HANDLER IS EDITED. Filtering on canDatabase() in the transports was
+ * considered and measured: 32 dispatch branches across JsonApiHandlerHttp.cpp
+ * and JsonApiHandlerWS.cpp, a duplicated getAudioPlayer() in both, and a new
+ * ordering invented between three refusals E4.0e froze - to cover the same 16
+ * call sites this one check covers on both transports.
+ *
+ * THE ANSWER REUSES THE EXISTING VOCABULARY (rule of the T3.17 series): these
+ * very methods already answer {"error": <message>} for an unknown player id and
+ * for bad paging arguments, and both transports already wrap such a document
+ * for an unknown audio_action (JsonApiHandlerWS.cpp:461,
+ * JsonApiHandlerHttp.cpp:862). NOT an empty item list, which would be
+ * indistinguishable from a database that really holds nothing - a mutilated
+ * answer is worse than a plain refusal.
+ *
+ * CALL IT IMMEDIATELY BEFORE THE DEREFERENCE, never at the top of the method.
+ * The from/count gate refuses first today and must keep refusing first, so that
+ * the only requests whose answer changes are the ones that used to kill the
+ * process.
+ */
+bool JsonApi::audioDbUnavailable(AudioPlayer *player,
+                                 const std::function<void(json_t *)> &result_lambda)
+{
+    if (player->get_database())
+        return false;
+
+    Params p = {{"error", "no music database" }};
+    result_lambda(p.toJson());
+    return true;
+}
+
 void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
 {
     string err;
@@ -961,6 +1009,9 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
      * - the json objects of these methods are all built after it, from the
      * answer the player just gave.
      */
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getStats([=](AudioPlayerData adata)
@@ -1160,6 +1211,9 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
      * check, so the guarded branch has nothing to release - processDbResult()
      * builds its json AFTER it, from the answer the database just gave.
      */
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getAlbums([=](AudioPlayerData data)
@@ -1196,6 +1250,9 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -1234,6 +1291,9 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getYearsAlbums([=](AudioPlayerData data)
@@ -1270,6 +1330,9 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -1308,6 +1371,9 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getAlbumsTitles([=](AudioPlayerData data)
@@ -1345,6 +1411,9 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getPlaylistsTracks([=](AudioPlayerData data)
@@ -1380,6 +1449,9 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -1417,6 +1489,9 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getYears([=](AudioPlayerData data)
@@ -1453,6 +1528,9 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getGenres([=](AudioPlayerData data)
@@ -1488,6 +1566,9 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -1526,6 +1607,9 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getMusicFolder([=](AudioPlayerData data)
@@ -1563,6 +1647,9 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getSearch([=](AudioPlayerData data)
@@ -1598,6 +1685,9 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -1639,6 +1729,9 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     string item_id = jansson_string_get(jdata, "item_id");
     string search = jansson_string_get(jdata, "search");
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
     std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getRadiosItems([=](AudioPlayerData data)
@@ -1662,6 +1755,9 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     }
 
     string trackid = jansson_string_get(jdata, "track_id");
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
 
     std::weak_ptr<bool> alive = apiAlive;
 
@@ -2151,6 +2247,45 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
             callback(j);
         });
 
+        return;
+    }
+
+    /* T3.19. `perPage` comes out of Utils::from_string() (StringUtils.h:104-111)
+     * whose return code is ignored, and since C++11 a FAILED extraction WRITES
+     * ZERO into its destination: "abc", "true", "1,5" - and "0" itself - all
+     * reached HistLogger as zero. HistLogger::getEvents() does not clamp either,
+     * and HistLogger.cpp:268 then computes `rowcount / ac->per_page` INSIDE the
+     * sqlite worker thread: integer division by zero, SIGFPE, process dead. The
+     * try of :257 catches nothing, a signal is not an exception. Reachable by
+     * any AUTHENTICATED client on both transports with per_page=0.
+     * COUNTER-INTUITIVE, and why it went unseen: a HUGE per_page saturates to
+     * INT_MAX and is harmless; an ABSURD one is fatal.
+     *
+     * A NEGATIVE per_page is refused by the same test rather than left to
+     * HistLogger's page check: sqlite reads a negative LIMIT as "no limit", so
+     * on an empty table the query would return EVERY row while the document
+     * claimed per_page:-5 - a payload lying about itself.
+     *
+     * THE TEST IS ON THE VALUE, NOT ON from_string()'s RETURN CODE, on purpose.
+     * Every per_page that gets an answer today keeps exactly that answer (an
+     * empty or absent one keeps the default 100, a partial parse like "1,5"
+     * keeps its 1), and the premise E4.0e pinned in
+     * FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDivideByZero stays true
+     * word for word - from_string() still writes 0 on failure, and that is
+     * still exactly why this guard has to exist.
+     *
+     * AFTER the uuid branch above, never before it: that branch returns without
+     * ever calling getEvents(), so per_page is meaningless there and refusing it
+     * would take away an answer that works today.
+     *
+     * The document is the {"error": <message>} shape this method's two callbacks
+     * already produce, and the message is worded after HistLogger's own "page is
+     * out of range" (:276) - no new error shape, per the T3.17 rule.
+     */
+    if (perPage <= 0)
+    {
+        Json err = {{ "error", "per_page is out of range" }};
+        callback(err);
         return;
     }
 

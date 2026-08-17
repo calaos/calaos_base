@@ -157,10 +157,13 @@ public:
 
 /* AudioPlayer::database is a RAW POINTER LEFT NULL BY THE BASE CONSTRUCTOR
  * (AudioPlayer.h:35), and no transport filters the sixteen audio_db actions on
- * canDatabase(): a real player without a database dereferences null and takes
- * the server down. That is a production bug, ticketed elsewhere and NOT fixed
- * here - it is quoted because it is the reason this fixture must install a
- * concrete database explicitly instead of relying on any default.
+ * canDatabase(): a real player without a database dereferenced null and took
+ * the server down. That is a production bug, ticketed as T3.19 and FIXED THERE
+ * (the sixteen audio_db methods now answer {"error":"no music database"}); it
+ * is quoted because it is the reason this fixture must install a concrete
+ * database explicitly instead of relying on any default. Nothing here changes:
+ * every case of this file gives its player a real AudioDB, so not one of them
+ * ever reaches the new guard.
  */
 class FakeAudioPlayer: public AudioPlayer
 {

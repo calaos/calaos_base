@@ -99,18 +99,32 @@
  * unguarded tree they do not fail, they take the binary down, so they arrive
  * with the fix. This is the derogation T3.17b/c/d/f already used.
  *
- * BUG 2 IS PROVEN BY THE CLAMP, NOT BY THE SIGNAL, and deliberately so. A
- * SIGFPE raised in HistLogger's sqlite WORKER THREAD cannot be caught by
- * EXPECT_EXIT: the fixture that owns a live worker thread also owns the
- * singleton, the thread is shared with every other case of the process, and
- * gtest's death tests fork a process whose sqlite handle and uvw loop are
- * duplicated in an undefined state. So the proof is the OBSERVABLE CONSEQUENCE
- * of the clamp: an invalid per_page is answered SYNCHRONOUSLY, inside send(),
- * before any loop turn. A HistLogger answer is impossible synchronously - it
- * needs a queue push, a worker wake-up, an AsyncHandle and a pump, and
- * ALiveClientStillGetsItsAnswerAfterTheRoundTrip (T3.17f) pins that asymmetry
- * from the other side. A synchronous answer therefore PROVES the request never
- * reached the worker, which is the whole claim.
+ * BUG 2 IS PROVEN BY THE CLAMP, NOT BY THE SIGNAL, in the permanent suite, and
+ * deliberately so. A SIGFPE raised in HistLogger's sqlite WORKER THREAD cannot
+ * be caught by EXPECT_EXIT: the fixture that owns a live worker thread also
+ * owns the singleton, the thread is shared with every other case of the
+ * process, and gtest's death tests fork a process whose sqlite handle and uvw
+ * loop are duplicated in an undefined state. So the standing proof is the
+ * OBSERVABLE CONSEQUENCE of the clamp: an invalid per_page is answered
+ * SYNCHRONOUSLY, inside send(), before any loop turn. A HistLogger answer is
+ * impossible synchronously - it needs a queue push, a worker wake-up, an
+ * AsyncHandle and a pump, and AValidPerPageGoesAllTheWayToTheWorker,
+ * APageOutOfRangeIsStillHistLoggersOwnRefusal and
+ * HttpAValidPerPageIsAnsweredThroughTheWorkerToo assert that nothing has
+ * arrived before the first pump. A synchronous answer therefore PROVES the
+ * request never reached the worker, which is the whole claim.
+ *
+ * THE SIGNAL ITSELF WAS OBSERVED, ONCE, AS A COUNTER-MUTATION AND NOT AS A
+ * CASE. Weakening the guard by one character - `perPage <= 0` to `perPage < 0`,
+ * which lets exactly per_page:"0" and the from_string() zeroes back through -
+ * makes this binary die with "Floating point exception (core dumped)", exit
+ * 136, on PerPageZeroIsRefusedWithoutEverReachingTheWorker. That measurement is
+ * the reason the boundary is `<=` and the reason
+ * PerPageOneIsTheSmallestValueTheGuardMustLetThrough guards the other side of
+ * it. It stays a mutation because as a case it would end the run: every test
+ * after it would simply never execute. The same experiment on bug 1 - removing
+ * the guard from ONE of the sixteen call sites, audioDbGetYears - gives exit
+ * 139, SIGSEGV.
  *
  * THE PREMISE OF BUG 2 IS UNTOUCHED. The fix reads the parsed VALUE, not
  * from_string()'s return code, so
@@ -520,6 +534,100 @@ TEST_F(JsonApiAudioDbGuardTest, GetHomePublishesACapabilityThatSaysNothingAboutT
 }
 
 /*******************************************************************************
+ * THE CRASH ITSELF, ON ALL SIXTEEN ACTIONS AND BOTH TRANSPORTS
+ *
+ * THESE THIRTY-FOUR CASES CANNOT LIVE IN THE FIRST COMMIT. On the unguarded
+ * tree they do not fail, they SIGSEGV inside processApi() and take the binary
+ * with them, and a characterization commit has to be green - so they arrive
+ * with the fix, exactly as T3.17b/c/d/f had to do. Measured before the fix:
+ * `player->get_database()->getXxx(...)` on HOUSE_PLAYER is a null dereference.
+ *
+ * The player is not a fake here. It is HOUSE_PLAYER, the reference house's own
+ * RoonPlayer, built by the production XML loader from a `<calaos:audio
+ * type="Roon">` node - the configuration any Calaos installation without a
+ * Squeezebox has. Squeezebox.cpp:81 is the only line of the tree that ever
+ * assigns `database`.
+ *
+ * Thirty-two of the cases share two goldens, because the answer of the sixteen
+ * actions IS the same document on a given transport; what differs between them
+ * is the CALL SITE, and there are sixteen of those per transport. A guard
+ * forgotten at one site does not make a case fail, it makes the binary die at
+ * that case.
+ ******************************************************************************/
+
+#define DB_NO_DATABASE_CASES(Name, wsAction, httpAction)                        \
+                                                                               \
+TEST_F(JsonApiAudioDbGuardTest, Ws##Name##IsRefusedInsteadOfCrashing)           \
+{                                                                              \
+    WsTestSession ws;                                                          \
+    ws.send(wsRequest(wsAction, HOUSE_PLAYER));                                \
+                                                                               \
+    ASSERT_EQ(1u, ws.count());                                                 \
+    EXPECT_EQ("audio_db", str(ws.lastEnvelope(), "msg"));                      \
+    EXPECT_EQ("t319", str(ws.lastEnvelope(), "msg_id"));                       \
+    EXPECT_EQ("no music database", str(ws.lastData(), "error"));               \
+    EXPECT_JSON_GOLDEN("t319_ws_audio_db_no_database", ws.lastMessage());      \
+}                                                                              \
+                                                                               \
+TEST_F(JsonApiAudioDbGuardTest, Http##Name##IsRefusedInsteadOfCrashing)        \
+{                                                                              \
+    HttpTestRequest req;                                                       \
+    req.send(httpRequest(httpAction, HOUSE_PLAYER));                           \
+                                                                               \
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());                            \
+    EXPECT_EQ("no music database", str(req.bodyJson(), "error"));              \
+    EXPECT_JSON_GOLDEN("t319_http_audio_db_no_database", req.body());          \
+}
+
+//The WS and HTTP spellings differ on the first one only - the frozen divergence
+//of the harness header ("get_albums" over HTTP, "get_album" over WS).
+DB_NO_DATABASE_CASES(GetStats,          "get_stats",           "get_stats")
+DB_NO_DATABASE_CASES(GetAlbums,         "get_album",           "get_albums")
+DB_NO_DATABASE_CASES(GetArtistAlbum,    "get_artist_album",    "get_artist_album")
+DB_NO_DATABASE_CASES(GetYearAlbums,     "get_year_albums",     "get_year_albums")
+DB_NO_DATABASE_CASES(GetGenreArtists,   "get_genre_artists",   "get_genre_artists")
+DB_NO_DATABASE_CASES(GetAlbumTitles,    "get_album_titles",    "get_album_titles")
+DB_NO_DATABASE_CASES(GetPlaylistTitles, "get_playlist_titles", "get_playlist_titles")
+DB_NO_DATABASE_CASES(GetArtists,        "get_artists",         "get_artists")
+DB_NO_DATABASE_CASES(GetYears,          "get_years",           "get_years")
+DB_NO_DATABASE_CASES(GetGenres,         "get_genres",          "get_genres")
+DB_NO_DATABASE_CASES(GetPlaylists,      "get_playlists",       "get_playlists")
+DB_NO_DATABASE_CASES(GetMusicFolder,    "get_music_folder",    "get_music_folder")
+DB_NO_DATABASE_CASES(GetSearch,         "get_search",          "get_search")
+DB_NO_DATABASE_CASES(GetRadios,         "get_radios",          "get_radios")
+DB_NO_DATABASE_CASES(GetRadioItems,     "get_radio_items",     "get_radio_items")
+DB_NO_DATABASE_CASES(GetTrackInfos,     "get_track_infos",     "get_track_infos")
+
+TEST_F(JsonApiAudioDbGuardTest, CapabilityTrueButDatabaseNullIsStillRefused)
+{
+    /* THE OTHER HALF OF THE ARBITRATION. This player ANNOUNCES a database and
+     * owns none - the exact shape a canDatabase() filter, in the handlers or
+     * here, would wave straight through to the null dereference. There is no
+     * such class in the tree today; the guard must not depend on that staying
+     * true, and this case is why it is written on the pointer.
+     */
+    addPlayer<CapableButEmptyPlayer>(CAPABLE_EMPTY_ID, "Capable");
+
+    WsTestSession ws;
+    ws.send(wsRequest("get_artists", CAPABLE_EMPTY_ID));
+
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ("no music database", str(ws.lastData(), "error"));
+    EXPECT_EQ(1u, ws.lastData().size());
+}
+
+TEST_F(JsonApiAudioDbGuardTest, HttpCapabilityTrueButDatabaseNullIsStillRefused)
+{
+    addPlayer<CapableButEmptyPlayer>(CAPABLE_EMPTY_ID, "Capable");
+
+    HttpTestRequest req;
+    req.send(httpRequest("get_stats", CAPABLE_EMPTY_ID));
+
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("no music database", str(req.bodyJson(), "error"));
+}
+
+/*******************************************************************************
  * PART TWO - eventlog and its per_page
  ******************************************************************************/
 
@@ -897,4 +1005,110 @@ TEST_F(JsonApiEventLogGuardTest, HttpAValidPerPageIsAnsweredThroughTheWorkerToo)
     EXPECT_JSON_EQ(Json(0), member(body, "page"));
     EXPECT_JSON_EQ(Json(2), member(body, "per_page"));
     EXPECT_EQ(2u, member(body, "events").size());
+}
+
+/*******************************************************************************
+ * THE per_page VALUES THAT USED TO KILL THE PROCESS
+ *
+ * THESE FOUR CASES CANNOT LIVE IN THE FIRST COMMIT EITHER, and for a worse
+ * reason than the audio_db ones: the SIGFPE is raised in HistLogger's sqlite
+ * WORKER THREAD, so on the unguarded tree the binary dies with no failure
+ * report at all and every later case simply never runs.
+ *
+ * WHAT IS PROVEN HERE, HONESTLY: not the signal, the CLAMP. The signal is not
+ * exercisable in this fixture and pretending otherwise would be the dishonest
+ * option. EXPECT_EXIT was considered and rejected as unreliable here: the
+ * fixture owns a LIVE sqlite worker thread and a uvw loop shared with every
+ * other case of the process, and gtest's death tests fork a child that
+ * inherits both in an undefined state - a flaky proof is not a proof.
+ *
+ * What IS proven is the observable consequence: THE ANSWER IS SYNCHRONOUS. It
+ * is there before a single loop turn, which a HistLogger answer can never be -
+ * that route needs a queue push, a worker wake-up, a uvw AsyncHandle and a
+ * pump, and AValidPerPageGoesAllTheWayToTheWorker,
+ * APageOutOfRangeIsStillHistLoggersOwnRefusal and
+ * HttpAValidPerPageIsAnsweredThroughTheWorkerToo (first commit, green on the
+ * unguarded tree) each assert that nothing has arrived before the first pump.
+ * A synchronous answer therefore proves the request never reached the worker,
+ * which is the entire claim: the value that used to divide by zero no longer
+ * gets there.
+ ******************************************************************************/
+
+TEST_F(JsonApiEventLogGuardTest, PerPageZeroIsRefusedWithoutEverReachingTheWorker)
+{
+    //`per_page:"0"` parses cleanly to 0 and used to reach HistLogger.cpp:268
+    //as the divisor. The answer now comes back inside send().
+    seedEventLog();
+
+    WsTestSession ws;
+    sendEventLog(ws, Json{{ "page", "0" }, { "per_page", "0" }});
+
+    ASSERT_TRUE(hasEventLogAnswer(ws))
+            << "no synchronous answer: the request went to the sqlite worker, "
+               "which is exactly the path that divides by zero";
+
+    const Json data = wsEventLogAnswer(ws);
+    EXPECT_EQ("per_page is out of range", str(data, "error"));
+    EXPECT_EQ(1u, data.size()) << "the error replaces the whole document";
+    EXPECT_JSON_GOLDEN("t319_ws_eventlog_per_page_out_of_range", data);
+
+    //And nothing arrives later either - one answer, not two.
+    pumpEventLoop(8);
+    EXPECT_EQ(1u, ws.count());
+}
+
+TEST_F(JsonApiEventLogGuardTest, ANonNumericPerPageIsRefusedWithoutEverReachingTheWorker)
+{
+    /* THE SUBTLE ONE. "abc" is not zero, but a failed extraction WRITES zero
+     * (C++11 num_get, pinned by E4.0e), so it arrived at HistLogger as the same
+     * divisor. This case and the previous one must therefore give the SAME
+     * answer, and they are the pair that shows the guard reads the value rather
+     * than the text.
+     */
+    seedEventLog();
+
+    WsTestSession ws;
+    sendEventLog(ws, Json{{ "page", "0" }, { "per_page", "abc" }});
+
+    ASSERT_TRUE(hasEventLogAnswer(ws)) << "no synchronous answer";
+    EXPECT_JSON_GOLDEN("t319_ws_eventlog_per_page_out_of_range",
+                       wsEventLogAnswer(ws));
+}
+
+TEST_F(JsonApiEventLogGuardTest, ANegativePerPageIsRefusedByTheSameGuard)
+{
+    /* DELIBERATE BEHAVIOUR CHANGE, and the only one of this ticket that is not
+     * a crash. MEASURED BEFORE THE FIX: per_page:"-5" did not kill anything, it
+     * reached the worker, made total_page negative and came back with
+     * HistLogger's "page is out of range" - an error naming the wrong
+     * parameter. It is refused here instead, synchronously and by name, because
+     * sqlite reads a negative LIMIT as "no limit": on a table small enough for
+     * the page check to pass, the old path would have returned EVERY row under
+     * a document claiming per_page:-5.
+     */
+    seedEventLog();
+
+    WsTestSession ws;
+    sendEventLog(ws, Json{{ "page", "0" }, { "per_page", "-5" }});
+
+    ASSERT_TRUE(hasEventLogAnswer(ws))
+            << "a negative per_page still went to the worker";
+    EXPECT_EQ("per_page is out of range", str(wsEventLogAnswer(ws), "error"));
+}
+
+TEST_F(JsonApiEventLogGuardTest, HttpPerPageZeroIsRefusedWithoutEverReachingTheWorker)
+{
+    //The guard is in JsonApi.cpp and nowhere else; HTTP reaches the same
+    //buildJsonEventLog(), and its answer is synchronous for the same reason.
+    seedEventLog();
+
+    HttpTestRequest req;
+    req.send(authenticated(Json{{ "action", "eventlog" },
+                                { "page", "0" }, { "per_page", "0" }}));
+
+    ASSERT_EQ(1u, req.count())
+            << "no synchronous answer over HTTP: the request reached the worker";
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("per_page is out of range", str(req.bodyJson(), "error"));
+    EXPECT_JSON_GOLDEN("t319_http_eventlog_per_page_out_of_range", req.body());
 }
