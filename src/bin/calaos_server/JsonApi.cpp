@@ -2263,8 +2263,12 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
      *
      * A NEGATIVE per_page is refused by the same test rather than left to
      * HistLogger's page check: sqlite reads a negative LIMIT as "no limit", so
-     * on an empty table the query would return EVERY row while the document
-     * claimed per_page:-5 - a payload lying about itself.
+     * on a table small enough for the page check to pass the query would return
+     * EVERY row while the document claimed per_page:-5 - a payload lying about
+     * itself. That window is WIDER than it looks: with per_page:-5 the integer
+     * arithmetic of HistLogger.cpp:268-273 lets the page check pass for every
+     * rowcount up to 9 EXCEPT 5 - the single refusal sat in the middle of the
+     * window, and it named the wrong parameter ("page is out of range").
      *
      * THE TEST IS ON THE VALUE, NOT ON from_string()'s RETURN CODE, on purpose.
      * Every per_page that gets an answer today keeps exactly that answer (an
@@ -2281,6 +2285,23 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
      * The document is the {"error": <message>} shape this method's two callbacks
      * already produce, and the message is worded after HistLogger's own "page is
      * out of range" (:276) - no new error shape, per the T3.17 rule.
+     *
+     * NO `page` GUARD IS ADDED HERE, AND THAT IS DELIBERATE, NOT AN OVERSIGHT.
+     * The ticket asked to clamp per_page "and check page"; page needs no check
+     * because HistLogger already owns one that cannot be bypassed.
+     * HistLogger.cpp:270-277 refuses `page < 0` and `page > total_page` BEFORE
+     * `start` (:269, `page * per_page`) is ever used in a query, so the only
+     * page values that reach the LIMIT clause are already in range and
+     * `start` cannot overflow. Duplicating that check here would add a second
+     * owner for one refusal and invent an ordering between the two.
+     * The resulting behaviour is pinned from the outside, so it cannot drift
+     * silently: ANonNumericPageIsStillReadAsPageZero (a failed from_string()
+     * writes 0, which is also the default, so a garbage page is
+     * indistinguishable from page 0) and
+     * APageOutOfRangeIsStillHistLoggersOwnRefusal (the refusal stays
+     * HistLogger's, asynchronous, worded by HistLogger). DO NOT add a page
+     * check here "just in case", and do not remove HistLogger's - it is the
+     * one doing the work.
      */
     if (perPage <= 0)
     {
