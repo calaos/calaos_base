@@ -377,6 +377,20 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   délivrés avec les octets invalides remplacés par `?`.
 - **MQTT RGB** : l'état suit désormais le retour du broker (le retour était auparavant ignoré).
   Nécessite que le broker publie sur `topic_sub`.
+- **KNX — une valeur ordinaire du bus aurait pu arrêter le driver, et ne le peut pas** : **rien ne
+  change sur une installation existante, et il n'y a rien à faire.** Le driver KNX a changé de
+  bibliothèque JSON en interne ; la mention est ici parce que ce changement, laissé à ses réglages
+  par défaut, aurait suffi à arrêter le driver sur du matériel domestique ordinaire. Certaines
+  valeurs venues du bus contiennent des octets qui ne forment pas du texte valide : toute valeur
+  8 bits au-dessus de 127 — l'échelle des gradateurs va de 0 à 255, un gradateur réglé à 78 % vaut
+  donc 200 — ou un texte envoyé en latin-1 par un équipement. L'ancienne bibliothèque jetait ces
+  octets en silence ; la nouvelle **refuse d'écrire le message**, et ni le serveur ni le process
+  KNX ne rattrapaient ce refus. Ils sont désormais remplacés par le caractère de remplacement
+  Unicode (`�`) et le message part normalement.
+  ⚠️ **L'octet d'origine n'est préservé ni avant ni après.** Mais le champ concerné n'est lu par
+  aucun équipement piloté par Calaos : aucune valeur affichée ou commandée n'en dépend, ni hier ni
+  aujourd'hui. C'est donc une **régression évitée**, pas la correction d'un défaut que vous auriez
+  pu observer. (E4.1e)
 - **Squeezebox** : un timeout ne bloque plus la file de commandes ; la reconnexion est effective ;
   le callback en échec est désormais appelé (il ne l'était jamais).
 - **Amplis Denon/Marantz/Onkyo** : les commandes de volume sont désormais correctement remplies
