@@ -71,6 +71,13 @@
  *    empty default adds no "default" key at all).
  *  - The empty document still carries its five sections, with empty arrays -
  *    not null, not absent.
+ *  - THE BYTE FORM of io_doc.json, in the single case of this file that looks
+ *    at bytes rather than at a parsed document: ensure_ascii = true. No IO of
+ *    the tree carries a non-ASCII character in its documentation, so that
+ *    assertion is dead on the real artefact and needs a SYNTHETIC non-ASCII
+ *    type name to bite - see TheJsonFileStaysPureAsciiWhenATypeNameIsNot.
+ *    Without it the whole suite is blind to the flag, measured: flipping
+ *    ensure_ascii to false leaves every other case green.
  ******************************************************************************/
 
 #include <fstream>
@@ -432,11 +439,9 @@ TEST(IODocJson, ConditionsAndActionsAreTwoDistinctArrays)
 //Non-ASCII survives the round trip as the SAME characters. This says nothing
 //about the ESCAPING FORM once dumped - the three forms pinned by the tripwire
 //of tests/ParamsJson_test.cpp all parse back into this same string. What is
-//pinned here is that no byte is mangled or dropped on the way.
-//Measured while migrating: NO IO of the tree carries a non-ASCII character in
-//its documentation, so every byte of io_doc.json is already ASCII and
-//ensure_ascii is a no-op on the real artefact today. This fixture is the only
-//non-ASCII input the generator ever sees, which is exactly why it is here.
+//pinned here is that no byte is mangled or dropped on the way; the byte form
+//itself is pinned by TheJsonFileStaysPureAsciiWhenATypeNameIsNot at the end
+//of this file.
 TEST(IODocJson, NonAsciiTextIsCarriedThroughUnchanged)
 {
     IODoc doc;
@@ -573,4 +578,65 @@ TEST_F(IODocGenFileTest, GenDocCreatesItsOutputDirectory)
 
     EXPECT_TRUE(FileUtils::exists(deep + "/io_doc.json"));
     EXPECT_TRUE(FileUtils::exists(deep + "/io_doc.md"));
+}
+
+//⭐ THE ONE BYTE-LEVEL ORACLE OF THIS TICKET.
+//
+//Everything above compares PARSED documents. Nothing above would notice
+//ensure_ascii being dropped from the dump, and that is not a supposition:
+//flipping the flag to false leaves the rest of this file GREEN. Yet
+//ensure_ascii = true is the invariant the seventeen sub-tickets of E4.1
+//apply, so without this case it is applied with no oracle at all.
+//
+//The difficulty is that NO IO of the tree carries a non-ASCII character in
+//its documentation - io_doc.json is already pure ASCII whatever the flag
+//says, which makes a byte assertion on the real artefact a dead oracle. The
+//way in is that IOFactory::RegisterClass() is PUBLIC and that the factory
+//publishes the ORIGINAL spelling of a type name as the top level key: a
+//synthetic type whose NAME is non-ASCII, delegating to a real IO for its
+//document, puts non-ASCII into the file and nowhere else.
+//
+//NOTE on the singleton: the IOFactory registry is process wide and a
+//registration is permanent. It is purely additive, first registration wins
+//(so re-entering this case under --gtest_shuffle is idempotent), and every
+//other case of this file asserts only on keys it names itself.
+TEST_F(IODocGenFileTest, TheJsonFileStaysPureAsciiWhenATypeNameIsNot)
+{
+    loadConfig();
+
+    //"AccéntedType": the é is U+00E9, two UTF-8 bytes 0xc3 0xa9
+    const std::string accented = "Acc\xc3\xa9ntedType";
+    IOFactory::Instance().RegisterClass(
+        accented,
+        [](Params &p) -> IOBase *
+        {
+            return IOFactory::Instance().CreateIO("inputtimer", p);
+        });
+
+    IOFactory::Instance().genDoc(docDir());
+    const std::string jsonTxt = readWholeFile(docDir() + "/io_doc.json");
+    ASSERT_FALSE(jsonTxt.empty());
+
+    //the synthetic type really is in the document, so the assertions below
+    //are not vacuous
+    Json j = Json::parse(jsonTxt);
+    ASSERT_TRUE(j.contains(accented))
+        << "the synthetic non-ASCII type must be documented, otherwise the "
+           "byte assertions below prove nothing";
+    EXPECT_TRUE(j.at(accented).contains("parameters"));
+
+    //...and not one byte of the FILE that carries it is >= 0x80: ensure_ascii
+    //escaped it. THIS is the assertion that dies the moment the flag goes.
+    for (size_t i = 0; i < jsonTxt.size(); i++)
+    {
+        ASSERT_LT((unsigned int)(unsigned char)jsonTxt[i], 0x80u)
+            << "non-ASCII byte at offset " << i
+            << ": io_doc.json must stay pure ASCII (ensure_ascii = true)";
+    }
+
+    //escaped the nlohmann way: LOWER case hex. jansson with JSON_ENSURE_ASCII
+    //writes é, upper case - the two forms are pinned side by side by the
+    //tripwire of tests/ParamsJson_test.cpp.
+    EXPECT_NE(std::string::npos, jsonTxt.find("Acc\\u00e9ntedType"));
+    EXPECT_EQ(std::string::npos, jsonTxt.find("Acc\\u00E9ntedType"));
 }

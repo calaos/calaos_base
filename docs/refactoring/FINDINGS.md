@@ -2508,12 +2508,29 @@ fichiers `.deps/*.Po` du build : les **24** fichiers de `src/` qui utilisent des
 **sans** les inclure eux-mêmes reçoivent **tous** l'en-tête **aussi** par `IO/ExternProc.h`,
 `JsonApi.h` ou `Jansson_Addition.h`. `IODoc.h` n'était le fournisseur **unique** d'aucun d'eux.
 
-⚠️ **Avertissement pour [E4.1c](E4.1c.md)** : `IO/ExternProc.h` est maintenant le fournisseur
-transitif de jansson pour **~20 fichiers** (`WagoMap.cpp`, `MqttCtrl.cpp`, `KNXCtrl.cpp`,
-`OLACtrl.cpp`, `ReolinkCtrl.cpp`, `IO/Scenario.cpp`, `EventManager.cpp`, `ScriptExec.cpp`, les cinq
-`*ExternProc_main.cpp`…). Son `#include <jansson.h>` **n'est pas mort** au sens du build, même s'il
-est mort au sens de ce fichier-là. Le retirer casse la compilation de tout ce monde tant que
-`IO/Scenario.cpp` (⛔ E4.6) et `EventManager.cpp` (E4.1l) n'ont pas basculé.
+#### ⛔ CORRECTION — l'avertissement que ce ticket avait posé pour E4.1c était FAUX
+
+> La première version de cette entrée disait : « `IO/ExternProc.h` est le fournisseur transitif de
+> jansson pour ~20 fichiers, son `#include <jansson.h>` n'est pas mort au sens du build, le retirer
+> casse la compilation de tout ce monde ». **Infirmé par la revue, mesure à l'appui.** L'erreur
+> aurait fait renoncer E4.1c à un nettoyage sûr : on la garde visible plutôt que de la réécrire.
+
+Le fait exact : `ExternProc.h:26` `#include <jansson.h>` est **totalement redondant**, parce que la
+ligne **27** juste en dessous, `#include "Jansson_Addition.h"`, mène à
+`src/lib/Jansson_Addition.h:24` — qui inclut `<jansson.h>`. Vérifié par la revue : ligne 26
+supprimée, `make -C src -j12 -k` → **build OK, zéro `error:`**. ⇒ **E4.1c tel qu'écrit ne casse
+rien.**
+
+Trois autres chiffres de la version fausse, corrigés : le compte réel est **9 fichiers / 10
+objets**, pas « ~20 » ; **5 des fichiers nommés ne dépendent pas d'`ExternProc.h`** pour jansson
+(`MqttCtrl.cpp`, `ReolinkCtrl.cpp`, `IO/Scenario.cpp`, `EventManager.cpp`, `ScriptExec.cpp` — ils
+l'obtiennent par une autre chaîne) ; et la vraie condition de casse est le retrait de
+**`Jansson_Addition.h` (ligne 27), donc [E4.1x](E4.1x.md)**, jamais celui de la ligne 26.
+
+⚠️ **Réserve du relecteur sur sa propre mesure, à reporter telle quelle** : elle a été faite sur un
+`./configure` **nu**. `OWCtrl.cpp` et `OWExternProc_main.cpp`, que l'analyse du graphe d'includes
+signale comme dépendants, **n'ont donc pas été compilés**. La conclusion vaut pour le **build par
+défaut**, pas pour `--with-owfs`.
 
 ### La fuite `IODoc.cpp:163` a disparu d'elle-même
 
@@ -2537,3 +2554,35 @@ La correction : **effacer le binaire de test ET les `.o` mutés** avant chaque r
 déjà connu — la version connue produisait un rouge *illégitime*, celle-ci produit un rouge
 *légitime mais qui atteste la mauvaise mutation*, ce qui est pire : elle est **verte à la
 lecture**.
+
+### ⭐ La suite était AVEUGLE à `ensure_ascii` — et un cas synthétique le rend testable
+
+Trouvé par la revue, comblé en suites. **Mutation-sonde** `dump(4, ' ', true, …)` → `false` :
+**VERTE**, toute la suite passe. Les 15 cas d'origine comparent des **documents parsés**, et
+`é` et l'octet UTF-8 brut se parsent en la **même** chaîne — exactement l'asymétrie que
+l'épique documente. ⇒ **l'invariant `ensure_ascii = true` était appliqué sans le moindre oracle.**
+
+L'obstacle est réel : **aucun IO de l'arbre ne porte de non-ASCII dans sa documentation**, donc une
+assertion d'octets sur l'artefact réel est un **oracle mort**. La parade tient en une observation :
+**`IOFactory::RegisterClass()` est publique** et la fabrique publie le nom de type **d'origine**
+comme clé de premier niveau. Un type **synthétique** dont le **nom** est non-ASCII, délégant à
+`CreateIO("inputtimer")` pour son document, met du non-ASCII dans le fichier **et nulle part
+ailleurs** — sans nouvelle classe d'IO, sans nouveau fichier, sans toucher `src/`.
+
+`TheJsonFileStaysPureAsciiWhenATypeNameIsNot` : le type est bien documenté (l'assertion n'est pas
+vide), **aucun octet ≥ 0x80 dans tout le fichier**, et la forme d'échappement est celle de
+`nlohmann` — `é` **minuscule**, pas le `é` **majuscule** de jansson. Mesuré **rouge** dès
+`ensure_ascii = false`.
+
+⚠️ **Le registre d'`IOFactory` est un singleton de processus et l'enregistrement est définitif.**
+Il est purement **additif**, la **première** inscription gagne (donc le cas est idempotent sous
+`--gtest_shuffle`), et tous les autres cas du fichier n'assertent que sur des clés qu'ils nomment
+eux-mêmes.
+
+### `calaos_installer` est indifférent au changement d'ordre du premier niveau
+
+Établi au source par la revue : `src/IODoc.cpp:9-44` parse en `QJsonObject` — **déjà trié par
+Qt** — réindexe en minuscules et ne fait que des **lookups par clé** ; les deux consommateurs
+(`FormActionStd.cpp:116`, `WidgetIOProperties.cpp:56`) lisent les **tableaux**, dont l'ordre est
+**inchangé sur les 70 types**. Seul effet visible : un gros **diff de permutation** à la prochaine
+régénération de `data/doc/{en,fr}/io_doc.json`.
