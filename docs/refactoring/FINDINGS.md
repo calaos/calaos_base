@@ -1860,3 +1860,67 @@ retirant : 19/19 verts en ordre par défaut **et** sur 5 graines mélangées (1,
 Il en reste **un**, et il est porteur parce qu'il précède une assertion d'**absence**.
 C'est le même mécanisme que les 6 rustines de la série : **une explication fausse voyage plus vite
 qu'une mesure**. Le seul contrôle qui l'attrape est de retirer le pompage et de relancer.
+
+---
+
+## E4.1a — ce que la coupure du pont a révélé (hors périmètre, à reprendre)
+
+### ⭐ L'échappement `\uXXXX` de jansson est en **MAJUSCULES**, celui de nlohmann n'existe pas
+
+Mesuré en écrivant la caractérisation (le cas a échoué au premier run et c'est lui qui l'a
+appris) : `json_dumps(..., JSON_ENSURE_ASCII)` sérialise `é` en **`é`**, hex **majuscule**.
+`nlohmann::json::dump()` fait deux choses différentes à la fois : il **n'échappe pas** le
+non-ASCII du tout (les octets UTF-8 partent bruts) et, pour ce qu'il échappe réellement (les
+contrôles), il utilise l'hex **minuscule**.
+
+Conséquence pour la suite d'E4.1 : **chaque processus externe** qui lit la sortie de
+`jansson_to_string()` — Wago, KNX, Lua (`ScriptExtern_main`, `ScriptExec`) — verra `"é"` là où il
+voit `"é"` aujourd'hui. **Sémantiquement identique, byte à byte différent**, et
+**aucun** de ces canaux n'a de golden (E4.0d : hors API, pas de filet). C'est le genre de
+changement qui ne casse rien dans la suite de tests et casse un parseur maison en production.
+Épinglé côté jansson par `ParamsJson.ToJansson_ValidNonAsciiSurvivesAndDumpsAsAsciiEscapes` : ce
+cas **doit** être modifié consciemment par le sous-ticket qui migre ces appelants.
+
+### `Config::saveStateCache()` a déjà tranché U+FFFD — c'est le précédent à suivre
+
+`CalaosConfig.cpp:556-558` dumpe le cache d'états avec
+`dump(4, ' ', false, Json::error_handler_t::replace)`, avec le commentaire qui va avec (« une
+valeur non UTF-8 venue du matériel ne doit pas faire lever `dump()` et perdre tout le cache »).
+La décision utilisateur du 2026-08-17 (`error_handler_t::replace` partout, **pas** de `try/catch`)
+n'est donc pas une nouveauté à inventer : **elle a déjà un site d'application dans l'arbre**, et
+c'est la forme exacte à recopier sur les deux `sendJson`.
+
+### `Params::fromNJson()` **lève** `type_error.302` sur une valeur non-chaîne
+
+Non documenté jusqu'ici, et c'est pourtant la raison d'être du `try`/`catch` qui enveloppe **toute**
+la désérialisation de `Config::readStateCache()` (`CalaosConfig.cpp:504-529`). `fromNJson` fait
+`p.params[it.key()] = it.value()` : la conversion implicite `Json -> std::string` **lève** au lieu
+de coercer. Un cache qui parse en JSON mais porte un état numérique fait donc lever, pas silencer.
+Épinglé (`ParamsJson.FromNJson_ThrowsTypeError302OnANonStringValue`), id compris.
+
+### `IODoc.h` prenait jansson par la fenêtre de `Params.h`
+
+`IODoc.h:56` déclare `json_t *genDocJson();` sans jamais inclure jansson : il l'obtenait
+**uniquement** parce que `Params.h` l'incluait. C'est le seul en-tête de l'arbre dans ce cas —
+`KNXCtrl.h`, `JsonApiHandlerHttp.h` et `JsonApiHandlerWS.h` nomment aussi `json_t` mais passent par
+`ExternProc.h` / `JsonApi.h`, qui incluent `Jansson_Addition.h`. Corrigé sur place (l'en-tête nomme
+maintenant sa dépendance), mais c'est le symptôme d'un arbre d'includes qui compile **par accident**.
+
+### Dette laissée par E4.1a, à retirer par le dernier sous-ticket de la série
+
+- **`jansson_from_params()`** (`src/lib/Jansson_Addition.h`) : adaptateur transitoire, **99 appels**
+  dans 13 fichiers. `grep -rn jansson_from_params src tests` est la **liste exacte** de ce qui
+  reste à migrer côté `Params`. Quand elle est vide, la fonction et l'en-tête disparaissent.
+- **`Params::toNJson()` / `Params::fromNJson()`** gardent leur préfixe `N`, qui n'existait que pour
+  les distinguer de la face jansson. Le renommage en `toJson()`/`fromJson()` a été **volontairement
+  écarté** ici : supprimer le membre plutôt que le renommer garantit que **tout site oublié est une
+  erreur de compilation dure**, jamais un changement d'overload silencieux. À faire à la fin.
+- **Trois `toJson()` membres rendent encore `json_t*`** et ne sont **pas** des `Params` :
+  `CalaosEvent::toJson()` (`EventManager.cpp:185`), `KNXValue::toJson()` (`KNXCtrl.cpp:76` et
+  `KNXExternProc_cli.cpp:493`), `Scenario::toJson()` (`IO/Scenario.cpp:108`). Intacts par
+  construction — le périmètre d'E4.1a est `Params`, pas « tout ce qui s'appelle toJson ».
+- **Commentaires périmés** : plusieurs tests de la série E4.0 citent `Params::toJson()` en prose
+  (`JsonApiEvents_test.cpp:316,625,648`, `JsonApiSession_test.cpp:52,2068`,
+  `JsonApiAudioPayload_test.cpp:324`, `JsonApiMusicDb_test.cpp:786`). **Non touchés** : E4.1a ne
+  réécrit aucune prose de test existante, pour que son diff reste lisible comme une bascule
+  mécanique. À balayer en fin de série.
