@@ -2068,11 +2068,13 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     code dans les 2 commits, contrôle docs-only mécanique sur chacun.**
   - **Rien n'a été poussé.** Worktree `.wave35/e4.5f` nettoyé, branche `docs/e4.5f` supprimée.
     **`E4.5` bascule 📋 → ✅ sur le board — 6/6 livrés (a→f).**
-- **✅ T3.23 LIVRÉ (2026-08-24) — F-DEP-1 corrigé, image reconstruite et sidecar démarré dedans.
-  RIEN MERGÉ, RIEN POUSSÉ.** Branche **`fix/t3.23`**, worktree
-  `/home/raoul/repos/calaos/.wave33/t3.23`, basée sur `530db772`. Ticket : `T3.23.md`
-  (T3.21 pris par l'extrait `del_param` de T3.20, T3.22 par la surveillance pip → **T3.23** est le
-  premier libre).
+- **⭐ T3.23 ✅ MERGÉ (2026-08-24, `f3189a9b`, 1 commit, ff-only) — F-DEP-1 corrigé : l'artefact
+  publié était cassé.** Le sidecar MCP ne démarrait **pas** dans `ghcr.io/calaos/calaos_base:dev`
+  (digest `sha256:75485fc6…`) : `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`, avec
+  `mcp 2.0.0` installé. Cause : un `pip install` **non pinné** dans **les deux stages** du
+  `Dockerfile`, doublé d'un `pyproject.toml` **surveillé par Dependabot mais lu par aucun chemin de
+  build**. Branche **`fix/t3.23`**, ticket `T3.23.md` (T3.21 pris par l'extrait `del_param` de
+  T3.20, T3.22 par la surveillance pip → **T3.23** est le premier libre). **RIEN POUSSÉ.**
   - **Le correctif : le manifeste devient la source, pas un second jeu de pins.** Épingler des
     numéros dans le `Dockerfile` aurait créé un deuxième endroit à maintenir. `pip install
     ./src/bin/calaos_mcp` a aussi été **écarté** : cela installerait le paquet `calaos_mcp` dans
@@ -2169,6 +2171,46 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     `pydantic-settings 2.15.0`, transitive **non pinnée** de `mcp`, émet un
     `IncompleteFieldDefinitionWarning` à chaque démarrage — cosmétique, mais même classe de défaut,
     non traité pour garder la branche disjointe du `pyproject.toml`.
+  - **LE MERGE (agent dédié).** Rebase sur `c4fc8b78` (master avait avancé de E4.5f pendant la
+    revue) : **un seul conflit**, `ORCHESTRATION.md`, journal — master et la branche ajoutent
+    chacun leur puce au même endroit du bloc 🔁 REPRISE. **Résolution invariante : garder TOUS les
+    blocs, master d'abord, branche ensuite**, jamais choisir. Contrôle des titres `^## ` : **9
+    avant / 9 après** des deux côtés (0 section perdue), `^### ` : 2 / 2 ; aucun `---` non précédé
+    d'une ligne vide (piège du titre setext). **Le rebase n'a rien déplacé de la chaîne de build** :
+    les arbres git de `Dockerfile`, `.devcontainer/`, `scripts/`, `.github/`, `configure.ac` et
+    `Makefile.am` sont **identiques** à ceux de `52a2089e` — donc **le contenu mergé est exactement
+    celui qui a été construit et exercé** (et `Dockerfile`/`.devcontainer/`/`scripts/` n'ont
+    d'ailleurs jamais bougé depuis le tout premier commit de la branche : seuls `.github` et
+    `configure.ac` ont changé, au commit des suites R2). Le delta rebase vaut **59 insertions dans
+    2 fichiers de doc**, soit exactement `c4fc8b78`.
+  - **⚠️ LE RISQUE PRINCIPAL DU MERGE, LEVÉ : `./configure` reste vert sans les modules Python.**
+    La sonde relevée rejoue la séquence de `server.py` et touche l'API **privée**
+    `mcp._session_manager` ; le conteneur de build standard n'a **aucun** de ces modules. Mesuré
+    dans l'image de build : `checking for the Python API the calaos_mcp sidecar uses... no`, puis
+    trois `configure: WARNING:` (dont la trace `ModuleNotFoundError: No module named 'mcp'`) — et
+    `configure` **poursuit jusqu'au bout** (`config.status: creating …`, `Python support: yes`).
+    C'est bien `AC_MSG_WARN`, jamais `AC_MSG_ERROR` : **`HAVE_PYTHON_MCP=no` et le build passe**,
+    exactement comme avant. Une sonde plus stricte qui aurait fait échouer `configure` aurait été
+    une régression de build silencieuse — elle n'a pas lieu.
+  - **Build de merge** : `make check` **70/70 PASS, 0 FAIL, rc 0** — le compte de master
+    (`tests/Makefile.am` est **identique** entre master et la branche : 70 entrées `TESTS`, ce
+    ticket n'ajoute aucun test C++). Arbre git des goldens `tests/core/golden` **inchangé** :
+    `d4ebc61fb2b1876f587d075a0cb050750dc1876f` sur master, sur la branche et après merge.
+    ⚠️ *Note d'outillage, sans rapport avec le ticket* : un `docker run` attaché dont le client est
+    tué laisse `make` **tourner en boucle sur son stdout orphelin** après la fin des tests — relancé
+    détaché avec sortie en fichier, `make check` rend la main en < 1 min avec rc 0.
+  - **Ce qui NE change pas, et qui revient à l'utilisateur** : le nouveau job CI améliore la
+    **détection**, pas le **blocage**. `docker-publish-dev.yml` reste un workflow séparé **sans
+    `needs:`** et **`master` n'est toujours pas protégée** → aucun *required status check*.
+    **La fenêtre qui a laissé publier une image cassée reste donc ouverte** — c'est une décision de
+    configuration de dépôt, pas de code.
+  - **➡️ SUITE IMMÉDIATE : merger `chore/dependabot-2026-08-24` maintenant.** L'ordre était
+    **T3.23 d'abord, Dependabot ensuite** (zéro fichier en commun, vérifié deux fois) : avant
+    T3.23 le `pyproject.toml` n'avait **aucun effet** sur l'image, donc merger Dependabot seul
+    n'aurait **rien corrigé**. Il est désormais effectif.
+  - **Worktree `.wave33/t3.23` nettoyé, branche `fix/t3.23` supprimée. RIEN POUSSÉ** — un push
+    vers `master` est une **publication** (bump de version, tag, image ghcr, dispatch `build_deb`),
+    et c'est précisément ce qui a publié l'image cassée.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
