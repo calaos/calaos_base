@@ -8,6 +8,69 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1k ✅ MERGÉ (`511a6103`, 5 commits, rebase + ff-only, `make check` 72/72) — le générateur
+  `io_doc.json` passe à `nlohmann::json`, et la revue y a trouvé bien plus gros que le ticket.**
+  Périmètre réel : `IO/IODoc.h`, `IO/IODoc.cpp`, `IO/IOFactory.cpp` **+ le helper `docParamNames()` de
+  `tests/core/WebIO_test.cpp`** — appelant que la fiche n'annonçait pas et **sans lequel la bascule de
+  signature ne compile pas** ; adapté dans un commit séparé, **0 assertion préexistante modifiée**.
+  `jansson_from_params()` : **104 → 100** (compté sur les fichiers suivis de `src/` **et** `tests/` ;
+  `src/` seul : 99 → 95), et `grep -c jansson` = **0** sur les trois fichiers migrés. Commit de
+  caractérisation `8d7cbe1f`, **zéro ligne de `src/`**. Goldens intacts (hash d'arbre git
+  `d4ebc61f…`, identique à `master`).
+  - ⭐⭐ **LE FAIT QUI DÉPASSE CE TICKET : toute la suite était AVEUGLE au drapeau `ensure_ascii`.**
+    La revue a muté `dump(4, ' ', true, …)` → `false` : `make check` **reste VERT**. Or
+    `ensure_ascii = true` est l'**invariant que les 17 sous-tickets d'E4.1 appliquent** — il était donc
+    posé partout **sans le moindre oracle**, parce que les goldens et les cas comparent des **documents
+    parsés**, où `é` et l'octet UTF-8 brut se parsent en la **même** chaîne.
+    - Le filet manquant tenait en **12 lignes**, et il n'avait **jamais été cherché** : la fiche
+      affirmait qu'aucun cas synthétique n'était possible (« aucun IO de l'arbre ne porte de non-ASCII
+      dans sa documentation »), **c'était faux**. `IOFactory::RegisterClass()` est **publique** et la
+      fabrique publie le nom de type **d'origine** comme clé de premier niveau ⇒ enregistrer un type
+      `"Acc\xc3\xa9ntedType"` **déléguant à `CreateIO("inputtimer")`** met du non-ASCII dans le
+      fichier **et nulle part ailleurs**, sans nouvelle classe d'IO, sans nouveau fichier, sans toucher
+      `src/`. Puis on asserte sur les **octets**.
+    - Livré comme **16ᵉ cas**, `TheJsonFileStaysPureAsciiWhenATypeNameIsNot` : la mutation
+      `ensure_ascii = false` est désormais **rouge sur ce cas SEUL** — ce qui **mesure exactement
+      l'étendue de l'angle mort**. ⇒ **À réutiliser par tout sous-ticket d'E4.1 qui pose
+      `ensure_ascii`** : sans un oracle d'octets, le drapeau n'est pas testé.
+    - ⚠️ Le registre d'`IOFactory` est un **singleton de processus** et l'enregistrement est
+      **définitif** ; il est purement **additif**, la **première** inscription gagne ⇒ le cas est
+      idempotent sous `--gtest_shuffle`.
+  - **⛔ L'avertissement que ce ticket avait posé pour E4.1c était FAUX — corrigé ET gardé visible**
+    (bloc « ⛔ CORRECTION » dans `FINDINGS.md`, pas une réécriture silencieuse : l'erreur aurait fait
+    renoncer E4.1c à un nettoyage sûr). Le fait exact : `IO/ExternProc.h:26` `#include <jansson.h>` est
+    **totalement redondant** avec la **ligne 27** (`#include "Jansson_Addition.h"` → `<jansson.h>`).
+    Ligne 26 supprimée, build **OK, zéro `error:`** ⇒ **E4.1c tel qu'écrit ne casse rien.** Trois autres
+    chiffres corrigés : **9 fichiers / 10 objets**, pas « ~20 » ; **5 fichiers étaient mal attribués**
+    (`MqttCtrl.cpp`, `ReolinkCtrl.cpp`, `IO/Scenario.cpp`, `EventManager.cpp`, `ScriptExec.cpp` —
+    ils reçoivent jansson par une autre chaîne) ; et la vraie condition de casse est le retrait de
+    **`Jansson_Addition.h` (ligne 27), donc `E4.1x`**, jamais celui de la ligne 26.
+    - ⚠️ **Réserve à reporter telle quelle** : mesure faite sur un `./configure` **nu**, donc
+      `OWCtrl.cpp` et `OWExternProc_main.cpp` **n'ont pas été compilés**. La conclusion vaut pour le
+      **build par défaut**, **pas** pour `--with-owfs`.
+  - **`calaos_installer` est indifférent** au changement d'ordre du premier niveau (Q3) : établi **au
+    source**, il parse en `QJsonObject` — **déjà trié par Qt** —, réindexe en minuscules et ne fait que
+    des **lookups par clé** ; les deux consommateurs (`FormActionStd.cpp:116`,
+    `WidgetIOProperties.cpp:56`) lisent les **tableaux**, dont l'ordre est **inchangé sur les 70 types**.
+    ⇒ **seul effet : un gros diff de permutation** à la prochaine régénération de
+    `data/doc/{en,fr}/io_doc.json`.
+  - **Preuve avant/après, mesurée** : `io_doc.md` **identique octet pour octet**, `io_doc.json` de
+    **même taille**, `json.load(avant) == json.load(après)` sur les **70 types**, **0 feuille
+    non-chaîne**, ordre des tableaux inchangé. À noter : `json_dumps()` était appelé **sans**
+    `JSON_ENSURE_ASCII` ici (forme **2** du tripwire, UTF-8 brut), et l'artefact réel ne contient
+    **aucun** octet ≥ 0x80 ⇒ `ensure_ascii` est un **no-op strict** sur le fichier d'aujourd'hui.
+  - ⚠️ **Piège `_DEPENDENCIES`, variante FAUX ROUGE UNIFORME** (nouvelle, consignée en `FINDINGS.md`) :
+    7 mutations sur 7 « RED » **avec exactement le même cas en échec**, celui de la **première** — les
+    objets serveur sont retirés des prérequis, donc le binaire de test **n'est pas relié** et on exécute
+    la mutation **précédente**. Le symptôme qui trahit est **plusieurs mutations rendant le même cas** ;
+    la parade est d'**effacer le binaire de test ET les `.o` mutés** avant chaque reconstruction.
+  - **Conflit de merge** : `tests/Makefile.am` seul (les deux côtés appendent en queue), résolu par
+    **régénération** — `master:tests/Makefile.am` **entier** + **append verbatim** des 23 lignes de la
+    branche ; append pur **prouvé octet pour octet**, `^if HAVE_GTEST` == `^endif` (**60 == 60**),
+    **72 entrées `TESTS`** sans doublon. `FINDINGS.md` s'est auto-mergé en **append pur** (50 → 51
+    titres `## `, aucun `---` sans ligne vide avant).
+  - **Rien n'a été poussé** : `master` local seulement.
+
 - **🔒 T3.24 ✅ MERGÉ (`dd0e7900`, 4 commits, ff-only, `make check` 71/71) — le throttle de login identifie enfin le
   client derrière haproxy.** `clientIp()` rendait le **pair TCP** sur **LES DEUX** transports
   (`JsonApiHandlerWS.cpp:45` **et** `JsonApiHandlerHttp.cpp:55` — le constat initial ne citait que
