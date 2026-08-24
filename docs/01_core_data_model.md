@@ -323,8 +323,11 @@ bool    deleteIO(IOBase *io, bool modify = false,
   supprimé cet IO » de l'API JSON.
 
 > ⚠️ **`modify` ne veut pas dire « modifier la config ».** `modify = true` signifie *cet IO
-> est en cours d'édition* : dans ce cas les règles ne sont **pas** touchées du tout
-> (dérivé, [ListeRoom.cpp:378-402](../src/bin/calaos_server/ListeRoom.cpp)).
+> est en cours d'édition* : dans ce cas `ListeRule::RemoveRule()` n'est **pas** appelée, donc
+> aucune règle n'est ni désactivée ni détruite. Le retrait de la liste de scrutation
+> (`ListeRule::Remove(io)`), lui, a lieu **dans tous les cas** — il est piloté par « qui s'est
+> enregistré », pas par le drapeau (dérivé,
+> [ListeRoom.cpp:378-402](../src/bin/calaos_server/ListeRoom.cpp)).
 
 > **`policy`** est passée à `ListeRule::RemoveRule()`. Le défaut, **`Disable`**, ne détruit
 > aucune règle : elle est conservée intacte et seulement marquée comme référençant un IO
@@ -429,7 +432,7 @@ Config::LoadConfigIO()
     │                                     // <calaos:audio>, <calaos:remote_ui>
     → IOFactory::CreateIO(node)
       → readParams(node, p)               // tous les attributs XML → Params
-      → ctor du driver → ~IOBase(Params&) // ⇒ ListeRoom::addIOHash(this) EST FAIT ICI
+      → ctor du driver → IOBase(Params&)  // ⇒ ListeRoom::addIOHash(this) EST FAIT ICI
       → io->LoadFromXml(node)             // config spécifique au driver
     → Room::AddIO(io)                     // la pièce prend la propriété
 
