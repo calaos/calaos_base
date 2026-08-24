@@ -308,15 +308,61 @@ TEST_F(JsonApiThrottleIdentityTest, ForgedForwardedForPrefixDoesNotResetTheBucke
     //PINS AN ACQUIS. X-Forwarded-For is a LIST and everything before the last
     //entry is client supplied: only the last entry was written by the trusted
     //hop. A client rotating the prefix at every attempt must therefore stay in
-    //the SAME bucket. Green today for a degenerate reason (every client shares
-    //"unknown"); after the fix it is the real anti-bypass proof, and it is what
-    //TransportLimits::effectiveClientIp() taking rfind(',') buys us.
+    //the SAME bucket. Green before T3.24 for a degenerate reason (every client
+    //shared "unknown"); now it is the real anti-bypass proof of the fix, and it
+    //is what TransportLimits::effectiveClientIp() taking rfind(',') buys us.
+    //
+    //THE LIST MUST HAVE THREE ENTRIES, NOT TWO. With two, the first comma IS
+    //the last one, so rfind and find agree and the case pins nothing about
+    //which end is read - MEASURED in the T3.24 review, where mutating rfind to
+    //find left the two-entry version GREEN. With three, find answers
+    //"<middle>, <last>", which differs between the two attempts, so the case
+    //goes red. The two prefixes below are the same two addresses in a different
+    //ORDER, so only the rfind reading keeps them in one bucket.
+    //
+    //It does NOT make the throttle unforgeable. Behind haproxy it does: the
+    //proxy appends the last entry itself (tests/TransportHardening_test.cpp,
+    //ForwardedForLine.*, driven through the production llhttp callbacks). With
+    //NO proxy in front, the client supplies the last entry too and picks its own
+    //bucket - that is F-XFF-1, and T3.24 is what exposed the throttle to it.
+    //Read the trust note on HttpClient::getEffectiveClientIp() first.
     {
-        WsLogin first(std::string("203.0.113.42, ") + kClientA);
+        WsLogin first(std::string("203.0.113.42, 192.0.2.1, ") + kClientA);
         EXPECT_FALSE(first.attempt(apiUser(), "wrong"));
     }
 
-    WsLogin second(std::string("192.0.2.1, ") + kClientA);
+    WsLogin second(std::string("192.0.2.1, 203.0.113.42, ") + kClientA);
     EXPECT_FALSE(second.attempt(apiUser(), apiPassword()))
             << "rotating the forged part of X-Forwarded-For bought a new bucket";
+}
+
+/*******************************************************************************
+ * ACQUIS - no X-Forwarded-For at all: the TCP peer is used
+ ******************************************************************************/
+
+TEST_F(JsonApiThrottleIdentityTest, WithoutForwardedForTheBucketIsThePeers)
+{
+    //PINS AN ACQUIS, and covers the branch nothing else in this file reaches:
+    //the fallback of TransportLimits::effectiveClientIp() when the header is
+    //absent. Every session here runs on an unconnected socket, so the peer is
+    //"unknown" for all of them - which is what makes the two halves readable.
+    //
+    //(a) two header-less clients resolve to the SAME identity (the peer), so
+    //    the second is blocked by the first one's failure. That is the fallback
+    //    being taken, not a header being read.
+    {
+        WsLogin first("");
+        EXPECT_FALSE(first.attempt(apiUser(), "wrong"));
+    }
+    {
+        WsLogin second("");
+        EXPECT_FALSE(second.attempt(apiUser(), apiPassword()))
+                << "the header-less clients did not land in the peer's bucket";
+    }
+
+    //(b) and a client that DOES carry a header is not in that bucket: the
+    //    fallback identity and the header identity are told apart.
+    WsLogin proxied(kClientA);
+    EXPECT_TRUE(proxied.attempt(apiUser(), apiPassword()))
+            << "a proxied client was blocked by a header-less client's failure";
 }

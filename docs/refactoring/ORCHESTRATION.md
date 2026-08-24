@@ -21,17 +21,32 @@
     lignes de `clientIp()` dans chaque fichier, plus une méthode inline dans `HttpClient.h`) et
     **hors des zones jansson** que la chaîne réécrit. **Merger T3.24 AVANT de lancer `E4.1b`** :
     après, chaque sous-ticket de la chaîne devra le rebaser.
-  - ⚠️ **RÉSERVE, consignée en F-XFF-1 et NON corrigée** : `calaos_server` **ne vérifie pas** que
-    son pair TCP est haproxy — aucune liste de proxys de confiance dans l'arbre. En **exposition
-    directe**, le client fournit lui-même la dernière entrée de `X-Forwarded-For` et **choisit son
-    seau**. La garantie est **de déploiement** (`DECISIONS.md`), **pas de code**. Réserve
-    **antérieure** : `max_connections_per_ip` l'a depuis son merge. Corrigé quand même parce que
-    l'échange est favorable (avant : verrouillage de tous, sans rien forger ; après, en direct :
-    auto-exonération au pire).
-  - **Nouveau binaire de test** `core/JsonApiThrottleIdentity_test` (6 cas, 2 transports,
-    **0 golden**). Il **réutilise le harnais E4.0a sans le modifier** — le harnais ne modélise pas
-    `X-Forwarded-For` (session WS sur `HttpClient` **nul**), donc les deux helpers proxifiés vivent
-    dans le fichier de test. Commit de caractérisation `56dceb11`, **zéro ligne de `src/`**.
+  - ⚠️⚠️ **RÉSERVE ASSUMÉE, consignée en F-XFF-1 et NON corrigée — et T3.24 la CRÉE, il ne
+    l'hérite pas.** Une première rédaction affirmait l'inverse, **c'était faux, corrigé en revue** :
+    avant T3.24 les deux `clientIp()` rendaient le **pair TCP**, donc `X-Forwarded-For` n'avait
+    **aucun effet** sur `LoginThrottle`, dans **aucun** déploiement. `calaos_server` ne vérifie
+    **jamais** que son pair est haproxy, et **`HttpServer.cpp:29-31` bind `0.0.0.0` par défaut**
+    alors qu'haproxy ne vise que `127.0.0.1:5454` ⇒ **le port 5454 répond en direct depuis le LAN
+    sur le déploiement standard**. En direct, l'attaquant gagne **deux capacités neuves** :
+    s'exonérer du backoff (brute-force **sans limite**) et **throttler une victime ciblée**.
+    **L'échange reste acceptable** (il retire un DoS de lockout non authentifié atteignable depuis
+    le WAN et frappant tout le monde ; il ajoute un abus qui exige le LAN ; et le cap de connexions
+    fait déjà confiance à l'en-tête) — **mais c'est un arbitrage, pas un gain gratuit**.
+    - ⭐ **SUITE À OUVRIR, HORS DE CE DÉPÔT (calaos-os), et elle est gratuite** : poser
+      **`listen_address = 127.0.0.1`**. L'option **existe déjà** et est documentée
+      (`docs/16_config_options.md`) ; seul haproxy joindrait alors le port, ce qui rend la confiance
+      en `X-Forwarded-For` **saine**. C'est le vrai correctif de fond de F-XFF-1.
+    - Config de production **vérifiée, pas supposée** : `pkgbuilds/calaos-os-conf/PKGBUILD` épingle
+      `33f794eb`, dont `conf/haproxy-calaos.cfg` porte **`option forwardfor` SANS `if-none`** ⇒
+      haproxy ajoute **toujours** sa ligne, en queue. **Derrière le proxy, non contournable.**
+  - **Nouveau binaire de test** `core/JsonApiThrottleIdentity_test` (**7 cas**, 2 transports,
+    **0 golden**) **+ 3 cas** dans `TransportHardening_test.cpp` qui figent, **au vrai parseur
+    llhttp**, que « **la dernière ligne `X-Forwarded-For` répétée gagne** » — l'invariant dont
+    dépend tout l'argument de sécurité, et que le fixture (qui injecte `request_headers` à la main)
+    ne pouvait pas prouver. Le harnais E4.0a est **réutilisé sans être modifié**. Commit de
+    caractérisation `56dceb11`, **zéro ligne de `src/`**.
+  - **Non vérifié, noté tel quel** : haproxy 2.8 en **HTTP/2** frontend (déduit, non testé) ; le
+    **request smuggling** à travers haproxy ; et la suite **non rejouée sous ASan**.
 
 - **⭐ E4.1 DÉCOUPÉE (2026-08-24) — 17 sous-tickets `a`→`x`, 10 vagues, fiches écrites.**
   **Aucune ligne de `src/`, aucun test, aucun golden touché** par ce travail de conception.

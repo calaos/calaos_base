@@ -349,9 +349,14 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   autres utilisateurs** — application mobile, écrans muraux, intégrations — alors qu'à l'inverse sa
   propre limite était remise à zéro par le premier login réussi de n'importe qui d'autre.
   Désormais chaque client a son propre compteur, sur **l'interface web/API comme sur le websocket**.
-  ⚠️ **Cela suppose que Calaos est bien joint à travers son reverse-proxy** : un serveur exposé
-  directement sur Internet, sans proxy devant, laisse le client annoncer lui-même son identité — la
-  même hypothèse que la limite de connexions ci-dessus.
+  ⚠️ **Cela suppose que Calaos est bien joint à travers son reverse-proxy.** C'est le cas depuis
+  Internet, mais **pas depuis votre réseau local** : par défaut le serveur écoute sur toutes les
+  interfaces (`listen_address` = `0.0.0.0`) alors que le proxy ne l'appelle que sur `127.0.0.1`,
+  donc un appareil du LAN peut joindre le port directement et **annoncer l'identité de son choix** —
+  ce qui lui permet d'échapper au ralentissement, ou de le déclencher au nom d'un autre. C'est la
+  même hypothèse que la limite de connexions ci-dessus. Si votre réseau local n'est pas de
+  confiance, réglez `listen_address` sur `127.0.0.1` : seul le reverse-proxy pourra alors joindre
+  le serveur.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune

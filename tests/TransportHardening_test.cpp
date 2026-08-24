@@ -404,3 +404,80 @@ TEST(KeepAliveRequestReset, BindParserTargetsTheStateSubobjectNotTheOwner)
     EXPECT_EQ(static_cast<void *>(&owner), owner.sentinel1);
     EXPECT_EQ(static_cast<void *>(&owner), owner.sentinel2);
 }
+
+//--- 5. T3.24: WHICH X-Forwarded-For LINE WINS WHEN THE HEADER REPEATS? ------
+//
+//Section 3 above tests effectiveClientIp() on a STRING. That is only half the
+//argument: the other half is which string the production parser hands it when
+//the client sent its own X-Forwarded-For and haproxy appended another.
+//
+//This is the invariant the whole security claim of T3.24 rests on - "behind
+//haproxy the throttle is not bypassable by a forged header" - and nothing
+//exercised it end to end: core/JsonApiThrottleIdentity_test seeds
+//request_headers by hand, so it would keep passing if the parser started
+//keeping the FIRST line. Driven here through the PRODUCTION llhttp callbacks,
+//wired exactly the way HttpClient wires them.
+//
+//Written by the T3.24 review; imported into the ticket's branch on its request.
+
+TEST(ForwardedForLine, LastRepeatedHeaderLineWins)
+{
+    KeepAliveParser p;
+
+    //What production puts on the wire. calaos-os pins calaos-os-conf, whose
+    //conf/haproxy-calaos.cfg carries "option forwardfor" WITHOUT "if-none"
+    //(backend calaos-server 127.0.0.1:5454): haproxy ALWAYS appends its own
+    //line, at the tail of the header block, whatever the client sent.
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "X-Forwarded-For: 6.6.6.6\r\n"
+                             "X-Forwarded-For: 198.51.100.7\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+
+    //LAST line, not the first: request_headers is a map and the callback
+    //assigns, so the client supplied line is overwritten (HttpClient.h:265).
+    EXPECT_EQ("198.51.100.7", p.state.request_headers["x-forwarded-for"]);
+    EXPECT_EQ("198.51.100.7",
+              TransportLimits::effectiveClientIp(
+                  p.state.request_headers["x-forwarded-for"], "10.0.0.254"));
+}
+
+TEST(ForwardedForLine, ClientSuppliedListIsDiscardedWholesale)
+{
+    KeepAliveParser p;
+
+    //Client forges a whole list; haproxy appends its own single entry line.
+    //The forged list is not merged, not appended to: it is dropped entirely.
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "X-Forwarded-For: a, b\r\n"
+                             "X-Forwarded-For: 198.51.100.7\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_EQ("198.51.100.7",
+              TransportLimits::effectiveClientIp(
+                  p.state.request_headers["x-forwarded-for"], "10.0.0.254"));
+}
+
+TEST(ForwardedForLine, WithoutAProxyTheHeaderIsTakenAtFaceValue)
+{
+    KeepAliveParser p;
+
+    //No proxy in front: nothing overwrites the client's line, so the client
+    //names its own throttle bucket and its own connection-cap counter, while
+    //its real address (192.0.2.55 here) is ignored. THIS IS F-XFF-1, pinned as
+    //a fact rather than described in a comment. It is reachable on a standard
+    //install: HttpServer.cpp:31 binds listen_address = "0.0.0.0" by default
+    //while haproxy only targets 127.0.0.1:5454, so port 5454 answers directly
+    //from the LAN. A case that goes red here means somebody has restricted the
+    //trust - read F-XFF-1 in docs/refactoring/FINDINGS.md before "fixing" it.
+    ASSERT_EQ(HPE_OK, p.feed("GET /api HTTP/1.1\r\n"
+                             "Host: calaos\r\n"
+                             "X-Forwarded-For: 203.0.113.9\r\n"
+                             "\r\n"));
+    ASSERT_TRUE(p.state.parse_done);
+    EXPECT_EQ("203.0.113.9",
+              TransportLimits::effectiveClientIp(
+                  p.state.request_headers["x-forwarded-for"], "192.0.2.55"));
+}

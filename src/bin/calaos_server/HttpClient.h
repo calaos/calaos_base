@@ -501,15 +501,34 @@ public:
      * trusted proxy hop wrote. Everything before it is client supplied and
      * ignored. Falls back to the TCP peer when the header is absent.
      *
-     * TRUST MODEL, read before adding a caller: this is only as trustworthy as
-     * the assumption that a proxy sits in front. calaos_server does NOT verify
-     * that the peer is haproxy, so a client reaching it directly can put
-     * whatever it likes in X-Forwarded-For and pick its own bucket. The
-     * per-IP connection cap has always had that property; the login throttle
-     * now shares it, and it is the right trade: behind the proxy (the normal
-     * deployment) it turns one shared bucket into one bucket per client, and
-     * in a direct-exposure setup a header-forging attacker was, before this,
-     * already able to lock every other user out of their login.
+     * TRUST MODEL - READ THIS BEFORE ADDING A CALLER. This is only as
+     * trustworthy as the assumption that a proxy sits in front, and NOTHING IN
+     * THE CODE CHECKS IT: calaos_server never verifies that its TCP peer is
+     * haproxy, and there is no trusted-proxy list anywhere in the tree. A
+     * client that reaches the port directly puts whatever it likes in
+     * X-Forwarded-For and NAMES ITS OWN IDENTITY.
+     *
+     * That is not theoretical here. HttpServer.cpp:31 binds listen_address =
+     * "0.0.0.0" by default, while haproxy only ever targets 127.0.0.1:5454, so
+     * on a standard install PORT 5454 ANSWERS DIRECTLY FROM THE LAN. Behind the
+     * proxy the header is sound (haproxy appends its own line last and the last
+     * line wins - tests/TransportHardening_test.cpp, ForwardedForLine.*); from
+     * the LAN it is whatever the client typed.
+     *
+     * WHAT T3.24 ADDED, STATED PLAINLY BECAUSE THE OPPOSITE WAS WRITTEN HERE
+     * FIRST: before T3.24, both clientIp() answered the TCP peer, so
+     * X-Forwarded-For had NO effect on LoginThrottle in ANY deployment. Routing
+     * the throttle through this method CREATES that exposure. On a directly
+     * reachable server an attacker gains two capabilities he did not have:
+     * exempting himself from the backoff (so, brute forcing a password with no
+     * rate limit at all), and throttling a chosen victim by forging her
+     * address. The trade was made deliberately - the DoS it removes is an
+     * unauthenticated lockout of EVERY user reachable from the WAN, the one it
+     * adds needs LAN access, and the connection cap already trusts this header
+     * - but it IS a trade, not a free win. Tracked as F-XFF-1 in
+     * docs/refactoring/FINDINGS.md; the real fix is upstream, setting
+     * listen_address = 127.0.0.1 in calaos-os so that only haproxy can reach
+     * the port. Do not add a third caller without re-reading that entry.
      */
     string getEffectiveClientIp() const
     {

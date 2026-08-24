@@ -140,23 +140,54 @@
   de n'importe qui. Le helper `TransportLimits::effectiveClientIp()` **existait déjà** et était
   **déjà** utilisé dix lignes plus loin par `max_connections_per_ip` (`HttpClient.cpp:200`) : un
   appelant sur deux ne s'en servait pas. Les deux `clientIp()` passent désormais par
-  `HttpClient::getEffectiveClientIp()`, qui l'enveloppe. Six cas dans
-  `tests/core/JsonApiThrottleIdentity_test.cpp`, aucun golden touché.
+  `HttpClient::getEffectiveClientIp()`, qui l'enveloppe. Sept cas dans
+  `tests/core/JsonApiThrottleIdentity_test.cpp` + trois cas au vrai parseur llhttp dans
+  `tests/TransportHardening_test.cpp`, aucun golden touché. ⚠️ **Contrepartie assumée, à lire
+  avec** : **F-XFF-1** ci-dessous — le correctif **expose** le throttle à `X-Forwarded-For`, ce
+  qui n'était le cas dans **aucun** déploiement auparavant.
 
-- ⚠️ **F-XFF-1 — [SÉCURITÉ, OUVERT] aucune liste de proxys de confiance** — ouvert par
-  [T3.24](T3.24.md), **non corrigé**. `TransportLimits::effectiveClientIp()` prend la **dernière**
-  entrée de `X-Forwarded-For` (donc celle écrite par le hop de confiance, et un préfixe forgé par
-  le client est ignoré — figé par `tests/TransportHardening_test.cpp:194-231`), mais
-  `calaos_server` **ne vérifie jamais que son pair TCP est haproxy** : vérifié au source, il
-  n'existe **aucun** `trusted_proxy` ni aucune comparaison de `getClientIp()` à une adresse
-  attendue. Sur un serveur joint **directement**, sans proxy devant, le client fournit lui-même la
-  dernière entrée et **choisit son identité** — donc son seau de throttle **et** son compteur de
-  connexions. La garantie invoquée est une **garantie de déploiement** (`DECISIONS.md` : « toujours
-  derrière haproxy dans calaos-os »), **pas une garantie de code**. Réserve **antérieure à T3.24** :
-  `max_connections_per_ip` l'a depuis son merge. T3.24 corrige quand même le cas nominal parce que
-  l'échange est favorable — avant, l'attaquant **verrouillait tout le monde** sans rien forger ;
-  après, en exposition directe, il peut au pire **s'exonérer lui-même**. Le vrai correctif est une
-  liste de proxys de confiance (ou la normalisation de l'en-tête par `McpProxyHandler`, cf. T1.8).
+- ⚠️ **F-XFF-1 — [SÉCURITÉ, OUVERT] `X-Forwarded-For` est cru sans qu'aucun proxy de confiance
+  soit vérifié** — ouvert par [T3.24](T3.24.md), **non corrigé**.
+
+  **Le mécanisme, mesuré au vrai parseur llhttp** (`tests/TransportHardening_test.cpp`,
+  `ForwardedForLine.*`, portés depuis la revue T3.24) : `effectiveClientIp()` prend la **dernière**
+  entrée de la **dernière ligne** `X-Forwarded-For`, et une ligne répétée **écrase** la précédente
+  (`request_headers` est une `map`, `HttpClient.h:265`). **Derrière haproxy c'est sain** : la
+  production épingle `calaos-os-conf` (commit `33f794eb` via `pkgbuilds/calaos-os-conf/PKGBUILD`),
+  dont `conf/haproxy-calaos.cfg` porte **`option forwardfor` SANS `if-none`** — haproxy ajoute
+  **toujours** sa ligne, en queue, et la liste forgée par le client est **jetée en bloc**.
+
+  **Le défaut** : `calaos_server` **ne vérifie jamais que son pair TCP est haproxy** — aucun
+  `trusted_proxy`, aucune comparaison de `getClientIp()` à une adresse attendue. Et ce n'est pas un
+  cas d'école : **`HttpServer.cpp:29-31` bind `listen_address` = `0.0.0.0` par défaut**
+  (`docs/16_config_options.md`) alors qu'haproxy ne vise que `127.0.0.1:5454` — **le port 5454
+  répond donc directement depuis le LAN sur un déploiement standard**. Un client qui le joint en
+  direct **choisit son identité**, donc son seau de throttle **et** son compteur de connexions.
+
+  ⚠️ **T3.24 CRÉE cette exposition pour le throttle, il ne la subit pas.** Une première rédaction
+  de cette entrée affirmait le contraire (« l'attaquant pouvait déjà verrouiller les autres ») :
+  **c'est faux**, corrigé en revue. Avant T3.24 les deux `clientIp()` rendaient le **pair TCP**,
+  donc `X-Forwarded-For` n'avait **aucun effet** sur `LoginThrottle`, dans **aucun** déploiement.
+  En exposition directe, T3.24 donne à l'attaquant **deux capacités qu'il n'avait pas** :
+  (a) **s'exonérer** du backoff, donc brute-forcer un mot de passe **sans limite**, et
+  (b) **throttler une victime ciblée** en forgeant son adresse.
+
+  **L'échange est assumé, pas gratuit** : ce qu'il retire est un **DoS de lockout non authentifié**
+  atteignable depuis le WAN et frappant **tous** les utilisateurs ; ce qu'il ajoute demande un
+  **accès LAN** ; et l'arbre fait **déjà** confiance à cet en-tête pour `max_connections_per_ip`
+  depuis son merge. La garantie invoquée reste une **garantie de déploiement** (`DECISIONS.md`),
+  **pas une garantie de code**.
+
+  **Le vrai correctif, et il est gratuit — suite à ouvrir hors de ce dépôt (calaos-os)** : poser
+  **`listen_address = 127.0.0.1`** dans la configuration de calaos-os. L'option **existe déjà** et
+  est documentée ; seul haproxy pourrait alors joindre le port, ce qui rend la confiance en
+  `X-Forwarded-For` **saine** au lieu d'hypothétique. À défaut, une liste de proxys de confiance
+  côté `calaos_server` (ou la normalisation de l'en-tête par `McpProxyHandler`, cf. T1.8).
+
+  **Non vérifié, noté tel quel** : le comportement d'haproxy 2.8 en **HTTP/2** côté frontend
+  (déduit de la doc et de la conversion h2→h1, non testé) ; le **request smuggling** à travers
+  haproxy, seul vecteur résiduel permettant d'injecter une ligne **après** celle du proxy ; et la
+  suite n'a pas été rejouée sous ASan.
 
 - ✅ **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` en `string ==`** —
   **traité par T2.15** (`01089187`, « … constant-time RemoteUI token lookup »). Revérifié au
