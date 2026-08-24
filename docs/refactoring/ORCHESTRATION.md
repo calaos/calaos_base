@@ -1645,6 +1645,45 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     pour les gardes `if (!sa.io) continue;`. Sur **master `770e322f`** le fichier fait **195 lignes**
     et les sites sont **`:158`** et **`:181`** — l'écart vient du worktree `.wave26/t3.20`. Tout
     sous-ticket reprenant un site de cette revue doit le **recaler sur master**.
+- **E4.6a ✅ mergé** (2026-08-24, `50741d6b`, ff-only, historique linéaire) — caractérisation
+  pure du modèle AutoScenario **avant** la refonte : `tests/core/AutoScenarioMigration_test.cpp`
+  (1922 lignes, **19 cas**) + bloc `HAVE_GTEST` propre en fin de `tests/Makefile.am` + `E4.6.md`
+  et `FINDINGS.md`. **Zéro ligne de `src/` sur chacun des 3 commits** (vérifié commit par commit,
+  pas seulement sur l'arbre final) ; **145 goldens intacts, hash d'arbre identique**
+  (`tests/core/golden` = `d4ebc61f` sur master comme sur la branche — aucun ajouté, retiré ni
+  modifié). Aucun conflit au rebase (la branche était déjà sur `aa4821f7`) ; `tests/Makefile.am`
+  vérifié **append pur** (+55/−0/~0, les 1933 premières lignes byte-identiques à master) et
+  équilibre `^if HAVE_GTEST` == `^endif` (57/57). Build docker complet : **69/69**
+  (`TESTS` = entrées, pas lignes — 68 avant, +1).
+  - ⭐ **Le trou trouvé par la revue et comblé.** Le test initial mutait
+    `disabled_missing_io ← !missing_ios.empty()` : cette mutation **détruit la distinction même
+    pour laquelle T3.18 existe** (un scénario `disabled` par l'utilisateur, un scénario
+    `disabled_missing_io` par le système, un `broken`, un sain — quatre états, pas deux) et
+    laissait la suite **0/18 vert** — verte sans rien attester. Le cas neuf la porte à **1/19**,
+    et sa jumelle sur `broken` **mord avec un témoin distinct** : les deux ne se remplacent pas,
+    il faut les deux.
+  - ⚠️ **Avertissement structurel à porter jusqu'à E4.6d.** Les **seuls** témoins de cette
+    distinction à quatre états vivent dans les fichiers que **E4.6d doit réécrire** : le
+    sous-ticket qui a le plus besoin de la protection est exactement celui qui la démolit.
+    À relire avant d'ouvrir E4.6d.
+  - ⚠️ **14 pompages → 1.** Les 13 `pumpEventLoop()` retirés **n'absorbaient rien** (mesuré sur
+    **5 graines**). Récidive de la règle « ne pas recopier un pompage non mesuré » — et elle
+    récidive **dans le ticket qui énonce cette règle**. Le contrat de file vide (E4.0g) rend le
+    pompage décoratif la norme, pas l'exception.
+  - ✅ **Deux corrections de cartographie confirmées au source**, toutes deux contre RC1 :
+    (1) `checkScenarioRules()` **ne recrée PAS** les règles d'étape — elles sont perdues
+    **définitivement** ; la **seule** création est `AutoScenario.cpp:859`, **API-only**. Le défaut
+    du balayage orphelin est donc **pire** que ce que décrivait RC1 (pas d'auto-réparation au
+    démarrage : le niveau 0 de la défense en profondeur D10 n'existe qu'**après** E4.6c).
+    (2) La renumérotation ne touche que **3 des 4** numérotations : le param
+    **`auto_scenario_step` n'est jamais réécrit**.
+  - ⭐ **Un point où la revue a eu tort et l'implémenteur a mesuré** — consigné tel quel, parce
+    qu'une revue n'a pas raison par principe et que la trace doit le montrer : `modify` **ne
+    nettoie pas** le drapeau (`ScenarioDisabledMissingIo_test::ModifyDoesNotClearTheDisabledFlag`
+    l'épingle) ; c'est **`tryReenable()`** qui atteint `setDisabledMissingIo(false)` et lève la
+    porte.
+  - **Rien n'a été poussé.** Worktree `.wave28/e4.6a` nettoyé, branche `refactor/e4.6a` supprimée.
+    **E4.6 reste 📋 — 1/8 livré (a)** ; b→h restent, et b→h sont ⛔ **après E4.1**.
 - **T3.20 ouvert 📋 (2026-08-24), NON IMPLÉMENTÉ** — les réserves **R3** et **R5** de la revue de
   T3.18 (`FINDINGS.md`, `## T3.18 — suites`) sont **tranchées par l'utilisateur**, deux entrées
   datées en tête de `DECISIONS.md`. **R3** : `autoscenario modify` doit refuser un **payload** qui
