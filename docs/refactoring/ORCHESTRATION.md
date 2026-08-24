@@ -1446,6 +1446,51 @@
   inchangé. Worktree `/tmp/claude-1000/calaos-wave23/t3.18` nettoyé par son **chemin exact** +
   `git worktree prune`, branche `refactor/t3.18` supprimée, **rien n'a été poussé**.
   `docs/refactoring/` à **98 fichiers** (97 + `E4.5.md`, apporté par `d472611c`).
+- **E4.5a + E4.5b ✅ mergés** (2026-08-24, `eb630d73` puis `15996ed2`) — **premiers sous-tickets
+  de l'épique documentaire E4.5, qui passe à 2/6.** Périmètre **strictement docs-only**, vérifié
+  mécaniquement **commit par commit** (`git show --name-only` sur les 5 commits de la plage
+  `4e5fe9fc..master`) : **zéro ligne de `src/`, zéro test, zéro golden**, donc **aucun build,
+  aucun `make check`** — conformément au brief. E4.5a : `docs/00_overview.md`,
+  `docs/01_core_data_model.md`, `docs/11_config_persistence.md` (+755/−160) — modèle de propriété
+  E4.2a→f, migration **pugixml** (E4.4/E4.4cd), robustesse de config T2.4 (préservation du fichier
+  corrompu dans `<config>/backups/corrupt/`, marche des backups du plus récent au plus ancien avec
+  parse préalable, notification agrégée mail+push différée de `CONFIG_ALERT_DELAY_SEC = 30.0`).
+  E4.5b : `docs/03_rules_engine.md`, `docs/04_scenarios.md` (+1078/−149) — règle désactivée
+  (E4.2e) avec ses **six portes de refus**, scénario désactivé T3.18 (**deux portes**, drapeau
+  **persisté et collant**, `autoscenario reenable` sur les deux transports, trois clés neuves de
+  payload), plages nocturnes wrappantes (T3.13). Les deux branches, dont les worktrees `/tmp`
+  avaient disparu (`prunable`, nettoyés par `git worktree prune`), ont été **rebasées sur master**
+  (`--autostash`, master avait avancé de 3 commits docs) puis mergées en **ff-only**, e4.5a
+  d'abord, **aucun conflit** (fichiers disjoints, `tests/Makefile.am` jamais touché).
+  **Revue indépendante : verdict MERGE pour les deux**, sur **~50 affirmations échantillonnées et
+  revérifiées au source** (goldens ouverts et comparés octet par octet, références
+  `Fichier.cpp:ligne` ouvertes à la ligne citée). **Trois défauts trouvés, tous corrigés en
+  commits de suite avant merge.** ⭐ Le plus important est de la même famille que les 4 citations
+  infidèles d'E4.0f : la citation de la **décision utilisateur T3.18** en `04_scenarios.md` était
+  annoncée `(capturé, DECISIONS.md:37-40, intégral)` mais **tronquée** — la ligne 40 (« *et un IO
+  dans Calaos ne se supprime pas comme ça.* »), c'est-à-dire **la justification même** de la
+  décision, manquait, et la virgule finale avait été changée en point. Citation désormais
+  **byte-identique** (`diff` sur les deux extraits). Les deux autres sont dans `01_core_data_model.md` :
+  le diagramme de cycle de vie d'un IO attribuait `addIOHash()` à **`~IOBase(Params&)`**, le
+  *destructeur* (c'est le constructeur ; le destructeur appelle `delIOHash()`), et le contrat de
+  `detachIOFromRules(modify = true)` disait « les règles ne sont **pas** touchées du tout », ce
+  qui laissait croire à un no-op complet alors que seul `ListeRule::RemoveRule()` est sauté —
+  `ListeRule::Remove(io)` (retrait de la liste de scrutation) s'exécute **inconditionnellement**
+  (`ListeRoom.cpp:378-402`). **Point de vigilance principal du brief, contrôlé et propre** :
+  `steps_count` est bien documenté comme **longueur du tableau `steps` moins 1** — l'invariant
+  `len(steps) == steps_count + 1` est énoncé, encadré d'un avertissement « un client qui
+  dimensionne son tableau sur `steps_count` tronque », et **revérifié mécaniquement sur les 8
+  payloads de scénario capturés** (7 fichiers `e40c_*autoscenario*`, dont `…_list.json` qui en
+  porte deux) : 8/8 conformes, y compris le cas dégénéré `steps_count: "0"` → 1 élément.
+  **Aucune anticipation d'E4.1** : les mentions de jansson décrivent l'état actuel (`00_overview`
+  documente explicitement la cohabitation jansson/nlohmann et renvoie E4.1 à plus tard).
+  Documentation : BOARD (**`E4.5a` et `E4.5b` ajoutés en ✅**, `E4.5` maintenue **📋** avec le
+  libellé « 2/6 livrés (a, b) », et **`E4.2` 🔨 → ✅** — a→f tous livrés, g abandonné après
+  re-scope, 0/21 sites dangereux), FINDINGS (section de tête **vidée** : les deux items
+  « priorité » étaient périmés — `createIO()` sans garde nullptr **traité par T2.18**
+  (`62739380`) et `getRemoteUIByToken` non constant-time **traité par T2.15** (`01089187`) ;
+  **revérifiés au source** avant d'être déplacés dans une section « Résolus ») et ce journal.
+  **Rien n'a été poussé.** **Reste de l'épique : E4.5c, E4.5d, E4.5e, E4.5f.**
 
 ### 🏁 Bilan de la série E4.0 (close) — ce que E4.1 doit lire AVANT de démarrer
 

@@ -119,9 +119,11 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [E4.0f](E4.0.md) | 4 | Caractérisation du payload audio et base musicale (contrat de `processDbResult()`, `Utils::to_string(double)`, asymétrie WS/HTTP, 24 cas, 20 goldens) **+ réécriture de `docs/08_http_api.md` et `docs/10_events_notifications.md`** | tests | E4.0a | ✅ |
 | [E4.0g](E4.0g.md) | 4 | Harnais : drainer les events de destruction du fixture (`pumpEventLoop()` **après** `CoreFixture::TearDown()`) — 6 rustines retirées, contrat de file vide posé | tests | E4.0d, E4.0e, E4.0f | ✅ |
 | [E4.1](E4.1.md) | 4 | Single JSON library — **prérequis levé**, non démarrée ; lire `ORCHESTRATION.md` (bilan E4.0) avant de commencer | epic | ~~**E4.0**~~ ✅ satisfait | 📋 |
-| [E4.5](E4.5.md) | 4 | Remettre `docs/*.md` en phase avec le code (user request) | epic (doc) | — | 📋 |
+| [E4.5](E4.5.md) | 4 | Remettre `docs/*.md` en phase avec le code (user request) — **2/6 livrés (a, b)** ; restent c, d, e, f | epic (doc) | — | 📋 |
+| [E4.5a](E4.5.md) | 4 | `docs/00_overview`, `docs/01_core_data_model`, `docs/11_config_persistence` réécrits contre le code : ownership E4.2a→f, pugixml (E4.4), robustesse config T2.4, fidélité XML (E4.4cd) ; jansson laissé tel quel (E4.1 non faite) | doc | E4.5 | ✅ |
+| [E4.5b](E4.5.md) | 4 | `docs/03_rules_engine`, `docs/04_scenarios` réécrits contre le code et les goldens : règle désactivée (E4.2e), scénario désactivé + drapeau collant + `autoscenario reenable` + 3 clés de payload (T3.18), plages nocturnes wrappantes (T3.13), invariant `len(steps) == steps_count + 1` | doc | E4.5 | ✅ |
 | [E4.1a](E4.1a.md) | 4 | `Params` : couper le pont dual-API | refactor | E4.0 | 📋 |
-| [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) | epic | Phase 3 | 🔨 |
+| [E4.2](E4.2.md) | 4 | Ownership model (smart pointers / by-id) — **épique close : a→f tous livrés** (résolution par id, `Room` possède ses IOs en `unique_ptr`, Conditions/Actions par id, `Rule`/`ListeRule` possédants, règle désactivée si dépendance manquante, back-pointers de scénario en `weak_ptr`). **g abandonné après re-scope** (0/21 sites `IOBase*` de JsonApi dangereux) | epic | Phase 3 | ✅ |
 | [E4.2a](E4.2a.md) | 4 | ListeRoom by-id resolution + lookup hardening | refactor | — | ✅ |
 | [E4.2b](E4.2b.md) | 4 | Room owns unique_ptr<IOBase>, caches non-owning | refactor | E4.2a | ✅ |
 | [E4.2c](E4.2c.md) | 4 | Conditions/Actions reference IOs by id (not IOBase*) | refactor | E4.2b | ✅ |

@@ -5,16 +5,25 @@
 
 ## Sécurité / correctness à traiter en priorité
 
-- **[CORRECTNESS] Déréférencement `createIO()` sans garde nullptr** — `JsonApi.cpp:1366-1368` et
-  `AutoScenario.cpp:157-160` déréférencent l'IO retourné sans vérifier null ; un miss de factory
-  (type inconnu, ou collision « first-wins » qui retourne null depuis T1.11) → segfault. T1.11 a
-  durci la factory + `genDocIO` mais **pas** ces sites d'appel externes (hors périmètre fichiers).
-  → ticket : auditer tous les appels `createIO` / `IOFactory::CreateIO` pour garde null.
+> *(section vide — les deux items qu'elle portait sont résolus, voir « Résolus » juste en dessous.)*
 
-- **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` compare `auth_token`
-  avec `string ==`** — canal auxiliaire temporel sur le token lui-même (pas le MAC).
-  `JsonApi::secureCompare` existe et peut être réutilisé. → ticket : comparaison constant-time
-  du token RemoteUI.
+## Résolus
+
+- ✅ **[CORRECTNESS] Déréférencement `createIO()` sans garde nullptr** — **traité par T2.18**
+  (`62739380`, « null-guard audit of createIO/CreateIO call sites »). Revérifié au source
+  (revue E4.5a/b, 2026-08-24) : l'arbre ne porte plus que **deux** appelants de
+  `ListeRoom::createIO()`, tous deux gardés — `JsonApi.cpp:1926-1936` (null ou
+  `dynamic_cast<Scenario*>` qui échoue → erreur loggée + réponse d'erreur, et l'IO créé est
+  détruit) et `AutoScenario.cpp:412-424` (null propagé à l'appelant, qui abandonne). Côté
+  fabrique, `IOFactory::CreateIO()` n'a lui aussi que deux appelants,
+  `ListeRoom::createIO()` et `Room::LoadFromXml()`, qui parquent le résultat dans un
+  `unique_ptr` avant tout déréférencement.
+
+- ✅ **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` en `string ==`** —
+  **traité par T2.15** (`01089187`, « … constant-time RemoteUI token lookup »). Revérifié au
+  source : `RemoteUIManager.cpp:96` compare désormais via
+  `JsonApi::secureCompare(io->get_param("auth_token"), token)`, avec le commentaire de
+  contrainte. Plus aucun `==` sur le token dans ce chemin.
 
 ## exprtk ASan (tracké T2.8 — CORRIGÉ, analyse initiale invalidée)
 
