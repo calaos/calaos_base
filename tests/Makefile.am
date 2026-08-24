@@ -2134,3 +2134,27 @@ KNXExternProcWire_test_LDADD = \
 KNXExternProcWire_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
 endif
+
+
+# E4.1g
+#Characterization of the MQTT wire (MqttCtrl.cpp <-> MqttExternProc_main.cpp),
+#written BEFORE any line of src/ and green across the migration. Nothing in
+#the suite executes a driver (E4.0d), so this file is the only net this
+#migration has. It pins the payload LENGTH (json_stringn vs json_string), the
+#'?' substitution of invalid UTF-8 bytes (a shipped user decision), the
+#crossing of a VALID non-ASCII payload, and - on BYTES, not on a parsed
+#document - the exact wire produced by both ends, which is the only oracle
+#ensure_ascii will ever have. Only libcalaos_common code is exercised (Params
+#+ Utils), no server object and no fixture; the migration commit points the
+#test at src/bin/calaos_server/IO/Mqtt/MqttWire.h. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += MqttWire_test
+check_PROGRAMS += MqttWire_test
+MqttWire_test_SOURCES = MqttWire_test.cpp
+MqttWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MqttWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
