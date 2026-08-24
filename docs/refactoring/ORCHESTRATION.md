@@ -2211,6 +2211,71 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   - **Worktree `.wave33/t3.23` nettoyé, branche `fix/t3.23` supprimée. RIEN POUSSÉ** — un push
     vers `master` est une **publication** (bump de version, tag, image ghcr, dispatch `build_deb`),
     et c'est précisément ce qui a publié l'image cassée.
+- **⭐ DEPENDABOT 2026-08-24 ✅ MERGÉ (`a444f873`, 2 commits, ff-only) — la montée COORDONNÉE
+  `mcp 1.16.0→1.28.1` + `fastapi 0.115.12→0.141.1` + `starlette 0.46.2→1.3.1`.** Branche
+  `chore/dependabot-2026-08-24`, **`src/bin/calaos_mcp/pyproject.toml` seul fichier touché**.
+  **RIEN POUSSÉ.** Ticket de suite : `T3.22.md` ; findings **F-DEP-1..7** dans `FINDINGS.md`.
+  - **L'ORDRE ÉTAIT LE POINT, ET IL A ÉTÉ TENU : T3.23 d'abord, celui-ci ensuite.** Avant T3.23,
+    ce `pyproject.toml` n'était lu par **aucun chemin de build** — merger Dependabot seul n'aurait
+    **rien corrigé** dans l'image publiée. Depuis T3.23, `scripts/pyproject-requirements.py` en
+    fait la **source unique** des quatre chemins (deux stages du `Dockerfile`, devcontainer, job CI).
+    **Ce merge-ci est donc le premier qui a un effet réel sur l'artefact.** Zéro fichier en commun
+    entre les deux branches (vérifié deux fois) : rebase sur `ff6b6ab8` **sans aucun conflit**,
+    aucun bloc de journal à fusionner. Titres `^## ` d'`ORCHESTRATION.md` : **9 avant / 9 après**.
+  - **⭐ VERSIONS EFFECTIVEMENT INSTALLÉES, relevées DANS L'IMAGE reconstruite** (`docker build`
+    complet, exit 0, `calaos_dep2408:test`) — elles reflètent bien le bump, la source unique
+    fonctionne : `mcp` **1.28.1** · `fastapi` **0.141.1** · `starlette` **1.3.1** · `uvicorn`
+    **0.34.2** · `websockets` **15.0.1** · `pydantic` **2.11.4** · (transitives : `pydantic-settings`
+    2.15.0, `sse-starlette` 3.4.8 ; non pinnées : `roonapi` 0.1.6, `reolink-aio` 0.21.11). Les deux
+    stages `dev` et `runner` résolvent le **même** jeu (`mcp==1.28.1 / fastapi==0.141.1 /
+    starlette==1.3.1` imprimés par `cat requirements.txt` dans les deux couches pip).
+  - **⭐ LA SONDE `configure.ac` DE T3.23 A TENU FACE À `mcp 1.28.1`** — c'était le risque n°1 de ce
+    merge, puisqu'elle touche l'API **privée** `mcp._session_manager`, exactement le genre de chose
+    qui bouge entre 1.16 et 1.28. Dans le log de build : `checking for the Python API the calaos_mcp
+    sidecar uses... yes`. Rejouée à part dans l'image finale : `probe ok`, exit 0.
+  - **Acceptation, sidecar RÉELLEMENT démarré dans l'image** (socket UDS + `local_config.xml` de
+    test, `curl --unix-socket`) : `GET /healthz` → **200** `{"status":"ok","version":"0.1.0"}` ·
+    `POST /mcp` sans `Authorization` → **401** (`Auth failure from unknown: Missing Bearer token`) ·
+    `POST /mcp` `initialize` avec Bearer → **200**, `serverInfo.name = "calaos"`. Plus les deux
+    critères sans montage : `/opt/bin/calaos_mcp --help` **exit 0** et
+    `python3 -c "from mcp.server.fastmcp import FastMCP"` **exit 0**.
+  - **`make check` 70/70 PASS, 0 FAIL, rc 0** — le compte de master, ce lot n'ajoute aucun test C++.
+    Arbre git des goldens `tests/core/golden` **inchangé** : `d4ebc61f…` sur master, sur la branche
+    et après merge. *(Note d'outillage, reconfirmée : un `docker run` attaché dont le client est tué
+    par un timeout laisse `make` tourner sur son stdout orphelin — relancé détaché, rc 0.)*
+  - **LES 5 PR FERMÉES, et l'argument qui les ferme : le chemin d'exposition.** Toutes npm sur
+    `data/debug`. Ce sont des **transitives `"dev": true`** du toolchain gulp/browser-sync, et
+    `data/debug/dist/` est **pré-buildé et commité** : ces paquets ne sont **jamais shippés**, ni
+    dans l'image, ni dans le `.deb`, ni dans le bundle servi. Cas remarquable : **#168 `immutable`
+    3.8.3 était une RÉGRESSION** — master est déjà en **3.8.4**. Et les alertes `immutable` visent
+    `<4.3.9`, **inatteignable** puisque `browser-sync` épingle `^3` : aucune montée ne les fermera.
+  - **#175 `starlette` 0.46.2 → 1.3.1 n'était installable NULLE PART en isolation.**
+    `fastapi==0.115.12` exige `starlette>=0.40.0,<0.47.0` → `pip` : `ResolutionImpossible`. Les
+    *security updates* de Dependabot montent le paquet vulnérable **seul** et ne voient pas le
+    couplage. D'où la fusion en une montée **coordonnée** avec `fastapi` (et `mcp`, couplé aux deux).
+    ⚠️ **Et la CI ne l'a pas vu, et ne pouvait pas le voir** : `ci.yml` n'avait **aucune étape
+    Python**, et rien dans le build ne résolvait jamais ce `pyproject.toml` — les deux PR étaient
+    **vertes**, d'un vert qui ne portait aucune information. Corrigé par le job `mcp-sidecar-deps`
+    de T3.23 ; c'est ce job qui donne enfin du sens à `T3.22` (entrée pip + `groups:`).
+  - **ARBITRAGE TRANCHÉ : `fastapi 0.141.1` retenu, contre `0.135.0`.** Les deux résolvent et
+    passent la sonde. Mais **0.141.1 est la seule exercée de bout en bout** (34 tests Python,
+    `create_app()`, `/healthz`, `initialize`) ; reculer échangerait une version **testée** contre une
+    version seulement **importée**. Le gain de conservatisme est nul, le coût est une vérification
+    perdue.
+  - **CE QUI RESTE OUVERT** : **F-DEP-2** — aucun test CI ne construit `create_app()` (le job
+    `mcp-sidecar-deps` exerce l'API, pas l'app) · **F-DEP-3** — la divergence peut revenir : **rien**
+    ne rattrape un `RUN pip install` ajouté en dur au `Dockerfile` (garde
+    `check-pydeps-single-source.sh` proposée) · **F-DEP-5** — `__init__.py` déclare `0.1.0` et le
+    `pyproject` `1.0.0`, et c'est **0.1.0 qu'expose `/healthz`**, donc la version lue sur le réseau
+    n'est pas celle du paquet (reconfirmé ci-dessus) · `pydantic-settings 2.15.0` émet un
+    `IncompleteFieldDefinitionWarning` (champ `lifespan`, référence avant non résolue) **au démarrage
+    du sidecar** — bruyant, sans effet observé sur les trois appels d'acceptation, à surveiller.
+  - ⚠️ **LES 12 ALERTES DEPENDABOT RESTENT OUVERTES.** Fermer une PR ne ferme pas l'alerte. Les
+    **2 alertes `immutable`** devraient être ***dismissed*** avec le motif « vulnerable code is not
+    actually used » — geste **non fait** (hors mandat de l'agent) qui **revient à l'utilisateur**.
+  - **Worktree `.wave29/dependabot` nettoyé, branche `chore/dependabot-2026-08-24` supprimée.
+    RIEN POUSSÉ** — un push vers `master` est une **publication** (bump de version, tag git, image
+    ghcr, dispatch `build_deb`), et c'est exactement ce qui avait publié l'image au sidecar mort.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
