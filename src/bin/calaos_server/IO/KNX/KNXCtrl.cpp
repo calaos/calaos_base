@@ -344,7 +344,7 @@ KNXValue KNXCtrl::getValue(const string &group_addr)
     return knxCache[group_addr];
 }
 
-void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
+string knxWriteMessage(const string &group_addr, const KNXValue &value)
 {
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
@@ -352,7 +352,21 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
     Json jroot = p.toNJson();
     jroot["value"] = value.toJson();
 
-    string res = jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
+    return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+string knxReadMessage(const string &group_addr, int eis)
+{
+    Params p = {{"type", "read"},
+                {"group_addr", group_addr},
+                {"eis", Utils::to_string(eis)}};
+
+    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
+{
+    string res = knxWriteMessage(group_addr, value);
 
     if (!res.empty())
         process->sendMessage(res);
@@ -362,11 +376,7 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
 
 void KNXCtrl::readValue(const string &group_addr, int eis)
 {
-    Params p = {{"type", "read"},
-                {"group_addr", group_addr},
-                {"eis", Utils::to_string(eis)}};
-
-    string res = p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+    string res = knxReadMessage(group_addr, eis);
 
     if (!res.empty())
         process->sendMessage(res);

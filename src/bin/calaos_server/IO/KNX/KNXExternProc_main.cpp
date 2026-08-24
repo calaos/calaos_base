@@ -213,9 +213,7 @@ bool KNXProcess::monitorWait()
         cWarning() << "Error waiting for monitor data, stopping.";
         EIBClose(eibsock);
         eibsock = nullptr;
-        Params p = {{"type", "disconnected"}};
-
-        string res = p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+        string res = knxDisconnectedMessage();
         if (!res.empty())
             sendMessage(res);
         return false;
@@ -257,14 +255,7 @@ bool KNXProcess::monitorWait()
     if (printValue && v.setValue(0, buf))
         cDebug() << t << " Value : " << v.toString();
 
-    Params p = {{"type", "event"},
-                {"group_addr", knxGroupAddr(dest)},
-                {"knx_type", type}};
-    Json j = p.toNJson();
-    if (printValue)
-        j["value"] = v.toJson();
-
-    string res = j.dump(-1, ' ', true, Json::error_handler_t::replace);
+    string res = knxEventMessage(knxGroupAddr(dest), type, v, printValue);
     if (!res.empty())
         sendMessage(res);
 

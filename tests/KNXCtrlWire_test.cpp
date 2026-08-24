@@ -37,17 +37,20 @@
  *    is genuinely under test.
  *  - Params::toNJson() (through the seam below, after the port) is production
  *    code too, and so is the dump form.
- *  - The three-line envelope assembly of KNXCtrl::writeValue() and
- *    KNXCtrl::readValue() is MIRRORED, not invoked. Those methods end in
- *    process->sendMessage(), on an ExternProcServer that needs a running
- *    libuv loop and a live calaos_knx child; ExternProcServer::sendMessage()
- *    is not virtual and there is no seam. Reaching them would mean changing
- *    src/ for the test's convenience, which this ticket refuses. What the two
- *    envelope cases freeze is therefore the byte form produced by the same
- *    primitives in the same order - useful, because that is where the
- *    escaping and the key ordering show up - but it does NOT attest that
- *    writeValue() still calls them. Read them as byte-form freezes, not as
- *    emitter tests.
+ *  - The envelope builders knxWriteMessage() and knxReadMessage() (declared
+ *    in KNXCtrl.h) ARE production code and are called directly.
+ *
+ *    ⚠ THEY DID NOT USED TO BE, AND THAT WAS A REAL HOLE, MEASURED. This file
+ *    first froze a faithful line-by-line COPY of the assembly done inside
+ *    KNXCtrl::writeValue()/readValue(), because those two methods end on
+ *    process->sendMessage() and cannot be reached from a test (private ctor,
+ *    singleton spawning two calaos_knx children, ExternProcServer needing a
+ *    live libuv loop). A copy freezes what the TEST does, not what the
+ *    PRODUCT does: with the copy in place, putting the four production dump()
+ *    back to a naked .dump() - i.e. reintroducing the type_error.316 /
+ *    std::terminate this very ticket documents - left the whole suite
+ *    34/34 GREEN. The assembly was therefore extracted into free functions
+ *    that production and tests both call. Never re-inline them.
  *
  * THE SEAM. Exactly four functions - dumpKnxValue(), parseKnxValue() and the
  * two envelope mirrors - carry the jansson -> nlohmann change. NO ASSERTION
@@ -80,27 +83,18 @@ KNXValue parseKnxValue(const string &text)
     return KNXValue::fromJson(Json::parse(text, nullptr, false));
 }
 
-//Mirror of the body of KNXCtrl::writeValue(), minus the sendMessage() it
-//ends on.
+//NOT mirrors any more. knxWriteMessage()/knxReadMessage() are the PRODUCTION
+//builders declared in KNXCtrl.h; KNXCtrl::writeValue()/readValue() call these
+//very functions and then hand the result to process->sendMessage(). See the
+//note at the top of this file for why the earlier copies were worthless.
 string writeMessage(const string &group_addr, const KNXValue &value)
 {
-    Params p = {{"type", "write"},
-                {"group_addr", group_addr}};
-
-    Json jroot = p.toNJson();
-    jroot["value"] = value.toJson();
-
-    return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
+    return knxWriteMessage(group_addr, value);
 }
 
-//Mirror of the body of KNXCtrl::readValue(), same caveat.
 string readMessage(const string &group_addr, int eis)
 {
-    Params p = {{"type", "read"},
-                {"group_addr", group_addr},
-                {"eis", Utils::to_string(eis)}};
-
-    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+    return knxReadMessage(group_addr, eis);
 }
 
 /*** END OF THE SEAM - nothing below this line moves with the port ***/
@@ -318,6 +312,13 @@ TEST(KNXCtrlWire, NonAsciiDiffersOnlyByTheCaseOfTheHexEscape)
     //The wire stays pure ASCII either way: no raw UTF-8 byte escapes onto it.
     for (char c: dumpKnxValue(v))
         EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
+
+    //And the same, through the PRODUCTION builder this time, so that losing
+    //ensure_ascii on one of the four production dump() sites turns this red.
+    const string prod = writeMessage("1/2/3", v);
+    EXPECT_NE(string::npos, prod.find("\\u00e9"));
+    for (char c: prod)
+        EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
 }
 
 TEST(KNXCtrlWire, NonAsciiExactBytes_DECLARED_DELTA)
@@ -424,17 +425,27 @@ TEST(KNXCtrlWire, ANumberFieldIsStringifiedNotRejected)
 
 TEST(KNXCtrlWire, ABooleanFieldIsStringifiedTheJanssonWay)
 {
-    //jansson_decode_object() spells booleans "true"/"false"; from_string on
-    //an int then fails and leaves the default. Pinned so the port does not
-    //quietly turn it into "1"/"0", or into a throw.
-    KNXValue v = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":true,"
-                               "\"value_float\":\"21.5\",\"value_char\":\"A\","
-                               "\"value_string\":\"Salon\"}");
-
+    //jansson_decode_object() spells booleans "true"/"false". The boolean goes
+    //into value_STRING, not value_int: put in value_int, "true" and "false"
+    //BOTH fail from_string and BOTH leave 0, so the case could not tell them
+    //apart - it was a dead oracle (dropping the is_boolean() branch, or
+    //swapping "true" and "false", left it green). Two calls, two different
+    //expected bytes, is what makes it bite.
+    KNXValue vtrue = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":\"77\","
+                                   "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                                   "\"value_string\":true}");
     EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
-                     "\"value_float\":\"21.5\",\"value_int\":\"0\","
-                     "\"value_string\":\"Salon\"}"),
-              dumpKnxValue(v));
+                     "\"value_float\":\"21.5\",\"value_int\":\"77\","
+                     "\"value_string\":\"true\"}"),
+              dumpKnxValue(vtrue));
+
+    KNXValue vfalse = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":\"77\","
+                                    "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                                    "\"value_string\":false}");
+    EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
+                     "\"value_float\":\"21.5\",\"value_int\":\"77\","
+                     "\"value_string\":\"false\"}"),
+              dumpKnxValue(vfalse));
 }
 
 TEST(KNXCtrlWire, AnArrayOrObjectFieldIsRecordedAsAnEmptyString)

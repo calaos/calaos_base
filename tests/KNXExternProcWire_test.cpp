@@ -39,11 +39,11 @@
  *
  * PRODUCTION CODE vs MIRROR, same honesty as the sibling file:
  *  - KNXValue::toJson() / fromJson() are production, called directly.
- *  - The envelope assembly of KNXProcess::monitorWait() (the "event" and
- *    "disconnected" messages) is MIRRORED, not invoked: monitorWait() blocks
- *    in EIBGetGroup_Src() on a live knxd socket. What is frozen is the byte
- *    form the same primitives produce in the same order, not the fact that
- *    monitorWait() still calls them.
+ *  - knxEventMessage() / knxDisconnectedMessage() ARE production code and
+ *    are called directly. ⚠ They used to be MIRRORED here, and a mirror
+ *    freezes what the TEST does, not what the PRODUCT does: with the mirror
+ *    in place, putting the four production dump() back to a naked .dump()
+ *    left the whole suite 34/34 GREEN. Extracted, never re-inline.
  *
  * THE SEAM: dumpKnxValue(), parseKnxValue(), eventMessage(),
  * disconnectedMessage(). Nothing else moves with the port except the three
@@ -110,28 +110,18 @@ KNXValue parseKnxValue(const string &text)
     return KNXValue::fromJson(Json::parse(text, nullptr, false));
 }
 
-//Mirror of the "event" branch of KNXProcess::monitorWait()
-//(KNXExternProc_main.cpp), minus the sendMessage() it ends on.
+//NOT mirrors any more. knxEventMessage()/knxDisconnectedMessage() are the
+//PRODUCTION builders declared in KNXExternProc_main.h, and monitorWait()
+//calls these very functions. See the note at the top of this file.
 string eventMessage(const string &group_addr, const string &knx_type,
                     const KNXValue &value, bool printValue)
 {
-    Params p = {{"type", "event"},
-                {"group_addr", group_addr},
-                {"knx_type", knx_type}};
-
-    Json j = p.toNJson();
-    if (printValue)
-        j["value"] = value.toJson();
-
-    return j.dump(-1, ' ', true, Json::error_handler_t::replace);
+    return knxEventMessage(group_addr, knx_type, value, printValue);
 }
 
-//Mirror of the disconnection branch of KNXProcess::monitorWait().
 string disconnectedMessage()
 {
-    Params p = {{"type", "disconnected"}};
-
-    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+    return knxDisconnectedMessage();
 }
 
 /*** END OF THE SEAM - nothing below this line moves with the port ***/
@@ -354,6 +344,12 @@ TEST(KNXExternProcWire, NonAsciiDiffersOnlyByTheCaseOfTheHexEscape)
 
     for (char c: dumpKnxValue(accentedValue()))
         EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
+
+    //And the same, through the PRODUCTION builder this time.
+    const string prod = eventMessage("1/2/3", "write", accentedValue(), true);
+    EXPECT_NE(string::npos, prod.find("\\u00e9"));
+    for (char c: prod)
+        EXPECT_LT((unsigned int)(unsigned char)c, 0x80u);
 }
 
 TEST(KNXExternProcWire, NonAsciiExactBytes_DECLARED_DELTA)
@@ -426,14 +422,27 @@ TEST(KNXExternProcWire, ANumberFieldIsStringifiedNotRejected)
 
 TEST(KNXExternProcWire, ABooleanFieldIsStringifiedTheJanssonWay)
 {
-    KNXValue v = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":true,"
-                               "\"value_float\":\"21.5\",\"value_char\":\"A\","
-                               "\"value_string\":\"Salon\"}");
-
+    //jansson_decode_object() spells booleans "true"/"false". The boolean goes
+    //into value_STRING, not value_int: put in value_int, "true" and "false"
+    //BOTH fail from_string and BOTH leave 0, so the case could not tell them
+    //apart - it was a dead oracle (dropping the is_boolean() branch, or
+    //swapping "true" and "false", left it green). Two calls, two different
+    //expected bytes, is what makes it bite.
+    KNXValue vtrue = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":\"77\","
+                                   "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                                   "\"value_string\":true}");
     EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
-                     "\"value_float\":\"21.5\",\"value_int\":\"0\","
-                     "\"value_string\":\"Salon\"}"),
-              dumpKnxValue(v));
+                     "\"value_float\":\"21.5\",\"value_int\":\"77\","
+                     "\"value_string\":\"true\"}"),
+              dumpKnxValue(vtrue));
+
+    KNXValue vfalse = parseKnxValue("{\"type\":\"1\",\"eis\":\"6\",\"value_int\":\"77\","
+                                    "\"value_float\":\"21.5\",\"value_char\":\"A\","
+                                    "\"value_string\":false}");
+    EXPECT_EQ(string("{\"eis\":\"6\",\"type\":\"1\",\"value_char\":\"A\","
+                     "\"value_float\":\"21.5\",\"value_int\":\"77\","
+                     "\"value_string\":\"false\"}"),
+              dumpKnxValue(vfalse));
 }
 
 TEST(KNXExternProcWire, MissingKeysLeaveTheDefaultsAndNothingThrows)

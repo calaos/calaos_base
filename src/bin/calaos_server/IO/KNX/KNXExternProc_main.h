@@ -100,6 +100,33 @@ public:
     static KNXValue fromString(int eis, const string &s);
 };
 
+/* E4.1e - the exact bytes calaos_knx puts on the wire, built in ONE place so
+ * that production and tests cannot drift apart. KNXProcess::monitorWait()
+ * blocks in EIBGetGroup_Src() on a live knxd socket, so a test can never reach
+ * it; freezing a copy of the assembly froze what the TEST did, not what the
+ * PRODUCT did. Both sides call these now.
+ */
+inline string knxEventMessage(const string &group_addr, const string &knx_type,
+                              const KNXValue &value, bool printValue)
+{
+    Params p = {{"type", "event"},
+                {"group_addr", group_addr},
+                {"knx_type", knx_type}};
+
+    Json j = p.toNJson();
+    if (printValue)
+        j["value"] = value.toJson();
+
+    return j.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+inline string knxDisconnectedMessage()
+{
+    Params p = {{"type", "disconnected"}};
+
+    return p.toNJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
 class KnxdObj
 {
 public:

@@ -85,6 +85,22 @@ private:
     string value_string;
 };
 
+/* E4.1e - the exact bytes KNXCtrl puts on the wire, built in ONE place so that
+ * production and tests cannot drift apart.
+ *
+ * KNXCtrl::writeValue() and readValue() end on process->sendMessage(), on an
+ * ExternProcServer that needs a running libuv loop and a live calaos_knx child,
+ * and KNXCtrl has a private constructor behind a singleton that spawns two of
+ * them: a test can never reach those two methods. Before this extraction the
+ * tests froze a faithful COPY of the assembly, and a copy freezes what the TEST
+ * does, not what the PRODUCT does - the whole suite stayed green when the four
+ * production dump() were put back to a naked .dump(), i.e. when the
+ * type_error.316 / std::terminate documented by this ticket was reintroduced.
+ * These two functions are what both sides call now.
+ */
+string knxWriteMessage(const string &group_addr, const KNXValue &value);
+string knxReadMessage(const string &group_addr, int eis);
+
 class KNXCtrl: public sigc::trackable
 {
 private:
