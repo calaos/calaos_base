@@ -2657,11 +2657,28 @@ même racine et le même remède :
 
 ## E4.1e — le wire KNX transporte des octets bruts du bus : `dump()` nu = `std::terminate`
 
-`KNXValue::setValue()` (`IO/KNX/KNXExternProc_cli.cpp`, cas **EIS 15/16**) remplit `value_string`
-avec les **octets bruts de la trame KNX**, sans validation ni transcodage ; `value_char` prend de
-même n'importe quel octet pour EIS 13/16. Un appareil qui envoie du texte **latin-1** — le cas
-normal sur KNX — met donc de l'**UTF-8 invalide** dans une valeur que `calaos_knx` sérialise dans sa
-boucle de monitoring et que `calaos_server` re-sérialise à l'écriture.
+⭐ **La surface est bien plus large que « des chaînes EIS 15/16 », et c'est ce qui décide de la
+priorité : le déclencheur est du matériel domestique ordinaire, pas un équipement exotique.**
+
+Deux chemins, tous deux dans `KNXValue::setValue()` (`IO/KNX/KNXExternProc_cli.cpp`) :
+
+1. ⛔ **`case 6 / 13 / 14` (valeurs 8 bits) — le chemin le plus banal qui soit.**
+   `value_int = data.at(1) & 0xFF` puis `value_char = value_float = value_int`, donc **tout octet
+   ≥ 0x80** produit un `value_char` que `Utils::to_string(unsigned char)` rend comme **un octet
+   isolé, invalide en UTF-8**. **EIS 6 est le scaling 0-255** : un **gradateur à 78 % vaut 200**.
+   Il ne faut donc **aucun appareil particulier** — une installation domestique ordinaire suffit à
+   atteindre le `dump()`.
+2. `case 15 / 16` (chaînes) : `value_string` reçoit les **octets bruts de la trame**, sans
+   validation ni transcodage. Un appareil qui envoie du texte **latin-1** — le cas normal sur KNX —
+   y met de l'UTF-8 invalide.
+
+Les deux valeurs sont sérialisées par `calaos_knx` dans sa boucle de monitoring et re-sérialisées
+par `calaos_server` à l'écriture.
+
+**La chaîne est nue de bout en bout** : `EIBGetGroup_Src()` → `setValue()` → `toJson()` → `dump()`,
+et il n'y a **aucun `try`/`catch` dans tout `IO/KNX/`** (vérifié fichier par fichier) —
+`monitorWait()` est appelée nue par `readTimeout()`, et `EXTERN_PROC_CLIENT_MAIN` n'en pose pas non
+plus.
 
 Mesuré sur les octets `C9 74 E9` :
 
@@ -2682,3 +2699,52 @@ binaire).
 que l'absence de clé. La vraie correction est de **transcoder** (KNX EIS 15 est de l'ASCII 7 bits,
 EIS 16 du latin-1) ou de sérialiser ces champs en base64. Ticket dédié, avec caractérisation
 d'abord — hors périmètre d'une migration de bibliothèque.
+
+## E4.1e — ⭐ un test-miroir reste VERT quand le produit casse : mesuré, et le remède est à 10 lignes
+
+**La leçon la plus transférable de ce sous-ticket, et elle vaut pour tous les wires de la série.**
+
+Quand l'émetteur est inatteignable depuis un test — ce qui est le cas de **tous** les drivers
+`ExternProc` (`sendMessage()` non virtuelle, contrôleurs en singleton à constructeur privé qui
+lancent un sous-processus, boucles bloquées sur une socket matérielle) — la tentation est d'écrire
+un test qui **reproduit** l'assemblage du message avec les mêmes primitives, et de geler ses octets.
+C'est ce qu'E4.1e a fait d'abord, **fidèlement, ligne à ligne**.
+
+⛔ **Ça ne protège rien.** Un miroir fige ce que **le test** fait, pas ce que **le produit** fait.
+Mesuré par la revue : en remettant les **4** `dump()` de production de `IO/KNX` en `.dump()` nu —
+c'est-à-dire en réintroduisant exactement le `type_error.316` / `std::terminate` documenté
+ci-dessus — la suite est restée **34/34 VERTE**. Le ticket documentait une régression critique et ne
+s'en protégeait pas.
+
+✅ **Le remède est bon marché** : extraire l'assemblage d'enveloppe en **fonctions libres** appelées
+par **la production ET le test** (`knxWriteMessage`, `knxReadMessage`, `knxEventMessage`,
+`knxDisconnectedMessage` — ~10 lignes déplacées, aucun changement de comportement). La même mutation
+donne ensuite **2 rouges par binaire**.
+
+**Deux fausses pistes, écartées après mesure** : la capture du log (`LogStream` écrit sur
+`std::cout`) ne couvrait que **2 sites sur 4** — `monitorWait()` ne loggue pas son `res` — et rendre
+`sendMessage()` virtuelle ne suffisait pas non plus, le constructeur du contrôleur étant privé
+derrière un singleton qui lance deux sous-processus.
+
+➡️ **À appliquer aux sous-tickets de wire restants** (`E4.1f` OLA, `E4.1g` MQTT, `E4.1h` Wago,
+`E4.1i` Reolink, `E4.1j` Lua) : si le test construit lui-même le message qu'il gèle, **il ne teste
+pas l'émetteur** — extraire d'abord.
+
+## E4.1e — le piège `_DEPENDENCIES` reste ARMÉ pour le prochain
+
+Les deux tests neufs d'E4.1e reconduisent le motif du dépôt :
+`<test>_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la` **seul**, alors que le binaire
+lie des `.o` du serveur (`IO/KNX/KNXCtrl.o`, `IO/ExternProc.o`, `IO/KNX/KNXExternProc_cli.o`).
+`make` n'a donc **aucune raison de relier** ces binaires quand un `.o` du serveur change. Ce n'est
+pas un défaut introduit ici — c'est le motif de **tous** les tests qui réutilisent des objets du
+serveur — mais il faut le dire : **le piège n'est pas désamorcé, il attend le suivant.**
+
+Ses **deux** faces, toutes deux rencontrées dans la série :
+- **faux VERT** (E4.1e) : la mutation n'est jamais exercée, tout reste vert, on conclut que le test
+  ne mord pas — ou pire, on conclut qu'il mord alors qu'on n'a rien mesuré ;
+- **faux ROUGE** (E4.1k) : le binaire est périmé et échoue sur du code qui n'existe plus.
+
+**Protocole à appliquer sans exception** : (1) effacer **le `.o` ET le binaire de test** ;
+(2) **lire les lignes `CXX` et `CXXLD`** dans la sortie de make — pas de `CXXLD`, pas de mesure ;
+(3) exiger que **des mutations différentes donnent des jeux de rouges différents** ; (4) faire un
+**contrôle sans mutation** (attendu : 0 rouge) avant de faire confiance au harnais.
