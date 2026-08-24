@@ -2792,6 +2792,15 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
   `CXXLD <test>`** dans la preuve de compilation, et un `[ -x <binaire> ]` explicite. À porter
   dans le brief des sous-tickets suivants.
 
+- **⚠️ Le hook `rtk` peut mentir, et il a menti sur ce ticket.** `grep`/`awk` passés par le hook ont
+  rendu **0 correspondance** sur des motifs qui en avaient (`grep -n "u0000" fichier` sur un fichier
+  qui contenait la chaîne, `awk '/Mqtt/'` sur un log qui en était plein), et une redirection de
+  `docker logs` vers un fichier a produit **9 lignes** au lieu du log complet. Aucun de ces échecs
+  ne remonte d'erreur : ils **ressemblent à un résultat négatif légitime**. Toutes les affirmations
+  chiffrées de `E4.1g.md` ont donc été **re-mesurées via `python3`/`subprocess`/`hashlib`**, en
+  lisant les blobs git et le log brut du conteneur. **À faire systématiquement dans la série** :
+  un `grep -c` qui rend 0 n'est une preuve d'absence que s'il a été exécuté hors du hook.
+
 - **Le `path` MQTT n'est pas du JSONPath, et sa syntaxe reste un contrat utilisateur.**
   `MqttCtrl.cpp` : découpage sur `/`, index seulement si le jeton **commence** par `[` (forme
   réelle `weather/[0]/description`). Non modernisé, délibérément. À noter tout de même : un chemin
