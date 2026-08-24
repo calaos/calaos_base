@@ -155,6 +155,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.17e](T3.17.md) | 3 | Audit du transport WS : le jeton `apiAlive` hérité suffit (aucun code de production changé) | audit | T2.15 | ✅ |
 | [T3.18](T3.18.md) | 3 | Scénario amputé : désactiver le scénario entier, drapeau persistant + réactivation manuelle (`autoscenario reenable`) (user decision) | fix | E4.2f, **T3.17** | ✅ |
 | ~~T3.18b~~ | 3 | ~~Commande d'API dédiée de réactivation~~ (annulé : réintégré dans T3.18) | feature | — | ⛔ |
+| [T3.20](T3.20.md) | 3 | Suites T3.18 : `autoscenario modify` refuse un **payload** citant un IO absent (fin du blanchiment d'un scénario amputé) + `disabled_missing_io` en **lecture seule** côté API (user decision) | fix | T3.18 | 📋 |
 
 ---
 

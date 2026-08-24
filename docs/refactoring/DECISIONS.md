@@ -4,6 +4,83 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-24 — `autoscenario modify` refuse un **payload** qui référence un IO absent
+
+**Décision** : `autoscenario modify` **refuse** de reconstruire un scénario dont le **payload
+reçu** cite un IO qui ne résout pas, et la réponse d'erreur **nomme les ids manquants**, dans la
+même forme que le refus de `autoscenario reenable`.
+
+**Pourquoi** : sans ce refus, un aller-retour `modify` **blanchit** un scénario amputé. La chaîne
+est mesurée : `deleteRules()` détruit la référence morte (`JsonApi.cpp:2034`), la reconstruction
+**saute silencieusement** l'action dont l'IO manque (`if (out)` sans `else`, `:2075`),
+`checkScenarioRules()` recollecte des règles toutes saines, donc `isBroken()` **redevient faux** —
+et `tryReenable()` **réussit** sur un scénario ayant perdu une étape. Le drapeau collant décidé le
+2026-08-16 est alors levé **légitimement, par le mécanisme prévu, sur le résultat même que la
+décision voulait rendre impossible**. `missing_ios` prévient avant le round-trip, mais après il n'y
+a plus rien à voir.
+
+**Le point de conception qui commande tout : le refus porte sur ce qu'on ÉCRIT, jamais sur l'état
+d'AVANT.** Conséquence directe et voulue :
+- **réparer** un scénario cassé — envoyer un payload d'où l'étape morte a été retirée — reste
+  **possible**, c'est même le chemin de réparation nominal ;
+- **blanchir** — le réécrire à l'identique, étape morte comprise — devient **impossible**.
+
+Un refus qui porterait sur l'état d'avant (« ce scénario est cassé, donc je refuse de le modifier »)
+**enfermerait l'utilisateur** : il ne pourrait plus éditer un scénario cassé, donc plus jamais le
+réparer, donc plus jamais le réactiver. Le drapeau collant redeviendrait le « piège sans clé de
+sortie » que la décision du 2026-08-16 avait justement levé en posant la réactivation manuelle
+comme clé.
+
+**Conséquences à connaître** :
+- **changement de contrat d'API observable** : un `modify` qui répondait `{"success":"true"}`
+  répond désormais `{"error": …}`. Goldens `e40c_*` à faire bouger **nommément**, jamais par
+  régénération de masse, sur les **deux** transports.
+- la validation doit tomber **avant `deleteRules()`** (`JsonApi.cpp:2033`, avant `:2034`). Posée
+  après, elle refuse un scénario déjà démoli : l'utilisateur perd son scénario **et** reçoit une
+  erreur.
+- `buildAutoscenarioCreate` porte le **même** `if (out)` silencieux (`JsonApi.cpp:1981`).
+  Non couvert par cette décision, recommandé en extension — cf. T3.20, « Hors périmètre ».
+
+**Appliquer** : **T3.20**.
+
+## 2026-08-24 — `disabled_missing_io` : en **lecture seule** côté API
+
+**Décision** : le param `disabled_missing_io` reste persisté et relu comme aujourd'hui, mais toute
+tentative d'écriture **venant d'un client** est **ignorée**. Les deux seuls écrivains légitimes
+sont **le moteur** (à la détection d'une étape amputée) et **`autoscenario reenable`**.
+
+**Pourquoi** : `buildJsonSetParam` (`JsonApi.cpp:694`) et `buildJsonDelParam` (`:724`) acceptent
+n'importe quel couple `(io, param)`, sans liste blanche. Un client authentifié peut donc **poser**
+le drapeau sur un scénario **sain**. Le booléen en mémoire n'est lu qu'une fois, dans le
+constructeur (`AutoScenario.cpp:112`) : le scénario continue de tourner normalement **jusqu'au
+reboot**, où il se réveille désactivé. **L'écriture ne prend effet qu'au redémarrage alors que la
+lecture est immédiate** — une asymétrie qu'aucune UI n'affiche et qu'aucun log ne signale sur le
+coup. C'était classé « DoS par client authentifié, déjà assumé » ; l'utilisateur ferme la porte.
+
+**Comportement retenu : ignorer + logguer, et répondre `success` comme aujourd'hui.** Alignement
+sur le **précédent de l'arbre**, pas sur une invention : l'immuabilité de `set_param("id")`
+(`IOBase.cpp:82-109`, `del_param` `:112-123`) logge `cErrorDom` et `return`, et `set_param()` étant
+**`void`** l'API répond quand même `success` (déjà documenté en `JsonApi.h:159-162`, déjà testé,
+trace visible dans `IOIdIntegrity_test.log:30`). Deux params protégés de la même classe qui
+répondraient différemment au même appel générique feraient une API qui ment sur elle-même ; et
+rendre `set_param` capable de refuser exige de changer une signature virtuelle surchargée dans tout
+l'arbre des IO, pour un gain que le log couvre déjà.
+
+**Conséquences à connaître** :
+- ⭐ `buildJsonDelParam` **court-circuite** `IOBase::del_param()` : il appelle
+  `o->get_params().Delete(...)` (`JsonApi.cpp:724`). Une garde posée dans l'IO **n'est donc pas
+  atteinte sur le chemin d'effacement**. Le routage par la méthode virtuelle fait partie de la
+  décision, sans quoi elle n'est appliquée qu'à moitié.
+- **effet de bord assumé et souhaitable** : ce routage ferme aussi un trou **pré-existant** —
+  `del_param id` par l'API supprimait réellement l'id des `Params` en laissant `io_table` clé sur
+  un id disparu (`IOIdIntegrity_test` ne couvrait ce cas que par appel direct, `:95`).
+- le **moteur** doit garder une porte d'écriture (`AutoScenario::setDisabledMissingIo()` écrit par
+  `ioScenario`) : la garder fermée pour lui annulerait T3.18 **en silence**.
+- `disabled` (choix utilisateur, planification) vit dans le **même `Params`** et reste
+  **librement modifiable**. La garde ne doit jamais l'attraper.
+
+**Appliquer** : **T3.20**.
+
 ## 2026-08-16 — T3.18 séquencé APRÈS T3.17 (ergonomie de réactivation complète)
 **Décision** : ne pas livrer T3.18 avec une réactivation par la commande générique
 `set_param disabled_missing_io=false`. On **attend que T3.17 libère** `JsonApi.{h,cpp}` et les deux

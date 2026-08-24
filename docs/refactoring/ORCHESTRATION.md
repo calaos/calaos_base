@@ -1534,6 +1534,16 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
    **six sous-tickets durant** avant qu'E4.0d ne la réfute. Un pompage défensif non mesuré est une
    dette qui se propage par mimétisme.
 
+- **T3.20 ouvert 📋 (2026-08-24), NON IMPLÉMENTÉ** — les réserves **R3** et **R5** de la revue de
+  T3.18 (`FINDINGS.md`, `## T3.18 — suites`) sont **tranchées par l'utilisateur**, deux entrées
+  datées en tête de `DECISIONS.md`. **R3** : `autoscenario modify` doit refuser un **payload** qui
+  cite un IO absent — le refus porte sur ce qu'on **écrit**, pas sur l'état d'avant, sinon on
+  enferme l'utilisateur (réparer reste possible, blanchir devient impossible) ; point d'insertion
+  obligatoire `JsonApi.cpp:2033`, **avant** `deleteRules()` (`:2034`). **R5** :
+  `disabled_missing_io` passe en **lecture seule côté API**, ignoré + loggué façon
+  `set_param("id")`, avec le routage de `buildJsonDelParam` (`JsonApi.cpp:724`) par la méthode
+  virtuelle — sans quoi la garde n'est jamais atteinte. Ticket complet : `T3.20.md`.
+  **Aucune ligne de `src/` écrite, aucun test, aucun golden touché.**
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

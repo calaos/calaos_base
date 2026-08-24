@@ -1523,7 +1523,7 @@ couvrir le nouveau comportement de `reenable`.
 > Un canari choisi dans l'espace des noms réels finit par être implémenté, et il meurt en silence
 > le jour où il est implémenté — c'est-à-dire exactement le jour où on aurait eu besoin de lui.
 
-### R3 — à ouvrir en ticket de suivi : `modify` blanchit un scénario amputé
+### R3 — ✅ **TRANCHÉ (2026-08-24)**, ouvert en [T3.20](T3.20.md) — `modify` blanchit un scénario amputé
 
 Après un aller-retour `autoscenario modify`, `deleteRules()` **détruit la référence morte**. Donc
 `isBroken()` devient **faux**, et `tryReenable()` **réussit** sur un scénario qui a silencieusement
@@ -1539,18 +1539,62 @@ référence pendante à détecter.
 > reconstruire un scénario dont une étape référence un IO absent ? C'est le seul endroit où
 > l'information existe encore.
 
-Laissé intact sur instruction, à ouvrir en ticket de suivi.
+~~Laissé intact sur instruction, à ouvrir en ticket de suivi.~~
 
-### R5 — hors périmètre : l'asymétrie du drapeau posé à la main
+**➡️ Réponse de l'utilisateur (2026-08-24) : OUI, mais sur le PAYLOAD, pas sur l'état d'avant.**
+`autoscenario modify` refuse de reconstruire un scénario dont le **payload reçu** cite un IO
+absent, et l'erreur **nomme les ids manquants** (même forme que le refus de `reenable`).
+Conséquence voulue : **réparer** (payload nettoyé) reste possible — c'est le chemin de réparation
+nominal — tandis que **blanchir** (payload avec l'étape morte) devient impossible. Un refus portant
+sur l'état d'avant enfermerait l'utilisateur : plus d'édition d'un scénario cassé, donc plus jamais
+de réparation.
+
+**L'analyse ci-dessus reste exacte et reste la référence du ticket.** Elle est complétée par deux
+mesures faites au moment de la décision : le point d'insertion obligatoire est
+**`JsonApi.cpp:2033`, AVANT `deleteRules()` (`:2034`)** — `deleteRules()` + `addStep`/`addStepAction`
+(`:2057-2079`) tournent **avant** le seul garde-fou du corps, `checkScenarioRules()` (`:2130`) ;
+et le saut silencieux est le `if (out)` sans `else` de **`:2075`**, jumelé à `:1981` dans
+`buildAutoscenarioCreate`.
+
+→ **Ticket : [T3.20](T3.20.md)** · **Décision : `DECISIONS.md`, entrée
+« 2026-08-24 — `autoscenario modify` refuse un **payload** qui référence un IO absent »**.
+**Non implémenté.**
+
+### R5 — ✅ **TRANCHÉ (2026-08-24)**, ouvert en [T3.20](T3.20.md) — l'asymétrie du drapeau posé à la main
 
 Un client qui pose `disabled_missing_io` à la main sur un scénario **sain** n'affecte **pas** le
 booléen en mémoire : le scénario **continue de tourner** jusqu'au prochain redémarrage, où il se
 retrouve **désactivé**. L'écriture ne prend donc effet qu'au reboot, alors que la lecture est
 immédiate.
 
-Asymétrie **non documentée** ailleurs que dans cette note. Le ticket classe ce sens comme un **déni
-de service par client authentifié**, catégorie déjà assumée par la série. Hors périmètre, laissé
-intact sur instruction.
+Asymétrie **non documentée** ailleurs que dans cette note. ~~Le ticket classe ce sens comme un
+**déni de service par client authentifié**, catégorie déjà assumée par la série. Hors périmètre,
+laissé intact sur instruction.~~
+
+**➡️ Décision de l'utilisateur (2026-08-24) : fermer la porte.** `disabled_missing_io` devient un
+paramètre **en lecture seule côté API** — persisté et relu comme aujourd'hui, mais toute écriture
+venant d'un client est **ignorée**. Seuls écrivains légitimes : **le moteur** et
+**`autoscenario reenable`**.
+
+**L'analyse ci-dessus reste exacte** ; le recensement fait pour trancher l'a complétée sur trois
+points, tous consignés dans le ticket :
+- il y a **exactement deux** chemins d'écriture client, `buildJsonSetParam` (`JsonApi.cpp:694`) et
+  `buildJsonDelParam` (`:724`). `autoscenario modify`/`create` n'en sont **pas** : ils ne
+  construisent leurs `Params` que sur 6 clés nommées en dur ;
+- ⭐ **`buildJsonDelParam` court-circuite `IOBase::del_param()`** — il appelle
+  `o->get_params().Delete(...)`. La garde d'immuabilité de `"id"` (`IOBase.cpp:112-123`) n'est donc
+  **jamais atteinte depuis l'API**, exactement le trou que `IOBase.h:120-122` annonçait comme
+  accepté hors périmètre de T1.11 ; le premier appelant à l'avoir emprunté est l'API elle-même, et
+  `IOIdIntegrity_test.cpp:95` ne le couvrait que par appel **direct** ;
+- **arbitrage ignorer-vs-erreur** : *ignorer + logguer + répondre `success`*, aligné sur le
+  précédent `set_param("id")` (`IOBase.cpp:82-109`), qui est **`void`** et ne peut pas refuser vers
+  l'appelant (`JsonApi.h:159-162` le dit déjà). Pas de nouveau chemin d'erreur.
+
+⚠️ Le commentaire de `ScenarioDisabledMissingIo_test.cpp:711-715` (« *Any authenticated client can
+del_param the flag* ») deviendra **faux** à la livraison de T3.20 et doit être réécrit.
+
+→ **Ticket : [T3.20](T3.20.md)** · **Décision : `DECISIONS.md`, entrée
+« 2026-08-24 — `disabled_missing_io` : en **lecture seule** côté API »**. **Non implémenté.**
 
 ### Onze tests de contrat modifiés — et la liste du ticket était fausse **dans les deux sens**
 
