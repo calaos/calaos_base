@@ -2051,3 +2051,26 @@ core_JsonApiThrottleIdentity_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiThrottleIdentity_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+
+# E4.1k
+#Characterization of the io_doc.json generator: IODoc::genDocJson() (the
+#document of one IO type) and IOFactory::genDocIO() (the aggregation and the
+#write of io_doc.json/io_doc.md). Written BEFORE the jansson -> nlohmann
+#migration of those two functions and green across it; the single seam is
+#docToJson() in the test itself, no assertion moves.
+#It needs the server core objects for the second half (genDoc instantiates
+#every registered IO type), so it uses the core LDADD, and jansson for the
+#seam, which @CALAOS_COMMON_LIBS@ already carries. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IODocJson_test
+check_PROGRAMS += core/IODocJson_test
+core_IODocJson_test_SOURCES = core/IODocJson_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IODocJson_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_IODocJson_test_LDADD = $(CORE_TEST_LDADD)
+#Built elsewhere, do not let automake turn them into prerequisites
+core_IODocJson_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
