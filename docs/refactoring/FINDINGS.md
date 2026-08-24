@@ -1861,7 +1861,6 @@ Il en reste **un**, et il est porteur parce qu'il précède une assertion d'**ab
 C'est le même mécanisme que les 6 rustines de la série : **une explication fausse voyage plus vite
 qu'une mesure**. Le seul contrôle qui l'attrape est de retirer le pompage et de relancer.
 
-
 ---
 
 ## E4.1a — ce que la coupure du pont a révélé (hors périmètre, à reprendre)
@@ -2064,4 +2063,73 @@ périmètre.
   l'intégration Roon soit inutilisable en configuration à hôte statique aujourd'hui**. À
   confirmer sur matériel avant de trancher, mais les deux défauts sont sur le même chemin et
   méritent un seul ticket.
+
+---
+
+## E4.5d — écarts trouvés en réécrivant `12/14/15` contre le code (hors périmètre, non corrigés)
+
+Tous mesurés au source le 2026-08-24, aucun corrigé (le ticket est de la doc pure, invariant
+« aucune ligne de `src/` »).
+
+- **[BUILD, casse à l'exécution] La sonde MCP de `configure.ac:218-219` ne teste pas
+  `websockets`.** `$PYTHON -c "import mcp, uvicorn, fastapi"` active `HAVE_PYTHON_MCP`, mais
+  `calaos_mcp/client.py:16` fait `import websockets`, qui est bien une dépendance déclarée de
+  `src/bin/calaos_mcp/pyproject.toml:20`. Une machine sans `websockets` **construit et installe**
+  le sidecar, qui échoue ensuite à l'import — le manager le respawne alors indéfiniment
+  (backoff plafonné à 60 s). Idem pour `pydantic`/`starlette`, tirés en transitif par fastapi/mcp
+  mais non sondés. → ajouter `websockets` (au moins) à la sonde et à la ligne
+  `pip3 install` du message d'aide (`configure.ac:225`).
+- **[DOC-DANS-LE-CODE FAUSSE] `ConfigOptions.cpp:886-889` décrit mal `mcp_rate_limit`.** La
+  chaîne dit « Maximum number of **authentication attempts** the MCP sidecar accepts from one IP
+  address ». Or `auth.py:150-156` incrémente la fenêtre glissante **avant** la vérification du
+  Bearer, pour **toute** requête, `tools/call` réussi compris : l'option plafonne le **trafic**,
+  pas les tentatives d'authentification. `mcp_ban_failures`, lui, est bien décrit (il compte les
+  échecs). Cette chaîne est rendue à l'utilisateur par l'ioDoc → à corriger dans un ticket qui a
+  le droit de toucher `src/`.
+- **[SURFACE MORTE, mesurée] Trois éléments du sidecar MCP sont câblés et jamais atteints.**
+  (a) `client.py:156-158` `CalaosClient.autoscenario()` — **aucun des 9 tools ne l'appelle**
+  (`grep -rn autoscenario src/bin/calaos_mcp tests/python` : seules les 3 lignes de la définition
+  et la mention dans le frozenset mort ci-dessous). (b) `client.py:23-27` `_ALLOWED_ACTIONS`,
+  un `frozenset` d'actions « permises sous la portée service », **référencé nulle part** : il ne
+  filtre rien, et il porte le même nom que celui de `tools/audio.py:5-8`, qui lui est bien utilisé
+  — piège de lecture. (c) `models.py` : les modèles pydantic `IO`/`Room`/`Scenario`/`AudioPlayer`
+  sont installés (`Makefile.am:23`) et **importés par aucun module**. → soit retirer, soit brancher ;
+  en l'état la doc devait explicitement dire que ce n'est pas utilisable, ce que fait désormais
+  `docs/15_mcp_server.md`.
+- **[FIABILITÉ] `RoonPlayer.cpp:39-50` — le respawn perd `--host` et `--port`.** Le premier
+  `startProcess(exe, "roon", args)` (`:50`) passe `--host <ip> --port <n>` construits depuis la
+  configuration, mais le handler `processExited` (`:43`) rappelle `startProcess(exe, "roon")`
+  **sans args**. Après le premier redémarrage, le sous-processus retombe donc sur la découverte
+  automatique `RoonDiscovery` (`ExternProcRoon_main.py:75-83`) au lieu du core configuré — et se
+  connecte potentiellement au mauvais core, ou à aucun. → mini-ticket : capturer `args` dans le
+  lambda.
+- **[FIABILITÉ] Sept contrôleurs sur huit respawnent leur sous-processus sans aucun délai.**
+  `MqttCtrl.cpp:43-48`, `KNXCtrl.cpp:36-41` et `:48-53`, `OLACtrl.cpp:31-36`, `OwCtrl.cpp:33-38`,
+  `ReolinkCtrl.cpp:37-43`, `RoonPlayer.cpp:39-44` rappellent `startProcess()` directement depuis
+  `processExited`. Un binaire qui échoue au démarrage (dépendance Python absente, broker
+  injoignable au point de faire sortir le process) donne une **boucle de spawn serrée**, seulement
+  freinée par le `Timer::singleShot(0.1, …)` de `ExternProc.cpp:191`. Seul `WagoMap` a un backoff
+  (`WagoMap.h:165-172`, 1/2/3/5 s, plafond volontairement bas), et `McpServerManager` en a un autre
+  (`:284`, 1→60 s). → généraliser le backoff de `WagoMap` : c'est déjà noté comme table
+  quasi-dupliquée (`McpServerManager.cpp:284` vs `WagoMap.h:172`).
+- **[SÉCURITÉ, throttle] `JsonApiHandlerWS::clientIp()` (`:45-51`) n'utilise pas
+  `X-Forwarded-For`.** Il renvoie `HttpClient::getClientIp()`, c'est-à-dire le **pair TCP**
+  (`HttpClient.cpp:710-732`), alors que `TransportLimits::effectiveClientIp()`
+  (`HttpClient.h:144-155`) existe précisément pour donner l'identité vue par haproxy et est bien
+  employé par le plafond `max_connections_per_ip` (`HttpClient.cpp:200-203`). Conséquence :
+  derrière haproxy, **tous les utilisateurs partagent un seul seau `LoginThrottle`** — un
+  attaquant peut bloquer le login de tout le monde, et son propre backoff est celui du proxy.
+  N'affecte pas `login_service` (le sidecar se connecte en loopback, où le pair est la bonne
+  identité). → ticket : faire passer `clientIp()` par `effectiveClientIp()`.
+- **[DOC — corrigé dans ce ticket, consigné pour mémoire] `docs/12_extern_proc.md` et
+  `docs/14_python_extern_proc.md` étaient faux sur le framing.** Le premier décrivait un octet de
+  début `START = 0x02` **qui n'existe pas** et une longueur sur **2 octets** (max 65535) ; le
+  second en tirait une note affirmant une **incompatibilité 4 octets Python / 2 octets C++** et
+  invitait à « vérifier la compatibilité ». Le format réel est le même des deux côtés : 1 octet
+  d'opcode `0x21` + 4 octets de longueur big-endian, plafond 4 MiB côté C++
+  (`ExternProc.h:37-44,57`, `message.py:36-45,73-84`). Le `12` portait en outre un **exemple MQTT
+  entièrement inventé** (`{"action":"subscribe"}`, `{"type":"connected"}` — aucun de ces messages
+  n'existe), une ligne de table décrivant un **sous-processus Reolink C++** inexistant, et un
+  chemin de socket `$CALAOS_HOME/run/` que le code ne consulte jamais. Même classe que les
+  défauts d'E4.0f : la doc n'était pas périmée, elle était fausse.
 
