@@ -1823,6 +1823,68 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   - **Rien n'a été poussé.** Worktrees `.wave27/e4.1a` et `.review27/e4.1a` nettoyés, branche
     `refactor/e4.1a` supprimée. **E4.1 reste 📋** : `a` ✅, **b→x restent** (découpage posé par
     `a85e38c2`, 10 vagues) et ce sont eux qui migrent les 99 appels.
+- **E4.5c, E4.5d, E4.5e ✅ mergés** (2026-08-24, `d002d2e8`, `23702a60`, `ebee5a3d`, ff-only,
+  historique linéaire, **aucun commit de merge**) — trois sous-tickets de doc pure, **invariant
+  tenu et vérifié mécaniquement commit par commit** (`git show --name-only` sur les **6** commits) :
+  **zéro ligne de `src/`, zéro test, zéro golden**. `c` = `docs/02_io_drivers`, `05_audio`,
+  `06_ipcam` (+ `RELEASE_NOTES`) · `d` = `docs/12_extern_proc`, `14_python_extern_proc`,
+  `15_mcp_server` · `e` = `docs/07_remoteui`, `09_lua_scripting`, `13_utility_lib`, `README`.
+  - ⭐⭐ **CE N'ÉTAIT PAS DE L'OBSOLESCENCE, C'ÉTAIT DE LA FAUSSETÉ — et à une échelle qu'aucun
+    des trois briefs n'avait anticipée.** **Presque tous les noms de paramètres des drivers
+    étaient faux** : MQTT `topic`/`topic_set` → **`topic_sub`/`topic_pub`** ; GPIO
+    `gpio_number`/`inverted` → **`gpio`/`active_low`** ; KNX `address`/`feedbackAddress`/`datatype`
+    → **`knx_group`/`listen_knx_group`/`eis`** ; Hue `api_key`/`light_id` → **`api`/`id_hue`** ;
+    Squeezebox `playerid` → **`id`**. Un utilisateur qui suivait la doc écrivait une configuration
+    **sans aucun effet** — pas une erreur, pas un avertissement : un silence. Pire encore sur les
+    caméras : **les 5 types XML documentés étaient fantômes** (**0 occurrence** dans tout l'arbre),
+    donc **aucune caméra ne se chargeait**. Côté Lua, **14 des 15 fonctions documentées n'existent
+    pas** — la table réelle en porte **11**, en **camelCase** — et **`Timer` était documenté à
+    l'envers** : il est **répétitif** et n'a **pas** de `stop()`. Ajouter : **`relay_num` est
+    **1-based**, pas 0** ; le **framing `ExternProc`** annonçait un octet `START = 0x02`
+    **inexistant** et une longueur sur **2 octets** au lieu de **4** ; et l'**exemple MQTT du `12`
+    était inventé de bout en bout**. C'est exactement la leçon d'E4.0f, à plus grande échelle.
+  - **L'ampleur de la vérification, parce que c'est le seul contrôle qui existe sur de la doc** :
+    **~95 affirmations rouvertes au source** pour `e4.5d`, **~95** pour `e4.5c` (sur **252
+    références mécaniquement contrôlées**), **~80** pour `e4.5e`. Les relecteurs ont **rejoué** les
+    contrôles byte-identiques : **19/19**, **24/24**, **16/16**. Les trois revues indépendantes ont
+    conclu `MERGE avec réserves` ; **toutes les réserves ont été fermées** par un commit de suite
+    avant merge.
+  - ⭐ **Une décision prouvée par exécution, pas par lecture** : le relecteur d'`e4.5e` a **exécuté**
+    les deux scripts de garde — `check-config-docs` → « matches the generator » et
+    `check-config-options` → « 52 keys used, 57 in registry, 5 obsolete ». Cela **prouve** que
+    `docs/16_config_options.md` est à jour et **valide la décision de ne pas y toucher**, alors que
+    le brief d'E4.5e l'incluait dans son périmètre. C'est la bonne forme : un script qu'on lance
+    tranche mieux qu'une relecture.
+  - ⭐ **LA CORRECTION LA PLUS IMPORTANTE APPORTÉE À NOS PROPRES NOTES DE VERSION.** Pour MySensors
+    (T2.12) et Gadspot (T3.6) supprimés, `RELEASE_NOTES.md` annonçait « la configuration démarre
+    normalement, l'IO inconnu est ignoré ». C'est **vrai au démarrage** — et **cela rassure à tort
+    sur le fichier** : `main.cpp:196` planifie `checkAutoScenario()` **0,1 s après le boot**,
+    laquelle se termine par `SaveConfigIO()`. Donc **un simple redémarrage, sans aucune action
+    utilisateur, efface ces entrées d'`io.xml`**. La configuration n'est pas ignorée, elle est
+    **amputée**. `RELEASE_NOTES.md` a été **corrigé en conséquence** ; si la préservation est le
+    comportement voulu, c'est un ticket.
+  - ⚠️ **Cinq bugs de code découverts au passage, versés en `FINDINGS.md`, aucun corrigé** (doc
+    pure) : (1) ⭐ la **syntaxe d'index `path` est fausse dans la chaîne `ioDoc` elle-même** — donc
+    `calaos_installer` l'affiche **à tous les utilisateurs** ; (2) **Roon reçoit `--port 0`**
+    (`9330` passé dans le paramètre `bool mandatory`) **et perd `--host`/`--port` au respawn** :
+    l'intégration est **probablement inutilisable** en hôte statique ; (3) l'**OTA compare les
+    versions par égalité de chaînes** → un firmware **plus ancien** est proposé comme mise à jour ;
+    (4) `setIOParam`/`waitForIO` **`return 1` sans push** → le script Lua récupère **son propre
+    dernier argument**, donc **tout test de statut lit vrai** ; (5) le **throttle de login ne
+    protège pas par client derrière un reverse-proxy**, sur **les deux transports** (ticket
+    **`T3.24`**, en cours).
+  - **Les trois rebases, et le conflit annoncé.** `FINDINGS.md` a conflité sur **les trois**
+    branches (fin de fichier, chacune y ajoutant sa section pendant que master avançait) et une
+    seconde fois sur le commit de suite d'`e4.5c`. **Résolution invariante : garder TOUS les blocs,
+    dans l'ordre — master d'abord, branche ensuite**, jamais choisir. Contrôle systématique du
+    nombre de titres `^## ` avant/après, qui ne doit qu'**augmenter** : **45 → 46**, **46 → 47**,
+    **47 → 48**, et à chaque fois la liste des titres de master vérifiée **incluse en entier**
+    (0 section perdue). Séparateur `---` **précédé d'une ligne vide** à chaque jonction — le piège
+    du titre setext qui avait mordu le mergeur d'E4.1a. `RELEASE_NOTES.md` : **21 titres avant,
+    21 après**, aucun perdu.
+  - **Rien n'a été poussé.** Worktrees `.wave30/e4.5c`, `.wave31/e4.5d`, `.wave32/e4.5e` nettoyés,
+    branches supprimées. **E4.5 reste 📋 — 5/6 livrés (a, b, c, d, e)** ; reste **`E4.5f`**
+    (vérification de `08_http_api` et `10_events_notifications`), **en cours** sur `docs/e4.5f`.
 - **T3.20 ouvert 📋 (2026-08-24), NON IMPLÉMENTÉ** — les réserves **R3** et **R5** de la revue de
   T3.18 (`FINDINGS.md`, `## T3.18 — suites`) sont **tranchées par l'utilisateur**, deux entrées
   datées en tête de `DECISIONS.md`. **R3** : `autoscenario modify` doit refuser un **payload** qui
