@@ -2472,6 +2472,59 @@ sous-ensemble que le script couvre, et il est **étroit**.
 > chaque revue de doc dans la suite d'E4.5.
 
 
+## E4.1b — les invariants d'émission (écarts mesurés, hors périmètre non corrigés)
+
+- ⛔ **[F-E41B-1] LA FICHE `E4.1b.md` SE TROMPAIT : le `std::terminate` était atteignable AVANT
+  ce ticket, pas seulement à partir d'E4.1o.** Elle écrivait « aujourd'hui aucun payload
+  client-influencé n'atteint ces deux surcharges ». **Mesuré faux.** `eventlog` les atteint toutes
+  les deux (`buildJsonEventLog()` est la seule méthode `std::function<void(Json &)>` de
+  `JsonApi.h`), et `HistEvent::toJson()` (`HistLogger.cpp:82-103`) recopie **`io_id`, `io_state`,
+  `pic_uid` bruts depuis sqlite** dans l'arbre nlohmann. Ces trois chaînes ne traversent **aucun**
+  parseur JSON : `EventManager::appendEvent()` (`EventManager.cpp:93`) y met
+  `ev.getParam()["state"]`, que `set_state` peut alimenter en **octets percent-décodés** par le
+  repli GET de `JsonApiHandlerHttp.cpp:88`. Démonstration exécutée : `SIGABRT` (134),
+  `[json.exception.type_error.316] invalid UTF-8 byte at index 0: 0xFF`.
+  ➡️ **Conséquence pour la suite de l'épique** : `E4.1o` n'est pas le premier point où le crash
+  devient atteignable, il n'est que le premier où la fiche l'avait vu. **Corrigé par ce ticket.**
+
+- ⚠️ **[F-E41B-2] `OtaHttpHandler` renvoie l'identifiant matériel pris DANS L'URI dans un corps
+  JSON.** `handleFirmwareDownload()` construit
+  `"No firmware found for hardware ID: " + hardwareId` où `hardwareId` est un `uri.substr()`
+  brut, validé seulement contre `/`, `..` et le vide — **les octets non-UTF-8 passent**. Le dump
+  est désormais durci, donc plus de `terminate`, mais **le reflet d'une portion d'URI non
+  assainie dans une réponse reste un motif à surveiller** (le second est
+  `RemoteUIProvisioningHandler`, qui reflète des params `io.xml` que pugixml ne valide pas).
+  Chemin **derrière l'authentification HMAC** et derrière `OTA_DISABLED`, donc non urgent.
+  **Hors périmètre, non corrigé au-delà du durcissement du dump.**
+
+- 📏 **[F-E41B-3] Deux écarts d'inventaire dans la fiche.** `Audio/AVRRose.cpp` porte **9** sites
+  `d.dump()`, pas 8. Et `RemoteUI/RemoteUIWebSocketHandler.cpp`, listé comme un site à part, **n'a
+  aucun `dump()` nlohmann** : son `sendJson` est `using JsonApiHandlerWS::sendJson;`
+  (`RemoteUIWebSocketHandler.h:90`), donc le site WS le couvre ; son `json_dumps()` de `:246` est
+  du jansson et appartient à E4.1n. Un nouveau site est apparu pendant le ticket,
+  `IO/IOFactory.cpp:117`, posé **déjà conforme** par E4.1k.
+
+- 📏 **[F-E41B-4] Recomptage de la dette `jansson_from_params`, hors du hook `rtk`.** Sur `master`
+  `138c16ee` (E4.1k mergé), fichiers **suivis** de `src/` + `tests/` : **100 occurrences sur 100
+  lignes**, dont **70 dans `JsonApi.cpp`**. Sur l'arbre suivi **entier** (docs comprises) : **128
+  occurrences / 126 lignes**. Les chiffres qui circulaient (104, 102) mélangeaient les deux
+  périmètres et/ou une base antérieure. Le classement par fichier est inchangé.
+
+- ⚠️ **[F-E41B-5] Le groupe « wires tiers » de ce ticket n'a AUCUN oracle, et ne peut pas en
+  avoir.** `RoonPlayer` (7), `AVRRose` (9), `OWExternProc_main`, `calaos_config`,
+  `ConfigOptions` reçoivent le gestionnaire d'erreur **seul** : par construction il ne change
+  **rien** tant que les données sont valides, donc **aucune observation** ne distingue l'avant de
+  l'après. Ce n'est pas un trou de ce ticket, c'est la définition d'un filet passif — mais il faut
+  le savoir : **une contre-mutation sur ces 20 sites ne rougirait rien**, et ce n'est pas un
+  symptôme du piège `_DEPENDENCIES`. Les harnais capables de les exercer appartiennent à E4.1d→j.
+
+- 📌 **[F-E41B-6] `EventManager::appendEvent()` ne journalise que si l'IO porte
+  `log_history == "true"`** (`EventManager.cpp:78`). Cela **borne** le canal d'injection de
+  F-E41B-1 aux IOs explicitement journalisés. **Non mesuré ici** : aucun `io.xml` n'est versionné
+  dans ce dépôt, la configuration de production n'y est pas ; `ORCHESTRATION.md` cite **78**
+  `log_history=` survivant dans `configs/raoulh/io.xml`, chiffre repris **sans vérification** —
+  à recompter sur une vraie installation avant d'en tirer une conclusion sur l'ampleur.
+
 ## E4.1k — le générateur `io_doc.json` (`IODoc.{h,cpp}`, `IOFactory.cpp`)
 
 ### ⭐ La prémisse « les descriptions d'IO sont en français et contiennent des accents » est FAUSSE

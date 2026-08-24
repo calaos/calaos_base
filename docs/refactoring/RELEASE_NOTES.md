@@ -109,6 +109,36 @@ se mettre à fonctionner :
   commentaire) faisait **planter le serveur** — c'était un déni de service à distance depuis une
   URL configurée par l'utilisateur.
 
+### Journal d'événements — un accent de travers ne coupe plus le serveur (E4.1b)
+
+Le journal d'événements enregistre l'état de chaque équipement au moment où il change. Si cet état
+contenait du texte **mal encodé** — un accent envoyé dans un vieux format par un équipement, un
+nom recopié depuis un fichier d'une autre époque, ou simplement une valeur transmise telle quelle
+par un capteur bavard — alors la **consultation du journal**, depuis l'application ou depuis
+l'interface web, **arrêtait `calaos_server` net**. Pas un message d'erreur, pas une réponse
+incomplète : le serveur s'arrêtait, et il fallait attendre son redémarrage. La même consultation
+refaite juste après le redémarrage l'arrêtait de nouveau, aussi longtemps que l'événement fautif
+restait dans le journal.
+
+Le même défaut guettait ailleurs, pour les mêmes raisons : les notifications push, la réponse
+d'appairage d'un écran déporté, la mise à jour de son micrologiciel, et la trace enregistrée
+lorsqu'une règle envoie une notification.
+
+Désormais, un caractère que Calaos ne sait pas relire est **remplacé par le point d'interrogation
+en losange (�)** que tous les navigateurs et téléphones affichent dans ce cas, et **la réponse
+part normalement**. Le reste du message est intact, la connexion reste ouverte, et le serveur
+continue de tourner.
+
+→ **Rien à faire de votre côté.** Si vous aviez un journal d'événements qui « faisait tomber »
+Calaos à chaque consultation, il redevient consultable après la mise à jour.
+
+**Détail pour les intégrateurs** : les réponses de l'API JSON restent, comme avant, en **ASCII
+pur** — les caractères accentués continuent d'être transmis sous leur forme échappée (`\u00e9`
+pour `é`). Une poignée de réponses les transmettait jusqu'ici en UTF-8 brut selon la commande
+appelée ; elles rejoignent la forme commune. Toute bibliothèque JSON lit les deux formes de façon
+identique ; seuls les outils qui cherchent une sous-chaîne dans le texte brut de la réponse — ce
+qu'aucun client Calaos ne fait — pourraient s'en apercevoir.
+
 ### Médiathèque et journal d'événements — deux commandes ordinaires tuaient le serveur (T3.19)
 Deux appels parfaitement légitimes de l'API JSON **arrêtaient net `calaos_server`**, sans
 déconnexion, sans course, sans manipulation particulière : il suffisait d'être **authentifié** et
