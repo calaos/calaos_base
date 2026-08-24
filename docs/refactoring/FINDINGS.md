@@ -2470,3 +2470,70 @@ sous-ensemble que le script couvre, et il est **étroit**.
 > désarme vaut moins que pas de contrôle*. Ce qui attrape le reste — la référence qui ment,
 > l'affirmation qui ne cite rien — reste la **revue**, et il n'y a pas de substitut. Obligatoire à
 > chaque revue de doc dans la suite d'E4.5.
+
+
+## E4.1k — le générateur `io_doc.json` (`IODoc.{h,cpp}`, `IOFactory.cpp`)
+
+### ⭐ La prémisse « les descriptions d'IO sont en français et contiennent des accents » est FAUSSE
+
+`E4.1k.md` annonçait qu'`ensure_ascii` allait **changer visiblement** le fichier versionnable
+`io_doc.json`. Mesuré sur `master` `beccf106`, deux fois, indépendamment :
+
+- `grep -rnP '[^\x00-\x7F]' src/bin/calaos_server/IO/` ne trouve du non-ASCII que **dans des
+  commentaires** (des tirets cadratins) — **aucune** chaîne de documentation d'IO n'en porte ;
+- l'`io_doc.json` **réellement généré** (`calaos_server --gendoc`, 525 588 octets) contient
+  **0 octet ≥ 0x80** et **0 séquence `\uXXXX`**.
+
+⇒ `ensure_ascii = true` est un **no-op strict** sur cet artefact aujourd'hui. Il est appliqué quand
+même (invariant d'épique, et il tient le fichier en ASCII si une description accentuée apparaît un
+jour), mais **il ne fait bouger aucun octet**. La seule différence avant/après est **l'ordre des
+clés**. À noter aussi : `json_dumps()` était appelé **sans** `JSON_ENSURE_ASCII` ici — ce fichier
+était donc en **forme 2** du tripwire (UTF-8 brut), pas en forme 1.
+
+### ⚠️ `genDocJson()` avait un appelant, et la fiche n'en annonçait aucun
+
+`tests/core/WebIO_test.cpp:64` (`docParamNames()`) consomme le `json_t*` de `genDocJson()` pour en
+extraire les **noms** des paramètres documentés des sept types Web. C'est le **seul** appelant du
+dépôt hors `IOFactory.cpp`, et le périmètre de fichiers d'E4.1k ne le mentionne pas : la bascule de
+signature **ne compile pas** sans lui. Adaptation mécanique faite dans un commit séparé, **zéro
+assertion touchée**. ⇒ **Pour les fiches suivantes de la série** : le tableau « Fichier / Appels »
+compte les *sites d'appel jansson*, pas les *appelants de la signature qui change*. Les deux
+ensembles sont différents, et le second est celui qui casse le build.
+
+### `IODoc.h` était le fournisseur transitif de `<jansson.h>` pour 139 objets — le retrait est sûr
+
+`IOBase.h` inclut `IODoc.h`, qui incluait `<jansson.h>` (posé par E4.1a) : **139** objets de
+`calaos_server` recevaient jansson par cette seule chaîne. Vérifié **avant** de la couper, sur les
+fichiers `.deps/*.Po` du build : les **24** fichiers de `src/` qui utilisent des symboles jansson
+**sans** les inclure eux-mêmes reçoivent **tous** l'en-tête **aussi** par `IO/ExternProc.h`,
+`JsonApi.h` ou `Jansson_Addition.h`. `IODoc.h` n'était le fournisseur **unique** d'aucun d'eux.
+
+⚠️ **Avertissement pour [E4.1c](E4.1c.md)** : `IO/ExternProc.h` est maintenant le fournisseur
+transitif de jansson pour **~20 fichiers** (`WagoMap.cpp`, `MqttCtrl.cpp`, `KNXCtrl.cpp`,
+`OLACtrl.cpp`, `ReolinkCtrl.cpp`, `IO/Scenario.cpp`, `EventManager.cpp`, `ScriptExec.cpp`, les cinq
+`*ExternProc_main.cpp`…). Son `#include <jansson.h>` **n'est pas mort** au sens du build, même s'il
+est mort au sens de ce fichier-là. Le retirer casse la compilation de tout ce monde tant que
+`IO/Scenario.cpp` (⛔ E4.6) et `EventManager.cpp` (E4.1l) n'ont pas basculé.
+
+### La fuite `IODoc.cpp:163` a disparu d'elle-même
+
+`json_object_set` au lieu de `_new` sur `list_value` (consignée par la revue d'E4.1a) : le
+comptage de références n'existe plus avec `nlohmann`, la fuite disparaît sans correction et **sans
+changement de comportement observable**. Rien d'autre n'a été fait.
+
+### ⚠️⚠️ Le piège `_DEPENDENCIES`, variante **faux ROUGE UNIFORME** — nouvelle, et vicieuse
+
+La première campagne de contre-mutation a rendu **7 mutations sur 7 « RED »**… **toutes avec
+exactement le même cas en échec**, celui de la **première** mutation. Diagnostic : les objets
+serveur (`$(CALAOS_SERVER_BUILDDIR)/…/IODoc.$(OBJEXT)`) sont **délibérément retirés** des
+prérequis par `core_<X>_test_DEPENDENCIES = …libcalaos_common.la`. Donc
+`make -C src && make -C tests core/<X>_test` **recompile bien le `.o` muté** mais **ne relie pas**
+le binaire de test : on exécute le binaire de la mutation **précédente**.
+
+⇒ Un ROUGE obtenu ainsi **ne prouve rien** : il peut être le rouge d'une autre mutation. Le
+symptôme qui trahit, et le seul, c'est que **plusieurs mutations rendent le même cas en échec**.
+La correction : **effacer le binaire de test ET les `.o` mutés** avant chaque reconstruction
+(`rm -f tests/core/<X>_test …/IODoc.o …/IOFactory.o`). C'est la variante « faux ROUGE » du piège
+déjà connu — la version connue produisait un rouge *illégitime*, celle-ci produit un rouge
+*légitime mais qui atteste la mauvaise mutation*, ce qui est pire : elle est **verte à la
+lecture**.
