@@ -1609,3 +1609,63 @@ la conséquence directe de la décision utilisateur — un scénario désactivé
 configuration, donc la référence morte doit être **conservée**, pas nettoyée. Un test dont
 l'assertion s'inverse est un signal fort : ce n'est plus un ajustement, c'est le contrat qui change
 de sens.
+
+## E4.6 — cadrage (refonte AutoScenario)
+
+### ⭐ `calaos_installer` ampute les règles, hors API — défaut d'un autre dépôt, à ne pas perdre
+
+Trouvé par la revue indépendante de T3.20, hors périmètre de `calaos_base`.
+
+`calaos_installer` **détruit silencieusement les actions à référence morte** :
+1. au chargement de `rules.xml`, chaque sortie d'action est résolue et **abandonnée sans erreur si
+   l'id ne résout pas** — `if (output)` sans `else`,
+   `calaos_installer/src/projectmanager.cpp:1126-1133` ;
+2. à la sauvegarde, `io.xml` et `rules.xml` sont **régénérés en entier** depuis le modèle mémoire
+   (`saveIOsToFile()` → `IOXmlWriter`, `projectmanager.cpp:922-933`) ;
+3. les deux fichiers sont **téléversés entiers** par `api.php`
+   (`src/dialogsaveonline.cpp:100-122` ; **seulement ces deux**, `local_config.xml` est commenté).
+
+⇒ **ouvrir un projet dans l'installeur et le renvoyer suffit à amputer une règle**, définitivement,
+**sans qu'aucune garde côté serveur ne puisse le voir** : le serveur reçoit un `rules.xml` cohérent
+d'où la référence a simplement disparu. C'est aujourd'hui le **vecteur d'amputation le plus probable
+en production** — plus probable que l'API, qui n'a aucun appelant first-party.
+
+**Traité côté serveur par E4.6** (D2/D10 : la définition du scénario vit dans un `scenarios.xml`
+que l'installeur ne téléverse pas, donc ne peut pas amputer). **Non traité côté installeur** :
+c'est un autre dépôt, et le défaut concerne **toutes** les règles, pas seulement les scénarios.
+Ticket à ouvrir sur `calaos_installer`.
+
+### Sites recalés — la revue de T3.20 cite un worktree, pas master
+
+Les gardes `if (!sa.io) continue;` de `Scenario::toJson()` sont citées **`:206`** et **`:229`** par
+la revue de T3.20. Sur **master `770e322f`**, `IO/Scenario.cpp` fait **195 lignes** et les sites
+sont **`:158`** et **`:181`** (vérifié). L'écart de ~48 lignes vient des surcharges
+`set_param`/`del_param` que T3.20 ajoute **dans son worktree** `.wave26/t3.20`. La garde elle-même
+est **préexistante** : commit `faa952ea` (E4.2f, 2026-08-16), ni T3.18 ni T3.20.
+
+### `IOBase::isAutoScenario()` est mort, et cela requalifie un défaut
+
+`IOBase::auto_sc_mark` (`IOBase.h:65,150-151`) est écrit par `AutoScenario::createInput()`
+(`AutoScenario.cpp:399`) et par `Scenario::Scenario()` (`IO/Scenario.cpp:51`), et
+**`IOBase::isAutoScenario()` n'est appelé nulle part dans `src/`** (recherche exhaustive).
+Conséquence : le défaut « `createInput()` marque un IO étranger squatté » est **réel mais sans effet
+observable**. Ce qui reste gênant est la **cause** — des ids d'IO **dérivés** d'une chaîne de
+configuration créent un espace de noms squattable, d'où la garde T2.18
+(`AutoScenario.cpp:584-590`) et `ScenarioNullGuard_test.cpp:91`.
+`Rule::isAutoScenario()` (`Rule.h:162`), lui, a **exactement un** consommateur :
+le balayage orphelin de `ListeRoom.cpp:324`.
+
+### Code mort et déréférencements non gardés relevés en cartographiant (E4.6, non corrigés)
+
+- **`JsonApi.cpp:2037`** — `buildAutoscenarioModify()` calcule
+  `params.Add("auto_scenario", Calaos::get_new_scenario_id())` et **ne s'en sert jamais** :
+  `params["auto_scenario"]` n'est relu nulle part dans la fonction. Copié de `create` (`:1908`)
+  sans relecture. Coût réel : un balayage O(n²) du cache à chaque `modify`.
+- **`JsonApi.cpp:2170`** — `sc->getAutoScenario()->getIOTimeRange()->get_param("id")` après
+  `addSchedule()` (`:2161`), qui laisse `ioTimeRange` **nul** si `createInput()` échoue
+  (`AutoScenario.cpp:1075` — factory miss / room manquante, le cas même que T2.18 garde ailleurs).
+- **`JsonApi.cpp:2105`** — `old_room->RemoveIOFromRoom(scenario)` avec `old_room` issu de
+  `getRoomByIO()` (`:2100`), non gardé, alors que `room` l'est (`:2103`).
+
+Les trois disparaissent avec E4.6d. S'ils devaient survivre à un abandon d'E4.6, ils valent un
+ticket à eux seuls.

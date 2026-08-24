@@ -4,6 +4,59 @@
 > **ne les re-demande pas** et respecte les contraintes. Format : date, décision, pourquoi,
 > comment l'appliquer. Ajouter en tête (plus récent en haut).
 
+## 2026-08-24 — AutoScenario : refonte complète (API + modèle), **rupture assumée**
+
+**Décision** : la fonctionnalité AutoScenario est **refondue entièrement, API ET modèle interne**.
+Rupture d'API totale, changement de format de persistance, changement de sémantique. **Aucune
+compatibilité ascendante, aucun convertisseur.**
+
+**Le mandat, dans les mots de l'utilisateur** : les 4 auto-scénarios de sa config de production
+étaient **des essais avec une vieille UI** qui consommait cette API. **Les scénarios fonctionnent
+encore car ce sont des Rules classiques.** Il propose qu'on **change les ids et le fonctionnement**
+pour que les futurs auto-scénarios soient enregistrés d'une manière différente, et que **les
+actuels ne soient plus considérés comme des auto-scénarios**. « *On peut donc casser entièrement
+cette API et rajouter/modifier/corriger ce qu'il faut.* »
+
+**Pourquoi c'est sans risque de régression client** :
+- **aucun consommateur.** 6 dépôts voisins (`calaos_mobile`, `calaos_remote_ui`, `calaos_windex`,
+  `calaos-build`, `calaos-container`, `calaos_docker`) : **zéro occurrence**. `calaos_installer` :
+  **0 appel** — ses 4 occurrences sont l'ioDoc généré, et il n'écrit pas par l'API mais en
+  **téléversant `io.xml`/`rules.xml` entiers** (`dialogsaveonline.cpp:100-122`). Le passe-plat MCP
+  (`client.py:156-158`) est câblé mais **aucun tool ne l'appelle**. **Littéralement aucun appelant
+  first-party.**
+- **des essais d'une vieille UI**, pas une fonctionnalité en service ;
+- **les données survivent comme règles ordinaires** : un IO `type="scenario"` dont le marqueur n'est
+  plus reconnu reste déclenchable (`IO/Scenario.cpp:63-106`, les deux portes T3.18 sont gardées par
+  `auto_scenario &&`), et ses règles restent des `Rule` évaluées normalement.
+
+**⛔ La condition unique, à ne jamais perdre de vue.**
+`ListeRoom::checkAutoScenario()` (`ListeRoom.cpp:320-330`) **détruit toute règle portant le param
+`auto_scenario` qu'aucun `AutoScenario` n'a adoptée**, puis `SaveConfigRule()` (`:341`) persiste la
+suppression. `Params` est une correspondance **exacte** (`src/lib/Params.cpp:31-37`) : renommer le
+marqueur laisse `param_exists("auto_scenario")` **vrai** sur les anciens fichiers et
+`isAutoScenario()` **faux**. ⇒ **sans re-cléage de ce balayage, les 18 règles de
+`configs/raoulh/rules.xml` sont détruites au premier démarrage, en silence.**
+La promesse « elles continuent de fonctionner » **n'est vraie que si ce balayage est re-clé ou
+supprimé**. Épinglé par un test dédié écrit **avant** toute ligne de `src/` (E4.6a).
+
+**Conséquences** :
+- les 4 anciens auto-scénarios **disparaissent** de `autoscenario list` / `get` et **continuent de
+  fonctionner** : les 2 planifiés se déclenchent toujours à leur créneau, les 2 boutons restent
+  visibles et déclenchables, y compris par MCP (`tools/scenario.py` filtre sur `gui_type`, pas sur
+  le marqueur) ;
+- **rien n'est touché sur le disque de production** : les params `auto_scenario` orphelins restent,
+  inertes (`IOBase::isAutoScenario()` n'a **aucun** consommateur) ;
+- **10 goldens sur 145 bougent**, nommément, jamais par régénération de masse ;
+- **T3.20 est parké ⛔** : ses corrections R3/R5 sont absorbées par la refonte. **Exception
+  extraite en T3.21** : le durcissement de `buildJsonDelParam` (`JsonApi.cpp:724`, qui
+  court-circuite `IOBase::del_param()`) est **indépendant des scénarios** et doit être livré seul ;
+- ⛔ **E4.6 est séquencée après E4.1** : décision du même jour, plus aucun code neuf en jansson.
+  Les fichiers rouverts portent **41 %** de tout le jansson du dépôt.
+
+**Appliquer** : **[E4.6](E4.6.md)**, 7 sous-tickets `a`→`g`. **5 questions ouvertes** en fin de
+ticket, dont la plus structurante : **où vit la définition du scénario** — un nouveau
+`scenarios.xml` hors de portée de l'installeur, ou dans `io.xml` (amputable).
+
 ## 2026-08-24 — `autoscenario modify` refuse un **payload** qui référence un IO absent
 
 **Décision** : `autoscenario modify` **refuse** de reconstruire un scénario dont le **payload

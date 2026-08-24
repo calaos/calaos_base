@@ -1578,6 +1578,46 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
    **six sous-tickets durant** avant qu'E4.0d ne la réfute. Un pompage défensif non mesuré est une
    dette qui se propage par mimétisme.
 
+- **⭐ E4.6 OUVERT 📋 (2026-08-24) — AutoScenario : REFONTE COMPLÈTE, T3.20 PARKÉ ⛔.**
+  **Décision utilisateur** : la fonctionnalité AutoScenario est refondue **entièrement, API ET
+  modèle interne**. Rupture totale assumée, **aucune compatibilité ascendante, aucun convertisseur**.
+  Ses mots : les 4 auto-scénarios de sa config de production étaient **des essais avec une vieille
+  UI** ; « *les scénarios fonctionnent encore car ce sont des Rules classiques* » ; on **change les
+  ids et le fonctionnement**, les actuels **ne sont plus considérés comme des auto-scénarios** ;
+  « *on peut donc casser entièrement cette API* ». Entrée datée en tête de `DECISIONS.md`, ticket
+  complet **[`E4.6.md`](E4.6.md)** (7 sous-tickets `a`→`g`, 5 questions ouvertes).
+  **Aucune ligne de `src/` écrite, aucun test, aucun golden touché.**
+  - **Sans consommateur, littéralement** : 6 dépôts voisins → 0 occurrence ; `calaos_installer` →
+    **0 appel** (il téléverse `io.xml`/`rules.xml` entiers par `api.php`) ; passe-plat MCP câblé
+    mais **appelé par aucun tool**.
+  - ⛔ **LE PIÈGE, à ne jamais perdre** : `ListeRoom::checkAutoScenario()` (`ListeRoom.cpp:320-330`)
+    **détruit toute règle portant `auto_scenario` qu'aucun AutoScenario n'a adoptée**, et
+    `SaveConfigRule()` (`:341`) le persiste. `Params` matche **exactement**
+    (`src/lib/Params.cpp:31-37`), donc renommer le marqueur laisse le prédicat **vrai** →
+    **les 18 règles de `configs/raoulh/rules.xml` sont détruites au premier démarrage, en silence.**
+    La promesse faite à l'utilisateur n'est vraie **que si ce balayage est re-clé ou supprimé**.
+    E4.6a l'épingle **avant** toute ligne de `src/`.
+  - ⭐ **Trouvaille tardive (revue T3.20) qui a déplacé la conception** : le vrai vecteur
+    d'amputation est **hors API** — `calaos_installer` jette les actions à id non résolu au
+    chargement (`projectmanager.cpp:1126-1133`) puis **régénère et téléverse `io.xml`/`rules.xml`
+    entiers**. ⇒ la définition du scénario est placée dans un **`scenarios.xml` propre au serveur**,
+    hors de portée de l'installeur. C'est la **question ouverte n°4**, la plus structurante.
+  - ⛔ **Séquencement dur** : E4.6 vient **après E4.1** (décision du même jour : plus aucun code neuf
+    en jansson ; les fichiers rouverts portent **41 %** du jansson du dépôt). **Arbitrage soumis
+    (Q5)** : `IO/Scenario.cpp` — exclu du périmètre d'E4.1 et migré directement par E4.6, ou migré
+    deux fois ?
+  - **T3.20 ⛔ parké** : R3/R5 absorbés par la refonte. **Exception extraite : T3.21** — le
+    durcissement de `buildJsonDelParam` (`JsonApi.cpp:724`, court-circuite `IOBase::del_param()`)
+    est **indépendant des scénarios**, une ligne, aucun appelant cassé. À livrer seul.
+  - **➡️ PROCHAINE ACTION CONCRÈTE** : faire trancher à l'utilisateur les **5 questions ouvertes**
+    de `E4.6.md` §10 — en priorité **Q4** (où vit la définition : `scenarios.xml` séparé ou `io.xml`)
+    et **Q5** (séquencement d'`IO/Scenario.cpp` entre E4.1 et E4.6), car les deux commandent le
+    périmètre d'E4.6b. Q1/Q2/Q3 peuvent être tranchées plus tard, avant E4.6d.
+    Ensuite : lancer **T3.21** (indépendant, non bloqué par E4.1) pendant qu'E4.1 démarre.
+  - ⚠️ **Recalage de sites obligatoire** : la revue de T3.20 cite `IO/Scenario.cpp:206` et `:229`
+    pour les gardes `if (!sa.io) continue;`. Sur **master `770e322f`** le fichier fait **195 lignes**
+    et les sites sont **`:158`** et **`:181`** — l'écart vient du worktree `.wave26/t3.20`. Tout
+    sous-ticket reprenant un site de cette revue doit le **recaler sur master**.
 - **T3.20 ouvert 📋 (2026-08-24), NON IMPLÉMENTÉ** — les réserves **R3** et **R5** de la revue de
   T3.18 (`FINDINGS.md`, `## T3.18 — suites`) sont **tranchées par l'utilisateur**, deux entrées
   datées en tête de `DECISIONS.md`. **R3** : `autoscenario modify` doit refuser un **payload** qui
