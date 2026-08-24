@@ -2198,17 +2198,29 @@ ne décrivent pas ce que le code fait :
   `catch (const std::exception &e)` de `RemoteUIWebSocketHandler::processApi`, qui la journalise
   comme **« JSON parse error »** (`RemoteUIWebSocketHandler.cpp:151-154`). L'appareil ne reçoit
   aucune réponse `remote_ui_config` et le log accuse le mauvais coupable.
-- **[COMPORTEMENT] La décision de mise à jour OTA est une inégalité de chaînes**, pas une
-  comparaison sémantique : `if (firmware->getVersion() == currentVersion)` → pas de mise à jour
-  (`OtaFirmwareManager.cpp:249-253`). Un firmware **plus ancien** que celui de l'appareil est donc
-  proposé comme une mise à jour.
+- **[COMPORTEMENT, plus grave qu'il n'y paraît] La décision de mise à jour OTA est une *égalité*
+  de chaînes**, pas une comparaison sémantique de versions : le seul test est
+  `if (firmware->getVersion() == currentVersion)` → « à jour, on ne propose rien »
+  (`OtaFirmwareManager.cpp:249-253`). Il n'y a **aucun** ordre : toute version *différente* de
+  celle de l'appareil est annoncée comme une mise à jour disponible, **y compris une version plus
+  ancienne**. Déposer un firmware plus vieux dans le répertoire d'un `hardware_id` suffit donc à
+  faire proposer un **downgrade** à tout le parc concerné, silencieusement. S'ajoute le fait que
+  la comparaison est textuelle, donc `1.10.0` et `1.9.0` ne sont de toute façon pas ordonnables
+  ici. → ticket : comparer sémantiquement et ne proposer que du strictement supérieur (ou rendre
+  le downgrade explicite et opt-in).
 
 ### Lua — quirks d'API mesurés en documentant `09_lua_scripting`
 
-- **[API] `setIOParam` et `waitForIO` déclarent `return 1` sans rien empiler** sur leur chemin de
-  succès (`ScriptBindings.cpp:293` et `:333` ; corps vérifiés `:254-292`, `:300-331`). Le script
-  reçoit donc la valeur qui traîne dans l'emplacement de pile — indéterminée. → soit `return 0`,
-  soit empiler un résultat utile.
+- **[API, conséquence identifiée] `setIOParam` et `waitForIO` déclarent `return 1` sans rien
+  empiler** sur leur chemin de succès (`ScriptBindings.cpp:293` et `:333` ; corps vérifiés
+  `:254-292`, `:300-331`). Ce n'est pas « une valeur indéterminée » : `Lunar::thunk` retire
+  `self` puis laisse **les arguments de l'appel** sur la pile avant d'invoquer la méthode
+  (`Lunar.h:132-136`), et `return 1` demande à Lua de prendre le **sommet de pile** comme unique
+  résultat. Le script récupère donc, de façon parfaitement reproductible, **le dernier argument
+  qu'il vient de passer** — `calaos:setIOParam(id, key, val)` renvoie `val`, et
+  `calaos:waitForIO(id)` renvoie `id`. Un script qui teste ce retour croit lire un statut de
+  succès et lit en réalité son propre argument, ce qui est **toujours vrai** pour une chaîne non
+  vide. → soit `return 0`, soit empiler un vrai statut.
 - **[API] `requestUrl()` jette le corps de la réponse.** Aucun des deux chemins ne connecte
   `m_signalCompleteData` ni ne renvoie quoi que ce soit (`ScriptBindings.cpp:344-354`,
   `:361-367`, `return 0` à `:376`) : un script peut déclencher une requête HTTP mais **ne peut pas
@@ -2228,7 +2240,8 @@ ne décrivent pas ce que le code fait :
 - **[MORT] `Calendar.{cpp,h}` n'a aucun consommateur.** `Calendar.h` n'est inclus que par son
   propre `.cpp` et listé dans `src/lib/Makefile.am:53-54` — il est compilé dans
   `libcalaos_common` et rien ne l'appelle. Il n'offre par ailleurs **aucune** gestion de jours
-  fériés, et `TimeRange` ne l'utilise pas (`sunset.h` n'est inclus que par `TimeRange.{h,cpp}`) —
+  fériés, et `TimeRange` ne l'utilise pas (le seul `#include "sunset.h"` de l'arbre est
+  `TimeRange.cpp:24`, et il ne tire pas `Calendar.h`) —
   les deux affirmations contraires étaient dans `13_utility_lib.md` et ont été retirées.
   → candidat à la suppression.
 - **[MORT] `CalaosModule.h` n'est inclus par aucun fichier de l'arbre** (seule occurrence :

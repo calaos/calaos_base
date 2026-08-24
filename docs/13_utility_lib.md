@@ -37,8 +37,8 @@ appelant** : `Utils.h` ré-inclut les six, donc `#include <Utils.h>` continue de
 | `ConfigStore.{cpp,h}` | [src/lib/ConfigStore.h](../src/lib/ConfigStore.h) | Lecture/écriture de `local_config.xml`, chemins de config et de cache |
 | `SystemInfo.{cpp,h}` | [src/lib/SystemInfo.h](../src/lib/SystemInfo.h) | `Watchdog()`, `createRandomUuid()`, `getUptime()` |
 
-Ce qui **reste** dans `Utils.h` après le split : les en-têtes système et tiers agrégés, le typedef
-`Json = nlohmann::json`, et un petit reliquat de fonctions (dérivé, `src/lib/Utils.h:134-235`) —
+Ce qui **reste** dans `Utils.h` après le split : les en-têtes système et tiers agrégés, l'alias
+`using Json = nlohmann::json;`, et un petit reliquat de fonctions (dérivé, `src/lib/Utils.h:134-235`) —
 `roundValue()`, `parseParamsItemList()`, `argvOptionCheck()`, `argvOptionParam()`,
 `getFileContent()`, `getFileContentBase64()`, `getTmpFilename()`, `getMainLoopTime()`,
 `fileExists()`, les foncteurs `Delete`/`DeletorT`, `line_exception`, et les enums de types
@@ -570,8 +570,12 @@ destinée à `m_signalCompleteData` cesse de croître, pour qu'un flux sans fin 
 
 **Fichier :** [src/lib/WebSocketFrame.h](../src/lib/WebSocketFrame.h)
 
-Parsing et construction de frames WebSocket (RFC 6455). Utilisé par `WebSocket`, `HttpClient`,
-`HttpServer`, `JsonApiHandlerWS` et `RemoteUIManager` (dérivé — les cinq fichiers l'incluent).
+Parsing et construction de frames WebSocket (RFC 6455). **Deux fichiers seulement l'incluent** :
+`src/bin/calaos_server/WebSocket.h:27` et `src/bin/calaos_server/RemoteUI/RemoteUIManager.cpp:24`
+(dérivé — `grep -rn '#include.*WebSocketFrame' src/`). `HttpServer.cpp:157` et
+`JsonApiHandlerWS.cpp:126` se contentent de nommer la constante `WebSocketFrame::CloseCodeNormal`,
+qu'ils obtiennent transitivement ; `HttpClient` ne l'utilise **pas du tout** — les deux mentions de
+`HttpClient.h:52` et `:84` sont dans des commentaires.
 
 > **SHA1 → OpenSSL (T2.3).** `src/lib/SHA1.{cpp,h}` **n'existent plus**. Le seul condensé SHA-1
 > encore calculé est celui du handshake WebSocket, et il passe par l'EVP d'OpenSSL
@@ -654,9 +658,10 @@ sortie `failed`.
 **Fichiers :** [src/lib/TimeRange.h](../src/lib/TimeRange.h), [src/lib/sunset.h](../src/lib/sunset.h)
 
 `TimeRange` porte les plages horaires (utilisées par `InPlageHoraire` et les auto-scénarios) et
-inclut directement `sunset.h` pour les bornes relatives au soleil, calculées depuis la latitude et
-la longitude (dérivé — `sunset.h` n'est inclus que par `src/lib/TimeRange.h` et
-`src/lib/TimeRange.cpp`). `TimeRange` lit `latitude` / `longitude` dans les options de
+s'appuie sur `sunset.h` pour les bornes relatives au soleil, calculées depuis la latitude et la
+longitude. L'inclusion est faite par l'implémentation seule — `src/lib/TimeRange.cpp:24` est le
+**seul** `#include "sunset.h"` de l'arbre, `TimeRange.h` n'incluant que `<Utils.h>`
+(`src/lib/TimeRange.h:25`). `TimeRange` lit `latitude` / `longitude` dans les options de
 configuration ; c'est d'ailleurs pour cette raison que `tests/check-config-options.sh` scanne ce
 fichier avec une règle dédiée (règle D, dérivé, `tests/check-config-options.sh:277-284`).
 

@@ -249,7 +249,9 @@ Les méthodes s'appellent avec la syntaxe **deux-points** — `calaos:getIOValue
 
 ### Les 11 entrées de la table de méthodes
 
-(capturé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:106-120`, intégral :)
+Onze entrées utiles, plus la **sentinelle `{ 0, 0 }`** qui termine le tableau — soit douze lignes
+dans l'initialiseur (capturé, `src/bin/calaos_server/LuaScript/ScriptBindings.cpp:106-120`,
+intégral :)
 
 ```cpp
 Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
@@ -283,7 +285,7 @@ E4.5e et **aucun n'existe** : un script qui les appelle échoue avec
 |---|---|---|---|
 | `calaos:getIOValue(id)` | 1 (string) | 1 valeur, **typée d'après le param `var_type`** de l'IO : `"float"` → nombre, `"bool"` → booléen, sinon chaîne | `ScriptBindings.cpp:135-167` |
 | `calaos:setIOValue(id, value)` | 2 | rien | `ScriptBindings.cpp:169-207` |
-| `calaos:getIOParam(id, key)` | 2 (string, string) | 1 valeur, coercée : numérique → nombre, `"true"`/`"false"` → booléen, sinon chaîne | `ScriptBindings.cpp:210-248` |
+| `calaos:getIOParam(id, key)` | 2 (string, string) | 1 valeur, coercée : numérique → nombre, `"true"`/`"false"` → booléen, sinon chaîne | `ScriptBindings.cpp:209-248` |
 | `calaos:setIOParam(id, key, value)` | 3 | ⚠️ déclare `return 1` mais **n'empile rien** | `ScriptBindings.cpp:250-294` |
 | `calaos:waitForIO(id)` | 1 | ⚠️ déclare `return 1` mais **n'empile rien** ; bloque sous `ScriptWatchdogPause` | `ScriptBindings.cpp:296-334` |
 | `calaos:requestUrl(url [, post_data])` | 1 ou 2 | rien — ⚠️ **le corps de la réponse est jeté** | `ScriptBindings.cpp:336-377` |
@@ -438,9 +440,22 @@ dérivé du littéral de `tests/core/RuleLifecycle_test.cpp:93`) :
 > corps est désormais restitué à l'octet près. Détails dans
 > [11_config_persistence.md](11_config_persistence.md).
 
-⚠️ Une `<calaos:condition type="script">` **sans** enfant `<calaos:script>` fait échouer le
-chargement de la condition (`LoadFromXml()` renvoie `false`) — cas couvert par
-`tests/core/RuleDisabledMissingIo_test.cpp:294-295`.
+⚠️ **Condition et action ne rejettent pas la même chose — c'est une asymétrie réelle.**
+
+- Côté **condition**, `ConditionScript::LoadFromXml()` ne renvoie `false` que si le nœud n'a
+  **aucun enfant élément** (`XmlUtils::firstChildElement(node)` nul,
+  `src/bin/calaos_server/Rules/ConditionScript.cpp:102-103`). Des enfants élément **sans**
+  `<calaos:script>` parmi eux se chargent normalement et la fonction renvoie `true` (`:146`) : la
+  condition existe, son script est simplement vide.
+- Côté **action**, `ActionScript::LoadFromXml()` cherche directement
+  `pnode.child("calaos:script")` et renvoie `false` s'il est absent
+  (`src/bin/calaos_server/Rules/ActionScript.cpp:46-47`) : là, l'absence du nœud `<calaos:script>`
+  fait bien échouer le chargement.
+
+Le cas de la condition vide est couvert par
+`tests/core/RuleDisabledMissingIo_test.cpp:295`, qui charge un
+`<calaos:condition type="script"></calaos:condition>` **entièrement vide** et vérifie que le nœud
+est abandonné sans que la règle soit désactivée pour autant.
 
 ---
 

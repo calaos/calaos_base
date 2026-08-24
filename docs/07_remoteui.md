@@ -335,7 +335,7 @@ attrapée et ignorée avec un avertissement, sans réponse d'erreur
 | `event` | Événements Calaos, hérités de `JsonApiHandlerWS` | `JsonApiHandlerWS.cpp:60` |
 
 ⚠️ Il n'existe **ni `auth_ok`/`auth_fail`, ni `io_state`, ni `relay_set`, ni `config_update`, ni
-`ota_update`** — ces cinq noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.
+`ota_update`** — ces six noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.
 
 Clés de `remote_ui_config_update` (dérivé,
 `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:265-312`) : `name`, `brightness`,
