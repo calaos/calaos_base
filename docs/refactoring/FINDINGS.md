@@ -3,6 +3,94 @@
 > Découvertes faites **en marge** des tickets (hors périmètre du ticket en cours, donc **non
 > corrigées**). Candidates à de futurs tickets. Sorti du job tmp éphémère → durable + partagé.
 
+## E4.1i — Reolink (2026-08-25)
+
+- ✅ **[F-REO-1] — CORRIGÉ dans E4.1i** (commit `bcd3c403`, branche `refactor/e4.1i`).
+  **`ReolinkCtrl::doRegisterCamera()` faisait un `json_decref()` sur un `json_t` déjà libéré, à
+  CHAQUE enregistrement de caméra** — use-after-free en lecture **et** en écriture.
+
+  Mécanisme, vérifié au source : `jansson_to_string()` (`src/lib/Jansson_Addition.h:150-165`)
+  **vole la référence** — ses **deux** chemins de sortie appellent `json_decref(jroot)`.
+  `tests/ParamsJson_test.cpp:213` le dit noir sur blanc (« *steals the reference, no decref here* »).
+  `jroot` naissait à **refcount 1** (`json_object()`), et `json_object_set_new()` vole les
+  références des **valeurs** sans toucher celle de l'objet : le decref de `jansson_to_string()` le
+  ramenait donc à 0 et `json_delete()` libérait le bloc. Le `json_decref(jroot)` qui suivait
+  relisait `jroot->refcount` **dans le bloc libéré** (offset 8, soit la `key` du tcache glibc) puis
+  la décrémentait. Silencieux en pratique (la valeur relue n'atteint pas 0, donc pas de second
+  `json_delete`), **erreur dure sous ASan**, et corruption du canari de double-free du tcache.
+
+  **Portée** : un appel par `registerCamera()` d'une caméra pas encore enregistrée, **plus un par
+  caméra à chaque (re)connexion du processus** via `registerAllCameras()` — donc à chaque
+  redémarrage de `calaos_reolink`, qui se relance en boucle quand il sort.
+
+  **Non épinglé par un test, et c'est assumé** : `doRegisterCamera()` est une méthode **privée**
+  d'un singleton dont le constructeur **lance un processus externe**, donc inatteignable depuis un
+  test ; et un UAF silencieux n'est pas observable par une assertion hors ASan. Le commit de
+  bascule qui suit supprime l'émetteur jansson en entier, ce qui retire le motif de ce fichier.
+  **Entrée `RELEASE_NOTES.md` écrite** (le symptôme — plantage, comportement erratique — est ce que
+  l'utilisateur observe).
+
+- 📏 **[F-REO-1b] Le balayage complet de `jansson_to_string`, recompté — le chiffre qui circulait
+  était faux.** Fait en `python3` avec un analyseur **conscient de la portée des fonctions** (le
+  hook `rtk` réécrit `grep` et rend des faux négatifs ; une fenêtre de N lignes, elle, rend des
+  faux positifs en traversant les frontières de fonctions).
+
+  Sur `master` `138c16ee` :
+
+  | Mesure | Valeur |
+  |---|---|
+  | sites `jansson_to_string(...)` dans `src/` | **29** |
+  | dont l'argument est une **variable nommée** (seuls candidats au double decref) | **18** |
+  | dont l'argument est un temporaire `jansson_from_params(p)` (jamais décrémentable) | **11** |
+  | **qui doublent réellement le decref** | **2** |
+
+  Les deux : `IO/Reolink/ReolinkCtrl.cpp:151` (**celui-ci, corrigé**) et
+  `IO/Mqtt/MqttCtrl.cpp:115` (**périmètre d'E4.1g**, corrigé par son ticket, **pas encore sur
+  `master`**). **Les 16 autres sites à variable nommée sont corrects** :
+  `JsonApiHandlerWS.cpp:78` · `Wago/WagoExternProc_main.cpp` ×6 · `Mqtt/MqttCtrl.cpp:41` ·
+  `KNX/KNXCtrl.cpp:291` · `KNX/KNXExternProc_main.cpp:269` · `OLA/OLACtrl.cpp:55,:82` ·
+  `LuaScript/ScriptExec.cpp:167,:183` · `LuaScript/ScriptBindings.cpp:435,:494`.
+  ⇒ **rien à ouvrir hors périmètre**, mais l'affirmation « *j'ai relu les 38 autres appels du
+  dépôt* » qui circulait était fausse sur les deux termes (38, et « aucun »).
+
+- ⚠️ **[F-REO-2] `Params::fromNJson()` n'est PAS un substitut de `jansson_decode_object()`, et le
+  substituer tuerait le driver à CHAQUE événement de caméra.** Mesuré, pas supposé — **piège commun
+  à tous les sous-tickets d'E4.1 qui décodent un wire.**
+
+  `Params::fromNJson()` fait `p.params[it.key()] = it.value();` — conversion implicite `Json` →
+  `std::string` qui **lève `type_error.302` pour tout ce qui n'est pas une chaîne JSON**. Mesuré sur
+  un événement `detection` réel : **9 levées sur 11 clés** (`arr`, `async_callback`,
+  `callback_duration`, `channel`, `nested`, `nil`, `ratio`, `tcp_push_active`, `uptime`).
+
+  Or **tout** événement de `ExternProcReolink_main.py` porte `channel` (int),
+  `tcp_push_active` (bool) et `callback_duration` (float) (`:1292-1303`), et la réponse
+  `health_check` porte **deux objets imbriqués** (`circuit_breakers`, `memory_optimization`,
+  `:1653-1674`). Le décodage a lieu dans un callback `ExternProcServer::messageReceived`, **sans
+  aucun `try`/`catch` sur le chemin** → `std::terminate`.
+
+  E4.1i garde donc **le contrat d'aujourd'hui**, écrit à la main dans
+  `IO/Reolink/ReolinkWire.h::decodeMessage()` (chaîne telle quelle · booléen → mot `true`/`false` ·
+  nombre → `Utils::to_string(double)` · **tout autre type → chaîne vide, clé quand même ajoutée**),
+  et le test porte un **tripwire nommé** qui rougit si `fromNJson()` cessait de lever.
+
+- 📏 **[F-REO-3] `E4.1i.md` et `E4.1.md` annonçaient « 9 appels » pour `ReolinkCtrl.cpp` : c'est
+  16.** Recompté en `python3` sur `master` `138c16ee` : **14 appels `json_*`** (`json_loads` 1,
+  `json_decref` 2, `json_object` 1, `json_object_set_new` 5, `json_string` 5) **+ 2 appels
+  `jansson_*`**. Le classement des fichiers ne change pas. Corrigé dans `E4.1i.md`.
+
+- 📏 **[F-REO-3b] La dette `jansson_from_params` : 100 ET 98 sont justes, ils ne comptent pas la
+  même chose.** Sur `master` `138c16ee`, en `python3` : **100 occurrences du jeton** = **98 sites
+  d'appel réels** + **1 définition** (`Jansson_Addition.h`) + **1 mention en prose**
+  (`tests/Makefile.am`). Le `grep -rn` d'`E4.1a` comptait le jeton (donc 100/104 selon la date).
+  **E4.1i n'en résorbe aucune** : `ReolinkCtrl.cpp` n'utilisait pas `jansson_from_params`.
+
+- ℹ️ **[F-REO-4] Le message `register` transporte le mot de passe de la caméra EN CLAIR** — connu
+  (`E4.1i.md` le signale), **hors périmètre, non touché**. Deux garde-fous posés sans changer de
+  comportement : un commentaire en tête de `ReolinkWire::buildRegisterMessage()` et un au site
+  d'émission. Le diff d'E4.1i n'ajoute **aucun** `cDebug`/`cInfo` portant ce message ; côté
+  réception, la trace d'erreur de parsing ne journalise **que le nombre d'octets** — comme le fait
+  déjà le bout python (`:1601-1602`, « *Never log the raw message: it may carry credentials* »).
+
 ## Sécurité / correctness à traiter en priorité
 
 - ✅ **[F-DEP-1] — TRAITÉ par [T3.23](T3.23.md)** (branche `fix/t3.23`, non mergée à l'écriture).
