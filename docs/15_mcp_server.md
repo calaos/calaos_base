@@ -395,9 +395,11 @@ def _source_ip(request: Request) -> str:
 ```
 
 Sans l'en-tête, **toutes les requêtes partagent un seul seau** — un accès direct au socket
-Unix n'offre de toute façon aucune identité par client. C'est **la même règle** que celle
-appliquée côté C++ par `TransportLimits::effectiveClientIp()` pour
-`max_connections_per_ip` (`HttpClient.h:136-155`).
+Unix n'offre de toute façon aucune identité par client. C'est la même règle que celle
+appliquée côté C++ par `TransportLimits::effectiveClientIp()` (`HttpClient.h:136-155`)
+— ⚠️ mais **pour le seul plafond `max_connections_per_ip`**
+(`HttpClient.cpp:200-203`). Ne pas généraliser : le **throttle de login** du serveur, lui,
+n'emprunte pas ce chemin, voir la réserve du § Sécurité ci-dessous.
 
 **Réglages du throttle** — lus dans `local_config.xml`, donc modifiables par
 l'installateur. Ce ne sont **pas** des constantes (dérivé, `config.py:86-91`,
@@ -528,8 +530,19 @@ qu'on ne les prenne pas pour des capacités disponibles :
 | S14 | Validation stricte des valeurs `set_io_state` selon `var_type` | `tools/io.py:24-45` |
 
 S'y ajoute, côté serveur, le **throttle de login** appliqué à `login_service` comme au login
-utilisateur : backoff par adresse doublant à chaque échec, de 1 s à 60 s, table bornée à 1024
-adresses et entrées oubliées après 900 s (`JsonApi.h:50-80`).
+utilisateur : backoff par entrée de table doublant à chaque échec, de 1 s à 60 s, table bornée
+à 1024 entrées et entrées oubliées après 900 s (`JsonApi.h:50-80`).
+
+> ⚠️ **Ce throttle n'est pas réellement par adresse derrière haproxy — mesuré.** La clé de
+> table vient de `clientIp()`, qui rend le **pair TCP** et non
+> `TransportLimits::effectiveClientIp()` : `JsonApiHandlerWS.cpp:45-51` et
+> `JsonApiHandlerHttp.cpp:55-61` appellent tous deux `HttpClient::getClientIp()`
+> (`HttpClient.cpp:710-732`), qui lit `peer<uvw::IPv4>()`. **Les deux transports de login sont
+> touchés.** Derrière haproxy, le pair est toujours le proxy : **tous les utilisateurs
+> partagent donc un seul seau**, et un attaquant peut bloquer le login de tout le monde.
+> `login_service` échappe à la conséquence — le sidecar se connecte en loopback, où le pair
+> **est** la bonne identité — mais le login utilisateur, non. Consigné dans
+> `docs/refactoring/FINDINGS.md` ; ticket correctif **T3.24**.
 
 ---
 

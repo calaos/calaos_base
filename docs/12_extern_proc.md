@@ -326,9 +326,13 @@ même partout** — c'est mesuré, pas déduit :
 | `OLACtrl` (`:31-36`) | relance **immédiate** |
 | `OwCtrl` (`:33-38`) | relance **immédiate** |
 | `ReolinkCtrl` (`:37-43`) | relance **immédiate**, après purge des caméras enregistrées |
-| `RoonCtrl` (`:39-44`) | relance **immédiate** |
+| `RoonCtrl` (`Audio/RoonPlayer.cpp:39-44`) | relance **immédiate** |
 | `ScriptExec` (`:116-135`) | **aucun** respawn : le handler nettoie et rend la main au script appelant |
 | `WagoMap` (`:57-64`, `:113-135`) | **backoff, infini** — voir ci-dessous |
+
+Sauf mention contraire, les lignes du tableau renvoient au fichier `<Nom>Ctrl.cpp` du driver.
+**`RoonCtrl` fait exception** : la classe vit dans `Audio/RoonPlayer.cpp`, il n'existe pas de
+`RoonCtrl.cpp`.
 
 ⚠️ Une relance « immédiate » sur un binaire qui échoue au démarrage est une **boucle serrée**
 de spawn. Seul Wago s'en protège.
@@ -374,8 +378,9 @@ virtual bool handleFdSet(int fd) override {
 }
 ```
 
-C'est ce que fait MQTT : `appendFd(m_client->socket())` sur le socket mosquitto, et
-`handleFdSet()` appelle `m_client->loop(0, 1)` (`MqttExternProc_main.cpp:302` et `:319-323`).
+C'est ce que fait MQTT : `appendFd(m_client->socket())` sur le socket mosquitto
+(`MqttExternProc_main.cpp:302`), et `handleFdSet()` appelle `m_client->loop(0, 1)`
+(`MqttExternProc_main.cpp:328-333`, l'appel étant en `:331`).
 
 Un driver qui a **sa propre boucle** peut se passer de `run()` : `getSocketFd()` et
 `processSocketRecv()` sont exposés pour cela (`ExternProc.h:156-158`).

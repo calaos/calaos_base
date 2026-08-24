@@ -2112,15 +2112,20 @@ Tous mesurés au source le 2026-08-24, aucun corrigé (le ticket est de la doc p
   (`WagoMap.h:165-172`, 1/2/3/5 s, plafond volontairement bas), et `McpServerManager` en a un autre
   (`:284`, 1→60 s). → généraliser le backoff de `WagoMap` : c'est déjà noté comme table
   quasi-dupliquée (`McpServerManager.cpp:284` vs `WagoMap.h:172`).
-- **[SÉCURITÉ, throttle] `JsonApiHandlerWS::clientIp()` (`:45-51`) n'utilise pas
-  `X-Forwarded-For`.** Il renvoie `HttpClient::getClientIp()`, c'est-à-dire le **pair TCP**
-  (`HttpClient.cpp:710-732`), alors que `TransportLimits::effectiveClientIp()`
-  (`HttpClient.h:144-155`) existe précisément pour donner l'identité vue par haproxy et est bien
-  employé par le plafond `max_connections_per_ip` (`HttpClient.cpp:200-203`). Conséquence :
-  derrière haproxy, **tous les utilisateurs partagent un seul seau `LoginThrottle`** — un
-  attaquant peut bloquer le login de tout le monde, et son propre backoff est celui du proxy.
-  N'affecte pas `login_service` (le sidecar se connecte en loopback, où le pair est la bonne
-  identité). → ticket : faire passer `clientIp()` par `effectiveClientIp()`.
+- **[SÉCURITÉ, throttle — élargi par la revue E4.5d, ticket `T3.24` lancé] `clientIp()`
+  n'utilise pas `X-Forwarded-For`, sur les DEUX transports de login.** `JsonApiHandlerWS.cpp:45-51`
+  **et** `JsonApiHandlerHttp.cpp:55-61` portent le **même corps** : ils renvoient
+  `HttpClient::getClientIp()`, c'est-à-dire le **pair TCP** (`HttpClient.cpp:710-732`, qui lit
+  `peer<uvw::IPv4>()`), alors que `TransportLimits::effectiveClientIp()` (`HttpClient.h:144-155`)
+  existe précisément pour donner l'identité vue par haproxy et est bien employé par le plafond
+  `max_connections_per_ip` (`HttpClient.cpp:200-203`). Les deux valeurs alimentent
+  `LoginThrottle` : `JsonApiHandlerWS.cpp:121,131` côté WS, `JsonApiHandlerHttp.cpp:104,122,137`
+  côté HTTP. Conséquence : derrière haproxy le pair est **toujours** le proxy, donc **tous les
+  utilisateurs partagent un seul seau `LoginThrottle`** — un attaquant peut bloquer le login de
+  tout le monde, et son propre backoff est celui du proxy. N'affecte **pas** `login_service` :
+  le sidecar MCP se connecte en loopback, où le pair **est** la bonne identité. La revue avait
+  d'abord été consignée WS-seulement ; c'est elle qui a trouvé le jumeau HTTP.
+  → `T3.24` : faire passer les deux `clientIp()` par `effectiveClientIp()`.
 - **[DOC — corrigé dans ce ticket, consigné pour mémoire] `docs/12_extern_proc.md` et
   `docs/14_python_extern_proc.md` étaient faux sur le framing.** Le premier décrivait un octet de
   début `START = 0x02` **qui n'existe pas** et une longueur sur **2 octets** (max 65535) ; le

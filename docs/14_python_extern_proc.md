@@ -181,6 +181,11 @@ que `ExternProc.cpp:322-334` et `:398-413`.
 > encodent la longueur sur 4 octets**, et l'aller-retour est épinglé par
 > `tests/python/test_extern_proc.py::test_framing_roundtrip_over_socketpair`, qui fait
 > circuler deux trames sur un `socketpair` et vérifie les payloads reçus.
+> ⚠️ Ce test est un aller-retour **Python↔Python** (`test_extern_proc.py:60-78`) : il épingle
+> le format que Python **émet et relit**, pas l'interopérabilité avec le C++. Celle-ci ne
+> tient qu'à la lecture des deux implémentations, mises côte à côte ci-dessus — aucun test
+> de l'arbre ne fait circuler une trame **entre** un `ExternProcServer` C++ et un client
+> Python.
 
 ```python
 # (dérivé, message.py:13-23,31-84 ; extern_proc.py:53-84)
