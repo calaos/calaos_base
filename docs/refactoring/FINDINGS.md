@@ -1699,3 +1699,65 @@ le balayage orphelin de `ListeRoom.cpp:324`.
 
 Les trois disparaissent avec E4.6d. S'ils devaient survivre à un abandon d'E4.6, ils valent un
 ticket à eux seuls.
+
+---
+
+## E4.6a — mesures faites en posant le filet de caractérisation
+
+> Trois écarts par rapport à ce que la cartographie d'`E4.6.md` affirmait, tous **mesurés** par un
+> test qui rougit, aucun corrigé (E4.6a est de la caractérisation pure, zéro ligne de `src/`).
+
+### ⭐ `checkScenarioRules()` ne **recrée pas** les règles d'étape — il les perd
+
+`E4.6.md` RC1 écrit qu'« une règle qui ne matche pas est ignorée puis **recréée en double** »
+(`:639-716` puis `:737-808`). **C'est vrai des règles d'en-tête et faux des étapes.** Le bloc de
+recréation (`AutoScenario.cpp:737-808`) ne couvre que `button_start`, `button_stop`, `step_end`,
+`time_start` et `time_stop` ; **aucune branche ne recrée une règle `step`** — la seule création
+d'étape est `addStep()` (`:834`), appelée uniquement par l'API.
+
+Conséquence, épinglée par
+`AutoScenarioMigration_test.cpp::AStepRuleWhoseConditionValueDoesNotMatchIsDroppedAndThenDestroyed` :
+**un seul caractère** changé dans une valeur de condition d'une règle d'étape dans `rules.xml`
+(mesuré : `val="true"` → `val="false"` sur la condition `_is_active`) suffit à ce que
+`checkCondition()` (`:426`) refuse la règle, que `checkScenarioRules()` ne l'adopte jamais, que le
+balayage orphelin la détruise et que `SaveConfigRule()` persiste la perte. **L'étape disparaît
+définitivement**, et les étapes suivantes sont renumérotées par-dessus le trou. Les règles d'en-tête,
+elles, sont bien recréées en double puis l'originale est détruite — deux comportements distincts
+sous la même cause racine.
+
+### ⭐ La renumérotation d'étape ne touche **que trois** des quatre numérotations
+
+`E4.6.md` §2.4 énumère quatre numérotations et dit que « **tous** bougent quand un voisin
+disparaît ». Mesuré : `checkScenarioRules()` (`:811-829`) réécrit la **condition**
+(`setRuleCondition(rule, ioStep, "==", i)`, `:817`) et **ne touche pas le param
+`auto_scenario_step`**. Après la disparition de l'étape du milieu, la troisième règle **persiste
+avec `auto_scenario_step="2"` alors qu'elle ne se déclenche plus que sur `_step == 1`** — et
+`buildAutoscenarioModify()` ne relit jamais le param, donc rien ne recolle jamais les deux.
+Épinglé par `LosingTheMiddleStepRenumbersEveryStepAfterIt`. Le tri de `:811` s'appuie pourtant sur
+ce même param (`_sortCompStepRule`), ce qui rend l'ordre des étapes dépendant d'une valeur que
+personne ne remet à jour.
+
+### Compte de `TESTS` — refait, et l'écart d'`E4.6.md` §8.2 expliqué
+
+`E4.6.md` §8.2 signalait « 68 binaires » contre « 65 lignes `check_PROGRAMS +=` » sans trancher.
+Décompte exact sur `master = aa4821f7` :
+
+| | |
+|---|---|
+| entrées `TESTS` | **68** — et non 68 *lignes* : la ligne `tests/Makefile.am:18` en porte **deux** (`check-config-options.sh check-config-docs.sh`), d'où 67 lignes pour 68 entrées |
+| dont scripts shell | **3** (`check-config-options.sh`, `check-config-docs.sh`, `run-python-tests.sh`) |
+| dont binaires | **65** |
+| entrées `check_PROGRAMS` | **66** = les 65 binaires de `TESTS` **+ `StaticLogShutdown_helper`**, qui est construit mais n'est pas une entrée `TESTS` |
+
+Le « 68 » du ticket est donc un compte d'**entrées `TESTS`**, correct, et le « 65 » un compte de
+**lignes `check_PROGRAMS +=`**, correct aussi : les deux ne mesuraient pas la même chose. Après
+E4.6a : **69 entrées `TESTS`**, 66 binaires, 67 entrées `check_PROGRAMS`.
+
+### Artefact cosmétique du harnais, préexistant, hors périmètre
+
+Tout binaire `core/*` termine son exécution sur
+`[ERR] (CalaosConfig.cpp:552) Could not open <tmp>/cache/iostates.cache.tmp for write !` :
+`~Config()` vidange le cache d'états **après** que `CoreFixture::TearDown()` a supprimé le
+répertoire temporaire. Vérifié identique sur `core/JsonApiScenario_test` et
+`core/ScenarioDisabledMissingIo_test`. Sans effet sur le résultat des tests, jamais consigné
+jusqu'ici. **Ne pas le confondre avec un échec.**
