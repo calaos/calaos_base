@@ -1490,5 +1490,8 @@ std::string ConfigOptions::genJson()
     for (const std::string &k: obsoleteKeys())
         doc["obsolete_keys"].push_back(k);
 
-    return doc.dump(4);
+    //E4.1b: error handler only. This text is read back by a parser, and
+    //adding ensure_ascii would change the bytes of an artefact E4.1 does not
+    //migrate.
+    return doc.dump(4, ' ', false, Json::error_handler_t::replace);
 }

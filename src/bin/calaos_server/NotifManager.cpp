@@ -250,7 +250,11 @@ void NotifManager::sendPushNotification(const string &message, const string &not
         }
 
         cDebugDom(TAG) << "Sending notif to service:";
-        cDebugDom(TAG) << jnotif.dump();
+        //E4.1b: the notification body is built from a rule's message param,
+        //which comes from rules.xml and never passed a JSON parser. A bare
+        //dump() of it throws type_error.316 and takes the process down - in
+        //the DEBUG LINE, before the send.
+        cDebugDom(TAG) << jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
 
         UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
         u->m_signalComplete.connect([this, callbackSent](int statusCode)
@@ -258,6 +262,6 @@ void NotifManager::sendPushNotification(const string &message, const string &not
             cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
             callbackSent();
         });
-        u->httpPost(string(), jnotif.dump());
+        u->httpPost(string(), jnotif.dump(-1, ' ', true, Json::error_handler_t::replace));
     });
 }

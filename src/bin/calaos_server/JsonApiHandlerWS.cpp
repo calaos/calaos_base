@@ -87,7 +87,13 @@ void JsonApiHandlerWS::sendJson(const string &msg_type, const Json &json, const 
 
     jroot["data"] = json;
 
-    sendData.emit(jroot.dump());
+    //E4.1b: same two invariants as JsonApiHandlerHttp::sendJson(const Json &),
+    //and the same reason - the jansson overload just above emits ASCII only,
+    //and a bare dump() on a payload holding invalid UTF-8 terminates the
+    //process. RemoteUIWebSocketHandler inherits this overload
+    //(RemoteUIWebSocketHandler.h:90), so the RemoteUI device wire is covered
+    //here and has no emitter of its own.
+    sendData.emit(jroot.dump(-1, ' ', true, Json::error_handler_t::replace));
 }
 
 void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)

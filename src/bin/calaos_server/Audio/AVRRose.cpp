@@ -111,7 +111,10 @@ void AVRRose::registerDevice()
     //The HTTP response and the retry timer may fire after destruction:
     //both check the alive tag before touching `this`.
     auto wtag = std::weak_ptr<bool>(aliveTag);
-    postRequest("device_connected", d.dump(), [this, wtag](const string &data)
+    //E4.1b, and the SAME on the eight other dumps of this file: error handler
+    //ONLY, no ensure_ascii - wire already in service in raw UTF-8, outside the
+    //scope of E4.1 (invariant 3). Track and zone names come from the amplifier.
+    postRequest("device_connected", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &data)
     {
         if (wtag.expired()) return;
         try
@@ -168,7 +171,7 @@ void AVRRose::Power(bool on, int zone)
             { "value", -1 }
         };
 
-        postRequest("remote_bar_order", d.dump(), [this, wtag](const string &)
+        postRequest("remote_bar_order", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &)
         {
             if (wtag.expired()) return;
             pollStatus();
@@ -184,7 +187,7 @@ void AVRRose::setVolume(int volume, int zone)
     };
 
     auto wtag = std::weak_ptr<bool>(aliveTag);
-    postRequest("volume", d.dump(), [this, wtag](const string &)
+    postRequest("volume", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &)
     {
         if (wtag.expired()) return;
         // POST /volume returns an empty body, refresh state via get_control_info
@@ -203,27 +206,27 @@ void AVRRose::sendCustomCommand(string command)
     if (command == "play" || command == "pause")
     {
         Json d = { { "currentPlayState", 17 } }; // Play/Pause toggle
-        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
+        postRequest("current_play_state", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "next")
     {
         Json d = { { "currentPlayState", 18 } }; // Next track
-        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
+        postRequest("current_play_state", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "prev")
     {
         Json d = { { "currentPlayState", 19 } }; // Previous track
-        postRequest("current_play_state", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
+        postRequest("current_play_state", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else if (command == "repeat")
     {
         Json d = { { "currentPlayState", 24 } }; // Toggle repeat
-        postRequest("current_play_state", d.dump(), nullptr);
+        postRequest("current_play_state", d.dump(-1, ' ', false, Json::error_handler_t::replace), nullptr);
     }
     else if (command == "shuffle")
     {
         Json d = { { "currentPlayState", 25 } }; // Toggle shuffle
-        postRequest("current_play_state", d.dump(), nullptr);
+        postRequest("current_play_state", d.dump(-1, ' ', false, Json::error_handler_t::replace), nullptr);
     }
     else if (command == "mute")
     {
@@ -231,7 +234,7 @@ void AVRRose::sendCustomCommand(string command)
             { "barControl", "remote_bar_order.mute" },
             { "value", -1 }
         };
-        postRequest("remote_bar_order", d.dump(), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
+        postRequest("remote_bar_order", d.dump(-1, ' ', false, Json::error_handler_t::replace), [this, wtag](const string &) { if (wtag.expired()) return; pollStatus(); });
     }
     else
     {

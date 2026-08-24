@@ -206,7 +206,9 @@ void OWProcess::readTimeout()
                         });
     }
 
-    sendMessage(jdata.dump());
+    //E4.1b: error handler ONLY, no ensure_ascii - this wire is already in
+    //service in raw UTF-8 and E4.1 does not migrate it.
+    sendMessage(jdata.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void OWProcess::messageReceived(const string &msg)

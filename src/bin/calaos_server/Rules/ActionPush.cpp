@@ -112,7 +112,11 @@ void ActionPush::sendNotif(const string &picUid)
         { "message", nmsg},
         { "pic_uid", picUid }
     };
-    e.event_raw = data.dump();
+    //E4.1b: this string is PERSISTED in the history database and read back by
+    //HistEvent::toJson(), which Json::parse()s it - so escaping here is
+    //invisible on the API, while a throw here would kill the process on a rule
+    //firing with a non UTF-8 message.
+    e.event_raw = data.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     auto notif_pic_uuid = picUid.empty() ? "" : e.uuid;
 

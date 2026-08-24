@@ -215,7 +215,9 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
 
 void RemoteUIProvisioningHandler::sendJsonResponse(const Json &response, int status_code)
 {
-    string response_str = response.dump();
+    //E4.1b: the provisioning answer reflects RemoteUI params read from
+    //io.xml, which pugixml hands over without validating UTF-8.
+    string response_str = response.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     string http_response = "HTTP/1.1 " + Utils::to_string(status_code) +
                           (status_code == 200 ? " OK" : " Error") + "\r\n" +

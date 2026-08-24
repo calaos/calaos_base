@@ -258,7 +258,18 @@ void JsonApiHandlerHttp::sendJson(json_t *json)
 
 void JsonApiHandlerHttp::sendJson(const Json &json)
 {
-    string data = json.dump();
+    //E4.1b, the two emission invariants of the epic.
+    //ensure_ascii = true: this wire has ALWAYS been ASCII only (the jansson
+    //overload above dumps with JSON_ENSURE_ASCII); a bare dump() would have
+    //started serving raw UTF-8 on half the actions. Only the case of the
+    //hexadecimal differs from jansson's (\u00e9 against \u00E9).
+    //error_handler_t::replace: dump() THROWS type_error.316 on invalid UTF-8
+    //in the tree, and nothing catches it above this line - that is
+    //std::terminate on a live connection. Reachable today: eventlog reflects
+    //io_id/io_state/pic_uid straight out of sqlite (HistLogger.cpp:82-103),
+    //and EventManager.cpp:93 puts an IO state there without any JSON parser
+    //on the way in. NOT a try/catch: the handler treats the cause.
+    string data = json.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     Params headers;
     headers.Add("Connection", "Close");

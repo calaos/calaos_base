@@ -344,7 +344,7 @@ int actionList(const CliArgs &args)
             }
         }
 
-        std::cout << doc.dump(4) << std::endl;
+        std::cout << doc.dump(4, ' ', false, Json::error_handler_t::replace) << std::endl;
         return 0;
     }
 
@@ -613,7 +613,7 @@ int actionOptions(const CliArgs &args)
         }
         doc["options"] = filtered;
 
-        std::cout << doc.dump(4) << std::endl;
+        std::cout << doc.dump(4, ' ', false, Json::error_handler_t::replace) << std::endl;
         return 0;
     }
 

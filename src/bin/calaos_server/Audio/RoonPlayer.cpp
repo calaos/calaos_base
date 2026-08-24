@@ -155,7 +155,13 @@ void RoonCtrl::subscribeZone(const string &zoneId, std::function<void(const Roon
         {"zone_id", zoneId}
     };
 
-    process->sendMessage(root.dump());
+    //E4.1b, and the SAME on the six other dumps of this file: error handler
+    //ONLY, no ensure_ascii. This wire is already in service in raw UTF-8 and
+    //E4.1 does not migrate it; adding ensure_ascii would change the bytes of a
+    //wire outside the epic's scope, which is exactly what invariant 3 forbids.
+    //replace changes nothing while the data is valid, and answers instead of
+    //terminating the process when a device sends a latin-1 byte.
+    process->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonCtrl::sendMessage(const string &msg)
@@ -209,7 +215,7 @@ void RoonPlayer::Play()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Pause()
@@ -221,7 +227,7 @@ void RoonPlayer::Pause()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Stop()
@@ -233,7 +239,7 @@ void RoonPlayer::Stop()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Next()
@@ -245,7 +251,7 @@ void RoonPlayer::Next()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Previous()
@@ -257,7 +263,7 @@ void RoonPlayer::Previous()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::state_update_cb(const RoonPlayerState &state)
@@ -348,7 +354,7 @@ void RoonPlayer::set_volume(int vol)
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_data)

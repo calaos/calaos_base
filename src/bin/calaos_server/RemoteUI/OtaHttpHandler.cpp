@@ -172,7 +172,10 @@ void OtaHttpHandler::handleRescan()
 
 void OtaHttpHandler::sendJsonResponse(const Json &response, int status_code)
 {
-    string response_str = response.dump();
+    //E4.1b: sendErrorResponse() reflects the hardware id taken verbatim out of
+    //the request URI (handleFirmwareDownload()), which is raw bytes and not a
+    //parsed JSON string.
+    string response_str = response.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     string statusText;
     switch (status_code)

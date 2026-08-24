@@ -323,7 +323,9 @@ bool WebSocket::checkHandshakeRequest()
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "application/json");
-                string json_body = error_response.dump();
+                //E4.1b: error body served to a client, same invariants as the
+                //API emitters.
+                string json_body = error_response.dump(-1, ' ', true, Json::error_handler_t::replace);
                 string res = buildHttpResponse(http_status_line, headers, json_body);
                 sendToClient(res);
 
