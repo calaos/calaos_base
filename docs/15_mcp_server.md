@@ -548,25 +548,57 @@ utilisateur : backoff par entrée de table doublant à chaque échec, de 1 s à 
 
 ## Build
 
-`configure` sonde les dépendances Python du sidecar et active `HAVE_PYTHON_MCP` si elles sont
-présentes (sinon avertit et n'installe pas le sidecar). Désactivable explicitement avec
-`--without-mcp` (`configure.ac:179-185`). La sonde est (intégral, `configure.ac:218-219`) :
+### Les dépendances Python — une seule source, jamais une liste à la main
 
-```
-            AC_MSG_CHECKING([for Python mcp + uvicorn + fastapi modules])
-            if $PYTHON -c "import mcp, uvicorn, fastapi" 2>/dev/null; then
-```
+[**`src/bin/calaos_mcp/pyproject.toml`**](../src/bin/calaos_mcp/pyproject.toml) est la **source
+unique de vérité** (T3.23) : `mcp`, `fastapi`, `uvicorn`, `websockets`, `pydantic`, `starlette`,
+toutes **épinglées**, avec `requires-python = ">=3.11"`. Les deux stages du `Dockerfile`, le
+`.devcontainer/Dockerfile` et le job CI `mcp-sidecar-deps` installent **ce fichier-là**, via
+[`scripts/pyproject-requirements.py`](../scripts/pyproject-requirements.py).
 
-⚠️ **La sonde ne couvre pas toutes les dépendances d'exécution.** `client.py:16` importe
-`websockets`, qui n'est **pas** testé par `configure` : un système sans `websockets` construit
-et installe le sidecar, qui échouera ensuite à l'import. Les dépendances réellement
-nécessaires, épinglées pour une installation reproductible, sont dans
-[pyproject.toml](../src/bin/calaos_mcp/pyproject.toml) : `mcp`, `fastapi`, `uvicorn`,
-`websockets`, `pydantic`, `starlette`, avec `requires-python = ">=3.11"`.
+⚠️ **Ne réécrivez pas la liste des paquets à la main** — c'est précisément ce qui a cassé l'image
+publiée : le `Dockerfile` faisait `pip install "mcp[cli]" uvicorn fastapi websockets` sans borne
+de version, a résolu un jour vers `mcp 2.0.0`, où `mcp.server.fastmcp` **n'existe plus**, et le
+sidecar publié ne démarrait pas. Toute liste recopiée diverge tôt ou tard du manifeste.
 
 ```bash
-pip3 install "mcp[cli]" uvicorn fastapi websockets pydantic
+scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml > req.txt
+pip3 install -r req.txt --break-system-packages
 ./autogen.sh && ./configure && make && sudo make install
+```
+
+Installez le jeu en **une seule** invocation de `pip` : `mcp`, `fastapi` et `starlette` sont
+**couplés** (`fastapi 0.115.12` exige `starlette>=0.40.0,<0.47.0`), et les résoudre paquet par
+paquet choisit en silence des combinaisons incompatibles.
+
+### La sonde `configure`
+
+`configure` active `HAVE_PYTHON_MCP` si le sidecar peut réellement fonctionner, sinon il avertit
+et ne l'installe pas. Désactivable explicitement avec `--without-mcp` (`configure.ac:179-185`).
+
+La sonde **n'importe pas le paquet, elle exerce l'API** : `import mcp` réussit avec `mcp 2.0.0`
+alors que le sidecar est mort. Elle reprend donc les symboles que les sources atteignent
+réellement — dont **`websockets`** (`client.py:16`) et `starlette` — puis **rejoue la séquence**
+de `server.py`, y compris les trois attributs qu'aucun `import` ne révélerait :
+
+| ce qui est exercé | pourquoi |
+|---|---|
+| `from mcp.server.fastmcp import FastMCP` | `server.py:25` — le module disparu en `mcp 2.0.0` |
+| `from mcp.server.transport_security import …` | `server.py:26` |
+| `fastapi`, `fastapi.responses`, `starlette.middleware.base`, `starlette.routing` | `server.py`, `auth.py` |
+| `import uvicorn, websockets` | `__main__.py:20`, `client.py:16` |
+| `mcp.settings.transport_security = …` | `server.py:64`, au niveau module |
+| `mcp.streamable_http_app()` | `server.py:167` |
+| `mcp._session_manager` | `server.py:171` — API **privée**, rien en amont ne la promet |
+
+`pydantic` n'est **pas** sondé : le seul module qui l'importe, `models.py`, n'est importé par
+personne, et une `pydantic` manquante ferait de toute façon échouer l'import de `fastapi`.
+
+En cas d'échec, `configure` **imprime la trace d'import** au lieu de dire seulement « no ».
+Contrôle rapide sur une image construite, sans socket ni configuration :
+
+```bash
+calaos_mcp --help    # traverse toute la chaîne d'import ; sortie 0 = le sidecar peut démarrer
 ```
 
 Fichiers de build : [src/bin/calaos_mcp/Makefile.am](../src/bin/calaos_mcp/Makefile.am)

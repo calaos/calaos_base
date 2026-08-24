@@ -221,3 +221,67 @@ jobs:
           fi
 
           echo "No formatting issues in changed lines."
+
+  # T3.23 — the only CI job that sees the MCP sidecar at all.
+  #
+  # The build-and-test job installs no Python dependencies, so HAVE_PYTHON_MCP
+  # is "no" there and the sidecar is skipped entirely. That is how the pip
+  # Dependabot PRs went green while saying nothing: a ✅ on a pyproject.toml
+  # bump carried no information about whether the sidecar could still start.
+  #
+  # This job installs exactly what src/bin/calaos_mcp/pyproject.toml declares —
+  # the same file, and the same single-resolver-pass install, the Dockerfile
+  # uses — and then imports the API the sidecar actually needs. It is
+  # deliberately not `import mcp`: mcp 2.0.0 satisfies that and still has no
+  # mcp.server.fastmcp.
+  mcp-sidecar-deps:
+    name: MCP sidecar dependency set
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-pip
+
+      - name: Install the declared dependency set
+        run: |
+          scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml \
+              > /tmp/requirements.txt
+          cat /tmp/requirements.txt
+          pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
+
+      - name: Import the API the sidecar uses
+        run: |
+          PYTHONPATH=src/bin/calaos_mcp/python python3 - <<'PY'
+          from mcp.server.fastmcp import FastMCP
+          from mcp.server.transport_security import TransportSecuritySettings
+          from fastapi import FastAPI, Request, Response
+          from fastapi.responses import JSONResponse
+          from starlette.middleware.base import BaseHTTPMiddleware
+          from starlette.routing import Route
+          import uvicorn, websockets
+
+          # server.py reaches FastMCP through three attributes no import
+          # statement would reveal: mcp.settings.transport_security (:64),
+          # streamable_http_app() (:167) and the PRIVATE _session_manager
+          # (:171). Nothing upstream promises the last one — replay the
+          # sequence here rather than discover it in a published image.
+          import calaos_mcp.server  # noqa: F401
+          m = FastMCP("ci-probe")
+          m.settings.transport_security = TransportSecuritySettings(
+              enable_dns_rebinding_protection=False)
+          app = m.streamable_http_app()
+          assert app.routes, "streamable_http_app() exposed no route"
+          assert m._session_manager is not None, "FastMCP._session_manager is gone"
+          print("sidecar API present")
+          PY
+
+      - name: Report installed versions
+        run: |
+          pip show mcp fastapi starlette uvicorn websockets pydantic \
+              | grep -E '^(Name|Version):'

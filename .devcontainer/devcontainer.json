@@ -2,7 +2,10 @@
 {
 	"name": "Debian12 calaos-server dev container",
 	"build": {
-		"dockerfile": "Dockerfile"
+		"dockerfile": "Dockerfile",
+		// Repository root, so the image can install the Python dependencies
+		// from src/bin/calaos_mcp/pyproject.toml instead of restating them.
+		"context": ".."
 	},
 
 	"mounts": [

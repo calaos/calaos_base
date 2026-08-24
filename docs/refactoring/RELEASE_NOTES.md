@@ -5,6 +5,33 @@
 > observer — les corrections internes (UAF, fuites, durcissements) ne sont pas ici.
 > Ordre : impact décroissant.
 
+## 🔴 Le sidecar MCP ne démarrait pas
+
+### L'assistant MCP était mort dans les images publiées (T3.23)
+Si vous avez activé le sidecar MCP — celui qui permet à un assistant IA de piloter votre
+installation Calaos — et qu'il ne répondait pas, **ce n'est pas votre configuration**.
+
+Les images `ghcr.io/calaos/calaos_base` reconstruites récemment embarquaient une version de la
+bibliothèque `mcp` **incompatible** avec le code de Calaos. Le sidecar s'arrêtait immédiatement au
+démarrage, sur une erreur d'import, **avant même** d'ouvrir sa socket. Le reste de calaos_server
+(règles, IOs, API JSON, interface web) n'était pas affecté — seul l'accès MCP l'était, et il
+l'était **totalement** : aucun assistant ne pouvait se connecter.
+
+Cause : l'image installait ses dépendances Python **sans figer leurs versions**. Chaque
+reconstruction attrapait ce que PyPI publiait ce jour-là ; le jour où `mcp` est passé en 2.0, le
+module dont Calaos a besoin a disparu et l'image a été publiée cassée. Rien ne l'a signalé : le
+contrôle au moment de la compilation se contentait de vérifier que la bibliothèque était
+**installée**, pas qu'elle offrait encore ce que Calaos lui demande.
+
+Les versions sont désormais figées dans un seul fichier, et ce fichier est celui que l'image
+installe réellement. Le contrôle de compilation, lui, importe maintenant l'API que le sidecar
+utilise : si une mise à jour la retire, **la construction échoue** au lieu de publier un sidecar
+qui ne démarre pas. Un `calaos_mcp --help` suffit désormais à vérifier qu'une image est saine.
+
+→ **Rien à faire de votre côté** : mettez à jour vers une image postérieure à ce correctif.
+
+---
+
 ## ⚠️ Comportements qui changent sur une installation existante
 
 ### Une règle dont un équipement a disparu ne s'exécute plus (décision utilisateur)

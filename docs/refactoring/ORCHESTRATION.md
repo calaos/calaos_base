@@ -2068,6 +2068,107 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     code dans les 2 commits, contrôle docs-only mécanique sur chacun.**
   - **Rien n'a été poussé.** Worktree `.wave35/e4.5f` nettoyé, branche `docs/e4.5f` supprimée.
     **`E4.5` bascule 📋 → ✅ sur le board — 6/6 livrés (a→f).**
+- **✅ T3.23 LIVRÉ (2026-08-24) — F-DEP-1 corrigé, image reconstruite et sidecar démarré dedans.
+  RIEN MERGÉ, RIEN POUSSÉ.** Branche **`fix/t3.23`**, worktree
+  `/home/raoul/repos/calaos/.wave33/t3.23`, basée sur `530db772`. Ticket : `T3.23.md`
+  (T3.21 pris par l'extrait `del_param` de T3.20, T3.22 par la surveillance pip → **T3.23** est le
+  premier libre).
+  - **Le correctif : le manifeste devient la source, pas un second jeu de pins.** Épingler des
+    numéros dans le `Dockerfile` aurait créé un deuxième endroit à maintenir. `pip install
+    ./src/bin/calaos_mcp` a aussi été **écarté** : cela installerait le paquet `calaos_mcp` dans
+    `site-packages` **en doublon** de `/opt/lib/calaos/calaos_mcp` (installé par `Makefile.am`,
+    mis dans `PYTHONPATH` par `calaos_mcp.in`) — deux copies, dont une jamais mise à jour.
+    Retenu : **`scripts/pyproject-requirements.py`** (`tomllib`, stdlib ≥ 3.11) émet
+    `[project].dependencies` en requirements. Les **deux** stages du `Dockerfile`, le
+    `.devcontainer/Dockerfile` et un job CI neuf copient **le même manifeste** et appellent **le
+    même script**.
+  - **Une seule passe de résolveur, sur tout** : `pip install -r requirements.txt roonapi
+    reolink-aio`. mcp/fastapi/starlette sont couplés (c'est ce qui a rendu #175 irrésoluble) ;
+    en passes séparées, une passe tardive écrase en silence ce qu'une passe antérieure a épinglé.
+    **`roonapi`/`reolink-aio` n'entrent PAS dans le `pyproject.toml`** (extern procs de
+    calaos_server, pas du sidecar) et restent **non pinnées comme avant** — mais partagent
+    désormais la passe : une incompatibilité **casse le build** au lieu de dégrader l'image en
+    silence. Mesuré après correctif : `roonapi 0.1.6`, `reolink-aio 0.21.11`, détectées par
+    `configure`.
+  - **Le garde-fou teste l'API, plus la présence.** `configure.ac` importe exactement ce que les
+    sources importent (relevé sur `calaos_mcp/*.py`, pas de mémoire) + `FastMCP.streamable_http_app`.
+    Cela ajoute **5 distributions** que l'ancienne sonde ignorait, dont **`websockets`**
+    (`client.py:16`, jamais sondé — signalé par E4.5d en cours de route). Les 6 sont **toutes**
+    dans le `pyproject.toml` : la bascule n'en fait disparaître aucune, **vérifié**. Sonde
+    négative sur l'image cassée : ancienne sonde **exit 0** (le mensonge), nouvelle
+    **ModuleNotFoundError**. En cas d'échec `configure` **imprime la trace d'import**.
+  - **Job CI `mcp-sidecar-deps`** : `build-and-test` n'installe aucun Python, donc
+    `HAVE_PYTHON_MCP` = no et le sidecar y est **entièrement sauté** (F-DEP-2). Le nouveau job
+    installe le jeu du `pyproject.toml` (même script, même passe unique) et exerce l'API **privée**
+    `FastMCP.streamable_http_app()` + `_session_manager` dont dépend `server.py:167-169`.
+  - **`calaos_mcp --help` / `--version`** ajoutés, traités **après** les imports de module :
+    la commande traverse toute la chaîne d'import sans socket ni config ni effet de bord. C'est
+    le one-liner « est-ce que cette image peut démarrer ».
+  - **VÉRIFICATION — image réellement construite.** `docker build` **exit 0** (5 min 42) ;
+    log de `configure` : `checking for the Python API the calaos_mcp sidecar imports... yes`.
+    Acceptation sur l'image, **sans montage** : `calaos_mcp --help` **exit 0** ;
+    `python3 -c "from mcp.server.fastmcp import FastMCP"` **ok, exit 0**. Sidecar **démarré
+    dedans** (UDS + `local_config.xml` de test) : `GET /healthz` **200**, `POST /mcp` sans Bearer
+    **401**, `initialize` avec Bearer **200** (`serverInfo.name = "calaos"`). Versions installées :
+    **mcp 1.16.0**, fastapi 0.115.12, starlette 0.46.2, uvicorn 0.34.2, websockets 15.0.1,
+    pydantic 2.11.4 — les 6 pins honorés **au numéro près**. Stages `dev` et `runner` comparés
+    paquet par paquet : **`diff` vide**.
+  - **Composition avec `chore/dependabot-2026-08-24` : ZÉRO fichier en commun.** T3.23 ne touche
+    **pas** `pyproject.toml` (délibéré) ; la branche Dependabot ne touche **que** lui. Les deux se
+    mergent dans **n'importe quel ordre**, sans conflit — mais **Dependabot n'a d'effet sur l'image
+    qu'une fois T3.23 mergé**, puisque avant T3.23 aucun build ne lisait ce fichier. Ordre
+    recommandé : **T3.23 d'abord, Dependabot ensuite** (le pin est alors effectif dès sa première
+    publication), ou les deux dans un même cycle de publication.
+  - **fastapi 0.141.1 vs 0.135.0 — mesuré, pas déduit.** Le jeu Dependabot a été passé dans le
+    nouveau pipeline, en deux variantes : `mcp 1.28.1 + starlette 1.3.1` avec **fastapi 0.141.1**
+    et avec **fastapi 0.135.0**. **Les deux résolvent** (roonapi/reolink-aio compris) et **les deux
+    passent** la sonde d'API, `_session_manager` inclus. La sonde ne les départage donc pas.
+    **Recommandation : garder 0.141.1** — c'est la seule des deux qui ait été exercée de bout en
+    bout (create_app, `/healthz` 200, `POST /mcp` 200, 401, 34 tests) par le passage Dependabot ;
+    reculer sur 0.135.0 échangerait une version testée contre une version seulement importée.
+  - **✅ LE `.deb` EST COUVERT — vérifié en revue, ce n'est plus un risque.** `gh` a lu
+    `calaos/pkgdebs` : `docker-publish-dev.yml` → `repository_dispatch build_deb` (`image_src`) →
+    `build_deb.yml` → un `Makefile` dont **tout** le `build` écrit **deux lignes** dans
+    `container.source`. **Le `.deb` n'embarque ni l'image ni aucun `site-packages`** : c'est un
+    wrapper podman (`ExecStart=/usr/bin/podman run --pull=never ${IMAGE_SRC}`, image tirée au
+    `postinst`). **Corriger le `Dockerfile` suffit, aucune action côté `pkgdebs`.** Seul le contenu
+    de `pull_calaos_image` reste non lu.
+  - **SUITES DE REVUE (verdict `MERGE` avec réserves, aucun bloquant) — les deux réserves sont
+    traitées, branche rebasée sur `530db772`** (un seul conflit, `ORCHESTRATION.md`, journal).
+    **R1 — la doc enseignait encore le geste qui a cassé l'image** : `docs/15_mcp_server.md`
+    portait toujours `pip3 install "mcp[cli]" uvicorn fastapi websockets pydantic` (E4.5d a
+    réécrit ce fichier +452/−97 **sans** corriger la commande — il ne pouvait pas savoir), et sa
+    description de la sonde + l'avertissement « ne couvre pas `websockets` » devenaient **faux au
+    merge**. Les trois sont corrigés : la commande **renvoie au manifeste et au script** au lieu de
+    re-lister des paquets (sinon on recrée la divergence dans la doc), la sonde est décrite en
+    tableau, l'avertissement périmé est retiré. **R2 — la sonde `configure` promettait
+    « the exact set » sans le tenir** : ajoutés **`mcp.settings.transport_security`**
+    (`server.py:64`, module level) et **`mcp._session_manager`** (`server.py:171`, **privée** —
+    exactement le genre d'API qui disparaît sans préavis, cf. `mcp.server.fastmcp`) ; **retiré**
+    `pydantic.BaseModel/Field`, dont le seul importeur `models.py` **n'est importé par personne**.
+    La sonde **rejoue désormais la séquence de `server.py`** au lieu de s'arrêter aux imports ;
+    `ci.yml` aligné à l'identique. **Revérifié après R2** : `docker build` exit 0, `configure`
+    « ...sidecar uses... yes », les deux critères d'acceptation exit 0, `/healthz` 200 / 401 / 200.
+  - **⚠️ CE TICKET AMÉLIORE LA DÉTECTION, PAS LE BLOCAGE — décision utilisateur.** Le job CI
+    **n'empêche pas** la publication : `docker-publish-dev.yml` est un workflow séparé **sans
+    `needs:`**, et **`master` n'est pas protégée** (404 sur `/protection`, rulesets vides) → aucun
+    *required status check*, un job rouge ne bloque rien. Rendre `mcp-sidecar-deps` bloquant est
+    une **configuration de dépôt**, hors de portée du code.
+  - **Versé en FINDINGS (non traité ici, élargirait le ticket)** : **F-DEP-3** la divergence peut
+    revenir — un `RUN pip install foo` en dur passerait toute la CI au vert ; le dépôt a pourtant
+    le patron (`tests/check-config-docs.sh` dans `make check`), l'analogue manque → ticket proposé
+    **`tests/check-pydeps-single-source.sh`**. **F-DEP-4** deux angles morts du script :
+    `[project.optional-dependencies]` **ignoré** (dep sous un extra silencieusement perdue) et
+    **aucun `==` exigé** (un futur `mcp>=1.0` re-flotterait sans bruit) ; extras et marqueurs
+    PEP 508 passent en revanche **verbatim**, donc corrects. **F-DEP-5** incohérence de version :
+    `__init__.py` dit `0.1.0`, `pyproject.toml` dit `1.0.0`, et **`/healthz` expose `0.1.0`**.
+    **F-DEP-6** `pip show … | grep` masque un code retour (étape informative). **F-DEP-7**
+    `models.py` est **du code mort** (importé par personne) — la raison pour laquelle `pydantic`
+    figurait à tort dans la sonde.
+  - **Reste ouvert** : **F-DEP-2** (aucun test n'exerce `create_app()` en CI — fait à la main ici) ;
+    `pydantic-settings 2.15.0`, transitive **non pinnée** de `mcp`, émet un
+    `IncompleteFieldDefinitionWarning` à chaque démarrage — cosmétique, mais même classe de défaut,
+    non traité pour garder la branche disjointe du `pyproject.toml`.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors

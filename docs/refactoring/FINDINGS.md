@@ -5,7 +5,22 @@
 
 ## Sécurité / correctness à traiter en priorité
 
-- 🔴 **[F-DEP-1] Le `Dockerfile` déployé installe les dépendances du sidecar MCP **non pinnées**,
+- ✅ **[F-DEP-1] — TRAITÉ par [T3.23](T3.23.md)** (branche `fix/t3.23`, non mergée à l'écriture).
+  Le `pyproject.toml` est devenu la **source unique** : les deux stages du `Dockerfile`, le
+  `.devcontainer/Dockerfile` et un job CI neuf (`mcp-sidecar-deps`) installent ce qu'il déclare
+  via `scripts/pyproject-requirements.py`, en **une seule passe de résolveur**. `configure.ac`
+  sonde désormais l'**API réellement importée** (+`starlette`, `pydantic`, **`websockets`**, jamais
+  sondé jusque-là) au lieu de `import mcp, uvicorn, fastapi`. **Image reconstruite et sidecar
+  démarré dedans** : `mcp 1.16.0` installé, `/healthz` 200, `POST /mcp` 401 sans Bearer / 200 avec.
+  ✅ **Le `.deb` est couvert, c'est vérifié et non plus supposé** : `calaos/pkgdebs` a été lu en
+  revue. `build_deb.yml` → un `Makefile` dont tout le `build` écrit **deux lignes** dans
+  `container.source` ; le paquet n'embarque **ni l'image ni aucun `site-packages`**, c'est un
+  wrapper podman (`podman run --pull=never ${IMAGE_SRC}`, image tirée au `postinst`). Corriger le
+  `Dockerfile` suffit. Énoncé d'origine conservé ci-dessous.
+
+  ---
+
+  🔴 **[F-DEP-1] Le `Dockerfile` déployé installe les dépendances du sidecar MCP **non pinnées**,
   et la résolution du jour **casse le sidecar**.** Trouvé pendant le passage Dependabot du
   2026-08-24, hors périmètre (aucune PR Dependabot ne touche le `Dockerfile`).
 
@@ -38,9 +53,50 @@
   `pip install -r` / `pip install ./src/bin/calaos_mcp` pour que la déclaration devienne la source
   de vérité et que Dependabot surveille enfin ce qui est réellement déployé. Voir aussi
   [T3.22](T3.22.md), dont c'est le prérequis de fond.
+  → **Fait par T3.23**, par génération d'un requirements depuis le `pyproject.toml` :
+  `pip install ./src/bin/calaos_mcp` a été **écarté** car il installerait le paquet `calaos_mcp`
+  dans `site-packages` en **doublon** de `/opt/lib/calaos/calaos_mcp`.
+
+- 🟠 **[F-DEP-3] Rien n'empêche la divergence de revenir : un `RUN pip install foo` ajouté en dur
+  au `Dockerfile` passerait toute la CI au vert.** T3.23 a fait du `pyproject.toml` la source
+  unique, mais n'a posé **aucun garde-fou contre le contournement**. Le dépôt a pourtant déjà le
+  patron adéquat — **`tests/check-config-docs.sh`**, câblé dans `make check` — et l'analogue
+  manque. **Ticket proposé : `tests/check-pydeps-single-source.sh`**, qui refuse tout
+  `pip install` du `Dockerfile`, du `.devcontainer/Dockerfile` et des workflows qui ne passe pas
+  par `scripts/pyproject-requirements.py` (liste blanche explicite pour `roonapi`/`reolink-aio`).
+
+- 🟡 **[F-DEP-4] Deux angles morts de `scripts/pyproject-requirements.py`.** (1) Il ne lit que
+  `[project].dependencies` et **ignore `[project.optional-dependencies]`** : une dépendance rangée
+  sous un extra serait **silencieusement perdue** de l'image. (2) Il **n'exige aucun `==`** : un
+  futur `mcp>=1.0` dans le manifeste **re-flotterait sans bruit**, ce qui est exactement le défaut
+  que T3.23 corrige. Les extras et les marqueurs PEP 508 passent en revanche **verbatim** à
+  `pip -r`, donc corrects. À traiter avec F-DEP-3 (même script de garde).
+
+- 🟡 **[F-DEP-5] `calaos_mcp` a deux numéros de version qui se contredisent, et c'est le mauvais
+  qui est exposé.** `python/calaos_mcp/__init__.py` déclare `__version__ = "0.1.0"` alors que
+  `src/bin/calaos_mcp/pyproject.toml` déclare `version = "1.0.0"`. **`GET /healthz` renvoie
+  `{"status":"ok","version":"0.1.0"}`** — donc la version qu'un intégrateur lit sur le réseau n'est
+  pas celle du paquet. À trancher (probablement : `__version__` lu depuis les métadonnées, ou une
+  source unique comme pour les dépendances).
+
+- ⚪ **[F-DEP-6] `pip show … | grep` masque un code retour** (`.github/workflows/ci.yml`, étape
+  « Report installed versions » du job `mcp-sidecar-deps`) : le statut du pipe est celui de `grep`.
+  L'étape est purement **informative**, donc sans conséquence aujourd'hui — mais à savoir avant de
+  s'appuyer dessus.
+
+- ⚪ **[F-DEP-7] `calaos_mcp/models.py` est du code mort.** Il définit des modèles pydantic et
+  **n'est importé par aucun module** (ni par `calaos_mcp/*`, ni par `tests/python/*`). Trouvé en
+  alignant la sonde `configure` de T3.23 sur les imports réels : c'est la seule raison pour
+  laquelle `pydantic` figurait dans la liste des imports du sidecar. À supprimer, ou à câbler.
 
 - 🟠 **[F-DEP-2] Les suites Python n'exercent jamais `calaos_mcp/server.py`, et le conteneur de
   build n'a ni `mcp` ni `pytest` — donc `make check` ne couvre ni l'un ni l'autre.** Même origine.
+  **Partiellement entamé par [T3.23](T3.23.md)** : le job CI `mcp-sidecar-deps` installe le jeu du
+  `pyproject.toml` et exerce l'API que `server.py` importe, **y compris** la privée
+  `FastMCP.streamable_http_app()` / `_session_manager` (`server.py:167-169`). **Le reste tient** :
+  ce job ne construit pas `create_app()` et ne frappe pas `/healthz` — la suite
+  `tests/python/test_mcp_server.py` ci-dessous est toujours à écrire, et `make check` ne couvre
+  toujours rien de Python dans le conteneur de build.
 
   `tests/run-python-tests.sh` est bien câblé dans `make check` (T2.14), mais dans le conteneur de
   build il n'y a ni `pytest`, ni `fastapi`, ni `starlette`, ni `mcp` : le script retombe sur

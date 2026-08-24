@@ -33,9 +33,32 @@ RUN apt-get update -qq && \
 # /opt/share/calaos/app; the empty directory only marks the mount point.
 RUN mkdir -p /opt/share/calaos/app
 
-RUN pip install roonapi --break-system-packages
-RUN pip install reolink-aio --break-system-packages
-RUN pip install "mcp[cli]" uvicorn fastapi websockets --break-system-packages
+# Python dependencies come from src/bin/calaos_mcp/pyproject.toml, and from
+# nowhere else. That file is the one Dependabot watches; before T3.23 it was
+# also the one no build path read, so the image installed whatever PyPI served
+# that day. A rebuild on 2026-08-24 landed mcp 2.0.0, which no longer ships
+# mcp.server.fastmcp, and the published sidecar could not even import itself.
+#
+# Copy the manifest (not the whole tree: this layer must only be invalidated
+# when the dependencies change) and expand it into a requirements list.
+COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+
+# One single pip invocation for everything, on purpose. mcp, fastapi and
+# starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
+# roonapi/reolink-aio pull their own transitive constraints; installing them in
+# separate passes lets a later pass silently upgrade a package an earlier one
+# pinned. Resolving the whole set at once makes an incompatibility fail the
+# build loudly instead of shipping a broken image.
+#
+# roonapi and reolink-aio are deliberately not in pyproject.toml: they are
+# optional integrations of calaos_server (extern procs), not sidecar runtime
+# deps. They stay unpinned, as before, but now share the resolver pass.
+RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
+        /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
+    cat /tmp/calaos-pydeps/requirements.txt && \
+    pip install --no-cache-dir --break-system-packages \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    rm -rf /tmp/calaos-pydeps
 
 ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
@@ -64,9 +87,32 @@ RUN apt -y update && \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
         libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 libpugixml1v5 ola python3 python3-pip python3-colorama openssl
 
-RUN pip install roonapi --break-system-packages
-RUN pip install reolink-aio --break-system-packages
-RUN pip install "mcp[cli]" uvicorn fastapi websockets --break-system-packages
+# Python dependencies come from src/bin/calaos_mcp/pyproject.toml, and from
+# nowhere else. That file is the one Dependabot watches; before T3.23 it was
+# also the one no build path read, so the image installed whatever PyPI served
+# that day. A rebuild on 2026-08-24 landed mcp 2.0.0, which no longer ships
+# mcp.server.fastmcp, and the published sidecar could not even import itself.
+#
+# Copy the manifest (not the whole tree: this layer must only be invalidated
+# when the dependencies change) and expand it into a requirements list.
+COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+
+# One single pip invocation for everything, on purpose. mcp, fastapi and
+# starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
+# roonapi/reolink-aio pull their own transitive constraints; installing them in
+# separate passes lets a later pass silently upgrade a package an earlier one
+# pinned. Resolving the whole set at once makes an incompatibility fail the
+# build loudly instead of shipping a broken image.
+#
+# roonapi and reolink-aio are deliberately not in pyproject.toml: they are
+# optional integrations of calaos_server (extern procs), not sidecar runtime
+# deps. They stay unpinned, as before, but now share the resolver pass.
+RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
+        /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
+    cat /tmp/calaos-pydeps/requirements.txt && \
+    pip install --no-cache-dir --break-system-packages \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    rm -rf /tmp/calaos-pydeps
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /build/*

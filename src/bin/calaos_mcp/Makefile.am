@@ -9,7 +9,7 @@ calaosmcp_PYTHON =
 calaosmcptools_PYTHON =
 BUILT_SOURCES =
 CLEANFILES =
-EXTRA_DIST = calaos_mcp.in
+EXTRA_DIST = calaos_mcp.in pyproject.toml
 
 if HAVE_PYTHON_MCP
 bin_SCRIPTS += calaos_mcp

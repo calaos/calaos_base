@@ -223,7 +223,16 @@ Tests live in `tests/` and use Google Test. Built and run with `make check` (onl
 
 **Python drivers** (installed separately): `reolink_aio` (Reolink), `roonapi` (Roon), `colorama` (logging)
 
-**MCP sidecar** (enabled by default, disable with `./configure --without-mcp`): requires the Python packages `mcp` (with `mcp[cli]`), `uvicorn`, and `fastapi`. `configure` probes for them; if missing it warns and skips building the sidecar (`HAVE_PYTHON_MCP`). Install with `pip3 install "mcp[cli]" uvicorn fastapi`.
+**MCP sidecar** (enabled by default, disable with `./configure --without-mcp`): its Python dependencies are declared in **`src/bin/calaos_mcp/pyproject.toml`, which is the single source of truth** — the Dockerfile, the devcontainer and CI all install from it, never from a hand-written list. Install them with:
+
+```
+scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml > req.txt
+pip3 install -r req.txt --break-system-packages
+```
+
+Install the whole set in **one** pip invocation: `mcp`, `fastapi` and `starlette` are coupled, and resolving them package by package silently picks incompatible combinations.
+
+`configure` then probes the **API the sidecar actually imports** (not just `import mcp`, which passes with mcp 2.0.0 where `mcp.server.fastmcp` no longer exists) and sets `HAVE_PYTHON_MCP`; if the probe fails it prints the failing import and skips building the sidecar. `calaos_mcp --help` exercises the same import chain with no socket and no config — it is the quickest way to tell whether a built image can start the sidecar at all. See [T3.23](docs/refactoring/T3.23.md).
 
 ---
 

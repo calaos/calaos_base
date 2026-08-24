@@ -89,4 +89,5 @@ AUTHORS \
 COPYING \
 README.md \
 autogen.sh \
+scripts/pyproject-requirements.py \
 m4/efl_compiler.m4

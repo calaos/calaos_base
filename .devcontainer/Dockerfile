@@ -19,9 +19,19 @@ RUN apt-get update -qq && \
         tar gzip zsh vim nano sudo zstd less gnupg ripgrep gdb cgdb locales \
         python3-pip python3-full iproute2 python3-colorama libgtest-dev npm
 
-RUN pip install roonapi --break-system-packages
-RUN pip install reolink-aio --break-system-packages
-RUN pip install "mcp[cli]" uvicorn fastapi websockets --break-system-packages
+# Same single source of truth as the shipped Dockerfile (T3.23): the Python
+# dependencies are read from src/bin/calaos_mcp/pyproject.toml, never spelled
+# out here. A dev container that resolves a different set from the image is how
+# "works on my machine" gets shipped. The build context is the repository root
+# (see devcontainer.json), which is what makes these paths resolvable.
+COPY scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml /tmp/calaos-pydeps/
+
+# One resolver pass over the whole set — see the comment in ../Dockerfile.
+RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
+        /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
+    pip install --no-cache-dir --break-system-packages \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+    rm -rf /tmp/calaos-pydeps
 
 RUN npm install -g @anthropic-ai/claude-code
 
