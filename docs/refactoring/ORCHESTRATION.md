@@ -1754,6 +1754,75 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
     porte.
   - **Rien n'a été poussé.** Worktree `.wave28/e4.6a` nettoyé, branche `refactor/e4.6a` supprimée.
     **E4.6 reste 📋 — 1/8 livré (a)** ; b→h restent, et b→h sont ⛔ **après E4.1**.
+- **E4.1a ✅ mergé** (2026-08-24, `c08d776e`, ff-only, historique linéaire) — **le pont
+  dual-API de `Params` est coupé** : `src/lib/Params.h` n'inclut plus `<jansson.h>`, la classe
+  n'expose plus qu'une face JSON (nlohmann). L'ancienne `Params::toJson()` **jansson** est
+  déplacée hors de la classe dans l'adaptateur transitoire `jansson_from_params()` de
+  `src/lib/Jansson_Addition.h`, corps inchangé. Périmètre : 15 fichiers `src/` (dont
+  `JsonApi.cpp`, 70 sites), `tests/ParamsJson_test.cpp` neuf (520 lignes) et **2 lignes d'appel**
+  dans 2 tests préexistants. Build docker complet (`autogen` + `configure` + `make -j12` +
+  `make check`) : **70/70** (`TESTS` = **entrées**, pas lignes — 69 avant, +1 `ParamsJson_test`).
+  **145 goldens intacts, hash d'arbre git identique** (`tests/core/golden` = `d4ebc61f` sur master
+  comme sur la branche).
+  - ⭐ **« Zéro octet observable » établi par TROIS preuves indépendantes**, pas par un `make check`
+    vert. (1) Condensé **recalculé** : `sha256sum tests/core/golden/*.json | sha256sum` =
+    `9788118b…` des deux côtés. (2) **Hash d'arbre git** identique — plus fort qu'un `diff --stat`,
+    il prouve qu'aucun golden n'a été **ajouté, retiré ni modifié**. (3) **Dé-réécriture
+    mécanique** : `sed 's/jansson_from_params(X)/X.toJson()/'` appliqué à tout le diff `src/` le
+    ramène à master, à un résidu de **2 `#include`** (`Jansson_Addition.h` dans `IODoc.cpp`,
+    `<jansson.h>` dans `IODoc.h`, qui l'obtenait gratuitement par `Params.h`), de commentaires, et
+    de la fonction déplacée. **Aucune assertion d'un test préexistant modifiée**, vérifié
+    explicitement : le diff `tests/` hors fichier neuf est **+2 / −2**, deux lignes d'**appel** au
+    sérialiseur, **zéro `EXPECT`/`ASSERT` touché**. Un test dont l'assertion s'assouplit est une
+    migration qui a neutralisé son propre témoin, et cela ne se voit **pas** dans un `make check`
+    vert : le contrôle doit rester explicite à chaque sous-ticket E4.1.
+  - **La justification `cbegin`/`cend` sans `begin`/`end`, mesurée.** `Params` expose une itération
+    en lecture seule pour que l'adaptateur externe puisse le sérialiser. Ajouter une paire
+    `begin()`/`end()` rendrait `is_compatible_array_type` **vrai** côté nlohmann : `Json j = params`
+    produirait `[["k","v"]]` — un **tableau** — au lieu d'un objet. Piège réel, évité
+    délibérément ; à ne pas « compléter » par confort dans un sous-ticket suivant.
+  - **Dette transitoire bornée et adressable** : `jansson_from_params()` = **99 appels dans
+    13 fichiers** (97 dans 11 fichiers de `src/`, dont `JsonApi.cpp` **70** et `WagoMap.cpp` **10** ;
+    plus 2 dans 2 tests préexistants). **`grep -rn jansson_from_params src tests` EST** la liste
+    exacte et courante de ce qui reste à convertir ; `Jansson_Addition.h` disparaît quand elle est
+    vide. Le nouveau `ParamsJson_test.cpp` en ajoute 2, délibérés — il caractérise l'adaptateur.
+  - ⭐⭐ **LE FAIT LE PLUS IMPORTANT POUR LA SUITE DE E4.1** : **les goldens ne couvriront PAS le
+    changement d'échappement UTF-8**, ni pour les drivers **ni pour l'API**. Ils comparent des
+    **documents parsés** — c'est le contrat d'oracle **sémantique** d'E4.0a — pas des octets.
+    `\u00E9` et l’octet UTF-8 brut se parsent en la **même** chaîne : la suite reste verte pendant
+    que le wire change. **Le tripwire est le seul garde-fou de toute la migration.** Il a été
+    trouvé **défectueux** par la revue — il **minusculait le wire** avant de matcher, donc un port
+    en `dump(ensure_ascii = true)` l'aurait laissé **vert** — et **corrigé** par les suites de
+    revue : il épingle désormais les **trois** formes sur la **chaîne brute**, deux à deux
+    différentes (jansson `JSON_ENSURE_ASCII` → `\u00E9`, hex **MAJUSCULE** ; nlohmann `dump()` nu →
+    **octets UTF-8 bruts**, aucun échappement ; nlohmann `dump(ensure_ascii = true)` → `\u00e9`, hex
+    **minuscule**), et il est **prouvé rouge par mutation** sur les **deux** ports réalistes.
+  - **Une mesure qui corrige la revue** : la divergence ne se limite pas au non-ASCII. Les
+    **caractères de contrôle divergent aussi** — `U+001F` sort `\u001F` sous jansson et `\u001f`
+    sous nlohmann. La divergence apparaît **dès que l'hex contient une lettre** ; `U+0001` sort
+    `\u0001` des deux côtés et **ne diverge pas**. Un tripwire bâti sur `U+0001` seul serait aveugle.
+  - ⚠️ **Trois fuites `json_t` PRÉEXISTANTES consignées, NON corrigées** (hors périmètre : les
+    corriger ici aurait brouillé la preuve de bascule mécanique) : `WagoMap::write_multiple_bits()`
+    (`WagoMap.cpp:328-337`) et `WagoMap::write_multiple_words()` (`:402-411`) — le tableau `values`
+    **n'est jamais émis**, c'est un **bug fonctionnel** en plus de la fuite, et c'est une **zone
+    sans filet** (rien dans la suite n'appelle les drivers) ; `IODoc::genDocJson()`
+    (`IODoc.cpp:163`) — `json_object_set` au lieu de `_new`.
+  - **Deux rebases.** (1) Sur master post-E4.6a : **2 conflits, tous deux de fin de fichier,
+    aucun arbitrage.** (2) Master ayant avancé pendant le build (`a85e38c2`, docs-only, découpage
+    E4.1 b→x), **second rebase propre, zéro conflit** ; les arbres `src/` et `tests/` du commit
+    **construit** et du commit **mergé** sont **identiques** (`03b48057` / `245c8ae2`), donc le
+    70/70 porte bien sur ce qui est entré dans master.
+    `tests/Makefile.am` reconstruit par **régénération** (master **en entier** + append verbatim du
+    bloc de 20 lignes), **append pur prouvé byte-exact** (`head -1988 | cmp` contre
+    `git show master:` → identique, et les 20 dernières lignes `cmp`-identiques au bloc de la
+    branche : **0 ligne retirée, 0 modifiée**), équilibre `^if HAVE_GTEST` == `^endif` **58/58**.
+    `FINDINGS.md` : **les deux blocs gardés dans l'ordre** (E4.6 de master, puis E4.1a), append pur
+    prouvé de la même façon (1806 premières lignes byte-identiques à master). La note d'exclusion
+    d'`IO/Scenario.cpp` d'`E4.1.md` est **préservée** — cohérente, E4.1a n'y touche pas et ce
+    fichier n'a jamais appelé `Params::toJson`.
+  - **Rien n'a été poussé.** Worktrees `.wave27/e4.1a` et `.review27/e4.1a` nettoyés, branche
+    `refactor/e4.1a` supprimée. **E4.1 reste 📋** : `a` ✅, **b→x restent** (découpage posé par
+    `a85e38c2`, 10 vagues) et ce sont eux qui migrent les 99 appels.
 - **T3.20 ouvert 📋 (2026-08-24), NON IMPLÉMENTÉ** — les réserves **R3** et **R5** de la revue de
   T3.18 (`FINDINGS.md`, `## T3.18 — suites`) sont **tranchées par l'utilisateur**, deux entrées
   datées en tête de `DECISIONS.md`. **R3** : `autoscenario modify` doit refuser un **payload** qui
