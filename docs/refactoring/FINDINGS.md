@@ -2654,3 +2654,31 @@ même racine et le même remède :
    n'apparaît pas, la mutation n'a pas été exercée, quel que soit le résultat affiché ;
 3. exiger que **des mutations différentes donnent des jeux de rouges différents** ;
 4. faire un **contrôle sans mutation** (attendu : 0 rouge) avant de faire confiance au harnais.
+
+## E4.1e — le wire KNX transporte des octets bruts du bus : `dump()` nu = `std::terminate`
+
+`KNXValue::setValue()` (`IO/KNX/KNXExternProc_cli.cpp`, cas **EIS 15/16**) remplit `value_string`
+avec les **octets bruts de la trame KNX**, sans validation ni transcodage ; `value_char` prend de
+même n'importe quel octet pour EIS 13/16. Un appareil qui envoie du texte **latin-1** — le cas
+normal sur KNX — met donc de l'**UTF-8 invalide** dans une valeur que `calaos_knx` sérialise dans sa
+boucle de monitoring et que `calaos_server` re-sérialise à l'écriture.
+
+Mesuré sur les octets `C9 74 E9` :
+
+| Forme | Résultat |
+|---|---|
+| jansson `JSON_ENSURE_ASCII` (avant E4.1e) | `json_string()` répond `NULL`, **la clé `value_string` disparaît entièrement du message**, en silence — le serveur reçoit un event sans chaîne |
+| `nlohmann` `dump()` **nu** | **lève `type_error.316`** depuis `KNXProcess::monitorWait()`, **sans gestionnaire au-dessus** ⇒ `std::terminate` de `calaos_knx` sur une installation vivante |
+| `nlohmann` `dump(-1, ' ', true, error_handler_t::replace)` (E4.1e) | U+FFFD par octet fautif, ASCII pur, document parsable, perte de données mais **pas de plantage** |
+
+⇒ **l'invariant 3 de l'épique (gestionnaire d'erreur) n'est pas une précaution théorique sur ce
+wire** : sans lui, la bascule aurait transformé une amputation silencieuse en **crash du processus
+KNX déclenchable par un simple appareil du bus**. Épinglé par
+`RawNonUtf8BusBytesAreReplacedInsteadOfCrashing_DECLARED_DELTA` dans les deux binaires ; prouvé par
+mutation (retrait du gestionnaire ⇒ 2 rouges par binaire ; `ensure_ascii = false` ⇒ 4 rouges par
+binaire).
+
+⚠️ **La perte de données, elle, n'est pas réparée** : U+FFFD n'est pas plus le caractère d'origine
+que l'absence de clé. La vraie correction est de **transcoder** (KNX EIS 15 est de l'ASCII 7 bits,
+EIS 16 du latin-1) ou de sérialiser ces champs en base64. Ticket dédié, avec caractérisation
+d'abord — hors périmètre d'une migration de bibliothèque.
