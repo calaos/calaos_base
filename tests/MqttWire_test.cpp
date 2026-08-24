@@ -387,7 +387,7 @@ TEST(MqttWireForm, AnEmptyValueDoesNotOverrideItsDefault)
 TEST(MqttWireForm, AnInvalidTopicBecomesUFFFDAndTheDumpNeverThrows)
 {
     const string badTopic = "home/\xff\x80/lampe";
-    ASSERT_EQ(15u, badTopic.size());
+    ASSERT_EQ(13u, badTopic.size());
 
     string wire;
     ASSERT_NO_THROW(wire = wireEncodeMessageServerSide(badTopic, "ON"));

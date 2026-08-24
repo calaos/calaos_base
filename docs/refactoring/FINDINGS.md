@@ -2821,6 +2821,26 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
   verte**. Le code *partagé* est tenu, son *câblage* ne l'est pas, et rien dans le dépôt ne peut
   le tenir tant qu'aucun test ne lie les objets serveur.
 
+- **⚠️ Deux nouvelles façons de rendre une campagne de mutations mensongère, rencontrées ici.**
+  (1) **Éditer le harnais pendant qu'il tourne.** `bash` lit son script **au fil de l'exécution** :
+  réécrire le fichier décale l'interpréteur, qui s'est mis à exécuter une ligne de C++ comme une
+  commande shell. (2) **Une campagne tuée en cours laisse le fichier muté dans le worktree** — la
+  campagne suivante, qui semait son « original » depuis le worktree, a donc pris la version mutée
+  pour référence et sorti **3 rouges au contrôle**. Les deux règles qui en découlent :
+  **ne jamais modifier un harnais en cours d'exécution**, et **semer la copie de référence depuis
+  une source en lecture seule** (montage du harnais), jamais depuis l'arbre de travail.
+  ⭐ Corollaire utile : **le contrôle sans mutation attrape les deux** — il est sorti rouge dans
+  les deux cas. C'est le seul garde-fou qui ait fonctionné, et il a aussi attrapé une **assertion
+  fausse de ma main** (`ASSERT_EQ(15u, …)` sur un topic de **13** octets).
+
+- **⭐ Un `dump()` levant peut se lire « 0 rouge » — troisième variante du faux vert.**
+  Muter `error_handler_t::replace` en `strict` fait **lever** `dump()`. Si gtest n'attrapait pas
+  l'exception, le binaire **avorterait**, aucune ligne `FAILED` ne serait émise, et un harnais qui
+  compte les `FAILED` lirait **0 rouge** — un **faux vert** produit par un test qui **meurt**.
+  Mesuré ici : gtest attrape bien, la mutation rend **3 rouges**. Mais tout harnais de mutation de
+  la série doit vérifier **le code de sortie du binaire de test**, pas seulement compter les
+  `FAILED`, sinon un cas qui tue le processus passe pour un cas qui passe.
+
 - **⚠️ Le hook `rtk` peut mentir, et il a menti sur ce ticket.** `grep`/`awk` passés par le hook ont
   rendu **0 correspondance** sur des motifs qui en avaient (`grep -n "u0000" fichier` sur un fichier
   qui contenait la chaîne, `awk '/Mqtt/'` sur un log qui en était plein), et une redirection de
