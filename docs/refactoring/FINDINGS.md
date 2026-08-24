@@ -2586,3 +2586,71 @@ Qt** — réindexe en minuscules et ne fait que des **lookups par clé** ; les d
 (`FormActionStd.cpp:116`, `WidgetIOProperties.cpp:56`) lisent les **tableaux**, dont l'ordre est
 **inchangé sur les 70 types**. Seul effet visible : un gros **diff de permutation** à la prochaine
 régénération de `data/doc/{en,fr}/io_doc.json`.
+
+---
+
+## E4.1e — wire KNX : deux défauts préexistants de `value_char`, non corrigés
+
+Trouvés en caractérisant `IO/KNX` avant la bascule jansson → `nlohmann::json`. **Aucun des deux
+n'est corrigé** : les corriger change ce qu'une valeur KNX veut dire sur le wire, ce qu'une
+migration de bibliothèque n'a pas le droit de faire. Les deux sont épinglés par
+`tests/KNXCtrlWire_test.cpp` et `tests/KNXExternProcWire_test.cpp`.
+
+**La cause commune.** `KNXValue::toJson()` sérialise `value_char` avec
+`Utils::to_string(unsigned char)`, qui est un `std::ostringstream` : il écrit le **caractère**, pas
+le nombre. `value_char = 65` donne `"A"`, mais `value_char = 0` donne une chaîne d'**un octet NUL**
+et `value_char = 200` donne l'octet **0xC8 seul**, qui n'est pas de l'UTF-8 valide.
+
+### 1. `value_char = 0` — corruption silencieuse sans conséquence
+
+C'est le **chemin commun** : toute `KNXValue` par défaut et toute valeur `KNXString` porte
+`value_char = 0`. `json_string()` tronque à son NUL et émet `""` ; `nlohmann` conserve l'octet et
+émet `"\u0000"`. **Le pair décode 0 dans les deux cas** (`Utils::from_string` sur un `unsigned char`
+est l'extracteur de **caractère** : sur `""` la sentinelle du flux échoue et la valeur reste à son
+défaut 0, sur le NUL il lit 0). ⇒ octets différents, sémantique identique.
+
+### 2. `value_char > 0x7F` — la valeur est perdue, des deux côtés
+
+Réel pour les caractères **EIS 13 / EIS 16** au-dessus de 0x7F (un accentué latin-1, par exemple).
+
+- **jansson** : `json_string()` répond `NULL`, `json_object_set_new()` répond `-1`, **aucun des deux
+  codes de retour n'est testé** — ni dans `IO/KNX`, ni dans `jansson_from_params()`. La clé
+  `value_char` **disparaît silencieusement** du message et le pair décode 0.
+- **nlohmann** : l'octet reste dans l'arbre et un `dump()` nu **lève `type_error.316`** — c'est-à-dire
+  `std::terminate` sur une connexion vivante. Avec `error_handler_t::replace`, imposé par l'épique
+  et appliqué ici, il devient U+FFFD et le pair décode **0xEF** (premier octet de U+FFFD).
+
+**Ni l'un ni l'autre ne préserve 200.** Le défaut existe depuis toujours ; la bascule ne fait que
+remplacer une perte par une autre. Un ticket dédié devrait sérialiser `value_char` en **nombre**
+(`Utils::to_string((int)value_char)`) — mais c'est un changement **structurel** du wire, à faire
+avec caractérisation d'abord, comme le bug d'écriture multiple Wago (Q2 d'E4.1).
+
+## E4.1e — deux corrections de cartographie
+
+1. ⚠️ **Il n'existe aucune option `--with-knx`.** `E4.1e.md` et le brief l'annonçaient. En réalité
+   `configure.ac:134-136` fait `AC_CHECK_HEADERS([eibclient.h])` → `AM_CONDITIONAL([HAVE_LIBKNX])` :
+   le support est **détecté par présence d'en-tête**. La conséquence pratique est la même — sur une
+   machine sans `eibclient.h`, `calaos_knx` n'est pas construit et **deux des cinq fichiers du
+   ticket ne sont pas compilés du tout** — mais le contrôle à faire n'est pas un drapeau de
+   configure : c'est la ligne `Eib/KNX support (eibd or knxd).......: yes` du résumé de configure,
+   ou `CXXLD calaos_knx` dans le log de make.
+2. ⚠️ **`KNXValue::toJson()` est défini 2 fois, pas 3.** `E4.1.md` et `E4.1e.md` disent « déclaré 2
+   fois et défini 3 fois ». Les définitions sont `KNXCtrl.cpp:76` et `KNXExternProc_cli.cpp:493` ;
+   le troisième site cité, `KNXExternProc_main.cpp:267`, est un **appel**. La contrainte réelle
+   (tout bouge dans le même commit) est inchangée, seul le décompte l'est.
+
+## E4.1e — variante « faux VERT » du piège `_DEPENDENCIES`, mesurée
+
+La première campagne de contre-mutation a rendu **0 rouge sur une mutation par échange évidente**.
+Cause : `KNXCtrlWire_test_DEPENDENCIES` (comme tous les tests qui réutilisent des `.o` du serveur)
+ne liste **que** `libcalaos_common.la`, donc `make` n'a **aucune raison de relier** le binaire de
+test quand un `.o` du serveur change. Recompiler le `.o` ne suffit pas : le binaire reste l'ancien.
+
+C'est la **jumelle** de la variante « faux ROUGE uniforme » rencontrée par E4.1k. Les deux ont la
+même racine et le même remède :
+
+1. effacer **le `.o` du serveur ET le binaire de test** ;
+2. **lire les lignes `CXX` et `CXXLD`** dans la sortie de make — si le `CXXLD` du binaire de test
+   n'apparaît pas, la mutation n'a pas été exercée, quel que soit le résultat affiché ;
+3. exiger que **des mutations différentes donnent des jeux de rouges différents** ;
+4. faire un **contrôle sans mutation** (attendu : 0 rouge) avant de faire confiance au harnais.
