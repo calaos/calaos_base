@@ -76,8 +76,13 @@ Le plafond de connexions est compté **par identité client**, tirée de
 `X-Forwarded-For` quand elle existe et du pair TCP sinon
 ([HttpClient.cpp:195-215](../src/bin/calaos_server/HttpClient.cpp)) ; il n'est
 appliqué qu'à la **première requête analysée**, puisque l'en-tête n'existe pas
-avant. La montée en WebSocket renvoie elle aussi `429` sur ce même plafond
-([WebSocket.cpp:314-315](../src/bin/calaos_server/WebSocket.cpp)). Pour la
+avant — la montée WebSocket sur `/api` passe donc par le même contrôle, au même
+endroit ([HttpClient.cpp:273-281](../src/bin/calaos_server/HttpClient.cpp)).
+⚠️ Ne pas le confondre avec le `429` de `/api/v3/remote_ui/ws`, qui vient d'un
+**autre mécanisme** : la limitation d'authentification RemoteUI
+(`AuthFailureReason::RateLimited`,
+[RemoteUI/AuthFailureReason.h:57-58](../src/bin/calaos_server/RemoteUI/AuthFailureReason.h),
+[WebSocket.cpp:314-315](../src/bin/calaos_server/WebSocket.cpp)). Pour la
 sémantique de l'option, voir [16_config_options.md](16_config_options.md).
 
 ---
@@ -725,8 +730,29 @@ Un scénario dont une étape référence un IO introuvable est **entièrement
 désactivé** : il ne démarre plus, ni à l'heure programmée, ni sur commande
 ([IO/Scenario.cpp:80-91](../src/bin/calaos_server/IO/Scenario.cpp) — la coupure
 est dans `set_value()`, et **seulement** sur `val == true`, pour que l'arrêt
-d'un scénario déjà lancé reste possible). Il reste **visible et intact** dans la
-configuration : rien n'est retiré du payload.
+d'un scénario déjà lancé reste possible). Il reste **visible et intact dans la
+configuration** — rien n'est perdu à la sauvegarde.
+
+> ⚠️ **Le payload, lui, est amputé : l'action dont l'IO manque DISPARAÎT du
+> tableau `steps`.** `Scenario::toJson()` saute toute action dont l'IO ne résout
+> pas (`if (!sa.io) continue;`, [IO/Scenario.cpp:158](../src/bin/calaos_server/IO/Scenario.cpp)
+> pour les étapes réelles et [:181](../src/bin/calaos_server/IO/Scenario.cpp) pour
+> l'étape `end`), **sans rien émettre à la place**. Les deux goldens cités par
+> cette section le montrent côte à côte : la deuxième étape porte **2** actions
+> dans `e40c_ws_autoscenario_get.json` et **1** seule dans
+> `e40c_ws_autoscenario_get_broken.json` — l'action visant `e40c_target` a
+> simplement disparu, et une étape qui perd sa seule action est répondue avec un
+> tableau `actions` **vide**. Le comportement est épinglé sous ce nom :
+> `ABrokenStepSilentlyLosesItsActionFromThePayload`
+> ([tests/core/JsonApiScenario_test.cpp:1771](../tests/core/JsonApiScenario_test.cpp)).
+>
+> **Conséquence directe pour un client : `steps` ne permet PAS de dire quelle
+> étape est en cause.** L'étape amputée est indiscernable d'une étape qui a
+> toujours eu moins d'actions, et le tableau ne porte aucun marqueur. Une
+> interface qui veut désigner le problème à l'utilisateur doit lire
+> **`missing_ios`** — c'est la seule clé du payload qui nomme ce qui manque.
+> C'est le constat (d) de T3.18, et c'est le défaut qui a motivé la refonte
+> `E4.6`.
 
 Le payload de scénario porte donc **trois clés** que tout client doit lire. Elles
 sont **produites, jamais consommées** : `autoscenario create` / `modify` ne
@@ -760,7 +786,12 @@ Un scénario réellement cassé porte les trois ensemble (capturé,
 
 Noter que `broken` peut être vrai avec `missing_ios` **vide** : une règle
 d'étape *détruite* ne laisse aucun id à nommer, contrairement à un IO simplement
-introuvable.
+introuvable. (Dérivé : `isBroken()` répond vrai sur le seul verrou
+`stepRuleDestroyed`, **avant** tout scan
+([Scenario/AutoScenario.cpp:185](../src/bin/calaos_server/Scenario/AutoScenario.cpp)),
+tandis que `getMissingIoDescription()` ne collecte rien d'une `RuleRef` nulle
+([:216-226](../src/bin/calaos_server/Scenario/AutoScenario.cpp)) — aucun golden
+ne capture ce coin.)
 
 ⚠️ **`disabled_missing_io` reste néanmoins écrivable par `set_param`
 aujourd'hui**, et l'écriture est **asymétrique** : elle atteint la
@@ -836,10 +867,14 @@ enveloppe.)*
 
 Ce qu'un client doit en retenir, et qui n'est pas intuitif :
 
-- **la garde teste la valeur, pas le succès du parsing.** Un `per_page` **absent
-  ou vide** garde donc le défaut `100` et reçoit sa réponse ; un `per_page`
-  illisible (`"abc"`, `"true"`) est lu comme `0` et est **refusé** ; un parse
-  partiel (`"1,5"`) vaut `1` et est servi ;
+- **la garde teste la valeur, pas le succès du parsing** — et la distinction
+  n'est pas intuitive. Un `per_page` **absent ou vide** garde le défaut `100` et
+  reçoit sa réponse : sur un flux vide l'extraction échoue **au sentry**, avant
+  `num_get`, donc la variable n'est jamais écrasée. Un `per_page` **illisible**
+  (`"abc"`, `"true"`) atteint `num_get`, qui écrit `0` en échec : il est
+  **refusé**. Un parse partiel (`"1,5"`) vaut `1` et est servi. Les deux
+  premiers cas sont épinglés par `AnEmptyPerPageKeepsTheDefaultHundred` et
+  `AnAbsentPerPageKeepsTheDefaultHundred` ;
 - **un `per_page` négatif est désormais refusé alors qu'il recevait des
   données.** C'est le seul changement de contrat client de T3.19 : SQLite lit un
   `LIMIT` négatif comme « pas de limite », si bien que la requête renvoyait

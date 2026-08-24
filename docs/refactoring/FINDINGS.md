@@ -2301,16 +2301,58 @@ reste du ressort de `16_config_options.md` (E4.5e).
 Signalé par les agents voisins ; c'est une option de **build**, hors du périmètre de `08`/`10`.
 Elle appartient à `16_config_options.md` / `README` (E4.5e). Non traitée ici.
 
-### La dérive des références `Fichier.cpp:ligne` est un défaut de série, pas un accident
+### ⭐ Le payload de scénario EST amputé — la doc affirmait l'inverse (trouvé en revue)
+
+Corrigé dans le périmètre, mais consigné parce que c'est le constat que la refonte `E4.6` doit
+traiter. `Scenario::toJson()` saute silencieusement toute action dont l'IO ne résout pas
+(`if (!sa.io) continue;`, `IO/Scenario.cpp:158` et `:181`) : l'étape amputée est répondue **sans
+marqueur**, indiscernable d'une étape qui a toujours eu moins d'actions — et une étape qui perd sa
+seule action est répondue avec un tableau `actions` **vide**. Mesuré par les goldens
+(`e40c_ws_autoscenario_get.json` : 2 actions à l'étape 2 ; `..._get_broken.json` : 1) et épinglé
+sous le nom `ABrokenStepSilentlyLosesItsActionFromThePayload`
+(`tests/core/JsonApiScenario_test.cpp:1771`).
+
+**Conséquence client** : `steps` **ne permet pas** de désigner l'étape en cause ; `missing_ios` est
+la seule clé du payload qui nomme ce qui manque. C'est le constat (d) de T3.18.
+
+La première rédaction d'E4.5f affirmait « rien n'est retiré du payload » — une **inversion**, non
+une imprécision, sur le point le plus important de la section, et **sans référence**, donc hors de
+portée de tout contrôle automatique. Voir l'entrée suivante.
+
+### La dérive des références `Fichier.cpp:ligne` — et la mesure honnête de ce qu'un script y peut
 
 **36 groupes de références** de ces deux documents (sur 329 numéros de ligne cités) ne pointaient
 plus sur ce qu'ils annonçaient — jusqu'à 190 lignes d'écart dans `JsonApi.cpp`, que T3.18/T3.19
-ont allongé. Aucune ne pointait sur un
-fichier disparu, donc **rien ne rougissait** : elles désignaient simplement une accolade ou une
-ligne vide. Toutes sont recalculées et revérifiées mécaniquement dans ce commit.
+ont allongé. Aucune ne pointait sur un fichier disparu, donc **rien ne rougissait** : elles
+désignaient simplement une accolade ou une ligne vide. Toutes sont recalculées et revérifiées
+dans ce commit.
 
-> **Généralisable, et vrai pour tous les documents de `docs/`** : une référence
-> `Fichier.cpp:ligne` est une assertion **non testée** qui se périme à chaque commit du fichier
-> visé. Le contrôle qui l'attrape coûte dix lignes de script — extraire les refs, afficher la
-> ligne visée, la relire — et c'est le **seul** qui marche. À refaire à chaque revue de doc, et à
-> considérer comme obligatoire dans la suite d'E4.5.
+⚠️ **Un script qui se contente d'afficher la ligne visée ne teste rien.** Il déplace le travail
+sur un relecteur humain — c'est-à-dire exactement la situation actuelle. Pour qu'il *teste*, la
+doc doit citer non seulement `Fichier.cpp:ligne` mais une **ancre** attendue à cette ligne : un
+nom de symbole, une chaîne littérale. Le contrôle devient alors « la ligne N contient-elle encore
+`X` ? », qui est falsifiable.
+
+**Mesure honnête de sa portée, faite sur cette branche même** : *aucun* des deux défauts que la
+revue y a trouvés n'aurait été attrapé par un tel script.
+
+- **La référence plausible qui ment** — `WebSocket.cpp:314-315` cité pour le plafond de connexions
+  par IP, alors que ces lignes sont la limitation d'authentification RemoteUI
+  (`AuthFailureReason::RateLimited`). La ligne **existe** et **contient bien `429`** : une ancre
+  l'aurait **validée**. Seule une relecture voit que le mécanisme n'est pas celui qu'on annonce.
+- **L'affirmation fausse qui ne cite rien** — « rien n'est retiré du payload », alors que
+  `Scenario::toJson()` saute l'action dont l'IO ne résout pas. Il n'y a **rien à ancrer** : un
+  script ne peut pas contrôler une phrase sans référence. Et c'était le point le plus important
+  de la section.
+
+Un troisième cas est venu de la revue elle-même et mérite d'être noté : elle situait ce `continue`
+à `IO/Scenario.cpp:160`, il est à **:158**. Celui-là, une ancre l'attrape — c'est exactement le
+sous-ensemble que le script couvre, et il est **étroit**.
+
+> **Conclusion retenue, plus modeste que l'intuition de départ.** Le script ne vaut que pour la
+> **dérive mécanique**, et seulement s'il est **ancré**. Il est câblé en cible
+> **`make check-docs` NON bloquante**, délibérément **hors de `make check`** : un faux rouge sur
+> de la doc à chaque refactoring de `JsonApi.cpp` finirait par être désarmé, et *un contrôle qu'on
+> désarme vaut moins que pas de contrôle*. Ce qui attrape le reste — la référence qui ment,
+> l'affirmation qui ne cite rien — reste la **revue**, et il n'y a pas de substitut. Obligatoire à
+> chaque revue de doc dans la suite d'E4.5.
