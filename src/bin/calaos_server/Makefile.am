@@ -172,6 +172,7 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttWire.h                              \
         IO/Reolink/ReolinkCtrl.h                        \
         IO/Reolink/ReolinkCtrl.cpp                      \
+        IO/Reolink/ReolinkWire.h                        \
         IO/Reolink/ReolinkInputSwitch.h                 \
         IO/Reolink/ReolinkInputSwitch.cpp               \
         IO/OLA/OLACtrl.cpp                              \

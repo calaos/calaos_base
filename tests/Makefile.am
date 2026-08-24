@@ -2232,7 +2232,8 @@ endif
 if HAVE_GTEST
 TESTS += ReolinkWire_test
 check_PROGRAMS += ReolinkWire_test
-ReolinkWire_test_SOURCES = ReolinkWire_test.cpp
+ReolinkWire_test_SOURCES = ReolinkWire_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Reolink/ReolinkWire.h
 ReolinkWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
 ReolinkWire_test_LDADD = @CALAOS_COMMON_LIBS@ \

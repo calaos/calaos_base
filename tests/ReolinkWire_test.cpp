@@ -35,14 +35,15 @@
  * direction before this file: tests/ReolinkRegistry_test.cpp covers the
  * callback bookkeeping (ReolinkEventRegistry.h) and never touches JSON.
  *
- * THE SEAM is the two free functions of the anonymous namespace below. Before
- * the migration they are the jansson body of ReolinkCtrl.cpp copied verbatim;
- * after it they forward to IO/Reolink/ReolinkWire.h, the production header
- * that ReolinkCtrl.cpp itself includes - so that a mutation of the shipped
- * emitter or of the shipped decoder turns this suite RED. A test that
- * reproduces the assembly instead of calling it only freezes what the TEST
- * does (measured on a sibling ticket of this same series), which is why the
- * seam exists and why it is only TWO lines wide.
+ * THE SEAM is the two free functions of the anonymous namespace below. They
+ * FORWARD to IO/Reolink/ReolinkWire.h - the production header ReolinkCtrl.cpp
+ * itself includes - so that a mutation of the SHIPPED emitter or of the
+ * SHIPPED decoder turns this suite RED. A test that reproduces the assembly
+ * instead of calling it only freezes what the TEST does (measured on a sibling
+ * ticket of this same series), which is why the seam exists and why it is
+ * only two lines wide. Before the migration it carried the jansson body of
+ * ReolinkCtrl.cpp verbatim; exactly three assertions of this file moved when
+ * it was rewired, each flagged in place with MOVED BY E4.1i.
  *
  * WHAT IS ASSERTED ON BYTES, not on the parsed document, and why:
  *
@@ -73,13 +74,12 @@
 
 #include <string>
 
-#include <jansson.h>
-
 #include "Utils.h"
 #include "Params.h"
 
-/* The jansson body being characterized. Dropped by the migration commit. */
-#include "Jansson_Addition.h"
+/* THE PRODUCTION HEADER. Not a copy of it: the very text ReolinkCtrl.cpp
+ * includes and the server ships. */
+#include "ReolinkWire.h"
 
 using std::string;
 
@@ -89,43 +89,29 @@ namespace
 /*---------------------------------------------------------------------------
  * THE SEAM - emission.
  *
- * Verbatim copy of ReolinkCtrl::doRegisterCamera()'s message assembly
- * (ReolinkCtrl.cpp:144-151 before E4.1i). The migration commit replaces this
- * body with a single call to ReolinkWire::buildRegisterMessage(); not one
- * assertion of this file moves for that reason.
+ * Was the jansson message assembly of ReolinkCtrl::doRegisterCamera() copied
+ * verbatim; since E4.1i it forwards to the SHIPPED emitter, so a mutation of
+ * ReolinkWire::buildRegisterMessage() turns this suite red. Three assertions
+ * of this file moved with the migration, each flagged where it sits.
  *-------------------------------------------------------------------------*/
 string buildRegisterWire(const string &hostname, const string &username,
                          const string &password, const string &event_type)
 {
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "action", json_string("register"));
-    json_object_set_new(jroot, "hostname", json_string(hostname.c_str()));
-    json_object_set_new(jroot, "username", json_string(username.c_str()));
-    json_object_set_new(jroot, "password", json_string(password.c_str()));
-    json_object_set_new(jroot, "event_type", json_string(event_type.c_str()));
-
-    //jansson_to_string() steals the reference, no decref here
-    return jansson_to_string(jroot);
+    return ReolinkWire::buildRegisterMessage(hostname, username, password,
+                                             event_type);
 }
 
 /*---------------------------------------------------------------------------
  * THE SEAM - reception.
  *
- * Verbatim copy of the ReolinkCtrl messageReceived lambda's decoding
- * (ReolinkCtrl.cpp:50-60 and :83 before E4.1i): json_loads() with no flag,
- * then jansson_decode_object() into a Params, then json_decref(). Answers
- * false exactly where ReolinkCtrl logs "Error parsing json" and returns.
+ * Was the jansson decoding of the ReolinkCtrl messageReceived lambda copied
+ * verbatim; since E4.1i it forwards to the SHIPPED decoder. Answers false
+ * exactly where ReolinkCtrl logs its parse error and returns without
+ * dispatching - which is where json_loads() used to answer NULL.
  *-------------------------------------------------------------------------*/
 bool decodeWire(const string &msg, Params &p)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    if (!jroot)
-        return false;
-
-    jansson_decode_object(jroot, p);
-    json_decref(jroot);
-    return true;
+    return ReolinkWire::decodeMessage(msg, p);
 }
 
 /*---------------------------------------------------------------------------
@@ -230,11 +216,14 @@ TEST(ReolinkWire, RegisterMessageIsExactlyThisByteString)
 {
     const string wire = buildRegisterWire(FX_HOST, FX_USER, FX_PASS, FX_EVENT);
 
+    //MOVED BY E4.1i, and this is the whole of the move: keys used to come out
+    //in INSERTION order (action, hostname, username, password, event_type),
+    //they now come out SORTED. Nothing else about this string changed.
     EXPECT_EQ("{\"action\":\"register\","
+              "\"event_type\":\"e-visitor-doorbell\","
               "\"hostname\":\"h-cam-front-door.lan\","
-              "\"username\":\"u-operator-account\","
               "\"password\":\"p-Sekr3t-Phrase\","
-              "\"event_type\":\"e-visitor-doorbell\"}",
+              "\"username\":\"u-operator-account\"}",
               wire)
             << "the register wire changed: " << escaped(wire);
 }
@@ -317,10 +306,14 @@ TEST(ReolinkWire, TheHexCaseOfTheEscapesIsTheMeasuredDelta)
     const string wire = buildRegisterWire("h-caf\xc3\xa9.lan", FX_USER,
                                           "p-\xc3\x80lpha", FX_EVENT);
 
-    EXPECT_NE(string::npos, wire.find("\\u00E9")) << escaped(wire);
-    EXPECT_NE(string::npos, wire.find("\\u00C0")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\u00e9")) << escaped(wire);
-    EXPECT_EQ(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    //MOVED BY E4.1i: jansson escaped with UPPERCASE hex, nlohmann with
+    //LOWERCASE hex. The wire stays pure ASCII either way (the case above);
+    //this is the ONE byte difference the migration produces, and the python
+    //end - json.loads() - cannot see it.
+    EXPECT_NE(string::npos, wire.find("\\u00e9")) << escaped(wire);
+    EXPECT_NE(string::npos, wire.find("\\u00c0")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00E9")) << escaped(wire);
+    EXPECT_EQ(string::npos, wire.find("\\u00C0")) << escaped(wire);
 }
 
 //RED IF error_handler_t::replace IS DROPPED (by exception).
@@ -344,11 +337,16 @@ TEST(ReolinkWire, InvalidUtf8InAParamDoesNotAbortTheEmission)
     const Json j = Json::parse(wire, nullptr, false);
     ASSERT_FALSE(j.is_discarded()) << escaped(wire);
 
-    //TODAY (jansson): the password pair is dropped on the floor, and nothing
-    //in the tree notices. The migration commit turns this into a present
-    //password holding U+FFFD - the one user-visible change of E4.1i.
-    EXPECT_EQ(4u, j.size()) << escaped(wire);
-    EXPECT_FALSE(j.contains("password")) << escaped(wire);
+    //MOVED BY E4.1i. Under jansson the password pair was DROPPED ON THE FLOOR
+    //(4 keys, no "password") and nothing in the tree noticed. It is now
+    //present, with the bad byte replaced by U+FFFD - which the ensure_ascii
+    //dump writes as the literal escape \ufffd. Either way the camera fails to
+    //authenticate; what changes is that the wire no longer lies about which
+    //fields were sent.
+    EXPECT_EQ(5u, j.size()) << escaped(wire);
+    ASSERT_TRUE(j.contains("password")) << escaped(wire);
+    EXPECT_EQ("p-\xef\xbf\xbd-tail", j.at("password").get<string>());
+    EXPECT_NE(string::npos, wire.find("\\ufffd")) << escaped(wire);
     EXPECT_EQ(FX_HOST, j.at("hostname").get<string>());
     EXPECT_EQ(FX_USER, j.at("username").get<string>());
     EXPECT_EQ(FX_EVENT, j.at("event_type").get<string>());

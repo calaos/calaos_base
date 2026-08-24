@@ -18,11 +18,10 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
-#include <json.hpp>
-
 #include "Utils.h"
 #include "IOFactory.h"
 #include "ReolinkCtrl.h"
+#include "ReolinkWire.h"
 #include "Prefix.h"
 #include "Params.h"
 
@@ -45,17 +44,16 @@ ReolinkCtrl::ReolinkCtrl()
 
     process->messageReceived.connect([=](const string &msg)
     {
-        json_error_t jerr;
-        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+        Params p;
 
-        if (!jroot)
+        //Never log msg itself: this is the mirror of a channel that carries
+        //credentials, and the byte count is what the python end logs too.
+        if (!ReolinkWire::decodeMessage(msg, p))
         {
-            cWarningDom("reolink") << "Error parsing json: " << jerr.text;
+            cWarningDom("reolink") << "Error parsing json message ("
+                                   << msg.size() << " bytes)";
             return;
         }
-
-        Params p;
-        jansson_decode_object(jroot, p);
 
         if (p.Exists("status"))
         {
@@ -82,8 +80,6 @@ ReolinkCtrl::ReolinkCtrl()
 
             registry.dispatch(hostname, event_type, event_data);
         }
-
-        json_decref(jroot);
     });
 
     // Start the process immediately
@@ -140,22 +136,10 @@ void ReolinkCtrl::doRegisterCamera(const string &hostname, const string &usernam
 {
     string camera_key = ReolinkEventRegistry::cameraKey(hostname, event_type);
 
-    // Register camera with the external process
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "action", json_string("register"));
-    json_object_set_new(jroot, "hostname", json_string(hostname.c_str()));
-    json_object_set_new(jroot, "username", json_string(username.c_str()));
-    json_object_set_new(jroot, "password", json_string(password.c_str()));
-    json_object_set_new(jroot, "event_type", json_string(event_type.c_str()));
-
-    // jansson_to_string() STEALS the reference: it calls json_decref(jroot)
-    // on both of its exit paths. jroot is born at refcount 1 (json_object()),
-    // and json_object_set_new() steals the value references without touching
-    // the object's own, so that decref takes it to 0 and json_delete() frees
-    // the block. The json_decref(jroot) that used to sit here therefore read
-    // and decremented a FREED json_t, once per camera registration.
-    string message = jansson_to_string(jroot);
-    process->sendMessage(message);
+    // Register camera with the external process. The message carries the
+    // camera password IN CLEAR: never log it, here or anywhere downstream.
+    process->sendMessage(ReolinkWire::buildRegisterMessage(hostname, username,
+                                                           password, event_type));
 
     // Mark camera as registered
     registeredCameras[camera_key] = camera_key;
