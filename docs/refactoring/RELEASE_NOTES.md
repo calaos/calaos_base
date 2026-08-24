@@ -375,6 +375,10 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   au lieu d'abandonner — une coupure réseau ou une maintenance ne nécessite plus de redémarrage.
 - **MQTT** : les payloads non-UTF8 étaient silencieusement supprimés ; ils sont désormais
   délivrés avec les octets invalides remplacés par `?`.
+- **MQTT** : un payload contenant un **octet nul** n'est plus perdu. Le process `calaos_mqtt`
+  l'émettait pourtant correctement, mais le serveur **refusait le message entier** à la lecture —
+  topic compris — et le message disparaissait avec un simple « Error parsing json ». Il est
+  désormais délivré dans sa longueur d'origine. (E4.1g)
 - **MQTT RGB** : l'état suit désormais le retour du broker (le retour était auparavant ignoré).
   Nécessite que le broker publie sur `topic_sub`.
 - **KNX — une valeur ordinaire du bus aurait pu arrêter le driver, et ne le peut pas** : **rien ne

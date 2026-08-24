@@ -2748,3 +2748,52 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
 (2) **lire les lignes `CXX` et `CXXLD`** dans la sortie de make — pas de `CXXLD`, pas de mesure ;
 (3) exiger que **des mutations différentes donnent des jeux de rouges différents** ; (4) faire un
 **contrôle sans mutation** (attendu : 0 rouge) avant de faire confiance au harnais.
+---
+
+## E4.1g — ce que la bascule du wire MQTT a mesuré (hors périmètre, non corrigé sauf mention)
+
+- **🔴 `MqttCtrl::publishTopic()` faisait un `json_decref` de trop — disparu avec la bascule.**
+  `jansson_to_string()` (`Jansson_Addition.h:150-165`) **vole la référence** : il appelle
+  `json_decref(jroot)` dans **les deux** branches. `MqttCtrl.cpp:115-116` faisait
+  `process->sendMessage(jansson_to_string(jroot)); json_decref(jroot);` — soit un décrément sur un
+  objet **déjà libéré**, à **chaque publication MQTT**. Le site jumeau de la même fonction (`:41`,
+  la configuration du broker) était correct. Les **38 autres** appels de `jansson_to_string` du
+  dépôt ont été relus : **aucun** ne double-décrémente. Celui-ci était isolé, et il part avec
+  `jansson_to_string`.
+
+- **⭐ L'octet nul ne traversait PAS l'aller-retour, alors que tout le code amont existait pour ça.**
+  `payloadToJsonString()` prenait grand soin d'utiliser `json_stringn(data, len)` pour ne pas
+  tronquer un payload binaire au premier octet nul, et `json_dumps()` l'écrivait correctement
+  échappé. Mais **`json_loads()` refuse cet échappement sans `JSON_ALLOW_NUL`** — mesuré :
+  *« … is not allowed without JSON_ALLOW_NUL »* — et le drapeau n'était passé nulle part. Le
+  consommateur (`MqttCtrl.cpp:52-61`) jetait donc **tout le message**, topic compris, avec un
+  simple « Error parsing json ». Corrigé mécaniquement par la bascule (`nlohmann` accepte
+  l'échappement) ; **changement utilisateur déclaré**, entrée `RELEASE_NOTES`.
+
+- **`IO/Mqtt/MqttExternProc_main.h` était listé dans `calaos_mqtt_SOURCES`
+  (`src/bin/calaos_server/Makefile.am:431`) et n'existe pas.** Automake le tolérait et le build
+  passait ; c'était une entrée morte qui aurait faussé `make dist`. **Remplacée** par
+  `IO/Mqtt/MqttWire.h`, qui existe — donc corrigée au passage, dans le périmètre.
+  ⚠️ `IO/KNX/KNXExternProc_main.h`, lui, **existe bien** : le défaut n'était pas systématique.
+
+- **La suite entière est aveugle à `ensure_ascii`, sauf là où on lui donne un oracle d'octets.**
+  Confirmé sur ce périmètre : avant l'ajout des cas `MqttWireForm.*`, muter `ensure_ascii` de
+  `true` à `false` ne rougissait **rien**. Un oracle sémantique (document parsé) ne peut pas voir
+  un changement d'échappement — c'est le contrat d'E4.0a. **Tout sous-ticket d'E4.1 qui pose un
+  `dump()` sans au moins une assertion sur les octets applique l'invariant sans aucun témoin.**
+
+- **⚠️ Piège `_DEPENDENCIES`, variante FAUX VERT — nouvelle, et plus dangereuse que la variante
+  faux ROUGE.** La première campagne de contre-mutations a rendu **0 rouge partout, contrôle
+  compris**. Cause : **`check_PROGRAMS` n'est pas construit par un `make` nu**. Le harnais effaçait
+  le binaire de test, `make -j12` ne le reconstruisait pas, `./tests/MqttWire_test` n'existait
+  plus, la sortie était vide — et « aucun cas rouge » ressemblait à un succès. La consigne connue
+  (« des rouges identiques d'une mutation à l'autre sont la signature du piège ») **ne l'attrape
+  pas** : ici il n'y avait pas de rouge du tout. Ce qui l'attrape est **l'absence de la ligne
+  `CXXLD <test>`** dans la preuve de compilation, et un `[ -x <binaire> ]` explicite. À porter
+  dans le brief des sous-tickets suivants.
+
+- **Le `path` MQTT n'est pas du JSONPath, et sa syntaxe reste un contrat utilisateur.**
+  `MqttCtrl.cpp` : découpage sur `/`, index seulement si le jeton **commence** par `[` (forme
+  réelle `weather/[0]/description`). Non modernisé, délibérément. À noter tout de même : un chemin
+  à segment vide (`a//b`) produit un jeton vide, dont `val[0]` lit le terminateur — défini par le
+  standard, sans conséquence, l'accès `at("")` échouant ensuite proprement. Non corrigé.
