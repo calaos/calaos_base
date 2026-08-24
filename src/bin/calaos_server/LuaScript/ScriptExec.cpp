@@ -154,7 +154,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         Params p = {{ "msg", "execute" },
                     { "script", script } };
 
-        json_t *jroot = p.toJson();
+        json_t *jroot = jansson_from_params(p);
 
         //send the full calaos context here. (using JsonApi) to the process
         //after connect process to calaos events, and send him event so the process
@@ -162,7 +162,7 @@ ExternProcServer *ScriptExec::ExecuteScriptDetached(const string &script, std::f
         json_object_set_new(jroot, "context", jsonApi->buildFlatIOList());
 
         //Also append the env to the json. Actually the env can contain which io has triggered the script
-        json_object_set_new(jroot, "env", env.toJson());
+        json_object_set_new(jroot, "env", jansson_from_params(env));
 
         string m = jansson_to_string(jroot);
         process->sendMessage(m);

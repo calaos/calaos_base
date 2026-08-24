@@ -26,6 +26,43 @@
 
 using namespace Utils;
 
+/*******************************************************************************
+ * TRANSITIONAL ADAPTER - E4.1a. TO BE REMOVED BY THE LAST E4.1 SUB-TICKET.
+ *
+ * This is Params::toJson() moved out of the class, unchanged. src/lib/Params.h
+ * used to include BOTH jansson.h and json.hpp - it was the one real bridge
+ * between the two libraries and the crossing point of nearly every API
+ * payload. Params now exposes a single JSON API (nlohmann, Params::toNJson);
+ * the jansson serialization lives here, in the jansson-only header, until the
+ * call sites themselves are migrated.
+ *
+ * `grep -rn jansson_from_params src tests` is therefore the exact, current
+ * list of what the rest of E4.1 still has to convert. When that list is empty,
+ * delete this function and this header.
+ *
+ * Its behaviour must stay bit for bit that of the old member, and that
+ * includes the silent drop of invalid UTF-8: json_string() answers NULL,
+ * json_object_set_new() answers -1, and neither return code is tested here
+ * any more than it was tested before. Turning that drop into U+FFFD is a
+ * change of observable behaviour and belongs to the sub-ticket that migrates
+ * the call site, not to the move. tests/ParamsJson_test.cpp pins both the drop
+ * and the string-only typing (an int that became a JSON number would break the
+ * type-strict oracle of the golden suite).
+ ******************************************************************************/
+inline json_t *jansson_from_params(const Params &params)
+{
+    json_t *ret = json_object();
+
+    for (Params::const_iterator it = params.cbegin(); it != params.cend(); it++)
+    {
+        json_object_set_new(ret,
+                            (*it).first.c_str(),
+                            json_string((*it).second.c_str()));
+    }
+
+    return ret;
+}
+
 inline bool jansson_bool_get(const json_t *json, const std::string &str, const bool default_value = false)
 {
     bool ret;

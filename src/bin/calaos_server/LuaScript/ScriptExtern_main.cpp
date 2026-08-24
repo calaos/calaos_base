@@ -137,7 +137,7 @@ void ScriptProcess::messageReceived(const string &msg)
 
         Params pret = {{ "msg", "finished" },
                        { "return_val", ret?"true":"false" }};
-        sendMessage(jansson_to_string(pret.toJson()));
+        sendMessage(jansson_to_string(jansson_from_params(pret)));
 
         cInfoDom("lua") << "(PID#" << getpid() << ") " << "Script finished, exiting process.";
 

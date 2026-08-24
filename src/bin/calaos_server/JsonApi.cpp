@@ -607,7 +607,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toJson());
+            result_lambda(jansson_from_params(p));
             return;
         }
 
@@ -635,7 +635,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
         }
     }
 
-    result_lambda(res.toJson());
+    result_lambda(jansson_from_params(res));
 }
 
 void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> result_lambda)
@@ -648,7 +648,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
         if (!o)
         {
             Params p = {{ "error", "wrong id" }};
-            result_lambda(p.toJson());
+            result_lambda(jansson_from_params(p));
             return;
         }
 
@@ -657,7 +657,7 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
             res.Add(it.first, it.second);
     }
 
-    result_lambda(res.toJson());
+    result_lambda(jansson_from_params(res));
 }
 
 json_t *JsonApi::buildJsonGetParam(const Params &jParam)
@@ -674,7 +674,7 @@ json_t *JsonApi::buildJsonGetParam(const Params &jParam)
     if (!success)
         ret = {{ "error", "wrong io/param" }};
 
-    return ret.toJson();
+    return jansson_from_params(ret);
 }
 
 json_t *JsonApi::buildJsonSetParam(const Params &jParam)
@@ -704,7 +704,7 @@ json_t *JsonApi::buildJsonSetParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return ret.toJson();
+    return jansson_from_params(ret);
 }
 
 json_t *JsonApi::buildJsonDelParam(const Params &jParam)
@@ -734,7 +734,7 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     else
         ret = {{ "success", "true" }};
 
-    return ret.toJson();
+    return jansson_from_params(ret);
 }
 
 json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
@@ -980,7 +980,7 @@ bool JsonApi::audioDbUnavailable(AudioPlayer *player,
         return false;
 
     Params p = {{"error", "no music database" }};
-    result_lambda(p.toJson());
+    result_lambda(jansson_from_params(p));
     return true;
 }
 
@@ -992,7 +992,7 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1019,7 +1019,7 @@ void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result
         if (alive.expired()) return;
 
         adata.params.Add("audio_action", "get_stats");
-        result_lambda(adata.params.toJson());
+        result_lambda(jansson_from_params(adata.params));
     });
 }
 
@@ -1031,7 +1031,7 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1043,7 +1043,7 @@ void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>r
 
         adata.params.Add("audio_action", "get_playlist_size");
         Params p = {{"playlist_size", Utils::to_string(adata.ivalue)}};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
     });
 }
 
@@ -1055,7 +1055,7 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1067,7 +1067,7 @@ void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_la
 
         adata.params.Add("audio_action", "get_time");
         Params p = {{"time_elapsed", Utils::to_string(adata.dvalue)}};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
     });
 }
 
@@ -1079,7 +1079,7 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1087,7 +1087,7 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     if (it.empty() || !Utils::is_of_type<int>(it))
     {
         Params p = {{"error", "wrong item" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1100,7 +1100,7 @@ void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>r
     {
         if (alive.expired()) return;
 
-        result_lambda(data.params.toJson());
+        result_lambda(jansson_from_params(data.params));
     });
 }
 
@@ -1112,7 +1112,7 @@ void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>resu
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1123,7 +1123,7 @@ void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>resu
         if (alive.expired()) return;
 
         Params p = {{ "cover", data.svalue }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
     });
 }
 
@@ -1138,7 +1138,7 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
     {
         if (p.Exists("count"))
             scount = p["count"];
-        json_array_append_new(aret, p.toJson());
+        json_array_append_new(aret, jansson_from_params(p));
     }
 
     if (scount == "0")
@@ -1159,7 +1159,7 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1169,7 +1169,7 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1232,7 +1232,7 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1243,7 +1243,7 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1272,7 +1272,7 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1283,7 +1283,7 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1312,7 +1312,7 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1323,7 +1323,7 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1352,7 +1352,7 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1363,7 +1363,7 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1392,7 +1392,7 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1403,7 +1403,7 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1432,7 +1432,7 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1442,7 +1442,7 @@ void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>resu
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1471,7 +1471,7 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1481,7 +1481,7 @@ void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1510,7 +1510,7 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1520,7 +1520,7 @@ void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>resul
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1549,7 +1549,7 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1559,7 +1559,7 @@ void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>re
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1588,7 +1588,7 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1599,7 +1599,7 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1628,7 +1628,7 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1639,7 +1639,7 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1668,7 +1668,7 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1678,7 +1678,7 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1707,7 +1707,7 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1717,7 +1717,7 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
         Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1750,7 +1750,7 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     if (!err.empty())
     {
         Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(jansson_from_params(p));
         return;
     }
 
@@ -1765,7 +1765,7 @@ void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>r
     {
         if (alive.expired()) return;
 
-        result_lambda(data.params.toJson());
+        result_lambda(jansson_from_params(data.params));
     }, trackid);
 }
 
@@ -1775,7 +1775,7 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     json_t *ret = json_object();
@@ -1792,7 +1792,7 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
         if (day == 5) h = o->getSaturday();
         if (day == 6) h = o->getSunday();
         for (uint i = 0;i < h.size();i++)
-            json_array_append_new(jarr, h[i].toParams(day).toJson());
+            json_array_append_new(jarr, jansson_from_params(h[i].toParams(day)));
     }
 
     json_object_set_new(ret, "ranges", jarr);
@@ -1813,7 +1813,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     if (!o)
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     o->clear();
@@ -1871,7 +1871,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
@@ -1896,7 +1896,7 @@ json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     return sc->toJson();
@@ -1936,7 +1936,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
             ListeRoom::Instance().deleteIO(in);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return perr.toJson();
+        return jansson_from_params(perr);
     }
 
     if (!scenario->getAutoScenario()->checkScenarioRules())
@@ -1948,7 +1948,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
         ListeRoom::Instance().deleteIO(scenario);
 
         Params perr = {{ "error", "scenario creation failed" }};
-        return perr.toJson();
+        return jansson_from_params(perr);
     }
 
     size_t idx;
@@ -1992,7 +1992,7 @@ json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", scenario->get_param("id") }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
@@ -2002,7 +2002,7 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     sc->getAutoScenario()->deleteAll();
@@ -2018,7 +2018,7 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
@@ -2028,7 +2028,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     if (!scenario || !scenario->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     scenario->getAutoScenario()->deleteRules();
@@ -2134,7 +2134,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
         //rules cannot be rebuilt, answer an error instead of crashing
         cErrorDom("network") << "Scenario modification failed: unable to rebuild the scenario rules";
         Params perr = {{ "error", "scenario modification failed" }};
-        return perr.toJson();
+        return jansson_from_params(perr);
     }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
@@ -2145,7 +2145,7 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
@@ -2155,7 +2155,7 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     sc->getAutoScenario()->addSchedule();
@@ -2168,7 +2168,7 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "id", sc->getAutoScenario()->getIOTimeRange()->get_param("id") }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
@@ -2178,7 +2178,7 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     sc->getAutoScenario()->deleteSchedule();
@@ -2191,7 +2191,7 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
     Config::Instance().SaveConfigRule();
 
     Params p = {{ "success", "true" }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
@@ -2201,7 +2201,7 @@ json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     /* T3.18. The refusal is the point of this command: tryReenable() answers
@@ -2214,7 +2214,7 @@ json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
     if (!sc->getAutoScenario()->tryReenable(err))
     {
         Params perr = {{ "error", err }};
-        return perr.toJson();
+        return jansson_from_params(perr);
     }
 
     //The flag lives in io.xml (a param of the Scenario IO), so only that one
@@ -2222,7 +2222,7 @@ json_t *JsonApi::buildAutoscenarioReenable(json_t *jdata)
     Config::Instance().SaveConfigIO();
 
     Params p = {{ "success", "true" }};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback)

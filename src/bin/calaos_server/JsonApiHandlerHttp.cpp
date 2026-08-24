@@ -716,7 +716,7 @@ void JsonApiHandlerHttp::processAudio(json_t *jdata)
         if (!err.empty())
         {
             Params p = {{"error", err }};
-            sendJson(p.toJson());
+            sendJson(jansson_from_params(p));
             return;
         }
 

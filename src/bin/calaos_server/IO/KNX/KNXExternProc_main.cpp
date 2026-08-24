@@ -217,7 +217,7 @@ bool KNXProcess::monitorWait()
         eibsock = nullptr;
         Params p = {{"type", "disconnected"}};
 
-        string res = jansson_to_string(p.toJson());
+        string res = jansson_to_string(jansson_from_params(p));
         if (!res.empty())
             sendMessage(res);
         return false;
@@ -262,7 +262,7 @@ bool KNXProcess::monitorWait()
     Params p = {{"type", "event"},
                 {"group_addr", knxGroupAddr(dest)},
                 {"knx_type", type}};
-    json_t *j = p.toJson();
+    json_t *j = jansson_from_params(p);
     if (printValue)
         json_object_set_new(j, "value", v.toJson());
 

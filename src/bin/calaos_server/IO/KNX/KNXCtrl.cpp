@@ -81,7 +81,7 @@ json_t *KNXValue::toJson() const
                 {"value_float", Utils::to_string(value_float)},
                 {"value_char", Utils::to_string(value_char)},
                 {"value_string", value_string}};
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 KNXValue KNXValue::fromJson(json_t *jval)
@@ -285,7 +285,7 @@ void KNXCtrl::writeValue(const string &group_addr, const KNXValue &value)
     Params p = {{"type", "write"},
                 {"group_addr", group_addr}};
 
-    json_t *jroot = p.toJson();
+    json_t *jroot = jansson_from_params(p);
     json_object_set_new(jroot, "value", value.toJson());
 
     string res = jansson_to_string(jroot);
@@ -302,7 +302,7 @@ void KNXCtrl::readValue(const string &group_addr, int eis)
                 {"group_addr", group_addr},
                 {"eis", Utils::to_string(eis)}};
 
-    string res = jansson_to_string(p.toJson());
+    string res = jansson_to_string(jansson_from_params(p));
 
     if (!res.empty())
         process->sendMessage(res);

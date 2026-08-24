@@ -19,6 +19,8 @@
  **
  ******************************************************************************/
 #include "IODoc.h"
+//E4.1a: transitional jansson adapter for Params, see Jansson_Addition.h
+#include "Jansson_Addition.h"
 
 using namespace Calaos;
 
@@ -158,9 +160,9 @@ json_t *IODoc::genDocJson()
     json_t *array = json_array();
     for (const auto &it : m_parameters)
     {
-        json_t *jparam = it.second.toJson();
+        json_t *jparam = jansson_from_params(it.second);
         if (typeFromString(it.second["type"]) == TYPE_LIST)
-            json_object_set(jparam, "list_value", param_list_value[it.second["name"]].toJson());
+            json_object_set(jparam, "list_value", jansson_from_params(param_list_value[it.second["name"]]));
         json_array_append_new(array, jparam);
     }
     json_object_set_new(ret, "parameters", array);
@@ -168,14 +170,14 @@ json_t *IODoc::genDocJson()
     array = json_array();
     for (const auto &it : m_conditions)
     {
-        json_array_append_new(array, it.second.toJson());
+        json_array_append_new(array, jansson_from_params(it.second));
     }
     json_object_set_new(ret, "conditions", array);
 
     array = json_array();
     for (const auto &it : m_actions)
     {
-        json_array_append_new(array, it.second.toJson());
+        json_array_append_new(array, jansson_from_params(it.second));
     }
     json_object_set_new(ret, "actions", array);
 

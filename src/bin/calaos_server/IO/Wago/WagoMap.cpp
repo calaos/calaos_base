@@ -274,7 +274,7 @@ void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -291,7 +291,7 @@ void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -308,7 +308,7 @@ void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
                 { "address", Utils::to_string(address) },
                 { "value", val?"true":"false" } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -325,13 +325,13 @@ void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, M
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    json_t *jret = p.toJson();
+    json_t *jret = jansson_from_params(p);
     json_t *jarr = json_array();
     for (uint i = 0;i < values.size();i++)
         json_array_append_new(jarr, json_string(values[i]?"true":"false"));
     json_object_set_new(jret, "values", jarr);
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -348,7 +348,7 @@ void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -365,7 +365,7 @@ void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -382,7 +382,7 @@ void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback
                 { "address", Utils::to_string(address) },
                 { "value", Utils::to_string(val) } };
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
@@ -399,13 +399,13 @@ void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values,
                 { "address", Utils::to_string(address) },
                 { "count", Utils::to_string(nb) } };
 
-    json_t *jret = p.toJson();
+    json_t *jret = jansson_from_params(p);
     json_t *jarr = json_array();
     for (uint i = 0;i < values.size();i++)
         json_array_append_new(jarr, json_string(Utils::to_string(values[i]).c_str()));
     json_object_set_new(jret, "values", jarr);
 
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(jansson_to_string(jansson_from_params(p)));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }

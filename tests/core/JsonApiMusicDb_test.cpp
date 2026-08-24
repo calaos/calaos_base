@@ -403,7 +403,7 @@ protected:
         p.Add("id", PLAYER_ID);
         for (auto it = extra.begin(); it != extra.end(); ++it)
             p.Add(it.key(), it.value().get<std::string>());
-        return p.toJson();
+        return jansson_from_params(p);
     }
 
     /***************************************************************************

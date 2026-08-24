@@ -190,7 +190,7 @@ json_t *CalaosEvent::toJson() const
                     "event_raw", toString().c_str(),
                     "type", Utils::to_string(getType()).c_str(),
                     "type_str", typeToString(getType()).c_str(),
-                    "data", evParams.toJson());
+                    "data", jansson_from_params(evParams));
 
     return ret;
 }

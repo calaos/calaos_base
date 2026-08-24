@@ -431,7 +431,7 @@ void Lua_Calaos::sendJson(const string &msg_type, const Params &param) const
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", param.toJson());
+    json_object_set_new(jroot, "data", jansson_from_params(param));
     extClient->sendMessage(jansson_to_string(jroot));
 }
 
@@ -490,6 +490,6 @@ void LuaIOBase::sendJson(const string &msg_type, const Params &param) const
 {
     json_t *jroot = json_object();
     json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", param.toJson());
+    json_object_set_new(jroot, "data", jansson_from_params(param));
     extClient->sendMessage(jansson_to_string(jroot));
 }

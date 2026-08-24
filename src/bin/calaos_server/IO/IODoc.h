@@ -23,6 +23,10 @@
 
 #include "Calaos.h"
 #include <Params.h>
+//E4.1a: genDocJson() below returns a json_t*. Until it is migrated this
+//header must name jansson itself - it used to get it for free through
+//Params.h, which no longer includes it.
+#include <jansson.h>
 
 class IODoc
 {

@@ -55,12 +55,13 @@
 namespace
 {
 
-/* THE SEAM. Before E4.1a this is Params::toJson(); after it, the free adapter
- * jansson_from_params() of Jansson_Addition.h. Nothing else in this file knows
- * which one it is. */
+/* THE SEAM. Before E4.1a this was Params::toJson(); it is now the free
+ * transitional adapter jansson_from_params() of Jansson_Addition.h. This
+ * function body is the ONLY line of this file the migration commit touched -
+ * not one assertion moved. */
 json_t *paramsToJansson(const Params &p)
 {
-    return p.toJson();
+    return jansson_from_params(p);
 }
 
 /* The invalid sequence used all over the E4.0 series (JsonApiSession_test.cpp:146).

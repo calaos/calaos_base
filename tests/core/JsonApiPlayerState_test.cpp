@@ -680,7 +680,7 @@ TEST_F(JsonApiPlayerStateTest, DbStatsPlayerDeletedMidFlightStillAnswers)
         queue.deferred = true;                                                 \
                                                                                \
         Params p = {{ "id", PLAYER_ID }, { "item", "3" }};                     \
-        json_t *jdata = p.toJson();                                            \
+        json_t *jdata = jansson_from_params(p);                                            \
         bool answered = false;                                                 \
                                                                                \
         {                                                                      \
