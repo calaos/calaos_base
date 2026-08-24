@@ -148,9 +148,14 @@ void ReolinkCtrl::doRegisterCamera(const string &hostname, const string &usernam
     json_object_set_new(jroot, "password", json_string(password.c_str()));
     json_object_set_new(jroot, "event_type", json_string(event_type.c_str()));
 
+    // jansson_to_string() STEALS the reference: it calls json_decref(jroot)
+    // on both of its exit paths. jroot is born at refcount 1 (json_object()),
+    // and json_object_set_new() steals the value references without touching
+    // the object's own, so that decref takes it to 0 and json_delete() frees
+    // the block. The json_decref(jroot) that used to sit here therefore read
+    // and decremented a FREED json_t, once per camera registration.
     string message = jansson_to_string(jroot);
     process->sendMessage(message);
-    json_decref(jroot);
 
     // Mark camera as registered
     registeredCameras[camera_key] = camera_key;

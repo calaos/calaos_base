@@ -2,8 +2,37 @@
 
 > Accumulés pendant le refactoring (phases 1→4). À reprendre dans le changelog de la prochaine
 > release de calaos_server. Ne liste **que** ce qu'un utilisateur ou un intégrateur peut
-> observer — les corrections internes (UAF, fuites, durcissements) ne sont pas ici.
+> observer — les corrections internes (UAF, fuites, durcissements) ne sont pas ici, **sauf quand
+> le défaut se manifeste par un plantage ou un comportement erratique du serveur** : ce que
+> l'utilisateur observe alors, c'est le symptôme, et il a besoin de savoir qu'il a disparu.
 > Ordre : impact décroissant.
+
+## 🔴 Caméras Reolink : corruption mémoire à chaque enregistrement de caméra
+
+### Le serveur écrivait dans de la mémoire libérée dès qu'une caméra Reolink était enregistrée (E4.1i)
+Si vous avez au moins un `ReolinkInputSwitch` dans votre configuration et que `calaos_server`
+plantait, se figeait ou se comportait de façon inexplicable **sans rapport apparent avec les
+caméras**, la cause pouvait être ici.
+
+Chaque fois que Calaos annonçait une caméra au processus `calaos_reolink`, il **libérait** le
+message qu'il venait de construire, puis **écrivait à nouveau dedans**. Le bloc de mémoire venait
+d'être rendu à l'allocateur : entre-temps, n'importe quelle autre partie du serveur pouvait l'avoir
+repris. L'écriture allait alors abîmer *les données de quelqu'un d'autre*, et le symptôme —
+plantage, valeur aberrante, blocage — apparaissait **ailleurs et plus tard**, ce qui rend ce genre
+de défaut particulièrement difficile à relier à sa cause.
+
+Ce n'était pas un cas rare : cela se produisait à l'enregistrement de **chaque caméra**, et de
+nouveau **pour toutes les caméras à chaque redémarrage** du processus `calaos_reolink` — lequel se
+relance automatiquement, en boucle, quand il s'arrête. Une installation avec plusieurs caméras et
+un processus instable déclenchait donc le défaut en continu.
+
+Le message est désormais libéré **une seule fois**. Aucun changement de configuration, aucun
+changement de comportement visible côté caméras : les événements de détection, la reconnexion
+automatique et l'API restent identiques.
+
+→ **Rien à faire de votre côté.**
+
+---
 
 ## 🔴 Le sidecar MCP ne démarrait pas
 
