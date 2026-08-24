@@ -2248,3 +2248,21 @@ ne décrivent pas ce que le code fait :
   `src/lib/Makefile.am:52`). C'est l'API de modules-widgets de l'interface tactile, fondée sur EFL
   (`Evas`/`Ecore`/`Edje`, `CalaosModule.h:24-31`), dépendances que le serveur ne lie plus.
   → candidat à la suppression.
+
+---
+
+## I4.1 — deux préexistants de `calaos_installer` (dépôt **externe**, non corrigés)
+
+Trouvés en instruisant I4.1 (purge silencieuse des règles à id non résolu). **Hors périmètre du
+ticket**, laissés intacts, consignés ici pour ne pas les perdre. Dépôt :
+`/home/raoul/repos/calaos/calaos_installer`.
+
+- **[BUG] `Action::duplicate()` (`Calaos/Action.cpp:43`) oublie `action_touchscreen_cam`.** Tous
+  les autres champs sont recopiés, celui-là non : **copier-coller d'une action « touchscreen »
+  perd la caméra** qu'elle affichait. Défaut réel, antérieur à I4.1, corrigible en une ligne.
+- **[UB latent] `FormConditionStd::qitem` est hors liste d'initialisation.** Non atteint
+  aujourd'hui, mais c'est **exactement la même famille** que `Condition::output` — pointeur membre
+  non initialisé dont les lecteurs testent `nullptr` — qui, lui, était atteignable et produisait
+  un segfault à la sauvegarde (corrigé par I4.1, `6cbd6f6`).
+
+Voir [`I4.1.md`](I4.1.md) §5bis.

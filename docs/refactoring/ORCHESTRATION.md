@@ -1984,8 +1984,33 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   périmètre. Le dépôt **n'a pas de tests** (`tests/` = projets d'exemple) mais **se construit**
   (qmake6/Qt6) : construit avant et après, vérifié par un harnais lié sur `ProjectManager`
   **hors dépôt** (scratchpad, non commité). **Non vérifié : le rendu GUI réel.** Détail complet :
-  [`I4.1.md`](I4.1.md). **➡️ ACTION UTILISATEUR** : relire les 3 commits sur le `master` local de
-  `calaos_installer` (`6cbd6f6`, `a84027c`, `1dfaed2`) et pousser lui-même.
+  [`I4.1.md`](I4.1.md).
+- **I4.1 — SUITES DE REVUE ✅ (2026-08-24), verdict `MERGE`, réserves toutes fermées, +2 commits.**
+  ⭐ **R1 : la préservation avait créé sa propre régression.** `ListeRoom::get_new_id()` ne balaie
+  que les **rooms** ; un fantôme vit **hors** de toute room, donc l'id d'un IO manquant paraissait
+  **libre** — créer un IO juste après l'ouverture d'un projet désaccordé lui donnait cet id exact
+  et le **branchait silencieusement** sur les règles de l'IO disparu. Une destruction silencieuse
+  échangée contre un **câblage silencieux** : meilleur défaut, mais bien plus dur à diagnostiquer
+  et invisible dans le diff. **Corrigé** — ids pendants **réservés** dans `ListeRoom`,
+  reconstruits à chaque chargement de `rules.xml` (donc la réservation dure autant que la
+  référence pendante) et purgés par `clear()`. A/B en une exécution sur `project1` amputé :
+  `input_0`/`output_39` **avant**, `input_57`/`output_48` **après** — soit exactement ce que rend
+  un `io.xml` complet. ⚠️ Ce correctif-là a lui-même introduit un
+  **`double free` à la sortie** (purge appelée depuis `~ListeRoom()`, pendant la destruction des
+  statiques), reproduit 5/5 **et seulement en présence de fantômes** : ensemble de réservation
+  rendu **immortel**, 7 configurations revérifiées sans abort. **R2** : `on_addButton_clicked`
+  n'était pas gardé → un param `as_*` créé vide, écrit dans `io.xml`, **ni éditable ni
+  supprimable** ; corrigé. **R3** : rapport ventilé entrée/sortie et pointant où retrouver les ids
+  au-delà du plafond (pire cas mesuré : **21 lignes**, la revue tranche contre ma crainte de
+  bruit). **Formulation corrigée** dans `I4.1.md` : « octet-pour-octet identique » vaut de
+  l'**aller-retour**, pas de la première écriture (`project1` : 14,3 K → 18,4 K, puis point fixe).
+  **Deux préexistants de l'installeur versés en `FINDINGS.md`**, non corrigés :
+  `Action::duplicate()` perd `action_touchscreen_cam`, et `FormConditionStd::qitem` non initialisé.
+  ⛔ **Trou de vérification connu** : la sauvegarde **déclenchée depuis le GUI** et l'ouverture par
+  clic de `FormConditionStd`/`FormActionStd` sur un fantôme restent jugées sûres **à la lecture
+  seulement**.
+  **➡️ ACTION UTILISATEUR** : relire les **5** commits sur le `master` local de
+  `calaos_installer` (`6cbd6f6`, `a84027c`, `1dfaed2`, `dac15cb`, `fa04c64`) et pousser lui-même.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
