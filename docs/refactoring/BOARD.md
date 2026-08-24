@@ -110,6 +110,7 @@ A three-part audit (core/rules, network/IPC/security, drivers/lib/tests/build), 
 | [T3.9](T3.9.md) | 3 | pid-0 kill guard: remaining sites | fix | T3.7 | ✅ |
 | [T3.10](T3.10.md) | 3 | Promote ThinIo + harmonize driver mixins | refactor | T3.2a-f | ✅ |
 | [T3.11](T3.11.md) | 3 | Hygiene: SHA1/curl residue, npm lockfile | cleanup | T2.3, T2.5 | ✅ |
+| [T3.22](T3.22.md) | 3 | Dependabot : déclarer le manifeste **pip** `src/bin/calaos_mcp` (aujourd'hui non surveillé — seul npm/`data/debug` l'est) **et** poser une stratégie `groups:`, parce que chaque merge dans `master` est une **publication** (`docker-publish-dev.yml` sans `needs:`) : une PR par paquet = un cycle tag+image+`build_deb` par paquet. Prérequis de fond : **F-DEP-1** (le `Dockerfile` installe ces dépendances **non pinnées**, donc `pyproject.toml` ne décrit pas ce qui est déployé) | cleanup | T3.11, F-DEP-1 | 📋 |
 | [E4.0](E4.0.md) | 4 | Caractérisation de l'API JSON (préalable dur à E4.1) — **7/7 sous-tickets livrés (a→g)** : 6 de caractérisation + le correctif structurel du harnais. **Épique close, E4.1 débloquée** | epic | — | ✅ |
 | [E4.0a](E4.0.md) | 4 | Fondation du filet de caractérisation (harnais in-process, oracle sémantique, goldens) | tests | — | ✅ |
 | [E4.0b](E4.0.md) | 4 | Caractérisation du modèle et de l'état (9 commandes × 2 transports) | tests | E4.0a | ✅ |

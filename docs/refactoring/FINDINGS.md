@@ -5,7 +5,63 @@
 
 ## Sécurité / correctness à traiter en priorité
 
-> *(section vide — les deux items qu'elle portait sont résolus, voir « Résolus » juste en dessous.)*
+- 🔴 **[F-DEP-1] Le `Dockerfile` déployé installe les dépendances du sidecar MCP **non pinnées**,
+  et la résolution du jour **casse le sidecar**.** Trouvé pendant le passage Dependabot du
+  2026-08-24, hors périmètre (aucune PR Dependabot ne touche le `Dockerfile`).
+
+  `Dockerfile:38` et `Dockerfile:69` (et `.devcontainer/Dockerfile:24`) font :
+  ```
+  RUN pip install "mcp[cli]" uvicorn fastapi websockets --break-system-packages
+  ```
+  Sans aucune borne de version. Or `src/bin/calaos_mcp/pyproject.toml` porte en tête le
+  commentaire T1.8 « *All runtime dependencies pinned (the sidecar is security-sensitive […] no
+  floating versions)* » — **ce pyproject n'est utilisé par aucun chemin de build**. Il n'est même
+  pas dans l'`EXTRA_DIST` de `src/bin/calaos_mcp/Makefile.am`, qui installe les `.py` directement
+  et laisse les dépendances au Python du système. Les pins sont donc de la **documentation**, pas
+  un contrat.
+
+  **Ce n'est pas théorique. Mesuré le 2026-08-24**, dans le conteneur de build (python 3.11.2),
+  cette commande résout aujourd'hui vers **`mcp 2.0.0`**, où le module `mcp.server.fastmcp` a
+  **disparu** :
+  ```
+  mcp 2.0.0
+    FAIL mcp.server.fastmcp   ModuleNotFoundError: No module named 'mcp.server.fastmcp'
+    OK   mcp.server.transport_security
+  ```
+  `src/bin/calaos_mcp/python/calaos_mcp/server.py:25` fait `from mcp.server.fastmcp import FastMCP`.
+  **Toute reconstruction de l'image publie donc un sidecar MCP qui ne démarre pas** — l'import
+  échoue avant même `create_app()`. `configure.ac:220` teste `import mcp, uvicorn, fastapi`, ce
+  qui **passe** avec mcp 2.0.0 (le paquet existe, c'est le sous-module qui manque) : la détection
+  `HAVE_PYTHON_MCP` ne rattrape pas la casse.
+
+  **Correctif** : pinner le `Dockerfile` sur le jeu déclaré dans `pyproject.toml` — idéalement
+  `pip install -r` / `pip install ./src/bin/calaos_mcp` pour que la déclaration devienne la source
+  de vérité et que Dependabot surveille enfin ce qui est réellement déployé. Voir aussi
+  [T3.22](T3.22.md), dont c'est le prérequis de fond.
+
+- 🟠 **[F-DEP-2] Les suites Python n'exercent jamais `calaos_mcp/server.py`, et le conteneur de
+  build n'a ni `mcp` ni `pytest` — donc `make check` ne couvre ni l'un ni l'autre.** Même origine.
+
+  `tests/run-python-tests.sh` est bien câblé dans `make check` (T2.14), mais dans le conteneur de
+  build il n'y a ni `pytest`, ni `fastapi`, ni `starlette`, ni `mcp` : le script retombe sur
+  `python3 -m unittest discover -p 'test_t116_*.py'`, et les trois suites pytest
+  (`test_auth.py`, `test_extern_proc.py`, `test_logger.py`) sont **sautées**. Même en installant
+  pytest, aucune des six suites n'importe `calaos_mcp.server` — elles couvrent `auth`, `client`,
+  `config`, `tools.io`, et le logger. Le module qui construit l'application (montage MCP,
+  extraction du `StreamableHTTPASGIApp` depuis `mcp._session_manager` — un accès à une API
+  **privée** de `mcp`, cf. `server.py:167-169`) n'est **testé nulle part**.
+
+  `.github/workflows/ci.yml` n'a par ailleurs **aucune** étape Python : le ✅ vert des PR
+  Dependabot pip ne porte aucune information sur le sidecar (c'est ainsi que la PR #175,
+  irrésoluble, est passée verte).
+
+  **Correctif** : une suite `tests/python/test_mcp_server.py` qui construit `create_app()` et
+  frappe `/healthz` + `POST /mcp` (initialize) via `TestClient`, plus une étape Python dans
+  `ci.yml` installant le jeu de `pyproject.toml`. C'est cette vérification-là, faite à la main
+  hors bande le 2026-08-24, qui a permis de valider la montée coordonnée
+  mcp/starlette/fastapi — elle devrait être automatique.
+
+
 
 ## Résolus
 

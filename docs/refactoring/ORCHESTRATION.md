@@ -1694,6 +1694,74 @@ harnais lui-même est **stable et documenté**, et son contrat de cycle de vie e
   `set_param("id")`, avec le routage de `buildJsonDelParam` (`JsonApi.cpp:724`) par la méthode
   virtuelle — sans quoi la garde n'est jamais atteinte. Ticket complet : `T3.20.md`.
   **Aucune ligne de `src/` écrite, aucun test, aucun golden touché.**
+- **🤖 PASSAGE DEPENDABOT (2026-08-24) — 7 PR instruites, 5 fermées, branche groupée prête, RIEN
+  POUSSÉ, RIEN MERGÉ.** Branche livrée : **`chore/dependabot-2026-08-24`**, worktree
+  `/home/raoul/repos/calaos/.wave29/dependabot`, **rebasée sur ce commit de docs, donc
+  ff-only depuis `master`** (le SHA de tête bouge à chaque rebase — se fier au nom de branche).
+  Deux commits, un par sujet, `src/bin/calaos_mcp/pyproject.toml` **seul fichier touché**.
+  **`make check` VERT sur la branche** : `./autogen.sh && ./configure && make -j12 && make check`
+  dans le conteneur de build, sortie 0, **69/69 PASS**, 0 FAIL / 0 ERROR / 0 SKIP.
+  - **Verdicts.** `#167` minimatch, `#169` picomatch, `#170` lodash, `#171` follow-redirects,
+    `#168` immutable → **FERMÉES sur GitHub**, chacune avec un commentaire qui pose l'argument.
+    Double motif : (1) **déjà appliqué** — le commit T3.11 `8db87507` a rafraîchi
+    `data/debug/package-lock.json`, `master` porte déjà des versions ≥ celles proposées
+    (immutable y est en **3.8.4**, la PR proposait **3.8.3** : c'était une *régression*) ;
+    (2) **aucun chemin d'exposition** — les cinq sont des transitives `"dev": true` du toolchain
+    gulp/browser-sync, et un grep de `data/debug/dist/` (bundles pré-buildés **commités**) n'y
+    trouve trace d'aucune : `vendor.js` ne contient que jQuery/bootstrap/highlight.js, que
+    `gulp-useref` concatène depuis le HTML. À noter : les 2 alertes `immutable` exigent **4.3.9**,
+    inatteignable — `browser-sync@3.0.4` épingle la ligne `immutable@^3`. Elles sont à **écarter**
+    (« vulnerable code is not actually used »), pas à corriger ; je ne l'ai pas fait moi-même,
+    ça sort du mandat.
+  - `#174` **mcp 1.16.0 → 1.28.1** → **retenue**, reprise dans la branche (1er commit).
+    Ferme GHSA-9h52-p55h-vw2f, GHSA-jpw9-pfvf-9f58, GHSA-vj7q-gjh5-988w. `mcp.server.fastmcp` et
+    `mcp.server.transport_security`, les deux seules portes d'entrée de `server.py`, sont
+    inchangées en 1.28.1.
+  - `#175` **starlette 0.46.2 → 1.3.1** → **À TRAITER AUTREMENT, et c'est la trouvaille du
+    passage : la PR est INSTALLABLE NULLE PART.** `fastapi==0.115.12` exige
+    `starlette>=0.40.0,<0.47.0` ; poser `starlette==1.3.1` à côté donne `ResolutionImpossible`.
+    Dependabot monte le paquet vulnérable **en isolation** et ne voit pas le couplage. Repris en
+    **montée coordonnée** dans la branche (2e commit) : `starlette 1.3.1` **+**
+    `fastapi 0.115.12 → 0.141.1` (la première série fastapi qui accepte starlette 1.x est vers
+    0.13x). Ferme les 7 alertes starlette. Les deux PR pip sont **laissées ouvertes** avec un
+    commentaire expliquant l'intégration groupée — Dependabot les fermera au merge.
+  - **Pourquoi grouper** : `.github/workflows/docker-publish-dev.yml` se déclenche sur **tout**
+    push vers `master`, **sans `needs:` sur `build-and-test`** — il incrémente la version, crée un
+    tag git, publie `ghcr.io/calaos/calaos_base:dev` + un tag versionné, et dispatche un
+    `build_deb` vers `calaos/pkgdebs`. 5 merges = 5 publications.
+  - **⚠️ Le vert de la CI des PR pip ne vaut RIEN, et il faut le savoir avant de rejuger.**
+    `.github/workflows/ci.yml` n'a **aucune** étape Python. Le conteneur de build n'a ni `mcp`,
+    ni `starlette`, ni `fastapi`, ni `pytest` : `tests/run-python-tests.sh` (T2.14) retombe sur
+    `unittest discover -p 'test_t116_*.py'` et saute les 3 suites pytest. Et **aucune** des six
+    suites de `tests/python/` n'importe `calaos_mcp.server`. `make check` ne couvre donc pas ce
+    changement — c'est ainsi que #175, irrésoluble, est passée verte. **Vérification faite hors
+    bande** : venv python3.11 dédié dans le conteneur, jeu complet installé, `create_app()`
+    construit, `GET /healthz` → 200, `POST /mcp` initialize → 200 (protocole 2025-06-18),
+    `POST /mcp` sans Bearer → 401, `tests/python` 34 passed / 2 skipped — sur les trois jeux
+    (pins actuels en témoin, #174 seule, jeu coordonné). Plus le `make check` C++ complet sur la
+    branche.
+  - **🔴 F-DEP-1 — trouvaille hors périmètre, la plus grave du passage, consignée dans
+    `FINDINGS.md`** : `Dockerfile:38` et `:69` installent les dépendances du sidecar **non
+    pinnées** (`pip install "mcp[cli]" uvicorn fastapi websockets`). Le `pyproject.toml` que
+    Dependabot surveille n'est utilisé par **aucun** chemin de build (il n'est même pas dans
+    l'`EXTRA_DIST` de `src/bin/calaos_mcp/Makefile.am`). Mesuré : cette commande résout
+    aujourd'hui vers **`mcp 2.0.0`**, où `mcp.server.fastmcp` **n'existe plus** — donc
+    `server.py:25` échoue à l'import et **toute reconstruction de l'image publie un sidecar MCP
+    qui ne démarre pas**. Le test `configure.ac:220` (`import mcp, uvicorn, fastapi`) **passe**
+    quand même : `HAVE_PYTHON_MCP` ne rattrape pas la casse. **F-DEP-2** : les suites Python
+    n'exercent jamais `server.py` (dont l'accès à l'API **privée** `mcp._session_manager`).
+  - **T3.21 → renuméroté T3.22.** Le numéro T3.21 était **déjà pris** par l'extrait `del_param`
+    de T3.20 (ligne de board existante). Le ticket Dependabot est donc écrit dans
+    **`T3.22.md`** : il reste **pertinent** — le manifeste pip n'est déclaré nulle part, les deux
+    PR pip ne viennent que des *security updates*, et c'est justement leur montée **en isolation**
+    qui a produit #175 irrésoluble. Le cœur du ticket est la stratégie `groups:` (une PR mensuelle
+    au lieu d'une par paquet, donc une publication au lieu de six) ; **F-DEP-1 en est le prérequis
+    de fond**, sans quoi on surveillerait une fiction.
+  - **➡️ PROCHAINE ACTION** : l'utilisateur décide du moment de la publication, puis merge
+    `chore/dependabot-2026-08-24` (**ff-only**, déjà rebasée) — un seul cycle
+    tag + image + `build_deb`. **Avant ou juste après**, traiter **F-DEP-1** : sans pin du
+    `Dockerfile`, la montée du `pyproject.toml` ne change rien à l'image déployée, qui reste
+    cassée par `mcp 2.0.0`.
 - **Note post-T2.2** : la préservation du local_config.xml corrompu (décision T2.4) vit
   désormais dans `ConfigStore.cpp` `loadConfigDocument()` (follow-up).
 - **Restrictions de périmètre imposées aux agents wave 5** : T2.1 ne touche NI MySensors
