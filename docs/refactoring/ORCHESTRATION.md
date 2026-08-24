@@ -8,6 +8,112 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 E4.1e ✅ MERGÉ (`72dfb068`, 7 commits, rebase + ff-only, `make check` 74/74) — le wire KNX passe à
+  `nlohmann::json`, et en le caractérisant on a trouvé un plantage que du matériel ordinaire déclenche.**
+  Périmètre réel : les **5 fichiers** annoncés (`IO/KNX/KNXCtrl.{h,cpp}`, `KNXExternProc_main.{h,cpp}`,
+  `KNXExternProc_cli.cpp`), **aucun débordement**. `grep jansson` = **0** hors commentaires de prose sur les
+  cinq ; les appels `jansson_from_params()` / `jansson_decode_object()` / `jansson_string_get()` du wire KNX
+  sont **tous résorbés**. Commit de caractérisation `04652c3c`, **zéro ligne de `src/`** (vérifié commit par
+  commit : seuls `cc428234` — 5 fichiers — et `b5619ac4` — 4 fichiers — touchent `src/`). Seul fichier
+  `tests/` préexistant touché : `tests/Makefile.am`, en **append pur octet pour octet** (+2977 o, le fichier
+  résultant *commence par* le contenu master à l'octet près). Goldens intacts (hash d'arbre git
+  `d4ebc61f…`, identique à `master`, 145 fichiers). Suite : **72 → 74** (`KNXCtrlWire_test` 16 cas,
+  `KNXExternProcWire_test` 18 cas), recompté en python continuations `\` comprises.
+
+  - ⭐⭐ **LE FAIT QUI DÉPASSE CE TICKET : le plantage est atteignable depuis du matériel ordinaire, et la
+    chaîne est vérifiée de bout en bout.** `KNXValue::setValue()` (`KNXExternProc_cli.cpp:311-317`),
+    `case 6 / 13 / 14`, fait `value_int = data.at(1) & 0xFF` puis `value_char = value_float = value_int`.
+    Or **EIS 6 est le scaling 0-255** — celui des gradateurs : **un gradateur à 78 % vaut 200**, soit
+    l'octet `0xC8`, et `toJson()` sérialise `value_char` avec `Utils::to_string(unsigned char)` qui écrit
+    le **caractère**, pas le nombre. **Tout octet ≥ 0x80 produit donc de l'UTF-8 invalide.** Chaîne
+    complète : `EIBGetGroup_Src()` (`KNXExternProc_main.cpp:209`) → `setValue(0, buf)` (`:255`) →
+    `knxEventMessage()` → `toJson()` → `dump()`. Sans `error_handler_t::replace`, `dump()` lève
+    `type_error.316` — **et il n'y a aucun `catch` dans tout `IO/KNX/`** (mesuré : 0 `catch`, 0 `try` sur
+    les 15 fichiers du répertoire) ⇒ **`std::terminate` de `calaos_knx`**. La mutation le reproduit
+    littéralement : `C++ exception ... [json.exception.type_error.316] invalid UTF-8 byte at index 1`.
+    ⇒ **La décision utilisateur UTF-8 n'était donc PAS une précaution de principe** : sur ce wire,
+    `error_handler_t::replace` referme un plantage réel, déclenchable par un gradateur banal.
+    ⚠️ **Une entrée `RELEASE_NOTES.md` est due et MANQUE** — voir la réserve en fin d'entrée.
+
+  - ⭐⭐ **LA LEÇON DU TEST-MIROIR — généralisable telle quelle aux tickets `f/g/h/i/j`.** La **première**
+    version du filet **ne protégeait pas le produit**. Les tests figeaient une **copie fidèle** de
+    l'assemblage des messages, parce que les émetteurs réels sont inatteignables (`KNXCtrl` a un
+    constructeur privé derrière un singleton qui lance deux `calaos_knx` ; `writeValue()`/`readValue()`
+    finissent sur `process->sendMessage()` d'un `ExternProcServer` qui exige une boucle libuv vivante ;
+    `monitorWait()` bloque dans `EIBGetGroup_Src()` sur une socket knxd). Résultat mesuré : **remettre les
+    4 `dump()` de production à nu laissait la suite 34/34 VERTE** — c'est-à-dire que le filet restait vert
+    en réintroduisant exactement le `std::terminate` que le ticket documente.
+    - **Le remède tient en ~10 lignes** : extraire les 4 enveloppes en **fonctions libres** appelées par la
+      production **et** par le test — `knxWriteMessage()`, `knxReadMessage()` (`KNXCtrl.h/.cpp`),
+      `knxEventMessage()`, `knxDisconnectedMessage()` (`KNXExternProc_main.h`). `writeValue()`,
+      `readValue()` et `monitorWait()` les appellent puis passent le résultat à `sendMessage()`. Aucun
+      changement de comportement, aucun octet déplacé.
+    - **Mesure après extraction, rejouée après le rebase sur `master` `138c16ee`** : la même mutation donne
+      **2 rouges par binaire** (`NonAsciiDiffersOnlyByTheCaseOfTheHexEscape` et
+      `RawNonUtf8BusBytesAreReplacedInsteadOfCrashing_DECLARED_DELTA`, dans chacun des deux binaires),
+      soit **4 rouges au total**, contre **0 sur 34** avant.
+    - ⇒ **RÈGLE À APPLIQUER PAR `E4.1f/g/h/i/j`** (tous des wires à processus externe, tous avec le même
+      problème d'inatteignabilité) : *si le test construit lui-même le message qu'il gèle, il ne teste pas
+      l'émetteur.* Un gel d'octets sur une copie est un gel de ce que **le test** fait. Extraire
+      l'enveloppe en fonction libre est le prix minimal pour que le filet devienne **porteur**.
+
+  - **8ᵉ récidive du « fixture pauvre » — et c'était un oracle MORT, trouvée par la revue** (comme les
+    sept précédentes : **jamais par l'implémenteur**). Le cas `ABooleanFieldIsStringifiedTheJanssonWay`
+    rangeait le booléen dans `value_int`, où `"true"` **et** `"false"` échouent **tous les deux** à
+    `Utils::from_string` et laissent 0 : le cas ne pouvait **pas** les distinguer — **0/0 dans les deux
+    binaires**. Réparé en déplaçant le booléen vers `value_string`, avec deux appels et deux résultats
+    attendus différents : **1 rouge par binaire sur chacune des deux mutations**.
+
+  - **Deux corrections à l'épique, à propager :**
+    - **Il n'existe aucun `--with-knx`.** La fiche `E4.1e.md` en faisait une condition de compilation
+      (« `KNXExternProc_cli.cpp` n'est pas compilé sans `--with-knx` »). Mesuré : **0 occurrence** de
+      `with-knx`/`with_knx` dans `configure.ac`. Le support est **détecté par en-tête** :
+      `configure.ac:135` `AC_CHECK_HEADERS([eibclient.h], [have_libknx="yes"])` → `AM_CONDITIONAL`
+      `HAVE_LIBKNX`. Le contrôle à faire dans un build est donc la ligne de résumé
+      **`Eib/KNX support (eibd ou knxd)…: yes`** (présente dans le build de merge), pas une option.
+    - **`KNXValue::toJson()` est défini 2 fois, pas 3.** Sites réels : `KNXCtrl.cpp:143` et
+      `KNXExternProc_cli.cpp:493`. Le « 3ᵉ » site cité par la fiche était un **appel**, pas une
+      définition — et `E4.1.md:63` se contredisait **déjà** (il annonce « défini trois fois » tout en ne
+      listant que deux sites). La classe reste **déclarée 2 fois** (`KNXCtrl.h:64`,
+      `KNXExternProc_main.h:57`), ce qui est exact, et **n'a pas été dédupliquée** (hors périmètre).
+
+  - ⚠️ **Le piège `_DEPENDENCIES` reste ARMÉ pour le prochain** : les deux nouveaux tests reconduisent le
+    motif `*_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la` **seul**, alors qu'ils lient des
+    `.o` du serveur. `make` n'a donc **aucune raison de relier** le binaire de test quand un `.o` du
+    serveur change. La 1ʳᵉ campagne de contre-mutation de ce ticket a rendu **0 rouge** pour cette seule
+    raison (variante « **faux VERT** »).
+    - **Le seul contrôle valable, dans les quatre variantes connues** (faux ROUGE uniforme, faux VERT,
+      faux ROUGE après rebase, **faux VERT total où `check_PROGRAMS` n'est même pas construit par un
+      `make` nu**) : **exiger la ligne `CXXLD <binaire de test>`** dans la sortie de make. Son absence
+      **invalide le résultat, vert comme rouge**. Procédure appliquée ici : effacer le `.o` du serveur
+      **et** le binaire de test, puis construire les cibles **nommément**
+      (`make KNXCtrlWire_test KNXExternProcWire_test`) et **lire les deux `CXXLD`** avant de croire le
+      résultat.
+
+  - **⚠️ RÉSERVE OUVERTE — l'entrée `RELEASE_NOTES.md` MANQUE.** `docs/refactoring/RELEASE_NOTES.md`
+    existe sur `master` (403 lignes, 21 sections) et **ne contient aucune mention de KNX** ; **aucun des
+    7 commits de la branche ne le touche**. Or ce ticket referme un **plantage observable par un
+    utilisateur** (`calaos_knx` qui meurt dès qu'un gradateur EIS 6 passe au-dessus de 50 %), ce qui est
+    exactement le critère d'entrée du fichier. **Non écrite ici délibérément** (le merge ne rédige pas la
+    prose utilisateur à la place de l'auteur). **À rédiger pour un utilisateur**, dans la section
+    « Comportements qui changent » ou « Fiabilité », en décrivant le symptôme observable, pas la
+    bibliothèque JSON.
+
+  - **Non couvert, tel quel — à ne pas croire acquis** : **pas d'ASan** sur les deux nouveaux binaires ;
+    **aucune config réelle avec des IO KNX** n'a été exercée (le filet est du wire pur, hors `KNXIo`) ;
+    et le comportement **jansson « avant »** n'a pas été mesuré sur le binaire d'origine mais par **sonde
+    équivalente** (reconstruction du comportement de `json_dumps`/`json_string`), ce que les cas
+    `_DECLARED_DELTA` documentent explicitement.
+
+  - **Conflits du rebase, et leur forme** : **`tests/Makefile.am`** (les deux côtés ajoutent en fin de
+    fichier) et **`docs/refactoring/FINDINGS.md`** (idem). Résolus par **régénération**, pas par édition
+    de marqueurs — `git show master:<f>` en entier + append verbatim du bloc de la branche. Preuves :
+    `tests/Makefile.am` **commence par le contenu master octet pour octet** et `^if` == `^endif` (63/63) ;
+    `FINDINGS.md` **commence par le contenu master octet pour octet**, **51 → 57** titres `^## `
+    (les 51 de master tous présents, 6 ajoutés), **ligne vide devant chaque `---`**.
+
+  - **Rien n'a été poussé.** `master` local est à `72dfb068`, en avance sur `origin/master`.
+
 - **🔒 E4.1k ✅ MERGÉ (`511a6103`, 5 commits, rebase + ff-only, `make check` 72/72) — le générateur
   `io_doc.json` passe à `nlohmann::json`, et la revue y a trouvé bien plus gros que le ticket.**
   Périmètre réel : `IO/IODoc.h`, `IO/IODoc.cpp`, `IO/IOFactory.cpp` **+ le helper `docParamNames()` de
