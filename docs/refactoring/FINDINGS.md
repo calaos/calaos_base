@@ -131,6 +131,33 @@
   `ListeRoom::createIO()` et `Room::LoadFromXml()`, qui parquent le résultat dans un
   `unique_ptr` avant tout déréférencement.
 
+- ✅ **[SÉCURITÉ] Le throttle de login n'identifiait pas le client derrière haproxy** —
+  **traité par [T3.24](T3.24.md)**. `JsonApi::clientIp()` rendait le **pair TCP** sur **les deux**
+  transports (`JsonApiHandlerWS.cpp:45-51` **et** `JsonApiHandlerHttp.cpp:55-61` — le constat
+  initial ne citait que WS), donc l'adresse du proxy : `LoginThrottle` n'avait **qu'un seau pour
+  toute l'installation**. Un attaquant qui épuisait la fenêtre **verrouillait le login de tous les
+  utilisateurs légitimes**, et sa propre limite était effacée par le premier `registerSuccess()`
+  de n'importe qui. Le helper `TransportLimits::effectiveClientIp()` **existait déjà** et était
+  **déjà** utilisé dix lignes plus loin par `max_connections_per_ip` (`HttpClient.cpp:200`) : un
+  appelant sur deux ne s'en servait pas. Les deux `clientIp()` passent désormais par
+  `HttpClient::getEffectiveClientIp()`, qui l'enveloppe. Six cas dans
+  `tests/core/JsonApiThrottleIdentity_test.cpp`, aucun golden touché.
+
+- ⚠️ **F-XFF-1 — [SÉCURITÉ, OUVERT] aucune liste de proxys de confiance** — ouvert par
+  [T3.24](T3.24.md), **non corrigé**. `TransportLimits::effectiveClientIp()` prend la **dernière**
+  entrée de `X-Forwarded-For` (donc celle écrite par le hop de confiance, et un préfixe forgé par
+  le client est ignoré — figé par `tests/TransportHardening_test.cpp:194-231`), mais
+  `calaos_server` **ne vérifie jamais que son pair TCP est haproxy** : vérifié au source, il
+  n'existe **aucun** `trusted_proxy` ni aucune comparaison de `getClientIp()` à une adresse
+  attendue. Sur un serveur joint **directement**, sans proxy devant, le client fournit lui-même la
+  dernière entrée et **choisit son identité** — donc son seau de throttle **et** son compteur de
+  connexions. La garantie invoquée est une **garantie de déploiement** (`DECISIONS.md` : « toujours
+  derrière haproxy dans calaos-os »), **pas une garantie de code**. Réserve **antérieure à T3.24** :
+  `max_connections_per_ip` l'a depuis son merge. T3.24 corrige quand même le cas nominal parce que
+  l'échange est favorable — avant, l'attaquant **verrouillait tout le monde** sans rien forger ;
+  après, en exposition directe, il peut au pire **s'exonérer lui-même**. Le vrai correctif est une
+  liste de proxys de confiance (ou la normalisation de l'en-tête par `McpProxyHandler`, cf. T1.8).
+
 - ✅ **[SÉCURITÉ, même classe que F2] `RemoteUIManager::getRemoteUIByToken` en `string ==`** —
   **traité par T2.15** (`01089187`, « … constant-time RemoteUI token lookup »). Revérifié au
   source : `RemoteUIManager.cpp:96` compare désormais via

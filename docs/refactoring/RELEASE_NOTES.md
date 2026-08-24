@@ -340,6 +340,18 @@ Le filtre de détection des devices avait un bug de bornes : les familles commen
   les IOs Web, ne sont plus atteignables : le code vulnérable n'existe plus.
 - **Limite de connexions par client** : 50 par défaut (`max_connections_per_ip`), auparavant
   illimité. Le client est identifié via `X-Forwarded-For` (haproxy). Au-delà : `429`.
+- **La protection anti-force-brute du login protège enfin *par client*.** Elle existait déjà —
+  après un mot de passe erroné, l'adresse fautive est ralentie (1 s, puis 2 s, 4 s… jusqu'à 60 s,
+  effacé dès qu'un login réussit) — mais elle ne distinguait pas les clients : Calaos étant
+  installé derrière un reverse-proxy (haproxy), **toutes les connexions lui semblaient venir de la
+  même adresse, celle du proxy**. Conséquence sur une installation réelle : quelqu'un qui se
+  trompait de mot de passe, ou qui essayait d'en forcer un, **ralentissait la connexion de tous les
+  autres utilisateurs** — application mobile, écrans muraux, intégrations — alors qu'à l'inverse sa
+  propre limite était remise à zéro par le premier login réussi de n'importe qui d'autre.
+  Désormais chaque client a son propre compteur, sur **l'interface web/API comme sur le websocket**.
+  ⚠️ **Cela suppose que Calaos est bien joint à travers son reverse-proxy** : un serveur exposé
+  directement sur Internet, sans proxy devant, laisse le client annoncer lui-même son identité — la
+  même hypothèse que la limite de connexions ci-dessus.
 - **En-têtes HTTP** limités à 32 Kio → `431` (auparavant illimité jusqu'au timeout).
 - **TLS** : la vérification des certificats reste **désactivée par défaut** pour tous les
   équipements configurés par l'utilisateur (caméras HTTPS auto-signées, devices LAN) — aucune

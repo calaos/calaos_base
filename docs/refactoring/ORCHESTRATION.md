@@ -8,6 +8,31 @@
 
 ## 🔁 REPRISE — lire en premier
 
+- **🔒 T3.24 LIVRÉ (branche `fix/t3.24`, non mergée) — le throttle de login identifie enfin le
+  client derrière haproxy.** `clientIp()` rendait le **pair TCP** sur **LES DEUX** transports
+  (`JsonApiHandlerWS.cpp:45` **et** `JsonApiHandlerHttp.cpp:55` — le constat initial ne citait que
+  WS) ⇒ **un seul seau `LoginThrottle` pour toute l'installation** : un attaquant verrouillait le
+  login de tous les utilisateurs, et sa propre limite était effacée par le premier login réussi de
+  n'importe qui. Les deux passent désormais par `HttpClient::getEffectiveClientIp()`, qui enveloppe
+  `TransportLimits::effectiveClientIp()` — **le helper existait déjà** et était **déjà** utilisé dix
+  lignes plus loin par `max_connections_per_ip` (`HttpClient.cpp:200`).
+  - ⚠️ **À SAVOIR AVANT DE MERGER** : le ticket touche `JsonApiHandler{WS,Http}.cpp`, donc **la
+    chaîne sérialisée d'E4.1** (`E4.1b`, puis `l`→`s`). Les hunks sont **minuscules** (les trois
+    lignes de `clientIp()` dans chaque fichier, plus une méthode inline dans `HttpClient.h`) et
+    **hors des zones jansson** que la chaîne réécrit. **Merger T3.24 AVANT de lancer `E4.1b`** :
+    après, chaque sous-ticket de la chaîne devra le rebaser.
+  - ⚠️ **RÉSERVE, consignée en F-XFF-1 et NON corrigée** : `calaos_server` **ne vérifie pas** que
+    son pair TCP est haproxy — aucune liste de proxys de confiance dans l'arbre. En **exposition
+    directe**, le client fournit lui-même la dernière entrée de `X-Forwarded-For` et **choisit son
+    seau**. La garantie est **de déploiement** (`DECISIONS.md`), **pas de code**. Réserve
+    **antérieure** : `max_connections_per_ip` l'a depuis son merge. Corrigé quand même parce que
+    l'échange est favorable (avant : verrouillage de tous, sans rien forger ; après, en direct :
+    auto-exonération au pire).
+  - **Nouveau binaire de test** `core/JsonApiThrottleIdentity_test` (6 cas, 2 transports,
+    **0 golden**). Il **réutilise le harnais E4.0a sans le modifier** — le harnais ne modélise pas
+    `X-Forwarded-For` (session WS sur `HttpClient` **nul**), donc les deux helpers proxifiés vivent
+    dans le fichier de test. Commit de caractérisation `56dceb11`, **zéro ligne de `src/`**.
+
 - **⭐ E4.1 DÉCOUPÉE (2026-08-24) — 17 sous-tickets `a`→`x`, 10 vagues, fiches écrites.**
   **Aucune ligne de `src/`, aucun test, aucun golden touché** par ce travail de conception.
   Lire **[`E4.1.md`](E4.1.md)** (empreinte remesurée, découpage, vagues, verdict wires,
