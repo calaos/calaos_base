@@ -2757,9 +2757,24 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
   `json_decref(jroot)` dans **les deux** branches. `MqttCtrl.cpp:115-116` faisait
   `process->sendMessage(jansson_to_string(jroot)); json_decref(jroot);` — soit un décrément sur un
   objet **déjà libéré**, à **chaque publication MQTT**. Le site jumeau de la même fonction (`:41`,
-  la configuration du broker) était correct. Les **38 autres** appels de `jansson_to_string` du
-  dépôt ont été relus : **aucun** ne double-décrémente. Celui-ci était isolé, et il part avec
-  `jansson_to_string`.
+  la configuration du broker) était correct, et il part avec `jansson_to_string`.
+
+  ⚠️ **CORRECTION — ma première rédaction affirmait « les 38 autres appels relus, aucun ne
+  double-décrémente ». C'ÉTAIT FAUX, sur les deux moitiés de la phrase**, et la revue l'a
+  attrapé. Recompté hors du hook `rtk` (blancs de commentaires posés en préservant les numéros de
+  ligne) : **27 sites d'appel** dans `src/` après ce ticket — pas 38 — plus **1 définition** dans
+  `Jansson_Addition.h`, et **16** d'entre eux passent une variable nue. Et **il en reste un qui
+  double-décrémente** :
+
+  > 🔴 **`src/bin/calaos_server/IO/Reolink/ReolinkCtrl.cpp:151-153`** —
+  > `string message = jansson_to_string(jroot); process->sendMessage(message); json_decref(jroot);`
+  > **exactement le même défaut**, à chaque envoi. **Non corrigé ici : hors périmètre, et
+  > l'agent d'E4.1i travaille dessus.**
+
+  **La leçon vaut plus que le bug** : une affirmation de relecture fausse dans un `FINDINGS.md`
+  est **pire qu'une absence** — elle fait renoncer le suivant à chercher. Une phrase de la forme
+  « j'ai tout relu, il n'y a rien » ne devrait être écrite **que** si elle est adossée à un
+  comptage reproductible, montré.
 
 - **⭐ L'octet nul ne traversait PAS l'aller-retour, alors que tout le code amont existait pour ça.**
   `payloadToJsonString()` prenait grand soin d'utiliser `json_stringn(data, len)` pour ne pas
@@ -2791,6 +2806,20 @@ Ses **deux** faces, toutes deux rencontrées dans la série :
   pas** : ici il n'y avait pas de rouge du tout. Ce qui l'attrape est **l'absence de la ligne
   `CXXLD <test>`** dans la preuve de compilation, et un `[ -x <binaire> ]` explicite. À porter
   dans le brief des sous-tickets suivants.
+
+- **Quatre trous du filet trouvés par la revue, tous par des mutations que je n'avais pas faites.**
+  Trois sont **fermés** par les suites : (1) `error_handler_t::replace` **n'avait aucun témoin** —
+  le muter en `ignore` laissait 32/32 vert, alors que c'est le **troisième invariant d'émission**
+  d'E4.1 et que le chemin est **portant** (`MqttCtrl::publishTopic()` envoie un payload **jamais
+  assaini** au `dump()`, et sans le gestionnaire un `type_error.316` **tuerait `calaos_server`**) ;
+  (2) la garde `Exists("user") && Exists("password")` n'était épinglée qu'**à moitié**, le cas
+  **password seul** manquait ; (3) **aucun payload de 4 octets** n'était exercé, donc les deux
+  bornes serrées du validateur (`0xF0` exige une continuation ≥ `0x90`, `0xF4` une ≤ `0x8F`)
+  pouvaient être élargies sans un seul rouge. Le quatrième reste **ouvert et consigné** :
+  ⚠️ **les 5 sites d'appel hors `MqttWire.h` ne sont couverts par rien** — échanger les arguments
+  de `MqttCtrl::publishTopic()` ou de la lambda `messageRcv` laisse la suite **entièrement
+  verte**. Le code *partagé* est tenu, son *câblage* ne l'est pas, et rien dans le dépôt ne peut
+  le tenir tant qu'aucun test ne lie les objets serveur.
 
 - **⚠️ Le hook `rtk` peut mentir, et il a menti sur ce ticket.** `grep`/`awk` passés par le hook ont
   rendu **0 correspondance** sur des motifs qui en avaient (`grep -n "u0000" fichier` sur un fichier

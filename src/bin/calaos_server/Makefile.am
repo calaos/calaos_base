@@ -151,7 +151,6 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttCtrl.h                              \
         IO/Mqtt/MqttCtrl.cpp                            \
         IO/Mqtt/MqttIOBase.h                            \
-        IO/Mqtt/MqttWire.h                              \
         IO/Mqtt/MqttInputAnalog.h                       \
         IO/Mqtt/MqttInputAnalog.cpp                     \
         IO/Mqtt/MqttInputString.h                       \
@@ -170,6 +169,7 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttOutputLightRGB.cpp                  \
         IO/Mqtt/MqttOutputShutter.h                     \
         IO/Mqtt/MqttOutputShutter.cpp                   \
+        IO/Mqtt/MqttWire.h                              \
         IO/Reolink/ReolinkCtrl.h                        \
         IO/Reolink/ReolinkCtrl.cpp                      \
         IO/Reolink/ReolinkInputSwitch.h                 \

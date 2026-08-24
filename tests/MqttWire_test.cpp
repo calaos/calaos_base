@@ -230,6 +230,35 @@ TEST(MqttPayload, TruncatedSequenceAtTheEndCostsOneQuestionMarkOnly)
     EXPECT_EQ("636166c3a93f", hexOf(got));
 }
 
+//Suites de revue: no 4 byte sequence was exercised at all, so the two tight
+//bounds of the strict validator - F0 needs a continuation >= 0x90 (no
+//overlong) and F4 needs one <= 0x8F (nothing above U+10FFFF) - were free to
+//be widened without a single case going red. One valid representative on
+//each side of each bound.
+TEST(MqttPayload, FourByteSequencesArePinnedAtTheirExactBounds)
+{
+    //U+10000, the smallest 4 byte code point: valid, crosses untouched
+    const string lowest = "\xf0\x90\x80\x80";
+    ASSERT_EQ(4u, lowest.size());
+    EXPECT_EQ(4u, wirePayloadToString(lowest.data(), 4).size());
+    EXPECT_EQ("f0908080", hexOf(wirePayloadToString(lowest.data(), 4)));
+
+    //U+10FFFF, the largest legal code point: valid, crosses untouched
+    const string highest = "\xf4\x8f\xbf\xbf";
+    EXPECT_EQ("f48fbfbf", hexOf(wirePayloadToString(highest.data(), 4)));
+
+    //one past U+10FFFF: refused. Structurally well formed, so it survives the
+    //sanitising pass and only the ascii-only fallback catches it.
+    const string tooBig = "\xf4\x90\xbf\xbf";
+    EXPECT_EQ(4u, wirePayloadToString(tooBig.data(), 4).size());
+    EXPECT_EQ("3f3f3f3f", hexOf(wirePayloadToString(tooBig.data(), 4)));
+
+    //overlong 4 byte form of a 3 byte code point: refused the same way
+    const string overlong = "\xf0\x8f\xbf\xbf";
+    EXPECT_EQ(4u, wirePayloadToString(overlong.data(), 4).size());
+    EXPECT_EQ("3f3f3f3f", hexOf(wirePayloadToString(overlong.data(), 4)));
+}
+
 TEST(MqttPayload, NullPointerWithAPositiveLengthYieldsAnEmptyPayload)
 {
     const string got = wirePayloadToString(nullptr, 5);
@@ -329,6 +358,92 @@ TEST(MqttWireForm, AnEmptyValueDoesNotOverrideItsDefault)
 
     EXPECT_EQ("{\"host\":\"127.0.0.1\",\"keepalive\":\"7\",\"port\":\"1883\"}",
               wireEncodeConfig(cfg));
+}
+
+/* ------------------------------------------------------------------------ *
+ * error_handler_t::replace, THE THIRD EMISSION INVARIANT, WITH A WITNESS.
+ *
+ * Suites de revue R2. Until these three cases existed, mutating
+ * error_handler_t::replace into ::ignore left the whole file green: two of
+ * the three invariants were being applied blind. The path is load bearing,
+ * not theoretical - it is the ONE dump() of this wire that receives bytes
+ * nobody sanitised:
+ *   - MqttCtrl::publishTopic() hands its payload straight to dumpJson(). It
+ *     comes from the Calaos configuration, never from payloadToString().
+ *   - the topic in the calaos_mqtt lambda comes from the broker and is NOT
+ *     put through payloadToString() either - deliberately, because the '?'
+ *     decision is about payloads only.
+ * Without the handler, dump() raises type_error.316 and, since nobody
+ * catches it, TAKES calaos_server DOWN on a live connection. That is the
+ * E4.0 trap, on this wire, reachable.
+ *
+ * The three possible spellings are three different observable behaviours,
+ * so this pins the right one rather than merely "not strict":
+ *   replace -> U+FFFD per invalid byte    (what we want)
+ *   ignore  -> the invalid bytes VANISH   (silent truncation, measured)
+ *   strict  -> throws type_error.316      (gtest reports the throw)
+ * ------------------------------------------------------------------------ */
+
+TEST(MqttWireForm, AnInvalidTopicBecomesUFFFDAndTheDumpNeverThrows)
+{
+    const string badTopic = "home/\xff\x80/lampe";
+    ASSERT_EQ(15u, badTopic.size());
+
+    string wire;
+    ASSERT_NO_THROW(wire = wireEncodeMessageServerSide(badTopic, "ON"));
+
+    //replace: one U+FFFD per invalid byte, escaped because ensure_ascii.
+    //ignore would give "home//lampe" - the bytes would just disappear.
+    EXPECT_EQ("{\"payload\":\"ON\",\"topic\":\"home/\\ufffd\\ufffd/lampe\"}", wire);
+    EXPECT_NE(string::npos, wire.find("\\ufffd"));
+}
+
+//publishTopic() is the site that proves the handler is not decoration: this
+//payload never goes through payloadToString(), so nothing sanitised it.
+TEST(MqttWireForm, AnUnsanitisedPayloadIsReplacedNotDropped)
+{
+    string wire;
+    ASSERT_NO_THROW(wire = wireEncodeMessageServerSide("zigbee2mqtt/cuisine/store/set",
+                                                       string("\xff\x80", 2)));
+
+    EXPECT_EQ("{\"payload\":\"\\ufffd\\ufffd\",\"topic\":\"zigbee2mqtt/cuisine/store/set\"}",
+              wire);
+    //and NOT the ignore behaviour, which empties the field silently
+    EXPECT_EQ(string::npos, wire.find("\"payload\":\"\""));
+}
+
+//The broker configuration is built from user supplied params too.
+TEST(MqttWireForm, AnInvalidCredentialIsReplacedNotDropped)
+{
+    Params cfg;
+    cfg.Add("host", "10.0.0.7");
+    cfg.Add("port", "1883");
+    cfg.Add("keepalive", "120");
+    cfg.Add("user", string("ra\xff\x80ul"));
+    cfg.Add("password", "s3cret");
+
+    string wire;
+    ASSERT_NO_THROW(wire = wireEncodeConfig(cfg));
+    EXPECT_EQ("{\"host\":\"10.0.0.7\",\"keepalive\":\"120\",\"password\":\"s3cret\","
+              "\"port\":\"1883\",\"user\":\"ra\\ufffd\\ufffdul\"}",
+              wire);
+}
+
+//Suites de revue: the "both or neither" guard was only pinned on the
+//user-only side, so a mutation that kept the password alone stayed green.
+TEST(MqttWireForm, BrokerConfigOmitsCredentialsWhenOnlyThePasswordIsSet)
+{
+    Params cfg;
+    cfg.Add("host", "10.0.0.8");
+    cfg.Add("port", "1884");
+    cfg.Add("keepalive", "90");
+    cfg.Add("password", "orphan");
+
+    const string wire = wireEncodeConfig(cfg);
+    EXPECT_EQ(string::npos, wire.find("orphan"));
+    EXPECT_EQ(string::npos, wire.find("\"password\""));
+    EXPECT_EQ(string::npos, wire.find("\"user\""));
+    EXPECT_EQ("{\"host\":\"10.0.0.8\",\"keepalive\":\"90\",\"port\":\"1884\"}", wire);
 }
 
 /* ========================================================================= *
