@@ -31,13 +31,13 @@
  * The code under characterization lives in an anonymous namespace inside a
  * program that defines main() (EXTERN_PROC_CLIENT_MAIN), and inside a lambda
  * built by a constructor that spawns a process. Neither is reachable from a
- * test binary today. So this commit does the only honest thing available: it
- * copies the jansson implementation VERBATIM into namespace legacy below,
- * measures its answers, and freezes them as literals. The migration commit
- * then deletes namespace legacy, repoints the five SEAM functions at
- * src/bin/calaos_server/IO/Mqtt/MqttWire.h, and must keep every assertion of
- * this file byte for byte - with the four declared exceptions listed under
- * "DECLARED DELTAS" below, which are the whole point of the ticket.
+ * test binary today. So the characterization commit did the only honest thing
+ * available: it copied the jansson implementation VERBATIM into a namespace
+ * legacy, measured its answers, and froze them as literals. THIS commit moves
+ * the code to src/bin/calaos_server/IO/Mqtt/MqttWire.h, where a test can
+ * finally reach the real thing, deletes namespace legacy and repoints the
+ * five SEAM functions. Every assertion is byte for byte the one written
+ * before src/ was touched, except the four declared deltas below.
  *
  * DECLARED DELTAS (and only these) - each one is marked in place with a
  * DELTA comment, so a reviewer can grep them:
@@ -80,219 +80,35 @@
 
 #include <gtest/gtest.h>
 
-//DELETED BY THE MIGRATION COMMIT together with namespace legacy.
-#include <jansson.h>
-
 #include "Params.h"
 #include "Utils.h"
+#include "MqttWire.h"
 
 using namespace std;
 
 namespace
 {
 
-/* ------------------------------------------------------------------------ *
- * LEGACY REFERENCE - verbatim copy of the code under characterization.
- * MqttExternProc_main.cpp:34-99, :213-231, :313-323 and
- * MqttCtrl.cpp:30-41, :50-83, :111-116, plus jansson_to_string() and
- * jansson_decode_object() from src/lib/Jansson_Addition.h.
- * Deleted by the migration commit.
- * ------------------------------------------------------------------------ */
-namespace legacy
-{
-
-//MqttExternProc_main.cpp:34
-string sanitizeUtf8(const char *data, size_t len)
-{
-    string out;
-    out.reserve(len);
-    size_t i = 0;
-    while (i < len)
-    {
-        unsigned char c = static_cast<unsigned char>(data[i]);
-        size_t seqlen = 0;
-        if (c < 0x80) seqlen = 1;
-        else if ((c & 0xE0) == 0xC0) seqlen = 2;
-        else if ((c & 0xF0) == 0xE0) seqlen = 3;
-        else if ((c & 0xF8) == 0xF0) seqlen = 4;
-
-        bool valid = seqlen > 0 && i + seqlen <= len;
-        for (size_t j = 1;valid && j < seqlen;j++)
-        {
-            if ((static_cast<unsigned char>(data[i + j]) & 0xC0) != 0x80)
-                valid = false;
-        }
-
-        if (valid)
-        {
-            out.append(data + i, seqlen);
-            i += seqlen;
-        }
-        else
-        {
-            out.push_back('?');
-            i++;
-        }
-    }
-    return out;
-}
-
-//MqttExternProc_main.cpp:74
-json_t *payloadToJsonString(const void *payload, int payloadlen)
-{
-    const char *data = static_cast<const char *>(payload);
-    size_t len = (data && payloadlen > 0)?static_cast<size_t>(payloadlen):0;
-
-    json_t *jstr = json_stringn(data?data:"", len);
-    if (jstr)
-        return jstr;
-
-    string sane = sanitizeUtf8(data, len);
-    jstr = json_stringn(sane.c_str(), sane.size());
-    if (jstr)
-        return jstr;
-
-    for (char &c: sane)
-    {
-        if (static_cast<unsigned char>(c) > 0x7F)
-            c = '?';
-    }
-    return json_stringn(sane.c_str(), sane.size());
-}
-
-//The string that payloadToJsonString() actually stored, length included.
-string payloadToString(const void *payload, int payloadlen)
-{
-    json_t *j = payloadToJsonString(payload, payloadlen);
-    string s(json_string_value(j), json_string_length(j));
-    json_decref(j);
-    return s;
-}
-
-//Jansson_Addition.h:150 - JSON_COMPACT | JSON_ENSURE_ASCII
-string jansson_to_string(json_t *jroot)
-{
-    char *d = json_dumps(jroot, JSON_COMPACT | JSON_ENSURE_ASCII);
-    if (!d)
-    {
-        json_decref(jroot);
-        return string();
-    }
-    json_decref(jroot);
-    string res(d);
-    free(d);
-    return res;
-}
-
-//MqttCtrl.cpp:111 - the calaos_server -> calaos_mqtt direction
-string encodeMessageServerSide(const string &topic, const string &payload)
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "topic", json_string(topic.c_str()));
-    json_object_set_new(jroot, "payload", json_string(payload.c_str()));
-    return jansson_to_string(jroot);
-}
-
-//MqttExternProc_main.cpp:313 - the calaos_mqtt -> calaos_server direction.
-//json_dumps(root, 0): neither compact nor ascii-only.
-string encodeMessageProcSide(const string &topic, const void *payload, int payloadlen)
-{
-    json_t *root = json_object();
-    json_object_set_new(root, "topic", json_string(topic.c_str()));
-    json_object_set_new(root, "payload", payloadToJsonString(payload, payloadlen));
-    char *s = json_dumps(root, 0);
-    string res;
-    if (s)
-    {
-        res = s;
-        free(s);
-    }
-    json_decref(root);
-    return res;
-}
-
-//MqttCtrl.cpp:14-41 - the broker configuration passed as argv[1], defaults
-//included. The defaults are part of the contract: an absent OR EMPTY host,
-//port or keepalive falls back to the built in value.
-string encodeConfig(const Params &params)
-{
-    string host = "127.0.0.1";
-    string port = "1883";
-    string keepalive = "120";
-
-    if (params.Exists("host") && !params["host"].empty())
-        host = params["host"];
-    if (params.Exists("port") && !params["port"].empty())
-        port = params["port"];
-    if (params.Exists("keepalive") && !params["keepalive"].empty())
-        keepalive = params["keepalive"];
-
-    json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(host.c_str()));
-    json_object_set_new(root, "port", json_string(port.c_str()));
-    json_object_set_new(root, "keepalive", json_string(keepalive.c_str()));
-    if (params.Exists("user") && params.Exists("password"))
-    {
-        json_object_set_new(root, "user", json_string(params["user"].c_str()));
-        json_object_set_new(root, "password", json_string(params["password"].c_str()));
-    }
-    return jansson_to_string(root);
-}
-
-//Jansson_Addition.h:130 + the json_loads()/json_is_object() guard of
-//MqttExternProc_main.cpp:216. Returns false when the message is unusable.
-bool decodeMessage(const string &msg, Params &out)
-{
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
-    if (!jroot || !json_is_object(jroot))
-    {
-        if (jroot)
-            json_decref(jroot);
-        return false;
-    }
-
-    const char *key;
-    json_t *value;
-    json_object_foreach(jroot, key, value)
-    {
-        string svalue;
-        //Verbatim: jansson_decode_object() assigns the C string, so it
-        //truncates at the first NUL. Kept as is - the message never gets
-        //this far anyway, json_loads() refuses it first (DELTA D3).
-        if (json_is_string(value))
-            svalue = json_string_value(value);
-        else if (json_is_boolean(value))
-            svalue = json_is_true(value)?"true":"false";
-        else if (json_is_number(value))
-            svalue = Utils::to_string(json_number_value(value));
-        out.Add(key, svalue);
-    }
-    json_decref(jroot);
-    return true;
-}
-
-} //namespace legacy
 
 /* ------------------------------------------------------------------------ *
- * SEAM. The migration commit repoints these five functions at MqttWire.h.
- * They are the ONLY lines of this file the migration is allowed to touch,
- * apart from the three DELTA sites.
+ * SEAM. Repointed at MqttWire.h by the migration commit; namespace legacy,
+ * which held the verbatim jansson code, is gone with it. Everything below
+ * this point is unchanged apart from the four DELTA sites.
  * ------------------------------------------------------------------------ */
 string wirePayloadToString(const void *p, int n)
-{ return legacy::payloadToString(p, n); }
+{ return MqttWire::payloadToString(p, n); }
 
 string wireEncodeMessageServerSide(const string &topic, const string &payload)
-{ return legacy::encodeMessageServerSide(topic, payload); }
+{ return MqttWire::encodeMessage(topic, payload); }
 
 string wireEncodeMessageProcSide(const string &topic, const void *p, int n)
-{ return legacy::encodeMessageProcSide(topic, p, n); }
+{ return MqttWire::encodeMessage(topic, MqttWire::payloadToString(p, n)); }
 
 string wireEncodeConfig(const Params &cfg)
-{ return legacy::encodeConfig(cfg); }
+{ return MqttWire::encodeConfig(cfg); }
 
 bool wireDecodeMessage(const string &msg, Params &out)
-{ return legacy::decodeMessage(msg, out); }
+{ return MqttWire::decodeMessage(msg, out); }
 
 /* ------------------------------------------------------------------------ *
  * Helpers
@@ -441,7 +257,10 @@ TEST(MqttWireForm, ProcSideWireIsPinnedByteForByte)
     const string cafe = "caf\xc3\xa9 \xe2\x98\x95";
     const string wire = wireEncodeMessageProcSide(TOPIC_UP, cafe.data(), (int)cafe.size());
 
-    EXPECT_EQ("{\"topic\": \"zigbee2mqtt/salon/lampe\", \"payload\": \"caf\xc3\xa9 \xe2\x98\x95\"}",
+    //Was, under jansson json_dumps(root, 0): neither compact nor ascii-only,
+    //raw UTF-8 bytes, insertion order:
+    //  {"topic": "zigbee2mqtt/salon/lampe", "payload": "caf<c3a9> <e29895>"}
+    EXPECT_EQ("{\"payload\":\"caf\\u00e9 \\u2615\",\"topic\":\"zigbee2mqtt/salon/lampe\"}",
               wire);
 }
 
@@ -452,7 +271,9 @@ TEST(MqttWireForm, ServerSideWireIsPinnedByteForByte)
 {
     const string wire = wireEncodeMessageServerSide(TOPIC_DOWN, "{\"\xc3\xa9tat\":\"ON\"}");
 
-    EXPECT_EQ("{\"topic\":\"zigbee2mqtt/cuisine/store/set\",\"payload\":\"{\\\"\\u00E9tat\\\":\\\"ON\\\"}\"}",
+    //Was, under jansson: same escaping but UPPER case hex and insertion order:
+    //  {"topic":"...","payload":"{\\"\\u00E9tat\\":\\"ON\\"}"}
+    EXPECT_EQ("{\"payload\":\"{\\\"\\u00e9tat\\\":\\\"ON\\\"}\",\"topic\":\"zigbee2mqtt/cuisine/store/set\"}",
               wire);
 }
 
@@ -468,8 +289,10 @@ TEST(MqttWireForm, BrokerConfigWireIsPinnedByteForByte)
     cfg.Add("user", "cal\xc3\xa9os");
     cfg.Add("password", "s\xe2\x82\xac" "cret");
 
-    EXPECT_EQ("{\"host\":\"192.168.1.42\",\"port\":\"8883\",\"keepalive\":\"45\","
-              "\"user\":\"cal\\u00E9os\",\"password\":\"s\\u20ACcret\"}",
+    //Was, under jansson: insertion order and UPPER case hex:
+    //  {"host":...,"port":...,"keepalive":...,"user":"cal\\u00E9os","password":"s\\u20ACcret"}
+    EXPECT_EQ("{\"host\":\"192.168.1.42\",\"keepalive\":\"45\",\"password\":\"s\\u20accret\","
+              "\"port\":\"8883\",\"user\":\"cal\\u00e9os\"}",
               wireEncodeConfig(cfg));
 }
 
@@ -491,7 +314,7 @@ TEST(MqttWireForm, BrokerConfigOmitsCredentialsWhenOnlyOneOfThemIsSet)
 TEST(MqttWireForm, AnEmptyConfigFallsBackOnTheThreeBuiltInDefaults)
 {
     const Params none;
-    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"port\":\"1883\",\"keepalive\":\"120\"}",
+    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"keepalive\":\"120\",\"port\":\"1883\"}",
               wireEncodeConfig(none));
 }
 
@@ -504,7 +327,7 @@ TEST(MqttWireForm, AnEmptyValueDoesNotOverrideItsDefault)
     cfg.Add("port", "");
     cfg.Add("keepalive", "7");
 
-    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"port\":\"1883\",\"keepalive\":\"7\"}",
+    EXPECT_EQ("{\"host\":\"127.0.0.1\",\"keepalive\":\"7\",\"port\":\"1883\"}",
               wireEncodeConfig(cfg));
 }
 
@@ -576,26 +399,29 @@ TEST(MqttRoundTrip, SurrogatePayloadArrivesAsAsciiQuestionMarks)
     EXPECT_EQ("caf?????", r.p["payload"]);
 }
 
-//DELTA D3 - TODAY THIS MESSAGE IS THROWN AWAY BY THE CONSUMER.
-//payloadToJsonString() goes to the trouble of preserving the NUL with
-//json_stringn(), json_dumps() writes it correctly as [u+0000], and then
-//json_loads() at the other end refuses the document outright:
+//DELTA D3 - under jansson this message was THROWN AWAY by the consumer.
+//payloadToJsonString() went to the trouble of preserving the NUL with
+//json_stringn(), json_dumps() wrote it correctly as [u+0000], and then
+//json_loads() at the other end refused the whole document:
 //  "[u+0000] is not allowed without JSON_ALLOW_NUL"
-//so MqttCtrl logs "Error parsing json" and drops topic AND payload.
-//Measured, not supposed. The migration fixes it, and that is a declared,
-//user visible change (RELEASE_NOTES).
-TEST(MqttRoundTrip, PayloadWithANulByteIsDroppedByTheConsumer)
+//so MqttCtrl logged "Error parsing json" and dropped topic AND payload.
+//nlohmann parses it, so the payload now arrives whole, which is what the
+//json_stringn() was there for. Declared, user visible (RELEASE_NOTES).
+TEST(MqttRoundTrip, PayloadWithANulByteArrivesWhole)
 {
     const RoundTrip r = roundTripUp(TOPIC_UP, PAY_NUL_MIDDLE, 3);
-    EXPECT_FALSE(r.decoded);
-    EXPECT_EQ("", r.p["topic"]);
-    EXPECT_EQ("", r.p["payload"]);
+    ASSERT_TRUE(r.decoded);
+    EXPECT_EQ("zigbee2mqtt/salon/lampe", r.p["topic"]);
+    EXPECT_EQ(3u, r.p["payload"].size());
+    EXPECT_EQ("610062", hexOf(r.p["payload"]));
 }
 
-TEST(MqttRoundTrip, BinaryPayloadWithANulByteIsAlsoDroppedByTheConsumer)
+TEST(MqttRoundTrip, BinaryPayloadWithANulByteArrivesWhole)
 {
     const RoundTrip r = roundTripUp(TOPIC_UP, PAY_BINARY, 4);
-    EXPECT_FALSE(r.decoded);
+    ASSERT_TRUE(r.decoded);
+    EXPECT_EQ(4u, r.p["payload"].size());
+    EXPECT_EQ("01003f41", hexOf(r.p["payload"]));
 }
 
 TEST(MqttRoundTrip, ServerToProcDirectionCarriesBothFieldsDistinctly)

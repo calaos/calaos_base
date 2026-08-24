@@ -3,6 +3,7 @@
 #include "Utils.h"
 #include "IOFactory.h"
 #include "MqttCtrl.h"
+#include "MqttWire.h"
 #include "Prefix.h"
 #include "Params.h"
 #include "ExpressionEvaluator.h"
@@ -11,34 +12,16 @@ using namespace Calaos;
 
 MqttCtrl::MqttCtrl(const Params &params)
 {
-    string host = "127.0.0.1";
-    string port = "1883";
-    string keepalive = "120";
+    string host, port, keepalive;
 
     //use default parameters if not set from config
-    if (params.Exists("host") && !params["host"].empty())
-        host = params["host"];
-    if (params.Exists("port") && !params["port"].empty())
-        port = params["port"];
-    if (params.Exists("keepalive") && !params["keepalive"].empty())
-        keepalive = params["keepalive"];
+    MqttWire::resolveBroker(params, host, port, keepalive);
 
     cDebugDom("mqtt") << "New MQTT external process " << host << ":" << port;
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
-    json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(host.c_str()));
-    json_object_set_new(root, "port", json_string(port.c_str()));
-    json_object_set_new(root, "keepalive", json_string(keepalive.c_str()));
-
-    if (params.Exists("user") && params.Exists("password"))
-    {
-        json_object_set_new(root, "user", json_string(params["user"].c_str()));
-        json_object_set_new(root, "password", json_string(params["password"].c_str()));
-    }
-
-    string arg = jansson_to_string(root);
+    string arg = MqttWire::encodeConfig(params);
 
     process->processExited.connect([=]()
     {
@@ -49,18 +32,13 @@ MqttCtrl::MqttCtrl(const Params &params)
 
     process->messageReceived.connect([=](const string &msg)
     {
-        json_error_t jerr;
-        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+        Params p;
 
-        if (!jroot)
+        if (!MqttWire::decodeMessage(msg, p))
         {
-            cWarningDom("mqtt") << "Error parsing json: " << jerr.text;
-            if (jroot)
-                json_decref(jroot);
+            cWarningDom("mqtt") << "Error parsing json: " << msg;
             return;
         }
-        Params p;
-        jansson_decode_object(jroot, p);
 
         cDebugDom("mqtt") << "Topic :  " << p["topic"] << " payload : " << p["payload"];
 
@@ -79,8 +57,7 @@ MqttCtrl::MqttCtrl(const Params &params)
                 }
             }
         }
-
-        json_decref(jroot); });
+    });
 
     process->startProcess(exe, "mqtt", arg);
 }
@@ -106,14 +83,7 @@ void MqttCtrl::subscribeTopic(const string topic, MsgReceivedSignal callback)
 
 void MqttCtrl::publishTopic(const string topic, const string payload)
 {
-    string message;
-
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "topic", json_string(topic.c_str()));
-    json_object_set_new(jroot, "payload", json_string(payload.c_str()));
-
-    process->sendMessage(jansson_to_string(jroot));
-    json_decref(jroot);
+    process->sendMessage(MqttWire::encodeMessage(topic, payload));
 }
 
 string MqttCtrl::getValueJson(const Params &params, string path, string payload)
@@ -130,15 +100,13 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
         return value;
     }
 
-    // Original JSON parsing logic for non-empty paths
-    Json root;
-    try
+    // Original JSON parsing logic for non-empty paths.
+    // Non throwing form: the payload comes from a third party device.
+    const Json root = Json::parse(payload, nullptr, /*allow_exceptions=*/false);
+
+    if (root.is_discarded())
     {
-        root = Json::parse(payload);
-    }
-    catch (const std::exception &e)
-    {
-        cWarning() << "Error parsing " << payload << ":" << e.what();
+        cWarning() << "Error parsing " << payload;
         return string();
     }
 
