@@ -28,9 +28,10 @@
  *                             the write of io_doc.json / io_doc.md on disk.
  *
  * This suite is written BEFORE the jansson -> nlohmann migration of those two
- * functions and must stay green across it. It had NO net at all before: not
- * one test of the whole repository looked at what genDocJson() produces, and
- * the only test that ever called genDoc() (IOIdIntegrity_test's
+ * functions and must stay green across it. Next to nothing held them before:
+ * core/WebIO_test.cpp reads the parameter NAMES of the seven Web types out of
+ * genDocJson() and nothing else - no type, no value, no section - and the
+ * only test that ever called genDoc() (IOIdIntegrity_test's
  * GenDocDoesNotPolluteLiveTable) checks the live io_table, never the files.
  *
  * THE ONE FUNCTION THAT CHANGES AT MIGRATION TIME is docToJson() below - the

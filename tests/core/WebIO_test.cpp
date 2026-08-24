@@ -45,8 +45,6 @@
 #include <set>
 #include <string>
 
-#include <jansson.h>
-
 #include "CalaosCoreFixture.h"
 #include "IOBase.h"
 #include "IODoc.h"
@@ -57,23 +55,22 @@ using namespace CalaosTest;
 namespace
 {
 
+/* E4.1k: genDocJson() answers a nlohmann Json instead of a json_t*. The walk
+ * below is the same walk, name for name: value() keeps the tolerance of the
+ * jansson version (a missing "parameters" gave a NULL that json_array_foreach
+ * simply skipped, it never threw), and only string "name" fields are kept, as
+ * before. No assertion of this file moved. */
 std::set<std::string> docParamNames(IOBase *io)
 {
     std::set<std::string> names;
 
-    json_t *doc = io->getDoc()->genDocJson();
-    json_t *params = json_object_get(doc, "parameters");
-
-    size_t idx;
-    json_t *val;
-    json_array_foreach(params, idx, val)
+    Json doc = io->getDoc()->genDocJson();
+    for (const Json &val: doc.value("parameters", Json::array()))
     {
-        json_t *n = json_object_get(val, "name");
-        if (json_is_string(n))
-            names.insert(json_string_value(n));
+        if (val.is_object() && val.contains("name") && val.at("name").is_string())
+            names.insert(val.at("name").get<std::string>());
     }
 
-    json_decref(doc);
     return names;
 }
 
