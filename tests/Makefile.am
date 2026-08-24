@@ -2213,3 +2213,29 @@ core_JsonApiEmissionBytes_test_LDADD = \
 #Built elsewhere, do not let automake turn them into prerequisites
 core_JsonApiEmissionBytes_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+# E4.1i
+#Characterization of the Reolink wire: the {action:"register", ...} message
+#ReolinkCtrl sends to calaos_reolink, and the flattening of every message the
+#external process sends back. Written BEFORE the jansson -> nlohmann migration
+#of ReolinkCtrl.cpp and green across it; the two seams are buildRegisterWire()
+#and decodeWire() in the test itself, which the migration commit rewires onto
+#the production header IO/Reolink/ReolinkWire.h so that a mutation of the
+#shipped emitter turns this suite red.
+#Two of its cases assert on the RAW BYTES of the wire (ensure_ascii, and the
+#invalid-UTF-8 error handler): the 145 goldens compare parsed documents and
+#are blind to escaping by construction.
+#Only libcalaos_common code is exercised (Params + the free functions of the
+#wire header), no server object and no fixture; jansson comes with
+#@CALAOS_COMMON_LIBS@. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += ReolinkWire_test
+check_PROGRAMS += ReolinkWire_test
+ReolinkWire_test_SOURCES = ReolinkWire_test.cpp
+ReolinkWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+ReolinkWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
